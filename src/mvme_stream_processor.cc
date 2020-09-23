@@ -70,7 +70,6 @@ struct MVMEStreamProcessorPrivate
     std::array<EventConfig *, MaxVMEEvents> eventConfigs;  // initialized in beginRun()
     std::array<bool, MaxVMEEvents> doMultiEventProcessing; // initialized in beginRun()
 
-    QVector<IMVMEStreamBufferConsumer *> bufferConsumers;
     QVector<IMVMEStreamModuleConsumer *> moduleConsumers;
 
     MVMEStreamProcessorPrivate();
@@ -112,11 +111,6 @@ MVMEStreamProcessor::~MVMEStreamProcessor()
 
 void MVMEStreamProcessor::startup()
 {
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->startup();
-    }
-
     for (auto c: m_d->moduleConsumers)
     {
         c->startup();
@@ -125,11 +119,6 @@ void MVMEStreamProcessor::startup()
 
 void MVMEStreamProcessor::shutdown()
 {
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->shutdown();
-    }
-
     for (auto c: m_d->moduleConsumers)
     {
         c->shutdown();
@@ -235,11 +224,6 @@ void MVMEStreamProcessorPrivate::consumersBeginRun()
 {
     qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
 
-    for (auto c: bufferConsumers)
-    {
-        c->beginRun(runInfo, vmeConfig, analysis, logger);
-    }
-
     for (auto c: moduleConsumers)
     {
         c->beginRun(runInfo, vmeConfig, analysis);
@@ -249,11 +233,6 @@ void MVMEStreamProcessorPrivate::consumersBeginRun()
 void MVMEStreamProcessor::endRun(const DAQStats &stats)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
-
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->endRun();
-    }
 
     for (auto c: m_d->moduleConsumers)
     {
@@ -273,11 +252,6 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 
     try
     {
-        for (auto c: m_d->bufferConsumers)
-        {
-            c->processDataBuffer(buffer);
-        }
-
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
 #ifdef MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
@@ -317,11 +291,6 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                  * processExternalTimetick(). Timetick sections should only be
                  * encountered during replay. */
                 Q_ASSERT(m_d->runInfo.isReplay);
-
-                for (auto c: m_d->bufferConsumers)
-                {
-                    c->processTimetick();
-                }
 
                 for (auto c: m_d->moduleConsumers)
                 {
@@ -372,11 +341,6 @@ void MVMEStreamProcessor::processExternalTimetick()
     Q_ASSERT(!m_d->runInfo.isReplay);
 
     m_d->analysis->processTimetick();
-
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->processTimetick();
-    }
 
     for (auto c: m_d->moduleConsumers)
     {
@@ -761,11 +725,6 @@ MVMEStreamProcessor::singleStepInitState(DataBuffer *buffer)
     m_d->singleStepState.bufferIter = BufferIterator(buffer->data, buffer->used, BufferIterator::Align32);
     m_d->singleStepState.eventIter = {};
 
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->processDataBuffer(buffer);
-    }
-
     return procState;
 }
 
@@ -847,7 +806,7 @@ MVMEStreamProcessor::singleStepNextStep(ProcessingState &procState)
                 Q_ASSERT(sectionSize == 0);
 
                 m_d->analysis->processTimetick();
-                for (auto c: m_d->bufferConsumers) c->processTimetick();
+
                 for (auto c: m_d->moduleConsumers) c->processTimetick();
 
                 m_d->counters.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
@@ -1012,7 +971,7 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
     const auto bufferNumber = procState.buffer->id;
     u32 sectionHeader = *procState.buffer->asU32(procState.lastSectionHeaderOffset * sizeof(u32));
     u32 sectionType = lf.getSectionType(sectionHeader);
-    u32 sectionSize = lf.getSectionSize(sectionHeader);
+    //u32 sectionSize = lf.getSectionSize(sectionHeader);
     const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     Q_ASSERT(sectionType == ListfileSections::SectionType_Event);
@@ -1303,16 +1262,6 @@ void MVMEStreamProcessor::removeDiagnostics()
 bool MVMEStreamProcessor::hasDiagnostics() const
 {
     return (bool)m_d->diag;
-}
-
-void MVMEStreamProcessor::attachBufferConsumer(IMVMEStreamBufferConsumer *c)
-{
-    m_d->bufferConsumers.push_back(c);
-}
-
-void MVMEStreamProcessor::removeBufferConsumer(IMVMEStreamBufferConsumer *c)
-{
-    m_d->bufferConsumers.removeAll(c);
 }
 
 void MVMEStreamProcessor::attachModuleConsumer(IMVMEStreamModuleConsumer *c)

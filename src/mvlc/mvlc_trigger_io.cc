@@ -26,7 +26,7 @@ using boost::adaptors::indexed;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io
 {
@@ -566,5 +566,5 @@ UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddres
 }
 
 } // end namespace trigger_io
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

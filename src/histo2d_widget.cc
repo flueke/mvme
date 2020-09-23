@@ -189,7 +189,7 @@ struct Histo1DListRasterData: public RasterDataBase
         return r;
     }
 
-    virtual QRectF pixelHint(const QRectF &area) const override
+    virtual QRectF pixelHint(const QRectF &/*area*/) const override
     {
         double sizeX = 1.0;
         double sizeY = 1.0;

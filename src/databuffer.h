@@ -133,6 +133,7 @@ struct DataBuffer
     u8 *asU8() { return data + used; }
     u16 *asU16() { return reinterpret_cast<u16 *>(data + used); }
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
+    const u32 *asU32() const { return reinterpret_cast<const u32 *>(data + used); }
 
     s8 *asS8() { return reinterpret_cast<s8 *>(data + used); }
     s16 *asS16() { return reinterpret_cast<s16 *>(data + used); }
@@ -141,6 +142,7 @@ struct DataBuffer
     char *asCharStar() { return reinterpret_cast<char *>(data + used); }
 
     u32 *asU32(size_t offset) { return reinterpret_cast<u32 *>(data + offset); }
+    const u32 *asU32(size_t offset) const { return reinterpret_cast<const u32 *>(data + offset); }
 
     u32 *indexU32(size_t index)
     {

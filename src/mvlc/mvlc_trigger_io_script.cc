@@ -33,7 +33,7 @@ using boost::adaptors::indexed;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io
 {
@@ -1196,6 +1196,6 @@ TriggerIO parse_trigger_io_script_text(const QString &text)
     return ioCfg;
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 } // end namespace trigger_io

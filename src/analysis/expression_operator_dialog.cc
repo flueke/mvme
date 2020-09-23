@@ -1386,7 +1386,7 @@ SlotGrid::SlotGrid(QWidget *parent)
     connect(m_removeSlotButton, &QPushButton::clicked, this, &SlotGrid::removeSlot);
 }
 
-void SlotGrid::repopulate(const detail::Model &model, EventWidget *eventWidget, s32 userLevel)
+void SlotGrid::repopulate(const detail::Model &model, EventWidget *eventWidget, s32 /*userLevel*/)
 {
     assert_consistency(model);
 

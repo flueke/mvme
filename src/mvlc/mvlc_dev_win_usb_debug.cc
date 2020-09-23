@@ -23,8 +23,8 @@
 #include "mvlc/mvlc_impl_usb.h"
 #include "mvlc/mvlc_error.h"
 
-using namespace mesytec::mvlc;
-using namespace mesytec::mvlc::usb;
+using namespace mesytec::mvme_mvlc;
+using namespace mesytec::mvme_mvlc::usb;
 
 static const std::vector<u32> InitData =
 {
@@ -106,17 +106,17 @@ static const std::vector<u32> InitData =
     0xf2000000,
 };
 
-constexpr u8 get_endpoint(mesytec::mvlc::Pipe pipe, EndpointDirection dir)
+constexpr u8 get_endpoint(mesytec::mvme_mvlc::Pipe pipe, EndpointDirection dir)
 {
     u8 result = 0;
 
     switch (pipe)
     {
-        case mesytec::mvlc::Pipe::Command:
+        case mesytec::mvme_mvlc::Pipe::Command:
             result = 0x2;
             break;
 
-        case mesytec::mvlc::Pipe::Data:
+        case mesytec::mvme_mvlc::Pipe::Data:
             result = 0x3;
             break;
     }

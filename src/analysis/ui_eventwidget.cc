@@ -2174,6 +2174,8 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 
                     if (node)
                     {
+                        // Enable dragging of "raw" histograms
+                        node->setFlags(node->flags() | Qt::ItemIsDragEnabled);
                         moduleNode->addChild(node);
                         sinksAddedBelowModules.insert(sink);
 

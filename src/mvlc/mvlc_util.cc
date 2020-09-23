@@ -20,47 +20,55 @@
  */
 #include "mvlc_util.h"
 
-#include <QDebug>
-#include <iostream>
 #include <cassert>
+#include <iostream>
+#include <QDebug>
 
-using namespace mesytec::mvlc;
+#include <mesytec-mvlc/mvlc_util.h>
+
+using namespace mesytec::mvme_mvlc;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 //
 // vme_script -> mvlc
 //
-VMEDataWidth convert_data_width(vme_script::DataWidth width)
+mvlc::VMEDataWidth convert_data_width(vme_script::DataWidth width)
 {
     switch (width)
     {
-        case vme_script::DataWidth::D16: return VMEDataWidth::D16;
-        case vme_script::DataWidth::D32: return VMEDataWidth::D32;
+        case vme_script::DataWidth::D16: return mvlc::VMEDataWidth::D16;
+        case vme_script::DataWidth::D32: return mvlc::VMEDataWidth::D32;
     }
 
-    return VMEDataWidth::D16;
+    return mvlc::VMEDataWidth::D16;
 }
 
-vme_script::DataWidth convert_data_width(VMEDataWidth dataWidth)
+u8 convert_data_width_untyped(vme_script::DataWidth width)
+{
+    return static_cast<u8>(convert_data_width(width));
+}
+
+vme_script::DataWidth convert_data_width(mvlc::VMEDataWidth dataWidth)
 {
     switch (dataWidth)
     {
-        case D16: return vme_script::DataWidth::D16;
-        case D32: return vme_script::DataWidth::D32;
+        case mvlc::VMEDataWidth::D16: return vme_script::DataWidth::D16;
+        case mvlc::VMEDataWidth::D32: return vme_script::DataWidth::D32;
     }
 
     throw std::runtime_error("invalid mvlc::VMEDataWidth given");
 }
 
-QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
+std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 {
-    QVector<u32> result;
+    using namespace mesytec::mvlc::stack_commands;
+    std::vector<u32> result;
 
-    u32 firstWord = commands::StackStart << CmdShift | outPipe << CmdArg0Shift;
+    u32 firstWord = static_cast<u32>(StackCommandType::StackStart) << CmdShift | outPipe << CmdArg0Shift;
     result.push_back(firstWord);
 
     for (auto &cmd: script)
@@ -80,9 +88,9 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::Write:
             case CommandType::WriteAbs:
                 {
-                    firstWord = commands::VMEWrite << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMEWrite) << CmdShift;
                     firstWord |= cmd.addressMode << CmdArg0Shift;
-                    firstWord |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
+                    firstWord |= convert_data_width_untyped(cmd.dataWidth) << CmdArg1Shift;
                     result.push_back(firstWord);
                     result.push_back(cmd.address);
                     result.push_back(cmd.value);
@@ -90,9 +98,9 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 
             case CommandType::Read:
                 {
-                    firstWord = commands::VMERead << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= cmd.addressMode << CmdArg0Shift;
-                    firstWord |= convert_data_width(cmd.dataWidth) << CmdArg1Shift;
+                    firstWord |= convert_data_width_untyped(cmd.dataWidth) << CmdArg1Shift;
                     result.push_back(firstWord);
                     result.push_back(cmd.address);
                 } break;
@@ -100,7 +108,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::BLT:
             case CommandType::BLTFifo:
                 {
-                    firstWord = commands::VMERead << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= vme_address_modes::BLT32 << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);
@@ -110,7 +118,7 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
             case CommandType::MBLT:
             case CommandType::MBLTFifo:
                 {
-                    firstWord = commands::VMERead << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= vme_address_modes::MBLT64 << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);
@@ -119,8 +127,9 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 
             case CommandType::Blk2eSST64:
                 {
-                    firstWord = commands::VMERead << CmdShift;
-                    firstWord |= (vme_address_modes::Blk2eSST64 | (cmd.blk2eSSTRate << Blk2eSSTRateShift))
+                    firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
+                    firstWord |= (vme_address_modes::Blk2eSST64
+                                  | (cmd.blk2eSSTRate << mvlc::Blk2eSSTRateShift))
                         << CmdArg0Shift;
                     firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
                     result.push_back(firstWord);
@@ -129,14 +138,14 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
 
             case CommandType::Marker:
                 {
-                    firstWord = commands::WriteMarker << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::WriteMarker) << CmdShift;
                     result.push_back(firstWord);
                     result.push_back(cmd.value);
                 } break;
 
             case CommandType::MVLC_WriteSpecial:
                 {
-                    firstWord = commands::WriteSpecial << CmdShift;
+                    firstWord = static_cast<u32>(StackCommandType::WriteSpecial) << CmdShift;
                     firstWord |= cmd.value & 0x00FFFFFFu;
                     result.push_back(firstWord);
                 } break;
@@ -150,31 +159,33 @@ QVector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
         }
     }
 
-    firstWord = commands::StackEnd << CmdShift;
+    firstWord = static_cast<u32>(StackCommandType::StackEnd) << CmdShift;
     result.push_back(firstWord);
 
     return result;
 }
 
-QVector<u32> build_upload_commands(const vme_script::VMEScript &script, u8 outPipe,
-                                   u16 startAddress)
+std::vector<u32> build_upload_commands(
+    const vme_script::VMEScript &script, u8 outPipe, u16 startAddress)
 {
     auto stack = build_stack(script, outPipe);
     return build_upload_commands(stack, startAddress);
 }
 
-QVector<u32> build_upload_commands(const QVector<u32> &stack, u16 startAddress)
+std::vector<u32> build_upload_commands(const std::vector<u32> &stack, u16 startAddress)
 {
-    QVector<u32> result;
+    using namespace mesytec::mvlc::super_commands;
+
+    std::vector<u32> result;
     result.reserve(stack.size() * 2);
 
     u16 address = startAddress;
 
     for (u32 stackValue: stack)
     {
-        u32 cmdValue = super_commands::WriteLocal << SuperCmdShift;
+        u32 cmdValue = static_cast<u32>(SuperCommandType::WriteLocal) << SuperCmdShift;
         cmdValue |= address;
-        address += AddressIncrement;
+        address += mvlc::AddressIncrement;
         result.push_back(cmdValue);
         result.push_back(stackValue);
     }
@@ -182,196 +193,33 @@ QVector<u32> build_upload_commands(const QVector<u32> &stack, u16 startAddress)
     return result;
 }
 
-QVector<u32> build_upload_command_buffer(const vme_script::VMEScript &script, u8 outPipe,
+std::vector<u32> build_upload_command_buffer(const vme_script::VMEScript &script, u8 outPipe,
                                          u16 startAddress)
 {
     auto stack = build_stack(script, outPipe);
     return build_upload_command_buffer(stack, startAddress);
 }
 
-QVector<u32> build_upload_command_buffer(const QVector<u32> &stack, u16 startAddress)
+std::vector<u32> build_upload_command_buffer(const std::vector<u32> &stack, u16 startAddress)
 {
-    QVector<u32> result;
+    using namespace mesytec::mvlc::super_commands;
+
+    std::vector<u32> result;
     auto uploadData = build_upload_commands(stack, startAddress);
     result.reserve(uploadData.size() + 2);
-    result.push_back(super_commands::CmdBufferStart << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCommandType::CmdBufferStart) << SuperCmdShift);
     std::copy(uploadData.begin(), uploadData.end(), std::back_inserter(result));
-    result.push_back(super_commands::CmdBufferEnd << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCommandType::CmdBufferEnd) << SuperCmdShift);
 
     return result;
-}
-
-QString format_frame_flags(u8 frameFlags)
-{
-    if (!frameFlags)
-        return "none";
-
-    QStringList buffer;
-
-    if (frameFlags & frame_flags::Continue)
-        buffer << "continue";
-
-    if (frameFlags & frame_flags::SyntaxError)
-        buffer << "syntax";
-
-    if (frameFlags & frame_flags::BusError)
-        buffer << "BERR";
-
-    if (frameFlags & frame_flags::Timeout)
-        buffer << "timeout";
-
-    return buffer.join(",");
-}
-
-QString decode_frame_header(u32 header)
-{
-    QString result;
-    QTextStream ss(&result);
-
-    auto headerInfo = extract_frame_info(header);
-
-    switch (static_cast<frame_headers::FrameTypes>(headerInfo.type))
-    {
-        case frame_headers::SuperFrame:
-            ss << "Super Frame (len=" << headerInfo.len;
-            break;
-
-        case frame_headers::StackFrame:
-            ss << "Stack Result Frame (len=" << headerInfo.len;
-            break;
-
-        case frame_headers::BlockRead:
-            ss << "Block Read Frame (len=" << headerInfo.len;
-            break;
-
-        case frame_headers::StackError:
-            ss << "Stack Error Frame (len=" << headerInfo.len;
-            break;
-
-        case frame_headers::StackContinuation:
-            ss << "Stack Result Continuation Frame (len=" << headerInfo.len;
-            break;
-
-        case frame_headers::SystemEvent:
-            ss << "System Event (len=" << headerInfo.len;
-            break;
-    }
-
-    switch (static_cast<frame_headers::FrameTypes>(headerInfo.type))
-    {
-        case frame_headers::StackFrame:
-        case frame_headers::BlockRead:
-        case frame_headers::StackError:
-        case frame_headers::StackContinuation:
-            {
-                u16 stackNum = (header >> frame_headers::StackNumShift) & frame_headers::StackNumMask;
-                ss << ", stackNum=" << stackNum;
-            }
-            break;
-
-        case frame_headers::SuperFrame:
-        case frame_headers::SystemEvent:
-            break;
-    }
-
-    u8 frameFlags = (header >> frame_headers::FrameFlagsShift) & frame_headers::FrameFlagsMask;
-
-    ss << ", frameFlags=" << format_frame_flags(frameFlags) << ")";
-
-    return result;
-}
-
-void log_buffer(const u32 *buffer, size_t size, const std::string &info)
-{
-    using std::cout;
-    using std::endl;
-
-    cout << "begin " << info << " (size=" << size << ")" << endl;
-
-    for (size_t i = 0; i < size; i++)
-    {
-        //printf("  %3lu: 0x%08x\n", i, buffer[i]);
-        printf("  0x%08X\n", buffer[i]);
-    }
-
-    cout << "end " << info << endl;
-}
-
-void log_buffer(const std::vector<u32> &buffer, const std::string &info)
-{
-    log_buffer(buffer.data(), buffer.size(), info);
 }
 
 void log_buffer(const QVector<u32> &buffer, const QString &info)
 {
     std::vector<u32> vec;
     std::copy(buffer.begin(), buffer.end(), std::back_inserter(vec));
-    log_buffer(vec, info.toStdString());
+    mvlc::log_buffer(vec, info.toStdString());
 }
 
-const char *get_system_event_subtype_name(u8 subtype_)
-{
-    switch (subtype_)
-    {
-        using namespace system_event::subtype;
-
-        case EndianMarker:
-            return "EndianMarker";
-
-        case VMEConfig:
-            return "VMEConfig";
-
-        case UnixTimestamp:
-            return "UnixTimestamp";
-
-        case Pause:
-            return "Pause";
-
-        case Resume:
-            return "Resume";
-
-        case EndOfFile:
-            return "EndOfFile";
-    }
-
-    return "unknown system event subtype";
-}
-
-const char *get_frame_flag_shift_name(u8 flag_shift)
-{
-    if (flag_shift == frame_flags::shifts::Timeout)
-        return "Timeout";
-
-    if (flag_shift == frame_flags::shifts::BusError)
-        return "BusError";
-
-    if (flag_shift == frame_flags::shifts::SyntaxError)
-        return "SyntaxError";
-
-    if (flag_shift == frame_flags::shifts::Continue)
-        return "Continue";
-
-    return "Unknown";
-}
-
-stacks::TimerBaseUnit timer_base_unit_from_string(const QString &str_)
-{
-    auto str = str_.toLower();
-
-    if (str == "ns")
-        return stacks::TimerBaseUnit::ns;
-
-    if (str == "us" || str == "µs")
-        return stacks::TimerBaseUnit::us;
-
-    if (str == "ms")
-        return stacks::TimerBaseUnit::ms;
-
-    if (str == "s")
-        return stacks::TimerBaseUnit::s;
-
-    return {};
-}
-
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

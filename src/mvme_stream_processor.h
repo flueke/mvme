@@ -23,6 +23,8 @@
 
 #include "globals.h"
 #include "libmvme_export.h"
+#include "stream_processor_counters.h"
+#include "stream_processor_module_consumer.h"
 
 #include <QDateTime>
 #include <QString>
@@ -37,76 +39,6 @@ struct DataBuffer;
 class MesytecDiagnostics;
 class VMEConfig;
 
-struct LIBMVME_EXPORT MVMEStreamProcessorCounters
-{
-    QDateTime startTime;
-    QDateTime stopTime;
-
-    u64 bytesProcessed = 0;
-    u32 buffersProcessed = 0;
-    u32 buffersWithErrors = 0;
-    u32 eventSections = 0;
-    u32 invalidEventIndices = 0;
-
-    using ModuleCounters = std::array<u32, MaxVMEModules>;
-
-    std::array<u32, MaxVMEEvents> eventCounters;
-    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
-};
-
-/* Interface for consumers of raw module data. */
-class LIBMVME_EXPORT IMVMEStreamModuleConsumer
-{
-    public:
-        using Logger = std::function<void (const QString &)>;
-
-        virtual ~IMVMEStreamModuleConsumer() {};
-
-        virtual void startup() {}
-        virtual void shutdown() {}
-
-        virtual void beginRun(const RunInfo &runInfo,
-                              const VMEConfig *vmeConfig,
-                              const analysis::Analysis *analysis) = 0;
-
-        virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) = 0;
-
-        virtual void beginEvent(s32 eventIndex) = 0;
-        virtual void endEvent(s32 eventIndex) = 0;
-        virtual void processModulePrefix(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) = 0;
-        virtual void processModuleData(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) = 0;
-        virtual void processModuleSuffix(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) = 0;
-        virtual void processTimetick() = 0;
-        virtual void setLogger(Logger logger) = 0;
-};
-
-/* Interface for consumers of raw mvme stream formatted data buffers. */
-class LIBMVME_EXPORT IMVMEStreamBufferConsumer
-{
-    public:
-        using Logger = std::function<void (const QString &)>;
-
-        virtual ~IMVMEStreamBufferConsumer() {};
-
-        virtual void startup() {}
-        virtual void shutdown() {}
-
-        virtual void beginRun(const RunInfo &runInfo,
-                              const VMEConfig *vmeConfig,
-                              const analysis::Analysis *analysis,
-                              Logger logger) = 0;
-
-        virtual void endRun(const std::exception *e = nullptr) = 0;
-
-        virtual void processDataBuffer(const DataBuffer *buffer) = 0;
-        virtual void processTimetick() = 0;
-};
 
 struct MVMEStreamProcessorPrivate;
 
@@ -204,9 +136,6 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void attachDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         void removeDiagnostics();
         bool hasDiagnostics() const;
-
-        void attachBufferConsumer(IMVMEStreamBufferConsumer *consumer);
-        void removeBufferConsumer(IMVMEStreamBufferConsumer *consumer);
 
         void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer);
         void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer);

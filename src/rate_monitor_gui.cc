@@ -230,14 +230,14 @@ void RateMonitorGuiPrivate::dev_test_setup_thingy() // XXX
 #endif
 }
 
-void RateMonitorGuiPrivate::addRateEntryToTable(RateSampler *entry, const QString &name)
+void RateMonitorGuiPrivate::addRateEntryToTable(RateSampler * /*entry*/, const QString & /*name*/)
 {
     //assert(!m_rateTableHash.map.contains(entry));
 
     //auto item = new QTableWidgetItem(name);
 }
 
-void RateMonitorGuiPrivate::removeRateEntryFromTable(RateSampler *entry)
+void RateMonitorGuiPrivate::removeRateEntryFromTable(RateSampler * /*entry*/)
 {
     assert(!"not implemented");
 }

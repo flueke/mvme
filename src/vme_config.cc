@@ -21,12 +21,14 @@
 #include "vme_config.h"
 
 #include <cmath>
+#include <memory>
+#include <QDebug>
+#include <QEvent>
+#include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
-#include <QDebug>
 #include <QRegularExpression>
-#include <memory>
 
 #include "CVMUSBReadoutList.h"
 #include "mvlc/mvlc_trigger_io_script.h"
@@ -405,8 +407,7 @@ QString VMEScriptConfig::getVerboseTitle() const
     }
     else
     {
-        title = QString("VMEScript %1")
-            .arg(objectName());
+        title = objectName();
     }
 
     return title;
@@ -680,8 +681,6 @@ std::error_code EventConfig::write_impl(QJsonObject &json) const
 // VMEConfig
 //
 
-
-
 VMEConfig::VMEConfig(QObject *parent)
     : ConfigObject(parent)
 {
@@ -700,15 +699,15 @@ VMEConfig::VMEConfig(QObject *parent)
     setVMEController(m_controllerType);
 }
 
-void VMEConfig::onChildObjectAdded(ConfigObject *child)
+void VMEConfig::onChildObjectAdded(ConfigObject *child, int index)
 {
+    //qDebug() << __PRETTY_FUNCTION__ << "child=" << child << "index=" << index;
     assert(child);
 
-    emit globalChildAdded(child);
+    emit globalChildAdded(child, index);
 
     // React to the childs modified signal
-    connect(child, &ConfigObject::modified,
-            this, [this] () { setModified(); });
+    connect(child, &ConfigObject::modified, this, [this] () { setModified(); });
 
     // Handle a container object by subscribing to its childAdded() signal and
     // then recursing to its children.
@@ -717,9 +716,14 @@ void VMEConfig::onChildObjectAdded(ConfigObject *child)
         connect(co, &ContainerObject::childAdded,
                 this, &VMEConfig::onChildObjectAdded);
 
+        connect(co, &ContainerObject::childAboutToBeRemoved,
+                this, &VMEConfig::onChildObjectAboutToBeRemoved);
+
         // Handle existing children of the newly added ContainerObject.
-        for (auto subChild: co->getChildren())
-            onChildObjectAdded(subChild);
+        auto children = co->getChildren();
+
+        for (int i=0; i<children.size(); i++)
+            onChildObjectAdded(children[i], i);
     }
 
     setModified();
@@ -728,6 +732,7 @@ void VMEConfig::onChildObjectAdded(ConfigObject *child)
 void VMEConfig::onChildObjectAboutToBeRemoved(ConfigObject *child)
 {
     assert(child);
+    //qDebug() << __PRETTY_FUNCTION__ << "emit globalChildAboutToBeRemoved() child=" << child;
     emit globalChildAboutToBeRemoved(child);
     setModified();
 }
@@ -855,7 +860,7 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
             triggerIOScript->setProperty("display_name", "MVLC Trigger/IO");
             triggerIOScript->setProperty("icon", ":/vme_module.png");
             triggerIOScript->setScriptContents(
-                mesytec::mvlc::trigger_io::generate_trigger_io_script_text({}));
+                mesytec::mvme_mvlc::trigger_io::generate_trigger_io_script_text({}));
             m_globalObjects.addChild(triggerIOScript);
 
             assert(m_globalObjects.findChildByName("mvlc_trigger_io"));
@@ -948,7 +953,7 @@ std::error_code VMEConfig::read_impl(const QJsonObject &json)
         eventConfig->read(eventObject);
         eventConfigs.append(eventConfig);
     }
-    qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
+    //qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
 
     // read global objects, create missing objects afterwards
     assert(m_globalObjects.objectName() == "global_objects");
@@ -1091,7 +1096,7 @@ std::pair<std::unique_ptr<VMEConfig>, QString>
     }
 
     QJsonObject json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(
-        doc.object()["DAQConfig"].toObject(), logger);
+        doc.object()["DAQConfig"].toObject(), logger, {});
 
     auto vmeConfig = std::make_unique<VMEConfig>();
 

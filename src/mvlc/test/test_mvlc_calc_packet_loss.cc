@@ -21,7 +21,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
-#include "mvlc/mvlc_impl_eth.h"
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+#include "typedefs.h"
 
 using namespace mesytec::mvlc::eth;
 

@@ -24,6 +24,7 @@
     <file alias="document-text.png">resources/document-text.png</file>
     <file alias="document-save-as.png">resources/document-save-as.png</file>
     <file alias="document-save.png">resources/document-save.png</file>
+    <file alias="document-export.png">resources/document-export.png</file>
     <file alias="exclamation-circle.png">resources/exclamation-circle.png</file>
     <file alias="exclam-circle.png">resources/emblem-important.png</file>
     <file alias="eye_pencil.png">resources/eye--pencil.png</file>
@@ -88,6 +89,8 @@
     <file alias="splash-screen.png">resources/Splash_Screen.png</file>
     <file alias="vme-script-help.html">resources/vme-script-help.html</file>
 
+    <file alias="default_run_notes.txt">resources/default_run_notes.txt</file>
+
 
     <!-- export sink -->
     <file>analysis/export_templates/CMakeLists.txt.mustache</file>
@@ -107,8 +110,8 @@
     <file>analysis/export_templates/cpp_full_root_generate_tree.cpp.mustache</file>
     <file>analysis/export_templates/cpp_sparse_root_generate_tree.cpp.mustache</file>
 
-    <file>../3rdparty/zstr/src/zstr.hpp</file>
-    <file>../3rdparty/zstr/src/strict_fstream.hpp</file>
+    <file>../external/zstr/src/zstr.hpp</file>
+    <file>../external/zstr/src/strict_fstream.hpp</file>
 
     <!-- export sink python -->
     <file>analysis/export_templates/python_full_event.py.mustache</file>

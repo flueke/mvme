@@ -388,6 +388,13 @@ void process_listfile(std::ifstream &infile)
 
     infile.read(fourCC, bytesToRead);
 
+    // Check if we have one of the MVLC files (8 magic bytes, either MVLC_ETH
+    // or MVLC_USB. Those are not supported by this tool. Parsing the formats
+    // needs a lot more work (packet loss, continuation frames, etc).
+    if (std::strncmp(fourCC, "MVLC", bytesToRead) == 0)
+        throw std::runtime_error(
+            "Detected MVLC listfile format which is not supported by the listfile-dumper.");
+
     if (std::strncmp(fourCC, listfile_v1::FourCC, bytesToRead) == 0)
     {
         infile.read(reinterpret_cast<char *>(&fileVersion), sizeof(fileVersion));

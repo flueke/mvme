@@ -37,12 +37,13 @@ bool VMEReadoutWorker::logMessage(const QString &msg, bool useThrottle)
 bool VMEReadoutWorker::do_VME_DAQ_Init(VMEController *ctrl)
 {
     auto logger = [this] (const QString &msg) { logMessage(msg); };
+    auto error_logger = [this] (const QString &msg) { getContext().errorLogger(msg); };
 
     vme_script::run_script_options::Flag opts = 0u;
     if (!m_workerContext.runInfo->ignoreStartupErrors)
         opts = vme_script::run_script_options::AbortOnError;
 
-    auto initResults = vme_daq_init(m_workerContext.vmeConfig, ctrl, logger, opts);
+    auto initResults = vme_daq_init(m_workerContext.vmeConfig, ctrl, logger, error_logger, opts);
 
     if (!m_workerContext.runInfo->ignoreStartupErrors
         && has_errors(initResults))
@@ -51,7 +52,7 @@ bool VMEReadoutWorker::do_VME_DAQ_Init(VMEController *ctrl)
         logMessage("VME Init Startup Errors:");
         auto logger = [this] (const QString &msg) { logMessage("  " + msg); };
         log_errors(initResults, logger);
-        logMessage("Please make sure the above VME module addresses are correct.");
+        //logMessage("Please make sure the above VME module addresses are correct.");
         return false;
     }
 

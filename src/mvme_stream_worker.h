@@ -58,9 +58,6 @@ class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
         void setStartPaused(bool startPaused) override;
         bool getStartPaused() const override;
 
-        void attachBufferConsumer(IMVMEStreamBufferConsumer *consumer) override;
-        void removeBufferConsumer(IMVMEStreamBufferConsumer *consumer) override;
-
         void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) override;
         void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) override;
 

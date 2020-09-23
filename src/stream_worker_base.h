@@ -24,7 +24,8 @@
 #include <QObject>
 
 #include "libmvme_export.h"
-#include "mvme_stream_processor.h" // TODO: get rid of this (IMVMEStreamModuleConsumer,...)
+#include "stream_processor_counters.h"
+#include "stream_processor_module_consumer.h"
 #include "util/leaky_bucket.h"
 
 enum class MVMEStreamWorkerState
@@ -63,9 +64,6 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
 
         virtual void setStartPaused(bool startPaused) = 0;
         virtual bool getStartPaused() const = 0;
-
-        virtual void attachBufferConsumer(IMVMEStreamBufferConsumer *consumer) = 0;
-        virtual void removeBufferConsumer(IMVMEStreamBufferConsumer *consumer) = 0;
 
         virtual void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) = 0;
         virtual void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) = 0;

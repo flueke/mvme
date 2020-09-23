@@ -29,11 +29,13 @@
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
 #include "listfile_browser.h"
+#include "mesytec-mvlc/util/readout_buffer.h"
 #include "mesytec_diagnostics.h"
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
@@ -45,12 +47,13 @@
 #include "rate_monitor_gui.h"
 #include "sis3153_util.h"
 #include "util/qt_logview.h"
+#include "util/qt_monospace_textedit.h"
 #include "util_zip.h"
+#include "vme_config_scripts.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
 #include "vme_config_util.h"
 #include "vme_config_ui_event_variable_editor.h"
-#include "vme_config_scripts.h"
 #include "vme_controller_ui.h"
 #include "vme_debug_widget.h"
 #include "vme_script_editor.h"
@@ -99,6 +102,7 @@ struct MVMEWindowPrivate
     WidgetGeometrySaver *m_geometrySaver;
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
+    QPlainTextEdit *runNotesWidget = nullptr;
 
     DAQControl *daqControl = nullptr;
 
@@ -106,7 +110,7 @@ struct MVMEWindowPrivate
     QMenuBar *menuBar;
 
     QAction *actionNewWorkspace, *actionOpenWorkspace,
-            *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
+            *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs, *actionExportVMEConfig,
             *actionOpenListfile, *actionCloseListfile,
             *actionQuit,
 
@@ -177,6 +181,11 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionSaveVMEConfigAs->setToolTip(QSL("Save VME Config As"));
     m_d->actionSaveVMEConfigAs->setIconText(QSL("Save As"));
 
+    m_d->actionExportVMEConfig = new QAction(QIcon(QSL(":/document-export.png")), QSL("Export VME Config"), this);
+    m_d->actionExportVMEConfig->setObjectName(QSL("actionExportVMEConfig"));
+    m_d->actionExportVMEConfig->setToolTip(QSL("Export VME Config to YAML"));
+    m_d->actionExportVMEConfig->setIconText(QSL("Export"));
+
     m_d->actionOpenListfile     = new QAction(QSL("Open Listfile"), this);
     m_d->actionCloseListfile    = new QAction(QSL("Close Listfile"), this);
 
@@ -231,6 +240,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionOpenVMEConfig,           &QAction::triggered, this, &MVMEMainWindow::onActionOpenVMEConfig_triggered);
     connect(m_d->actionSaveVMEConfig,           &QAction::triggered, this, &MVMEMainWindow::onActionSaveVMEConfig_triggered);
     connect(m_d->actionSaveVMEConfigAs,         &QAction::triggered, this, &MVMEMainWindow::onActionSaveVMEConfigAs_triggered);
+    connect(m_d->actionExportVMEConfig,         &QAction::triggered, this, &MVMEMainWindow::onActionExportVMEConfig_triggered);
     connect(m_d->actionOpenListfile,            &QAction::triggered, this, &MVMEMainWindow::onActionOpenListfile_triggered);
     connect(m_d->actionCloseListfile,           &QAction::triggered, this, &MVMEMainWindow::onActionCloseListfile_triggered);
     connect(m_d->actionQuit,                    &QAction::triggered, this, &MVMEMainWindow::close);
@@ -254,7 +264,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     });
 
     connect(m_d->actionToolMVLCDevGui, &QAction::triggered, this, [this]() {
-        if (auto mvlcCtrl = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(
+        if (auto mvlcCtrl = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(
                 getContext()->getVMEController()))
         {
             auto widget = new MVLCDevGUI(mvlcCtrl->getMVLCObject());
@@ -300,6 +310,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuFile->addAction(m_d->actionOpenVMEConfig);
     m_d->menuFile->addAction(m_d->actionSaveVMEConfig);
     m_d->menuFile->addAction(m_d->actionSaveVMEConfigAs);
+    m_d->menuFile->addAction(m_d->actionExportVMEConfig);
     m_d->menuFile->addSeparator();
     m_d->menuFile->addAction(m_d->actionOpenListfile);
     m_d->menuFile->addAction(m_d->actionCloseListfile);
@@ -366,12 +377,13 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     // Setup the VMEConfig tree widget
     {
         auto &cw = m_d->m_vmeConfigTreeWidget;
-        // FIXME: use a global action factory to get the actions
+        // FIXME: use a global action registry/factory to find the actions from within the VMEConfigTreeWidget
         cw->addAction(m_d->actionNewVMEConfig);
         cw->addAction(m_d->actionOpenVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfig);
         cw->addAction(m_d->actionSaveVMEConfigAs);
-        cw->setupActionButtons();
+        cw->addAction(m_d->actionExportVMEConfig);
+        cw->setupGlobalActions();
 
         connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
                 cw, &VMEConfigTreeWidget::setConfig);
@@ -481,9 +493,12 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         connect(dcw, &DAQControlWidget::changeWorkspaceSettings,
                 this, &MVMEMainWindow::runWorkspaceSettingsDialog);
 
+        connect(dcw, &DAQControlWidget::showRunNotes,
+                this, &MVMEMainWindow::showRunNotes);
+
         // MVMEContext -> The World
-        connect(m_d->m_context, &MVMEContext::sniffedInputBufferReady,
-                this, &MVMEMainWindow::handleSniffedInputBuffer);
+        connect(m_d->m_context, &MVMEContext::sniffedReadoutBufferReady,
+                this, &MVMEMainWindow::handleSniffedReadoutBuffer);
 
         static const int DAQControlWidgetUpdateInterval_ms = 500;
 
@@ -494,6 +509,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 this, [this, dcw] ()
         {
             dcw->setDAQStats(m_d->m_context->getDAQStats());
+            // copy ListFileOutputInfo from MVMEContext to DAQControlWidget
             dcw->setListFileOutputInfo(m_d->m_context->getListFileOutputInfo());
             dcw->updateWidget();
         });
@@ -720,6 +736,8 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
     {
         closeAllHistogramWidgets();
         m_d->m_context->openWorkspace(dirName);
+        if (m_d->runNotesWidget)
+            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
     } catch (const QString &e)
     {
         QMessageBox::critical(this, QSL("Workspace Error"),
@@ -1148,6 +1166,12 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
+    if (m_d->m_context->getMode() == GlobalMode::ListFile)
+    {
+        const auto &replayHandle = m_d->m_context->getReplayFileHandle();
+        path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".vme";
+    }
+
     QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path, VMEConfigFileFilter);
 
     if (fileName.isEmpty())
@@ -1186,6 +1210,47 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
     return true;
 }
 
+bool MVMEMainWindow::onActionExportVMEConfig_triggered()
+{
+    auto basename = QFileInfo(m_d->m_context->getConfigFileName()).completeBaseName();
+    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    if (!basename.isEmpty())
+    {
+        basename += QSL(".yaml");
+        path += "/" + basename;
+    }
+    QString fileName = QFileDialog::getSaveFileName(
+        this, "Export VME Config", path, QSL("YAML Files (*.yaml);; All Files (*.*)"));
+
+    if (fileName.isEmpty())
+        return false;
+
+    if (QFileInfo(fileName).completeSuffix().isEmpty())
+        fileName += QSL(".yaml");
+
+    QFile outfile(fileName);
+
+    if (!outfile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error opening %1 for writing").arg(fileName));
+        return false;
+    }
+
+    auto vmeConfig = m_d->m_context->getConfig();
+    auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+    auto yamlString = mesytec::mvlc::to_yaml(crateConfig);
+    auto yamlBytes = QByteArray::fromStdString(yamlString);
+
+    if (outfile.write(yamlBytes) != yamlBytes.size())
+    {
+        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        return false;
+    }
+
+    return true;
+}
+
 void MVMEMainWindow::onActionOpenListfile_triggered()
 {
     if (m_d->m_context->getConfig()->isModified())
@@ -1217,7 +1282,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
     static const QStringList filters =
     {
-        "MVME Listfiles (*.mvmelst *.mvlclst *.zip)",
+        "MVME Listfiles (*.mvmelst *.zip)",
         "All Files (*.*)"
     };
 
@@ -1347,7 +1412,8 @@ void MVMEMainWindow::onActionListfileBrowser_triggered()
             this->m_d->m_listfileBrowser = nullptr;
         });
 
-        m_d->m_geometrySaver->addAndRestore(m_d->m_listfileBrowser, QSL("WindowGeometries/ListfileBrowser"));
+        m_d->m_geometrySaver->addAndRestore(
+            m_d->m_listfileBrowser, QSL("WindowGeometries/ListfileBrowser"));
     }
 
     show_and_activate(m_d->m_listfileBrowser);
@@ -1448,7 +1514,6 @@ void MVMEMainWindow::appendToLog(const QString &str)
 
     if (m_d->m_logView)
     {
-        //m_d->m_logView->appendPlainText(str);
         auto escaped = str.toHtmlEscaped();
         auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
         m_d->m_logView->appendHtml(html);
@@ -1489,6 +1554,9 @@ void MVMEMainWindow::updateWindowTitle()
 
                 if (filename.isEmpty())
                     filename = QSL("<no listfile>");
+
+                if (filename.startsWith(wsDir.absolutePath() + "/"))
+                    filename.remove(0, wsDir.absolutePath().size() + 1);
 
                 title = QSL("%1 - %2 - [ListFile mode] - mvme")
                     .arg(workspaceDir)
@@ -1755,7 +1823,7 @@ void MVMEMainWindow::updateActions()
 
 void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString &metaTag)
 {
-    auto &MetaTagMVLCTriggerIO = mesytec::mvlc::trigger_io::MetaTagMVLCTriggerIO;
+    auto &MetaTagMVLCTriggerIO = mesytec::mvme_mvlc::trigger_io::MetaTagMVLCTriggerIO;
 
     if (m_d->m_context->hasObjectWidget(scriptConfig))
     {
@@ -1807,11 +1875,27 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
         connect(widget, &VMEScriptEditor::runScript,
                 this, [this] (const vme_script::VMEScript &script)
         {
-            auto logger = [this] (const QString &msg) { m_d->m_context->logMessage("  " + msg); };
+            auto logger = [this](const QString &str)
+            {
+                m_d->m_context->logMessage("  " + str);
+            };
+
+            auto error_logger = [this](const QString &str)
+            {
+                m_d->m_context->logError("  " + str);
+            };
+
             auto results = m_d->m_context->runScript(script, logger);
 
             for (auto result: results)
-                logger(format_result(result));
+            {
+                auto msg = format_result(result);
+
+                if (!result.error.isError())
+                    logger(msg);
+                else
+                    error_logger(msg);
+            }
         });
 
         connect(widget, &VMEScriptEditor::addApplicationWidget,
@@ -1875,7 +1959,7 @@ void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
         const vme_script::VMEScript &script,
         vme_script::LoggerFun logger)
     {
-        return m_d->m_context->runScript(script, logger, false);
+        return m_d->m_context->runScript(script, logger);
     };
 
     auto editor = new EventVariableEditor(eventConfig, runScriptCallback);
@@ -1952,7 +2036,7 @@ void MVMEMainWindow::doRunScriptConfigs(
                 m_d->m_context->logMessage(QSL("  ") + str);
             };
 
-            auto results = m_d->m_context->runScript(script, logger, false);
+            auto results = m_d->m_context->runScript(script, logger);
 
             if (options & RunScriptOptions::AggregateResults)
             {
@@ -1996,7 +2080,7 @@ void MVMEMainWindow::doRunScriptConfigs(
         }
         catch (const vme_script::ParseError &e)
         {
-            m_d->m_context->logError(QSL("  Parse error: ") + e.what());
+            m_d->m_context->logError(QSL("  Parse error: ") + e.toString());
         }
     }
 }
@@ -2018,9 +2102,55 @@ void MVMEMainWindow::closeAllHistogramWidgets()
     }
 }
 
-void MVMEMainWindow::handleSniffedInputBuffer(const DataBuffer &buffer)
+void MVMEMainWindow::handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &/*readoutBuffer*/)
 {
-    // TODO: Add an MVLCInputBufferDebugHandler similar to
-    // MVLCParserDebugHandler. Let
-    (void) buffer;
+    // TODO: Add an MVLCInputBufferDebugHandler similar to MVLCParserDebugHandler.
+}
+
+void MVMEMainWindow::showRunNotes()
+{
+    if (!m_d->runNotesWidget)
+    {
+        m_d->runNotesWidget = new QPlainTextEdit;
+        m_d->runNotesWidget = mesytec::mvme::util::make_monospace_plain_textedit().release();
+        m_d->runNotesWidget->setWindowTitle(QSL("DAQ Run Notes"));
+        m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+        m_d->runNotesWidget->setAttribute(Qt::WA_DeleteOnClose);
+        add_widget_close_action(m_d->runNotesWidget);
+
+        m_d->m_geometrySaver->addAndRestore(
+            m_d->runNotesWidget, QSL("WindowGeometries/RunNotesEditorWidget"));
+
+        auto on_global_mode_changed = [this](const GlobalMode &mode)
+        {
+            if (!m_d->runNotesWidget) return;
+
+            bool ro = (mode == GlobalMode::ListFile);
+
+            QString css = ro ? "background-color: rgb(225, 225, 225);" : "";
+            m_d->runNotesWidget->setStyleSheet(css);
+            m_d->runNotesWidget->setReadOnly(ro);
+
+            QSignalBlocker b(m_d->runNotesWidget);
+            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+        };
+
+        on_global_mode_changed(getContext()->getMode());
+
+        connect(m_d->runNotesWidget, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_d->runNotesWidget = nullptr;
+        });
+
+        connect(m_d->runNotesWidget, &QPlainTextEdit::textChanged,
+                this, [this] ()
+                {
+                    getContext()->setRunNotes(m_d->runNotesWidget->toPlainText());
+                });
+
+        connect(getContext(), &MVMEContext::modeChanged,
+                this, on_global_mode_changed);
+
+    }
+
+    show_and_activate(m_d->runNotesWidget);
 }

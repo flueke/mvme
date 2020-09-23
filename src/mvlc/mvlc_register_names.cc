@@ -23,7 +23,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 const std::map<u16, std::string> &get_addr_2_name_map()
@@ -131,5 +131,5 @@ const QMap<QString, u16> &get_name_2_addr_qmap()
 
 #endif
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

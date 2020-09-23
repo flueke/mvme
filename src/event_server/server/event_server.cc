@@ -223,8 +223,8 @@ void EventServer::Private::handleNewConnection()
 }
 
 void EventServer::Private::handleClientSocketError(
-    QTcpSocket *socket,
-    QAbstractSocket::SocketError error)
+    QTcpSocket * /*socket*/,
+    QAbstractSocket::SocketError /*error*/)
 {
     if (!m_runInProgress)
     {

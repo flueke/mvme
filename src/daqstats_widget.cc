@@ -18,7 +18,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "mvlc/mvlc_impl_eth.h"
 #include "daqstats_widget.h"
 
 #include <boost/range/adaptor/indexed.hpp>
@@ -26,6 +25,8 @@
 #include <QLabel>
 #include <QFormLayout>
 #include <QTimer>
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+#include <mesytec-mvlc/mvlc_readout.h>
 
 #include "mvlc_readout_worker.h"
 #include "mvme_context.h"
@@ -50,8 +51,7 @@ struct DAQStatsWidgetPrivate
     {
         DAQStats daqStats;
         SIS3153ReadoutWorker::Counters sisCounters;
-        MVLCReadoutCounters mvlcCounters;
-        mesytec::mvlc::eth::PipeStats mvlcDataPipeStats;
+        mesytec::mvlc::ReadoutWorker::Counters mvlcCounters;
     };
 
     CountersHolder prevCounters;
@@ -140,17 +140,20 @@ struct DAQStatsWidgetPrivate
         label_sisEventLoss->setText(lossText);
     }
 
-    void update_MVLC_USB(const MVLCReadoutCounters &mvlcCounters,
-                         const MVLCReadoutCounters &prevMVLCCounters,
-                         double dt_s)
+    using MVLCCounters = mesytec::mvlc::ReadoutWorker::Counters;
+
+    void update_MVLC_USB(
+        const mesytec::mvlc::ReadoutWorker::Counters &counters,
+        const mesytec::mvlc::ReadoutWorker::Counters &prevCounters,
+        double dt_s)
     {
         u64 frameTypeErrorRate =
-            calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::frameTypeErrors)>(
-                mvlcCounters, prevMVLCCounters, dt_s);
+            calc_rate0<TYPE_AND_VAL(&MVLCCounters::usbFramingErrors)>(
+                counters, prevCounters, dt_s);
 
         label_mvlcFrameTypeErrors->setText(
             (QString("%1, %2 errors/s")
-             .arg(mvlcCounters.frameTypeErrors)
+             .arg(counters.usbFramingErrors)
              .arg(frameTypeErrorRate)));
 
 #if 0
@@ -187,11 +190,8 @@ struct DAQStatsWidgetPrivate
              .arg(packetLossRate)));
     }
 
-    void update_MVLC_common(mesytec::mvlc::MVLC_VMEController *mvlcCtrl)
+    void update_MVLC_common(const mesytec::mvlc::StackErrorCounters &counters)
     {
-        auto mvlc = mvlcCtrl->getMVLCObject();
-        auto counters = mvlc->getStackErrorCounters();
-
         QString text;
 
         for (const auto &kv: counters.stackErrors | indexed(0))
@@ -228,7 +228,7 @@ struct DAQStatsWidgetPrivate
     {
         auto controller = readoutWorker->getVMEController();
         auto sisWorker = qobject_cast<SIS3153ReadoutWorker *>(readoutWorker);
-        auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(controller);
+        auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller);
         bool is_MVLC_USB = mvlc && mvlc->getType() == VMEControllerType::MVLC_USB;
         bool is_MVLC_ETH = mvlc && mvlc->getType() == VMEControllerType::MVLC_ETH;
 
@@ -275,15 +275,15 @@ struct DAQStatsWidgetPrivate
 
             if (is_MVLC_ETH)
             {
-                auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(
-                    mvlc->getImpl());
-                auto dataPipeStats = mvlc_eth->getPipeStats()[mesytec::mvlc::DataPipe];
-
-                update_MVLC_ETH(dataPipeStats, prevCounters.mvlcDataPipeStats, dt_s);
-                prevCounters.mvlcDataPipeStats = dataPipeStats;
+                update_MVLC_ETH(
+                    mvlcCounters.ethStats[mesytec::mvlc::DataPipe],
+                    prevCounters.mvlcCounters.ethStats[mesytec::mvlc::DataPipe],
+                    dt_s);
             }
 
-            update_MVLC_common(mvlc);
+            update_MVLC_common(mvlcCounters.stackErrors);
+
+            prevCounters.mvlcCounters = mvlcCounters;
         }
 
         lastUpdateTime = QDateTime::currentDateTime();
@@ -394,5 +394,6 @@ DAQStatsWidget::~DAQStatsWidget()
 
 void DAQStatsWidget::updateWidget()
 {
-    m_d->updateWidget(m_d->context->getReadoutWorker());
+    if (auto rdoWorker = m_d->context->getReadoutWorker())
+        m_d->updateWidget(rdoWorker);
 }

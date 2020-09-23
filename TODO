@@ -2,20 +2,58 @@
 TODO list
 ==================================================
 
+* Figure out the shared_ptr<VMEConfig> reference vs. pointer strangeness.
+  Tracking this down
+  did cost quite a bit of time.
+
+* Analysis processing skip flag:
+  Decide directly after the data filters if this events output should be
+  further processed and passed to the EventServer or if it should be
+  skipped/filtered out.
+
+  The decision should be based on the current(?) values and previous data.
+
+* Lots of analysis files (silvias PMT, berkeley-stephen.yates and others) do
+  assert in the a2_adapter code in src/analysis/a2_adapter.cc:206: a2::Operator
+  {anonymous}::difference_magic().
+
+* MDPP-16_SCP "variable rate" setup:
+  threshold 0
+  gain >= 2000
+  WindowOfInterest -100ns
+  -> pulser data should appear to be uniformely or randomly distributed
+
+* The concrete Event timer period is hidden in the Event Settings dialog. It
+  should be shown somewhere else, either in the VME Config Tree Info column
+  and/or when setting up the events/trigger io
+
+* Replace the special module nodes for raw histograms with simple Directory
+  nodes. When creating default filters populate the directory instead of
+  attaching the histos to the module. Then allow dragging the directory around,
+  creating subdires, dragging histos, etc.
+  This should be limited to raw histos either explicitly or via some logic that
+  disallows dragging non-raw histograms to the L0 area. (Note: there is no
+  logic prohibiting dragging operators to the left, even if the connection
+  logic wouldn't allow connecting that way (flow from left to right)).
+
+* apparently there's a crash when compiling an expression operator script while
+  a replay is running. Robert ran into this while editing an expression and
+  lost all of his edits...
+
+* cmake: get rid of MVME_ENABLE_MVLC, do some sanity checks on the libraries
+  being built and make sure files are only part of a single library
+* general: use mvlc::Protected to guard all the counters and similar objects in the system. (WIP)
+* event_server: test with the mvlc. measure performance
+* mvme_root_client: runId is incorrect for live DAQ runs. it seems correct for replays.
+* test m2r. get rid of duplicate files. clean up the env file. write some docs
+* improve mesytec diagnostics
+
 * qthelp: most images are links but they do show the binary file contents
   instead of the image. Note that not all images behave this way. Some are not
   clickable, e.g the very first 'mvme overview' image in the introduction.
 
-* mvme_root_client: runId is incorrect for live DAQ runs. it seems correct for replays.
-
 * heisencrash when deleting vme scripts? might have been due to changing
   compile flags. not sure.
-
-* vme config tree
---------------------------------------------------
-  - run scripts for container objects (depth first)
-  - move/reorder via drag and drop
-  - enable/disable for object trees under daq_start and daq_stop?
 
 * MVLC release work
 --------------------------------------------------
@@ -34,11 +72,6 @@ analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
 
 * do add in per pipe and per packet channel stats displays for the mvlc!
 * mvlc parser debugging
-* further debug the mvlc_eth mtdc pulser=7, multi_event>10 timeout problems.
-  how do the broken command buffers look exactly?
-* pausing and stopping an MVLC eth DAQ can still take forever
-  -> this is almost always caused by the mvlc error notifications going wild.
-  The MVLCObject code is stuck in the loop where the error buffers are handled.
 
 * change the analysis default filters generation to allow including custom
   calibration operators and other things in the default_filters.analysis for
@@ -55,29 +88,10 @@ analysis_ui: no small toolbar stats display with mvlc (rate, replayRate, etc)
   the module name they're connected to. Use placeholders in the template names?
   %m to be replaced by the actual module name?
 
-* config update from version 3 to 4 (introduction of vme_script variables):
-  What's done:
-  - marked the places where logging should be done
-
-  What's missing:
-  - use boost::log with a custom attribute or category or something to capture
-    the log output. or as a quick fix just pass in a loggger to the config
-    conversion routine.
-  - on the outside when loading a vme config and we do have a gui: detect if
-    config conversion from 3 to X is about to happen. If so pass a logger in
-    when converting and display the output in a new window. tell the user
-    what's going on and that they should check the config and save it if things
-    look ok.
-  - logging of what's changed
-  - user visible prompt (modal warning box) about the schema and script update.
-    also set the config to modified.
-
 * think about moving the business logic in vme_config_ui into factory functions
   for new EventConfig and ModuleConfig instances. Also factor out things like
   getting the next available mcst address.
   -> done for EventConfig (vme_config_util.h)
-
-* doc: mvlc and jumbo frames. also test this
 
 * trigger_io gui [maybe]
   - show static connections when hovering over units.

@@ -371,7 +371,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
-        bool NIMO1InUse = false;
 
         for (auto event: daqConfig->getEventConfigs())
         {
@@ -554,7 +553,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     }
     catch (const vme_script::ParseError &e)
     {
-        logError(QSL("VME Script parse error: ") + e.what());
+        logError(QSL("VME Script parse error: ") + e.toString());
         errorThrown = true;
     }
     catch (const VMEError &e)
@@ -620,7 +619,6 @@ void VMUSBReadoutWorker::readoutLoop()
 
     setState(DAQState::Running);
 
-    DAQStats &stats(m_workerContext.daqStats);
     QElapsedTimer logReadErrorTimer;
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;

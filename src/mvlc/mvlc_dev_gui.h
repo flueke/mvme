@@ -33,10 +33,8 @@
 #include <QString>
 
 #include "libmvme_mvlc_export.h"
-#include "mvlc/mvlc_impl_eth.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
-
 
 struct LIBMVME_MVLC_EXPORT FixedSizeBuffer
 {
@@ -116,7 +114,7 @@ class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
 {
     Q_OBJECT
     public:
-        using MVLCObject = mesytec::mvlc::MVLCObject;
+        using MVLCObject = mesytec::mvme_mvlc::MVLCObject;
         //static const int USB3PacketSizeMax = 1024;
         static const int ReadBufferSize = Megabytes(1);
         //static const int ReadTimeout_ms = 50;
@@ -203,18 +201,18 @@ class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
         void sigLogMessage(const QString &msg);
 
     public:
-        using MVLCObject = mesytec::mvlc::MVLCObject;
+        using MVLCObject = mesytec::mvme_mvlc::MVLCObject;
 
         MVLCDevGUI(MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCDevGUI();
 
     public slots:
         void logMessage(const QString &msg);
-        void logBuffer(const QVector<u32> &buffer, const QString &info);
+        void logBuffer(const std::vector<u32> &buffer, const QString &info);
 
     private slots:
         void handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const QString &reason);
-        void handleStackErrorNotification(const QVector<u32> &notification);
+        void handleStackErrorNotification(const std::vector<u32> &notification);
 
     private:
         struct Private;
@@ -229,14 +227,14 @@ class MVLCRegisterWidget: public QWidget
     signals:
         void sigLogMessage(const QString &str);
         void sigLogBuffer(const QVector<u32> &buffer, const QString &info);
-        void stackErrorNotification(const QVector<u32> &notification);
+        void stackErrorNotification(const std::vector<u32> &notification);
 
     public:
-        MVLCRegisterWidget(mesytec::mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
+        MVLCRegisterWidget(mesytec::mvme_mvlc::MVLCObject *mvlc, QWidget *parent = nullptr);
         ~MVLCRegisterWidget();
 
     private:
-        mesytec::mvlc::MVLCObject *m_mvlc;
+        mesytec::mvme_mvlc::MVLCObject *m_mvlc;
 
         void writeRegister(u16 address, u32 value);
         u32 readRegister(u16 address);

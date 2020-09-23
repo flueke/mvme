@@ -25,7 +25,7 @@
 #include <QTextStream>
 #include <cassert>
 
-#include "mvlc_constants.h"
+#include <mesytec-mvlc/mvlc_constants.h>
 #include "mvlc_util.h"
 
 #ifndef QSL
@@ -36,7 +36,7 @@ using vme_address_modes::is_block_amod;
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace script
 {
@@ -283,7 +283,7 @@ static Command handle_stack_command(const QVector<PreparsedLine> &lines,
                     {
                         u8 outputPipe = parseValue<u8>(value);
 
-                        if (outputPipe > DataPipe)
+                        if (outputPipe > mvlc::DataPipe)
                             throw QString("invalid output pipe specified "
                                           "(must be 0/1 or 'command'/'data')");
 
@@ -378,10 +378,10 @@ static Command handle_single_line_command(const PreparsedLine &line)
             result.address = parseValue<u16>(parts.at(1));
             u16 words = parseValue<u16>(parts.at(2));
 
-            if (words > ReadLocalBlockMaxWords)
+            if (words > mvlc::ReadLocalBlockMaxWords)
             {
                 throw QString("read_local_block max words exceeded (max=%1)")
-                    .arg(ReadLocalBlockMaxWords);
+                    .arg(mvlc::ReadLocalBlockMaxWords);
             }
 
             result.value = words;
@@ -495,7 +495,7 @@ void MVLCCommandListBuilder::addReadLocal(u16 address)
 
 void MVLCCommandListBuilder::addReadLocalBlock(u16 address, u16 words)
 {
-    if (words > ReadLocalBlockMaxWords)
+    if (words > mvlc::ReadLocalBlockMaxWords)
         throw std::runtime_error("ReadLocalBlock max words exceeded");
 
     Command cmd;
@@ -539,7 +539,7 @@ void MVLCCommandListBuilder::addStack(u8 outputPipe, u16 offset,
 static const u8 DefaultOutputPipe = mesytec::mvlc::CommandPipe;
 static const u8 DefaultOffset = 0;
 
-void MVLCCommandListBuilder::addVMERead(u32 address, u8 amod, VMEDataWidth dataWidth)
+void MVLCCommandListBuilder::addVMERead(u32 address, u8 amod, mvlc::VMEDataWidth dataWidth)
 {
     if (is_block_amod(amod))
         throw std::runtime_error("Invalid address modifier for single read operation");
@@ -587,12 +587,12 @@ void MVLCCommandListBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransf
 //}
 
 void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, u8 amod,
-                                         VMEDataWidth dataWidth)
+                                         mvlc::VMEDataWidth dataWidth)
 {
     if (is_block_amod(amod))
         throw std::runtime_error("Invalid address modifier for single write operation");
 
-    const u32 Mask = (dataWidth == VMEDataWidth::D16 ? 0x0000FFFF : 0xFFFFFFFF);
+    const u32 Mask = (dataWidth == mvlc::VMEDataWidth::D16 ? 0x0000FFFF : 0xFFFFFFFF);
 
     vme_script::Command command;
     command.type = vme_script::CommandType::Write;
@@ -614,9 +614,10 @@ void MVLCCommandListBuilder::append(const MVLCCommandListBuilder &other)
     m_commands.append(other.getCommandList());
 }
 
-QVector<u32> to_mvlc_buffer(const Command &cmd)
+std::vector<u32> to_mvlc_buffer(const Command &cmd)
 {
-    using namespace super_commands;
+    using namespace mvlc::super_commands;
+    using SuperCT = SuperCommandType;
 
     switch (cmd.type)
     {
@@ -624,35 +625,39 @@ QVector<u32> to_mvlc_buffer(const Command &cmd)
             break;
 
         case CommandType::ReferenceWord:
-            return QVector<u32>
+            return std::vector<u32>
             {
-                (ReferenceWord << SuperCmdShift) | (cmd.value & SuperCmdArgMask),
+                (static_cast<u32>(SuperCT::ReferenceWord) << SuperCmdShift)
+                    | (cmd.value & SuperCmdArgMask),
             };
 
         case CommandType::ReadLocal:
-            return QVector<u32>
+            return std::vector<u32>
             {
-                (ReadLocal << SuperCmdShift) | (cmd.address & SuperCmdArgMask),
+                (static_cast<u32>(SuperCT::ReadLocal) << SuperCmdShift)
+                    | (cmd.address & SuperCmdArgMask),
             };
 
         case CommandType::ReadLocalBlock:
-            return QVector<u32>
+            return std::vector<u32>
             {
-                (ReadLocalBlock << SuperCmdShift) | (cmd.address & SuperCmdArgMask),
+                (static_cast<u32>(SuperCT::ReadLocalBlock) << SuperCmdShift)
+                    | (cmd.address & SuperCmdArgMask),
                 cmd.value
             };
 
         case CommandType::WriteLocal:
-            return QVector<u32>
+            return std::vector<u32>
             {
-                (WriteLocal << SuperCmdShift) | (cmd.address & SuperCmdArgMask),
+                (static_cast<u32>(SuperCT::WriteLocal) << SuperCmdShift)
+                    | (cmd.address & SuperCmdArgMask),
                 cmd.value
             };
 
         case CommandType::WriteReset:
-            return QVector<u32>
+            return std::vector<u32>
             {
-                WriteReset << SuperCmdShift,
+                static_cast<u32>(SuperCT::WriteReset) << SuperCmdShift,
             };
 
         case CommandType::Stack:
@@ -660,13 +665,13 @@ QVector<u32> to_mvlc_buffer(const Command &cmd)
                 auto uploadStack = build_upload_commands(
                     cmd.stack.contents,
                     cmd.stack.outputPipe,
-                    stacks::StackMemoryBegin + cmd.stack.offset);
+                    mvlc::stacks::StackMemoryBegin + cmd.stack.offset);
 
-                QVector<u32> result;
+                std::vector<u32> result;
                 result.reserve(uploadStack.size());
 
                 for (u32 word: uploadStack)
-                    result.append(word);
+                    result.push_back(word);
 
                 return result;
             }
@@ -675,22 +680,25 @@ QVector<u32> to_mvlc_buffer(const Command &cmd)
     return {};
 }
 
-QVector<u32> to_mvlc_command_buffer(const CommandList &cmdList)
+std::vector<u32> to_mvlc_command_buffer(const CommandList &cmdList)
 {
-    using namespace super_commands;
+    using namespace mvlc::super_commands;
+    using SuperCT = SuperCommandType;
 
-    QVector<u32> result;
+    std::vector<u32> result;
 
-    result.append(CmdBufferStart << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCT::CmdBufferStart) << SuperCmdShift);
     for (const auto &cmd: cmdList)
     {
-        result.append(to_mvlc_buffer(cmd));
+        auto cmdBuffer = to_mvlc_buffer(cmd);
+        std::copy(std::begin(cmdBuffer), std::end(cmdBuffer),
+                  std::back_inserter(result));
     }
-    result.append(CmdBufferEnd << SuperCmdShift);
+    result.push_back(static_cast<u32>(SuperCT::CmdBufferEnd) << SuperCmdShift);
 
     return result;
 }
 
 } // end namespace script
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec

@@ -1,0 +1,23 @@
+{
+    "auxiliary_vme_scripts": [
+        {
+            "fileName": "iseg-vhs-Cxxxx-init.vmescript",
+            "scriptName": "VHS-Cxxxx Init",
+            "vendorName": "ISEG",
+            "moduleName": "VHS-Cxxxx"
+        },
+        {
+            "fileName": "iseg-vhs-Cxxxx-shutdown.vmescript",
+            "scriptName": "VHS-Cxxxx Shutdown",
+            "vendorName": "ISEG",
+            "moduleName": "VHS-Cxxxx"
+        },
+        {
+            "fileName": "iseg-vhs-Cxxxx-set-base-address.vmescript",
+            "scriptName": "VHS-Cxxxx Set VME address",
+            "vendorName": "ISEG",
+            "moduleName": "VHS-Cxxxx"
+        }
+    ]
+}
+

@@ -443,7 +443,8 @@ class MVLCParserDebugHandler: public QObject
     public slots:
         void handleDebugInfo(
             const DataBuffer &buffer,
-            mesytec::mvlc::ReadoutParserState parserState,
+            mesytec::mvlc::readout_parser::ReadoutParserState parserState,
+            const mesytec::mvlc::readout_parser::ReadoutParserCounters &parserCounters,
             const VMEConfig *vmeConfig,
             const analysis::Analysis *analysis);
 

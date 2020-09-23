@@ -280,5 +280,24 @@ void generate_new_object_ids(ConfigObject *root)
                   [] (ConfigObject *child) { generate_new_object_ids(child);; });
 }
 
+TriggerCondition trigger_condition_from_string(const QString &str)
+{
+        auto it = std::find_if(
+            TriggerConditionNames.begin(), TriggerConditionNames.end(),
+            [str](const auto &testName) {
+            return str == testName;
+        });
+
+        return (it == TriggerConditionNames.end()
+                ? TriggerCondition::Interrupt
+                : it.key());
+}
+
+QString trigger_condition_to_string(const TriggerCondition &str)
+{
+    return TriggerConditionNames.value(str);
+}
+
+
 } // end namespace vme_config
 } // end namespace mvme

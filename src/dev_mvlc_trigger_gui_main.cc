@@ -36,7 +36,7 @@
 #include "mvme_session.h"
 #include "qt_util.h"
 
-using namespace mesytec::mvlc;
+using namespace mesytec::mvme_mvlc;
 
 int main(int argc, char *argv[])
 {

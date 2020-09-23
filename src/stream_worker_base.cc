@@ -21,6 +21,7 @@
 #include "stream_worker_base.h"
 
 #include "util/perf.h"
+#include "util/qt_str.h"
 
 QString to_string(const MVMEStreamWorkerState &state)
 {
@@ -45,7 +46,7 @@ StreamWorkerBase::~StreamWorkerBase()
     qDebug() << __PRETTY_FUNCTION__ << this << this->objectName() << this->parent();
 }
 
-bool StreamWorkerBase::logMessage(const MessageSeverity &sev,
+bool StreamWorkerBase::logMessage(const MessageSeverity &/*sev*/,
                                   const QString &msg,
                                   bool useThrottle)
 {

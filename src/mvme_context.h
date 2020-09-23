@@ -32,6 +32,7 @@
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
 #include "vme_script.h"
+#include "vme_script_exec.h"
 
 #include <memory>
 
@@ -105,7 +106,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void moduleAboutToBeRemoved(ModuleConfig *module);
 
         // MVLC readout buffer sniffing
-        void sniffedInputBufferReady(const DataBuffer &buffer);
+        void sniffedReadoutBufferReady(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
 
     public:
         MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
@@ -125,12 +126,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         DAQState getDAQState() const;
         MVMEStreamWorkerState getMVMEStreamWorkerState() const;
         DAQStats getDAQStats() const;
-
-#if 0
-        bool setReplayFile(ListFile *listFile);
-        void closeReplayFile();
-        ListFile *getReplayFile() const { return m_listFile; }
-#endif
 
         bool setReplayFileHandle(ListfileReplayHandle listfile);
         const ListfileReplayHandle &getReplayFileHandle() const;
@@ -316,6 +311,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void addWidget(QWidget *widget, const QString &stateKey);
 
         RunInfo getRunInfo() const;
+        QString getRunNotes() const;
 
     public slots:
         void startDAQReadout(u32 nCycles = 0, bool keepHistoContents = false);
@@ -335,6 +331,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void forceResetVMEController();
         void dumpVMEControllerRegisters();
         void sniffNextInputBuffer();
+
+        void setRunNotes(const QString &notes);
 
     private slots:
         void tryOpenController();

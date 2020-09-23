@@ -104,35 +104,13 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 #    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
 #endif(WIN32)
 
-# External libraries.
-# Note: This was moved up from the src/ subdirectory so that the
-# include_directories() commands have effect both in the src/ and test/
-# subdirectories. Otherwise the find_path() commands would have to be repeated
-# inside test/.
+#option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
+set(MVME_ENABLE_MVLC ON)
 
-# 3rdparty
-#include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
-#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
-#include_directories("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/")
+set(not-msvc $<NOT:$<CXX_COMPILER_ID:MSVC>>)
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/jcon/")
-
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/3rdparty/nlohmann" DESTINATION include/mvme)
-install(FILES "${CMAKE_SOURCE_DIR}/3rdparty/Mustache/mustache.hpp" DESTINATION include/mvme/Mustache)
-
-option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
-
-if (MVME_ENABLE_MVLC)
-    option(YAML_CPP_BUILD_TESTS "Enable testing" OFF)
-    option(YAML_CPP_BUILD_TOOLS "Enable parse tools" OFF)
-    option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
-    option(YAML_CPP_INSTALL "Enable generation of install target" OFF)
-    option(YAML_BUILD_SHARED_LIBS "Build Shared Libraries" ON)
-    add_subdirectory("${CMAKE_SOURCE_DIR}/3rdparty/yaml-cpp")
-    # FIXME: installing targets from subdirectories does not work with CMake
-    # 3.9.2 (msys build)
-    install(TARGETS yaml-cpp DESTINATION .)
-endif(MVME_ENABLE_MVLC)
+# externals
+add_subdirectory("${CMAKE_SOURCE_DIR}/external")
 
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
@@ -155,10 +133,6 @@ endif()
 
 message("-- Using QUAZIP_INCLUDE_DIR=${QUAZIP_INCLUDE_DIR}")
 message("-- Using QUAZIP_QT5=${QUAZIP_QT5}")
-
-if (MVME_ENABLE_MVLC)
-    add_subdirectory(3rdparty/ftdi-d3xx)
-endif (MVME_ENABLE_MVLC)
 
 find_path(QWT_INCLUDE_DIR
     NAMES qwt_plot.h
@@ -192,7 +166,7 @@ if (BUILD_TESTS)
     # googletest / GTest
     # https://github.com/google/googletest/blob/master/googletest/README.md
     # Download and unpack googletest at configure time
-    configure_file(3rdparty/googletest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
+    configure_file(external/googletest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
     execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
       RESULT_VARIABLE result
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
@@ -234,7 +208,7 @@ endif()
 add_subdirectory(src)
 add_subdirectory(extras)
 
-option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
+option(BUILD_DOCS "Build the documentation (if Sphinx is present)" OFF)
 
 if (BUILD_DOCS)
     add_subdirectory(doc)
@@ -284,7 +258,7 @@ if (WIN32)
     set(CPACK_GENERATOR "NSIS") # "NSIS;ZIP"
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
     set(CPACK_NSIS_PACKAGE_NAME "mvme")
-    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "mvme.exe")
+    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "bin\\\\mvme.exe")
     set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
     set(CPACK_NSIS_CONTACT "info@mesytec.com")
 

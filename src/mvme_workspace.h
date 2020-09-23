@@ -23,6 +23,7 @@
 
 #include <QSettings>
 #include <QDir>
+#include <QDebug>
 #include <memory>
 
 static const char *WorkspaceIniName = "mvmeworkspace.ini";
@@ -33,7 +34,10 @@ inline std::shared_ptr<QSettings> make_workspace_settings(const QString &workspa
         return {};
 
     QDir dir(workspaceDirPath);
-    return std::make_shared<QSettings>(dir.filePath(WorkspaceIniName), QSettings::IniFormat);
+    auto path = dir.filePath(WorkspaceIniName);
+    auto result = std::make_shared<QSettings>(path, QSettings::IniFormat);
+
+    return result;
 }
 
 #endif /* __MVME_WORKSPACE_H__ */

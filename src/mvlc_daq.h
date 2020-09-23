@@ -27,7 +27,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 using Logger = std::function<void (const QString &)>;
@@ -43,9 +43,12 @@ using Logger = std::function<void (const QString &)>;
 // the caller (e.g. vme_script::ParseError).
 
 // Builds and uploads the readout stacks and performs the trigger I/O setup.
-// Finally the triggers are enabled.
+// Note: the readout triggers are not enabled by this function.
 std::error_code LIBMVME_EXPORT
     setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger);
+
+std::pair<std::vector<u32>, std::error_code> LIBMVME_EXPORT get_trigger_values(
+    const VMEConfig &vmeConfig, Logger logger);
 
 std::error_code LIBMVME_EXPORT
     enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
@@ -64,7 +67,7 @@ std::error_code LIBMVME_EXPORT
     setup_trigger_io(MVLCObject &mvlc, VMEConfig &vmeConfig,
                      Logger logger);
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_DAQ_H__ */

@@ -23,12 +23,14 @@
 
 #include <cstdint>
 #include <functional>
-#include <QSyntaxHighlighter>
 #include <QVector>
 
 #include "libmvme_core_export.h"
-#include "vme_controller.h"
+
+#include "typedefs.h"
+#include "vme.h"
 #include "vme_script_variables.h"
+#include "vme_error.h"
 
 class QFile;
 class QTextStream;
@@ -176,21 +178,24 @@ using VMEScript = QVector<Command>;
 
 Command add_base_address(Command cmd, uint32_t baseAddress);
 
-struct ParseError
+struct ParseError: std::exception
 {
     ParseError(const QString &message, int lineNumber = -1)
         : message(message)
         , lineNumber(lineNumber)
     {}
 
-    QString what() const
+    const char *what() const noexcept override
+    {
+        return "vme_script::ParseError";
+    }
+
+    QString toString() const
     {
         if (lineNumber >= 0)
             return QString("%1 on line %2").arg(message).arg(lineNumber);
         return message;
     }
-
-    QString toString() const { return what(); }
 
     QString message;
     int lineNumber;
@@ -239,79 +244,6 @@ QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
 
 QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
     QTextStream &input);
-
-class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
-{
-    using QSyntaxHighlighter::QSyntaxHighlighter;
-
-    protected:
-        virtual void highlightBlock(const QString &text) override;
-};
-
-struct LIBMVME_CORE_EXPORT Result
-{
-    VMEError error;
-    uint32_t value;
-    QVector<uint32_t> valueVector;
-    Command command;
-};
-
-typedef QVector<Result> ResultList;
-typedef std::function<void (const QString &)> LoggerFun;
-
-namespace run_script_options
-{
-    using Flag = u8;
-    static const Flag LogEachResult = 1u << 0;
-    static const Flag AbortOnError  = 1u << 1;
-}
-
-LIBMVME_CORE_EXPORT ResultList run_script(
-    VMEController *controller,
-    const VMEScript &script,
-    LoggerFun logger = LoggerFun(),
-    const run_script_options::Flag &options = 0);
-
-#if 0
-inline ResultList run_script(
-    VMEController *controller,
-    const VMEScript &script,
-    LoggerFun logger = LoggerFun(),
-    bool logEachResult=false)
-{
-    run_script_options::Flag opts = (logEachResult ? run_script_options::LogEachResult : 0u);
-
-    return run_script(controller, script, logger, opts);
-}
-#endif
-
-inline bool has_errors(const ResultList &results)
-{
-    return std::any_of(
-        std::begin(results), std::end(results),
-        [] (const Result &r) { return r.error.isError(); });
-}
-
-LIBMVME_CORE_EXPORT Result run_command(VMEController *controller,
-                                  const Command &cmd,
-                                  LoggerFun logger = LoggerFun());
-
-LIBMVME_CORE_EXPORT QString format_result(const Result &result);
-
-inline bool is_block_read_command(const CommandType &cmdType)
-{
-    switch (cmdType)
-    {
-        case CommandType::BLT:
-        case CommandType::BLTFifo:
-        case CommandType::MBLT:
-        case CommandType::MBLTFifo:
-        case CommandType::Blk2eSST64:
-            return true;
-        default: break;
-    }
-    return false;
-}
 
 LIBMVME_CORE_EXPORT Command get_first_meta_block(const VMEScript &vmeScript);
 LIBMVME_CORE_EXPORT QString get_first_meta_block_tag(const VMEScript &vmeScript);

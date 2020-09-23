@@ -26,19 +26,18 @@
 #include <QObject>
 #include <QTimer>
 #include <QVector>
+#include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "libmvme_mvlc_export.h"
-#include "mvlc/mvlc_dialog.h"
-#include "mvlc/mvlc_impl_abstract.h"
-#include "mvlc/mvlc_stack_errors.h"
-#include "mvlc/mvlc_threading.h"
+#include "typedefs.h"
+#include "util.h"
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
-class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
+class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInterface
 {
     Q_OBJECT
     public:
@@ -50,101 +49,185 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         };
 
     signals:
-        void stateChanged(const mesytec::mvlc::MVLCObject::State &oldState,
-                          const mesytec::mvlc::MVLCObject::State &newState);
+        void stateChanged(const mesytec::mvme_mvlc::MVLCObject::State &oldState,
+                          const mesytec::mvme_mvlc::MVLCObject::State &newState);
 
     public:
-        explicit MVLCObject(std::unique_ptr<AbstractImpl> impl, QObject *parent = nullptr);
+        explicit MVLCObject(mvlc::MVLC mvlc, QObject *parent = nullptr);
         virtual ~MVLCObject();
 
-        bool isConnected() const;
         State getState() const { return m_state; }
-        ConnectionType connectionType() const { return m_impl->connectionType(); }
-        QString getConnectionInfo() const;
 
-        AbstractImpl *getImpl();
-
-        unsigned getReadTimeout(Pipe pipe) const;
-        unsigned getWriteTimeout(Pipe pipe) const;
+        QString getConnectionInfo() const
+        {
+            return QString::fromStdString(connectionInfo());
+        }
 
         //
-        // Lowest level read and write operations
+        // MVLCBasicInterface
         //
-        std::error_code write(Pipe pipe, const u8 *buffer, size_t size,
-                              size_t &bytesTransferred);
+    public slots:
+        std::error_code connect() override
+        {
+            if (!isConnected())
+                setState(Connecting);
 
-        std::error_code read(Pipe pipe, u8 *buffer, size_t size,
-                             size_t &bytesTransferred);
+            return updateState(m_mvlc.connect());
+        }
 
-        std::error_code getReadQueueSize(Pipe pipe, u32 &dest);
+        std::error_code disconnect() override
+        {
+            return updateState(m_mvlc.disconnect());
+        }
+
+    public:
+        bool isConnected() const override { return m_mvlc.isConnected(); }
+        mvlc::ConnectionType connectionType() const override { return m_mvlc.connectionType(); }
+        std::string connectionInfo() const override { return m_mvlc.connectionInfo(); }
+
+        std::error_code write(mvlc::Pipe pipe, const u8 *buffer, size_t size,
+                              size_t &bytesTransferred) override
+        {
+            return updateState(m_mvlc.write(pipe, buffer, size, bytesTransferred));
+        }
+
+        std::error_code read(mvlc::Pipe pipe, u8 *buffer, size_t size,
+                             size_t &bytesTransferred) override
+        {
+            return updateState(m_mvlc.read(pipe, buffer, size, bytesTransferred));
+        }
+
+        std::error_code setWriteTimeout(mvlc::Pipe pipe, unsigned ms) override
+        {
+            return updateState(m_mvlc.setWriteTimeout(pipe, ms));
+        }
+
+        std::error_code setReadTimeout(mvlc::Pipe pipe, unsigned ms) override
+        {
+            return updateState(m_mvlc.setReadTimeout(pipe, ms));
+        }
+
+        unsigned writeTimeout(mvlc::Pipe pipe) const override
+        {
+            return m_mvlc.writeTimeout(pipe);
+        }
+
+        unsigned readTimeout(mvlc::Pipe pipe) const override
+        {
+            return m_mvlc.readTimeout(pipe);
+        }
+
+        void setDisableTriggersOnConnect(bool b) override
+        {
+            m_mvlc.setDisableTriggersOnConnect(b);
+        }
+
+        bool disableTriggersOnConnect() const override
+        {
+            return m_mvlc.disableTriggersOnConnect();
+        }
 
         //
-        // MVLC register access
+        // Dialog layer
         //
-        std::error_code readRegister(u16 address, u32 &value);
-        std::error_code writeRegister(u16 address, u32 value);
+        std::error_code readRegister(u16 address, u32 &value)
+        {
+            return updateState(m_mvlc.readRegister(address, value));
+        }
 
-#if 0 // disabled for now. need to test if this is implemented in the firmware and working.
-        std::error_code readRegisterBlock(u16 address, u16 words,
-                                          QVector<u32> &dest);
+        std::error_code writeRegister(u16 address, u32 value)
+        {
+            return updateState(m_mvlc.writeRegister(address, value));
+        }
+
+        std::error_code vmeRead(
+            u32 address, u32 &value, u8 amod, mvlc::VMEDataWidth dataWidth)
+        {
+            return updateState(m_mvlc.vmeRead(
+                    address, value, amod, dataWidth));
+        }
+
+        std::error_code vmeWrite(
+            u32 address, u32 value, u8 amod, mvlc::VMEDataWidth dataWidth)
+        {
+            return updateState(m_mvlc.vmeWrite(
+                    address, value, amod, dataWidth));
+        }
+
+        std::error_code vmeBlockRead(
+            u32 address, u8 amod, u16 maxTransfers, std::vector<u32> &dest)
+        {
+            return updateState(m_mvlc.vmeBlockRead(
+                    address, amod, maxTransfers, dest));
+        }
+
+        std::error_code readResponse(mvlc::BufferHeaderValidator bhv, std::vector<u32> &dest)
+        {
+            return updateState(m_mvlc.readResponse(
+                    bhv, dest));
+        }
+
+        std::error_code mirrorTransaction(
+            const std::vector<u32> &cmdBuffer, std::vector<u32> &responseDest)
+        {
+            return updateState(m_mvlc.mirrorTransaction(
+                    cmdBuffer, responseDest));
+        }
+
+        std::error_code stackTransaction(const std::vector<u32> &stackUploadData,
+                                         std::vector<u32> &responseDest)
+        {
+            return updateState(m_mvlc.stackTransaction(
+                    stackUploadData, responseDest));
+        }
+
+        std::error_code readKnownBuffer(std::vector<u32> &dest)
+        {
+            return updateState(m_mvlc.readKnownBuffer(dest));
+        }
+
+        std::vector<u32> getResponseBuffer() const
+        {
+            return m_mvlc.getResponseBuffer();
+        }
+
+        //
+        // Stack Error Notifications (Command Pipe)
+        //
+#if 0
+        std::vector<std::vector<u32>> getStackErrorNotifications() const
+        {
+            return m_mvlc.getStackErrorNotifications();
+        }
+
+        void clearStackErrorNotifications() { m_mvlc.clearStackErrorNotifications(); }
+        bool hasStackErrorNotifications() const { return m_mvlc.hasStackErrorNotifications(); }
 #endif
+
+        mvlc::StackErrorCounters getStackErrorCounters() const
+        {
+            return m_mvlc.getStackErrorCounters();
+        }
+
+        mvlc::Protected<mvlc::StackErrorCounters> &getProtectedStackErrorCounters()
+        {
+            return m_mvlc.getProtectedStackErrorCounters();
+        }
+
+        void clearStackErrorCounters()
+        {
+            m_mvlc.clearStackErrorCounters();
+        }
+
         //
-        // Higher level direct VME access using Stack0 and immediate exec.
-        //
-        // Note: Stack0 is used and the stack is written starting from offset 0
-        // into stack memory. The output is sent to pipe 0, the command pipe.
-        std::error_code vmeSingleRead(u32 address, u32 &value, u8 amod, VMEDataWidth dataWidth);
-
-        std::error_code vmeSingleWrite(u32 address, u32 value, u8 amod, VMEDataWidth dataWidth);
-
-        std::error_code vmeBlockRead(u32 address, u8 amod, u16 maxTransfers, QVector<u32> &dest);
-
-        //
-        // Lower level utilities
+        // Access to the low-level implementation and the per-pipe locks.
         //
 
-        // Read a full response buffer into dest. The buffer header is passed
-        // to the validator before attempting to read the rest of the response.
-        // If validation fails no more data is read.
-        // Note: if stack error notification buffers are received they are made
-        // available via getStackErrorNotifications().
-        std::error_code readResponse(BufferHeaderValidator bhv, QVector<u32> &dest);
+        mvlc::MVLC getMVLC() { return m_mvlc; }
+        mvlc::MVLCBasicInterface *getImpl() { return m_mvlc.getImpl(); }
+        inline mvlc::Locks &getLocks() { return m_mvlc.getLocks(); }
 
-        // Send the given cmdBuffer to the MVLC, reads and verifies the mirror
-        // response. The buffer must start with CmdBufferStart and end with
-        // CmdBufferEnd, otherwise the MVLC cannot interpret it.
-        std::error_code mirrorTransaction(const QVector<u32> &cmdBuffer,
-                                          QVector<u32> &responseDest);
-
-        // Sends the given stack data (which must include upload commands),
-        // reads and verifies the mirror response, and executes the stack.
-        // Note: Stack0 is used and offset 0 into stack memory is assumed.
-        std::error_code stackTransaction(const QVector<u32> &stackUploadData,
-                                         QVector<u32> &responseDest);
-
-        // Low level read accepting any of the known buffer types (see
-        // is_known_buffer_header()). Does not do any special handling for
-        // stack error notification buffers as is done in readResponse().
-        std::error_code readKnownBuffer(QVector<u32> &dest);
-#ifndef __WIN32
-        std::error_code readKnownBuffer(QVector<u32> &dest, unsigned timeout_ms);
-#endif
-
-        // Returns the response buffer containing the contents of the last read
-        // operation from the MVLC.
-        // After mirrorTransaction() the buffer will contain the mirror
-        // response. After stackTransaction() the buffer will contain the
-        // response from executing the stack.
-        QVector<u32> getResponseBuffer() const;
-
-        // Get the stack error notifications that may have resulted from the
-        // previous stack operation. Performing another stack operation will
-        // clear the internal buffer.
-        QVector<QVector<u32>> getStackErrorNotifications() const;
-
-        // Direct access to the per-pipe locks.
-        inline Locks &getLocks() { return m_locks; }
-
+#if 0
         // Returns a copy of the stack error counts structure. This is
         // thread-safe.
         inline StackErrorCounters getStackErrorCounters() const
@@ -159,26 +242,30 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         {
             return m_stackErrors;
         }
-
-    public slots:
-        std::error_code connect();
-        std::error_code disconnect();
-        void setReadTimeout(Pipe pipe, unsigned ms);
-        void setWriteTimeout(Pipe pipe, unsigned ms);
+#endif
 
     private:
         void setState(const State &newState);
-        Locks &getLocks() const { return m_locks; }
-        void preDialogOperation();
-        void postDialogOperation();
 
-        std::unique_ptr<AbstractImpl> m_impl;
-        MVLCDialog m_dialog;
+        std::error_code updateState(const std::error_code &ec)
+        {
+            if (ec == mvlc::ErrorType::ConnectionError || !m_mvlc.isConnected())
+                setState(Disconnected);
+            else if (m_mvlc.isConnected())
+                setState(Connected);
+            else
+                InvalidCodePath;
+
+            return ec;
+        }
+
+        //Locks &getLocks() const { return m_locks; }
+
+        mvlc::MVLC m_mvlc;
         State m_state;
-        mutable Locks m_locks;
-        GuardedStackErrorCounters m_stackErrors = {};
 };
 
+#if 0
 class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
 {
     Q_OBJECT
@@ -207,8 +294,9 @@ class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
         QTimer m_pollTimer;
         std::atomic<bool> m_isPolling;
 };
+#endif
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_QT_OBJECT_H__ */

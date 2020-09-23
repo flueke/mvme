@@ -83,15 +83,18 @@ Notes:
 #include <QLibrary>
 #include <QThread>
 
+#include <mesytec-mvlc/mesytec-mvlc.h>
+
 #include "analysis/analysis.h"
 #include "analysis/a2/memory.h"
 #include "listfile_reader/listfile_reader.h"
 #include "listfile_replay.h"
-#include "mvlc/mvlc_readout_parsers.h"
 #include "mvme_listfile_utils.h"
 #include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
 #include "vme_controller_factory.h"
 #include "vme_config_scripts.h"
+
+namespace readout_parser = mesytec::mvlc::readout_parser;
 
 using std::cout;
 using std::endl;
@@ -202,7 +205,7 @@ RunDescription * make_run_description(
             module.type = arena.pushCString(
                 moduleConfig->getModuleMeta().typeName.toStdString().c_str());
 
-            auto moduleReadoutParts = mesytec::mvlc::parse_module_readout_script(
+            auto moduleReadoutParts = mesytec::mvme_mvlc::parse_module_readout_script(
                 mesytec::mvme::parse(moduleConfig->getReadoutScript()));
 
             module.prefixLen = moduleReadoutParts.prefixLen;
@@ -217,7 +220,7 @@ RunDescription * make_run_description(
 class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
 {
     public:
-        MVMEStreamCallbackWrapper(const mesytec::mvlc::ReadoutParserCallbacks &callbacks)
+        MVMEStreamCallbackWrapper(const readout_parser::ReadoutParserCallbacks &callbacks)
             : m_callbacks(callbacks)
         {
         }
@@ -246,21 +249,21 @@ class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) override
         {
-            m_callbacks.modulePrefix(eventIndex, moduleIndex, data, size);
+            m_callbacks.groupPrefix(eventIndex, moduleIndex, data, size);
         }
 
         void processModuleData(s32 eventIndex,
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) override
         {
-            m_callbacks.moduleDynamic(eventIndex, moduleIndex, data, size);
+            m_callbacks.groupDynamic(eventIndex, moduleIndex, data, size);
         }
 
         void processModuleSuffix(s32 eventIndex,
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) override
         {
-            m_callbacks.moduleSuffix(eventIndex, moduleIndex, data, size);
+            m_callbacks.groupSuffix(eventIndex, moduleIndex, data, size);
         }
 
         void processTimetick() override
@@ -273,11 +276,13 @@ class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
 
 
     private:
-        mesytec::mvlc::ReadoutParserCallbacks m_callbacks;
+        readout_parser::ReadoutParserCallbacks m_callbacks;
 };
 
 void process_one_listfile(const QString &filename, const std::vector<RawDataPlugin> &plugins)
 {
+#warning "Refactor listfile_reader to use mesytec-mvlc lib"
+#if 0
     auto replayHandle = open_listfile(filename);
 
     std::unique_ptr<VMEConfig> vmeConfig;
@@ -341,7 +346,7 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
     QObject::connect(replayWorker.get(), &ListfileReplayWorker::replayStopped,
                      &replayThread, &QThread::quit);
 
-    using namespace mesytec::mvlc;
+    using namespace mesytec::mvme_mvlc;
 
     memory::Arena arena(4096);
     auto runDescription = make_run_description(arena, filename, *vmeConfig);
@@ -358,7 +363,7 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
 
     auto moduleDataList = arena.pushArray<ModuleData>(maxModuleCount);
 
-    ReadoutParserCallbacks callbacks{};
+    readout_parser::ReadoutParserCallbacks callbacks{};
 
     callbacks.beginEvent = [&] (int ei)
     {
@@ -518,6 +523,7 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
     // This could be done by implementing a IMVMEStreamModuleConsumer and
     // attaching this to an instance of MVMEStreamWorker.
     // This would also work for the MVLC side as the MVLC_StreamWorker supports.
+#endif
 }
 
 int main(int argc, char *argv[])

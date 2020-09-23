@@ -32,10 +32,10 @@ mvme_stream::StreamInfo streaminfo_from_vmeconfig(VMEConfig *vmeConfig, u32 list
 
     for (s32 ei = 0; ei < eventConfigs.size(); ei++)
     {
+#if 0
         auto event = eventConfigs[ei];
 
         // FIXME: this stuff moved to the analysis side now (18/06/04)
-#if 0
         streamInfo.multiEventEnabled.set(ei, event->isMultiEventProcessingEnabled());
 
         auto moduleConfigs = event->getModuleConfigs();

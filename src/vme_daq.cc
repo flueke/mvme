@@ -28,13 +28,14 @@
 #include "mvme_listfile_utils.h"
 #include "util_zip.h"
 #include "vme_config_scripts.h"
+#include "vme_script.h"
 
 using namespace mesytec::mvme;
 
 //
 // vme_daq_init
 //
-QVector<ScriptWithResult>
+QVector<ScriptWithResults>
 vme_daq_init(
     VMEConfig *config,
     VMEController *controller,
@@ -42,9 +43,26 @@ vme_daq_init(
     vme_script::run_script_options::Flag opts
     )
 {
+    return vme_daq_init(
+        config,
+        controller,
+        logger,
+        logger,
+        opts);
+}
+
+QVector<ScriptWithResults>
+vme_daq_init(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts
+    )
+{
     using namespace vme_script::run_script_options;
 
-    QVector<ScriptWithResult> ret;
+    QVector<ScriptWithResults> ret;
 
     auto startScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
         "daq_start")->findChildren<VMEScriptConfig *>();
@@ -60,14 +78,26 @@ vme_daq_init(
 
             logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
+            auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
 
-            auto script = parse(scriptConfig);
-            auto results = run_script(controller, script, indentingLogger,
-                opts | LogEachResult);
+            try
+            {
+                auto script = parse(scriptConfig);
+                auto results = run_script(controller, script, indentingLogger, indentingErrorLogger,
+                    opts | LogEachResult);
 
-            ret.push_back({ scriptConfig, results });
-            if ((opts & AbortOnError) && has_errors(results))
-                return ret;
+                ret.push_back({ scriptConfig, results});
+
+                if ((opts & AbortOnError) && has_errors(results))
+                    return ret;
+            }
+            catch (const vme_script::ParseError &e)
+            {
+                ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
+
+                if (opts & AbortOnError)
+                    return ret;
+            }
         }
     }
 
@@ -99,14 +129,27 @@ vme_daq_init(
             {
                 logger(QSL("    %1").arg(scriptConfig->objectName()));
                 auto indentingLogger = [logger](const QString &str) { logger(QSL("      ") + str); };
+                auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("      ") + str); };
 
-                auto script = parse(scriptConfig, module->getBaseAddress());
-                auto results = run_script(
-                    controller, script,
-                    indentingLogger, opts | LogEachResult);
-                ret.push_back({ scriptConfig, results });
-                if ((opts & AbortOnError) && has_errors(results))
-                    return ret;
+                try
+                {
+                    auto script = parse(scriptConfig, module->getBaseAddress());
+                    auto results = run_script(
+                        controller, script,
+                        indentingLogger, indentingErrorLogger, opts | LogEachResult);
+
+                    ret.push_back({ scriptConfig, results });
+
+                    if ((opts & AbortOnError) && has_errors(results))
+                        return ret;
+                }
+                catch (const vme_script::ParseError &e)
+                {
+                    ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
+
+                    if (opts & AbortOnError)
+                        return ret;
+                }
             }
         }
     }
@@ -115,16 +158,28 @@ vme_daq_init(
     for (auto eventConfig: config->getEventConfigs())
     {
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
+        auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
         auto scriptConfig = eventConfig->vmeScripts["daq_start"];
-        auto script = parse(scriptConfig);
 
-        if (!script.isEmpty())
-            logger(QString("  %1").arg(eventConfig->objectName()));
+        try
+        {
+            auto script = parse(scriptConfig);
 
-        auto results = run_script(controller, script, indentingLogger, opts | LogEachResult);
-        ret.push_back({ scriptConfig, results });
-        if ((opts & AbortOnError) && has_errors(results))
-            return ret;
+            if (!script.isEmpty())
+                logger(QString("  %1").arg(eventConfig->objectName()));
+
+            auto results = run_script(controller, script, indentingLogger, indentingErrorLogger, opts | LogEachResult);
+            ret.push_back({ scriptConfig, results });
+            if ((opts & AbortOnError) && has_errors(results))
+                return ret;
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
+
+            if (opts & AbortOnError)
+                return ret;
+        }
     }
 
     return ret;
@@ -133,7 +188,7 @@ vme_daq_init(
 //
 // vme_daq_shutdown
 //
-QVector<ScriptWithResult>
+QVector<ScriptWithResults>
 vme_daq_shutdown(
     VMEConfig *config,
     VMEController *controller,
@@ -141,9 +196,25 @@ vme_daq_shutdown(
     vme_script::run_script_options::Flag opts
     )
 {
+    return vme_daq_shutdown(config, controller, logger, logger, opts);
+}
+
+QVector<ScriptWithResults>
+vme_daq_shutdown(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts
+    )
+{
     using namespace vme_script::run_script_options;
 
-    QVector<ScriptWithResult> ret;
+    QVector<ScriptWithResults> ret;
+
+    logger(QSL("DAQ stopped on %1")
+           .arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
+    logger("");
 
     logger(QSL("DAQ stopped on %1")
            .arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
@@ -154,13 +225,28 @@ vme_daq_shutdown(
     {
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
+        auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
         auto scriptConfig = eventConfig->vmeScripts["daq_stop"];
-        auto script = parse(scriptConfig);
-        auto results = run_script(controller, script, indentingLogger,
-                                  opts | LogEachResult);
-        ret.push_back({ scriptConfig, results });
-        if ((opts & AbortOnError) && has_errors(results))
-            return ret;
+
+        try
+        {
+            auto script = parse(scriptConfig);
+            auto results = run_script(
+                controller, script,
+                indentingLogger, indentingErrorLogger,
+                opts | LogEachResult);
+
+            ret.push_back({ scriptConfig, results });
+            if ((opts & AbortOnError) && has_errors(results))
+                return ret;
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
+
+            if (opts & AbortOnError)
+                return ret;
+        }
     }
 
     auto stopScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
@@ -176,12 +262,26 @@ vme_daq_shutdown(
 
             logger(QString("  %1").arg(scriptConfig->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            auto script = parse(scriptConfig);
-            auto results = run_script(controller, script, indentingLogger,
-                                      opts | LogEachResult);
-            ret.push_back({ scriptConfig, results });
-            if ((opts & AbortOnError) && has_errors(results))
-                return ret;
+            auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
+            try
+            {
+                auto script = parse(scriptConfig);
+                auto results = run_script(
+                    controller, script,
+                    indentingLogger, indentingErrorLogger,
+                    opts | LogEachResult);
+
+                ret.push_back({ scriptConfig, results });
+                if ((opts & AbortOnError) && has_errors(results))
+                    return ret;
+            }
+            catch (const vme_script::ParseError &e)
+            {
+                ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
+
+                if (opts & AbortOnError)
+                    return ret;
+            }
         }
     }
 
@@ -460,6 +560,27 @@ void DAQReadoutListfileHelper::endRun()
                     }
                 }
 
+                // run_notes
+                {
+                    QuaZipNewInfo info("mvme_run_notes.txt");
+                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                    QuaZipFile outFile(&m_d->listfileArchive);
+
+                    bool res = outFile.open(QIODevice::WriteOnly, info,
+                                            // password, crc
+                                            nullptr, 0,
+                                            // method (Z_DEFLATED or 0 for no compression)
+                                            0,
+                                            // level
+                                            m_readoutContext.listfileOutputInfo->compressionLevel
+                                           );
+
+                    if (res)
+                    {
+                        outFile.write(m_readoutContext.getRunNotes().toLocal8Bit());
+                    }
+                }
+
                 m_d->listfileArchive.close();
 
                 if (m_d->listfileArchive.getZipError() != UNZ_OK)
@@ -531,36 +652,40 @@ void DAQReadoutListfileHelper::writeResumeSection()
     }
 }
 
-bool has_errors(const QVector<ScriptWithResult> &results)
+bool has_errors(const QVector<ScriptWithResults> &results)
 {
     for (const auto &swr: results)
     {
-        for (auto &result: swr.results)
-        {
-            if (result.error.isError())
-                return true;
-        }
+        if (has_errors(swr.results) || swr.parseError)
+            return true;
     }
 
     return false;
 }
 
-void log_errors(const QVector<ScriptWithResult> &results,
+void log_errors(const QVector<ScriptWithResults> &results,
                 std::function<void (const QString &)> logger)
 {
     for (const auto &swr: results)
     {
-        const auto &script = swr.scriptConfig;
-
-        for (auto &result: swr.results)
+        if (swr.parseError)
         {
-            if (result.error.isError())
+            logger(QSL("Error parsing '%1': %2")
+                   .arg(swr.scriptConfig->getVerboseTitle())
+                   .arg(swr.parseError->toString()));
+        }
+        else
+        {
+            for (auto &result: swr.results)
             {
-                QString msg = QSL("Error from '%1': %2")
-                    .arg(to_string(result.command))
-                    .arg(result.error.toString())
-                    ;
-                logger(msg);
+                if (result.error.isError())
+                {
+                    QString msg = QSL("Error from '%1': %2")
+                        .arg(to_string(result.command))
+                        .arg(result.error.toString())
+                        ;
+                    logger(msg);
+                }
             }
         }
     }

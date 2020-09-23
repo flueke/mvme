@@ -53,10 +53,11 @@ struct LIBMVME_EXPORT ListfileReplayHandle
 
     QString listfileFilename;   // For ZIP archives it's the name of the
                                 // listfile inside the archive. Otherwise the
-                                // same as listfileFilename.
+                                // same as inputFilename.
 
-    QByteArray messages;        // Contents of messages.log if found
-    QByteArray analysisBlob;    // Analysis config contents if present in the archive
+    QByteArray messages;        // Contents of messages.log if found.
+    QByteArray analysisBlob;    // Analysis config contents if present in the archive.
+    QString runNotes;           // Contents of the mvme_run_notes.txt file stored in the archive.
 
     ListfileReplayHandle() = default;
 

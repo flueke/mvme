@@ -23,22 +23,18 @@
 
 #include <cmath>
 #include <cstring>
+#include <iomanip>
 #include <QDebug>
 #include <QFile>
-#include <QTextStream>
-#include <QRegExp>
 #include <QRegularExpression>
-#include <QTextEdit>
-#include <QApplication>
-#include <QThread>
+#include <QTextStream>
 
 #include "util.h"
 #include "util/qt_container.h"
-#include "vme_controller.h"
 #include "vmusb.h"
 
-// FIXME: these should be restructed
-#include "mvlc/mvlc_vme_controller.h"
+// FIXME: the exprtk abstration should be moved to a standalone library. also
+// the a2 structure as a standalone project is useless.
 #include "analysis/a2/a2_exprtk.h"
 
 
@@ -259,6 +255,9 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
 
     Command result;
     result.type = commandType_from_string(args[0]);
+    // FIXME: this is not the actual block address mode for the vme bus.
+    // Instead contains the single transfers amod. The real amod is determined
+    // by the command type instead
     result.addressMode = parseAddressMode(args[1]);
     result.address = parseAddress(args[2]);
     result.transfers = parseValue<u32>(args[3]);
@@ -461,7 +460,7 @@ Command parse_write_float_word(const QStringList &args, int lineNumber)
     return result;
 }
 
-Command parse_print(const QStringList &args, int lineNumber)
+Command parse_print(const QStringList &args, int /*lineNumber*/)
 {
     Command result = {};
     result.type = CommandType::Print;
@@ -1483,6 +1482,11 @@ QString to_string(const Command &cmd)
         case CommandType::SetVariable:
             {
             } break;
+
+        case CommandType::Print:
+            {
+                return cmdStr + cmd.printArgs.join(" ");
+            } break;
     }
 
     return buffer;
@@ -1508,6 +1512,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
+        case CommandType::Print:
             break;
 
         case CommandType::Read:
@@ -1522,327 +1527,6 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
             break;
     }
     return cmd;
-}
-
-/* Adapted from the QSyntaxHighlighter documentation. */
-void SyntaxHighlighter::highlightBlock(const QString &text)
-{
-    static const QRegularExpression reComment("#.*$");
-    static const QRegExp reMultiStart("/\\*");
-    static const QRegExp reMultiEnd("\\*/");
-
-    QTextCharFormat commentFormat;
-    commentFormat.setForeground(Qt::blue);
-
-    setCurrentBlockState(0);
-
-    int startIndex = 0;
-    if (previousBlockState() != 1)
-    {
-        startIndex = text.indexOf(reMultiStart);
-    }
-
-    while (startIndex >= 0)
-    {
-        int endIndex = text.indexOf(reMultiEnd, startIndex);
-        int commentLength;
-        if (endIndex == -1)
-        {
-            setCurrentBlockState(1);
-            commentLength = text.length() - startIndex;
-        }
-        else
-        {
-            commentLength = endIndex - startIndex + reMultiEnd.matchedLength() + 3;
-        }
-        setFormat(startIndex, commentLength, commentFormat);
-        startIndex = text.indexOf(reMultiStart, startIndex + commentLength);
-    }
-
-    QRegularExpressionMatch match;
-    int index = text.indexOf(reComment, 0, &match);
-    if (index >= 0)
-    {
-        int length = match.capturedLength();
-        setFormat(index, length, commentFormat);
-    }
-}
-
-ResultList run_script(
-    VMEController *controller, const VMEScript &script,
-    LoggerFun logger, const run_script_options::Flag &options)
-{
-    int cmdNumber = 1;
-    ResultList results;
-
-    for (auto cmd: script)
-    {
-        if (cmd.type != CommandType::Invalid)
-        {
-            if (!cmd.warning.isEmpty())
-            {
-                logger(QString("Warning: %1 on line %2 (cmd=%3)")
-                       .arg(cmd.warning)
-                       .arg(cmd.lineNumber)
-                       .arg(to_string(cmd.type))
-                      );
-            }
-
-
-#if 0
-            if (auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(controller))
-            {
-                qDebug() << __FUNCTION__
-                    << "mvlc cmd read timeout="
-                    << mvlc->getMVLCObject()->getReadTimeout(mesytec::mvlc::Pipe::Command)
-                    << "mvlc cmd write timeout="
-                    << mvlc->getMVLCObject()->getWriteTimeout(mesytec::mvlc::Pipe::Command);
-            }
-#endif
-
-            auto tStart = QDateTime::currentDateTime();
-
-            //qDebug() << __FUNCTION__
-            //    << tStart << "begin run_command" << cmdNumber << "of" << script.size();
-
-            auto result = run_command(controller, cmd, logger);
-
-            auto tEnd = QDateTime::currentDateTime();
-            results.push_back(result);
-
-            //qDebug() << __FUNCTION__
-            //    << tEnd
-            //    << "  " << cmdNumber << "of" << script.size() << ":"
-            //    << format_result(result)
-            //    << "duration:" << tStart.msecsTo(tEnd) << "ms";
-
-            if (options & run_script_options::LogEachResult)
-                logger(format_result(result));
-
-            if ((options & run_script_options::AbortOnError)
-                && result.error.isError())
-            {
-                break;
-            }
-        }
-
-        ++cmdNumber;
-    }
-
-    return results;
-}
-
-Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger)
-{
-    /*
-    if (logger)
-        logger(to_string(cmd));
-    */
-
-    Result result;
-
-    result.command = cmd;
-
-    switch (cmd.type)
-    {
-        case CommandType::Invalid:
-            /* Note: SetBase and ResetBase have already been handled at parse time. */
-        case CommandType::SetBase:
-        case CommandType::ResetBase:
-        case CommandType::SetVariable:
-            break;
-
-        case CommandType::Read:
-            {
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        {
-                            uint16_t value = 0;
-                            result.error = controller->read16(cmd.address, &value, cmd.addressMode);
-                            result.value = value;
-                        } break;
-                    case DataWidth::D32:
-                        {
-                            uint32_t value = 0;
-                            result.error = controller->read32(cmd.address, &value, cmd.addressMode);
-                            result.value = value;
-                        } break;
-                }
-            } break;
-
-        case CommandType::Write:
-        case CommandType::WriteAbs:
-            {
-                switch (cmd.dataWidth)
-                {
-                    case DataWidth::D16:
-                        result.error = controller->write16(cmd.address, cmd.value, cmd.addressMode);
-                        break;
-                    case DataWidth::D32:
-                        result.error = controller->write32(cmd.address, cmd.value, cmd.addressMode);
-                        break;
-                }
-            } break;
-
-        case CommandType::Wait:
-            {
-                QThread::msleep(cmd.delay_ms);
-            } break;
-
-        case CommandType::Marker:
-            {
-                result.value = cmd.value;
-            } break;
-
-        case CommandType::BLT:
-            {
-                result.error = controller->blockRead(
-                    cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::BLT32, false);
-            } break;
-
-        case CommandType::BLTFifo:
-            {
-                result.error = controller->blockRead(
-                    cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::BLT32, true);
-            } break;
-
-        case CommandType::MBLT:
-            {
-                result.error = controller->blockRead(
-                    cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::MBLT64, false);
-            } break;
-
-        case CommandType::MBLTFifo:
-            {
-                result.error = controller->blockRead(
-                    cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::MBLT64, true);
-            } break;
-
-        case CommandType::VMUSB_WriteRegister:
-            if (auto vmusb = qobject_cast<VMUSB *>(controller))
-            {
-                result.error = vmusb->writeRegister(cmd.address, cmd.value);
-            }
-            else
-            {
-                result.error = VMEError(VMEError::WrongControllerType,
-                                        QSL("VMUSB controller required"));
-            } break;
-
-        case CommandType::VMUSB_ReadRegister:
-            if (auto vmusb = qobject_cast<VMUSB *>(controller))
-            {
-                result.value = 0u;
-                result.error = vmusb->readRegister(cmd.address, &result.value);
-            }
-            else
-            {
-                result.error = VMEError(VMEError::WrongControllerType,
-                                        QSL("VMUSB controller required"));
-            } break;
-
-        case CommandType::MVLC_WriteSpecial:
-            {
-                auto msg = QSL("mvlc_writespecial is not supported by vme_script::run_command().");
-                result.error = VMEError(VMEError::UnsupportedCommand, msg);
-                if (logger) logger(msg);
-            }
-            break;
-
-        case CommandType::MetaBlock:
-        case CommandType::Blk2eSST64:
-        case CommandType::Print:
-            break;
-    }
-
-    return result;
-}
-
-QString format_result(const Result &result)
-{
-    if (result.error.isError())
-    {
-        QString ret = QString("Error from \"%1\": %2")
-            .arg(to_string(result.command))
-            .arg(result.error.toString());
-
-#if 0 // too verbose
-        if (auto ec = result.error.getStdErrorCode())
-        {
-            ret += QString(" (std::error_code: msg=%1, value=%2, cat=%3)")
-                .arg(ec.message().c_str())
-                .arg(ec.value())
-                .arg(ec.category().name());
-        }
-#endif
-
-        return ret;
-    }
-
-    QString ret(to_string(result.command));
-
-    switch (result.command.type)
-    {
-        case CommandType::Invalid:
-        case CommandType::Wait:
-        case CommandType::Marker:
-        case CommandType::SetBase:
-        case CommandType::ResetBase:
-        case CommandType::MVLC_WriteSpecial:
-        case CommandType::MetaBlock:
-        case CommandType::SetVariable:
-            break;
-
-        case CommandType::Write:
-        case CommandType::WriteAbs:
-        case CommandType::VMUSB_WriteRegister:
-            // Append the decimal form of the written value and a message that
-            // the write was ok.
-            ret += QSL(" (%1 dec), write ok").arg(result.command.value);
-            break;
-
-        case CommandType::Read:
-            ret += QString(" -> 0x%1 (%2 dec)")
-                .arg(result.value, 8, 16, QChar('0'))
-                .arg(result.value)
-                ;
-            break;
-
-        case CommandType::BLT:
-        case CommandType::BLTFifo:
-        case CommandType::MBLT:
-        case CommandType::MBLTFifo:
-        case CommandType::Blk2eSST64:
-            {
-                ret += "\n";
-                for (int i=0; i<result.valueVector.size(); ++i)
-                {
-                    ret += QString(QSL("%1: 0x%2\n"))
-                        .arg(i, 2, 10, QChar(' '))
-                        .arg(result.valueVector[i], 8, 16, QChar('0'));
-                }
-            } break;
-
-        case CommandType::VMUSB_ReadRegister:
-            ret += QSL(" -> 0x%1, %2")
-                .arg(result.value, 8, 16, QChar('0'))
-                .arg(result.value)
-                ;
-            break;
-
-        case CommandType::Print:
-            {
-                ret = result.command.printArgs.join(' ');
-            }
-            break;
-    }
-
-    return ret;
 }
 
 Command get_first_meta_block(const VMEScript &commands)

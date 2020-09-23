@@ -34,13 +34,14 @@
 #include "util/qt_container.h"
 #include "util/qt_monospace_textedit.h"
 #include "vme_script.h"
+#include "vme_script_util.h"
 
 namespace mesytec
 {
 
-using namespace mvlc;
-using namespace mvlc::trigger_io;
-using namespace mvlc::trigger_io_config;
+using namespace mvme_mvlc;
+using namespace mvme_mvlc::trigger_io;
+using namespace mvme_mvlc::trigger_io_config;
 
 struct MVLCTriggerIOEditor::Private
 {

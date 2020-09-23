@@ -86,6 +86,8 @@ add_library(libmvme_core SHARED
     util.cc
     vme_controller.cpp
     vme_script.cc
+    vme_script_exec.cc
+    vme_script_util.cc
     vme_script_variables.cc
     vmusb.cpp
     util.cc)
@@ -99,6 +101,7 @@ target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
 target_link_libraries(libmvme_core
     PRIVATE liba2_static
     PRIVATE ${LIBUSB_LIBRARY}
+    PUBLIC mesytec-mvlc
     PUBLIC ${QUAZIP_QT5}
     PUBLIC Qt5::Concurrent
     PUBLIC Qt5::Gui
@@ -106,29 +109,36 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::Widgets
     )
 
+target_compile_options(libmvme_core
+    PRIVATE $<${not-msvc}:-Wall -Wextra>
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
+
 if (WIN32)
     target_link_libraries(libmvme_core PRIVATE ws2_32)
+    target_compile_options(libmvme_core PRIVATE $<${not-msvc}:-Wno-format>)
 endif()
 
-target_compile_options(libmvme_core PRIVATE -Wall -Wextra)
 
-install(TARGETS libmvme_core DESTINATION .)
+install(TARGETS libmvme_core
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 #
 # libmvme_mvlc - MVLC support
 #
 if(MVME_ENABLE_MVLC)
-    set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    set(MVLC_READOUT_PARSER_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-        "mvlc readout parser log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+    #set(MVLC_READOUT_PARSER_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+    #    "mvlc readout parser log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
     qt5_wrap_ui(MVLC_DEV_GUI_UIC
         vme_debug_widget.ui
@@ -137,64 +147,55 @@ if(MVME_ENABLE_MVLC)
 
     add_library(libmvme_mvlc SHARED
         ${MVLC_DEV_GUI_UIC}
-        mvlc/mvlc_basic_mvlc.cc
         mvlc/mvlc_dev_gui.cc
-        mvlc/mvlc_dialog.cc
-        mvlc/mvlc_error.cc
-        mvlc/mvlc_impl_eth.cc
-        mvlc/mvlc_impl_factory.cc
-        mvlc/mvlc_impl_usb.cc
         mvlc/mvlc_qt_object.cc
-        mvlc/mvlc_qt_object.cc
-        mvlc/mvlc_readout_parsers.cc
         mvlc/mvlc_register_names.cc
         mvlc/mvlc_script.cc
         mvlc/mvlc_util.cc
         mvlc/mvlc_vme_controller.cc
         mvlc/mvlc_vme_debug_widget.cc
+        mvlc/readout_parser_support.cc
         )
 
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
     generate_export_header(libmvme_mvlc)
 
     target_link_libraries(libmvme_mvlc
-        PUBLIC ftd3xx
-        PUBLIC libmvme_core
-        )
+        PUBLIC mesytec-mvlc
+        PUBLIC libmvme_core)
 
     if (WIN32)
         target_link_libraries(libmvme_mvlc PRIVATE ws2_32)
+        target_compile_options(libmvme_mvlc PRIVATE -Wno-format)
     endif(WIN32)
 
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
-    target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
-    target_compile_options(libmvme_mvlc PRIVATE -Wall -Wextra)
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
+    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
+    target_compile_options(libmvme_mvlc
+        PRIVATE $<${not-msvc}:-Wall -Wextra>
+        PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+        )
 
-    install(TARGETS libmvme_mvlc DESTINATION .)
+    install(TARGETS libmvme_mvlc
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
 
     # mvlc_dev_gui
     add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
     target_link_libraries(mvlc_dev_gui PRIVATE libmvme_mvlc)
-    install(TARGETS mvlc_dev_gui DESTINATION .)
+    install(TARGETS mvlc_dev_gui
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
 
     # mvlc_dev_win_usb_debug
-    if (WIN32)
-        add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
-        target_link_libraries(mvlc_dev_win_usb_debug
-            PRIVATE libmvme_mvlc
-            )
-    endif (WIN32)
-
-    add_executable(dev_ftdi_list_devices mvlc/dev_ftdi_list_devices)
-    target_link_libraries(dev_ftdi_list_devices ftd3xx)
-
-    add_executable(dev_test_mvlc_usb_impl mvlc/dev_test_mvlc_usb_impl.cc)
-    target_link_libraries(dev_test_mvlc_usb_impl PRIVATE libmvme_mvlc)
-
-    add_executable(dev_test_mvlc_eth_impl mvlc/dev_test_mvlc_eth_impl.cc)
-    target_link_libraries(dev_test_mvlc_eth_impl PRIVATE libmvme_mvlc)
+    #if (WIN32)
+    #    add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
+    #    target_link_libraries(mvlc_dev_win_usb_debug
+    #        PRIVATE libmvme_mvlc
+    #        )
+    #endif (WIN32)
 
     add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
     target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
@@ -207,7 +208,6 @@ if(MVME_ENABLE_MVLC)
             add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
         endfunction(add_mvlc_gtest)
         add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
-        add_mvlc_gtest(test_mvlc_error mvlc/test/test_mvlc_error.cc)
         add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
     endif(BUILD_TESTS)
 endif(MVME_ENABLE_MVLC)
@@ -219,7 +219,7 @@ endif(MVME_ENABLE_MVLC)
 qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui)
 
 add_library(libmvme SHARED
-    "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+    "${CMAKE_SOURCE_DIR}/external/qt-collapsible-section/Section.cpp"
     ${LIBMVME_UIC_OUT}
     analysis/a2_adapter.cc
     analysis/analysis.cc
@@ -264,6 +264,7 @@ add_library(libmvme SHARED
     listfile_replay_worker.cc
     mesytec_diagnostics.cc
     multi_event_splitter.cc
+    mvlc/vmeconfig_to_crateconfig.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
@@ -328,28 +329,37 @@ set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 generate_export_header(libmvme)
 
 target_link_libraries(libmvme
+    PUBLIC mesytec-mvlc
     PUBLIC libmvme_core
     PUBLIC ${QWT_LIBRARY}
+    PUBLIC cpp11-on-multicore
+    PRIVATE nlohmann-json
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
     )
 
+target_compile_options(libmvme
+    PRIVATE $<${not-msvc}:-Wall -Wextra>
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
+
 if (WIN32)
     target_link_libraries(libmvme PRIVATE ws2_32)
+    target_compile_options(libmvme PRIVATE -Wno-format)
 endif()
 
 target_include_directories(libmvme
-    PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
-    PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/jcon-cpp/src/"
+    PRIVATE ${CMAKE_SOURCE_DIR}/external
+    PRIVATE "${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/"
     PUBLIC ${QUAZIP_INCLUDE_DIR}
-    SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/"
+    SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/"
     )
 
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc_daq.cc
-        mvlc_listfile.cc
+        mvme_mvlc_listfile.cc
         mvlc_listfile_worker.cc
         mvlc/mvlc_trigger_io.cc
         mvlc/mvlc_trigger_io_editor.cc
@@ -369,15 +379,13 @@ if (MVME_ENABLE_MVLC)
     # (tested with 3.7.2).
     target_include_directories(libmvme
         PRIVATE ${MVME_YAML_DIR}/include
-        PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty/minbool
+        PRIVATE ${CMAKE_SOURCE_DIR}/external/minbool
         #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>
         )
 
     # The above still did not work under debian9. So the next line add
     # yaml-cpp to the global include paths.
     #include_directories(${MVME_YAML_DIR}/include)
-
-    target_compile_options(libmvme PRIVATE -Wall -Wextra)
 
     add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
     target_link_libraries(dev_mvlc_daq_init libmvme)
@@ -390,12 +398,19 @@ if (MVME_ENABLE_MVLC)
 
     if (NOT WIN32)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
-        target_link_libraries(dev_mvlc_dump_eth_file
-            PRIVATE libmvme)
+        target_link_libraries(dev_mvlc_dump_eth_file PRIVATE libmvme)
     endif(NOT WIN32)
+
+    add_executable(mvlc_listfile_updater mvlc_listfile_updater.cc)
+    target_link_libraries(mvlc_listfile_updater PRIVATE libmvme)
+    install(TARGETS mvlc_listfile_updater
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
 endif()
 
-install(TARGETS libmvme DESTINATION .)
+install(TARGETS libmvme
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 #
 # mvme - the main GUI binary
@@ -413,17 +428,26 @@ target_link_libraries(mvme
     PRIVATE libmvme
     )
 
-target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
+target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
-target_compile_options(mvme PRIVATE -Wall -Wextra)
+target_compile_options(mvme
+    PRIVATE $<${not-msvc}:-Wall -Wextra>
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
 
-install(TARGETS mvme DESTINATION .)
+if (WIN32)
+    target_compile_options(mvme PRIVATE -Wno-format)
+endif()
+
+install(TARGETS mvme
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 # Helper for additional utility / debug binaries and alternative launchers.
 function(add_mvme_executable exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
     target_link_libraries(${exe_name} PRIVATE libmvme)
-    target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty)
+    target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/external)
 endfunction(add_mvme_executable)
 
 #
@@ -470,7 +494,14 @@ add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 add_mvme_executable(dev_configobject_testing "dev_configobject_testing.cc")
 add_mvme_executable(dev_vme_config_ui_variable_editor "dev_vme_config_variable_editor.cc")
 add_mvme_executable(dev_zip_write_test zip-write-test.cc)
+add_mvme_executable(dev_variantmap_to_json_test "dev_variantmap_to_json_test.cc")
 target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
+
+
+if(MVME_ENABLE_MVLC)
+    add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
+    target_link_libraries(mvme_to_mvlc PRIVATE mesytec-mvlc)
+endif(MVME_ENABLE_MVLC)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
@@ -488,7 +519,11 @@ if (NOT WIN32)
     find_library(ZLIB z)
     add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
     target_link_libraries(mvme_recover_listfile ${ZLIB})
-    install(TARGETS mvme_recover_listfile DESTINATION .)
+
+    install(TARGETS mvme_recover_listfile
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib)
+
 endif (NOT WIN32)
 
 if(BUILD_TESTS)
@@ -503,7 +538,7 @@ if(BUILD_TESTS)
             PRIVATE Qt5::Widgets
             )
         target_include_directories(${exe_name}
-            PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
+            PRIVATE ${CMAKE_SOURCE_DIR}/external
             )
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_mvme_gtest)

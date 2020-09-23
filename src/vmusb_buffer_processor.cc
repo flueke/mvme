@@ -291,10 +291,12 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
         u32 header1 = iter.extractU16();
 
+#if 0
         bool lastBuffer     = header1 & Buffer::LastBufferMask;
         bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
         bool continuousMode = header1 & Buffer::ContinuationMask;
         bool multiBuffer    = header1 & Buffer::MultiBufferMask;
+#endif
         u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
 
 #ifdef BPDEBUG
@@ -651,8 +653,6 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
 
         Q_ASSERT(state->moduleIndex >= 0);
         Q_ASSERT(state->streamWriter.moduleHeaderOffset() >= 0);
-
-        s32 moduleIndex = state->moduleIndex;
 
         while (true)
         {

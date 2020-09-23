@@ -66,9 +66,9 @@ Q_DECLARE_METATYPE(GlobalMode);
 
 static const QMap<TriggerCondition, QString> TriggerConditionNames =
 {
-    { TriggerCondition::NIM1,       "NIM1" },
-    { TriggerCondition::Periodic,   "Periodic" },
-    { TriggerCondition::Interrupt,  "Interrupt" },
+    { TriggerCondition::NIM1,               "NIM1" },
+    { TriggerCondition::Periodic,           "Periodic" },
+    { TriggerCondition::Interrupt,          "Interrupt" },
     { TriggerCondition::Input1RisingEdge,   "Input 1 Rising Edge" },
     { TriggerCondition::Input1FallingEdge,  "Input 1 Falling Edge" },
     { TriggerCondition::Input2RisingEdge,   "Input 2 Rising Edge" },
@@ -96,6 +96,7 @@ struct DAQStats
         totalBuffersRead = 0;
         buffersWithErrors = 0;
         droppedBuffers = 0;
+        buffersFlushed = 0;
         listFileBytesWritten = 0;
         listFileTotalBytes = 0;
         startTime = QDateTime::currentDateTime();
@@ -117,6 +118,7 @@ struct DAQStats
                                 // not represent the number of "good" buffers.
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
     u64 droppedBuffers = 0;     // number of buffers not passed to the analysis due to the queue being full
+    u64 buffersFlushed = 0;     // Number of buffers flushed to the output queue (from readout or replay to the analysis side).
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename; // For replay mode: the current replay filename
@@ -129,11 +131,12 @@ enum class ListFileFormat
 {
     Invalid,
     Plain,
-    ZIP
+    ZIP,
+    LZ4
 };
 
 QString toString(const ListFileFormat &fmt);
-ListFileFormat fromString(const QString &str);
+ListFileFormat listFileFormat_fromString(const QString &str);
 
 struct ListFileOutputInfo
 {
@@ -152,7 +155,7 @@ struct ListFileOutputInfo
     QString fullDirectory;      // Always the full path to the listfile output directory.
                                 // This is transient and not stored in the workspace settings.
 
-    int compressionLevel = 1;   // zlib compression level
+    int compressionLevel = 1;   // zlib/lz4 compression level
 
     QString prefix = QSL("mvmelst");
 

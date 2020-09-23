@@ -1,15 +1,20 @@
 # A small standalone test client for the mvme analysis event_server component.
 add_executable(mvme_event_server_example_client event_server_example_client.cc)
 
-target_include_directories(mvme_event_server_example_client
-    PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
-    )
+target_link_libraries(mvme_event_server_example_client
+    PUBLIC nlohmann-json)
+
+#target_include_directories(mvme_event_server_example_client
+#    PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty
+#    )
 
 if (WIN32)
-    target_link_libraries(mvme_event_server_example_client ws2_32)
+    target_link_libraries(mvme_event_server_example_client PRIVATE ws2_32)
 endif (WIN32)
 
-install(TARGETS mvme_event_server_example_client DESTINATION .)
+install(TARGETS mvme_event_server_example_client
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mvme_root_client/"
     DESTINATION share/mvme_root_client)

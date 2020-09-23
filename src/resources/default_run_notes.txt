@@ -1,0 +1,6 @@
+A place to write down notes about the current DAQ setup and run.
+
+At the end of a DAQ run the current contents of the editor window will be stored inside
+the listfile archive in a file called 'run_notes.txt'.
+
+When replaying from file the archived contents will be shown in this editor window.

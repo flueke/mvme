@@ -29,12 +29,12 @@
 #include <QString>
 #include <QStringList>
 
-#include "mvlc/mvlc_constants.h"
+#include <mesytec-mvlc/mvlc_constants.h>
 #include "typedefs.h"
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io
 {
@@ -424,7 +424,7 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
 }
 
 } // end namespace trigger_io
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_TRIGGER_IO_H__ */

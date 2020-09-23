@@ -30,18 +30,23 @@ QString toString(const ListFileFormat &fmt)
             return QSL("Plain");
         case ListFileFormat::ZIP:
             return QSL("ZIP");
+        case ListFileFormat::LZ4:
+            return QSL("LZ4");
     }
 
     return QString();
 }
 
-ListFileFormat fromString(const QString &str)
+ListFileFormat listFileFormat_fromString(const QString &str)
 {
     if (str == "Plain")
         return ListFileFormat::Plain;
 
     if (str == "ZIP")
         return ListFileFormat::ZIP;
+
+    if (str == "LZ4")
+        return ListFileFormat::LZ4;
 
     return ListFileFormat::Invalid;
 }
@@ -75,6 +80,7 @@ QString generate_output_filename(const ListFileOutputInfo &info)
             break;
 
         case ListFileFormat::ZIP:
+        case ListFileFormat::LZ4:
             result += QSL(".zip");
             break;
 

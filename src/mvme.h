@@ -96,6 +96,7 @@ public slots:
     void onActionOpenVMEConfig_triggered();
     bool onActionSaveVMEConfig_triggered();
     bool onActionSaveVMEConfigAs_triggered();
+    bool onActionExportVMEConfig_triggered();
 
     void loadConfig(const QString &fileName);
 
@@ -156,8 +157,8 @@ private slots:
     void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
                             RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
-    void handleSniffedInputBuffer(const DataBuffer &buffer);
-
+    void handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
+    void showRunNotes();
 
 private:
     MVMEWindowPrivate *m_d;

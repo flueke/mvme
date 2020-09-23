@@ -45,10 +45,10 @@
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QThread>
+#include <mesytec-mvlc/mvlc_constants.h>
 
 #include "analysis/analysis.h"
 #include "data_filter_edit.h"
-#include "mvlc/mvlc_constants.h"
 #include "qt-collapsible-section/Section.h"
 #include "vme_config.h"
 #include "vme_script.h"
@@ -158,7 +158,7 @@ EventConfigDialog::EventConfigDialog(
             m_d->stack_options, &QStackedWidget::setCurrentIndex);
 
     connect(m_d->combo_condition, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this] (int index) { m_d->on_trigger_condition_changed(); });
+            this, [this] (int /*index*/) { m_d->on_trigger_condition_changed(); });
 
     connect(m_d->spin_irqLevel, qOverload<int>(&QSpinBox::valueChanged),
             this, [this] () { m_d->on_irq_level_changed(); });
@@ -270,7 +270,8 @@ EventConfigDialog::EventConfigDialog(
                     auto on_timer_base_changed = [this] (const QString &unit)
                     {
                         m_d->spin_timerPeriod->setSuffix(QSL(" ") + unit);
-                        m_d->spin_timerPeriod->setMinimum(unit == "ns" ? mvlc::stacks::TimerPeriodMin_ns : 1);
+                        m_d->spin_timerPeriod->setMinimum(
+                            unit == "ns" ? mvlc::stacks::TimerPeriodMin_ns : 1);
                         m_d->spin_timerPeriod->setMaximum(mvlc::stacks::TimerPeriodMax);
                     };
 
@@ -335,8 +336,6 @@ void EventConfigDialog::loadFromConfig()
         m_d->combo_condition->setCurrentIndex(condIndex);
     }
 
-    // FIXME: for new events adjust the IRQ value to be one plus the current
-    // highest IRQ value used.
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
     m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
@@ -502,8 +501,6 @@ ModuleConfigDialog::ModuleConfigDialog(
     const bool isNewModule = (module->getModuleMeta().typeId
                               == vats::VMEModuleMeta::InvalidTypeId);
 
-    const bool isFirstModuleInEvent = (parentEvent->getModuleConfigs().size() == 0);
-
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -533,7 +530,7 @@ ModuleConfigDialog::ModuleConfigDialog(
     layout->addRow(gb_variables);
     layout->addRow(bb);
 
-    auto onTypeComboIndexChanged = [this](int index)
+    auto onTypeComboIndexChanged = [this](int /*index*/)
     {
         u8 typeId = typeCombo->currentData().toUInt();
 

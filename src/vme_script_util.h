@@ -22,10 +22,28 @@
 #define __MVME_VME_SCRIPT_UTIL_H__
 
 #include <QMultiMap>
+#include <QSyntaxHighlighter>
 #include "vme_script.h"
+#include "libmvme_core_export.h"
 
 namespace vme_script
 {
+
+inline bool is_block_read_command(const CommandType &cmdType)
+{
+    switch (cmdType)
+    {
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+        case CommandType::Blk2eSST64:
+            return true;
+        default: break;
+    }
+    return false;
+}
+
 
 using WritesCollection = QMultiMap<u32, u32>;
 
@@ -51,6 +69,14 @@ inline WritesCollection collect_writes(const QString &scriptText, SymbolTables &
 {
     return collect_writes(parse(scriptText, symtabs, baseAddress));
 }
+
+class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
+{
+    using QSyntaxHighlighter::QSyntaxHighlighter;
+
+    protected:
+        virtual void highlightBlock(const QString &text) override;
+};
 
 } // end namespace vme_script
 

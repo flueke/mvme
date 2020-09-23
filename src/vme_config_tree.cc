@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_tree.h"
+#include "vme_config_tree_p.h"
 
 #include <QClipboard>
 #include <QDebug>
@@ -34,6 +35,7 @@
 #include <QShortcut>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QUrl>
 
 #include "mvme.h"
 #include "mvme_stream_worker.h"
@@ -71,7 +73,11 @@ enum DataRole
 class TreeNode: public QTreeWidgetItem
 {
     public:
-        using QTreeWidgetItem::QTreeWidgetItem;
+        explicit TreeNode(int type = QTreeWidgetItem::Type)
+            : QTreeWidgetItem(type)
+        {
+            setFlags(flags() & ~(Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
+        }
 };
 
 class EventNode: public TreeNode
@@ -126,7 +132,6 @@ bool should_draw_node_disabled(QTreeWidgetItem *node)
 
     return false;
 }
-
 
 class VMEConfigTreeItemDelegate: public QStyledItemDelegate
 {
@@ -192,9 +197,178 @@ std::unique_ptr<QMenu> make_menu_new_aux_script(
     return result;
 }
 
+void disable_drag_and_drop(QTreeWidgetItem *node)
+{
+    node->setFlags(node->flags() & ~(Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
+}
+
+void enable_drag_and_drop(QTreeWidgetItem *node)
+{
+    node->setFlags(node->flags() | (Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
+}
+
+QVector<QUuid> decode_id_list(QByteArray data) // FIXME: identical to the one in analysis/ui_eventwidget.cc
+{
+    QDataStream stream(&data, QIODevice::ReadOnly);
+    QVector<QByteArray> sourceIds;
+    stream >> sourceIds;
+
+    QVector<QUuid> result;
+    result.reserve(sourceIds.size());
+
+    for (const auto &idData: sourceIds)
+    {
+        result.push_back(QUuid(idData));
+    }
+
+    return result;
+}
+
+// FIXME: identical to the one in analysis/ui_lib.
+template<typename T>
+T *get_pointer(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
+{
+    return node ? reinterpret_cast<T *>(node->data(0, dataRole).value<void *>()) : nullptr;
+}
+
+// FIXME: identical to the one in analysis/ui_lib.
+inline QObject *get_qobject(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
+{
+    return get_pointer<QObject>(node, dataRole);
+}
+
+static const QString VMEConfigObjectIdListMIMEType = QSL("application/x-mvme-vmeconfig-object-id-list");
+
+VMEConfigTree::VMEConfigTree(VMEConfigTreeWidget *configWidget)
+    : m_configWidget(configWidget)
+{
+}
+
+QStringList VMEConfigTree::mimeTypes() const
+{
+    return { VMEConfigObjectIdListMIMEType };
+}
+
+QMimeData *VMEConfigTree::mimeData(const QList<QTreeWidgetItem *> items) const
+{
+    QVector<QByteArray> idData;
+
+    for (auto item: items)
+    {
+        switch (item->type())
+        {
+            case NodeType_VMEScript:
+                if (auto source = get_pointer<VMEScriptConfig>(item, DataRole_Pointer))
+                    idData.push_back(source->getId().toByteArray());
+                break;
+
+            case NodeType_Container:
+                if (auto source = get_pointer<ContainerObject>(item, DataRole_Pointer))
+                    idData.push_back(source->getId().toByteArray());
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    QByteArray buffer;
+    QDataStream stream(&buffer, QIODevice::WriteOnly);
+    stream << idData;
+
+    auto result = new QMimeData;
+    result->setData(VMEConfigObjectIdListMIMEType, buffer);
+
+    return result;
+}
+
+bool VMEConfigTree::dropMimeData(
+    QTreeWidgetItem *parentItem,
+    int parentIndex,
+    const QMimeData *data,
+    Qt::DropAction action)
+{
+    qDebug() << __PRETTY_FUNCTION__
+        << "parentItem=" << parentItem
+        << ", parentIndex=" << parentIndex
+        << ", data=" << data
+        << ", action=" << action;
+
+    if (!(action == Qt::MoveAction /*|| action == Qt::CopyAction*/))
+        return false;
+
+    if (!parentItem)
+        return false;
+
+    if (parentItem->type() != NodeType_Container)
+        return false;
+
+    auto destContainer = get_pointer<ContainerObject>(parentItem);
+
+    if (!destContainer)
+        return false;
+
+    const auto mimeType = VMEConfigObjectIdListMIMEType;
+
+    if (!data->hasFormat(mimeType))
+        return false;
+
+    auto ids = decode_id_list(data->data(mimeType));
+
+    if (ids.isEmpty())
+        return false;
+
+    auto vmeConfig = m_configWidget->getConfig();
+
+    if (!vmeConfig)
+        return false;
+
+    // Collect source objects (Note: this can currently only be a single object
+    // because multi selections are not possible.
+    std::vector<ConfigObject *> sourceObjects;
+
+    for (auto sid: ids)
+    {
+        auto &root = vmeConfig->getGlobalObjectRoot();
+
+        auto sourceObject = root.findChildByPredicate<ConfigObject *>(
+            [&sid](ConfigObject *obj) { return obj->getId() == sid; });
+
+        if (sourceObject)
+        {
+            qDebug() << "found sourceObject" << sourceObject;
+            sourceObjects.push_back(sourceObject);
+        }
+    }
+
+    if (sourceObjects.empty() || sourceObjects.size() > 1)
+        return false;
+
+    assert(sourceObjects.size() == 1);
+
+    auto sourceObject = sourceObjects[0];
+
+    auto sourceParentContainer = qobject_cast<ContainerObject *>(sourceObject->parent());
+
+    if (!sourceParentContainer)
+        return false;
+
+    qDebug() << "moving" << sourceObject << "from parentContainer" << sourceParentContainer
+        << "into destContainer" << destContainer;
+
+    sourceParentContainer->removeChild(sourceObject);
+    destContainer->addChild(sourceObject, parentIndex);
+
+    // FIXME: move/copy the config objects here
+
+    // Always return false to stop the QTreeWidget implementation from updating
+    // its internal model. We update things ourselves.
+    return false;
+}
+
 VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     : QWidget(parent)
-    , m_tree(new QTreeWidget(this))
+    , m_tree(new VMEConfigTree(this))
 {
     m_tree->setColumnCount(2);
     m_tree->setExpandsOnDoubleClick(true);
@@ -202,6 +376,12 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     m_tree->setIndentation(10);
     m_tree->setItemDelegate(new VMEConfigTreeItemDelegate(this));
     m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed);
+
+    // dragndrop
+    m_tree->setDragEnabled(true);
+    m_tree->viewport()->setAcceptDrops(true);
+    m_tree->setDropIndicatorShown(true);
+    m_tree->setDragDropMode(QAbstractItemView::DragDrop);
 
     // copy keyboard shortcut
     {
@@ -240,13 +420,12 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     pb_save   = make_action_toolbutton();
     pb_saveAs = make_action_toolbutton();
     pb_editVariables = make_action_toolbutton();
-    //pb_notes  = make_toolbutton(QSL(":/text-document.png"), QSL("Notes"));
-    //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
     QToolButton *pb_moreMenu = nullptr;
 
     {
         auto menu = new QMenu(this);
+        this->menu_more = menu;
         action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
         action_showAdvanced->setCheckable(true);
         connect(action_showAdvanced, &QAction::changed, this,
@@ -290,7 +469,6 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
         buttonLayout->addWidget(sep);
     }
     buttonLayout->addWidget(pb_moreMenu);
-    //buttonLayout->addWidget(pb_notes); TODO: implement this
     buttonLayout->addStretch(1);
 
     // filename label
@@ -333,7 +511,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     pb_editVariables->setDefaultAction(action_editVariables);
 }
 
-void VMEConfigTreeWidget::setupActionButtons()
+void VMEConfigTreeWidget::setupGlobalActions()
 {
     auto actions_ = actions();
 
@@ -352,6 +530,8 @@ void VMEConfigTreeWidget::setupActionButtons()
     pb_load->setDefaultAction(find_action("actionOpenVMEConfig"));
     pb_save->setDefaultAction(find_action("actionSaveVMEConfig"));
     pb_saveAs->setDefaultAction(find_action("actionSaveVMEConfigAs"));
+    if (auto action = find_action("actionExportVMEConfig"))
+        menu_more->addAction(action);
 }
 
 void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
@@ -398,6 +578,10 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 
     m_nodeDAQStop = addObjectNode(m_tree->invisibleRootItem(), stopScriptContainer);
     m_nodeManual = addObjectNode(m_tree->invisibleRootItem(), manualScriptContainer);
+
+    // These nodes are valid drop targets for containers and scripts.
+    for (auto node: { m_nodeDAQStart, m_nodeDAQStop, m_nodeManual })
+        node->setFlags(node->flags() | (Qt::ItemIsDropEnabled));
 
     if (cfg)
     {
@@ -452,8 +636,11 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
     }
 }
 
-void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
+void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild, int parentIndex)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "globalChild=" << globalChild
+        << "nodeForChild=" << m_treeMap.value(globalChild);
+
     // Do nothing if a node for this child already exists.
     //
     // This can happen for example if a container hierarchy is pasted. This
@@ -462,14 +649,17 @@ void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
     // calls makeObjectNode() which recurses to the containers children.  Next
     // this slot will be invoked for the first child of the root for which a
     // node will just have been created.
-    if (auto node = m_treeMap.value(globalChild))
+    if (m_treeMap.value(globalChild))
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "got a node for globalChild" << globalChild << "returning";
         return;
+    }
 
     if (auto parentObject = qobject_cast<ConfigObject *>(globalChild->parent()))
     {
         if (auto parentNode = m_treeMap.value(parentObject))
         {
-            addObjectNode(parentNode, globalChild);
+            addObjectNode(parentNode, parentIndex, globalChild);
             parentNode->setExpanded(true);
         }
     }
@@ -477,6 +667,7 @@ void VMEConfigTreeWidget::onGlobalChildAdded(ConfigObject *globalChild)
 
 void VMEConfigTreeWidget::onGlobalChildAboutToBeRemoved(ConfigObject *globalChild)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "child=" << globalChild;
     delete m_treeMap.take(globalChild);
 }
 
@@ -640,21 +831,50 @@ TreeNode *VMEConfigTreeWidget::makeObjectNode(ConfigObject *obj)
         // Containers that are not directly below the 'global object root' of
         // the vme config are user-created directories. These can be renamed.
         if (cp != &m_config->getGlobalObjectRoot())
+        {
             treeNode->setFlags(treeNode->flags() | Qt::ItemIsEditable);
+        }
 
         // handle the containers children
         addContainerNodes(treeNode, containerObject);
     }
 
-    if (auto scriptObject = qobject_cast<VMEScriptConfig *>(obj))
+    if (qobject_cast<VMEScriptConfig *>(obj))
         treeNode->setFlags(treeNode->flags() | Qt::ItemIsEditable);
 
     return treeNode;
 }
 
-TreeNode *VMEConfigTreeWidget::addObjectNode(QTreeWidgetItem *parentNode, ConfigObject *obj)
+TreeNode *VMEConfigTreeWidget::addObjectNode(
+    QTreeWidgetItem *parentNode,
+    int parentIndex,
+    ConfigObject *obj)
 {
     auto treeNode = makeObjectNode(obj);
+
+    if (!parentNode || parentNode != m_tree->invisibleRootItem())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "enabling dnd for" << treeNode << obj;
+        enable_drag_and_drop(treeNode);
+    }
+
+    parentNode->insertChild(parentIndex, treeNode);
+    m_treeMap[obj] = treeNode;
+
+    return treeNode;
+}
+
+TreeNode *VMEConfigTreeWidget::addObjectNode(
+    QTreeWidgetItem *parentNode,
+    ConfigObject *obj)
+{
+    auto treeNode = makeObjectNode(obj);
+
+    if (!parentNode || parentNode != m_tree->invisibleRootItem())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "enabling dnd for" << treeNode << obj;
+        enable_drag_and_drop(treeNode);
+    }
 
     parentNode->addChild(treeNode);
     m_treeMap[obj] = treeNode;
@@ -664,11 +884,10 @@ TreeNode *VMEConfigTreeWidget::addObjectNode(QTreeWidgetItem *parentNode, Config
 
 void VMEConfigTreeWidget::addContainerNodes(QTreeWidgetItem *parent, ContainerObject *obj)
 {
-    for (auto child: obj->getChildren())
-    {
-        auto childNode = addObjectNode(parent, child);
-        parent->addChild(childNode);
-    }
+    auto children = obj->getChildren();
+
+    for (int i=0; i<children.size(); i++)
+        addObjectNode(parent, i, children[i]);
 }
 
 void VMEConfigTreeWidget::onCurrentItemChanged(
@@ -681,6 +900,25 @@ void VMEConfigTreeWidget::onCurrentItemChanged(
 void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
     qDebug() << __PRETTY_FUNCTION__ << item << column;
+
+    auto nodes = m_treeMap.values();
+
+    auto it = std::find(std::begin(nodes), std::end(nodes), item);
+
+    if (it != nodes.end())
+    {
+        qDebug() << __PRETTY_FUNCTION__
+            << "item=" << item
+            << "column=" << column
+            << "nodeForItem=" << *it;
+    }
+    else
+    {
+        qDebug() << __PRETTY_FUNCTION__
+            << "item=" << item
+            << "column=" << column
+            << "nodeForItem=None!";
+    }
 }
 
 void VMEConfigTreeWidget::onItemActivated(QTreeWidgetItem *item, int column)
@@ -688,7 +926,7 @@ void VMEConfigTreeWidget::onItemActivated(QTreeWidgetItem *item, int column)
     qDebug() << __PRETTY_FUNCTION__ << item << column;
 }
 
-void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
+void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int /* column */)
 {
     auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(configObject);
@@ -726,9 +964,35 @@ void VMEConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
     }
 }
 
-void VMEConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
+void VMEConfigTreeWidget::onItemExpanded(QTreeWidgetItem * /*item*/)
 {
     m_tree->resizeColumnToContents(0);
+}
+
+bool is_child_of(const QObject *obj, const QStringList &rootNames)
+{
+    if (auto parent = obj->parent())
+    {
+        if (rootNames.contains(parent->objectName()))
+            return true;
+
+        return is_child_of(parent, rootNames);
+    }
+
+    return false;
+}
+
+// Recurse down towards the leaves setting the enabled state of each object
+// including the root.
+void recursively_set_objects_enabled(ConfigObject *root, bool enabled)
+{
+    root->setEnabled(enabled);
+
+    if (auto container = qobject_cast<ContainerObject *>(root))
+    {
+        for (auto child: container->getChildren())
+            recursively_set_objects_enabled(child, enabled);
+    }
 }
 
 void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
@@ -835,7 +1099,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     }
 
     //
-    // Global scripts
+    // Global scripts (DAQ Start, DAQ Stop, Manual)
     //
 
     if (auto parentContainer = qobject_cast<ContainerObject *>(obj))
@@ -881,24 +1145,34 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                        this, &VMEConfigTreeWidget::addScriptDirectory);
     }
 
-    if (qobject_cast<VMEScriptConfig *>(obj))
-    {
-        auto po = obj->parent();
+    // - Rename for scripts if they are under any of the global nodes.
+    // - Rename for directories if they are under any of the global nodes.
+    // - Recursive enable/disable of trees if they are under any of the global
+    //   nodes.  Note: disabling scripts under "manual" doesn't really make
+    //   sense but it makes the code quite a bit simpler especially as the case
+    //   where disabled objects hierarchies are pasted under "manual" does not
+    //   need special handling.
 
-        if (isIdle && po && (po->objectName() == "daq_start"
-                             || po->objectName() == "daq_stop"
-                             || po->objectName() == "manual"))
-        {
-            menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename Script"),
-                           this, &VMEConfigTreeWidget::editName);
-            menu.addSeparator();
-            // disabling manual scripts doesn't make any sense
-            if (po->objectName() != "manual")
-            {
-                menu.addAction(obj->isEnabled() ? QSL("Disable Script") : QSL("Enable Script"),
-                               this, [this, node]() { toggleObjectEnabled(node, NodeType_VMEScript); });
-            }
-        }
+    QStringList rootNames = { "daq_start", "daq_stop", "manual" };
+
+    if (obj && is_child_of(obj, rootNames))
+    {
+        QString actionName = "Rename ";
+
+        if (qobject_cast<VMEScriptConfig *>(obj))
+            actionName += "Script";
+        else if (qobject_cast<ContainerObject *>(obj))
+            actionName += "Directory";
+
+        menu.addAction(QIcon(QSL(":/document-rename.png")), actionName,
+                       this, &VMEConfigTreeWidget::editName);
+        menu.addSeparator();
+
+        bool enable = !obj->isEnabled();
+
+        menu.addAction(
+            enable ? QSL("Enable Scripts") : QSL("Disable Scripts"),
+            this, [obj, enable] { recursively_set_objects_enabled(obj, enable); });
     }
 
     auto make_object_type_string = [](const ConfigObject *obj)
@@ -965,12 +1239,13 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         {
             if (auto parentContainer = qobject_cast<ContainerObject *>(obj->parent()))
             {
+                (void) parentContainer;
                 objectTypeString = "VME Script";
                 removeFunc = [this] () { removeGlobalScript(); };
             }
         }
 
-        if (auto co = qobject_cast<ContainerObject *>(obj))
+        if (qobject_cast<ContainerObject *>(obj))
         {
             // Cannot remove the daq_start, daq_stop and manual nodes
             if (obj->parent() != &m_config->getGlobalObjectRoot())
@@ -1329,7 +1604,8 @@ void VMEConfigTreeWidget::removeDirectoryRecursively()
 
     if (pc->removeChild(obj))
     {
-        delete m_treeMap.take(obj);
+        delete m_treeMap.take(obj);     // delete the node
+        obj->deleteLater();             // delete the object
     }
 }
 
@@ -1339,12 +1615,29 @@ void VMEConfigTreeWidget::removeGlobalScript()
     auto script = Var2Ptr<VMEScriptConfig>(node->data(0, DataRole_Pointer));
     if (script && m_config->removeGlobalScript(script))
     {
-        assert(node == m_treeMap.value(script));
-        delete m_treeMap.take(script);
+        delete m_treeMap.take(script);  // delete the node
+        script->deleteLater();          // delete the script
     }
 }
 
-// TODO: handle directory trees
+enum class CollectOption { CollectAll, CollectEnabled };
+
+// Collect vme scripts in depth first order.
+void collect_script_configs(QVector<VMEScriptConfig *> &dest, ConfigObject *root, const CollectOption &opt)
+{
+    if (auto script = qobject_cast<VMEScriptConfig *>(root))
+    {
+        if ((opt == CollectOption::CollectAll)
+            || (opt == CollectOption::CollectEnabled && script->isEnabled()))
+            dest.push_back(script);
+    }
+    else if (auto container = qobject_cast<ContainerObject *>(root))
+    {
+        for (auto child: container->getChildren())
+            collect_script_configs(dest, child, opt);
+    }
+}
+
 void VMEConfigTreeWidget::runScripts()
 {
     auto node = m_tree->currentItem();
@@ -1352,19 +1645,7 @@ void VMEConfigTreeWidget::runScripts()
 
     QVector<VMEScriptConfig *> scriptConfigs;
 
-    if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj))
-    {
-        scriptConfigs.push_back(scriptConfig);
-    }
-    else
-    {
-        for (int i=0; i<node->childCount(); ++i)
-        {
-            obj = Var2Ptr<ConfigObject>(node->child(i)->data(0, DataRole_Pointer));
-            if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj))
-                scriptConfigs.push_back(scriptConfig);
-        }
-    }
+    collect_script_configs(scriptConfigs, obj, CollectOption::CollectEnabled);
 
     emit runScriptConfigs(scriptConfigs);
 }
@@ -1439,10 +1720,6 @@ void VMEConfigTreeWidget::handleShowDiagnostics()
 void VMEConfigTreeWidget::exploreWorkspace()
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(m_workspaceDirectory));
-}
-
-void VMEConfigTreeWidget::showEditNotes()
-{
 }
 
 void VMEConfigTreeWidget::setConfigFilename(const QString &filename)

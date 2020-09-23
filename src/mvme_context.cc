@@ -20,8 +20,6 @@
  */
 
 // Includes winsock2.h so it's placed at the top to avoid warnings.
-#include "mvlc/mvlc_impl_eth.h"
-
 #include "mvme_context.h"
 
 #include "analysis/a2_adapter.h"
@@ -31,9 +29,9 @@
 #include "analysis/analysis_ui.h"
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
-#include "mvlc_listfile.h"
+#include "mesytec-mvlc/util/readout_buffer_queues.h"
+#include "mvme_mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
-#include "mvlc/mvlc_error.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_readout_worker.h"
 #include "mvlc_stream_worker.h"
@@ -48,6 +46,7 @@
 #include "vme_analysis_common.h"
 #include "vme_config_ui.h"
 #include "vme_controller_factory.h"
+#include "vme_script.h"
 #include "vmusb_buffer_processor.h"
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
@@ -59,6 +58,7 @@
 #include <QProgressDialog>
 #include <QtConcurrent>
 #include <QThread>
+#include <qnamespace.h>
 #include <tuple>
 
 namespace
@@ -72,8 +72,8 @@ namespace
  * analysis system has to fully process the last buffer it pulled from the
  * shared queue.
  */
-static const size_t DataBufferCount = 25;
-static const size_t DataBufferSize = Megabytes(1);
+static const size_t ReadoutBufferCount = 20;
+static const size_t ReadoutBufferSize = Megabytes(1);
 
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
@@ -82,6 +82,7 @@ static const ListFileFormat DefaultListFileFormat = ListFileFormat::ZIP;
 static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
+static const QString RunNotesFilename = QSL("mvme_run_notes.txt");
 
 static const QString VMEConfigAutoSaveFilename = QSL(".vme_autosave.vme");
 static const QString AnalysisAutoSaveFilename  = QSL(".analysis_autosave.analysis");
@@ -173,6 +174,13 @@ struct MVMEContextPrivate
 
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
+    mesytec::mvlc::ReadoutBufferQueues mvlcSnoopQueues;
+    mutable mesytec::mvlc::Protected<QString> runNotes;
+
+    MVMEContextPrivate()
+        : mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
+        , runNotes({})
+    {}
 
     void stopDAQ();
     void pauseDAQ();
@@ -193,6 +201,9 @@ struct MVMEContextPrivate
     void resumeAnalysis(analysis::Analysis::BeginRunOption option);
 
     void clearLog();
+
+    void maybeSaveDAQNotes();
+    void workspaceClosingCleanup();
 };
 
 void MVMEContextPrivate::stopDAQ()
@@ -234,9 +245,11 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_readoutWorker->isRunning())
     {
-        m_q->m_readoutWorker->stop();
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped,
                                     &localLoop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(
+            m_q, [this] () { m_q->m_readoutWorker->stop(); }, Qt::QueuedConnection);
+
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -269,10 +282,15 @@ void MVMEContextPrivate::pauseDAQReadout()
 
     if (m_q->m_readoutWorker->getState() == DAQState::Running)
     {
-        m_q->m_readoutWorker->pause();
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqPaused,
                                     &localLoop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(
+            m_q, [this] () { m_q->m_readoutWorker->pause(); }, Qt::QueuedConnection);
+
+        qDebug() << __PRETTY_FUNCTION__ << "entering localLoop";
         localLoop.exec();
+        qDebug() << __PRETTY_FUNCTION__ << "left localLoop";
+
         QObject::disconnect(con);
     }
 
@@ -280,7 +298,7 @@ void MVMEContextPrivate::pauseDAQReadout()
              || m_q->m_readoutWorker->getState() == DAQState::Idle);
 }
 
-void MVMEContextPrivate::resumeDAQReadout(u32 nEvents)
+void MVMEContextPrivate::resumeDAQReadout(u32 /*nEvents*/)
 {
     m_q->m_readoutWorker->resume();
 }
@@ -303,11 +321,12 @@ void MVMEContextPrivate::stopDAQReplay()
     if (listfileReplayWorker->getState() == DAQState::Running
         || listfileReplayWorker->getState() == DAQState::Paused)
     {
-        listfileReplayWorker->stop();
-
         auto con = QObject::connect(
             listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             &localLoop, &QEventLoop::quit);
+
+        QMetaObject::invokeMethod(
+            m_q, [this] () { listfileReplayWorker->stop(); }, Qt::QueuedConnection);
 
         localLoop.exec();
         QObject::disconnect(con);
@@ -323,9 +342,12 @@ void MVMEContextPrivate::stopDAQReplay()
     // as we enter the event loop.
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
-        m_q->m_streamWorker->stop();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                                     &localLoop, &QEventLoop::quit);
+
+        QMetaObject::invokeMethod(
+            m_q, [this] () { m_q->m_streamWorker->stop(); }, Qt::QueuedConnection);
+
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -350,11 +372,13 @@ void MVMEContextPrivate::pauseDAQReplay()
 
     if (listfileReplayWorker->getState() == DAQState::Running)
     {
-        listfileReplayWorker->pause();
-
         auto con = QObject::connect(
             listfileReplayWorker.get(), &ListfileReplayWorker::replayPaused,
             &localLoop, &QEventLoop::quit);
+
+        QMetaObject::invokeMethod(
+            m_q, [this] () { listfileReplayWorker->pause(); }, Qt::QueuedConnection);
+
         localLoop.exec();
 
         QObject::disconnect(con);
@@ -427,7 +451,8 @@ static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
 {
     settings.setValue(QSL("WriteListFile"),             info.enabled);
     settings.setValue(QSL("ListFileFormat"),            toString(info.format));
-    settings.setValue(QSL("ListFileDirectory"),         info.directory);
+    if (!info.directory.isEmpty())
+        settings.setValue(QSL("ListFileDirectory"),         info.directory);
     settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
     settings.setValue(QSL("ListFilePrefix"),            info.prefix);
     settings.setValue(QSL("ListFileRunNumber"),         info.runNumber);
@@ -438,7 +463,9 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
 {
     ListFileOutputInfo result;
     result.enabled          = settings.value(QSL("WriteListFile"), QSL("true")).toBool();
-    result.format           = ListFileFormat::ZIP; // XXX: Forcing ListFileFormat::ZIP since 0.9.x
+    result.format           = listFileFormat_fromString(settings.value(QSL("ListFileFormat")).toString());
+    if (result.format == ListFileFormat::Invalid)
+        result.format = ListFileFormat::ZIP;
     result.directory        = settings.value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
     result.compressionLevel = settings.value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
     result.prefix           = settings.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();
@@ -465,9 +492,9 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_d->m_q = this;
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
 
-    for (size_t i=0; i<DataBufferCount; ++i)
+    for (size_t i=0; i<ReadoutBufferCount; ++i)
     {
-        enqueue(&m_freeBuffers, new DataBuffer(DataBufferSize));
+        enqueue(&m_freeBuffers, new DataBuffer(ReadoutBufferSize));
     }
 
 #if 0
@@ -572,11 +599,11 @@ MVMEContext::~MVMEContext()
     delete m_controller;
     delete m_readoutWorker;
 
-    Q_ASSERT(queue_size(&m_freeBuffers) + queue_size(&m_fullBuffers) == DataBufferCount);
+    Q_ASSERT(queue_size(&m_freeBuffers) + queue_size(&m_fullBuffers) == ReadoutBufferCount);
     qDeleteAll(m_freeBuffers.queue);
     qDeleteAll(m_fullBuffers.queue);
 
-    cleanupWorkspaceAutoSaveFiles();
+    m_d->workspaceClosingCleanup();
 
     delete m_d;
 
@@ -662,9 +689,17 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         return false;
     }
 
+    auto currentControllerType = (m_controller
+                                  ? m_controller->getType()
+                                  : VMEControllerType::MVLC_ETH);
+
+    auto newControllerType = (controller
+                              ?  controller->getType()
+                              : VMEControllerType::MVLC_ETH);
+
     qDebug() << __PRETTY_FUNCTION__
-        << "current type =" << (m_controller ? to_string(m_controller->getType()) : QSL("none"))
-        << ", new type   =" << (controller ? to_string(controller->getType()) : QSL("none"))
+        << "current type =" << (m_controller ? to_string(currentControllerType) : QSL("none"))
+        << ", new type   =" << (controller ? to_string(newControllerType) : QSL("none"))
         ;
 
     /* Wait for possibly active VMEController::open() to return before deleting
@@ -731,15 +766,19 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     readoutWorkerContext.runInfo            = &m_d->m_runInfo;
 
     readoutWorkerContext.logger             = [this](const QString &msg) { logMessage(msg); };
+    readoutWorkerContext.errorLogger        = [this](const QString &msg) { logError(msg); };
     readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); };
     readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); };
+    readoutWorkerContext.getRunNotes        = [this]() { return getRunNotes(); };
 
     m_readoutWorker->setContext(readoutWorkerContext);
 
     if (auto mvlcReadoutWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
     {
         connect(mvlcReadoutWorker, &MVLCReadoutWorker::debugInfoReady,
-                this, &MVMEContext::sniffedInputBufferReady);
+                this, &MVMEContext::sniffedReadoutBufferReady);
+
+        mvlcReadoutWorker->setSnoopQueues(&m_d->mvlcSnoopQueues);
     }
 
     // replay worker (running on the readout thread)
@@ -754,6 +793,11 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             this, &MVMEContext::onReplayDone);
+
+    if (auto mvlcListfileWorker = qobject_cast<MVLCListfileWorker *>(m_d->listfileReplayWorker.get()))
+    {
+        mvlcListfileWorker->setSnoopQueues(&m_d->mvlcSnoopQueues);
+    }
 
     // TODO: Add the buffer sniffing connection for the MVLCListfileWorker once
     // the support is there.
@@ -782,7 +826,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         case VMEControllerType::MVLC_ETH:
         case VMEControllerType::MVLC_USB:
             m_streamWorker = std::make_unique<MVLC_StreamWorker>(
-                this, &m_freeBuffers, &m_fullBuffers);
+                this, m_d->mvlcSnoopQueues);
             break;
     }
 
@@ -824,6 +868,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         (void) invoked;
     }
 
+    // Moves the StreamWorker and its EventServer child
     m_streamWorker->moveToThread(m_analysisThread);
 
     // Run the StreamWorkerBase::startupConsumers in the worker thread. This is
@@ -845,6 +890,25 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             this, &MVMEContext::logMessage);
 
     emit vmeControllerSet(controller);
+
+    if ((currentControllerType != newControllerType)
+        && !(is_mvlc_controller(currentControllerType)
+             && is_mvlc_controller(newControllerType)))
+    {
+        auto predicate = [] (const EventConfig *event)
+        {
+            return event->triggerCondition == TriggerCondition::Periodic;
+        };
+
+        auto events = m_vmeConfig->getEventConfigs();
+
+        if (std::find_if(std::begin(events), std::end(events), predicate) != std::end(events))
+        {
+            logError("Warning: the timer period for periodic events is reset"
+                     " when switching VME controller types. Please re-apply the"
+                     " timer period in the Event Settings.");
+        }
+    }
 
     //qDebug() << __PRETTY_FUNCTION__ << "end";
     return true;
@@ -931,9 +995,9 @@ void MVMEContext::onControllerOpenFinished()
                           );
             }
         }
-        else if (auto mvlc = dynamic_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller))
+        else if (auto mvlc = dynamic_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller))
         {
-            using namespace mesytec::mvlc;
+            using namespace mesytec::mvme_mvlc;
 
             logMessage(QString("Opened VME Controller %1 (%2)")
                        .arg(mvlc->getIdentifyingString())
@@ -1035,7 +1099,7 @@ void MVMEContext::forceResetVMEController()
     {
         sis->setResetOnConnect(true);
     }
-    else if (auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(getVMEController()))
+    else if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(getVMEController()))
     {
         if (mvlc->connectionType() == mesytec::mvlc::ConnectionType::ETH)
         {
@@ -1299,7 +1363,7 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
 {
     using namespace vme_analysis_common;
 
-    if (!handle.listfile)
+    if (handle.format == ListfileBufferFormat::MVMELST && !handle.listfile)
         return false;
 
     if (getDAQState() != DAQState::Idle)
@@ -1308,25 +1372,45 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
     std::unique_ptr<VMEConfig> vmeConfig;
     std::error_code ec;
 
-    std::tie(vmeConfig, ec) = read_vme_config_from_listfile(handle);
-
-    if (ec)
+    try
     {
-        QMessageBox::critical(nullptr,
-                              QSL("Error loading VME config"),
-                              QSL("Error loading VME config from %1: %2")
-                              .arg(handle.inputFilename)
-                              .arg(ec.message().c_str()));
+        std::tie(vmeConfig, ec) = read_vme_config_from_listfile(handle);
+
+        if (ec)
+        {
+            QMessageBox::critical(
+                nullptr,
+                QSL("Error loading VME config"),
+                QSL("Error loading VME config from %1: %2")
+                .arg(handle.inputFilename)
+                .arg(ec.message().c_str()));
+
+            return false;
+        }
+    }
+    catch (const std::runtime_error &e)
+    {
+        QMessageBox::critical(
+            nullptr,
+            QSL("Error loading VME config"),
+            QSL("Error loading VME config from %1: %2")
+            .arg(handle.inputFilename)
+            .arg(e.what()));
+
         return false;
     }
 
-    m_d->m_isFirstConnectionAttempt = true; // FIXME: add a note on why this is done
+    // save the current run notes to disk if in DAQ mode
+    m_d->maybeSaveDAQNotes();
+
+    m_d->m_isFirstConnectionAttempt = true;
     setVMEConfig(vmeConfig.release());
 
     m_d->listfileReplayHandle = std::move(handle);
-    m_d->listfileReplayWorker->setListfile(m_d->listfileReplayHandle.listfile.get());
+    m_d->listfileReplayWorker->setListfile(&m_d->listfileReplayHandle);
 
     setConfigFileName(QString(), false);
+    setRunNotes(m_d->listfileReplayHandle.runNotes);
     setMode(GlobalMode::ListFile);
 
     bool ret = handle_vme_analysis_assignment(
@@ -1355,6 +1439,16 @@ void MVMEContext::closeReplayFileHandle()
 
     m_d->listfileReplayHandle = {};
     m_d->m_isFirstConnectionAttempt = true;
+
+    // Reload the Run Notes
+    {
+        QFile f(RunNotesFilename);
+
+        if (f.open(QIODevice::ReadOnly))
+        {
+            setRunNotes(QString::fromLocal8Bit(f.readAll()));
+        }
+    }
 
     /* Open the last used VME config in the workspace. Create a new VME config
      * if no previous exists. */
@@ -1497,7 +1591,7 @@ bool MVMEContext::prepareStart()
     while (auto buffer = dequeue(&m_fullBuffers))
         enqueue(&m_freeBuffers, buffer);
 
-    assert(queue_size(&m_freeBuffers) == DataBufferCount);
+    assert(queue_size(&m_freeBuffers) == ReadoutBufferCount);
     assert(queue_size(&m_fullBuffers) == 0);
 
     assert(m_streamWorker->getState() == MVMEStreamWorkerState::Idle);
@@ -1599,7 +1693,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     if (!prepareStart())
     {
-        logMessage("Failed to start stream worker (analysis side). Aborting startup");
+        logMessage("Failed to start stream worker (analysis side). Aborting startup.");
         return;
     }
 
@@ -1628,12 +1722,20 @@ void MVMEContext::resumeDAQ(u32 nCycles)
 
 void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 {
+#if 0
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamWorkerState() == MVMEStreamWorkerState::Idle);
+#endif
 
-    if (m_mode != GlobalMode::ListFile || !m_d->listfileReplayHandle.listfile
+    if (m_mode != GlobalMode::ListFile
         || getDAQState() != DAQState::Idle
         || getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
+    {
+        return;
+    }
+
+    if (m_d->listfileReplayHandle.format == ListfileBufferFormat::MVMELST
+        && !m_d->listfileReplayHandle.listfile)
     {
         return;
     }
@@ -1829,17 +1931,17 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     if (!m_controller->isOpen())
     {
         logger("VME Script Error: VME controller not connected");
-        return { vme_script::Result{VMEError::NotOpen} };
+        vme_script::Result result = {};
+        result.error = VMEError::NotOpen;
+        return { result };
     }
 
     // The MVLC can execute commands while the DAQ is running, other controllers
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {
-        auto mvlc = qobject_cast<mesytec::mvlc::MVLC_VMEController *>(m_controller);
+        auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller);
         assert(mvlc);
-
-        mvlc->disableNotificationPolling();
 
         // The below code should be equivalent to
         // results = vme_script::run_script(m_controller, script, logger, logEachResult);
@@ -1866,9 +1968,14 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
         connect(&fw, &Watcher::finished, &pd, &QProgressDialog::accept);
 
+
         auto f = QtConcurrent::run(
             [=] () -> vme_script::ResultList {
-                auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
+                auto pollSuspendGuard = mvlc->getMVLC().suspendStackErrorPolling();
+
+                auto result = vme_script::run_script(
+                    m_controller, script, logger,
+                    logEachResult ? vme_script::run_script_options::LogEachResult : 0u);
                 return result;
             });
 
@@ -1884,8 +1991,6 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             pd.exec();
 
         results = f.result();
-
-        mvlc->enableNotificationPolling();
     }
     else
     {
@@ -1897,8 +2002,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
     // Check for errors indicating connection loss and call close() on the VME
     // controller to update its status.
-    static const unsigned TimeoutConnectionLossThreshold = 3;
-    unsigned timeouts = 0;
+    //static const unsigned TimeoutConnectionLossThreshold = 3;
+    //unsigned timeouts = 0;
 
     for (const auto &result: results)
     {
@@ -1907,7 +2012,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
             << result.error.error()
             << result.error.getStdErrorCode().value()
             << result.error.getStdErrorCode().category().name()
-            << (result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError);
+            << (result.error.getStdErrorCode() == mesytec::mvme_mvlc::ErrorType::ConnectionError);
 #endif
 
         if (result.error.isError())
@@ -1952,7 +2057,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
         return;
     }
 
-    // cleanup autosaves in the previous workspace
+    // cleanup autosaves in the previous (currently open) workspace
     cleanupWorkspaceAutoSaveFiles();
 
     auto workspaceSettings(makeWorkspaceSettings(dirName));
@@ -2009,38 +2114,57 @@ void MVMEContext::newWorkspace(const QString &dirName)
         }
     }
 
+    if (!destDir.exists(RunNotesFilename))
+    {
+        QFile inFile(":/default_run_notes.txt");
+
+        if (!inFile.open(QIODevice::ReadOnly))
+            throw QString("Error reading default_run_notes.txt from resource file.");
+
+        QFile outFile(QDir(dirName).filePath(RunNotesFilename));
+
+        if (!outFile.open(QIODevice::WriteOnly))
+            throw QString(QSL("Error saving default DAQ run notes to file: %1").arg(outFile.errorString()));
+
+        auto defRunNotes = inFile.readAll();
+        auto written = outFile.write(defRunNotes);
+
+        if (written != defRunNotes.size())
+            throw QString(QSL("Error saving default DAQ run notes to file: %1").arg(outFile.errorString()));
+    }
+
     openWorkspace(dirName);
 }
 
 void MVMEContext::openWorkspace(const QString &dirName)
 {
-    QDir dir(dirName);
-
-    if (!dir.exists())
-    {
-        throw QString ("Workspace directory %1 does not exist.")
-            .arg(dirName);
-    }
-
-    if (!dir.exists(WorkspaceIniName))
-    {
-        throw QString("Workspace settings file %1 not found in %2.")
-            .arg(WorkspaceIniName)
-            .arg(dirName);
-    }
-
-    if (!QDir::setCurrent(dirName))
-    {
-        throw QString("Could not change directory to workspace path %1.")
-            .arg(dirName);
-    }
 
     QString lastWorkspaceDirectory(m_workspaceDir);
 
     try
     {
-        // cleanup files in the previous workspace that's being closed
-        cleanupWorkspaceAutoSaveFiles();
+        m_d->workspaceClosingCleanup();
+
+        QDir dir(dirName);
+
+        if (!dir.exists())
+        {
+            throw QString ("Workspace directory %1 does not exist.")
+                .arg(dirName);
+        }
+
+        if (!dir.exists(WorkspaceIniName))
+        {
+            throw QString("Workspace settings file %1 not found in %2.")
+                .arg(WorkspaceIniName)
+                .arg(dirName);
+        }
+
+        if (!QDir::setCurrent(dirName))
+        {
+            throw QString("Could not change directory to workspace path %1.")
+                .arg(dirName);
+        }
 
         setWorkspaceDirectory(dirName);
         auto workspaceSettings(makeWorkspaceSettings(dirName));
@@ -2062,7 +2186,9 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
         // listfile subdir
         {
-            QDir dir(getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles")));
+            auto path = getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles"));
+            logMessage(QString("Workspace ListFileDirectory=%1").arg(path));
+            QDir dir(path);
 
             if (!QDir::root().mkpath(dir.absolutePath()))
             {
@@ -2129,6 +2255,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
 
             info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
+            logMessage(QString("Setting ListFileOutputInfo.fullDirectory=%1").arg(info.fullDirectory));
             m_d->m_listfileOutputInfo = info;
             writeToSettings(info, *workspaceSettings);
         }
@@ -2299,6 +2426,18 @@ void MVMEContext::openWorkspace(const QString &dirName)
         }
 
         //
+        // Run Notes
+        //
+        {
+            QFile f(RunNotesFilename);
+
+            if (f.open(QIODevice::ReadOnly))
+                setRunNotes(QString::fromLocal8Bit(f.readAll()));
+            else
+                setRunNotes({});
+        }
+
+        //
         // Create the autosavers here as the workspace specific autosave
         // directory is known at this point.
         //
@@ -2313,7 +2452,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         m_d->m_vmeConfigAutoSaver->start();
 
         connect(m_d->m_vmeConfigAutoSaver.get(), &FileAutoSaver::writeError,
-                this, [this] (const QString &filename, const QString &errorMessage) {
+                this, [this] (const QString &/*filename*/, const QString &errorMessage) {
             logMessage(errorMessage);
         });
 
@@ -2327,7 +2466,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         m_d->m_analysisAutoSaver->start();
 
         connect(m_d->m_analysisAutoSaver.get(), &FileAutoSaver::writeError,
-                this, [this] (const QString &filename, const QString &errorMessage) {
+                this, [this] (const QString &/*filename*/, const QString &errorMessage) {
             logMessage(errorMessage);
         });
 
@@ -2339,6 +2478,38 @@ void MVMEContext::openWorkspace(const QString &dirName)
         setWorkspaceDirectory(lastWorkspaceDirectory);
         throw;
     }
+}
+
+void MVMEContextPrivate::maybeSaveDAQNotes()
+{
+    if (!m_q->isWorkspaceOpen())
+        return;
+
+    // flush run notes to disk
+    if (m_q->getMode() == GlobalMode::DAQ)
+    {
+        QFile f(RunNotesFilename);
+
+        if (!f.open(QIODevice::WriteOnly))
+            throw QString(QSL("Error saving DAQ run notes to file: %1").arg(f.errorString()));
+
+        auto bytes = m_q->getRunNotes().toLocal8Bit();
+        auto written = f.write(bytes);
+
+        if (written != bytes.size())
+            throw QString(QSL("Error saving DAQ run notes to file: %1").arg(f.errorString()));
+    }
+}
+
+void MVMEContextPrivate::workspaceClosingCleanup()
+{
+    if (!m_q->isWorkspaceOpen())
+        return;
+
+    // cleanup files in the previous workspace that's being closed
+    m_q->cleanupWorkspaceAutoSaveFiles();
+    maybeSaveDAQNotes();
+    m_q->setRunNotes({});
 }
 
 void MVMEContext::cleanupWorkspaceAutoSaveFiles()
@@ -2386,6 +2557,12 @@ QString MVMEContext::getWorkspacePath(const QString &settingsKey,
     {
         return QSL("");
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << QSL("settings->contains(%1) = %2")
+        .arg(settingsKey).arg(settings->contains(settingsKey));
+
+    qDebug() << __PRETTY_FUNCTION__ << QSL("settings->value(%1) = %2")
+        .arg(settingsKey).arg(settings->value(settingsKey).toString());
 
     if (!settings->contains(settingsKey) && setIfDefaulted)
     {
@@ -2476,7 +2653,6 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
     setVMEConfig(vmeConfig.get());
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
-    setVMEController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
     vmeConfig.release();
 
     if (m_d->m_vmeConfigAutoSaver)
@@ -2710,6 +2886,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId,
 {
     if (auto eventConfig = m_vmeConfig->getEventConfig(eventId))
     {
+        (void) eventConfig;
         AnalysisPauser pauser(this);
         getAnalysis()->addOperator(eventId, userLevel, op);
         getAnalysis()->beginRun(analysis::Analysis::KeepState);
@@ -2736,6 +2913,16 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 RunInfo MVMEContext::getRunInfo() const
 {
     return m_d->m_runInfo;
+}
+
+void MVMEContext::setRunNotes(const QString &notes)
+{
+    m_d->runNotes.access().ref() = notes;
+}
+
+QString MVMEContext::getRunNotes() const
+{
+    return m_d->runNotes.copy();
 }
 
 // DAQPauser

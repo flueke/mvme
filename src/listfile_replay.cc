@@ -23,12 +23,15 @@
 #include <array>
 #include <cstring>
 #include <QJsonDocument>
+#include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "qt_util.h"
 #include "util_zip.h"
 #include "mvme_listfile_utils.h"
-#include "mvlc_listfile.h"
+#include "mvme_mvlc_listfile.h"
 #include "vme_config_json_schema_updates.h"
+
+using namespace mesytec;
 
 namespace
 {
@@ -62,7 +65,7 @@ ListfileReplayHandle open_listfile(const QString &filename)
     ListfileReplayHandle result;
     result.inputFilename = filename;
 
-    // ZIP
+    // ZIP archive
     if (filename.toLower().endsWith(QSL(".zip")))
     {
         // Try reading the analysis config and the messages.log file from the
@@ -81,6 +84,12 @@ ListfileReplayHandle open_listfile(const QString &filename)
                 result.messages = f.readAll();
         }
 
+        {
+            QuaZipFile f(filename, QSL("mvme_run_notes.txt"));
+            if (f.open(QIODevice::ReadOnly))
+                result.runNotes = QString::fromLocal8Bit(f.readAll());
+        }
+
         // Now open the archive manually and search for a listfile
         result.archive = std::make_unique<QuaZip>(filename);
 
@@ -95,6 +104,7 @@ ListfileReplayHandle open_listfile(const QString &filename)
         auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
             return (str.endsWith(QSL(".mvmelst"))
                     || str.endsWith(QSL(".mvlclst"))
+                    || str.endsWith(QSL(".mvlclst.lz4"))
                     || str.endsWith(QSL(".mvlc_eth"))
                     || str.endsWith(QSL(".mvlc_usb"))
                     );
@@ -104,21 +114,57 @@ ListfileReplayHandle open_listfile(const QString &filename)
             throw QString("No listfile found inside %1").arg(filename);
 
         result.listfileFilename = *it;
+        auto lfName  = *it;
 
-        Q_ASSERT(!result.listfileFilename.isEmpty());
-
-        result.archive->setCurrentFile(result.listfileFilename);
-        result.listfile = std::make_unique<QuaZipFile>(
-            result.archive.get());
-
-        if (!result.listfile->open(QIODevice::ReadOnly))
+        // Check whether we're dealing with an MVLC listfile or with a classic
+        // mvmelst listfile.
+        if (lfName.endsWith(QSL(".mvlclst"))
+            || lfName.endsWith(QSL(".mvlclst.lz4"))
+            || lfName.endsWith(QSL(".mvlc_eth"))
+            || lfName.endsWith(QSL(".mvlc_usb")))
         {
-            throw make_zip_error_string(
-                "Could not open listfile",
-                reinterpret_cast<QuaZipFile *>(result.listfile.get()));
+            try
+            {
+                mvlc::listfile::ZipReader zipReader;
+                zipReader.openArchive(filename.toStdString());
+                auto lfh = zipReader.openEntry(lfName.toStdString());
+                auto preamble = mvlc::listfile::read_preamble(*lfh);
+                if (preamble.magic == mvlc::listfile::get_filemagic_eth())
+                    result.format = ListfileBufferFormat::MVLC_ETH;
+                else if (preamble.magic == mvlc::listfile::get_filemagic_usb())
+                    result.format = ListfileBufferFormat::MVLC_USB;
+                else
+                    throw QString("Unknown listfile format (file=%1, listfile=%2")
+                        .arg(filename).arg(lfName);
+            }
+            catch (const std::runtime_error &e)
+            {
+                throw QString("Error detecting listfile format (file=%1, error=%2")
+                    .arg(filename).arg(e.what());
+            }
+        }
+        else // mvmelst file
+        {
+            result.archive->setCurrentFile(result.listfileFilename);
+
+            {
+                auto zipFile = std::make_unique<QuaZipFile>(result.archive.get());
+                zipFile->setFileName(result.listfileFilename);
+                result.listfile = std::move(zipFile);
+            }
+
+            if (!result.listfile->open(QIODevice::ReadOnly))
+            {
+                throw make_zip_error_string(
+                    "Could not open listfile",
+                    reinterpret_cast<QuaZipFile *>(result.listfile.get()));
+            }
+
+            assert(result.listfile);
+            result.format = detect_listfile_format(result.listfile.get());
         }
     }
-    else
+    else // flat file
     {
         result.listfile = std::make_unique<QFile>(filename);
 
@@ -128,11 +174,10 @@ ListfileReplayHandle open_listfile(const QString &filename)
                 .arg(filename)
                 .arg(result.listfile->errorString());
         }
+
+        assert(result.listfile);
+        result.format = detect_listfile_format(result.listfile.get());
     }
-
-    assert(result.listfile);
-
-    result.format = detect_listfile_format(result.listfile.get());
 
     return result;
 }
@@ -154,18 +199,51 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
         case ListfileBufferFormat::MVLC_ETH:
         case ListfileBufferFormat::MVLC_USB:
             {
-                auto json = QJsonDocument::fromJson(
-                    mvlc_listfile::read_vme_config_data(*handle.listfile)).object();
+                mvlc::listfile::ZipReader zipReader;
+                zipReader.openArchive(handle.inputFilename.toStdString());
+                auto lfh = zipReader.openEntry(handle.listfileFilename.toStdString());
+                auto preamble = mvlc::listfile::read_preamble(*lfh);
 
+                for (const auto &sysEvent: preamble.systemEvents)
+                {
+                    qDebug() << __PRETTY_FUNCTION__ << "found preamble sysEvent type"
+                        << mvlc::system_event_type_to_string(sysEvent.type).c_str();
+                }
+
+                auto it = std::find_if(
+                    std::begin(preamble.systemEvents),
+                    std::end(preamble.systemEvents),
+                    [] (const mvlc::listfile::SystemEvent &sysEvent)
+                    {
+                        return sysEvent.type == mvlc::system_event::subtype::MVMEConfig;
+                    });
+
+                // TODO: implement a fallback using the MVLCCrateConfig data
+                // (or make it an explicit action in the GUI and put the code
+                // elsewhere)
+                if (it == std::end(preamble.systemEvents))
+                    throw std::runtime_error("No MVMEConfig found in listfile");
+
+                qDebug() << __PRETTY_FUNCTION__ << "found MVMEConfig in listfile preamble, size =" << it->contents.size();
+
+                QByteArray qbytes(
+                    reinterpret_cast<const char *>(it->contents.data()),
+                    it->contents.size());
+
+                auto doc = QJsonDocument::fromJson(qbytes);
+                auto json = doc.object();
                 json = json.value("VMEConfig").toObject();
-                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);
 
+                mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
+                updateOptions.skip_v4_VMEScriptVariableUpdate = true;
+
+                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
                 auto vmeConfig = std::make_unique<VMEConfig>();
                 auto ec = vmeConfig->read(json);
-
                 return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(
                     std::move(vmeConfig), ec);
-            } break;
+            }
+            break;
     }
 
     return {};

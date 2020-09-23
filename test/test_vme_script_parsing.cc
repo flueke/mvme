@@ -2,6 +2,7 @@
 #include "vme_script.h"
 #include "vme_script_p.h"
 #include "vme_script_variables.h"
+#include "util/qt_str.h"
 #include <QDebug>
 
 using namespace vme_script;
@@ -271,7 +272,7 @@ TEST(vme_script_parsing, ExpandMultipleVariables)
 
     //} catch (ParseError &e)
     //{
-    //    std::cout << e.what().toStdString() << std::endl;
+    //    std::cout << e.toString().toStdString() << std::endl;
     //    ASSERT_TRUE(false);
     //}
 }
@@ -344,7 +345,7 @@ TEST(vme_script_expressions, EvaluateExpression)
 
     } catch (ParseError &e)
     {
-        std::cout << e.what().toStdString() << std::endl;
+        std::cout << e.toString().toStdString() << std::endl;
         ASSERT_TRUE(false);
     }
 }
@@ -406,7 +407,7 @@ TEST(vme_script_expressions, ParseExpression)
 
     } catch (ParseError &e)
     {
-        std::cout << e.what().toStdString() << std::endl;
+        std::cout << e.toString().toStdString() << std::endl;
         ASSERT_TRUE(false);
     }
 }

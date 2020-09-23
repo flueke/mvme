@@ -26,7 +26,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 using BufferHeaderValidator = std::function<bool (u32 header)>;
@@ -74,7 +74,7 @@ inline bool is_known_frame_header(u32 header)
             );
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVLC_UTIL_CORE_H__ */

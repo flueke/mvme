@@ -40,9 +40,9 @@ MVMEListfileWorker::~MVMEListfileWorker()
 {
 }
 
-void MVMEListfileWorker::setListfile(QIODevice *input)
+void MVMEListfileWorker::setListfile(ListfileReplayHandle *handle)
 {
-    m_listfile = ListFile(input);
+    m_listfile = ListFile(handle->listfile.get());
     m_stats.listFileTotalBytes = m_listfile.size();
     m_stats.listfileFilename = m_listfile.getFileName();
 }

@@ -73,6 +73,9 @@ std::unique_ptr<ConfigObject> make_object_from_mime_data_or_json_text(
 
 void generate_new_object_ids(ConfigObject *root);
 
+TriggerCondition LIBMVME_EXPORT trigger_condition_from_string(const QString &str);
+QString LIBMVME_EXPORT trigger_condition_to_string(const TriggerCondition &str);
+
 } // end namespace vme_config
 } // end namespace mvme
 

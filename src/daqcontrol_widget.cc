@@ -33,6 +33,7 @@
 #include "util/strings.h"
 #include "vme_controller_ui.h"
 
+#if 0
 // zlib supports [0,9] with 6 being the default.
 //
 // Sample data from an MDPP-16 showed that compression levels > 1 lead to very
@@ -61,6 +62,27 @@ static void fill_compression_combo(QComboBox *combo)
         combo->addItem(label, i);
     }
 }
+#else
+enum CompressionPreset
+{
+    NoCompression = 0,  // ZIP, level 0 aka store
+    Fast_LZ4 = 1,       // LZ4, level 0 (faster than ZIP level 1)
+    Fast_ZIP = 2,       // ZIP, level 1 aka "super fast"
+};
+
+static void fill_compression_combo(QComboBox *combo, bool isMVLC)
+{
+    QSignalBlocker blocker(combo);
+    combo->clear();
+
+    combo->addItem(QSL("No compression"), CompressionPreset::NoCompression);
+
+    if (isMVLC)
+        combo->addItem(QSL("LZ4 fast"), CompressionPreset::Fast_LZ4);
+
+    combo->addItem(QSL("ZIP fast"), CompressionPreset::Fast_ZIP);
+}
+#endif
 
 DAQControlWidget::DAQControlWidget(QWidget *parent)
     : QWidget(parent)
@@ -72,6 +94,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
     , pb_workspaceSettings(new QPushButton)
+    , pb_runNotes(new QPushButton)
     , pb_forceReset(new QPushButton)
     , label_controllerState(new QLabel)
     , label_daqState(new QLabel)
@@ -91,7 +114,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     bg_daqData->addButton(rb_keepData);
     bg_daqData->addButton(rb_clearData);
     rb_clearData->setChecked(true);
-    fill_compression_combo(combo_compression);
+    fill_compression_combo(combo_compression, is_mvlc_controller(m_vmeControllerTypeName));
 
     auto daq_ctrl = [this] (u32 cycles)
     {
@@ -152,6 +175,9 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     connect(pb_workspaceSettings, &QPushButton::clicked,
             this, &DAQControlWidget::changeWorkspaceSettings);
 
+    connect(pb_runNotes, &QPushButton::clicked,
+            this, &DAQControlWidget::showRunNotes);
+
     connect(cb_writeListfile, &QCheckBox::stateChanged,
             this, [this](int state)
     {
@@ -160,17 +186,34 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     });
 
     connect(combo_compression, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this] (int)
+            this, [this] (int /*index*/)
     {
-        int compression = combo_compression->currentData().toInt();
-        m_listFileOutputInfo.compressionLevel = compression;
+        auto preset = combo_compression->currentData().toInt();
+
+        switch (preset)
+        {
+            case CompressionPreset::NoCompression:
+                m_listFileOutputInfo.format = ListFileFormat::ZIP;
+                m_listFileOutputInfo.compressionLevel = 0;
+                break;
+
+            case CompressionPreset::Fast_ZIP:
+                m_listFileOutputInfo.format = ListFileFormat::ZIP;
+                m_listFileOutputInfo.compressionLevel = 1;
+                break;
+
+            case CompressionPreset::Fast_LZ4:
+                m_listFileOutputInfo.format = ListFileFormat::LZ4;
+                m_listFileOutputInfo.compressionLevel = 0;
+                break;
+
+            default:
+                return;
+        }
+
         emit listFileOutputInfoModified(m_listFileOutputInfo);
     });
 
-
-#if 0 // FIXME: move to the outside
-    connect(m_context, &MVMEContext::vmeConfigChanged, this, &DAQControlWidget::updateWidget);
-#endif
 
 
     //
@@ -186,6 +229,8 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     pb_controllerSettings->setText(QSL("Settings"));
     pb_runSettings->setText(QSL("Run Settings"));
     pb_workspaceSettings->setText(QSL("Workspace Settings"));
+    pb_runNotes->setIcon(QIcon(QSL(":/text-document.png")));
+    pb_runNotes->setText(QSL("Run Notes"));
 
     {
         auto pal = le_listfileFilename->palette();
@@ -275,6 +320,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             hbox->setSpacing(2);
             hbox->addWidget(pb_runSettings);
             hbox->addWidget(pb_workspaceSettings);
+            hbox->addWidget(pb_runNotes);
             hbox->addStretch();
             gbLayout->addRow(hbox);
         }
@@ -323,6 +369,7 @@ void DAQControlWidget::setVMEControllerState(const ControllerState &state)
 void DAQControlWidget::setVMEControllerTypeName(const QString &name)
 {
     m_vmeControllerTypeName = name;
+    fill_compression_combo(combo_compression, is_mvlc_controller(m_vmeControllerTypeName));
     updateWidget();
 }
 
@@ -561,8 +608,29 @@ void DAQControlWidget::updateWidget()
     }
 
     {
-        QSignalBlocker b(combo_compression);
-        combo_compression->setCurrentIndex(outputInfo.compressionLevel);
+        int comboData = -1;
+
+        if (outputInfo.format == ListFileFormat::ZIP)
+        {
+            if (outputInfo.compressionLevel == 0)
+                comboData = 0;
+            else if (outputInfo.compressionLevel == 1)
+                comboData = 2;
+        }
+        else if (outputInfo.format == ListFileFormat::LZ4)
+            comboData = 1;
+
+        for (int i=0; i<combo_compression->count(); ++i)
+        {
+            if (combo_compression->itemData(i).toInt() == comboData
+                && combo_compression->currentIndex() != i)
+            {
+                QSignalBlocker b(combo_compression);
+                qDebug() << __PRETTY_FUNCTION__ << "setting combo_compression index to" << i;
+                combo_compression->setCurrentIndex(i);
+                break;
+            }
+        }
     }
 
     auto filename = stats.listfileFilename;

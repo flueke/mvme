@@ -517,7 +517,6 @@ bool ListFileWriter::writeConfig(QByteArray contents)
     }
 
     u32 configSize = static_cast<u32>(contents.size());
-    int configWords = configSize / sizeof(u32);
     int configSections = qCeil((float)configSize / (float)lfc.SectionMaxSize);
 
     DataBuffer localBuffer(configSections * lfc.SectionMaxSize // space for all config sections
@@ -659,7 +658,11 @@ read_config_from_listfile(
     std::function<void (const QString &msg)> logger)
 {
     auto json = listfile->getVMEConfigJSON();
-    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger);
+
+    mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
+    updateOptions.skip_v4_VMEScriptVariableUpdate = true;
+
+    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
 
     auto vmeConfig = std::make_unique<VMEConfig>();
     auto ec = vmeConfig->read(json);

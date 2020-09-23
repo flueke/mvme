@@ -35,7 +35,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io_config
 {
@@ -840,7 +840,7 @@ QWidget *make_centered(QWidget *widget);
 static const int ReservedTimerUnits = 2;
 static const int ReservedStackStartUnits = 2;
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 } // end namespace trigger_io_config
 

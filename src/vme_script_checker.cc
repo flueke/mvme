@@ -50,7 +50,7 @@ static void check_one_file(const QString &filename)
     }
     catch (const vme_script::ParseError &e)
     {
-        out << "EE " << filename << " -> " << e.what() << endl;
+        out << "EE " << filename << " -> " << e.toString() << endl;
     }
 }
 

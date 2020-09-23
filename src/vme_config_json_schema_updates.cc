@@ -50,7 +50,7 @@ u32 get_register_value(u32 address, const QString &vmeScript, u32 defaultValue =
     return defaultValue;
 }
 
-// defaults to 1: timestamp
+// defaults to 1 (timestamp)
 u32 guess_module_mesy_eoe_marker(const QString &vmeSettingsScript)
 {
     return get_register_value(0x6038, vmeSettingsScript, 1u);
@@ -94,9 +94,11 @@ u8 guess_event_mcst(const QString &eventScript)
 
 namespace
 {
-    using namespace mvme::vme_config::json_schema;
 
-using VMEConfigConverter = std::function<QJsonObject (QJsonObject oldJson, Logger logger)>;
+using namespace mvme::vme_config::json_schema;
+
+using VMEConfigConverter = std::function<QJsonObject (
+    QJsonObject oldJson, Logger logger, const SchemaUpdateOptions & options)>;
 
 /* Module script storage changed:
  * vme_scripts.readout              -> vmeReadout
@@ -104,7 +106,7 @@ using VMEConfigConverter = std::function<QJsonObject (QJsonObject oldJson, Logge
  * vme_scripts.parameters           -> initScripts[0]
  * vme_scripts.readout_settings     -> initScripts[1]
  */
-static QJsonObject v1_to_v2(QJsonObject json, Logger logger)
+static QJsonObject v1_to_v2(QJsonObject json, Logger /*logger*/, const SchemaUpdateOptions & /*options*/)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
@@ -145,7 +147,7 @@ static QJsonObject v1_to_v2(QJsonObject json, Logger logger)
 
 /* Instead of numeric TriggerCondition values string representations are now
  * stored. */
-static QJsonObject v2_to_v3(QJsonObject json, Logger logger)
+static QJsonObject v2_to_v3(QJsonObject json, Logger /*logger*/, const SchemaUpdateOptions & /*options*/)
 {
     qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
@@ -348,7 +350,7 @@ static const QVector<ReplacementRule> ModuleRules =
 //   regular expression won't be touched and the containing setup will have to
 //   be updated manually by the user.
 
-static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
+static QJsonObject v3_to_v4(QJsonObject json, Logger logger, const SchemaUpdateOptions &options)
 {
     auto fix_mdpp16_module_typename = [logger] (QJsonObject json) -> QJsonObject
     {
@@ -361,9 +363,9 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
              ++eventIndex)
         {
             QJsonObject eventJson = eventsArray[eventIndex].toObject();
-            auto modulesArray = eventJson["modules"].toArray();
 
             auto eventName = eventJson["name"].toString();
+            auto modulesArray = eventJson["modules"].toArray();
 
             for (int moduleIndex = 0;
                  moduleIndex < modulesArray.size();
@@ -407,6 +409,13 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
         return json;
     };
 
+#if 0
+    // Add a set of default variables to each EventConfig.
+    // Note: this version creates an EventConfig object from the JSON, modifies
+    // the object and serializes it back to JSON. This apporach has the
+    // drawback that the EventConfig class has to be able to deserialize
+    // correctly from the old JSON data which in effect means that no
+    // substantial changes can be made to the class.
     auto add_event_variables = [logger] (QJsonObject json)
     {
         qDebug() << __PRETTY_FUNCTION__ << "adding event variables";
@@ -468,6 +477,78 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
 
         return json;
     };
+#else
+    // Add a set of default variables to each EventConfig.
+    // Note: this version works directly on the serialzed JSON data instead of
+    // creating an EventConfig object. This decouples the logic from the
+    // current implementation of the EventConfig class and allows to make
+    // structural changes as long as the resulting JSON can be deserialized
+    // correctly. The drawback is that the code is slightly more complex.
+    auto add_event_variables = [logger] (QJsonObject json)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "adding event variables";
+
+        auto eventsArray = json["events"].toArray();
+
+        for (int eventIndex = 0;
+             eventIndex < eventsArray.size();
+             ++eventIndex)
+        {
+            QJsonObject eventJson = eventsArray[eventIndex].toObject();
+            auto eventName = eventJson["name"].toString();
+
+            auto scriptsJson = eventJson["vme_scripts"].toObject();
+
+            // Try to get the events multicast address by looking at the daq_start script.
+            u8 mcst = mvme::vme_config::json_schema::guess_event_mcst(
+                scriptsJson["daq_start"].toObject()["vme_script"].toString());
+
+            // Set the proper irq value depending on triggerCondition and irqLevel.
+            u8 irq = 0u;
+
+            if (eventJson["triggerCondition"].toString() == QSL("Interrupt"))
+                irq = eventJson["irqLevel"].toInt();
+
+            // Create the variables for the event object.
+            auto eventVariables = make_standard_event_variables(irq, mcst);
+
+            // Look at the first module in the event and use its 'VME Interface
+            // Settings' script to guess values for 'mesy_eoe_marker' and
+            // 'mesy_reaodut_num_events'.
+            auto modulesArray = eventJson["modules"].toArray();
+
+            if (!modulesArray.isEmpty())
+            {
+                auto firstModuleJson = modulesArray[0].toObject();
+                auto initScriptsJson = firstModuleJson["initScripts"].toArray();
+
+                for (int scriptIndex = 0; scriptIndex < initScriptsJson.size(); ++scriptIndex)
+                {
+                    auto scriptJson = initScriptsJson[scriptIndex].toObject();
+
+                    if (scriptJson["name"].toString() == QSL("VME Interface Settings"))
+                    {
+                        u32 eoe_marker = guess_module_mesy_eoe_marker(scriptJson["vme_script"].toString());
+                        u32 num_events = guess_module_readout_num_events(scriptJson["vme_script"].toString());
+
+                        eventVariables["mesy_eoe_marker"].value = QString::number(eoe_marker);
+                        eventVariables["mesy_readout_num_events"].value = QString::number(num_events);
+                    }
+                }
+            }
+
+            logger(QSL("Adding standard variables to event '%1': %2")
+                   .arg(eventName).arg(eventVariables.symbolNames().join(", ")));
+
+            eventJson["variable_table"] = vme_script::to_json(eventVariables);
+            eventsArray[eventIndex] = eventJson;
+        }
+
+        json["events"] = eventsArray;
+
+        return json;
+    };
+#endif
 
     auto update_event_scripts = [logger] (QJsonObject json)
     {
@@ -552,11 +633,14 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger)
 
     json = fix_mdpp16_module_typename(json);
 
-    json = add_event_variables(json);
+    if (!options.skip_v4_VMEScriptVariableUpdate)
+    {
+        json = add_event_variables(json);
 
-    json = update_event_scripts(json);
+        json = update_event_scripts(json);
 
-    json = update_module_scripts(json);
+        json = update_module_scripts(json);
+    }
 
     return json;
 }
@@ -566,7 +650,7 @@ static QVector<VMEConfigConverter> VMEConfigConverters =
     nullptr,
     v1_to_v2,
     v2_to_v3,
-    v3_to_v4
+    v3_to_v4,
 };
 
 } // end anon namespace
@@ -588,7 +672,8 @@ int get_vmeconfig_version(const QJsonObject &json)
     return json["properties"].toObject()["version"].toInt(1);
 };
 
-QJsonObject convert_vmeconfig_to_current_version(QJsonObject json, Logger logger)
+QJsonObject convert_vmeconfig_to_current_version(
+    QJsonObject json, Logger logger, const SchemaUpdateOptions &options)
 {
     qDebug() << "<<<<<<<<<<<<< begin vme config json conversion <<<<<<<<<<<<<<<<<";
 
@@ -604,7 +689,7 @@ QJsonObject convert_vmeconfig_to_current_version(QJsonObject json, Logger logger
         if (!converter)
             break;
 
-        json = converter(json, logger);
+        json = converter(json, logger, options);
         set_vmeconfig_version(json, version + 1);
 
         qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version"

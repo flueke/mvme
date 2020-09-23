@@ -21,6 +21,7 @@
 #ifndef __VME_READOUT_WORKER_H__
 #define __VME_READOUT_WORKER_H__
 
+#include <mesytec-mvlc/util/readout_buffer_queues.h>
 #include "data_buffer_queue.h"
 #include "globals.h"
 #include "vme_config.h"
@@ -30,17 +31,21 @@
 
 struct VMEReadoutWorkerContext
 {
-    VMEController *controller;
+    VMEController *controller = nullptr;
     DAQStats daqStats;
-    VMEConfig *vmeConfig;
-    ThreadSafeDataBufferQueue *freeBuffers,
-                              *fullBuffers;
-    ListFileOutputInfo *listfileOutputInfo;
-    RunInfo *runInfo;
+    VMEConfig *vmeConfig = nullptr;
+    // Legacy buffer snoop queues for non-mvlc controllers.
+    ThreadSafeDataBufferQueue *freeBuffers = nullptr,
+                              *fullBuffers = nullptr;
+
+    ListFileOutputInfo *listfileOutputInfo = nullptr;
+    RunInfo *runInfo = nullptr;
 
     std::function<void (const QString &)> logger;
+    std::function<void (const QString &)> errorLogger;
     std::function<QStringList ()> getLogBuffer;
     std::function<QJsonDocument ()> getAnalysisJson;
+    std::function<QString ()> getRunNotes;
     LeakyBucketMeter m_logThrottle;
 
     static const size_t MaxLogMessagesPerSecond = 5;

@@ -37,14 +37,22 @@ class LIBMVME_EXPORT ListfileReplayWorker: public QObject
     public:
         using LoggerFun = std::function<void (const QString &)>;
 
+        // Explicitly passing in the queues for empty and filled buffers.
         ListfileReplayWorker(
             ThreadSafeDataBufferQueue *emptyBufferQueue,
             ThreadSafeDataBufferQueue *filledBufferQueue,
             QObject *parent = nullptr);
 
+        // No buffer queues passed. This is intended for the MVLCListfileWorker
+        // which uses the mesytec-mvlc queues internally.
+        explicit ListfileReplayWorker(
+            QObject *parent = nullptr)
+            : QObject(parent)
+        { }
+
         void setLogger(LoggerFun logger);
 
-        virtual void setListfile(QIODevice *listifle) = 0;
+        virtual void setListfile(ListfileReplayHandle *handle) = 0;
         virtual DAQStats getStats() const = 0;
         virtual bool isRunning() const = 0;
         virtual DAQState getState() const = 0;
@@ -71,8 +79,8 @@ class LIBMVME_EXPORT ListfileReplayWorker: public QObject
         }
 
     private:
-        ThreadSafeDataBufferQueue *m_emptyBufferQueue;
-        ThreadSafeDataBufferQueue *m_filledBufferQueue;
+        ThreadSafeDataBufferQueue *m_emptyBufferQueue = nullptr;
+        ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
         LoggerFun m_logger;
 };
 

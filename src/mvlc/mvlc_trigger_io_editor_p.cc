@@ -59,7 +59,7 @@ void reverse_rows(QTableWidget *table)
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 namespace trigger_io_config
 {
@@ -3791,7 +3791,7 @@ std::bitset<trigger_io::LUT::OutputBits> LUTEditor::getStrobedOutputMask()
 }
 
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 } // end namespace trigger_io_config
 

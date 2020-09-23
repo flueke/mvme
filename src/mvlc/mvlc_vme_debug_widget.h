@@ -34,7 +34,7 @@ namespace Ui
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 class LIBMVME_MVLC_EXPORT VMEDebugWidget: public QWidget
@@ -67,7 +67,7 @@ class LIBMVME_MVLC_EXPORT VMEDebugWidget: public QWidget
         std::unique_ptr<Ui::VMEDebugWidget> ui;
 };
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 #endif /* __MVME_MVLC_VME_DEBUG_WIDGET_H__ */

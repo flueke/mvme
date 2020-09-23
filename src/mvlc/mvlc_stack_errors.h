@@ -31,7 +31,7 @@
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 struct StackErrorInfo
@@ -45,14 +45,14 @@ inline bool operator==(const StackErrorInfo &a, const StackErrorInfo &b)
     return a.line == b.line && a.flags == b.flags;
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 namespace std
 {
-    template<> struct hash<mesytec::mvlc::StackErrorInfo>
+    template<> struct hash<mesytec::mvme_mvlc::StackErrorInfo>
     {
-        std::size_t operator()(const mesytec::mvlc::StackErrorInfo &ei) const noexcept
+        std::size_t operator()(const mesytec::mvme_mvlc::StackErrorInfo &ei) const noexcept
         {
             auto h1 = std::hash<u16>{}(ei.line);
             auto h2 = std::hash<u8>{}(ei.flags);
@@ -63,7 +63,7 @@ namespace std
 
 namespace mesytec
 {
-namespace mvlc
+namespace mvme_mvlc
 {
 
 // Records the number of errors for each distinct combination of
@@ -144,7 +144,7 @@ void update_stack_error_counters(StackErrorCounters &counters, const C &errorFra
     }
 }
 
-} // end namespace mvlc
+} // end namespace mvme_mvlc
 } // end namespace mesytec
 
 

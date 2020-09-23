@@ -272,6 +272,12 @@ EventVariableEditor::EventVariableEditor(
                 QSettings().setValue(SK_ShowInternalVariables, (state == Qt::Checked));
             });
 
+    connect(this, &EventVariableEditor::logInternalHtml,
+            this, [this] (const QString &html)
+            {
+                d->logView->appendHtml(html);
+            }, Qt::QueuedConnection);
+
 
     resize(1000, 800);
     d->loadFromEvent();
@@ -413,12 +419,12 @@ void EventVariableEditor::Private::runAffectedScripts()
         return;
     }
 
-    // FIXME: logging is horrible here. Do use boost::log at some point and get
-    // rid of this mess.
-
     auto logger = [this](const QString &str)
     {
-        logView->appendPlainText(str);
+        auto escaped = str.toHtmlEscaped();
+        auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
+
+        emit q->logInternalHtml(html);
         emit q->logMessage(str);
     };
 
@@ -426,7 +432,8 @@ void EventVariableEditor::Private::runAffectedScripts()
     {
         auto escaped = str.toHtmlEscaped();
         auto html = QSL("<font color=\"red\"><pre>%1</pre></font>").arg(escaped);
-        logView->appendHtml(html);
+
+        emit q->logInternalHtml(html);
         emit q->logError(str);
     };
 

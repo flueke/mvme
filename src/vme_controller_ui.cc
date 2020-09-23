@@ -28,13 +28,15 @@
 #include <QPushButton>
 #include <QTextBrowser>
 
+#include <mesytec-mvlc/mvlc_impl_usb.h>
+
 #include "gui_util.h"
-#include "mvlc/mvlc_impl_usb.h"
 #include "mvme_context.h"
 #include "qt_util.h"
 #include "sis3153.h"
 #include "vme_controller_factory.h"
 #include "vme_controller_ui_p.h"
+
 
 //
 // VMUSBSettingsWidget
@@ -95,8 +97,8 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     l->addRow(QSL("Enable UDP Jumbo Frames"), m_cb_jumboFrames);
     l->addRow(make_framed_description_label(QSL(
                 "Use ethernet jumbo frames. Note that all intermediate network components"
-                " and the receiving network card have to support and be setup correctly"
-                " for this option to work."
+                " and the receiving network card have to support jumbo frames and have to"
+                "be setup correctly for this option to work."
                 )));
 
     l->addRow(QSL("Debug: UDP Packet Gap"), m_combo_packetGap);
@@ -349,14 +351,23 @@ QVariantMap MVLC_USB_SettingsWidget::getSettings()
 MVLC_ETH_SettingsWidget::MVLC_ETH_SettingsWidget(QWidget *parent)
     : VMEControllerSettingsWidget(parent)
     , le_address(new QLineEdit)
+    , cb_jumboFrames(new QCheckBox)
 {
     auto layout = new QFormLayout(this);
+
     layout->addRow("Hostname / IP Address", le_address);
     layout->addRow(make_framed_description_label(QSL(
                 "When using DHCP the MVLC will request a hostname of the form "
                 "<i>MVLC-NNNN</i> where NNNN is the serial number.<br/>"
                 "This value is  also printed on the MVLCs front panel close to "
                 "the ethernet plug."
+                )));
+
+    layout->addRow("Enable Jumbo Frames", cb_jumboFrames);
+    layout->addRow(make_framed_description_label(QSL(
+                "Enable ethernet jumbo frames on the MVLC data pipe.<br/>"
+                "Note that all intermediate network components and the receiving network card "
+                "have to support jumbo frames and have to be setup correctly for this option to work."
                 )));
 }
 
@@ -370,6 +381,8 @@ void MVLC_ETH_SettingsWidget::loadSettings(const QVariantMap &settings)
     if (hostname.isEmpty())
         hostname = "MVLC-0001";
     le_address->setText(hostname);
+
+    cb_jumboFrames->setChecked(settings["mvlc_eth_enable_jumbos"].toBool());
 }
 
 QVariantMap MVLC_ETH_SettingsWidget::getSettings()
@@ -377,6 +390,7 @@ QVariantMap MVLC_ETH_SettingsWidget::getSettings()
     QVariantMap result;
 
     result["mvlc_hostname"] = le_address->text();
+    result["mvlc_eth_enable_jumbos"] = cb_jumboFrames->isChecked();
 
     return result;
 }
