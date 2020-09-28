@@ -21,7 +21,7 @@
 
 The install step is optional, mvme does run directly from the build directory.
 
-See doc/README.build-centos7 for detailed build steps for CentOS7.
+See doc/mvme-build-notes-ubuntu.txt for details on building under Ubuntu-18.04.
 
 #### Build commands on a fresh installation of Debian 10 (Buster)
 
