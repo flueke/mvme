@@ -3,13 +3,14 @@
 ## Building mvme
 ### Dependencies
 * gcc/clang with c++14 support
-* Qt >= 5.7
+* cmake
+* Qt >= 5.13
 * qwt
 * quazip
 * libusb-0.1
 * zlib
 * boost
-* make or ninja
+* ninja or make
 * Optional: sphinx and latex for the documentation
 * Optional: NSIS for the windows installer
 
