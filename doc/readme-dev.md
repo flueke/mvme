@@ -1,28 +1,7 @@
 # mvme developer readme
 
-## Compiling
-
-* c++14 capable compiler (gcc, clang)
-* cmake
-* qt >= 5.6 (?)
-* qwt >= 6.1
-* quazip
-* libusb-0.1 (the old deprecated version of libusb)
-* Optional: sphinx and a latex installation to build the documentation.
-  Sphinx was intalled in a virtualenv using `pip install sphinx`.
-  Additional debian packages required: texlive, texlive-latex-extra, dvipng,
-  latexmk, qttools5-dev-tools
-
-* Run CMake and make like this to build:
-
-    $ cmake -DCMAKE_BUILD_TYPE=Debug ../mvme2
-    $ make -j4
-
-* To build with Clang use
-    $ export CC=/usr/bin/clang
-    $ export CXX=/usr/bin/clang++
-
-  Then compile as usual.
+This file contains some notes and hints about working on mvme. For build
+instructions refer to the top-level README.md file.
 
 ## Archlinux packages:
 `cmake qt5-base quazip libusb-compat qwt`
@@ -34,26 +13,28 @@
 
 ### Windows
 
-I'm currently building both the x32 and x64 windows releases in MSYS2
-environments.
+I'm currently building the x64 windows releases in a MSYS2 environment.
+
+The x32 version cannot be built anymore due to linker memory restrictions (the
+c++ template code of the exprtk library produces a lot of symbols which the x32
+linker cannot seem to handle).
 
 Some of the dependencies required to compile in MSYS2:
 
     make 4.2.1-1
-    mingw-w64-x86_64-cmake 3.7.2-2
-    mingw-w64-x86_64-gcc 6.3.0-2
-    mingw-w64-x86_64-pkg-config 0.29.1-3
-    mingw-w64-x86_64-qt5 5.8.0-3
-    mingw-w64-x86_64-quazip 0.7.1-1
-    mingw-w64-x86_64-qwt-qt5 6.1.2-2
-    mingw-w64-x86_64-zlib 1.2.11-1
-
-The above list contains the x64 package names. The same packages need to be
-installed in the x32 environment.
+    mingw-w64-x86_64-cmake
+    mingw-w64-x86_64-gcc
+    mingw-w64-x86_64-pkg-config
+    mingw-w64-x86_64-qt5
+    mingw-w64-x86_64-quazip
+    mingw-w64-x86_64-qwt-qt5
+    mingw-w64-x86_64-zlib
 
 Optionally add `python2-pip` to install Sphinx if you want to generate
 documentation. Additionally a latex system is required for PDF generation. I
 successfully compiled the generated latex code using MiKTeX.
+
+Additionally the libusb-win32 is required: https://sourceforge.net/projects/libusb-win32/
 
 #### CMake invocation
 * Debug:
