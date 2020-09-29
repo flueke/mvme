@@ -1,8 +1,7 @@
-cmake_minimum_required(VERSION 3.1.0)
-project(mvme)
+cmake_minimum_required(VERSION 3.12)
 
-# AUTOMOC related: https://cmake.org/cmake/help/v3.10/policy/CMP0071.html
-#cmake_policy(SET CMP0071 NEW)
+project(mvme
+    DESCRIPTION "mesytec VME Data Acquisition")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -202,7 +201,7 @@ if (MVME_BUILD_TESTS)
     enable_testing()
     #include_directories(${GTEST_INCLUDE_DIRS})
     add_subdirectory(test)
-endif(MVME_BUILD_TESTS)
+endif()
 
 # Subdirectories containing build targets
 add_subdirectory(src)
