@@ -39,7 +39,7 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
-#warning "Implement eSST64 in VMEScript"
+//#warning "Implement eSST64 in VMEScript" (it's not even implemented in the MVLC yet)
                 break;
             }
             else // non-block reads
