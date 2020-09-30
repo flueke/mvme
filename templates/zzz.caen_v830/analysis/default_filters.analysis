@@ -1,0 +1,88 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 3,
+        "VMEObjectSettings": {
+            "{1a3d9b62-8444-4267-89a9-7af03e592914}": {
+                "MultiEventProcessing": false
+            },
+            "{d06291e4-9b89-47e6-9a44-1b41fc792821}": {
+                "MultiEventHeaderFilter": "XXXX X1XX SSSS SSXX XXXX XXXX XXXX XXXX"
+            }
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+        ],
+        "directories": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
+                    "moduleName": "caen_v830",
+                    "moduleTypeName": "caen_v830"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "XXXXX1XXXXXXXXXXDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 1,
+                        "wordCount": 1
+                    },
+                    "options": 1,
+                    "repetitions": 1,
+                    "rngSeed": "1aa3b6ce4b8babbc"
+                },
+                "eventId": "{1a3d9b62-8444-4267-89a9-7af03e592914}",
+                "id": "{f8907903-ed49-4dbd-a22f-9718effd5f28}",
+                "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
+                "name": "header"
+            },
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 1,
+                        "wordCount": 1
+                    },
+                    "options": 1,
+                    "repetitions": 32,
+                    "rngSeed": "75748c4b0e151054"
+                },
+                "eventId": "{1a3d9b62-8444-4267-89a9-7af03e592914}",
+                "id": "{979112cb-0de2-458f-94ec-09bd0328113a}",
+                "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
+                "name": "counters"
+            }
+        ]
+    }
+}
