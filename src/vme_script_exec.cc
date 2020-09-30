@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QThread>
 
+#include "mvlc/mvlc_vme_controller.h"
 #include "vmusb.h"
 
 namespace vme_script
@@ -157,6 +158,18 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                     vme_address_modes::MBLT64, false);
             } break;
 
+        case CommandType::MBLTSwapped:
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
+            {
+                result.error = mvlc->vmeMBLTSwapped(
+                    cmd.address, cmd.transfers, &result.valueVector);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType,
+                                        QSL("MVLC controller required"));
+            } break;
+
         case CommandType::MBLTFifo:
             {
                 result.error = controller->blockRead(
@@ -258,6 +271,7 @@ QString format_result(const Result &result)
         case CommandType::BLTFifo:
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
+        case CommandType::MBLTSwapped:
         case CommandType::Blk2eSST64:
             {
                 ret += "\n";

@@ -327,12 +327,22 @@ VMEError MVLC_VMEController::read16(u32 address, u16 *value, u8 amod)
 
 
 VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
-                                       QVector<u32> *dest, u8 amod, bool fifo)
+                                       QVector<u32> *dest, u8 amod, bool /*fifo*/)
 {
-    (void) fifo; // The MVLC does not use the FIFO flag. FIXME: does it always or never increment?
-
     std::vector<u32> buffer;
     auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, buffer);
+
+    dest->clear();
+    dest->reserve(buffer.size());
+    std::copy(std::begin(buffer), std::end(buffer), std::back_inserter(*dest));
+
+    return error_wrap(*m_mvlc, ec);
+}
+
+VMEError MVLC_VMEController::vmeMBLTSwapped(u32 address, u16 transfers, QVector<u32> *dest)
+{
+    std::vector<u32> buffer;
+    auto ec = m_mvlc->vmeMBLTSwapped(address, transfers, buffer);
 
     dest->clear();
     dest->reserve(buffer.size());

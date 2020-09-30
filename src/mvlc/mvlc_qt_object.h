@@ -161,6 +161,13 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
                     address, amod, maxTransfers, dest));
         }
 
+        std::error_code vmeMBLTSwapped(
+            u32 address, u16 maxTransfers, std::vector<u32> &dest)
+        {
+            return updateState(m_mvlc.vmeMBLTSwapped(
+                    address, maxTransfers, dest));
+        }
+
         std::error_code readResponse(mvlc::BufferHeaderValidator bhv, std::vector<u32> &dest)
         {
             return updateState(m_mvlc.readResponse(
