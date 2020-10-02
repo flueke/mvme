@@ -53,7 +53,7 @@
                 "eventId": "{1a3d9b62-8444-4267-89a9-7af03e592914}",
                 "id": "{f8907903-ed49-4dbd-a22f-9718effd5f28}",
                 "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
-                "name": "header"
+                "name": "header_sequence_number"
             },
             {
                 "class": "analysis::ListFilterExtractor",
@@ -81,7 +81,7 @@
                 "eventId": "{1a3d9b62-8444-4267-89a9-7af03e592914}",
                 "id": "{979112cb-0de2-458f-94ec-09bd0328113a}",
                 "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
-                "name": "counters"
+                "name": "counter_values"
             }
         ]
     }
