@@ -4822,8 +4822,46 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
             auto clone = std::dynamic_pointer_cast<ListFilterExtractor>(
                 std::shared_ptr<AnalysisObject>(ex->clone()));
 
-            if (clone)
-                m_context->getAnalysis()->addSource(m_eventId, module->getId(), clone);
+            if (!clone)
+                continue;
+
+            static const double MaxRawHistoBins = (1 << 16);
+            const u32 addressBits = clone->getAddressBits();
+            const u32 dataBits = clone->getDataBits();
+            const double unitMin = 0.0;
+            const double unitMax = std::pow(2.0, dataBits);
+            QString name = ex->objectName().section('.', 0, -1);
+            const u32 histoBins = static_cast<u32>(std::min(unitMax, MaxRawHistoBins));
+            const u32 addressCount = 1u << addressBits;
+
+            auto rawHistoSink = std::make_shared<Histo1DSink>();
+            rawHistoSink->setObjectName(QString("%1_raw").arg(name));
+            rawHistoSink->m_bins = histoBins;
+
+            auto calibration = std::make_shared<CalibrationMinMax>();
+            calibration->setObjectName(name);
+
+            for (u32 addr = 0; addr < addressCount; ++addr)
+                calibration->setCalibration(addr, unitMin, unitMax);
+
+            auto calHistoSink = std::make_shared<Histo1DSink>();
+            calHistoSink->setObjectName(QString("%1").arg(name));
+            calHistoSink->m_bins = histoBins;
+
+            rawHistoSink->connectArrayToInputSlot(0, clone->getOutput(0));
+            calibration->connectArrayToInputSlot(0, clone->getOutput(0));
+            calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
+
+            dirCalOperators->push_back(calibration);
+            dirCalHistos->push_back(calHistoSink);
+
+            auto analysis = m_context->getAnalysis();
+
+            analysis->addSource(m_eventId, module->getId(), clone);
+
+            analysis->addOperator(m_eventId, 0, rawHistoSink);
+            analysis->addOperator(m_eventId, 1, calibration);
+            analysis->addOperator(m_eventId, 1, calHistoSink);
         }
     }
 
