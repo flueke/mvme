@@ -68,8 +68,25 @@ write a32 d16 0x1112 ${sys_irq}
 # Interrupt Vector Register
 write a32 d16 0x1114 0x00
 
+# Note (flueke): with the module used for testing (firmware register contents 0xab04)
+# I did not get MCST to work. The module never responded to writes on the multicast
+# address and the contents of the MCST/CBLT Control Register seemed wrong.
+
 # MCST/CBLT Address Register
+# Sets the 8 high bits of the MCST and CBLT addresses. By default uses the event-wide
+# ${mesy_mcst} variable.
 write a32 d16 0x111c 0x${mesy_mcst}
+
+# MCST/CBLT Control Register
+# 2 bits for controlling both MCST and CBLT of the module.
+# | first_board | last_board | meaning
+# |      0      |      0     | Board disabled in CBLT or MCST chain
+# |      0      |      1     | First board in chain
+# |      1      |      0     | Last board in chain
+# |      1      |      1     | Intermediate board
+set first_board 1
+set last_board 1
+write a32 d16 0x111e 0b${first_board}${last_board}
 
 # Almost Full Level Register
 # Makes the module generate an Interrupt when at least this number of words is stored
