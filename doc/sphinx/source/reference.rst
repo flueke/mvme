@@ -14,6 +14,7 @@ Reference
     mvlc_trigger_io
     analysis
     json_rpc
+    ref_event_server
 
 .. ==================================================
 .. Operation Details

@@ -728,6 +728,7 @@ data will only be accumulated if both the X- and Y inputs are *valid*.
 
 See :ref:`Working with 2D histograms <analysis-working-with-2d-histos>` for details.
 
+.. index:: Data Export, ExportSink, ROOT, ROOT export
 .. _analysis-ExportSink:
 
 Export Sink
@@ -738,6 +739,15 @@ Export Sink
 .. _ROOT: https://root.cern.ch/
 
 Implements data export to binary files and C++/Python example code generation.
+
+This operator does not create an exported version of all the readout data but
+instead lets the user select a specific subset of analysis data arrays - all
+belonging to modules in the same VME event - to be exported to a binary file on
+disk.  Additionally skeleton code can be generated and used as a base for
+reading in the generated file and working with the data.
+
+For a complete, network-based readout data export including ROOT tree
+generation see :ref:`EventServer <reference-event_server>`.
 
 The Export Sink has a variable number of data input arrays that will be written
 to disk. Additionally a single parameter condition input can be used to
