@@ -518,7 +518,7 @@ std::unique_ptr<MVMEExperiment> compile_and_load_experiment_library(
 
 std::pair<void *, UserAnalysis> load_user_analysis(const char *filename, const std::vector<std::string> eventNames)
 {
-    void *handle = dlopen("analysis.so", RTLD_NOW | RTLD_GLOBAL);
+    void *handle = dlopen("./analysis.so", RTLD_NOW | RTLD_GLOBAL);
     UserAnalysis ua = {};
 
     if (handle)
