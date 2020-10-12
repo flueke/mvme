@@ -4,7 +4,7 @@ ROOTLIBS	=	$(shell root-config --libs)
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(dir $(mkfile_path))
 
-CXXFLAGS   +=	-I$(MVME)/include -I$(MVME)/include/mvme
+CXXFLAGS   +=	-I$(MVME)/include -I$(MVME)/include/mvme -I.
 CXXFLAGS   +=	-std=c++14
 
 .PHONY: all clean
