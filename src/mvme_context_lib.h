@@ -39,7 +39,7 @@ LIBMVME_EXPORT const ListfileReplayHandle &context_open_listfile(
 
 struct AnalysisPauser
 {
-    AnalysisPauser(MVMEContext *context);
+    explicit AnalysisPauser(MVMEContext *context);
     ~AnalysisPauser();
 
     MVMEContext *m_context;

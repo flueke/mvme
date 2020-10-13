@@ -115,8 +115,11 @@ SymbolTable::SymbolTable(const SymbolTable &other)
 
 SymbolTable &SymbolTable::operator=(const SymbolTable &other)
 {
-    m_d->enableExceptions = other.m_d->enableExceptions;
-    m_d->symtab_impl = other.m_d->symtab_impl;
+    if (this != &other)
+    {
+        m_d->enableExceptions = other.m_d->enableExceptions;
+        m_d->symtab_impl = other.m_d->symtab_impl;
+    }
     return *this;
 }
 
@@ -462,7 +465,7 @@ struct FunctionCompositor::Private
     Private()
     {}
 
-    Private(const SymbolTable &symTab)
+    explicit Private(const SymbolTable &symTab)
         : compositor_impl(symTab.m_d->symtab_impl)
     {}
 

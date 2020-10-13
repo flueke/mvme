@@ -482,7 +482,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
 class ScriptGenPartVisitor: public boost::static_visitor<>
 {
     public:
-        ScriptGenPartVisitor(QStringList &lineBuffer)
+        explicit ScriptGenPartVisitor(QStringList &lineBuffer)
             : m_lineBuffer(lineBuffer)
         { }
 
@@ -721,12 +721,6 @@ static QString generate_mvlc_meta_block(
 
 static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
 
-/* First iteration: generate vme writes to setup all of the IO/trigger units
- * and the dynamic connections.
- * Later: come up with a format to write out the user set output names.
- * Also: create the reverse function which takes a list of VME writes and
- * recreates the corresponding TriggerIO structure.
- */
 QString generate_trigger_io_script_text(
     const TriggerIO &ioCfg,
     const gen_flags::Flag &flags)
@@ -774,7 +768,7 @@ static const size_t LevelCount = 4;
 static const u16 UnitSelectRegister = 0x200u;
 static const u16 UnitRegisterBase = 0x300u;
 static const u16 UnitConnectBase = 0x80u;
-static const u16 UnitConnectMask = UnitConnectBase;
+//static const u16 UnitConnectMask = UnitConnectBase;
 
 // Maps register address to register value
 using RegisterWrites = QMap<u16, u16>;

@@ -262,9 +262,9 @@ add_library(libmvme SHARED
     listfile_browser.cc
     listfile_replay.cc
     listfile_replay_worker.cc
+    logfile_helper.cc
     mesytec_diagnostics.cc
     multi_event_splitter.cc
-    mvlc/vmeconfig_to_crateconfig.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
@@ -366,6 +366,8 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io_editor_p.cc
         mvlc/mvlc_trigger_io_script.cc
         mvlc/mvlc_trigger_io_util.cc
+        mvlc/vmeconfig_from_crateconfig.cc
+        mvlc/vmeconfig_to_crateconfig.cc
         mvlc_readout_worker.cc
         mvlc_stream_worker.cc
     )
@@ -395,6 +397,9 @@ if (MVME_ENABLE_MVLC)
 
     add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
     target_link_libraries(dev_mvlc_trigger_gui libmvme)
+
+    add_executable(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
+    target_link_libraries(dev_import_mvlc_crateconfig PRIVATE libmvme)
 
     if (NOT WIN32)
         add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
@@ -501,6 +506,7 @@ target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
 if(MVME_ENABLE_MVLC)
     add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
     target_link_libraries(mvme_to_mvlc PRIVATE mesytec-mvlc)
+    add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
 endif(MVME_ENABLE_MVLC)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to

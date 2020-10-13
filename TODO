@@ -2,9 +2,56 @@
 TODO list
 ==================================================
 
-* Figure out the shared_ptr<VMEConfig> reference vs. pointer strangeness.
-  Tracking this down
-  did cost quite a bit of time.
+* mvlc readout parser gets confused when the first module in an event is
+  disabled
+
+* cmake: rename BUILD_DOCS to MVME_BUILD_DOCS
+
+* multi_event_splitter: count unused words (per event and module) if possible.
+  make this data available as a counter.
+
+* add functionality for checking if the scripts in the vme tree can be parsed
+  successfully. Right now parse errors are only detected on DAQ startup.
+
+* move all MVLCReadoutWorker stateChange signal emissions from the
+  start/stop/pause/resume methods into the main loop. This way they will be
+  emitted from the readout thread and the behaviour will be the same as for the
+  other readout workers. Right now connected slots will be called directly.
+
+* write unit test for CrateConfig import/export
+
+* improve the TriggerIO editor "view script text" window. It's small and annoying.
+
+* log the DAQ run duration when the DAQ is stopped
+
+* add "log to file" functionality: currently the contents of the logview are
+  only saved into listfile archives when a run ends. This means on
+  non-succesful starts there's no file on disk containing the log contents
+  (users have to take screenshots or copy/paste the contents of the log
+  buffer).
+  Concept:
+  - Introduce a new workspace subdirectory 'logs' for logfile storage
+  - On each DAQ start attempt to create a logfile using the current runid to
+    form the filename. If the file exists add an incrementing suffix to the
+    filename.
+  - Append all messages (normal and error) to the file.
+  - Close the file on run end (independent on whether the run was successfully
+    started or was aborted during startup).
+
+  - Limit the number of files to keep. On each DAQ start check the number of
+    files currently present in the logs directory. If the limit is reached
+    delete the oldest of the files.
+
+  - Make sure the system is not active when replays are started! :-)
+
+
+* When adding a periodic event the mvlc trigger io is not updated immediately
+  but only on next daq start. This is not great as the trigger io gui state
+  does not reflect the state the system will have and things like exporting to
+  CrateConfig YAML will lead to incorrect results.
+  Bad! :D
+  Implement a kind of hook system that updates the trigger io when
+  adding/removing events.
 
 * Analysis processing skip flag:
   Decide directly after the data filters if this events output should be
@@ -38,7 +85,7 @@ TODO list
 
 * apparently there's a crash when compiling an expression operator script while
   a replay is running. Robert ran into this while editing an expression and
-  lost all of his edits...
+  lost all of his edits... Cannot reproduce
 
 * cmake: get rid of MVME_ENABLE_MVLC, do some sanity checks on the libraries
   being built and make sure files are only part of a single library

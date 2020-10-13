@@ -383,7 +383,7 @@ struct ExpressionOperatorSemanticError: public ExpressionOperatorError
 {
     std::string message;
 
-    ExpressionOperatorSemanticError(const std::string &msg)
+    explicit ExpressionOperatorSemanticError(const std::string &msg)
         : ExpressionOperatorError("SemanticError")
         , message(msg)
     {}
@@ -705,7 +705,7 @@ struct A2
      * BitsetAllocator. */
     ConditionBitset conditionBits;
 
-    A2(memory::Arena *arena);
+    explicit A2(memory::Arena *arena);
     ~A2();
 
     /* No copy or move allowed for now as I don't want to deal with the combination of

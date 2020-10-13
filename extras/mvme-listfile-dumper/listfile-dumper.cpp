@@ -285,7 +285,7 @@ void process_listfile(std::ifstream &infile)
             case SectionType_Event:
                 {
                     u32 eventType = (sectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
-                    printf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u\n",
+                    printf("Event section: eventHeader=0x%08x, eventType=%u, eventSize=%u\n",
                            sectionHeader, eventType, sectionSize);
 
                     u32 wordsLeft = sectionSize;

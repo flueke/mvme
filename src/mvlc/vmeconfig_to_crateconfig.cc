@@ -65,7 +65,14 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
                 dstCmd.transfers = srcCmd.transfers;
                 break;
 
-#if 0 // TODO: This is not currently implemented in vme_script
+            case CommandType::MBLTSwapped:
+                dstCmd.type = mvlcCT::VMEMBLTSwapped;
+                dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+                dstCmd.address = srcCmd.address;
+                dstCmd.transfers = srcCmd.transfers;
+                break;
+
+#if 0 // TODO: This is not currently neither implemented in vme_script nor the MVLC
             case CommandType::Blk2eSST64:
                 dstCmd.type = mvlcCT::VMERead;
                 dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
@@ -79,7 +86,18 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
                 dstCmd.value = srcCmd.value;
                 break;
 
+            case CommandType::SetBase:
+            case CommandType::ResetBase:
+            case CommandType::MetaBlock:
+            case CommandType::SetVariable:
+            case CommandType::Print:
+                break;
+
             default:
+                qDebug() << __PRETTY_FUNCTION__ << "unhandled command type"
+                    << to_string(srcCmd.type)
+                    << static_cast<int>(srcCmd.type);
+                assert(!"unhandled command type");
                 break;
         }
 
@@ -113,6 +131,7 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
         case VMEControllerType::MVLC_ETH:
             dstConfig.connectionType = mesytec::mvlc::ConnectionType::ETH;
             dstConfig.ethHost = ctrlSettings["mvlc_hostname"].toString().toStdString();
+            dstConfig.ethJumboEnable = ctrlSettings["mvlc_eth_enable_jumbos"].toBool();
             break;
 
         case VMEControllerType::MVLC_USB:

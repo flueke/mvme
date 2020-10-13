@@ -124,7 +124,7 @@ struct DAQReadoutListfileHelperPrivate;
 class DAQReadoutListfileHelper
 {
     public:
-        DAQReadoutListfileHelper(VMEReadoutWorkerContext &readoutContext);
+        explicit DAQReadoutListfileHelper(VMEReadoutWorkerContext &readoutContext);
         ~DAQReadoutListfileHelper();
 
         void beginRun();

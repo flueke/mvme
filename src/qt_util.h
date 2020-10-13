@@ -141,7 +141,7 @@ LIBMVME_CORE_EXPORT int get_widget_row(QFormLayout *layout, QWidget *widget);
 class LIBMVME_CORE_EXPORT NonShrinkingLabelHelper
 {
     public:
-        NonShrinkingLabelHelper(QLabel *label = nullptr)
+        explicit NonShrinkingLabelHelper(QLabel *label = nullptr)
             : m_label(label)
         { }
 

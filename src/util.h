@@ -67,7 +67,7 @@ LIBMVME_CORE_EXPORT QStringList toStringList(const RegisterList &registerList);
 class LIBMVME_CORE_EXPORT end_of_buffer: public std::runtime_error
 {
     public:
-        end_of_buffer(const char *arg): std::runtime_error(arg) {}
+        explicit end_of_buffer(const char *arg): std::runtime_error(arg) {}
         end_of_buffer(): std::runtime_error("end_of_buffer") {}
 };
 
@@ -297,7 +297,7 @@ class LIBMVME_CORE_EXPORT MVMEWidget: public QWidget
         void aboutToClose();
 
     public:
-        MVMEWidget(QWidget *parent = 0);
+        explicit MVMEWidget(QWidget *parent = 0);
 
     protected:
         void closeEvent(QCloseEvent *event) override;

@@ -49,7 +49,7 @@ class LIBMVME_EXPORT ListFile
         // It is assumed that the input device is opened for reading when
         // passed to this constructor. The ListFile does not take ownership of
         // the input device.
-        ListFile(QIODevice *input = nullptr);
+        explicit ListFile(QIODevice *input = nullptr);
 
         bool open();
         QJsonObject getVMEConfigJSON();

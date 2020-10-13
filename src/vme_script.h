@@ -28,6 +28,7 @@
 #include "libmvme_core_export.h"
 
 #include "typedefs.h"
+#include "util/qt_str.h"
 #include "vme.h"
 #include "vme_script_variables.h"
 #include "vme_error.h"
@@ -97,6 +98,7 @@ enum class CommandType
     BLTFifo,
     MBLT,
     MBLTFifo,
+    MBLTSwapped,
     Blk2eSST64,
 
     // Meta commands to temporarily use a different base address for the
@@ -156,8 +158,8 @@ struct Command
     uint32_t transfers = 0;
     uint32_t delay_ms = 0;
     uint32_t countMask = 0;
-    u8 blockAddressMode = vme_address_modes::A32;
-    uint32_t blockAddress = 0;
+    //u8 blockAddressMode = vme_address_modes::A32;
+    //uint32_t blockAddress = 0;
     Blk2eSSTRate blk2eSSTRate = Blk2eSSTRate::Rate160MB;
 
     QString warning;
@@ -166,6 +168,11 @@ struct Command
     MetaBlock metaBlock = {};
     QStringList printArgs;
 };
+
+inline bool is_valid(const Command &cmd)
+{
+    return cmd.type != CommandType::Invalid;
+}
 
 LIBMVME_CORE_EXPORT QString to_string(CommandType commandType);
 LIBMVME_CORE_EXPORT CommandType commandType_from_string(const QString &str);
@@ -192,20 +199,31 @@ struct ParseError: std::exception
 
     QString toString() const
     {
+        QString ret;
+
         if (lineNumber >= 0)
-            return QString("%1 on line %2").arg(message).arg(lineNumber);
-        return message;
+            ret = QSL("%1 on line %2").arg(message).arg(lineNumber);
+        else
+            ret = message;
+
+        if (!scriptName.isEmpty())
+            ret = QSL("Script '") + scriptName + QSL("': ") + ret;
+
+        return ret;
     }
 
     QString message;
     int lineNumber;
+    // Name of the input script. To be filled out by callers of the parse()
+    // functions if the info is available.
+    QString scriptName;
 };
 
-QString expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
-void expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs);
+QString LIBMVME_CORE_EXPORT expand_variables(const QString &line, const SymbolTables &symtabs, s32 lineNumber);
+void LIBMVME_CORE_EXPORT expand_variables(PreparsedLine &preparsed, const SymbolTables &symtabs);
 
-QString evaluate_expressions(const QString &qline, s32 lineNumber);
-void evaluate_expressions(PreparsedLine &preparsed);
+QString LIBMVME_CORE_EXPORT evaluate_expressions(const QString &qline, s32 lineNumber);
+void LIBMVME_CORE_EXPORT evaluate_expressions(PreparsedLine &preparsed);
 
 // These versions of the parse function use an internal symbol table. Access to
 // variables defined via the 'set' command is not possible.
@@ -251,4 +269,3 @@ LIBMVME_CORE_EXPORT QString get_first_meta_block_tag(const VMEScript &vmeScript)
 } // namespace vme_script
 
 #endif /* __VME_SCRIPT_QT_H__ */
-

@@ -152,7 +152,7 @@ struct ConditionTreeWidget::Private
 {
     static const int ButtonsColumn = 1;
 
-    Private(ConditionTreeWidget *q): m_q(q) {}
+    explicit Private(ConditionTreeWidget *q): m_q(q) {}
     MVMEContext *getContext() const { return m_context; }
     Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
     QUuid getEventId() const { return m_eventId; }

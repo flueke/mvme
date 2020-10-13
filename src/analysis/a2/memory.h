@@ -367,7 +367,7 @@ struct ArenaAllocator
 
     Arena *arena;
 
-    ArenaAllocator(Arena *arena)
+    explicit ArenaAllocator(Arena *arena)
         : arena(arena)
     {}
 

@@ -63,7 +63,7 @@ static inline QRectF make_bounding_rect(const RateSampler *sampler)
 
 struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 {
-    RateMonitorPlotData(const RateSamplerPtr &sampler)
+    explicit RateMonitorPlotData(const RateSamplerPtr &sampler)
         : QwtSeriesData<QPointF>()
         , sampler(sampler)
     { }
@@ -417,7 +417,7 @@ void RateMonitorPlotWidget::setYAxisScale(AxisScale scaling)
             break;
 
         case AxisScale::Logarithmic:
-            static const double LogScaleMinBound = 1.0;
+            //static const double LogScaleMinBound = 1.0;
             auto scaleEngine = new QwtLogScaleEngine;
             //scaleEngine->setTransformation(new MinBoundLogTransform(LogScaleMinBound));
             m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);

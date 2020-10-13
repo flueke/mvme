@@ -175,7 +175,7 @@ class FunctionCompositor
 {
     public:
         FunctionCompositor();
-        FunctionCompositor(const SymbolTable &symTab);
+        explicit FunctionCompositor(const SymbolTable &symTab);
         ~FunctionCompositor();
 
         SymbolTable getSymbolTable() const;

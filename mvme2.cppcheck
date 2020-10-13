@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="1">
+    <builddir>build-cppcheck</builddir>
+    <platform>unix64</platform>
+    <importproject>compile_commands.json</importproject>
+    <analyze-all-vs-configs>true</analyze-all-vs-configs>
+    <exclude>
+        <path name="external/cpp11-on-multicore/"/>
+        <path name="external/exprtk/"/>
+        <path name="external/jcon-cpp/"/>
+        <path name="external/yaml-cpp/"/>
+        <path name="external/mesytec-mvlc/external/"/>
+    </exclude>
+    <libraries>
+        <library>gnu</library>
+        <library>googletest</library>
+        <library>posix</library>
+        <library>qt</library>
+        <library>zlib</library>
+    </libraries>
+    <tools>
+        <tool>clang-tidy</tool>
+    </tools>
+</project>

@@ -61,12 +61,15 @@ struct DataBuffer
     // copy assignment
     DataBuffer &operator=(const DataBuffer &other)
     {
-        used = 0u;
-        reserve(other.size);
-        std::memcpy(data, other.data, other.used);
-        used = other.used;
-        id = other.id;
-        tag = other.tag;
+        if (this != &other)
+        {
+            used = 0u;
+            reserve(other.size);
+            std::memcpy(data, other.data, other.used);
+            used = other.used;
+            id = other.id;
+            tag = other.tag;
+        }
 
         return *this;
     }
@@ -94,19 +97,22 @@ struct DataBuffer
     // move assignment
     DataBuffer &operator=(DataBuffer &&other)
     {
-        delete[] data;
+        if (this != &other)
+        {
+            delete[] data;
 
-        data = other.data;
-        size = other.size;
-        used = other.used;
-        id = other.id;
-        tag = other.tag;
+            data = other.data;
+            size = other.size;
+            used = other.used;
+            id = other.id;
+            tag = other.tag;
 
-        other.data = nullptr;
-        other.size = 0;
-        other.used = 0;
-        other.id = 0;
-        other.tag = 0;
+            other.data = nullptr;
+            other.size = 0;
+            other.used = 0;
+            other.id = 0;
+            other.tag = 0;
+        }
 
         return *this;
     }

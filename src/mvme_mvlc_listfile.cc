@@ -125,10 +125,10 @@ QByteArray read_vme_config_data(QIODevice &listfile)
 
 void listfile_write_mvme_config(
     mesytec::mvlc::listfile::WriteHandle &lf_out,
-    const VMEConfig *vmeConfig)
+    const VMEConfig &vmeConfig)
 {
     QJsonObject json;
-    vmeConfig->write(json);
+    vmeConfig.write(json);
     QJsonObject parentJson;
     parentJson["VMEConfig"] = json;
     QJsonDocument doc(parentJson);

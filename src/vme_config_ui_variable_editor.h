@@ -63,7 +63,7 @@ class LIBMVME_EXPORT VariableEditorWidget: public QWidget
         void variableDeleted(const QString &varName);
 
     public:
-        VariableEditorWidget(QWidget *parent = nullptr);
+        explicit VariableEditorWidget(QWidget *parent = nullptr);
         ~VariableEditorWidget() override;
 
         void setVariables(const vme_script::SymbolTable &symtab);

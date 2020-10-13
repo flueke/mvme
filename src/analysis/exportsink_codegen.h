@@ -36,7 +36,7 @@ class ExportSinkCodeGenerator
     public:
         using Logger = std::function<void (const QString &)>;
 
-        ExportSinkCodeGenerator(ExportSink *sink);
+        explicit ExportSinkCodeGenerator(ExportSink *sink);
         ~ExportSinkCodeGenerator();
 
         /* Instantiates code templates and writes them to the output files. */

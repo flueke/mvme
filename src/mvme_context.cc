@@ -29,6 +29,7 @@
 #include "analysis/analysis_ui.h"
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
+#include "logfile_helper.h"
 #include "mesytec-mvlc/util/readout_buffer_queues.h"
 #include "mvme_mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
@@ -78,7 +79,6 @@ static const size_t ReadoutBufferSize = Megabytes(1);
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 
-static const ListFileFormat DefaultListFileFormat = ListFileFormat::ZIP;
 static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
@@ -99,10 +99,16 @@ static const s64 LogBufferMaxEntries = 100 * 1000;
 static const int JSON_RPC_DefaultListenPort = 13800;
 static const int EventServer_DefaultListenPort = 13801;
 
+// The number of DAQ run logfiles to keep in run_logs/
+static const unsigned Default_RunLogsMaxCount = 50;
+static const QString RunLogsWorkspaceDirectory = QSL("run_logs");
+
+static const QString LogsWorkspaceDirectory = QSL("logs");
+
 class VMEConfigSerializer
 {
     public:
-        VMEConfigSerializer(MVMEContext *context)
+        explicit VMEConfigSerializer(MVMEContext *context)
             : m_context(context)
         { }
 
@@ -125,7 +131,7 @@ class VMEConfigSerializer
 class AnalysisSerializer
 {
     public:
-        AnalysisSerializer(MVMEContext *context)
+        explicit AnalysisSerializer(MVMEContext *context)
             : m_context(context)
         { }
 
@@ -153,6 +159,8 @@ class AnalysisSerializer
 } // end anon namespace
 
 using remote_control::RemoteControl;
+using mesytec::mvme::LogfileCountLimiter;
+using mesytec::mvme::LastlogHelper;
 
 struct MVMEContextPrivate
 {
@@ -177,8 +185,12 @@ struct MVMEContextPrivate
     mesytec::mvlc::ReadoutBufferQueues mvlcSnoopQueues;
     mutable mesytec::mvlc::Protected<QString> runNotes;
 
-    MVMEContextPrivate()
-        : mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
+    std::unique_ptr<mesytec::mvme::LogfileCountLimiter> daqRunLogfileLimiter;
+    std::unique_ptr<LastlogHelper> lastLogfileHelper;
+
+    MVMEContextPrivate(MVMEContext *q)
+        : m_q(q)
+        , mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
         , runNotes({})
     {}
 
@@ -407,7 +419,7 @@ void MVMEContextPrivate::stopAnalysis()
 
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
-        // Tell the analysis top stop immediately
+        // Tell the analysis to stop immediately
         m_q->m_streamWorker->stop(false);
         QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                          &localLoop, &QEventLoop::quit);
@@ -477,7 +489,7 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
 
 MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     : QObject(parent)
-    , m_d(new MVMEContextPrivate)
+    , m_d(new MVMEContextPrivate(this))
     , m_listFileFormat(ListFileFormat::ZIP)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_logTimer(new QTimer(this))
@@ -489,7 +501,6 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_daqState(DAQState::Idle)
     , m_analysis(std::make_unique<analysis::Analysis>())
 {
-    m_d->m_q = this;
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
 
     for (size_t i=0; i<ReadoutBufferCount; ++i)
@@ -1256,9 +1267,12 @@ void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
     }
 }
 
-// Called on VMUSBReadoutWorker::daqStopped()
+// Called on VMEReadoutWorker::daqStopped()
 void MVMEContext::onDAQDone()
 {
+    assert(m_d->daqRunLogfileLimiter);
+    m_d->daqRunLogfileLimiter->closeCurrentFile();
+
     // stops the analysis side thread
     m_streamWorker->stop();
 
@@ -1531,7 +1545,7 @@ QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) con
 
 void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
 {
-    if (m_configFileName != name)
+    if (m_configFileName != name || updateWorkspace)
     {
         m_configFileName = name;
         if (updateWorkspace)
@@ -1545,7 +1559,7 @@ void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
 
 void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
 {
-    if (m_analysisConfigFileName != name)
+    if (m_analysisConfigFileName != name || updateWorkspace)
     {
         m_analysisConfigFileName = name;
         if (updateWorkspace)
@@ -1679,6 +1693,10 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // E.g. the runNumber might be incremented due to run files already existing.
 
     m_d->clearLog();
+
+    assert(m_d->daqRunLogfileLimiter);
+
+    m_d->daqRunLogfileLimiter->beginNewFile(m_d->m_runInfo.runId);
 
     // Log mvme version and bitness and runtime cpu architecture
     logMessage(QString(QSL("mvme %1 (%2) running on %3 (%4)\n"))
@@ -1932,7 +1950,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     {
         logger("VME Script Error: VME controller not connected");
         vme_script::Result result = {};
-        result.error = VMEError::NotOpen;
+        result.error = VMEError(VMEError::NotOpen);
         return { result };
     }
 
@@ -2169,20 +2187,20 @@ void MVMEContext::openWorkspace(const QString &dirName)
         setWorkspaceDirectory(dirName);
         auto workspaceSettings(makeWorkspaceSettings(dirName));
 
-        // settings defaults
-        if (!workspaceSettings->contains(QSL("JSON-RPC/Enabled")))
-            workspaceSettings->setValue(QSL("JSON-RPC/Enabled"), false);
-        if (!workspaceSettings->contains(QSL("JSON-RPC/ListenAddress")))
-            workspaceSettings->setValue(QSL("JSON-RPC/ListenAddress"), QString());
-        if (!workspaceSettings->contains(QSL("JSON-RPC/ListenPort")))
-            workspaceSettings->setValue(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
+        auto set_default = [&workspaceSettings](const QString &key, const auto &value)
+        {
+            if (!workspaceSettings->contains(key))
+                workspaceSettings->setValue(key, value);
+        };
 
-        if (!workspaceSettings->contains(QSL("EventServer/Enabled")))
-            workspaceSettings->setValue(QSL("EventServer/Enabled"), false);
-        if (!workspaceSettings->contains(QSL("EventServer/ListenAddress")))
-            workspaceSettings->setValue(QSL("EventServer/ListenAddress"), QString());
-        if (!workspaceSettings->contains(QSL("EventServer/ListenPort")))
-            workspaceSettings->setValue(QSL("EventServer/ListenPort"), EventServer_DefaultListenPort);
+        // settings defaults
+        set_default(QSL("JSON-RPC/Enabled"), false);
+        set_default(QSL("JSON-RPC/ListenAddress"), QString());
+        set_default(QSL("JSON-RPC/ListenPort"), JSON_RPC_DefaultListenPort);
+        set_default(QSL("EventServer/Enabled"), false);
+        set_default(QSL("EventServer/ListenAddress"), QString());
+        set_default(QSL("EventServer/ListenPort"), EventServer_DefaultListenPort);
+        set_default(QSL("Logs/RunLogsMaxCount"), Default_RunLogsMaxCount);
 
         // listfile subdir
         {
@@ -2196,38 +2214,38 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
         }
 
-        // plots subdir
+        // Creates non-existent workspace subdirectories. pathSettingsKey is
+        // used to lookup the directory name from the workspace settings INI
+        // file, defaultDirectoryName is the default name for the directory if
+        // the setting is missing from the INI. Missing entries will be updated
+        // in the INI file.
+        auto make_missing_workspace_dir = [this] (
+            const QString &pathSettingsKey, const QString &defaultDirectoryName)
         {
-            QDir dir(getWorkspacePath(QSL("PlotsDirectory"), QSL("plots")));
+            QDir dir(getWorkspacePath(pathSettingsKey, defaultDirectoryName));
 
             if (!QDir::root().mkpath(dir.absolutePath()))
             {
-                throw QString(QSL("Error creating plots directory %1.")).arg(dir.path());
+                throw QString(QSL("Error creating %1 '%2'")
+                              .arg(pathSettingsKey).arg(dir.absolutePath()));
             }
-        }
+        };
 
-        // sessions subdir
-        {
-            QDir dir(getWorkspacePath(QSL("SessionDirectory"), QSL("sessions")));
+        // Contains exported plots (PDF or images files)
+        make_missing_workspace_dir(QSL("PlotsDirectory"), QSL("plots"));
+        // Contains analysis session files.
+        make_missing_workspace_dir(QSL("SessionDirectory"), QSL("sessions"));
+        // Contains analysis ExportSink data
+        make_missing_workspace_dir(QSL("ExportsDirectory"), QSL("exports"));
+        // Holds logfiles of the last DAQ runs (also for unsuccessful starts)
+        make_missing_workspace_dir(QSL("RunLogsDirectory"), RunLogsWorkspaceDirectory);
+        // Holds mvme.log and mvme_last.log: log files rotated at mvme startup.
+        // mvme.log is kept open during the application lifetime and contains
+        // all logged messages.
+        make_missing_workspace_dir(QSL("LogsDirectory"), LogsWorkspaceDirectory);
 
-            if (!QDir::root().mkpath(dir.absolutePath()))
-            {
-                throw QString(QSL("Error creating sessions directory %1.")).arg(dir.path());
-            }
-        }
-
-        // exports subdir
-        {
-            QDir dir(getWorkspacePath(QSL("ExportsDirectory"), QSL("exports")));
-
-            if (!QDir::root().mkpath(dir.absolutePath()))
-            {
-                throw QString(QSL("Error creating exports directory %1.")).arg(dir.path());
-            }
-        }
-
-        // special listfile output directory handling. TODO: this might not
-        // actually be needed anymore
+        // special listfile output directory handling.
+        // FIXME: this might not actually be needed anymore
         {
             ListFileOutputInfo info = readFromSettings(*workspaceSettings);
 
@@ -2259,6 +2277,28 @@ void MVMEContext::openWorkspace(const QString &dirName)
             m_d->m_listfileOutputInfo = info;
             writeToSettings(info, *workspaceSettings);
         }
+
+        // Create a new LastlogHelper to log into mvme.log until another
+        // workspace is opened.
+        // Do this before attempting to open vme and analysis files inside the
+        // newly entered workspace so that messages end up in the correct log
+        // file.
+        m_d->lastLogfileHelper = std::make_unique<LastlogHelper>(
+            QDir(getWorkspaceDirectory()).filePath(LogsWorkspaceDirectory),
+            QSL("mvme.log"), QSL("last_mvme.log"));
+
+        connect(this, &MVMEContext::sigLogMessage,
+                this, [this] (const QString &msg)
+                {
+                    m_d->lastLogfileHelper->logMessage(msg + QSL("\n"));
+                });
+
+        connect(this, &MVMEContext::sigLogError,
+                this, [this] (const QString &msg)
+                {
+                    m_d->lastLogfileHelper->logMessage(QSL("EE ") + msg + QSL("\n"));
+                });
+
 
         //
         // VME config
@@ -2470,11 +2510,36 @@ void MVMEContext::openWorkspace(const QString &dirName)
             logMessage(errorMessage);
         });
 
+        // Create a new LogfileCountLimiter instance for the DAQ run logs in this
+        // workspace.
+        m_d->daqRunLogfileLimiter = std::make_unique<mesytec::mvme::LogfileCountLimiter>(
+            QDir(getWorkspaceDirectory()).filePath(RunLogsWorkspaceDirectory),
+            workspaceSettings->value(QSL("Logs/RunLogsMaxCount")).toUInt()
+            );
+
+        // The connections can be made immediately. As long as beginNewFile()
+        // has not been called on the LogfileCountLimiter, the calls to logMessage()
+        // will have no effect.
+        connect(this, &MVMEContext::sigLogMessage,
+                this, [this] (const QString &msg)
+                {
+                    m_d->daqRunLogfileLimiter->logMessage(msg + QSL("\n"));
+                });
+
+        connect(this, &MVMEContext::sigLogError,
+                this, [this] (const QString &msg)
+                {
+                    m_d->daqRunLogfileLimiter->logMessage(QSL("EE ") + msg + QSL("\n"));
+                });
+
         reapplyWorkspaceSettings();
     }
-    catch (const QString &)
+    catch (...)
     {
-        // Restore previous workspace directory as the load was not successfull
+        // Restore previous workspace directory as the load was not successful
+        // FIXME: other actions should be done here like recreating the
+        // lastLogfileHelper. Just restoring the old workspace directory is not
+        // enough.
         setWorkspaceDirectory(lastWorkspaceDirectory);
         throw;
     }

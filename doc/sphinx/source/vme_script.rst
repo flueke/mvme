@@ -120,11 +120,24 @@ mvme supports the following read-only block transfer commands:
 * **bltfifo** *<amode> <address> <count>*
 * **mblt** *<amode> <address> <count>*
 * **mbltfifo** *<amode> <address> <count>*
+* **mblts** *<amode> <address> <count>* (**MVLC only**)
 
 **blt** and **bltfifo** transfer *<count>* number of 32-bit words, **mblt** and **mbltfifo**
 transfer 64-bit words.
 
 The **\*fifo** variants do not increment the given starting address.
+
+**mblts** stands for *MBLT swapped* and is the same as MBLT but swaps the two
+32-bit words in each transferred 64-bit word. It is only supported by the MVLC.
+
+.. note::
+  For the MVLC there is no difference between the FIFO and non-FIFO block
+  reads. FIFO mode only makes a difference if the controller interrupts the
+  block transfer after a fixed number of cycles (usually 256) and then starts a
+  new block transfer either from the starting address (FIFO) mode or from the
+  incremented address (non-FIFO mode). The MVLC performs block transfers
+  without interruptions which means the starting address is transmitted only
+  once and it is up to the individual module how it handles the block transfer.
 
 Miscellaneous
 ~~~~~~~~~~~~~

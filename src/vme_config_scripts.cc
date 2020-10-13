@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_scripts.h"
+#include "vme_script.h"
 
 #include <cassert>
 
@@ -38,10 +39,18 @@ VMEScriptAndVars parse_and_return_symbols(
     const VMEScriptConfig *scriptConfig,
     u32 baseAddress)
 {
-    auto symtabs = collect_symbol_tables(scriptConfig);
-    auto script = vme_script::parse(scriptConfig->getScriptContents(), symtabs, baseAddress);
+    try
+    {
+        auto symtabs = collect_symbol_tables(scriptConfig);
+        auto script = vme_script::parse(scriptConfig->getScriptContents(), symtabs, baseAddress);
 
-    return std::make_pair(script, symtabs);
+        return std::make_pair(script, symtabs);
+    }
+    catch (vme_script::ParseError &e)
+    {
+        e.scriptName = scriptConfig->getVerboseTitle();
+        throw;
+    }
 }
 
 vme_script::SymbolTables collect_symbol_tables(const ConfigObject *co)

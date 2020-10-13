@@ -47,7 +47,7 @@ class LIBMVME_CORE_EXPORT VMEController: public QObject
         void controllerStateChanged(ControllerState state);
 
     public:
-        VMEController(QObject *parent = 0);
+        explicit VMEController(QObject *parent = 0);
         virtual ~VMEController() {}
 
         virtual VMEControllerType getType() const = 0;

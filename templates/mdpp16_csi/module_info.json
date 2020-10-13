@@ -1,0 +1,7 @@
+{
+    "typeId"        : 18,
+    "typeName"      : "mdpp16_csi",
+    "displayName"   : "MDPP-16_CSI",
+    "vendorName"    : "mesytec",
+    "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
+}

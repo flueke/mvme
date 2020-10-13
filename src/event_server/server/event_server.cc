@@ -65,7 +65,7 @@ struct EventServer::Private
 
     static const size_t InitialOutBufferSize = Kilobytes(10);
 
-    Private(EventServer *q)
+    explicit Private(EventServer *q)
         : m_q(q)
         , m_server(q)
         , m_outBuf(InitialOutBufferSize)

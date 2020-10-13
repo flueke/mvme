@@ -72,7 +72,7 @@ class NodeModificationButtons: public QWidget
         void reject();
 
     public:
-        NodeModificationButtons(QWidget *parent = nullptr);
+        explicit NodeModificationButtons(QWidget *parent = nullptr);
 
         QPushButton *getAcceptButton() const { return pb_accept; }
         QPushButton *getRejectButton() const { return pb_reject; }

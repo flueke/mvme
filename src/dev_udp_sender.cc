@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
     QUdpSocket sendSock;
 
-    if (!sendSock.bind(QHostAddress::LocalHost, 0, QAbstractSocket::DefaultForPlatform))
+    if (!sendSock.bind(QHostAddress::Any, 0, QAbstractSocket::DefaultForPlatform))
     {
         qDebug() << "bind failed" << sendSock.errorString();
         return 42;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 
     char outBuffer[OutBufferSize] = {};
     ssize_t outBufferUsed = OutBufferSize;
-    static const int loopCount = 1 << 20;
+    static const int loopCount = 1 << 10;
     QElapsedTimer timer;
     double totalBytes = 0.0;
     u64 totalPackets = 0.0;

@@ -56,8 +56,11 @@ struct Foo
     {
         cout << __PRETTY_FUNCTION__ << " " << m_instance << " " << this << endl;
 
-        this->destroyed = other.destroyed;
-        this->m_instance = other.m_instance;
+        if (this != &other)
+        {
+            this->destroyed = other.destroyed;
+            this->m_instance = other.m_instance;
+        }
 
         return *this;
     }

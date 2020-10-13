@@ -33,7 +33,7 @@
 class NoEditDelegate: public QStyledItemDelegate
 {
     public:
-        NoEditDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
+        explicit NoEditDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
 
         virtual QWidget* createEditor(QWidget *parent,
                                       const QStyleOptionViewItem &option,
@@ -91,7 +91,7 @@ QTreeWidgetItem *findFirstNode(QTreeWidgetItem *node, Predicate predicate)
 class HtmlDelegate : public QStyledItemDelegate
 {
     public:
-        HtmlDelegate(QObject *parent = nullptr);
+        explicit HtmlDelegate(QObject *parent = nullptr);
         virtual ~HtmlDelegate() override;
 
     protected:
@@ -140,7 +140,7 @@ class CanDisableItemsHtmlDelegate: public HtmlDelegate
 class BasicTreeNode: public QTreeWidgetItem
 {
     public:
-        BasicTreeNode(int type = QTreeWidgetItem::Type)
+        explicit BasicTreeNode(int type = QTreeWidgetItem::Type)
             : QTreeWidgetItem(type)
         { }
 

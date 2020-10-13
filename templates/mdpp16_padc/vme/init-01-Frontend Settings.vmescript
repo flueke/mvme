@@ -1,0 +1,85 @@
+# MDPP-16 PADC Front end settings
+# ############################################################################
+# select_chan_pair
+0x6100  8       # 0 -> channel 0, 1
+                # 1 -> channel 2, 3
+                # ...
+                # 8 -> all channels (set to common values)
+
+# Gain (common for both selected channels)
+0x611A  100     # gain * 100
+                # range 100..25000
+                # 100   -> gain = 1
+                # 25000 -> gain = 250
+
+# threshold0
+0x611C  400    # 0..64k, 64k corresponds to full range
+# threshold1
+0x611E  400    # same as threshold0 for odd channel
+
+# Input pulse width of shaper signal (common for both selected channels)
+0x6124  80     # (80 = 1us) FWHM-width in multiples of 12.5ns (200 == 2.5 us)
+               # possible range 8..2000 (100 ns to 25 us)
+
+
+
+# Channel / Channel Pair Front end settings
+# ############################################################################
+/*
+# channels (0, 1)
+0x6100   0		#channel
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+
+# channels (2, 3)
+0x6100       1
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+# channels (4, 5)
+0x6100       2
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+# channels (6, 7)
+0x6100       3
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+# channels (8, 9)
+0x6100       4
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+# channels (10, 11)
+0x6100       5
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+# channels (12, 13)
+0x6100       6
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+# channels (14, 15)
+0x6100       7
+0x611A  100     # gain * 100
+0x611C  400    	# threshold 0
+0x611E  400    	# threshold 1
+0x6124  80		# Input pulse width
+*/
+
+##### Expert settings, usually the default settings are fine #######
+# BLR - base line restorer (common for both selected channels)
+0x6100  8
+0x6126  2       # 0 -> off
+                # 1 -> strict (int. time = 4 shaping times)
+                # 2 -> soft   (int. time = 8 shaping times)

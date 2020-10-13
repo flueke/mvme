@@ -54,7 +54,7 @@ struct Histo1DStatistics
 
 struct HistoLogicError: public std::runtime_error
 {
-    HistoLogicError(const char *s): std::runtime_error(s) {}
+    explicit HistoLogicError(const char *s): std::runtime_error(s) {}
 };
 
 // Histo memory segment inside an arena.

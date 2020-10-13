@@ -2,52 +2,65 @@
 Building mvme2 under ubuntu-18.04 amd64
 ============================================================
 
-Starting from the "minimal" installation with all updates installed (05/16/18).
+Instructions updated for ubuntu-18.04 and the mvme master branch as of
+Fr 25. Sep 09:33:07 CEST 2020
 
-Installed "vim vim-scripts vim-gtk" just to have my usual editor.
+The starting point is a default installation of ubuntu-18.04 with all updates
+installed.
 
-* Install the following packages:
-build-essential
-cmake
-git
-git-gui
-gitk
-libboost-dev
-libhdf5-dev
-libquazip5-dev
-libqwt-qt5-dev
-libusb-dev
-qtbase5-dev
-zlib1g-dev
+* Install additional dependencies:
 
-* Commands
-git clone https://github.com/flueke/mvme
-cd mvme
-git checkout dev         # Want the dev branch as master is quite old
-cd ..
-mkdir build-mvme
-cd build-mvme
-cmake -DCMAKE_BUILD_TYPE=Debug ../mvme
-make -j4
+  sudo apt-get install libxcb-xinerama0 mesa-common-dev zlib1g-dev libboost-dev
+       libqwt-qt5-dev libusb-dev libquazip5-dev libgl1-mesa-dev git build-essential
 
+* Install Qt:
 
-* FIXME and TODO list
-- install sphinx and other doc stuff once the basic build works
-- None of the tags I made ended up on github! These probably need to be
-  manually pushed.
+  mvme requires qt-5.13 or later which is not shipped with ubuntu.
+  To get an up-to-date version go to https://www.qt.io/download and download the
+  Qt Installer. You also need a qt.io account to be able to download Qt binaries.
 
-============================================================
-Building mvme2 under ubuntu-16.04 amd64
-============================================================
+  Make the installer executable via `chmod 755
+  qt-unified-linux-x64-3.2.3-online.run' and start it. I used $HOME/Qt as the
+  installation location. In the software selection tree under 'Developer and
+  Designer Tools' make sure CMake and Ninja are checked. Under Qt-5.15.1 select
+  'Desktop gcc 64-bit' and start the installation.
 
-Starting from a clean ubuntu-16.04 installation with all updates installed.
-Package installations where done using 'apt-get install'.
+* Checkout mvme and submodules:
 
-The version of Qt in ubuntu-16.04 is 5.5 but mvme requires at least Qt-5.7. Qt
->= 5.7 is not even in the backports repository. I also think that HDF5-1.8.x is
-too old aswell.
+  git clone https://github.com/flueke/mvme
+  cd mvme
+  git submodule init
+  git submodule update --recursive
 
-This means on a default ubuntu-16.04 mvme cannot be built anymore. The user has
-manually install newer versions of Qt and HDF5 and has to take care that the
-version of qwt interoperates well with Qt.
+* Building with QtCreator:
 
+  - Start ~/Qt/Tools/QtCreator/bin/qtcreator
+  - Use 'File -> Open File or Project' navigate to the mvme directory and open
+    the CMakeLists.txt.
+  - Select the 'Desktop QT 5.15.1' kit and click 'Configure Project'.
+  - Use 'Build -> Build Project "mvme"' to start the compilation process.
+  - Run mvme using the green arrow in the bottom left of the window.
+
+* Building from the command line:
+
+  The environment has to be modified for the shell and cmake to work properly.
+  Add the following to your ~/.bashrc file:
+
+  export PATH="${HOME}/Qt/5.15.1/gcc_64/bin:${PATH}"
+  export PATH="${HOME}/Qt/Tools/CMake/bin:${PATH}"
+  export PATH="${HOME}/Qt/Tools/Ninja:${PATH}"
+  export LD_LIBRARY_PATH="${HOME}/Qt/5.15.1/gcc_64/lib:${LD_LIBRARY_PATH}"
+  export LD_LIBRARY_PATH="${HOME}/Qt/Tools/CMake:${LD_LIBRARY_PATH}"
+
+  Then `source ~/.bashrc' or start a new shell.
+
+  cd ~/mvme
+  mkdir build
+  cd build
+  cmake -GNinja -DCMAKE_BUILD_TYPE=Release ..
+  ninja
+  ./mvme
+
+* Optional tools:
+  - sphinx-doc and a latex distribution for building the docs
+  - doxygen for the mesytec-mvlc library documentation

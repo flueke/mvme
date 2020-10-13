@@ -1,4 +1,4 @@
-if (BUILD_TESTS)
+if (MVME_BUILD_TESTS)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -26,6 +26,7 @@ endfunction(add_mvme_test)
 # code and we end up with undefined references to the vtable.
 
 add_mvme_test(test_data_filter test_data_filter.cc)
+target_link_libraries(test_data_filter PRIVATE liba2_static)
 #add_mvme_test(test_analysis_aggregate_ops test_analysis_aggregate_ops.cc)
 add_mvme_test(test_leaky_bucket test_leaky_bucket.cc)
 
@@ -50,6 +51,7 @@ endfunction(add_mvme_bench)
 
 add_mvme_bench(test_util_tree test_util_tree.cc)
 add_mvme_bench(bench_data_filter bench_data_filter.cc)
+target_link_libraries(bench_data_filter PRIVATE liba2_static)
 add_mvme_bench(test_misc test_misc.cc)
 
 # gtest tests
@@ -79,5 +81,6 @@ add_mvme_core_gtest(test_util_ticketmutex "test_util_ticketmutex.cc")
 add_mvme_core_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
 add_mvme_core_gtest(test_vme_script_variables "test_vme_script_variables.cc")
 add_mvme_core_gtest(test_vme_script_commands "test_vme_script_commands.cc")
+add_mvme_gtest(test_logfile_helper "logfile_helper.test.cc")
 
-endif(BUILD_TESTS)
+endif(MVME_BUILD_TESTS)

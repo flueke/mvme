@@ -146,8 +146,8 @@ class AnalysisSignalWrapper: public QObject
         void conditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
 
     public:
-        AnalysisSignalWrapper(QObject *parent = nullptr);
-        AnalysisSignalWrapper(Analysis *analysis, QObject *parent = nullptr);
+        explicit AnalysisSignalWrapper(QObject *parent = nullptr);
+        explicit AnalysisSignalWrapper(Analysis *analysis, QObject *parent = nullptr);
 
         void setAnalysis(Analysis *analysis);
         Analysis *getAnalysis() const { return m_analysis; }

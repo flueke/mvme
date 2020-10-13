@@ -34,6 +34,7 @@
 #include "util_zip.h"
 #include "vme_config.h"
 #include "vme_config_json_schema_updates.h"
+#include "vme_config_util.h"
 
 
 #define LISTFILE_VERBOSE 0
@@ -499,11 +500,7 @@ bool ListFileWriter::writePreamble()
 
 bool ListFileWriter::writeConfig(const VMEConfig *vmeConfig)
 {
-    QJsonObject json;
-    vmeConfig->write(json);
-    QJsonObject parentJson;
-    parentJson["DAQConfig"] = json;
-    QJsonDocument doc(parentJson);
+    auto doc = mvme::vme_config::serialize_vme_config_to_json_document(*vmeConfig);
     return writeConfig(doc.toJson());
 }
 

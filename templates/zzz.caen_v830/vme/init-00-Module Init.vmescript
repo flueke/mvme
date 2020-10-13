@@ -1,0 +1,99 @@
+## Parameters for Caen_V830 Latching Scaler
+
+# Control Register
+# Bit0: ACQ_Mode low
+# Bit1: ACQ_Mode high
+#       ACQ_Mode: 00 -> Trigger disabled
+#                 01 -> Trigger random (external or from VME)
+#                 10 -> Periodical Trigger
+# Bit2: Data Format: 0 -> 32 bit, 1 -> 26 bit
+# Bit3: Test Mode
+# Bit4: BERR enable: if set BERR is generated when a block transfer
+#       empties the module or a certain number of events has been
+#       transferred.
+# Bit5: Header Enable: if set the first data word sent via BLT is
+#       a header word.
+# Bit6: Clear MultiEventBuffer on CLEAR front panel signal (0: not cleared, 1: cleared)
+# Bit7: Auto Reset: automatic counters reset after a trigger
+
+# Note: some bits of the Control Register are set via variables to make them easier to change,
+# others are fixed in the write command below.
+
+# Specify both bits of the ACQ_Mode setting.
+set acq_mode 01
+
+# Switch between 26-bit and 32-bit data formats. The former contains the 5 bit channel address,
+# a single identifier bit and 26-bits of counter value in each word. The latter format contains
+# only the 32-bit counter values. This means when interpreting the data the channel number cannot be
+# extracted but instead one has to rely on the position of the data word to determine the channel number.
+set data_format 0
+
+# Additional information for the mvme analysis side:
+# The default analysis filters for the V830 are setup for data_format=0 and use
+# position based ListFilters to extract the 32-bit counter value for each of the
+# channels.
+#
+# When using data_format=1 the following extraction filters can be used:
+# - XXXX X1XX XXXX XXXX DDDD DDDD DDDD DDDD
+#   Matches the header word and extracts the ascending 16 bit trigger sequence
+#   number.
+# - AAAA A0DD DDDD DDDD DDDD DDDD DDDD DDDD
+#   For the 32 channels with 26 data bits each.
+#
+
+
+# The test mode bit can be enabled when performing basic readout tests.
+#   write a32 d32 0x1080 0xbeefdead
+# can be used to set a 32-bit pattern to be put into each of the counters
+# when the module receives a trigger.
+#   write a32 d16 0x1124 1
+# generates a VME/software trigger.
+set test_mode 0
+
+# Allows automatic counter reset after a trigger
+set auto_reset 0
+
+# Write Control Register
+write a32 d16 0x1108 0b${auto_reset}011${test_mode}${data_format}${acq_mode}
+
+# Channel Enable Register
+# 32 bits, one to enable/disable each channel. Disabled channels are not
+# included in the readout data. This has to be accounted for in the analysis
+# when using 32-bit data format!
+write a32 d32 0x1100 0xffffffff
+
+# Interrupt Level Register
+write a32 d16 0x1112 ${sys_irq}
+
+# Interrupt Vector Register
+write a32 d16 0x1114 0x00
+
+# Note (flueke): with the module used for testing (firmware register contents 0xab04)
+# I did not get MCST to work. The module never responded to writes on the multicast
+# address and the contents of the MCST/CBLT Control Register seemed wrong.
+
+# MCST/CBLT Address Register
+# Sets the 8 high bits of the MCST and CBLT addresses. By default uses the event-wide
+# ${mesy_mcst} variable.
+write a32 d16 0x111c 0x${mesy_mcst}
+
+# MCST/CBLT Control Register
+# 2 bits for controlling both MCST and CBLT of the module.
+# | first_board | last_board | meaning
+# |      0      |      0     | Board disabled in CBLT or MCST chain
+# |      0      |      1     | First board in chain
+# |      1      |      0     | Last board in chain
+# |      1      |      1     | Intermediate board
+set first_board 1
+set last_board 1
+write a32 d16 0x111e 0b${first_board}${last_board}
+
+# Almost Full Level Register
+# Makes the module generate an Interrupt when at least this number of words is stored
+# in the MultiEventBuffer.
+# The V830 with 'header enable' set and all channels enabled yields 33 data words per event.
+write a32 d16 0x112C $(${mesy_readout_num_events} * 33)
+
+# BLT Event Number Register
+# Number of complete events to be transferred via BLT.
+write a32 d16 0x1130 ${mesy_readout_num_events}

@@ -1,0 +1,12 @@
+# Reset the module to a clean default state here. This is executed before
+# initializing the modules at DAQ start time.
+
+# Module Reset
+write a32 d16 0x1120 1
+
+# Wait for the module to settle.
+wait 100ms
+
+# Read the Firmware register
+print "caen_v830 firmware register:"
+read a32 d16 0x1132

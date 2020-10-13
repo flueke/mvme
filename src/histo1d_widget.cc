@@ -108,7 +108,7 @@ static const u32 RRFMin = 2;
 class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
 {
     public:
-        Histo1DIntervalData(Histo1D *histo)
+        explicit Histo1DIntervalData(Histo1D *histo)
             : QwtSeriesData<QwtIntervalSample>()
             , m_histo(histo)
         {

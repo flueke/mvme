@@ -35,13 +35,13 @@ if (SPHINX_EXECUTABLE)
         )
 
     # Copy sphinx extension directory to build tree.
-    add_custom_target(doc_sphinx_copy_ext
+    add_custom_target(mvme_doc_sphinx_copy_ext
         ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/ext"
         "${CMAKE_CURRENT_BINARY_DIR}/ext"
         )
 
-    add_custom_target(doc ALL)
+    add_custom_target(mvme_doc ALL)
 
     # html
     # ==================================================
@@ -52,7 +52,7 @@ if (SPHINX_EXECUTABLE)
         @ONLY
         )
 
-    add_custom_target(doc_html
+    add_custom_target(mvme_doc_html
             ${SPHINX_EXECUTABLE}
             -E -b html
             -c "${SPHINX_BUILD_BASE}/html"
@@ -62,8 +62,8 @@ if (SPHINX_EXECUTABLE)
         COMMENT "Building HTML documentation with Sphinx"
         )
 
-    add_dependencies(doc_html doc_sphinx_copy_ext)
-    add_dependencies(doc doc_html)
+    add_dependencies(mvme_doc_html mvme_doc_sphinx_copy_ext)
+    add_dependencies(mvme_doc mvme_doc_html)
 
     install(DIRECTORY "${SPHINX_HTML_DIR}" DESTINATION doc)
 
@@ -76,7 +76,7 @@ if (SPHINX_EXECUTABLE)
             @ONLY
             )
 
-        add_custom_target(doc_latex
+        add_custom_target(mvme_doc_latex
             ${SPHINX_EXECUTABLE}
             -E -b latex
             -c "${SPHINX_BUILD_BASE}/latex"
@@ -85,7 +85,7 @@ if (SPHINX_EXECUTABLE)
             "${SPHINX_LATEX_DIR}"
             COMMENT "Building latex documentation with Sphinx"
             )
-        add_dependencies(doc_latex doc_sphinx_copy_ext)
+        add_dependencies(mvme_doc_latex mvme_doc_sphinx_copy_ext)
 
         # latex -> pdf
         # Trap here: as I'm using ninja for most builds ${CMAKE_MAKE_PROGRAM} is
@@ -101,19 +101,19 @@ if (SPHINX_EXECUTABLE)
         #    )
 
         if (WIN32)
-            add_custom_target(doc_latex_pdf
+            add_custom_target(mvme_doc_latex_pdf
                     make -C ${SPHINX_LATEX_DIR}
                     COMMENT "Generating PDF from Sphinx latex output")
         else(WIN32)
-            add_custom_target(doc_latex_pdf
+            add_custom_target(mvme_doc_latex_pdf
                     make -C ${SPHINX_LATEX_DIR}
                     COMMENT "Generating PDF from Sphinx latex output")
         endif(WIN32)
 
-        add_dependencies(doc_latex_pdf doc_latex)
-        add_dependencies(doc doc_latex_pdf)
+        add_dependencies(mvme_doc_latex_pdf mvme_doc_latex)
+        add_dependencies(mvme_doc mvme_doc_latex_pdf)
 
-        install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
+        install(FILES "${SPHINX_PDF_OUT}" DESTINATION mvme_doc)
     else(LATEXMK)
         message("-- The latexmk program was not found on your system. Will not generate PDF documentation.")
     endif(LATEXMK)
@@ -129,7 +129,7 @@ if (SPHINX_EXECUTABLE)
             )
 
         # produces mvme.qhp and mvme.qhcp
-        add_custom_target(doc_qthelp
+        add_custom_target(mvme_doc_qthelp
             ${SPHINX_EXECUTABLE}
             -E -b qthelp
             -c "${SPHINX_BUILD_BASE}/qthelp"
@@ -141,7 +141,7 @@ if (SPHINX_EXECUTABLE)
                 "${SPHINX_QTHELP_DIR}/mvme.qhp"
                 "${SPHINX_QTHELP_DIR}/mvme.qhcp"
             )
-        add_dependencies(doc_qthelp doc_sphinx_copy_ext)
+        add_dependencies(mvme_doc_qthelp mvme_doc_sphinx_copy_ext)
 
         # qthelp collection
         # Produces mvme.qhc and mvme.qch
@@ -154,16 +154,16 @@ if (SPHINX_EXECUTABLE)
 
         # The dependency on the QCH_OUT is what makes CMake actually run the command.
         # See https://cmake.org/Wiki/CustomCommandCustomTargetInstall for details.
-        add_custom_target(doc_qthelp_collection
+        add_custom_target(mvme_doc_qthelp_collection
             ALL DEPENDS "${SPHINX_QHC_OUT}"
             )
 
-        add_dependencies(doc_qthelp_collection doc_qthelp)
-        add_dependencies(doc doc_qthelp_collection)
+        add_dependencies(mvme_doc_qthelp_collection mvme_doc_qthelp)
+        add_dependencies(mvme_doc mvme_doc_qthelp_collection)
 
         install(FILES "${SPHINX_QHC_OUT}" "${SPHINX_QCH_OUT}" DESTINATION doc)
 
-        add_custom_command(TARGET doc
+        add_custom_command(TARGET mvme_doc
             DEPENDS "${SPHINX_QHC_OUT}"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SPHINX_QHC_OUT}" "${SPHINX_QCH_OUT}" "${CMAKE_BINARY_DIR}/doc")
     endif(QCOLLECTIONGENERATOR)

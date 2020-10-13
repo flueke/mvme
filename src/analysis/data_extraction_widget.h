@@ -39,8 +39,8 @@ class DataExtractionEditor: public QWidget
 {
     Q_OBJECT
     public:
-        DataExtractionEditor(QWidget *parent = 0);
-        DataExtractionEditor(const QVector<DataFilter> &subFilters, QWidget *parent = 0);
+        explicit DataExtractionEditor(QWidget *parent = 0);
+        explicit DataExtractionEditor(const QVector<DataFilter> &subFilters, QWidget *parent = 0);
 
         void setSubFilters(const QVector<DataFilter> &subFilters);
         void updateDisplay();

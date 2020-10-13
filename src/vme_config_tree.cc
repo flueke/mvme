@@ -136,7 +136,7 @@ bool should_draw_node_disabled(QTreeWidgetItem *node)
 class VMEConfigTreeItemDelegate: public QStyledItemDelegate
 {
     public:
-        VMEConfigTreeItemDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
+        explicit VMEConfigTreeItemDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
 
         virtual QWidget* createEditor(QWidget *parent,
                                       const QStyleOptionViewItem &option,

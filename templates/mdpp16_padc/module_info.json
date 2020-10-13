@@ -1,0 +1,7 @@
+{
+    "typeId"        : 19,
+    "typeName"      : "mdpp16_padc",
+    "displayName"   : "MDPP-16_PADC",
+    "vendorName"    : "mesytec",
+    "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
+}

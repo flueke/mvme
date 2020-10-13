@@ -58,10 +58,17 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         VMEError read32(u32 address, u32 *value, u8 amod) override;
         VMEError read16(u32 address, u16 *value, u8 amod) override;
 
-        // Note: the MVLC does not actually use the FIFO flag. It never (or
-        // always) increments the block read address. TODO: figure this out
+        // Note: The MVLC does not use the FIFO flag, instead it does something
+        // "very illegal": it doesn't interrupt the block transfer after 256
+        // cycles and instead just keeps on reading. This means it's up to the
+        // module on whether to increment the initial address or not. FIFO mode
+        // only makes a difference if the controller interrupts the block
+        // transfer and then starts a new one until the desired max cycles are
+        // reached.
         VMEError blockRead(u32 address, u32 transfers,
-                           QVector<u32> *dest, u8 amod, bool fifo) override;
+                           QVector<u32> *dest, u8 amod, bool /*fifo*/) override;
+
+        VMEError vmeMBLTSwapped(u32 address, u16 transfers, QVector<u32> *dest);
 
         //
         // MVLC specific methods

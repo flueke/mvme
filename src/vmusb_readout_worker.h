@@ -31,7 +31,7 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
     public:
-        VMUSBReadoutWorker(QObject *parent = 0);
+        explicit VMUSBReadoutWorker(QObject *parent = 0);
         ~VMUSBReadoutWorker();
 
         virtual void start(quint32 cycles = 0) override;

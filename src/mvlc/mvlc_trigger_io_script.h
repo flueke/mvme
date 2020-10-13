@@ -32,15 +32,22 @@ namespace trigger_io
 
 static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
 
+// Flags for script text generation from a TriggerIO structure.
 namespace gen_flags
 {
     using Flag = u8;
     static const Flag Default = 0u;
+
+    // If this flag is set the meta_block and the end of the generated script
+    // will contain all unit names even if the name is equal to the default
+    // name. Otherwise only modified names will be included in the block.
     static const Flag MetaIncludeDefaultUnitNames = 1u << 0;
 };
 
 QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr);
 
+// Generates a VME Script containing all the write commands needed to bring the
+// MVLCs Trigger I/O module into the state described by the TriggerIO structure.
 QString generate_trigger_io_script_text(
     const TriggerIO &ioCfg,
     const gen_flags::Flag &flags = gen_flags::MetaIncludeDefaultUnitNames);

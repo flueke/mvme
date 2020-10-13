@@ -109,7 +109,7 @@ VMEError make_sis_error(int sisCode)
 
 struct SIS3153Private
 {
-    SIS3153Private(SIS3153 *q)
+    explicit SIS3153Private(SIS3153 *q)
         : q(q)
         , sis(new sis3153eth)
         , sis_ctrl(new sis3153eth)

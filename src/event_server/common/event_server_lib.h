@@ -656,7 +656,8 @@ static StreamInfo parse_stream_info(const json &j)
 // Helper to deal with incoming packed, indexed arrays.
 // The firstIndex member points to a buffer containing packed (index, value)
 // pairs with their data types specified in the members indexType and
-// valueType.
+// valueType. The count field contains the number of packed pairs available in
+// the buffer.
 struct DataSourceContents
 {
     StorageType indexType;
@@ -665,12 +666,15 @@ struct DataSourceContents
     const uint8_t *firstIndex = nullptr;
 };
 
+// Returns the size of one element of the packed (index, value) array described
+// by the given DataSourceContents structure.
 static size_t get_entry_size(const DataSourceContents &dsc)
 {
     return get_storage_type_size(dsc.indexType)
         + get_storage_type_size(dsc.valueType);
 }
 
+// Returns a pointer to "one past the last element" of the given data source.
 inline const uint8_t *get_end_pointer(const DataSourceContents &dsc)
 {
     return dsc.firstIndex + get_entry_size(dsc) * dsc.count;
@@ -703,6 +707,7 @@ void print(Out &out, const DataSourceContents &dsc)
     }
 }
 
+// Base class for event_server clients.
 class Client
 {
     public:

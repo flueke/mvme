@@ -61,7 +61,7 @@ class DAQControlWidget: public QWidget
         void showRunNotes();
 
     public:
-        DAQControlWidget(QWidget *parent = 0);
+        explicit DAQControlWidget(QWidget *parent = 0);
         ~DAQControlWidget();
 
     public slots:

@@ -38,7 +38,7 @@ class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
     Q_OBJECT
 
     public:
-        RateMonitorPlotWidget(QWidget *parent = nullptr);
+        explicit RateMonitorPlotWidget(QWidget *parent = nullptr);
         ~RateMonitorPlotWidget();
 
         void addRateSampler(const RateSamplerPtr &sampler, const QString &title = QString(),

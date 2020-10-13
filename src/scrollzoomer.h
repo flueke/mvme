@@ -46,7 +46,7 @@ public:
         OppositeToScale
     };
 
-    ScrollZoomer( QWidget * );
+    explicit ScrollZoomer( QWidget * );
     virtual ~ScrollZoomer();
 
     ScrollBar *horizontalScrollBar() const;

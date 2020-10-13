@@ -32,7 +32,7 @@ namespace
 class RpcLogger: public jcon::JsonRpcLogger
 {
     public:
-        RpcLogger(MVMEContext *context)
+        explicit RpcLogger(MVMEContext *context)
             : m_context(context)
         { }
 

@@ -131,7 +131,7 @@ class LIBMVME_EXPORT AnalysisObject:
 {
     Q_OBJECT
     public:
-        AnalysisObject(QObject *parent = nullptr)
+        explicit AnalysisObject(QObject *parent = nullptr)
             : QObject(parent)
             , m_id(QUuid::createUuid())
             , m_userLevel(0)
@@ -194,7 +194,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
 {
     Q_OBJECT
     public:
-        PipeSourceInterface(QObject *parent = 0)
+        explicit PipeSourceInterface(QObject *parent = 0)
             : AnalysisObject(parent)
         {
             //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
@@ -559,7 +559,7 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         using const_iterator  = MemberContainer::const_iterator;
         using MemberSet       = QSet<QUuid>;
 
-        Q_INVOKABLE Directory(QObject *parent = nullptr);
+        Q_INVOKABLE explicit Directory(QObject *parent = nullptr);
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -745,7 +745,7 @@ class LIBMVME_EXPORT BasicOperator: public OperatorInterface
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
     public:
-        BasicOperator(QObject *parent = 0);
+        explicit BasicOperator(QObject *parent = 0);
         ~BasicOperator();
 
         // PipeSourceInterface
@@ -769,7 +769,7 @@ class LIBMVME_EXPORT BasicSink: public SinkInterface
     Q_OBJECT
     Q_INTERFACES(analysis::SinkInterface)
     public:
-        BasicSink(QObject *parent = 0);
+        explicit BasicSink(QObject *parent = 0);
         ~BasicSink();
 
         // OperatorInterface
@@ -803,7 +803,7 @@ class LIBMVME_EXPORT CalibrationMinMax: public BasicOperator
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE CalibrationMinMax(QObject *parent = 0);
+        explicit Q_INVOKABLE CalibrationMinMax(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
@@ -847,7 +847,7 @@ class LIBMVME_EXPORT IndexSelector: public BasicOperator
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE IndexSelector(QObject *parent = 0);
+        explicit Q_INVOKABLE IndexSelector(QObject *parent = 0);
 
         void setIndex(s32 index) { m_index = index; }
         s32 getIndex() const { return m_index; }
@@ -871,7 +871,7 @@ class LIBMVME_EXPORT PreviousValue: public BasicOperator
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE PreviousValue(QObject *parent = 0);
+        explicit Q_INVOKABLE PreviousValue(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
@@ -891,7 +891,7 @@ class LIBMVME_EXPORT RetainValid: public BasicOperator
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE RetainValid(QObject *parent = 0);
+        explicit Q_INVOKABLE RetainValid(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
@@ -946,7 +946,7 @@ class LIBMVME_EXPORT Sum: public BasicOperator
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE Sum(QObject *parent = 0);
+        explicit Q_INVOKABLE Sum(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
@@ -992,7 +992,7 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
 
         static QString getOperationName(Operation op);
 
-        Q_INVOKABLE AggregateOps(QObject *parent = 0);
+        explicit Q_INVOKABLE AggregateOps(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
@@ -1046,7 +1046,7 @@ class LIBMVME_EXPORT ArrayMap: public OperatorInterface
             }
         };
 
-        Q_INVOKABLE ArrayMap(QObject *parent = 0);
+        explicit Q_INVOKABLE ArrayMap(QObject *parent = 0);
 
         virtual bool hasVariableNumberOfSlots() const override { return true; }
         virtual bool addSlot() override;
@@ -1093,7 +1093,7 @@ class LIBMVME_EXPORT RangeFilter1D: public BasicOperator
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE RangeFilter1D(QObject *parent = 0);
+        explicit Q_INVOKABLE RangeFilter1D(QObject *parent = 0);
 
         double m_minValue = make_quiet_nan(); // inclusive
         double m_maxValue = make_quiet_nan(); // exclusive
@@ -1428,7 +1428,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE Histo1DSink(QObject *parent = 0);
+        explicit Q_INVOKABLE Histo1DSink(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void clearState() override;
@@ -1554,7 +1554,7 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
     public:
         using Type = a2::RateMonitorType;
 
-        Q_INVOKABLE RateMonitorSink(QObject *parent = nullptr);
+        explicit Q_INVOKABLE RateMonitorSink(QObject *parent = nullptr);
 
         virtual bool hasVariableNumberOfSlots() const override { return true; }
         virtual bool addSlot() override;
@@ -1771,7 +1771,7 @@ class LIBMVME_EXPORT Analysis: public QObject
 
 
     public:
-        Analysis(QObject *parent = nullptr);
+        explicit Analysis(QObject *parent = nullptr);
         virtual ~Analysis();
 
         //

@@ -164,7 +164,7 @@ struct MVLCReadoutWorker::Private
     static const size_t ListfileWriterBufferSize  = ReadBufferSize;
     std::atomic<DebugInfoRequest> debugInfoRequest;
 
-    Private(MVLCReadoutWorker *q_)
+    explicit Private(MVLCReadoutWorker *q_)
         : q(q_)
         , state(DAQState::Idle)
         , desiredState(DAQState::Idle)
@@ -251,6 +251,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         setState(DAQState::Starting);
 
+        logMessage(QSL("Using VME Controller %1 (%2)")
+                   .arg(d->mvlcCtrl->getIdentifyingString())
+                   .arg(d->mvlcObj->getConnectionInfo()));
+        logMessage(QSL("MVLC hardwareId=0x%1, firmwareRevision=0x%2")
+                   .arg(d->mvlcObj->getMVLC().hardwareId(), 4, 16, QLatin1Char('0'))
+                   .arg(d->mvlcObj->getMVLC().firmwareRevision(), 4, 16, QLatin1Char('0')));
+
         // Run the standard VME DAQ init sequence
         if (!this->do_VME_DAQ_Init(d->mvlcCtrl))
         {
@@ -329,7 +336,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // stored in the VMEConfig).
                 mvme_mvlc_listfile::listfile_write_mvme_config(
                     *listfileWriteHandle,
-                    getContext().vmeConfig);
+                    *getContext().vmeConfig);
             }
         }
 
@@ -401,6 +408,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
 
+        setState(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
+
         // Rethrow any exception recorded by the mvlc::ReadoutWorker.
         if (auto eptr = d->mvlcReadoutWorker->counters().eptr)
             std::rethrow_exception(eptr);
@@ -454,7 +463,16 @@ void MVLCReadoutWorker::stop()
                 });
             QCoreApplication::processEvents();
         }
-        setState(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
+
+        // Note: the setState() update needed to propagate the new state via a
+        // Qt signal is not done here but in MVLCReadoutWorker::start(). The
+        // reason is that this method here is invoked directly by the GUI
+        // thread which will lead to the daqStopped() signal arriving before
+        // the actual DAQ shutdown sequence is complete. This previously didn't
+        // cause any issues but with the introduction of the run_logs system
+        // (LogfileHelper) the state change has to be emitted from the worker
+        // thread as otherwise the DAQ stop log message will be lost.
+
         logMessage(QString(QSL("MVLC readout stopped")));
     }
 }

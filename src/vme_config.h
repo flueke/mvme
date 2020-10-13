@@ -43,7 +43,7 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         void enabledChanged(bool);
 
     public:
-        ConfigObject(QObject *parent = 0);
+        explicit ConfigObject(QObject *parent = 0);
         ~ConfigObject()
         {
             //qDebug() << __PRETTY_FUNCTION__ << this;
@@ -254,7 +254,7 @@ class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE VMEScriptConfig(QObject *parent = 0);
+        explicit Q_INVOKABLE VMEScriptConfig(QObject *parent = 0);
         VMEScriptConfig(const QString &name, const QString &contents, QObject *parent = 0);
 
         QString getScriptContents() const
@@ -279,7 +279,7 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        Q_INVOKABLE ModuleConfig(QObject *parent = 0);
+        explicit Q_INVOKABLE ModuleConfig(QObject *parent = 0);
 
         uint32_t getBaseAddress() const { return m_baseAddress; }
         void setBaseAddress(uint32_t address);
@@ -322,7 +322,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         void moduleAboutToBeRemoved(ModuleConfig *module);
 
     public:
-        Q_INVOKABLE EventConfig(QObject *parent = nullptr);
+        explicit Q_INVOKABLE EventConfig(QObject *parent = nullptr);
 
         void addModuleConfig(ModuleConfig *config)
         {
@@ -364,7 +364,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         /* Set by the readout worker and then used by the buffer
          * processor to map from stack ids to event configs. */
         // Maybe should move this elsewhere as it is vmusb specific
-        uint8_t stackID; // FIXME: vmusb only
+        uint8_t stackID = 0u; // FIXME: vmusb only
 
         const VMEConfig *getVMEConfig() const;
         VMEConfig *getVMEConfig();
@@ -410,7 +410,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         void globalChildAboutToBeRemoved(ConfigObject *child);
 
     public:
-        Q_INVOKABLE VMEConfig(QObject *parent = 0);
+        Q_INVOKABLE explicit VMEConfig(QObject *parent = 0);
 
         // events
         void addEventConfig(EventConfig *config);

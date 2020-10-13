@@ -125,6 +125,15 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
                     result.push_back(cmd.address);
                 } break;
 
+            case CommandType::MBLTSwapped:
+                {
+                    firstWord = static_cast<u32>(StackCommandType::VMEMBLTSwapped) << CmdShift;
+                    firstWord |= vme_address_modes::MBLT64 << CmdArg0Shift;
+                    firstWord |= (cmd.transfers & CmdArg1Mask) << CmdArg1Shift;
+                    result.push_back(firstWord);
+                    result.push_back(cmd.address);
+                } break;
+
             case CommandType::Blk2eSST64:
                 {
                     firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;

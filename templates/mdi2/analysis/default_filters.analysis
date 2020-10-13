@@ -1,0 +1,89 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 3,
+        "VMEObjectSettings": {
+            "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}": {
+                "MultiEventProcessing": true
+            }
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+        ],
+        "directories": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{ace39102-1bc7-4fef-9f2c-64708fc712a2}",
+                    "moduleName": "mdi2",
+                    "moduleTypeName": "mdi2"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "cace1969e0e0d4ad",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{92ab60db-b44d-479f-929e-140a0ae19736}",
+                "id": "{85d45e89-77b9-435b-8483-f0ee680dcbe2}",
+                "moduleId": "{ace39102-1bc7-4fef-9f2c-64708fc712a2}",
+                "name": "timestamp"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "8becaca79a677529",
+                    "subFilters": [
+                        {
+                            "filterString": "000001XXAAAAAAAA0O00DDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{92ab60db-b44d-479f-929e-140a0ae19736}",
+                "id": "{6e3acd47-e1cf-4fdf-97da-7d17572121c1}",
+                "moduleId": "{ace39102-1bc7-4fef-9f2c-64708fc712a2}",
+                "name": "bus0_amplitudes"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "6dfaa1cef40a907a",
+                    "subFilters": [
+                        {
+                            "filterString": "000001XXAAAAAAAA1O00DDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{92ab60db-b44d-479f-929e-140a0ae19736}",
+                "id": "{d41b80a9-be1c-4d4f-920d-8f6231a05399}",
+                "moduleId": "{ace39102-1bc7-4fef-9f2c-64708fc712a2}",
+                "name": "bus1_amplitudes"
+            }
+        ]
+    }
+}

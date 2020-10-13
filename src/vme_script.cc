@@ -492,6 +492,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("bltfifo"),               parseBlockTransfer },
     { QSL("mblt"),                  parseBlockTransfer },
     { QSL("mbltfifo"),              parseBlockTransfer },
+    { QSL("mblts"),                 parseBlockTransfer },
 
     { QSL("setbase"),               parseSetBase },
     { QSL("resetbase"),             parseResetBase },
@@ -1317,11 +1318,15 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::BLTFifo,             QSL("bltfifo") },
     { CommandType::MBLT,                QSL("mblt") },
     { CommandType::MBLTFifo,            QSL("mbltfifo") },
+    { CommandType::MBLTSwapped,         QSL("mblts") },
     { CommandType::SetBase,             QSL("setbase") },
     { CommandType::ResetBase,           QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
     { CommandType::VMUSB_ReadRegister,  QSL("vmusb_read_reg") },
     { CommandType::MVLC_WriteSpecial,   QSL("mvlc_writespecial") },
+    { CommandType::MetaBlock,           QSL("meta_block") },
+    { CommandType::SetVariable,         QSL("set_variable") },
+    { CommandType::Print,               QSL("print") },
 };
 
 QString to_string(CommandType commandType)
@@ -1352,9 +1357,26 @@ QString to_string(u8 addressMode)
 {
     static const QMap<u8, QString> addressModeToString =
     {
-        { vme_address_modes::A16,         QSL("a16") },
-        { vme_address_modes::A24,         QSL("a24") },
-        { vme_address_modes::A32,         QSL("a32") },
+        { vme_address_modes::a16User,         QSL("a16") },
+        { vme_address_modes::a16Priv,         QSL("a16") },
+
+        { vme_address_modes::a24UserData    , QSL("a24") },
+        { vme_address_modes::a24UserProgram , QSL("a24") },
+        { vme_address_modes::a24UserBlock   , QSL("a24") },
+
+        { vme_address_modes::a24PrivData    , QSL("a24") },
+        { vme_address_modes::a24PrivProgram , QSL("a24") },
+        { vme_address_modes::a24PrivBlock   , QSL("a24") },
+
+        { vme_address_modes::a32UserData    , QSL("a32") },
+        { vme_address_modes::a32UserProgram , QSL("a32") },
+        { vme_address_modes::a32UserBlock   , QSL("a32") },
+        { vme_address_modes::a32UserBlock64 , QSL("a32") },
+
+        { vme_address_modes::a32PrivData    , QSL("a32") },
+        { vme_address_modes::a32PrivProgram , QSL("a32") },
+        { vme_address_modes::a32PrivBlock   , QSL("a32") },
+        { vme_address_modes::a32PrivBlock64 , QSL("a32") },
     };
 
     return addressModeToString.value(addressMode, QSL("unknown"));
@@ -1428,6 +1450,7 @@ QString to_string(const Command &cmd)
         case CommandType::BLTFifo:
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
+        case CommandType::MBLTSwapped:
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
@@ -1521,6 +1544,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::BLTFifo:
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
+        case CommandType::MBLTSwapped:
         case CommandType::Blk2eSST64:
 
             cmd.address += baseAddress;

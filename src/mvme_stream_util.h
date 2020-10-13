@@ -48,7 +48,7 @@ class LIBMVME_EXPORT MVMEStreamWriterHelper
             u32 sectionBytes = 0;
         };
 
-        MVMEStreamWriterHelper(DataBuffer *outputBuffer = nullptr)
+        explicit MVMEStreamWriterHelper(DataBuffer *outputBuffer = nullptr)
             : m_outputBuffer(outputBuffer)
             , m_eventSize(0)
             , m_moduleSize(0)

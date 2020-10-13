@@ -3,13 +3,14 @@
 ## Building mvme
 ### Dependencies
 * gcc/clang with c++14 support
-* Qt >= 5.7
+* cmake
+* Qt >= 5.13
 * qwt
 * quazip
 * libusb-0.1
 * zlib
 * boost
-* make or ninja
+* ninja or make
 * Optional: sphinx and latex for the documentation
 * Optional: NSIS for the windows installer
 
@@ -20,7 +21,7 @@
 
 The install step is optional, mvme does run directly from the build directory.
 
-See doc/README.build-centos7 for detailed build steps for CentOS7.
+See doc/mvme-build-notes-ubuntu.txt for details on building under Ubuntu-18.04.
 
 #### Build commands on a fresh installation of Debian 10 (Buster)
 

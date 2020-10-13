@@ -401,7 +401,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
 struct DAQPauser
 {
-    DAQPauser(MVMEContext *context);
+    explicit DAQPauser(MVMEContext *context);
     ~DAQPauser();
 
     MVMEContext *context;

@@ -1,0 +1,49 @@
+# (M)BLT readout until BERR.
+# When using MBLT to read out the V830 the 32-bit words in each transferred
+# 64-bit word are swapped compared to the order the mesytec modules yield the
+# data.
+# When using the mesytec MVLC the new 'mblts' command can be used to perform
+# the readout and swap. With other controllers the standard 'bltfifo' command
+# should be used.
+
+mblts a32 0x0000 0xffff         # MBLT swapped (MVLC only)
+#bltfifo a32 0x0000 0xffff      # BLT for other controllers
+
+/*
+# For reference: manual readout of each individual counter register.
+# Bank A, bottom
+read a32 d32 0x1000 # counter  0
+read a32 d32 0x1004 # counter  1
+read a32 d32 0x1008 # counter  2
+read a32 d32 0x100c # counter  3
+read a32 d32 0x1010 # counter  4
+read a32 d32 0x1014 # counter  5
+read a32 d32 0x1018 # counter  6
+read a32 d32 0x101c # counter  7
+read a32 d32 0x1020 # counter  8
+read a32 d32 0x1024 # counter  9
+read a32 d32 0x1028 # counter 10
+read a32 d32 0x102c # counter 11
+read a32 d32 0x1030 # counter 12
+read a32 d32 0x1034 # counter 13
+read a32 d32 0x1038 # counter 14
+read a32 d32 0x103c # counter 15
+
+# Bank B, top
+read a32 d32 0x1040 # counter 16
+read a32 d32 0x1044 # counter 17
+read a32 d32 0x1048 # counter 18
+read a32 d32 0x104c # counter 19
+read a32 d32 0x1050 # counter 20
+read a32 d32 0x1054 # counter 21
+read a32 d32 0x1058 # counter 22
+read a32 d32 0x105c # counter 23
+read a32 d32 0x1060 # counter 24
+read a32 d32 0x1064 # counter 25
+read a32 d32 0x1068 # counter 26
+read a32 d32 0x106c # counter 27
+read a32 d32 0x1070 # counter 28
+read a32 d32 0x1074 # counter 29
+read a32 d32 0x1078 # counter 30
+read a32 d32 0x107c # counter 31
+*/

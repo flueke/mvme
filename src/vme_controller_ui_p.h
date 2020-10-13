@@ -32,7 +32,7 @@
 class VMUSBSettingsWidget: public VMEControllerSettingsWidget
 {
     public:
-        VMUSBSettingsWidget(QWidget *parent = 0);
+        explicit VMUSBSettingsWidget(QWidget *parent = 0);
 
         virtual void validate() override {}
         virtual void loadSettings(const QVariantMap &settings) override;
@@ -45,7 +45,7 @@ class VMUSBSettingsWidget: public VMEControllerSettingsWidget
 class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
 {
     public:
-        SIS3153EthSettingsWidget(QWidget *parent = 0);
+        explicit SIS3153EthSettingsWidget(QWidget *parent = 0);
 
         virtual void validate() override;
         virtual void loadSettings(const QVariantMap &settings) override;
@@ -66,7 +66,7 @@ class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
 class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
 {
     public:
-        MVLC_USB_SettingsWidget(QWidget *parent = nullptr);
+        explicit MVLC_USB_SettingsWidget(QWidget *parent = nullptr);
 
         virtual void validate() override;
         virtual void loadSettings(const QVariantMap &settings) override;
@@ -89,7 +89,7 @@ class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
 class MVLC_ETH_SettingsWidget: public VMEControllerSettingsWidget
 {
     public:
-        MVLC_ETH_SettingsWidget(QWidget *parent = nullptr);
+        explicit MVLC_ETH_SettingsWidget(QWidget *parent = nullptr);
 
         virtual void validate() override;
         virtual void loadSettings(const QVariantMap &settings) override;
