@@ -73,14 +73,27 @@ include_directories(analysis/a2)
 add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 
 #
+# libmvme_resources
+#
+qt5_add_resources(LIBMVME_RES_RC_OUT resources.qrc)
+add_library(libmvme_resources SHARED
+    ${LIBMVME_RES_RC_OUT})
+
+set_target_properties(libmvme_resources PROPERTIES OUTPUT_NAME mvme_resources)
+
+target_link_libraries(libmvme_resources
+    PUBLIC Qt5::Core
+    )
+
+#
 # libmvme_core
 #
-qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
+#qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
 
 add_library(libmvme_core STATIC
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
     "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
-    ${LIBMVME_CORE_RC_OUT}
+    #${LIBMVME_CORE_RC_OUT}
     CVMUSBReadoutList.cpp
     qt_util.cc
     util.cc
@@ -107,6 +120,7 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::Gui
     PUBLIC Qt5::Network
     PUBLIC Qt5::Widgets
+    PUBLIC libmvme_resources
     )
 
 target_compile_options(libmvme_core
