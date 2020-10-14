@@ -74,6 +74,8 @@ int main(int argc, char *argv[])
                 break;
             }
 
+            qDebug() << "received" << bytesReceived << "bytes";
+
             totalBytes += bytesReceived;
             totalPackets++;
 
