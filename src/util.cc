@@ -49,6 +49,9 @@ void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize)
     {
         qDebug("%3u: 0x%02x", wordIndex++, iter.extractU8());
     }
+#else
+    (void) dataBuffer;
+    (void) bufferSize;
 #endif
 }
 

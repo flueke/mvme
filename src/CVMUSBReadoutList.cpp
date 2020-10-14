@@ -201,6 +201,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
         case CommandType::ResetBase:
         case CommandType::SetVariable:
         case CommandType::Print:
+        case CommandType::MBLTSwapped:
             break;
 
         case CommandType::Blk2eSST64:
