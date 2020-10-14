@@ -85,6 +85,10 @@ target_link_libraries(libmvme_resources
     PUBLIC Qt5::Core
     )
 
+install(TARGETS libmvme_resources
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
+
 #
 # libmvme_core
 #
