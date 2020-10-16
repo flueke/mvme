@@ -76,3 +76,42 @@ write a32 d16 0x10BE 0 # channel 31
 #write a32 d16 0x10B4 0 # channel 13
 #write a32 d16 0x10B8 0 # channel 14
 #write a32 d16 0x10BC 0 # channel 15
+
+# 5.5.2 Acq Test Mode
+# Toggle TEST ACQ bit
+/*
+write a32 d16 0x1032 0x40 # Use Bit Set 2 to set the TEST ACQ bit (bit 6)
+write a32 d16 0x1034 0x40 # Use the Bit Clear 2 register to clear the TEST ACQ bit (bit 6)
+
+# Write 32 data words with 13 valid bits per word.
+write a32 d16 0x103E 0x0001
+write a32 d16 0x103E 0x0002
+write a32 d16 0x103E 0x0004
+write a32 d16 0x103E 0x0008
+write a32 d16 0x103E 0x0010
+write a32 d16 0x103E 0x0020
+write a32 d16 0x103E 0x0040
+write a32 d16 0x103E 0x0080
+write a32 d16 0x103E 0x0100
+write a32 d16 0x103E 0x0200
+write a32 d16 0x103E 0x0400
+write a32 d16 0x103E 0x0800
+write a32 d16 0x103E 0x1000
+write a32 d16 0x103E 0x2000
+write a32 d16 0x103E 0x0101
+write a32 d16 0x103E 0x0202
+write a32 d16 0x103E 0x0304
+write a32 d16 0x103E 0x0408
+write a32 d16 0x103E 0x0510
+write a32 d16 0x103E 0x0620
+write a32 d16 0x103E 0x0740
+write a32 d16 0x103E 0x0880
+write a32 d16 0x103E 0x0900
+write a32 d16 0x103E 0x0a00
+write a32 d16 0x103E 0x0b00
+write a32 d16 0x103E 0x0c00
+write a32 d16 0x103E 0x1d00
+write a32 d16 0x103E 0x2e00
+
+write a32 d16 0x1032 0x40 # Use Bit Set 2 to set the TEST ACQ bit (bit 6)
+*/
