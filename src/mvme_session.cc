@@ -36,6 +36,8 @@
 
 void mvme_init(const QString &appName)
 {
+    Q_INIT_RESOURCE(resources);
+
     qRegisterMetaType<DAQState>("DAQState");
     qRegisterMetaType<GlobalMode>("GlobalMode");
     qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
