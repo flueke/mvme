@@ -528,6 +528,10 @@ add_mvme_executable(dev_zip_write_test zip-write-test.cc)
 add_mvme_executable(dev_variantmap_to_json_test "dev_variantmap_to_json_test.cc")
 target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
 
+if (WIN32)
+    add_mvme_executable(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
+endif(WIN32)
+
 
 if(MVME_ENABLE_MVLC)
     add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
