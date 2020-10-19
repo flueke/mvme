@@ -25,13 +25,21 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#if __WIN32
+#include <windows.h>
+#include <mmsystem.h>
+#endif
+
 #include "mvme_listfile_utils.h"
+#include "util/assert.h"
 #include "util_zip.h"
 #include "vme_config_scripts.h"
-#include "vme_script.h"
 #include "vme_config_util.h"
+#include "vme_script.h"
 
 using namespace mesytec::mvme;
+
+static const unsigned Win32TimePeriod = 1;
 
 //
 // vme_daq_init
@@ -183,6 +191,10 @@ vme_daq_init(
         }
     }
 
+#if __WIN32
+    TRY_ASSERT(timeBeginPeriod(Win32TimePeriod) == TIMERR_NOERROR);
+#endif
+
     return ret;
 }
 
@@ -209,6 +221,10 @@ vme_daq_shutdown(
     vme_script::run_script_options::Flag opts
     )
 {
+#if __WIN32
+    TRY_ASSERT(timeEndPeriod(Win32TimePeriod) == TIMERR_NOERROR);
+#endif
+
     using namespace vme_script::run_script_options;
 
     QVector<ScriptWithResults> ret;
