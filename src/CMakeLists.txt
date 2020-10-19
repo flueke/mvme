@@ -371,7 +371,9 @@ target_compile_options(libmvme
     )
 
 if (WIN32)
-    target_link_libraries(libmvme PRIVATE ws2_32)
+    target_link_libraries(libmvme
+        PRIVATE winmm
+        PRIVATE ws2_32)
     target_compile_options(libmvme PRIVATE -Wno-format)
 endif()
 
@@ -530,6 +532,7 @@ target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
 
 if (WIN32)
     add_mvme_executable(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
+    target_link_libraries(dev_timeBeginPeriod_test PRIVATE winmm)
 endif(WIN32)
 
 
