@@ -371,7 +371,9 @@ target_compile_options(libmvme
     )
 
 if (WIN32)
-    target_link_libraries(libmvme PRIVATE ws2_32)
+    target_link_libraries(libmvme
+        PRIVATE winmm
+        PRIVATE ws2_32)
     target_compile_options(libmvme PRIVATE -Wno-format)
 endif()
 
@@ -527,6 +529,11 @@ add_mvme_executable(dev_vme_config_ui_variable_editor "dev_vme_config_variable_e
 add_mvme_executable(dev_zip_write_test zip-write-test.cc)
 add_mvme_executable(dev_variantmap_to_json_test "dev_variantmap_to_json_test.cc")
 target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
+
+if (WIN32)
+    add_mvme_executable(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
+    target_link_libraries(dev_timeBeginPeriod_test PRIVATE winmm)
+endif(WIN32)
 
 
 if(MVME_ENABLE_MVLC)
