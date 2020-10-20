@@ -24,7 +24,7 @@
  * The program works in two modes:
  * 1) As a client it connects to an mvme instance and receives incoming readout
  *    data to produce ROOT output files.
- * 2) The program replays data from a previously created output file.
+ * 2) The program replays data from a previously created ROOT output file.
  *
  * In the first case the data description sent by mvme at the beginning of a
  * run is used to generate ROOT classes. These classes are then compiled and
@@ -75,7 +75,7 @@
 // mvme
 #include <mvme/Mustache/mustache.hpp> // mustache template engine
 #include <mvme/event_server/common/event_server_lib.h> // mvme event_server protocol parsing and socket handling
-#include <mvme/mvme_root_event_objects.h> // base classes for generated experiment ROOT objects
+#include "mvme_root_event_objects.h" // base classes for generated experiment ROOT objects
 
 using std::cerr;
 using std::cout;

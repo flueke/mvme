@@ -29,6 +29,7 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
+#include "mvlc/mvlc_vme_controller.h"
 #include "util.h"
 #include "util/qt_container.h"
 #include "vmusb.h"

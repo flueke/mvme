@@ -75,15 +75,13 @@ class Context: public mvme::event_server::Client
         bool m_printData = false;
 };
 
-void Context::serverInfo(const Message &msg, const json &info)
+void Context::serverInfo(const Message &/*msg*/, const json &info)
 {
-    (void ) msg;
     cout << __FUNCTION__ << ": serverInfo=" << endl << info.dump(2) << endl;
 }
 
-void Context::beginRun(const Message &msg, const StreamInfo &streamInfo)
+void Context::beginRun(const Message &/*msg*/, const StreamInfo &streamInfo)
 {
-    (void ) msg;
     cout << __FUNCTION__ << ": streamInfo JSON data:" << endl
         << streamInfo.infoJson.dump(2) << endl;
 
@@ -138,9 +136,8 @@ void Context::eventData(const Message &msg, int eventIndex,
     }
 }
 
-void Context::endRun(const Message &msg, const json &info)
+void Context::endRun(const Message &/*msg*/, const json &info)
 {
-    (void ) msg;
     m_stats.tEnd = ClockType::now();
     m_stats.messageCount++;
 

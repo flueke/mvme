@@ -32,6 +32,9 @@ Mesytec MVLC
   device you can get the drivers from the FTDI website:
   `<https://www.ftdichip.com/Drivers/D3XX.htm>`_.
 
+  Direct link to the driver installer:
+  `https://www.ftdichip.com/Drivers/D3XX/FTD3XXDriver_WHQLCertified_v1.3.0.4_Installer.exe.zip`_
+
 * Using the MVLC via Ethernet requires a GBit/s network connection.
 
 WIENER VM-USB
@@ -104,6 +107,19 @@ Windows
 
 Run the supplied installer and follow the on screen instructions to install
 mvme.
+
+.. _inst-windows-mvlc-ftdi-driver:
+
+MVLC USB Driver
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If Windows does not recognize the MVLC when plugged in via the front USB and
+powered in a VME crate, your Windows installation might be missing the FTDI USB
+driver. The driver installer can be found on the FTDI website:
+`https://www.ftdichip.com/Drivers/D3XX/FTD3XXDriver_WHQLCertified_v1.3.0.4_Installer.exe.zip`_.
+
+A non-installer version is also available on this page:
+`https://www.ftdichip.com/Drivers/D3XX.htm`_.
 
 .. _inst-windows-vmusb-driver:
 

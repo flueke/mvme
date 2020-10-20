@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 1.2.0 (WIP)
+Version 1.2.0
 -------------
 * [mvlc] Update mesytec-mvlc lib to work around an issue were MVLC_ETH was not
   able to connect under Windows 10 Build 2004.
@@ -12,7 +12,7 @@ Version 1.2.0 (WIP)
   This issue has also been fixed in MVLC Firmware FW0008.
 
 * [vme_templates] Add VME and analysis templates for the mesytec MDPP-16_CSI,
-  MDPP-16_PADC and MDPP-32_PADC modules variants.
+  MDPP-16_PADC and MDPP-32_PADC module variants.
 
 * [vme_templates] Add templates for the MDI-2 starting from firmware FW0300.
 

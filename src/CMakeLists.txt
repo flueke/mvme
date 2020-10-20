@@ -73,14 +73,31 @@ include_directories(analysis/a2)
 add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 
 #
+# libmvme_resources
+#
+qt5_add_resources(LIBMVME_RES_RC_OUT resources.qrc)
+add_library(libmvme_resources SHARED
+    ${LIBMVME_RES_RC_OUT})
+
+set_target_properties(libmvme_resources PROPERTIES OUTPUT_NAME mvme_resources)
+
+target_link_libraries(libmvme_resources
+    PUBLIC Qt5::Core
+    )
+
+install(TARGETS libmvme_resources
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
+
+#
 # libmvme_core
 #
-qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
+#qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
 
-add_library(libmvme_core SHARED
+add_library(libmvme_core STATIC
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
     "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
-    ${LIBMVME_CORE_RC_OUT}
+    #${LIBMVME_CORE_RC_OUT}
     CVMUSBReadoutList.cpp
     qt_util.cc
     util.cc
@@ -107,6 +124,7 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::Gui
     PUBLIC Qt5::Network
     PUBLIC Qt5::Widgets
+    PUBLIC libmvme_resources
     )
 
 target_compile_options(libmvme_core
@@ -122,7 +140,8 @@ endif()
 
 install(TARGETS libmvme_core
     RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib)
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib)
 
 #
 # libmvme_mvlc - MVLC support
@@ -145,7 +164,7 @@ if(MVME_ENABLE_MVLC)
         mvlc/mvlc_dev_ui.ui
         )
 
-    add_library(libmvme_mvlc SHARED
+    add_library(libmvme_mvlc STATIC
         ${MVLC_DEV_GUI_UIC}
         mvlc/mvlc_dev_gui.cc
         mvlc/mvlc_qt_object.cc
@@ -164,6 +183,12 @@ if(MVME_ENABLE_MVLC)
         PUBLIC mesytec-mvlc
         PUBLIC libmvme_core)
 
+    # FIXME: somehow break up the circular dependency between libmvme_core and
+    # libmvme_mvlc. It is caused by vme_script::run_command() directly using
+    # MVLC_VMEController and libmvme_mvlc making use of vme_script in
+    # mvlc/mvlc_script.h
+    target_link_libraries(libmvme_core PUBLIC libmvme_mvlc)
+
     if (WIN32)
         target_link_libraries(libmvme_mvlc PRIVATE ws2_32)
         target_compile_options(libmvme_mvlc PRIVATE -Wno-format)
@@ -180,7 +205,8 @@ if(MVME_ENABLE_MVLC)
 
     install(TARGETS libmvme_mvlc
         RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib)
+        LIBRARY DESTINATION lib 
+        ARCHIVE DESTINATION lib)
 
     # mvlc_dev_gui
     add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
