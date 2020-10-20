@@ -2,6 +2,13 @@
 TODO list
 ==================================================
 
+* Things missing to support other vendors modules:
+  - CAEN v785: transmits number of converted channels in a header, not number of following
+    data words. For multievent splitting to work +1 has to be added to the count value
+    extracted from the header.
+  - CAEN v1190: Need to check a register bit to know when the chip controlling the CERN
+    TDCs is ready. This could be done in software or on the MVLC via a special command.
+
 * mvlc readout parser gets confused when the first module in an event is
   disabled
 
