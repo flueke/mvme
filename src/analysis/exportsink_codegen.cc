@@ -317,10 +317,10 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render,
         {
             mu::data data = mu::data::type::object;
 
-            render(QSL(":/3rdparty/zstr/src/zstr.hpp"),
+            render(QSL(":/external/zstr/src/zstr.hpp"),
                            data, exportDir.filePath("zstr.hpp"), 0, logger);
 
-            render(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
+            render(QSL(":/external/zstr/src/strict_fstream.hpp"),
                            data, exportDir.filePath("strict_fstream.hpp"), 0, logger);
         }
     }
