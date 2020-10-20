@@ -4,6 +4,10 @@
 Changelog
 ##################################################
 
+Version 1.2.1
+-------------
+* [analyis] Fix two crashes when using the ExportSink
+
 Version 1.2.0
 -------------
 * [mvlc] Update mesytec-mvlc lib to work around an issue were MVLC_ETH was not
