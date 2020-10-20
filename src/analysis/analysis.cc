@@ -4842,7 +4842,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
     assert(m_a2State);
 
     a2::a2_begin_run(m_a2State->a2, [logger] (const std::string &str) {
-        logger(QString::fromStdString(str));
+        if (logger)
+            logger(QString::fromStdString(str));
     });
 
     auto tEnd = ClockType::now();
