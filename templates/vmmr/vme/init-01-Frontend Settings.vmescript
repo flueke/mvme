@@ -40,7 +40,7 @@
 # Internal Test Pulser (Pulser to all connected buses, synchronous)
 # ############################################################################
 # pulser_status
-0x6070  0       # 0 -> off, 1 -> on
+0x6070  0       # 0 -> off, 1 -> on, 3 -> generate trigger but no amplitude data
 
 # pulser_amplitude
 0x6072  0xFF    # maximum amplitude: 0xFF = 255
