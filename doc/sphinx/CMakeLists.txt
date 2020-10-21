@@ -113,7 +113,7 @@ if (SPHINX_EXECUTABLE)
         add_dependencies(mvme_doc_latex_pdf mvme_doc_latex)
         add_dependencies(mvme_doc mvme_doc_latex_pdf)
 
-        install(FILES "${SPHINX_PDF_OUT}" DESTINATION mvme_doc)
+        install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
     else(LATEXMK)
         message("-- The latexmk program was not found on your system. Will not generate PDF documentation.")
     endif(LATEXMK)
