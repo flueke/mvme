@@ -1,0 +1,86 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 3,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+        ],
+        "directories": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
+                    "moduleName": "caen_v1190a",
+                    "moduleTypeName": "caen_v1190a"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "edcf0304ed1aa9d2",
+                    "subFilters": [
+                        {
+                            "filterString": "000000AAAAAAADDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{309ee213-4b6e-487a-973d-dc374d4b3e2f}",
+                "id": "{f362a29d-1032-47d9-822a-4e3eed1b23d3}",
+                "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
+                "name": "tdc_channels"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "4392ffe4d6cfde",
+                    "subFilters": [
+                        {
+                            "filterString": "10001DDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{309ee213-4b6e-487a-973d-dc374d4b3e2f}",
+                "id": "{7eebb26f-bc06-4e04-bfa0-c10f4c313aad}",
+                "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
+                "name": "ext_trig_time_tag"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "add5dc13a750ec21",
+                    "subFilters": [
+                        {
+                            "filterString": "01000DDDDDDDDDDDDDDDDDDDDDDXXXXX",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{309ee213-4b6e-487a-973d-dc374d4b3e2f}",
+                "id": "{3983c38b-7cdd-4c38-8330-ef50f2fe8834}",
+                "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
+                "name": "event_counter"
+            }
+        ]
+    }
+}

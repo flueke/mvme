@@ -1,0 +1,10 @@
+# (M)BLT readout until BERR.
+# When using MBLT to read out the V1190A the 32-bit words in each transferred
+# 64-bit word are swapped compared to the order the mesytec modules yield the
+# data.
+# When using the mesytec MVLC the new 'mblts' command can be used to perform
+# the readout and swap. With other controllers the standard 'bltfifo' command
+# should be used.
+
+mblts a32 0x0000 0xffff         # MBLT swapped (MVLC only)
+#bltfifo a32 0x0000 0xffff      # BLT for other controllers
