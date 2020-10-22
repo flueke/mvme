@@ -1,0 +1,90 @@
+# Init for the caen_v1190a Multihit TDC
+
+# Notes:
+# This setup was tested with a CAEN V1190A Multihit TDC with firmware version 0.3
+# and the mesytec MVLC VME controller. The TDC is set to "Trigger Matching Mode"
+# and the readout uses "Event Aligned BLT with Bus Error enabled".
+#
+# When writing OpCodes or data into the "Micro Register" one should ideally poll the
+# "Micro Handshake Register" for the corresponding status bit to be set again. The
+# same is true when reading data from the "Micro Register". mvme and the MVLC currently
+# do not support polling registers, instead we've added "wait" commands between writing
+# the opcode and issuing further commands. If in doubt you can always add a 
+# "read a32 d16 0x1030" command after the "wait" and verify the status of the handshake 
+# bits in the mvme log view.
+#
+# The numbers in parentheses refer to sections in the CAEN manual Revision n.14 available
+# on the CAEN website.
+#
+# Multievent readout is currently not supported for the v1190a. This will be fixed in a future
+# version of mvme.
+
+# Control Register (6.3)
+set berr_enable 1	# Enable BERR to end block transfers
+set term 0			# Leave termination to the hardware switches
+set term_sw 0		# Leave termination to the hardware switches
+set empty_event 0	# Write Header and Trailer when there's no TDC hit data (default=0)
+set align64 1		# Add filler words for MBLT transfers
+set comp_enable 1	# Compensation enable (default=1)
+set test_fifo 0		# Output buffer test mode (Note: leave disabled as it interferes with external triggers)
+set event_fifo 0	# Event FIFO enable (Note: do not enable as it caused the modules readout buffer to fill up)
+set ettt 1			# Extended Trigger Time Tag
+set meb_enable 0 	# 16 MB MEB access enable (left disabled as it was not available in firmware 0.3 and
+                    # is not needed for event based BLT readouts).
+
+0x1000 0b000${meb_enable}'00${ettt}${event_fifo}'0${test_fifo}${comp_enable}${align64}'${empty_event}${term_sw}${term}${berr_enable}
+
+
+0x100A ${sys_irq}		# Interrupt Level
+0x100C 0x0				# Interrupt Vector
+0x1010 0x${mesy_mcst}	# MCST Base
+
+# Almost Full Level Register (IRQ Threshold based on words available in the modules memory)
+0x1022 64 # 64 is the default, min=1, max=32735
+
+# BLT Event Number Register (number of events to transfer per block read)
+0x1024 1 # Multievent is not ${mesy_readout_num_events}
+
+# Micro Register (this is for programming the onboard microcontroller).
+0x102E 0x0000 # set trigger matching mode
+wait 600ms
+# Micro Handshake Register
+# This muste be checked for READ_OK and WRITE_OK (bits 1 and 0).
+read a32 d16 0x1030
+
+# Below are examples of more setting set via the onboard microcontroller.
+
+/*
+# window width (5.3.1)
+0x102E 0x1000
+wait 100ms
+0x102E 20 				# effective window width = value * 25ns, default is value=20 -> 500ns
+wait 600ms
+read a32 d16 0x1030
+
+# window offset (5.3.2)
+0x102E 0x1100
+wait 100ms
+0x102E 0xFFD8 			# default is 0xFFD8 -> -1µs, range is -2048 (0xF800) to +40 (0x0028)
+wait 600ms
+
+# extra search margin (5.3.3)
+0x102E 0x1200
+wait 100ms
+0x102E 0x08 			# default is 0x08 -> 200ns
+wait 600ms
+
+# reject margin (5.3.4)
+0x102E 0x1300
+wait 100ms
+0x102E 0x08 			# default is 0x04 -> 100ns
+wait 600ms
+
+# enable subtraction of trigger time (5.3.5)
+0x102E 0x1400
+wait 600ms
+
+# disable subtraction of trigger time (5.3.6)
+#0x102E 0x1500
+#wait 600ms
+*/

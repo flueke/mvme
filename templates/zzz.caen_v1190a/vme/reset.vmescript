@@ -1,0 +1,13 @@
+# Reset the module to a clean default state here. This is executed before
+# initializing the modules at DAQ start time.
+
+# Software Reset: resets registers and initializes TDCs to default configuration.
+write a32 d16 0x1014 1
+wait 1000ms
+
+# Read the Firmware register
+print "caen_v1190a firmware register:"
+read a32 d16 0x1026
+
+print "caen_v1190a status register:"
+read a32 d16 0x1002

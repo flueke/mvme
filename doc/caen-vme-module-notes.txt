@@ -1,0 +1,29 @@
+CAEN V1190A
+===========
+
+In continuous storage a slave TDC can be programmed to keep token until no more data;
+otherwise the TDC passes the token; in trigger matching mode each slave must be
+programmed in order to keep the token until the end of the event.
+
+A match between a trigger and a hit is detected within a programmable time window.
+The trigger matching control on the V1190 is handled through 4 programmable
+parameters 3 (see § 5.3.1 and § 5.3.4):
+- match window,
+- window offset,
+- extra search margin,
+- reject margin.
+
+* Multi Event Splitting probably won't work because the Word Count used to split
+  a buffer into events is written in a trailing word, not in the first word.
+  -> Check how the algorithm actually works
+
+* MicroController communication can take a really long time. Experimenting with
+  the TRG_MATCH command (0x00) showed that the WRITE_OK bit takes >= 600ms to
+  become high again after issuing the command.
+
+* Using the Control Register 'test_fifo' bit does not seem to work. I wasn't
+  able to get any data from the module. Also writing to the Testreg (0x1028)
+  didn't have any effect.
+
+* Enable the 'TDC Errors' and 'ETTT' data word0x00002439s.
+
