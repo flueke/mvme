@@ -2,6 +2,15 @@
 TODO list
 ==================================================
 
+* Multi event splitter: why extract number of words?
+* Filter: mdpp16 samples: kanalwort, dann werte
+  -> so eine art subheader
+  -> subheader suchen, addresse extrahieren und merken
+     danach weitere daten mit weniger adressbits oder positionsbasierter offset zur "base address" und
+     natuerlich datenbits extrahieren
+     wenn wieder ein subheader kommt (via match erkannt) dann base address anpassen und damit weitermachen
+* Mehr siehe Zettel!
+
 * Things missing to support other vendors modules:
   - CAEN v785: transmits number of converted channels in a header, not number of following
     data words. For multievent splitting to work +1 has to be added to the count value
