@@ -43,7 +43,7 @@ set meb_enable 0 	# 16 MB MEB access enable (left disabled as it was not availab
 0x1022 64 # 64 is the default, min=1, max=32735
 
 # BLT Event Number Register (number of events to transfer per block read)
-0x1024 1 # Multievent is not ${mesy_readout_num_events}
+0x1024 ${mesy_readout_num_events}
 
 # Micro Register (this is for programming the onboard microcontroller).
 0x102E 0x0000 # set trigger matching mode
