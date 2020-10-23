@@ -2,6 +2,14 @@
 TODO list
 ==================================================
 
+* test jumbos with throttling
+
+* make dialogs modal to the trigger io gui, not modal to the whole application!
+
+* non-existent workspace directories mentioned in the mvme.ini file are
+  silently created. This is annoying when renaming a workspace and starting mvme again.
+  Instead the dialog to select a workspace directory should pop up.
+
 * Multi event splitter: why extract number of words?
 * Filter: mdpp16 samples: kanalwort, dann werte
   -> so eine art subheader
