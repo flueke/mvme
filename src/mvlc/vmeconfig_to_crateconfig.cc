@@ -166,6 +166,9 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
         for (const auto &moduleConfig: moduleConfigs)
         {
+            if (!moduleConfig->isEnabled())
+                continue;
+
             auto moduleName = moduleConfig->objectName().toStdString();
 
             add_stack_group(
@@ -235,6 +238,9 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
         for (const auto &moduleConfig: moduleConfigs)
         {
+            if (!moduleConfig->isEnabled())
+                continue;
+
             auto moduleName = moduleConfig->objectName().toStdString();
 
             add_stack_group(
