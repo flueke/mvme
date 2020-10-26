@@ -172,6 +172,39 @@ void MVLC_StreamWorker::setState(MVMEStreamWorkerState newState)
     }
 }
 
+void MVLC_StreamWorker::fillModuleIndexMaps(const VMEConfig *vmeConfig)
+{
+    m_eventModuleIndexMaps.fill({});
+
+    auto events = vmeConfig->getEventConfigs();
+
+    for (int ei=0; ei<events.size(); ++ei)
+    {
+        auto modules = vmeConfig->getAllModuleConfigs();
+        auto mapIter = m_eventModuleIndexMaps[ei].begin();
+        const auto mapEnd = m_eventModuleIndexMaps[ei].end();
+
+        for (int mi=0; mi<modules.size(); ++mi)
+        {
+            if (modules.at(mi)->isEnabled() && mapIter != mapEnd)
+                *mapIter++ = mi;
+        }
+    }
+
+#if 0
+    for (int ei=0; ei<events.size(); ++ei)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "moduleIndexMap for event" << ei << ":";
+
+        for (unsigned pim=0; pim<m_eventModuleIndexMaps[ei].size(); ++pim)
+        {
+            qDebug() << "   " << __PRETTY_FUNCTION__ << "parserModuleIndex=" << pim
+                << " -> mvmeModuleIndex=" << m_eventModuleIndexMaps[ei][pim];
+        }
+    }
+#endif
+}
+
 void MVLC_StreamWorker::setupParserCallbacks(
     const RunInfo &runInfo,
     const VMEConfig *vmeConfig,
@@ -197,7 +230,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
             m_diag->beginEvent(ei);
     };
 
-    m_parserCallbacks.groupPrefix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.groupPrefix = [this, analysis](int ei, int parserModuleIndex, const u32 *data, u32 size)
     {
         //qDebug() << "  modulePrefix" << ei << mi << data << size;
 
@@ -212,8 +245,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // prefix/suffix have been added this change should be removed!
         // Note: this works for scripts containing only register reads, e.g.
         // the standard MesytecCounter script.
-        // FIXME: Missing counters for module prefix & suffix!
-        auto moduleParts = m_parser.readoutStructure[ei][mi];
+        auto moduleParts = m_parser.readoutStructure[ei][parserModuleIndex];
+        int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
 
         if (!moduleParts.hasDynamic)
         {
@@ -239,9 +272,10 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
     };
 
-    m_parserCallbacks.groupDynamic = [this, analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.groupDynamic = [this, analysis](int ei, int parserModuleIndex, const u32 *data, u32 size)
     {
         //qDebug() << "  moduleDynamic" << ei << mi << data << size;
+        int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
         analysis->processModuleData(ei, mi, data, size);
 
         for (auto c: m_moduleConsumers)
@@ -265,9 +299,10 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
     };
 
-    m_parserCallbacks.groupSuffix = [this, analysis](int ei, int mi, const u32 *data, u32 size)
+    m_parserCallbacks.groupSuffix = [this, analysis](int ei, int parserModuleIndex, const u32 *data, u32 size)
     {
         //qDebug() << "  moduleSuffix" << ei << mi << data << size;
+        int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
         analysis->processModuleSuffix(ei, mi, data, size);
 
         // FIXME: The IMVMEStreamModuleConsumer interface doesn't support
@@ -311,10 +346,11 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // every 1 second. Jitter is not taken into account and the actual
         // timestamp value is not used at the moment.
 
-        // For replays the timeticks are contained in the incoming data buffers.
-        // For live daq runs timeticks are generated in start() using a
-        // TimetickGenerator. This has to happen due to the possibility of
-        // having internal buffer loss.
+        // For replays the timeticks are contained in the incoming data
+        // buffers.  For live daq runs timeticks are generated in start() using
+        // a TimetickGenerator. This has to happen on the analysis side  due to
+        // the possibility of having internal buffer loss and thus potentially
+        // missing timeticks.
         if (runInfo.isReplay && subtype == mvlc::system_event::subtype::UnixTimetick)
         {
             analysis->processTimetick();
@@ -429,6 +465,7 @@ void MVLC_StreamWorker::start()
         m_counters.startTime = QDateTime::currentDateTime();
     }
 
+    fillModuleIndexMaps(vmeConfig);
     setupParserCallbacks(runInfo, vmeConfig, analysis);
 
     try

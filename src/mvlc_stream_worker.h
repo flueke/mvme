@@ -150,9 +150,13 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void removeDiagnostics() { m_diag.reset(); }
 
     private:
-        void setState(MVMEStreamWorkerState newState);
-
         using UniqueLock = mesytec::mvlc::UniqueLock;
+
+        // Used for mapping mvlc::readout_parser module indexes to mvme module
+        // indexes so that "disabled" modules are handled correctly.
+        using ModuleIndexMap = std::array<int, MaxVMEModules>;
+
+        void setState(MVMEStreamWorkerState newState);
 
         // Used for the transition from non-Idle state to Idle state.
         enum StopFlag
@@ -167,6 +171,9 @@ class MVLC_StreamWorker: public StreamWorkerBase
             OnNextBuffer,
             OnNextError,
         };
+
+        void fillModuleIndexMaps(
+            const VMEConfig *vmeConfig);
 
         void setupParserCallbacks(
             const RunInfo &runInfo,
@@ -184,13 +191,15 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         void logParserInfo(const mesytec::mvlc::readout_parser::ReadoutParserState &parser);
 
-        MVMEContext *m_context;
+        MVMEContext *m_context = nullptr;
 
         QVector<IMVMEStreamModuleConsumer *> m_moduleConsumers;
 
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
 
+        // Per event mappings of readout_parser -> mvme module indexes.
+        std::array<ModuleIndexMap, MaxVMEEvents> m_eventModuleIndexMaps;
         mesytec::mvlc::ReadoutBufferQueues &m_snoopQueues;
         mesytec::mvlc::readout_parser::ReadoutParserCallbacks m_parserCallbacks;
         mesytec::mvlc::readout_parser::ReadoutParserState m_parser;
