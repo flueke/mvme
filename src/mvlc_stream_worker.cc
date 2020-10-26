@@ -578,6 +578,10 @@ void MVLC_StreamWorker::start()
                 qDebug() << __PRETTY_FUNCTION__ << "immediate stop, buffers left in queue:" <<
                     filled.size();
 
+                // Move the remaining buffers to the empty queue.
+                while (auto buffer = filled.dequeue())
+                    empty.enqueue(buffer);
+
                 break;
             }
 
