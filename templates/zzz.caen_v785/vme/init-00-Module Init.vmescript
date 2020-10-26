@@ -1,8 +1,10 @@
 ## Parameters
 
+# 4.10 MCST/CBLT Address Register
+write a32 d16 0x1004 0x${mesy_mcst}
+
 # 4.13 - Interrupt Level
-# Has to match the irq setting in the parent vme event.
-write a32 d16 0x100A 1
+write a32 d16 0x100A ${sys_irq}
 
 # 4.21 - Event Trigger Register
 # An IRQ is generated when number of stored events in the buffer is equal to
@@ -13,16 +15,16 @@ write a32 d16 0x1020 1
 # Bit 2: BLKEND
 # Bit 5: BERR enable
 # Bit 6: Align 64
-# With the above bits set the module sends only one event per block transfer
-# readout and then generates a BERR on the VME bus. Also dummy words are
+# With the above bits set the module sends only complete events in block 
+# transfers and then generates a BERR on the VME bus. Also fill words are
 # inserted into the datastream to guarantee an even number of data words.
 # See also "5.6 - Block Transfer Mode"
 write a32 d16 0x1010 0b1100100
 
 # 4.28 Bit Set 2 - Operation Mode
+# Bit  6: Test Acq.
 # Bit 11: Auto incr.
-write a32 d16 0x1032 0x800
-
+write a32 d16 0x1032 0x800 # auto incr
 
 # 4.41 Thresholds Memory
 # caen785
@@ -76,3 +78,50 @@ write a32 d16 0x10BE 0 # channel 31
 #write a32 d16 0x10B4 0 # channel 13
 #write a32 d16 0x10B8 0 # channel 14
 #write a32 d16 0x10BC 0 # channel 15
+
+
+/*
+# 5.5.2 Acq Test Mode
+# This block sets the module up to produce test data (and raie the irq if enabled) when
+# triggered (e.g. via the NIM Gate input).
+
+# Toggle TEST ACQ bit
+write a32 d16 0x1032 0x40 # Use Bit Set 2 to set the TEST ACQ bit (bit 6)
+write a32 d16 0x1034 0x40 # Use the Bit Clear 2 register to clear the TEST ACQ bit (bit 6)
+
+# Write 32 data words with 13 valid bits per word (12 bit adc value, 1 overflow bit).
+write a32 d16 0x103E 0x0000 # Channel 0
+write a32 d16 0x103E 0x0010 # Channel 16
+write a32 d16 0x103E 0x0001 # Channel 1
+write a32 d16 0x103E 0x0011 # Channel 17
+write a32 d16 0x103E 0x0002 # Channel 2
+write a32 d16 0x103E 0x0012 # Channel 18
+write a32 d16 0x103E 0x0003 # Channel 3
+write a32 d16 0x103E 0x0013 # Channel 19
+write a32 d16 0x103E 0x0004 # Channel 4
+write a32 d16 0x103E 0x0014 # Channel 20
+write a32 d16 0x103E 0x0005 # Channel 5
+write a32 d16 0x103E 0x0015 # Channel 21
+write a32 d16 0x103E 0x0006 # Channel 6
+write a32 d16 0x103E 0x0016 # Channel 22
+write a32 d16 0x103E 0x0007 # Channel 7
+write a32 d16 0x103E 0x0017 # Channel 23
+write a32 d16 0x103E 0x0008 # Channel 8
+write a32 d16 0x103E 0x0018 # Channel 24
+write a32 d16 0x103E 0x0009 # Channel 9
+write a32 d16 0x103E 0x0019 # Channel 25
+write a32 d16 0x103E 0x000A # Channel 10
+write a32 d16 0x103E 0x001A # Channel 26
+write a32 d16 0x103E 0x000B # Channel 11
+write a32 d16 0x103E 0x001B # Channel 27
+write a32 d16 0x103E 0x000C # Channel 12
+write a32 d16 0x103E 0x001C # Channel 28
+write a32 d16 0x103E 0x000D # Channel 13
+write a32 d16 0x103E 0x001D # Channel 29
+write a32 d16 0x103E 0x000E # Channel 14
+write a32 d16 0x103E 0x001E # Channel 30
+write a32 d16 0x103E 0x000F # Channel 15
+write a32 d16 0x103E 0x001F # Channel 31
+
+write a32 d16 0x1032 0x40 # Use Bit Set 2 to set the TEST ACQ bit (bit 6)
+*/

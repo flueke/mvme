@@ -6,6 +6,7 @@
 write a32 d16 0x1006 0x80 # enable soft reset
 wait 100ms
 write a32 d16 0x1008 0x80 # disable soft reset
+wait 100ms
 
 # 4.8 - Firmware Revision: read out to appear in the logfile
 read a32 d16 0x1000
