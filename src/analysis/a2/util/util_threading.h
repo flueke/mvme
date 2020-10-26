@@ -27,7 +27,7 @@
 #include <cassert>
 #include <condition_variable>
 #include <mutex>
-#include "util/typedefs.h"
+#include "typedefs.h"
 
 namespace a2
 {

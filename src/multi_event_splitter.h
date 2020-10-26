@@ -109,7 +109,6 @@ enum class ErrorCode: u8
     ModuleIndexOutOfRange,
 };
 
-
 std::error_code LIBMVME_EXPORT begin_event(State &state, int ei);
 std::error_code LIBMVME_EXPORT module_prefix(State &state, int ei, int mi, const u32 *data, u32 size);
 std::error_code LIBMVME_EXPORT module_data(State &state, int ei, int mi, const u32 *data, u32 size);
