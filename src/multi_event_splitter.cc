@@ -19,8 +19,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "multi_event_splitter.h"
-#include "a2_data_filter.h"
-#include "vme_config_limits.h"
+
+#include <algorithm>
+
 
 #define LOG_LEVEL_OFF     0
 #define LOG_LEVEL_WARN  100
@@ -119,6 +120,7 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
 
     // For each event determine if splitting should be enabled. This is the
     // case if any of the events modules has a non-zero header filter.
+    size_t eventIndex = 0;
     for (const auto &filters: result.splitFilters)
     {
         bool hasNonZeroFilter = std::any_of(
@@ -128,27 +130,10 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
                 return fc.filter.matchMask != 0;
             });
 
-        result.enabledForEvent.push_back(hasNonZeroFilter);
+        result.enabledForEvent[eventIndex++] = hasNonZeroFilter;
     }
 
-    assert(result.enabledForEvent.size() == result.splitFilters.size());
-
-    // Find the longest of the filter string vectors. This is the maximum
-    // number of modules across all events.
-    auto it = std::max_element(
-        splitFilterStrings.begin(), splitFilterStrings.end(),
-        [] (const auto &vec1, const auto &vec2)
-        {
-            return vec1.size() < vec2.size();
-        });
-
-    size_t maxModuleCount = 0;
-
-    if (it != splitFilterStrings.end())
-        maxModuleCount = it->size();
-
-    result.moduleFilterMatches.resize(maxModuleCount);
-
+    assert(result.enabledForEvent.size() >= result.splitFilters.size());
     assert(result.splitFilters.size() == result.dataSpans.size());
 
     return result;
@@ -256,7 +241,6 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
     LOG_TRACE("state=%p, ei=%d, moduleCount=%lu", &state, ei, moduleCount);
 
     assert(moduleFilters.size() == moduleSpans.size());
-    assert(state.moduleFilterMatches.size() >= moduleCount);
 
     // If splitting is not enabled for this event yield the collected data in
     // one go.
@@ -289,10 +273,16 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
     bool staticPartsYielded = false;
     std::array<s64, MaxVMEModules> moduleSubeventSizes;
 
+    // Space to record filter matches per module during the splitting phase.
+    std::bitset<MaxVMEModules> moduleFilterMatches;
+
+    assert(moduleSubeventSizes.size() >= moduleCount);
+    assert(moduleFilterMatches.size() >= moduleCount);
+
     while (true)
     {
         // clear every bit to 0
-        state.moduleFilterMatches.reset();
+        moduleFilterMatches.reset();
 
         // init sizes to -1
         std::fill(std::begin(moduleSubeventSizes), std::end(moduleSubeventSizes), -1);
@@ -307,7 +297,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
                 bool hasMatch = a2::data_filter::matches(
                     moduleFilters[mi].filter, *dynamicSpan.begin);
 
-                state.moduleFilterMatches[mi] = hasMatch;
+                moduleFilterMatches[mi] = hasMatch;
 
                 // The filter contains 'S' placeholders to directly extract the
                 // number of following words from the header.
@@ -350,7 +340,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
         // Termination condition: none of the modules have any more dynamic
         // data left or the header filter did not match for any of them.
-        if (state.moduleFilterMatches.none())
+        if (moduleFilterMatches.none())
             break;
 
         LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
@@ -373,7 +363,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
         // Yield one split subevent for each of the modules.
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
-            if (state.moduleFilterMatches[mi])
+            if (moduleFilterMatches[mi])
             {
                 auto &spans = moduleSpans[mi];
 

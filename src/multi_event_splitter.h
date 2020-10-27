@@ -21,20 +21,24 @@
 #ifndef __MVME_MULTI_EVENT_SPLITTER_H__
 #define __MVME_MULTI_EVENT_SPLITTER_H__
 
-#include <boost/dynamic_bitset.hpp>
+#include <bitset>
 #include <functional>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include "libmvme_export.h"
 
 #include "typedefs.h"
-#include "analysis/a2/a2.h"
+#include "analysis/a2/a2_data_filter.h"
+#include "vme_config_limits.h"
 
 namespace mvme
 {
 namespace multi_event_splitter
 {
+
+// TODO: paint a diagram here to show what this code does
 
 // IMPORTANT: The multi_event_splitter requires that the pointers passed to the
 // module_prefix(), module_data() and module_suffix() calls are still valid
@@ -42,9 +46,16 @@ namespace multi_event_splitter
 // performs event splitting and invocation of callbacks in end_event(). No
 // copies of the data are made.
 
+// Callbacks for the multi event splitter to hand module data to consumers.
+// All module data callbacks are contained between calls to beginEvent and
+// endEvent.
+// Event splitting is performed on the dynamic part of incoming module data.
+// Prefix and suffix data are not split. The prefix and suffix callbacks are
+// only called once per incoming event whereas the dynamic part is called once
+// for every split.
 struct Callbacks
 {
-    // functions taking an event index
+    // Functions taking an event index.
     std::function<void (int ei)>
         beginEvent = [] (int) {},
         endEvent   = [] (int) {};
@@ -86,18 +97,16 @@ struct State
     std::vector<std::vector<FilterWithSizeCache>> splitFilters;
 
     // Storage to record pointers into the incoming (multievent) module data.
-    std::vector<std::vector<ModuleDataSpans>> dataSpans;
+    std::vector<std::vector<ModuleDataSpans>> dataSpans; // TODO: could probably flatten this by one level
 
     // Bit N is set if splitting is enabled for corresponding event index.
-    boost::dynamic_bitset<> enabledForEvent;
-
-    // Space to record filter matches per module during the splitting phase.
-    boost::dynamic_bitset<> moduleFilterMatches;
+    std::bitset<MaxVMEEvents> enabledForEvent;
 };
 
 // Creates an initial splitter state. The input are lists of per event and
 // module data_filter strings used to detect module headers and extract module
 // data sizes.
+//
 // The filter strings are used to create a2::data_filter::DataFilter
 // structures. A filter match is attempted for each potential module header. If
 // the filter matches then the modules data size in number of words is
