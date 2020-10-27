@@ -36,10 +36,11 @@ namespace mvme
 namespace multi_event_splitter
 {
 
-// IMPORTANT: The multi_event_splitter requires that the pointers passed to
-// module_data calls are still valid when end_event is called. The code stores
-// the pointers and sizes to run the splitting logic on the data in end_event()
-// and invoke the given callbacks. The data is NOT copied into a separate buffer!
+// IMPORTANT: The multi_event_splitter requires that the pointers passed to the
+// module_prefix(), module_data() and module_suffix() calls are still valid
+// when end_event is called. The code stores the pointers and sizes and then
+// performs event splitting and invocation of callbacks in end_event(). No
+// copies of the data are made.
 
 struct Callbacks
 {
@@ -59,8 +60,11 @@ struct State
 {
     struct FilterWithSizeCache
     {
+        // Filter used for header matching and optional size extraction
         a2::data_filter::DataFilter filter;
+        // Cache for the 'S' filter character.
         a2::data_filter::CacheEntry cache;
+        // True if the filter contains 'S' bits for module size extraction.
         bool hasSize;
     };
 
@@ -119,7 +123,6 @@ std::error_code LIBMVME_EXPORT module_prefix(State &state, int ei, int mi, const
 std::error_code LIBMVME_EXPORT module_data(State &state, int ei, int mi, const u32 *data, u32 size);
 std::error_code LIBMVME_EXPORT module_suffix(State &state, int ei, int mi, const u32 *data, u32 size);
 std::error_code LIBMVME_EXPORT end_event(State &state, Callbacks &callbacks, int ei);
-std::error_code LIBMVME_EXPORT end_event2(State &state, Callbacks &callbacks, int ei);
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 

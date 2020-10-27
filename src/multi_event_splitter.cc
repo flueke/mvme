@@ -236,169 +236,12 @@ inline size_t words_in_span(const State::DataSpan &span)
     return 0u;
 }
 
-// This is called after prefix, suffix and the dynamic part of all modules for
-// the given event have been recorded in the ModuleDataSpans. Now walk the data
-// and yield the subevents.
 std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 {
-    LOG_TRACE("state=%p, ei=%d", &state, ei);
+    // This is called after prefix, suffix and the dynamic part of all modules for
+    // the given event have been recorded in the ModuleDataSpans. Now walk the data
+    // and yield the subevents.
 
-    if (ei >= static_cast<int>(state.dataSpans.size()))
-        return make_error_code(ErrorCode::EventIndexOutOfRange);
-
-    assert(state.splitFilters.size() == state.dataSpans.size());
-
-    auto &moduleFilters = state.splitFilters[ei];
-    auto &moduleSpans = state.dataSpans[ei];
-    const size_t moduleCount = moduleSpans.size();
-
-    LOG_TRACE("state=%p, ei=%d, moduleCount=%lu", &state, ei, moduleCount);
-
-    assert(moduleFilters.size() == moduleSpans.size());
-    assert(state.moduleFilterMatches.size() >= moduleCount);
-
-    // If splitting is not enabled for this event yield the collected data in
-    // one go.
-    if (!state.enabledForEvent[ei])
-    {
-        LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
-                  &state, ei);
-
-        callbacks.beginEvent(ei);
-
-        for (size_t mi = 0; mi < moduleCount; ++mi)
-        {
-            auto &spans = moduleSpans[mi];
-
-            if (auto size = words_in_span(spans.prefixSpan))
-                callbacks.modulePrefix(ei, mi, spans.prefixSpan.begin, size);
-
-            if (auto size = words_in_span(spans.dynamicSpan))
-                callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, size);
-
-            if (auto size = words_in_span(spans.suffixSpan))
-                callbacks.moduleSuffix(ei, mi, spans.suffixSpan.begin, size);
-        }
-
-        callbacks.endEvent(ei);
-
-        return {};
-    }
-
-    // Split the data of each of the modules for this event using the
-    // data_filter for header matching and size extraction.
-    // Terminate if the data of all modules has been used up or none of the
-    // modules have a header filter match.
-    while (true)
-    {
-        // clear every bit to 0
-        state.moduleFilterMatches.reset();
-
-        for (size_t mi = 0; mi < moduleCount; ++mi)
-        {
-            const auto &dynamicSpan = moduleSpans[mi].dynamicSpan;
-
-            if (words_in_span(dynamicSpan))
-            {
-                bool hasMatch = a2::data_filter::matches(
-                    moduleFilters[mi].filter, *dynamicSpan.begin);
-
-                state.moduleFilterMatches[mi] = hasMatch;
-
-                LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s",
-                          &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false")
-            }
-        }
-
-        // Termination condition: none of the modules have any more dynamic
-        // data left or the header filter did not match for any of them.
-        if (state.moduleFilterMatches.none())
-            break;
-
-        LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
-        callbacks.beginEvent(ei);
-
-        for (size_t mi = 0; mi < moduleCount; ++mi)
-        {
-            if (state.moduleFilterMatches[mi])
-            {
-                auto &spans = moduleSpans[mi];
-
-                // If there are no more words in the span then the bit
-                // indicating a match should not have been set.
-                assert(words_in_span(spans.dynamicSpan));
-
-                // Add one to the extracted module event size to account for
-                // the header word itself (the extracted size is the number of
-                // words following the header word).
-                u32 moduleEventSize = 1 + a2::data_filter::extract(
-                    moduleFilters[mi].cache, *spans.dynamicSpan.begin);
-
-                LOG_TRACE("state=%p, ei=%d, mi=%lu, words in dynamicSpan=%lu, moduleEventSize=%u, header=0x%08x",
-                          &state, ei, mi, words_in_span(spans.dynamicSpan), moduleEventSize,
-                          *spans.dynamicSpan.begin);
-
-                if (moduleEventSize > words_in_span(spans.dynamicSpan))
-                {
-                    // The extracted event size exceeds the amount of data left
-                    // in the dynamic span. Move the span begin pointer forward
-                    // so that the span has size 0 and the module filter test
-                    // above will fail on the next iteration.
-                    spans.dynamicSpan.begin = spans.dynamicSpan.end;
-                    continue;
-                }
-
-                // Use the same prefix data each time we yield module data.
-                // TODO: Maybe this should only happen once per multievent.
-                // It's kind of misleading to yield the same prefix and suffix
-                // data multiple times.
-                if (auto size = words_in_span(spans.prefixSpan))
-                {
-                    LOG_TRACE("state=%p, callbacks.modulePrefx(ei=%d, mi=%lu, data=%p, size=%lu",
-                              &state, ei, mi, spans.prefixSpan.begin, size);
-
-                    callbacks.modulePrefix(ei, mi, spans.prefixSpan.begin, size);
-                }
-
-                // Invoke the dynamic data callback with the current dynamic
-                // spans begin pointer and the extracted event size.
-                LOG_TRACE("state=%p, callbacks.moduleDynamic(ei=%d, mi=%lu, data=%p, size=%u",
-                          &state, ei, mi, spans.dynamicSpan.begin, moduleEventSize)
-
-                callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, moduleEventSize);
-
-                // Move the spans begin pointer forward by the amount of data used.
-                spans.dynamicSpan.begin += moduleEventSize;
-
-                if (words_in_span(spans.dynamicSpan))
-                {
-                    LOG_TRACE("state=%p, next dynamicSpan.begin=0x%08x",
-                              &state, *spans.dynamicSpan.begin);
-                }
-
-                // Use the same suffix data each time we yield module data.
-                // TODO: Maybe this should only happen once per multievent.
-                // It's kind of misleading to yield the same prefix and suffix
-                // data multiple times.
-                if (auto size = words_in_span(spans.suffixSpan))
-                {
-                    LOG_TRACE("state=%p, callbacks.moduleSuffix(ei=%d, mi=%lu, data=%p, size=%lu",
-                              &state, ei, mi, spans.suffixSpan.begin, size);
-
-                    callbacks.moduleSuffix(ei, mi, spans.suffixSpan.begin, size);
-                }
-            }
-        }
-
-        LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
-        callbacks.endEvent(ei);
-    }
-
-    return {};
-}
-
-std::error_code end_event2(State &state, Callbacks &callbacks, int ei)
-{
     LOG_TRACE("state=%p, ei=%d", &state, ei);
 
     if (ei >= static_cast<int>(state.dataSpans.size()))
@@ -573,7 +416,6 @@ std::error_code end_event2(State &state, Callbacks &callbacks, int ei)
                 }
             }
         }
-
 
         // Yield the suffixes of all the modules
         if (!staticPartsYielded)

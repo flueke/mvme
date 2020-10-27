@@ -54,7 +54,7 @@ TEST(MultiEventSplitter, WithSizeSameCount)
     ASSERT_TRUE(!begin_event(splitter, 0));
     ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
     ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event2(splitter, callbacks, 0));
+    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -119,7 +119,7 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
     ASSERT_TRUE(!begin_event(splitter, 0));
     ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
     ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event2(splitter, callbacks, 0));
+    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -185,7 +185,7 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     ASSERT_TRUE(!begin_event(splitter, 0));
     ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
     ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event2(splitter, callbacks, 0));
+    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -251,7 +251,7 @@ TEST(MultiEventSplitter, NoSizeSameCount)
     ASSERT_TRUE(!begin_event(splitter, 0));
     ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
     ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event2(splitter, callbacks, 0));
+    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -316,7 +316,7 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     ASSERT_TRUE(!begin_event(splitter, 0));
     ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
     ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event2(splitter, callbacks, 0));
+    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
