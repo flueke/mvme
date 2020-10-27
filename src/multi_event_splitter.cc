@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "multi_event_splitter.h"
+#include "a2_data_filter.h"
+#include "vme_config_limits.h"
 
 #define LOG_LEVEL_OFF     0
 #define LOG_LEVEL_WARN  100
@@ -91,14 +93,16 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
 
     for (const auto &moduleStrings: splitFilterStrings)
     {
-        std::vector<State::FilterWithCache> moduleFilters;
+        std::vector<State::FilterWithSizeCache> moduleFilters;
 
-        for (const auto &moduleString: moduleStrings)
+        for (auto moduleString: moduleStrings)
         {
-            State::FilterWithCache fc;
+            State::FilterWithSizeCache fc;
 
             fc.filter = a2::data_filter::make_filter(moduleString);
             fc.cache = a2::data_filter::make_cache_entry(fc.filter, 'S');
+            fc.hasSize = (moduleString.find('S') != std::string::npos
+                          || moduleString.find('s') != std::string::npos);
 
             moduleFilters.emplace_back(fc);
         }
@@ -119,7 +123,7 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
     {
         bool hasNonZeroFilter = std::any_of(
             filters.begin(), filters.end(),
-            [] (const State::FilterWithCache &fc)
+            [] (const State::FilterWithSizeCache &fc)
             {
                 return fc.filter.matchMask != 0;
             });
@@ -232,6 +236,9 @@ inline size_t words_in_span(const State::DataSpan &span)
     return 0u;
 }
 
+// This is called after prefix, suffix and the dynamic part of all modules for
+// the given event have been recorded in the ModuleDataSpans. Now walk the data
+// and yield the subevents.
 std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 {
     LOG_TRACE("state=%p, ei=%d", &state, ei);
@@ -289,7 +296,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
-            auto &dynamicSpan = moduleSpans[mi].dynamicSpan;
+            const auto &dynamicSpan = moduleSpans[mi].dynamicSpan;
 
             if (words_in_span(dynamicSpan))
             {
@@ -342,6 +349,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
                 }
 
                 // Use the same prefix data each time we yield module data.
+                // TODO: Maybe this should only happen once per multievent.
+                // It's kind of misleading to yield the same prefix and suffix
+                // data multiple times.
                 if (auto size = words_in_span(spans.prefixSpan))
                 {
                     LOG_TRACE("state=%p, callbacks.modulePrefx(ei=%d, mi=%lu, data=%p, size=%lu",
@@ -367,6 +377,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
                 }
 
                 // Use the same suffix data each time we yield module data.
+                // TODO: Maybe this should only happen once per multievent.
+                // It's kind of misleading to yield the same prefix and suffix
+                // data multiple times.
                 if (auto size = words_in_span(spans.suffixSpan))
                 {
                     LOG_TRACE("state=%p, callbacks.moduleSuffix(ei=%d, mi=%lu, data=%p, size=%lu",
@@ -379,6 +392,204 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
         LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
         callbacks.endEvent(ei);
+    }
+
+    return {};
+}
+
+std::error_code end_event2(State &state, Callbacks &callbacks, int ei)
+{
+    LOG_TRACE("state=%p, ei=%d", &state, ei);
+
+    if (ei >= static_cast<int>(state.dataSpans.size()))
+        return make_error_code(ErrorCode::EventIndexOutOfRange);
+
+    assert(state.splitFilters.size() == state.dataSpans.size());
+
+    auto &moduleFilters = state.splitFilters[ei];
+    auto &moduleSpans = state.dataSpans[ei];
+    const size_t moduleCount = moduleSpans.size();
+
+    LOG_TRACE("state=%p, ei=%d, moduleCount=%lu", &state, ei, moduleCount);
+
+    assert(moduleFilters.size() == moduleSpans.size());
+    assert(state.moduleFilterMatches.size() >= moduleCount);
+
+    // If splitting is not enabled for this event yield the collected data in
+    // one go.
+    if (!state.enabledForEvent[ei])
+    {
+        LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
+                  &state, ei);
+
+        callbacks.beginEvent(ei);
+
+        for (size_t mi = 0; mi < moduleCount; ++mi)
+        {
+            auto &spans = moduleSpans[mi];
+
+            if (auto size = words_in_span(spans.prefixSpan))
+                callbacks.modulePrefix(ei, mi, spans.prefixSpan.begin, size);
+
+            if (auto size = words_in_span(spans.dynamicSpan))
+                callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, size);
+
+            if (auto size = words_in_span(spans.suffixSpan))
+                callbacks.moduleSuffix(ei, mi, spans.suffixSpan.begin, size);
+        }
+
+        callbacks.endEvent(ei);
+
+        return {};
+    }
+
+    bool staticPartsYielded = false;
+    std::array<s64, MaxVMEModules> moduleSubeventSizes;
+
+    while (true)
+    {
+        // clear every bit to 0
+        state.moduleFilterMatches.reset();
+
+        // init sizes to -1
+        std::fill(std::begin(moduleSubeventSizes), std::end(moduleSubeventSizes), -1);
+
+        // Check for header matches and determine subevent sizes.
+        for (size_t mi = 0; mi < moduleCount; ++mi)
+        {
+            const auto &dynamicSpan = moduleSpans[mi].dynamicSpan;
+
+            if (words_in_span(dynamicSpan))
+            {
+                bool hasMatch = a2::data_filter::matches(
+                    moduleFilters[mi].filter, *dynamicSpan.begin);
+
+                state.moduleFilterMatches[mi] = hasMatch;
+
+                // The filter contains 'S' placeholders to directly extract the
+                // number of following words from the header.
+                if (hasMatch && moduleFilters[mi].hasSize)
+                {
+                    // Add one to the extracted module event size to account for
+                    // the header word itself (the extracted size is the number of
+                    // words following the header word).
+                    u32 moduleEventSize = 1 + a2::data_filter::extract(
+                        moduleFilters[mi].cache, *dynamicSpan.begin);
+
+                    moduleSubeventSizes[mi] = moduleEventSize;
+
+                    LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=true, extractedSize=%u",
+                              &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize);
+                }
+                else if (hasMatch)
+                {
+                    // Determine the subevent size by checking when the module
+                    // header filter matches again.
+                    const u32 *moduleWord = dynamicSpan.begin + 1;
+
+                    while (moduleWord < dynamicSpan.end)
+                    {
+                        if (a2::data_filter::matches(
+                                moduleFilters[mi].filter, *moduleWord))
+                        {
+                            break;
+                        }
+                    }
+
+                    u32 moduleEventSize = moduleWord - dynamicSpan.begin + 1;
+                    moduleSubeventSizes[mi] = moduleEventSize;
+
+                    LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=false, searchedSize=%u",
+                              &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize)
+                }
+            }
+        }
+
+        // Termination condition: none of the modules have any more dynamic
+        // data left or the header filter did not match for any of them.
+        if (state.moduleFilterMatches.none())
+            break;
+
+        LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
+        callbacks.beginEvent(ei);
+
+        // Yield the prefixes of all the modules
+        if (!staticPartsYielded)
+        {
+            for (size_t mi = 0; mi < moduleCount; ++mi)
+            {
+                if (auto size = words_in_span(moduleSpans[mi].prefixSpan))
+                {
+                    LOG_TRACE("state=%p, callbacks.modulePrefx(ei=%d, mi=%lu, data=%p, size=%lu",
+                              &state, ei, mi, moduleSpans[mi].prefixSpan.begin, size);
+                    callbacks.modulePrefix(ei, mi, moduleSpans[mi].prefixSpan.begin, size);
+                }
+            }
+        }
+
+        // Yield one split subevent for each of the modules.
+        for (size_t mi = 0; mi < moduleCount; ++mi)
+        {
+            if (state.moduleFilterMatches[mi])
+            {
+                auto &spans = moduleSpans[mi];
+
+                // If there are no more words in the span then the bit
+                // indicating a match should not have been set.
+                assert(words_in_span(spans.dynamicSpan));
+
+                // Add one to the extracted module event size to account for
+                // the header word itself (the extracted size is the number of
+                // words following the header word).
+                u32 moduleEventSize = moduleSubeventSizes[mi];
+
+                LOG_TRACE("state=%p, ei=%d, mi=%lu, words in dynamicSpan=%lu, moduleEventSize=%u",
+                          &state, ei, mi, words_in_span(spans.dynamicSpan), moduleEventSize);
+
+                if (moduleEventSize > words_in_span(spans.dynamicSpan))
+                {
+                    // The extracted event size exceeds the amount of data left
+                    // in the dynamic span. Move the span begin pointer forward
+                    // so that the span has size 0 and the module filter test
+                    // above will fail on the next iteration.
+                    spans.dynamicSpan.begin = spans.dynamicSpan.end;
+                    continue;
+                }
+
+                // Invoke the dynamic data callback with the current dynamic
+                // spans begin pointer and the extracted event size.
+                LOG_TRACE("state=%p, callbacks.moduleDynamic(ei=%d, mi=%lu, data=%p, size=%u",
+                          &state, ei, mi, spans.dynamicSpan.begin, moduleEventSize)
+
+                callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, moduleEventSize);
+
+                // Move the spans begin pointer forward by the amount of data used.
+                spans.dynamicSpan.begin += moduleEventSize;
+
+                if (words_in_span(spans.dynamicSpan))
+                {
+                    LOG_TRACE("state=%p, next dynamicSpan.begin=0x%08x",
+                              &state, *spans.dynamicSpan.begin);
+                }
+            }
+        }
+
+
+        // Yield the suffixes of all the modules
+        if (!staticPartsYielded)
+        {
+            for (size_t mi = 0; mi < moduleCount; ++mi)
+            {
+                if (auto size = words_in_span(moduleSpans[mi].suffixSpan))
+                {
+                    LOG_TRACE("state=%p, callbacks.moduleSuffix(ei=%d, mi=%lu, data=%p, size=%lu",
+                              &state, ei, mi, moduleSpans[mi].suffixSpan.begin, size);
+                    callbacks.moduleSuffix(ei, mi, moduleSpans[mi].suffixSpan.begin, size);
+                }
+            }
+
+            staticPartsYielded = true;
+        }
     }
 
     return {};

@@ -57,10 +57,11 @@ struct Callbacks
 
 struct State
 {
-    struct FilterWithCache
+    struct FilterWithSizeCache
     {
         a2::data_filter::DataFilter filter;
         a2::data_filter::CacheEntry cache;
+        bool hasSize;
     };
 
     struct DataSpan
@@ -78,10 +79,9 @@ struct State
 
     // DataFilters used for module header matching and size extraction grouped
     // by event and module indexes.
-    std::vector<std::vector<FilterWithCache>> splitFilters;
+    std::vector<std::vector<FilterWithSizeCache>> splitFilters;
 
-    // Storage to record incoming module data and keep state during the
-    // splitting phase.
+    // Storage to record pointers into the incoming (multievent) module data.
     std::vector<std::vector<ModuleDataSpans>> dataSpans;
 
     // Bit N is set if splitting is enabled for corresponding event index.
@@ -97,9 +97,14 @@ struct State
 // The filter strings are used to create a2::data_filter::DataFilter
 // structures. A filter match is attempted for each potential module header. If
 // the filter matches then the modules data size in number of words is
-// extracted from the filter using the filter character 'S'.
+// extracted from the filter using the filter characters 'S' or 's'.
 // If there is no filter match the algorithm assumes that there are no more
 // events available for that module.
+//
+// If the filter does not contain any 'S' placeholders the length of the
+// subevent is determined by testing each of the following words for a filter
+// match. The matched word is assumed to be the header of the next event, all
+// data words before that are part of the current event.
 State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
 
 enum class ErrorCode: u8
@@ -114,6 +119,7 @@ std::error_code LIBMVME_EXPORT module_prefix(State &state, int ei, int mi, const
 std::error_code LIBMVME_EXPORT module_data(State &state, int ei, int mi, const u32 *data, u32 size);
 std::error_code LIBMVME_EXPORT module_suffix(State &state, int ei, int mi, const u32 *data, u32 size);
 std::error_code LIBMVME_EXPORT end_event(State &state, Callbacks &callbacks, int ei);
+std::error_code LIBMVME_EXPORT end_event2(State &state, Callbacks &callbacks, int ei);
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 
