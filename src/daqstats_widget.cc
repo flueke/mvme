@@ -198,17 +198,20 @@ struct DAQStatsWidgetPrivate
     {
         auto counters = mvlcEth->getThrottleCounters();
 
+        QString strUsed = format_number(counters.rcvBufferUsed, QSL("B"), UnitScaling::Binary, 0, 'f', 0);
+        QString strSize = format_number(counters.rcvBufferSize, QSL("B"), UnitScaling::Binary, 0, 'f', 0);
+
         label_mvlcEthRcvBuf->setText(
-            QSL("%1 MB/%2 MB, %3%")
-            .arg(static_cast<double>(counters.rcvBufferUsed) / Megabytes(1))
-            .arg(static_cast<double>(counters.rcvBufferSize) / Megabytes(1))
-            .arg(static_cast<double>(counters.rcvBufferUsed) / counters.rcvBufferSize * 100.0)
+            QSL("%1/%2, %3%")
+            .arg(strUsed)
+            .arg(strSize)
+            .arg(static_cast<double>(counters.rcvBufferUsed) / counters.rcvBufferSize * 100.0, 0, 'f', 3)
             );
 
         label_mvlcEthThrottling->setText(
             QSL("delay: cur=%3 µs, avg=%4 µs, max=%5 µs")
             .arg(counters.currentDelay)
-            .arg(counters.avgDelay)
+            .arg(counters.avgDelay, 0, 'f', 2)
             .arg(counters.maxDelay));
     }
 
