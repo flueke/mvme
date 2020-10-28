@@ -201,15 +201,6 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         //
         // Stack Error Notifications (Command Pipe)
         //
-#if 0
-        std::vector<std::vector<u32>> getStackErrorNotifications() const
-        {
-            return m_mvlc.getStackErrorNotifications();
-        }
-
-        void clearStackErrorNotifications() { m_mvlc.clearStackErrorNotifications(); }
-        bool hasStackErrorNotifications() const { return m_mvlc.hasStackErrorNotifications(); }
-#endif
 
         mvlc::StackErrorCounters getStackErrorCounters() const
         {
@@ -234,23 +225,6 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         mvlc::MVLCBasicInterface *getImpl() { return m_mvlc.getImpl(); }
         inline mvlc::Locks &getLocks() { return m_mvlc.getLocks(); }
 
-#if 0
-        // Returns a copy of the stack error counts structure. This is
-        // thread-safe.
-        inline StackErrorCounters getStackErrorCounters() const
-        {
-            auto lock = m_stackErrors.lock();
-            return m_stackErrors.counters;
-        }
-
-        // Returns a reference to the GuardedStackErrorCounters structure used
-        // by this MVLCObject.
-        inline GuardedStackErrorCounters &getGuardedStackErrorCounters()
-        {
-            return m_stackErrors;
-        }
-#endif
-
     private:
         void setState(const State &newState);
 
@@ -266,42 +240,9 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
             return ec;
         }
 
-        //Locks &getLocks() const { return m_locks; }
-
         mvlc::MVLC m_mvlc;
         State m_state;
 };
-
-#if 0
-class LIBMVME_MVLC_EXPORT MVLCNotificationPoller: public QObject
-{
-    Q_OBJECT
-    public:
-        static const int Default_PollInterval_ms = 1000;
-        static const unsigned PollReadTimeout_ms = 50;
-        // Limit the max number of individual reads done in single invocation
-        // of doPoll(). This only has an effect if there is a constant stream
-        // of error notification data being available on the read pipe in which
-        // case doPoll() will be left after that many iterations.
-        static const unsigned SinglePollMaxIterations = 100;
-
-        MVLCNotificationPoller(MVLCObject &mvlc, QObject *parent = nullptr);
-
-        void enablePolling(int interval_ms = Default_PollInterval_ms);
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
-        void enablePolling(const std::chrono::milliseconds &interval);
-#endif
-        void disablePolling();
-
-    private slots:
-        void doPoll();
-
-    private:
-        MVLCObject &m_mvlc;
-        QTimer m_pollTimer;
-        std::atomic<bool> m_isPolling;
-};
-#endif
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec
