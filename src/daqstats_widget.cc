@@ -200,12 +200,16 @@ struct DAQStatsWidgetPrivate
 
         QString strUsed = format_number(counters.rcvBufferUsed, QSL("B"), UnitScaling::Binary, 0, 'f', 0);
         QString strSize = format_number(counters.rcvBufferSize, QSL("B"), UnitScaling::Binary, 0, 'f', 0);
+        double percentUsed = static_cast<double>(counters.rcvBufferUsed) / counters.rcvBufferSize * 100.0;
+
+        if (std::isnan(percentUsed))
+            percentUsed = 0.0;
 
         label_mvlcEthRcvBuf->setText(
             QSL("%1/%2, %3%")
             .arg(strUsed)
             .arg(strSize)
-            .arg(static_cast<double>(counters.rcvBufferUsed) / counters.rcvBufferSize * 100.0, 0, 'f', 3)
+            .arg(percentUsed, 0, 'f', 3)
             );
 
         label_mvlcEthThrottling->setText(
