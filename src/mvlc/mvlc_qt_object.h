@@ -60,7 +60,11 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
 
         QString getConnectionInfo() const
         {
-            return QString::fromStdString(connectionInfo());
+            return QString::fromStdString(connectionInfo())
+                + (QSL(", hwId=0x%1, fwRev=0x%2")
+                   .arg(m_mvlc.hardwareId(), 4, 16, QLatin1Char('0'))
+                   .arg(m_mvlc.firmwareRevision(), 4, 16, QLatin1Char('0')))
+                ;
         }
 
         //

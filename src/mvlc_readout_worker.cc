@@ -254,9 +254,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
         logMessage(QSL("Using VME Controller %1 (%2)")
                    .arg(d->mvlcCtrl->getIdentifyingString())
                    .arg(d->mvlcObj->getConnectionInfo()));
-        logMessage(QSL("MVLC hardwareId=0x%1, firmwareRevision=0x%2")
-                   .arg(d->mvlcObj->getMVLC().hardwareId(), 4, 16, QLatin1Char('0'))
-                   .arg(d->mvlcObj->getMVLC().firmwareRevision(), 4, 16, QLatin1Char('0')));
 
         // Run the standard VME DAQ init sequence
         if (!this->do_VME_DAQ_Init(d->mvlcCtrl))
