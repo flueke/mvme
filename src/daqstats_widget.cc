@@ -28,6 +28,7 @@
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_readout.h>
 
+#include "mesytec-mvlc/mvlc_eth_interface.h"
 #include "mvlc_readout_worker.h"
 #include "mvme_context.h"
 #include "qt_util.h"
@@ -51,7 +52,7 @@ struct DAQStatsWidgetPrivate
     {
         DAQStats daqStats;
         SIS3153ReadoutWorker::Counters sisCounters;
-        mesytec::mvlc::ReadoutWorker::Counters mvlcCounters;
+        mesytec::mvlc::ReadoutWorker::Counters mvlcReadoutCounters;
     };
 
     CountersHolder prevCounters;
@@ -70,6 +71,9 @@ struct DAQStatsWidgetPrivate
            //*label_mvlcPartialFrameTotalBytes,
            *label_mvlcReceivedPackets,
            *label_mvlcLostPackets,
+           *label_mvlcEthRcvBuf,
+           *label_mvlcEthThrottling,
+
            *label_mvlcStackErrors
                ;
 
@@ -142,7 +146,7 @@ struct DAQStatsWidgetPrivate
 
     using MVLCCounters = mesytec::mvlc::ReadoutWorker::Counters;
 
-    void update_MVLC_USB(
+    void updateReaodutCountersMVLC_USB(
         const mesytec::mvlc::ReadoutWorker::Counters &counters,
         const mesytec::mvlc::ReadoutWorker::Counters &prevCounters,
         double dt_s)
@@ -159,17 +163,17 @@ struct DAQStatsWidgetPrivate
 #if 0
         u64 partialFrameTotalBytesRate =
             calc_rate0<TYPE_AND_VAL(&MVLCReadoutCounters::partialFrameTotalBytes)>(
-                mvlcCounters, prevMVLCCounters, dt_s);
+                mvlcReadoutCounters, prevMVLCCounters, dt_s);
 
         label_mvlcPartialFrameTotalBytes->setText(
             (QString("%1, %2")
-             .arg(mvlcCounters.partialFrameTotalBytes)
+             .arg(mvlcReadoutCounters.partialFrameTotalBytes)
              .arg(format_number(partialFrameTotalBytesRate, "bytes/s", UnitScaling::Binary, 0, 'f', 0))
              ));
 #endif
     }
 
-    void update_MVLC_ETH(const mesytec::mvlc::eth::PipeStats &dataPipeStats,
+    void updateReadoutCountersMVLC_ETH(const mesytec::mvlc::eth::PipeStats &dataPipeStats,
                          const mesytec::mvlc::eth::PipeStats &prevStats,
                          double dt_s)
     {
@@ -190,7 +194,25 @@ struct DAQStatsWidgetPrivate
              .arg(packetLossRate)));
     }
 
-    void update_MVLC_common(const mesytec::mvlc::StackErrorCounters &counters)
+    void updateMVLC_ETH_Throttling(const mesytec::mvlc::eth::MVLC_ETH_Interface *mvlcEth)
+    {
+        auto counters = mvlcEth->getThrottleCounters();
+
+        label_mvlcEthRcvBuf->setText(
+            QSL("%1 MB/%2 MB, %3%")
+            .arg(static_cast<double>(counters.rcvBufferUsed) / Megabytes(1))
+            .arg(static_cast<double>(counters.rcvBufferSize) / Megabytes(1))
+            .arg(static_cast<double>(counters.rcvBufferUsed) / counters.rcvBufferSize * 100.0)
+            );
+
+        label_mvlcEthThrottling->setText(
+            QSL("delay: cur=%3 µs, avg=%4 µs, max=%5 µs")
+            .arg(counters.currentDelay)
+            .arg(counters.avgDelay)
+            .arg(counters.maxDelay));
+    }
+
+    void updateMVLCStackErrors(const mesytec::mvlc::StackErrorCounters &counters)
     {
         QString text;
 
@@ -263,27 +285,32 @@ struct DAQStatsWidgetPrivate
             prevCounters.sisCounters = sisCounters;
         }
 
-        if (auto mvlcWorker = qobject_cast<MVLCReadoutWorker *>(readoutWorker))
+        if (auto mvlcReadoutWorker = qobject_cast<MVLCReadoutWorker *>(readoutWorker))
         {
-            auto mvlcCounters = mvlcWorker->getReadoutCounters();
+            auto mvlcReadoutCounters = mvlcReadoutWorker->getReadoutCounters();
 
             if (is_MVLC_USB)
             {
-                update_MVLC_USB(mvlcCounters, prevCounters.mvlcCounters, dt_s);
-                prevCounters.mvlcCounters = mvlcCounters;
+                updateReaodutCountersMVLC_USB(mvlcReadoutCounters, prevCounters.mvlcReadoutCounters, dt_s);
+                prevCounters.mvlcReadoutCounters = mvlcReadoutCounters;
             }
 
             if (is_MVLC_ETH)
             {
-                update_MVLC_ETH(
-                    mvlcCounters.ethStats[mesytec::mvlc::DataPipe],
-                    prevCounters.mvlcCounters.ethStats[mesytec::mvlc::DataPipe],
+                updateReadoutCountersMVLC_ETH(
+                    mvlcReadoutCounters.ethStats[mesytec::mvlc::DataPipe],
+                    prevCounters.mvlcReadoutCounters.ethStats[mesytec::mvlc::DataPipe],
                     dt_s);
+
+                auto mvlcEth = dynamic_cast<mesytec::mvlc::eth::MVLC_ETH_Interface *>(mvlc->getImpl());
+                assert(mvlcEth);
+
+                updateMVLC_ETH_Throttling(mvlcEth);
             }
 
-            update_MVLC_common(mvlcCounters.stackErrors);
+            updateMVLCStackErrors(mvlcReadoutCounters.stackErrors);
 
-            prevCounters.mvlcCounters = mvlcCounters;
+            prevCounters.mvlcReadoutCounters = mvlcReadoutCounters;
         }
 
         lastUpdateTime = QDateTime::currentDateTime();
@@ -313,6 +340,8 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     //m_d->label_mvlcPartialFrameTotalBytes = new QLabel;
     m_d->label_mvlcReceivedPackets = new QLabel;
     m_d->label_mvlcLostPackets = new QLabel;
+    m_d->label_mvlcEthRcvBuf = new QLabel;
+    m_d->label_mvlcEthThrottling = new QLabel;
     m_d->label_mvlcStackErrors = new QLabel;
 
     QList<QLabel *> labels =
@@ -328,6 +357,8 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
         //m_d->label_mvlcPartialFrameTotalBytes,
         m_d->label_mvlcReceivedPackets,
         m_d->label_mvlcLostPackets,
+        m_d->label_mvlcEthRcvBuf,
+        m_d->label_mvlcEthThrottling,
         m_d->label_mvlcStackErrors,
     };
 
@@ -369,6 +400,8 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     mvlcETHLayout->addRow("MVLC ETH received packets:", m_d->label_mvlcReceivedPackets);
     mvlcETHLayout->addRow("MVLC ETH lost packets:", m_d->label_mvlcLostPackets);
+    mvlcETHLayout->addRow("MVLC ETH receiveBuffer:", m_d->label_mvlcEthRcvBuf);
+    mvlcETHLayout->addRow("MVLC ETH throttling:", m_d->label_mvlcEthThrottling);
 
     mvlcStackErrorsLayout->addRow("MVLC Stack Errors:", m_d->label_mvlcStackErrors);
 
