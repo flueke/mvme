@@ -38,13 +38,64 @@ namespace mvme
 namespace multi_event_splitter
 {
 
-// TODO: paint a diagram here to show what this code does
+/*
+ * The purpose of this code is to split module multievent data obtained via VME
+ * block reads into separate single events.
+ *
+ * The supported readout structure is the same as that supported by the mvlc
+ * readout parser: one fixed size prefix, a dynamic block read part and a fixed
+ * size suffix per module. Splitting is performed on the dynamic part as shown
+ * in the diagram below. m0 and m1 are the modules, the dynamically sized event
+ * data for each module is obtained via a single block read.
+ *
+ *   multievent
+ *  +-----------+
+ *  | m0_prefix |                 split0          split1           split2
+ *  | m0_event0 |              +------------+   +-----------+   +-----------+
+ *  | m0_event1 |              | m0_prefix  |   |           |   |           |
+ *  | m0_event2 |              | m1_prefix  |   |           |   |           |
+ *  | m0_suffix |              | m0_event0  |   | m0_event1 |   | m0_event2 |
+ *  |           | == split ==> | m1_event0  |   | m1_event1 |   | m1_event2 |
+ *  | m1_prefix |              | m0_suffix  |   |           |   |           |
+ *  | m1_event0 |              | m1_suffix  |   |           |   |           |
+ *  | m1_event1 |              |            |   |           |   |           |
+ *  | m1_event2 |              +------------+   +-----------+   +-----------+
+ *  | m1_suffix |
+ *  +-----------+
+ *
+ * In the example the input multievent data obtained from a single event
+ * readout cycle is split into three separate events. Prefix and suffix data of
+ * the modules are only yielded for the first event.
+ *
+ * The splitter is steered via the begin_event, module_prefix, module_data,
+ * module_suffix and end_event functions. Output data is made available via the
+ * functions in the Callback structure passed to end_event().
+ *
+ * Data splitting is performed by using analayis DataFilters to look for module
+ * header words. If the filter contains the matching character 'S' it is used
+ * to extract the size in words of the following event. Otherwise each of the
+ * following input data words is tried until the header filter matches again
+ * and the data in-between the two header words is assumed to be the single
+ * event data.
+ *
+ *   +-----------+
+ *   |m0_header  | <- Filter matches here. Extract event size if 'S' character in filter,
+ *   |m0_e0_word0|    otherwise try the following words until another match is found or
+ *   |m0_e0_word1|    there is no more input data left.
+ *   |m0_e0_word2|
+ *   |m0_header1 | <- Filter matches again
+ *   |m0_e1_word0|
+ *   |m0_e1_word1|
+ *   |m0_e1_word2|
+ *   +-----------+
+ *
+ * IMPORTANT: The multi_event_splitter requires that the pointers passed to the
+ * module_prefix(), module_data() and module_suffix() calls are still valid
+ * when end_event is called. The code stores the pointers and sizes and then
+ * performs event splitting and invocation of callbacks in end_event(). No
+ * copies of the data are made.
+ */
 
-// IMPORTANT: The multi_event_splitter requires that the pointers passed to the
-// module_prefix(), module_data() and module_suffix() calls are still valid
-// when end_event is called. The code stores the pointers and sizes and then
-// performs event splitting and invocation of callbacks in end_event(). No
-// copies of the data are made.
 
 // Callbacks for the multi event splitter to hand module data to consumers.
 // All module data callbacks are contained between calls to beginEvent and
@@ -75,8 +126,6 @@ struct State
         a2::data_filter::DataFilter filter;
         // Cache for the 'S' filter character.
         a2::data_filter::CacheEntry cache;
-        // True if the filter contains 'S' bits for module size extraction.
-        bool hasSize;
     };
 
     struct DataSpan
@@ -97,7 +146,7 @@ struct State
     std::vector<std::vector<FilterWithSizeCache>> splitFilters;
 
     // Storage to record pointers into the incoming (multievent) module data.
-    std::vector<std::vector<ModuleDataSpans>> dataSpans; // TODO: could probably flatten this by one level
+    std::vector<ModuleDataSpans> dataSpans;
 
     // Bit N is set if splitting is enabled for corresponding event index.
     std::bitset<MaxVMEEvents> enabledForEvent;
@@ -107,17 +156,13 @@ struct State
 // module data_filter strings used to detect module headers and extract module
 // data sizes.
 //
-// The filter strings are used to create a2::data_filter::DataFilter
-// structures. A filter match is attempted for each potential module header. If
-// the filter matches then the modules data size in number of words is
-// extracted from the filter using the filter characters 'S' or 's'.
-// If there is no filter match the algorithm assumes that there are no more
-// events available for that module.
+// Example:
+// { { "0101 SSSS", "1010 XXXX" }, { "1111 SSSS", "0001 SSSS" } }
 //
-// If the filter does not contain any 'S' placeholders the length of the
-// subevent is determined by testing each of the following words for a filter
-// match. The matched word is assumed to be the header of the next event, all
-// data words before that are part of the current event.
+// Creates a splitter for two events, with two modules each. The second module
+// of the first events doesn't have the 'S' match character so repeated
+// matching will be performed to find the next header. For the other modules
+// the event size can be directly extracted using the filter.
 State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
 
 enum class ErrorCode: u8

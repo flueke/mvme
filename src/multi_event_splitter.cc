@@ -92,6 +92,8 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
 {
     State result;
 
+    size_t eventMaxModules = 0u;
+
     for (const auto &moduleStrings: splitFilterStrings)
     {
         std::vector<State::FilterWithSizeCache> moduleFilters;
@@ -102,21 +104,17 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
 
             fc.filter = a2::data_filter::make_filter(moduleString);
             fc.cache = a2::data_filter::make_cache_entry(fc.filter, 'S');
-            fc.hasSize = (moduleString.find('S') != std::string::npos
-                          || moduleString.find('s') != std::string::npos);
 
             moduleFilters.emplace_back(fc);
         }
 
         result.splitFilters.emplace_back(moduleFilters);
+
+        eventMaxModules = std::max(moduleStrings.size(), eventMaxModules);
     }
 
     // Allocate space for the module data spans for each event
-    for (const auto &filters: result.splitFilters)
-    {
-        std::vector<State::ModuleDataSpans> spans(filters.size(), State::ModuleDataSpans{});
-        result.dataSpans.emplace_back(spans);
-    }
+    result.dataSpans.resize(eventMaxModules);
 
     // For each event determine if splitting should be enabled. This is the
     // case if any of the events modules has a non-zero header filter.
@@ -134,7 +132,6 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
     }
 
     assert(result.enabledForEvent.size() >= result.splitFilters.size());
-    assert(result.splitFilters.size() == result.dataSpans.size());
 
     return result;
 }
@@ -143,10 +140,10 @@ std::error_code begin_event(State &state, int ei)
 {
     LOG_TRACE("state=%p, ei=%d", &state, ei);
 
-    if (ei >= static_cast<int>(state.dataSpans.size()))
+    if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
 
-    auto &spans = state.dataSpans[ei];
+    auto &spans = state.dataSpans;
 
     std::fill(spans.begin(), spans.end(), State::ModuleDataSpans{});
 
@@ -159,10 +156,10 @@ std::error_code begin_event(State &state, int ei)
 
 std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32 size)
 {
-    if (ei >= static_cast<int>(state.dataSpans.size()))
+    if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
 
-    auto &spans = state.dataSpans[ei];
+    auto &spans = state.dataSpans;
 
     if (mi >= static_cast<int>(spans.size()))
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
@@ -177,10 +174,10 @@ std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32
 
 std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
 {
-    if (ei >= static_cast<int>(state.dataSpans.size()))
+    if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
 
-    auto &spans = state.dataSpans[ei];
+    auto &spans = state.dataSpans;
 
     if (mi >= static_cast<int>(spans.size()))
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
@@ -195,10 +192,10 @@ std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 s
 
 std::error_code module_suffix(State &state, int ei, int mi, const u32 *data, u32 size)
 {
-    if (ei >= static_cast<int>(state.dataSpans.size()))
+    if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
 
-    auto &spans = state.dataSpans[ei];
+    auto &spans = state.dataSpans;
 
     if (mi >= static_cast<int>(spans.size()))
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
@@ -229,13 +226,11 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
     LOG_TRACE("state=%p, ei=%d", &state, ei);
 
-    if (ei >= static_cast<int>(state.dataSpans.size()))
+    if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
 
-    assert(state.splitFilters.size() == state.dataSpans.size());
-
     auto &moduleFilters = state.splitFilters[ei];
-    auto &moduleSpans = state.dataSpans[ei];
+    auto &moduleSpans = state.dataSpans;
     const size_t moduleCount = moduleSpans.size();
 
     LOG_TRACE("state=%p, ei=%d, moduleCount=%lu", &state, ei, moduleCount);
@@ -301,7 +296,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
                 // The filter contains 'S' placeholders to directly extract the
                 // number of following words from the header.
-                if (hasMatch && moduleFilters[mi].hasSize)
+                if (hasMatch && moduleFilters[mi].cache.extractMask)
                 {
                     // Add one to the extracted module event size to account for
                     // the header word itself (the extracted size is the number of
