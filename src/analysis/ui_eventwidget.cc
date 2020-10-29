@@ -4411,11 +4411,13 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
                 ex->objectName().section('.', 0, -1),
                 QString());
 
+            // First add the operators using hardcoded userlevels.
+            add_raw_data_display(analysis, m_eventId, module->getId(), rawDataDisplay);
+
+            // Now add the operators to directories which sets the correct userlevel.
             dirRawHistos->push_back(rawDataDisplay.rawHistoSink);
             dirCalOperators->push_back(rawDataDisplay.calibration);
             dirCalHistos->push_back(rawDataDisplay.calibratedHistoSink);
-
-            add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
         }
 
         for (auto &ex: defaultListFilters)
@@ -4453,17 +4455,16 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
             calibration->connectArrayToInputSlot(0, clone->getOutput(0));
             calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
 
-            dirRawHistos->push_back(rawHistoSink);
-            dirCalOperators->push_back(calibration);
-            dirCalHistos->push_back(calHistoSink);
-
-            auto analysis = m_context->getAnalysis();
-
+            // First add the operators using hardcoded userlevels.
             analysis->addSource(m_eventId, module->getId(), clone);
-
             analysis->addOperator(m_eventId, 0, rawHistoSink);
             analysis->addOperator(m_eventId, 1, calibration);
             analysis->addOperator(m_eventId, 1, calHistoSink);
+
+            // Now add the operators to directories which sets the correct userlevel.
+            dirRawHistos->push_back(rawHistoSink);
+            dirCalOperators->push_back(calibration);
+            dirCalHistos->push_back(calHistoSink);
         }
 
         m_context->getAnalysis()->beginRun(Analysis::KeepState);
