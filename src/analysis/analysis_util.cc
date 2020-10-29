@@ -484,5 +484,120 @@ std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_string
     return splitterFilters;
 }
 
+void add_default_filters(Analysis *analysis, ModuleConfig *module)
+{
+    auto dataSources = get_default_data_extractors(module->getModuleMeta().typeName);
+
+    QVector<std::shared_ptr<Extractor>> defaultFilters;
+    QVector<std::shared_ptr<ListFilterExtractor>> defaultListFilters;
+
+    for (auto source: dataSources)
+    {
+        if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
+            defaultFilters.push_back(extractor);
+        else if (auto listFilter = std::dynamic_pointer_cast<ListFilterExtractor>(source))
+            defaultListFilters.push_back(listFilter);
+    }
+
+    auto add_missing_directory = [module, analysis] (
+        const QString &name, const DisplayLocation &displayLocation, s32 userLevel)
+        -> std::shared_ptr<Directory>
+    {
+        auto dir = analysis->getDirectory(module->getEventId(), displayLocation, name);
+
+        if (!dir)
+        {
+            dir = std::make_shared<Directory>();
+            dir->setEventId(module->getEventId());
+            dir->setDisplayLocation(displayLocation);
+            dir->setObjectName(name);
+            dir->setUserLevel(userLevel);
+            analysis->addDirectory(dir);
+        }
+
+        return dir;
+    };
+
+    const auto eventId = module->getEventId();
+
+    // Directory for raw histograms
+    auto dirRawHistos = add_missing_directory("Raw Histos " + module->objectName(), DisplayLocation::Sink, 0);
+    // Directory for calibration operators for this module
+    auto dirCalOperators = add_missing_directory("Cal " + module->objectName(), DisplayLocation::Operator, 1);
+    // Directory for calibrated data histograms
+    auto dirCalHistos = add_missing_directory("Cal Histos " + module->objectName(), DisplayLocation::Sink, 1);
+
+    for (auto &ex: defaultFilters)
+    {
+        auto dataFilter = ex->getFilter();
+        double unitMin = 0.0;
+        double unitMax = std::pow(2.0, dataFilter.getDataBits());
+        QString name = ex->objectName().section('.', 0, -1);
+
+        RawDataDisplay rawDataDisplay = make_raw_data_display(
+            dataFilter, unitMin, unitMax,
+            name,
+            ex->objectName().section('.', 0, -1),
+            QString());
+
+        // First add the operators using hardcoded userlevels.
+        add_raw_data_display(analysis, eventId, module->getId(), rawDataDisplay);
+
+        // Now add the operators to directories which sets the correct userlevel.
+        dirRawHistos->push_back(rawDataDisplay.rawHistoSink);
+        dirCalOperators->push_back(rawDataDisplay.calibration);
+        dirCalHistos->push_back(rawDataDisplay.calibratedHistoSink);
+    }
+
+    for (auto &ex: defaultListFilters)
+    {
+        auto clone = std::dynamic_pointer_cast<ListFilterExtractor>(
+            std::shared_ptr<AnalysisObject>(ex->clone()));
+
+        if (!clone)
+            continue;
+
+        static const double MaxRawHistoBins = (1 << 16);
+        const u32 addressBits = clone->getAddressBits();
+        const u32 dataBits = clone->getDataBits();
+        const double unitMin = 0.0;
+        const double unitMax = std::pow(2.0, dataBits);
+        QString name = ex->objectName().section('.', 0, -1);
+        const u32 histoBins = static_cast<u32>(std::min(unitMax, MaxRawHistoBins));
+        const u32 addressCount = 1u << addressBits;
+
+        auto rawHistoSink = std::make_shared<Histo1DSink>();
+        rawHistoSink->setObjectName(QString("%1_raw").arg(name));
+        rawHistoSink->m_bins = histoBins;
+
+        auto calibration = std::make_shared<CalibrationMinMax>();
+        calibration->setObjectName(name);
+
+        for (u32 addr = 0; addr < addressCount; ++addr)
+            calibration->setCalibration(addr, unitMin, unitMax);
+
+        auto calHistoSink = std::make_shared<Histo1DSink>();
+        calHistoSink->setObjectName(QString("%1").arg(name));
+        calHistoSink->m_bins = histoBins;
+
+        rawHistoSink->connectArrayToInputSlot(0, clone->getOutput(0));
+        calibration->connectArrayToInputSlot(0, clone->getOutput(0));
+        calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
+
+        // First add the operators using hardcoded userlevels.
+        analysis->addSource(eventId, module->getId(), clone);
+        analysis->addOperator(eventId, 0, rawHistoSink);
+        analysis->addOperator(eventId, 1, calibration);
+        analysis->addOperator(eventId, 1, calHistoSink);
+
+        // Now add the operators to directories which sets the correct userlevel.
+        dirRawHistos->push_back(rawHistoSink);
+        dirCalOperators->push_back(calibration);
+        dirCalHistos->push_back(calHistoSink);
+    }
+
+    analysis->beginRun(Analysis::KeepState);
+}
+
 } // namespace analysis
 
