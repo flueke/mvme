@@ -4416,7 +4416,6 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
             dirCalHistos->push_back(rawDataDisplay.calibratedHistoSink);
 
             add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
-            m_context->getAnalysis()->beginRun(Analysis::KeepState);
         }
 
         for (auto &ex: defaultListFilters)
@@ -4465,8 +4464,9 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
             analysis->addOperator(m_eventId, 0, rawHistoSink);
             analysis->addOperator(m_eventId, 1, calibration);
             analysis->addOperator(m_eventId, 1, calHistoSink);
-            m_context->getAnalysis()->beginRun(Analysis::KeepState);
         }
+
+        m_context->getAnalysis()->beginRun(Analysis::KeepState);
     }
 
     repopEnabled = true;
@@ -4474,7 +4474,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 
 #if 1
     // This expands the module nodes where new objects where added. Not sure if
-    // this is of much use or just plaing annoying.
+    // this is of much use or just plain annoying.
     if (!m_levelTrees.isEmpty())
     {
         if (auto node = find_node(m_levelTrees[0].operatorTree->invisibleRootItem(), module))
