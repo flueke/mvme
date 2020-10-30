@@ -79,7 +79,9 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        if (outFile.write(QJsonDocument(analysisJson).toJson()) < 0)
+        auto doc = analysis::analysis_to_json_doc(*analysis);
+
+        if (outFile.write(doc.toJson()) < 0)
         {
             cerr << "Error writing analysis JSON to " << outFile.fileName().toStdString()
                 << ": " << outFile.errorString().toStdString() << endl;

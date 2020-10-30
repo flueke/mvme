@@ -193,6 +193,9 @@ std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_string
 
 void add_default_filters(Analysis *analysis, ModuleConfig *module);
 
+QJsonObject analysis_to_json_object(const Analysis &analysis);
+QJsonDocument analysis_to_json_doc(const Analysis &analysis);
+
 } // namespace analysis
 
 
