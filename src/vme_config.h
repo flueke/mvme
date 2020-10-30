@@ -423,6 +423,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
 
         // modules
         ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex) const;
+        ModuleConfig *getModuleConfig(const QUuid &moduleId) const;
         QList<ModuleConfig *> getAllModuleConfigs() const;
         QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 

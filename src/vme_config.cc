@@ -1009,6 +1009,16 @@ ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex) const
     return result;
 }
 
+ModuleConfig *VMEConfig::getModuleConfig(const QUuid &moduleId) const
+{
+    for (auto eventConfig: eventConfigs)
+        for (auto moduleConfig: eventConfig->getModuleConfigs())
+            if (moduleConfig->getId() == moduleId)
+                return moduleConfig;
+
+    return nullptr;
+}
+
 EventConfig *VMEConfig::getEventConfig(const QString &name) const
 {
     for (auto cfg: eventConfigs)
