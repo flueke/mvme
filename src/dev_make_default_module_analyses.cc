@@ -22,30 +22,32 @@ int main(int argc, char *argv[])
     {
         cout << "This tool creates and saves a default analysis for each of the" << endl
             << "non-user VME module templates shipped with mvme." << endl
-            << "The resulting analysis files are placed in the given output directory." << endl;
+            << "The resulting files are placed in a directory tree with the same" << endl
+            << "structure as the mvme templates. The directories and files are created" << endl
+            << "inside the given output directory." << endl;
         cout << endl;
         cout << "Usage: " << argv[0] << " <outputDirectory>" << endl;
         return 1;
     }
 
-    auto outputDirName = app.arguments().at(1);
+    auto outBaseDirName = app.arguments().at(1);
 
-    if (QDir(outputDirName).exists())
+    if (QDir(outBaseDirName).exists())
     {
         cerr << "Error: output directory "
-            << outputDirName.toStdString() << " exists" << endl;
+            << outBaseDirName.toStdString() << " exists" << endl;
         return 1;
     }
 
-    if (!QDir().mkdir(outputDirName))
+    if (!QDir().mkdir(outBaseDirName))
     {
-        cerr << "Could not create output directory " << outputDirName.toStdString() << endl;
+        cerr << "Could not create output directory " << outBaseDirName.toStdString() << endl;
         return 1;
     }
 
-    if (!QDir::setCurrent(outputDirName))
+    if (!QDir::setCurrent(outBaseDirName))
     {
-        cerr << "Could not change working directory to " << outputDirName.toStdString() << endl;
+        cerr << "Could not change working directory to " << outBaseDirName.toStdString() << endl;
         return 1;
     }
 
@@ -63,15 +65,15 @@ int main(int argc, char *argv[])
         auto analysis = std::make_unique<analysis::Analysis>();
         analysis::add_default_filters(analysis.get(), module.get());
 
-        // FIXME: factor this out into analysis_util
-        QJsonObject analysisJson;
+        auto path = QFileInfo(mm.templatePath).fileName() + "/analysis";
+
+        if (!QDir().mkpath(path))
         {
-            QJsonObject dest;
-            analysis->write(dest);
-            analysisJson["AnalysisNG"] = dest;
+            cerr << "Error creating module path " << path.toStdString() << endl;
+            return 1;
         }
 
-        QFile outFile(module->objectName() + ".analysis");
+        QFile outFile(path + "/default_filters.analysis");
         if (!outFile.open(QIODevice::WriteOnly))
         {
             cerr << "Error opening output file " << outFile.fileName().toStdString()
