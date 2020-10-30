@@ -1,4 +1,5 @@
-## Parameters
+# Parameters for the CAEN_V785
+# Note: requires MVLC Firmware 0009 or later
 
 # 4.10 MCST/CBLT Address Register
 write a32 d16 0x1004 0x${mesy_mcst}
@@ -15,7 +16,7 @@ write a32 d16 0x1020 1
 # Bit 2: BLKEND
 # Bit 5: BERR enable
 # Bit 6: Align 64
-# With the above bits set the module sends only complete events in block 
+# With the above bits set the module sends only complete events in block
 # transfers and then generates a BERR on the VME bus. Also fill words are
 # inserted into the datastream to guarantee an even number of data words.
 # See also "5.6 - Block Transfer Mode"

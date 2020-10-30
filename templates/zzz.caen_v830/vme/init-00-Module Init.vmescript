@@ -1,4 +1,5 @@
-## Parameters for Caen_V830 Latching Scaler
+# Parameters for Caen_V830 Latching Scaler
+# Note: requires MVLC Firmware 0009 or later
 
 # Control Register
 # Bit0: ACQ_Mode low
