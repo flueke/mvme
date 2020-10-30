@@ -300,15 +300,17 @@ struct EventWidgetPrivate
     QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
 
-    double m_prevAnalysisTimeticks = 0.0;;
+    double m_prevAnalysisTimeticks = 0.0;
 
     // Set to false to temporarily disable repopulating the widget. Should be
     // used prior to making a bunch of changes to the underyling analysis.
     bool repopEnabled = true;
 
     void createView(const QUuid &eventId);
+    void populateDataSourceTree(
+        DataSourceTree *tree,
+        const QUuid &eventId);
     UserLevelTrees createTrees(const QUuid &eventId, s32 level);
-    UserLevelTrees createSourceTrees(const QUuid &eventId);
     void appendTreesToView(UserLevelTrees trees);
     void repopulate();
 
@@ -319,7 +321,6 @@ struct EventWidgetPrivate
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doDataSourceOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
-    void doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
     void setMode(Mode mode);
     Mode getMode() const;

@@ -689,9 +689,6 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     const auto mimeType = SinkIdListMIMEType;
 
-    if (getUserLevel() == 0)
-        return false;
-
     if (action != Qt::MoveAction)
         return false;
 
@@ -1962,11 +1959,7 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
         maxUserLevel = std::max(maxUserLevel, dir->getUserLevel());
     }
 
-    // Level 0: special case for data sources
-    m_levelTrees.push_back(createSourceTrees(eventId));
-
-    // Level >= 1: standard trees
-    for (s32 userLevel = 1; userLevel <= maxUserLevel; ++userLevel)
+    for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
     {
         auto trees = createTrees(eventId, userLevel);
         m_levelTrees.push_back(trees);
@@ -2008,8 +2001,7 @@ bool qobj_natural_compare(const QObject *a, const QObject *b)
 
 bool qobj_ptr_natural_compare(const std::shared_ptr<QObject> &a, const std::shared_ptr<QObject> &b)
 {
-    static const auto collator = make_natural_order_collator();
-    return collator.compare(a->objectName(), b->objectName()) < 0;
+    return qobj_natural_compare(a.get(), b.get());
 }
 
 UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
@@ -2060,7 +2052,9 @@ static const s32 minTreeHeight = 150;
 
 } // anon ns
 
-UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
+void EventWidgetPrivate::populateDataSourceTree(
+    DataSourceTree *tree,
+    const QUuid &eventId)
 {
     auto analysis = m_context->getAnalysis();
     auto vmeConfig = m_context->getVMEConfig();
@@ -2068,20 +2062,13 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     auto eventConfig = vmeConfig->getEventConfig(eventId);
     auto modules = eventConfig->getModuleConfigs();
 
-    std::sort(std::begin(modules), std::end(modules), qobj_natural_compare);
-
-    UserLevelTrees result = make_displaylevel_trees(
-        QSL("L0 Parameter Extraction"),
-        QSL("L0 Raw Data Display"),
-        0);
-
     // Populate the OperatorTree (top left) with module nodes and extractor children
     for (const auto &mod: modules)
     {
         QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         auto moduleNode = make_module_node(mod);
-        result.operatorTree->addTopLevelItem(moduleNode);
+        tree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(mod));
 
         auto sources = analysis->getSources(eventId, mod->getId());
@@ -2107,135 +2094,45 @@ UserLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         }
     }
 
-    auto dataSourceTree = qobject_cast<DataSourceTree *>(result.operatorTree);
-    assert(dataSourceTree);
-
     // Add unassigned data sources below a special root node
     for (const auto &source: analysis->getSourcesByEvent(eventId))
     {
         if (source->getModuleId().isNull()
             || (m_objectMap.find(source) == m_objectMap.end()))
         {
-            if (!dataSourceTree->unassignedDataSourcesRoot)
+            if (!tree->unassignedDataSourcesRoot)
             {
                 auto node = new TreeNode({QSL("Unassigned")});
                 node->setFlags(node->flags() &
                                (~Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
                 node->setIcon(0, QIcon(QSL(":/exclamation-circle.png")));
 
-                dataSourceTree->unassignedDataSourcesRoot = node;
-                result.operatorTree->addTopLevelItem(node);
+                tree->unassignedDataSourcesRoot = node;
+                tree->addTopLevelItem(node);
                 node->setExpanded(true);
             }
 
-            assert(dataSourceTree->unassignedDataSourcesRoot);
+            assert(tree->unassignedDataSourcesRoot);
 
             auto sourceNode = make_datasource_node(source.get());
-            dataSourceTree->unassignedDataSourcesRoot->addChild(sourceNode);
+            tree->unassignedDataSourcesRoot->addChild(sourceNode);
 
             assert(m_objectMap.count(source) == 0);
             m_objectMap[source] = sourceNode;
         }
     }
-
-    // Populate the SinkTree (bottom left)
-    // Create module nodes and nodes for the raw histograms for each data source for the module.
-    QSet<QObject *> sinksAddedBelowModules;
-    auto operators = analysis->getOperators(eventId, 0);
-    std::sort(std::begin(operators), std::end(operators), qobj_ptr_natural_compare);
-
-    for (const auto &mod: modules)
-    {
-        auto moduleNode = make_module_node(mod);
-        result.sinkTree->addTopLevelItem(moduleNode);
-        moduleNode->setExpanded(m_expandedObjects[TreeType_Sink].contains(mod));
-
-        auto sources = analysis->getSources(eventId, mod->getId());
-        std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
-
-        for (const auto &source: sources)
-        {
-            for (const auto &op: operators)
-            {
-                auto sink = qobject_cast<SinkInterface *>(op.get());
-
-                if (sink && (sink->getSlot(0)->inputPipe == source->getOutput(0)))
-                {
-                    TreeNode *node = nullptr;
-
-                    if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
-                    {
-                        node = make_histo1d_node(histoSink);
-                    }
-                    else
-                    {
-                        node = make_sink_node(sink);
-                    }
-
-                    if (node)
-                    {
-                        // Enable dragging of "raw" histograms
-                        node->setFlags(node->flags() | Qt::ItemIsDragEnabled);
-                        moduleNode->addChild(node);
-                        sinksAddedBelowModules.insert(sink);
-
-                        assert(m_objectMap.count(op) == 0);
-                        m_objectMap[op] = node;
-                    }
-
-                }
-            }
-        }
-    }
-
-    // This handles any "lost" display elements. E.g. raw histograms whose data
-    // source has been deleted.
-    for (auto &op: operators)
-    {
-        if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
-        {
-            if (!sinksAddedBelowModules.contains(histoSink))
-            {
-                auto histoNode = make_histo1d_node(histoSink);
-                result.sinkTree->addTopLevelItem(histoNode);
-
-                assert(m_objectMap.count(op) == 0);
-                m_objectMap[op] = histoNode;
-            }
-        }
-        else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
-        {
-            if (!sinksAddedBelowModules.contains(histoSink))
-            {
-                auto histoNode = make_histo2d_node(histoSink);
-                result.sinkTree->addTopLevelItem(histoNode);
-
-                assert(m_objectMap.count(op) == 0);
-                m_objectMap[op] = histoNode;
-            }
-        }
-        else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
-        {
-            if (!sinksAddedBelowModules.contains(sink))
-            {
-                auto sinkNode = make_sink_node(sink);
-                result.sinkTree->addTopLevelItem(sinkNode);
-
-                assert(m_objectMap.count(op) == 0);
-                m_objectMap[op] = sinkNode;
-            }
-        }
-    }
-
-    return result;
 }
 
 UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 {
-    UserLevelTrees result = make_displaylevel_trees(
-        QString(QSL("L%1 Processing")).arg(level),
-        QString(QSL("L%1 Data Display")).arg(level),
-        level);
+    QString opTreeTitle = (level == 0 ? QSL("L0 Parameter Extraction") : QSL("L%1 Processing").arg(level));
+    QString sinkTreeTitle = (level == 0 ? QSL("L0 Raw Data Display") : QSL("L%1 Data Display").arg(level));
+
+    UserLevelTrees result = make_displaylevel_trees(opTreeTitle, sinkTreeTitle, level);
+
+    // Custom populate function for the top-left data source tree
+    if (level == 0)
+        populateDataSourceTree(qobject_cast<DataSourceTree *>(result.operatorTree), eventId);
 
     auto analysis = m_context->getAnalysis();
 
@@ -2248,7 +2145,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 
     QHash<DirectoryPtr, TreeNode *> dirNodes;
 
-    // Populate the OperatorTree
+    // Populate the top OperatorTree
 
     add_directory_nodes(result.operatorTree, opDirs, dirNodes, analysis);
 
@@ -2314,8 +2211,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
                 assert(m_objectMap.count(op) == 0);
                 m_objectMap[op] = theNode.get();
 
-                if (level > 0)
-                    theNode->setFlags(theNode->flags() | Qt::ItemIsDragEnabled);
+                theNode->setFlags(theNode->flags() | Qt::ItemIsDragEnabled);
 
                 if (auto dir = analysis->getParentDirectory(op))
                 {
@@ -3059,12 +2955,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             return;
     }
 
-    if (userLevel == 0)
-    {
-        doRawDataSinkTreeContextMenu(tree, pos, userLevel);
-        return;
-    }
-
     auto make_menu_new = [this, userLevel](QMenu *parentMenu,
                                            const DirectoryPtr &destDir = DirectoryPtr())
     {
@@ -3453,287 +3343,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
     if (!globalSelectedObjects.isEmpty())
     {
-        menu.addSeparator();
-        menu.addAction(
-            QIcon::fromTheme("edit-delete"), "Remove selected",
-            [this, globalSelectedObjects] {
-                removeObjects(globalSelectedObjects);
-            });
-    }
-
-    if (!menu.isEmpty())
-    {
-        menu.exec(tree->mapToGlobal(pos));
-    }
-}
-
-void EventWidgetPrivate::doRawDataSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
-{
-    assert(userLevel == 0);
-
-    if (m_uniqueWidget) return;
-
-    auto globalSelectedObjects = getAllSelectedObjects();
-    auto activeNode = tree->itemAt(pos);
-
-    QMenu menu;
-
-    if (!activeNode || activeNode->type() == NodeType_Module)
-    {
-        auto menuNew = new QMenu(&menu);
-
-        auto add_newSinkAction =
-            [this, &menu, menuNew, userLevel] (const QString &title, auto op) {
-                auto icon = make_operator_icon(op.get());
-                // New Display Operator
-                menuNew->addAction(icon, title, &menu, [this, userLevel, op]() {
-                    auto dialog = operator_editor_factory(
-                        op, userLevel, ObjectEditorMode::New, DirectoryPtr(), m_q);
-
-                    //POS dialog->move(QCursor::pos());
-                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    dialog->show();
-                    m_uniqueWidget = dialog;
-                    clearAllTreeSelections();
-                    clearAllToDefaultNodeHighlights();
-                });
-            };
-
-        QVector<OperatorPtr> sinks = {
-            std::make_shared<Histo1DSink>(),
-            std::make_shared<RateMonitorSink>()
-        };
-
-        for (auto &sink: sinks)
-        {
-            add_newSinkAction(sink->getDisplayName(), sink);
-        }
-
-        auto actionNew = menu.addAction(QSL("New"));
-        actionNew->setMenu(menuNew);
-        auto before = menu.actions().value(0);
-        menu.insertAction(before, actionNew);
-    }
-
-    if (activeNode && activeNode->type() == NodeType_Histo1D)
-    {
-        Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-        Q_ASSERT(widgetInfo.sink);
-
-        if (widgetInfo.histoAddress < widgetInfo.histos.size())
-        {
-            menu.addAction(QSL("Open Histogram"), m_q, [this, widgetInfo]() {
-
-                if (!m_context->hasObjectWidget(widgetInfo.sink.get())
-                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                {
-                    auto widget = new Histo1DWidget(widgetInfo.histos);
-                    widget->setContext(m_context);
-
-                    if (widgetInfo.calib)
-                    {
-                        widget->setCalibration(widgetInfo.calib);
-                    }
-
-                    {
-                        auto context = m_context;
-                        widget->setSink(widgetInfo.sink, [context]
-                                        (const std::shared_ptr<Histo1DSink> &sink) {
-                                            context->analysisOperatorEdited(sink);
-                                        });
-                    }
-
-                    widget->selectHistogram(widgetInfo.histoAddress);
-
-                    m_context->addObjectWidget(widget, widgetInfo.sink.get(),
-                                               widgetInfo.sink->getId().toString());
-                }
-                else if (auto widget = qobject_cast<Histo1DWidget *>(
-                        m_context->getObjectWidget(widgetInfo.sink.get())))
-                {
-                    widget->selectHistogram(widgetInfo.histoAddress);
-                    show_and_activate(widget);
-                }
-            });
-
-            menu.addAction(
-                QSL("Open Histogram in new window"), m_q, [this, widgetInfo]() {
-
-                    auto widget = new Histo1DWidget(widgetInfo.histos);
-                    widget->setContext(m_context);
-
-                    if (widgetInfo.calib)
-                    {
-                        widget->setCalibration(widgetInfo.calib);
-                    }
-
-                    {
-                        auto context = m_context;
-                        widget->setSink(widgetInfo.sink,
-                                        [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                            context->analysisOperatorEdited(sink);
-                        });
-                    }
-
-                    widget->selectHistogram(widgetInfo.histoAddress);
-
-                    m_context->addObjectWidget(widget, widgetInfo.sink.get(),
-                                               widgetInfo.sink->getId().toString());
-                });
-        }
-    }
-    else if (activeNode && activeNode->type() == NodeType_Histo1DSink)
-    {
-        Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-        Q_ASSERT(widgetInfo.sink);
-
-        if (widgetInfo.histoAddress < widgetInfo.histos.size())
-        {
-
-            menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
-                // always creates a new window
-                auto widget = new Histo1DWidget(widgetInfo.histos);
-                widget->setContext(m_context);
-
-                if (widgetInfo.calib)
-                {
-                    widget->setCalibration(widgetInfo.calib);
-                }
-
-                {
-                    auto context = m_context;
-                    widget->setSink(widgetInfo.sink,
-                                    [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                        context->analysisOperatorEdited(sink);
-                    });
-                }
-
-                m_context->addObjectWidget(widget, widgetInfo.sink.get(),
-                                           widgetInfo.sink->getId().toString());
-            });
-        }
-
-        if (widgetInfo.histos.size())
-        {
-            menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
-                auto widget = new Histo2DWidget(widgetInfo.sink, m_context);
-                widget->setContext(m_context);
-                m_context->addWidget(widget, widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
-            });
-        }
-    }
-    else if (activeNode && activeNode->type() == NodeType_Sink)
-    {
-        if (auto rms = get_shared_analysis_object<RateMonitorSink>(activeNode,
-                                                                   DataRole_AnalysisObject))
-        {
-            menu.addAction(QSL("Open Rate Monitor"), m_q, [this, rms]() {
-
-                if (!m_context->hasObjectWidget(rms.get())
-                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                {
-                    auto context = m_context;
-                    auto widget = new RateMonitorWidget(rms->getRateSamplers());
-
-                    widget->setSink(rms, [context](const std::shared_ptr<RateMonitorSink> &sink) {
-                        context->analysisOperatorEdited(sink);
-                    });
-
-                    widget->setPlotExportDirectory(
-                        m_context->getWorkspacePath(QSL("PlotsDirectory")));
-
-                    m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
-                }
-                else
-                {
-                    m_context->activateObjectWidget(rms.get());
-                }
-            });
-        }
-    }
-
-
-    if (activeNode)
-    {
-        switch (activeNode->type())
-        {
-            case NodeType_Operator:
-            case NodeType_Histo1DSink:
-            case NodeType_Histo2DSink:
-            case NodeType_Sink:
-                if (auto op = get_shared_analysis_object<OperatorInterface>(activeNode,
-                                                                            DataRole_AnalysisObject))
-                {
-                    menu.addSeparator();
-                    // Edit Display Operator
-                    menu.addAction(QIcon(":/pencil.png"), QSL("&Edit"), [this, userLevel, op]() {
-                        auto dialog = operator_editor_factory(
-                            op, userLevel, ObjectEditorMode::Edit, DirectoryPtr(), m_q);
-
-                        //POS dialog->move(QCursor::pos());
-                        dialog->setAttribute(Qt::WA_DeleteOnClose);
-                        dialog->show();
-                        m_uniqueWidget = dialog;
-                        clearAllTreeSelections();
-                        clearAllToDefaultNodeHighlights();
-                    });
-                }
-
-                menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
-                    if (auto tw = activeNode->treeWidget())
-                    {
-                        tw->editItem(activeNode);
-                    }
-                });
-
-                break;
-        }
-    }
-
-    // Copy/Paste
-    {
-        menu.addSeparator();
-
-        QAction *action;
-
-        action = menu.addAction(
-            QIcon::fromTheme("edit-copy"), "Copy",
-            [this, globalSelectedObjects] {
-                copyToClipboard(globalSelectedObjects);
-            }, QKeySequence::Copy);
-
-        action->setEnabled(!globalSelectedObjects.isEmpty());
-
-        action = menu.addAction(
-            QIcon::fromTheme("edit-paste"), "Paste",
-            [this, tree] {
-                pasteFromClipboard(tree);
-            }, QKeySequence::Paste);
-
-        action->setEnabled(canPaste());
-    }
-
-    // sink enable/disable
-    {
-        auto selectedSinks = objects_from_nodes<SinkInterface>(getAllSelectedNodes());
-
-        if (!selectedSinks.isEmpty())
-        {
-            menu.addSeparator();
-
-            menu.addAction("E&nable selected", [this, selectedSinks] {
-                setSinksEnabled(selectedSinks, true);
-            });
-
-            menu.addAction("&Disable selected", [this, selectedSinks] {
-                setSinksEnabled(selectedSinks, false);
-            });
-        }
-    }
-
-    if (!globalSelectedObjects.isEmpty())
-    {
-        // TODO: add a copy action
         menu.addSeparator();
         menu.addAction(
             QIcon::fromTheme("edit-delete"), "Remove selected",
@@ -4747,122 +4356,8 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 
     {
         AnalysisPauser pauser(m_context);
-
-        auto dataSources = get_default_data_extractors(module->getModuleMeta().typeName);
-
-        QVector<std::shared_ptr<Extractor>> defaultFilters;
-        QVector<std::shared_ptr<ListFilterExtractor>> defaultListFilters;
-
-        for (auto source: dataSources)
-        {
-            if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
-                defaultFilters.push_back(extractor);
-            else if (auto listFilter = std::dynamic_pointer_cast<ListFilterExtractor>(source))
-                defaultListFilters.push_back(listFilter);
-        }
-
         auto analysis = m_context->getAnalysis();
-
-        // Directory for calibration operators for this module
-        auto calDirName = "Cal " + module->objectName();
-        auto dirCalOperators = analysis->getDirectory(
-            module->getEventId(),
-            DisplayLocation::Operator,
-            calDirName);
-
-        if (!dirCalOperators)
-        {
-            dirCalOperators = std::make_shared<Directory>();
-            dirCalOperators->setEventId(module->getEventId());
-            dirCalOperators->setDisplayLocation(DisplayLocation::Operator);
-            dirCalOperators->setObjectName(calDirName);
-            dirCalOperators->setUserLevel(1);
-            analysis->addDirectory(dirCalOperators);
-        }
-
-        // Directory for calibrated data histograms
-        calDirName = "Cal Histos " + module->objectName();
-        auto dirCalHistos = analysis->getDirectory(
-            module->getEventId(),
-            DisplayLocation::Sink,
-            calDirName);
-
-        if (!dirCalHistos)
-        {
-            dirCalHistos = std::make_shared<Directory>();
-            dirCalHistos->setEventId(module->getEventId());
-            dirCalHistos->setDisplayLocation(DisplayLocation::Sink);
-            dirCalHistos->setObjectName(calDirName);
-            dirCalHistos->setUserLevel(1);
-            analysis->addDirectory(dirCalHistos);
-        }
-
-        for (auto &ex: defaultFilters)
-        {
-            auto dataFilter = ex->getFilter();
-            double unitMin = 0.0;
-            double unitMax = std::pow(2.0, dataFilter.getDataBits());
-            QString name = ex->objectName().section('.', 0, -1);
-
-            RawDataDisplay rawDataDisplay = make_raw_data_display(
-                dataFilter, unitMin, unitMax,
-                name,
-                ex->objectName().section('.', 0, -1),
-                QString());
-
-            dirCalOperators->push_back(rawDataDisplay.calibration);
-            dirCalHistos->push_back(rawDataDisplay.calibratedHistoSink);
-
-            add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
-            m_context->getAnalysis()->beginRun(Analysis::KeepState);
-        }
-
-        for (auto &ex: defaultListFilters)
-        {
-            auto clone = std::dynamic_pointer_cast<ListFilterExtractor>(
-                std::shared_ptr<AnalysisObject>(ex->clone()));
-
-            if (!clone)
-                continue;
-
-            static const double MaxRawHistoBins = (1 << 16);
-            const u32 addressBits = clone->getAddressBits();
-            const u32 dataBits = clone->getDataBits();
-            const double unitMin = 0.0;
-            const double unitMax = std::pow(2.0, dataBits);
-            QString name = ex->objectName().section('.', 0, -1);
-            const u32 histoBins = static_cast<u32>(std::min(unitMax, MaxRawHistoBins));
-            const u32 addressCount = 1u << addressBits;
-
-            auto rawHistoSink = std::make_shared<Histo1DSink>();
-            rawHistoSink->setObjectName(QString("%1_raw").arg(name));
-            rawHistoSink->m_bins = histoBins;
-
-            auto calibration = std::make_shared<CalibrationMinMax>();
-            calibration->setObjectName(name);
-
-            for (u32 addr = 0; addr < addressCount; ++addr)
-                calibration->setCalibration(addr, unitMin, unitMax);
-
-            auto calHistoSink = std::make_shared<Histo1DSink>();
-            calHistoSink->setObjectName(QString("%1").arg(name));
-            calHistoSink->m_bins = histoBins;
-
-            rawHistoSink->connectArrayToInputSlot(0, clone->getOutput(0));
-            calibration->connectArrayToInputSlot(0, clone->getOutput(0));
-            calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
-
-            dirCalOperators->push_back(calibration);
-            dirCalHistos->push_back(calHistoSink);
-
-            auto analysis = m_context->getAnalysis();
-
-            analysis->addSource(m_eventId, module->getId(), clone);
-
-            analysis->addOperator(m_eventId, 0, rawHistoSink);
-            analysis->addOperator(m_eventId, 1, calibration);
-            analysis->addOperator(m_eventId, 1, calHistoSink);
-        }
+        add_default_filters(analysis, module);
     }
 
     repopEnabled = true;
@@ -4870,7 +4365,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 
 #if 1
     // This expands the module nodes where new objects where added. Not sure if
-    // this is of much use or just plaing annoying.
+    // this is of much use or just plain annoying.
     if (!m_levelTrees.isEmpty())
     {
         if (auto node = find_node(m_levelTrees[0].operatorTree->invisibleRootItem(), module))

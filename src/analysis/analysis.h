@@ -568,10 +568,17 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
         void setMembers(const MemberContainer &members) { m_members = members; }
         MemberSet getMemberSet() const;
 
-        void push_back(const AnalysisObjectPtr &obj) { m_members.push_back(obj->getId()); }
-        void push_back(AnalysisObjectPtr &&obj) { m_members.push_back(obj->getId()); }
-        void push_back(const QUuid &id) { m_members.push_back(id); }
-        void push_back(QUuid &&id) { m_members.push_back(id); }
+        void push_back(const AnalysisObjectPtr &obj)
+        {
+            obj->setUserLevel(getUserLevel());
+            m_members.push_back(obj->getId());
+        }
+
+        void push_back(AnalysisObjectPtr &&obj)
+        {
+            obj->setUserLevel(getUserLevel());
+            m_members.push_back(obj->getId());
+        }
 
         const_iterator begin() const { return m_members.begin(); }
         const_iterator end() const { return m_members.end(); }

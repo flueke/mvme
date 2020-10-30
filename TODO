@@ -2,9 +2,11 @@
 TODO list
 ==================================================
 
-* test jumbos with throttling
+* listfilter display in the analysis is out of order. It should be one
+  listfilter parent ndoe with the individual filters in correct order as
+  children.
 
-* make dialogs modal to the trigger io gui, not modal to the whole application!
+* make dialogs modal to the mvlc trigger io gui, not modal to the whole application!
 
 * non-existent workspace directories mentioned in the mvme.ini file are
   silently created. This is annoying when renaming a workspace and starting mvme again.
@@ -19,9 +21,6 @@ TODO list
 * Mehr siehe Zettel!
 
 * Things missing to support other vendors modules:
-  - CAEN v785: transmits number of converted channels in a header, not number of following
-    data words. For multievent splitting to work +1 has to be added to the count value
-    extracted from the header.
   - CAEN v1190: Need to check a register bit to know when the chip controlling the CERN
     TDCs is ready. This could be done in software or on the MVLC via a special command.
 

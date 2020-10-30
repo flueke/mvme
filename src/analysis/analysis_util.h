@@ -191,6 +191,8 @@ bool uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &anal
 std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_strings(
     const VMEConfig &vmeConfig, const Analysis &analysis);
 
+void add_default_filters(Analysis *analysis, ModuleConfig *module);
+
 } // namespace analysis
 
 
