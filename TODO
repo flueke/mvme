@@ -10,7 +10,6 @@ TODO list
   silently created. This is annoying when renaming a workspace and starting mvme again.
   Instead the dialog to select a workspace directory should pop up.
 
-* Multi event splitter: why extract number of words?
 * Filter: mdpp16 samples: kanalwort, dann werte
   -> so eine art subheader
   -> subheader suchen, addresse extrahieren und merken
