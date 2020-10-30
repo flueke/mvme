@@ -197,7 +197,7 @@ QString to_string(const ObjectFlags::Flags &flags)
  * Incrementing can also be done to force users to use a newer version of mvme to load the
  * analysis. This way they won't run into missing features/undefined behaviour.
  */
-static const int CurrentAnalysisVersion = 3;
+static const int CurrentAnalysisVersion = 4;
 
 //
 // AnalysisObject
