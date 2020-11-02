@@ -98,7 +98,7 @@ void LIBMVME_EXPORT
 // misc
 //
 
-AnalysisObjectSet to_set(const AnalysisObjectVector &objects);
+AnalysisObjectSet LIBMVME_EXPORT to_set(const AnalysisObjectVector &objects);
 
 inline bool is_sink(AnalysisObject *obj)
 {
@@ -114,17 +114,17 @@ inline bool is_sink(const AnalysisObjectPtr &obj)
 using StringSet = QSet<QString>;
 using NamesByMetaObject = QHash<const QMetaObject *, StringSet>;
 
-StringSet get_object_names(const AnalysisObjectVector &objects);
-NamesByMetaObject group_object_names_by_metatype(const AnalysisObjectVector &objects);
+StringSet LIBMVME_EXPORT get_object_names(const AnalysisObjectVector &objects);
+NamesByMetaObject LIBMVME_EXPORT group_object_names_by_metatype(const AnalysisObjectVector &objects);
 
-QString make_clone_name(const QString &currentName, const StringSet &allNames);
+QString LIBMVME_EXPORT make_clone_name(const QString &currentName, const StringSet &allNames);
 
 /* Helper class forwarding signals originating from a given Analysis instance.
  * This can be used to locally react to analysis signals but also be able to
  * block the signals temporarily without affecting other observers of the
  * analysis instance..
  */
-class AnalysisSignalWrapper: public QObject
+class LIBMVME_EXPORT AnalysisSignalWrapper: public QObject
 {
     Q_OBJECT
     signals:
@@ -158,12 +158,14 @@ class AnalysisSignalWrapper: public QObject
 
 /* Returns all operators to which the given condition can be applied to and
  * which are contained in the given OperatorVector. */
-OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
-                                              const OperatorVector &operators);
+OperatorVector LIBMVME_EXPORT
+get_apply_condition_candidates(
+    const ConditionPtr &cond, const OperatorVector &operators);
 
 /* Returns all operators to which the given condition can be applied to. */
-OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
-                                              const Analysis *analysis);
+OperatorVector LIBMVME_EXPORT
+get_apply_condition_candidates(
+    const ConditionPtr &cond, const Analysis *analysis);
 
 // https://en.cppreference.com/w/cpp/memory/owner_less
 // std::map<std::weak_ptr<T>, U, std::owner_less<std::weak_ptr<T>>>
@@ -180,21 +182,22 @@ using ObjectToNodes = ObjectMap<NodeSet>;
 
 QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj);
 
-SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks);
+SinkVector LIBMVME_EXPORT get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks);
 
 // Disconnects the Slots connected to the outputs of the given
 // PipeSourceInterface. Returns number of Slots that have been disconnected.
-size_t disconnect_outputs(PipeSourceInterface *pipeSource);
+size_t LIBMVME_EXPORT disconnect_outputs(PipeSourceInterface *pipeSource);
 
-bool uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &analysis);
+bool LIBMVME_EXPORT uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &analysis);
 
-std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_strings(
+std::vector<std::vector<std::string>> LIBMVME_EXPORT
+collect_multi_event_splitter_filter_strings(
     const VMEConfig &vmeConfig, const Analysis &analysis);
 
-void add_default_filters(Analysis *analysis, ModuleConfig *module);
+void LIBMVME_EXPORT add_default_filters(Analysis *analysis, ModuleConfig *module);
 
-QJsonObject analysis_to_json_object(const Analysis &analysis);
-QJsonDocument analysis_to_json_doc(const Analysis &analysis);
+QJsonObject LIBMVME_EXPORT analysis_to_json_object(const Analysis &analysis);
+QJsonDocument LIBMVME_EXPORT analysis_to_json_doc(const Analysis &analysis);
 
 } // namespace analysis
 
