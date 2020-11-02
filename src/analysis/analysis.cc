@@ -4952,8 +4952,8 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
     try
     {
         clear();
-        auto upatedData = convert_to_current_version(inputJson, vmeConfig);
-        auto objectStore = deserialize_objects(inputJson, vmeConfig, m_objectFactory);
+        auto updatedData = convert_to_current_version(inputJson, vmeConfig);
+        auto objectStore = deserialize_objects(updatedData, m_objectFactory);
         establish_connections(objectStore);
 
         for (const auto &obj: objectStore.sources)

@@ -271,243 +271,22 @@ QJsonObject ObjectSerializerVisitor::finalize(const Analysis *analysis) const
 namespace
 {
 
-QJsonObject noop_converter(QJsonObject json, const VMEConfig *)
-{
-    return json;
-}
-
-/* This function converts from analysis config versions prior to V2, which
- * stored eventIndex and moduleIndex instead of eventId and moduleId.
- */
-QJsonObject v1_to_v2(QJsonObject json, const VMEConfig *vmeConfig)
-{
-    bool couldConvert = true;
-
-    if (!vmeConfig)
-    {
-        // TODO: report error here
-        return json;
-    }
-
-    // sources
-    auto array = json["sources"].toArray();
-
-    for (auto it = array.begin(); it != array.end(); ++it)
-    {
-        auto objectJson = it->toObject();
-        int eventIndex = objectJson["eventIndex"].toInt();
-        int moduleIndex = objectJson["moduleIndex"].toInt();
-
-        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
-        auto moduleConfig = vmeConfig->getModuleConfig(eventIndex, moduleIndex);
-
-        if (eventConfig && moduleConfig)
-        {
-            objectJson["eventId"] = eventConfig->getId().toString();
-            objectJson["moduleId"] = moduleConfig->getId().toString();
-            *it = objectJson;
-        }
-        else
-        {
-            couldConvert = false;
-        }
-    }
-    json["sources"] = array;
-
-    // operators
-    array = json["operators"].toArray();
-
-    for (auto it = array.begin(); it != array.end(); ++it)
-    {
-        auto objectJson = it->toObject();
-        int eventIndex = objectJson["eventIndex"].toInt();
-
-        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
-
-        if (eventConfig)
-        {
-            objectJson["eventId"] = eventConfig->getId().toString();
-            *it = objectJson;
-        }
-        else
-        {
-            couldConvert = false;
-        }
-    }
-    json["operators"] = array;
-
-    if (!couldConvert)
-    {
-        // TODO: report this
-        qDebug() << "Error converting to v2!!!================================================";
-    }
-
-    return json;
-}
-
-// Special casing in the UI for raw sinks (bottom-left tree) was removed.
-// Previously raw histograms for module extraction filters where anchored below
-// special module nodes like data extractors. Newer analysis versions instead
-// create a directory for each module to hold the histograms.
-//
-// The converter collects sinks (histograms, rate monitors) from the first
-// level, groups them by event and module, creates a directory with the name of
-// the module and moves the histograms into the directory.
-QJsonObject v3_to_v4(QJsonObject json, const VMEConfig *vmeConfig)
-{
-    if (!vmeConfig)
-        return json;
-
-    auto objectStore = deserialize_objects(json, vmeConfig, Analysis().getObjectFactory());
-    establish_connections(objectStore);
-
-    // EventId -> ModuleId -> Sinks
-    using GroupedSinks = std::map<QUuid, std::map<QUuid, std::vector<AnalysisObjectPtr>>>;
-
-    auto operators = objectStore.operators;
-
-    // Keep only sinks on level 0.
-    operators.erase(std::remove_if(std::begin(operators), std::end(operators),
-                                   [] (const auto &op) {
-                                       return !(op->getUserLevel() == 0
-                                                && qobject_cast<SinkInterface *>(op.get()));
-                                   }),
-                    operators.end());
-
-    // Group the sinks by event and module ids.
-    GroupedSinks gs;
-
-    for (const auto &sink: operators)
-    {
-        // It's enough to check the first slot. Histos and Rate Monitors only
-        // have one slot.
-        auto firstSlot = sink->getSlot(0);
-
-        if (firstSlot && firstSlot->isConnected())
-        {
-            if (auto sourceObject = qobject_cast<SourceInterface *>(firstSlot->inputPipe->getSource()))
-            {
-                auto eventId = sourceObject->getEventId();
-                auto moduleId = sourceObject->getModuleId();
-                assert(eventId == sink->getEventId());
-
-                gs[eventId][moduleId].emplace_back(sink);
-            }
-        }
-    }
-
-    // Get module names directly from the json data. Note that the VMEConfig
-    // cannot be used to get this information because module id auto assignment
-    // hasn't been done yet which means the ids of the vmeconfig and the
-    // analysis can differ.
-    QMap<QUuid, QString> moduleNames;
-
-    for (const auto &modProps: json["properties"].toObject()["ModuleProperties"].toArray())
-    {
-        auto moduleId = QUuid::fromString(modProps.toObject()["moduleId"].toString());
-        auto moduleName = modProps.toObject()["moduleName"].toString();
-        moduleNames[moduleId] = moduleName;
-    }
-
-    for (const auto &ev: gs)
-    {
-        const auto &eventId = ev.first;
-
-        for (const auto &mv: ev.second)
-        {
-            const auto &moduleId = mv.first;
-
-            if (moduleNames.contains(moduleId))
-            {
-                auto dir = std::make_shared<Directory>();
-                dir->setEventId(eventId);
-                dir->setDisplayLocation(DisplayLocation::Sink);
-                dir->setObjectName("Raw Histos " + moduleNames[moduleId]);
-
-                for (const auto &sink: mv.second)
-                    dir->push_back(sink);
-
-                objectStore.directories.push_back(dir);
-                objectStore.objectsById[dir->getId()] = dir;
-            }
-        }
-    }
-
-    auto allObjects = objectStore.allObjects();
-    ObjectSerializerVisitor sv;
-    visit_objects(allObjects.begin(), allObjects.end(), sv);
-
-    json["directories"] = sv.directoriesArray;
-
-    return json;
-}
-
-using VersionConverter = std::function<QJsonObject (QJsonObject, const VMEConfig *)>;
-
-QVector<VersionConverter> get_version_converters()
-{
-    static QVector<VersionConverter> VersionConverters =
-    {
-        nullptr,        // 0 -> 1
-        v1_to_v2,       // 1 -> 2
-        noop_converter, // 2 -> 3 (addition of Directory objects)
-        v3_to_v4,       // 3 -> 4 (dirs for raw histograms, removed raw sink special casing from the UI)
-    };
-
-    return VersionConverters;
-}
-
 int get_version(const QJsonObject &json)
 {
     return json[QSL("MVMEAnalysisVersion")].toInt(1);
 };
 
-} // end anon namespace
-
-QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeConfig)
-{
-    int version;
-
-    while ((version = get_version(json)) < Analysis::getCurrentAnalysisVersion())
-    {
-        auto converter = get_version_converters().value(version);
-
-        if (!converter)
-            break;
-
-        json = converter(json, vmeConfig);
-        json[QSL("MVMEAnalysisVersion")] = version + 1;
-
-        qDebug() << __PRETTY_FUNCTION__
-            << "converted Analysis from version" << version
-            << "to version" << version+1;
-    }
-
-    return json;
-}
-
-AnalysisObjectVector AnalysisObjectStore::allObjects() const
-{
-    AnalysisObjectVector result;
-
-    for (auto it = objectsById.begin();
-         it != objectsById.end();
-         it++)
-    {
-        result.push_back(*it);
-    }
-
-    return result;
-}
-
 AnalysisObjectStore deserialize_objects(
     QJsonObject data,
-    const ObjectFactory &objectFactory)
+    const ObjectFactory &objectFactory,
+    bool ignoreVersionTooOld)
 {
     int version = get_version(data);
 
-    if (version < Analysis::getCurrentAnalysisVersion())
+    if (!ignoreVersionTooOld && version < Analysis::getCurrentAnalysisVersion())
+    {
         throw std::system_error(make_error_code(AnalysisReadResult::VersionTooOld));
+    }
 
     if (version > Analysis::getCurrentAnalysisVersion())
         throw std::system_error(make_error_code(AnalysisReadResult::VersionTooNew));
@@ -708,6 +487,240 @@ AnalysisObjectStore deserialize_objects(
     result.dynamicQObjectProperties = data["properties"].toObject().toVariantMap();
 
     return result;
+}
+
+
+QJsonObject noop_converter(QJsonObject json, const VMEConfig *)
+{
+    return json;
+}
+
+/* This function converts from analysis config versions prior to V2, which
+ * stored eventIndex and moduleIndex instead of eventId and moduleId.
+ */
+QJsonObject v1_to_v2(QJsonObject json, const VMEConfig *vmeConfig)
+{
+    bool couldConvert = true;
+
+    if (!vmeConfig)
+    {
+        // TODO: report error here
+        return json;
+    }
+
+    // sources
+    auto array = json["sources"].toArray();
+
+    for (auto it = array.begin(); it != array.end(); ++it)
+    {
+        auto objectJson = it->toObject();
+        int eventIndex = objectJson["eventIndex"].toInt();
+        int moduleIndex = objectJson["moduleIndex"].toInt();
+
+        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+        auto moduleConfig = vmeConfig->getModuleConfig(eventIndex, moduleIndex);
+
+        if (eventConfig && moduleConfig)
+        {
+            objectJson["eventId"] = eventConfig->getId().toString();
+            objectJson["moduleId"] = moduleConfig->getId().toString();
+            *it = objectJson;
+        }
+        else
+        {
+            couldConvert = false;
+        }
+    }
+    json["sources"] = array;
+
+    // operators
+    array = json["operators"].toArray();
+
+    for (auto it = array.begin(); it != array.end(); ++it)
+    {
+        auto objectJson = it->toObject();
+        int eventIndex = objectJson["eventIndex"].toInt();
+
+        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+
+        if (eventConfig)
+        {
+            objectJson["eventId"] = eventConfig->getId().toString();
+            *it = objectJson;
+        }
+        else
+        {
+            couldConvert = false;
+        }
+    }
+    json["operators"] = array;
+
+    if (!couldConvert)
+    {
+        // TODO: report this
+        qDebug() << "Error converting to v2!!!================================================";
+    }
+
+    return json;
+}
+
+// Special casing in the UI for raw sinks (bottom-left tree) was removed.
+// Previously raw histograms for module extraction filters where anchored below
+// special module nodes like data extractors. Newer analysis versions instead
+// create a directory for each module to hold the histograms.
+//
+// The converter collects sinks (histograms, rate monitors) from the first
+// level, groups them by event and module, creates a directory with the name of
+// the module and moves the histograms into the directory.
+QJsonObject v3_to_v4(QJsonObject json, const VMEConfig *vmeConfig)
+{
+    if (!vmeConfig)
+        return json;
+
+    auto objectStore = deserialize_objects(json, Analysis().getObjectFactory(), true);
+    establish_connections(objectStore);
+
+    // EventId -> ModuleId -> Sinks
+    using GroupedSinks = std::map<QUuid, std::map<QUuid, std::vector<AnalysisObjectPtr>>>;
+
+    auto operators = objectStore.operators;
+
+    // Keep only sinks on level 0.
+    operators.erase(std::remove_if(std::begin(operators), std::end(operators),
+                                   [] (const auto &op) {
+                                       return !(op->getUserLevel() == 0
+                                                && qobject_cast<SinkInterface *>(op.get()));
+                                   }),
+                    operators.end());
+
+    // Group the sinks by event and module ids.
+    GroupedSinks gs;
+
+    for (const auto &sink: operators)
+    {
+        // It's enough to check the first slot. Histos and Rate Monitors only
+        // have one slot.
+        auto firstSlot = sink->getSlot(0);
+
+        if (firstSlot && firstSlot->isConnected())
+        {
+            if (auto sourceObject = qobject_cast<SourceInterface *>(firstSlot->inputPipe->getSource()))
+            {
+                auto eventId = sourceObject->getEventId();
+                auto moduleId = sourceObject->getModuleId();
+                assert(eventId == sink->getEventId());
+
+                gs[eventId][moduleId].emplace_back(sink);
+            }
+        }
+    }
+
+    // Get module names directly from the json data. Note that the VMEConfig
+    // cannot be used to get this information because module id auto assignment
+    // hasn't been done yet which means the ids of the vmeconfig and the
+    // analysis can differ.
+    QMap<QUuid, QString> moduleNames;
+
+    for (const auto &modProps: json["properties"].toObject()["ModuleProperties"].toArray())
+    {
+        auto moduleId = QUuid::fromString(modProps.toObject()["moduleId"].toString());
+        auto moduleName = modProps.toObject()["moduleName"].toString();
+        moduleNames[moduleId] = moduleName;
+    }
+
+    for (const auto &ev: gs)
+    {
+        const auto &eventId = ev.first;
+
+        for (const auto &mv: ev.second)
+        {
+            const auto &moduleId = mv.first;
+
+            if (moduleNames.contains(moduleId))
+            {
+                auto dir = std::make_shared<Directory>();
+                dir->setEventId(eventId);
+                dir->setDisplayLocation(DisplayLocation::Sink);
+                dir->setObjectName("Raw Histos " + moduleNames[moduleId]);
+
+                for (const auto &sink: mv.second)
+                    dir->push_back(sink);
+
+                objectStore.directories.push_back(dir);
+                objectStore.objectsById[dir->getId()] = dir;
+            }
+        }
+    }
+
+    auto allObjects = objectStore.allObjects();
+    ObjectSerializerVisitor sv;
+    visit_objects(allObjects.begin(), allObjects.end(), sv);
+
+    json["directories"] = sv.directoriesArray;
+
+    return json;
+}
+
+using VersionConverter = std::function<QJsonObject (QJsonObject, const VMEConfig *)>;
+
+QVector<VersionConverter> get_version_converters()
+{
+    static QVector<VersionConverter> VersionConverters =
+    {
+        nullptr,        // 0 -> 1
+        v1_to_v2,       // 1 -> 2
+        noop_converter, // 2 -> 3 (addition of Directory objects)
+        v3_to_v4,       // 3 -> 4 (dirs for raw histograms, removed raw sink special casing from the UI)
+    };
+
+    return VersionConverters;
+}
+
+} // end anon namespace
+
+QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeConfig)
+{
+    int version;
+
+    while ((version = get_version(json)) < Analysis::getCurrentAnalysisVersion())
+    {
+        auto converter = get_version_converters().value(version);
+
+        if (!converter)
+            break;
+
+        json = converter(json, vmeConfig);
+        json[QSL("MVMEAnalysisVersion")] = version + 1;
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "converted Analysis from version" << version
+            << "to version" << version+1;
+    }
+
+    assert(json[QSL("MVMEAnalysisVersion")].toInt() == Analysis::getCurrentAnalysisVersion());
+
+    return json;
+}
+
+AnalysisObjectVector AnalysisObjectStore::allObjects() const
+{
+    AnalysisObjectVector result;
+
+    for (auto it = objectsById.begin();
+         it != objectsById.end();
+         it++)
+    {
+        result.push_back(*it);
+    }
+
+    return result;
+}
+
+AnalysisObjectStore deserialize_objects(
+    QJsonObject data,
+    const ObjectFactory &objectFactory)
+{
+    return deserialize_objects(data, objectFactory, false);
 }
 
 void establish_connections(const QSet<Connection> &connections)

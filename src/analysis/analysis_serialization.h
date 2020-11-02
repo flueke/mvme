@@ -107,7 +107,6 @@ QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeCon
 
 AnalysisObjectStore LIBMVME_EXPORT deserialize_objects(
     QJsonObject data,
-    const VMEConfig *vmeConfig,
     const ObjectFactory &objectFactory);
 
 void LIBMVME_EXPORT establish_connections(const QSet<Connection> &connections);
