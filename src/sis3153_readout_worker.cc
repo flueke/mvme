@@ -374,6 +374,12 @@ namespace
                                              BlockFlags::FIFO | BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
                     break;
 
+                case  CommandType::MBLTSwapped:
+                    stackList_add_block_read(&resultOffset, result.data(),
+                                             command.address, command.transfers * sizeof(u64),
+                                             BlockFlags::FIFO | BlockFlags::MBLT);
+                    break;
+
                 case  CommandType::Wait:
                     InvalidCodePath;
                     break;
