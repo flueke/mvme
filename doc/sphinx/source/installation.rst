@@ -33,7 +33,7 @@ Mesytec MVLC
   `<https://www.ftdichip.com/Drivers/D3XX.htm>`_.
 
   Direct link to the driver installer:
-  `https://www.ftdichip.com/Drivers/D3XX/FTD3XXDriver_WHQLCertified_v1.3.0.4_Installer.exe.zip`_
+  `<https://www.ftdichip.com/Drivers/D3XX/FTD3XXDriver_WHQLCertified_v1.3.0.4_Installer.exe.zip>`_
 
 * Using the MVLC via Ethernet requires a GBit/s network connection.
 
