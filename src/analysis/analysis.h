@@ -1740,7 +1740,8 @@ using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
 enum class AnalysisReadResult
 {
     NoError,
-    VersionTooNew
+    VersionTooOld, // must be migrated using convert_to_current_version()
+    VersionTooNew,
 };
 
 LIBMVME_EXPORT std::error_code make_error_code(AnalysisReadResult r);

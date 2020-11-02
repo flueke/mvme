@@ -4987,6 +4987,7 @@ void EventWidgetPrivate::actionImport()
 
         check_directory_consistency(analysis->getDirectories(), analysis);
 
+        importData = convert_to_current_version(importData, m_context->getVMEConfig());
         auto objectStore = deserialize_objects(
             importData,
             m_context->getVMEConfig(),

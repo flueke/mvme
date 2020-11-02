@@ -358,9 +358,7 @@ QJsonObject v3_to_v4(QJsonObject json, const VMEConfig *vmeConfig)
     if (!vmeConfig)
         return json;
 
-    auto objectStore = deserialize_objects(
-        json, vmeConfig, Analysis().getObjectFactory(),
-        VersionUpdateHandling::SkipVersionUpdate);
+    auto objectStore = deserialize_objects(json, vmeConfig, Analysis().getObjectFactory());
     establish_connections(objectStore);
 
     // EventId -> ModuleId -> Sinks
@@ -453,7 +451,7 @@ QVector<VersionConverter> get_version_converters()
         nullptr,        // 0 -> 1
         v1_to_v2,       // 1 -> 2
         noop_converter, // 2 -> 3 (addition of Directory objects)
-        v3_to_v4,       // 3 -> 4 (dirs for raw histograms, remove raw sink special casing from the UI)
+        v3_to_v4,       // 3 -> 4 (dirs for raw histograms, removed raw sink special casing from the UI)
     };
 
     return VersionConverters;
@@ -463,6 +461,8 @@ int get_version(const QJsonObject &json)
 {
     return json[QSL("MVMEAnalysisVersion")].toInt(1);
 };
+
+} // end anon namespace
 
 QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeConfig)
 {
@@ -486,8 +486,6 @@ QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeCon
     return json;
 }
 
-} // end anon namespace
-
 AnalysisObjectVector AnalysisObjectStore::allObjects() const
 {
     AnalysisObjectVector result;
@@ -504,19 +502,15 @@ AnalysisObjectVector AnalysisObjectStore::allObjects() const
 
 AnalysisObjectStore deserialize_objects(
     QJsonObject data,
-    const VMEConfig *vmeConfig,
-    const ObjectFactory &objectFactory,
-    const VersionUpdateHandling &updateHandling)
+    const ObjectFactory &objectFactory)
 {
     int version = get_version(data);
 
-    if (version > Analysis::getCurrentAnalysisVersion())
-    {
-        throw std::system_error(make_error_code(AnalysisReadResult::VersionTooNew));
-    }
+    if (version < Analysis::getCurrentAnalysisVersion())
+        throw std::system_error(make_error_code(AnalysisReadResult::VersionTooOld));
 
-    if (updateHandling == VersionUpdateHandling::DoVersionUpdate)
-        data = convert_to_current_version(data, vmeConfig);
+    if (version > Analysis::getCurrentAnalysisVersion())
+        throw std::system_error(make_error_code(AnalysisReadResult::VersionTooNew));
 
     AnalysisObjectStore result;
 
