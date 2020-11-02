@@ -572,11 +572,8 @@ QJsonObject v1_to_v2(QJsonObject json, const VMEConfig *vmeConfig)
 // The converter collects sinks (histograms, rate monitors) from the first
 // level, groups them by event and module, creates a directory with the name of
 // the module and moves the histograms into the directory.
-QJsonObject v3_to_v4(QJsonObject json, const VMEConfig *vmeConfig)
+QJsonObject v3_to_v4(QJsonObject json, const VMEConfig *)
 {
-    if (!vmeConfig)
-        return json;
-
     auto objectStore = deserialize_objects(json, Analysis().getObjectFactory(), true);
     establish_connections(objectStore);
 
