@@ -124,10 +124,11 @@ namespace
                     size += 2;
                     break;
 
-                case  CommandType::BLT:
-                case  CommandType::BLTFifo:
-                case  CommandType::MBLT:
-                case  CommandType::MBLTFifo:
+                case CommandType::BLT:
+                case CommandType::BLTFifo:
+                case CommandType::MBLT:
+                case CommandType::MBLTFifo:
+                case CommandType::MBLTSwapped:
                     size += 3;
                     break;
 
@@ -135,14 +136,15 @@ namespace
                     InvalidCodePath;
                     break;
 
-                case  CommandType::SetBase:
-                case  CommandType::ResetBase:
-                case  CommandType::VMUSB_ReadRegister:
-                case  CommandType::VMUSB_WriteRegister:
+                case CommandType::SetBase:
+                case CommandType::ResetBase:
+                case CommandType::VMUSB_ReadRegister:
+                case CommandType::VMUSB_WriteRegister:
                 case CommandType::Blk2eSST64:
                 case CommandType::MVLC_WriteSpecial:
                 case CommandType::MetaBlock:
                 case CommandType::SetVariable:
+                case CommandType::Print:
                     break;
 
                 case  CommandType::Invalid:
@@ -384,6 +386,7 @@ namespace
                 case  CommandType::MVLC_WriteSpecial:
                 case  CommandType::MetaBlock:
                 case  CommandType::SetVariable:
+                case  CommandType::Print:
                     break;
 
                 case  CommandType::Invalid:

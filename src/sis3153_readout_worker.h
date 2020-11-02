@@ -153,7 +153,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         struct ProcessingState
         {
-            MVMEStreamWriterHelper streamWriter;
+            MVMEStreamWriterHelper streamWriter = MVMEStreamWriterHelper();
             /* If stackList is < 0 no partial event processing is in progress.
              * Otherwise a partial event for the stackList has been started. */
             s32 stackList = -1;
