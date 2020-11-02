@@ -1,31 +1,313 @@
 {
     "AnalysisNG": {
-        "MVMEAnalysisVersion": 3,
+        "MVMEAnalysisVersion": 4,
         "VMEObjectSettings": {
-            "{1a3d9b62-8444-4267-89a9-7af03e592914}": {
-                "MultiEventProcessing": false
-            },
-            "{d06291e4-9b89-47e6-9a44-1b41fc792821}": {
-                "MultiEventHeaderFilter": "XXXX X1XX SSSS SSXX XXXX XXXX XXXX XXXX"
-            }
         },
         "conditionLinks": [
         ],
         "connections": [
+            {
+                "dstId": "{700ba5c1-af54-408d-9734-d54bf7e6c659}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{315782f3-7c7a-4583-940a-bcac1425f7d9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{76c4f22d-4de9-4915-b074-ff806a532d92}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{315782f3-7c7a-4583-940a-bcac1425f7d9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{ce7341e5-73d2-4f5e-a66b-5909aa640def}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{721baa4d-e316-42c0-bd77-0c31f8bbdec1}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{4cab0835-db59-491d-9aae-8ea49994debc}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{721baa4d-e316-42c0-bd77-0c31f8bbdec1}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{eaf40d38-a8d7-455a-ab13-abc6dff44868}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{76c4f22d-4de9-4915-b074-ff806a532d92}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{0602d249-0eaf-4d7a-abe9-ba3d97515554}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{4cab0835-db59-491d-9aae-8ea49994debc}",
+                "srcIndex": 0
+            }
         ],
         "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{700ba5c1-af54-408d-9734-d54bf7e6c659}",
+                        "{ce7341e5-73d2-4f5e-a66b-5909aa640def}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{e42f476c-bb8a-4213-8ccf-b1ca77fb4c15}",
+                "name": "Raw Histos caen_v830",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{76c4f22d-4de9-4915-b074-ff806a532d92}",
+                        "{4cab0835-db59-491d-9aae-8ea49994debc}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{05cd8377-ed00-43fd-9df4-56859f5e5fb9}",
+                "name": "Cal caen_v830",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{eaf40d38-a8d7-455a-ab13-abc6dff44868}",
+                        "{0602d249-0eaf-4d7a-abe9-ba3d97515554}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3dc44be6-11de-4740-bbee-3ec9bc42d05f}",
+                "name": "Cal Histos caen_v830",
+                "userLevel": 1
+            }
         ],
         "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{700ba5c1-af54-408d-9734-d54bf7e6c659}",
+                "name": "header_sequence_number_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{76c4f22d-4de9-4915-b074-ff806a532d92}",
+                "name": "header_sequence_number",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{ce7341e5-73d2-4f5e-a66b-5909aa640def}",
+                "name": "counter_values_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{4cab0835-db59-491d-9aae-8ea49994debc}",
+                "name": "counter_values",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{eaf40d38-a8d7-455a-ab13-abc6dff44868}",
+                "name": "header_sequence_number",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{0602d249-0eaf-4d7a-abe9-ba3d97515554}",
+                "name": "counter_values",
+                "userLevel": 1
+            }
         ],
-        "properties": {
-            "ModuleProperties": [
-                {
-                    "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
-                    "moduleName": "caen_v830",
-                    "moduleTypeName": "caen_v830"
-                }
-            ]
-        },
         "sources": [
             {
                 "class": "analysis::ListFilterExtractor",
@@ -48,11 +330,11 @@
                     },
                     "options": 1,
                     "repetitions": 1,
-                    "rngSeed": "1aa3b6ce4b8babbc"
+                    "rngSeed": "90303e88d26c6461"
                 },
-                "eventId": "{1a3d9b62-8444-4267-89a9-7af03e592914}",
-                "id": "{f8907903-ed49-4dbd-a22f-9718effd5f28}",
-                "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{315782f3-7c7a-4583-940a-bcac1425f7d9}",
+                "moduleId": "{82e5ed1a-7e48-450e-baa5-d620082be7c2}",
                 "name": "header_sequence_number"
             },
             {
@@ -76,11 +358,11 @@
                     },
                     "options": 1,
                     "repetitions": 32,
-                    "rngSeed": "75748c4b0e151054"
+                    "rngSeed": "e3d0d515733ba82f"
                 },
-                "eventId": "{1a3d9b62-8444-4267-89a9-7af03e592914}",
-                "id": "{979112cb-0de2-458f-94ec-09bd0328113a}",
-                "moduleId": "{d06291e4-9b89-47e6-9a44-1b41fc792821}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{721baa4d-e316-42c0-bd77-0c31f8bbdec1}",
+                "moduleId": "{82e5ed1a-7e48-450e-baa5-d620082be7c2}",
                 "name": "counter_values"
             }
         ]

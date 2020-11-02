@@ -1,24 +1,128 @@
 {
     "AnalysisNG": {
-        "MVMEAnalysisVersion": 2,
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": [
+        ],
         "connections": [
+            {
+                "dstId": "{87303608-1781-4ddd-90c5-8df268905f25}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{e03ba488-3a4c-4966-955b-8e32f5820a5a}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{dac49f5e-5403-47c2-b971-6aa6816fa8d2}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{e03ba488-3a4c-4966-955b-8e32f5820a5a}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3b7418db-bda9-464e-8c7b-90a669d691cb}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{87303608-1781-4ddd-90c5-8df268905f25}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{dac49f5e-5403-47c2-b971-6aa6816fa8d2}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{f04edfbc-0561-4f02-92d7-74cc8d46e779}",
+                "name": "Raw Histos mesytec_counter",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{87303608-1781-4ddd-90c5-8df268905f25}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{98cf8d66-6208-42ec-bca6-8b0595006cfb}",
+                "name": "Cal mesytec_counter",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{3b7418db-bda9-464e-8c7b-90a669d691cb}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{e1bfae19-3026-4ba6-b39b-b3db25b15f8e}",
+                "name": "Cal Histos mesytec_counter",
+                "userLevel": 1
+            }
         ],
         "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "event_counter",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{dac49f5e-5403-47c2-b971-6aa6816fa8d2}",
+                "name": "event_counter_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 4294967296,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{87303608-1781-4ddd-90c5-8df268905f25}",
+                "name": "event_counter",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "event_counter",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3b7418db-bda9-464e-8c7b-90a669d691cb}",
+                "name": "event_counter",
+                "userLevel": 1
+            }
         ],
-        "properties": {
-            "ModuleProperties": [
-                {
-                    "moduleId": "{0e0e52b6-3aa9-4dce-a429-e57f2ed27f41}",
-                    "moduleTypeName": "mesytec_counter"
-                }
-            ]
-        },
         "sources": [
             {
                 "class": "analysis::Extractor",
                 "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "2b5762f504535e83",
+                    "rngSeed": "35a7f463097a4673",
                     "subFilters": [
                         {
                             "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
@@ -30,9 +134,9 @@
                         }
                     ]
                 },
-                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
-                "id": "{83f42529-a560-467e-8345-9ef70ae0b6e5}",
-                "moduleId": "{0e0e52b6-3aa9-4dce-a429-e57f2ed27f41}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{e03ba488-3a4c-4966-955b-8e32f5820a5a}",
+                "moduleId": "{e7fb8d6f-df29-4a00-8926-1df8ea199fd1}",
                 "name": "event_counter"
             }
         ]

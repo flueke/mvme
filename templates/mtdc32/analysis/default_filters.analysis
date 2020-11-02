@@ -1,24 +1,396 @@
 {
     "AnalysisNG": {
-        "MVMEAnalysisVersion": 2,
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": [
+        ],
         "connections": [
+            {
+                "dstId": "{948cf568-3f1a-425d-918a-57a9e0c1867a}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{2759b11e-3687-45db-ab21-c516368e24fe}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{79774f18-3175-439f-aad7-72dc8fa61412}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{22e07c8a-6ca6-4dc4-9537-0c1e8ca50019}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{18a5a409-329c-40a2-8878-52bc5c47feb4}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{d997b702-729d-4e3e-8a8d-a737513585af}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{5b6e1073-ab8d-40db-ba74-f74291f6973e}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{d997b702-729d-4e3e-8a8d-a737513585af}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{e96a69a3-9fe6-4302-9d94-810439a18180}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{948cf568-3f1a-425d-918a-57a9e0c1867a}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{df07569d-d182-42d1-8b02-ebb4cbb5b670}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{5b6e1073-ab8d-40db-ba74-f74291f6973e}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{f53b3232-3e51-48e5-814b-4d85cc8b4fe2}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{22e07c8a-6ca6-4dc4-9537-0c1e8ca50019}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{2ba86a76-2f9b-4e36-ab58-d621e0ebd999}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{2759b11e-3687-45db-ab21-c516368e24fe}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3f133974-1887-4ff1-baff-a43da2b7c4d7}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{79774f18-3175-439f-aad7-72dc8fa61412}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{f53b3232-3e51-48e5-814b-4d85cc8b4fe2}",
+                        "{2ba86a76-2f9b-4e36-ab58-d621e0ebd999}",
+                        "{18a5a409-329c-40a2-8878-52bc5c47feb4}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{7b14ca19-8629-4b15-b107-c8a73800deea}",
+                "name": "Raw Histos mtdc32",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{79774f18-3175-439f-aad7-72dc8fa61412}",
+                        "{948cf568-3f1a-425d-918a-57a9e0c1867a}",
+                        "{5b6e1073-ab8d-40db-ba74-f74291f6973e}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{45f00361-e94d-4964-a10f-eb09898dbc80}",
+                "name": "Cal mtdc32",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{3f133974-1887-4ff1-baff-a43da2b7c4d7}",
+                        "{e96a69a3-9fe6-4302-9d94-810439a18180}",
+                        "{df07569d-d182-42d1-8b02-ebb4cbb5b670}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{ebd24cb1-90ff-48d1-9a2f-ddc3273b1775}",
+                "name": "Cal Histos mtdc32",
+                "userLevel": 1
+            }
         ],
         "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{f53b3232-3e51-48e5-814b-4d85cc8b4fe2}",
+                "name": "time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{79774f18-3175-439f-aad7-72dc8fa61412}",
+                "name": "time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{2ba86a76-2f9b-4e36-ab58-d621e0ebd999}",
+                "name": "trigger_time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{948cf568-3f1a-425d-918a-57a9e0c1867a}",
+                "name": "trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{18a5a409-329c-40a2-8878-52bc5c47feb4}",
+                "name": "timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 1073741824,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{5b6e1073-ab8d-40db-ba74-f74291f6973e}",
+                "name": "timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3f133974-1887-4ff1-baff-a43da2b7c4d7}",
+                "name": "time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{e96a69a3-9fe6-4302-9d94-810439a18180}",
+                "name": "trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{df07569d-d182-42d1-8b02-ebb4cbb5b670}",
+                "name": "timestamp",
+                "userLevel": 1
+            }
         ],
-        "properties": {
-            "ModuleProperties": [
-                {
-                    "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
-                    "moduleTypeName": "mtdc32"
-                }
-            ]
-        },
         "sources": [
             {
                 "class": "analysis::Extractor",
                 "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "c42a52cbea490bef",
+                    "rngSeed": "97c0f30e8a7f8d5b",
                     "subFilters": [
                         {
                             "filterString": "00XXX1XX000AAAAADDDDDDDDDDDDDDDD",
@@ -26,16 +398,19 @@
                         }
                     ]
                 },
-                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
-                "id": "{b26a021f-e2b3-4c3b-94cd-997122920c9a}",
-                "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{22e07c8a-6ca6-4dc4-9537-0c1e8ca50019}",
+                "moduleId": "{1b20ac4a-8af3-4c37-9832-baa175d0e387}",
                 "name": "time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "457bf0cff0311c52",
+                    "rngSeed": "cdf44e89420af6da",
                     "subFilters": [
                         {
                             "filterString": "00XXX1XX0010000ADDDDDDDDDDDDDDDD",
@@ -43,16 +418,19 @@
                         }
                     ]
                 },
-                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
-                "id": "{685fafbf-dd78-4f2e-b8ce-25bb2e37d188}",
-                "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{2759b11e-3687-45db-ab21-c516368e24fe}",
+                "moduleId": "{1b20ac4a-8af3-4c37-9832-baa175d0e387}",
                 "name": "trigger_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "e78ec5c4510c94f1",
+                    "rngSeed": "a94200e9197bdfe5",
                     "subFilters": [
                         {
                             "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
@@ -60,9 +438,9 @@
                         }
                     ]
                 },
-                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
-                "id": "{745b5d44-47b8-481a-b9b1-11b0d8faef62}",
-                "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{d997b702-729d-4e3e-8a8d-a737513585af}",
+                "moduleId": "{1b20ac4a-8af3-4c37-9832-baa175d0e387}",
                 "name": "timestamp"
             }
         ]

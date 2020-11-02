@@ -1,25 +1,836 @@
 {
     "AnalysisNG": {
-        "MVMEAnalysisVersion": 2,
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": [
+        ],
         "connections": [
+            {
+                "dstId": "{41e48bf0-0b4e-4a37-9cfb-a40d9f739cf2}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{45b742ed-4507-4dc1-9573-f1475e02e81f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{ba5ec8ef-443a-4aaf-8d89-715e2f145c84}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{45b742ed-4507-4dc1-9573-f1475e02e81f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{49a7de93-c52b-4295-accb-63d2ddbf38fc}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{23a69a1f-909f-4946-a321-acc984442944}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{bd756e30-0b5c-4aa7-89e9-1728a339c241}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{d15eb821-8f6e-458c-b57c-6b14478c9f15}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{23a69a1f-909f-4946-a321-acc984442944}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{0ede2246-2bc7-48c4-a64d-19e0b8649ff9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{cec442d6-242a-4dad-9b7f-cddeeb2f4d20}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{41e48bf0-0b4e-4a37-9cfb-a40d9f739cf2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{4be72be7-a24d-45f5-80c7-500222759538}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{bd756e30-0b5c-4aa7-89e9-1728a339c241}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{95563d26-e7d8-461d-8851-c5872bf84f3f}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{0ede2246-2bc7-48c4-a64d-19e0b8649ff9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{c0e68f84-021c-4911-b754-415f80c50e95}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{d15eb821-8f6e-458c-b57c-6b14478c9f15}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{ba5ec8ef-443a-4aaf-8d89-715e2f145c84}",
+                        "{95563d26-e7d8-461d-8851-c5872bf84f3f}",
+                        "{c0e68f84-021c-4911-b754-415f80c50e95}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{1f8ec5c5-38af-4f14-87a9-03c6dbccb8a3}",
+                "name": "Raw Histos vmmr",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{41e48bf0-0b4e-4a37-9cfb-a40d9f739cf2}",
+                        "{23a69a1f-909f-4946-a321-acc984442944}",
+                        "{bd756e30-0b5c-4aa7-89e9-1728a339c241}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3dfe6292-b3fe-4d91-8ded-1d26db6d447d}",
+                "name": "Cal vmmr",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{cec442d6-242a-4dad-9b7f-cddeeb2f4d20}",
+                        "{49a7de93-c52b-4295-accb-63d2ddbf38fc}",
+                        "{4be72be7-a24d-45f5-80c7-500222759538}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{9e570c90-4d7c-4897-ab77-f5119646c19e}",
+                "name": "Cal Histos vmmr",
+                "userLevel": 1
+            }
         ],
         "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "bus_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{ba5ec8ef-443a-4aaf-8d89-715e2f145c84}",
+                "name": "bus_time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{41e48bf0-0b4e-4a37-9cfb-a40d9f739cf2}",
+                "name": "bus_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 4096,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude_bus0",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{95563d26-e7d8-461d-8851-c5872bf84f3f}",
+                "name": "amplitude_bus0_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{23a69a1f-909f-4946-a321-acc984442944}",
+                "name": "amplitude_bus0",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{c0e68f84-021c-4911-b754-415f80c50e95}",
+                "name": "timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 1073741824,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{bd756e30-0b5c-4aa7-89e9-1728a339c241}",
+                "name": "timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "bus_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{cec442d6-242a-4dad-9b7f-cddeeb2f4d20}",
+                "name": "bus_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 4096,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude_bus0",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{49a7de93-c52b-4295-accb-63d2ddbf38fc}",
+                "name": "amplitude_bus0",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{4be72be7-a24d-45f5-80c7-500222759538}",
+                "name": "timestamp",
+                "userLevel": 1
+            }
         ],
-        "properties": {
-            "ModuleProperties": [
-                {
-                    "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
-                    "moduleName": "VMMR-16",
-                    "moduleTypeName": "vmmr"
-                }
-            ]
-        },
         "sources": [
             {
                 "class": "analysis::Extractor",
                 "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "e4604ffa3eee2049",
+                    "rngSeed": "23f973fa9cd137f8",
                     "subFilters": [
                         {
                             "filterString": "001XAAAA00000000DDDDDDDDDDDDDDDD",
@@ -27,16 +838,19 @@
                         }
                     ]
                 },
-                "eventId": "{ee10db9d-aa4b-4b0e-8695-24713fccc773}",
-                "id": "{37319aae-99f1-4131-8c0e-a2cc8225bdac}",
-                "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{45b742ed-4507-4dc1-9573-f1475e02e81f}",
+                "moduleId": "{5bd71658-77b5-4643-94a0-afe49f6b7c11}",
                 "name": "bus_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "b5d9c07e5027b9ac",
+                    "rngSeed": "b85c254a35f63d20",
                     "subFilters": [
                         {
                             "filterString": "00010000XXXXXAAAAAAADDDDDDDDDDDD",
@@ -44,16 +858,19 @@
                         }
                     ]
                 },
-                "eventId": "{ee10db9d-aa4b-4b0e-8695-24713fccc773}",
-                "id": "{cfcdeb75-f3c9-4fbf-883f-7a460e8c9e60}",
-                "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{0ede2246-2bc7-48c4-a64d-19e0b8649ff9}",
+                "moduleId": "{5bd71658-77b5-4643-94a0-afe49f6b7c11}",
                 "name": "amplitude_bus0"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "908cd3745a851049",
+                    "rngSeed": "819a4dff2de79a4a",
                     "subFilters": [
                         {
                             "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
@@ -61,9 +878,9 @@
                         }
                     ]
                 },
-                "eventId": "{ee10db9d-aa4b-4b0e-8695-24713fccc773}",
-                "id": "{19817e95-c436-45af-8613-a29873f2d0e5}",
-                "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{d15eb821-8f6e-458c-b57c-6b14478c9f15}",
+                "moduleId": "{5bd71658-77b5-4643-94a0-afe49f6b7c11}",
                 "name": "timestamp"
             }
         ]

@@ -1,40 +1,128 @@
 {
     "AnalysisNG": {
-        "MVMEAnalysisVersion": 3,
+        "MVMEAnalysisVersion": 4,
         "VMEObjectSettings": {
-            "{8e96a726-881b-4884-ab34-13c00c541a18}": {
-                "MultiEventProcessing": true
-            },
-            "{a45645d8-d847-4de8-80de-34aa7f69b1a0}": {
-                "MultiEventProcessing": false
-            }
         },
         "conditionLinks": [
         ],
         "connections": [
+            {
+                "dstId": "{2e09194e-81bc-4fa5-99c0-347b32faf222}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{48830439-0a99-43f3-a1b8-ea6a949ebd41}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{7df31ca8-7192-40b9-a635-6c7e57ed861d}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{f28b8bec-ae32-40ca-93fd-56e630ee72da}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{f28b8bec-ae32-40ca-93fd-56e630ee72da}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{48830439-0a99-43f3-a1b8-ea6a949ebd41}",
+                "srcIndex": 0
+            }
         ],
         "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{2e09194e-81bc-4fa5-99c0-347b32faf222}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{f300655f-beae-4834-86aa-ff25cc7865a7}",
+                "name": "Raw Histos mvlc_ts",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{f28b8bec-ae32-40ca-93fd-56e630ee72da}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{d1ec6422-637c-4c23-8f86-440d486885c7}",
+                "name": "Cal mvlc_ts",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{7df31ca8-7192-40b9-a635-6c7e57ed861d}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{1a719e31-a6dd-4279-aeab-cbc9f168d050}",
+                "name": "Cal Histos mvlc_ts",
+                "userLevel": 1
+            }
         ],
         "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{2e09194e-81bc-4fa5-99c0-347b32faf222}",
+                "name": "timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 18446744073709552000,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{f28b8bec-ae32-40ca-93fd-56e630ee72da}",
+                "name": "timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{7df31ca8-7192-40b9-a635-6c7e57ed861d}",
+                "name": "timestamp",
+                "userLevel": 1
+            }
         ],
-        "properties": {
-            "ModuleProperties": [
-                {
-                    "moduleId": "{9a662c1a-6914-4c5e-8ef4-d62b11bff350}",
-                    "moduleName": "mvlc",
-                    "moduleTypeName": "mvlc"
-                }
-            ]
-        },
         "sources": [
             {
                 "class": "analysis::Extractor",
                 "data": {
-                    "options": 1,
+                    "options": 0,
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "61174358904f121f",
+                    "rngSeed": "1e8ce84b61a26460",
                     "subFilters": [
                         {
                             "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
@@ -54,9 +142,9 @@
                         }
                     ]
                 },
-                "eventId": "{991a10c4-c6c0-494b-bae2-9cb4fa6bad00}",
-                "id": "{c8f6da8b-cc81-43eb-ae6e-b16db28035bb}",
-                "moduleId": "{9a662c1a-6914-4c5e-8ef4-d62b11bff350}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{48830439-0a99-43f3-a1b8-ea6a949ebd41}",
+                "moduleId": "{65d78d77-b0b1-4a35-b3d7-9c7e59cec002}",
                 "name": "timestamp"
             }
         ]

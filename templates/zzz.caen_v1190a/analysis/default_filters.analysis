@@ -1,25 +1,767 @@
 {
     "AnalysisNG": {
-        "MVMEAnalysisVersion": 3,
+        "MVMEAnalysisVersion": 4,
         "VMEObjectSettings": {
         },
         "conditionLinks": [
         ],
         "connections": [
+            {
+                "dstId": "{b48f049e-ad81-440a-9524-8986787c4a11}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{3b851912-30c3-49a9-8740-9bfbe2489dcc}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{15a83963-225c-4305-8234-4e73082f2045}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{8b9420f5-95ca-45e8-8af3-62eeb62aca53}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{a070ab53-b7e1-44e2-b8c5-15918786eadd}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{3b851912-30c3-49a9-8740-9bfbe2489dcc}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{fc6f9abf-b475-4a1e-abd8-d0507cbdaf4f}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{eb6a9e28-34a7-4718-902f-2ddf525d1adf}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3626b029-91d7-48c6-81e1-11685c95d6a1}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{fc6f9abf-b475-4a1e-abd8-d0507cbdaf4f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{132e4334-bed5-4ad3-9e34-373707904f4c}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{15a83963-225c-4305-8234-4e73082f2045}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{b00ce541-0f7e-48d4-90b2-1311aedd8181}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{a070ab53-b7e1-44e2-b8c5-15918786eadd}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{eac4839b-437c-467a-b345-aabc332f93b4}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{8b9420f5-95ca-45e8-8af3-62eeb62aca53}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{5aa4d3c7-6934-4bcc-a401-5dbcf36f6a36}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{eb6a9e28-34a7-4718-902f-2ddf525d1adf}",
+                "srcIndex": 0
+            }
         ],
         "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{eac4839b-437c-467a-b345-aabc332f93b4}",
+                        "{5aa4d3c7-6934-4bcc-a401-5dbcf36f6a36}",
+                        "{b48f049e-ad81-440a-9524-8986787c4a11}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{bc457f68-f42a-4167-933a-7849c3d0f193}",
+                "name": "Raw Histos caen_v1190a",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{15a83963-225c-4305-8234-4e73082f2045}",
+                        "{fc6f9abf-b475-4a1e-abd8-d0507cbdaf4f}",
+                        "{a070ab53-b7e1-44e2-b8c5-15918786eadd}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3147a253-0407-4cfd-acfa-0cca4de07c2d}",
+                "name": "Cal caen_v1190a",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{132e4334-bed5-4ad3-9e34-373707904f4c}",
+                        "{3626b029-91d7-48c6-81e1-11685c95d6a1}",
+                        "{b00ce541-0f7e-48d4-90b2-1311aedd8181}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{8b705735-543f-4ecc-a0fd-2506ce447139}",
+                "name": "Cal Histos caen_v1190a",
+                "userLevel": 1
+            }
         ],
         "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "tdc_channels",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{eac4839b-437c-467a-b345-aabc332f93b4}",
+                "name": "tdc_channels_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 524288,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{15a83963-225c-4305-8234-4e73082f2045}",
+                "name": "tdc_channels",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "ext_trig_time_tag",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{5aa4d3c7-6934-4bcc-a401-5dbcf36f6a36}",
+                "name": "ext_trig_time_tag_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 134217728,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{fc6f9abf-b475-4a1e-abd8-d0507cbdaf4f}",
+                "name": "ext_trig_time_tag",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "event_counter",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{b48f049e-ad81-440a-9524-8986787c4a11}",
+                "name": "event_counter_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 4194304,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{a070ab53-b7e1-44e2-b8c5-15918786eadd}",
+                "name": "event_counter",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "tdc_channels",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{132e4334-bed5-4ad3-9e34-373707904f4c}",
+                "name": "tdc_channels",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "ext_trig_time_tag",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3626b029-91d7-48c6-81e1-11685c95d6a1}",
+                "name": "ext_trig_time_tag",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "event_counter",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{b00ce541-0f7e-48d4-90b2-1311aedd8181}",
+                "name": "event_counter",
+                "userLevel": 1
+            }
         ],
-        "properties": {
-            "ModuleProperties": [
-                {
-                    "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
-                    "moduleName": "caen_v1190a",
-                    "moduleTypeName": "caen_v1190a"
-                }
-            ]
-        },
         "sources": [
             {
                 "class": "analysis::Extractor",
@@ -28,7 +770,7 @@
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "edcf0304ed1aa9d2",
+                    "rngSeed": "e0da7c42e4c3c",
                     "subFilters": [
                         {
                             "filterString": "000000AAAAAAADDDDDDDDDDDDDDDDDDD",
@@ -36,19 +778,19 @@
                         }
                     ]
                 },
-                "eventId": "{309ee213-4b6e-487a-973d-dc374d4b3e2f}",
-                "id": "{f362a29d-1032-47d9-822a-4e3eed1b23d3}",
-                "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{8b9420f5-95ca-45e8-8af3-62eeb62aca53}",
+                "moduleId": "{f5f2c59a-3d90-49d4-aca5-1f417e8a4995}",
                 "name": "tdc_channels"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
-                    "options": 1,
+                    "options": 0,
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "4392ffe4d6cfde",
+                    "rngSeed": "b7a9802004ea24c7",
                     "subFilters": [
                         {
                             "filterString": "10001DDDDDDDDDDDDDDDDDDDDDDDDDDD",
@@ -56,19 +798,19 @@
                         }
                     ]
                 },
-                "eventId": "{309ee213-4b6e-487a-973d-dc374d4b3e2f}",
-                "id": "{7eebb26f-bc06-4e04-bfa0-c10f4c313aad}",
-                "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{eb6a9e28-34a7-4718-902f-2ddf525d1adf}",
+                "moduleId": "{f5f2c59a-3d90-49d4-aca5-1f417e8a4995}",
                 "name": "ext_trig_time_tag"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
-                    "options": 1,
+                    "options": 0,
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "add5dc13a750ec21",
+                    "rngSeed": "d6e3f16ef6e7edce",
                     "subFilters": [
                         {
                             "filterString": "01000DDDDDDDDDDDDDDDDDDDDDDXXXXX",
@@ -76,9 +818,9 @@
                         }
                     ]
                 },
-                "eventId": "{309ee213-4b6e-487a-973d-dc374d4b3e2f}",
-                "id": "{3983c38b-7cdd-4c38-8330-ef50f2fe8834}",
-                "moduleId": "{cf9610a1-94bb-4012-b962-b619e62d358f}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3b851912-30c3-49a9-8740-9bfbe2489dcc}",
+                "moduleId": "{f5f2c59a-3d90-49d4-aca5-1f417e8a4995}",
                 "name": "event_counter"
             }
         ]

@@ -1,131 +1,140 @@
 {
     "AnalysisNG": {
-        "MVMEAnalysisVersion": 3,
+        "MVMEAnalysisVersion": 4,
         "VMEObjectSettings": {
-            "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}": {
-                "MultiEventProcessing": true
-            },
-            "{87a74d10-a9ab-43dc-be4b-6ef4c5b5052c}": {
-                "MultiEventHeaderFilter": "0100 XXXX XXXX XXXX XXXX XXXX XSSS SSSS"
-            }
         },
         "conditionLinks": [
         ],
         "connections": [
             {
-                "dstId": "{defcc14f-52f9-4254-acee-870c30899049}",
+                "dstId": "{94666245-8ab6-4bb5-a5b8-07adba12f703}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{d7d0cec8-47bc-491b-811d-83475bbec7e5}",
+                "srcId": "{14abae1b-51d2-41e0-9116-bb3d4163ba68}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{f0542b9c-b98e-41dd-9adf-fd807491888e}",
+                "dstId": "{8e856b4a-7464-4433-93d6-fe5749ae04ab}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{49f88191-79fd-49a5-99cb-ad03d93cf0bc}",
+                "srcId": "{6d7a4177-07e9-463d-891e-80239237aff3}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{d9a1c35c-dffb-44d6-8ee4-43054db9e632}",
+                "dstId": "{aca4dbb4-9ae0-4d66-a883-c2b64e303ba8}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{001c204f-e2af-4eee-be67-df7cc43473e6}",
+                "srcId": "{09c8d317-9c8b-4429-9f54-9cfa811935a2}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{9628f9c0-befb-45bf-a275-ead5997c0498}",
+                "dstId": "{e19dea6b-d5f0-4962-8cf8-b510bf333135}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{6c38d5d7-db99-44db-b47f-643b9d81a8d5}",
+                "srcId": "{8cea77a3-c3f0-489b-a918-bf099032c573}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{1fd42388-0f3e-43d4-87d8-2e2514a12146}",
+                "dstId": "{09c8d317-9c8b-4429-9f54-9cfa811935a2}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{9628f9c0-befb-45bf-a275-ead5997c0498}",
+                "srcId": "{d5ccaa93-f9db-49a1-859b-1a413b84f596}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{14ae70b3-91df-4a60-870c-9fd35881de5c}",
+                "dstId": "{95cfb179-18a7-4f7f-ae53-dbbadd8eece8}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{6c38d5d7-db99-44db-b47f-643b9d81a8d5}",
+                "srcId": "{0575e37a-66a4-489a-afcc-4439a2bae00f}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{d42f72e3-721e-47dd-984c-c698f29eb931}",
+                "dstId": "{3bd9fe27-cf6b-48a3-9893-1ab62c94ab54}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{49f88191-79fd-49a5-99cb-ad03d93cf0bc}",
+                "srcId": "{14abae1b-51d2-41e0-9116-bb3d4163ba68}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{fee00b73-6cd5-4f7f-89f3-bd98b8cb241b}",
+                "dstId": "{d64c1c27-5c80-46e5-8889-5fd3196b0bee}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{d7d0cec8-47bc-491b-811d-83475bbec7e5}",
+                "srcId": "{d5ccaa93-f9db-49a1-859b-1a413b84f596}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{56ca910c-8e7b-4c19-b2c5-420bc3891431}",
+                "dstId": "{a7149ced-12f7-45ad-bd8b-d8b872e2f57a}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{939d66b0-21c5-4d12-87ec-63750548b338}",
+                "srcId": "{8cea77a3-c3f0-489b-a918-bf099032c573}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{5a5885b2-5eb0-4cff-886e-0c3c9ba1c4f7}",
+                "dstId": "{da6f63ad-9ff5-4cda-873c-29ff8d48720d}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{f0542b9c-b98e-41dd-9adf-fd807491888e}",
+                "srcId": "{3bd9fe27-cf6b-48a3-9893-1ab62c94ab54}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{939d66b0-21c5-4d12-87ec-63750548b338}",
+                "dstId": "{0575e37a-66a4-489a-afcc-4439a2bae00f}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{001c204f-e2af-4eee-be67-df7cc43473e6}",
+                "srcId": "{6d7a4177-07e9-463d-891e-80239237aff3}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{a094ec21-77df-496d-8872-0dcf82923d8a}",
+                "dstId": "{16432767-4ed6-4184-ac43-5bebdc78ecb9}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{fee00b73-6cd5-4f7f-89f3-bd98b8cb241b}",
+                "srcId": "{a7149ced-12f7-45ad-bd8b-d8b872e2f57a}",
                 "srcIndex": 0
             }
         ],
         "directories": [
             {
                 "data": {
-                    "displayLocation": "operator",
+                    "displayLocation": "sink",
                     "members": [
-                        "{f0542b9c-b98e-41dd-9adf-fd807491888e}",
-                        "{939d66b0-21c5-4d12-87ec-63750548b338}",
-                        "{9628f9c0-befb-45bf-a275-ead5997c0498}",
-                        "{fee00b73-6cd5-4f7f-89f3-bd98b8cb241b}"
+                        "{8e856b4a-7464-4433-93d6-fe5749ae04ab}",
+                        "{e19dea6b-d5f0-4962-8cf8-b510bf333135}",
+                        "{d64c1c27-5c80-46e5-8889-5fd3196b0bee}",
+                        "{94666245-8ab6-4bb5-a5b8-07adba12f703}"
                     ]
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{4e045de9-56fa-4e78-b579-3ae3e6e367e7}",
-                "name": "Cal mdpp32_scp",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{1680b890-755c-4491-80cd-f6595b75b480}",
+                "name": "Raw Histos mdpp32_padc",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{0575e37a-66a4-489a-afcc-4439a2bae00f}",
+                        "{a7149ced-12f7-45ad-bd8b-d8b872e2f57a}",
+                        "{09c8d317-9c8b-4429-9f54-9cfa811935a2}",
+                        "{3bd9fe27-cf6b-48a3-9893-1ab62c94ab54}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{087d54e1-f85b-423f-8437-d0cad46034fa}",
+                "name": "Cal mdpp32_padc",
                 "userLevel": 1
             },
             {
                 "data": {
                     "displayLocation": "sink",
                     "members": [
-                        "{5a5885b2-5eb0-4cff-886e-0c3c9ba1c4f7}",
-                        "{56ca910c-8e7b-4c19-b2c5-420bc3891431}",
-                        "{1fd42388-0f3e-43d4-87d8-2e2514a12146}",
-                        "{a094ec21-77df-496d-8872-0dcf82923d8a}"
+                        "{95cfb179-18a7-4f7f-ae53-dbbadd8eece8}",
+                        "{16432767-4ed6-4184-ac43-5bebdc78ecb9}",
+                        "{aca4dbb4-9ae0-4d66-a883-c2b64e303ba8}",
+                        "{da6f63ad-9ff5-4cda-873c-29ff8d48720d}"
                     ]
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{e632bd25-af06-4e3b-8dc9-b3426626c0ab}",
-                "name": "Cal Histos mdpp32_scp",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{fb829125-07ec-4c13-a534-f4499a10dd46}",
+                "name": "Cal Histos mdpp32_padc",
                 "userLevel": 1
             }
         ],
@@ -135,31 +144,15 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "time",
+                    "xAxisTitle": "amplitude",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{d9a1c35c-dffb-44d6-8ee4-43054db9e632}",
-                "name": "time_raw",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{8e856b4a-7464-4433-93d6-fe5749ae04ab}",
+                "name": "amplitude_raw",
                 "userLevel": 0
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 67108864,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": "us"
-                },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{9628f9c0-befb-45bf-a275-ead5997c0498}",
-                "name": "timestamp",
-                "userLevel": 1
             },
             {
                 "class": "analysis::CalibrationMinMax",
@@ -296,8 +289,8 @@
                     ],
                     "unitLabel": ""
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{f0542b9c-b98e-41dd-9adf-fd807491888e}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{0575e37a-66a4-489a-afcc-4439a2bae00f}",
                 "name": "amplitude",
                 "userLevel": 1
             },
@@ -306,15 +299,186 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "amplitude",
+                    "xAxisTitle": "time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{d42f72e3-721e-47dd-984c-c698f29eb931}",
-                "name": "amplitude_raw",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{e19dea6b-d5f0-4962-8cf8-b510bf333135}",
+                "name": "time_raw",
                 "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{a7149ced-12f7-45ad-bd8b-d8b872e2f57a}",
+                "name": "time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{d64c1c27-5c80-46e5-8889-5fd3196b0bee}",
+                "name": "timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 1073741824,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{09c8d317-9c8b-4429-9f54-9cfa811935a2}",
+                "name": "timestamp",
+                "userLevel": 1
             },
             {
                 "class": "analysis::Histo1DSink",
@@ -326,8 +490,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{defcc14f-52f9-4254-acee-870c30899049}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{94666245-8ab6-4bb5-a5b8-07adba12f703}",
                 "name": "trigger_time_raw",
                 "userLevel": 0
             },
@@ -336,189 +500,19 @@
                 "data": {
                     "calibrations": [
                         {
-                            "unitMax": 6400,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
+                            "unitMax": 65536,
                             "unitMin": 0
                         }
                     ],
-                    "unitLabel": "ns"
+                    "unitLabel": ""
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{939d66b0-21c5-4d12-87ec-63750548b338}",
-                "name": "time",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 6400,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": "ns"
-                },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{fee00b73-6cd5-4f7f-89f3-bd98b8cb241b}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{3bd9fe27-cf6b-48a3-9893-1ab62c94ab54}",
                 "name": "trigger_time",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "resolutionReductionFactor": 0,
-                    "xAxisTitle": "timestamp",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{14ae70b3-91df-4a60-870c-9fd35881de5c}",
-                "name": "timestamp_raw",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "resolutionReductionFactor": 1,
-                    "xAxisTitle": "time",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{56ca910c-8e7b-4c19-b2c5-420bc3891431}",
-                "name": "time",
                 "userLevel": 1
             },
             {
@@ -531,8 +525,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{5a5885b2-5eb0-4cff-886e-0c3c9ba1c4f7}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{95cfb179-18a7-4f7f-ae53-dbbadd8eece8}",
                 "name": "amplitude",
                 "userLevel": 1
             },
@@ -541,14 +535,14 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "trigger_time",
+                    "xAxisTitle": "time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{a094ec21-77df-496d-8872-0dcf82923d8a}",
-                "name": "trigger_time",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{16432767-4ed6-4184-ac43-5bebdc78ecb9}",
+                "name": "time",
                 "userLevel": 1
             },
             {
@@ -561,21 +555,27 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{1fd42388-0f3e-43d4-87d8-2e2514a12146}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{aca4dbb4-9ae0-4d66-a883-c2b64e303ba8}",
                 "name": "timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{da6f63ad-9ff5-4cda-873c-29ff8d48720d}",
+                "name": "trigger_time",
                 "userLevel": 1
             }
         ],
-        "properties": {
-            "ModuleProperties": [
-                {
-                    "moduleId": "{a38cc9de-6c39-4d79-a242-ea8667101d39}",
-                    "moduleName": "mdpp32_padc",
-                    "moduleTypeName": "mdpp32_padc"
-                }
-            ]
-        },
         "sources": [
             {
                 "class": "analysis::Extractor",
@@ -584,7 +584,7 @@
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "38094b9e4dee49c1",
+                    "rngSeed": "362881a84bc65543",
                     "subFilters": [
                         {
                             "filterString": "0001XXXPO00AAAAADDDDDDDDDDDDDDDD",
@@ -592,9 +592,9 @@
                         }
                     ]
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{49f88191-79fd-49a5-99cb-ad03d93cf0bc}",
-                "moduleId": "{a38cc9de-6c39-4d79-a242-ea8667101d39}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{6d7a4177-07e9-463d-891e-80239237aff3}",
+                "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
                 "name": "amplitude"
             },
             {
@@ -604,7 +604,7 @@
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "42b790d7b2b7e59f",
+                    "rngSeed": "c2a94badf6b2c1db",
                     "subFilters": [
                         {
                             "filterString": "0001XXXPO01AAAAADDDDDDDDDDDDDDDD",
@@ -612,9 +612,9 @@
                         }
                     ]
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{001c204f-e2af-4eee-be67-df7cc43473e6}",
-                "moduleId": "{a38cc9de-6c39-4d79-a242-ea8667101d39}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{8cea77a3-c3f0-489b-a918-bf099032c573}",
+                "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
                 "name": "time"
             },
             {
@@ -624,7 +624,7 @@
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "ab097fbe6d22eae7",
+                    "rngSeed": "e81287806fb26c18",
                     "subFilters": [
                         {
                             "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
@@ -632,9 +632,9 @@
                         }
                     ]
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{6c38d5d7-db99-44db-b47f-643b9d81a8d5}",
-                "moduleId": "{a38cc9de-6c39-4d79-a242-ea8667101d39}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{d5ccaa93-f9db-49a1-859b-1a413b84f596}",
+                "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
                 "name": "timestamp"
             },
             {
@@ -644,7 +644,7 @@
                     "parameterNames": [
                     ],
                     "requiredCompletionCount": 1,
-                    "rngSeed": "68f7181dc18fe7c2",
+                    "rngSeed": "4484fbcb61179f5f",
                     "subFilters": [
                         {
                             "filterString": "0001XXXXX100000ADDDDDDDDDDDDDDDD",
@@ -652,9 +652,9 @@
                         }
                     ]
                 },
-                "eventId": "{4e1146e7-bb9c-40fa-b66a-6ed94175089a}",
-                "id": "{d7d0cec8-47bc-491b-811d-83475bbec7e5}",
-                "moduleId": "{a38cc9de-6c39-4d79-a242-ea8667101d39}",
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{14abae1b-51d2-41e0-9116-bb3d4163ba68}",
+                "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
                 "name": "trigger_time"
             }
         ]
