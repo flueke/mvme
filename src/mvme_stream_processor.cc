@@ -719,7 +719,7 @@ MVMEStreamProcessor::singleStepInitState(DataBuffer *buffer)
 {
     Q_ASSERT(!m_d->singleStepState.bufferIter.data);
 
-    ProcessingState procState = {};
+    ProcessingState procState = ProcessingState();
     procState.buffer = buffer;
 
     m_d->singleStepState.bufferIter = BufferIterator(buffer->data, buffer->used, BufferIterator::Align32);
