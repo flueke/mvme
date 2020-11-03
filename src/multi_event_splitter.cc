@@ -417,6 +417,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
             staticPartsYielded = true;
         }
+
+        LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
+        callbacks.endEvent(ei);
     }
 
     return {};
