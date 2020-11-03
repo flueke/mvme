@@ -2,9 +2,8 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QString>
-#include <fmt/format.h>
-
 #include <mesytec-mvlc/mesytec-mvlc.h>
+
 #include "mvme_session.h"
 #include "listfile_replay.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
