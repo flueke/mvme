@@ -3107,7 +3107,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         parserOut << "Running readout parser..." << endl;
 
         readout_parser::ParseResult pr = {};
-        Protected<readout_parser::ReadoutParserCounters> parserCounters({});
+        readout_parser::ReadoutParserCounters parserCounters({});
 
         try
         {

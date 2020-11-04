@@ -498,9 +498,8 @@ void MVLC_StreamWorker::start()
             sanitizedReadoutStacks);
 
         // Reset the parser counters and the snapshot copy
-        auto pca = m_parserCounters.access();
-        pca.ref() = {};
-        m_parserCountersSnapshot.access().ref() = pca.copy();
+        m_parserCounters = {};
+        m_parserCountersSnapshot.access().ref() = m_parserCounters;
         logParserInfo(m_parser);
     }
     catch (const vme_script::ParseError &e)
@@ -561,7 +560,7 @@ void MVLC_StreamWorker::start()
                 {
                     processBuffer(buffer, vmeConfig, analysis);
                     empty.enqueue(buffer);
-                    m_parserCountersSnapshot.access().ref() = m_parserCounters.copy();
+                    m_parserCountersSnapshot.access().ref() = m_parserCounters;
                 }
                 catch (...)
                 {
@@ -592,7 +591,7 @@ void MVLC_StreamWorker::start()
                 {
                     processBuffer(buffer, vmeConfig, analysis);
                     empty.enqueue(buffer);
-                    m_parserCountersSnapshot.access().ref() = m_parserCounters.copy();
+                    m_parserCountersSnapshot.access().ref() = m_parserCounters;
                 }
                 catch (...)
                 {
@@ -732,7 +731,7 @@ void MVLC_StreamWorker::processBuffer(
     if (debugRequest != DebugInfoRequest::None)
     {
         debugSavedParserState = m_parser;
-        debugSavedParserCounters = m_parserCounters.copy();
+        debugSavedParserCounters = m_parserCounters;
     }
 
     bool processingOk = false;
