@@ -5,13 +5,6 @@
 # active_buses
 0x6042  0xffff      # A '1' bit means bus active. Reading returns the buses
                     # that where activated at DAQ start time.
-# adc_resolution
-0x6046  4           # number of valid output bits for maximum amplitude
-                    # 0 -> 16 bits
-                    # 1 -> 15 bits
-                    # 2 -> 14 bits
-                    # 3 -> 13 bits
-                    # 4 -> 12 bits
 
 # Trigger Setup
 # ############################################################################
