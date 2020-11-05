@@ -89,8 +89,12 @@ Notes:
 #include "analysis/a2/memory.h"
 #include "listfile_reader/listfile_reader.h"
 #include "listfile_replay.h"
+#include "mesytec-mvlc/mvlc_readout_parser.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
+#include "mvlc_listfile_worker.h"
 #include "mvme_listfile_utils.h"
 #include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
+#include "mvme_stream_processor.h"
 #include "vme_controller_factory.h"
 #include "vme_config_scripts.h"
 
@@ -98,6 +102,7 @@ namespace readout_parser = mesytec::mvlc::readout_parser;
 
 using std::cout;
 using std::endl;
+using namespace mesytec;
 
 struct RawDataPlugin
 {
@@ -334,6 +339,16 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
     if (!replayWorker)
         throw std::runtime_error("could not create replay worker");
 
+    if (auto mvlcListfileWorker = qobject_cast<MVLCListfileWorker *>(replayWorker.get()))
+    {
+        // XXX: leftoff here. The whole thing won't work like this even if I
+        // add snoopQueues for the MVLCListfileWorker because the core loop
+        // below works with emptyBuffers/filledBuffers instead of the snoopQueues.
+        // TODO: refactor the whole thing. it's pretty messy right now.
+        // Maybe even get rid of the difference between the queues.
+        // TODO: pass Protected 
+    }
+
     QThread replayThread;
     replayThread.setObjectName("mvme replay");
     replayWorker->moveToThread(&replayThread);
@@ -369,15 +384,15 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
     {
         std::fill(moduleDataList, moduleDataList+maxModuleCount, ModuleData{});
     };
-    callbacks.modulePrefix = [&] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.groupPrefix = [&] (int ei, int mi, const u32 *data, u32 size)
     {
         moduleDataList[mi].prefix = { data, size };
     };
-    callbacks.moduleDynamic = [&] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.groupDynamic = [&] (int ei, int mi, const u32 *data, u32 size)
     {
         moduleDataList[mi].dynamic = { data, size };
     };
-    callbacks.moduleSuffix = [&] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.groupSuffix = [&] (int ei, int mi, const u32 *data, u32 size)
     {
         moduleDataList[mi].suffix = { data, size };
     };
@@ -415,9 +430,30 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
                                 logger);
     }
 
-    auto mvlcParser = make_readout_parser(collect_readout_scripts(*vmeConfig));
+    // FIXME: copy/pasta from mvlc_stream_worker.cc
+    auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig.get());
 
-    replayWorker->setListfile(replayHandle.listfile.get());
+    std::vector<mvlc::StackCommandBuilder> sanitizedReadoutStacks;
+
+    for (auto &srcStack: mvlcCrateConfig.stacks)
+    {
+        mvlc::StackCommandBuilder dstStack;
+
+        for (auto &srcGroup: srcStack.getGroups())
+        {
+            if (mvlc::produces_output(srcGroup))
+                dstStack.addGroup(srcGroup);
+        }
+
+        sanitizedReadoutStacks.emplace_back(dstStack);
+    }
+
+    auto mvlcParser = mesytec::mvlc::readout_parser::make_readout_parser(
+        sanitizedReadoutStacks);
+
+    mvlc::readout_parser::ReadoutParserCounters mvlcParserCounters({});
+
+    replayWorker->setListfile(&replayHandle);
 
     QObject::connect(&replayThread, &QThread::started,
                      replayWorker.get(), &ListfileReplayWorker::start);
@@ -445,19 +481,21 @@ void process_one_listfile(const QString &filename, const std::vector<RawDataPlug
             // Try to get a buffer from the queue and hand it to processing.
             while (auto buffer = dequeue(&filledBuffers, 10))
             {
-                ParseResult pr{};
+                mesytec::mvlc::readout_parser::ParseResult pr{};
                 switch (controllerType)
                 {
                     case VMEControllerType::MVLC_ETH:
                         pr = parse_readout_buffer_eth(
-                            mvlcParser, callbacks,
-                            buffer->id, buffer->data, buffer->used);
+                            mvlcParser, callbacks, mvlcParserCounters,
+                            buffer->id,
+                            buffer->asU32(), buffer->used / sizeof(u32));
                         break;
 
                     case VMEControllerType::MVLC_USB:
                         pr = parse_readout_buffer_usb(
-                            mvlcParser, callbacks,
-                            buffer->id, buffer->data, buffer->used);
+                            mvlcParser, callbacks, mvlcParserCounters,
+                            buffer->id,
+                            buffer->asU32(), buffer->used / sizeof(u32));
                         break;
 
                     case VMEControllerType::VMUSB:
