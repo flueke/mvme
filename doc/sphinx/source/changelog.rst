@@ -4,6 +4,55 @@
 Changelog
 ##################################################
 
+Version 1.3.0-rc1
+-----------------
+* [mvlc] Support MVLC ethernet readout throttling
+
+  - Throttling is done by sending 'delay' commands to the MVLC which then adds
+    small gaps between outgoing ethernet packets thus effectively limiting the
+    data rate.
+
+  - The MVLC will block the VME readout side if it cannot send out enough
+    ethernet packets either due to reaching the maximum bandwidth or due to
+    throttling. This behaves in the same way as USB readouts when the software
+    side cannot keep up with the USB data rate.
+
+  - The delay value is currently calculated based on the usage level of the
+    readout socket receive buffer. Throttling starts at 50% buffer usage level
+    and increases exponentially from there.
+
+  This method of ethernet throttling is effective when the receiving PC cannot
+  handle the incoming data rate, e.g. because it cannot compress the listfile
+  fast enough. Instead of bursts of packet loss which can lead to losing big
+  chunks of readout data the readout itself is slowed down, effectively
+  limiting the trigger rate. The implementation does not compensate for packet
+  loss caused by network switches or other network equipment.
+
+  Throttling and socket buffer statistics are shown at the bottom of the main
+  window, below the VME config tree.
+
+* [mvlc] readout_parser fixes: disabled VME modules confusing the parser, stale
+  data from the previous run remaining in the buffers.
+
+* [analysis] Allow directories, copy/paste and drag/drop for raw histograms
+  (bottom-left tree view). When generating default filters and histograms for a
+  module the histograms are also placed in a directory instead of being
+  attached to special module nodes. When loading analysis files from previous
+  versions the missing directories are automatically created.
+
+* [analysis] Updated the multievent_splitter to work with modules which do not
+  contain the length of the following event data in their header word. Instead
+  the event length is determined by repeatedly trying the module header filter
+  until it matches the next header or the end of the readout data is reached.
+
+* [vme_templates]
+
+  - Updates to the mesytec VMMR template.
+
+  - Updates to the CAEN v785 template.
+
+  - Add templates for the  CAEN V1190A Multihit TDC.
+
 Version 1.2.1
 -------------
 * [analyis] Fix two crashes when using the ExportSink
