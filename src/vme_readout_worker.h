@@ -21,7 +21,6 @@
 #ifndef __VME_READOUT_WORKER_H__
 #define __VME_READOUT_WORKER_H__
 
-#include <mesytec-mvlc/util/readout_buffer_queues.h>
 #include "data_buffer_queue.h"
 #include "globals.h"
 #include "vme_config.h"

@@ -462,7 +462,7 @@ vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
     auto uploadData = mvme_mvlc::build_upload_command_buffer(
         { cmd }, mvlc::CommandPipe, mvlc::stacks::StackMemoryBegin);
 
-    mvlc::log_buffer(uploadData, "run_command upload data");
+    mvlc::util::log_buffer(std::cout, uploadData, "run_command upload data");
 
     std::vector<u32> tmpBuffer;
 

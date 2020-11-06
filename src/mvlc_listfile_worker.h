@@ -21,7 +21,7 @@
 #ifndef __MVLC_LISTFILE_WORKER_H__
 #define __MVLC_LISTFILE_WORKER_H__
 
-#include <mesytec-mvlc/util/readout_buffer_queues.h>
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "libmvme_export.h"
 #include "listfile_replay_worker.h"
 

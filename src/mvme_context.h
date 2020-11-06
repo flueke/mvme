@@ -23,6 +23,7 @@
 
 #include "libmvme_export.h"
 
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "analysis/analysis.h"
 #include "globals.h"
 #include "databuffer.h"

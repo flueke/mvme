@@ -24,7 +24,7 @@
 #include <iostream>
 #include <QDebug>
 
-#include <mesytec-mvlc/mvlc_util.h>
+#include <mesytec-mvlc/mesytec-mvlc.h>
 
 using namespace mesytec::mvme_mvlc;
 
@@ -227,7 +227,7 @@ void log_buffer(const QVector<u32> &buffer, const QString &info)
 {
     std::vector<u32> vec;
     std::copy(buffer.begin(), buffer.end(), std::back_inserter(vec));
-    mvlc::log_buffer(vec, info.toStdString());
+    mvlc::util::log_buffer(std::cout, vec, info.toStdString());
 }
 
 } // end namespace mvme_mvlc
