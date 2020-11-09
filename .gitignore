@@ -9,3 +9,4 @@ doc/mvme.qhc
 .clangd/
 build*/
 .vscode/
+.cmake/
