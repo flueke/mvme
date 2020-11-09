@@ -20,6 +20,7 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
         switch (srcCmd.type)
         {
             case CommandType::Read:
+            case CommandType::ReadAbs:
                 dstCmd.type = mvlcCT::VMERead;
                 dstCmd.address = srcCmd.address;
                 dstCmd.amod = srcCmd.addressMode;
