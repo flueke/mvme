@@ -74,9 +74,12 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         std::error_code connect() override
         {
             if (!isConnected())
+            {
                 setState(Connecting);
+                return updateState(m_mvlc.connect());
+            }
 
-            return updateState(m_mvlc.connect());
+            return {};
         }
 
         std::error_code disconnect() override

@@ -906,9 +906,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     // Interactions
 
     // mvlc connection state changes
-    connect(m_d->mvlc, &MVLCObject::stateChanged,
-            this, [this] (const MVLCObject::State &,
-                          const MVLCObject::State &newState)
+    auto on_mvlc_state_changed = [this] (const MVLCObject::State &,
+                                         const MVLCObject::State &newState)
     {
         switch (newState)
         {
@@ -920,6 +919,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                 break;
             case MVLCObject::Connected:
                 ui->le_connectionStatus->setText("Connected");
+                break;
         }
 
         if (newState == MVLCObject::Connected)
@@ -955,7 +955,12 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         ui->pb_runScript->setEnabled(newState == MVLCObject::Connected);
         ui->pb_reconnect->setEnabled(newState != MVLCObject::Connecting);
-    });
+    };
+
+    connect(m_d->mvlc, &MVLCObject::stateChanged,
+            this, on_mvlc_state_changed);
+
+    on_mvlc_state_changed({}, m_d->mvlc->getState());
 
     // count stack error notifications published by the mvlc object
     connect(ui->pb_runScript, &QPushButton::clicked,
