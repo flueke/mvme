@@ -112,6 +112,7 @@ namespace
             switch (command.type)
             {
                 case  CommandType::Read:
+                case  CommandType::ReadAbs:
                     size += 3;
                     break;
 
@@ -327,6 +328,7 @@ namespace
             switch (command.type)
             {
                 case  CommandType::Read:
+                case  CommandType::ReadAbs:
 
                     stackList_add_single_read(
                         &resultOffset, result.data(),

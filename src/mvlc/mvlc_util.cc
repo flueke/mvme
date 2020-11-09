@@ -97,6 +97,7 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
                 } break;
 
             case CommandType::Read:
+            case CommandType::ReadAbs:
                 {
                     firstWord = static_cast<u32>(StackCommandType::VMERead) << CmdShift;
                     firstWord |= cmd.addressMode << CmdArg0Shift;

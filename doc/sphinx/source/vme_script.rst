@@ -18,11 +18,11 @@ Alternatively blocks can be commented out starting with ``/*`` and ending with
 Scripts belonging to a module (**Module Init Scripts**, **VME Interface
 Settings**, **Module Reset** and the readout code) will have the **module base
 address** added to most of the commands. This allows writing scripts containing
-module-relative addresses only. An exception is the :ref:`writeabs
-<vme-command-writeabs>` command which does not modify its address argument. The
-base address can also be temporarily replaced with a different value by using
-the :ref:`setbase <vme-command-setbase>` and :ref:`resetbase
-<vme-command-resetbase>` commands.
+module-relative addresses only. Exceptions are the :ref:`writeabs
+<vme-command-writeabs>` and :ref:`readabs <vme-command-readabs>` commands which
+do not modify their address argument. The base address can also be temporarily
+replaced with a different value by using the :ref:`setbase
+<vme-command-setbase>` and :ref:`resetbase <vme-command-resetbase>` commands.
 
 The commands below accept the following values for address modifiers and data widths:
 
@@ -100,12 +100,16 @@ assumed. The address is the first number, the value to be written is the second 
 Example: ``0x6070 3`` is the same as ``write a32 d16 0x6070 3``
 
 .. _vme-command-read:
+.. _vme-command-readabs:
 
 Reading
 ~~~~~~~
 * **read** *<amode> <dwidth> <address>*
+* **readabs** *<amode> <dwidth> <address>*
 
 Reads a single value from the given *<address>*.
+
+**readabs** uses the given *<address>* unmodified, meaning the module base address will not be added.
 
 .. _vme-command-blt:
 .. _vme-command-bltfifo:

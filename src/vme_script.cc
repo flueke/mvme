@@ -171,8 +171,7 @@ Command parseRead(const QStringList &args, int lineNumber)
 
     Command result;
 
-    result.type = CommandType::Read;
-
+    result.type = commandType_from_string(args[0]);
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
@@ -484,6 +483,7 @@ typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 static const QMap<QString, CommandParser> commandParsers =
 {
     { QSL("read"),                  parseRead },
+    { QSL("readabs"),               parseRead },
     { QSL("write"),                 parseWrite },
     { QSL("writeabs"),              parseWrite },
     { QSL("wait"),                  parseWait },
@@ -1311,6 +1311,7 @@ VMEScript parse(
 static const QMap<CommandType, QString> commandTypeToString =
 {
     { CommandType::Read,                QSL("read") },
+    { CommandType::ReadAbs,             QSL("readabs") },
     { CommandType::Write,               QSL("write") },
     { CommandType::WriteAbs,            QSL("writeabs") },
     { CommandType::Wait,                QSL("wait") },
@@ -1416,6 +1417,7 @@ QString to_string(const Command &cmd)
             return cmdStr;
 
         case CommandType::Read:
+        case CommandType::ReadAbs:
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
@@ -1528,6 +1530,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Invalid:
         case CommandType::Wait:
         case CommandType::Marker:
+        case CommandType::ReadAbs:
         case CommandType::WriteAbs:
         case CommandType::SetBase:
         case CommandType::ResetBase:

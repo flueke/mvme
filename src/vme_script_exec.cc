@@ -95,6 +95,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             break;
 
         case CommandType::Read:
+        case CommandType::ReadAbs:
             {
                 switch (cmd.dataWidth)
                 {
@@ -261,6 +262,7 @@ QString format_result(const Result &result)
             break;
 
         case CommandType::Read:
+        case CommandType::ReadAbs:
             ret += QString(" -> 0x%1 (%2 dec)")
                 .arg(result.value, 8, 16, QChar('0'))
                 .arg(result.value)

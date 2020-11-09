@@ -210,6 +210,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             break;
 
         case CommandType::Read:
+        case CommandType::ReadAbs:
             {
                 switch (cmd.dataWidth)
                 {

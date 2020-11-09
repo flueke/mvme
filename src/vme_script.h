@@ -84,6 +84,7 @@ enum class CommandType
 
     // VME reads and writes.
     Read,
+    ReadAbs,
     Write,
     WriteAbs,
 
