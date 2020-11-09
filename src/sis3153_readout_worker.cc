@@ -534,6 +534,8 @@ SIS3153ReadoutWorker::EventLossCounter::handleEventSequenceNumber(s32 seqNum, u6
 #if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber
                 << ", first non-stale seqNum =" << seqNum;
+#else
+            (void) bufferNumber;
 #endif
             currentFlags &= ~Flag_IsStaleData;
         }
