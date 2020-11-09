@@ -23,6 +23,13 @@ ResultList run_script(
 {
     int cmdNumber = 1;
     ResultList results;
+    std::unique_lock<mesytec::mvlc::Mutex> mvlcErrorPollerSuspendMutex;
+
+    if (auto mvlcCtrl = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
+    {
+        auto mvlc = mvlcCtrl->getMVLC();
+        mvlcErrorPollerSuspendMutex = mvlc.suspendStackErrorPolling();
+    }
 
     for (auto cmd: script)
     {
