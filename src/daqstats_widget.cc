@@ -60,9 +60,7 @@ struct DAQStatsWidgetPrivate
 
     QLabel *label_daqDuration,
            *label_buffersRead,
-           *label_bufferErrors,
            *label_bufferRates,
-           *label_readSize,
            *label_bytesRead,
 
            *label_sisEventLoss,
@@ -92,21 +90,21 @@ struct DAQStatsWidgetPrivate
         double bytesPerSecond   = deltaBytesRead / dt_s;
         double mbPerSecond      = bytesPerSecond / Megabytes(1);
         double buffersPerSecond = deltaBuffersRead / dt_s;
-        double avgReadSize      = deltaBytesRead / static_cast<double>(deltaBuffersRead);
-
-        u64 bufferProcessingErrors = stats.buffersWithErrors;
 
         // Set NaNs to 0 before displaying them.
         if (std::isnan(buffersPerSecond)) buffersPerSecond = 0.0;
         if (std::isnan(mbPerSecond)) mbPerSecond = 0.0;
-        if (std::isnan(avgReadSize)) avgReadSize = 0.0;
 
         auto totalDurationString = makeDurationString(elapsed_s);
 
         label_daqDuration->setText(totalDurationString);
-        label_buffersRead->setText(QString::number(stats.totalBuffersRead));
-        label_bufferErrors->setText(QString::number(bufferProcessingErrors));
-        label_readSize->setText(QString::number(avgReadSize));
+
+        auto buffersReadText = QString::number(stats.totalBuffersRead);
+
+        if (stats.buffersWithErrors > 0)
+            buffersReadText += QSL(" (processing errors=%1)").arg(stats.buffersWithErrors);
+
+        label_buffersRead->setText(buffersReadText);
 
         label_bufferRates->setText(QString("%1 buffers/s, %2 MB/s")
                                    .arg(buffersPerSecond, 6, 'f', 2)
@@ -222,6 +220,7 @@ struct DAQStatsWidgetPrivate
     void updateMVLCStackErrors(const mesytec::mvlc::StackErrorCounters &counters)
     {
         QString text;
+        bool needNewline = false;
 
         for (const auto &kv: counters.stackErrors | indexed(0))
         {
@@ -231,23 +230,64 @@ struct DAQStatsWidgetPrivate
             if (counts.empty())
                 continue;
 
+            // Timeout, BusError, SyntaxError
+            using ErrorAccu = std::array<size_t, 3>;
+            using namespace mesytec::mvlc;
+
+            ErrorAccu errorAccu = {};
+
             for (auto it=counts.begin(); it!=counts.end(); it++)
             {
                 const auto &errorInfo = it->first;
                 const auto &count = it->second;
 
-                text += QString("stack=%1, line=%2, flags=0x%3, count=%4\n")
-                    .arg(stackId)
-                    .arg(errorInfo.line)
-                    .arg(errorInfo.flags, 2, 16, QLatin1Char('0'))
-                    .arg(count)
-                    ;
+                // errorInfo records a hit for each distinct combination of
+                // error flags. This code builds per flag counts from these
+                // combinations. Confusing.
+                for (size_t flag=0; flag<errorAccu.size(); ++flag)
+                    if (errorInfo.flags & flag)
+                        errorAccu[flag] += count;
+            }
+
+            // If we have any errors for this stack add a new line to the label text.
+            if (std::accumulate(std::begin(errorAccu), std::end(errorAccu), 0u))
+            {
+                if (needNewline)
+                    text += QSL("\n");
+
+                text += QSL("stack=%1, ").arg(stackId);
+                bool needComma = false;
+
+                if (errorAccu[frame_flags::Timeout])
+                {
+                    text += QSL("timeouts=%1").arg(errorAccu[frame_flags::Timeout]);
+                    needComma = true;
+                }
+
+                if (errorAccu[frame_flags::BusError])
+                {
+                    if (needComma)
+                        text += QSL(", ");
+                    text += QSL("busErrors=%1").arg(errorAccu[frame_flags::BusError]);
+                    needComma = true;
+                }
+
+                if (errorAccu[frame_flags::SyntaxError])
+                {
+                    if (needComma)
+                        text += QSL(", ");
+                    text += QSL("syntaxErrors=%1").arg(errorAccu[frame_flags::SyntaxError]);
+                }
+
+                needNewline = true;
             }
         }
 
         if (counters.nonErrorFrames)
         {
-            text += QString("non-error frames: %1").arg(counters.nonErrorFrames);
+            if (needNewline)
+                text += QSL("\n");
+            text += QString("wrongly received non-error frames: %1").arg(counters.nonErrorFrames);
         }
 
         label_mvlcStackErrors->setText(text);
@@ -315,7 +355,7 @@ struct DAQStatsWidgetPrivate
                 updateMVLC_ETH_Throttling(mvlcEth);
             }
 
-            updateMVLCStackErrors(mvlcReadoutCounters.stackErrors);
+            updateMVLCStackErrors(mvlc->getMVLC().getStackErrorCounters());
 
             prevCounters.mvlcReadoutCounters = mvlcReadoutCounters;
         }
@@ -336,9 +376,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     m_d->label_daqDuration = new QLabel;
     m_d->label_buffersRead = new QLabel;
-    m_d->label_bufferErrors = new QLabel;
     m_d->label_bufferRates = new QLabel;
-    m_d->label_readSize = new QLabel;
     m_d->label_bytesRead = new QLabel;
 
     m_d->label_sisEventLoss = new QLabel;
@@ -355,9 +393,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     {
         m_d->label_daqDuration,
         m_d->label_buffersRead,
-        m_d->label_bufferErrors,
         m_d->label_bufferRates,
-        m_d->label_readSize,
         m_d->label_bytesRead,
         m_d->label_sisEventLoss,
         m_d->label_mvlcFrameTypeErrors,
@@ -395,10 +431,8 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     genericLayout->addRow("Running time:", m_d->label_daqDuration);
     genericLayout->addRow("Buffers read:", m_d->label_buffersRead);
-    genericLayout->addRow("Buffer Errors:", m_d->label_bufferErrors);
-    genericLayout->addRow("Data rates:", m_d->label_bufferRates);
-    genericLayout->addRow("Avg. read size:", m_d->label_readSize);
     genericLayout->addRow("Bytes read:", m_d->label_bytesRead);
+    genericLayout->addRow("Data rates:", m_d->label_bufferRates);
 
     sisLayout->addRow("Event Loss:", m_d->label_sisEventLoss);
 
