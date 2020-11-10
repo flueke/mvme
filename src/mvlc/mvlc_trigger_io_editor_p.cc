@@ -2677,7 +2677,7 @@ Level0UtilsDialog::Level0UtilsDialog(
     auto make_soft_triggers_table_ui = [](const Level0 &l0)
     {
         static const QString RowTitleFormat = "SoftTrigger%1";
-        static const QStringList ColumnTitles = { "Name", "Perma Activate" };
+        static const QStringList ColumnTitles = { "Name", "Activation" };
         const int rowCount = l0.SoftTriggerCount;
         const int nameOffset = l0.SoftTriggerOffset;
 
@@ -2691,13 +2691,17 @@ Level0UtilsDialog::Level0UtilsDialog(
 
             const auto &st = l0.softTriggers[row];
 
-            auto check_permaEnable = new QCheckBox;
-            check_permaEnable->setChecked(st.permaEnable);
-            ret.checks_permaEnable.push_back(check_permaEnable);
+            auto combo_activation = new QComboBox;
+            ret.combos_activation.push_back(combo_activation);
+            combo_activation->addItem("Level");
+            combo_activation->addItem("Pulse");
+            combo_activation->setCurrentIndex(static_cast<int>(st.activation));
+
+
 
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l0.unitNames.value(row + nameOffset)));
-            ret.table->setCellWidget(row, ret.ColPermaEnable, make_centered(check_permaEnable));
+            ret.table->setCellWidget(row, ret.ColPermaEnable, combo_activation);
         }
 
         ret.table->resizeColumnsToContents();
@@ -2865,7 +2869,7 @@ Level0 Level0UtilsDialog::getSettings() const
             m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
 
             auto &unit = m_l0.softTriggers[row];
-            unit.permaEnable = ui.checks_permaEnable[row]->isChecked();
+            unit.activation = static_cast<SoftTrigger::Activation>(ui.combos_activation[row]->currentIndex());
         }
     }
 

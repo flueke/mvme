@@ -156,8 +156,8 @@ ScriptParts generate(const trigger_io::IRQ_Unit &unit, int index)
 ScriptParts generate(const trigger_io::SoftTrigger &unit)
 {
     ScriptParts ret;
-    ret += write_unit_reg(2, static_cast<u16>(unit.permaEnable),
-                          "permanent output enable");
+    ret += write_unit_reg(2, static_cast<u16>(unit.activation),
+                          "output activation: 0=level, 1=pulse");
     return ret;
 }
 
@@ -1017,7 +1017,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index() + Level0::SoftTriggerOffset;
             auto &unit = kv.value();
 
-            unit.permaEnable = writes[unitIndex][2];
+            unit.activation = static_cast<SoftTrigger::Activation>(writes[unitIndex][2]);
         }
 
         for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))

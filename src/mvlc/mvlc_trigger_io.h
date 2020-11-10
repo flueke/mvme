@@ -152,12 +152,15 @@ struct IRQ_Unit
     u8 irqIndex;
 };
 
-// Soft triggers. Register 0 can be written to create a 8ns wide pulse on the
-// output. Additionally the permaEnable flag (stored at offset 2) can be used
-// to output a constant level.
+// Soft triggers. Register 0 of each SoftTrigger can be written to generate the
+// software trigger.
+//
+// If activation is set to Level a constant output level will be produced until
+// written again.The Pulse setting creaes a 8ns wide pulse instead.
 struct SoftTrigger
 {
-    bool permaEnable;
+    enum class Activation { Level, Pulse };
+    Activation activation;
 };
 
 #if 0

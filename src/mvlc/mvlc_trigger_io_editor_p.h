@@ -631,7 +631,7 @@ class Level0UtilsDialog: public QDialog
 
             static const int FirstUnitIndex = Level0::SoftTriggerOffset;
 
-            QVector<QCheckBox *> checks_permaEnable;
+            QVector<QComboBox *> combos_activation;
         };
 
         struct SlaveTriggers_UI: public Table_UI_Base
