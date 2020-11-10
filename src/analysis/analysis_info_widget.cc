@@ -40,12 +40,9 @@ static const QVector<const char *> LabelTexts =
     "started",
     "stopped",
     "elapsed",
-    "throughput",
     "bytesProcessed",
     "buffersProcessed",
-    "buffersWithErrors",
     "total Events",
-    "invalid event index",
     "counts by event",
     "counts by module",
     "rate by event ",
@@ -111,6 +108,21 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     {
         auto mvlcLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcInfoWidget);
 
+        auto note = QSL(
+            "<br><b>Note</b>: Internal buffer loss is caused by the analysis side not "
+            "being able to keep up with the readout data rate. This internal "
+            "loss can lead to readout parser errors (either non-ok parseResults "
+            "or an increasing number of parserExceptions). Also internal buffer loss "
+            "can lead to ethPacketLoss when using the MVLC_ETH which can cause more "
+            "parser errors.<br/>"
+            "<i>unusedBytes</i> is the number of bytes skipped by the readout parser.<br/>"
+            "Use the debug buttons to see a snapshot of an incoming buffer and how the parser "
+            " and multi event splitter are interpreting the data."
+            );
+        auto noteLabel = new QLabel(note);
+        noteLabel->setWordWrap(true);
+
+
         for (const char *text: MVLC_LabelTexts)
         {
             auto label = new QLabel;
@@ -145,6 +157,8 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
                 worker->requestDebugInfoOnNextBuffer();
             }
         });
+
+        mvlcLayout->addRow(noteLabel);
     }
 
     // outer widget layout
@@ -187,6 +201,8 @@ void AnalysisInfoWidget::update()
         return;
     }
 
+    auto mvlcWorker = qobject_cast<MVLC_StreamWorker *>(streamWorker);
+
     MVMEStreamWorkerState state = streamWorker->getState();
     const auto counters = streamWorker->getCounters();
 
@@ -213,8 +229,6 @@ void AnalysisInfoWidget::update()
 
     u64 deltaBytesProcessed = calc_delta0(counters.bytesProcessed,
                                           m_d->prevCounters.bytesProcessed);
-    u64 deltaBuffersProcessed = calc_delta0(counters.buffersProcessed,
-                                            m_d->prevCounters.buffersProcessed);
 
     double bytesPerSecond   = deltaBytesProcessed / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
@@ -314,26 +328,50 @@ void AnalysisInfoWidget::update()
         m_d->labels[ii++]->setText(QString());
     }
 
+    QString t;
+
     // elapsed
     m_d->labels[ii++]->setText(totalDurationString);
 
-    // throughput
-    m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSecond));
-
     // bytesProcessed
-    m_d->labels[ii++]->setText(QString("%1 MB")
-                               .arg((double)counters.bytesProcessed / Megabytes(1), 6, 'f', 2));
-    // buffersProcessed
-    m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersProcessed));
+    t = QSL("total=%1, rate=%2 MB/s")
+        .arg(format_number(counters.bytesProcessed, "B", UnitScaling::Binary, 0, 'f', 2))
+        .arg(mbPerSecond)
+        ;
 
-    // buffersWithErrors
-    m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
+    m_d->labels[ii++]->setText(t);
+
+    // buffersProcessed
+    if (mvlcWorker)
+    {
+        auto pc = mvlcWorker->getReadoutParserCounters();
+        auto seenBuffers = pc.buffersProcessed;
+        double totalBuffers = pc.buffersProcessed + pc.internalBufferLoss;
+        double seenPercent = seenBuffers / totalBuffers * 100.0;
+        if (std::isnan(seenPercent)) seenPercent = 0.0;
+
+        t = QSL("%1 of %2 buffers, %3%")
+            .arg(seenBuffers)
+            .arg(totalBuffers)
+            .arg(seenPercent)
+            ;
+    }
+    else
+    {
+        t = QSL("%1 buffers").arg(counters.buffersProcessed);
+        if (counters.buffersWithErrors)
+            t += QSL(", errors=%1").arg(counters.buffersWithErrors);
+    }
+
+    m_d->labels[ii++]->setText(t);
 
     // total Events
-    m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
+    t = QSL("%1 events").arg(counters.eventSections);
 
-    // invalid event index
-    m_d->labels[ii++]->setText(QString("%1").arg(counters.invalidEventIndices));
+    if (counters.invalidEventIndices)
+        t += QSL(" (%1 invalid)").arg(counters.invalidEventIndices);
+
+    m_d->labels[ii++]->setText(t);
 
     // counts by event
     m_d->labels[ii++]->setText(ecText);
@@ -350,10 +388,10 @@ void AnalysisInfoWidget::update()
     // system event types
     //m_d->labels[ii++]->setText(sysEventCountsText);
 
-    if (auto worker = qobject_cast<MVLC_StreamWorker *>(streamWorker))
+    if (mvlcWorker)
     {
         m_d->mvlcInfoWidget->setVisible(true);
-        auto counters = worker->getReadoutParserCounters();
+        auto counters = mvlcWorker->getReadoutParserCounters();
         m_d->updateMVLCWidget(counters, dt);
         m_d->prevMVLCCounters = counters;
     }
