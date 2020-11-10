@@ -2693,11 +2693,9 @@ Level0UtilsDialog::Level0UtilsDialog(
 
             auto combo_activation = new QComboBox;
             ret.combos_activation.push_back(combo_activation);
-            combo_activation->addItem("Level");
-            combo_activation->addItem("Pulse");
-            combo_activation->setCurrentIndex(static_cast<int>(st.activation));
-
-
+            combo_activation->addItem("Pulse", static_cast<int>(SoftTrigger::Activation::Pulse));
+            combo_activation->addItem("Level", static_cast<int>(SoftTrigger::Activation::Level));
+            combo_activation->setCurrentIndex(combo_activation->findData(static_cast<int>(st.activation)));
 
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l0.unitNames.value(row + nameOffset)));
@@ -2869,7 +2867,8 @@ Level0 Level0UtilsDialog::getSettings() const
             m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
 
             auto &unit = m_l0.softTriggers[row];
-            unit.activation = static_cast<SoftTrigger::Activation>(ui.combos_activation[row]->currentIndex());
+            unit.activation = static_cast<SoftTrigger::Activation>(
+                ui.combos_activation[row]->currentData().toInt());
         }
     }
 

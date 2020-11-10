@@ -159,7 +159,7 @@ struct IRQ_Unit
 // written again.The Pulse setting creaes a 8ns wide pulse instead.
 struct SoftTrigger
 {
-    enum class Activation { Level, Pulse };
+    enum class Activation { Pulse, Level };
     Activation activation;
 };
 
