@@ -44,8 +44,7 @@ static const QVector<const char *> LabelTexts =
     "bytesProcessed",
     "buffersProcessed",
     "buffersWithErrors",
-    "avgBufferSize",
-    "eventSections",
+    "total Events",
     "invalid event index",
     "counts by event",
     "counts by module",
@@ -219,8 +218,7 @@ void AnalysisInfoWidget::update()
 
     double bytesPerSecond   = deltaBytesProcessed / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
-    double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
-    if (std::isnan(avgBufferSize)) avgBufferSize = 0.0;
+    if (std::isnan(mbPerSecond)) mbPerSecond = 0.0;
 
     QString stateString = state == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running");
 
@@ -300,24 +298,6 @@ void AnalysisInfoWidget::update()
         }
     }
 
-#if 0
-    // format system event subtype counts
-    QString sysEventCountsText;
-
-    for (size_t i=0; i<counters.systemEventTypes.size(); i++)
-    {
-        if (counters.systemEventTypes[i])
-        {
-            if (!sysEventCountsText.isEmpty())
-                sysEventCountsText += ", ";
-
-            sysEventCountsText += QString("0x%1=%2")
-                .arg(i, 2, 16, QLatin1Char('0'))
-                .arg(counters.systemEventTypes[i]);
-        }
-    }
-#endif
-
     s32 ii = 0;
 
     // state
@@ -349,10 +329,7 @@ void AnalysisInfoWidget::update()
     // buffersWithErrors
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
 
-    // avgBufferSize
-    m_d->labels[ii++]->setText(QString("%1 bytes").arg(avgBufferSize));
-
-    // eventSections
+    // total Events
     m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
 
     // invalid event index
@@ -457,8 +434,6 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
                 .arg(QString::fromStdString(mvlc::system_event_type_to_string(subtype)))
                 .arg(subtype, 2, 16, QLatin1Char('0'))
                 .arg(counters.systemEvents[subtype]);
-                //.arg(format_number(counters.systemEventTypes[subtype],
-                //                   "", UnitScaling::Decimal, 0, 'f', 0));
         }
 
         texts += buffer;
