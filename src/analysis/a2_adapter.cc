@@ -194,15 +194,17 @@ DEF_OP_MAGIC(difference_magic)
 
     a2::Operator result = {};
 
-    if (inputSlots[0]->acceptedInputTypes == analysis::InputType::Array)
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
     {
-        assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
+        // Both inputs are arrays
         assert(inputSlots[1]->paramIndex == analysis::Slot::NoParamIndex);
-
+        assert(inputSlots[0]->acceptedInputTypes & analysis::InputType::Array);
+        assert(inputSlots[1]->acceptedInputTypes & analysis::InputType::Array);
         result = make_difference(arena, a2_inputA, a2_inputB);
     }
     else
     {
+        // Both inputs are indexed
         assert(inputSlots[0]->paramIndex != analysis::Slot::NoParamIndex);
         assert(inputSlots[0]->paramIndex < a2_inputA.data.size);
         assert(inputSlots[1]->paramIndex != analysis::Slot::NoParamIndex);
