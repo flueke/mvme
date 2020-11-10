@@ -2,6 +2,8 @@
 TODO list
 ==================================================
 
+* document MVLC jumbo frame support in mvme manual
+
 * [analysis]
   - Display Listfilters below a single listfilter node. Order matters here.
   - Rename (internally these are called extractors):
@@ -73,27 +75,6 @@ TODO list
 
 * log the DAQ run duration when the DAQ is stopped
 
-* add "log to file" functionality: currently the contents of the logview are
-  only saved into listfile archives when a run ends. This means on
-  non-succesful starts there's no file on disk containing the log contents
-  (users have to take screenshots or copy/paste the contents of the log
-  buffer).
-  Concept:
-  - Introduce a new workspace subdirectory 'logs' for logfile storage
-  - On each DAQ start attempt to create a logfile using the current runid to
-    form the filename. If the file exists add an incrementing suffix to the
-    filename.
-  - Append all messages (normal and error) to the file.
-  - Close the file on run end (independent on whether the run was successfully
-    started or was aborted during startup).
-
-  - Limit the number of files to keep. On each DAQ start check the number of
-    files currently present in the logs directory. If the limit is reached
-    delete the oldest of the files.
-
-  - Make sure the system is not active when replays are started! :-)
-
-
 * When adding a periodic event the mvlc trigger io is not updated immediately
   but only on next daq start. This is not great as the trigger io gui state
   does not reflect the state the system will have and things like exporting to
@@ -122,15 +103,6 @@ TODO list
 * The concrete Event timer period is hidden in the Event Settings dialog. It
   should be shown somewhere else, either in the VME Config Tree Info column
   and/or when setting up the events/trigger io
-
-* Replace the special module nodes for raw histograms with simple Directory
-  nodes. When creating default filters populate the directory instead of
-  attaching the histos to the module. Then allow dragging the directory around,
-  creating subdires, dragging histos, etc.
-  This should be limited to raw histos either explicitly or via some logic that
-  disallows dragging non-raw histograms to the L0 area. (Note: there is no
-  logic prohibiting dragging operators to the left, even if the connection
-  logic wouldn't allow connecting that way (flow from left to right)).
 
 * apparently there's a crash when compiling an expression operator script while
   a replay is running. Robert ran into this while editing an expression and
