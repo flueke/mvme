@@ -56,11 +56,6 @@ TODO list
   - CAEN v1190: Need to check a register bit to know when the chip controlling the CERN
     TDCs is ready. This could be done in software or on the MVLC via a special command.
 
-* mvlc readout parser gets confused when the first module in an event is
-  disabled
-
-* cmake: rename BUILD_DOCS to MVME_BUILD_DOCS
-
 * multi_event_splitter: count unused words (per event and module) if possible.
   make this data available as a counter.
 
