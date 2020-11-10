@@ -25,6 +25,7 @@
 #include <QPushButton>
 #include <QScrollBar>
 #include <QTextEdit>
+#include <qnamespace.h>
 
 #include "analysis/code_editor.h"
 #include "mvlc/mvlc_trigger_io_script.h"
@@ -203,7 +204,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             lutEditor = std::make_unique<LUTEditor>(
                 lutName,
                 ioCfg.l1.luts[unit],
-                inputNameLists, outputNames);
+                inputNameLists, outputNames,
+                this);
             lutEditor->resize(850, 650);
         }
         else if (level == 2)
@@ -217,7 +219,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                 strobeInputChoiceNames,
                 strobeConValue,
                 strobeGGSettings,
-                strobedOutputs);
+                strobedOutputs,
+                this);
             lutEditor->resize(850, 750);
         }
 
@@ -260,6 +263,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(lutEditor.get(), &QDialog::accepted, this, do_apply);
 
+        lutEditor->setWindowModality(Qt::WindowModal);
         lutEditor->exec();
     });
 
@@ -280,7 +284,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         QVector<trigger_io::IO> settings;
         std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), std::back_inserter(settings));
 
-        NIM_IO_SettingsDialog dialog(names, settings);
+        NIM_IO_SettingsDialog dialog(names, settings, this);
+        dialog.setWindowModality(Qt::WindowModal);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
         {
@@ -348,7 +353,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset,
             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count);
 
-        NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists, connections);
+        NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists, connections, this);
+        dialog.setWindowModality(Qt::WindowModal);
 
 
         auto do_apply = [this, &dialog, &ioCfg] ()
@@ -427,7 +433,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset,
             ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset + trigger_io::ECL_OUT_Count);
 
-        ECL_SettingsDialog dialog(names, settings, connections, inputChoiceNameLists);
+        ECL_SettingsDialog dialog(names, settings, connections, inputChoiceNameLists, this);
+        dialog.setWindowModality(Qt::WindowModal);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
         {
@@ -502,7 +509,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             }
         }
 
-        Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists, d->vmeEventNames);
+        Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists, d->vmeEventNames, this);
+        dialog.setWindowModality(Qt::WindowModal);
         dialog.resize(1100, 600);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
@@ -521,7 +529,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     {
         auto &ioCfg = d->ioCfg;
 
-        Level0UtilsDialog dialog(ioCfg.l0, d->vmeEventNames);
+        Level0UtilsDialog dialog(ioCfg.l0, d->vmeEventNames, this);
+        dialog.setWindowModality(Qt::WindowModal);
         dialog.resize(1200, 600);
 
         auto do_apply = [this, &dialog, &ioCfg] ()

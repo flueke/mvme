@@ -2,6 +2,23 @@
 TODO list
 ==================================================
 
+* [analysis]
+  - Display Listfilters below a single listfilter node. Order matters here.
+  - Rename (internally these are called extractors):
+    * MultiwordFilter -> Word Pattern Filter
+    * Listfilter -> Word Order Filter
+  - Add new extractor or make the multiword one even more complicated:
+    Start filter with optional size bits    <- yields the number of words the extraction filter should be applied to
+    Extraction filter                       <- extract (address, value) pairs
+    Optional End filter; required if no size bits are given. <- Stop processing once this matches.
+
+  - Conditions: core should be functional, work on the UIs again
+
+  - listfilter display in the analysis is out of order. It should be one
+    listfilter parent ndoe with the individual filters in correct order as
+    children.
+  - listfilter add is buggy: the last filter is selected and will be edited if
+    not manually pressing the 'add' button
 
 * Trigger IO Editor: allow save to/load from file.
   Use a better vme config editor for editing the script text.
@@ -16,11 +33,6 @@ TODO list
   able to handle loading arbitrary analysis files as default filters. Matching
   is done via the module type names.
 
-* listfilter display in the analysis is out of order. It should be one
-  listfilter parent ndoe with the individual filters in correct order as
-  children.
-
-* make dialogs modal to the mvlc trigger io gui, not modal to the whole application!
 
 * non-existent workspace directories mentioned in the mvme.ini file are
   silently created. This is annoying when renaming a workspace and starting mvme again.
