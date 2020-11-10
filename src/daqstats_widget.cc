@@ -69,7 +69,6 @@ struct DAQStatsWidgetPrivate
            //*label_mvlcPartialFrameTotalBytes,
            *label_mvlcReceivedPackets,
            *label_mvlcLostPackets,
-           *label_mvlcEthRcvBuf,
            *label_mvlcEthThrottling,
 
            *label_mvlcStackErrors
@@ -195,20 +194,6 @@ struct DAQStatsWidgetPrivate
     void updateMVLC_ETH_Throttling(const mesytec::mvlc::eth::MVLC_ETH_Interface *mvlcEth)
     {
         auto counters = mvlcEth->getThrottleCounters();
-
-        QString strUsed = format_number(counters.rcvBufferUsed, QSL("B"), UnitScaling::Binary, 0, 'f', 0);
-        QString strSize = format_number(counters.rcvBufferSize, QSL("B"), UnitScaling::Binary, 0, 'f', 0);
-        double percentUsed = static_cast<double>(counters.rcvBufferUsed) / counters.rcvBufferSize * 100.0;
-
-        if (std::isnan(percentUsed))
-            percentUsed = 0.0;
-
-        label_mvlcEthRcvBuf->setText(
-            QSL("%1/%2, %3%")
-            .arg(strUsed)
-            .arg(strSize)
-            .arg(percentUsed, 0, 'f', 3)
-            );
 
         label_mvlcEthThrottling->setText(
             QSL("delay: cur=%3 µs, avg=%4 µs, max=%5 µs")
@@ -385,7 +370,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     //m_d->label_mvlcPartialFrameTotalBytes = new QLabel;
     m_d->label_mvlcReceivedPackets = new QLabel;
     m_d->label_mvlcLostPackets = new QLabel;
-    m_d->label_mvlcEthRcvBuf = new QLabel;
     m_d->label_mvlcEthThrottling = new QLabel;
     m_d->label_mvlcStackErrors = new QLabel;
 
@@ -400,7 +384,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
         //m_d->label_mvlcPartialFrameTotalBytes,
         m_d->label_mvlcReceivedPackets,
         m_d->label_mvlcLostPackets,
-        m_d->label_mvlcEthRcvBuf,
         m_d->label_mvlcEthThrottling,
         m_d->label_mvlcStackErrors,
     };
@@ -441,7 +424,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     mvlcETHLayout->addRow("MVLC ETH received packets:", m_d->label_mvlcReceivedPackets);
     mvlcETHLayout->addRow("MVLC ETH lost packets:", m_d->label_mvlcLostPackets);
-    mvlcETHLayout->addRow("MVLC ETH receiveBuffer:", m_d->label_mvlcEthRcvBuf);
     mvlcETHLayout->addRow("MVLC ETH throttling:", m_d->label_mvlcEthThrottling);
 
     mvlcStackErrorsLayout->addRow("MVLC Stack Errors:", m_d->label_mvlcStackErrors);

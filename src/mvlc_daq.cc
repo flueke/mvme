@@ -24,6 +24,7 @@
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_util.h"
+#include "util/strings.h"
 #include "vme_daq.h"
 
 namespace mesytec
@@ -397,17 +398,27 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
         return ec;
     }
 
-    bool enableJumboFrames = vmeConfig.getControllerSettings().value("mvlc_eth_enable_jumbos").toBool();
-
-    logger(QSL("  %1 jumbo frame support")
-           .arg(enableJumboFrames ? QSL("Enabling") : QSL("Disabling")));
-
-    if (auto ec = mvlc.writeRegister(mvlc::registers::jumbo_frame_enable, enableJumboFrames))
+    if (mvlc.connectionType() == mvlc::ConnectionType::ETH)
     {
-        logger(QSL("Error %1 jumbo frames: %2")
-               .arg(enableJumboFrames ? QSL("enabling") : QSL("disabling"))
-               .arg(ec.message().c_str()));
-        return ec;
+        bool enableJumboFrames = vmeConfig.getControllerSettings().value("mvlc_eth_enable_jumbos").toBool();
+
+        logger(QSL("  %1 jumbo frame support")
+               .arg(enableJumboFrames ? QSL("Enabling") : QSL("Disabling")));
+
+        if (auto ec = mvlc.writeRegister(mvlc::registers::jumbo_frame_enable, enableJumboFrames))
+        {
+            logger(QSL("Error %1 jumbo frames: %2")
+                   .arg(enableJumboFrames ? QSL("enabling") : QSL("disabling"))
+                   .arg(ec.message().c_str()));
+            return ec;
+        }
+
+        if (auto eth = dynamic_cast<mvlc::eth::MVLC_ETH_Interface *>(mvlc.getImpl()))
+        {
+            auto counters = eth->getThrottleCounters();
+            logger(QSL("  Eth receive buffer size: %1")
+                   .arg(format_number(counters.rcvBufferSize, QSL("B"), UnitScaling::Binary, 0, 'f', 0)));
+        }
     }
 
     return {};
