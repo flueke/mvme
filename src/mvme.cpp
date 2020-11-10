@@ -911,6 +911,7 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
             if (!window->close())
             {
                 qDebug() << __PRETTY_FUNCTION__ << "window" << window << "refused to close";
+                window->raise();
                 allWindowsClosed = false;
                 break;
             }
