@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vme_config_tree.h"
+#include "mvlc_daq.h"
 #include "vme_config_tree_p.h"
 
 #include <QClipboard>
@@ -1389,6 +1390,7 @@ void VMEConfigTreeWidget::removeEvent()
     {
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
         m_config->removeEventConfig(event);
+        mesytec::mvme_mvlc::update_trigger_io_inplace(*m_config);
         event->deleteLater();
     }
 }

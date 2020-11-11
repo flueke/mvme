@@ -23,6 +23,7 @@
 
 #include "libmvme_export.h"
 #include "mvlc/mvlc_qt_object.h"
+#include "mvlc/mvlc_trigger_io.h"
 #include "vme_config.h"
 
 namespace mesytec
@@ -66,6 +67,14 @@ std::error_code LIBMVME_EXPORT
 std::error_code LIBMVME_EXPORT
     setup_trigger_io(MVLCObject &mvlc, VMEConfig &vmeConfig,
                      Logger logger);
+
+// Parses the trigger io contained in the vmeconfig, updates it to handle
+// periodic and externally triggered events and returns the updated TriggerIO
+// structure.
+mesytec::mvme_mvlc::trigger_io::TriggerIO LIBMVME_EXPORT
+    update_trigger_io(const VMEConfig &vmeConfig);
+
+void LIBMVME_EXPORT update_trigger_io_inplace(const VMEConfig &vmeConfig);
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec

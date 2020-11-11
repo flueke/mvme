@@ -253,6 +253,7 @@ std::error_code setup_trigger_io(
     if (!scriptConfig)
         return make_error_code(mvlc::MVLCErrorCode::ReadoutSetupError);
 
+#if 0
     auto ioCfg = trigger_io::parse_trigger_io_script_text(
         scriptConfig->getScriptContents());
 
@@ -318,7 +319,9 @@ std::error_code setup_trigger_io(
 
         ++stackId;
     }
+#endif
 
+    auto ioCfg = update_trigger_io(vmeConfig);
     auto ioCfgText = trigger_io::generate_trigger_io_script_text(ioCfg);
 
     // Update the trigger io script stored in the VMEConfig in case we modified
@@ -422,6 +425,80 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
     }
 
     return {};
+}
+
+mesytec::mvme_mvlc::trigger_io::TriggerIO
+    update_trigger_io(const VMEConfig &vmeConfig)
+{
+    auto scriptConfig = qobject_cast<VMEScriptConfig *>(
+        vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
+
+    if (!scriptConfig) return {}; // TODO: error_code
+
+    auto ioCfg = trigger_io::parse_trigger_io_script_text(
+        scriptConfig->getScriptContents());
+
+    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
+    u16 timersInUse = 0u;
+
+    for (const auto &event: vmeConfig.getEventConfigs())
+    {
+        if (event->triggerCondition == TriggerCondition::Periodic)
+        {
+            if (timersInUse >= mvlc::stacks::TimerCount)
+                return {}; // TODO: error_code
+
+            // Setup the l0 timer unit
+            auto &timer = ioCfg.l0.timers[timersInUse];
+            timer.period = event->triggerOptions["mvlc.timer_period"].toUInt();
+
+            timer.range = mvlc::timer_base_unit_from_string(
+                    event->triggerOptions["mvlc.timer_base"].toString().toStdString());
+
+            timer.softActivate = true;
+
+            ioCfg.l0.unitNames[timersInUse] = QString("t_%1").arg(event->objectName());
+
+            // Setup the l3 StackStart unit
+            auto &ss = ioCfg.l3.stackStart[timersInUse];
+
+            ss.activate = true;
+            ss.stackIndex = stackId;
+
+            ioCfg.l3.unitNames[timersInUse] = QString("ss_%1").arg(event->objectName());
+
+            // Connect StackStart to the Timer
+            auto choices = ioCfg.l3.DynamicInputChoiceLists[timersInUse][0];
+            auto it = std::find(
+                choices.begin(), choices.end(),
+                trigger_io::UnitAddress{0, timersInUse});
+
+            ioCfg.l3.connections[timersInUse][0] = it - choices.begin();
+
+            ++timersInUse;
+        }
+
+        ++stackId;
+    }
+
+    return ioCfg;
+}
+
+void update_trigger_io_inplace(const VMEConfig &vmeConfig)
+{
+    auto scriptConfig = qobject_cast<VMEScriptConfig *>(
+        vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
+
+    if (!scriptConfig) return; // TODO: error_code
+
+    auto ioCfg = mesytec::mvme_mvlc::update_trigger_io(vmeConfig);
+    auto ioCfgText = mesytec::mvme_mvlc::trigger_io::generate_trigger_io_script_text(ioCfg);
+
+    // Update the trigger io script stored in the VMEConfig in case it changed.
+    if (ioCfgText != scriptConfig->getScriptContents())
+    {
+        scriptConfig->setScriptContents(ioCfgText);
+    }
 }
 
 } // end namespace mvme_mvlc

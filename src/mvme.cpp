@@ -38,6 +38,7 @@
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvlc/vmeconfig_from_crateconfig.h"
 #include "mvlc_stream_worker.h"
+#include "mvlc_daq.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_listfile.h"
@@ -2034,6 +2035,9 @@ void MVMEMainWindow::runAddVMEEventDialog()
         }
 
         vmeConfig->addEventConfig(eventConfig.release());
+
+        if (is_mvlc_controller(vmeConfig->getControllerType()))
+            mesytec::mvme_mvlc::update_trigger_io_inplace(*vmeConfig);
     }
 }
 
