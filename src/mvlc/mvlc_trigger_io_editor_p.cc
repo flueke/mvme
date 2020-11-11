@@ -2561,6 +2561,8 @@ QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
     return ret;
 }
 
+static const QBrush ReservedItemBrush(QColor(Qt::lightGray), Qt::BDiagPattern);
+
 //
 // Level0UtilsDialog
 //
@@ -2586,7 +2588,8 @@ Level0UtilsDialog::Level0UtilsDialog(
 
         for (int row = 0; row < ret.table->rowCount(); ++row)
         {
-            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+            ret.table->setVerticalHeaderItem(
+                row, new QTableWidgetItem(RowTitleFormat.arg(row)));
 
             auto combo_range = new QComboBox;
             ret.combos_range.push_back(combo_range);
@@ -2615,28 +2618,30 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.table->setCellWidget(row, ret.ColSoftActivate, make_centered(cb_softActivate));
 
 
-            // Hack to mark some of the units as reserved by greying them out.
+            // Hack to mark some of the units as potentially reserved by giving
+            // them a special background. Does not work for cell widgets.
             if (row < ReservedTimerUnits)
             {
-                if (auto headerItem = ret.table->verticalHeaderItem(row))
-                {
-                    headerItem->setFlags(
-                        headerItem->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
-                }
-
-                for (int col = 0; col < ColumnTitles.size(); col++)
+                for (int col=0; col<ret.table->columnCount(); ++col)
                 {
                     if (auto item = ret.table->item(row, col))
-                        item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
-
-                    if (auto widget = ret.table->cellWidget(row, col))
-                        widget->setEnabled(false);
+                        item->setBackground(ReservedItemBrush);
                 }
             }
         }
 
         ret.table->resizeColumnsToContents();
         ret.table->resizeRowsToContents();
+
+        auto noticeLabel = new QLabel(QSL(
+                "<b>Note</b>: Timer0+1 are used by the GUI to implement periodic events."
+                ));
+        noticeLabel->setWordWrap(true);
+
+        ret.parentWidget = new QWidget;
+        auto parentLayout = make_vbox<0, 4>(ret.parentWidget);
+        parentLayout->addWidget(noticeLabel);
+        parentLayout->addWidget(ret.table);
 
         return ret;
     };
@@ -2807,7 +2812,7 @@ Level0UtilsDialog::Level0UtilsDialog(
         reverse_rows(ui->table);
 
     auto grid = new QGridLayout;
-    grid->addWidget(make_groupbox(ui_timers.table, "Timers"), 0, 0);
+    grid->addWidget(make_groupbox(ui_timers.parentWidget, "Timers"), 0, 0);
     grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
     grid->addWidget(make_groupbox(ui_softTriggers.table, "Soft Triggers"), 0, 2);
 
@@ -2975,25 +2980,16 @@ Level3UtilsDialog::Level3UtilsDialog(
             table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
 
 
-            // Hack to mark some of the units as reserved by greying them out.
+            // Hack to mark some of the units as potentially reserved by giving
+            // them a special background. Does not work for cell widgets.
             if (row < ReservedStackStartUnits)
             {
-                if (auto headerItem = ret.table->verticalHeaderItem(row))
-                {
-                    headerItem->setFlags(
-                        headerItem->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
-                }
-
-                for (int col = 0; col < columnTitles.size(); col++)
+                for (int col=0; col<ret.table->columnCount(); ++col)
                 {
                     if (auto item = ret.table->item(row, col))
-                        item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
-
-                    if (auto widget = ret.table->cellWidget(row, col))
-                        widget->setEnabled(false);
+                        item->setBackground(ReservedItemBrush);
                 }
             }
-
         }
 
         table->resizeColumnsToContents();
@@ -3001,7 +2997,9 @@ Level3UtilsDialog::Level3UtilsDialog(
 
         auto noticeLabel = new QLabel(QSL(
                 "<b>Note</b>: The VME Events trigger condition has to be set to '<i>MVLC Trigger I/O</i>'"
-                " for the StackStart units to have an effect."));
+                " for the StackStart units to have an effect.<br/>"
+                "StackStart0+1 are used by the GUI to implement periodic events."
+                ));
         noticeLabel->setWordWrap(true);
 
         ret.parentWidget = new QWidget;

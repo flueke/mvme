@@ -604,6 +604,7 @@ class Level0UtilsDialog: public QDialog
 
             static const int FirstUnitIndex = 0;
 
+            QWidget *parentWidget;
             QVector<QComboBox *> combos_range;
             QVector<QCheckBox *> checks_softActivate;
         };
