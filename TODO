@@ -2,6 +2,8 @@
 TODO list
 ==================================================
 
+* doc: Add network tuning and data export section
+
 * document MVLC jumbo frame support in mvme manual
 
 * [analysis]
@@ -21,6 +23,11 @@ TODO list
     children.
   - listfilter add is buggy: the last filter is selected and will be edited if
     not manually pressing the 'add' button
+
+  - batched histo accumulation: instead of directly updating the histos do
+    store memory locations to be incremented in some buffer. once that is full
+    perform all updates at once. This should increase the speed (even more if
+    the addresses where sorted).
 
 * Trigger IO Editor: allow save to/load from file.
   Use a better vme config editor for editing the script text.
@@ -89,10 +96,6 @@ TODO list
   skipped/filtered out.
 
   The decision should be based on the current(?) values and previous data.
-
-* Lots of analysis files (silvias PMT, berkeley-stephen.yates and others) do
-  assert in the a2_adapter code in src/analysis/a2_adapter.cc:206: a2::Operator
-  {anonymous}::difference_magic().
 
 * MDPP-16_SCP "variable rate" setup:
   threshold 0
