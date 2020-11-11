@@ -158,6 +158,11 @@ struct DataBuffer
         return reinterpret_cast<u32 *>(data) + index;
     }
 
+    size_t usedU32() const
+    {
+        return used / sizeof(u32);
+    };
+
     template<typename T>
     T *append(const T &value)
     {

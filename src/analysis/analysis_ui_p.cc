@@ -45,7 +45,9 @@
 #include <QStackedWidget>
 #include <QTextBrowser>
 #include <QTimer>
+
 #include <memory>
+#include <set>
 
 #include "a2/a2_exprtk.h"
 #include "a2_adapter.h"
@@ -57,6 +59,7 @@
 #include "globals.h"
 #include "gui_util.h"
 #include "histo_util.h"
+#include "mesytec-mvlc/mvlc_constants.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "qt_util.h"
@@ -2879,31 +2882,182 @@ inline const char *to_string(const readout_parser::ReadoutParserState::GroupPars
 
 namespace
 {
-void mvlc_parser_debug_log_buffer(
-    BufferIterator iter,
-    std::function<void (const QString &)> logger)
+
+struct InterestingOffsets
 {
+    std::set<u32> ethHeaders;
+    std::set<u32> systemFrames;
+    std::set<u32> stackFrames;
+};
+
+void find_headers_inside_eth_packet(
+    const u32 *bufferBegin,
+    basic_string_view<u32> packetInput,
+    InterestingOffsets &dest)
+{
+    eth::PayloadHeaderInfo ethHdrs{ packetInput[0], packetInput[1] };
+    auto packetTotalWords = eth::HeaderWords + ethHdrs.dataWordCount();
+
+    if (ethHdrs.isNextHeaderPointerPresent()
+        && ethHdrs.nextHeaderPointer() < ethHdrs.dataWordCount()
+        && packetInput.size() >= packetTotalWords)
+    {
+        packetInput.remove_prefix(eth::HeaderWords + ethHdrs.nextHeaderPointer());
+
+        while (!packetInput.empty())
+        {
+            const u32 frameHeader = packetInput[0];
+            const auto frameInfo = extract_frame_info(frameHeader);
+
+            if (frameInfo.type == frame_headers::StackFrame
+                || frameInfo.type == frame_headers::StackContinuation)
+            {
+                dest.stackFrames.insert(packetInput.data() - bufferBegin);
+                packetInput.remove_prefix(
+                    std::min(static_cast<size_t>(frameInfo.len + 1u), packetInput.size()));
+            }
+            else
+                break; // don't get stuck
+        }
+    }
+}
+
+InterestingOffsets find_interesting_headers_eth(const DataBuffer &buffer)
+{
+    // To find StackFrames and StackContinuations we do not need to keep track
+    // of the frame state. Either nextHeaderPointer is set and from that first
+    // header in the packet we can follow the framing until the end of the
+    // packet or there just is no header in the packets payload.
+
+    assert(buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_ETH));
+
+    InterestingOffsets result;
+    const auto bufferBegin = buffer.asU32(0);
+    basic_string_view<u32> input(bufferBegin, buffer.usedU32());
+
+    while (!input.empty())
+    {
+        auto offset = input.data() - bufferBegin;
+
+        if (get_frame_type(input[0]) == frame_headers::SystemEvent)
+        {
+            auto frameHeader = input[0];
+            result.systemFrames.insert(offset);
+            input.remove_prefix(extract_frame_info(frameHeader).len + 1);
+        }
+        else if (input.size() >= eth::HeaderWords)
+        {
+            // insert offsets to both headers 0 and 1
+            result.ethHeaders.insert(offset);
+            result.ethHeaders.insert(offset+1);
+
+            // handle the packet
+            eth::PayloadHeaderInfo ethHdrs{ input[0], input[1] };
+            auto packetTotalWords = eth::HeaderWords + ethHdrs.dataWordCount();
+
+            find_headers_inside_eth_packet(
+                bufferBegin,
+                basic_string_view<u32>(input.data(), packetTotalWords),
+                result);
+
+            input.remove_prefix(packetTotalWords);
+        }
+        else
+            break; // do not get stuck
+    }
+
+    return result;
+}
+
+InterestingOffsets find_interesting_headers_usb(const DataBuffer &buffer)
+{
+    assert(buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_USB));
+
+    InterestingOffsets result;
+    const auto bufferBegin = buffer.asU32(0);
+    basic_string_view<u32> input(bufferBegin, buffer.usedU32());
+
+    while (!input.empty())
+    {
+        auto offset = input.data() - bufferBegin;
+
+        const u32 frameHeader = input[0];
+        const auto frameInfo = extract_frame_info(frameHeader);
+
+        if (frameInfo.type == frame_headers::SystemEvent)
+        {
+            result.systemFrames.insert(offset);
+        }
+        else if (frameInfo.type == frame_headers::StackFrame
+                 || frameInfo.type == frame_headers::StackContinuation)
+        {
+            result.stackFrames.insert(offset);
+        }
+        else
+            break; // do not get stuck
+
+        input.remove_prefix(
+            std::min(static_cast<size_t>(frameInfo.len + 1u), input.size()));
+    }
+
+    return result;
+}
+
+void mvlc_parser_debug_log_buffer(const DataBuffer &buffer, QTextStream &out)
+{
+    // Preparations: collect interesting offsets for highlighting later.
+    InterestingOffsets offsets;
+
+    const bool isEth = (buffer.tag == static_cast<int>(ListfileBufferFormat::MVLC_ETH));
+
+    if (isEth)
+        offsets = find_interesting_headers_eth(buffer);
+    else
+        offsets = find_interesting_headers_usb(buffer);
+
+    // output
     static const u32 wordsPerRow = 8;
 
     QString strbuf;
 
+    BufferIterator iter(buffer.data, buffer.used);
+
     while (iter.longwordsLeft())
     {
-        strbuf.clear();
         u32 nWords = std::min(wordsPerRow, iter.longwordsLeft());
 
-        strbuf += QString("%1: ").arg(iter.current32BitOffset(), 10);
+        out << QString("%1: ").arg(iter.current32BitOffset(), 6);
 
         for (u32 i=0; i<nWords; ++i)
         {
+            u32 currentOffset = iter.current32BitOffset();
             u32 currentWord = iter.extractU32();
 
-            strbuf += QString("0x%1 ").arg(currentWord, 8, 16, QLatin1Char('0'));
+            QString cssClass;
+
+            if (isEth && offsets.ethHeaders.count(currentOffset))
+                cssClass = QSL("ethHeader");
+            else if (offsets.systemFrames.count(currentOffset))
+                cssClass = QSL("systemFrame");
+            else if (offsets.stackFrames.count(currentOffset))
+                cssClass = QSL("stackFrame");
+
+            if (!cssClass.isEmpty())
+            {
+                out << QString("<span class='%1'>0x%2</span> ")
+                    .arg(cssClass)
+                    .arg(currentWord, 8, 16, QLatin1Char('0'));
+            }
+            else
+            {
+                out << QString("0x%1 ").arg(currentWord, 8, 16, QLatin1Char('0'));
+            }
         }
 
-        logger(strbuf);
+        out << endl;
     }
 }
+
 }
 
 void MVLCParserDebugHandler::handleDebugInfo(
@@ -2916,16 +3070,23 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
     qDebug() << __PRETTY_FUNCTION__ << buffer.used << parserState.workBuffer.used;
 
-    QString bufferText;
+    const auto styles = QSL(
+        ".systemFrame { background-color: Salmon; }\n"
+        ".ethHeader   { background-color: LightBlue; }\n"
+        ".stackFrame  { background-color: GoldenRod; }\n"
+        );
+
+    QString rawBufferText;
 
     // Log the initial parser state and the raw buffer contents.
     {
-        QTextStream out(&bufferText);
+        QTextStream out(&rawBufferText);
 
         // Log buffer information and buffer contents
 
+        out << "<html><body><pre>";
         out << "buffer number = " << buffer.id
-            << ", last buffer number = " << parserState.lastBufferNumber << endl;
+            << ", last buffer number = " << parserState.lastBufferNumber <<  endl;
         out << "buffer size = " << buffer.used / sizeof(u32) << endl;
         out << "buffer format is " << to_string(static_cast<ListfileBufferFormat>(buffer.tag)) << endl;
         out << "last ETH packet number = " << parserState.lastPacketNumber << endl;
@@ -2964,12 +3125,15 @@ void MVLCParserDebugHandler::handleDebugInfo(
             .arg(parserState.curBlockFrame.wordsLeft)
             ;
 
+        out << "Legend: ";
+        out << "<span class='ethHeader'>ethPacketHeader</span>, ";
+        out << "<span class='systemFrame'>systemFrame</span>, ";
+        out << "<span class='stackFrame'>stackFrame</span>";
+        out << endl;
         out << "----------" << endl;
 
-        mvlc_parser_debug_log_buffer(BufferIterator(buffer.data, buffer.used),
-                    [&out] (const QString &str) {
-            out << str << endl;
-        });
+        mvlc_parser_debug_log_buffer(buffer, out);
+        out << "</pre></body></html>";
     }
 
     using namespace mvme;
@@ -3160,7 +3324,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
     };
 
     // Display the buffer contents and the parser results side-by-side in two
-    // QTextBrowsers.
+    // (or three for multievent) QTextBrowsers.
     {
         auto widget = new QWidget;
         widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -3171,7 +3335,10 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
         // parser state and buffer contents on the left side
         auto tb_buffer = new QTextBrowser;
-        tb_buffer->setText(bufferText);
+        auto doc_buffer = new QTextDocument(tb_buffer);
+        doc_buffer->setDefaultStyleSheet(styles);
+        doc_buffer->setHtml(rawBufferText);
+        tb_buffer->setDocument(doc_buffer);
         auto bufferWidget = make_searchable_text_widget(tb_buffer).first;
 
         // parser result on the right side
