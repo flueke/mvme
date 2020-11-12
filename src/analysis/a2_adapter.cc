@@ -1,4 +1,5 @@
 #include "a2_adapter.h"
+#include "a2.h"
 #include "a2/a2_impl.h"
 #include "analysis.h"
 

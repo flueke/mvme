@@ -4551,21 +4551,15 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                 if (histoSink->m_histos.size() != node->childCount())
                     continue;
 
+
                 QVector<double> entryCounts;
 
-                if (a2State)
+                if (auto sinkData = get_runtime_h1dsink_data(*a2State, histoSink))
                 {
-                    if (auto a2_sink = a2State->operatorMap.value(histoSink, nullptr))
-                    {
-                        auto sinkData = reinterpret_cast<a2::H1DSinkData *>(a2_sink->d);
-
-                        entryCounts.reserve(sinkData->histos.size);
-
-                        for (s32 i = 0; i < sinkData->histos.size; i++)
-                        {
-                            entryCounts.push_back(sinkData->histos[i].entryCount);
-                        }
-                    }
+                    entryCounts.reserve(sinkData->histos.size);
+                    std::transform(std::begin(sinkData->histos), std::end(sinkData->histos),
+                                   std::back_inserter(entryCounts),
+                                   [] (const auto &histo) { return histo.entryCount; });
                 }
 
                 auto &prevEntryCounts = m_histo1DSinkCounters[histoSink].hitCounts;
@@ -4620,12 +4614,9 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                 {
                     double entryCount = 0.0;
 
-                    if (auto a2_sink = a2State->operatorMap.value(sink, nullptr))
-                    {
-                        auto sinkData = reinterpret_cast<a2::H2DSinkData *>(a2_sink->d);
-
+                    if (auto sinkData = get_runtime_h2dsink_data(*a2State, sink))
                         entryCount = sinkData->histo.entryCount;
-                    }
+
                     auto &prevEntryCounts = m_histo2DSinkCounters[sink].hitCounts;
                     prevEntryCounts.resize(1);
 

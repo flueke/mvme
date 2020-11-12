@@ -88,6 +88,26 @@ QVector<T> to_qvector(TypedBlock<T, SizeType> block)
 
 a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *a1_inPipe);
 
+template<typename RuntimeData, typename CfgOperator>
+RuntimeData *get_runtime_operator_data(const A2AdapterState &state, const CfgOperator *cfg_op)
+{
+    // The const cast is needed for the bihash lookup to work. Probably need
+    // special handling for pointers in the BiHash.
+    if (auto a2_op = state.operatorMap.value(const_cast<CfgOperator *>(cfg_op), nullptr))
+        return reinterpret_cast<RuntimeData *>(a2_op->d);
+    return nullptr;
+}
+
+inline a2::H1DSinkData *get_runtime_h1dsink_data(const A2AdapterState &state, const Histo1DSink *cfg_sink)
+{
+    return get_runtime_operator_data<a2::H1DSinkData>(state, cfg_sink);
+}
+
+inline a2::H2DSinkData *get_runtime_h2dsink_data(const A2AdapterState &state, const Histo2DSink *cfg_sink)
+{
+    return get_runtime_operator_data<a2::H2DSinkData>(state, cfg_sink);
+}
+
 } // namespace analysis
 
 #endif /* __A2_ADAPTER_H__ */
