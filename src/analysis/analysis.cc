@@ -3666,6 +3666,7 @@ Analysis::Analysis(QObject *parent)
     , m_modified(false)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
+    , m_a2State(std::make_unique<A2AdapterState>())
 {
     m_objectFactory.registerSource<ListFilterExtractor>();
     m_objectFactory.registerSource<Extractor>();
