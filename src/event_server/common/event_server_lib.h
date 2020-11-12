@@ -188,6 +188,7 @@ struct BufferIterator
 //
 // Library init/shutdown. Both return 0 on success.
 //
+__attribute__((__used__))
 static int lib_init()
 {
 #ifdef _WIN32
@@ -200,6 +201,7 @@ static int lib_init()
 #endif
 }
 
+__attribute__((__used__))
 static int lib_shutdown()
 {
 #ifdef _WIN32
@@ -260,6 +262,7 @@ static const size_t MaxMessageSize = 100 * 1024 * 1024;
 
 // Read a single Message from the given file descriptor fd into the given msg
 // structure.
+__attribute__((__used__))
 static void read_message(int fd, Message &msg)
 {
     msg.type = MessageType::Invalid;
