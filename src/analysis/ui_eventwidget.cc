@@ -4610,7 +4610,11 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                 auto sink = get_pointer<Histo2DSink>(node, DataRole_AnalysisObject);
                 auto histo = sink ? sink->m_histo : nullptr;
 
-                if (histo)
+                // hack: do not update node text while it is selected.
+                // This may fix the issue where inline editing of the
+                // histoname was overriden by these periodic timer udpates.
+
+                if (histo && !node->isSelected())
                 {
                     double entryCount = 0.0;
 
