@@ -58,7 +58,7 @@ struct A2AdapterState
 /*
  * operators must be sorted by rank and their beginRun() must have been called.
  *
- * vmeConfigUuIdToIndexes maps a QUuid from EventConfig/ModuleConfig to a
+ * The vmeMap maps a QUuid from EventConfig/ModuleConfig to a
  * pair of (eventIndex, moduleIndex).
  * For EventConfigs only the eventIndex is set. For ModuleConfigs both indexes
  * are set.
