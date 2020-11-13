@@ -2852,8 +2852,11 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         if (m_analysis)
             m_analysis->clear();
         setAnalysisConfigFileName(QString());
-        QMessageBox::critical(m_mainwin, QSL("Error"),
-                              QString("Out of memory when creating analysis objects."));
+        if (m_mainwin)
+        {
+            QMessageBox::critical(m_mainwin, QSL("Error"),
+                                  QString("Out of memory when creating analysis objects."));
+        }
         emit analysisChanged(m_analysis.get());
 
         return false;

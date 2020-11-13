@@ -110,7 +110,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void sniffedReadoutBufferReady(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
 
     public:
-        MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
+        explicit MVMEContext(QObject *parent = 0) : MVMEContext(nullptr, parent) { }
+        explicit MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
         ~MVMEContext();
 
         bool setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
