@@ -31,7 +31,7 @@ static const char *WorkspaceIniName = "mvmeworkspace.ini";
 inline std::shared_ptr<QSettings> make_workspace_settings(const QString &workspaceDirPath)
 {
     if (workspaceDirPath.isEmpty())
-        return {};
+        return std::make_shared<QSettings>();
 
     QDir dir(workspaceDirPath);
     auto path = dir.filePath(WorkspaceIniName);
