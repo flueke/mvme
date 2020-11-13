@@ -47,6 +47,7 @@ class DAQControl: public QObject
         void startDAQ(
             u32 nCycles, bool keepHistoContents,
             const std::chrono::milliseconds &runDuration = std::chrono::milliseconds::zero());
+        void startDAQ() { startDAQ(0, false, {}); }
         void stopDAQ();
         void pauseDAQ();
         void resumeDAQ(u32 nCycles);

@@ -18,6 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include <chrono>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvme.h"
 
@@ -497,7 +498,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
                 m_d->m_context, &MVMEContext::sniffNextInputBuffer);
 
         // DAQControlWidget -> DAQControl
-        connect(dcw, &DAQControlWidget::startDAQ, m_d->daqControl, &DAQControl::startDAQ);
+        connect(dcw, &DAQControlWidget::startDAQ,
+                m_d->daqControl,
+                qOverload<u32, bool, const std::chrono::milliseconds &>(&DAQControl::startDAQ));
         connect(dcw, &DAQControlWidget::stopDAQ, m_d->daqControl, &DAQControl::stopDAQ);
         connect(dcw, &DAQControlWidget::pauseDAQ, m_d->daqControl, &DAQControl::pauseDAQ);
         connect(dcw, &DAQControlWidget::resumeDAQ, m_d->daqControl, &DAQControl::resumeDAQ);
