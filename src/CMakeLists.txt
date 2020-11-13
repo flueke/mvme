@@ -179,14 +179,11 @@ if(MVME_ENABLE_MVLC)
     set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
     generate_export_header(libmvme_mvlc)
 
-    target_link_libraries(libmvme_mvlc
-        PUBLIC mesytec-mvlc
-        PUBLIC libmvme_core)
-
     # FIXME: somehow break up the circular dependency between libmvme_core and
     # libmvme_mvlc. It is caused by vme_script::run_command() directly using
     # MVLC_VMEController and libmvme_mvlc making use of vme_script in
     # mvlc/mvlc_script.h
+    target_link_libraries(libmvme_mvlc PUBLIC mesytec-mvlc PUBLIC libmvme_core)
     target_link_libraries(libmvme_core PUBLIC libmvme_mvlc)
 
     if (WIN32)
