@@ -26,6 +26,8 @@ at end of replay record data:
   - input analysis filename and if it came from the listfile
 */
 
+namespace
+{
 QJsonArray collect_h1d_stats(const MVMEContext &mvmeContext)
 {
     QJsonArray sinksArray;
@@ -73,13 +75,48 @@ QJsonArray collect_h1d_stats(const MVMEContext &mvmeContext)
                 histosArray.append(statsJ);
             }
 
-            sinkJ["histos"] = histosArray;
+            sinkJ["histoStats"] = histosArray;
             sinksArray.append(sinkJ);
         }
     }
 
     return sinksArray;
 }
+
+QJsonArray collect_h2d_stats(const MVMEContext &mvmeContext)
+{
+    QJsonArray sinksArray;
+
+    auto analysis = mvmeContext.getAnalysis();
+    auto a2aState = analysis->getA2AdapterState();
+
+    for (const auto &a1_op: a2aState->operatorMap.hash.keys())
+    {
+        if (auto sink = qobject_cast<analysis::Histo2DSink *>(a1_op))
+        {
+            auto dir = analysis->getParentDirectory(sink->shared_from_this());
+            auto data = analysis::get_runtime_h2dsink_data(*a2aState, sink);
+
+            QJsonObject sinkJ;
+            sinkJ["id"] = sink->getId().toString();
+            sinkJ["name"] = sink->objectName();
+            sinkJ["userlevel"] = sink->getUserLevel();
+            sinkJ["className"] = getClassName(a1_op);
+
+            // TODO: calculate stats and store in sinkJ["stats"]
+            if (const auto a1_h2d = sink->getHisto())
+            {
+                auto stats = a1_h2d->calcGlobalStatistics();
+            }
+
+
+            sinksArray.append(sinkJ);
+        }
+    }
+
+    return sinksArray;
+}
+} // end anon namespace
 
 static QTextStream qout(stdout);
 
@@ -185,7 +222,8 @@ int main(int argc, char *argv[])
     }
 
     QJsonObject reportJ;
-    reportJ["h1d"] = collect_h1d_stats(mvmeContext);
+    reportJ["h1dSinks"] = collect_h1d_stats(mvmeContext);
+    reportJ["h2dSinks"] = collect_h2d_stats(mvmeContext);
 
     QJsonDocument doc(reportJ);
     qout << doc.toJson() << endl;
