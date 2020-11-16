@@ -354,7 +354,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
 {
     const auto &lf(listfileConstants);
 
-    this->counters.eventSections++;
+    this->counters.totalEvents++;
     const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     if (unlikely(eventIndex >= this->eventConfigs.size()
@@ -857,7 +857,7 @@ void MVMEStreamProcessorPrivate::initEventSectionIteration(
 
     auto &lf(listfileConstants);
 
-    this->counters.eventSections++;
+    this->counters.totalEvents++;
     const u32 eventIndex = lf.getEventIndex(sectionHeader);
 
     if (unlikely(eventIndex >= this->eventConfigs.size()

@@ -331,7 +331,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         if (0 <= ei && ei < MaxVMEEvents)
         {
             UniqueLock guard(m_countersMutex);
-            m_counters.eventSections++;
+            m_counters.totalEvents++;
             m_counters.eventCounters[ei]++;
         }
 

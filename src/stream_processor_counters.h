@@ -15,7 +15,7 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
     u64 bytesProcessed = 0;
     u32 buffersProcessed = 0;
     u32 buffersWithErrors = 0;
-    u32 eventSections = 0;
+    u32 totalEvents = 0;
     u32 invalidEventIndices = 0;
 
     using ModuleCounters = std::array<u32, MaxVMEModules>;

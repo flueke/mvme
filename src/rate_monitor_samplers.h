@@ -52,7 +52,7 @@ struct StreamProcessorSampler: public SamplerCollection
     RateSamplerPtr bytesProcessed       = std::make_shared<RateSampler>();
     RateSamplerPtr buffersProcessed     = std::make_shared<RateSampler>();
     RateSamplerPtr buffersWithErrors    = std::make_shared<RateSampler>();
-    RateSamplerPtr eventSections        = std::make_shared<RateSampler>();
+    RateSamplerPtr totalEvents        = std::make_shared<RateSampler>();
     RateSamplerPtr invalidEventIndices  = std::make_shared<RateSampler>();
 
     using ModuleEntries = std::array<RateSamplerPtr, MaxVMEModules>;
@@ -77,7 +77,7 @@ struct StreamProcessorSampler: public SamplerCollection
         bytesProcessed->sample(counters.bytesProcessed);
         buffersProcessed->sample(counters.buffersProcessed);
         buffersWithErrors->sample(counters.buffersWithErrors);
-        eventSections->sample(counters.eventSections);
+        totalEvents->sample(counters.totalEvents);
         invalidEventIndices->sample(counters.invalidEventIndices);
 
         for (size_t ei = 0; ei < MaxVMEEvents; ei++)
@@ -103,7 +103,7 @@ struct StreamProcessorSampler: public SamplerCollection
         add_system_rate(&root, QSL("bytesProcessed"),        bytesProcessed);
         add_system_rate(&root, QSL("buffersProcessed"),      buffersProcessed);
         add_system_rate(&root, QSL("buffersWithErrors"),     buffersWithErrors);
-        add_system_rate(&root, QSL("eventSections"),         eventSections);
+        add_system_rate(&root, QSL("totalEvents"),           totalEvents);
         add_system_rate(&root, QSL("invalidEventIndices"),   invalidEventIndices);
 
         auto eventRoot  = add_group(&root, QSL("events"), QSL("Event Trigger Rates"));
