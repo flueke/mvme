@@ -265,6 +265,7 @@ add_library(libmvme SHARED
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
+    analysis_bench.cc
     daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
