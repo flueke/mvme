@@ -293,7 +293,7 @@ void EventServer::startup()
     {
         if (!m_d->m_server.isListening())
         {
-            if (bool res = m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
+            if (m_d->m_server.listen(m_d->m_listenAddress, m_d->m_listenPort))
             {
 #if 0
                 m_d->logMessage(QSL("Listening on %1:%2")
@@ -369,7 +369,8 @@ void EventServer::beginRun(const RunInfo &runInfo,
     {
         runInfo, vmeConfig, analysis,
         analysis->getA2AdapterState(),
-        analysis->getA2AdapterState()->a2
+        analysis->getA2AdapterState()->a2,
+        {}, {}
     };
 
     auto &ctx = m_d->m_runContext;
