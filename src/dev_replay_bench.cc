@@ -2,6 +2,7 @@
 #include <QTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <qnamespace.h>
 
 #include "analysis/a2_adapter.h"
 #include "mvme_session.h"
@@ -103,19 +104,53 @@ QJsonArray collect_h2d_stats(const MVMEContext &mvmeContext)
             sinkJ["userlevel"] = sink->getUserLevel();
             sinkJ["className"] = getClassName(a1_op);
 
-            // TODO: calculate stats and store in sinkJ["stats"]
+            QJsonObject histoJ;
+
+            histoJ["entryCount(a2)"] = data->histo.entryCount;
+            histoJ["underflow"] = data->histo.underflow;
+            histoJ["overflow"] = data->histo.overflow;
+
             if (const auto a1_h2d = sink->getHisto())
             {
                 auto stats = a1_h2d->calcGlobalStatistics();
+                histoJ["maxBinX"] = static_cast<qint64>(stats.maxBinX);
+                histoJ["maxBinY"] = static_cast<qint64>(stats.maxBinY);
+                histoJ["maxX"] = stats.maxX;
+                histoJ["maxY"] = stats.maxY;
+                histoJ["maxZ"] = stats.maxZ;
+                histoJ["entryCount(a1)"] = stats.entryCount;
             }
 
-
+            sinkJ["histo"] = histoJ;
             sinksArray.append(sinkJ);
         }
     }
 
     return sinksArray;
 }
+
+QJsonObject collect_streamproc_counters(const MVMEStreamProcessorCounters &counters)
+{
+    QJsonObject streamProcCounters;
+
+    auto elapsed_s = counters.startTime.msecsTo(counters.stopTime) / 1000.0;
+    auto data_mb = static_cast<double>(counters.bytesProcessed) / Megabytes(1);
+    auto rate_mbs = data_mb / elapsed_s;
+
+    streamProcCounters["startTime"] = counters.startTime.toString(Qt::ISODate);
+    streamProcCounters["stopTime"] = counters.stopTime.toString(Qt::ISODate);
+    streamProcCounters["bytesProcessed"] = static_cast<qint64>(counters.bytesProcessed);
+    streamProcCounters["buffersProcessed"] = static_cast<qint64>(counters.buffersProcessed);
+    streamProcCounters["buffersWithErrors"] = static_cast<qint64>(counters.buffersWithErrors);
+    streamProcCounters["totalEvents"] = static_cast<qint64>(counters.eventSections);
+    streamProcCounters["invalidEventIndices"] = static_cast<qint64>(counters.invalidEventIndices);
+    streamProcCounters["elapsed_s"] = elapsed_s;
+    streamProcCounters["data_mb"] = data_mb;
+    streamProcCounters["rate_mbs"] = rate_mbs;
+
+    return streamProcCounters;
+}
+
 } // end anon namespace
 
 static QTextStream qout(stdout);
@@ -140,7 +175,7 @@ int main(int argc, char *argv[])
 
     MVMEContext mvmeContext;
 
-    auto& replayHandle = context_open_listfile(
+    /*auto& replayHandle =*/ context_open_listfile(
         &mvmeContext, listfileFilename,
         analysisFilename.isEmpty() ? OpenListfileFlags::LoadAnalysis : 0);
 
@@ -170,60 +205,21 @@ int main(int argc, char *argv[])
         qout << line << endl;
     qout << "<<<<< End LogBuffer:" << endl;
 
-    auto analysis = mvmeContext.getAnalysis();
-    auto a2aState = analysis->getA2AdapterState();
 
-    for (const auto &a1_op: a2aState->operatorMap.hash.keys())
-    {
-        if (auto sink = qobject_cast<analysis::Histo1DSink *>(a1_op))
-        {
-            auto dir = analysis->getParentDirectory(sink->shared_from_this());
-            auto data = analysis::get_runtime_h1dsink_data(*a2aState, sink);
-            qout << sink->getUserLevel() << " ";
-            if (dir)
-                qout << dir->objectName() << " ";
-            qout << sink->objectName() << " " << a1_op << ":" << endl;
-            for (auto hi=0; hi<data->histos.size; ++hi)
-            {
-                const auto &a2_h1d = data->histos[hi];
-
-                qout << "  " << a2_h1d.entryCount;
-                if (a2_h1d.underflow)
-                    qout << ", underflow=" << *a2_h1d.underflow;
-                if (a2_h1d.overflow)
-                    qout << ", overflow=" << *a2_h1d.overflow;
-                if (const auto a1_h1d = sink->getHisto(hi))
-                {
-                    auto stats = a1_h1d->calcStatistics();
-                    qout << ", maxBin=" << stats.maxBin
-                        << ", maxValue=" << stats.maxValue
-                        << ", mean=" << stats.mean
-                        << ", sigma=" << stats.sigma
-                        << ", entryCount=" << stats.entryCount
-                        << ", fwhm=" << stats.fwhm
-                        << ", fwhmCenter=" << stats.fwhmCenter
-                        ;
-                }
-                qout << endl;
-            }
-        }
-    }
+    QJsonObject reportJ;
+    reportJ["H1DSinks"] = collect_h1d_stats(mvmeContext);
+    reportJ["H2DSinks"] = collect_h2d_stats(mvmeContext);
 
     if (auto streamWorker = mvmeContext.getMVMEStreamWorker())
     {
-        const auto counters = streamWorker->getCounters();
+         auto countersJ = collect_streamproc_counters(streamWorker->getCounters());
+         reportJ["StreamProcessorCounters"] = countersJ;
 
-        auto duration_s = counters.startTime.msecsTo(counters.stopTime) / 1000.0;
-        auto data_mb = counters.bytesProcessed / Megabytes(1);
-        auto rate_mbs = data_mb / duration_s;
-        qout << "elapsed=" << duration_s << " s"
-            << ", data=" << data_mb << " MB"
-            << ", rate=" << rate_mbs << " MB/s" << endl;
+         qout << "elapsed=" << countersJ["elapsed_s"].toDouble() << " s"
+             << ", data=" << countersJ["data_mb"].toDouble() << " MB"
+             << ", rate=" << countersJ["rate_mbs"].toDouble() << " MB/s" << endl;
     }
 
-    QJsonObject reportJ;
-    reportJ["h1dSinks"] = collect_h1d_stats(mvmeContext);
-    reportJ["h2dSinks"] = collect_h2d_stats(mvmeContext);
 
     QJsonDocument doc(reportJ);
     qout << doc.toJson() << endl;
