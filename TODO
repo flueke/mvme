@@ -2,6 +2,10 @@
 TODO list
 ==================================================
 
+* Perma enable SoftTrigger0 in event.daq_start, disable in event.daq_stop (yes,
+  with multiple events the soft trigger writes will happen multiple times but
+  that's not a problem).
+
 * doc: Add network tuning and data export section
 
 * document MVLC jumbo frame support in mvme manual
