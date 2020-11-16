@@ -219,7 +219,7 @@ struct DAQStatsWidgetPrivate
             using ErrorAccu = std::array<size_t, 3>;
             using namespace mesytec::mvlc;
 
-            ErrorAccu errorAccu = {};
+            ErrorAccu errorAccu = {0,0,0};
 
             for (auto it=counts.begin(); it!=counts.end(); it++)
             {
