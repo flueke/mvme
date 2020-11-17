@@ -183,6 +183,7 @@ QJsonObject make_analysis_benchmark_info(const MVMEContext &mvmeContext)
         reportJ["StreamProcessorCounters"] = countersJ;
     }
 
+    // BenchInfo
     {
         auto listfileFilename = mvmeContext.getReplayFileHandle().inputFilename;
         auto analysisFilename = mvmeContext.getAnalysisConfigFileName();
@@ -200,19 +201,20 @@ QJsonObject make_analysis_benchmark_info(const MVMEContext &mvmeContext)
         else
             infoJ["analysis"] = "<from-listfile>";
 
-        {
-            QJsonObject sysInfoJ;
-
-            sysInfoJ["buildAbi"] = QSysInfo::buildAbi();
-            sysInfoJ["kernelType"] = QSysInfo::kernelType();
-            sysInfoJ["kernelVersion"] = QSysInfo::kernelVersion();
-            sysInfoJ["hostname"] = QSysInfo::machineHostName();
-            sysInfoJ["prettyInfo"] = QSysInfo::prettyProductName();
-
-            infoJ["SysInfo"] = sysInfoJ;
-        }
-
         reportJ["BenchInfo"] = infoJ;
+    }
+
+    // SysInfo
+    {
+        QJsonObject sysInfoJ;
+
+        sysInfoJ["buildAbi"] = QSysInfo::buildAbi();
+        sysInfoJ["kernelType"] = QSysInfo::kernelType();
+        sysInfoJ["kernelVersion"] = QSysInfo::kernelVersion();
+        sysInfoJ["hostname"] = QSysInfo::machineHostName();
+        sysInfoJ["prettyInfo"] = QSysInfo::prettyProductName();
+
+        reportJ["SysInfo"] = sysInfoJ;
     }
 
     return reportJ;
