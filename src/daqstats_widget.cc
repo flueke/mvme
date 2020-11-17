@@ -261,7 +261,7 @@ struct DAQStatsWidgetPrivate
                 {
                     if (needComma)
                         text += QSL(", ");
-                    text += QSL("syntaxErrors=%1").arg(errorAccu[frame_flags::SyntaxError]);
+                    text += QSL("syntaxErrors=%1").arg(errorAccu[frame_flags::shifts::SyntaxError]);
                 }
 
                 needNewline = true;
