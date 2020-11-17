@@ -195,6 +195,7 @@ QJsonObject make_analysis_benchmark_info(const MVMEContext &mvmeContext)
         infoJ["git_version"] = GIT_VERSION;
         infoJ["listfile"] = QFileInfo(listfileFilename).fileName();
         infoJ["program"] = QFileInfo(QCoreApplication::arguments().at(0)).fileName();
+        infoJ["histoFill"] = mvmeContext.getAnalysis()->getA2AdapterState()->a2->histoFillStrategy.name();
 
         if (!analysisFilename.isEmpty())
             infoJ["analysis"] = QFileInfo(analysisFilename).fileName();

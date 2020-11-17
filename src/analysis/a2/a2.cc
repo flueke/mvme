@@ -2679,7 +2679,18 @@ inline s32 get_bin(H1D histo, double x)
     return get_bin(histo.binning, histo.size, x);
 }
 
-inline void fill_h1d(H1D *histo, double x)
+inline s32 get_bin(H2D histo, H2D::Axis axis, double v)
+{
+    return get_bin(histo.binnings[axis], histo.binCounts[axis], v);
+}
+
+//
+// HistoFillDirect
+//
+
+// Returns true if the value is not NaN and falls within the histos binning.
+// Otherwise updates overflow/underflow of the histo and returns false.
+inline bool range_check_update(H1D *histo, double x)
 {
     assert(histo);
 
@@ -2716,11 +2727,17 @@ inline void fill_h1d(H1D *histo, double x)
         if (histo->overflow)
             ++(*histo->overflow);
     }
-    else if (std::isnan(x))
-    {
-        // pass for now
-    }
-    else if (likely(1))
+    else
+        return !std::isnan(x);
+
+    return false;
+}
+
+inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
+{
+    assert(histo);
+
+    if (range_check_update(histo, x))
     {
         assert(0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
 
@@ -2732,12 +2749,7 @@ inline void fill_h1d(H1D *histo, double x)
     }
 }
 
-inline s32 get_bin(H2D histo, H2D::Axis axis, double v)
-{
-    return get_bin(histo.binnings[axis], histo.binCounts[axis], v);
-}
-
-inline void fill_h2d(H2D *histo, double x, double y)
+inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
 {
     if (x < histo->binnings[H2D::XAxis].min)
     {
@@ -2794,6 +2806,107 @@ inline void fill_h2d(H2D *histo, double x, double y)
     }
 }
 
+//
+// HistoFillBuffered
+//
+
+inline bool is_full(const FillBuffer &buffer)
+{
+    return buffer.used >= buffer.bins.size();
+}
+
+void flush(H1D *histo, FillBuffer &buffer)
+{
+    //std::sort(std::begin(buffer.bins), std::end(buffer.bins));
+
+    for (size_t i=0; i<buffer.used; i++)
+    {
+        s32 bin = buffer.bins[i];
+        histo->data[bin]++;
+    }
+
+    histo->entryCount += buffer.used;
+    buffer.used = 0;
+}
+
+HistoFillBuffered::HistoFillBuffered()
+    : m_arena(1024 * 1024 * 256)
+{}
+
+void HistoFillBuffered::begin_run(A2 *a2)
+{
+    m_arena.reset();
+
+    std::vector<H1D *> histos_1d;
+
+    for (unsigned ei=0; ei<a2->operatorCounts.size(); ++ei)
+    {
+        const auto opCount = a2->operatorCounts[ei];
+
+        for (unsigned opIdx = 0; opIdx < opCount; ++opIdx)
+        {
+            const auto &op = a2->operators[ei][opIdx];
+
+            if (op.type == Operator_H1DSink)
+            {
+                auto d = reinterpret_cast<H1DSinkData *>(op.d);
+
+                for (auto &h1d: d->histos)
+                    histos_1d.push_back(&h1d);
+
+            }
+            else if (op.type == Operator_H1DSink_idx)
+            {
+                auto d = reinterpret_cast<H1DSinkData_idx *>(op.d);
+
+                histos_1d.push_back(&d->histos[d->inputIndex]);
+            }
+        }
+    }
+
+    // Sort so that std::lower_bound() works.
+    std::sort(std::begin(histos_1d), std::end(histos_1d));
+
+    m_histos =  push_copy_typed_block(&m_arena, histos_1d);
+    m_buffers = push_typed_block<FillBuffer, size_t>(&m_arena, m_histos.size);
+}
+
+void HistoFillBuffered::end_run(A2 *)
+{
+    for (size_t i=0; i<m_histos.size; i++)
+    {
+        auto histo = m_histos[i];
+        auto &buffer = m_buffers[i];
+        flush(histo, buffer);
+    }
+}
+
+void HistoFillBuffered::fill_h1d(H1D *histo, double x)
+{
+    if (range_check_update(histo, x))
+    {
+        auto it = std::lower_bound(m_histos.begin(), m_histos.end(), histo);
+        assert(it != m_histos.end());
+        auto idx = it - m_histos.begin();
+
+        auto &buffer = m_buffers[idx];
+        assert(buffer.used < buffer.bins.size);
+
+        assert(0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
+
+        s32 bin = static_cast<s32>(get_bin_unchecked(x, histo->binning.min, histo->binningFactor));
+        buffer.bins[buffer.used++] = bin;
+
+        if (is_full(buffer))
+            flush(histo, buffer);
+    }
+}
+
+void HistoFillBuffered::fill_h2d(H2D *histo, double x, double y)
+{
+    HistoFillDirect().fill_h2d(histo, x, y);
+}
+
 inline double get_value(H1D histo, double x)
 {
     s32 bin = get_bin(histo, x);
@@ -2846,7 +2959,7 @@ Operator make_h1d_sink(
     return result;
 }
 
-void h1d_sink_step(Operator *op, A2 *)
+void h1d_sink_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto d = reinterpret_cast<H1DSinkData *>(op->d);
@@ -2854,11 +2967,11 @@ void h1d_sink_step(Operator *op, A2 *)
 
     for (s32 idx = 0; idx < maxIdx; idx++)
     {
-        fill_h1d(&d->histos[idx], op->inputs[0][idx]);
+        a2->histoFillStrategy.fill_h1d(&d->histos[idx], op->inputs[0][idx]);
     }
 }
 
-void h1d_sink_step_idx(Operator *op, A2 *)
+void h1d_sink_step_idx(Operator *op, A2 *a2)
 {
     a2_trace("\n");
     auto d = reinterpret_cast<H1DSinkData_idx *>(op->d);
@@ -2866,7 +2979,7 @@ void h1d_sink_step_idx(Operator *op, A2 *)
     assert(d->histos.size == 1);
     assert(d->inputIndex < op->inputs[0].size);
 
-    fill_h1d(&d->histos[0], op->inputs[0][d->inputIndex]);
+    a2->histoFillStrategy.fill_h1d(&d->histos[0], op->inputs[0][d->inputIndex]);
 }
 
 Operator make_h1d_sink_idx(
@@ -2917,13 +3030,13 @@ Operator make_h2d_sink(
     return result;
 };
 
-void h2d_sink_step(Operator *op, A2 *)
+void h2d_sink_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
 
     auto d = reinterpret_cast<H2DSinkData *>(op->d);
 
-    fill_h2d(
+    a2->histoFillStrategy.fill_h2d(
         &d->histo,
         op->inputs[0][d->xIndex],
         op->inputs[1][d->yIndex]);
@@ -3720,10 +3833,14 @@ void a2_begin_run(A2 *a2, Logger logger)
             }
         }
     }
+
+    a2->histoFillStrategy.begin_run(a2);
 }
 
 void a2_end_run(A2 *a2)
 {
+    a2->histoFillStrategy.end_run(a2);
+
     // call end_run functions stored in the OperatorTable
     for (s32 ei = 0; ei < MaxVMEEvents; ei++)
     {

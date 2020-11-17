@@ -687,6 +687,47 @@ Operator make_export_sink(
 static const int MaxVMEEvents  = 12;
 static const int MaxVMEModules = 20;
 
+struct HistoFillDirect
+{
+    static const char *name() { return "HistoFillDirect"; }
+
+    void begin_run(A2 *) {};
+    void end_run(A2 *) {};
+
+    void fill_h1d(H1D *histo, double x);
+    void fill_h2d(H2D *histo, double x, double y);
+};
+
+struct FillBuffer
+{
+    static const size_t FillBufferSize = 1024;
+
+    unsigned used; // number of slots used
+    std::array<s32, FillBufferSize> bins; // bin values to increment
+};
+
+class HistoFillBuffered
+{
+    public:
+        static const char *name() { return "HistoFillBuffered"; }
+
+        HistoFillBuffered();
+
+        void begin_run(A2 *a2);
+        void end_run(A2 *a2);
+
+        void fill_h1d(H1D *histo, double x);
+        void fill_h2d(H2D *histo, double x, double y);
+
+    private:
+        memory::Arena m_arena;
+
+        TypedBlock<H1D *, size_t> m_histos;
+        TypedBlock<FillBuffer, size_t> m_buffers;
+};
+
+using TheHistoFillStrategy = HistoFillBuffered;
+
 struct A2
 {
     std::array<u8, MaxVMEEvents> dataSourceCounts;
@@ -704,6 +745,8 @@ struct A2
      * a copy of the bitset. The copy should use std::allocator instead of the
      * BitsetAllocator. */
     ConditionBitset conditionBits;
+
+    TheHistoFillStrategy histoFillStrategy;
 
     explicit A2(memory::Arena *arena);
     ~A2();
