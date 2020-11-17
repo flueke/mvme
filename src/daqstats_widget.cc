@@ -243,13 +243,13 @@ struct DAQStatsWidgetPrivate
                 text += QSL("stack=%1, ").arg(stackId);
                 bool needComma = false;
 
-                if (errorAccu[frame_flags::Timeout])
+                if (errorAccu[frame_flags::shifts::Timeout])
                 {
                     text += QSL("timeouts=%1").arg(errorAccu[frame_flags::Timeout]);
                     needComma = true;
                 }
 
-                if (errorAccu[frame_flags::BusError])
+                if (errorAccu[frame_flags::shifts::BusError])
                 {
                     if (needComma)
                         text += QSL(", ");
@@ -257,7 +257,7 @@ struct DAQStatsWidgetPrivate
                     needComma = true;
                 }
 
-                if (errorAccu[frame_flags::SyntaxError])
+                if (errorAccu[frame_flags::shifts::SyntaxError])
                 {
                     if (needComma)
                         text += QSL(", ");
