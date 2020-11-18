@@ -50,55 +50,27 @@ Notes:
 - multi event splitting config is stored in the analysis right now. This
   functionality should be included in the mvme-read-listfile program.
 
-  The problem is: need to get the filter string for multi event splitting for
-  each module. This depends on the module type. If this was stored in the vme
-  config at module creation time it would be easy to get.
-  The other way to get the split filter is to use the template system and load
-  the strings from there.
-  Just use the template system for now but think about implementing the change
-  to store the filter strings (and possibly all module meta) directly inside
-  the vme config.
-
-  Another concern: the multi event splitter could be a plugin in itself. This
-  plugin would produce output just like the coding reading and parsing the
-  listfile but it would yield N output events for each incoming event.
-  Should plugins be given the possibilty to call output functions? This would
-  be a bit more complicated than just consuming the data as a correct array of
-  ModuleData structures would have to be filled.
-
-  -> This looks more like GO4 than something small and compact and quick to
-  use. Probably these things are outside the scope of this tool at least for
-  the first ieration.
-
 - How to handle system events? These do not really fit into the event.module
   scheme.
 
 */
 
 #include <iostream>
-#include <string>
 #include <vector>
 
-#include <QCoreApplication>
+#include <QApplication>
 #include <QLibrary>
-#include <QThread>
 
-#include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "analysis/analysis.h"
-#include "analysis/a2/memory.h"
+#include "daqcontrol.h"
 #include "listfile_reader/listfile_reader.h"
-#include "listfile_replay.h"
-#include "mesytec-mvlc/mvlc_readout_parser.h"
-#include "mvlc/vmeconfig_to_crateconfig.h"
-#include "mvlc_listfile_worker.h"
-#include "mvme_listfile_utils.h"
-#include "mvlc_stream_worker.h" // FIXME: move collect_readout_scripts() elsewhere (a general readout parser file)
-#include "mvme_stream_processor.h"
-#include "vme_controller_factory.h"
+#include "mvlc/readout_parser_support.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "mvme_session.h"
+#include "util_zip.h"
 #include "vme_config_scripts.h"
-
-namespace readout_parser = mesytec::mvlc::readout_parser;
 
 using std::cout;
 using std::endl;
@@ -222,351 +194,119 @@ RunDescription * make_run_description(
     return run;
 }
 
-class MVMEStreamCallbackWrapper: public IMVMEStreamModuleConsumer
+class ModuleDataConsumer: public IMVMEStreamModuleConsumer
 {
     public:
-        explicit MVMEStreamCallbackWrapper(const readout_parser::ReadoutParserCallbacks &callbacks)
-            : m_callbacks(callbacks)
+        ModuleDataConsumer(
+            RunDescription *runDescription,
+            const std::vector<RawDataPlugin> &plugins)
+          : m_runDescription(runDescription)
+          , m_plugins(plugins)
         {
+            int maxModuleCount = std::max_element(
+                runDescription->events, runDescription->events + runDescription->eventCount,
+                [] (const auto &ea, const auto &eb)
+                {
+                    return ea.moduleCount < eb.moduleCount;
+                })->moduleCount;
+
+            m_moduleDataList.resize(maxModuleCount);
         }
 
-        void beginRun(const RunInfo &runInfo,
-                              const VMEConfig *vmeConfig,
-                              const analysis::Analysis *analysis) override
-        {
-        }
-
-        void endRun(const DAQStats &stats, const std::exception *e = nullptr) override
-        {
-        }
+        void beginRun(const RunInfo &, const VMEConfig *, const analysis::Analysis *) override {}
+        void endRun(const DAQStats &, const std::exception * = nullptr) override {}
 
         void beginEvent(s32 eventIndex) override
         {
-            m_callbacks.beginEvent(eventIndex);
+            std::fill(m_moduleDataList.begin(), m_moduleDataList.end(), ModuleData{});
         }
 
-        void endEvent(s32 eventIndex) override
+        void processModulePrefix(
+            s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
         {
-            m_callbacks.endEvent(eventIndex);
+            if (moduleIndex < m_moduleDataList.size())
+                m_moduleDataList[moduleIndex].prefix = { data, size };
         }
 
-        void processModulePrefix(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) override
+        void processModuleData(
+            s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
         {
-            m_callbacks.groupPrefix(eventIndex, moduleIndex, data, size);
+            if (moduleIndex < m_moduleDataList.size())
+                m_moduleDataList[moduleIndex].dynamic = { data, size };
         }
 
-        void processModuleData(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) override
+        void processModuleSuffix(
+            s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
         {
-            m_callbacks.groupDynamic(eventIndex, moduleIndex, data, size);
+            if (moduleIndex < m_moduleDataList.size())
+                m_moduleDataList[moduleIndex].suffix = { data, size };
         }
 
-        void processModuleSuffix(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) override
+        void endEvent(s32 ei) override
         {
-            m_callbacks.groupSuffix(eventIndex, moduleIndex, data, size);
+            int moduleCount = m_runDescription->events[ei].moduleCount;
+
+            for (auto &plugin: m_plugins)
+            {
+                plugin.event_data(plugin.userptr, ei, m_moduleDataList.data(), moduleCount);
+            }
         }
 
-        void processTimetick() override
-        {
-        }
-
-        void setLogger(Logger logger) override
-        {
-        }
-
+        void processTimetick() override { }
+        void setLogger(Logger logger) override { }
 
     private:
-        readout_parser::ReadoutParserCallbacks m_callbacks;
+        RunDescription *m_runDescription;
+        std::vector<ModuleData> m_moduleDataList;
+        const std::vector<RawDataPlugin> &m_plugins;
 };
 
-void process_one_listfile(const QString &filename, const std::vector<RawDataPlugin> &plugins)
+void process_one_listfile(
+    const QString &filename,
+    const std::vector<RawDataPlugin> &plugins,
+    MVMEContext &mvmeContext)
 {
-#warning "Refactor listfile_reader to use mesytec-mvlc lib"
-#if 0
-    auto replayHandle = open_listfile(filename);
-
-    std::unique_ptr<VMEConfig> vmeConfig;
-    std::error_code ec;
-
-    std::tie(vmeConfig, ec) = read_vme_config_from_listfile(replayHandle);
-
-    if (ec)
-        throw ec;
-
-    auto controllerType = vmeConfig->getControllerType();
-
-    switch (replayHandle.format)
-    {
-        case ListfileBufferFormat::MVLC_ETH:
-            if (controllerType != VMEControllerType::MVLC_ETH)
-                throw std::runtime_error("listfile format and VME controller type mismatch 1");
-            break;
-
-        case ListfileBufferFormat::MVLC_USB:
-            if (controllerType != VMEControllerType::MVLC_USB)
-                throw std::runtime_error("listfile format and VME controller type mismatch 2");
-            break;
-
-        case ListfileBufferFormat::MVMELST:
-            if (controllerType != VMEControllerType::SIS3153
-                && controllerType != VMEControllerType::VMUSB)
-            {
-                throw std::runtime_error("listfile format and VME controller type mismatch 3");
-            }
-            break;
-    };
-
-    VMEControllerFactory ctrlFactory(controllerType);
-
-    ThreadSafeDataBufferQueue emptyBuffers;
-    ThreadSafeDataBufferQueue filledBuffers;
-    std::vector<std::unique_ptr<DataBuffer>> buffers;
-
-    for (size_t i=0; i<DataBufferCount; ++i)
-    {
-        buffers.emplace_back(std::make_unique<DataBuffer>(DataBufferSize));
-        emptyBuffers.queue.push_back(buffers.back().get());
-    }
-
-    auto replayWorker = std::unique_ptr<ListfileReplayWorker>(ctrlFactory.makeReplayWorker(
-            &emptyBuffers, &filledBuffers));
-
-    if (!replayWorker)
-        throw std::runtime_error("could not create replay worker");
-
-    if (auto mvlcListfileWorker = qobject_cast<MVLCListfileWorker *>(replayWorker.get()))
-    {
-        // XXX: leftoff here. The whole thing won't work like this even if I
-        // add snoopQueues for the MVLCListfileWorker because the core loop
-        // below works with emptyBuffers/filledBuffers instead of the snoopQueues.
-        // TODO: refactor the whole thing. it's pretty messy right now.
-        // Maybe even get rid of the difference between the queues.
-        // TODO: pass Protected 
-    }
-
-    QThread replayThread;
-    replayThread.setObjectName("mvme replay");
-    replayWorker->moveToThread(&replayThread);
-
-    std::atomic<bool> replayDone(false);
-
-    QObject::connect(replayWorker.get(), &ListfileReplayWorker::replayStopped,
-                     [&replayDone] { replayDone = true; });
-
-    QObject::connect(replayWorker.get(), &ListfileReplayWorker::replayStopped,
-                     &replayThread, &QThread::quit);
-
-    using namespace mesytec::mvme_mvlc;
+    // FIXME: how does error reporting work here?
+    /*auto& replayHandle =*/ context_open_listfile(&mvmeContext, filename, 0);
 
     memory::Arena arena(4096);
-    auto runDescription = make_run_description(arena, filename, *vmeConfig);
+    auto runDescription = make_run_description(arena, filename, *mvmeContext.getVMEConfig());
 
     if (runDescription->eventCount <= 0)
         throw std::runtime_error("no event configs found in vme config from listfile");
 
-    int maxModuleCount = std::max_element(
-        runDescription->events, runDescription->events + runDescription->eventCount,
-        [] (const auto &ea, const auto &eb)
-        {
-            return ea.moduleCount < eb.moduleCount;
-        })->moduleCount;
+    ModuleDataConsumer dataConsumer(runDescription, plugins);
 
-    auto moduleDataList = arena.pushArray<ModuleData>(maxModuleCount);
-
-    readout_parser::ReadoutParserCallbacks callbacks{};
-
-    callbacks.beginEvent = [&] (int ei)
-    {
-        std::fill(moduleDataList, moduleDataList+maxModuleCount, ModuleData{});
-    };
-    callbacks.groupPrefix = [&] (int ei, int mi, const u32 *data, u32 size)
-    {
-        moduleDataList[mi].prefix = { data, size };
-    };
-    callbacks.groupDynamic = [&] (int ei, int mi, const u32 *data, u32 size)
-    {
-        moduleDataList[mi].dynamic = { data, size };
-    };
-    callbacks.groupSuffix = [&] (int ei, int mi, const u32 *data, u32 size)
-    {
-        moduleDataList[mi].suffix = { data, size };
-    };
-
-    callbacks.endEvent = [&] (int ei)
-    {
-        int moduleCount = runDescription->events[ei].moduleCount;
-
-        for (auto &plugin: plugins)
-        {
-            plugin.event_data(plugin.userptr, ei, moduleDataList, moduleCount);
-        }
-    };
-
-    MVMEStreamCallbackWrapper cbWrap(callbacks);
-    MVMEStreamProcessor mvmeStreamProc;
-    analysis::Analysis emptyAnalysis;
-    auto logger = [] (const QString &msg) { cout << msg.toStdString() << endl; };
-
-    if (replayHandle.format == ListfileBufferFormat::MVMELST)
-    {
-        mvmeStreamProc.attachModuleConsumer(&cbWrap);
-
-        RunInfo runInfo;
-        runInfo.isReplay = true;
-        runInfo.runId = filename;
-
-        ListFile lf(replayHandle.listfile.get());
-        lf.open();
-
-        emptyAnalysis.beginRun(runInfo, vmeConfig.get(), logger);
-
-        mvmeStreamProc.beginRun(runInfo, &emptyAnalysis, vmeConfig.get(),
-                                lf.getFileVersion(),
-                                logger);
-    }
-
-    // FIXME: copy/pasta from mvlc_stream_worker.cc
-    auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig.get());
-
-    std::vector<mvlc::StackCommandBuilder> sanitizedReadoutStacks;
-
-    for (auto &srcStack: mvlcCrateConfig.stacks)
-    {
-        mvlc::StackCommandBuilder dstStack;
-
-        for (auto &srcGroup: srcStack.getGroups())
-        {
-            if (mvlc::produces_output(srcGroup))
-                dstStack.addGroup(srcGroup);
-        }
-
-        sanitizedReadoutStacks.emplace_back(dstStack);
-    }
-
-    auto mvlcParser = mesytec::mvlc::readout_parser::make_readout_parser(
-        sanitizedReadoutStacks);
-
-    mvlc::readout_parser::ReadoutParserCounters mvlcParserCounters({});
-
-    replayWorker->setListfile(&replayHandle);
-
-    QObject::connect(&replayThread, &QThread::started,
-                     replayWorker.get(), &ListfileReplayWorker::start);
-
-    replayThread.start();
-
+    mvmeContext.getMVMEStreamWorker()->attachModuleConsumer(&dataConsumer);
 
     // TODO: try-catch around all calls into the plugins
-    try
-    {
-        for (auto &plugin: plugins)
-            plugin.begin_run(plugin.userptr, runDescription);
 
-        size_t buffersProcessed = 0;
+    for (auto &plugin: plugins)
+        plugin.begin_run(plugin.userptr, runDescription);
 
-        // TODO: start the replay thread then loop until replayDone is true
-        // in the loop get a buffer from the filledBuffers queue and feed it to the
-        // mvlc readout parser. Use a timeout when waiting for a full buffer.
-        // Finally put the buffer onto the emptyQueue.
 
-        // Loop until the replayWorker signaled that it's done reading and there
-        // are no more buffers left to process.
-        while (!(replayDone && is_empty(&filledBuffers)))
-        {
-            // Try to get a buffer from the queue and hand it to processing.
-            while (auto buffer = dequeue(&filledBuffers, 10))
-            {
-                mesytec::mvlc::readout_parser::ParseResult pr{};
-                switch (controllerType)
-                {
-                    case VMEControllerType::MVLC_ETH:
-                        pr = parse_readout_buffer_eth(
-                            mvlcParser, callbacks, mvlcParserCounters,
-                            buffer->id,
-                            buffer->asU32(), buffer->used / sizeof(u32));
-                        break;
+    QEventLoop loop;
 
-                    case VMEControllerType::MVLC_USB:
-                        pr = parse_readout_buffer_usb(
-                            mvlcParser, callbacks, mvlcParserCounters,
-                            buffer->id,
-                            buffer->asU32(), buffer->used / sizeof(u32));
-                        break;
+    QObject::connect(&mvmeContext, &MVMEContext::mvmeStreamWorkerStateChanged,
+                     [&loop] (MVMEStreamWorkerState state)
+                     {
+                         if (state == MVMEStreamWorkerState::Idle)
+                             loop.quit();
+                     });
 
-                    case VMEControllerType::VMUSB:
-                    case VMEControllerType::SIS3153:
-                        mvmeStreamProc.processDataBuffer(buffer);
-                        break;
-                }
+    DAQControl daqControl(&mvmeContext);
+    daqControl.startDAQ();
+    loop.exec(); // block here until the replay is done
 
-                // TODO: count parse results and display stats at the end
-                (void) pr;
-
-                enqueue(&emptyBuffers, buffer);
-                ++buffersProcessed;
-            }
-        }
-
-        // TODO: check that number of read buffers equals number of processed buffers
-
-        for (auto &plugin: plugins)
-            plugin.end_run(plugin.userptr);
-
-        if (replayHandle.format == ListfileBufferFormat::MVMELST)
-        {
-            mvmeStreamProc.endRun(DAQStats{});
-        }
-
-        cout << "replayDone=" << replayDone << ", buffersProcessed=" <<
-            buffersProcessed << endl;
-    }
-    catch (const std::exception &e)
-    {
-        replayWorker->stop();
-        replayThread.quit();
-        replayThread.wait();
-        throw;
-    }
-
-    replayThread.quit();
-    replayThread.wait();
-
-    // One side could be a ListfileReplayWorker which is moved to its own
-    // thread. This is the buffer producer side
-
-    // In the middle is a buffer queue of 2 or more buffers.
-
-    // The consumer could be this main thread.
-    //
-    // For MVLC consumer code could look like this:
-    // Setup ReadoutParserCallbacks for the readout parser and optionally setup
-    // a multi event splitter. Get the splitter filter strings from the
-    // VATS.
-    // Create a readout parser using the VMEConfig.
-    // Call the parser for each buffer in the filled queue:
-    //      pr = parse_readout_buffer_eth(
-    //          m_parser, m_parserCallbacks,
-    //          buffer->id, buffer->data, buffer->used);
-    // or
-    //      pr = parse_readout_buffer_usb(
-    //          m_parser, m_parserCallbacks,
-    //          buffer->id, buffer->data, buffer->used);
-    //
-    // MVMELST consumer:
-    // This could be done by implementing a IMVMEStreamModuleConsumer and
-    // attaching this to an instance of MVMEStreamWorker.
-    // This would also work for the MVLC side as the MVLC_StreamWorker supports.
-#endif
+    for (auto &plugin: plugins)
+        plugin.end_run(plugin.userptr);
 }
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication theQtApp(argc, argv);
+    // TODO: use lyra to parse the command line
+
+    QApplication app(argc, argv);
 
     std::vector<QString> inputFilenames;
     std::vector<QString> pluginSpecs;
@@ -606,6 +346,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    mvme_init(argv[0]);
+
+    MVMEContext mvmeContext;
+
     // For each listfile:
     //   open the file for reading (zip/non-zip should work)
     //   read the vme config from the file, get the vme controller type, create the factory
@@ -615,7 +359,7 @@ int main(int argc, char *argv[])
         {
             //if (auto ec = process_one_listfile(listfileFilename))
             //    throw ec;
-            process_one_listfile(listfileFilename, plugins);
+            process_one_listfile(listfileFilename, plugins, mvmeContext);
         }
         catch (const std::error_code &ec)
         {
