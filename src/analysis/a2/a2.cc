@@ -2890,7 +2890,7 @@ void HistoFillBuffered::fill_h1d(H1D *histo, double x)
         auto idx = it - m_histos.begin();
 
         auto &buffer = m_buffers[idx];
-        assert(buffer.used < buffer.bins.size);
+        assert(buffer.used < buffer.bins.size());
 
         assert(0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
 
