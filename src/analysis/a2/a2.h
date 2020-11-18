@@ -726,7 +726,7 @@ class HistoFillBuffered
         TypedBlock<FillBuffer, size_t> m_buffers;
 };
 
-using TheHistoFillStrategy = HistoFillBuffered;
+using TheHistoFillStrategy = HistoFillDirect;
 
 struct A2
 {
