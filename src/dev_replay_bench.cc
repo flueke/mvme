@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
     {
         MVMEContext mvmeContext;
 
+        // FIXME: how does error reporting work here?
         /*auto& replayHandle =*/ context_open_listfile(
             &mvmeContext, listfileFilename,
             analysisFilename.isEmpty() ? OpenListfileFlags::LoadAnalysis : 0);
