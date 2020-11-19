@@ -681,6 +681,9 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                 // Update the editors script text on each change.
                 connect(d->scriptConfig, &VMEScriptConfig::modified,
                         this, [this] () { d->updateEditorText(); });
+
+                auto geoSaver = new WidgetGeometrySaver(editor);
+                geoSaver->addAndRestore(editor, "MVLCTriggerIOEditor/CodeEditorGeometry");
             }
 
             d->updateEditorText();
