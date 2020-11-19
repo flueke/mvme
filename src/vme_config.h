@@ -369,6 +369,16 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         const VMEConfig *getVMEConfig() const;
         VMEConfig *getVMEConfig();
 
+        // Returns the timer period value and the TimerBaseUnit string in a
+        // pair. Only valid for periodic events.
+        // See EventConfigDialog for how the information is stored in
+        // triggerOptions.
+        std::pair<unsigned, QString> getMVLCTimerPeriod()
+        {
+            return std::make_pair(triggerOptions["mvlc.timer_period"].toUInt(),
+                                  triggerOptions["mvlc.timer_base"].toString());
+        }
+
     protected:
         std::error_code read_impl(const QJsonObject &json) override;
         std::error_code write_impl(QJsonObject &json) const override;

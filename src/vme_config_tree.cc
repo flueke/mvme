@@ -1310,6 +1310,11 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig, bool expandNode
             case TriggerCondition::Periodic:
                 {
                     infoText = QSL("Trigger=Periodic");
+                    if (is_mvlc_controller(m_config->getControllerType()))
+                    {
+                        auto tp = eventConfig->getMVLCTimerPeriod();
+                        infoText += QSL(", every %1%2").arg(tp.first).arg(tp.second);
+                    }
                 } break;
             default:
                 {
