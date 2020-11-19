@@ -616,9 +616,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     toolbar->addSeparator();
 
     // connection map: shows/hides static connection edges and the big bus-like bars
+    QSettings settings;
+    bool connectionMapVisible = settings.value("MVLC_TriggerIOEditor.ConnectionMapVisible", true).toBool();
     action = toolbar->addAction(QSL("Toggle connection map"));
     action->setCheckable(true);
-    action->setChecked(true);
+    action->setChecked(connectionMapVisible);
     action->setToolTip(QSL("Shows/hides fixed connection lines and"
                            " bars and arrows representing connection possibilities."));
     action->setStatusTip(action->toolTip());
@@ -631,10 +633,12 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         action->setIcon(show
                         ? QIcon(":/resources/layer-visible-on.png")
                         : QIcon(":/resources/layer-visible-off.png"));
+        QSettings settings;
+        settings.setValue("MVLC_TriggerIOEditor.ConnectionMapVisible", show);
     };
 
     connect(action, &QAction::triggered, this, show_connect_help);
-    show_connect_help(true);
+    show_connect_help(connectionMapVisible);
 
     // Print a list of the front panel io configuration and names. Could be
     // printed on a piece of paper and used as a cheatsheet when working on the

@@ -715,6 +715,7 @@ Edge::Edge(QAbstractGraphicsShapeItem *sourceItem, QAbstractGraphicsShapeItem *d
 {
     setAcceptedMouseButtons(0);
     setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    setBrush(Qt::black);
     adjust();
 }
 
@@ -790,7 +791,6 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
     QPointF destArrowP2 = m_destPoint + QPointF(sin(angle - M_PI + M_PI / 3) * m_arrowSize,
                                                 cos(angle - M_PI + M_PI / 3) * m_arrowSize);
 
-    painter->setBrush(Qt::black);
     //painter->drawPolygon(QPolygonF() << line.p1() << sourceArrowP1 << sourceArrowP2);
     painter->drawPolygon(QPolygonF() << line.p2() << destArrowP1 << destArrowP2);
 }
@@ -1703,6 +1703,8 @@ gfx::Edge *TriggerIOGraphicsScene::addStaticConnectionEdge(
     QAbstractGraphicsShapeItem *destConnector)
 {
     auto edge = new gfx::Edge(sourceConnector, destConnector);
+    edge->setPen(QPen(Qt::gray, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    edge->setBrush(Qt::gray);
     m_staticEdges.push_back(edge);
     edge->adjust();
     this->addItem(edge);
