@@ -246,8 +246,9 @@ struct Level0
     static const int StackBusyOffset = 12;
 
     static const int SysClockOffset = 14;
+    static const int DAQStartOffset = 15;
 
-    static const size_t UtilityUnitCount = 15;
+    static const size_t UtilityUnitCount = 16;
 
     static const std::array<QString, OutputCount> DefaultUnitNames;
 
@@ -257,7 +258,7 @@ struct Level0
     std::array<IO, SlaveTriggerCount> slaveTriggers;            // 8..11
     std::array<StackBusy, StackBusyCount> stackBusy;            // 12, 13
                                                                 // 14 sysclock
-                                                                // 15 unused
+                                                                // 15 daq_start
     std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
 
     QStringList unitNames;
