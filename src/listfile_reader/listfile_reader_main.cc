@@ -224,21 +224,21 @@ class ModuleDataConsumer: public IMVMEStreamModuleConsumer
         void processModulePrefix(
             s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
         {
-            if (moduleIndex < m_moduleDataList.size())
+            if (moduleIndex < static_cast<s32>(m_moduleDataList.size()))
                 m_moduleDataList[moduleIndex].prefix = { data, size };
         }
 
         void processModuleData(
             s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
         {
-            if (moduleIndex < m_moduleDataList.size())
+            if (moduleIndex < static_cast<s32>(m_moduleDataList.size()))
                 m_moduleDataList[moduleIndex].dynamic = { data, size };
         }
 
         void processModuleSuffix(
             s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
         {
-            if (moduleIndex < m_moduleDataList.size())
+            if (moduleIndex < static_cast<s32>(m_moduleDataList.size()))
                 m_moduleDataList[moduleIndex].suffix = { data, size };
         }
 
