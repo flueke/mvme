@@ -3306,10 +3306,16 @@ LUTOutputEditor::LUTOutputEditor(
         m_outputTable->setHorizontalHeaderLabels({"State"});
         m_outputTable->horizontalHeader()->setStretchLastSection(true);
 
+        auto explanation = new QLabel(QSL(
+                "The bit values on the left side are ordered from <b>right to left</b>"
+                ", the first selected input bit is in the rightmost position."));
+        explanation->setWordWrap(true);
+
         auto container = new QWidget;
         auto layout = make_vbox<0, 0>(container);
         layout->addWidget(buttonBar);
         layout->addWidget(m_outputTable);
+        layout->addWidget(explanation);
 
         m_outputWidgetStack->addWidget(container);
     }
