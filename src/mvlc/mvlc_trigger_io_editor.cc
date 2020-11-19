@@ -617,7 +617,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     // connection map: shows/hides static connection edges and the big bus-like bars
     QSettings settings;
-    bool connectionMapVisible = settings.value("MVLC_TriggerIOEditor.ConnectionMapVisible", true).toBool();
+    bool connectionMapVisible = settings.value("MVLC_TriggerIOEditor/ConnectionMapVisible", true).toBool();
     action = toolbar->addAction(QSL("Toggle connection map"));
     action->setCheckable(true);
     action->setChecked(connectionMapVisible);
@@ -634,7 +634,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                         ? QIcon(":/resources/layer-visible-on.png")
                         : QIcon(":/resources/layer-visible-off.png"));
         QSettings settings;
-        settings.setValue("MVLC_TriggerIOEditor.ConnectionMapVisible", show);
+        settings.setValue("MVLC_TriggerIOEditor/ConnectionMapVisible", show);
     };
 
     connect(action, &QAction::triggered, this, show_connect_help);
