@@ -2,15 +2,21 @@
 TODO list
 ==================================================
 
-* Perma enable SoftTrigger0 in event.daq_start, disable in event.daq_stop (yes,
-  with multiple events the soft trigger writes will happen multiple times but
-  that's not a problem).
+* rate monitor plot title
+* rate monitor multi plots and reset does not work
+* rate monitor show info by default
+* an open rate monitor window does not pick up when a new input is added.
+  reopening the window makes the new plot appear.
 
 * doc: Add network tuning and data export section
-
 * document MVLC jumbo frame support in mvme manual
 
 * [analysis]
+  * Module data Prefix/Suffix is missing from:
+    - a2 system
+    - analysis ui
+    - EventServer
+
   - Display Listfilters below a single listfilter node. Order matters here.
   - Rename (internally these are called extractors):
     * MultiwordFilter -> Word Pattern Filter
@@ -86,14 +92,6 @@ TODO list
 
 * log the DAQ run duration when the DAQ is stopped
 
-* When adding a periodic event the mvlc trigger io is not updated immediately
-  but only on next daq start. This is not great as the trigger io gui state
-  does not reflect the state the system will have and things like exporting to
-  CrateConfig YAML will lead to incorrect results.
-  Bad! :D
-  Implement a kind of hook system that updates the trigger io when
-  adding/removing events.
-
 * Analysis processing skip flag:
   Decide directly after the data filters if this events output should be
   further processed and passed to the EventServer or if it should be
@@ -106,10 +104,6 @@ TODO list
   gain >= 2000
   WindowOfInterest -100ns
   -> pulser data should appear to be uniformely or randomly distributed
-
-* The concrete Event timer period is hidden in the Event Settings dialog. It
-  should be shown somewhere else, either in the VME Config Tree Info column
-  and/or when setting up the events/trigger io
 
 * apparently there's a crash when compiling an expression operator script while
   a replay is running. Robert ran into this while editing an expression and
