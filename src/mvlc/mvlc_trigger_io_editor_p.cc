@@ -1682,6 +1682,7 @@ gfx::Edge *TriggerIOGraphicsScene::addEdge(
     m_edgesBySource.insertMulti(sourceConnector, edge);
 
     edge->adjust();
+    edge->setZValue(1.0);
     this->addItem(edge);
     return edge;
 }
@@ -1702,9 +1703,12 @@ gfx::Edge *TriggerIOGraphicsScene::addStaticConnectionEdge(
     QAbstractGraphicsShapeItem *sourceConnector,
     QAbstractGraphicsShapeItem *destConnector)
 {
+    static const QColor penColor("#7da1d6"); // same as the connection bars
+    static const QColor brushColor(penColor);
+
     auto edge = new gfx::Edge(sourceConnector, destConnector);
-    edge->setPen(QPen(Qt::gray, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    edge->setBrush(Qt::gray);
+    edge->setPen(QPen(penColor, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    edge->setBrush(brushColor);
     m_staticEdges.push_back(edge);
     edge->adjust();
     this->addItem(edge);
