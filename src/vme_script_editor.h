@@ -21,6 +21,7 @@
 #ifndef __VME_SCRIPT_EDITOR_H__
 #define __VME_SCRIPT_EDITOR_H__
 
+#include "analysis/code_editor.h"
 #include "util.h"
 #include "vme_config.h"
 #include "vme_script.h"
@@ -45,6 +46,9 @@ class VMEScriptEditor: public MVMEWidget
         void applyChanges() { apply(); }
 
         virtual bool event(QEvent *event) override;
+
+        CodeEditor *textEdit();
+        QString toPlainText() const;
 
     public slots:
         void reloadFromScriptConfig() { revert(); }

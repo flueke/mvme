@@ -20,15 +20,14 @@
  */
 #include "vme_script_editor.h"
 
-#include <QApplication>
 #include <QFileDialog>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
-#include <QPlainTextEdit>
 #include <QPushButton>
-#include <QShortcut>
+#include <QScrollBar>
 #include <QSettings>
+#include <QShortcut>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QStatusTipEvent>
@@ -53,7 +52,7 @@ struct VMEScriptEditorPrivate
     VMEScriptConfig *m_script;
 
     QToolBar *m_toolBar;
-    QPlainTextEdit *m_editor;
+    CodeEditor *m_editor;
     QStatusBar *m_statusBar;
 
     QLabel *m_labelPosition;
@@ -83,7 +82,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     m_d->m_q = this;
     m_d->m_script = script;
     m_d->m_toolBar = make_toolbar();
-    m_d->m_editor = new QPlainTextEdit;
+    m_d->m_editor = new CodeEditor;
     m_d->m_statusBar = make_statusbar();
     m_d->m_labelPosition = new QLabel;
 
@@ -262,9 +261,11 @@ void VMEScriptEditor::onScriptModified(bool isModified)
     if (!isModified)
         return;
 
-    // TODO: ask about reloading from the config or keeping the current text editor content
-    // This should not happen unless the config has been modified by something other than this editor.
-    //m_d->m_editor->setText(m_d->m_script->getScriptContents());
+    // Store the current vertical scrollbar position, update the textedit with
+    // the new text and restore the scrollbar position.
+    auto pos = m_d->m_editor->verticalScrollBar()->sliderPosition();
+    m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
+    m_d->m_editor->verticalScrollBar()->setSliderPosition(pos);
 
     updateWindowTitle();
 }
@@ -402,7 +403,10 @@ void VMEScriptEditor::apply()
 
 void VMEScriptEditor::revert()
 {
+    auto pos = m_d->m_editor->verticalScrollBar()->sliderPosition();
     m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
+    m_d->m_editor->verticalScrollBar()->setSliderPosition(pos);
+
     m_d->m_editor->document()->setModified(false);
     updateWindowTitle();
 }
@@ -506,4 +510,14 @@ void VMEScriptEditor::closeEvent(QCloseEvent *event)
         MVMEWidget::closeEvent(event);
     else
         event->ignore();
+}
+
+CodeEditor *VMEScriptEditor::textEdit()
+{
+    return m_d->m_editor;
+}
+
+QString VMEScriptEditor::toPlainText() const
+{
+    return m_d->m_editor->toPlainText();
 }
