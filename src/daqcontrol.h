@@ -25,13 +25,14 @@
 #include <QObject>
 #include <QTimer>
 
+#include "libmvme_export.h"
 #include "mvme_context.h"
 
 class TimedRunControl;
 
 // DAQ control abstraction: start, stop, pause, resume and status queries.
 // Currently builds on top the central MVMEContext object.
-class DAQControl: public QObject
+class LIBMVME_EXPORT DAQControl: public QObject
 {
     Q_OBJECT
     signals:
@@ -61,7 +62,7 @@ class DAQControl: public QObject
 // Note: paused state does not cause this object to pause its internal timer.
 // Instead after the timer expires the DAQ is stopped even if it is in paused
 // state.
-class TimedRunControl: public QObject
+class LIBMVME_EXPORT TimedRunControl: public QObject
 {
     Q_OBJECT
 
