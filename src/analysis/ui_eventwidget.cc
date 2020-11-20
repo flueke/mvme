@@ -4506,7 +4506,7 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
                 {
                     double rate = hitCountRates[addr];
 
-                    if (std::isnan(rate)) rate = 0.0;
+                    if (!std::isfinite(rate)) rate = 0.0;
 
                     auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
                                                     0, 'g', 3);
