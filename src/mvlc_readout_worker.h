@@ -62,7 +62,6 @@ class LIBMVME_EXPORT MVLCReadoutWorker: public VMEReadoutWorker
         std::unique_ptr<Private> d;
 
         void setMVLCObjects();
-        void setState(const DAQState &state);
         void logError(const QString &msg);
 };
 
