@@ -504,6 +504,8 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         }
     });
 
+    QTimer::singleShot(0, this, [action]() { action->setChecked(true); });
+
     // Plot selection spinbox
     {
         auto cb_combined = new QCheckBox(/*QSL("Combined View")*/);
