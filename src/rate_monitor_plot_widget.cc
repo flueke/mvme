@@ -212,9 +212,11 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     m_d->m_curves.push_back(curve.release());
     m_d->m_samplers.push_back(sampler);
 
-    qDebug() << "added rate. title =" << title << ", color =" << color
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << "added rate. title =" << title << ", color =" << color
         << ", capacity =" << sampler->historyCapacity()
         << ", new plot count =" << m_d->m_curves.size();
+#endif
 
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
 }
@@ -232,7 +234,9 @@ void RateMonitorPlotWidget::removeRateSampler(int index)
     {
         assert(index < m_d->m_curves.size());
 
+#if 0
         qDebug() << __PRETTY_FUNCTION__ << "removing plot with index" << index;
+#endif
         auto curve = std::unique_ptr<QwtPlotCurve>(m_d->m_curves.at(index));
         curve->detach();
         m_d->m_curves.remove(index);
