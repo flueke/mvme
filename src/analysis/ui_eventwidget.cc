@@ -4175,7 +4175,28 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         widget->setPlotExportDirectory(
                             m_context->getWorkspacePath(QSL("PlotsDirectory")));
 
-                        m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
+                        // Note: using a QueuedConnection here is a hack to
+                        // make the UI refresh _after_ the analysis has been
+                        // rebuilt.
+                        // The call sequence is
+                        //   sinkModifiedCallback
+                        //   -> context->analysisOperatorEdited
+                        //     -> analysis->setOperatorEdited
+                        //     -> emit operatorEdited
+                        //   -> analysis->beginRun.
+                        // So with a direct connection the Widgets sinkModified
+                        // is called before the analysis has been rebuilt in
+                        // beginRun.
+                        QObject::connect(
+                            context->getAnalysis(), &Analysis::operatorEdited,
+                            widget, [rms, widget] (const OperatorPtr &op)
+                            {
+                                if (op == rms)
+                                    widget->sinkModified();
+                            }, Qt::QueuedConnection);
+
+
+                        context->addObjectWidget(widget, rms.get(), rms->getId().toString());
                     }
                     else
                     {

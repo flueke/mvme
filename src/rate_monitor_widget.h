@@ -65,6 +65,9 @@ class LIBMVME_EXPORT RateMonitorWidget: public QWidget
 
         QVector<a2::RateSamplerPtr> getRateSamplers() const;
 
+    public slots:
+        void sinkModified();
+
     private slots:
         void replot();
         void zoomerZoomed(const QRectF &);

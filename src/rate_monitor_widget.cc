@@ -690,6 +690,13 @@ void RateMonitorWidget::setSink(const SinkPtr &sink, SinkModifiedCallback sinkMo
         m_d->m_spin_plotIndex->setValue(m_d->m_currentIndex);
 }
 
+void RateMonitorWidget::sinkModified()
+{
+    auto currentIndex = m_d->m_currentIndex;
+    setSink(m_d->m_sink, m_d->m_sinkModifiedCallback);
+    m_d->selectPlot(currentIndex);
+}
+
 void RateMonitorWidget::setPlotExportDirectory(const QDir &dir)
 {
     m_d->m_exportDirectory = dir;
