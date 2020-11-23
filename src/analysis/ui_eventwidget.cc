@@ -4157,18 +4157,20 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 } break;
 
             case NodeType_Sink:
-                if (auto rms = get_shared_analysis_object<RateMonitorSink>(node,
-                                                                           DataRole_AnalysisObject))
+                if (auto rms = get_shared_analysis_object<RateMonitorSink>(
+                        node, DataRole_AnalysisObject))
                 {
                     if (!m_context->hasObjectWidget(rms.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
                         auto context = m_context;
-                        auto widget = new RateMonitorWidget(rms->getRateSamplers());
 
-                        widget->setSink(rms, [context](const std::shared_ptr<RateMonitorSink> &sink) {
+                        auto sinkModifiedCallback = [context] (const std::shared_ptr<RateMonitorSink> &sink)
+                        {
                             context->analysisOperatorEdited(sink);
-                        });
+                        };
+
+                        auto widget = new RateMonitorWidget(rms, sinkModifiedCallback);
 
                         widget->setPlotExportDirectory(
                             m_context->getWorkspacePath(QSL("PlotsDirectory")));

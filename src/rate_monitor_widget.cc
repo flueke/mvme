@@ -654,6 +654,18 @@ RateMonitorWidget::RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers
     m_d->postConstruct();
 }
 
+RateMonitorWidget::RateMonitorWidget(
+    const SinkPtr &rms,
+    SinkModifiedCallback sinkModifiedCallback,
+    QWidget *parent)
+    : RateMonitorWidget(parent)
+{
+    m_d->m_samplers = rms->getRateSamplers();
+    m_d->postConstruct();
+    setSink(rms, sinkModifiedCallback);
+    m_d->selectPlot(0);
+}
+
 RateMonitorWidget::~RateMonitorWidget()
 {
 }
