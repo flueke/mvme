@@ -33,6 +33,7 @@ class ListfileBrowser: public QWidget
     Q_OBJECT
     public:
         ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindow, QWidget *parent = nullptr);
+        ~ListfileBrowser() override;
 
     private:
         void onWorkspacePathChanged();
