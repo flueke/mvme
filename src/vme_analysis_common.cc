@@ -554,7 +554,7 @@ bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vModInfos, analys
     mainLayout->addWidget(mainTable, 1, 1);
     mainLayout->addWidget(explanationLabel, 2, 0, 1, 2);
 
-    QDialog dialog;
+    QDialog dialog(parent);
     dialog.setWindowTitle("Analysis to VME module assignment");
     add_widget_close_action(&dialog);
 
