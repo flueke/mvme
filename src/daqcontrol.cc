@@ -48,10 +48,10 @@ void DAQControl::startDAQ(
     if (m_context->getMode() == GlobalMode::DAQ)
     {
         if (runDuration != std::chrono::milliseconds::zero())
-        {
             m_timedRunControl = std::make_unique<TimedRunControl>(
                 this, runDuration);
-        }
+        else
+            m_timedRunControl = {};
 
         m_context->startDAQReadout(nCycles, keepHistoContents);
     }
@@ -59,6 +59,8 @@ void DAQControl::startDAQ(
     {
         if (runDuration != std::chrono::milliseconds::zero())
             qWarning("DAQControl::startDAQ(): runDuration ignored for replays");
+
+        m_timedRunControl = {};
 
         m_context->startDAQReplay(nCycles, keepHistoContents);
     }
