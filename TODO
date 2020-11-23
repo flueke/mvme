@@ -2,11 +2,7 @@
 TODO list
 ==================================================
 
-* rate monitor plot title
-* rate monitor multi plots and reset does not work
-* rate monitor show info by default
-* an open rate monitor window does not pick up when a new input is added.
-  reopening the window makes the new plot appear.
+* remember and restore the sort order of the listfile browser
 
 * doc: Add network tuning and data export section
 * document MVLC jumbo frame support in mvme manual
@@ -38,10 +34,6 @@ TODO list
     store memory locations to be incremented in some buffer. once that is full
     perform all updates at once. This should increase the speed (even more if
     the addresses where sorted).
-
-* Trigger IO Editor: allow save to/load from file.
-  Use a better vme config editor for editing the script text.
-  Add context menu entries to save to/load from file.
 
 * vme modules: allow saving a concrete module to a vme template.
   Allow instantiating modules from user vme templates.  Important: handle the
@@ -81,14 +73,7 @@ TODO list
 * add functionality for checking if the scripts in the vme tree can be parsed
   successfully. Right now parse errors are only detected on DAQ startup.
 
-* move all MVLCReadoutWorker stateChange signal emissions from the
-  start/stop/pause/resume methods into the main loop. This way they will be
-  emitted from the readout thread and the behaviour will be the same as for the
-  other readout workers. Right now connected slots will be called directly.
-
 * write unit test for CrateConfig import/export
-
-* improve the TriggerIO editor "view script text" window. It's small and annoying.
 
 * log the DAQ run duration when the DAQ is stopped
 
