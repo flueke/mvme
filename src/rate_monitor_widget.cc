@@ -453,11 +453,18 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
     }
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
-        if (auto sampler = m_d->m_samplers.value(m_d->m_currentIndex))
+        if (m_d->m_currentIndex < 0) // combined view mode -> clear all samplers
+        {
+            for (auto &sampler: m_d->m_samplers)
+                sampler->clearHistory(true);
+            replot();
+        }
+        else if (auto sampler = m_d->m_samplers.value(m_d->m_currentIndex))
         {
             sampler->clearHistory(true);
             replot();
         }
+
     });
 
     QAction *action = nullptr;
