@@ -2498,7 +2498,7 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
         setNameEdited(false);
     }
 
-    if (!wasNameEdited())
+    if (!wasNameEdited() && m_rms->getSlot(0)->isConnected())
     {
         auto name = make_input_source_text(m_rms->getSlot(0));
 
