@@ -109,8 +109,8 @@ struct AnalysisWidgetPrivate
     AnalysisSignalWrapper m_analysisSignalWrapper;
 
     QToolBar *m_toolbar;
-    QComboBox *m_eventSelectCombo;
-    QStackedWidget *m_eventWidgetStack;
+    QFrame *m_eventWidgetFrame = nullptr;
+    QScrollArea *m_eventWidgetScrollArea = nullptr;
     QStackedWidget *m_eventWidgetToolBarStack;
     QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
     ConditionWidget *m_conditionWidget;
@@ -134,7 +134,6 @@ struct AnalysisWidgetPrivate
 
     void onAnalysisChanged(Analysis *analysis);
     void repopulate();
-    void repopulateEventSelectCombo();
     void repopulateEventRelatedWidgets(const QUuid &eventId);
     void doPeriodicUpdate();
 
@@ -338,8 +337,9 @@ void AnalysisWidgetPrivate::repopulate()
 
     clear_stacked_widget(m_eventWidgetEventSelectAreaToolBarStack);
     clear_stacked_widget(m_eventWidgetToolBarStack);
-    clear_stacked_widget(m_eventWidgetStack);
 
+    m_eventWidget->deleteLater();
+    m_eventWidget = nullptr;
     auto eventWidget = new EventWidget(m_context, m_q);
 
     auto condWidget = m_conditionWidget;
@@ -385,51 +385,18 @@ void AnalysisWidgetPrivate::repopulate()
     m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
     m_eventWidget = eventWidget;
 
-    auto scrollArea = new QScrollArea;
-    scrollArea->setWidget(eventWidget);
-    scrollArea->setWidgetResizable(true);
+    if (!m_eventWidgetScrollArea)
+    {
+        m_eventWidgetScrollArea = new QScrollArea;
+        m_eventWidgetScrollArea->setWidgetResizable(true);
+        m_eventWidgetFrame->layout()->addWidget(m_eventWidgetScrollArea);
+    }
 
-    m_eventWidgetStack->addWidget(scrollArea);
+    m_eventWidgetScrollArea->setWidget(m_eventWidget);
 
     m_conditionWidget->repopulate();
-    repopulateEventSelectCombo();
     updateWindowTitle();
     updateAddRemoveUserLevelButtons();
-}
-
-void AnalysisWidgetPrivate::repopulateEventSelectCombo()
-{
-    const QUuid lastSelectedEventId = m_eventSelectCombo->currentData().toUuid();
-    m_eventSelectCombo->clear();
-
-    auto eventConfigs = m_context->getEventConfigs();
-
-    s32 comboIndexToSelect = -1;
-
-    for (s32 eventIndex = 0;
-         eventIndex < eventConfigs.size();
-         ++eventIndex)
-    {
-        auto eventConfig = eventConfigs[eventIndex];
-        auto eventId = eventConfig->getId();
-
-        QObject::disconnect(eventConfig, &ConfigObject::modified,
-                            m_q, &AnalysisWidget::eventConfigModified);
-
-        QObject::connect(eventConfig, &ConfigObject::modified,
-                         m_q, &AnalysisWidget::eventConfigModified);
-
-        m_eventSelectCombo->addItem(eventConfig->objectName(), eventId);
-        qDebug() << __PRETTY_FUNCTION__ << eventConfig->objectName() << eventId << eventIndex;
-
-        if (eventId == lastSelectedEventId)
-            comboIndexToSelect = eventIndex;
-    }
-
-    if (!lastSelectedEventId.isNull() && comboIndexToSelect < m_eventSelectCombo->count())
-    {
-        m_eventSelectCombo->setCurrentIndex(comboIndexToSelect);
-    }
 }
 
 void AnalysisWidgetPrivate::doPeriodicUpdate()
@@ -989,14 +956,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     });
 
     // QStackedWidgets for EventWidgets and their toolbars
-    m_d->m_eventWidgetStack = new QStackedWidget;
-    m_d->m_eventWidgetToolBarStack = new QStackedWidget;
-    connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
-            m_d->m_eventWidgetToolBarStack, &QStackedWidget::setCurrentIndex);
+    m_d->m_eventWidgetFrame = new QFrame;
+    {
+        auto l = new QHBoxLayout;
+        m_d->m_eventWidgetFrame->setLayout(l);
+    }
 
+    m_d->m_eventWidgetToolBarStack = new QStackedWidget;
     m_d->m_eventWidgetEventSelectAreaToolBarStack = new QStackedWidget;
-    connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
-            m_d->m_eventWidgetEventSelectAreaToolBarStack, &QStackedWidget::setCurrentIndex);
 
     // object info widget
     {
@@ -1007,10 +974,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     {
         m_d->m_conditionWidget = new ConditionWidget(m_d->m_context);
         auto condWidget = m_d->m_conditionWidget;
-
-        connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
-                condWidget, &ConditionWidget::selectEvent);
-
 
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
                          this, [this] (const AnalysisObjectPtr &) {
@@ -1151,17 +1114,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     toolbarFrameLayout->addWidget(m_d->m_eventWidgetToolBarStack);
     toolbarFrameLayout->addStretch();
 
-    // event select combo
-    m_d->m_eventSelectCombo = new QComboBox;
-    m_d->m_eventSelectCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-
-    connect(m_d->m_eventSelectCombo,
-            static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-            this, [this] (int index) {
-        m_d->m_eventWidgetStack->setCurrentIndex(index);
-        updateAddRemoveUserLevelButtons();
-    });
-
     // remove user level
     m_d->m_removeUserLevelButton = new QToolButton();
     m_d->m_removeUserLevelButton->setIcon(QIcon(QSL(":/list_remove.png")));
@@ -1179,18 +1131,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         updateAddRemoveUserLevelButtons();
     });
 
-    // Layout containing event select combo, a 2nd event widget specific
-    // toolbar and the add and remove userlevel buttons
-    auto eventSelectLayout = new QHBoxLayout;
-    eventSelectLayout->addWidget(new QLabel(QSL("Event:")));
-    eventSelectLayout->addWidget(m_d->m_eventSelectCombo);
-    auto separatorFrame = new QFrame;
-    separatorFrame->setFrameStyle(QFrame::VLine | QFrame::Sunken);
-    eventSelectLayout->addWidget(separatorFrame);
-    eventSelectLayout->addWidget(m_d->m_eventWidgetEventSelectAreaToolBarStack);
-    eventSelectLayout->addStretch();
-    eventSelectLayout->addWidget(m_d->m_removeUserLevelButton);
-    eventSelectLayout->addWidget(m_d->m_addUserLevelButton);
+    // Layout containing a 2nd EventWidget specific toolbar and the add and
+    // remove userlevel buttons.
+    auto innerToolbarLayout = new QHBoxLayout;
+    innerToolbarLayout->addWidget(m_d->m_eventWidgetEventSelectAreaToolBarStack);
+    innerToolbarLayout->addStretch();
+    innerToolbarLayout->addWidget(m_d->m_removeUserLevelButton);
+    innerToolbarLayout->addWidget(m_d->m_addUserLevelButton);
 
     // statusbar
     m_d->m_statusBar = make_statusbar();
@@ -1214,8 +1161,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     auto centralLayout = new QVBoxLayout(centralWidget);
     centralLayout->setContentsMargins(0, 0, 0, 0);
     centralLayout->setSpacing(2);
-    centralLayout->addLayout(eventSelectLayout);
-    centralLayout->addWidget(m_d->m_eventWidgetStack);
+    centralLayout->addLayout(innerToolbarLayout);
+    centralLayout->addWidget(m_d->m_eventWidgetFrame);
     centralLayout->setStretch(1, 1);
 
     auto conditionsTabWidget = new QTabWidget;
@@ -1464,7 +1411,6 @@ ObjectInfoWidget *AnalysisWidget::getObjectInfoWidget() const
 
 void AnalysisWidget::eventConfigModified()
 {
-    m_d->repopulateEventSelectCombo();
 }
 
 bool AnalysisWidget::event(QEvent *e)
