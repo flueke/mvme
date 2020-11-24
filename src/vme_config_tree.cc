@@ -221,6 +221,15 @@ std::unique_ptr<QMenu> make_menu_load_mvlc_trigger_io(
         auto action_triggered = [destScriptConfig, scriptInfo] ()
         {
             destScriptConfig->setScriptContents(scriptInfo.contents);
+
+            for (QObject *obj = destScriptConfig; obj; obj = obj->parent())
+            {
+                if (auto vmeConfig = qobject_cast<VMEConfig *>(obj))
+                {
+                    mesytec::mvme_mvlc::update_trigger_io_inplace(*vmeConfig);
+                    break;
+                }
+            }
         };
 
         result->addAction(title, action_triggered);
