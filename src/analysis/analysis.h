@@ -1794,7 +1794,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         SourceVector getSourcesByEvent(const QUuid &eventId) const;
         SourcePtr getSource(const QUuid &sourceId) const;
 
-        void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
+        void addSource(const QUuid &moduleId, const SourcePtr &source);
         void addSource(const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
@@ -1822,6 +1822,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         OperatorVector &getOperators() { return m_operators; }
         OperatorVector getOperators(const QUuid &eventId) const;
         OperatorVector getOperators(const QUuid &eventId, s32 userLevel) const;
+        OperatorVector getOperators(s32 userLevel) const;
         OperatorPtr getOperator(const QUuid &operatorId) const;
         OperatorVector getNonSinkOperators() const;
         OperatorVector getSinkOperators() const;
@@ -1892,6 +1893,9 @@ class LIBMVME_EXPORT Analysis: public QObject
         const DirectoryVector getDirectories(const QUuid &eventId,
                                              s32 userLevel,
                                              const DisplayLocation &loc = DisplayLocation::Any) const;
+
+        const DirectoryVector getDirectories(
+            s32 userLevel, const DisplayLocation &loc = DisplayLocation::Any) const;
 
         DirectoryPtr getDirectory(const QUuid &id) const;
 
@@ -2015,8 +2019,8 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         static int getCurrentAnalysisVersion();
 
-        void setUserLevelsHidden(const QUuid &eventId, const QVector<bool> &hidden);
-        QVector<bool> getUserLevelsHidden(const QUuid &eventId) const;
+        void setUserLevelsHidden(const QVector<bool> &hidden);
+        QVector<bool> getUserLevelsHidden() const;
 
     private:
         void updateRank(OperatorInterface *op,
@@ -2062,7 +2066,7 @@ RawDataDisplay LIBMVME_EXPORT make_raw_data_display(
     const QString &name, const QString &xAxisTitle, const QString &unitLabel);
 
 void LIBMVME_EXPORT add_raw_data_display(
-    Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
+    Analysis *analysis, const QUuid &moduleId, const RawDataDisplay &display);
 
 void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 

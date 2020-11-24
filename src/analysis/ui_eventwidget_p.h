@@ -47,7 +47,8 @@ enum DataRole
 
 enum NodeType
 {
-    NodeType_Module = QTreeWidgetItem::UserType,
+    NodeType_Event = QTreeWidgetItem::UserType,
+    NodeType_Module,
     NodeType_Source,
     NodeType_Operator,
     NodeType_OutputPipe,
@@ -233,8 +234,6 @@ struct EventWidgetPrivate
 
     EventWidget *m_q;
     MVMEContext *m_context;
-    QUuid m_eventId;
-    int m_eventIndex;
     AnalysisWidget *m_analysisWidget;
 
     QVector<UserLevelTrees> m_levelTrees;
@@ -306,11 +305,9 @@ struct EventWidgetPrivate
     // used prior to making a bunch of changes to the underyling analysis.
     bool repopEnabled = true;
 
-    void createView(const QUuid &eventId);
-    void populateDataSourceTree(
-        DataSourceTree *tree,
-        const QUuid &eventId);
-    UserLevelTrees createTrees(const QUuid &eventId, s32 level);
+    void createView();
+    void populateDataSourceTree(DataSourceTree *tree);
+    UserLevelTrees createTrees(s32 level);
     void appendTreesToView(UserLevelTrees trees);
     void repopulate();
 

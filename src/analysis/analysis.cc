@@ -3762,9 +3762,8 @@ SourcePtr Analysis::getSource(const QUuid &sourceId) const
     return it != m_sources.end() ? *it : nullptr;
 }
 
-void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
+void Analysis::addSource(const QUuid &moduleId, const SourcePtr &source)
 {
-    source->setEventId(eventId);
     source->setModuleId(moduleId);
     addSource(source);
 }
@@ -3946,6 +3945,19 @@ OperatorVector Analysis::getOperators(const QUuid &eventId, s32 userLevel) const
     for (const auto &op: m_operators)
     {
         if (op->getEventId() == eventId && op->getUserLevel() == userLevel)
+            result.push_back(op);
+    }
+
+    return result;
+}
+
+OperatorVector Analysis::getOperators(s32 userLevel) const
+{
+    OperatorVector result;
+
+    for (const auto &op: m_operators)
+    {
+        if (op->getUserLevel() == userLevel)
             result.push_back(op);
     }
 
@@ -4253,6 +4265,23 @@ const DirectoryVector Analysis::getDirectories(const QUuid &eventId, s32 userLev
     {
         if (dir->getEventId() == eventId
             && dir->getUserLevel() == userLevel
+            && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
+        {
+            result.push_back(dir);
+        }
+    }
+
+    return result;
+}
+
+const DirectoryVector Analysis::getDirectories(
+    s32 userLevel, const DisplayLocation &loc) const
+{
+    DirectoryVector result;
+
+    for (const auto &dir: m_directories)
+    {
+        if (dir->getUserLevel() == userLevel
             && (loc == DisplayLocation::Any || dir->getDisplayLocation() == loc))
         {
             result.push_back(dir);
@@ -5149,30 +5178,17 @@ auto from_qvariantlist(const QVariantList &lst)
     return ret;
 }
 
-void Analysis::setUserLevelsHidden(const QUuid &eventId, const QVector<bool> &hidden)
+void Analysis::setUserLevelsHidden(const QVector<bool> &hidden)
 {
-    auto settings = property("PerEventHiddenUserLevels").toMap();
-
-    auto currentHidden = getUserLevelsHidden(eventId);
-
-    if (currentHidden != hidden)
-    {
-        auto lst = to_qvariantlist(hidden);
-        settings[eventId.toString()] = lst;
-        setProperty("PerEventHiddenUserLevels", settings);
-        setModified();
-    }
-
-    assert(getUserLevelsHidden(eventId) == hidden);
+    setProperty("HiddenUserLevels", to_qvariantlist(hidden));
+    setModified();
+    assert(getUserLevelsHidden() == hidden);
 }
 
-QVector<bool> Analysis::getUserLevelsHidden(const QUuid &eventId) const
+QVector<bool> Analysis::getUserLevelsHidden() const
 {
-    auto settings = property("PerEventHiddenUserLevels").toMap();
-    auto lst = settings.value(eventId.toString()).value<QVariantList>();
-    auto ret = from_qvariantlist<QVector<bool>>(lst);
-
-    return ret;
+    return from_qvariantlist<QVector<bool>>(
+        property("HiddenUserLevels").value<QVariantList>());
 }
 
 static const double maxRawHistoBins = (1 << 16);
@@ -5234,13 +5250,18 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
     return make_raw_data_display(extractor, unitMin, unitMax, xAxisTitle, unitLabel);
 }
 
-void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId,
-                          const RawDataDisplay &display)
+void add_raw_data_display(
+    Analysis *analysis, const QUuid &moduleId, const RawDataDisplay &display)
 {
-    analysis->addSource(eventId, moduleId, display.extractor);
-    analysis->addOperator(eventId, 0, display.rawHistoSink);
-    analysis->addOperator(eventId, 1, display.calibration);
-    analysis->addOperator(eventId, 1, display.calibratedHistoSink);
+    analysis->addSource(moduleId, display.extractor);
+
+    display.rawHistoSink->setUserLevel(0);
+    display.calibration->setUserLevel(1);
+    display.calibratedHistoSink->setUserLevel(1);
+
+    analysis->addOperator(display.rawHistoSink);
+    analysis->addOperator(display.calibration);
+    analysis->addOperator(display.calibratedHistoSink);
 }
 
 void do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo)

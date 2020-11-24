@@ -362,13 +362,11 @@ void AddEditExtractorDialog::accept()
                         // FIXME: missing title
                         QString(), le_unit->text());
 
-                    add_raw_data_display(
-                        analysis, m_eventWidget->getEventId(), m_module->getId(),
-                        rawDisplay);
+                    add_raw_data_display(analysis, m_module->getId(), rawDisplay);
                 }
                 else
                 {
-                    analysis->addSource(m_eventWidget->getEventId(), m_module->getId(), m_ex);
+                    analysis->addSource(m_module->getId(), m_ex);
                 }
             } break;
 
@@ -735,7 +733,8 @@ void AddEditOperatorDialog::accept()
     {
         case ObjectEditorMode::New:
             {
-                analysis->addOperator(m_eventWidget->getEventId(), m_userLevel, m_op);
+                m_op->setUserLevel(m_userLevel);
+                analysis->addOperator(m_op);
 
                 if (m_destDir)
                 {
@@ -2756,6 +2755,7 @@ void ExportSinkStatusMonitor::update()
 // EventSettingsDialog
 //
 
+// FIXME 20201124 EventSettingsDialog is not event specific anymore. Needs rework.
 EventSettingsDialog::EventSettingsDialog(const QVariantMap &settings, QWidget *parent)
     : QDialog(parent)
     , m_settings(settings)

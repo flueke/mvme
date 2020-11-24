@@ -105,8 +105,7 @@ struct AnalysisWidgetPrivate
 {
     AnalysisWidget *m_q;
     MVMEContext *m_context;
-    QHash<QUuid, EventWidget *> m_eventWidgetsByEventId;
-    QVector<EventWidget *> m_eventWidgetsByEventIndex;
+    EventWidget *m_eventWidget = nullptr;
     AnalysisSignalWrapper m_analysisSignalWrapper;
 
     QToolBar *m_toolbar;
@@ -329,11 +328,7 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << eventId;
-    if (auto ew = m_eventWidgetsByEventId.value(eventId))
-    {
-        ew->repopulate();
-    }
-
+    m_eventWidget->repopulate();
     m_conditionWidget->repopulate(eventId);
 }
 
@@ -344,74 +339,57 @@ void AnalysisWidgetPrivate::repopulate()
     clear_stacked_widget(m_eventWidgetEventSelectAreaToolBarStack);
     clear_stacked_widget(m_eventWidgetToolBarStack);
     clear_stacked_widget(m_eventWidgetStack);
-    m_eventWidgetsByEventId.clear();
-    m_eventWidgetsByEventIndex.clear();
 
-    // Repopulate combobox and stacked widget
-    auto eventConfigs = m_context->getEventConfigs();
+    auto eventWidget = new EventWidget(m_context, m_q);
 
-    // FIXME: event creation is still entirely based on the DAQ config. events
-    //        that do exist in the analysis but not in the DAQ won't show up at all
-    for (s32 eventIndex = 0;
-         eventIndex < eventConfigs.size();
-         ++eventIndex)
-    {
-        auto eventConfig = eventConfigs[eventIndex];
-        auto eventId = eventConfig->getId();
+    auto condWidget = m_conditionWidget;
 
-        auto eventWidget = new EventWidget(
-            m_context, eventId, eventIndex, m_q);
+    QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
+                     eventWidget, &EventWidget::onConditionLinkSelected);
 
-        auto condWidget = m_conditionWidget;
+    QObject::connect(condWidget, &ConditionWidget::applyConditionAccept,
+                     eventWidget, &EventWidget::applyConditionAccept);
 
-        QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
-                         eventWidget, &EventWidget::onConditionLinkSelected);
+    QObject::connect(condWidget, &ConditionWidget::applyConditionReject,
+                     eventWidget, &EventWidget::applyConditionReject);
 
-        QObject::connect(condWidget, &ConditionWidget::applyConditionAccept,
-                         eventWidget, &EventWidget::applyConditionAccept);
+    QObject::connect(eventWidget, &EventWidget::objectSelected,
+                     m_q, [this] (const analysis::AnalysisObjectPtr &obj) {
 
-        QObject::connect(condWidget, &ConditionWidget::applyConditionReject,
-                         eventWidget, &EventWidget::applyConditionReject);
+         ConditionLink cl;
 
-        QObject::connect(eventWidget, &EventWidget::objectSelected,
-                         m_q, [this] (const analysis::AnalysisObjectPtr &obj) {
+         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+         {
+             cl = getAnalysis()->getConditionLink(op);
+         }
 
-             ConditionLink cl;
+         if (cl)
+         {
+             m_conditionWidget->highlightConditionLink(cl);
+         }
+         else
+         {
+             m_conditionWidget->clearTreeHighlights();
+         }
+    });
 
-             if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-             {
-                 cl = getAnalysis()->getConditionLink(op);
-             }
+    QObject::connect(eventWidget, &EventWidget::nonObjectNodeSelected,
+                     m_q, [this] (const QTreeWidgetItem *) {
+        m_conditionWidget->clearTreeHighlights();
+    });
 
-             if (cl)
-             {
-                 m_conditionWidget->highlightConditionLink(cl);
-             }
-             else
-             {
-                 m_conditionWidget->clearTreeHighlights();
-             }
-        });
+    QObject::connect(eventWidget, &EventWidget::conditionLinksModified,
+                     m_conditionWidget, &ConditionWidget::setModificationButtonsVisible);
 
-        QObject::connect(eventWidget, &EventWidget::nonObjectNodeSelected,
-                         m_q, [this] (const QTreeWidgetItem *) {
-            m_conditionWidget->clearTreeHighlights();
-        });
+    m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
+    m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
+    m_eventWidget = eventWidget;
 
-        QObject::connect(eventWidget, &EventWidget::conditionLinksModified,
-                         m_conditionWidget, &ConditionWidget::setModificationButtonsVisible);
+    auto scrollArea = new QScrollArea;
+    scrollArea->setWidget(eventWidget);
+    scrollArea->setWidgetResizable(true);
 
-        m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
-        m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
-        m_eventWidgetsByEventId[eventId] = eventWidget;
-        m_eventWidgetsByEventIndex.push_back(eventWidget);
-
-        auto scrollArea = new QScrollArea;
-        scrollArea->setWidget(eventWidget);
-        scrollArea->setWidgetResizable(true);
-
-        m_eventWidgetStack->addWidget(scrollArea);
-    }
+    m_eventWidgetStack->addWidget(scrollArea);
 
     m_conditionWidget->repopulate();
     repopulateEventSelectCombo();
@@ -456,10 +434,7 @@ void AnalysisWidgetPrivate::repopulateEventSelectCombo()
 
 void AnalysisWidgetPrivate::doPeriodicUpdate()
 {
-    for (auto eventWidget: m_eventWidgetsByEventId.values())
-    {
-        eventWidget->m_d->doPeriodicUpdate();
-    }
+    m_eventWidget->m_d->doPeriodicUpdate();
 
     m_conditionWidget->doPeriodicUpdate();
     m_objectInfoWidget->refresh();
@@ -467,13 +442,10 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
 
 void AnalysisWidgetPrivate::closeAllUniqueWidgets()
 {
-    for (auto eventWidget: m_eventWidgetsByEventId.values())
+    if (m_eventWidget->m_d->m_uniqueWidget)
     {
-        if (eventWidget->m_d->m_uniqueWidget)
-        {
-                eventWidget->m_d->m_uniqueWidget->close();
-                eventWidget->uniqueWidgetCloses();
-        }
+        m_eventWidget->m_d->m_uniqueWidget->close();
+        m_eventWidget->uniqueWidgetCloses();
     }
 }
 
@@ -951,25 +923,15 @@ void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    QUuid eventId = m_eventSelectCombo->currentData().toUuid();
     auto analysis = m_context->getAnalysis();
     s32 maxUserLevel = 0;
 
-    for (const auto &op: analysis->getOperators(eventId))
-    {
+    for (const auto &op: analysis->getOperators())
         maxUserLevel = std::max(maxUserLevel, op->getUserLevel());
-    }
 
     s32 numUserLevels = maxUserLevel + 1;
 
-    EventWidget *eventWidget = m_eventWidgetsByEventId.value(eventId);
-
-    s32 visibleUserLevels = 0;
-
-    if (eventWidget)
-    {
-        visibleUserLevels = eventWidget->m_d->m_levelTrees.size();
-    }
+    s32 visibleUserLevels = m_eventWidget->m_d->m_levelTrees.size();
 
     m_removeUserLevelButton->setEnabled(visibleUserLevels > 1 && visibleUserLevels > numUserLevels);
 }
@@ -1053,12 +1015,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
                          this, [this] (const AnalysisObjectPtr &) {
 
-            auto ei = m_d->m_eventSelectCombo->currentIndex();
-
-            if (auto ew = m_d->m_eventWidgetsByEventIndex.value(ei, nullptr))
-            {
-                ew->m_d->clearAllTreeSelections();
-            }
+            m_d->m_eventWidget->m_d->clearAllTreeSelections();
         });
 
         QObject::connect(condWidget, &ConditionWidget::editCondition,
@@ -1209,13 +1166,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_removeUserLevelButton = new QToolButton();
     m_d->m_removeUserLevelButton->setIcon(QIcon(QSL(":/list_remove.png")));
     connect(m_d->m_removeUserLevelButton, &QPushButton::clicked, this, [this]() {
-        QUuid eventId = m_d->m_eventSelectCombo->currentData().toUuid();
-        EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventId);
-        if (eventWidget)
-        {
-            eventWidget->removeUserLevel();
-            updateAddRemoveUserLevelButtons();
-        }
+        m_d->m_eventWidget->removeUserLevel();
+        updateAddRemoveUserLevelButtons();
     });
 
     // add user level
@@ -1223,13 +1175,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_addUserLevelButton->setIcon(QIcon(QSL(":/list_add.png")));
 
     connect(m_d->m_addUserLevelButton, &QPushButton::clicked, this, [this]() {
-        QUuid eventId = m_d->m_eventSelectCombo->currentData().toUuid();
-        EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventId);
-        if (eventWidget)
-        {
-            eventWidget->addUserLevel();
-            updateAddRemoveUserLevelButtons();
-        }
+        m_d->m_eventWidget->addUserLevel();
+        updateAddRemoveUserLevelButtons();
     });
 
     // Layout containing event select combo, a 2nd event widget specific
@@ -1488,23 +1435,15 @@ AnalysisWidget::~AnalysisWidget()
     qDebug() << __PRETTY_FUNCTION__;
 }
 
-void AnalysisWidget::operatorAddedExternally(const OperatorPtr &op)
+void AnalysisWidget::operatorAddedExternally(const OperatorPtr &/*op*/)
 {
-    if (auto eventWidget = m_d->m_eventWidgetsByEventId.value(op->getEventId()))
-    {
-        eventWidget->m_d->repopulate();
-    }
-
+    m_d->m_eventWidget->m_d->repopulate();
     m_d->m_conditionWidget->repopulate();
 }
 
-void AnalysisWidget::operatorEditedExternally(const OperatorPtr &op)
+void AnalysisWidget::operatorEditedExternally(const OperatorPtr &/*op*/)
 {
-    if (auto eventWidget = m_d->m_eventWidgetsByEventId.value(op->getEventId()))
-    {
-        eventWidget->m_d->repopulate();
-    }
-
+    m_d->m_eventWidget->m_d->repopulate();
     m_d->m_conditionWidget->repopulate();
 }
 
@@ -1550,10 +1489,7 @@ int AnalysisWidget::removeObjects(const AnalysisObjectVector &objects)
     auto analysis = m_d->getAnalysis();
     int result = analysis->removeObjectsRecursively(objects);
 
-    for (auto eventWidget: m_d->m_eventWidgetsByEventIndex)
-    {
-        eventWidget->repopulate();
-    }
+    m_d->m_eventWidget->repopulate();
     return result;
 }
 

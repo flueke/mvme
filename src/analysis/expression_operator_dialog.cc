@@ -1776,8 +1776,7 @@ void ExpressionOperatorDialog::Private::model_stepOperator()
 
 QString ExpressionOperatorDialog::Private::generateNameForNewOperator()
 {
-    auto eventId   = m_eventWidget->getEventId();
-    auto operators = m_eventWidget->getAnalysis()->getOperators(eventId);
+    auto operators = m_eventWidget->getAnalysis()->getOperators();
 
     QSet<QString> names;
 
@@ -2137,8 +2136,8 @@ void ExpressionOperatorDialog::apply()
     {
         case ObjectEditorMode::New:
             {
-                analysis->addOperator(m_d->m_eventWidget->getEventId(),
-                                      m_d->m_userLevel, m_d->m_op);
+                m_d->m_op->setUserLevel(m_d->m_userLevel);
+                analysis->addOperator(m_d->m_op);
 
                 m_d->m_mode = ObjectEditorMode::Edit;
 

@@ -59,8 +59,7 @@ class EventWidget: public QWidget
                                                         Pipe *sourcePipe,
                                                         s32 sourceParamIndex)>;
 
-        EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
-                    AnalysisWidget *analysisWidget, QWidget *parent = 0);
+        EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidget *parent = 0);
         virtual ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
@@ -92,8 +91,6 @@ class EventWidget: public QWidget
 
         friend class AnalysisWidget;
         friend struct AnalysisWidgetPrivate;
-
-        QUuid getEventId() const;
 
         void selectObjects(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllSelectedObjects() const;

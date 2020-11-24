@@ -1210,17 +1210,13 @@ static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 
 } // end anon namespace
 
-EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
-                         AnalysisWidget *analysisWidget, QWidget *parent)
+EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<EventWidgetPrivate>())
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << "event =" << eventId;
     *m_d = {};
     m_d->m_q = this;
     m_d->m_context = ctx;
-    m_d->m_eventId = eventId;
-    m_d->m_eventIndex = eventIndex;
     m_d->m_analysisWidget = analysisWidget;
     m_d->m_displayRefreshTimer = new QTimer(this);
     m_d->m_displayRefreshTimer->start(PeriodicUpdateTimerInterval_ms);
@@ -1303,7 +1299,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
             }
 
             auto analysis = m_d->m_context->getAnalysis();
-            analysis->setUserLevelsHidden(m_d->m_eventId, m_d->m_hiddenUserLevels);
+            analysis->setUserLevelsHidden(m_d->m_hiddenUserLevels);
         }
     });
 
@@ -1336,11 +1332,12 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
     connect(actionEventSettings, &QAction::triggered, this, [this] {
         auto analysis = m_d->m_context->getAnalysis();
 
-        EventSettingsDialog dialog(analysis->getVMEObjectSettings(m_d->m_eventId), this);
+        const auto id = getVMEConfig()->getId();
+        EventSettingsDialog dialog(analysis->getVMEObjectSettings(id), this);
 
         if (dialog.exec() == QDialog::Accepted)
         {
-            analysis->setVMEObjectSettings(m_d->m_eventId, dialog.getSettings());
+            analysis->setVMEObjectSettings(id, dialog.getSettings());
         }
     });
 
@@ -1391,8 +1388,6 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
 
 EventWidget::~EventWidget()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << "event =" << m_d->m_eventId;
-
     if (m_d->m_uniqueWidget)
     {
         if (auto dialog = qobject_cast<QDialog *>(m_d->m_uniqueWidget))
@@ -1528,7 +1523,6 @@ void EventWidget::objectEditorDialogRejected()
 void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
 {
     if (m_d->getMode() != EventWidgetPrivate::Default) return;
-    if (cl.condition->getEventId() != getEventId()) return;
     if (cl == m_d->m_applyConditionInfo) return;
 
     qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get() << cl.subIndex;
@@ -1720,11 +1714,6 @@ VMEConfig *EventWidget::getVMEConfig() const
 QTreeWidgetItem *EventWidget::findNode(const AnalysisObjectPtr &obj)
 {
     return m_d->findNode(obj);
-}
-
-QUuid EventWidget::getEventId() const
-{
-    return m_d->m_eventId;
 }
 
 void EventWidget::selectObjects(const AnalysisObjectVector &objects)
@@ -1944,24 +1933,24 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     selectObjects(cloneVector);
 }
 
-void EventWidgetPrivate::createView(const QUuid &eventId)
+void EventWidgetPrivate::createView()
 {
     auto analysis = m_context->getAnalysis();
     s32 maxUserLevel = 0;
 
-    for (const auto &op: analysis->getOperators(eventId))
+    for (const auto &op: analysis->getOperators())
     {
         maxUserLevel = std::max(maxUserLevel, op->getUserLevel());
     }
 
-    for (const auto &dir: analysis->getDirectories(eventId))
+    for (const auto &dir: analysis->getDirectories())
     {
         maxUserLevel = std::max(maxUserLevel, dir->getUserLevel());
     }
 
     for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
     {
-        auto trees = createTrees(eventId, userLevel);
+        auto trees = createTrees(userLevel);
         m_levelTrees.push_back(trees);
     }
 
@@ -2053,51 +2042,53 @@ static const s32 minTreeHeight = 150;
 } // anon ns
 
 void EventWidgetPrivate::populateDataSourceTree(
-    DataSourceTree *tree,
-    const QUuid &eventId)
+    DataSourceTree *tree)
 {
     auto analysis = m_context->getAnalysis();
     auto vmeConfig = m_context->getVMEConfig();
 
-    auto eventConfig = vmeConfig->getEventConfig(eventId);
-    auto modules = eventConfig->getModuleConfigs();
-
-    // Populate the OperatorTree (top left) with module nodes and extractor children
-    for (const auto &mod: modules)
+    for (auto eventConfig: vmeConfig->getEventConfigs())
     {
-        QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
-        QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
-        auto moduleNode = make_module_node(mod);
-        tree->addTopLevelItem(moduleNode);
-        moduleNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(mod));
+        auto modules = eventConfig->getModuleConfigs();
 
-        auto sources = analysis->getSources(eventId, mod->getId());
-        std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
+        // Populate the OperatorTree (top left) with module nodes and extractor children
+        for (const auto &mod: modules)
+        {
+            QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
+            QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
+            auto moduleNode = make_module_node(mod);
+            tree->addTopLevelItem(moduleNode);
+            moduleNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(mod));
+
+            auto sources = analysis->getSourcesByModule(mod->getId());
+            std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
 
 #if 0
-//#ifndef QT_NO_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << ">>>>> sources in order:";
-        for (auto source: sources)
-        {
-            qDebug() << source.get();
-        }
-        qDebug() << __PRETTY_FUNCTION__ << " <<<< end sources";
+            //#ifndef QT_NO_DEBUG
+            qDebug() << __PRETTY_FUNCTION__ << ">>>>> sources in order:";
+            for (auto source: sources)
+            {
+                qDebug() << source.get();
+            }
+            qDebug() << __PRETTY_FUNCTION__ << " <<<< end sources";
 #endif
 
-        for (auto source: sources)
-        {
-            auto sourceNode = make_datasource_node(source.get());
-            moduleNode->addChild(sourceNode);
+            for (auto source: sources)
+            {
+                auto sourceNode = make_datasource_node(source.get());
+                moduleNode->addChild(sourceNode);
 
-            assert(m_objectMap.count(source) == 0);
-            m_objectMap[source] = sourceNode;
+                assert(m_objectMap.count(source) == 0);
+                m_objectMap[source] = sourceNode;
+            }
         }
     }
 
     // Add unassigned data sources below a special root node
-    for (const auto &source: analysis->getSourcesByEvent(eventId))
+    for (const auto &source: analysis->getSources())
     {
         if (source->getModuleId().isNull()
+            || source->getEventId().isNull()
             || (m_objectMap.find(source) == m_objectMap.end()))
         {
             if (!tree->unassignedDataSourcesRoot)
@@ -2123,7 +2114,7 @@ void EventWidgetPrivate::populateDataSourceTree(
     }
 }
 
-UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
+UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
 {
     QString opTreeTitle = (level == 0 ? QSL("L0 Parameter Extraction") : QSL("L%1 Processing").arg(level));
     QString sinkTreeTitle = (level == 0 ? QSL("L0 Raw Data Display") : QSL("L%1 Data Display").arg(level));
@@ -2132,13 +2123,13 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 
     // Custom populate function for the top-left data source tree
     if (level == 0)
-        populateDataSourceTree(qobject_cast<DataSourceTree *>(result.operatorTree), eventId);
+        populateDataSourceTree(qobject_cast<DataSourceTree *>(result.operatorTree));
 
     auto analysis = m_context->getAnalysis();
 
     // create directory entries for both trees
-    auto opDirs = analysis->getDirectories(eventId, level, DisplayLocation::Operator);
-    auto sinkDirs = analysis->getDirectories(eventId, level, DisplayLocation::Sink);
+    auto opDirs = analysis->getDirectories(level, DisplayLocation::Operator);
+    auto sinkDirs = analysis->getDirectories(level, DisplayLocation::Sink);
 
     std::sort(std::begin(opDirs), std::end(opDirs), qobj_ptr_natural_compare);
     std::sort(std::begin(sinkDirs), std::end(sinkDirs), qobj_ptr_natural_compare);
@@ -2149,7 +2140,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 
     add_directory_nodes(result.operatorTree, opDirs, dirNodes, analysis);
 
-    auto operators = analysis->getOperators(eventId, level);
+    auto operators = analysis->getOperators(level);
     std::sort(std::begin(operators), std::end(operators), qobj_ptr_natural_compare);
 
     for (auto op: operators)
@@ -2387,11 +2378,8 @@ void EventWidgetPrivate::repopulate()
     m_objectMap.clear();
 
     // populate
-    if (!m_eventId.isNull())
-    {
         // This populates m_d->m_levelTrees
-        createView(m_eventId);
-    }
+        createView();
 
     for (auto trees: m_levelTrees)
     {
@@ -2404,7 +2392,7 @@ void EventWidgetPrivate::repopulate()
     for (s32 i = 0; i < levelsToAdd; ++i)
     {
         s32 levelIndex = m_levelTrees.size();
-        auto trees = createTrees(m_eventId, levelIndex);
+        auto trees = createTrees(levelIndex);
         m_levelTrees.push_back(trees);
         appendTreesToView(trees);
     }
@@ -2417,7 +2405,7 @@ void EventWidgetPrivate::repopulate()
         m_displayFrameSplitter->setSizes(splitterSizes);
     }
 
-    m_hiddenUserLevels = getAnalysis()->getUserLevelsHidden(m_eventId);
+    m_hiddenUserLevels = getAnalysis()->getUserLevelsHidden();
     m_hiddenUserLevels.resize(m_levelTrees.size());
 
     for (s32 idx = 0; idx < m_hiddenUserLevels.size(); ++idx)
@@ -2430,26 +2418,18 @@ void EventWidgetPrivate::repopulate()
     clearAllToDefaultNodeHighlights();
     updateActions();
 
-    m_analysisWidget->getConditionWidget()->repopulate(m_eventIndex);
+    m_analysisWidget->getConditionWidget()->repopulate();
 
 #ifndef NDEBUG
     qDebug() << __PRETTY_FUNCTION__ << this << "_-_-_-_-_-"
         << "objectMap contains " << m_objectMap.size() << "mappings";
-
-    for (const auto &p: m_objectMap)
-    {
-        if (auto obj = p.first.lock())
-        {
-            assert(obj->getEventId() == m_eventId);
-        }
-    }
 #endif
 }
 
 void EventWidgetPrivate::addUserLevel()
 {
     s32 levelIndex = m_levelTrees.size();
-    auto trees = createTrees(m_eventId, levelIndex);
+    auto trees = createTrees(levelIndex);
     m_levelTrees.push_back(trees);
     appendTreesToView(trees);
     m_manualUserLevel = levelIndex + 1;
@@ -2574,7 +2554,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto newDir = std::make_shared<Directory>();
                 newDir->setObjectName("New Directory");
                 newDir->setUserLevel(userLevel);
-                newDir->setEventId(m_eventId);
                 newDir->setDisplayLocation(DisplayLocation::Operator);
                 m_context->getAnalysis()->addDirectory(newDir);
                 if (destDir)
@@ -3006,7 +2985,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 auto newDir = std::make_shared<Directory>();
                 newDir->setObjectName("New Directory");
                 newDir->setUserLevel(userLevel);
-                newDir->setEventId(m_eventId);
                 newDir->setDisplayLocation(DisplayLocation::Sink);
                 m_context->getAnalysis()->addDirectory(newDir);
                 if (destDir)
@@ -3164,7 +3142,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                             auto widget = new Histo2DWidget(histoPtr);
 
                             auto context = m_context;
-                            auto eventId = m_eventId;
+                            auto eventId = sinkPtr->getEventId();
 
                             widget->setSink(
                                 sinkPtr,
@@ -3199,7 +3177,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                             auto widget = new Histo2DWidget(histoPtr);
 
                             auto context = m_context;
-                            auto eventId = m_eventId;
+                            auto eventId = sinkPtr->getEventId();
 
                             widget->setSink(
                                 sinkPtr,
@@ -3745,7 +3723,7 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
 /* Adds checkboxes to the candidates of the given ConditionkLink. */
 void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
 {
-    if (!cl || cl.condition->getEventId() != m_eventId) return;
+    if (!cl) return;
 
     auto analysis = getAnalysis();
     auto candidates = get_apply_condition_candidates(cl.condition, analysis);
@@ -3760,7 +3738,6 @@ void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
             {
                 qDebug() << __PRETTY_FUNCTION__ << op << "op eventId =" << op->getEventId()
                     << "op userlevel =" << op->getUserLevel();
-                qDebug() << __PRETTY_FUNCTION__ << "this eventId =" << m_eventId;
             }
             assert(it->second);
 
@@ -3780,7 +3757,7 @@ void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
 /* Removes checkboxes for the candidates of the given ConditionkLink. */
 void EventWidgetPrivate::removeConditionDecorations(const ConditionLink &cl)
 {
-    if (!cl || cl.condition->getEventId() != m_eventId) return;
+    if (!cl) return;
 
     auto analysis = getAnalysis();
     auto candidates = get_apply_condition_candidates(cl.condition, analysis);
@@ -3819,7 +3796,6 @@ void EventWidgetPrivate::updateNodesForApplyConditionMode()
     auto &aci = m_applyConditionInfo;
 
     if (!aci) return;
-    if (aci.condition->getEventId() != m_eventId) return;
 
     qDebug() << __PRETTY_FUNCTION__ << this
         << endl
@@ -4129,7 +4105,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         auto widget = new Histo2DWidget(histoPtr);
 
                         auto context = m_context;
-                        auto eventId = m_eventId;
+                        auto eventId = sinkPtr->getEventId();
 
                         widget->setSink(
                             sinkPtr,
@@ -4683,8 +4659,9 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
 }
 
-void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
+void EventWidgetPrivate::periodicUpdateEventRate(double dt_s) // FIXME: disabled
 {
+#if 0
     if (auto mvmeStreamWorker = qobject_cast<MVMEStreamWorker *>(m_context->getMVMEStreamWorker()))
     {
         auto &prevCounters(m_prevStreamProcessorCounters);
@@ -4732,6 +4709,7 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
 
         prevCounters = counters;
     }
+#endif
 }
 
 
@@ -5023,17 +5001,17 @@ void EventWidgetPrivate::actionImport()
             // Reset the data sources module id. This will make the source unassigned any
             // module and the user has to assign it later.
             obj->setModuleId(QUuid());
-            obj->setEventId(m_eventId);
+            obj->setEventId(QUuid());
         }
 
         for (auto &obj: objectStore.operators)
         {
-            obj->setEventId(m_eventId);
+            obj->setEventId(QUuid());
         }
 
         for (auto &obj: objectStore.directories)
         {
-            obj->setEventId(m_eventId);
+            obj->setEventId(QUuid());
         }
 
         check_directory_consistency(objectStore.directories);

@@ -254,8 +254,7 @@ int main(int argc, char *argv[])
                                                                   ex->objectName().section('.', 0, -1),
                                                                   QString());
 
-            add_raw_data_display(context->getAnalysis(), eventConfig->getId(),
-                                 moduleConfig->getId(), rawDataDisplay);
+            add_raw_data_display(context->getAnalysis(), moduleConfig->getId(), rawDataDisplay);
         }
 
         context->getAnalysis()->setModified(false);
