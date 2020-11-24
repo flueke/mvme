@@ -959,6 +959,7 @@ std::error_code VMEConfig::read_impl(const QJsonObject &json)
     assert(m_globalObjects.objectName() == "global_objects");
     m_globalObjects.read(json["global_objects"].toObject());
     m_globalObjects.setObjectName("global_objects");
+    m_globalObjects.setParent(this);
     createMissingGlobals();
 
     // old script objects. These are now stored as children of m_globalObjects instead
