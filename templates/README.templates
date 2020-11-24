@@ -8,8 +8,11 @@ use 'Tools -> VME/Analysis Template System Info'.
 Note: User defined module typeIds start at 160. Ids < 160 are reserved!
 
 
-Each subdirectory (with the exception of the 'event' directory) contains the
-template data for one VME module.
+Each subdirectory contains the template data for one VME module. Exceptions are
+the special auxiliary_scripts/, event/ and mvlc_trigger_io/ directories. Event
+templates are described below, the auxiliary_scripts and mvlc_trigger_io
+scripts are handled differently (see src/template_system.cc).
+
 
 Event Templates
 ---------------
