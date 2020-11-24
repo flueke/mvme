@@ -2,7 +2,7 @@
 TODO list
 ==================================================
 
-* rate monitor: check and fix y-axis scaling. always start from 0 and make the log scale behave like the on for 1d histos.
+* trigger io: context menu to load predefined
 
 * doc: Add network tuning and data export section
 * document MVLC jumbo frame support in mvme manual

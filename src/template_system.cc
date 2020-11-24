@@ -504,4 +504,29 @@ bool auxinfo_default_compare(
     return a.vendorName() < b.vendorName();
 }
 
+QVector<GenericVMEScriptInfo> read_vme_scripts_from_directory(
+    const QString &path)
+{
+    QVector<GenericVMEScriptInfo> result;
+
+    QDir sourceDir(path);
+
+    auto filenames = sourceDir.entryList({ QSL("*.vmescript") }, QDir::Files | QDir::Readable);
+
+    for (auto filename: filenames)
+    {
+        auto fullPath = sourceDir.filePath(filename);
+
+        result.push_back({ read_file(fullPath, {}), QFileInfo(fullPath) });
+    }
+
+    return result;
+}
+
+QVector<GenericVMEScriptInfo> read_mvlc_trigger_io_scripts()
+{
+    QString templatePath = get_template_path() + QSL("/mvlc_trigger_io");
+    return read_vme_scripts_from_directory(templatePath);
+}
+
 } // namespace vats

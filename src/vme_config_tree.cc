@@ -198,6 +198,37 @@ std::unique_ptr<QMenu> make_menu_new_aux_script(
     return result;
 }
 
+std::unique_ptr<QMenu> make_menu_load_mvlc_trigger_io(
+    VMEScriptConfig *destScriptConfig,
+    QWidget *parentWidget = nullptr)
+{
+    static const auto ScriptPrefix = QSL("mvlc_trigger_io-");
+
+    assert(destScriptConfig);
+
+    auto result = std::make_unique<QMenu>(parentWidget);
+    auto scripts = vats::read_mvlc_trigger_io_scripts();
+
+    for (const auto &scriptInfo: scripts)
+    {
+        auto title = scriptInfo.fileInfo.baseName();
+
+        if (title.startsWith(ScriptPrefix))
+            title.remove(0, ScriptPrefix.size());
+
+        title.replace('_', ' ');
+
+        auto action_triggered = [destScriptConfig, scriptInfo] ()
+        {
+            destScriptConfig->setScriptContents(scriptInfo.contents);
+        };
+
+        result->addAction(title, action_triggered);
+    }
+
+    return result;
+}
+
 void disable_drag_and_drop(QTreeWidgetItem *node)
 {
     node->setFlags(node->flags() & ~(Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
@@ -1062,12 +1093,14 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
     }
 
+    // Add Module
     if (node && node->type() == NodeType_EventModulesInit)
     {
         if (isIdle)
             menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
     }
 
+    // Module Node
     if (node && node->type() == NodeType_Module)
     {
         Q_ASSERT(obj);
@@ -1096,6 +1129,20 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         {
             menu.addAction(QSL("Show Diagnostics"), this,
                            &VMEConfigTreeWidget::handleShowDiagnostics);
+        }
+    }
+
+    // MVLC Trigger IO (note: this is a VMEScript node but with a custom icon)
+    if (node == m_nodeMVLCTriggerIO)
+    {
+        auto triggerIOScript = Var2Ptr<VMEScriptConfig>(node->data(0, DataRole_Pointer));
+        auto scriptsMenu = make_menu_load_mvlc_trigger_io(triggerIOScript, &menu);
+
+        if (!scriptsMenu->isEmpty())
+        {
+            auto action = menu.addAction(
+                QIcon(":/vme_script.png"), QSL("Load script from library"));
+            action->setMenu(scriptsMenu.release());
         }
     }
 
