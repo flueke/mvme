@@ -25,9 +25,8 @@ using a2::make_quiet_nan;
 
 RateSamplerStatistics calc_rate_sampler_stats(const RateSampler &sampler, AxisInterval xInterval)
 {
-    auto minmax_values = get_minmax_values(sampler,
-                                           xInterval,
-                                           { make_quiet_nan(), make_quiet_nan() });
+    auto minmax_values = get_minmax_values(
+        sampler, xInterval, { make_quiet_nan(), make_quiet_nan() });
 
     RateSamplerStatistics result = {};
     result.intervals[Qt::XAxis] = xInterval;

@@ -4157,23 +4157,46 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 } break;
 
             case NodeType_Sink:
-                if (auto rms = get_shared_analysis_object<RateMonitorSink>(node,
-                                                                           DataRole_AnalysisObject))
+                if (auto rms = get_shared_analysis_object<RateMonitorSink>(
+                        node, DataRole_AnalysisObject))
                 {
                     if (!m_context->hasObjectWidget(rms.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
                         auto context = m_context;
-                        auto widget = new RateMonitorWidget(rms->getRateSamplers());
 
-                        widget->setSink(rms, [context](const std::shared_ptr<RateMonitorSink> &sink) {
+                        auto sinkModifiedCallback = [context] (const std::shared_ptr<RateMonitorSink> &sink)
+                        {
                             context->analysisOperatorEdited(sink);
-                        });
+                        };
+
+                        auto widget = new RateMonitorWidget(rms, sinkModifiedCallback);
 
                         widget->setPlotExportDirectory(
                             m_context->getWorkspacePath(QSL("PlotsDirectory")));
 
-                        m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
+                        // Note: using a QueuedConnection here is a hack to
+                        // make the UI refresh _after_ the analysis has been
+                        // rebuilt.
+                        // The call sequence is
+                        //   sinkModifiedCallback
+                        //   -> context->analysisOperatorEdited
+                        //     -> analysis->setOperatorEdited
+                        //     -> emit operatorEdited
+                        //   -> analysis->beginRun.
+                        // So with a direct connection the Widgets sinkModified
+                        // is called before the analysis has been rebuilt in
+                        // beginRun.
+                        QObject::connect(
+                            context->getAnalysis(), &Analysis::operatorEdited,
+                            widget, [rms, widget] (const OperatorPtr &op)
+                            {
+                                if (op == rms)
+                                    widget->sinkModified();
+                            }, Qt::QueuedConnection);
+
+
+                        context->addObjectWidget(widget, rms.get(), rms->getId().toString());
                     }
                     else
                     {
@@ -4506,7 +4529,7 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
                 {
                     double rate = hitCountRates[addr];
 
-                    if (std::isnan(rate)) rate = 0.0;
+                    if (!std::isfinite(rate)) rate = 0.0;
 
                     auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
                                                     0, 'g', 3);

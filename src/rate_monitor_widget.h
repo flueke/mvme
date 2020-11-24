@@ -50,14 +50,23 @@ class LIBMVME_EXPORT RateMonitorWidget: public QWidget
         using SinkPtr = std::shared_ptr<analysis::RateMonitorSink>;
         using SinkModifiedCallback = std::function<void (const SinkPtr &)>;
 
-        RateMonitorWidget(const a2::RateSamplerPtr &sampler, QWidget *parent = nullptr);
-        RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers, QWidget *parent = nullptr);
+        explicit RateMonitorWidget(
+            const SinkPtr &rms,
+            SinkModifiedCallback sinkModifiedCallback = {},
+            QWidget *parent = nullptr);
+
+        explicit RateMonitorWidget(const a2::RateSamplerPtr &sampler, QWidget *parent = nullptr);
+        explicit RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers, QWidget *parent = nullptr);
+
         virtual ~RateMonitorWidget();
 
         void setSink(const SinkPtr &sink, SinkModifiedCallback sinkModifiedCallback);
         void setPlotExportDirectory(const QDir &dir);
 
         QVector<a2::RateSamplerPtr> getRateSamplers() const;
+
+    public slots:
+        void sinkModified();
 
     private slots:
         void replot();

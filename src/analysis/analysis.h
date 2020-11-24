@@ -1624,6 +1624,8 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
         double getSamplingInterval() const { return m_samplingInterval; }
         void setSamplingInterval(double d) { m_samplingInterval = d; }
 
+        // If true the plot widget should show all rates in a single plot.
+        // Saved in the analysis to persist across sessions.
         void setUseCombinedView(bool b) { m_useCombinedView = b; }
         bool getUseCombinedView() const { return m_useCombinedView; }
 

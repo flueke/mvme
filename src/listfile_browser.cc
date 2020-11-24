@@ -24,6 +24,7 @@
 #include <QBoxLayout>
 #include <QMessageBox>
 #include <QTimer>
+#include <qnamespace.h>
 
 #include "analysis/analysis.h"
 #include "mvme_context.h"
@@ -94,11 +95,17 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
 
     onWorkspacePathChanged();
     onGlobalStateChanged();
+    m_fsView->horizontalHeader()->restoreState(QSettings().value("ListfileBrowser/HorizontalHeaderState").toByteArray());
 
     auto refreshTimer = new QTimer(this);
     connect(refreshTimer, &QTimer::timeout, this, &ListfileBrowser::periodicUpdate);
     refreshTimer->setInterval(PeriodicRefreshInterval_ms);
     refreshTimer->start();
+}
+
+ListfileBrowser::~ListfileBrowser()
+{
+    QSettings().setValue("ListfileBrowser/HorizontalHeaderState", m_fsView->horizontalHeader()->saveState());
 }
 
 void ListfileBrowser::onWorkspacePathChanged()

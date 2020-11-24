@@ -715,6 +715,7 @@ Edge::Edge(QAbstractGraphicsShapeItem *sourceItem, QAbstractGraphicsShapeItem *d
 {
     setAcceptedMouseButtons(0);
     setPen(QPen(Qt::black, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    setBrush(Qt::black);
     adjust();
 }
 
@@ -790,7 +791,6 @@ void Edge::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
     QPointF destArrowP2 = m_destPoint + QPointF(sin(angle - M_PI + M_PI / 3) * m_arrowSize,
                                                 cos(angle - M_PI + M_PI / 3) * m_arrowSize);
 
-    painter->setBrush(Qt::black);
     //painter->drawPolygon(QPolygonF() << line.p1() << sourceArrowP1 << sourceArrowP2);
     painter->drawPolygon(QPolygonF() << line.p2() << destArrowP1 << destArrowP2);
 }
@@ -1682,6 +1682,7 @@ gfx::Edge *TriggerIOGraphicsScene::addEdge(
     m_edgesBySource.insertMulti(sourceConnector, edge);
 
     edge->adjust();
+    edge->setZValue(1.0);
     this->addItem(edge);
     return edge;
 }
@@ -1702,7 +1703,12 @@ gfx::Edge *TriggerIOGraphicsScene::addStaticConnectionEdge(
     QAbstractGraphicsShapeItem *sourceConnector,
     QAbstractGraphicsShapeItem *destConnector)
 {
+    static const QColor penColor("#7da1d6"); // same as the connection bars
+    static const QColor brushColor(penColor);
+
     auto edge = new gfx::Edge(sourceConnector, destConnector);
+    edge->setPen(QPen(penColor, 1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    edge->setBrush(brushColor);
     m_staticEdges.push_back(edge);
     edge->adjust();
     this->addItem(edge);
@@ -3306,10 +3312,16 @@ LUTOutputEditor::LUTOutputEditor(
         m_outputTable->setHorizontalHeaderLabels({"State"});
         m_outputTable->horizontalHeader()->setStretchLastSection(true);
 
+        auto explanation = new QLabel(QSL(
+                "The bit values on the left side are ordered from <b>right to left</b>"
+                ", the first selected input bit is in the rightmost position."));
+        explanation->setWordWrap(true);
+
         auto container = new QWidget;
         auto layout = make_vbox<0, 0>(container);
         layout->addWidget(buttonBar);
         layout->addWidget(m_outputTable);
+        layout->addWidget(explanation);
 
         m_outputWidgetStack->addWidget(container);
     }

@@ -212,9 +212,11 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     m_d->m_curves.push_back(curve.release());
     m_d->m_samplers.push_back(sampler);
 
-    qDebug() << "added rate. title =" << title << ", color =" << color
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << "added rate. title =" << title << ", color =" << color
         << ", capacity =" << sampler->historyCapacity()
         << ", new plot count =" << m_d->m_curves.size();
+#endif
 
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
 }
@@ -232,7 +234,9 @@ void RateMonitorPlotWidget::removeRateSampler(int index)
     {
         assert(index < m_d->m_curves.size());
 
+#if 0
         qDebug() << __PRETTY_FUNCTION__ << "removing plot with index" << index;
+#endif
         auto curve = std::unique_ptr<QwtPlotCurve>(m_d->m_curves.at(index));
         curve->detach();
         m_d->m_curves.remove(index);
@@ -280,123 +284,6 @@ void RateMonitorPlotWidget::setInternalLegendVisible(bool visible)
         m_d->m_plotLegendItem.detach();
 }
 
-void RateMonitorPlotWidget::replot()
-{
-    /* Things that have to happen:
-     * - calculate stats for the visible area. use this to scale y if y auto scaling is desired
-     * - update info display
-     * - update cursor info
-     * - update axis titles
-     * - update window title
-     * - update projections
-     */
-
-
-    // updateAxisScales
-    static const double ScaleFactor = 1.05;
-
-    double xMin = std::numeric_limits<double>::max();
-    double xMax = std::numeric_limits<double>::lowest();
-    bool haveSamples = false;
-
-    for (auto &sampler: m_d->m_samplers)
-    {
-        if (!sampler->rateHistory.empty())
-        {
-            haveSamples = true;
-
-            xMin = std::min(xMin, sampler->getFirstSampleTime());
-            xMax = std::max(xMax, sampler->getLastSampleTime());
-#if 0
-            //yMax = std::max(yMax, get_max_value(sampler->rateHistory));
-
-            auto stats = calc_rate_sampler_stats(*sampler, visibleXInterval_s);
-
-            auto yInterval = stats.intervals[Qt::YAxis];
-
-            if (!std::isnan(yInterval.minValue) && !std::isnan(yInterval.maxValue))
-            {
-                yMin = std::min(yMin, yInterval.minValue);
-                yMax = std::max(yMax, yInterval.maxValue);
-                haveYMinMax = true;
-            }
-#endif
-        }
-    }
-
-    if (haveSamples)
-    {
-        // scale x-values to milliseconds
-        double xMin_ms = xMin * 1000.0;
-        double xMax_ms = xMax * 1000.0;
-
-        double yMin = std::numeric_limits<double>::max();
-        double yMax = std::numeric_limits<double>::lowest();
-
-        // If fully zoomed out set the x-axis to full resolution and the y-axis to
-        // the min/max values in the visible area.
-        if (m_d->m_zoomer->zoomRectIndex() == 0)
-        {
-            //qDebug() << __PRETTY_FUNCTION__
-            //<< "fully zoomed out -> setting x scale to:" << xMin << xMax;
-
-            m_d->m_plot->setAxisScale(QwtPlot::xBottom, xMin_ms, xMax_ms);
-            AxisInterval visibleXInterval_s = { xMin, xMax };
-
-            bool haveYMinMax = false;
-
-            for (auto &sampler: m_d->m_samplers)
-            {
-                if (!sampler->rateHistory.empty())
-                {
-                    auto stats = calc_rate_sampler_stats(*sampler, visibleXInterval_s);
-                    auto yInterval = stats.intervals[Qt::YAxis];
-
-                    if (!std::isnan(yInterval.minValue) && !std::isnan(yInterval.maxValue))
-                    {
-                        yMin = std::min(yMin, yInterval.minValue);
-                        yMax = std::max(yMax, yInterval.maxValue);
-                        haveYMinMax = true;
-                    }
-                }
-            }
-
-            if (haveYMinMax)
-            {
-                if (std::abs(yMax - yMin) == 0.0)
-                {
-                    yMin -= 1.0;
-                    yMax += 1.0;
-                }
-
-                double delta  = std::abs(yMax - yMin);
-                double offset = delta * 0.05;
-
-                //qDebug() << __PRETTY_FUNCTION__
-                //    << "found y minmax for visible x range. auto scaling y and setting zoomBase";
-
-                switch (getYAxisScale())
-                {
-                    case AxisScale::Linear:
-                        yMin -= offset;
-                        yMax += offset;
-                        break;
-
-                    case AxisScale::Logarithmic:
-                        yMax = std::pow(yMax, ScaleFactor);
-                        break;
-                }
-
-                m_d->m_plot->setAxisScale(QwtPlot::yLeft, yMin, yMax);
-                m_d->m_zoomer->setZoomBase();
-            }
-        }
-    }
-
-    m_d->m_plot->updateAxes();
-    m_d->m_plot->replot();
-}
-
 static bool axis_is_lin(QwtPlot *plot, QwtPlot::Axis axis)
 {
     return dynamic_cast<QwtLinearScaleEngine *>(plot->axisScaleEngine(axis));
@@ -407,22 +294,99 @@ static bool axis_is_log(QwtPlot *plot, QwtPlot::Axis axis)
     return dynamic_cast<QwtLogScaleEngine *>(plot->axisScaleEngine(axis));
 }
 
-void RateMonitorPlotWidget::setYAxisScale(AxisScale scaling)
+void RateMonitorPlotWidget::replot()
 {
-    switch (scaling)
-    {
-        case AxisScale::Linear:
-            m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
-            m_d->m_plot->setAxisAutoScale(QwtPlot::yLeft, true);
-            break;
+    // Determine x-axis range by looking at the first and last sample time of each rate sampler.
+    double xMin = std::numeric_limits<double>::max();
+    double xMax = std::numeric_limits<double>::lowest();
 
-        case AxisScale::Logarithmic:
-            //static const double LogScaleMinBound = 1.0;
-            auto scaleEngine = new QwtLogScaleEngine;
-            //scaleEngine->setTransformation(new MinBoundLogTransform(LogScaleMinBound));
-            m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
-            m_d->m_plot->setAxisAutoScale(QwtPlot::yLeft, true);
-            break;
+    if (m_d->m_zoomer->zoomRectIndex() == 0) // fully zoomed out
+    {
+        bool hasSamples = false;
+
+        for (auto &sampler: m_d->m_samplers)
+        {
+            if (!sampler->rateHistory.empty())
+            {
+                xMin = std::min(xMin, sampler->getFirstSampleTime());
+                xMax = std::max(xMax, sampler->getLastSampleTime());
+                hasSamples = true;
+            }
+        }
+
+        if (!hasSamples)
+        {
+            xMin = 0.0;
+            xMax = 60.0;
+        }
+    }
+    else // zoomed in
+    {
+        auto scaleDiv = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom);
+        xMin = scaleDiv.lowerBound() / 1000.0;
+        xMax = scaleDiv.upperBound() / 1000.0;
+    }
+
+    // scale the x-values to milliseconds
+    double xMin_ms = xMin * 1000.0;
+    double xMax_ms = xMax * 1000.0;
+
+    // if fully zoomed out set the x-interval to the min and max x-value over
+    // all the samplers
+    if (m_d->m_zoomer->zoomRectIndex() == 0)
+        m_d->m_plot->setAxisScale(QwtPlot::xBottom, xMin_ms, xMax_ms);
+
+    AxisInterval visibleXInterval_s = { xMin, xMax };
+
+    // y-axis range
+
+    double yMax = 10.0;
+
+    for (auto &sampler: m_d->m_samplers)
+    {
+        if (!sampler->rateHistory.empty())
+        {
+            auto stats = calc_rate_sampler_stats(*sampler, visibleXInterval_s);
+            auto yInterval = stats.intervals[Qt::YAxis];
+
+            if (!std::isnan(yInterval.maxValue))
+                yMax = std::max(yMax, yInterval.maxValue);
+        }
+    }
+
+    double yMin = 0.0;
+
+    if (axis_is_log(m_d->m_plot, QwtPlot::yLeft))
+    {
+        yMin = 1.0;
+        yMax = std::pow(yMax, 1.2);
+    }
+    else
+    {
+        yMin = 0.0;
+        yMax = yMax * 1.2;
+    }
+
+    m_d->m_plot->setAxisScale(QwtPlot::yLeft, yMin, yMax);
+
+    // Tell Qwt to update and render
+    m_d->m_plot->updateAxes();
+    m_d->m_plot->replot();
+}
+
+void RateMonitorPlotWidget::setYAxisScale(AxisScale scaleType)
+{
+
+    if (scaleType == AxisScale::Linear && !axis_is_lin(m_d->m_plot, QwtPlot::yLeft))
+    {
+        m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
+        m_d->m_plot->setAxisAutoScale(QwtPlot::yLeft, true);
+    }
+    else if (scaleType == AxisScale::Logarithmic && !axis_is_log(m_d->m_plot, QwtPlot::yLeft))
+    {
+        auto scaleEngine = new QwtLogScaleEngine;
+        scaleEngine->setTransformation(new MinBoundLogTransform);
+        m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
     replot();

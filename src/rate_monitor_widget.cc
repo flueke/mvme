@@ -77,7 +77,6 @@ struct RateMonitorWidgetPrivate
     QwtText m_waterMarkText;
     QwtPlotTextLabel *m_waterMarkLabel;
 
-    void postConstruct();
     void selectPlot(int index);
     void updateVisibleRangeInfoLabel();
     void updateCursorInfoLabel();
@@ -87,14 +86,6 @@ struct RateMonitorWidgetPrivate
 
     RateSamplerPtr currentSampler() const { return m_samplers.value(m_currentIndex); }
 };
-
-void RateMonitorWidgetPrivate::postConstruct()
-{
-    m_spin_plotIndex->setMinimum(0);
-    m_spin_plotIndex->setMaximum(std::max(m_samplers.size() - 1, 0));
-    m_spin_plotIndex->setVisible(m_samplers.size() > 0);
-    selectPlot(0);
-}
 
 /* Constructs a name for the sampler with the given samplerIndex by looking at the
  * samplers input source. */
@@ -182,7 +173,7 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
         m_plotWidget->getPlot()->insertLegend(nullptr);
     }
-    else
+    else // negative index -> show combined view
     {
         // Combined view showing all sampler curves in the same plot.
         static const auto colors = make_plot_colors();
@@ -462,11 +453,18 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
     }
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
-        if (auto sampler = m_d->m_samplers.value(m_d->m_currentIndex))
+        if (m_d->m_currentIndex < 0) // combined view mode -> clear all samplers
+        {
+            for (auto &sampler: m_d->m_samplers)
+                sampler->clearHistory(true);
+            replot();
+        }
+        else if (auto sampler = m_d->m_samplers.value(m_d->m_currentIndex))
         {
             sampler->clearHistory(true);
             replot();
         }
+
     });
 
     QAction *action = nullptr;
@@ -504,9 +502,12 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         }
     });
 
-    // Plot selection spinbox
+    // Enable the info area once we're fully construted.
+    QTimer::singleShot(0, this, [action]() { action->setChecked(true); });
+
+    // Plot selection spinbox and Combined View checkbox
     {
-        auto cb_combined = new QCheckBox(/*QSL("Combined View")*/);
+        auto cb_combined = new QCheckBox;
         m_d->m_cb_combinedView = cb_combined;
 
         connect(cb_combined, &QCheckBox::stateChanged, this, [this] (int state) {
@@ -547,6 +548,12 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
 
         tb->addWidget(c_w);
     }
+
+    // Restore combined view state based on the setting stored in the sink.
+    QTimer::singleShot(0, this, [this]() {
+        if (m_d->m_sink)
+            m_d->m_cb_combinedView->setChecked(m_d->m_sink->getUseCombinedView());
+    });
 
     // Statusbar and info widgets
     m_d->m_statusBar = make_statusbar();
@@ -637,12 +644,8 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
 }
 
 RateMonitorWidget::RateMonitorWidget(const a2::RateSamplerPtr &sampler, QWidget *parent)
-    : RateMonitorWidget(parent)
+    : RateMonitorWidget(QVector<a2::RateSamplerPtr>{ sampler }, parent)
 {
-    assert(sampler);
-    m_d->m_samplers.push_back(sampler);
-
-    m_d->postConstruct();
 }
 
 RateMonitorWidget::RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers, QWidget *parent)
@@ -650,8 +653,19 @@ RateMonitorWidget::RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers
 {
     assert(samplers.size());
     m_d->m_samplers = samplers;
+    m_d->m_spin_plotIndex->setMinimum(0);
+    m_d->m_spin_plotIndex->setMaximum(std::max(m_d->m_samplers.size() - 1, 0));
+    m_d->m_spin_plotIndex->setVisible(m_d->m_samplers.size() > 0);
+    m_d->selectPlot(0);
+}
 
-    m_d->postConstruct();
+RateMonitorWidget::RateMonitorWidget(
+    const SinkPtr &rms,
+    SinkModifiedCallback sinkModifiedCallback,
+    QWidget *parent)
+    : RateMonitorWidget(parent)
+{
+    setSink(rms, sinkModifiedCallback);
 }
 
 RateMonitorWidget::~RateMonitorWidget()
@@ -662,11 +676,25 @@ void RateMonitorWidget::setSink(const SinkPtr &sink, SinkModifiedCallback sinkMo
 {
     m_d->m_sink = sink;
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
+    m_d->m_samplers = sink->getRateSamplers();
+
+    m_d->m_spin_plotIndex->setMinimum(0);
+    m_d->m_spin_plotIndex->setMaximum(std::max(m_d->m_samplers.size() - 1, 0));
+    m_d->m_spin_plotIndex->setVisible(m_d->m_samplers.size() > 0);
+
+    m_d->selectPlot(0);
 
     if (sink->getUseCombinedView())
         m_d->m_cb_combinedView->setChecked(true);
     else
         m_d->m_spin_plotIndex->setValue(m_d->m_currentIndex);
+}
+
+void RateMonitorWidget::sinkModified()
+{
+    auto currentIndex = m_d->m_currentIndex;
+    setSink(m_d->m_sink, m_d->m_sinkModifiedCallback);
+    m_d->selectPlot(currentIndex);
 }
 
 void RateMonitorWidget::setPlotExportDirectory(const QDir &dir)

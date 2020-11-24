@@ -235,8 +235,6 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
     LOG_TRACE("state=%p, ei=%d, moduleCount=%lu", &state, ei, moduleCount);
 
-    assert(moduleFilters.size() == moduleSpans.size());
-
     // If splitting is not enabled for this event yield the collected data in
     // one go.
     if (!state.enabledForEvent[ei])
@@ -264,6 +262,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
         return {};
     }
+
+    assert(moduleFilters.size() == moduleSpans.size());
 
     bool staticPartsYielded = false;
     std::array<s64, MaxVMEModules> moduleSubeventSizes;

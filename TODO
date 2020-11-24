@@ -2,15 +2,17 @@
 TODO list
 ==================================================
 
-* Perma enable SoftTrigger0 in event.daq_start, disable in event.daq_stop (yes,
-  with multiple events the soft trigger writes will happen multiple times but
-  that's not a problem).
+* trigger io: context menu to load predefined
 
 * doc: Add network tuning and data export section
-
 * document MVLC jumbo frame support in mvme manual
 
 * [analysis]
+  * Module data Prefix/Suffix is missing from:
+    - a2 system
+    - analysis ui
+    - EventServer
+
   - Display Listfilters below a single listfilter node. Order matters here.
   - Rename (internally these are called extractors):
     * MultiwordFilter -> Word Pattern Filter
@@ -32,10 +34,6 @@ TODO list
     store memory locations to be incremented in some buffer. once that is full
     perform all updates at once. This should increase the speed (even more if
     the addresses where sorted).
-
-* Trigger IO Editor: allow save to/load from file.
-  Use a better vme config editor for editing the script text.
-  Add context menu entries to save to/load from file.
 
 * vme modules: allow saving a concrete module to a vme template.
   Allow instantiating modules from user vme templates.  Important: handle the
@@ -75,24 +73,9 @@ TODO list
 * add functionality for checking if the scripts in the vme tree can be parsed
   successfully. Right now parse errors are only detected on DAQ startup.
 
-* move all MVLCReadoutWorker stateChange signal emissions from the
-  start/stop/pause/resume methods into the main loop. This way they will be
-  emitted from the readout thread and the behaviour will be the same as for the
-  other readout workers. Right now connected slots will be called directly.
-
 * write unit test for CrateConfig import/export
 
-* improve the TriggerIO editor "view script text" window. It's small and annoying.
-
 * log the DAQ run duration when the DAQ is stopped
-
-* When adding a periodic event the mvlc trigger io is not updated immediately
-  but only on next daq start. This is not great as the trigger io gui state
-  does not reflect the state the system will have and things like exporting to
-  CrateConfig YAML will lead to incorrect results.
-  Bad! :D
-  Implement a kind of hook system that updates the trigger io when
-  adding/removing events.
 
 * Analysis processing skip flag:
   Decide directly after the data filters if this events output should be
@@ -106,10 +89,6 @@ TODO list
   gain >= 2000
   WindowOfInterest -100ns
   -> pulser data should appear to be uniformely or randomly distributed
-
-* The concrete Event timer period is hidden in the Event Settings dialog. It
-  should be shown somewhere else, either in the VME Config Tree Info column
-  and/or when setting up the events/trigger io
 
 * apparently there's a crash when compiling an expression operator script while
   a replay is running. Robert ran into this while editing an expression and

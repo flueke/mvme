@@ -22,6 +22,7 @@
 #define __TEMPLATE_SYSTEM_H__
 
 #include <functional>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
@@ -147,6 +148,19 @@ QVector<AuxiliaryVMEScriptInfo> LIBMVME_EXPORT read_auxiliary_scripts(
 // in the sort order.
 bool auxinfo_default_compare(
     const AuxiliaryVMEScriptInfo &a, const AuxiliaryVMEScriptInfo &b);
+
+struct GenericVMEScriptInfo
+{
+    QString contents;
+    QFileInfo fileInfo;
+};
+
+QVector<GenericVMEScriptInfo> LIBMVME_EXPORT
+read_vme_scripts_from_directory(const QString &path);
+
+QVector<GenericVMEScriptInfo> LIBMVME_EXPORT
+read_mvlc_trigger_io_scripts();
+
 
 }  // namespace vats
 

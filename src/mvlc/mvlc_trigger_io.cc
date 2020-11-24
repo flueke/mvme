@@ -98,7 +98,7 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "stack_busy0",
     "stack_busy1",
     "sysclk",
-    UnitNotAvailable,
+    "daq_start",
     "NIM0",
     "NIM1",
     "NIM2",
@@ -179,8 +179,8 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
     for (size_t unit = 0; unit < result.size(); unit++)
     {
 
-        // Common to all inputs: can connect to all Level0 utility outputs.
-        std::vector<UnitAddress> common(trigger_io::Level0::UtilityUnitCount);
+        // Common to all inputs: can connect to Level0 up to but excluding sysclock
+        std::vector<UnitAddress> common(trigger_io::Level0::SysClockOffset);
 
         for (unsigned i = 0; i < common.size(); i++)
             common[i] = { 0, i };
@@ -195,26 +195,37 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
         }
         else if (unit == 1)
         {
-            // L2.LUT1 can connecto to L1.LUT3
+            // L2.LUT1 can connect to L1.LUT3
             for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 3, i });
         }
 
-        result[unit].strobeChoices = common;
+        // Both L2 LUTs
+        for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+            result[unit].lutChoices[i].push_back(UnitAddress{ 0, trigger_io::Level0::DAQStartOffset});
+
+
+        // Strobes can connect to L0 up to and including the sysclock
+        std::vector<UnitAddress> strobeChoices(trigger_io::Level0::SysClockOffset + 1);
+
+        for (unsigned i = 0; i < strobeChoices.size(); i++)
+            strobeChoices[i] = { 0, i };
 
         // Strobe inputs can connect to all 6 level 1 outputs
         for (unsigned i = 0; i < 3; i++)
-            result[unit].strobeChoices.push_back({ 1, 3, i });
+            strobeChoices.push_back({ 1, 3, i });
 
         for (unsigned i = 0; i < 3; i++)
-            result[unit].strobeChoices.push_back({ 1, 4, i });
+            strobeChoices.push_back({ 1, 4, i });
 
         // Strobe inputs can also connect to all of the L2 outputs
         for (unsigned i = 0; i < 3; i++)
-            result[unit].strobeChoices.push_back({ 2, 0, i });
+            strobeChoices.push_back({ 2, 0, i });
 
         for (unsigned i = 0; i < 3; i++)
-            result[unit].strobeChoices.push_back({ 2, 1, i });
+            strobeChoices.push_back({ 2, 1, i });
+
+        result[unit].strobeChoices = strobeChoices;
     }
 
     return result;

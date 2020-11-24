@@ -30,6 +30,7 @@
 #include <cmath>
 #include <memory>
 #include "util/counters.h"
+#include "util/nan.h"
 #include "util/util_threading.h"
 
 namespace a2
@@ -56,8 +57,8 @@ struct RateSampler
      * axis. */
     double offset = 0.0;
 
-    /* Sampling interval in seconds. Not used for sampling but for x-axis
-     * scaling. Used in getSampleTime() and getSampleIndex(). */
+    /* Sampling interval in seconds.
+     * Used to normalize rates to seconds and for x-axis scaling. */
     double interval = 1.0;
 
     //
@@ -68,7 +69,7 @@ struct RateSampler
     RateHistoryBuffer rateHistory;
 
     /* The last value that was sampled if sample() is used. */
-    double lastValue    = 0.0;
+    double lastValue    = make_quiet_nan();
 
     /* The last rate that was calculated/sampled. */
     double lastRate     = 0.0;
@@ -117,8 +118,11 @@ struct RateSampler
     {
         UniqueLock guard(mutex);
 
+        if (std::isnan(lastValue))
+            return std::make_pair(0.0, 0.0);
+
         double delta = calc_delta0(value, lastValue);
-        double rate  = delta * scale + offset;
+        double rate  = (delta * scale + offset) / interval;
         return std::make_pair(rate, delta);
     }
 
@@ -146,6 +150,10 @@ struct RateSampler
 
         rateHistory.clear();
         assert(rateHistory.empty());
+
+        lastValue = make_quiet_nan();
+        lastRate = 0.0;
+        lastDelta = 0.0;
 
         if (!keepSampleCount)
             totalSamples = 0.0;

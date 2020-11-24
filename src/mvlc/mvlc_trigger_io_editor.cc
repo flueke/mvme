@@ -24,10 +24,7 @@
 #include <QDebug>
 #include <QPushButton>
 #include <QScrollBar>
-#include <QTextEdit>
-#include <qnamespace.h>
 
-#include "analysis/code_editor.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"
@@ -36,6 +33,7 @@
 #include "util/qt_monospace_textedit.h"
 #include "vme_script.h"
 #include "vme_script_util.h"
+#include "vme_script_editor.h"
 
 namespace mesytec
 {
@@ -50,20 +48,10 @@ struct MVLCTriggerIOEditor::Private
     TriggerIO ioCfg;
     VMEScriptConfig *scriptConfig;
     QString initialScriptContents;
-    CodeEditor *scriptEditor = nullptr;
+    VMEScriptEditor *scriptEditor = nullptr;
     TriggerIOGraphicsScene *scene = nullptr;
     bool scriptAutorun = false;
     QStringList vmeEventNames;
-
-    void updateEditorText()
-    {
-        if (scriptEditor)
-        {
-            auto pos = scriptEditor->verticalScrollBar()->sliderPosition();
-            scriptEditor->setPlainText(scriptConfig->getScriptContents());
-            scriptEditor->verticalScrollBar()->setSliderPosition(pos);
-        }
-    }
 
     void onActionPrintFrontPanelSetup();
 };
@@ -616,9 +604,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     toolbar->addSeparator();
 
     // connection map: shows/hides static connection edges and the big bus-like bars
+    QSettings settings;
+    bool connectionMapVisible = settings.value("MVLC_TriggerIOEditor/ConnectionMapVisible", true).toBool();
     action = toolbar->addAction(QSL("Toggle connection map"));
     action->setCheckable(true);
-    action->setChecked(true);
+    action->setChecked(connectionMapVisible);
     action->setToolTip(QSL("Shows/hides fixed connection lines and"
                            " bars and arrows representing connection possibilities."));
     action->setStatusTip(action->toolTip());
@@ -631,10 +621,12 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         action->setIcon(show
                         ? QIcon(":/resources/layer-visible-on.png")
                         : QIcon(":/resources/layer-visible-off.png"));
+        QSettings settings;
+        settings.setValue("MVLC_TriggerIOEditor/ConnectionMapVisible", show);
     };
 
     connect(action, &QAction::triggered, this, show_connect_help);
-    show_connect_help(true);
+    show_connect_help(connectionMapVisible);
 
     // Print a list of the front panel io configuration and names. Could be
     // printed on a piece of paper and used as a cheatsheet when working on the
@@ -647,39 +639,24 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     toolbar->addSeparator();
 
     action = toolbar->addAction(
-        QIcon(":/arrow-circle-double.png"), QSL("Reparse from script"),
-        this, [this] ()
-        {
-            if (d->scriptEditor)
-            {
-                auto text = d->scriptEditor->toPlainText();
-                d->ioCfg = parse_trigger_io_script_text(text);
-                d->scriptConfig->setScriptContents(text);
-                setupModified();
-            }
-        });
-
-    action = toolbar->addAction(
-        QIcon(":/vme_script.png"), QSL("View Script"),
+        QIcon(":/vme_script.png"), QSL("Edit Script"),
         this, [this] ()
         {
             if (!d->scriptEditor)
             {
-                auto editor = new CodeEditor();
+                auto editor = new VMEScriptEditor(d->scriptConfig);
                 editor->setAttribute(Qt::WA_DeleteOnClose);
                 d->scriptEditor = editor;
-
-                new vme_script::SyntaxHighlighter(editor->document());
 
                 connect(editor, &QObject::destroyed,
                         this, [this] () { d->scriptEditor = nullptr; });
 
-                // Update the editors script text on each change.
-                connect(d->scriptConfig, &VMEScriptConfig::modified,
-                        this, [this] () { d->updateEditorText(); });
+                add_widget_close_action(editor);
+
+                auto geoSaver = new WidgetGeometrySaver(editor);
+                geoSaver->addAndRestore(editor, "MVLCTriggerIOEditor/CodeEditorGeometry");
             }
 
-            d->updateEditorText();
             d->scriptEditor->show();
             d->scriptEditor->raise();
         });

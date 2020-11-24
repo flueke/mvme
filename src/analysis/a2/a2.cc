@@ -3720,6 +3720,16 @@ void a2_begin_event(A2 *a2, int eventIndex)
     }
 }
 
+#if 0
+void a2_process_module_prefix(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+{
+}
+
+void a2_process_module_suffix(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+{
+}
+#endif
+
 // hand module data to all sources for eventIndex and moduleIndex
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
 {

@@ -219,6 +219,45 @@ void MVLCReadoutWorker::setMVLCObjects()
 
 void MVLCReadoutWorker::start(quint32 cycles)
 {
+    // Updates the local DAQ state and emits signals to propagate the state
+    // change to the outside. By doing this from start() only and not from
+    // stop/pause/resume the signals will be emitted from the readout worker
+    // thread and queued up for other threads instead of being directly invoked
+    // inside the thread calling stop/pause/resume. This matches the behaviour
+    // of the readout workers for the other controllers and limits transitions
+    // to times where the Qt eventloop is running.
+    auto set_daq_state = [this] (const DAQState &state)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << DAQStateStrings[d->state] << "->" << DAQStateStrings[state];
+        d->state = state;
+        d->desiredState = state;
+        emit stateChanged(state);
+
+        switch (state)
+        {
+            case DAQState::Idle:
+                qDebug() << __PRETTY_FUNCTION__ << "emit daqStopped()";
+                emit daqStopped();
+                break;
+
+            case DAQState::Paused:
+                qDebug() << __PRETTY_FUNCTION__ << "emit daqPaused()";
+                emit daqPaused();
+                break;
+
+            case DAQState::Starting:
+            case DAQState::Stopping:
+                break;
+
+            case DAQState::Running:
+                qDebug() << __PRETTY_FUNCTION__ << "emit daqStarted()";
+                emit daqStarted();
+                break;
+        }
+
+        QCoreApplication::processEvents();
+    };
+
     if (d->state != DAQState::Idle)
     {
         logMessage("Readout state != Idle, aborting startup");
@@ -249,7 +288,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             this->logError(msg);
         };
 
-        setState(DAQState::Starting);
+        set_daq_state(DAQState::Starting);
 
         logMessage(QSL("Using VME Controller %1 (%2)")
                    .arg(d->mvlcCtrl->getIdentifyingString())
@@ -258,7 +297,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // Run the standard VME DAQ init sequence
         if (!this->do_VME_DAQ_Init(d->mvlcCtrl))
         {
-            setState(DAQState::Idle);
+            set_daq_state(DAQState::Idle);
             return;
         }
 
@@ -350,7 +389,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         logMessage("Entering readout loop");
 
-        setState(DAQState::Running);
+        set_daq_state(DAQState::Running);
 
         m_workerContext.daqStats.start();
         m_workerContext.daqStats.listfileFilename = listfileArchiveName;
@@ -366,6 +405,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 });
 
             d->updateDAQStats();
+
+            auto daqState = readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state());
+
+            if (d->state != daqState)
+                set_daq_state(daqState);
         }
 
         logMessage("Leaving readout loop");
@@ -405,7 +449,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
 
-        setState(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
+        set_daq_state(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
 
         // Rethrow any exception recorded by the mvlc::ReadoutWorker.
         if (auto eptr = d->mvlcReadoutWorker->counters().eptr)
@@ -441,7 +485,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
     d->mvlcCtrl = nullptr;
     d->mvlcObj = nullptr;
 
-    setState(DAQState::Idle);
+    set_daq_state(DAQState::Idle);
 }
 
 void MVLCReadoutWorker::stop()
@@ -461,7 +505,7 @@ void MVLCReadoutWorker::stop()
             QCoreApplication::processEvents();
         }
 
-        // Note: the setState() update needed to propagate the new state via a
+        // Note: the set_daq_state() update needed to propagate the new state via a
         // Qt signal is not done here but in MVLCReadoutWorker::start(). The
         // reason is that this method here is invoked directly by the GUI
         // thread which will lead to the daqStopped() signal arriving before
@@ -490,7 +534,6 @@ void MVLCReadoutWorker::pause()
                 });
             QCoreApplication::processEvents();
         }
-        setState(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
         logMessage(QString(QSL("MVLC readout paused")));
     }
 }
@@ -513,7 +556,6 @@ void MVLCReadoutWorker::resume(quint32 cycles)
                 });
             QCoreApplication::processEvents();
         }
-        setState(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
         logMessage(QString(QSL("MVLC readout resumed")));
     }
 }
@@ -521,37 +563,6 @@ void MVLCReadoutWorker::resume(quint32 cycles)
 bool MVLCReadoutWorker::isRunning() const
 {
     return d->state != DAQState::Idle;
-}
-
-void MVLCReadoutWorker::setState(const DAQState &state)
-{
-    qDebug() << __PRETTY_FUNCTION__ << DAQStateStrings[d->state] << "->" << DAQStateStrings[state];
-    d->state = state;
-    d->desiredState = state;
-    emit stateChanged(state);
-
-    switch (state)
-    {
-        case DAQState::Idle:
-            qDebug() << __PRETTY_FUNCTION__ << "emit daqStopped()";
-            emit daqStopped();
-            break;
-
-        case DAQState::Paused:
-            qDebug() << __PRETTY_FUNCTION__ << "emit daqPaused()";
-            emit daqPaused();
-            break;
-
-        case DAQState::Starting:
-        case DAQState::Stopping:
-            break;
-
-        case DAQState::Running:
-            qDebug() << __PRETTY_FUNCTION__ << "emit daqStarted()";
-            emit daqStarted();
-    }
-
-    QCoreApplication::processEvents();
 }
 
 DAQState MVLCReadoutWorker::getState() const

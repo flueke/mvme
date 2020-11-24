@@ -202,7 +202,10 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
                 }
                 break;
 
+            // Note: periodic triggers are implement via the TriggerIO system.
+            // This happens as soon as the periodic event is created.
             case TriggerCondition::TriggerIO:
+            case TriggerCondition::Periodic:
                 dstConfig.triggers.push_back(trigger_value(stacks::External));
                 break;
 
