@@ -338,8 +338,6 @@ void RateMonitorPlotWidget::replot()
 
     AxisInterval visibleXInterval_s = { xMin, xMax };
 
-    qDebug() << __PRETTY_FUNCTION__ << "visibleXInterval_s: " << xMin << xMax;
-
     // y-axis range
 
     double yMax = 10.0;
