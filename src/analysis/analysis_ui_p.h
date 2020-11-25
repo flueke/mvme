@@ -119,7 +119,11 @@ class AddEditExtractorDialog: public ObjectEditorDialog
         void editNameList();
 };
 
-QWidget *data_source_widget_factory(SourceInterface *ds);
+QComboBox *make_event_selection_combo(
+    const QList<EventConfig *> &eventConfigs,
+    const OperatorPtr &op,
+    const DirectoryPtr &destDir = {},
+    QWidget *parent = nullptr);
 
 class AbstractOpConfigWidget;
 

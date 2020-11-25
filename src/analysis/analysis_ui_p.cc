@@ -390,6 +390,43 @@ void AddEditExtractorDialog::reject()
     QDialog::reject();
 }
 
+QComboBox *make_event_selection_combo(
+    const QList<EventConfig *> &eventConfigs,
+    const OperatorPtr &op,
+    const DirectoryPtr &destDir,
+    QWidget *parent)
+{
+    auto combo = new QComboBox(parent);
+
+    combo->addItem("<unspecified>", QUuid());
+
+    for (const auto &eventConfig: eventConfigs)
+        combo->addItem(eventConfig->objectName(), eventConfig->getId());
+
+    if (!op->getEventId().isNull())
+    {
+        int idx = combo->findData(op->getEventId());
+        if (idx >= 0)
+            combo->setCurrentIndex(idx);
+    }
+    else if (destDir && !destDir->getEventId().isNull())
+    {
+        int idx = combo->findData(destDir->getEventId());
+        if (idx >= 0)
+            combo->setCurrentIndex(idx);
+    }
+    else if (combo->count() == 2)
+    {
+        // "unspecified" plus one single event from the vme config
+        // -> select the existing event
+        combo->setCurrentIndex(1);
+    }
+    else
+        combo->setCurrentIndex(0);
+
+    return combo;
+}
+
 //
 // AddEditOperatorDialog
 //
@@ -404,7 +441,6 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     , m_userLevel(userLevel)
     , m_mode(mode)
     , m_destDir(destDir)
-    , m_eventSelectionCombo(new QComboBox)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(nullptr)
 {
@@ -413,33 +449,10 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     // Disable the ok button until an event is selected.
     // Also if no event is selected yet and and input is connected the inputs
     // source eventid can be used to select an event.
-    auto eventGroupBox = new QGroupBox("Event");
+    auto eventGroupBox = new QGroupBox(QSL("Parent Event"));
     {
-        m_eventSelectionCombo->addItem("<unspecified>", QUuid());
-
-        auto vmeConfig = eventWidget->getVMEConfig();
-
-        for (const auto &eventConfig: vmeConfig->getEventConfigs())
-            m_eventSelectionCombo->addItem(eventConfig->objectName(), eventConfig->getId());
-
-        if (!m_op->getEventId().isNull())
-        {
-            int idx = m_eventSelectionCombo->findData(m_op->getEventId());
-            if (idx >= 0)
-                m_eventSelectionCombo->setCurrentIndex(idx);
-        }
-        else if (m_destDir && !m_destDir->getEventId().isNull())
-        {
-            int idx = m_eventSelectionCombo->findData(m_destDir->getEventId());
-            if (idx >= 0)
-                m_eventSelectionCombo->setCurrentIndex(idx);
-        }
-        else if (m_eventSelectionCombo->count() == 2)
-        {
-            // "unspecified" plus one single event from the vme config
-            // -> select the existing event
-            m_eventSelectionCombo->setCurrentIndex(1);
-        }
+        m_eventSelectionCombo = make_event_selection_combo(
+            eventWidget->getVMEConfig()->getEventConfigs(), op, destDir);
 
         auto l = make_hbox(eventGroupBox);
         l->addWidget(m_eventSelectionCombo);

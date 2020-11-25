@@ -1120,9 +1120,10 @@ OperatorsByEventIndex group_operators_by_event(
     {
         int eventIndex = vmeMap.value(op->getEventId()).eventIndex;
 
-        assert(0 <= eventIndex && eventIndex < a2::MaxVMEEvents);
+        assert(eventIndex < a2::MaxVMEEvents);
 
-        result[eventIndex].push_back({ op, op->getRank(), -1 });
+        if (eventIndex >= 0)
+            result[eventIndex].push_back({ op, op->getRank(), -1 });
     }
 
     return result;

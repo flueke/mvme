@@ -1151,6 +1151,7 @@ struct ExpressionOperatorDialog::Private
     QTabWidget *m_tabWidget;
 
     // tab0: operator name and input select
+    QComboBox *combo_eventSelect;
     QLineEdit *le_operatorName;
     SlotGrid *m_slotGrid;
 
@@ -1912,8 +1913,21 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<Express
     m_d->m_tabWidget   = new QTabWidget;
     m_d->m_model       = std::make_unique<Model>();
 
-    // tab0: operator name and input select
+    auto update_ok_button = [this] ()
     {
+        bool enableOkButton = !m_d->combo_eventSelect->currentData().toUuid().isNull();
+        m_d->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
+    };
+
+    // tab0: event select, operator name and input select
+    {
+        m_d->combo_eventSelect = make_event_selection_combo(
+            eventWidget->getVMEConfig()->getEventConfigs(), op, destDir);
+
+        connect(m_d->combo_eventSelect, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, update_ok_button);
+
+
         m_d->le_operatorName = new QLineEdit;
 
         m_d->m_slotGrid = new SlotGrid(this);
@@ -1925,6 +1939,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<Express
         auto page = new QWidget(this);
         auto l    = new QFormLayout(page);
 
+        l->addRow(QSL("Parent Event"), m_d->combo_eventSelect);
         l->addRow(QSL("Operator Name"), m_d->le_operatorName);
         l->addRow(gb_slotGrid);
 
@@ -2113,6 +2128,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<Express
     add_widget_close_action(this);
     resize(800, 600);
 
+    update_ok_button();
     m_d->updateModelFromOperator();
     m_d->repopulateGUIFromModel();
 }
@@ -2129,6 +2145,7 @@ void ExpressionOperatorDialog::apply()
     save_to_operator(*m_d->m_model, *m_d->m_op);
     m_d->model_compileBeginExpression();
     m_d->model_compileStepExpression();
+    m_d->m_op->setEventId(m_d->combo_eventSelect->currentData().toUuid());
 
     auto analysis = m_d->m_eventWidget->getAnalysis();
 
