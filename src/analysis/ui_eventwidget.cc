@@ -3831,11 +3831,17 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
         case NodeType_Directory:
             if (auto obj = get_analysis_object(node, DataRole_AnalysisObject))
             {
+                auto idMap = vme_analysis_common::build_id_to_index_mapping(m_q->getVMEConfig());
+                auto indices = idMap.value(obj->getEventId());
+
                 qDebug() << __PRETTY_FUNCTION__ << "click on object: id =" << obj->getId()
                     << ", class =" << obj->metaObject()->className()
                     << ", flags =" << to_string(obj->getObjectFlags())
                     << ", ulvl  =" << obj->getUserLevel()
+                    << ", eventId =" << obj->getEventId()
+                    << ", eventIndex=" << indices.eventIndex
                     ;
+
                 emit m_q->objectSelected(obj);
                 objectInfoWidget->setAnalysisObject(obj);
             }
@@ -3846,11 +3852,17 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
             break;
 
         case NodeType_Module:
-            if (auto configObject = get_pointer<ConfigObject>(node, DataRole_RawPointer))
+            if (auto moduleConfig = get_pointer<ModuleConfig>(node, DataRole_RawPointer))
             {
+                auto idMap = vme_analysis_common::build_id_to_index_mapping(m_q->getVMEConfig());
+                auto indices = idMap.value(moduleConfig->getEventId());
+
                 qDebug() << __PRETTY_FUNCTION__
-                    << "Module" << node << configObject;
-                objectInfoWidget->setVMEConfigObject(configObject);
+                    << "click on Module" << node << moduleConfig
+                    << ", eventId=" << moduleConfig->getEventId()
+                    << ", eventIndex=" << indices.eventIndex
+                    ;
+                objectInfoWidget->setVMEConfigObject(moduleConfig);
             }
             break;
     }
@@ -3878,6 +3890,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                             auto op = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject);
                             highlightInputNodes(op);
 
+#if 0
                             qDebug() << "Object Info: id =" << op->getId()
                                 << ", class =" << op->metaObject()->className()
                                 << ", #slots =" << op->getNumberOfSlots();
@@ -3896,7 +3909,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                                     << ", isConnected() =" << slot->isConnected()
                                     << ", sourceId =" << inputObjectId;
                             }
-
+#endif
 
                         } break;
                 }

@@ -137,18 +137,21 @@ void FilterNameListDialog::accept()
 // AddEditExtractorDialog
 //
 
-AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *module,
+AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *moduleConfig,
                                                ObjectEditorMode mode, EventWidget *eventWidget)
     : ObjectEditorDialog(eventWidget)
     , m_ex(ex)
-    , m_module(module)
+    , m_module(moduleConfig)
     , m_eventWidget(eventWidget)
     , m_mode(mode)
     , m_parameterNames(ex->getParameterNames())
 {
+    Q_ASSERT(m_ex);
+    Q_ASSERT(moduleConfig);
+
     add_widget_close_action(this);
 
-    auto dataSources = get_default_data_extractors(module->getModuleMeta().typeName);
+    auto dataSources = get_default_data_extractors(moduleConfig->getModuleMeta().typeName);
     m_defaultExtractors.clear();
 
     for (auto source: dataSources)
@@ -166,9 +169,6 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 
     connect(loadTemplateButton, &QPushButton::clicked,
             this, &AddEditExtractorDialog::runLoadTemplateDialog);
-
-    Q_ASSERT(m_ex);
-    Q_ASSERT(module);
 
     le_name = new QLineEdit;
     m_filterEditor = new DataExtractionEditor(m_ex->getFilter().getSubFilters());
@@ -339,6 +339,8 @@ void AddEditExtractorDialog::accept()
     AnalysisPauser pauser(m_eventWidget->getContext());
 
     m_ex->setObjectName(le_name->text());
+    m_ex->setEventId(m_module->getEventId());
+    m_ex->setModuleId(m_module->getId());
     m_filterEditor->apply();
     m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
     m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
@@ -402,10 +404,51 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     , m_userLevel(userLevel)
     , m_mode(mode)
     , m_destDir(destDir)
+    , m_eventSelectionCombo(new QComboBox)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(nullptr)
 {
-    // TODO: refactor this into some factory or table lookup based on
+    // Create a combo box for selecting the event this operator should be part of.
+    // Start with "unassigned", fill in the events form the vme config.
+    // Disable the ok button until an event is selected.
+    // Also if no event is selected yet and and input is connected the inputs
+    // source eventid can be used to select an event.
+    auto eventGroupBox = new QGroupBox("Event");
+    {
+        m_eventSelectionCombo->addItem("<unspecified>", QUuid());
+
+        auto vmeConfig = eventWidget->getVMEConfig();
+
+        for (const auto &eventConfig: vmeConfig->getEventConfigs())
+            m_eventSelectionCombo->addItem(eventConfig->objectName(), eventConfig->getId());
+
+        if (!m_op->getEventId().isNull())
+        {
+            int idx = m_eventSelectionCombo->findData(m_op->getEventId());
+            if (idx >= 0)
+                m_eventSelectionCombo->setCurrentIndex(idx);
+        }
+        else if (m_destDir && !m_destDir->getEventId().isNull())
+        {
+            int idx = m_eventSelectionCombo->findData(m_destDir->getEventId());
+            if (idx >= 0)
+                m_eventSelectionCombo->setCurrentIndex(idx);
+        }
+        else if (m_eventSelectionCombo->count() == 2)
+        {
+            // "unspecified" plus one single event from the vme config
+            // -> select the existing event
+            m_eventSelectionCombo->setCurrentIndex(1);
+        }
+
+        auto l = make_hbox(eventGroupBox);
+        l->addWidget(m_eventSelectionCombo);
+
+        connect(m_eventSelectionCombo, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, &AddEditOperatorDialog::onOperatorValidityChanged);
+    }
+
+    // TODO (maybe): refactor this into some factory or table lookup based on
     // qmetaobject if there are more operator specific widgets to handle
     if (auto rms = qobject_cast<RateMonitorSink *>(op.get()))
     {
@@ -521,6 +564,7 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
 
     s32 row = 0;
     // row, col, rowSpan, colSpan
+    layout->addWidget(eventGroupBox, row++, 0);
     layout->addWidget(slotGroupBox, row++, 0);
     layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
     layout->addLayout(buttonBoxLayout, row++, 0);
@@ -700,6 +744,17 @@ void AddEditOperatorDialog::inputSelectedForSlot(
         selectButton->setText(make_input_source_text(destSlot));
     }
 
+
+    // If no valid event has been selected yet, use the event of the newly
+    // selected input pipe.
+    if (m_eventSelectionCombo->currentData().toUuid().isNull())
+    {
+        auto eventId = selectedPipe->getSource()->getEventId();
+        int idx = m_eventSelectionCombo->findData(eventId);
+        if (idx >= 0)
+            m_eventSelectionCombo->setCurrentIndex(idx);
+    }
+
     m_op->setObjectFlags(ObjectFlags::NeedsRebuild);
     m_opConfigWidget->inputSelected(slotIndex);
     m_inputSelectActive = false;
@@ -715,7 +770,10 @@ void AddEditOperatorDialog::endInputSelect()
 
 void AddEditOperatorDialog::onOperatorValidityChanged()
 {
-    bool isValid = m_opConfigWidget->isValid() && required_inputs_connected_and_valid(m_op.get());
+    bool isValid = (m_opConfigWidget->isValid()
+                    && required_inputs_connected_and_valid(m_op.get())
+                    && !m_eventSelectionCombo->currentData().toUuid().isNull()
+                   );
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
 }
@@ -728,6 +786,8 @@ void AddEditOperatorDialog::accept()
     m_opConfigWidget->configureOperator();
 
     auto analysis = m_eventWidget->getContext()->getAnalysis();
+
+    m_op->setEventId(m_eventSelectionCombo->currentData().toUuid());
 
     switch (m_mode)
     {

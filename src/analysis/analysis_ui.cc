@@ -113,7 +113,7 @@ struct AnalysisWidgetPrivate
     QScrollArea *m_eventWidgetScrollArea = nullptr;
     QStackedWidget *m_eventWidgetToolBarStack;
     QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
-    ConditionWidget *m_conditionWidget;
+    ConditionWidget *m_conditionWidget = nullptr;
     ObjectInfoWidget *m_objectInfoWidget;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
@@ -959,6 +959,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_eventWidgetFrame = new QFrame;
     {
         auto l = new QHBoxLayout;
+        l->setContentsMargins(0, 0, 0, 0);
         m_d->m_eventWidgetFrame->setLayout(l);
     }
 

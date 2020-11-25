@@ -86,7 +86,7 @@ class AddEditExtractorDialog: public ObjectEditorDialog
 {
     Q_OBJECT
     public:
-        AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *mod,
+        AddEditExtractorDialog(std::shared_ptr<Extractor> ex, ModuleConfig *moduleConfig,
                                ObjectEditorMode mode, EventWidget *eventWidget = nullptr);
         virtual ~AddEditExtractorDialog();
 
@@ -150,6 +150,8 @@ class AddEditOperatorDialog: public ObjectEditorDialog
         s32 m_userLevel;
         ObjectEditorMode m_mode;
         DirectoryPtr m_destDir;
+
+        QComboBox *m_eventSelectionCombo = nullptr;
         EventWidget *m_eventWidget;
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;
@@ -172,9 +174,10 @@ class AddEditOperatorDialog: public ObjectEditorDialog
         static const s32 WidgetMinWidth  = 325;
         static const s32 WidgetMinHeight = 175;
 
-    private:
+    private slots:
         void onOperatorValidityChanged();
 
+    private:
         void inputSelectedForSlot(
             Slot *destSlot,
             Pipe *selectedPipe,

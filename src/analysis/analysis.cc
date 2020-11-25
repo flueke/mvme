@@ -3693,9 +3693,11 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerSink<RateMonitorSink>();
     m_objectFactory.registerSink<ExportSink>();
 
+#if 0
     qDebug() << "Registered Sources:   " << m_objectFactory.getSourceNames();
     qDebug() << "Registered Operators: " << m_objectFactory.getOperatorNames();
     qDebug() << "Registered Sinks:     " << m_objectFactory.getSinkNames();
+#endif
 
     // create a2 arenas
     for (size_t i = 0; i < m_a2Arenas.size(); i++)

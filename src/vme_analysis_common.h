@@ -76,8 +76,8 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const
 
 struct VMEConfigIndex
 {
-    s32 eventIndex;
-    s32 moduleIndex;
+    s32 eventIndex = -1;
+    s32 moduleIndex = -1;
 };
 
 inline bool operator==(const VMEConfigIndex &a, const VMEConfigIndex &b)
