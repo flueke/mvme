@@ -1024,7 +1024,10 @@ void a2_adapter_build_datasources(
     {
         auto index = vmeMap.value(source->getModuleId());
 
+        Q_ASSERT(0 <= index.eventIndex);
         Q_ASSERT(index.eventIndex < a2::MaxVMEEvents);
+
+        Q_ASSERT(0 <= index.moduleIndex);
         Q_ASSERT(index.moduleIndex < a2::MaxVMEModules);
 
         SourceInfo sourceInfo = { source, index.moduleIndex };

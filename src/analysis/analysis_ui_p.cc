@@ -368,7 +368,9 @@ void AddEditExtractorDialog::accept()
                 }
                 else
                 {
-                    analysis->addSource(m_module->getId(), m_ex);
+                    m_ex->setEventId(m_module->getEventId());
+                    m_ex->setModuleId(m_module->getId());
+                    analysis->addSource(m_ex);
                 }
             } break;
 

@@ -1794,7 +1794,6 @@ class LIBMVME_EXPORT Analysis: public QObject
         SourceVector getSourcesByEvent(const QUuid &eventId) const;
         SourcePtr getSource(const QUuid &sourceId) const;
 
-        void addSource(const QUuid &moduleId, const SourcePtr &source);
         void addSource(const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);

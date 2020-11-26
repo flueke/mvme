@@ -2062,7 +2062,7 @@ void EventWidgetPrivate::populateDataSourceTree(
 
         auto eventNode = make_event_node(eventConfig);
         tree->addTopLevelItem(eventNode);
-        eventNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(eventConfig));
+        eventNode->setExpanded(true);
 
         // Populate the OperatorTree (top left) with module nodes and extractor children
         for (const auto &mod: modules)

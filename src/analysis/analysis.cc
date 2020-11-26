@@ -3764,12 +3764,6 @@ SourcePtr Analysis::getSource(const QUuid &sourceId) const
     return it != m_sources.end() ? *it : nullptr;
 }
 
-void Analysis::addSource(const QUuid &moduleId, const SourcePtr &source)
-{
-    source->setModuleId(moduleId);
-    addSource(source);
-}
-
 void Analysis::addSource(const SourcePtr &source)
 {
     m_sources.push_back(source);
