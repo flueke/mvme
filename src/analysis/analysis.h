@@ -2066,7 +2066,10 @@ RawDataDisplay LIBMVME_EXPORT make_raw_data_display(
     const QString &name, const QString &xAxisTitle, const QString &unitLabel);
 
 void LIBMVME_EXPORT add_raw_data_display(
-    Analysis *analysis, const QUuid &moduleId, const RawDataDisplay &display);
+    Analysis *analysis,
+    const QUuid &eventId,
+    const QUuid &moduleId,
+    const RawDataDisplay &display);
 
 void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 

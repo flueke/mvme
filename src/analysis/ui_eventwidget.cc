@@ -779,6 +779,15 @@ TreeNode *make_node(T *data, int type = QTreeWidgetItem::Type, int dataRole = Da
     return ret;
 }
 
+inline TreeNode *make_event_node(EventConfig *ev)
+{
+    auto node = make_node(ev, NodeType_Event, DataRole_RawPointer);
+    node->setText(0, ev->objectName());
+    node->setIcon(0, QIcon(":/vme_event.png"));
+    node->setFlags(node->flags() | Qt::ItemIsDropEnabled);
+    return node;
+}
+
 inline TreeNode *make_module_node(ModuleConfig *mod)
 {
     auto node = make_node(mod, NodeType_Module, DataRole_RawPointer);
@@ -2051,13 +2060,17 @@ void EventWidgetPrivate::populateDataSourceTree(
     {
         auto modules = eventConfig->getModuleConfigs();
 
+        auto eventNode = make_event_node(eventConfig);
+        tree->addTopLevelItem(eventNode);
+        eventNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(eventConfig));
+
         // Populate the OperatorTree (top left) with module nodes and extractor children
         for (const auto &mod: modules)
         {
             QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
             QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
             auto moduleNode = make_module_node(mod);
-            tree->addTopLevelItem(moduleNode);
+            eventNode->addChild(moduleNode);
             moduleNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(mod));
 
             auto sources = analysis->getSourcesByModule(mod->getId());

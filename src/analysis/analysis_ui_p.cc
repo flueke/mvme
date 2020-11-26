@@ -364,7 +364,7 @@ void AddEditExtractorDialog::accept()
                         // FIXME: missing title
                         QString(), le_unit->text());
 
-                    add_raw_data_display(analysis, m_module->getId(), rawDisplay);
+                    add_raw_data_display(analysis, m_module->getEventId(), m_module->getId(), rawDisplay);
                 }
                 else
                 {

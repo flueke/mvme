@@ -5253,9 +5253,15 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 }
 
 void add_raw_data_display(
-    Analysis *analysis, const QUuid &moduleId, const RawDataDisplay &display)
+    Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display)
 {
-    analysis->addSource(moduleId, display.extractor);
+    display.extractor->setModuleId(moduleId);
+
+    analysis->addSource(display.extractor);
+
+    display.rawHistoSink->setEventId(eventId);
+    display.calibration->setEventId(eventId);
+    display.calibratedHistoSink->setEventId(eventId);
 
     display.rawHistoSink->setUserLevel(0);
     display.calibration->setUserLevel(1);
