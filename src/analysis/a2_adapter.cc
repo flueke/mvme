@@ -1022,6 +1022,11 @@ void a2_adapter_build_datasources(
 
     for (auto source: sources)
     {
+        assert(!source->getEventId().isNull());
+        assert(!source->getModuleId().isNull());
+
+        qDebug() << __PRETTY_FUNCTION__ << source->getModuleId();
+
         auto index = vmeMap.value(source->getModuleId());
 
         Q_ASSERT(0 <= index.eventIndex);
@@ -1379,6 +1384,22 @@ analysis::OperatorVector a2_adapter_filter_operators(analysis::OperatorVector op
     return result;
 }
 
+analysis::SourceVector a2_adapter_filter_sources(analysis::SourceVector sources)
+{
+    SourceVector result;
+
+    for (const auto &source: sources)
+    {
+        if (!source->getEventId().isNull()
+            && !source->getModuleId().isNull())
+        {
+            result.push_back(source);
+        }
+    }
+
+    return result;
+}
+
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
     memory::Arena *workArena,
@@ -1403,10 +1424,12 @@ A2AdapterState a2_adapter_build(
     // Source -> Extractor
     // -------------------------------------------
 
+    auto filteredSources = a2_adapter_filter_sources(sources);
+
     a2_adapter_build_datasources(
         arena,
         &result,
-        sources,
+        filteredSources,
         vmeMap);
 
     LOG("data sources:");
@@ -1418,7 +1441,7 @@ A2AdapterState a2_adapter_build(
         LOG("  ei=%d, #ds=%d", ei, (u32)result.a2->dataSourceCounts[ei]);
     }
 
-    assert(sources.size() == result.sourceMap.size());
+    assert(result.sourceMap.size() == filteredSources.size());
 
     // -------------------------------------------
     // a1 Operator -> a2 Operator

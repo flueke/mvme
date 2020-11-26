@@ -2170,7 +2170,7 @@ void ExpressionOperatorDialog::apply()
             } break;
     }
 
-    analysis->beginRun(Analysis::KeepState);
+    analysis->beginRun(Analysis::KeepState, m_d->m_eventWidget->getVMEConfig());
     emit applied();
 }
 

@@ -554,6 +554,20 @@ QUuid ModuleConfig::getEventId() const
     return {};
 }
 
+const VMEConfig *ModuleConfig::getVMEConfig() const
+{
+    if (auto ev = getEventConfig())
+        return ev->getVMEConfig();
+    return nullptr;
+}
+
+VMEConfig *ModuleConfig::getVMEConfig()
+{
+    if (auto ev = getEventConfig())
+        return ev->getVMEConfig();
+    return nullptr;
+}
+
 //
 // EventConfig
 //

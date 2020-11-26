@@ -3766,6 +3766,8 @@ SourcePtr Analysis::getSource(const QUuid &sourceId) const
 
 void Analysis::addSource(const SourcePtr &source)
 {
+    assert(!source->getEventId().isNull());
+    assert(!source->getModuleId().isNull());
     m_sources.push_back(source);
     source->setObjectFlags(ObjectFlags::NeedsRebuild);
     source->setAnalysis(this);
@@ -4882,7 +4884,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
         << elapsed.count() << "seconds";
 }
 
-void Analysis::beginRun(BeginRunOption option, Logger logger)
+void Analysis::beginRun(BeginRunOption option, const VMEConfig *vmeConfig, Logger logger)
 {
     switch (option)
     {
@@ -4894,7 +4896,7 @@ void Analysis::beginRun(BeginRunOption option, Logger logger)
             break;
     }
 
-    beginRun(m_runInfo, m_vmeMap, logger);
+    beginRun(m_runInfo, vmeConfig, logger);
 }
 
 void Analysis::endRun()

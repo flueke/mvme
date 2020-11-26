@@ -273,6 +273,7 @@ class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
         QString m_script;
 };
 
+class VMEConfig;
 class EventConfig;
 
 class LIBMVME_EXPORT ModuleConfig: public ConfigObject
@@ -300,6 +301,9 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         EventConfig *getEventConfig();
         QUuid getEventId() const;
 
+        const VMEConfig *getVMEConfig() const;
+        VMEConfig *getVMEConfig();
+
     protected:
         std::error_code read_impl(const QJsonObject &json) override;
         std::error_code write_impl(QJsonObject &json) const override;
@@ -311,8 +315,6 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         QVector<VMEScriptConfig *> m_initScripts;
         vats::VMEModuleMeta m_meta;
 };
-
-class VMEConfig;
 
 class LIBMVME_EXPORT EventConfig: public ConfigObject
 {

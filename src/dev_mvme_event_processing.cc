@@ -287,8 +287,7 @@ int main(int argc, char *argv[])
             context.analysis = analysis.get();
             context.vmeConfig = vmeConfig.get();
 
-            auto indexMapping = vme_analysis_common::build_id_to_index_mapping(context.vmeConfig);
-            context.analysis->beginRun(context.runInfo, indexMapping);
+            context.analysis->beginRun(context.runInfo, context.vmeConfig);
 
 
             cout << "processing listfile" << listfileFilename.toStdString() << "..." << endl;

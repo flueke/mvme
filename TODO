@@ -5,7 +5,6 @@ TODO list
 Analysis event display merge
 ----------------------------
 * EventSettingsDialog needs a rework
-* Directories are currently tied to an event. This does not work anymore. 
 * EventWidgetPrivate::actionImport(): objects are now reset to a default id
 * EventWidgetPrivate::periodicUpdateEventRate() is now broken. This is the info display for the MVMEStreamWorker controllers.
 ----------------------------

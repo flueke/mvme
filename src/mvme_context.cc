@@ -436,7 +436,9 @@ void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOp
     {
         // TODO: merge with the build  code in prepareStart().
         auto analysis = m_q->getAnalysis();
-        analysis->beginRun(runOption, [this] (const QString &msg) { m_q->logMessage(msg); });
+        analysis->beginRun(
+            runOption, m_q->getVMEConfig(),
+            [this] (const QString &msg) { m_q->logMessage(msg); });
 
         bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
                                                  Qt::QueuedConnection);
@@ -1613,9 +1615,8 @@ bool MVMEContext::prepareStart()
     {
         qDebug() << __PRETTY_FUNCTION__ << "building analysis in main thread";
 
-        auto indexMapping = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
         auto analysis = getAnalysis();
-        analysis->beginRun(getRunInfo(), indexMapping,
+        analysis->beginRun(getRunInfo(), getVMEConfig(),
                            [this] (const QString &msg) { logMessage(msg); });
 
         qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
@@ -2824,8 +2825,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         m_analysis = std::move(analysis_ng);
 
-        m_analysis->beginRun(getRunInfo(),
-                             vme_analysis_common::build_id_to_index_mapping(getVMEConfig()),
+        m_analysis->beginRun(getRunInfo(), getVMEConfig(),
                              [this](const QString &msg) { this->logMessage(msg); });
 
         if (m_d->m_analysisAutoSaver)
@@ -2954,7 +2954,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId,
         (void) eventConfig;
         AnalysisPauser pauser(this);
         getAnalysis()->addOperator(eventId, userLevel, op);
-        getAnalysis()->beginRun(analysis::Analysis::KeepState);
+        getAnalysis()->beginRun(analysis::Analysis::KeepState, getVMEConfig());
 
         if (m_analysisUi)
         {
@@ -2967,7 +2967,7 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 {
     AnalysisPauser pauser(this);
     getAnalysis()->setOperatorEdited(op);
-    getAnalysis()->beginRun(analysis::Analysis::KeepState);
+    getAnalysis()->beginRun(analysis::Analysis::KeepState, getVMEConfig());
 
     if (m_analysisUi)
     {

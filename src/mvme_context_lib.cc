@@ -93,8 +93,9 @@ AnalysisPauser::~AnalysisPauser()
                 {
                     qDebug() << __PRETTY_FUNCTION__
                         << "rebuilding analysis because at least one object needs a rebuild";
-                    analysis->beginRun(analysis::Analysis::KeepState,
-                                       [this] (const QString &msg) { m_context->logMessage(msg); });
+                    analysis->beginRun(
+                        analysis::Analysis::KeepState, m_context->getVMEConfig(),
+                        [this] (const QString &msg) { m_context->logMessage(msg); });
 
                 }
             }

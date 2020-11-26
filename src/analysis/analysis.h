@@ -1941,9 +1941,12 @@ class LIBMVME_EXPORT Analysis: public QObject
                       const VMEConfig *vmeConfig,
                       Logger logger = {});
 
+    private:
         void beginRun(const RunInfo &runInfo,
                       const vme_analysis_common::VMEIdToIndex &vmeMap,
                       Logger logger = {});
+
+    public:
 
         enum BeginRunOption
         {
@@ -1951,10 +1954,11 @@ class LIBMVME_EXPORT Analysis: public QObject
             KeepState,
         };
 
+        void beginRun(BeginRunOption option, const VMEConfig *vmeConfig, Logger logger = {});
+
         // This overload of beginRun() reuses information that was previously
         // passed in one of the other beginRun() overloads. Bad design
         // everywhere.
-        void beginRun(BeginRunOption option, Logger logger = {});
         void endRun();
 
         //

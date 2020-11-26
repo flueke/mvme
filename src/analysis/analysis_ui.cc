@@ -1311,9 +1311,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // Build the analysis to make sure everything is setup properly
     auto analysis = ctx->getAnalysis();
 
-    analysis->beginRun(ctx->getRunInfo(),
-                       vme_analysis_common::build_id_to_index_mapping(
-                           ctx->getVMEConfig()));
+    analysis->beginRun(ctx->getRunInfo(), ctx->getVMEConfig());
 
     // React to changes to the analysis but using the local signal wrapper
     // instead of the analysis directly.

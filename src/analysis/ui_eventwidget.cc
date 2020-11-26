@@ -371,6 +371,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
                 qDebug() << __PRETTY_FUNCTION__ <<
                     "removing module assignment from data source " << source.get();
 
+                source->setEventId(QUuid());
                 source->setModuleId(QUuid());
                 analysis->setSourceEdited(source);
                 droppedObjects.append(source);
@@ -395,6 +396,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
                 qDebug() << __PRETTY_FUNCTION__
                     << "assigning source " << source.get() << " to module " << module;
 
+                source->setEventId(module->getEventId());
                 source->setModuleId(module->getId());
                 analysis->setSourceEdited(source);
                 droppedObjects.append(source);
@@ -409,7 +411,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         // doesn't know that the structure changed.
         // This is a systematic problem: the rebuild in the streamworker thread can cause
         // changes which means the GUI should be updated, but the GUI will never know.
-        analysis->beginRun(Analysis::KeepState);
+        analysis->beginRun(Analysis::KeepState, getContext()->getVMEConfig());
     }
 
     check_directory_consistency(analysis->getDirectories(), analysis);
@@ -1615,7 +1617,7 @@ void EventWidget::applyConditionAccept()
     }
 
     AnalysisPauser pauser(getContext());
-    analysis->beginRun(Analysis::KeepState);
+    analysis->beginRun(Analysis::KeepState, getVMEConfig());
 }
 
 void EventWidget::applyConditionReject()
@@ -5026,8 +5028,8 @@ void EventWidgetPrivate::actionImport()
         {
             // Reset the data sources module id. This will make the source unassigned any
             // module and the user has to assign it later.
-            obj->setModuleId(QUuid());
             obj->setEventId(QUuid());
+            obj->setModuleId(QUuid());
         }
 
         for (auto &obj: objectStore.operators)

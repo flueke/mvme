@@ -355,6 +355,9 @@ void AddEditExtractorDialog::accept()
     {
         case ObjectEditorMode::New:
             {
+                m_ex->setEventId(m_module->getEventId());
+                m_ex->setModuleId(m_module->getId());
+
                 bool genHistos = m_gbGenHistograms->isChecked();
 
                 if (genHistos)
@@ -368,8 +371,6 @@ void AddEditExtractorDialog::accept()
                 }
                 else
                 {
-                    m_ex->setEventId(m_module->getEventId());
-                    m_ex->setModuleId(m_module->getId());
                     analysis->addSource(m_ex);
                 }
             } break;
@@ -380,7 +381,7 @@ void AddEditExtractorDialog::accept()
             } break;
     }
 
-    analysis->beginRun(Analysis::KeepState);
+    analysis->beginRun(Analysis::KeepState, m_eventWidget->getVMEConfig());
 
     QDialog::accept();
 }
@@ -823,7 +824,7 @@ void AddEditOperatorDialog::accept()
             } break;
     }
 
-    analysis->beginRun(Analysis::KeepState);
+    analysis->beginRun(Analysis::KeepState, m_eventWidget->getVMEConfig());
 
     QDialog::accept();
 }
@@ -885,7 +886,7 @@ void AddEditOperatorDialog::reject()
                 {
                     m_op->setObjectFlags(ObjectFlags::NeedsRebuild);
                     auto analysis = m_eventWidget->getAnalysis();
-                    analysis->beginRun(Analysis::KeepState);
+                    analysis->beginRun(Analysis::KeepState, m_eventWidget->getVMEConfig());
                 }
             } break;
     }
