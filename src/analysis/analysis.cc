@@ -5137,6 +5137,18 @@ QVariantMap Analysis::getVMEObjectSettings(const QUuid &objectId) const
     return m_vmeObjectSettings.value(objectId);
 }
 
+void Analysis::setVMEObjectSettings(const VMEObjectSettings &settings)
+{
+    bool modifies = (settings != m_vmeObjectSettings);
+    m_vmeObjectSettings = settings;
+    if (modifies) setModified(true);
+}
+
+Analysis::VMEObjectSettings Analysis::getVMEObjectSettings() const
+{
+    return m_vmeObjectSettings;
+}
+
 bool Analysis::anyObjectNeedsRebuild() const
 {
     if (getObjectFlags() & ObjectFlags::NeedsRebuild)

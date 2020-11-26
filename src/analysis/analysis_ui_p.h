@@ -409,16 +409,17 @@ class EventSettingsDialog: public QDialog
 {
     Q_OBJECT
     public:
-        EventSettingsDialog(const QVariantMap &settings, QWidget *parent = nullptr);
+        EventSettingsDialog(
+            const VMEConfig *vmeConfig,
+            const Analysis *analysis,
+            QWidget *parent = nullptr);
 
-        QVariantMap getSettings() const { return m_settings; }
-
-        virtual void accept() override;
+        Analysis::VMEObjectSettings getSettings() const;
 
     private:
-        QVariantMap m_settings;
-
-        QCheckBox *cb_multiEvent;
+        const VMEConfig *m_vmeConfig;
+        const Analysis *m_analysis;
+        QVector<QCheckBox *> m_checks_multiEvent;
 };
 
 class ModuleSettingsDialog: public QDialog

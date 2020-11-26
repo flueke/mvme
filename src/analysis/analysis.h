@@ -2013,8 +2013,16 @@ class LIBMVME_EXPORT Analysis: public QObject
          * Contains things like: the MultiEventProcessing flag for VME event
          * configs and the ModuleHeaderFilter string for module configs.
          */
+
+        using VMEObjectSettings = QHash<QUuid, QVariantMap>;
+
+        // These overloads set/get the settings stored for a specific VME object id.
         void setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings);
         QVariantMap getVMEObjectSettings(const QUuid &objectId) const;
+
+        // These overloads set/return all settings, not the subtree tied to a specific id.
+        void setVMEObjectSettings(const VMEObjectSettings &settings);
+        VMEObjectSettings getVMEObjectSettings() const;
 
         ObjectFactory &getObjectFactory() { return m_objectFactory; }
 
@@ -2038,7 +2046,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         SourceVector m_sources;
         OperatorVector m_operators;
         DirectoryVector m_directories;
-        QHash<QUuid, QVariantMap> m_vmeObjectSettings;
+        VMEObjectSettings m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
         ConditionLinks m_conditionLinks;
 

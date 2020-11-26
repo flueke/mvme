@@ -64,18 +64,6 @@ namespace mvme_mvlc
 namespace trigger_io_config
 {
 
-QWidget *make_centered(QWidget *widget)
-{
-    auto w = new QWidget;
-    auto l = new QHBoxLayout(w);
-    l->setSpacing(0);
-    l->setContentsMargins(0, 0, 0, 0);
-    l->addStretch(1);
-    l->addWidget(widget);
-    l->addStretch(1);
-    return w;
-}
-
 TriggerIOView::TriggerIOView(QGraphicsScene *scene, QWidget *parent)
     : QGraphicsView(scene, parent)
 {

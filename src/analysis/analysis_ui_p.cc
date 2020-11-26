@@ -64,6 +64,7 @@
 #include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "util/qt_font.h"
+#include "util/qt_layouts.h"
 #include "util/variablify.h"
 #include "vme_config.h"
 
@@ -2831,20 +2832,44 @@ void ExportSinkStatusMonitor::update()
 // EventSettingsDialog
 //
 
-// FIXME 20201124 EventSettingsDialog is not event specific anymore. Needs rework.
-EventSettingsDialog::EventSettingsDialog(const QVariantMap &settings, QWidget *parent)
+EventSettingsDialog::EventSettingsDialog(
+    const VMEConfig *vmeConfig,
+    const Analysis *analysis,
+    QWidget *parent)
     : QDialog(parent)
-    , m_settings(settings)
-    , cb_multiEvent(new QCheckBox)
+    , m_vmeConfig(vmeConfig)
+    , m_analysis(analysis)
 {
     setWindowTitle(QSL("Analysis Event Settings"));
 
+    auto eventConfigs = m_vmeConfig->getEventConfigs();
+
+    auto table = new QTableWidget(eventConfigs.size(), 1);
+    table->setHorizontalHeaderLabels({ QSL("Multi Event Processing") });
+
+    for (int ei=0; ei<eventConfigs.size(); ei++)
+    {
+        auto eventConfig = eventConfigs[ei];
+        auto cb_multiEvent = new QCheckBox;
+
+        cb_multiEvent->setChecked(
+            m_analysis->getVMEObjectSettings(eventConfig->getId())
+            .value("MultiEventProcessing", false).toBool());
+
+        table->setVerticalHeaderItem(ei, new QTableWidgetItem(eventConfig->objectName()));
+        table->setCellWidget(ei, 0, make_centered(cb_multiEvent));
+
+        m_checks_multiEvent.push_back(cb_multiEvent);
+    }
+
     auto gbSettings = new QGroupBox(QSL("Event settings"));
-    auto settingsLayout = new QFormLayout(gbSettings);
-    settingsLayout->addRow(QSL("Multi Event Processing"), cb_multiEvent);
+    auto settingsLayout = new QVBoxLayout(gbSettings);
+    settingsLayout->setContentsMargins(0, 0, 0, 0);
+    settingsLayout->addWidget(table);
+
     auto label = new QLabel(QSL("Becomes active on the next DAQ/Replay start."));
     set_widget_font_pointsize_relative(label, -1);
-    settingsLayout->addRow(label);
+    settingsLayout->addWidget(label);
 
     auto dialogLayout = new QVBoxLayout(this);
 
@@ -2857,17 +2882,27 @@ EventSettingsDialog::EventSettingsDialog(const QVariantMap &settings, QWidget *p
     dialogLayout->addLayout(bbLayout);
     dialogLayout->setStretch(0, 1);
 
+    table->resizeColumnsToContents();
+    table->resizeRowsToContents();
+
     QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
-    cb_multiEvent->setChecked(settings.value(QSL("MultiEventProcessing"), false).toBool());
 }
 
-void EventSettingsDialog::accept()
+Analysis::VMEObjectSettings EventSettingsDialog::getSettings() const
 {
-    m_settings.insert(QSL("MultiEventProcessing"), cb_multiEvent->isChecked());
+    auto eventConfigs = m_vmeConfig->getEventConfigs();
+    auto settings = m_analysis->getVMEObjectSettings();
 
-    QDialog::accept();
+    for (int ei=0; ei<eventConfigs.size(); ei++)
+    {
+        if (auto checkbox = m_checks_multiEvent.value(ei))
+        {
+            settings[eventConfigs[ei]->getId()][QSL("MultiEventProcessing")] = checkbox->isChecked();
+        }
+    }
+
+    return settings;
 }
 
 //

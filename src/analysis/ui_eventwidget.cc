@@ -1341,14 +1341,19 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
         QIcon(QSL(":/gear.png")), QSL("Event settings"), this);
 
     connect(actionEventSettings, &QAction::triggered, this, [this] {
+        auto vmeConfig = m_d->m_context->getVMEConfig();
         auto analysis = m_d->m_context->getAnalysis();
-
-        const auto id = getVMEConfig()->getId();
-        EventSettingsDialog dialog(analysis->getVMEObjectSettings(id), this);
+        EventSettingsDialog dialog(vmeConfig, analysis, this);
 
         if (dialog.exec() == QDialog::Accepted)
         {
-            analysis->setVMEObjectSettings(id, dialog.getSettings());
+            analysis->setVMEObjectSettings(dialog.getSettings());
+
+            if (analysis->isModified())
+            {
+                AnalysisPauser pauser(getContext());
+                analysis->beginRun(Analysis::KeepState, getVMEConfig());
+            }
         }
     });
 

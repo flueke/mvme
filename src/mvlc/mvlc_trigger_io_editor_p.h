@@ -32,6 +32,7 @@
 #include <QGraphicsRectItem>
 
 #include "mvlc/mvlc_trigger_io.h"
+#include "util/qt_layouts.h"
 
 namespace mesytec
 {
@@ -832,8 +833,6 @@ class LUTEditor: public QDialog
         QVector<QCheckBox *> m_strobeCheckboxes;
         StrobeTable_UI m_strobeTableUi;
 };
-
-QWidget *make_centered(QWidget *widget);
 
 // How many timer/stack start units are marked as reserved in the UI. This is a
 // quick hack to indicate to the user that these units are used internally by
