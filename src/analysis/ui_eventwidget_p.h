@@ -342,7 +342,6 @@ struct EventWidgetPrivate
     void doPeriodicUpdate();
     void periodicUpdateDataSourceTreeCounters(double dt_s);
     void periodicUpdateHistoCounters(double dt_s);
-    void periodicUpdateEventRate(double dt_s);
     void updateActions();
 
     // Object and node selections
