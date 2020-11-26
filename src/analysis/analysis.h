@@ -2025,6 +2025,11 @@ class LIBMVME_EXPORT Analysis: public QObject
         void setUserLevelsHidden(const QVector<bool> &hidden);
         QVector<bool> getUserLevelsHidden() const;
 
+        vme_analysis_common::VMEIdToIndex getVMEIdToIndexMapping() const
+        {
+            return m_vmeMap;
+        }
+
     private:
         void updateRank(OperatorInterface *op,
                         QSet<OperatorInterface *> &updated,

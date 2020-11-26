@@ -340,7 +340,7 @@ struct EventWidgetPrivate
     void generateDefaultFilters(ModuleConfig *module);
     PipeDisplay *makeAndShowPipeDisplay(Pipe *pipe);
     void doPeriodicUpdate();
-    void periodicUpdateExtractorCounters(double dt_s);
+    void periodicUpdateDataSourceTreeCounters(double dt_s);
     void periodicUpdateHistoCounters(double dt_s);
     void periodicUpdateEventRate(double dt_s);
     void updateActions();

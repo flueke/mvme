@@ -4450,17 +4450,21 @@ void EventWidgetPrivate::doPeriodicUpdate()
         dt_s = PeriodicUpdateTimerInterval_ms / 1000.0;
     }
 
-    periodicUpdateExtractorCounters(dt_s);
+    periodicUpdateDataSourceTreeCounters(dt_s);
     periodicUpdateHistoCounters(dt_s);
     periodicUpdateEventRate(dt_s);
 
     m_prevAnalysisTimeticks = currentAnalysisTimeticks;
 }
 
-void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
+void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
 {
     auto analysis = m_context->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
+
+    auto vmeMap = analysis->getVMEIdToIndexMapping();
+    auto counters = m_context->getMVMEStreamWorker()->getCounters();
+    auto &prevCounters = m_prevStreamProcessorCounters;
 
     //
     // level 0: operator tree (Extractor hitcounts)
@@ -4469,6 +4473,68 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
          *iter; ++iter)
     {
         auto node(*iter);
+
+        if (node->type() == NodeType_Event)
+        {
+            auto eventConfig = qobject_cast<EventConfig *>(get_pointer<EventConfig>(
+                    node, DataRole_RawPointer));
+            assert(eventConfig);
+
+            auto eventIndex = vmeMap.value(eventConfig->getId()).eventIndex;
+
+            assert(eventIndex < MaxVMEEvents);
+
+            if (eventIndex < 0 || eventIndex >= MaxVMEEvents)
+                continue;
+
+            auto rate = calc_delta0(
+                counters.eventCounters[eventIndex],
+                prevCounters.eventCounters[eventIndex]);
+            rate /= dt_s;
+
+            auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
+                                            0, 'g', 3);
+
+            node->setText(0, QSL("%1 (hits=%2, rate=%3, dt=%4 s)")
+                          .arg(eventConfig->objectName())
+                          .arg(counters.eventCounters[eventIndex])
+                          .arg(rateString)
+                          .arg(dt_s)
+                         );
+        }
+
+        if (node->type() == NodeType_Module)
+        {
+            auto moduleConfig = qobject_cast<ModuleConfig *>(get_pointer<ModuleConfig>(
+                    node, DataRole_RawPointer));
+            assert(moduleConfig);
+
+            auto indices = vmeMap.value(moduleConfig->getId());
+
+            assert(indices.eventIndex < MaxVMEEvents);
+            assert(indices.moduleIndex < MaxVMEModules);
+
+            if (indices.eventIndex < 0
+                || indices.eventIndex >= MaxVMEEvents
+                || indices.moduleIndex < 0
+                || indices.moduleIndex >= MaxVMEEvents)
+                continue;
+
+            auto rate = calc_delta0(
+                counters.moduleCounters[indices.eventIndex][indices.moduleIndex],
+                prevCounters.moduleCounters[indices.eventIndex][indices.moduleIndex]);
+            rate /= dt_s;
+
+            auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
+                                            0, 'g', 3);
+
+            node->setText(0, QSL("%1 (hits=%2, rate=%3, dt=%4 s)")
+                          .arg(moduleConfig->objectName())
+                          .arg(counters.moduleCounters[indices.eventIndex][indices.moduleIndex])
+                          .arg(rateString)
+                          .arg(dt_s)
+                         );
+        }
 
         if (node->type() == NodeType_Source)
         {
@@ -4550,6 +4616,8 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
             prevHitCounts = hitCounts;
         }
     }
+
+    prevCounters = counters;
 }
 
 void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
