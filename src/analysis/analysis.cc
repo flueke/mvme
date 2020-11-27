@@ -680,6 +680,16 @@ void Extractor::postClone(const AnalysisObject *cloneSource)
     SourceInterface::postClone(cloneSource);
 }
 
+bool Extractor::setParameterName(int paramIndex, const QString &name)
+{
+    if (paramIndex < m_parameterNames.size())
+    {
+        m_parameterNames[paramIndex] = name;
+        return true;
+    }
+    return false;
+}
+
 //
 // ListFilterExtractor
 //
@@ -735,6 +745,7 @@ void ListFilterExtractor::write(QJsonObject &json) const
     json["repetitions"] = static_cast<qint64>(m_a2Extractor.repetitions);
     json["rngSeed"] = QString::number(m_rngSeed, 16);
     json["options"] = static_cast<s32>(m_a2Extractor.options);
+    json["parameterNames"] = QJsonArray::fromStringList(m_parameterNames);
 }
 
 void ListFilterExtractor::read(const QJsonObject &json)
@@ -745,6 +756,7 @@ void ListFilterExtractor::read(const QJsonObject &json)
     QString sSeed = json["rngSeed"].toString();
     m_rngSeed = sSeed.toULongLong(nullptr, 16);
     m_a2Extractor.options = static_cast<Options::opt_t>(json["options"].toInt());
+    m_parameterNames = json["parameterNames"].toVariant().toStringList();
 }
 
 void ListFilterExtractor::postClone(const AnalysisObject *cloneSource)
@@ -753,6 +765,16 @@ void ListFilterExtractor::postClone(const AnalysisObject *cloneSource)
     std::uniform_int_distribution<u64> dist;
     m_rngSeed = dist(StaticRandomDevice);
     SourceInterface::postClone(cloneSource);
+}
+
+bool ListFilterExtractor::setParameterName(int paramIndex, const QString &name)
+{
+    if (paramIndex < m_parameterNames.size())
+    {
+        m_parameterNames[paramIndex] = name;
+        return true;
+    }
+    return false;
 }
 
 //
