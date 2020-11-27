@@ -2,7 +2,22 @@
 TODO list
 ==================================================
 
-* trigger io: context menu to load predefined
+* analysis cross instance copy/paste is broken
+
+Trigger IO simulation
+----------------------
+* configuration of the system: unit parameters, unit connections
+* a bit for each pin in the system
+* values for how long units take to change their state.
+  There is a minimum time for the gate generators, 8ns I think.
+* logic to simulate a certain time step and produce a new set of output bits
+* buffer for the bits to keep some history of what happened
+* state for certain units: remaining delay, remaining 'on' time (width)
+* for each unit: which input and output bits is it using, e.g. where to read
+  and where store the pin values from/to
+
+step(8ns, system)
+----------------------
 
 * doc: Add network tuning and data export section
 * document MVLC jumbo frame support in mvme manual

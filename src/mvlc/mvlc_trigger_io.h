@@ -107,7 +107,8 @@ struct LUT
     std::bitset<OutputBits> strobedOutputs;
 
     // Strobe gate generator settings. Each Level2 LUT has one of these.
-    IO strobeGG = { .delay = 0, .width = StrobeGGDefaultWidth, .holdoff = 0, .invert = false, .direction = IO::Direction::in, .activate = false };
+    IO strobeGG = { .delay = 0, .width = StrobeGGDefaultWidth, .holdoff = 0,
+        .invert = false, .direction = IO::Direction::in, .activate = false };
 
     std::array<QString, OutputBits> defaultOutputNames;
     std::array<QString, OutputBits> outputNames;
