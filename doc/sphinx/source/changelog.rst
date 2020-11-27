@@ -34,6 +34,8 @@ Version 1.3.0-rc1
 * [mvlc] readout_parser fixes: disabled VME modules confusing the parser, stale
   data from the previous run remaining in the buffers.
 
+* [mvlc] Updates and fixes for the trigger IO editor.
+
 * [analysis] Allow directories, copy/paste and drag/drop for raw histograms
   (bottom-left tree view). When generating default filters and histograms for a
   module the histograms are also placed in a directory instead of being
@@ -45,6 +47,8 @@ Version 1.3.0-rc1
   the event length is determined by repeatedly trying the module header filter
   until it matches the next header or the end of the readout data is reached.
 
+* [analysis] Updates and fixes for the RateMonitors
+
 * [vme_templates]
 
   - Updates to the mesytec VMMR template.
@@ -52,6 +56,8 @@ Version 1.3.0-rc1
   - Updates to the CAEN v785 template.
 
   - Add templates for the  CAEN V1190A Multihit TDC.
+
+* [vme_script] add 'readabs' command
 
 Version 1.2.1
 -------------

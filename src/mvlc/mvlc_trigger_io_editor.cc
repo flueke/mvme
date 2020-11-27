@@ -209,7 +209,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                 strobeGGSettings,
                 strobedOutputs,
                 this);
-            lutEditor->resize(850, 750);
+            lutEditor->resize(850, 1000);
         }
 
         assert(lutEditor);

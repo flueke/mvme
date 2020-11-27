@@ -21,6 +21,7 @@
 #include "mvme_context_lib.h"
 #include "analysis/analysis.h"
 #include "mvme_context.h"
+#include "template_system.h"
 #include "util_zip.h"
 
 const ListfileReplayHandle &context_open_listfile(
@@ -101,4 +102,37 @@ AnalysisPauser::~AnalysisPauser()
             }
             break;
     }
+}
+
+void LIBMVME_EXPORT new_vme_config(MVMEContext *context)
+{
+    // copy the previous controller settings into the new VMEConfig
+    auto vmeConfig = context->getVMEConfig();
+    auto ctrlType = vmeConfig->getControllerType();
+    auto ctrlSettings = vmeConfig->getControllerSettings();
+
+    vmeConfig = new VMEConfig;
+    vmeConfig->setVMEController(ctrlType, ctrlSettings);
+
+    // If the new controller is an MVLC load the default trigger io scripts
+    // from the templates directory.
+    if (is_mvlc_controller(ctrlType))
+    {
+        if (auto mvlcTriggerIO = vmeConfig->getGlobalObjectRoot().findChild<VMEScriptConfig *>(
+                QSL("mvlc_trigger_io")))
+        {
+            for (const auto &scriptInfo: vats::read_mvlc_trigger_io_scripts())
+            {
+                if (scriptInfo.fileInfo.baseName() == QSL("mvlc_trigger_io-Default_Trigger_IO"))
+                {
+                    mvlcTriggerIO->setScriptContents(scriptInfo.contents);
+                    break;
+                }
+            }
+        }
+    }
+
+    context->setVMEConfig(vmeConfig);
+    context->setConfigFileName(QString());
+    context->setMode(GlobalMode::DAQ);
 }
