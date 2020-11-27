@@ -7,145 +7,117 @@
         ],
         "connections": [
             {
-                "dstId": "{2e09194e-81bc-4fa5-99c0-347b32faf222}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{48830439-0a99-43f3-a1b8-ea6a949ebd41}",
+                "dstId": "{f6e6b4a0-817e-4cb1-9031-92589c8e3b16}",
+                "dstIndex": 1,
+                "dstParamIndex": 0,
+                "srcId": "{836257ce-b9fe-4736-88de-4f93ac50e0dd}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{7df31ca8-7192-40b9-a635-6c7e57ed861d}",
+                "dstId": "{f6e6b4a0-817e-4cb1-9031-92589c8e3b16}",
                 "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{f28b8bec-ae32-40ca-93fd-56e630ee72da}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{f28b8bec-ae32-40ca-93fd-56e630ee72da}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{48830439-0a99-43f3-a1b8-ea6a949ebd41}",
+                "dstParamIndex": 0,
+                "srcId": "{432fe028-a9de-439f-88a9-fd5c85863fe4}",
                 "srcIndex": 0
             }
         ],
         "directories": [
-            {
-                "data": {
-                    "displayLocation": "sink",
-                    "members": [
-                        "{2e09194e-81bc-4fa5-99c0-347b32faf222}"
-                    ]
-                },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{f300655f-beae-4834-86aa-ff25cc7865a7}",
-                "name": "Raw Histos mvlc_ts",
-                "userLevel": 0
-            },
-            {
-                "data": {
-                    "displayLocation": "operator",
-                    "members": [
-                        "{f28b8bec-ae32-40ca-93fd-56e630ee72da}"
-                    ]
-                },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{d1ec6422-637c-4c23-8f86-440d486885c7}",
-                "name": "Cal mvlc_ts",
-                "userLevel": 1
-            },
-            {
-                "data": {
-                    "displayLocation": "sink",
-                    "members": [
-                        "{7df31ca8-7192-40b9-a635-6c7e57ed861d}"
-                    ]
-                },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{1a719e31-a6dd-4279-aeab-cbc9f168d050}",
-                "name": "Cal Histos mvlc_ts",
-                "userLevel": 1
-            }
         ],
         "operators": [
             {
-                "class": "analysis::Histo1DSink",
+                "class": "analysis::RateMonitorSink",
                 "data": {
-                    "nBins": 65536,
-                    "resolutionReductionFactor": 0,
-                    "xAxisTitle": "timestamp",
-                    "xLimitMax": null,
-                    "xLimitMin": null
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 2,
+                    "samplingInterval": 1,
+                    "type": "CounterDifference",
+                    "unitLabel": "Triggers",
+                    "useCombinedView": false
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{2e09194e-81bc-4fa5-99c0-347b32faf222}",
-                "name": "timestamp_raw",
+                "eventId": "{f210b9ac-35b9-4f7c-8326-125dac03ab7f}",
+                "id": "{f6e6b4a0-817e-4cb1-9031-92589c8e3b16}",
+                "name": "trigger_rates",
                 "userLevel": 0
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 18446744073709552000,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": ""
-                },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{f28b8bec-ae32-40ca-93fd-56e630ee72da}",
-                "name": "timestamp",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "resolutionReductionFactor": 0,
-                    "xAxisTitle": "timestamp",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{7df31ca8-7192-40b9-a635-6c7e57ed861d}",
-                "name": "timestamp",
-                "userLevel": 1
             }
         ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{5db10f6c-e64c-4560-94cb-4008a02a042b}",
+                    "moduleName": "vmmr",
+                    "moduleTypeName": "vmmr"
+                },
+                {
+                    "moduleId": "{ef34a71a-efac-4fdb-84bb-0dd96e07f6d9}",
+                    "moduleName": "mdpp16_qdc",
+                    "moduleTypeName": "mdpp16_qdc"
+                },
+                {
+                    "moduleId": "{6971ec37-5996-45e0-bd43-53b48a262f6c}",
+                    "moduleName": "mvlc_ts",
+                    "moduleTypeName": "mvlc_ts"
+                }
+            ]
+        },
         "sources": [
             {
-                "class": "analysis::Extractor",
+                "class": "analysis::ListFilterExtractor",
                 "data": {
-                    "options": 0,
-                    "parameterNames": [
-                    ],
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "1e8ce84b61a26460",
-                    "subFilters": [
-                        {
-                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                }
+                            ]
                         },
-                        {
-                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        },
-                        {
-                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        },
-                        {
-                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        }
-                    ]
+                        "flags": 0,
+                        "wordCount": 4
+                    },
+                    "options": 1,
+                    "repetitions": 1,
+                    "rngSeed": "1986ea0e20575dfe"
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{48830439-0a99-43f3-a1b8-ea6a949ebd41}",
-                "moduleId": "{65d78d77-b0b1-4a35-b3d7-9c7e59cec002}",
-                "name": "timestamp"
+                "eventId": "{f210b9ac-35b9-4f7c-8326-125dac03ab7f}",
+                "id": "{836257ce-b9fe-4736-88de-4f93ac50e0dd}",
+                "moduleId": "{6971ec37-5996-45e0-bd43-53b48a262f6c}",
+                "name": "gated_triggers"
+            },
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 0,
+                        "wordCount": 4
+                    },
+                    "options": 1,
+                    "repetitions": 1,
+                    "rngSeed": "d471d9f45a0fff4"
+                },
+                "eventId": "{f210b9ac-35b9-4f7c-8326-125dac03ab7f}",
+                "id": "{432fe028-a9de-439f-88a9-fd5c85863fe4}",
+                "moduleId": "{6971ec37-5996-45e0-bd43-53b48a262f6c}",
+                "name": "free_triggers"
             }
         ]
     }

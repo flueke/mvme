@@ -2,6 +2,8 @@
 TODO list
 ==================================================
 
+* analysis cross instance copy/paste is broken
+
 Trigger IO simulation
 ----------------------
 * configuration of the system: unit parameters, unit connections
