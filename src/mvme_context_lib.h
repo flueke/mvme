@@ -46,4 +46,6 @@ struct AnalysisPauser
     MVMEStreamWorkerState m_prevState;
 };
 
+void LIBMVME_EXPORT new_vme_config(MVMEContext *context);
+
 #endif /* __MVME_CONTEXT_LIB_H__ */
