@@ -671,6 +671,7 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         void setParameterNames(const QStringList &names) { m_parameterNames = names; }
         QStringList getParameterNames() const { return m_parameterNames; }
+        bool setParameterName(int paramIndex, const QString &name);
 
         using Options = a2::DataSourceOptions;
         Options::opt_t getOptions() const { return m_options; }
@@ -720,6 +721,10 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         u32 getAddressBits() const;
         u32 getDataBits() const;
 
+        void setParameterNames(const QStringList &names) { m_parameterNames = names; }
+        QStringList getParameterNames() const { return m_parameterNames; }
+        bool setParameterName(int paramIndex, const QString &name);
+
         using Options = a2::DataSourceOptions;
         Options::opt_t getOptions() const { return m_a2Extractor.options; }
         void setOptions(Options::opt_t options) { m_a2Extractor.options = options; }
@@ -735,6 +740,7 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
          * ListFilterExtractor. */
         a2::ListFilterExtractor m_a2Extractor;
         u64 m_rngSeed;
+        QStringList m_parameterNames;
 };
 
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;

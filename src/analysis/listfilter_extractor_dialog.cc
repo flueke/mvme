@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "listfilter_extractor_dialog.h"
+
+#include "analysis/analysis_ui_p.h"
 #include "data_filter_edit.h"
 #include "../mvme_context_lib.h"
 
@@ -94,6 +96,8 @@ struct ListFilterEditor
 
     QSpinBox *spin_repetitions,
              *spin_wordCount;
+
+    QPushButton *pb_editNameList;
 
     QLineEdit *le_name;
 
@@ -182,6 +186,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.label_outputSize = new QLabel;
     e.label_combinedBits = new QLabel;
     e.spin_repetitions = new QSpinBox;
+    e.pb_editNameList = new QPushButton(QIcon(QSL(":/pencil.png")), QSL("Edit Name List"));
     e.spin_wordCount = new QSpinBox;
     e.filter_lowWord = makeFilterEdit();
     e.filter_highWord = makeFilterEdit();
@@ -256,11 +261,15 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     QObject::connect(e.filter_lowWord, &QLineEdit::textChanged, e.widget, update_editor);
     QObject::connect(e.filter_highWord, &QLineEdit::textChanged, e.widget, update_editor);
 
+
+    // nameList editing
+
     // layout
     auto layout = new QFormLayout(e.widget);
 
     layout->addRow("Name", e.le_name);
     layout->addRow("Repetitions", e.spin_repetitions);
+    layout->addRow(QSL("Parameter Names"), e.pb_editNameList);
 
     {
         auto gb_input = new QGroupBox("Input");
@@ -619,6 +628,16 @@ int ListFilterExtractorDialog::addFilterToUi(const ListFilterExtractorPtr &ex)
 
     connect(editor.spin_repetitions, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
             this, &ListFilterExtractorDialog::updateWordCount);
+
+    connect(editor.pb_editNameList, &QPushButton::clicked,
+            this, [this, ex] ()
+            {
+                ui::FilterNameListDialog dialog(ex->objectName(), ex->getParameterNames(), this);
+
+                // FIXME (maybe): this immediately applies the changes to the operator
+                if (dialog.exec() == QDialog::Accepted)
+                    ex->setParameterNames(dialog.getNames());
+            });
 
     updateWordCount();
 

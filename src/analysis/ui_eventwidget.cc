@@ -4575,9 +4575,9 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             QStringList paramNames;
 
             if (auto ex = qobject_cast<Extractor *>(source))
-            {
                 paramNames = ex->getParameterNames();
-            }
+            else if (auto ex = qobject_cast<ListFilterExtractor *>(source))
+                paramNames = ex->getParameterNames();
 
             for (s32 addr = 0; addr < node->childCount(); ++addr)
             {

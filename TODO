@@ -2,7 +2,13 @@
 TODO list
 ==================================================
 
-* analysis cross instance copy/paste is broken
+* add checks for mesytec modules analysing the eventcounter/timestamp values
+  This should happen after multi event processing and should be fast. So just
+  picking the last word of each events module data should be enough.
+  Handle overflow properly!
+
+* analysis cross-process copy/paste is broken
+* make named indices inline renamable
 
 Trigger IO simulation
 ----------------------
