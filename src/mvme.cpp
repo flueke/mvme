@@ -1099,17 +1099,7 @@ void MVMEMainWindow::onActionNewVMEConfig_triggered()
         }
     }
 
-    // copy the previous controller settings into the new VMEConfig
-    auto vmeConfig = m_d->m_context->getVMEConfig();
-    auto ctrlType = vmeConfig->getControllerType();
-    auto ctrlSettings = vmeConfig->getControllerSettings();
-
-    vmeConfig = new VMEConfig;
-    vmeConfig->setVMEController(ctrlType, ctrlSettings);
-
-    m_d->m_context->setVMEConfig(vmeConfig);
-    m_d->m_context->setConfigFileName(QString());
-    m_d->m_context->setMode(GlobalMode::DAQ);
+    new_vme_config(m_d->m_context);
 }
 
 // Note: .mvmecfg was the old extension when vme and analysis config where not separated yet.
