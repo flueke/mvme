@@ -2,6 +2,8 @@
 TODO list
 ==================================================
 
+* Difference operator asserts when arrays have different sizes and when one
+  array has size 1 (different assertion).
 * add checks for mesytec modules analysing the eventcounter/timestamp values
   This should happen after multi event processing and should be fast. So just
   picking the last word of each events module data should be enough.
