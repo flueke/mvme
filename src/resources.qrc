@@ -73,7 +73,7 @@
     <file alias="operator_generic.png">resources/code-class.png</file>
     <file alias="operator_previous.png">resources/arrow-circle-225-left.png</file>
     <file alias="operator_sum.png">resources/sum.png</file>
-    <file alias="rate_monitor_sink.png">resources/application-monitor.png</file>
+    <file alias="rate_monitor_sink.png">resources/system-monitor--arrow.png</file>
 
     <file alias="scissors.png">resources/scissors.png</file>
     <file alias="scissors_arrow.png">resources/scissors--arrow.png</file>
