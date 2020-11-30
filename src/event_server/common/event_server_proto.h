@@ -77,7 +77,7 @@ struct Message
 using AllowedTypes = std::array<MessageType, MessageTypeCount>;
 using TransitionTable = std::array<AllowedTypes, MessageTypeCount>;
 
-static TransitionTable make_transition_table()
+inline TransitionTable make_transition_table()
 {
     TransitionTable ret;
 
@@ -90,7 +90,7 @@ static TransitionTable make_transition_table()
     return ret;
 }
 
-static bool is_valid_transition(MessageType prev, MessageType cur)
+inline bool is_valid_transition(MessageType prev, MessageType cur)
 {
     static const TransitionTable transitions = make_transition_table();
 
@@ -104,7 +104,7 @@ static bool is_valid_transition(MessageType prev, MessageType cur)
 
 using MessageTypeStringTable = std::array<std::string, MessageTypeCount>;
 
-static MessageTypeStringTable make_messagetype_stringtable()
+inline MessageTypeStringTable make_messagetype_stringtable()
 {
     MessageTypeStringTable ret;
 
@@ -117,7 +117,7 @@ static MessageTypeStringTable make_messagetype_stringtable()
     return ret;
 }
 
-static const std::string &to_string(MessageType t)
+inline const std::string &to_string(MessageType t)
 {
     static const auto stringTable = make_messagetype_stringtable();
 

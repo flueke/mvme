@@ -562,7 +562,7 @@ void EventServer::endEvent(s32 eventIndex)
     QCoreApplication::processEvents();
 }
 
-void EventServer::endRun(const DAQStats &daqStats, const std::exception *e)
+void EventServer::endRun(const DAQStats &daqStats, const std::exception * /*e*/)
 {
     if (!m_d->m_enabled) return;
 
