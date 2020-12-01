@@ -221,7 +221,7 @@ inline size_t words_in_span(const State::DataSpan &span)
     return 0u;
 }
 
-std::error_code end_event(State &state, Callbacks &callbacks, int ei)
+std::error_code end_event(State &state, Callbacks &callbacks, int ei, unsigned moduleCount)
 {
     // This is called after prefix, suffix and the dynamic part of all modules for
     // the given event have been recorded in the ModuleDataSpans. Now walk the data
@@ -234,9 +234,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
     auto &moduleFilters = state.splitFilters[ei];
     auto &moduleSpans = state.dataSpans;
-    const size_t moduleCount = moduleSpans.size();
 
-    LOG_TRACE("state=%p, ei=%d, moduleCount=%lu", &state, ei, moduleCount);
+    LOG_TRACE("state=%p, ei=%d, moduleCount=%u", &state, ei, moduleCount);
 
     // If splitting is not enabled for this event yield the collected data in
     // one go.
@@ -470,7 +469,7 @@ std::error_code LIBMVME_EXPORT event_data(
         module_suffix(state, ei, mi, moduleData.suffix.data, moduleData.suffix.size);
     }
 
-    return end_event(state, callbacks, ei);
+    return end_event(state, callbacks, ei, moduleCount);
 }
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)
