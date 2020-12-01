@@ -372,18 +372,10 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
         m_multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
 
-        // Copy our callbacks, which are driving the analysis, to the callbacks
+        // Copy our callback, which is driving the analysis, to the callback
         // for the multi event splitter.
         auto &splitterCallbacks = m_multiEventSplitterCallbacks;
-#if 0
-        splitterCallbacks.beginEvent = m_parserCallbacks.beginEvent;
-        splitterCallbacks.modulePrefix = m_parserCallbacks.groupPrefix;
-        splitterCallbacks.moduleDynamic = m_parserCallbacks.groupDynamic;
-        splitterCallbacks.moduleSuffix = m_parserCallbacks.groupSuffix;
-        splitterCallbacks.endEvent = m_parserCallbacks.endEvent;
-#else
         splitterCallbacks.eventData = m_parserCallbacks.eventData;
-#endif
 
         // Now overwrite our own callbacks to drive the splitter instead of the
         // analysis.
@@ -398,33 +390,6 @@ void MVLC_StreamWorker::setupParserCallbacks(
                 m_multiEventSplitter, m_multiEventSplitterCallbacks,
                 ei, moduleDataList, moduleCount);
         };
-
-#if 0
-        m_parserCallbacks.beginEvent = [this] (int ei)
-        {
-            multi_event_splitter::begin_event(m_multiEventSplitter, ei);
-        };
-
-        m_parserCallbacks.groupPrefix = [this](int ei, int mi, const u32 *data, u32 size)
-        {
-            multi_event_splitter::module_prefix(m_multiEventSplitter, ei, mi, data, size);
-        };
-
-        m_parserCallbacks.groupDynamic = [this](int ei, int mi, const u32 *data, u32 size)
-        {
-            multi_event_splitter::module_data(m_multiEventSplitter, ei, mi, data, size);
-        };
-
-        m_parserCallbacks.groupSuffix = [this](int ei, int mi, const u32 *data, u32 size)
-        {
-            multi_event_splitter::module_suffix(m_multiEventSplitter, ei, mi, data, size);
-        };
-
-        m_parserCallbacks.endEvent = [this](int ei)
-        {
-            multi_event_splitter::end_event(m_multiEventSplitter, m_multiEventSplitterCallbacks, ei);
-        };
-#endif
     }
 }
 
@@ -442,7 +407,8 @@ void MVLC_StreamWorker::logParserInfo(
 #if 1
             const auto &moduleParts = modules[moduleIndex];
 
-            logInfo(QString("mvlc readout parser info: eventIndex=%1, moduleIndex=%2: prefixLen=%3, suffixLen=%4, hasDynamic=%5")
+            logInfo(QString("mvlc readout parser info: eventIndex=%1"
+                            ", moduleIndex=%2: prefixLen=%3, suffixLen=%4, hasDynamic=%5")
                     .arg(eventIndex)
                     .arg(moduleIndex)
                     .arg(static_cast<unsigned>(moduleParts.prefixLen))
