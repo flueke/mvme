@@ -1029,6 +1029,16 @@ void a2_adapter_build_datasources(
 
         auto index = vmeMap.value(source->getModuleId());
 
+        if (index.eventIndex < 0 || index.moduleIndex < 0)
+        {
+            qDebug() << __PRETTY_FUNCTION__
+                << "got an invalid index pair for data source" << source.get()
+                << ", ei =" << index.eventIndex << ", mi =" << index.moduleIndex
+                << ", source->eventId=" << source->getEventId()
+                << ", source->moduleId=" << source->getModuleId()
+                ;
+        }
+
         Q_ASSERT(0 <= index.eventIndex);
         Q_ASSERT(index.eventIndex < a2::MaxVMEEvents);
 
