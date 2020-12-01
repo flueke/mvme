@@ -696,7 +696,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             {
                 if (state->streamWriter.hasOpenModuleSection())
                 {
-                    u32 moduleSectionBytes = state->streamWriter.closeModuleSection().sectionBytes;
+                    //u32 moduleSectionBytes = state->streamWriter.closeModuleSection().sectionBytes;
                 }
 
                 break;

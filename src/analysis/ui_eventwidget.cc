@@ -4467,6 +4467,8 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
     auto a2State = analysis->getA2AdapterState();
 
     auto vmeMap = analysis->getVMEIdToIndexMapping();
+    assert(m_context);
+    assert(m_context->getMVMEStreamWorker());
     auto counters = m_context->getMVMEStreamWorker()->getCounters();
     auto &prevCounters = m_prevStreamProcessorCounters;
 
