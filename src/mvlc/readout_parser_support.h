@@ -13,7 +13,7 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-using ModuleReadoutParts = mvlc::readout_parser::GroupReadoutStructure;
+using ModuleReadoutParts = mvlc::readout_parser::ModuleReadoutStructure;
 
 // VME module readout scripts indexed by event and module
 using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;

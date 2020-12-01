@@ -136,7 +136,10 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
     return result;
 }
 
-std::error_code begin_event(State &state, int ei)
+namespace
+{
+
+inline std::error_code begin_event(State &state, int ei)
 {
     LOG_TRACE("state=%p, ei=%d", &state, ei);
 
@@ -154,7 +157,7 @@ std::error_code begin_event(State &state, int ei)
 // size in the splitters state structure for later use in the end_event
 // function.
 
-std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32 size)
+inline std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -172,7 +175,7 @@ std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32
     return {};
 }
 
-std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
+inline std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -190,7 +193,7 @@ std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 s
     return {};
 }
 
-std::error_code module_suffix(State &state, int ei, int mi, const u32 *data, u32 size)
+inline std::error_code module_suffix(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -242,23 +245,28 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
         LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
                   &state, ei);
 
-        callbacks.beginEvent(ei);
+
+        std::array<ModuleData, MaxVMEModules> moduleDataList;
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
             auto &spans = moduleSpans[mi];
+            auto &moduleData = moduleDataList[mi];
 
-            if (auto size = words_in_span(spans.prefixSpan))
-                callbacks.modulePrefix(ei, mi, spans.prefixSpan.begin, size);
+            moduleData.prefix = {
+                spans.prefixSpan.begin, static_cast<u32>(words_in_span(spans.prefixSpan))
+            };
 
-            if (auto size = words_in_span(spans.dynamicSpan))
-                callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, size);
+            moduleData.dynamic = {
+                spans.dynamicSpan.begin, static_cast<u32>(words_in_span(spans.dynamicSpan))
+            };
 
-            if (auto size = words_in_span(spans.suffixSpan))
-                callbacks.moduleSuffix(ei, mi, spans.suffixSpan.begin, size);
+            moduleData.suffix = {
+                spans.suffixSpan.begin, static_cast<u32>(words_in_span(spans.suffixSpan))
+            };
         }
 
-        callbacks.endEvent(ei);
+        callbacks.eventData(ei, moduleDataList.data(), moduleCount);
 
         return {};
     }
@@ -270,6 +278,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
 
     // Space to record filter matches per module during the splitting phase.
     std::bitset<MaxVMEModules> moduleFilterMatches;
+
+    // ModuleData structures used when invoking the eventData callback.
+    std::array<ModuleData, MaxVMEModules> moduleDataList;
 
     assert(moduleSubeventSizes.size() >= moduleCount);
     assert(moduleFilterMatches.size() >= moduleCount);
@@ -338,21 +349,44 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
         if (moduleFilterMatches.none())
             break;
 
-        LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
-        callbacks.beginEvent(ei);
+        //LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
+        //callbacks.beginEvent(ei);
 
         // Yield the prefixes of all the modules
-        if (!staticPartsYielded)
+        for (size_t mi = 0; mi < moduleCount; ++mi)
         {
-            for (size_t mi = 0; mi < moduleCount; ++mi)
+            auto &spans = moduleSpans[mi];
+            auto &moduleData = moduleDataList[mi];
+
+            if (!staticPartsYielded)
             {
-                if (auto size = words_in_span(moduleSpans[mi].prefixSpan))
-                {
-                    LOG_TRACE("state=%p, callbacks.modulePrefx(ei=%d, mi=%lu, data=%p, size=%lu",
-                              &state, ei, mi, moduleSpans[mi].prefixSpan.begin, size);
-                    callbacks.modulePrefix(ei, mi, moduleSpans[mi].prefixSpan.begin, size);
-                }
+                moduleData.prefix = {
+                    spans.prefixSpan.begin, static_cast<u32>(words_in_span(spans.prefixSpan))
+                };
+
+                moduleData.suffix = {
+                    spans.suffixSpan.begin, static_cast<u32>(words_in_span(spans.suffixSpan))
+                };
             }
+            else
+            {
+                moduleData.prefix = {};
+                moduleData.suffix = {};
+            }
+
+            //if (auto size = words_in_span(moduleSpans[mi].prefixSpan))
+            //{
+            //    LOG_TRACE("state=%p, callbacks.modulePrefx(ei=%d, mi=%lu, data=%p, size=%lu",
+            //              &state, ei, mi, moduleSpans[mi].prefixSpan.begin, size);
+            //    callbacks.modulePrefix(ei, mi, moduleSpans[mi].prefixSpan.begin, size);
+            //}
+
+            //if (auto size = words_in_span(moduleSpans[mi].suffixSpan))
+            //{
+            //    LOG_TRACE("state=%p, callbacks.moduleSuffix(ei=%d, mi=%lu, data=%p, size=%lu",
+            //              &state, ei, mi, moduleSpans[mi].suffixSpan.begin, size);
+            //    callbacks.moduleSuffix(ei, mi, moduleSpans[mi].suffixSpan.begin, size);
+            //}
         }
 
         // Yield one split subevent for each of the modules.
@@ -389,7 +423,13 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
                 LOG_TRACE("state=%p, callbacks.moduleDynamic(ei=%d, mi=%lu, data=%p, size=%u",
                           &state, ei, mi, spans.dynamicSpan.begin, moduleEventSize)
 
-                callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, moduleEventSize);
+                //callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, moduleEventSize);
+
+                auto &moduleData = moduleDataList[mi];
+
+                moduleData.dynamic = {
+                    spans.dynamicSpan.begin, moduleEventSize
+                };
 
                 // Move the spans begin pointer forward by the amount of data used.
                 spans.dynamicSpan.begin += moduleEventSize;
@@ -402,27 +442,35 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei)
             }
         }
 
-        // Yield the suffixes of all the modules
-        if (!staticPartsYielded)
-        {
-            for (size_t mi = 0; mi < moduleCount; ++mi)
-            {
-                if (auto size = words_in_span(moduleSpans[mi].suffixSpan))
-                {
-                    LOG_TRACE("state=%p, callbacks.moduleSuffix(ei=%d, mi=%lu, data=%p, size=%lu",
-                              &state, ei, mi, moduleSpans[mi].suffixSpan.begin, size);
-                    callbacks.moduleSuffix(ei, mi, moduleSpans[mi].suffixSpan.begin, size);
-                }
-            }
+        callbacks.eventData(ei, moduleDataList.data(), moduleCount);
 
-            staticPartsYielded = true;
-        }
+        staticPartsYielded = true;
+
 
         LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
-        callbacks.endEvent(ei);
+        //callbacks.endEvent(ei);
     }
 
     return {};
+}
+}
+
+std::error_code LIBMVME_EXPORT event_data(
+    State &state, Callbacks &callbacks,
+    int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+{
+    begin_event(state, ei);
+
+    for (unsigned mi=0; mi<moduleCount; ++mi)
+    {
+        auto &moduleData = moduleDataList[mi];
+
+        module_prefix(state, ei, mi, moduleData.prefix.data, moduleData.prefix.size);
+        module_data(state, ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+        module_suffix(state, ei, mi, moduleData.suffix.data, moduleData.suffix.size);
+    }
+
+    return end_event(state, callbacks, ei);
 }
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)

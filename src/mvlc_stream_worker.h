@@ -204,7 +204,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mesytec::mvlc::readout_parser::ReadoutParserCallbacks m_parserCallbacks;
         mesytec::mvlc::readout_parser::ReadoutParserState m_parser;
         mesytec::mvlc::readout_parser::ReadoutParserCounters m_parserCounters;
-        mutable mesytec::mvlc::Protected<mesytec::mvlc::readout_parser::ReadoutParserCounters> m_parserCountersSnapshot;
+        mutable mesytec::mvlc::Protected<mesytec::mvlc::readout_parser::ReadoutParserCounters>
+            m_parserCountersSnapshot;
 
         // Note: std::condition_variable requires an std::mutex, that's why a
         // TicketMutex is not used here.

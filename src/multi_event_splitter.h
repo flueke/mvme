@@ -26,6 +26,7 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include <mesytec-mvlc/mvlc_readout_parser.h>
 
 #include "libmvme_export.h"
 
@@ -104,18 +105,13 @@ namespace multi_event_splitter
 // Prefix and suffix data are not split. The prefix and suffix callbacks are
 // only called once per incoming event whereas the dynamic part is called once
 // for every split.
+
+using ModuleData = mesytec::mvlc::readout_parser::ModuleData;
+
 struct Callbacks
 {
-    // Functions taking an event index.
-    std::function<void (int ei)>
-        beginEvent = [] (int) {},
-        endEvent   = [] (int) {};
-
-    // Parameters: event index, module index, pointer to first word, number of words
-    std::function<void (int ei, int mi, const u32 *data, u32 size)>
-        modulePrefix = [] (int, int, const u32*, u32) {},
-        moduleDynamic = [] (int, int, const u32*, u32) {},
-        moduleSuffix = [] (int, int, const u32*, u32) {};
+    std::function<void (int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)>
+        eventData = [] (int, const ModuleData *, size_t) {};
 };
 
 struct State
@@ -172,11 +168,10 @@ enum class ErrorCode: u8
     ModuleIndexOutOfRange,
 };
 
-std::error_code LIBMVME_EXPORT begin_event(State &state, int ei);
-std::error_code LIBMVME_EXPORT module_prefix(State &state, int ei, int mi, const u32 *data, u32 size);
-std::error_code LIBMVME_EXPORT module_data(State &state, int ei, int mi, const u32 *data, u32 size);
-std::error_code LIBMVME_EXPORT module_suffix(State &state, int ei, int mi, const u32 *data, u32 size);
-std::error_code LIBMVME_EXPORT end_event(State &state, Callbacks &callbacks, int ei);
+std::error_code LIBMVME_EXPORT event_data(
+    State &state, Callbacks &callbacks,
+    int ei, const ModuleData *moduleDataList, unsigned moduleCount);
+
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 

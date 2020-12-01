@@ -3203,7 +3203,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         out << "last ETH packet number = " << parserState.lastPacketNumber << endl;
 
         out << "ParserState: eventIndex=" << parserState.eventIndex
-            << ", moduleIndex=" << parserState.groupIndex
+            << ", moduleIndex=" << parserState.moduleIndex
             << ", moduleParseState=" << to_string(parserState.groupParseState)
             << endl;
 
@@ -3248,6 +3248,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
     }
 
     using namespace mvme;
+    using ModuleData = multi_event_splitter::ModuleData;
     const bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
     QString parserText;
     QString splitterText;
@@ -3273,108 +3274,89 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
             multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
 
-            splitterCallbacks.beginEvent = [&splitterOut] (int ei)
-            {
-                splitterOut << "beginEvent(ei=" << ei << ")" << endl;
-            };
-
-            splitterCallbacks.endEvent = [&splitterOut] (int ei)
-            {
-                splitterOut << "endEvent(ei=" << ei << ")" << endl;
-            };
-
             // Factory function for module callbacks which log their input data.
             auto make_module_callback = [&splitterOut] (const QString &typeString)
             {
                 return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
                 {
+                    if (!size) return;
+
                     splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
                         .arg(typeString).arg(ei).arg(mi).arg(size)
                         << endl;
 
-                    ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&splitterOut] (const QString &str)
+                    ::logBuffer(BufferIterator(const_cast<u32 *>(data), size),
+                                [&splitterOut] (const QString &str)
                                 {
                                     splitterOut << "    " << str << endl;
                                 });
                 };
             };
 
-            splitterCallbacks.modulePrefix = make_module_callback("Prefix");
-            splitterCallbacks.moduleDynamic = make_module_callback("Dynamic");
-            splitterCallbacks.moduleSuffix = make_module_callback("Suffix");
+            splitterCallbacks.eventData = [&splitterOut, make_module_callback] (
+                int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+            {
+                splitterOut << "beginEvent(ei=" << ei << ")" << endl;
+
+                for (unsigned mi=0; mi<moduleCount; ++mi)
+                {
+                    auto &moduleData = moduleDataList[mi];
+
+                    make_module_callback("Prefix")(
+                        ei, mi, moduleData.prefix.data, moduleData.prefix.size);
+                    make_module_callback("Dynamic")(
+                        ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+                    make_module_callback("Suffix")(
+                        ei, mi, moduleData.suffix.data, moduleData.suffix.size);
+                }
+
+                splitterOut << "endEvent(ei=" << ei << ")" << endl;
+            };
         }
 
         //
         // End of multi event splitter setup. Now setup the readout parser
-        // callbacks. These will receive and log the input data and hand it
-        // down to the splitter code if splitting is enabled
-        //
+        // callback. These will receive and log the input data and hand it
+        // down to the splitter code if splitting is enabled.
 
-        parserCallbacks.beginEvent = [&] (int ei)
+        auto log_module_part = [&parserOut] (
+            const QString &partName, int ei, int mi, const u32 *data, u32 size)
+        {
+            if (!size) return;
+
+            parserOut << QString("  module%4, ei=%1, mi=%2, size=%3:")
+                .arg(ei).arg(mi).arg(size).arg(partName)
+                << endl;
+
+            ::logBuffer(
+                BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
+                {
+                    parserOut << "    " << str << endl;
+                });
+        };
+
+        parserCallbacks.eventData = [&] (
+            int ei, const ModuleData *moduleDataList, unsigned moduleCount)
         {
             parserOut << "beginEvent(ei=" << ei << ")" << endl;
-            if (usesMultiEventSplitting)
-                multi_event_splitter::begin_event(multiEventSplitter, ei);
-        };
 
-        parserCallbacks.groupPrefix = [&](
-            int ei, int mi, const u32 *data, u32 size)
-        {
-            parserOut << QString("  modulePrefix, ei=%1, mi=%2, size=%3:")
-                .arg(ei).arg(mi).arg(size)
-                << endl;
+            for (unsigned mi=0; mi<moduleCount; ++mi)
+            {
+                auto &moduleData = moduleDataList[mi];
 
-            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
-                        {
-                            parserOut << "    " << str << endl;
-                        });
+                log_module_part("Prefix", ei, mi, moduleData.prefix.data, moduleData.prefix.size);
+                log_module_part("Dynamic", ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+                log_module_part("Suffix", ei, mi, moduleData.suffix.data, moduleData.suffix.size);
 
-            if (usesMultiEventSplitting)
-                multi_event_splitter::module_prefix(
-                    multiEventSplitter, ei, mi, data, size);
-        };
+            }
 
-        parserCallbacks.groupDynamic = [&](
-            int ei, int mi, const u32 *data, u32 size)
-        {
-            parserOut << QString("  moduleDynamic, ei=%1, mi=%2, size=%3:")
-                .arg(ei).arg(mi).arg(size)
-                << endl;
-
-            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
-                        {
-                            parserOut << "    " << str << endl;
-                        });
-
-            if (usesMultiEventSplitting)
-                multi_event_splitter::module_data(
-                    multiEventSplitter, ei, mi, data, size);
-        };
-
-        parserCallbacks.groupSuffix = [&](
-            int ei, int mi, const u32 *data, u32 size)
-        {
-            parserOut << QString("  moduleSuffix, ei=%1, mi=%2, size=%3:")
-                .arg(ei).arg(mi).arg(size)
-                << endl;
-
-            ::logBuffer(BufferIterator(const_cast<u32 *>(data), size), [&parserOut] (const QString &str)
-                        {
-                            parserOut << "    " << str << endl;
-                        });
-
-            if (usesMultiEventSplitting)
-                multi_event_splitter::module_suffix(
-                    multiEventSplitter, ei, mi, data, size);
-        };
-
-        parserCallbacks.endEvent = [&](int ei)
-        {
             parserOut << "endEvent(ei=" << ei << ")" << endl;
 
             if (usesMultiEventSplitting)
             {
-                multi_event_splitter::end_event(multiEventSplitter, splitterCallbacks, ei);
+                multi_event_splitter::event_data(
+                    multiEventSplitter, splitterCallbacks,
+                    ei, moduleDataList, moduleCount);
                 splitterOut << "========================================" << endl;
             }
         };

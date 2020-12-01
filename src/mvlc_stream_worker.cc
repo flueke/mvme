@@ -213,129 +213,123 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
     m_parserCallbacks = mesytec::mvlc::readout_parser::ReadoutParserCallbacks();
 
-    m_parserCallbacks.beginEvent = [this, analysis](int ei)
+    m_parserCallbacks.eventData = [this, analysis] (
+        int ei,
+        const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
+        unsigned moduleCount)
     {
-        this->blockIfPaused();
-
-        //qDebug() << "beginEvent" << ei;
-        analysis->beginEvent(ei);
-
-        for (auto c: m_moduleConsumers)
-            c->beginEvent(ei);
-
-        if (m_state == WorkerState::SingleStepping)
-            begin_event_record(m_singleStepEventRecord, ei);
-
-        if (m_diag)
-            m_diag->beginEvent(ei);
-    };
-
-    m_parserCallbacks.groupPrefix = [this, analysis](int ei, int parserModuleIndex, const u32 *data, u32 size)
-    {
-        //qDebug() << "  modulePrefix" << ei << mi << data << size;
-
-        // FIXME: The IMVMEStreamModuleConsumer interface doesn't support
-        // prefix/suffix data right now. Add this in.
-
-        // FIXME: Hack checking if the module does not have a dynamic part. In
-        // this case the readout data is handed to the analysis via
-        // processModuleData(). This workaround makes the MVLC readout
-        // compatible to readouts with the older controllers.
-        // Once the analysis is updated and proper filter templates for
-        // prefix/suffix have been added this change should be removed!
-        // Note: this works for scripts containing only register reads, e.g.
-        // the standard MesytecCounter script.
-        auto moduleParts = m_parser.readoutStructure[ei][parserModuleIndex];
-        int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
-
-        if (!moduleParts.hasDynamic)
+        // beginEvent
         {
-            analysis->processModuleData(ei, mi, data, size);
+            this->blockIfPaused();
+
+            analysis->beginEvent(ei);
+
             for (auto c: m_moduleConsumers)
-                c->processModuleData(ei, mi, data, size);
+                c->beginEvent(ei);
+
+            if (m_state == WorkerState::SingleStepping)
+                begin_event_record(m_singleStepEventRecord, ei);
 
             if (m_diag)
-                m_diag->processModuleData(ei, mi, data, size);
+                m_diag->beginEvent(ei);
+        }
+
+        // eventData
+        for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
+        {
+            auto moduleParts = m_parser.readoutStructure[ei][parserModuleIndex];
+            auto &moduleData = moduleDataList[parserModuleIndex];
+            int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
+
+            // prefix
+            if (moduleData.prefix.size)
+            {
+                // FIXME: Hack checking if the module does not have a dynamic part. In
+                // this case the readout data is handed to the analysis via
+                // processModuleData(). This workaround makes the MVLC readout
+                // compatible to readouts with the older controllers.
+                // Once the analysis is updated and proper filter templates for
+                // prefix/suffix have been added this change should be removed!
+                // Note: this works for scripts containing only register reads, e.g.
+                // the standard MesytecCounter script.
+                if (!moduleParts.hasDynamic)
+                {
+                    analysis->processModuleData(
+                        ei, mi, moduleData.prefix.data, moduleData.prefix.size);
+
+                    for (auto c: m_moduleConsumers)
+                        c->processModuleData(
+                            ei, mi, moduleData.prefix.data, moduleData.prefix.size);
+
+                    if (m_diag)
+                        m_diag->processModuleData(
+                            ei, mi, moduleData.prefix.data, moduleData.prefix.size);
+                }
+                else
+                {
+                    analysis->processModulePrefix(
+                        ei, mi, moduleData.prefix.data, moduleData.prefix.size);
+                }
+            }
+
+            // dynamic
+            if (moduleParts.hasDynamic)
+                analysis->processModuleData(
+                    ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+
+            for (auto c: m_moduleConsumers)
+                c->processModuleData(
+                    ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+
+            if (m_diag)
+                m_diag->processModuleData(
+                    ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+
+            // suffix
+            if (moduleData.suffix.size)
+                analysis->processModuleSuffix(
+                    ei, mi, moduleData.suffix.data, moduleData.suffix.size);
+
+            if (m_state == WorkerState::SingleStepping)
+            {
+                record_module_part(
+                    m_singleStepEventRecord, EventRecord::Prefix,
+                    mi, moduleData.prefix.data, moduleData.prefix.size);
+
+                record_module_part(
+                    m_singleStepEventRecord, EventRecord::Dynamic,
+                    mi, moduleData.dynamic.data, moduleData.dynamic.size);
+
+                record_module_part(
+                    m_singleStepEventRecord, EventRecord::Suffix,
+                    mi, moduleData.suffix.data, moduleData.suffix.size);
+            }
 
             UniqueLock guard(m_countersMutex);
             m_counters.moduleCounters[ei][mi]++;
         }
-        else
+
+        // endEvent
         {
-            analysis->processModulePrefix(ei, mi, data, size);
+            analysis->endEvent(ei);
+
+            for (auto c: m_moduleConsumers)
+            {
+                c->endEvent(ei);
+            }
+
+            if (m_diag)
+                m_diag->endEvent(ei);
+
+            if (0 <= ei && ei < MaxVMEEvents)
+            {
+                UniqueLock guard(m_countersMutex);
+                m_counters.totalEvents++;
+                m_counters.eventCounters[ei]++;
+            }
+
+            this->publishStateIfSingleStepping();
         }
-
-        if (m_state == WorkerState::SingleStepping)
-        {
-            record_module_part(m_singleStepEventRecord, EventRecord::Prefix,
-                               mi, data, size);
-        }
-    };
-
-    m_parserCallbacks.groupDynamic = [this, analysis](int ei, int parserModuleIndex, const u32 *data, u32 size)
-    {
-        //qDebug() << "  moduleDynamic" << ei << mi << data << size;
-        int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
-        analysis->processModuleData(ei, mi, data, size);
-
-        for (auto c: m_moduleConsumers)
-        {
-            c->processModuleData(ei, mi, data, size);
-        }
-
-        if (m_diag)
-            m_diag->processModuleData(ei, mi, data, size);
-
-        if (0 <= ei && ei < MaxVMEEvents && 0 <= mi && mi < MaxVMEModules)
-        {
-            UniqueLock guard(m_countersMutex);
-            m_counters.moduleCounters[ei][mi]++;
-        }
-
-        if (m_state == WorkerState::SingleStepping)
-        {
-            record_module_part(m_singleStepEventRecord, EventRecord::Dynamic,
-                               mi, data, size);
-        }
-    };
-
-    m_parserCallbacks.groupSuffix = [this, analysis](int ei, int parserModuleIndex, const u32 *data, u32 size)
-    {
-        //qDebug() << "  moduleSuffix" << ei << mi << data << size;
-        int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
-        analysis->processModuleSuffix(ei, mi, data, size);
-
-        // FIXME: The IMVMEStreamModuleConsumer interface doesn't support
-        // prefix/suffix data right now
-
-        if (m_state == WorkerState::SingleStepping)
-        {
-            record_module_part(m_singleStepEventRecord, EventRecord::Suffix,
-                               mi, data, size);
-        }
-    };
-
-    m_parserCallbacks.endEvent = [this, analysis](int ei)
-    {
-        //qDebug() << "endEvent" << ei;
-        analysis->endEvent(ei);
-
-        for (auto c: m_moduleConsumers)
-        {
-            c->endEvent(ei);
-        }
-
-        if (m_diag)
-            m_diag->endEvent(ei);
-
-        if (0 <= ei && ei < MaxVMEEvents)
-        {
-            UniqueLock guard(m_countersMutex);
-            m_counters.totalEvents++;
-            m_counters.eventCounters[ei]++;
-        }
-
-        this->publishStateIfSingleStepping();
     };
 
     m_parserCallbacks.systemEvent = [this, runInfo, analysis](const u32 *header, u32 /*size*/)
@@ -351,6 +345,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // a TimetickGenerator. This has to happen on the analysis side  due to
         // the possibility of having internal buffer loss and thus potentially
         // missing timeticks.
+        // TODO extract timestamp from the UnixTimetick event, calculate a
+        // delta time and pass it to the analysis.
         if (runInfo.isReplay && subtype == mvlc::system_event::subtype::UnixTimetick)
         {
             analysis->processTimetick();
@@ -379,16 +375,31 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // Copy our callbacks, which are driving the analysis, to the callbacks
         // for the multi event splitter.
         auto &splitterCallbacks = m_multiEventSplitterCallbacks;
+#if 0
         splitterCallbacks.beginEvent = m_parserCallbacks.beginEvent;
         splitterCallbacks.modulePrefix = m_parserCallbacks.groupPrefix;
         splitterCallbacks.moduleDynamic = m_parserCallbacks.groupDynamic;
         splitterCallbacks.moduleSuffix = m_parserCallbacks.groupSuffix;
         splitterCallbacks.endEvent = m_parserCallbacks.endEvent;
+#else
+        splitterCallbacks.eventData = m_parserCallbacks.eventData;
+#endif
 
         // Now overwrite our own callbacks to drive the splitter instead of the
         // analysis.
         // Note: the systemEvent callback is not overwritten as there is no
         // special handling for it in the multi event splitting logic.
+        m_parserCallbacks.eventData = [this, analysis] (
+            int ei,
+            const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
+            unsigned moduleCount)
+        {
+            multi_event_splitter::event_data(
+                m_multiEventSplitter, m_multiEventSplitterCallbacks,
+                ei, moduleDataList, moduleCount);
+        };
+
+#if 0
         m_parserCallbacks.beginEvent = [this] (int ei)
         {
             multi_event_splitter::begin_event(m_multiEventSplitter, ei);
@@ -413,6 +424,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         {
             multi_event_splitter::end_event(m_multiEventSplitter, m_multiEventSplitterCallbacks, ei);
         };
+#endif
     }
 }
 
