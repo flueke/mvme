@@ -29,6 +29,7 @@ step(8ns, system)
 
 * doc: Add network tuning and data export section
 * document MVLC jumbo frame support in mvme manual
+* finally write mesytec-mvlc library docs
 
 * [analysis]
   * Module data Prefix/Suffix is missing from:
