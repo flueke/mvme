@@ -233,12 +233,19 @@ bool DAQControlService::stopDAQ()
         throw make_error_info(ErrorCodes::NotInDAQMode, "Not in DAQ mode");
     }
 
+    qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
+        << "pre stopDAQ";
     m_context->stopDAQ();
+    qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
+        << "post stopDAQ";
 
     if (m_context->getDAQState() != DAQState::Idle)
     {
         throw make_error_info(ErrorCodes::ReadoutWorkerBusy, "DAQ readout worker still busy");
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
+        << "stream worker state =" << to_string(m_context->getMVMEStreamWorkerState());
 
     if (m_context->getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
     {

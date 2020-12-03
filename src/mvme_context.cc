@@ -252,28 +252,38 @@ void MVMEContextPrivate::stopDAQReadout()
     progressDialog.setCancelButton(nullptr);
     progressDialog.show();
 
-    QEventLoop localLoop;
 
     if (m_q->m_readoutWorker->isRunning())
     {
-        auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped,
-                                    &localLoop, &QEventLoop::quit);
+        QEventLoop localLoop;
+        QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped,
+                         &localLoop, &QEventLoop::quit);
+
         QMetaObject::invokeMethod(
             m_q, [this] () { m_q->m_readoutWorker->stop(); }, Qt::QueuedConnection);
 
         localLoop.exec();
-        QObject::disconnect(con);
+
+        qDebug() << __PRETTY_FUNCTION__ << "readout worker stopped";
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "readout worker stopped";
 
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
+
+        QEventLoop localLoop;
+        QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
+                         &localLoop, &QEventLoop::quit);
+
+        qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
+            << "pre streamWorker->stop";
+
         m_q->m_streamWorker->stop(false);
-        auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
-                                    &localLoop, &QEventLoop::quit);
+
         localLoop.exec();
-        QObject::disconnect(con);
+
+        qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
+            << "post streamWorker->stop";
     }
 
     qDebug() << __PRETTY_FUNCTION__ << "stream worker stopped";
