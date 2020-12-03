@@ -44,8 +44,8 @@ void JsonRpcServer::registerServices(const QObjectList& services)
 void JsonRpcServer::jsonRequestReceived(const QJsonObject& request,
                                         QObject* socket)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "received request:" <<
-        QJsonDocument(request).toJson();
+    //qDebug() << __PRETTY_FUNCTION__ << "received request:" <<
+    //    QJsonDocument(request).toJson();
 
     JCON_ASSERT(request.value("jsonrpc").toString() == "2.0");
 
@@ -125,8 +125,8 @@ void JsonRpcServer::jsonRequestReceived(const QJsonObject& request,
 
 void JsonRpcServer::invalidJsonReceived(const QString &data, QObject *socket)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "received invalid json data:" << data
-        << "sending error response";
+    //qDebug() << __PRETTY_FUNCTION__ << "received invalid json data:" << data
+    //    << "sending error response";
 
     if (JsonRpcEndpoint *endpoint = findClient(socket))
     {
@@ -369,8 +369,8 @@ bool JsonRpcServer::doCall(QObject* object,
          * Error objects: http://www.jsonrpc.org/specification#error_object
          */
 
-        qDebug() << "Error: calling" << meta_method.methodSignature()
-            << "raised a QVariantMap exception:" << exception_info;
+        //qDebug() << "Error: calling" << meta_method.methodSignature()
+        //    << "raised a QVariantMap exception:" << exception_info;
 
         error_info = exception_info;
         logInfo(logInvoke(meta_method, converted_args, return_value, exception_info));
@@ -379,8 +379,8 @@ bool JsonRpcServer::doCall(QObject* object,
     }
     catch (const std::exception &e)
     {
-        qDebug() << "Error: calling" << meta_method.methodSignature()
-            << "raised a std::exception:" << e.what();
+        //qDebug() << "Error: calling" << meta_method.methodSignature()
+        //    << "raised a std::exception:" << e.what();
 
         QVariantMap exception_info {
             { "code", -32603 }, // internal server error
