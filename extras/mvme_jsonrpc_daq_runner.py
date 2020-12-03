@@ -18,6 +18,7 @@ if (sys.version_info.major < required_python_version[0]
 
 MaxWaitTime_s = 10.0    # Maximum time to wait for DAQ to start/stop/etc
 PollSleepTime_s = 0.25  # Time between polling for state changes
+
 MaxResponseSize   = 1024 * 256
 SocketReceiveSize = 4096
 
@@ -49,6 +50,7 @@ def receive_response(sock):
 
     response = bytes()
 
+    # Read data until the JSON can be decoded or MaxResponseSize is exceeded.
     while True:
         try:
             response += s.recv(SocketReceiveSize)
@@ -104,6 +106,8 @@ def stop_daq(sock):
 
         time.sleep(PollSleepTime_s)
 
+def now_str():
+    return time.strftime("%x %X")
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -114,10 +118,14 @@ if __name__ == "__main__":
 
     argparser.add_argument('--runs', metavar='<runs>', type=int, default=1,
             help='Number of DAQ runs')
-    argparser.add_argument('--duration', metavar='<duration>', type=int, default=0,
-            help='Duration of each run in seconds. 0=unlimited')
+    argparser.add_argument('--duration', metavar='<duration>', type=float,
+            required=True, help='Duration of each run in seconds.')
 
     args = argparser.parse_args()
+
+    if (args.duration is None or args.duration <= 0):
+        print("Error: Given run duration must be a positive number")
+        sys.exit(1)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((args.host, args.port))
@@ -125,13 +133,13 @@ if __name__ == "__main__":
         run = 0
 
         while run < args.runs:
-            print("Starting DAQ run %d of %d (duration=%.2f s)" % (
-                run+1, args.runs, args.duration))
+            print("%s Starting DAQ run %d of %d (duration=%.2f s)" % (
+                now_str(), run+1, args.runs, args.duration))
 
             start_daq(s)
 
-            if args.duration <= 0:
-                break
+            print("%s Started DAQ run %d of %d" % (
+                now_str(), run+1, args.runs))
 
             tStart = time.monotonic();
 
@@ -150,9 +158,7 @@ if __name__ == "__main__":
                 if elapsed >= args.duration:
                     break
 
-                # TODO: print run duration and time left
-
-            print("Stopping DAQ run %d of %d" % (run+1, args.runs))
+            print("%s Stopping DAQ run %d of %d" % (now_str(), run+1, args.runs))
 
             stop_daq(s)
 
