@@ -4,8 +4,8 @@
 Changelog
 ##################################################
 
-Version 1.3.0-rc1
------------------
+Version 1.3.0-rc
+----------------
 * [mvlc] Support MVLC ethernet readout throttling
 
   - Throttling is done by sending 'delay' commands to the MVLC which then adds
@@ -31,10 +31,17 @@ Version 1.3.0-rc1
   Throttling and socket buffer statistics are shown at the bottom of the main
   window, below the VME config tree.
 
-* [mvlc] readout_parser fixes: disabled VME modules confusing the parser, stale
-  data from the previous run remaining in the buffers.
+* [mvlc] readout_parser fixes:
+  - disabled VME modules where confusing the readout parser
+  - stale data from the previous DAQ run was remaining in the buffers
 
 * [mvlc] Updates and fixes for the trigger IO editor.
+
+* [mvlc] When creating a new VME config a new default trigger IO setup is
+  loaded. The setup provides 5 trigger inputs, 5 gated trigger outputs, a free
+  trigger output and daq_start, stack_busy and readout_busy signals on the
+  NIMs. The setup is intended to be used with two events: one for the readout
+  and one periodic event for counter readout.
 
 * [analysis] Allow directories, copy/paste and drag/drop for raw histograms
   (bottom-left tree view). When generating default filters and histograms for a
@@ -58,6 +65,9 @@ Version 1.3.0-rc1
   - Add templates for the  CAEN V1190A Multihit TDC.
 
 * [vme_script] add 'readabs' command
+
+* [core] Improve the high level stopDAQ logic and resulting state updates. This in turn
+  makes stopping the DAQ via JSON-RPC work reliably.
 
 Version 1.2.1
 -------------
