@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <QDebug>
 #include "multi_event_splitter.h"
+#include "typedefs.h"
 
 using namespace mvme::multi_event_splitter;
 
@@ -40,21 +41,31 @@ TEST(MultiEventSplitter, WithSizeSameCount)
     Callbacks callbacks;
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
-    callbacks.moduleDynamic = [&splitEvents] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.eventData = [&splitEvents] (
+        int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
-        ASSERT_TRUE(mi == 0 || mi == 1);
+        ASSERT_TRUE(moduleCount == 2);
 
-        std::vector<u32> subEvent(data, data+size);
-        splitEvents[mi].emplace_back(subEvent);
-        //qDebug() << ei << mi << data << size << splitEvents;
+        for (unsigned mi=0; mi<moduleCount; ++mi)
+        {
+            const auto &moduleData = moduleDataList[mi];
+            std::vector<u32> subEvent(
+                moduleData.dynamic.data,
+                moduleData.dynamic.data + moduleData.dynamic.size);
+            splitEvents[mi].emplace_back(subEvent);
+        }
     };
 
     // Feed data to the splitter. These methods return std::error_codes.
-    ASSERT_TRUE(!begin_event(splitter, 0));
-    ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
-    ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
+    int eventIndex = 0;
+    std::array<ModuleData, 2> moduleDataList = {};
+    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+
+    ASSERT_TRUE(!event_data(
+            splitter, callbacks,
+            eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -105,21 +116,34 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
     Callbacks callbacks;
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
-    callbacks.moduleDynamic = [&splitEvents] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.eventData = [&splitEvents] (
+        int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
-        ASSERT_TRUE(mi == 0 || mi == 1);
+        ASSERT_TRUE(moduleCount == 2);
 
-        std::vector<u32> subEvent(data, data+size);
-        splitEvents[mi].emplace_back(subEvent);
-        //qDebug() << ei << mi << data << size << splitEvents;
+        for (unsigned mi=0; mi<moduleCount; ++mi)
+        {
+            const auto &moduleData = moduleDataList[mi];
+            if (moduleData.dynamic.data)
+            {
+                std::vector<u32> subEvent(
+                    moduleData.dynamic.data,
+                    moduleData.dynamic.data + moduleData.dynamic.size);
+                splitEvents[mi].emplace_back(subEvent);
+            }
+        }
     };
 
     // Feed data to the splitter. These methods return std::error_codes.
-    ASSERT_TRUE(!begin_event(splitter, 0));
-    ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
-    ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
+    int eventIndex = 0;
+    std::array<ModuleData, 2> moduleDataList;
+    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+
+    ASSERT_TRUE(!event_data(
+            splitter, callbacks,
+            eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -171,21 +195,34 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     Callbacks callbacks;
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
-    callbacks.moduleDynamic = [&splitEvents] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.eventData = [&splitEvents] (
+        int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
-        ASSERT_TRUE(mi == 0 || mi == 1);
+        ASSERT_TRUE(moduleCount == 2);
 
-        std::vector<u32> subEvent(data, data+size);
-        splitEvents[mi].emplace_back(subEvent);
-        //qDebug() << ei << mi << data << size << splitEvents;
+        for (unsigned mi=0; mi<moduleCount; ++mi)
+        {
+            const auto &moduleData = moduleDataList[mi];
+            if (moduleData.dynamic.data)
+            {
+                std::vector<u32> subEvent(
+                    moduleData.dynamic.data,
+                    moduleData.dynamic.data + moduleData.dynamic.size);
+                splitEvents[mi].emplace_back(subEvent);
+            }
+        }
     };
 
     // Feed data to the splitter. These methods return std::error_codes.
-    ASSERT_TRUE(!begin_event(splitter, 0));
-    ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
-    ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
+    int eventIndex = 0;
+    std::array<ModuleData, 2> moduleDataList = {};
+    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+
+    ASSERT_TRUE(!event_data(
+            splitter, callbacks,
+            eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -237,21 +274,34 @@ TEST(MultiEventSplitter, NoSizeSameCount)
     Callbacks callbacks;
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
-    callbacks.moduleDynamic = [&splitEvents] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.eventData = [&splitEvents] (
+        int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
-        ASSERT_TRUE(mi == 0 || mi == 1);
+        ASSERT_TRUE(moduleCount == 2);
 
-        std::vector<u32> subEvent(data, data+size);
-        splitEvents[mi].emplace_back(subEvent);
-        //qDebug() << ei << mi << data << size << splitEvents;
+        for (unsigned mi=0; mi<moduleCount; ++mi)
+        {
+            const auto &moduleData = moduleDataList[mi];
+            if (moduleData.dynamic.data)
+            {
+                std::vector<u32> subEvent(
+                    moduleData.dynamic.data,
+                    moduleData.dynamic.data + moduleData.dynamic.size);
+                splitEvents[mi].emplace_back(subEvent);
+            }
+        }
     };
 
     // Feed data to the splitter. These methods return std::error_codes.
-    ASSERT_TRUE(!begin_event(splitter, 0));
-    ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
-    ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
+    int eventIndex = 0;
+    std::array<ModuleData, 2> moduleDataList = {};
+    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+
+    ASSERT_TRUE(!event_data(
+            splitter, callbacks,
+            eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
@@ -302,21 +352,34 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     Callbacks callbacks;
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
-    callbacks.moduleDynamic = [&splitEvents] (int ei, int mi, const u32 *data, u32 size)
+    callbacks.eventData = [&splitEvents] (
+        int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
-        ASSERT_TRUE(mi == 0 || mi == 1);
+        ASSERT_TRUE(moduleCount == 2);
 
-        std::vector<u32> subEvent(data, data+size);
-        splitEvents[mi].emplace_back(subEvent);
-        //qDebug() << ei << mi << data << size << splitEvents;
+        for (unsigned mi=0; mi<moduleCount; ++mi)
+        {
+            const auto &moduleData = moduleDataList[mi];
+            if (moduleData.dynamic.data)
+            {
+                std::vector<u32> subEvent(
+                    moduleData.dynamic.data,
+                    moduleData.dynamic.data + moduleData.dynamic.size);
+                splitEvents[mi].emplace_back(subEvent);
+            }
+        }
     };
 
     // Feed data to the splitter. These methods return std::error_codes.
-    ASSERT_TRUE(!begin_event(splitter, 0));
-    ASSERT_TRUE(!module_data(splitter, 0, 0, data[0].data(), data[0].size()));
-    ASSERT_TRUE(!module_data(splitter, 0, 1, data[1].data(), data[1].size()));
-    ASSERT_TRUE(!end_event(splitter, callbacks, 0));
+    int eventIndex = 0;
+    std::array<ModuleData, 2> moduleDataList = {};
+    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+
+    ASSERT_TRUE(!event_data(
+            splitter, callbacks,
+            eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
 
