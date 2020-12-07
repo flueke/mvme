@@ -379,7 +379,7 @@ setbase 0xffff0000
 
 # StackStart0
 0x0200 0x0300    # select L3.Unit0
-0x0300      1    # activate
+0x0300      0    # activate
 0x0302      2    # stack index
 0x0304      0    # delay [ns]
 0x0380      0    # connect input0 to 't_event1'

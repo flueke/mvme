@@ -79,10 +79,12 @@ The mvme archives for Linux include all required libraries. The only
 external dependency is the GNU C Library glibc. When using a modern Linux
 distribution no glibc versioning errors should occur.
 
-To install mvme unpack the archive and execute the mvme startup script::
+To install mvme unpack the archive and source the mvme env script which
+will setup your ``PATH`` and ``LD_LIBRARY_PATH``::
 
-    $ tar xf mvme-x64-1.0.tar.bz2
-    $ ./mvme-x64-1.0/mvme.sh
+    $ tar xf mvme-1.3.0-Linux-x64.tar.bz2
+    $ source ./mvme-1.3.0-Linux-x64/bin/initMVME
+    $ mvme
 
 MVLC_USB and VM-USB Device Permissions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
