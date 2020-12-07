@@ -108,9 +108,13 @@ class RateMonitorPlotCurve: public QwtPlotCurve
     protected:
         void drawLines(QPainter *painter,
                        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-                       const QRectF &canvasRect, int from, int to ) const
+                       const QRectF &canvasRect, int from, int to ) const override
         {
+            auto tStart = std::chrono::steady_clock::now();
             QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
+            auto dt = std::chrono::steady_clock::now() - tStart;
+            qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
+                std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
         }
 };
 
@@ -203,10 +207,12 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     auto curve = std::make_unique<RateMonitorPlotCurve>(title);
     curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
-    curve->setStyle(QwtPlotCurve::Lines);
+    curve->setStyle(QwtPlotCurve::Dots);
     //curve->setCurveAttribute(QwtPlotCurve::Fitted);
     //curve->setCurveFitter(new QwtSplineCurveFitter);
-    curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+    //curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+    curve->setPaintAttribute(QwtPlotCurve::FilterPoints);
+    curve->setPaintAttribute(QwtPlotCurve::ClipPolygons);
     curve->attach(m_d->m_plot);
 
     m_d->m_curves.push_back(curve.release());
