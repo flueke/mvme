@@ -1037,6 +1037,7 @@ void a2_adapter_build_datasources(
                 << ", source->eventId=" << source->getEventId()
                 << ", source->moduleId=" << source->getModuleId()
                 ;
+            continue;
         }
 
         Q_ASSERT(0 <= index.eventIndex);
@@ -1352,7 +1353,9 @@ void set_null_if_input_is(analysis::OperatorVector &operators,
     }
 }
 
-analysis::OperatorVector a2_adapter_filter_operators(analysis::OperatorVector operators)
+analysis::OperatorVector a2_adapter_filter_operators(
+    analysis::OperatorVector operators,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     OperatorVector result;
 
@@ -1364,7 +1367,8 @@ analysis::OperatorVector a2_adapter_filter_operators(analysis::OperatorVector op
 
         if (op)
         {
-            bool filter_out = !required_inputs_connected_and_valid(op.get());
+            bool filter_out = (!required_inputs_connected_and_valid(op.get())
+                               && vmeMap.value(op->getEventId()).isValidEvent());
 
             if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
@@ -1394,14 +1398,17 @@ analysis::OperatorVector a2_adapter_filter_operators(analysis::OperatorVector op
     return result;
 }
 
-analysis::SourceVector a2_adapter_filter_sources(analysis::SourceVector sources)
+analysis::SourceVector a2_adapter_filter_sources(
+    const analysis::SourceVector &sources,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     SourceVector result;
 
     for (const auto &source: sources)
     {
         if (!source->getEventId().isNull()
-            && !source->getModuleId().isNull())
+            && !source->getModuleId().isNull()
+            && vmeMap.value(source->getModuleId()).isValid())
         {
             result.push_back(source);
         }
@@ -1434,12 +1441,12 @@ A2AdapterState a2_adapter_build(
     // Source -> Extractor
     // -------------------------------------------
 
-    auto filteredSources = a2_adapter_filter_sources(sources);
+    auto activeSources = a2_adapter_filter_sources(sources, vmeMap);
 
     a2_adapter_build_datasources(
         arena,
         &result,
-        filteredSources,
+        activeSources,
         vmeMap);
 
     LOG("data sources:");
@@ -1451,7 +1458,7 @@ A2AdapterState a2_adapter_build(
         LOG("  ei=%d, #ds=%d", ei, (u32)result.a2->dataSourceCounts[ei]);
     }
 
-    assert(result.sourceMap.size() == filteredSources.size());
+    assert(result.sourceMap.size() == activeSources.size());
 
     // -------------------------------------------
     // a1 Operator -> a2 Operator
@@ -1470,10 +1477,10 @@ A2AdapterState a2_adapter_build(
      */
 
     /* Filter out operators that are not fully connected. */
-    auto filteredOperators = a2_adapter_filter_operators(operators);
+    auto activeOperators = a2_adapter_filter_operators(operators, vmeMap);
 
     OperatorsByEventIndex operatorsByEventIndex = group_operators_by_event(
-        filteredOperators, vmeMap);
+        activeOperators, vmeMap);
 
     /* Build in work arena. Fills out result and operators. */
     LOG("a2 adapter build first pass");
@@ -1492,7 +1499,8 @@ A2AdapterState a2_adapter_build(
         LOG("  ei=%d, #ops=%d", ei, (u32)result.a2->operatorCounts[ei]);
     }
 
-    assert(filteredOperators.size() == result.operatorMap.size() + result.operatorErrors.size());
+    // FIXME: figure this out
+    //assert(activeOperators.size() == result.operatorMap.size() + result.operatorErrors.size());
 
     /* Sort the operator arrays by rank and type */
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
@@ -1561,7 +1569,8 @@ A2AdapterState a2_adapter_build(
         LOG("  ei=%d, #ops=%d", ei, (u32)result.a2->operatorCounts[ei]);
     }
 
-    assert(filteredOperators.size() == result.operatorMap.size() + result.operatorErrors.size());
+    // FIXME: figure this out
+    //assert(activeOperators.size() == result.operatorMap.size() + result.operatorErrors.size());
 
     LOG("mem=%lu", arena->used());
 

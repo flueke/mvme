@@ -78,6 +78,9 @@ struct VMEConfigIndex
 {
     s32 eventIndex = -1;
     s32 moduleIndex = -1;
+
+    inline bool isValid() const { return eventIndex >= 0 && moduleIndex >= 0; }
+    inline bool isValidEvent() const { return eventIndex >= 0; }
 };
 
 inline bool operator==(const VMEConfigIndex &a, const VMEConfigIndex &b)
