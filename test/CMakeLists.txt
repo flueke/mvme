@@ -49,7 +49,7 @@ function(add_mvme_bench exe_name exe_sources)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_bench)
 
-add_mvme_bench(test_util_tree test_util_tree.cc)
+#add_mvme_bench(test_util_tree test_util_tree.cc)
 add_mvme_bench(bench_data_filter bench_data_filter.cc)
 target_link_libraries(bench_data_filter PRIVATE liba2_static)
 add_mvme_bench(test_misc test_misc.cc)
