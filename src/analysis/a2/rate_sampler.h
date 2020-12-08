@@ -29,6 +29,8 @@
 //#include <cpp11-on-multicore/common/rwlock.h>
 #include <cmath>
 #include <memory>
+#include <iostream>
+
 #include "util/counters.h"
 #include "util/nan.h"
 #include "util/util_threading.h"
@@ -104,6 +106,14 @@ struct RateSampler
     void recordRate(double rate)
     {
         UniqueLock guard(mutex);
+
+#if 0
+        if (std::isnan(rate))
+        {
+            std::cerr << __PRETTY_FUNCTION__
+                << this << " got a NaN rate!" << std::endl;
+        }
+#endif
 
         lastRate = rate * scale + offset;
 
