@@ -2,6 +2,11 @@
 TODO list
 ==================================================
 * MVLC: when analysis is paused stopping a replay does not work
+* When moving data sources from unassigned to a module the calibrations
+  later in the chain do assert: mvme: ../src/analysis/a2/a2.cc:645:
+  a2::Operator a2::make_calibration(memory::Arena*, a2::PipeVectors,
+  a2::ParamVec, a2::ParamVec): Assertion `calibMinimums.size ==
+  input.data.size' failed.
 * Difference operator asserts when arrays have different sizes and when one
   array has size 1 (different assertion).
 * add checks for mesytec modules analysing the eventcounter/timestamp values

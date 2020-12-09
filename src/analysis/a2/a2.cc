@@ -3931,6 +3931,7 @@ void a2_end_event(A2 *a2, int eventIndex)
     a2_trace("ei=%d, operators stepped=%d, condSkipped=%d\n",
              eventIndex, opSteppedCount, opCondSkipped);
 
+    // condition debug output
     for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
         Operator *op = operators + opIdx;
