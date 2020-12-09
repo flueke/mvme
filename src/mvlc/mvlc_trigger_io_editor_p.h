@@ -732,11 +732,14 @@ class Level3UtilsDialog: public QDialog
                 ColName,
                 ColCounterConnection,
                 ColLatchConnection,
+                ColClearOnLatch,
                 ColSoftActivate,
             };
 
             static const int FirstUnitIndex = 8;
 
+            QWidget *parentWidget;
+            QVector<QCheckBox *> checks_clearOnLatch;
             QVector<QCheckBox *> checks_softActivate;
             QVector<QComboBox *> combos_latch_connection;
         };

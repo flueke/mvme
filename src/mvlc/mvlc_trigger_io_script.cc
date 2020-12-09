@@ -279,10 +279,11 @@ ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
 
 ScriptParts generate(const trigger_io::Counter &unit, int index)
 {
-    (void) unit;
     (void) index;
 
-    return {};
+    ScriptParts ret;
+    ret += write_unit_reg(14, static_cast<u16>(unit.clearOnLatch), "clear on latch");
+    return ret;
 }
 
 ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
@@ -1118,6 +1119,9 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
         for (const auto &kv: ioCfg.l3.counters | indexed(0))
         {
             unsigned unitIndex = kv.index() + Level3::CountersOffset;
+            auto &unit = kv.value();
+
+            unit.clearOnLatch = static_cast<bool>(writes[unitIndex][14]);
 
             ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80], writes[unitIndex][0x82] };
         }

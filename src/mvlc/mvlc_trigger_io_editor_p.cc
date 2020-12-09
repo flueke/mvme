@@ -3053,7 +3053,7 @@ Level3UtilsDialog::Level3UtilsDialog(
         Counters_UI ret;
 
         QStringList columnTitles = {
-            "Name", "Counter Input", "Latch Input", "Soft Activate"
+            "Name", "Counter Input", "Latch Input", "Frequency Counter Mode", "Soft Activate"
         };
 
         auto table = new QTableWidget(l3.counters.size(), columnTitles.size());
@@ -3083,6 +3083,10 @@ Level3UtilsDialog::Level3UtilsDialog(
             combo_latch_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][1]);
             combo_latch_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
+            auto cb_clearOnLatch = new QCheckBox;
+            ret.checks_clearOnLatch.push_back(cb_clearOnLatch);
+            cb_clearOnLatch->setChecked(l3.counters[row].clearOnLatch);
+
             auto cb_softActivate = new QCheckBox;
             ret.checks_softActivate.push_back(cb_softActivate);
             cb_softActivate->setChecked(l3.counters[row].softActivate);
@@ -3091,11 +3095,23 @@ Level3UtilsDialog::Level3UtilsDialog(
                     l3.unitNames.value(row + ret.FirstUnitIndex)));
             table->setCellWidget(row, ret.ColCounterConnection, combo_counter_connection);
             table->setCellWidget(row, ret.ColLatchConnection, combo_latch_connection);
+            table->setCellWidget(row, ret.ColClearOnLatch, make_centered(cb_clearOnLatch));
             table->setCellWidget(row, ret.ColSoftActivate, make_centered(cb_softActivate));
         }
 
         table->resizeColumnsToContents();
         table->resizeRowsToContents();
+
+        auto noticeLabel = new QLabel(QSL(
+                "<b>Note</b>: If '<i>Frequency Counter Mode</i>' is enabled the latch input"
+                " also resets the counter to 0 after latching."));
+
+        noticeLabel->setWordWrap(true);
+
+        ret.parentWidget = new QWidget;
+        auto parentLayout = make_vbox<0, 4>(ret.parentWidget);
+        parentLayout->addWidget(noticeLabel);
+        parentLayout->addWidget(ret.table);
 
         return ret;
     };
@@ -3117,7 +3133,7 @@ Level3UtilsDialog::Level3UtilsDialog(
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_stackStart.parentWidget, "Stack Start"), 0, 0);
     grid->addWidget(make_groupbox(ui_masterTriggers.table, "Master Triggers"), 0, 1);
-    grid->addWidget(make_groupbox(ui_counters.table, "Counters"), 1, 0);
+    grid->addWidget(make_groupbox(ui_counters.parentWidget, "Counters"), 1, 0, 1, 2);
 
     auto bb = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
@@ -3178,6 +3194,7 @@ Level3 Level3UtilsDialog::getSettings() const
                     static_cast<unsigned>(ui.combos_latch_connection[row]->currentIndex()),
                 };
             auto &unit = m_l3.counters[row];
+            unit.clearOnLatch = ui.checks_clearOnLatch[row]->isChecked();
             unit.softActivate = ui.checks_softActivate[row]->isChecked();
         }
     }
