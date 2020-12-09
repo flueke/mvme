@@ -4,8 +4,8 @@
 Changelog
 ##################################################
 
-Version 1.3.0-rc
-----------------
+Version 1.3.0
+-------------
 * [mvlc] Support MVLC ethernet readout throttling
 
   - Throttling is done by sending 'delay' commands to the MVLC which then adds

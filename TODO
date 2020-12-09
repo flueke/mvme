@@ -1,7 +1,7 @@
 ==================================================
 TODO list
 ==================================================
-
+* MVLC: when analysis is paused stopping a replay does not work
 * Difference operator asserts when arrays have different sizes and when one
   array has size 1 (different assertion).
 * add checks for mesytec modules analysing the eventcounter/timestamp values
@@ -29,6 +29,7 @@ step(8ns, system)
 
 * doc: Add network tuning and data export section
 * document MVLC jumbo frame support in mvme manual
+* finally write mesytec-mvlc library docs
 
 * [analysis]
   * Module data Prefix/Suffix is missing from:

@@ -79,14 +79,28 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
         double y = sampler->getSample(i);
 
         QPointF result(x, y);
-#if 0
+#if 1
         auto rateHistory = &sampler->rateHistory;
 
-        qDebug() << __PRETTY_FUNCTION__
-            << "sample =" << i
-            << ", buffer->size =" << rateHistory->size()
-            << ", buffer->cap =" << rateHistory->capacity()
-            << ", result =" << result;
+        bool nanFixed = false;
+
+        if (std::isnan(result.y()))
+        {
+            result.setY(0.0);
+            nanFixed = true;
+        }
+
+#if 0
+        if (nanFixed)
+        {
+            qDebug() << __PRETTY_FUNCTION__
+                << "sample =" << i
+                << ", buffer->size =" << rateHistory->size()
+                << ", buffer->cap =" << rateHistory->capacity()
+                << ", result =" << result
+                << ", nanFixed =" << nanFixed;
+        }
+#endif
 #endif
         return result;
     }
@@ -108,11 +122,41 @@ class RateMonitorPlotCurve: public QwtPlotCurve
     protected:
         void drawLines(QPainter *painter,
                        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-                       const QRectF &canvasRect, int from, int to ) const
+                       const QRectF &canvasRect, int from, int to ) const override
         {
+            auto tStart = std::chrono::steady_clock::now();
             QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
+            auto dt = std::chrono::steady_clock::now() - tStart;
+
+            qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
+                std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
         }
 };
+
+
+#if 0
+class MyWeedingCurveFitter: public QwtWeedingCurveFitter
+{
+    public:
+        MyWeedingCurveFitter(double tolerance = 1.0)
+            : QwtWeedingCurveFitter(tolerance)
+        {
+        }
+
+        QPolygonF fitCurve(const QPolygonF &inputPoly) const override
+        {
+            auto tStart = std::chrono::steady_clock::now();
+            auto result = QwtWeedingCurveFitter::fitCurve(inputPoly);
+            auto dt = std::chrono::steady_clock::now() - tStart;
+
+            qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
+                std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms"
+                << ", inPoly.size() =" << inputPoly.size() << ", outPoly.size() =" << result.size();
+
+            return result;
+        }
+};
+#endif
 
 struct RateMonitorPlotWidgetPrivate
 {
@@ -204,9 +248,16 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
     curve->setStyle(QwtPlotCurve::Lines);
+
     //curve->setCurveAttribute(QwtPlotCurve::Fitted);
+    //auto fitter = new MyWeedingCurveFitter(1.0);
+    //curve->setCurveFitter(fitter);
+
     //curve->setCurveFitter(new QwtSplineCurveFitter);
-    curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+    //curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+
+    curve->setPaintAttribute(QwtPlotCurve::FilterPoints);
+    curve->setPaintAttribute(QwtPlotCurve::ClipPolygons);
     curve->attach(m_d->m_plot);
 
     m_d->m_curves.push_back(curve.release());

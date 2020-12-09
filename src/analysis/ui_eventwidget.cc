@@ -2076,31 +2076,47 @@ void EventWidgetPrivate::populateDataSourceTree(
         {
             QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
             QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
+
             auto moduleNode = make_module_node(mod);
             eventNode->addChild(moduleNode);
             moduleNode->setExpanded(m_expandedObjects[TreeType_Operator].contains(mod));
 
+            // Separate ListFilterExtractors from other data sources, then add
+            // the listfilters in the order they're executed by the analysis.
+            // The other extractors are sorted and added after the listfilters.
+            auto is_listfilter = [] (const auto &a)
+            {
+                return qobject_cast<const ListFilterExtractor *>(a.get());
+            };
+
             auto sources = analysis->getSourcesByModule(mod->getId());
+
+            SourceVector listfilters;
+
+            std::copy_if(
+                std::begin(sources), std::end(sources),
+                std::back_inserter(listfilters), is_listfilter);
+
+            sources.erase(std::remove_if(
+                    std::begin(sources), std::end(sources), is_listfilter),
+                std::end(sources));
+
             std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
 
-#if 0
-            //#ifndef QT_NO_DEBUG
-            qDebug() << __PRETTY_FUNCTION__ << ">>>>> sources in order:";
-            for (auto source: sources)
-            {
-                qDebug() << source.get();
-            }
-            qDebug() << __PRETTY_FUNCTION__ << " <<<< end sources";
-#endif
-
-            for (auto source: sources)
+            auto add_node = [this, moduleNode] (const auto &source)
             {
                 auto sourceNode = make_datasource_node(source.get());
                 moduleNode->addChild(sourceNode);
 
                 assert(m_objectMap.count(source) == 0);
                 m_objectMap[source] = sourceNode;
-            }
+            };
+
+            for (auto source: listfilters)
+                add_node(source);
+
+            for (auto source: sources)
+                add_node(source);
         }
     }
 
@@ -4463,12 +4479,15 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
 void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
 {
+    assert(m_context);
+
+    if (!m_context->getMVMEStreamWorker()) return;
+
     auto analysis = m_context->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
 
     auto vmeMap = analysis->getVMEIdToIndexMapping();
-    assert(m_context);
-    assert(m_context->getMVMEStreamWorker());
+
     auto counters = m_context->getMVMEStreamWorker()->getCounters();
     auto &prevCounters = m_prevStreamProcessorCounters;
 
