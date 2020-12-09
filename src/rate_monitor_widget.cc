@@ -159,6 +159,9 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 {
     assert(index < m_samplers.size());
 
+    // Combined view showing all sampler curves in the same plot.
+    static const auto colors = make_plot_colors();
+    const int ncolors = colors.size();
     auto sampler = m_samplers.value(index);
 
     QString yTitle = QSL("Rate");
@@ -172,7 +175,8 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
             m_plotWidget->removeAllRateSamplers();
 
             QString plotTitle = make_ratemonitor_plot_title(m_sink, index);
-            m_plotWidget->addRateSampler(sampler, plotTitle);
+            auto color = colors.value(index % ncolors);
+            m_plotWidget->addRateSampler(sampler, plotTitle, color);
             m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(plotTitle);
 
             //qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get()
@@ -183,10 +187,6 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
     }
     else // negative index -> show combined view
     {
-        // Combined view showing all sampler curves in the same plot.
-        static const auto colors = make_plot_colors();
-        const int ncolors = colors.size();
-
         m_plotWidget->removeAllRateSamplers();
 
         for (s32 samplerIndex = 0; samplerIndex < m_samplers.size(); samplerIndex++)
