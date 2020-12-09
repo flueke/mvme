@@ -73,36 +73,25 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
         return sampler->historySize();
     }
 
+    // Note: if getSample(i) returns a NaN value this method will search
+    // backwards until it finds a non-NaN sample and return that value. This
+    // fixes severe performance issues when plotting data which includes NaNs
+    // while also being a visual improvement over replacing the NaN with 0.
+    // Note2: NaNs are frequently recorded when using the VMMR to read out MMR
+    // monitoring data as that happens on a best-effort basis.
     virtual QPointF sample(size_t i) const override
     {
         double x = sampler->getSampleTime(i) * 1000.0;
         double y = sampler->getSample(i);
 
-        QPointF result(x, y);
-#if 1
-        auto rateHistory = &sampler->rateHistory;
+        while (i > 0 && std::isnan(y))
+            y = sampler->getSample(--i);
 
-        bool nanFixed = false;
+        // The very first sample was a NaN
+        if (std::isnan(y))
+            y = 0.0;
 
-        if (std::isnan(result.y()))
-        {
-            result.setY(0.0);
-            nanFixed = true;
-        }
-
-#if 0
-        if (nanFixed)
-        {
-            qDebug() << __PRETTY_FUNCTION__
-                << "sample =" << i
-                << ", buffer->size =" << rateHistory->size()
-                << ", buffer->cap =" << rateHistory->capacity()
-                << ", result =" << result
-                << ", nanFixed =" << nanFixed;
-        }
-#endif
-#endif
-        return result;
+        return {x, y};
     }
 
     virtual QRectF boundingRect() const override
@@ -124,39 +113,16 @@ class RateMonitorPlotCurve: public QwtPlotCurve
                        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
                        const QRectF &canvasRect, int from, int to ) const override
         {
-            auto tStart = std::chrono::steady_clock::now();
+            //auto tStart = std::chrono::steady_clock::now();
+
             QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
-            auto dt = std::chrono::steady_clock::now() - tStart;
 
-            qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
-                std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
+            //auto dt = std::chrono::steady_clock::now() - tStart;
+            //qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
+            //    std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
         }
 };
 
-
-#if 0
-class MyWeedingCurveFitter: public QwtWeedingCurveFitter
-{
-    public:
-        MyWeedingCurveFitter(double tolerance = 1.0)
-            : QwtWeedingCurveFitter(tolerance)
-        {
-        }
-
-        QPolygonF fitCurve(const QPolygonF &inputPoly) const override
-        {
-            auto tStart = std::chrono::steady_clock::now();
-            auto result = QwtWeedingCurveFitter::fitCurve(inputPoly);
-            auto dt = std::chrono::steady_clock::now() - tStart;
-
-            qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
-                std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms"
-                << ", inPoly.size() =" << inputPoly.size() << ", outPoly.size() =" << result.size();
-
-            return result;
-        }
-};
-#endif
 
 struct RateMonitorPlotWidgetPrivate
 {
@@ -245,19 +211,12 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
 
     auto curve = std::make_unique<RateMonitorPlotCurve>(title);
+
     curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
     curve->setStyle(QwtPlotCurve::Lines);
+    curve->setRenderHint(QwtPlotItem::RenderAntialiased);
 
-    //curve->setCurveAttribute(QwtPlotCurve::Fitted);
-    //auto fitter = new MyWeedingCurveFitter(1.0);
-    //curve->setCurveFitter(fitter);
-
-    //curve->setCurveFitter(new QwtSplineCurveFitter);
-    //curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-
-    curve->setPaintAttribute(QwtPlotCurve::FilterPoints);
-    curve->setPaintAttribute(QwtPlotCurve::ClipPolygons);
     curve->attach(m_d->m_plot);
 
     m_d->m_curves.push_back(curve.release());
