@@ -268,6 +268,9 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
 
     if (newInput)
     {
+#if 0   // FIXME: 201209: This was added in 2018 to make handling of arrays
+        // of size 1 "more intuitive".
+
         // If the input is an array of size 1 this turns the connection into a
         // "value" connection using index 0.
         // Basically NoParamIndex is rewritten to 0 in case the input is of size 1
@@ -277,6 +280,7 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         {
             newParamIndex = 0;
         }
+#endif
 
         inputPipe = newInput;
         paramIndex = newParamIndex;
