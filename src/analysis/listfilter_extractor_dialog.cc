@@ -684,6 +684,7 @@ void ListFilterExtractorDialog::apply()
         auto ex = m_d->m_extractors.at(i);
         auto filterEditor = m_d->m_filterEditors.at(i);
         listfilter_editor_save_to_extractor(filterEditor, ex.get());
+        m_d->m_analysis->setSourceEdited(ex);
     }
 
     {
