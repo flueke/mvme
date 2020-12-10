@@ -44,7 +44,6 @@ using RateHistoryBuffer = boost::circular_buffer<double>;
 /* RateSampler
  * Setup, storage and sampling logic for rate monitoring.
  */
-// TODO; 'class this up' so that access without the mutex is not possible anymore.
 struct RateSampler
 {
     //
@@ -106,14 +105,6 @@ struct RateSampler
     void recordRate(double rate)
     {
         UniqueLock guard(mutex);
-
-#if 0
-        if (std::isnan(rate))
-        {
-            std::cerr << __PRETTY_FUNCTION__
-                << this << " got a NaN rate!" << std::endl;
-        }
-#endif
 
         lastRate = rate * scale + offset;
 
