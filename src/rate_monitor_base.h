@@ -31,8 +31,10 @@
 #include "histo_util.h"
 #include "typedefs.h"
 #include "util/counters.h"
+#include "util/cpp17_algo.h"
 #include "util/strings.h"
 #include "util/tree.h"
+
 
 using a2::RateHistoryBuffer;
 using a2::RateSampler;
@@ -79,16 +81,19 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
                                                    AxisInterval timeInterval,
                                                    const std::pair<double, double> defaultValues = { 0.0, 0.0 })
 {
-    /* find iterator for timeInterval.minValue,
-     * find iterator for timeInterval.maxValue,
+    /* create iterator for timeInterval.minValue,
+     * create iterator for timeInterval.maxValue,
      * find minmax elements in the iterator interval
      */
 
     ssize_t minIndex = sampler.getSampleIndex(timeInterval.minValue);
     ssize_t maxIndex = sampler.getSampleIndex(timeInterval.maxValue);
+    const ssize_t size = sampler.historySize();
+
+    minIndex = cpp17::std::clamp(minIndex, ssize_t(0), ssize_t(size-1));
+    maxIndex = cpp17::std::clamp(maxIndex, ssize_t(0), ssize_t(size-1));
 
     a2::RateSampler::UniqueLock guard(sampler.mutex);
-    const ssize_t size = sampler.rateHistory.size();
 
     if (0 <= minIndex && minIndex < size
         && 0 <= maxIndex && maxIndex <= size)
