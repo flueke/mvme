@@ -617,7 +617,7 @@ QString make_input_source_text(Pipe *inputPipe, s32 paramIndex)
             result += "." + inputSource->getOutputName(inputPipe->sourceOutputIndex);
         }
 
-        if (paramIndex != Slot::NoParamIndex)
+        if (paramIndex != Slot::NoParamIndex && inputPipe->getSize() > 1)
         {
             result = (QSL("%1[%2]")
                           .arg(result)
