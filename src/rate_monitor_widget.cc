@@ -510,7 +510,7 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         }
     });
 
-    // Enable the info area once we're fully construted.
+    // Enable the info area once we're fully constructed.
     QTimer::singleShot(0, this, [action]() { action->setChecked(true); });
 
     // Plot selection spinbox and Combined View checkbox
@@ -715,6 +715,12 @@ void RateMonitorWidget::replot()
     if (m_d->m_sink)
     {
         setWindowTitle(QString("Rate %1").arg(m_d->m_sink->objectName()));
+
+        auto &sink = m_d->m_sink;
+        m_d->m_samplers = sink->getRateSamplers();
+        m_d->m_spin_plotIndex->setMinimum(0);
+        m_d->m_spin_plotIndex->setMaximum(std::max(m_d->m_samplers.size() - 1, 0));
+        m_d->m_spin_plotIndex->setVisible(m_d->m_samplers.size() > 0);
     }
 
     m_d->m_plotWidget->replot();

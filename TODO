@@ -1,7 +1,12 @@
 ==================================================
 TODO list
 ==================================================
-* MVLC: when analysis is paused stopping a replay does not work
+* global: finally fix the DAQ stop logic: right now it only waits for the DAQ
+  side to stop while the analysis is still running and processing buffers. This
+  is not good.
+* When a ListfitlerExtractor changes size an open RateMonitorWidget is not
+  properly updated. The legend will be updated but the number of elements is
+  not updated. Something is not correct here.
 * When moving data sources from unassigned to a module the calibrations
   later in the chain do assert: mvme: ../src/analysis/a2/a2.cc:645:
   a2::Operator a2::make_calibration(memory::Arena*, a2::PipeVectors,
