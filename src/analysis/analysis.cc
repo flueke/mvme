@@ -37,7 +37,7 @@
 #include "util/qt_metaobject.h"
 #include "vme_config.h"
 
-#define ENABLE_ANALYSIS_DEBUG 0
+#define ENABLE_ANALYSIS_DEBUG 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -3846,7 +3846,9 @@ void Analysis::setSourceEdited(const SourcePtr &source)
 
     source->setObjectFlags(ObjectFlags::NeedsRebuild);
 
-    for (auto &obj: collect_dependent_objects(source.get()))
+    auto deps = collect_dependent_objects(source.get());
+
+    for (auto &obj: deps)
         obj->setObjectFlags(ObjectFlags::NeedsRebuild);
 
     emit dataSourceEdited(source);

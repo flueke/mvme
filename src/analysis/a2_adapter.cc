@@ -1398,23 +1398,25 @@ analysis::OperatorVector a2_adapter_filter_operators(
     return result;
 }
 
-analysis::SourceVector a2_adapter_filter_sources(
+std::pair<analysis::SourceVector, analysis::SourceVector>
+a2_adapter_filter_sources(
     const analysis::SourceVector &sources,
     const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
-    SourceVector result;
+    SourceVector good;
+    SourceVector bad;
 
     for (const auto &source: sources)
     {
         if (!source->getEventId().isNull()
             && !source->getModuleId().isNull()
             && vmeMap.value(source->getModuleId()).isValid())
-        {
-            result.push_back(source);
-        }
+            good.push_back(source);
+        else
+            bad.push_back(source);
     }
 
-    return result;
+    return std::make_pair(good, bad);
 }
 
 A2AdapterState a2_adapter_build(
@@ -1441,7 +1443,9 @@ A2AdapterState a2_adapter_build(
     // Source -> Extractor
     // -------------------------------------------
 
-    auto activeSources = a2_adapter_filter_sources(sources, vmeMap);
+    SourceVector activeSources, inactiveSources;
+
+    std::tie(activeSources, inactiveSources) = a2_adapter_filter_sources(sources, vmeMap);
 
     a2_adapter_build_datasources(
         arena,
@@ -1477,7 +1481,10 @@ A2AdapterState a2_adapter_build(
      */
 
     /* Filter out operators that are not fully connected. */
-    auto activeOperators = a2_adapter_filter_operators(operators, vmeMap);
+    OperatorVector activeOperators, inactiveOperators;
+
+    // FIXME: leftoff here
+    std::tie(activeOperators, inactiveOperators) = a2_adapter_filter_operators(operators, vmeMap, inactiveSources);
 
     OperatorsByEventIndex operatorsByEventIndex = group_operators_by_event(
         activeOperators, vmeMap);
