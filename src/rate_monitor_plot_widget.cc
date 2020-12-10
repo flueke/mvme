@@ -350,7 +350,8 @@ void RateMonitorPlotWidget::replot()
 
     // y-axis range
 
-    double yMax = 10.0;
+    double yMin = 0.0;
+    double yMax = 1.0;
 
     for (auto &sampler: m_d->m_samplers)
     {
@@ -359,12 +360,13 @@ void RateMonitorPlotWidget::replot()
             auto stats = calc_rate_sampler_stats(*sampler, visibleXInterval_s);
             auto yInterval = stats.intervals[Qt::YAxis];
 
+            if (!std::isnan(yInterval.minValue))
+                yMin = std::min(yMin, yInterval.minValue);
+
             if (!std::isnan(yInterval.maxValue))
                 yMax = std::max(yMax, yInterval.maxValue);
         }
     }
-
-    double yMin = 0.0;
 
     if (axis_is_log(m_d->m_plot, QwtPlot::yLeft))
     {
@@ -373,7 +375,6 @@ void RateMonitorPlotWidget::replot()
     }
     else
     {
-        yMin = 0.0;
         yMax = yMax * 1.2;
     }
 
