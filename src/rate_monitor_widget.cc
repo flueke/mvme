@@ -108,8 +108,7 @@ QString make_ratemonitor_plot_title(const RateMonitorWidget::SinkPtr &sink, s32 
                                    ? relativeSamplerIndex
                                    : slot->paramIndex);
 
-            if (slot->paramIndex == analysis::Slot::NoParamIndex
-                && slot->inputPipe->getSize() == 1)
+            if (slot->inputPipe->getSize() == 1)
             {
                 result = src->objectName();
             }
