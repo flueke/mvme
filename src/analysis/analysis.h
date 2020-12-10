@@ -419,7 +419,7 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         virtual ~SourceInterface() {}
 
         /** The id of the VME module this object is attached to. Only relevant for data
-         * sources and these are directly attached to modules. */
+         * sources as these are directly attached to modules. */
         QUuid getModuleId() const { return m_moduleId; }
         void setModuleId(const QUuid &id) { m_moduleId = id; }
 
