@@ -1656,8 +1656,22 @@ void ExpressionOperatorDialog::Private::onInputSelected(
     Slot *destSlot, s32 slotIndex,
     Pipe *sourcePipe, s32 sourceParamIndex)
 {
+    assert(destSlot);
+    assert(sourcePipe);
+    assert(sourcePipe->getSource());
+
     qDebug() << __PRETTY_FUNCTION__ << destSlot << slotIndex << sourcePipe << sourceParamIndex;
     connect_input(*m_model, slotIndex, sourcePipe, sourceParamIndex);
+
+    // If no valid event has been selected yet, use the event of the newly
+    // selected input pipe.
+    if (combo_eventSelect->currentData().toUuid().isNull())
+    {
+        auto eventId = sourcePipe->getSource()->getEventId();
+        int idx = combo_eventSelect->findData(eventId);
+        if (idx >= 0)
+            combo_eventSelect->setCurrentIndex(idx);
+    }
 
     postInputsModified();
 }
