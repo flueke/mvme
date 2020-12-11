@@ -1883,7 +1883,7 @@ void ExpressionOperatorDialog::Private::model_sampleInputs()
 
         if (!a1_pipe) continue;
 
-        auto a2_sourcePipe = find_output_pipe(a2State, a1_pipe);
+        auto a2_sourcePipe = find_output_pipe(a2State, a1_pipe).first;
         auto a2_destPipe   = m_model->inputs[ii];
 
         copy_pipe_data(a2_sourcePipe, a2_destPipe);

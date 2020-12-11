@@ -9,7 +9,7 @@
 #include <QMetaClassInfo>
 
 //#ifndef NDEBUG
-#if 0
+#if 1
 
 #define LOG(fmt, ...)\
 do\
@@ -49,21 +49,20 @@ inline QDebug a2_adapter_qlog(const char *func)
 
 using analysis::A2AdapterState;
 
-inline a2::PipeVectors find_output_pipe(
+inline std::pair<a2::PipeVectors, bool>
+find_output_pipe(
     const A2AdapterState *state,
     const analysis::PipeSourceInterface *pipeSource,
     u8 outputIndex)
 {
     //QLOG("pipeSource to find:" << pipeSource.get() << ", outputIndex=" << (u32)outputIndex);
 
-    a2::PipeVectors result = {};
-
     if (a2::DataSource *ds_a2 = state->sourceMap.value(
             qobject_cast<analysis::SourceInterface *>(pipeSource),
             nullptr))
     {
         assert(outputIndex == 0);
-        result = ds_a2->output;
+        return std::make_pair(ds_a2->output, true);
     }
     else if (a2::Operator *op_a2 = state->operatorMap.value(
             qobject_cast<analysis::OperatorInterface *>(pipeSource),
@@ -73,13 +72,16 @@ inline a2::PipeVectors find_output_pipe(
         {
             assert(outputIndex < op_a2->outputCount);
 
+            a2::PipeVectors result = {};
             result.data = op_a2->outputs[outputIndex];
             result.lowerLimits = op_a2->outputLowerLimits[outputIndex];
             result.upperLimits = op_a2->outputUpperLimits[outputIndex];
+            return std::make_pair(result, true);
         }
         else
         {
             QLOG("invalid operator type");
+            return std::make_pair(a2::PipeVectors(), false);
         }
     }
     else
@@ -88,10 +90,11 @@ inline a2::PipeVectors find_output_pipe(
         //assert(!"no source mapping");
     }
 
-    return result;
+    return std::make_pair(a2::PipeVectors(), false);
 }
 
-inline a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Slot *slot)
+inline std::pair<a2::PipeVectors, bool>
+find_output_pipe(const A2AdapterState *state, analysis::Slot *slot)
 {
     return find_output_pipe(
         state,
@@ -139,7 +142,7 @@ DEF_OP_MAGIC(calibration_magic)
 
     assert(calib);
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
     auto calibs = calib->getCalibrations();
 
@@ -190,8 +193,8 @@ DEF_OP_MAGIC(difference_magic)
 
     assert(diff);
 
-    auto a2_inputA = find_output_pipe(adapterState, inputSlots[0]);
-    auto a2_inputB = find_output_pipe(adapterState, inputSlots[1]);
+    auto a2_inputA = find_output_pipe(adapterState, inputSlots[0]).first;
+    auto a2_inputB = find_output_pipe(adapterState, inputSlots[1]).first;
 
     a2::Operator result = {};
 
@@ -242,7 +245,7 @@ DEF_OP_MAGIC(array_map_magic)
 
     for (s32 si = 0; si < inputSlots.size(); si++)
     {
-        a2_inputs[si] = find_output_pipe(adapterState, inputSlots[si]);
+        a2_inputs[si] = find_output_pipe(adapterState, inputSlots[si]).first;
     }
 
     auto mappings = arrayMap->m_mappings;
@@ -284,7 +287,7 @@ DEF_OP_MAGIC(aggregate_ops_magic)
         agOps->getMaxThreshold()
     };
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
     a2::Operator result = {};
 
@@ -356,7 +359,7 @@ DEF_OP_MAGIC(sum_magic)
         make_quiet_nan()
     };
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
     a2::Operator result = {};
 
@@ -380,8 +383,8 @@ DEF_OP_MAGIC(binary_equation_magic)
     auto binSumDiff = qobject_cast<analysis::BinarySumDiff *>(op.get());
     assert(binSumDiff);
 
-    auto a2_inputA = find_output_pipe(adapterState, inputSlots[0]);
-    auto a2_inputB = find_output_pipe(adapterState, inputSlots[1]);
+    auto a2_inputA = find_output_pipe(adapterState, inputSlots[0]).first;
+    auto a2_inputB = find_output_pipe(adapterState, inputSlots[1]).first;
 
     a2::Operator result = {};
 
@@ -422,7 +425,7 @@ DEF_OP_MAGIC(keep_previous_magic)
 
     assert(prevValue);
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
     a2::Operator result = {};
 
@@ -456,7 +459,7 @@ DEF_OP_MAGIC(range_filter_magic)
 
     assert(rangeFilter);
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
     a2::Operator result = {};
 
@@ -495,8 +498,8 @@ DEF_OP_MAGIC(rect_filter_magic)
 
     assert(rectFilter);
 
-    auto a2_xInput = find_output_pipe(adapterState, inputSlots[0]);
-    auto a2_yInput = find_output_pipe(adapterState, inputSlots[1]);
+    auto a2_xInput = find_output_pipe(adapterState, inputSlots[0]).first;
+    auto a2_yInput = find_output_pipe(adapterState, inputSlots[1]).first;
 
     assert(inputSlots[0]->paramIndex < a2_xInput.data.size);
     assert(inputSlots[1]->paramIndex < a2_yInput.data.size);
@@ -545,8 +548,8 @@ DEF_OP_MAGIC(condition_filter_magic)
 
     assert(condFilter);
 
-    auto a2_dataInput = find_output_pipe(adapterState, inputSlots[0]);
-    auto a2_condInput = find_output_pipe(adapterState, inputSlots[1]);
+    auto a2_dataInput = find_output_pipe(adapterState, inputSlots[0]).first;
+    auto a2_condInput = find_output_pipe(adapterState, inputSlots[1]).first;
 
     s32 dataIndex = inputSlots[0]->paramIndex;
     s32 condIndex = inputSlots[1]->paramIndex;
@@ -578,7 +581,7 @@ DEF_OP_MAGIC(expression_operator_magic)
 
     for (s32 si = 0; si < inputSlots.size(); si++)
     {
-        a2_inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]));
+        a2_inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]).first);
         inputUnits.emplace_back(inputSlots[si]->inputPipe->parameters.unit.toStdString());
         inputPrefixes.emplace_back(a1_op->getInputPrefix(si).toStdString());
         inputIndexes.emplace_back(inputSlots[si]->paramIndex);
@@ -620,7 +623,7 @@ DEF_OP_MAGIC(histo1d_sink_magic)
 
     assert(histoSink);
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
     QVector<a2::H1D> histos(histoSink->m_histos.size());
 
@@ -676,8 +679,8 @@ DEF_OP_MAGIC(histo2d_sink_magic)
 
     assert(histoSink);
 
-    auto a2_xInput = find_output_pipe(adapterState, inputSlots[0]);
-    auto a2_yInput = find_output_pipe(adapterState, inputSlots[1]);
+    auto a2_xInput = find_output_pipe(adapterState, inputSlots[0]).first;
+    auto a2_yInput = find_output_pipe(adapterState, inputSlots[1]).first;
 
     assert(inputSlots[0]->paramIndex != analysis::Slot::NoParamIndex);
     assert(inputSlots[1]->paramIndex != analysis::Slot::NoParamIndex);
@@ -755,7 +758,7 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
 
     for (s32 si = 0; si < inputSlots.size(); si++)
     {
-        a2_inputs[si] = find_output_pipe(adapterState, inputSlots[si]);
+        a2_inputs[si] = find_output_pipe(adapterState, inputSlots[si]).first;
         a2_input_indexes[si] = inputSlots[si]->paramIndex;
     }
 
@@ -785,7 +788,7 @@ DEF_OP_MAGIC(export_sink_magic)
 
     if (condSlot->isParamIndexInRange())
     {
-        a2_condInput = find_output_pipe(adapterState, condSlot);
+        a2_condInput = find_output_pipe(adapterState, condSlot).first;
         condIndex    = condSlot->paramIndex;
     }
 
@@ -793,7 +796,7 @@ DEF_OP_MAGIC(export_sink_magic)
 
     for (s32 si = 0; si < inputSlots.size() - 1; si++)
     {
-        a2_dataInputs[si] = find_output_pipe(adapterState, inputSlots[si + 1]);
+        a2_dataInputs[si] = find_output_pipe(adapterState, inputSlots[si + 1]).first;
     }
 
     QString outputFilename = sink->getDataFilePath(runInfo);
@@ -828,7 +831,7 @@ DEF_OP_MAGIC(condition_interval_magic)
         a2_intervals.push_back({ interval.minValue(), interval.maxValue() });
     }
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
     a2::Operator result = make_condition_interval(
         arena,
@@ -854,8 +857,8 @@ DEF_OP_MAGIC(condition_rectangle_magic)
 
     a2::Operator result = make_condition_rectangle(
         arena,
-        find_output_pipe(adapterState, inputSlots[0]),
-        find_output_pipe(adapterState, inputSlots[1]),
+        find_output_pipe(adapterState, inputSlots[0]).first,
+        find_output_pipe(adapterState, inputSlots[1]).first,
         inputSlots[0]->paramIndex,
         inputSlots[1]->paramIndex,
         xInterval,
@@ -885,8 +888,8 @@ DEF_OP_MAGIC(condition_polygon_magic)
 
     a2::Operator result = make_condition_polygon(
         arena,
-        find_output_pipe(adapterState, inputSlots[0]),
-        find_output_pipe(adapterState, inputSlots[1]),
+        find_output_pipe(adapterState, inputSlots[0]).first,
+        find_output_pipe(adapterState, inputSlots[1]).first,
         inputSlots[0]->paramIndex,
         inputSlots[1]->paramIndex,
         a2_polygon);
@@ -926,6 +929,7 @@ a2::Operator a2_adapter_magic(
 {
     a2::Operator result = {};
     result.type = a2::Invalid_OperatorType;
+    result.conditionIndex = a2::Operator::NoCondition;
 
     assert(op->getNumberOfSlots() <= a2::Operator::MaxInputCount);
     assert(op->getNumberOfOutputs() <= a2::Operator::MaxOutputCount);
@@ -935,6 +939,13 @@ a2::Operator a2_adapter_magic(
     for (s32 slotIndex = 0; slotIndex < op->getNumberOfSlots(); slotIndex++)
     {
         inputSlots[slotIndex] = op->getSlot(slotIndex);
+
+        // Check if the a2 pipe connected to the current inputSlot exists in
+        // the A2AdapterState. If it doesn't it means that the DataSource or
+        // Operator owning the pipe was not build for some reason (e.g.
+        // DataSource was filtered out due to being unassigned).
+        if (!find_output_pipe(state, inputSlots[slotIndex]).second)
+            return result;
     }
 
     OutputPipes outputPipes(op->getNumberOfOutputs());
@@ -963,8 +974,6 @@ a2::Operator a2_adapter_magic(
         LOG("EE no magic for %s :(", op->metaObject()->className());
         InvalidCodePath;
     }
-
-    result.conditionIndex = a2::Operator::NoCondition;
 
     return result;
 }
@@ -995,7 +1004,8 @@ a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *
     return result;
 }
 
-a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe)
+std::pair<a2::PipeVectors, bool>
+find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe)
 {
     assert(pipe);
     assert(pipe->source);
@@ -1180,6 +1190,29 @@ bool has_input_from_error_set(const OperatorPtr &op,
     return result;
 }
 
+bool has_input_from_any_source(const OperatorPtr &op, const SourceVector &sources)
+{
+    for (s32 si=0; si<op->getNumberOfSlots(); si++)
+    {
+        auto slot = op->getSlot(si);
+
+        if (!(slot && slot->isConnected() && slot->inputPipe->getSource()))
+            continue;
+
+        if (auto inputSource = qobject_cast<const SourceInterface *>(slot->inputPipe->getSource()))
+        {
+            auto it = std::find_if(
+                std::begin(sources), std::end(sources),
+                [&inputSource] (const auto &source) { return source.get() == inputSource; });
+
+            if (it != std::end(sources))
+                return true;
+        }
+    }
+
+    return false;
+};
+
 void a2_adapter_build_single_operator(
     memory::Arena *arena,
     A2AdapterState *state,
@@ -1355,7 +1388,8 @@ void set_null_if_input_is(analysis::OperatorVector &operators,
 
 analysis::OperatorVector a2_adapter_filter_operators(
     analysis::OperatorVector operators,
-    const vme_analysis_common::VMEIdToIndex &vmeMap)
+    const vme_analysis_common::VMEIdToIndex &vmeMap,
+    const SourceVector &inactiveSources)
 {
     OperatorVector result;
 
@@ -1368,7 +1402,9 @@ analysis::OperatorVector a2_adapter_filter_operators(
         if (op)
         {
             bool filter_out = (!required_inputs_connected_and_valid(op.get())
-                               && vmeMap.value(op->getEventId()).isValidEvent());
+                               && vmeMap.value(op->getEventId()).isValidEvent()
+                               && !has_input_from_any_source(op, inactiveSources)
+                               );
 
             if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
@@ -1481,10 +1517,7 @@ A2AdapterState a2_adapter_build(
      */
 
     /* Filter out operators that are not fully connected. */
-    OperatorVector activeOperators, inactiveOperators;
-
-    // FIXME: leftoff here
-    std::tie(activeOperators, inactiveOperators) = a2_adapter_filter_operators(operators, vmeMap, inactiveSources);
+    auto activeOperators = a2_adapter_filter_operators(operators, vmeMap, inactiveSources);
 
     OperatorsByEventIndex operatorsByEventIndex = group_operators_by_event(
         activeOperators, vmeMap);

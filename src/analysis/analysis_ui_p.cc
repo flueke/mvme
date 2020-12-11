@@ -2640,7 +2640,7 @@ void PipeDisplay::refresh()
 
     if (auto a2State = m_analysis->getA2AdapterState())
     {
-        a2::PipeVectors pipe = find_output_pipe(a2State, m_pipe);
+        a2::PipeVectors pipe = find_output_pipe(a2State, m_pipe).first;
 
         m_parameterTable->setRowCount(pipe.data.size);
 
