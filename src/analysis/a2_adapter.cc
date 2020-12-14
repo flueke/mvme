@@ -9,7 +9,7 @@
 #include <QMetaClassInfo>
 
 //#ifndef NDEBUG
-#if 1
+#if 0
 
 #define LOG(fmt, ...)\
 do\
