@@ -334,7 +334,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void reconnectVMEController();
         void forceResetVMEController();
         void dumpVMEControllerRegisters();
-        void sniffNextInputBuffer();
 
         void setRunNotes(const QString &notes);
 
@@ -342,7 +341,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void tryOpenController();
         void logModuleCounters();
         void onDAQStateChanged(DAQState state);
-        void onMVMEStreamWorkerStateChanged(AnalysisWorkerState state);
+        void onAnalysisWorkerStateChanged(AnalysisWorkerState state);
         void onDAQDone();
         void onReplayDone();
 

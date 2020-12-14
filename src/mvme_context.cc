@@ -654,7 +654,7 @@ MVMEContext::~MVMEContext()
                this, &MVMEContext::onDAQStateChanged);
 
     disconnect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
-               this, &MVMEContext::onMVMEStreamWorkerStateChanged);
+               this, &MVMEContext::onAnalysisWorkerStateChanged);
 
     delete m_controller;
     delete m_readoutWorker;
@@ -946,7 +946,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     }
 
     connect(m_streamWorker.get(), &StreamWorkerBase::stateChanged,
-            this, &MVMEContext::onMVMEStreamWorkerStateChanged);
+            this, &MVMEContext::onAnalysisWorkerStateChanged);
 
     connect(m_streamWorker.get(), &StreamWorkerBase::sigLogMessage,
             this, &MVMEContext::logMessage);
@@ -1193,16 +1193,6 @@ void MVMEContext::dumpVMEControllerRegisters()
     }
 }
 
-void MVMEContext::sniffNextInputBuffer()
-{
-    assert(is_mvlc_controller(getVMEController()));
-
-    if (auto rdoWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
-    {
-        rdoWorker->requestDebugInfoOnNextBuffer();
-    }
-}
-
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 {
     return make_unique_module_name(prefix, m_vmeConfig);
@@ -1280,20 +1270,13 @@ void MVMEContext::onDAQStateChanged(DAQState state)
 {
     m_daqState = state;
     emit daqStateChanged(state);
+    m_d->updateMVMEState();
 }
 
-void MVMEContext::onMVMEStreamWorkerStateChanged(AnalysisWorkerState state)
+void MVMEContext::onAnalysisWorkerStateChanged(AnalysisWorkerState state)
 {
     emit mvmeStreamWorkerStateChanged(state);
-
-    switch (state)
-    {
-        case AnalysisWorkerState::Idle:
-            break;
-
-        default:
-            break;
-    }
+    m_d->updateMVMEState();
 }
 
 // Called on VMEReadoutWorker::daqStopped()
@@ -1355,6 +1338,11 @@ AnalysisWorkerState MVMEContext::getMVMEStreamWorkerState() const
         return m_streamWorker->getState();
 
     return AnalysisWorkerState::Idle;
+}
+
+MVMEState MVMEContext::getMVMEState() const
+{
+    return m_d->m_mvmeState.copy();
 }
 
 DAQStats MVMEContext::getDAQStats() const
@@ -1691,10 +1679,13 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamWorkerState() == AnalysisWorkerState::Idle);
+    Q_ASSERT(getMVMEState() == MVMEState::Idle);
 
     if (m_mode != GlobalMode::DAQ
         || getDAQState() != DAQState::Idle
-        || getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
+        || getMVMEStreamWorkerState() != AnalysisWorkerState::Idle
+        || getMVMEState() != MVMEState::Idle
+       )
     {
         return;
     }
@@ -1775,7 +1766,8 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 
     if (m_mode != GlobalMode::ListFile
         || getDAQState() != DAQState::Idle
-        || getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
+        || getMVMEStreamWorkerState() != AnalysisWorkerState::Idle
+        || getMVMEState() != MVMEState::Idle)
     {
         return;
     }

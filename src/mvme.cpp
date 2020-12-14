@@ -478,6 +478,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged,
                 dcw, &DAQControlWidget::setStreamWorkerState);
 
+        connect(m_d->m_context, &MVMEContext::mvmeStateChanged,
+                dcw, &DAQControlWidget::setMVMEState);
+
         connect(m_d->m_context, &MVMEContext::ListFileOutputInfoChanged,
                 dcw, &DAQControlWidget::setListFileOutputInfo);
 
@@ -493,9 +496,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
 
         connect(dcw, &DAQControlWidget::listFileOutputInfoModified,
                 m_d->m_context, &MVMEContext::setListFileOutputInfo);
-
-        connect(dcw, &DAQControlWidget::sniffNextInputBuffer,
-                m_d->m_context, &MVMEContext::sniffNextInputBuffer);
 
         // DAQControlWidget -> DAQControl
         connect(dcw, &DAQControlWidget::startDAQ,

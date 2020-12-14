@@ -89,7 +89,6 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     , pb_start(new QPushButton)
     , pb_stop(new QPushButton)
     , pb_oneCycle(new QPushButton)
-    , pb_sniffBuffer(new QPushButton)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
@@ -153,9 +152,6 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     {
         daq_ctrl(1);
     });
-
-    connect(pb_sniffBuffer, &QPushButton::clicked,
-            this, &DAQControlWidget::sniffNextInputBuffer);
 
     connect(pb_stop, &QPushButton::clicked,
             this, &DAQControlWidget::stopDAQ);
@@ -223,7 +219,6 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     pb_start->setText(QSL("Start"));
     pb_stop->setText(QSL("Stop"));
     pb_oneCycle->setText(QSL("1 Cycle"));
-    pb_sniffBuffer->setText(QSL("Sniff next buffer"));
     pb_reconnect->setText(QSL("Reconnect"));
     pb_forceReset->setText(QSL("Force Reset"));
     pb_controllerSettings->setText(QSL("Settings"));
@@ -246,7 +241,6 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
     daqButtonLayout->addWidget(pb_start);
     daqButtonLayout->addWidget(pb_stop);
     daqButtonLayout->addWidget(pb_oneCycle);
-    daqButtonLayout->addWidget(pb_sniffBuffer);
 
     // state frame
     auto stateFrame = new QFrame;
@@ -397,6 +391,12 @@ void DAQControlWidget::setWorkspaceDirectory(const QString &dir)
     // no forced update
 }
 
+void DAQControlWidget::setMVMEState(const MVMEState &state)
+{
+    m_mvmeState = state;
+    updateWidget();
+}
+
 void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_globalMode;
@@ -416,23 +416,23 @@ void DAQControlWidget::updateWidget()
 
     if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Connected)
     {
-        switch (daqState)
+        switch (m_mvmeState)
         {
-            case DAQState::Running:
-            case DAQState::Paused:
-            case DAQState::Idle:
+            case MVMEState::Idle:
+            case MVMEState::Running:
                 enableStartButton = true;
                 break;
 
-            case DAQState::Starting:
-            case DAQState::Stopping:
+            default:
                 enableStartButton = false;
                 break;
         }
     }
-    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && streamWorkerState == AnalysisWorkerState::Idle)
+    else if (globalMode == GlobalMode::ListFile)
     {
-        enableStartButton = true;
+        enableStartButton = (
+            m_mvmeState == MVMEState::Idle
+            || m_mvmeState == MVMEState::Running);
     }
 
     pb_start->setEnabled(enableStartButton);
@@ -441,8 +441,7 @@ void DAQControlWidget::updateWidget()
     // stop button
     //
 
-    bool canStopDAQ = (daqState == DAQState::Running
-                       || daqState == DAQState::Paused);
+    bool canStopDAQ = (m_mvmeState == MVMEState::Running);
 
 
     pb_stop->setEnabled(((globalMode == GlobalMode::DAQ
@@ -472,31 +471,6 @@ void DAQControlWidget::updateWidget()
 
         pb_oneCycle->setEnabled(enableOneCycleButton);
         pb_oneCycle->setVisible(showOneCycleButton);
-    }
-
-    // sniff buffer button
-    {
-        // NOTE: can reenable this at some point and implement a UI for it.
-        // right now it is hidden because the feature is not really needed and
-        // for mesytec internal debugging only.
-#if 0
-        bool enable = false;
-        bool show = isMVLC;;
-
-        // TODO: also enable for listfile mode once the mvlc replay worker
-        // supports buffer sniffing
-        if (globalMode == GlobalMode::DAQ
-            && controllerState == ControllerState::Connected)
-        {
-            enable = true;
-        }
-
-        pb_sniffBuffer->setEnabled(enable);
-        pb_sniffBuffer->setVisible(show);
-#else
-        pb_sniffBuffer->setEnabled(false);
-        pb_sniffBuffer->setVisible(false);
-#endif
     }
 
     //

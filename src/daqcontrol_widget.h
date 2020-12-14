@@ -50,7 +50,6 @@ class DAQControlWidget: public QWidget
         void pauseDAQ();
         void resumeDAQ(u32 nCycles);
         void stopDAQ();
-        void sniffNextInputBuffer();
         void reconnectVMEController();
         void forceResetVMEController();
         void listFileOutputInfoModified(const ListFileOutputInfo &lfo);
@@ -73,6 +72,7 @@ class DAQControlWidget: public QWidget
         void setListFileOutputInfo(const ListFileOutputInfo &info);
         void setDAQStats(const DAQStats &stats);
         void setWorkspaceDirectory(const QString &dir);
+        void setMVMEState(const MVMEState &state);
 
         // Call this periodcally after updating the other variables.
         void updateWidget();
@@ -87,11 +87,11 @@ class DAQControlWidget: public QWidget
         ListFileOutputInfo m_listFileOutputInfo;
         DAQStats m_daqStats = {};
         QString m_workspaceDirectory;
+        MVMEState m_mvmeState = MVMEState::Idle;
 
         QPushButton *pb_start,
                     *pb_stop,
                     *pb_oneCycle,
-                    *pb_sniffBuffer,
                     *pb_reconnect,
                     *pb_controllerSettings,
                     *pb_runSettings,
