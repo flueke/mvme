@@ -175,9 +175,9 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
 
     connect(context, &MVMEContext::mvmeStreamWorkerStateChanged,
-            this, [this](MVMEStreamWorkerState state) {
+            this, [this](AnalysisWorkerState state) {
 
-        if (state == MVMEStreamWorkerState::Running)
+        if (state == AnalysisWorkerState::Running)
         {
             m_d->prevCounters = {};
             m_d->lastUpdateTime = {};
@@ -203,11 +203,11 @@ void AnalysisInfoWidget::update()
 
     auto mvlcWorker = qobject_cast<MVLC_StreamWorker *>(streamWorker);
 
-    MVMEStreamWorkerState state = streamWorker->getState();
+    AnalysisWorkerState state = streamWorker->getState();
     const auto counters = streamWorker->getCounters();
 
     auto startTime = counters.startTime;
-    auto endTime   = (state == MVMEStreamWorkerState::Idle
+    auto endTime   = (state == AnalysisWorkerState::Idle
                       ? counters.stopTime
                       : QDateTime::currentDateTime());
 
@@ -234,7 +234,7 @@ void AnalysisInfoWidget::update()
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
     if (std::isnan(mbPerSecond)) mbPerSecond = 0.0;
 
-    QString stateString = state == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running");
+    QString stateString = state == AnalysisWorkerState::Idle ? QSL("Idle") : QSL("Running");
 
     QString ecText;
     QString mcText;
@@ -319,7 +319,7 @@ void AnalysisInfoWidget::update()
     // started
     m_d->labels[ii++]->setText(startTime.time().toString());
     // stopped
-    if (state == MVMEStreamWorkerState::Idle)
+    if (state == AnalysisWorkerState::Idle)
     {
         m_d->labels[ii++]->setText(endTime.time().toString());
     }

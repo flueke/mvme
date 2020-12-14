@@ -38,7 +38,7 @@ using namespace vme_analysis_common;
 using namespace mesytec;
 using namespace mesytec::mvme_mvlc;
 
-using WorkerState = MVMEStreamWorkerState;
+using WorkerState = AnalysisWorkerState;
 
 VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig)
 {
@@ -120,8 +120,8 @@ MVLC_StreamWorker::MVLC_StreamWorker(
 , m_snoopQueues(snoopQueues)
 , m_parserCounters({})
 , m_parserCountersSnapshot({})
-, m_state(MVMEStreamWorkerState::Idle)
-, m_desiredState(MVMEStreamWorkerState::Idle)
+, m_state(AnalysisWorkerState::Idle)
+, m_desiredState(AnalysisWorkerState::Idle)
 , m_startPaused(false)
 , m_stopFlag(StopWhenQueueEmpty)
 , m_debugInfoRequest(DebugInfoRequest::None)
@@ -137,7 +137,7 @@ MVLC_StreamWorker::~MVLC_StreamWorker()
 {
 }
 
-void MVLC_StreamWorker::setState(MVMEStreamWorkerState newState)
+void MVLC_StreamWorker::setState(AnalysisWorkerState newState)
 {
     // This implementation copies the behavior of MVMEStreamWorker::setState.
     // Signal emission is done in the exact same order.
@@ -158,16 +158,16 @@ void MVLC_StreamWorker::setState(MVMEStreamWorkerState newState)
 
     switch (newState)
     {
-        case MVMEStreamWorkerState::Idle:
+        case AnalysisWorkerState::Idle:
             emit stopped();
             break;
 
-        case MVMEStreamWorkerState::Running:
+        case AnalysisWorkerState::Running:
             emit started();
             break;
 
-        case MVMEStreamWorkerState::Paused:
-        case MVMEStreamWorkerState::SingleStepping:
+        case AnalysisWorkerState::Paused:
+        case AnalysisWorkerState::SingleStepping:
             break;
     }
 }
@@ -804,7 +804,7 @@ void MVLC_StreamWorker::stop(bool whenQueueEmpty)
     {
         std::unique_lock<std::mutex> guard(m_stateMutex);
         m_stopFlag = (whenQueueEmpty ? StopWhenQueueEmpty : StopImmediately);
-        m_desiredState = MVMEStreamWorkerState::Idle;
+        m_desiredState = AnalysisWorkerState::Idle;
     }
     m_stateCondVar.notify_one();
 }
@@ -814,7 +814,7 @@ void MVLC_StreamWorker::pause()
     qDebug() << __PRETTY_FUNCTION__ << "enter";
     {
         std::unique_lock<std::mutex> guard(m_stateMutex);
-        m_desiredState = MVMEStreamWorkerState::Paused;
+        m_desiredState = AnalysisWorkerState::Paused;
     }
     m_stateCondVar.notify_one();
     qDebug() << __PRETTY_FUNCTION__ << "leave";
@@ -825,7 +825,7 @@ void MVLC_StreamWorker::resume()
     qDebug() << __PRETTY_FUNCTION__ << "enter";
     {
         std::unique_lock<std::mutex> guard(m_stateMutex);
-        m_desiredState = MVMEStreamWorkerState::Running;
+        m_desiredState = AnalysisWorkerState::Running;
         m_startPaused = false;
     }
     m_stateCondVar.notify_one();
@@ -837,7 +837,7 @@ void MVLC_StreamWorker::singleStep()
     qDebug() << __PRETTY_FUNCTION__ << "enter";
     {
         std::unique_lock<std::mutex> guard(m_stateMutex);
-        m_desiredState = MVMEStreamWorkerState::SingleStepping;
+        m_desiredState = AnalysisWorkerState::SingleStepping;
     }
     m_stateCondVar.notify_one();
     qDebug() << __PRETTY_FUNCTION__ << "leave";

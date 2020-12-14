@@ -43,7 +43,7 @@ struct AnalysisPauser
     ~AnalysisPauser();
 
     MVMEContext *m_context;
-    MVMEStreamWorkerState m_prevState;
+    AnalysisWorkerState m_prevState;
 };
 
 void LIBMVME_EXPORT new_vme_config(MVMEContext *context);

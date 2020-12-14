@@ -288,9 +288,9 @@ void process_one_listfile(
     QEventLoop loop;
 
     QObject::connect(&mvmeContext, &MVMEContext::mvmeStreamWorkerStateChanged,
-                     [&loop] (MVMEStreamWorkerState state)
+                     [&loop] (AnalysisWorkerState state)
                      {
-                         if (state == MVMEStreamWorkerState::Idle)
+                         if (state == AnalysisWorkerState::Idle)
                              loop.quit();
                      });
 

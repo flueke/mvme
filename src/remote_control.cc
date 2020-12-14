@@ -211,7 +211,7 @@ bool DAQControlService::startDAQ()
         throw make_error_info(ErrorCodes::ReadoutWorkerBusy, "DAQ readout worker busy");
     }
 
-    if (m_context->getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
+    if (m_context->getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
     {
         throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker busy");
     }
@@ -247,7 +247,7 @@ bool DAQControlService::stopDAQ()
     qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
         << "stream worker state =" << to_string(m_context->getMVMEStreamWorkerState());
 
-    if (m_context->getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
+    if (m_context->getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
     {
         throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker still busy");
     }

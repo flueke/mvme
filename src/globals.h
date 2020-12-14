@@ -30,6 +30,56 @@
 #include "run_info.h"
 #include "vme_config_limits.h"
 
+enum class GlobalMode
+{
+    DAQ,
+    ListFile
+};
+
+enum class DAQState
+{
+    Idle,
+    Starting,
+    Running,
+    Stopping,
+    Paused
+};
+
+enum class AnalysisWorkerState
+{
+    Idle,
+    Running,
+    Paused,
+    SingleStepping,
+};
+
+/*
+     * Combined system state depdending on the readout and analysis side states:
+ *
+ * DAQ / Analysis | Idle        Running Paused  SingleStepping
+ * ---------------+-------------------------------------------
+ * Idle           | Idle        Running Running Running
+ * Starting       | Starting    Running Running Running
+ * Running        | Running     Running Running Running
+ * Stopping       | Stopping    Running Running Running
+ * Paused         | Running     Running Running Running
+*/
+enum class MVMEState
+{
+    Idle,
+    Starting,
+    Running,
+    Stopping,
+};
+
+Q_DECLARE_METATYPE(GlobalMode);
+Q_DECLARE_METATYPE(DAQState);
+Q_DECLARE_METATYPE(AnalysisWorkerState);
+Q_DECLARE_METATYPE(MVMEState);
+
+QString to_string(const AnalysisWorkerState &state);
+QString to_string(const MVMEState &state);
+
 /* IMPORTANT: The numeric values of this enum where stored in the VME config
  * files prior to version 3. To make conversion from older config versions
  * possible do not change the order of the enum! */
@@ -44,25 +94,6 @@ enum class TriggerCondition
     Input2FallingEdge,  // SIS3153
     TriggerIO,          // MVLC via the Trigger I/O logic
 };
-
-enum class DAQState
-{
-    Idle,
-    Starting,
-    Running,
-    Stopping,
-    Paused
-};
-
-Q_DECLARE_METATYPE(DAQState);
-
-enum class GlobalMode
-{
-    DAQ,
-    ListFile
-};
-
-Q_DECLARE_METATYPE(GlobalMode);
 
 static const QMap<TriggerCondition, QString> TriggerConditionNames =
 {

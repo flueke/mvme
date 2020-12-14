@@ -24,21 +24,10 @@
 #include <QObject>
 
 #include "libmvme_export.h"
+#include "globals.h"
 #include "stream_processor_counters.h"
 #include "stream_processor_module_consumer.h"
 #include "util/leaky_bucket.h"
-
-enum class MVMEStreamWorkerState
-{
-    Idle,
-    Running,
-    Paused,
-    SingleStepping,
-};
-
-Q_DECLARE_METATYPE(MVMEStreamWorkerState);
-
-QString to_string(const MVMEStreamWorkerState &state);
 
 class LIBMVME_EXPORT StreamWorkerBase: public QObject
 {
@@ -46,7 +35,7 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
     signals:
         void started();
         void stopped();
-        void stateChanged(MVMEStreamWorkerState);
+        void stateChanged(AnalysisWorkerState);
         void sigLogMessage(const QString &msg);
 
     public:
@@ -60,7 +49,7 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         explicit StreamWorkerBase(QObject *parent = nullptr);
         virtual ~StreamWorkerBase() override;
 
-        virtual MVMEStreamWorkerState getState() const = 0;
+        virtual AnalysisWorkerState getState() const = 0;
 
         virtual void setStartPaused(bool startPaused) = 0;
         virtual bool getStartPaused() const = 0;

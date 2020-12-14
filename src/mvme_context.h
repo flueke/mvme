@@ -66,9 +66,10 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 {
     Q_OBJECT
     signals:
+        void mvmeStateChanged(const MVMEState &newState);
         void modeChanged(GlobalMode mode);
         void daqStateChanged(const DAQState &state);
-        void mvmeStreamWorkerStateChanged(MVMEStreamWorkerState);
+        void mvmeStreamWorkerStateChanged(AnalysisWorkerState);
         void controllerStateChanged(ControllerState state);
 
         void vmeControllerAboutToBeChanged();
@@ -126,7 +127,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
-        MVMEStreamWorkerState getMVMEStreamWorkerState() const;
+        AnalysisWorkerState getMVMEStreamWorkerState() const;
+        MVMEState getMVMEState() const;
         DAQStats getDAQStats() const;
 
         bool setReplayFileHandle(ListfileReplayHandle listfile);
@@ -340,7 +342,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void tryOpenController();
         void logModuleCounters();
         void onDAQStateChanged(DAQState state);
-        void onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state);
+        void onMVMEStreamWorkerStateChanged(AnalysisWorkerState state);
         void onDAQDone();
         void onReplayDone();
 

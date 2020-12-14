@@ -110,3 +110,29 @@ const char *to_string(const ListfileBufferFormat &fmt)
 
     return "unknown ListfileBufferFormat";
 }
+
+QString to_string(const AnalysisWorkerState &state)
+{
+    static const QMap<AnalysisWorkerState, QString> MVMEStreamWorkerState_StringTable =
+    {
+        { AnalysisWorkerState::Idle,              QSL("Idle") },
+        { AnalysisWorkerState::Paused,            QSL("Paused") },
+        { AnalysisWorkerState::Running,           QSL("Running") },
+        { AnalysisWorkerState::SingleStepping,    QSL("Stepping") },
+    };
+
+    return MVMEStreamWorkerState_StringTable.value(state);
+}
+
+QString to_string(const MVMEState &state)
+{
+    static const QMap<MVMEState, QString> MVMEState_StringTable =
+    {
+        { MVMEState::Idle,                  QSL("Idle") },
+        { MVMEState::Starting,              QSL("Starting") },
+        { MVMEState::Running,               QSL("Running") },
+        { MVMEState::Stopping,              QSL("Stepping") },
+    };
+
+    return MVMEState_StringTable.value(state);
+}

@@ -775,13 +775,14 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
 void AnalysisWidgetPrivate::updateActions()
 {
-    qDebug() << __PRETTY_FUNCTION__;
     auto streamWorker = m_context->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
 
+    qDebug() << __PRETTY_FUNCTION__ << to_string(workerState);
+
     switch (workerState)
     {
-        case MVMEStreamWorkerState::Idle:
+        case AnalysisWorkerState::Idle:
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
             m_actionPause->setText(QSL("Pause"));
             m_actionPause->setEnabled(true);
@@ -789,7 +790,7 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionStepNextEvent->setEnabled(false);
             break;
 
-        case MVMEStreamWorkerState::Running:
+        case AnalysisWorkerState::Running:
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
             m_actionPause->setText(QSL("Pause"));
             m_actionPause->setEnabled(true);
@@ -797,7 +798,7 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionStepNextEvent->setEnabled(false);
             break;
 
-        case MVMEStreamWorkerState::Paused:
+        case AnalysisWorkerState::Paused:
             m_actionPause->setIcon(QIcon(":/control_play.png"));
             m_actionPause->setText(QSL("Resume"));
             m_actionPause->setEnabled(true);
@@ -805,7 +806,7 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionStepNextEvent->setEnabled(true);
             break;
 
-        case MVMEStreamWorkerState::SingleStepping:
+        case AnalysisWorkerState::SingleStepping:
             m_actionPause->setEnabled(false);
             m_actionStepNextEvent->setEnabled(false);
             break;
@@ -826,19 +827,19 @@ void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 
     switch (workerState)
     {
-        case MVMEStreamWorkerState::Idle:
+        case AnalysisWorkerState::Idle:
             streamWorker->setStartPaused(actionIsChecked);
             break;
 
-        case MVMEStreamWorkerState::Running:
+        case AnalysisWorkerState::Running:
             streamWorker->pause();
             break;
 
-        case MVMEStreamWorkerState::Paused:
+        case AnalysisWorkerState::Paused:
             streamWorker->resume();
             break;
 
-        case MVMEStreamWorkerState::SingleStepping:
+        case AnalysisWorkerState::SingleStepping:
             // cannot pause/resume during the time a singlestep is active
             InvalidCodePath;
             break;
@@ -852,13 +853,13 @@ void AnalysisWidgetPrivate::actionStepNextEvent()
 
     switch (workerState)
     {
-        case MVMEStreamWorkerState::Idle:
-        case MVMEStreamWorkerState::Running:
-        case MVMEStreamWorkerState::SingleStepping:
+        case AnalysisWorkerState::Idle:
+        case AnalysisWorkerState::Running:
+        case AnalysisWorkerState::SingleStepping:
             InvalidCodePath;
             break;
 
-        case MVMEStreamWorkerState::Paused:
+        case AnalysisWorkerState::Paused:
             streamWorker->singleStep();
             break;
     }
@@ -1049,7 +1050,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         auto setup_parser_debug = [this] ()
         {
             connect(m_d->m_context->getMVMEStreamWorker(), &StreamWorkerBase::stateChanged,
-                    this, [this](MVMEStreamWorkerState) {
+                    this, [this](AnalysisWorkerState) {
                         m_d->updateActions();
                     });
 

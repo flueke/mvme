@@ -40,7 +40,7 @@ void mvme_init(const QString &appName)
 
     qRegisterMetaType<DAQState>("DAQState");
     qRegisterMetaType<GlobalMode>("GlobalMode");
-    qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
+    qRegisterMetaType<AnalysisWorkerState>("AnalysisWorkerState");
     qRegisterMetaType<ControllerState>("ControllerState");
     qRegisterMetaType<Qt::Axis>("Qt::Axis");
     qRegisterMetaType<mesytec::mvme_mvlc::MVLCObject::State>("mesytec::mvme_mvlc::MVLCObject::State");

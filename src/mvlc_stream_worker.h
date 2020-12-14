@@ -84,7 +84,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         ~MVLC_StreamWorker() override;
 
-        MVMEStreamWorkerState getState() const override
+        AnalysisWorkerState getState() const override
         {
             std::unique_lock<std::mutex> guard(m_stateMutex);
             return m_state;
@@ -156,7 +156,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         // indexes so that "disabled" modules are handled correctly.
         using ModuleIndexMap = std::array<int, MaxVMEModules>;
 
-        void setState(MVMEStreamWorkerState newState);
+        void setState(AnalysisWorkerState newState);
 
         // Used for the transition from non-Idle state to Idle state.
         enum StopFlag
@@ -214,8 +214,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
         // std::mutex.
         mutable std::mutex m_stateMutex;
         std::condition_variable m_stateCondVar;
-        std::atomic<MVMEStreamWorkerState> m_state;
-        std::atomic<MVMEStreamWorkerState> m_desiredState;
+        std::atomic<AnalysisWorkerState> m_state;
+        std::atomic<AnalysisWorkerState> m_desiredState;
 
         std::atomic<bool> m_startPaused;
         std::atomic<StopFlag> m_stopFlag;

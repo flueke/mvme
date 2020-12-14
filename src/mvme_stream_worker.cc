@@ -74,7 +74,7 @@ struct MVMEStreamWorkerPrivate
     bool m_startPaused = false;
 
     std::atomic<InternalState> internalState;
-    MVMEStreamWorkerState state = MVMEStreamWorkerState::Idle;
+    AnalysisWorkerState state = AnalysisWorkerState::Idle;
 
     RunInfo runInfo;
 
@@ -140,7 +140,7 @@ MVMEStreamProcessor *MVMEStreamWorker::getStreamProcessor() const
     return &m_d->streamProcessor;
 }
 
-void MVMEStreamWorker::setState(MVMEStreamWorkerState newState)
+void MVMEStreamWorker::setState(AnalysisWorkerState newState)
 {
     auto oldState = m_d->state;
     m_d->state = newState;
@@ -153,14 +153,14 @@ void MVMEStreamWorker::setState(MVMEStreamWorkerState newState)
 
     switch (newState)
     {
-        case MVMEStreamWorkerState::Running:
+        case AnalysisWorkerState::Running:
             emit started();
             break;
-        case MVMEStreamWorkerState::Idle:
+        case AnalysisWorkerState::Idle:
             emit stopped();
             break;
-        case MVMEStreamWorkerState::Paused:
-        case MVMEStreamWorkerState::SingleStepping:
+        case AnalysisWorkerState::Paused:
+        case AnalysisWorkerState::SingleStepping:
             break;
     }
 
@@ -377,7 +377,7 @@ void MVMEStreamWorker::start()
 
     Q_ASSERT(m_d->freeBuffers);
     Q_ASSERT(m_d->fullBuffers);
-    Q_ASSERT(m_d->state == MVMEStreamWorkerState::Idle);
+    Q_ASSERT(m_d->state == AnalysisWorkerState::Idle);
     Q_ASSERT(m_d->context->getAnalysis());
 
     m_d->runInfo = m_d->context->getRunInfo();
@@ -424,11 +424,11 @@ void MVMEStreamWorker::start()
 
     /* This emits started(). I've deliberately placed this after
      * m_d->internalState has been copied to avoid race conditions. */
-    setState(MVMEStreamWorkerState::Running);
+    setState(AnalysisWorkerState::Running);
 
     while (internalState != StopImmediately)
     {
-        if (m_d->state == MVMEStreamWorkerState::Running)
+        if (m_d->state == AnalysisWorkerState::Running)
         {
             switch (internalState)
             {
@@ -447,7 +447,7 @@ void MVMEStreamWorker::start()
 
                 case Pause:
                     // transition to paused
-                    setState(MVMEStreamWorkerState::Paused);
+                    setState(AnalysisWorkerState::Paused);
                     break;
 
                 case StopImmediately:
@@ -461,7 +461,7 @@ void MVMEStreamWorker::start()
                     break;
             }
         }
-        else if (m_d->state == MVMEStreamWorkerState::Paused)
+        else if (m_d->state == AnalysisWorkerState::Paused)
         {
             switch (internalState)
             {
@@ -510,7 +510,7 @@ void MVMEStreamWorker::start()
                 case StopIfQueueEmpty:
                 case StopImmediately:
                     // resume
-                    setState(MVMEStreamWorkerState::Running);
+                    setState(AnalysisWorkerState::Running);
 
                     // if singlestepping stopped in the middle of a buffer
                     // process the rest of the buffer, then go back to running
@@ -581,7 +581,7 @@ void MVMEStreamWorker::start()
         }
     }
 
-    setState(MVMEStreamWorkerState::Idle);
+    setState(AnalysisWorkerState::Idle);
 
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
@@ -624,7 +624,7 @@ void MVMEStreamWorker::singleStep()
     m_d->internalState = SingleStep;
 }
 
-MVMEStreamWorkerState MVMEStreamWorker::getState() const
+AnalysisWorkerState MVMEStreamWorker::getState() const
 {
     return m_d->state;
 }
@@ -644,7 +644,7 @@ void MVMEStreamWorker::setListFileVersion(u32 version)
 void MVMEStreamWorker::setStartPaused(bool startPaused)
 {
     qDebug() << __PRETTY_FUNCTION__ << startPaused;
-    Q_ASSERT(getState() == MVMEStreamWorkerState::Idle);
+    Q_ASSERT(getState() == AnalysisWorkerState::Idle);
 
     m_d->m_startPaused = startPaused;
 }

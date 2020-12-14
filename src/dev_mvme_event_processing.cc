@@ -48,6 +48,7 @@ using namespace analysis;
 namespace
 {
 
+#if 0
 u32 read_listfile_version(std::ifstream &infile)
 {
     u32 fileVersion = 0;
@@ -69,6 +70,7 @@ u32 read_listfile_version(std::ifstream &infile)
     return fileVersion;
 
 }
+#endif
 
 //
 // process_listfile

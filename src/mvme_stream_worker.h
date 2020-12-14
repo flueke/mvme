@@ -53,7 +53,7 @@ class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
         bool hasDiagnostics() const;
         void setListFileVersion(u32 version);
 
-        MVMEStreamWorkerState getState() const override;
+        AnalysisWorkerState getState() const override;
 
         void setStartPaused(bool startPaused) override;
         bool getStartPaused() const override;
@@ -78,7 +78,7 @@ class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
         void removeDiagnostics();
 
     private:
-        void setState(MVMEStreamWorkerState newState);
+        void setState(AnalysisWorkerState newState);
         void logMessage(const QString &msg);
 
         friend struct MVMEStreamWorkerPrivate;

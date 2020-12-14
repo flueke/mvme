@@ -69,9 +69,9 @@ int main(int argc, char *argv[])
         daqControl.startDAQ();
 
         QObject::connect(&mvmeContext, &MVMEContext::mvmeStreamWorkerStateChanged,
-                         [&app] (MVMEStreamWorkerState state)
+                         [&app] (AnalysisWorkerState state)
                          {
-                             if (state == MVMEStreamWorkerState::Idle)
+                             if (state == AnalysisWorkerState::Idle)
                                  app.quit();
                          });
 

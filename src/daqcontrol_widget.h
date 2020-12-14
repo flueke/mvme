@@ -69,7 +69,7 @@ class DAQControlWidget: public QWidget
         void setDAQState(const DAQState &state);
         void setVMEControllerState(const ControllerState &state);
         void setVMEControllerTypeName(const QString &name);
-        void setStreamWorkerState(const MVMEStreamWorkerState &state);
+        void setStreamWorkerState(const AnalysisWorkerState &state);
         void setListFileOutputInfo(const ListFileOutputInfo &info);
         void setDAQStats(const DAQStats &stats);
         void setWorkspaceDirectory(const QString &dir);
@@ -83,7 +83,7 @@ class DAQControlWidget: public QWidget
         DAQState m_daqState = DAQState::Idle;
         ControllerState m_vmeControllerState = ControllerState::Disconnected;
         QString m_vmeControllerTypeName;
-        MVMEStreamWorkerState m_streamWorkerState = MVMEStreamWorkerState::Idle;
+        AnalysisWorkerState m_streamWorkerState = AnalysisWorkerState::Idle;
         ListFileOutputInfo m_listFileOutputInfo;
         DAQStats m_daqStats = {};
         QString m_workspaceDirectory;

@@ -23,19 +23,6 @@
 #include "util/perf.h"
 #include "util/qt_str.h"
 
-QString to_string(const MVMEStreamWorkerState &state)
-{
-    static const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable =
-    {
-        { MVMEStreamWorkerState::Idle,              QSL("Idle") },
-        { MVMEStreamWorkerState::Paused,            QSL("Paused") },
-        { MVMEStreamWorkerState::Running,           QSL("Running") },
-        { MVMEStreamWorkerState::SingleStepping,    QSL("Stepping") },
-    };
-
-    return MVMEStreamWorkerState_StringTable.value(state);
-}
-
 StreamWorkerBase::StreamWorkerBase(QObject *parent)
     : QObject(parent)
     , m_logThrottle(MaxLogMessagesPerSecond, std::chrono::seconds(1))

@@ -373,7 +373,7 @@ void DAQControlWidget::setVMEControllerTypeName(const QString &name)
     updateWidget();
 }
 
-void DAQControlWidget::setStreamWorkerState(const MVMEStreamWorkerState &state)
+void DAQControlWidget::setStreamWorkerState(const AnalysisWorkerState &state)
 {
     m_streamWorkerState = state;
     updateWidget();
@@ -430,7 +430,7 @@ void DAQControlWidget::updateWidget()
                 break;
         }
     }
-    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && streamWorkerState == MVMEStreamWorkerState::Idle)
+    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && streamWorkerState == AnalysisWorkerState::Idle)
     {
         enableStartButton = true;
     }

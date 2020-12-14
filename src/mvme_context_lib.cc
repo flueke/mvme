@@ -63,13 +63,13 @@ AnalysisPauser::AnalysisPauser(MVMEContext *context)
 
     switch (m_prevState)
     {
-        case MVMEStreamWorkerState::Running:
+        case AnalysisWorkerState::Running:
             m_context->stopAnalysis();
             break;
 
-        case MVMEStreamWorkerState::Idle:
-        case MVMEStreamWorkerState::Paused:
-        case MVMEStreamWorkerState::SingleStepping:
+        case AnalysisWorkerState::Idle:
+        case AnalysisWorkerState::Paused:
+        case AnalysisWorkerState::SingleStepping:
             break;
     }
 }
@@ -80,13 +80,13 @@ AnalysisPauser::~AnalysisPauser()
 
     switch (m_prevState)
     {
-        case MVMEStreamWorkerState::Running:
+        case AnalysisWorkerState::Running:
             m_context->resumeAnalysis(analysis::Analysis::KeepState);
             break;
 
-        case MVMEStreamWorkerState::Idle:
-        case MVMEStreamWorkerState::Paused:
-        case MVMEStreamWorkerState::SingleStepping:
+        case AnalysisWorkerState::Idle:
+        case AnalysisWorkerState::Paused:
+        case AnalysisWorkerState::SingleStepping:
             {
                 auto analysis = m_context->getAnalysis();
 

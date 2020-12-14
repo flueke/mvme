@@ -26,6 +26,7 @@
 
 namespace
 {
+#if 0
     QDebug operator<<(QDebug out, const mvme_stream::StreamIterator::ModuleDataOffsets &offsets)
     {
         QDebugStateSaver qdss(out);
@@ -39,7 +40,7 @@ namespace
                );
         return out;
     }
-
+#endif
 } // end anon namespace
 
 namespace mvme_stream
