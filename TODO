@@ -1,17 +1,16 @@
 ==================================================
 TODO list
 ==================================================
+* trigger_io: when changing a vme event from periodic to irq the trigger_io
+  timer -> stack_start connection is not disabled. Could find out which timer
+  was used to trigger the event and remove the connection from the timer to the
+  stackstart unit.
 * global: finally fix the DAQ stop logic: right now it only waits for the DAQ
   side to stop while the analysis is still running and processing buffers. This
-  is not good.
+  is not good. -> Need a common state and subsystem states or similar.
 * When a ListfitlerExtractor changes size an open RateMonitorWidget is not
   properly updated. The legend will be updated but the number of elements is
   not updated. Something is not correct here.
-* When moving data sources from unassigned to a module the calibrations
-  later in the chain do assert: mvme: ../src/analysis/a2/a2.cc:645:
-  a2::Operator a2::make_calibration(memory::Arena*, a2::PipeVectors,
-  a2::ParamVec, a2::ParamVec): Assertion `calibMinimums.size ==
-  input.data.size' failed.
 * Difference operator asserts when arrays have different sizes and when one
   array has size 1 (different assertion).
 * add checks for mesytec modules analysing the eventcounter/timestamp values
@@ -20,7 +19,7 @@ TODO list
   Handle overflow properly!
 
 * analysis cross-process copy/paste is broken
-* make named indices inline renamable
+* make named indices inline renamable (maybe, these are weird anyways)
 
 Trigger IO simulation
 ----------------------

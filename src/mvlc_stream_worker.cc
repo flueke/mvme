@@ -381,7 +381,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // analysis.
         // Note: the systemEvent callback is not overwritten as there is no
         // special handling for it in the multi event splitting logic.
-        m_parserCallbacks.eventData = [this, analysis] (
+        m_parserCallbacks.eventData = [this] (
             int ei,
             const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
             unsigned moduleCount)

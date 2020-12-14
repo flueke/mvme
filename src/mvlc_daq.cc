@@ -433,6 +433,8 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(
         vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
 
+    assert(scriptConfig);
+
     if (!scriptConfig) return {}; // TODO: error_code
 
     auto ioCfg = trigger_io::parse_trigger_io_script_text(
