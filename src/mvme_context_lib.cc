@@ -121,14 +121,7 @@ void LIBMVME_EXPORT new_vme_config(MVMEContext *context)
         if (auto mvlcTriggerIO = vmeConfig->getGlobalObjectRoot().findChild<VMEScriptConfig *>(
                 QSL("mvlc_trigger_io")))
         {
-            for (const auto &scriptInfo: vats::read_mvlc_trigger_io_scripts())
-            {
-                if (scriptInfo.fileInfo.baseName() == QSL("mvlc_trigger_io-Default_Trigger_IO"))
-                {
-                    mvlcTriggerIO->setScriptContents(scriptInfo.contents);
-                    break;
-                }
-            }
+            mvlcTriggerIO->setScriptContents(vats::read_default_mvlc_trigger_io_script().contents);
         }
     }
 

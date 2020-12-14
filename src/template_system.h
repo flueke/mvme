@@ -161,6 +161,9 @@ read_vme_scripts_from_directory(const QString &path);
 QVector<GenericVMEScriptInfo> LIBMVME_EXPORT
 read_mvlc_trigger_io_scripts();
 
+GenericVMEScriptInfo LIBMVME_EXPORT
+read_default_mvlc_trigger_io_script();
+
 
 }  // namespace vats
 

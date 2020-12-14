@@ -529,4 +529,15 @@ QVector<GenericVMEScriptInfo> read_mvlc_trigger_io_scripts()
     return read_vme_scripts_from_directory(templatePath);
 }
 
+GenericVMEScriptInfo read_default_mvlc_trigger_io_script()
+{
+    for (const auto &scriptInfo: read_mvlc_trigger_io_scripts())
+    {
+        if (scriptInfo.fileInfo.baseName() == QSL("mvlc_trigger_io-Default_Trigger_IO"))
+            return scriptInfo;
+    }
+
+    return {};
+}
+
 } // namespace vats

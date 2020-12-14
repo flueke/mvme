@@ -22,12 +22,14 @@
 #include "mvlc/mvlc_trigger_io_editor_p.h"
 
 #include <QDebug>
+#include <QMenu>
 #include <QPushButton>
 #include <QScrollBar>
 
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"
+#include "template_system.h"
 #include "util/algo.h"
 #include "util/qt_container.h"
 #include "util/qt_monospace_textedit.h"
@@ -575,13 +577,29 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     toolbar->addSeparator();
 
-    action = toolbar->addAction(
-        QIcon(":/document-new.png"), QSL("Clear Setup"),
-        this, [this] ()
+    auto clearMenu = new QMenu;
+    clearMenu->addAction(
+        QSL("Default Setup"), this, [this] ()
+        {
+            auto scriptContents = vats::read_default_mvlc_trigger_io_script().contents;
+            d->ioCfg = parse_trigger_io_script_text(scriptContents);
+            setupModified();
+        });
+
+    clearMenu->addAction(
+        QSL("Empty Setup"), this, [this] ()
         {
             d->ioCfg = {};
             setupModified();
         });
+
+    action = toolbar->addAction(
+        QIcon(":/document-new.png"), QSL("Clear Setup"));
+
+    action->setMenu(clearMenu);
+
+    if (auto clearButton = qobject_cast<QToolButton *>(toolbar->widgetForAction(action)))
+        clearButton->setPopupMode(QToolButton::InstantPopup);
 
     action = toolbar->addAction(
         QIcon(":/application-rename.png"), QSL("Reset Names"),
