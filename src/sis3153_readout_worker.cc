@@ -233,6 +233,7 @@ namespace
         *list_ptr = *list_ptr + 3;
     }
 
+#if 0
     void stackList_add_register_write(u32 *list_ptr, u32 *list_buffer, u32 reg_addr, u32 reg_data)
     {
         list_buffer[*list_ptr + 0] = 0xAAAA1A00; // internal register / write / 4byte-size
@@ -291,6 +292,7 @@ namespace
                   .arg(vme_am_mode, 4, 16, QLatin1Char('0'))
                  );
     }
+#endif
 
     /* Note: if lemoIOControlBaseValue is non-negative this functions adds writes to the
      * LemoIOControl register at the beginning and end of the stacklist. The first write
@@ -913,7 +915,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             auto readoutCommands = build_event_readout_script(event);
             validate_event_readout_script(readoutCommands);
             QVector<u32> stackList = build_stackList(sis, readoutCommands, lemoIORegBaseValue);
-            u32 stackListConfigValue = 0;   // SIS3153ETH_STACK_LISTn_CONFIG
             u32 stackListTriggerValue = 0;  // SIS3153ETH_STACK_LISTn_TRIGGER_SOURCE
 
             qDebug() << __PRETTY_FUNCTION__ << event << ", #commands =" << readoutCommands.size();
@@ -1356,8 +1357,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
 void SIS3153ReadoutWorker::readoutLoop()
 {
-    auto sis = m_sis;
-    DAQStats *daqStats = &m_workerContext.daqStats;
     VMEError error;
 
     setState(DAQState::Running);
@@ -1755,6 +1754,8 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
 
     const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
 
+    (void) bufferNumber;
+
     sis_trace(QString("buffer #%1: ack=0x%2, ident=0x%3, status=0x%4, bytesRead=%5, wordsRead=%6")
               .arg(bufferNumber)
               .arg((u32)packetAck, 2, 16, QLatin1Char('0'))
@@ -1884,7 +1885,7 @@ void SIS3153ReadoutWorker::processBuffer(
 }
 
 u32 SIS3153ReadoutWorker::processMultiEventData(
-    u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
+    u8 packetAck, u8 /*packetIdent*/, u8 /*packetStatus*/, u8 *data, size_t size)
 {
 #if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
@@ -1977,7 +1978,7 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
  * the buffer contains a single complete event.
  * Also called by processMultiEventData() for each embedded event! */
 u32 SIS3153ReadoutWorker::processSingleEventData(
-    u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
+    u8 packetAck, u8 /*packetIdent*/, u8 /*packetStatus*/, u8 *data, size_t size)
 {
 #if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
@@ -2122,7 +2123,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
         if (streamWriter.hasOpenModuleSection())
         {
-            u32 moduleSectionBytes = streamWriter.closeModuleSection().sectionBytes;
+            /*u32 moduleSectionBytes =*/ streamWriter.closeModuleSection().sectionBytes;
         }
     }
 
@@ -2159,6 +2160,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
     const auto bufferNumber = m_workerContext.daqStats.totalBuffersRead;
+    (void) packetIdent;
 
     sis_trace(QString("sis3153 buffer #%1, packetAck=0x%2, packetIdent=0x%3, packetStatus=0x%4, data@0x%6, size=%7")
               .arg(bufferNumber)
@@ -2369,7 +2371,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
             {
                 if (m_processingState.streamWriter.hasOpenModuleSection())
                 {
-                    u32 moduleSectionBytes = m_processingState.streamWriter.closeModuleSection().sectionBytes;
+                    /*u32 moduleSectionBytes =*/ m_processingState.streamWriter.closeModuleSection().sectionBytes;
                     m_processingState.moduleIndex++;
                 }
                 break;
