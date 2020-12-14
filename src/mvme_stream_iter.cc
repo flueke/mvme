@@ -164,7 +164,7 @@ const StreamIterator::Result &StreamIterator::next()
     return m_result;
 }
 
-StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHeader, u32 *data, u32 size)
+StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 /*sectionHeader*/, u32 *data, u32 size)
 {
     qDebug() << __PRETTY_FUNCTION__;
 

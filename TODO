@@ -1,6 +1,8 @@
 ==================================================
 TODO list
 ==================================================
+* write mvlc stack errors to the mvme log file (right now they're completely
+  lost after the daq ends)
 * trigger_io: when changing a vme event from periodic to irq the trigger_io
   timer -> stack_start connection is not disabled. Could find out which timer
   was used to trigger the event and remove the connection from the timer to the
