@@ -427,41 +427,49 @@ setbase 0xffff0000
 
 # Counter0
 0x0200 0x0308    # select L3.Unit8
+0x030e      0    # clear on latch
 0x0380     14    # connect input0 to 'Gated_trigger'
 0x0382      0    # connect input1 to 't_event1'
 
 # Counter1
 0x0200 0x0309    # select L3.Unit9
+0x030e      0    # clear on latch
 0x0380     15    # connect input0 to 'Free_Trigger'
 0x0382      0    # connect input1 to 't_event1'
 
 # Counter2
 0x0200 0x030a    # select L3.Unit10
+0x030e      0    # clear on latch
 0x0380     16    # connect input0 to 'Daq_Start'
 0x0382     12    # connect input1 to 'stack_busy0'
 
 # Counter3
 0x0200 0x030b    # select L3.Unit11
+0x030e      0    # clear on latch
 0x0380     17    # connect input0 to 'Stack_Busy'
 0x0382     12    # connect input1 to 'stack_busy0'
 
 # Counter4
 0x0200 0x030c    # select L3.Unit12
+0x030e      0    # clear on latch
 0x0380     18    # connect input0 to 'IRQ7_Module_Busy'
 0x0382     12    # connect input1 to 'stack_busy0'
 
 # Counter5
 0x0200 0x030d    # select L3.Unit13
+0x030e      0    # clear on latch
 0x0380      0    # connect input0 to 't_event1'
 0x0382     21    # connect input1 to '<not connected>'
 
 # Counter6
 0x0200 0x030e    # select L3.Unit14
+0x030e      0    # clear on latch
 0x0380      0    # connect input0 to 't_event1'
 0x0382     21    # connect input1 to '<not connected>'
 
 # Counter7
 0x0200 0x030f    # select L3.Unit15
+0x030e      0    # clear on latch
 0x0380      0    # connect input0 to 't_event1'
 0x0382     21    # connect input1 to '<not connected>'
 
@@ -625,8 +633,8 @@ names:
     5: MasterTrigger1
     6: MasterTrigger2
     7: MasterTrigger3
-    8: Counter0_FT
-    9: Counter1_GT
+    8: Counter0_GT
+    9: Counter1_FT
     10: Counter2
     11: Counter3
     12: Counter4
