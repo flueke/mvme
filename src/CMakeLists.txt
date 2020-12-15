@@ -389,12 +389,12 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io.cc
         mvlc/mvlc_trigger_io_editor.cc
         mvlc/mvlc_trigger_io_editor_p.cc
-        mvlc/mvlc_trigger_io_osci.cc
-        mvlc/mvlc_trigger_io_osci_gui.cc
         mvlc/mvlc_trigger_io_script.cc
         mvlc/mvlc_trigger_io_util.cc
         mvlc_readout_worker.cc
         mvlc_stream_worker.cc
+        mvlc/trigger_io_scope.cc
+        mvlc/trigger_io_scope_ui.cc
         mvlc/vmeconfig_from_crateconfig.cc
         mvlc/vmeconfig_to_crateconfig.cc
         mvme_mvlc_listfile.cc
@@ -537,8 +537,8 @@ endif(WIN32)
 
 if(MVME_ENABLE_MVLC)
     add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
-    target_link_libraries(mvme_to_mvlc PRIVATE mesytec-mvlc)
     add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
+    add_mvme_executable(dev_mvlc_scope dev_mvlc_scope.cc)
 endif(MVME_ENABLE_MVLC)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
@@ -561,7 +561,6 @@ if (NOT WIN32)
     install(TARGETS mvme_recover_listfile
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib)
-
 endif (NOT WIN32)
 
 if(BUILD_TESTS)

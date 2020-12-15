@@ -1,5 +1,5 @@
-#ifndef __MVME_MVLC_TRIGGER_IO_OSCI_H__
-#define __MVME_MVLC_TRIGGER_IO_OSCI_H__
+#ifndef __MVME_MVLC_TRIGGER_IO_SCOPE_H__
+#define __MVME_MVLC_TRIGGER_IO_SCOPE_H__
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mesytec-mvlc/util/threadsafequeue.h"
@@ -9,7 +9,7 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_osci
+namespace trigger_io_scope
 {
 
 using namespace trigger_io;
@@ -73,4 +73,4 @@ inline const char *to_string(const Edge &e)
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 
-#endif /* __MVME_MVLC_TRIGGER_IO_OSCI_H__ */
+#endif /* __MVME_MVLC_TRIGGER_IO_SCOPE_H__ */

@@ -27,7 +27,7 @@
 #include <QScrollBar>
 #include <qnamespace.h>
 
-#include "mvlc/mvlc_trigger_io_osci_gui.h"
+#include "mvlc/trigger_io_scope_ui.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"
@@ -57,7 +57,7 @@ struct MVLCTriggerIOEditor::Private
     bool scriptAutorun = false;
     QStringList vmeEventNames;
 
-    trigger_io_osci::OsciWidget *osciWidget = nullptr;
+    trigger_io_scope::OsciWidget *osciWidget = nullptr;
     mvlc::MVLC mvlc;
 
     void onActionPrintFrontPanelSetup();
@@ -698,7 +698,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         {
             if (!d->osciWidget)
             {
-                using namespace trigger_io_osci;
+                using namespace trigger_io_scope;
 
                 d->osciWidget = new OsciWidget(d->mvlc);
                 d->osciWidget->setAttribute(Qt::WA_DeleteOnClose);

@@ -1,14 +1,14 @@
-#ifndef __MVME_MVLC_TRIGGER_IO_OSCI_GUI_H__
-#define __MVME_MVLC_TRIGGER_IO_OSCI_GUI_H__
+#ifndef __MVME_MVLC_TRIGGER_IO_SCOPE_UI_H__
+#define __MVME_MVLC_TRIGGER_IO_SCOPE_UI_H__
 
 #include <QWidget>
-#include "mvlc/mvlc_trigger_io_osci.h"
+#include "mvlc/trigger_io_scope.h"
 
 namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_osci
+namespace trigger_io_scope
 {
 
 class OsciWidget: public QWidget
@@ -27,4 +27,4 @@ class OsciWidget: public QWidget
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 
-#endif /* __MVME_MVLC_TRIGGER_IO_OSCI_GUI_H__ */
+#endif /* __MVME_MVLC_TRIGGER_IO_SCOPE_UI_H__ */

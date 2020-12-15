@@ -1,4 +1,4 @@
-#include "mvlc/mvlc_trigger_io_osci_gui.h"
+#include "mvlc/trigger_io_scope_ui.h"
 #include "mesytec-mvlc/util/threadsafequeue.h"
 #include "mvlc/mvlc_trigger_io.h"
 
@@ -17,7 +17,7 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_osci
+namespace trigger_io_scope
 {
 
 namespace

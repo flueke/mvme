@@ -1,4 +1,4 @@
-#include "mvlc/mvlc_trigger_io_osci.h"
+#include "mvlc/trigger_io_scope.h"
 
 #ifndef __WIN32
 #include <sys/prctl.h>
@@ -10,7 +10,7 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_osci
+namespace trigger_io_scope
 {
 
 void reader(

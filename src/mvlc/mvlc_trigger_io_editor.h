@@ -51,7 +51,7 @@ class LIBMVME_EXPORT MVLCTriggerIOEditor: public QWidget
         // units.
         void setVMEEventNames(const QStringList &names);
 
-        // Set the MVLC to use. Needed for the trigger_io osci code.
+        // Set the MVLC to use. Needed for the trigger_io scope code.
         void setMVLC(mvlc::MVLC mvlc);
 
     private slots:
