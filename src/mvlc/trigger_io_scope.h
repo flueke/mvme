@@ -69,7 +69,19 @@ inline const char *to_string(const Edge &e)
     return {};
 };
 
-} // end namespace trigger_io
+
+struct Sample
+{
+    u16 time;
+    Edge edge;
+};
+
+using Timeline = std::vector<Sample>;
+using Snapshot = std::vector<Timeline>;
+
+Snapshot fill_snapshot(const std::vector<u32> &buffer);
+
+} // end namespace trigger_io_scope
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 

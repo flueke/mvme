@@ -22,8 +22,22 @@
 #define __MVME_PLOT_UTIL_H__
 
 #include <memory>
+#include <qwt_painter.h>
+#include <qwt_plot_curve.h>
+#include <qwt_plot.h>
+#include <qwt_plot_histogram.h>
 #include <qwt_plot_item.h>
+#include <qwt_plot_magnifier.h>
+#include <qwt_plot_marker.h>
+#include <qwt_plot_panner.h>
+#include <qwt_plot_renderer.h>
+#include <qwt_plot_textlabel.h>
+#include <qwt_plot_zoneitem.h>
+#include <qwt_point_data.h>
+#include <qwt_scale_engine.h>
+#include <qwt_scale_widget.h>
 #include <qwt_text.h>
+#include <qwt_widget_overlay.h>
 #include "libmvme_export.h"
 
 namespace mvme_qwt
@@ -45,9 +59,10 @@ class LIBMVME_EXPORT TextLabelItem: public QwtPlotItem
 
         virtual int rtti() const override { return QwtPlotItem::Rtti_PlotTextLabel; }
 
-        virtual void draw( QPainter *painter,
-                          const QwtScaleMap &xMap, const QwtScaleMap &yMap,
-                          const QRectF &canvasRect) const override;
+        virtual void draw(
+            QPainter *painter,
+            const QwtScaleMap &xMap, const QwtScaleMap &yMap,
+            const QRectF &canvasRect) const override;
 
     protected:
         void invalidateCache();

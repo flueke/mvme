@@ -70,6 +70,71 @@ void reader(
     ec_promise.set_value(ec);
 }
 
+namespace
+{
+struct LineEntry
+{
+    u8 address;
+    Edge edge;
+    u16 time;
+};
+
+inline LineEntry extract_entry(u32 dataWord)
+{
+    LineEntry result;
+    result.address = (dataWord >> data_format::AddressShift) & data_format::AddressMask;
+    result.edge = Edge((dataWord >> data_format::EdgeShift) & data_format::EdgeMask);
+    result.time = (dataWord >> data_format::TimeShift) & data_format::TimeMask;
+    return result;
+}
+}
+
+Snapshot fill_snapshot(const std::vector<u32> &buffer)
+{
+    assert(buffer.size() >= 2);
+
+    if (buffer.size() < 2)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "got a short buffer";
+        return {};
+    }
+
+    if (buffer[0] != data_format::Header)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "invalid Header";
+        return {};
+    }
+
+    if (buffer[buffer.size()-1] != data_format::EoE)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "invalid EoE";
+        return {};
+    }
+
+    Snapshot result;
+    result.reserve(NIM_IO_Count);
+
+    // FIXME: is overflow bit in the header or in the first data word?
+    //bool overflow = 
+
+    for (size_t i=1; i<buffer.size()-1; ++i)
+    {
+        const u32 word = buffer[i];
+        const auto entry = extract_entry(word);
+
+        qDebug("entry: addr=%u, time=%u, edge=%s",
+               entry.address, entry.time, to_string(entry.edge));
+
+        if (entry.address >= result.size())
+            result.resize(entry.address + 1);
+
+        auto &timeline = result[entry.address];
+        timeline.push_back({entry.time, entry.edge});
+    }
+
+    return result;
+}
+
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
 } // end namespace mesytec

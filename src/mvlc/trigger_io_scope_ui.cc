@@ -20,33 +20,6 @@ namespace mvme_mvlc
 namespace trigger_io_scope
 {
 
-namespace
-{
-    struct LineEntry
-    {
-        u8 address;
-        Edge edge;
-        u16 time;
-    };
-
-    inline LineEntry extract_entry(u32 dataWord)
-    {
-        LineEntry result;
-        result.address = (dataWord >> data_format::AddressShift) & data_format::AddressMask;
-        result.edge = Edge((dataWord >> data_format::EdgeShift) & data_format::EdgeMask);
-        result.time = (dataWord >> data_format::TimeShift) & data_format::TimeMask;
-        return result;
-    }
-
-    struct ChannelSample
-    {
-        u16 time;
-        Edge edge;
-    };
-
-    std::array<std::vector<ChannelSample>, NIM_IO_Count> SampleBuffers;
-}
-
 struct OsciWidget::Private
 {
     OsciWidget *q;
@@ -150,23 +123,6 @@ void OsciWidget::Private::analyze(const std::vector<std::vector<u32>> &buffers)
 
 void OsciWidget::Private::analyze(const std::vector<u32> &buffer)
 {
-    if (buffer.size() < 2)
-        qDebug() << __PRETTY_FUNCTION__ << "got a short buffer";
-
-    if (buffer[0] != data_format::Header)
-        qDebug() << __PRETTY_FUNCTION__ << "invalid Header";
-
-    if (buffer[buffer.size()-1] != data_format::EoE)
-        qDebug() << __PRETTY_FUNCTION__ << "invalid EoE";
-
-    for (size_t i=1; i<buffer.size()-1; ++i)
-    {
-        const u32 word = buffer[i];
-        const auto entry = extract_entry(word);
-
-        qDebug("entry: addr=%u, time=%u, edge=%s",
-               entry.address, entry.time, to_string(entry.edge));
-    }
 }
 
 OsciWidget::OsciWidget(mvlc::MVLC &mvlc, QWidget *parent)
