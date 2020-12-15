@@ -264,6 +264,7 @@ struct Level0
                                                                 // 14 sysclock
                                                                 // 15 daq_start
     std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
+                                                                // 48 Digital Oscilloscope
 
     QStringList unitNames;
 

@@ -385,17 +385,19 @@ target_include_directories(libmvme
 if (MVME_ENABLE_MVLC)
     target_sources(libmvme PRIVATE
         mvlc_daq.cc
-        mvme_mvlc_listfile.cc
         mvlc_listfile_worker.cc
         mvlc/mvlc_trigger_io.cc
         mvlc/mvlc_trigger_io_editor.cc
         mvlc/mvlc_trigger_io_editor_p.cc
+        mvlc/mvlc_trigger_io_osci.cc
+        mvlc/mvlc_trigger_io_osci_gui.cc
         mvlc/mvlc_trigger_io_script.cc
         mvlc/mvlc_trigger_io_util.cc
-        mvlc/vmeconfig_from_crateconfig.cc
-        mvlc/vmeconfig_to_crateconfig.cc
         mvlc_readout_worker.cc
         mvlc_stream_worker.cc
+        mvlc/vmeconfig_from_crateconfig.cc
+        mvlc/vmeconfig_to_crateconfig.cc
+        mvme_mvlc_listfile.cc
     )
 
     target_link_libraries(libmvme

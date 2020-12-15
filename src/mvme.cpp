@@ -1960,6 +1960,20 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
 
         connect(vmeConfig, &VMEConfig::modified, widget, update_vme_event_names);
         update_vme_event_names();
+
+        auto update_vme_controller = [this, widget] ()
+        {
+            mesytec::mvlc::MVLC mvlc;
+            if (auto mvlcCtrl = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(
+                    m_d->m_context->getVMEController()))
+            {
+                mvlc = mvlcCtrl->getMVLC();
+            }
+            widget->setMVLC(mvlc);
+        };
+
+        connect(m_d->m_context, &MVMEContext::vmeControllerSet, widget, update_vme_controller);
+        update_vme_controller();
     }
     else
     {

@@ -25,7 +25,9 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QScrollBar>
+#include <qnamespace.h>
 
+#include "mvlc/mvlc_trigger_io_osci_gui.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"
@@ -33,9 +35,9 @@
 #include "util/algo.h"
 #include "util/qt_container.h"
 #include "util/qt_monospace_textedit.h"
+#include "vme_script_editor.h"
 #include "vme_script.h"
 #include "vme_script_util.h"
-#include "vme_script_editor.h"
 
 namespace mesytec
 {
@@ -46,14 +48,17 @@ using namespace mvme_mvlc::trigger_io_config;
 
 struct MVLCTriggerIOEditor::Private
 {
-    MVLCTriggerIOEditor *q;
+    MVLCTriggerIOEditor *q = nullptr;
     TriggerIO ioCfg;
-    VMEScriptConfig *scriptConfig;
+    VMEScriptConfig *scriptConfig = nullptr;
     QString initialScriptContents;
     VMEScriptEditor *scriptEditor = nullptr;
     TriggerIOGraphicsScene *scene = nullptr;
     bool scriptAutorun = false;
     QStringList vmeEventNames;
+
+    trigger_io_osci::OsciWidget *osciWidget = nullptr;
+    mvlc::MVLC mvlc;
 
     void onActionPrintFrontPanelSetup();
 };
@@ -79,7 +84,6 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
-    *d = {};
     d->q = this;
     d->initialScriptContents = scriptConfig->getScriptContents();
     d->scriptConfig = scriptConfig;
@@ -688,6 +692,27 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             mvme::QtAssistantRemoteControl::instance().activateKeyword("mvlc_trigger_io");
         });
 
+    action = toolbar->addAction(
+        QIcon(":/vme_event.png"), QSL("Osci"),
+        this, [this] ()
+        {
+            if (!d->osciWidget)
+            {
+                using namespace trigger_io_osci;
+
+                d->osciWidget = new OsciWidget(d->mvlc);
+                d->osciWidget->setAttribute(Qt::WA_DeleteOnClose);
+                connect(d->osciWidget, &QObject::destroyed,
+                        this, [this] () { d->osciWidget = nullptr; });
+                add_widget_close_action(d->osciWidget);
+                auto geoSaver = new WidgetGeometrySaver(d->osciWidget);
+                geoSaver->addAndRestore(d->osciWidget, "MVLCTriggerIOEditor/OsciWidgetGeometry");
+            }
+
+            d->osciWidget->show();
+            d->osciWidget->raise();
+        });
+
     auto mainLayout = make_vbox<2, 2>(this);
     mainLayout->addWidget(toolbar);
     mainLayout->addWidget(logicWidget);
@@ -705,6 +730,11 @@ MVLCTriggerIOEditor::~MVLCTriggerIOEditor()
 void MVLCTriggerIOEditor::setVMEEventNames(const QStringList &names)
 {
     d->vmeEventNames = names;
+}
+
+void MVLCTriggerIOEditor::setMVLC(mvlc::MVLC mvlc)
+{
+    d->mvlc = mvlc;
 }
 
 void MVLCTriggerIOEditor::runScript_()

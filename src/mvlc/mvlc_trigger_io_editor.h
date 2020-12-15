@@ -23,6 +23,8 @@
 
 #include <memory>
 #include "libmvme_export.h"
+
+#include "mvlc/mvlc_qt_object.h"
 #include "vme_config.h"
 
 namespace mesytec
@@ -48,6 +50,9 @@ class LIBMVME_EXPORT MVLCTriggerIOEditor: public QWidget
         // displayed when editing one of the MVLC StackStart or StackBusy
         // units.
         void setVMEEventNames(const QStringList &names);
+
+        // Set the MVLC to use. Needed for the trigger_io osci code.
+        void setMVLC(mvlc::MVLC mvlc);
 
     private slots:
         void runScript_();
