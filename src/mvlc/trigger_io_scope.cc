@@ -67,6 +67,17 @@ void reader(
             buffers.enqueue(std::move(dest));
     }
 
+    try
+    {
+        write(0x0306, 0); // stop capturing
+    }
+    catch (const std::error_code &ec)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "error stopping trigger_io osci:" << ec.message().c_str();
+        ec_promise.set_value(ec);
+        return;
+    }
+
     qDebug() << __PRETTY_FUNCTION__ << "osci_reader left loop";
 
     ec_promise.set_value(ec);

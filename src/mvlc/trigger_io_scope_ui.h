@@ -2,6 +2,7 @@
 #define __MVME_MVLC_TRIGGER_IO_SCOPE_UI_H__
 
 #include <QWidget>
+#include "libmvme_export.h"
 #include "mvlc/trigger_io_scope.h"
 
 namespace mesytec
@@ -11,7 +12,7 @@ namespace mvme_mvlc
 namespace trigger_io_scope
 {
 
-class ScopePlotWidget: public QWidget
+class LIBMVME_EXPORT ScopePlotWidget: public QWidget
 {
     Q_OBJECT
     public:

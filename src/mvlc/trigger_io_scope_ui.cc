@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTimer>
+#include <QGroupBox>
 
 #include "mesytec-mvlc/util/threadsafequeue.h"
 #include "mvlc/mvlc_trigger_io.h"
@@ -62,7 +63,6 @@ struct ScopeData: public QwtSeriesData<QPointF>
         double tRange = static_cast<double>(tMax) - tMin;
 
         return QRectF(tMinF, yOffset, tRange, 1.0);
-        //return QRectF(tMin, yOffset, tMax-tMin, 1.0);
     }
 
     size_t size() const override
@@ -109,6 +109,8 @@ ScopePlotWidget::~ScopePlotWidget()
 
 void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snapshot)
 {
+    // FIXME: supercrappy, resize instead of deleting existing stuff. just
+    // update the data info for existing entries and replot.
     for (auto curve: d->curves)
     {
         curve->detach();
@@ -131,7 +133,7 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
     int idx = 0;
     for (auto &scopeData: d->curvesData)
     {
-        auto curve = new QwtPlotCurve(QString::number(idx));
+        auto curve = new QwtPlotCurve(QString::number(idx));;
         curve->setData(scopeData);
         curve->setStyle(QwtPlotCurve::Steps);
         curve->setRenderHint(QwtPlotItem::RenderAntialiased);
@@ -168,7 +170,7 @@ struct ScopeWidget::Private
     ScopeSetup scopeSetup;
 
     const double YSpacing = 0.5;
-    QwtPlot *plot;
+    ScopePlotWidget *plot;
 
 
     void start()
@@ -249,6 +251,7 @@ void ScopeWidget::Private::analyze(const std::vector<std::vector<u32>> &buffers)
 
     const auto &mostRecent = buffers.back();
     auto snapshot = fill_snapshot(mostRecent);
+    plot->setSnapshot(scopeSetup, snapshot);
 }
 
 ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
@@ -306,8 +309,16 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     controlsLayout->addRow("Post Trigger Time", d->spin_postTriggerTime);
     controlsLayout->addRow("Trigger Channels", channelsLayout);
     controlsLayout->addRow(buttonLayout);
+    auto gbControls = new QGroupBox("Setup");
+    gbControls->setLayout(controlsLayout);
 
-    setLayout(controlsLayout);
+    d->plot = new ScopePlotWidget;
+
+    auto widgetLayout = new QGridLayout;
+    widgetLayout->addWidget(gbControls, 0, 0);
+    widgetLayout->addWidget(d->plot, 0, 1);
+
+    setLayout(widgetLayout);
     setWindowTitle("Trigger IO Osci");
 
     connect(&d->refreshTimer, &QTimer::timeout,
