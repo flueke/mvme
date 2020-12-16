@@ -57,7 +57,7 @@ struct MVLCTriggerIOEditor::Private
     bool scriptAutorun = false;
     QStringList vmeEventNames;
 
-    trigger_io_scope::OsciWidget *osciWidget = nullptr;
+    trigger_io_scope::ScopeWidget *scopeWidget = nullptr;
     mvlc::MVLC mvlc;
 
     void onActionPrintFrontPanelSetup();
@@ -696,21 +696,21 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         QIcon(":/vme_event.png"), QSL("Osci"),
         this, [this] ()
         {
-            if (!d->osciWidget)
+            if (!d->scopeWidget)
             {
                 using namespace trigger_io_scope;
 
-                d->osciWidget = new OsciWidget(d->mvlc);
-                d->osciWidget->setAttribute(Qt::WA_DeleteOnClose);
-                connect(d->osciWidget, &QObject::destroyed,
-                        this, [this] () { d->osciWidget = nullptr; });
-                add_widget_close_action(d->osciWidget);
-                auto geoSaver = new WidgetGeometrySaver(d->osciWidget);
-                geoSaver->addAndRestore(d->osciWidget, "MVLCTriggerIOEditor/OsciWidgetGeometry");
+                d->scopeWidget = new ScopeWidget(d->mvlc);
+                d->scopeWidget->setAttribute(Qt::WA_DeleteOnClose);
+                connect(d->scopeWidget, &QObject::destroyed,
+                        this, [this] () { d->scopeWidget = nullptr; });
+                add_widget_close_action(d->scopeWidget);
+                auto geoSaver = new WidgetGeometrySaver(d->scopeWidget);
+                geoSaver->addAndRestore(d->scopeWidget, "MVLCTriggerIOEditor/OsciWidgetGeometry");
             }
 
-            d->osciWidget->show();
-            d->osciWidget->raise();
+            d->scopeWidget->show();
+            d->scopeWidget->raise();
         });
 
     auto mainLayout = make_vbox<2, 2>(this);

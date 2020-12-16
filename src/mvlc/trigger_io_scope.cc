@@ -13,9 +13,11 @@ namespace mvme_mvlc
 namespace trigger_io_scope
 {
 
+static const unsigned UnitNumber = 48;
+
 void reader(
     mvlc::MVLC mvlc,
-    const OsciSetup &setup,
+    ScopeSetup setup,
     mvlc::ThreadSafeQueue<std::vector<u32>> &buffers,
     std::atomic<bool> &quit,
     std::promise<std::error_code> ec_promise)

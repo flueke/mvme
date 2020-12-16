@@ -21,15 +21,13 @@ using namespace trigger_io;
 // - the the trigger channel mask to specify which channels do trigger
 // - start block reads from 0xffff0000, store the data somewhere
 
-static const unsigned UnitNumber = 48;
-
 enum class Edge
 {
     Falling = 0,
     Rising = 1
 };
 
-struct OsciSetup
+struct ScopeSetup
 {
     u16 preTriggerTime = 0u;
     u16 postTriggerTime = 0u;
@@ -53,7 +51,7 @@ namespace data_format
 
 void reader(
     mvlc::MVLC mvlc,
-    const OsciSetup &setup,
+    ScopeSetup setup,
     mvlc::ThreadSafeQueue<std::vector<u32>> &buffers,
     std::atomic<bool> &quit,
     std::promise<std::error_code> ec_promise);
@@ -68,7 +66,6 @@ inline const char *to_string(const Edge &e)
 
     return {};
 };
-
 
 struct Sample
 {

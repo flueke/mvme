@@ -11,12 +11,26 @@ namespace mvme_mvlc
 namespace trigger_io_scope
 {
 
-class OsciWidget: public QWidget
+class ScopePlotWidget: public QWidget
 {
     Q_OBJECT
     public:
-        OsciWidget(mvlc::MVLC &mvlc, QWidget *parent = nullptr);
-        ~OsciWidget() override;
+        ScopePlotWidget(QWidget *parent = nullptr);
+        ~ScopePlotWidget() override;
+
+        void setSnapshot(const ScopeSetup &setup, const Snapshot &snapshot);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class ScopeWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent = nullptr);
+        ~ScopeWidget() override;
 
     private:
         struct Private;
