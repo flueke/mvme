@@ -3690,7 +3690,7 @@ LUTEditor::LUTEditor(
     if (!strobeInputNames.isEmpty())
     {
         QStringList columnTitles = {
-            "Input", "Delay", "Width", "Holdoff"
+            "Input", "Delay", "Holdoff"
         };
 
         auto &ui = m_strobeTableUi;
@@ -3710,7 +3710,6 @@ LUTEditor::LUTEditor(
 
         table->setCellWidget(0, ui.ColConnection, combo_connection);
         table->setItem(0, ui.ColDelay, new QTableWidgetItem(QString::number(strobeSettings.delay)));
-        table->setItem(0, ui.ColWidth, new QTableWidgetItem(QString::number(strobeSettings.width)));
         table->setItem(0, ui.ColHoldoff, new QTableWidgetItem(QString::number(strobeSettings.holdoff)));
 
         table->resizeColumnsToContents();
@@ -3789,7 +3788,6 @@ trigger_io::IO LUTEditor::getStrobeSettings()
     trigger_io::IO ret = {};
 
     ret.delay = ui.table->item(0, ui.ColDelay)->text().toUInt();
-    ret.width = ui.table->item(0, ui.ColWidth)->text().toUInt();
     ret.holdoff = ui.table->item(0, ui.ColHoldoff)->text().toUInt();
 
     return ret;

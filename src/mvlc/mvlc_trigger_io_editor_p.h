@@ -822,7 +822,6 @@ class LUTEditor: public QDialog
             {
                 ColConnection,
                 ColDelay,
-                ColWidth,
                 ColHoldoff,
             };
 
