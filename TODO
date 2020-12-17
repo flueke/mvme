@@ -1,6 +1,14 @@
 ==================================================
 TODO list
 ==================================================
+* trigger_io_scope:
+  - rising/falling swapped in graphs
+  - fill graphs till end by adding a sample at posttriggertime with the same
+    value as the last sample
+  - interaction:
+    - user selects trigger channels
+  - optimize ScopeData allocations
+  - maybe store fifoOverflow in Snapshot
 * write mvlc stack errors to the mvme log file (right now they're completely
   lost after the daq ends)
 * trigger_io: when changing a vme event from periodic to irq the trigger_io

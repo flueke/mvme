@@ -1,4 +1,5 @@
 #include "mvlc/trigger_io_scope.h"
+#include "mesytec-mvlc/mvlc_constants.h"
 
 #ifndef __WIN32
 #include <sys/prctl.h>
@@ -14,6 +15,54 @@ namespace trigger_io_scope
 {
 
 static const unsigned UnitNumber = 48;
+
+std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup)
+{
+    auto write = [&mvlc] (u32 addr, u16 value)
+    {
+        if (auto ec = mvlc.vmeWrite(
+                mvlc::SelfVMEAddress + addr, value,
+                mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
+            throw ec;
+    };
+
+    try
+    {
+        qDebug() << __PRETTY_FUNCTION__
+            << "pre=" << setup.preTriggerTime
+            << ", post=" << setup.postTriggerTime
+            << ", trigChans=" << setup.triggerChannels.to_ulong();
+
+        write(0x0200, UnitNumber); // select osci unit
+        write(0x0300, setup.preTriggerTime);
+        write(0x0302, setup.postTriggerTime);
+        write(0x0304, setup.triggerChannels.to_ulong());
+        write(0x0306, 1); // start capturing
+    }
+    catch (const std::error_code &ec)
+    {
+        return ec;
+    }
+
+    return {};
+}
+
+std::error_code stop_scope(mvlc::MVLC mvlc)
+{
+    u16 addr = 0x0306;
+    u16 value = 0;
+
+    return mvlc.vmeWrite(
+        mvlc::SelfVMEAddress + addr, value,
+        mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16);
+}
+
+std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest)
+{
+    return mvlc.vmeBlockRead(
+        mvlc::SelfVMEAddress, mvlc::vme_amods::MBLT64,
+        std::numeric_limits<u16>::max(), dest);
+}
 
 void reader(
     mvlc::MVLC mvlc,
@@ -31,7 +80,7 @@ void reader(
     auto write = [&mvlc] (u16 addr, u16 value)
     {
         if (auto ec = mvlc.vmeWrite(
-                0xffff + addr, value,
+                mvlc::SelfVMEAddress + addr, value,
                 mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
             throw ec;
     };
@@ -58,7 +107,9 @@ void reader(
         std::vector<u32> dest;
 
         ec = mvlc.vmeBlockRead(
-            0xffff0000u, mvlc::vme_amods::A32, std::numeric_limits<u16>::max(), dest);
+            mvlc::SelfVMEAddress, mvlc::vme_amods::A32, std::numeric_limits<u16>::max(), dest);
+
+        //qDebug() << __PRETTY_FUNCTION__ << ec.message().c_str();
 
         if (mvlc::is_connection_error(ec))
             break;
@@ -104,15 +155,20 @@ inline LineEntry extract_entry(u32 dataWord)
 
 Snapshot fill_snapshot(const std::vector<u32> &buffer)
 {
-    assert(buffer.size() >= 2);
-
-    if (buffer.size() < 2)
+    if (buffer.size() < 2 + 2)
     {
         qDebug() << __PRETTY_FUNCTION__ << "got a short buffer";
         return {};
     }
 
-    if (buffer[0] != data_format::Header)
+    if ((buffer[0] >> 24) != 0xF3
+        || (buffer[1] >> 24) != 0xF5)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "invalid frame and block headers";
+        return {};
+    }
+
+    if (buffer[2] != data_format::Header)
     {
         qDebug() << __PRETTY_FUNCTION__ << "invalid Header";
         return {};
@@ -127,10 +183,7 @@ Snapshot fill_snapshot(const std::vector<u32> &buffer)
     Snapshot result;
     result.reserve(NIM_IO_Count);
 
-    // FIXME: is overflow bit in the header or in the first data word?
-    //bool overflow = 
-
-    for (size_t i=1; i<buffer.size()-1; ++i)
+    for (size_t i=3; i<buffer.size()-1; ++i)
     {
         const u32 word = buffer[i];
         const auto entry = extract_entry(word);
@@ -143,6 +196,13 @@ Snapshot fill_snapshot(const std::vector<u32> &buffer)
 
         auto &timeline = result[entry.address];
         timeline.push_back({entry.time, entry.edge});
+
+        // This is the FIFO overflow marker: the first sample of each channel
+        // will have the time set to 1 (the first samples time is by definition
+        // 0 so no information is lost).
+        if (timeline.size() == 1)
+            if (timeline[0].time == 1)
+                timeline[0].time = 0;
     }
 
     return result;

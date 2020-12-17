@@ -11,7 +11,9 @@
 #include <QTimer>
 #include <QGroupBox>
 
+#include "mesytec-mvlc/mvlc_error.h"
 #include "mesytec-mvlc/util/threadsafequeue.h"
+#include "mesytec-mvlc/vme_constants.h"
 #include "mvlc/mvlc_trigger_io.h"
 #include "mvme_qwt.h"
 #include "qt_util.h"
@@ -25,9 +27,9 @@ namespace trigger_io_scope
 
 // Data provider for QwtPlotCurve.
 //
-// When set on a curve via setData the curve takes ownership.  Timeline
-// contains the samples to plot, yOffset is used to draw multiple traces in the
-// same plot aligned to different y coordinates, the preTriggerTime is used for
+// When set on a curve via setData the curve takes ownership. Timeline contains
+// the samples to plot, yOffset is used to draw multiple traces in the same
+// plot aligned to different y coordinates, the preTriggerTime is used for
 // correct x-axis scaling (time values (0, preTriggerTime) are mapped to
 // (-preTriggerTime, 0) so that the trigger is always at 0.
 struct ScopeData: public QwtSeriesData<QPointF>
@@ -36,6 +38,7 @@ struct ScopeData: public QwtSeriesData<QPointF>
         const trigger_io_scope::Timeline &timeline,
         const double yOffset,
         const unsigned preTriggerTime
+        // TODO: need postTriggerTime here to calculate the time for the final artitifical sample
         )
         : timeline(timeline)
         , yOffset(yOffset)
@@ -67,7 +70,7 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     size_t size() const override
     {
-        return timeline.size();
+        return timeline.size(); /* TODO + 1; // +1 for the artificial final sample */
     }
 
     virtual QPointF sample(size_t i) const override
@@ -136,6 +139,7 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
         auto curve = new QwtPlotCurve(QString::number(idx));;
         curve->setData(scopeData);
         curve->setStyle(QwtPlotCurve::Steps);
+        curve->setCurveAttribute(QwtPlotCurve::Inverted);
         curve->setRenderHint(QwtPlotItem::RenderAntialiased);
         curve->attach(d->plot);
         d->curves.push_back(curve);
@@ -171,8 +175,10 @@ struct ScopeWidget::Private
 
     const double YSpacing = 0.5;
     ScopePlotWidget *plot;
+    bool stopSampling;
 
 
+#if 0
     void start()
     {
         if (readerThread.joinable())
@@ -211,9 +217,11 @@ struct ScopeWidget::Private
 
         refresh();
     }
+#endif
 
-    void analyze(const std::vector<std::vector<u32>> &buffers);
+    void analyze(const std::vector<u32> &buffers);
 
+#if 0
     void refresh()
     {
         std::vector<std::vector<u32>> buffers;
@@ -228,8 +236,6 @@ struct ScopeWidget::Private
             buffers.emplace_back(buffer);
         }
 
-        qDebug() << __PRETTY_FUNCTION__ << "got" << buffers.size() << "buffers from readerQueue";
-
         analyze(buffers);
 
         auto fs = readerFuture.wait_for(std::chrono::milliseconds(1));
@@ -243,14 +249,60 @@ struct ScopeWidget::Private
                 readerThread.join();
         }
     }
+#endif
+
+    void start()
+    {
+        stopSampling = false;
+        scopeSetup = {};
+        scopeSetup.preTriggerTime = spin_preTriggerTime->value();
+        scopeSetup.postTriggerTime = spin_postTriggerTime->value();
+
+        for (auto bitIdx=0u; bitIdx<checks_triggerChannels.size(); ++bitIdx)
+            scopeSetup.triggerChannels.set(bitIdx, checks_triggerChannels[bitIdx]->isChecked());
+
+        std::vector<u32> firstSample;
+
+        // start, read until we get a sample, stop
+
+        start_scope(mvlc, scopeSetup);
+
+        while (!stopSampling && firstSample.size() <= 2)
+        {
+            if (auto ec = read_scope(mvlc, firstSample))
+            {
+                if (ec == mvlc::ErrorType::ConnectionError
+                    || ec == mvlc::ErrorType::ProtocolError)
+                    return; // TODO: log error
+            }
+            processQtEvents(100);
+        }
+
+        stop_scope(mvlc);
+
+        // read and throw away any additional samples (needed to clear the
+        // command pipe)
+        std::vector<u32> tmpBuffer;
+        do
+        {
+            tmpBuffer.clear();
+            read_scope(mvlc, tmpBuffer);
+        } while (tmpBuffer.size() > 2);
+
+        analyze(firstSample);
+    }
+
+    void stop()
+    {
+        stopSampling = true;
+    }
 };
 
-void ScopeWidget::Private::analyze(const std::vector<std::vector<u32>> &buffers)
+void ScopeWidget::Private::analyze(const std::vector<u32> &buffer)
 {
-    if (buffers.empty()) return;
+    mesytec::mvlc::util::log_buffer(std::cout, buffer, "scope buffer");
 
-    const auto &mostRecent = buffers.back();
-    auto snapshot = fill_snapshot(mostRecent);
+    auto snapshot = fill_snapshot(buffer);
     plot->setSnapshot(scopeSetup, snapshot);
 }
 
@@ -271,6 +323,9 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
         spin->setSuffix(" ns");
     }
 
+    d->spin_preTriggerTime->setValue(200);
+    d->spin_postTriggerTime->setValue(500);
+
     auto channelsLayout = new QGridLayout;
 
     for (auto bit = 0u; bit < trigger_io::NIM_IO_Count; ++bit)
@@ -280,6 +335,8 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
         channelsLayout->addWidget(new QLabel(QString::number(bit)), 0, col);
         channelsLayout->addWidget(d->checks_triggerChannels[bit], 1, col);
     }
+
+    d->checks_triggerChannels[0]->setChecked(true); // initially let only channel 0 trigger
 
     auto pb_triggersAll = new QPushButton("all");
     auto pb_triggersNone = new QPushButton("none");
@@ -298,7 +355,6 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
 
     connect(d->pb_start, &QPushButton::clicked, this, [this] () { d->start(); });
     connect(d->pb_stop, &QPushButton::clicked, this, [this] () { d->stop(); });
-    d->pb_stop->setEnabled(false);
 
     auto buttonLayout = make_vbox();
     buttonLayout->addWidget(d->pb_start);
@@ -321,8 +377,8 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     setLayout(widgetLayout);
     setWindowTitle("Trigger IO Osci");
 
-    connect(&d->refreshTimer, &QTimer::timeout,
-            this, [this] () { d->refresh(); });
+    //connect(&d->refreshTimer, &QTimer::timeout,
+    //        this, [this] () { d->refresh(); });
 }
 
 ScopeWidget::~ScopeWidget()

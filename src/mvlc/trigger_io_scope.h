@@ -49,6 +49,10 @@ namespace data_format
     static const u32 EoE    = 0xC0000000u;
 };
 
+std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup);
+std::error_code stop_scope(mvlc::MVLC mvlc);
+std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest);
+
 void reader(
     mvlc::MVLC mvlc,
     ScopeSetup setup,
