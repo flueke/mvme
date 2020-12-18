@@ -28,11 +28,6 @@ std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup)
 
     try
     {
-        qDebug() << __PRETTY_FUNCTION__
-            << "pre=" << setup.preTriggerTime
-            << ", post=" << setup.postTriggerTime
-            << ", trigChans=" << setup.triggerChannels.to_ulong();
-
         write(0x0200, UnitNumber); // select osci unit
         write(0x0300, setup.preTriggerTime);
         write(0x0302, setup.postTriggerTime);
@@ -64,74 +59,70 @@ std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest)
         std::numeric_limits<u16>::max(), dest);
 }
 
-void reader(
-    mvlc::MVLC mvlc,
-    ScopeSetup setup,
-    mvlc::ThreadSafeQueue<std::vector<u32>> &buffers,
-    std::atomic<bool> &quit,
-    std::promise<std::error_code> ec_promise)
+std::error_code acquire_scope_sample(
+    mvlc::MVLC mvlc, ScopeSetup setup,
+    std::vector<u32> &dest, std::atomic<bool> &cancel)
 {
-#ifndef __WIN32
-    prctl(PR_SET_NAME,"osci_reader",0,0,0);
-#endif
-
-    std::error_code ec = {};
-
-    auto write = [&mvlc] (u16 addr, u16 value)
+    auto is_fatal = [] (const std::error_code &ec)
     {
-        if (auto ec = mvlc.vmeWrite(
-                mvlc::SelfVMEAddress + addr, value,
-                mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
-            throw ec;
+        return (ec == mvlc::ErrorType::ConnectionError
+                || ec == mvlc::ErrorType::ProtocolError);
     };
 
-    try
+    // Stop the stack error poller so that it doesn't read our samples off the
+    // command pipe.
+    auto errPollerLock = mvlc.suspendStackErrorPolling();
+
+    // start, read until we get a sample, stop
+    if (auto ec = start_scope(mvlc, setup))
+        return ec;
+
+    dest.clear();
+
+    while (!cancel && dest.size() <= 2)
     {
-        write(0x0200, UnitNumber); // select osci unit
-        write(0x0300, setup.preTriggerTime);
-        write(0x0302, setup.postTriggerTime);
-        write(0x0304, setup.triggerChannels.to_ulong());
-        write(0x0306, 1); // start capturing
-    }
-    catch (const std::error_code &ec)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "error setting up trigger_io osci:" << ec.message().c_str();
-        ec_promise.set_value(ec);
-        return;
-    }
+        if (auto ec = read_scope(mvlc, dest))
+            if (is_fatal(ec))
+                return ec;
 
-    qDebug() << __PRETTY_FUNCTION__ << "osci_reader entering loop";
-
-    while (!quit)
-    {
-        std::vector<u32> dest;
-
-        ec = mvlc.vmeBlockRead(
-            mvlc::SelfVMEAddress, mvlc::vme_amods::A32, std::numeric_limits<u16>::max(), dest);
-
-        //qDebug() << __PRETTY_FUNCTION__ << ec.message().c_str();
-
-        if (mvlc::is_connection_error(ec))
-            break;
-
-        if (!dest.empty())
-            buffers.enqueue(std::move(dest));
+        // readout reset
+        if (auto ec = mvlc.vmeWrite(
+                mvlc::SelfVMEAddress + 0x6034, 1,
+                mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
+        {
+            if (is_fatal(ec))
+                return ec;
+        }
     }
 
-    try
-    {
-        write(0x0306, 0); // stop capturing
-    }
-    catch (const std::error_code &ec)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "error stopping trigger_io osci:" << ec.message().c_str();
-        ec_promise.set_value(ec);
-        return;
-    }
+    if (auto ec = stop_scope(mvlc))
+        return ec;
 
-    qDebug() << __PRETTY_FUNCTION__ << "osci_reader left loop";
+    // Read and throw away any additional samples (needed to clear the command
+    // pipe). Do this even if we got canceled as a sample might have become
+    // available in the meantime.
+    std::vector<u32> tmpBuffer;
 
-    ec_promise.set_value(ec);
+    do
+    {
+        tmpBuffer.clear();
+        if (auto ec = read_scope(mvlc, tmpBuffer))
+        {
+            if (is_fatal(ec))
+                return ec;
+        }
+
+        // readout reset
+        if (auto ec = mvlc.vmeWrite(
+                mvlc::SelfVMEAddress + 0x6034, 1,
+                mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
+        {
+            if (is_fatal(ec))
+                return ec;
+        }
+    } while (tmpBuffer.size() > 2);
+
+    return {};
 }
 
 namespace
@@ -199,7 +190,9 @@ Snapshot fill_snapshot(const std::vector<u32> &buffer)
 
         // This is the FIFO overflow marker: the first sample of each channel
         // will have the time set to 1 (the first samples time is by definition
-        // 0 so no information is lost).
+        // 0 so no information is lost). The code replaces the 1 with a 0 to
+        // make plotting work just like for the non-overflow case.
+        // TODO: use this information?
         if (timeline.size() == 1)
             if (timeline[0].time == 1)
                 timeline[0].time = 0;

@@ -3,13 +3,19 @@
 #include <chrono>
 #include <QBoxLayout>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDebug>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QLabel>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QtConcurrent>
 #include <QTimer>
-#include <QGroupBox>
+#include <QStandardItemModel>
+#include <QStandardItem>
+#include <qnamespace.h>
 
 #include "mesytec-mvlc/mvlc_error.h"
 #include "mesytec-mvlc/util/threadsafequeue.h"
@@ -35,14 +41,13 @@ namespace trigger_io_scope
 struct ScopeData: public QwtSeriesData<QPointF>
 {
     ScopeData(
-        const trigger_io_scope::Timeline &timeline,
-        const double yOffset,
-        const unsigned preTriggerTime
-        // TODO: need postTriggerTime here to calculate the time for the final artitifical sample
+        const Timeline &timeline,
+        const ScopeSetup &scopeSetup,
+        const double yOffset
         )
         : timeline(timeline)
+        , scopeSetup(scopeSetup)
         , yOffset(yOffset)
-        , preTriggerTime(preTriggerTime)
     {}
 
     ~ScopeData()
@@ -52,37 +57,43 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     virtual QRectF boundingRect() const override
     {
-        auto tMin = std::numeric_limits<u16>::max();
-        auto tMax = std::numeric_limits<u16>::min();
+        double tMin = -scopeSetup.preTriggerTime;
+        double tMax = scopeSetup.postTriggerTime;
+        double tRange = tMax - tMin;
 
-        for (const auto &sample: timeline)
-        {
-            tMin = std::min(tMin, sample.time);
-            tMax = std::max(tMax, sample.time);
-        }
-
-        // casts needed to move from unsigned to signed floating point arithmetic
-        double tMinF = static_cast<double>(tMin) - preTriggerTime;
-        double tRange = static_cast<double>(tMax) - tMin;
-
-        return QRectF(tMinF, yOffset, tRange, 1.0);
+        auto result = QRectF(tMin, yOffset, tRange, 1.0);
+        //qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
+        return result;
     }
 
     size_t size() const override
     {
-        return timeline.size(); /* TODO + 1; // +1 for the artificial final sample */
+        return timeline.size() + 1; // +1 for the artificial final sample */
     }
 
     virtual QPointF sample(size_t i) const override
     {
-        double time = timeline[i].time;
-        double value = static_cast<double>(timeline[i].edge);
-        return { time - preTriggerTime,  value + yOffset };
+        if (i < timeline.size())
+        {
+            double time = timeline[i].time;
+            double value = static_cast<double>(timeline[i].edge);
+            return { time - scopeSetup.preTriggerTime,  value + yOffset };
+        }
+        else if (!timeline.empty())
+        {
+            auto lastSample = timeline.back();
+            double time = scopeSetup.preTriggerTime + scopeSetup.postTriggerTime;
+            double value = static_cast<double>(lastSample.edge);
+            //qDebug() << __PRETTY_FUNCTION__ << "artificial last sample:" << time << value;
+            return { time, value };
+        }
+
+        return {};
     }
 
     trigger_io_scope::Timeline timeline;
+    ScopeSetup scopeSetup;
     double yOffset;
-    unsigned preTriggerTime;
 
 };
 
@@ -129,7 +140,7 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
 
     for (const auto &timeline: snapshot)
     {
-        d->curvesData.push_back(new ScopeData{ timeline, yOffset, setup.preTriggerTime });
+        d->curvesData.push_back(new ScopeData{ timeline, setup, yOffset });
         yOffset += 1.0 + Private::YSpacing;
     }
 
@@ -175,85 +186,13 @@ struct ScopeWidget::Private
 
     const double YSpacing = 0.5;
     ScopePlotWidget *plot;
-    bool stopSampling;
+    std::atomic<bool> stopSampling;
 
-
-#if 0
-    void start()
-    {
-        if (readerThread.joinable())
-            return;
-
-        scopeSetup = {};
-        scopeSetup.preTriggerTime = spin_preTriggerTime->value();
-        scopeSetup.postTriggerTime = spin_postTriggerTime->value();
-
-        for (auto bitIdx=0u; bitIdx<checks_triggerChannels.size(); ++bitIdx)
-            scopeSetup.triggerChannels.set(bitIdx, checks_triggerChannels[bitIdx]->isChecked());
-
-        std::promise<std::error_code> promise;
-        readerFuture = promise.get_future();
-        readerQuit = false;
-
-        readerThread = std::thread(
-            reader, mvlc, scopeSetup, std::ref(readerQueue), std::ref(readerQuit),
-            std::move(promise));
-
-        refreshTimer.setInterval(500);
-        refreshTimer.start();
-        pb_start->setEnabled(false);
-        pb_stop->setEnabled(true);
-    }
-
-    void stop()
-    {
-        refreshTimer.stop();
-        readerQuit = true;
-
-        if (readerThread.joinable())
-            readerThread.join();
-
-        qDebug() << __PRETTY_FUNCTION__ << readerFuture.get().message().c_str();
-
-        refresh();
-    }
-#endif
 
     void analyze(const std::vector<u32> &buffers);
 
-#if 0
-    void refresh()
-    {
-        std::vector<std::vector<u32>> buffers;
-
-        while (true)
-        {
-            std::vector<u32> buffer = readerQueue.dequeue();
-
-            if (buffer.empty())
-                break;
-
-            buffers.emplace_back(buffer);
-        }
-
-        analyze(buffers);
-
-        auto fs = readerFuture.wait_for(std::chrono::milliseconds(1));
-
-        if (fs == std::future_status::ready)
-        {
-            refreshTimer.stop();
-            pb_start->setEnabled(true);
-            pb_stop->setEnabled(false);
-            if (readerThread.joinable())
-                readerThread.join();
-        }
-    }
-#endif
-
     void start()
     {
-        stopSampling = false;
         scopeSetup = {};
         scopeSetup.preTriggerTime = spin_preTriggerTime->value();
         scopeSetup.postTriggerTime = spin_postTriggerTime->value();
@@ -261,35 +200,39 @@ struct ScopeWidget::Private
         for (auto bitIdx=0u; bitIdx<checks_triggerChannels.size(); ++bitIdx)
             scopeSetup.triggerChannels.set(bitIdx, checks_triggerChannels[bitIdx]->isChecked());
 
-        std::vector<u32> firstSample;
+        std::vector<u32> sampleBuffer;
 
-        // start, read until we get a sample, stop
+        QProgressDialog progressDialog;
+        progressDialog.setLabelText(QSL("Waiting for sample..."));
+        progressDialog.setMinimum(0);
+        progressDialog.setMaximum(0);
 
-        start_scope(mvlc, scopeSetup);
+        QFutureWatcher<std::error_code> watcher;
 
-        while (!stopSampling && firstSample.size() <= 2)
+        QObject::connect(
+            &watcher, &QFutureWatcher<std::error_code>::finished,
+            &progressDialog, &QDialog::close);
+
+        QObject::connect(
+            &progressDialog, &QProgressDialog::canceled,
+            q, [this] () { stopSampling = true; });
+
+        stopSampling = false;
+
+        auto futureResult = QtConcurrent::run(
+            acquire_scope_sample, mvlc, scopeSetup,
+            std::ref(sampleBuffer),
+            std::ref(stopSampling));
+
+        watcher.setFuture(futureResult);
+        progressDialog.exec();
+
+        if (auto ec = futureResult.result())
         {
-            if (auto ec = read_scope(mvlc, firstSample))
-            {
-                if (ec == mvlc::ErrorType::ConnectionError
-                    || ec == mvlc::ErrorType::ProtocolError)
-                    return; // TODO: log error
-            }
-            processQtEvents(100);
+            qDebug() << __PRETTY_FUNCTION__ << "result=" << ec.message().c_str();
         }
 
-        stop_scope(mvlc);
-
-        // read and throw away any additional samples (needed to clear the
-        // command pipe)
-        std::vector<u32> tmpBuffer;
-        do
-        {
-            tmpBuffer.clear();
-            read_scope(mvlc, tmpBuffer);
-        } while (tmpBuffer.size() > 2);
-
-        analyze(firstSample);
+        analyze(sampleBuffer);
     }
 
     void stop()
@@ -326,6 +269,7 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     d->spin_preTriggerTime->setValue(200);
     d->spin_postTriggerTime->setValue(500);
 
+#if 0
     auto channelsLayout = new QGridLayout;
 
     for (auto bit = 0u; bit < trigger_io::NIM_IO_Count; ++bit)
@@ -337,6 +281,7 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     }
 
     d->checks_triggerChannels[0]->setChecked(true); // initially let only channel 0 trigger
+#endif
 
     auto pb_triggersAll = new QPushButton("all");
     auto pb_triggersNone = new QPushButton("none");
@@ -347,8 +292,8 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     connect(pb_triggersNone, &QPushButton::clicked,
             this, [this] () { for (auto cb: d->checks_triggerChannels) cb->setChecked(false); });
 
-    channelsLayout->addWidget(pb_triggersAll, 0, trigger_io::NIM_IO_Count);
-    channelsLayout->addWidget(pb_triggersNone, 1, trigger_io::NIM_IO_Count);
+    //channelsLayout->addWidget(pb_triggersAll, 0, trigger_io::NIM_IO_Count);
+    //channelsLayout->addWidget(pb_triggersNone, 1, trigger_io::NIM_IO_Count);
 
     d->pb_start = new QPushButton("Start");
     d->pb_stop = new QPushButton("Stop");
@@ -363,7 +308,8 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     auto controlsLayout = new QFormLayout;
     controlsLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
     controlsLayout->addRow("Post Trigger Time", d->spin_postTriggerTime);
-    controlsLayout->addRow("Trigger Channels", channelsLayout);
+    //controlsLayout->addRow("Trigger Channels", channelsLayout);
+    //controlsLayout->addRow("Trigger Channels", combo_channels);
     controlsLayout->addRow(buttonLayout);
     auto gbControls = new QGroupBox("Setup");
     gbControls->setLayout(controlsLayout);

@@ -1,8 +1,8 @@
 ==================================================
 TODO list
 ==================================================
+* mvlc: module machen, dass des timestamp counter buffer vom mvlc ausliest
 * trigger_io_scope:
-  - rising/falling swapped in graphs
   - fill graphs till end by adding a sample at posttriggertime with the same
     value as the last sample
   - interaction:

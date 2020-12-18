@@ -49,16 +49,25 @@ namespace data_format
     static const u32 EoE    = 0xC0000000u;
 };
 
+struct Sample
+{
+    u16 time;
+    Edge edge;
+};
+
+using Timeline = std::vector<Sample>;
+using Snapshot = std::vector<Timeline>;
+
+Snapshot fill_snapshot(const std::vector<u32> &buffer);
+
 std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup);
 std::error_code stop_scope(mvlc::MVLC mvlc);
 std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest);
 
-void reader(
-    mvlc::MVLC mvlc,
-    ScopeSetup setup,
-    mvlc::ThreadSafeQueue<std::vector<u32>> &buffers,
-    std::atomic<bool> &quit,
-    std::promise<std::error_code> ec_promise);
+// Starts, reads and stops the scope.
+std::error_code acquire_scope_sample(
+    mvlc::MVLC mvlc, ScopeSetup setup,
+    std::vector<u32> &dest, std::atomic<bool> &cancel);
 
 inline const char *to_string(const Edge &e)
 {
@@ -70,17 +79,6 @@ inline const char *to_string(const Edge &e)
 
     return {};
 };
-
-struct Sample
-{
-    u16 time;
-    Edge edge;
-};
-
-using Timeline = std::vector<Sample>;
-using Snapshot = std::vector<Timeline>;
-
-Snapshot fill_snapshot(const std::vector<u32> &buffer);
 
 } // end namespace trigger_io_scope
 } // end namespace mvme_mvlc
