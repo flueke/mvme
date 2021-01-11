@@ -9,8 +9,8 @@ option(MVME_WITH_PYBIND11 "Enable usage of pybind11 in mvme" OFF)
 
 if (MVME_WITH_PYBIND11)
 
-    add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/pybind11
-                     ${CMAKE_BINARY_DIR}/3rdparty/pybind11)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/external/pybind11
+                     ${CMAKE_BINARY_DIR}/external/pybind11)
 
     add_library(listfile_reader_python_plugin SHARED listfile_reader_python_plugin.cc)
     target_link_libraries(listfile_reader_python_plugin PRIVATE pybind11::embed)
