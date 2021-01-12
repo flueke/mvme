@@ -153,16 +153,36 @@ inline void simulate_sysclock(
     }
 }
 
-/*
+using LUT_Input_Timelines = std::array<std::reference_wrapper<const Timeline>, LUT::InputBits>;
+using LUT_Output_Timelines = std::array<std::reference_wrapper<Timeline>, LUT::OutputBits>;
+
+// Full LUT simulation with strobe input
 inline void simulate(
     const LUT &lut,
-    const std::array<Timeline, LUT::InputBits> &inputs,
+    const LUT_Input_Timelines &inputs,
     const Timeline &strobeInput,
-    std::array<Timeline, LUT::OutputBits> &outputs,
+    LUT_Output_Timelines &outputs,
+    Timeline &strobeOutput, // for diagnostics only
     const std::chrono::nanoseconds &maxtime)
 {
+    // Ignore the strobe for now. Looking up the state of the strobe will be
+    // the same as needs to be done for the inputs.
+
+    // xxx: leftoff here
+
 }
-*/
+
+// LUT simulation without the strobe input
+inline void simulate(
+    const LUT &lut,
+    const LUT_Input_Timelines &inputs,
+    LUT_Output_Timelines &outputs,
+    const std::chrono::nanoseconds &maxtime)
+{
+    Timeline strobeOut;
+    simulate(lut, inputs, {}, outputs, strobeOut, maxtime);
+}
+
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

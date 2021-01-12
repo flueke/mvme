@@ -45,21 +45,22 @@ struct ScopeData: public QwtSeriesData<QPointF>
 {
     ScopeData(
         const Timeline &timeline,
-        const ScopeSetup &scopeSetup,
+        //const ScopeSetup &scopeSetup,
         const double yOffset
         )
         : timeline(timeline)
-        , scopeSetup(scopeSetup)
+        //, scopeSetup(scopeSetup)
         , yOffset(yOffset)
     {}
 
     ~ScopeData() override
     {
-        qDebug() << __PRETTY_FUNCTION__  << this;
+        //qDebug() << __PRETTY_FUNCTION__  << this;
     }
 
     QRectF boundingRect() const override
     {
+#if 0
         double tMin = -scopeSetup.preTriggerTime;
         double tMax = scopeSetup.postTriggerTime;
         double tRange = tMax - tMin;
@@ -67,19 +68,28 @@ struct ScopeData: public QwtSeriesData<QPointF>
         auto result = QRectF(tMin, yOffset, tRange, 1.0);
         qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
         return result;
+#else
+        double tMin = timeline.empty() ? 0 : timeline.front().time.count();
+        double tMax = timeline.empty() ? 0 : timeline.back().time.count();
+        double tRange = tMax - tMin;
+        auto result = QRectF(tMin, yOffset, tRange, 1.0);
+        qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
+        return result;
+#endif
     }
 
     size_t size() const override
     {
-        return timeline.size() + 1; // +1 for the artificial final sample */
+        return timeline.size() /* + 1 */; // +1 for the artificial final sample */
     }
 
     QPointF sample(size_t i) const override
     {
+#if 0
         if (i < timeline.size())
         {
             double time = timeline[i].time.count();
-            qDebug() << __PRETTY_FUNCTION__ << time;
+            //qDebug() << __PRETTY_FUNCTION__ << time;
             double value = static_cast<double>(timeline[i].edge);
             return { time - scopeSetup.preTriggerTime,  value + yOffset };
         }
@@ -88,9 +98,26 @@ struct ScopeData: public QwtSeriesData<QPointF>
             auto lastSample = timeline.back();
             double time = scopeSetup.preTriggerTime + scopeSetup.postTriggerTime;
             double value = static_cast<double>(lastSample.edge) + yOffset;
-            //qDebug() << __PRETTY_FUNCTION__ << "artificial last sample:" << time << value;
+            qDebug() << __PRETTY_FUNCTION__ << "artificial last sample:" << time << value;
             return { time, value };
         }
+#else
+        if (i < timeline.size())
+        {
+            double time = timeline[i].time.count();
+            //qDebug() << __PRETTY_FUNCTION__ << time;
+            double value = static_cast<double>(timeline[i].edge);
+            return { time, value + yOffset };
+        }
+        else if (!timeline.empty())
+        {
+            auto lastSample = timeline.back();
+            double time = scopeSetup.preTriggerTime + scopeSetup.postTriggerTime;
+            double value = static_cast<double>(lastSample.edge) + yOffset;
+            qDebug() << __PRETTY_FUNCTION__ << "artificial last sample:" << time << value;
+            return { time, value };
+        }
+#endif
 
         return {};
     }
@@ -144,7 +171,7 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
 
     for (const auto &timeline: snapshot)
     {
-        d->curvesData.push_back(new ScopeData{ timeline, setup, yOffset });
+        d->curvesData.push_back(new ScopeData{ timeline, /*setup,*/ yOffset });
         yOffset += 1.0 + Private::YSpacing;
     }
 
@@ -152,6 +179,9 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
     for (auto &scopeData: d->curvesData)
     {
         auto curve = new QwtPlotCurve(QString::number(idx));;
+        curve->setItemInterest(QwtPlotItem::ScaleInterest); // TODO: try and
+        //see if this information can be used for the last sample in ScopeData
+        //    (to draw to the end of the x-axis).
         curve->setData(scopeData);
         curve->setStyle(QwtPlotCurve::Steps);
         curve->setCurveAttribute(QwtPlotCurve::Inverted);
@@ -236,10 +266,12 @@ struct ScopeWidget::Private
         watcher.setFuture(futureResult);
         progressDialog.exec();
 
+        /*
         if (auto ec = futureResult.result())
         {
             qDebug() << __PRETTY_FUNCTION__ << "result=" << ec.message().c_str();
         }
+        */
 
         analyze(sampleBuffer);
     }

@@ -3,6 +3,7 @@
 #include <QTimer>
 
 #include <chrono>
+#include <iostream>
 #include <limits>
 #include <random>
 
@@ -13,6 +14,8 @@
 
 using namespace mesytec::mvme_mvlc;
 using namespace std::chrono_literals;
+using std::cout;
+using std::endl;
 
 int main(int argc, char *argv[])
 {
@@ -97,6 +100,10 @@ int main(int argc, char *argv[])
 
     simulate_sysclock(sysclock, 1000ns);
 
+    cout << "sysclock: ";
+    print(cout, sysclock);
+    cout << endl;
+
     Timer timer0;
     timer0.delay_ns = 10;
     timer0.period = 5;
@@ -104,16 +111,27 @@ int main(int argc, char *argv[])
     Timeline timer0Samples;
     simulate(timer0, timer0Samples, 1000ns);
 
-    Snapshot ioSnap = { input, output, sysclock, timer0Samples };
+    Snapshot ioSnap = { input, output, timer0Samples };
     ScopeSetup ioScopeSetup = { 0, static_cast<u16>(std::max(input.back().time, output.back().time).count()) };
     ioScopeSetup.postTriggerTime += 20;
 
     ScopePlotWidget ioPlot;
-    ioPlot.setWindowTitle("IO Test");
+    ioPlot.setWindowTitle("TrigIO Test 0");
     ioPlot.setSnapshot(ioScopeSetup, ioSnap);
-    ioPlot.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 100, 5);
+    ioPlot.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 200, 5);
 
     ioPlot.show();
+
+    // ==========================================
+
+    Snapshot ioSnap1 = { sysclock };
+
+    ScopePlotWidget ioPlot1;
+    ioPlot1.setWindowTitle("TrigIO Test 1");
+    ioPlot1.setSnapshot(ioScopeSetup, ioSnap1);
+    //ioPlot1.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 1000, 100);
+
+    ioPlot1.show();
 
 
     int ret = app.exec();

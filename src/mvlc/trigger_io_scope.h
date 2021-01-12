@@ -88,6 +88,17 @@ inline const char *to_string(const Edge &e)
     return {};
 };
 
+template<typename Out>
+Out & print(Out &out, const Timeline &timeline)
+{
+    for (const auto &sample: timeline)
+    {
+        out << "(" << sample.time.count()
+            << ", " << static_cast<unsigned>(sample.edge)
+            << "), ";
+    }
+}
+
 } // end namespace trigger_io_scope
 } // end namespace mvme_mvlc
 } // end namespace mesytec
