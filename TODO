@@ -1,7 +1,8 @@
 ==================================================
 TODO list
 ==================================================
-* mvlc: module machen, dass des timestamp counter buffer vom mvlc ausliest
+* mvlc: module machen, dass des timestamp counter buffer vom mvlc ausliest. Wo
+  liegt das?
 * trigger_io_scope:
   - close widget on mvlc change or update mvlc instance (the widget currently
     retains the old instance)

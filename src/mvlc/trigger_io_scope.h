@@ -1,6 +1,7 @@
 #ifndef __MVME_MVLC_TRIGGER_IO_SCOPE_H__
 #define __MVME_MVLC_TRIGGER_IO_SCOPE_H__
 
+#include <chrono>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mesytec-mvlc/util/threadsafequeue.h"
 #include "mvlc/mvlc_trigger_io.h"
@@ -49,9 +50,11 @@ namespace data_format
     static const u32 EoE    = 0xC0000000u;
 };
 
+using SampleTime = std::chrono::duration<float, std::chrono::nanoseconds::period>;
+
 struct Sample
 {
-    std::chrono::nanoseconds time;
+    SampleTime time;
     Edge edge;
 };
 

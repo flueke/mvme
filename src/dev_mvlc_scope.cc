@@ -8,7 +8,7 @@
 
 #include "mvlc/trigger_io_scope.h"
 #include "mvlc/trigger_io_scope_ui.h"
-#include "mvlc/mvlc_trigger_io_sim.h"
+#include "mvlc/trigger_io_sim.h"
 #include "mvme_qwt.h"
 
 using namespace mesytec::mvme_mvlc;
@@ -88,12 +88,23 @@ int main(int argc, char *argv[])
 
     Timeline output;
 
-    auto simulateUpTo = std::chrono::nanoseconds::max();
+    auto simulateUpTo = SampleTime::max();
     simulateUpTo = 46ns; // 45 ignoeres the last input pulse, 46 uses it
 
     simulate(io, input, output, simulateUpTo);
 
-    Snapshot ioSnap = { input, output };
+    Timeline sysclock;
+
+    simulate_sysclock(sysclock, 1000ns);
+
+    Timer timer0;
+    timer0.delay_ns = 10;
+    timer0.period = 5;
+    timer0.range = Timer::Range::ns;
+    Timeline timer0Samples;
+    simulate(timer0, timer0Samples, 1000ns);
+
+    Snapshot ioSnap = { input, output, sysclock, timer0Samples };
     ScopeSetup ioScopeSetup = { 0, static_cast<u16>(std::max(input.back().time, output.back().time).count()) };
     ioScopeSetup.postTriggerTime += 20;
 

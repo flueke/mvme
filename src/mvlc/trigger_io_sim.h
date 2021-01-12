@@ -17,13 +17,17 @@ using namespace trigger_io_scope;
 
 // Extend the timeline to toTime using the last input samples edge.
 // Does nothing if input is empty or the last sample time in input is >= toTime.
-inline void extend(Timeline &input, const std::chrono::nanoseconds &toTime)
+inline void extend(Timeline &input, const SampleTime &toTime)
 {
     if (!input.empty() && input.back().time < toTime)
         input.push_back({ toTime, input.back().edge });
 }
 
-inline void simulate(const struct IO &io, const Timeline &input, Timeline &output, const std::chrono::nanoseconds &maxtime)
+inline void simulate(
+    const IO &io,
+    const Timeline &input,
+    Timeline &output,
+    const SampleTime &maxtime)
 {
     using namespace std::chrono_literals;
 
@@ -52,7 +56,7 @@ inline void simulate(const struct IO &io, const Timeline &input, Timeline &outpu
 
     const auto inEnd = std::end(input);
 
-    auto holdoffUntil = std::chrono::nanoseconds::min();
+    auto holdoffUntil = SampleTime::min();
 
     output.push_back({ 0ns, Edge::Falling }); // Start off with an initial 0 'state'.
 
@@ -81,6 +85,84 @@ inline void simulate(const struct IO &io, const Timeline &input, Timeline &outpu
         }
     }
 }
+
+inline void simulate(
+    const Timer &timer,
+    Timeline &output,
+    const SampleTime &maxtime)
+{
+    using namespace std::chrono_literals;
+
+    auto range_to_ns_factor = [] (const Timer::Range &timerRange)
+    {
+        switch (timerRange)
+        {
+            case Timer::Range::ns:
+                return 1u;
+            case Timer::Range::us:
+                return 1000u;
+            case Timer::Range::ms:
+                return 1000 * 1000u;
+            case Timer::Range::s:
+                return 1000 * 1000 * 1000u;
+        }
+
+        return 0u;
+    };
+
+    const auto timerHalfPeriod = SampleTime(
+        timer.period * range_to_ns_factor(timer.range) * 0.5);
+
+    // Initial output level
+    output.push_back({ 0ns, Edge::Falling });
+
+    // First delayed pulse
+    output.push_back({ SampleTime(timer.delay_ns), Edge::Rising });
+    output.push_back({ SampleTime(timer.delay_ns + timerHalfPeriod.count()), Edge::Falling });
+
+    // Generate the rest of the pulses up to maxtime based of the time of the
+    // last falling edge.
+    // Note: might be better to remember the number of pulses generated and use
+    // multiplication to calculate the next times. This way errors won't accumulate.
+    while (output.back().time < maxtime)
+    {
+        Sample outRising = { output.back().time + timerHalfPeriod, Edge::Rising };
+        Sample outFalling = { outRising.time + timerHalfPeriod, Edge::Falling };
+
+        output.emplace_back(outRising);
+        output.emplace_back(outFalling);
+    }
+}
+
+inline void simulate_sysclock(
+    Timeline &output,
+    const SampleTime &maxtime)
+{
+    using namespace std::chrono_literals;
+    static const auto SysClockHalfPeriod = 62.5ns * 0.5;
+
+    output.push_back({ 0ns, Edge::Falling });
+
+    while (output.back().time < maxtime)
+    {
+        Sample outRising = { output.back().time + SysClockHalfPeriod, Edge::Rising };
+        Sample outFalling = { outRising.time + SysClockHalfPeriod, Edge::Falling };
+
+        output.emplace_back(outRising);
+        output.emplace_back(outFalling);
+    }
+}
+
+/*
+inline void simulate(
+    const LUT &lut,
+    const std::array<Timeline, LUT::InputBits> &inputs,
+    const Timeline &strobeInput,
+    std::array<Timeline, LUT::OutputBits> &outputs,
+    const std::chrono::nanoseconds &maxtime)
+{
+}
+*/
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
