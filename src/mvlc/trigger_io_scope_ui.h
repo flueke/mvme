@@ -5,6 +5,8 @@
 #include "libmvme_export.h"
 #include "mvlc/trigger_io_scope.h"
 
+class QwtPlot;
+
 namespace mesytec
 {
 namespace mvme_mvlc
@@ -20,6 +22,8 @@ class LIBMVME_EXPORT ScopePlotWidget: public QWidget
         ~ScopePlotWidget() override;
 
         void setSnapshot(const ScopeSetup &setup, const Snapshot &snapshot);
+
+        QwtPlot *getPlot();
 
     private:
         struct Private;

@@ -51,14 +51,14 @@ namespace data_format
 
 struct Sample
 {
-    u16 time;
+    std::chrono::nanoseconds time;
     Edge edge;
 };
 
-using Timeline = std::vector<Sample>;
-using Snapshot = std::vector<Timeline>;
+using Timeline = std::vector<Sample>;       // Samples over time for one signal/pin.
+using Snapshot = std::vector<Timeline>;     // Collection of timelines representing a snapshot acquired from the scope.
 
-Snapshot fill_snapshot(const std::vector<u32> &buffer);
+Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer);
 
 std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup);
 std::error_code stop_scope(mvlc::MVLC mvlc);
@@ -68,6 +68,11 @@ std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest);
 std::error_code acquire_scope_sample(
     mvlc::MVLC mvlc, ScopeSetup setup,
     std::vector<u32> &dest, std::atomic<bool> &cancel);
+
+inline Edge invert(const Edge &e)
+{
+    return (e == Edge::Falling ? Edge::Rising : Edge::Falling);
+}
 
 inline const char *to_string(const Edge &e)
 {

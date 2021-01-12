@@ -3,10 +3,8 @@ TODO list
 ==================================================
 * mvlc: module machen, dass des timestamp counter buffer vom mvlc ausliest
 * trigger_io_scope:
-  - fill graphs till end by adding a sample at posttriggertime with the same
-    value as the last sample
-  - interaction:
-    - user selects trigger channels
+  - close widget on mvlc change or update mvlc instance (the widget currently
+    retains the old instance)
   - optimize ScopeData allocations
   - maybe store fifoOverflow in Snapshot
 * write mvlc stack errors to the mvme log file (right now they're completely

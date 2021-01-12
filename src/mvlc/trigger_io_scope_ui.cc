@@ -33,11 +33,14 @@ namespace trigger_io_scope
 
 // Data provider for QwtPlotCurve.
 //
-// When set on a curve via setData the curve takes ownership. Timeline contains
-// the samples to plot, yOffset is used to draw multiple traces in the same
-// plot aligned to different y coordinates, the preTriggerTime is used for
-// correct x-axis scaling (time values (0, preTriggerTime) are mapped to
-// (-preTriggerTime, 0) so that the trigger is always at 0.
+// Timeline contains the samples to plot, yOffset is used to draw multiple
+// traces in the same plot at different y coordinates, the preTriggerTime is
+// used for correct x-axis scaling: time values in the range (0,
+// preTriggerTime) are mapped to (-preTriggerTime, 0) so that the trigger is
+// always at 0.
+//
+// When a ScopeData* is set on a curve via QwtPlotCurve::setData the curve
+// takes ownership.
 struct ScopeData: public QwtSeriesData<QPointF>
 {
     ScopeData(
@@ -50,19 +53,19 @@ struct ScopeData: public QwtSeriesData<QPointF>
         , yOffset(yOffset)
     {}
 
-    ~ScopeData()
+    ~ScopeData() override
     {
         qDebug() << __PRETTY_FUNCTION__  << this;
     }
 
-    virtual QRectF boundingRect() const override
+    QRectF boundingRect() const override
     {
         double tMin = -scopeSetup.preTriggerTime;
         double tMax = scopeSetup.postTriggerTime;
         double tRange = tMax - tMin;
 
         auto result = QRectF(tMin, yOffset, tRange, 1.0);
-        //qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
+        qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
         return result;
     }
 
@@ -71,11 +74,12 @@ struct ScopeData: public QwtSeriesData<QPointF>
         return timeline.size() + 1; // +1 for the artificial final sample */
     }
 
-    virtual QPointF sample(size_t i) const override
+    QPointF sample(size_t i) const override
     {
         if (i < timeline.size())
         {
-            double time = timeline[i].time;
+            double time = timeline[i].time.count();
+            qDebug() << __PRETTY_FUNCTION__ << time;
             double value = static_cast<double>(timeline[i].edge);
             return { time - scopeSetup.preTriggerTime,  value + yOffset };
         }
@@ -83,7 +87,7 @@ struct ScopeData: public QwtSeriesData<QPointF>
         {
             auto lastSample = timeline.back();
             double time = scopeSetup.preTriggerTime + scopeSetup.postTriggerTime;
-            double value = static_cast<double>(lastSample.edge);
+            double value = static_cast<double>(lastSample.edge) + yOffset;
             //qDebug() << __PRETTY_FUNCTION__ << "artificial last sample:" << time << value;
             return { time, value };
         }
@@ -100,9 +104,9 @@ struct ScopeData: public QwtSeriesData<QPointF>
 struct ScopePlotWidget::Private
 {
     QwtPlot *plot;
-    std::vector<ScopeData *> curvesData;
+    std::vector<QwtSeriesData<QPointF> *> curvesData;
     std::vector<QwtPlotCurve *> curves;
-    ScopeSetup setup;
+    //ScopeSetup setup;
 
     constexpr static const double YSpacing = 0.5;
 };
@@ -135,7 +139,7 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
     d->curves.clear();
     d->curvesData.clear();
 
-    d->setup = setup;
+    //d->setup = setup;
     double yOffset = 0.0;
 
     for (const auto &timeline: snapshot)
@@ -161,6 +165,11 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
     d->plot->enableAxis(QwtPlot::yLeft, false);
     d->plot->updateAxes();
     d->plot->replot();
+}
+
+QwtPlot *ScopePlotWidget::getPlot()
+{
+    return d->plot;
 }
 
 struct ScopeWidget::Private
@@ -245,7 +254,7 @@ void ScopeWidget::Private::analyze(const std::vector<u32> &buffer)
 {
     mesytec::mvlc::util::log_buffer(std::cout, buffer, "scope buffer");
 
-    auto snapshot = fill_snapshot(buffer);
+    auto snapshot = fill_snapshot_from_mvlc_buffer(buffer);
     plot->setSnapshot(scopeSetup, snapshot);
 }
 
@@ -269,7 +278,7 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     d->spin_preTriggerTime->setValue(200);
     d->spin_postTriggerTime->setValue(500);
 
-#if 0
+#if 1
     auto channelsLayout = new QGridLayout;
 
     for (auto bit = 0u; bit < trigger_io::NIM_IO_Count; ++bit)
@@ -292,8 +301,8 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     connect(pb_triggersNone, &QPushButton::clicked,
             this, [this] () { for (auto cb: d->checks_triggerChannels) cb->setChecked(false); });
 
-    //channelsLayout->addWidget(pb_triggersAll, 0, trigger_io::NIM_IO_Count);
-    //channelsLayout->addWidget(pb_triggersNone, 1, trigger_io::NIM_IO_Count);
+    channelsLayout->addWidget(pb_triggersAll, 0, trigger_io::NIM_IO_Count);
+    channelsLayout->addWidget(pb_triggersNone, 1, trigger_io::NIM_IO_Count);
 
     d->pb_start = new QPushButton("Start");
     d->pb_stop = new QPushButton("Stop");
@@ -308,7 +317,7 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     auto controlsLayout = new QFormLayout;
     controlsLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
     controlsLayout->addRow("Post Trigger Time", d->spin_postTriggerTime);
-    //controlsLayout->addRow("Trigger Channels", channelsLayout);
+    controlsLayout->addRow("Trigger Channels", channelsLayout);
     //controlsLayout->addRow("Trigger Channels", combo_channels);
     controlsLayout->addRow(buttonLayout);
     auto gbControls = new QGroupBox("Setup");

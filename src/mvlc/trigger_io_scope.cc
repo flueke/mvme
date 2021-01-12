@@ -1,5 +1,6 @@
 #include "mvlc/trigger_io_scope.h"
 #include "mesytec-mvlc/mvlc_constants.h"
+#include <chrono>
 
 #ifndef __WIN32
 #include <sys/prctl.h>
@@ -127,16 +128,16 @@ std::error_code acquire_scope_sample(
 
 namespace
 {
-struct LineEntry
+struct BufferEntry
 {
     u8 address;
     Edge edge;
     u16 time;
 };
 
-inline LineEntry extract_entry(u32 dataWord)
+inline BufferEntry extract_entry(u32 dataWord)
 {
-    LineEntry result;
+    BufferEntry result;
     result.address = (dataWord >> data_format::AddressShift) & data_format::AddressMask;
     result.edge = Edge((dataWord >> data_format::EdgeShift) & data_format::EdgeMask);
     result.time = (dataWord >> data_format::TimeShift) & data_format::TimeMask;
@@ -144,8 +145,10 @@ inline LineEntry extract_entry(u32 dataWord)
 }
 }
 
-Snapshot fill_snapshot(const std::vector<u32> &buffer)
+Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer)
 {
+    using namespace std::chrono_literals;
+
     if (buffer.size() < 2 + 2)
     {
         qDebug() << __PRETTY_FUNCTION__ << "got a short buffer";
@@ -186,16 +189,16 @@ Snapshot fill_snapshot(const std::vector<u32> &buffer)
             result.resize(entry.address + 1);
 
         auto &timeline = result[entry.address];
-        timeline.push_back({entry.time, entry.edge});
+        timeline.push_back({std::chrono::nanoseconds(entry.time), entry.edge});
 
         // This is the FIFO overflow marker: the first sample of each channel
         // will have the time set to 1 (the first samples time is by definition
         // 0 so no information is lost). The code replaces the 1 with a 0 to
         // make plotting work just like for the non-overflow case.
-        // TODO: use this information?
+        // TODO: use the overflow information somewhere?
         if (timeline.size() == 1)
-            if (timeline[0].time == 1)
-                timeline[0].time = 0;
+            if (timeline[0].time == 1ns)
+                timeline[0].time = 0ns;
     }
 
     return result;
