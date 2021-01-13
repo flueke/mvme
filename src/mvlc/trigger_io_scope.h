@@ -97,6 +97,8 @@ Out & print(Out &out, const Timeline &timeline)
             << ", " << static_cast<unsigned>(sample.edge)
             << "), ";
     }
+
+    return out;
 }
 
 } // end namespace trigger_io_scope

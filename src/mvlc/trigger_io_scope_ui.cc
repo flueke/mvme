@@ -45,11 +45,9 @@ struct ScopeData: public QwtSeriesData<QPointF>
 {
     ScopeData(
         const Timeline &timeline,
-        //const ScopeSetup &scopeSetup,
         const double yOffset
         )
         : timeline(timeline)
-        //, scopeSetup(scopeSetup)
         , yOffset(yOffset)
     {}
 
@@ -60,48 +58,26 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     QRectF boundingRect() const override
     {
-#if 0
-        double tMin = -scopeSetup.preTriggerTime;
-        double tMax = scopeSetup.postTriggerTime;
-        double tRange = tMax - tMin;
+        if (!timeline.empty())
+        {
+            double tMin = timeline.empty() ? 0 : timeline.front().time.count();
+            double tMax = timeline.empty() ? 0 : timeline.back().time.count();
+            double tRange = tMax - tMin;
+            auto result = QRectF(tMin, yOffset, tRange, 1.0);
+            //qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
+            return result;
+        }
 
-        auto result = QRectF(tMin, yOffset, tRange, 1.0);
-        qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
-        return result;
-#else
-        double tMin = timeline.empty() ? 0 : timeline.front().time.count();
-        double tMax = timeline.empty() ? 0 : timeline.back().time.count();
-        double tRange = tMax - tMin;
-        auto result = QRectF(tMin, yOffset, tRange, 1.0);
-        qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
-        return result;
-#endif
+        return {};
     }
 
     size_t size() const override
     {
-        return timeline.size() /* + 1 */; // +1 for the artificial final sample */
+        return timeline.size();
     }
 
     QPointF sample(size_t i) const override
     {
-#if 0
-        if (i < timeline.size())
-        {
-            double time = timeline[i].time.count();
-            //qDebug() << __PRETTY_FUNCTION__ << time;
-            double value = static_cast<double>(timeline[i].edge);
-            return { time - scopeSetup.preTriggerTime,  value + yOffset };
-        }
-        else if (!timeline.empty())
-        {
-            auto lastSample = timeline.back();
-            double time = scopeSetup.preTriggerTime + scopeSetup.postTriggerTime;
-            double value = static_cast<double>(lastSample.edge) + yOffset;
-            qDebug() << __PRETTY_FUNCTION__ << "artificial last sample:" << time << value;
-            return { time, value };
-        }
-#else
         if (i < timeline.size())
         {
             double time = timeline[i].time.count();
@@ -109,21 +85,11 @@ struct ScopeData: public QwtSeriesData<QPointF>
             double value = static_cast<double>(timeline[i].edge);
             return { time, value + yOffset };
         }
-        else if (!timeline.empty())
-        {
-            auto lastSample = timeline.back();
-            double time = scopeSetup.preTriggerTime + scopeSetup.postTriggerTime;
-            double value = static_cast<double>(lastSample.edge) + yOffset;
-            qDebug() << __PRETTY_FUNCTION__ << "artificial last sample:" << time << value;
-            return { time, value };
-        }
-#endif
 
         return {};
     }
 
     trigger_io_scope::Timeline timeline;
-    ScopeSetup scopeSetup;
     double yOffset;
 
 };
@@ -133,7 +99,6 @@ struct ScopePlotWidget::Private
     QwtPlot *plot;
     std::vector<QwtSeriesData<QPointF> *> curvesData;
     std::vector<QwtPlotCurve *> curves;
-    //ScopeSetup setup;
 
     constexpr static const double YSpacing = 0.5;
 };
@@ -152,7 +117,7 @@ ScopePlotWidget::~ScopePlotWidget()
 {
 }
 
-void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snapshot)
+void ScopePlotWidget::setSnapshot(const Snapshot &snapshot)
 {
     // FIXME: supercrappy, resize instead of deleting existing stuff. just
     // update the data info for existing entries and replot.
@@ -166,12 +131,11 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
     d->curves.clear();
     d->curvesData.clear();
 
-    //d->setup = setup;
     double yOffset = 0.0;
 
     for (const auto &timeline: snapshot)
     {
-        d->curvesData.push_back(new ScopeData{ timeline, /*setup,*/ yOffset });
+        d->curvesData.push_back(new ScopeData{ timeline, yOffset });
         yOffset += 1.0 + Private::YSpacing;
     }
 
@@ -179,7 +143,7 @@ void ScopePlotWidget::setSnapshot(const ScopeSetup &setup, const Snapshot &snaps
     for (auto &scopeData: d->curvesData)
     {
         auto curve = new QwtPlotCurve(QString::number(idx));;
-        curve->setItemInterest(QwtPlotItem::ScaleInterest); // TODO: try and
+        //curve->setItemInterest(QwtPlotItem::ScaleInterest); // TODO: try and
         //see if this information can be used for the last sample in ScopeData
         //    (to draw to the end of the x-axis).
         curve->setData(scopeData);
@@ -287,7 +251,7 @@ void ScopeWidget::Private::analyze(const std::vector<u32> &buffer)
     mesytec::mvlc::util::log_buffer(std::cout, buffer, "scope buffer");
 
     auto snapshot = fill_snapshot_from_mvlc_buffer(buffer);
-    plot->setSnapshot(scopeSetup, snapshot);
+    plot->setSnapshot(snapshot);
 }
 
 ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)

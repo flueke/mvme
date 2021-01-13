@@ -22,6 +22,11 @@ int main(int argc, char *argv[])
     using namespace trigger_io_scope;
     using namespace trigger_io;
 
+    QApplication app(argc, argv);
+
+    //
+    // Scope plot with randomizing edges
+    //
     Snapshot snapshot;
     snapshot.resize(1);
     for (auto &timeline: snapshot)
@@ -36,18 +41,13 @@ int main(int argc, char *argv[])
         timeline.push_back({70ns, Edge::Falling});
     }
 
-    ScopeSetup scopeSetup;
-    scopeSetup.preTriggerTime = 30;
-    scopeSetup.postTriggerTime = 40;
-
-    QApplication app(argc, argv);
 
     ScopePlotWidget plotWidget;
     plotWidget.setWindowTitle("Randomizing Edges");
-    plotWidget.setSnapshot(scopeSetup, snapshot);
-    plotWidget.show();
+    plotWidget.setSnapshot(snapshot);
+    //plotWidget.show();
 
-    auto randomize_data = [] (ScopeSetup &setup, Snapshot &snapshot)
+    auto randomize_data = [] (Snapshot &snapshot)
     {
         std::random_device rd;
         std::uniform_int_distribution<> rngEdge(0, 1);
@@ -60,15 +60,17 @@ int main(int argc, char *argv[])
     QTimer timer;
 
     QObject::connect(&timer, &QTimer::timeout, [&] () {
-        randomize_data(scopeSetup, snapshot);
-        plotWidget.setSnapshot(scopeSetup, snapshot);
+        randomize_data(snapshot);
+        plotWidget.setSnapshot(snapshot);
     });
 
     timer.setInterval(1000);
     timer.start();
 
 
+    //
     // IO sim testing
+    //
 
     IO io;
     io.invert = true;
@@ -101,8 +103,7 @@ int main(int argc, char *argv[])
     simulate_sysclock(sysclock, 1000ns);
 
     cout << "sysclock: ";
-    print(cout, sysclock);
-    cout << endl;
+    print(cout, sysclock) << endl;
 
     Timer timer0;
     timer0.delay_ns = 10;
@@ -112,27 +113,12 @@ int main(int argc, char *argv[])
     simulate(timer0, timer0Samples, 1000ns);
 
     Snapshot ioSnap = { input, output, timer0Samples };
-    ScopeSetup ioScopeSetup = { 0, static_cast<u16>(std::max(input.back().time, output.back().time).count()) };
-    ioScopeSetup.postTriggerTime += 20;
 
     ScopePlotWidget ioPlot;
     ioPlot.setWindowTitle("TrigIO Test 0");
-    ioPlot.setSnapshot(ioScopeSetup, ioSnap);
-    ioPlot.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 200, 5);
-
+    ioPlot.setSnapshot(ioSnap);
+    ioPlot.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
     ioPlot.show();
-
-    // ==========================================
-
-    Snapshot ioSnap1 = { sysclock };
-
-    ScopePlotWidget ioPlot1;
-    ioPlot1.setWindowTitle("TrigIO Test 1");
-    ioPlot1.setSnapshot(ioScopeSetup, ioSnap1);
-    //ioPlot1.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 1000, 100);
-
-    ioPlot1.show();
-
 
     int ret = app.exec();
     return ret;
