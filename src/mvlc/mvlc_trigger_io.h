@@ -93,7 +93,7 @@ struct LUT
 
     // Holds the output state for all 64 input combinations. One of the logic LUTs
     // is made up for three of these mappings, one for each output bit.
-    using Bitmap = std::bitset<64>;
+    using Bitmap = std::bitset<InputCombinations>;
     using Contents = std::array<Bitmap, trigger_io::LUT::OutputBits>;
 
 
