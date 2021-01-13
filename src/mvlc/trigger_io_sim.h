@@ -2,6 +2,7 @@
 #define __MVME_MVLC_TRIGGER_IO_SIM_H__
 
 #include <chrono>
+#include <functional>
 #include <iterator>
 #include "mvlc/mvlc_trigger_io.h"
 #include "mvlc/trigger_io_scope.h"
@@ -165,22 +166,129 @@ inline void simulate(
     Timeline &strobeOutput, // for diagnostics only
     const std::chrono::nanoseconds &maxtime)
 {
-    // Ignore the strobe for now. Looking up the state of the strobe will be
-    // the same as needs to be done for the inputs.
+    using namespace std::chrono_literals;
 
-    // xxx: leftoff here
+    // First implementation:
+    // Find earliest change in the input timelines -> t0
+    // Determine the state of all inputs at time t0 to calculate the input combination
+    // Use the input combination to lookup the output state. Do this for each of the 3 output bits.
+    // Produce the output samples
+    // Find the next change with t > t0
+    // Repeat
+    //
+    // If an output is strobed: determine the state of the strobe input at the
+    // time we're currently looking at. Generate an output change only if the strobe is high.
+    //
+    // End condition: either no more changes in the inputs or all of the outputs have a time >= maxtime.
 
+    // Get the earliest sample time in the input timelines that is later than
+    // the given t0.
+    // Returns SampleTime::min() if no matching sample is found.
+    auto find_next_sample_time = [] (SampleTime t0, const auto &timelineRefs)
+    {
+        auto result = SampleTime::min();
+
+        for (const auto &timelineRef: timelineRefs)
+        {
+            const auto &timeline = timelineRef.get();
+
+            auto it = std::find_if(
+                std::begin(timeline), std::end(timeline),
+                [t0] (const Sample &sample)
+                {
+                    return sample.time > t0;
+                });
+
+            if (it != std::end(timeline)
+                && (result == SampleTime::min()
+                    || it->time < result))
+            {
+                result = it->time;
+            }
+        }
+
+        return result;
+    };
+
+    auto state_at = [] (SampleTime t, const auto &timelineRefs) -> s32
+    {
+        unsigned result = 0;
+        unsigned shift = 0;
+
+        for (const auto &timelineRef: timelineRefs)
+        {
+            const auto &timeline = timelineRef.get();
+
+            auto it = std::find_if(
+                std::rbegin(timeline), std::rend(timeline),
+                [t] (const Sample &sample)
+                {
+                    return sample.time <= t;
+                });
+
+            if (it == std::rend(timeline))
+                return -1;
+
+            result |= (static_cast<unsigned>(it->edge) << shift++);
+        }
+
+        return static_cast<s32>(result);
+    };
+
+    if (lut.strobedOutputs.any())
+        simulate(lut.strobeGG, strobeInput, strobeOutput, maxtime);
+
+    for (auto &output: outputs)
+        output.get().push_back({ 0ns, Edge::Falling });
+
+    // Start at t0=0 to find the first actual change in the input timelines.
+    SampleTime t0(0);
+
+    while (true)
+    {
+        t0 = find_next_sample_time(t0, inputs);
+
+        if (t0 == SampleTime::min())
+            break;
+
+        s32 inputCombination = state_at(t0, inputs);
+
+        if (inputCombination < 0)
+            break;
+
+        s32 strobeState = 0;
+
+        if (lut.strobedOutputs.any())
+        {
+            std::array<std::reference_wrapper<const Timeline>, 1> strobeWrap = { strobeOutput };
+            strobeState = state_at(t0, strobeWrap);
+
+            if (strobeState < 0)
+                break;
+        }
+
+        for (size_t outIdx = 0; outIdx < outputs.size(); ++outIdx)
+        {
+            if (lut.strobedOutputs.test(outIdx) && !strobeState)
+                continue;
+
+            auto outEdge = (lut.lutContents[outIdx].test(inputCombination)
+                            ? Edge::Rising : Edge::Falling);
+
+            outputs[outIdx].get().push_back({ t0, outEdge });
+        }
+    }
 }
 
-// LUT simulation without the strobe input
+// LUT simulation without passing the strobe input
 inline void simulate(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
     LUT_Output_Timelines &outputs,
     const std::chrono::nanoseconds &maxtime)
 {
-    Timeline strobeOut;
-    simulate(lut, inputs, {}, outputs, strobeOut, maxtime);
+    Timeline strobeOutput;
+    simulate(lut, inputs, {}, outputs, strobeOutput, maxtime);
 }
 
 
