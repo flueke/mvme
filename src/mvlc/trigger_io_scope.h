@@ -19,7 +19,7 @@ using namespace trigger_io;
 //
 // The osci is at level0, unit 48. The following needs to be done to read out osci data:
 // - set pre and post trigger times
-// - the the trigger channel mask to specify which channels do trigger
+// - set the trigger channel mask to specify which channels do trigger
 // - start block reads from 0xffff0000, store the data somewhere
 
 enum class Edge

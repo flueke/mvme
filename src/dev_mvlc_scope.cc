@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     Timeline output;
 
     auto simulateUpTo = SampleTime::max();
-    simulateUpTo = 46ns; // 45 ignoeres the last input pulse, 46 uses it
+    simulateUpTo = 46ns; // 45 ignores the last input pulse, 46 uses it
 
     simulate(io, input, output, simulateUpTo);
 
