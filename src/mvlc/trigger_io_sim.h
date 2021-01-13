@@ -210,6 +210,7 @@ inline void simulate(
         return result;
     };
 
+    // TODO: split into edge_at(t, timeline) and/or sample_at(t, timeline)
     auto state_at = [] (SampleTime t, const auto &timelineRefs) -> s32
     {
         unsigned result = 0;
@@ -291,6 +292,7 @@ inline void simulate(
     simulate(lut, inputs, {}, outputs, strobeOutput, maxtime);
 }
 
+// FIXME: is a SoftTrigger sim needed?
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

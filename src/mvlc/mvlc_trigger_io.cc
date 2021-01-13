@@ -232,7 +232,6 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
 }
 } // end anon namespace
 
-// Level 2 connections. This table includes fixed and dynamic connections.
 static const UnitConnection Dynamic = UnitConnection::makeDynamic();
 
 // Using level 1 unit + output address values (basically full addresses

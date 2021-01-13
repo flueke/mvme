@@ -539,6 +539,7 @@ if(MVME_ENABLE_MVLC)
     add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
     add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
     add_mvme_executable(dev_mvlc_scope dev_mvlc_scope.cc)
+    add_mvme_executable(dev_trigger_io_sim dev_trigger_io_sim.cc)
 endif(MVME_ENABLE_MVLC)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to

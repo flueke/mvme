@@ -70,6 +70,7 @@ struct StackBusy
 
 using Names = std::vector<QString>;
 
+#if 0 // Used for some ideas below
 using UnitPinNames = std::vector<Names>;
 using LevelUnitPinNames = std::vector<UnitPinNames>;
 
@@ -80,6 +81,7 @@ using UnitInputChoices = std::vector<PinConnectionChoices>;
 using LevelUnitInputChoices = std::vector<UnitInputChoices>;
 using UnitConnectionSelection = std::vector<unsigned>;
 using LevelUnitConnectionSelections = std::vector<UnitConnectionSelection>;
+#endif
 
 struct LUT
 {
@@ -185,7 +187,7 @@ struct UnitAddress: public std::array<int, 3>
 
     bool isLevelAddress() const { return level() >= 0 && unit() < 0 };
     bool isUnitAddress() const { return !isLevelAddress() && pin() < 0 };
-    bool isPinAddress() const { return !isLevelAddress && !isUnitAddress(); }
+    bool isPinAddress() const { return !isLevelAddress() && !isUnitAddress(); }
 };
 #else
 // Addressing: level, unit [, subunit]
