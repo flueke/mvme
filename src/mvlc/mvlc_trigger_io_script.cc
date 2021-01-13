@@ -1173,11 +1173,11 @@ TriggerIO parse_trigger_io_script_text(const QString &text)
             level = (cmd.value >> 8) & 0b11;
             unit  = (cmd.value & 0xff);
         }
-        else
+        else if (level < levelWrites.size())
         {
             // Store all other writes in the map structure under the current
-            // level and unit. Also subtract the UnitRegisterBase from writes
-            // value.
+            // level and unit. Also subtract the UnitRegisterBase from the
+            // write address to get the plain register address.
             address -= UnitRegisterBase;
             levelWrites[level][unit][address] = cmd.value;
         }
