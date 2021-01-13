@@ -107,6 +107,7 @@ struct LUT
     std::bitset<OutputBits> strobedOutputs;
 
     // Strobe gate generator settings. Each Level2 LUT has one of these.
+    // The strobe GGs width is fixed, delay and holdoff are variable.
     IO strobeGG = { .delay = 0, .width = StrobeGGDefaultWidth, .holdoff = 0,
         .invert = false, .direction = IO::Direction::in, .activate = false };
 
@@ -420,7 +421,7 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
     if (address > 63)
         throw std::out_of_range("LUT address > 2^6 - 1");
 
-    if (value > 8)
+    if (value > 7)
         throw std::out_of_range("LUT value > 2^3  - 1");
 
     u8 cell = address >> 2;
