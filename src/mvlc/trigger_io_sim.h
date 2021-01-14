@@ -15,6 +15,7 @@ namespace trigger_io
 {
 
 using namespace trigger_io_scope;
+using namespace std::chrono_literals;
 
 // Extend the timeline to toTime using the last input samples edge.
 // Does nothing if input is empty or the last sample time in input is >= toTime.
@@ -30,8 +31,6 @@ inline void simulate(
     Timeline &output,
     const SampleTime &maxtime)
 {
-    using namespace std::chrono_literals;
-
     // Zero width means the IO outputs levels instead of pulses.
     if (io.width == 0)
     {
@@ -92,8 +91,6 @@ inline void simulate(
     Timeline &output,
     const SampleTime &maxtime)
 {
-    using namespace std::chrono_literals;
-
     auto range_to_ns_factor = [] (const Timer::Range &timerRange)
     {
         switch (timerRange)
@@ -135,11 +132,13 @@ inline void simulate(
     }
 }
 
+static const auto SysClockPeriod = 62.5ns;
+static const auto SysClockHalfPeriod = SysClockPeriod * 0.5;
+
 inline void simulate_sysclock(
     Timeline &output,
     const SampleTime &maxtime)
 {
-    using namespace std::chrono_literals;
     static const auto SysClockHalfPeriod = 62.5ns * 0.5;
 
     output.push_back({ 0ns, Edge::Falling });
@@ -164,10 +163,8 @@ inline void simulate(
     const Timeline &strobeInput,
     LUT_Output_Timelines &outputs,
     Timeline &strobeOutput, // for diagnostics only
-    const std::chrono::nanoseconds &maxtime)
+    const SampleTime &maxtime)
 {
-    using namespace std::chrono_literals;
-
     // First implementation:
     // Find earliest change in the input timelines -> t0
     // Determine the state of all inputs at time t0 to calculate the input combination
@@ -286,7 +283,7 @@ inline void simulate(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
     LUT_Output_Timelines &outputs,
-    const std::chrono::nanoseconds &maxtime)
+    const SampleTime &maxtime)
 {
     Timeline strobeOutput;
     simulate(lut, inputs, {}, outputs, strobeOutput, maxtime);

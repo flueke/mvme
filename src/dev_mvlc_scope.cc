@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 
 
     //
-    // IO sim testing
+    // IO sim testing 0
     //
 
     IO io;
@@ -114,11 +114,11 @@ int main(int argc, char *argv[])
 
     Snapshot ioSnap = { input, output, timer0Samples };
 
-    ScopePlotWidget ioPlot;
-    ioPlot.setWindowTitle("TrigIO Test 0");
-    ioPlot.setSnapshot(ioSnap);
-    ioPlot.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
-    ioPlot.show();
+    ScopePlotWidget simPlot0;
+    simPlot0.setWindowTitle("TrigIO Test 0");
+    simPlot0.setSnapshot(ioSnap);
+    simPlot0.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
+    simPlot0.show();
 
     int ret = app.exec();
     return ret;

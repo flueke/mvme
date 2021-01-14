@@ -21,7 +21,8 @@ class LIBMVME_EXPORT ScopePlotWidget: public QWidget
         ScopePlotWidget(QWidget *parent = nullptr);
         ~ScopePlotWidget() override;
 
-        void setSnapshot(const Snapshot &snapshot);
+        void setSnapshot(const Snapshot &snapshot, const QStringList &names = {});
+        //void addTimeline(const Timeline &timeline, const QString &name = {});
 
         QwtPlot *getPlot();
 

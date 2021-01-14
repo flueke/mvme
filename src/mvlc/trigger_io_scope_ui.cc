@@ -15,6 +15,7 @@
 #include <QTimer>
 #include <QStandardItemModel>
 #include <QStandardItem>
+#include <iterator>
 #include <qnamespace.h>
 
 #include "mesytec-mvlc/mvlc_error.h"
@@ -49,11 +50,13 @@ struct ScopeData: public QwtSeriesData<QPointF>
         )
         : timeline(timeline)
         , yOffset(yOffset)
-    {}
+    {
+        //qDebug() << __PRETTY_FUNCTION__  << this;
+    }
 
     ~ScopeData() override
     {
-        //qDebug() << __PRETTY_FUNCTION__  << this;
+        qDebug() << __PRETTY_FUNCTION__  << this;
     }
 
     QRectF boundingRect() const override
@@ -94,11 +97,52 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
 };
 
+class ScopeScaleDraw: public QwtScaleDraw
+{
+    public:
+        ~ScopeScaleDraw() override
+        {
+            qDebug() << __PRETTY_FUNCTION__ << this;
+        }
+
+        QwtText label(double value) const override
+        {
+            auto it = std::find_if(
+                std::begin(m_data), std::end(m_data),
+                [value] (const auto &entry)
+                {
+                    return entry.first.contains(value);
+                });
+
+            if (it != std::end(m_data))
+                return { it->second + " (y=" + QwtScaleDraw::label(value).text() + ")" };
+
+            return QwtScaleDraw::label(value);
+        }
+
+        void addScaleEntry(double yOffset, const QString &label)
+        {
+            m_data.push_back(std::make_pair(QwtInterval(yOffset, yOffset + 1.0), label));
+        }
+
+        void clear()
+        {
+            m_data.clear();
+        }
+
+    private:
+        using Entry = std::pair<QwtInterval, QString>;
+
+        std::vector<Entry> m_data;
+};
+
 struct ScopePlotWidget::Private
 {
     QwtPlot *plot;
-    std::vector<QwtSeriesData<QPointF> *> curvesData;
+    QwtPlotGrid *grid;
+    ScopeScaleDraw *yScaleDraw;
     std::vector<QwtPlotCurve *> curves;
+    ScrollZoomer *zoomer;
 
     constexpr static const double YSpacing = 0.5;
 };
@@ -108,8 +152,21 @@ ScopePlotWidget::ScopePlotWidget(QWidget *parent)
     , d(std::make_unique<Private>())
 {
     d->plot = new QwtPlot;
+    d->plot->setCanvasBackground(QBrush(Qt::black));
 
-    auto layout = make_vbox(this);
+    d->yScaleDraw = new ScopeScaleDraw;
+    d->plot->setAxisScaleDraw(QwtPlot::yLeft, d->yScaleDraw);
+
+    d->grid = new QwtPlotGrid;
+    d->grid->enableX(false);
+    d->grid->setPen(Qt::darkGreen, 0.0, Qt::DotLine);
+    d->grid->attach(d->plot);
+
+    d->zoomer = new ScrollZoomer(d->plot->canvas());
+    d->zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
+    d->zoomer->setTrackerMode(QwtPicker::AlwaysOff);
+
+    auto layout = make_vbox<0, 0>(this);
     layout->addWidget(d->plot);
 }
 
@@ -117,49 +174,77 @@ ScopePlotWidget::~ScopePlotWidget()
 {
 }
 
-void ScopePlotWidget::setSnapshot(const Snapshot &snapshot)
+std::unique_ptr<QwtPlotCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData, const QString &curveName)
+{
+    auto curve = std::make_unique<QwtPlotCurve>(curveName);
+    curve->setData(scopeData);
+    curve->setStyle(QwtPlotCurve::Steps);
+    curve->setCurveAttribute(QwtPlotCurve::Inverted);
+    curve->setPen(Qt::green);
+    curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+
+    //curve->setItemInterest(QwtPlotItem::ScaleInterest); // TODO: try and
+    //see if this information can be used for the last sample in ScopeData
+    //    (to draw to the end of the x-axis).
+    return curve;
+}
+
+void ScopePlotWidget::setSnapshot(
+    const Snapshot &snapshot,
+    const QStringList &names)
 {
     // FIXME: supercrappy, resize instead of deleting existing stuff. just
     // update the data info for existing entries and replot.
     for (auto curve: d->curves)
     {
         curve->detach();
-        curve->setData(nullptr);
         delete curve;
     }
 
     d->curves.clear();
-    d->curvesData.clear();
+    d->yScaleDraw->clear();
 
+    QList<double> yTicks; // major ticks for the y scale
     double yOffset = 0.0;
+    int idx = 0;
 
     for (const auto &timeline: snapshot)
     {
-        d->curvesData.push_back(new ScopeData{ timeline, yOffset });
-        yOffset += 1.0 + Private::YSpacing;
-    }
+        auto scopeData = new ScopeData{ timeline, yOffset };
 
-    int idx = 0;
-    for (auto &scopeData: d->curvesData)
-    {
-        auto curve = new QwtPlotCurve(QString::number(idx));;
-        //curve->setItemInterest(QwtPlotItem::ScaleInterest); // TODO: try and
-        //see if this information can be used for the last sample in ScopeData
-        //    (to draw to the end of the x-axis).
-        curve->setData(scopeData);
-        curve->setStyle(QwtPlotCurve::Steps);
-        curve->setCurveAttribute(QwtPlotCurve::Inverted);
-        curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+        auto name = idx < names.size() ? names[idx] : QString::number(idx);
+        auto curve = make_scope_curve(scopeData, name);
         curve->attach(d->plot);
-        d->curves.push_back(curve);
+        d->curves.push_back(curve.release());
+
+        yTicks.push_back(yOffset);
+        d->yScaleDraw->addScaleEntry(yOffset, name);
+
+        yOffset += 1.0 + Private::YSpacing;
         ++idx;
     }
 
-    d->plot->setAxisScale(QwtPlot::yLeft, 0.0, yOffset);
-    d->plot->enableAxis(QwtPlot::yLeft, false);
+    QwtScaleDiv yScaleDiv(0.0, yOffset - Private::YSpacing);
+    yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
+    d->plot->setAxisScaleDiv(QwtPlot::yLeft, yScaleDiv);
+
+    //d->plot->replot();
+    d->zoomer->setZoomBase(true); // XXX:
+}
+
+#if 0
+void ScopePlotWidget::addTimeline(const Timeline &timeline, const QString &name_)
+{
+    double yOffset = d->curves.size() * (1.0 + Private::YSpacing);
+    auto name = name_.isEmpty() ? QString::number(d->curves.size()) : name_;
+    d->curvesData.push_back(new ScopeData{ timeline, yOffset });
+    auto curve = make_scope_curve(d->curvesData.back(), name);
+    curve->attach(d->plot);
+    d->curves.push_back(curve.release());
     d->plot->updateAxes();
     d->plot->replot();
 }
+#endif
 
 QwtPlot *ScopePlotWidget::getPlot()
 {

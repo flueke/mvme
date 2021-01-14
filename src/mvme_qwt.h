@@ -24,6 +24,7 @@
 #include <memory>
 #include <qwt_painter.h>
 #include <qwt_plot_curve.h>
+#include <qwt_plot_grid.h>
 #include <qwt_plot.h>
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_item.h>
@@ -38,6 +39,7 @@
 #include <qwt_scale_widget.h>
 #include <qwt_text.h>
 #include <qwt_widget_overlay.h>
+#include "scrollzoomer.h"
 #include "libmvme_export.h"
 
 namespace mvme_qwt
