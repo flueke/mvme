@@ -439,4 +439,20 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 
+namespace std
+{
+    template<> struct hash<mesytec::mvme_mvlc::trigger_io::UnitAddress>
+    {
+        std::size_t operator() (const mesytec::mvme_mvlc::trigger_io::UnitAddress &ua) const
+        {
+            std::size_t result = 0u;
+
+            for (size_t i=0; i<ua.size(); ++i)
+                result ^= std::hash<unsigned>{}(ua[i]) << i;
+
+            return result;
+        }
+    };
+}
+
 #endif /* __MVME_MVLC_TRIGGER_IO_H__ */
