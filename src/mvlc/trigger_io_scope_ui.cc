@@ -141,10 +141,16 @@ struct ScopePlotWidget::Private
     QwtPlot *plot;
     QwtPlotGrid *grid;
     ScopeScaleDraw *yScaleDraw;
-    std::vector<QwtPlotCurve *> curves;
+    QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setSnapshot()
+    SampleTime xMax;
     ScrollZoomer *zoomer;
+    //std::unique_ptr<QwtPlotMarker> xMarker;
+
+    std::vector<QwtPlotCurve *> curves;
 
     constexpr static const double YSpacing = 0.5;
+
+    void zoomerZoomed();
 };
 
 ScopePlotWidget::ScopePlotWidget(QWidget *parent)
@@ -166,12 +172,23 @@ ScopePlotWidget::ScopePlotWidget(QWidget *parent)
     d->zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     d->zoomer->setTrackerMode(QwtPicker::AlwaysOff);
 
+    connect(d->zoomer, &QwtPlotZoomer::zoomed,
+            this, [this] (const QRectF &) { d->zoomerZoomed(); });
+
+    //d->xMarker = std::make_unique<QwtPlotMarker>();
+    //d->xMarker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
+    //d->xMarker->setLabelOrientation( Qt::Vertical );
+    //d->xMarker->setLineStyle( QwtPlotMarker::VLine );
+    //d->xMarker->setLinePen(QColor("lawngreen"), 0, Qt::DashDotLine );
+    //d->xMarker->attach(d->plot);
+
     auto layout = make_vbox<0, 0>(this);
     layout->addWidget(d->plot);
 }
 
 ScopePlotWidget::~ScopePlotWidget()
 {
+    //d->xMarker->detach();
 }
 
 std::unique_ptr<QwtPlotCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData, const QString &curveName)
@@ -206,6 +223,7 @@ void ScopePlotWidget::setSnapshot(
 
     QList<double> yTicks; // major ticks for the y scale
     double yOffset = 0.0;
+    d->xMax = SampleTime(0);
     int idx = 0;
 
     for (const auto &timeline: snapshot)
@@ -219,17 +237,34 @@ void ScopePlotWidget::setSnapshot(
 
         yTicks.push_back(yOffset);
         d->yScaleDraw->addScaleEntry(yOffset, name);
+        if (!timeline.empty())
+            d->xMax = std::max(d->xMax, timeline.back().time);
 
         yOffset += 1.0 + Private::YSpacing;
         ++idx;
     }
 
-    QwtScaleDiv yScaleDiv(0.0, yOffset - Private::YSpacing);
-    yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
-    d->plot->setAxisScaleDiv(QwtPlot::yLeft, yScaleDiv);
+    d->yScaleDiv.setInterval(0.0, yOffset - Private::YSpacing);
+    d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
+
+    d->plot->setAxisScaleDiv(QwtPlot::yLeft, d->yScaleDiv);
+    d->plot->setAxisScale(QwtPlot::xBottom, 0.0, d->xMax.count());
 
     //d->plot->replot();
-    d->zoomer->setZoomBase(true); // XXX:
+    // Tells the zoomer that we're currently completely zoomed out. Does a
+    // plot->replot() unless the arg is false.
+    d->zoomer->setZoomBase(true);
+}
+
+void ScopePlotWidget::Private::zoomerZoomed()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << zoomer->zoomRectIndex();
+
+    if (zoomer->zoomRectIndex() == 0)
+        this->plot->setAxisScale(QwtPlot::xBottom, 0.0, this->xMax.count());
+
+    plot->setAxisScaleDiv(QwtPlot::yLeft, yScaleDiv);
+    plot->replot();
 }
 
 #if 0
