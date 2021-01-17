@@ -89,9 +89,13 @@ struct LUT
     static const u16 OutputBits = 3;
     static const u16 InputCombinations = 1u << InputBits;
     static const u16 StrobeGGDefaultWidth = 8;
-    // This 'fake' value is used to refer to the LUTs strobe gate generator, e.g
+
+    // This value is used to refer to the LUTs strobe gate generator, e.g
     // UnitAddress {2, 0, StrobeGGInput } for L2.LUT0.StrobeGG
     static const u16 StrobeGGInput = InputBits;
+    // Same as above but for the strobe output which is only used in the simulation
+    // code.
+    static const u16 StrobeGGOutput = StrobeGGInput + 1u;
 
     // Holds the output state for all 64 input combinations. One of the logic LUTs
     // is made up for three of these mappings, one for each output bit.
