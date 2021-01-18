@@ -1,4 +1,5 @@
 #include "mvlc/trigger_io_sim.h"
+#include <boost/range/adaptor/indexed.hpp>
 
 namespace mesytec
 {
@@ -6,6 +7,8 @@ namespace mvme_mvlc
 {
 namespace trigger_io
 {
+
+using boost::adaptors::indexed;
 
 void simulate(
     const IO &io,
@@ -136,9 +139,7 @@ void simulate_sysclock(
 void simulate(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
-    const Timeline &strobeInput,
     LUT_Output_Timelines &outputs,
-    Timeline &strobeOutput, // for diagnostics only
     const SampleTime &maxtime)
 {
     // First implementation:
@@ -157,13 +158,15 @@ void simulate(
     // Get the earliest sample time in the input timelines that is later than
     // the given t0.
     // Returns SampleTime::min() if no matching sample is found.
-    auto find_next_sample_time = [] (SampleTime t0, const auto &timelineRefs)
+    auto find_next_sample_time = [] (SampleTime t0, const auto &traces)
     {
         auto result = SampleTime::min();
 
-        for (const auto &timelineRef: timelineRefs)
+        for (const auto &tracePtr: traces)
         {
-            const auto &timeline = timelineRef.get();
+            if (!tracePtr) continue;
+
+            const auto &timeline = *tracePtr;
 
             auto it = std::find_if(
                 std::begin(timeline), std::end(timeline),
@@ -184,14 +187,16 @@ void simulate(
     };
 
     // TODO: split into edge_at(t, timeline) and/or sample_at(t, timeline)
-    auto state_at = [] (SampleTime t, const auto &timelineRefs) -> s32
+    auto state_at = [] (SampleTime t, const auto &traces) -> s32
     {
         unsigned result = 0;
         unsigned shift = 0;
 
-        for (const auto &timelineRef: timelineRefs)
+        for (const auto &tracePtr: traces)
         {
-            const auto &timeline = timelineRef.get();
+            if (!tracePtr) continue;
+
+            const auto &timeline = *tracePtr;
 
             auto it = std::find_if(
                 std::rbegin(timeline), std::rend(timeline),
@@ -210,22 +215,39 @@ void simulate(
     };
 
     if (lut.strobedOutputs.any())
-        simulate(lut.strobeGG, strobeInput, strobeOutput, maxtime);
+    {
+        assert(inputs[LUT::InputBits]);
+        assert(outputs[LUT::OutputBits]);
+
+        simulate(lut.strobeGG,
+                 *inputs[LUT::InputBits],
+                 *outputs[LUT::OutputBits],
+                 maxtime);
+    }
 
     for (auto &output: outputs)
-        output.get().push_back({ 0ns, Edge::Falling });
+        output->push_back({ 0ns, Edge::Falling });
 
     // Start at t0=0 to find the first actual change in the input timelines.
     SampleTime t0(0);
 
+    // Get rid of the last input and output which refers to the strobes.
+    std::array<const Timeline *, LUT::InputBits> actualInputs;
+    for (size_t i=0; i<actualInputs.size(); i++)
+        actualInputs[i] = inputs[i];
+
+    std::array<Timeline *, LUT::OutputBits> actualOutputs;
+    for (size_t i=0; i<actualOutputs.size(); i++)
+        actualOutputs[i] = outputs[i];
+
     while (true)
     {
-        t0 = find_next_sample_time(t0, inputs);
+        t0 = find_next_sample_time(t0, actualInputs);
 
         if (t0 == SampleTime::min())
             break;
 
-        s32 inputCombination = state_at(t0, inputs);
+        s32 inputCombination = state_at(t0, actualInputs);
 
         if (inputCombination < 0)
             break;
@@ -234,14 +256,16 @@ void simulate(
 
         if (lut.strobedOutputs.any())
         {
-            std::array<std::reference_wrapper<const Timeline>, 1> strobeWrap = { strobeOutput };
+            // Check if the strobe is high at t0
+            // TODO: split up state_at() and get rid of the wrap hack
+            std::array<const Timeline *, 1> strobeWrap = { outputs[LUT::OutputBits] };
             strobeState = state_at(t0, strobeWrap);
 
             if (strobeState < 0)
                 break;
         }
 
-        for (size_t outIdx = 0; outIdx < outputs.size(); ++outIdx)
+        for (size_t outIdx = 0; outIdx < actualOutputs.size(); ++outIdx)
         {
             if (lut.strobedOutputs.test(outIdx) && !strobeState)
                 continue;
@@ -249,12 +273,170 @@ void simulate(
             auto outEdge = (lut.lutContents[outIdx].test(inputCombination)
                             ? Edge::Rising : Edge::Falling);
 
-            outputs[outIdx].get().push_back({ t0, outEdge });
+            actualOutputs[outIdx]->push_back({ t0, outEdge });
         }
     }
 }
 
-void simulate(Sim &sim, const Snapshot &inputSnapshot, const SampleTime &maxtime);
+namespace
+{
+void clear_simulated_traces(Sim &sim)
+{
+    for (auto &trace: sim.l0_traces)
+        trace.clear();
+
+    for (auto &lutTraces: sim.l1_luts)
+        for (auto &trace: lutTraces)
+            trace.clear();
+
+    for (auto &lutTraces: sim.l2_luts)
+        for (auto &trace: lutTraces)
+            trace.clear();
+
+    for (auto &trace: sim.l3_traces)
+        trace.clear();
+}
+
+template<typename V, typename B1, typename B2>
+bool in_range(const V &value, const B1 &lo, const B2 &hi)
+{
+    return lo <= value && value < hi;
+}
+
+// Returns the address of an output trace of the system.
+Timeline *lookup_trace(Sim &sim, const UnitAddress &addr)
+{
+    switch (addr[0])
+    {
+        case 0:
+            if (addr[1] < sim.l0_traces.size())
+                return &sim.l0_traces[addr[1]];
+            break;
+
+        case 1:
+            if (addr[1] < sim.l1_luts.size())
+            {
+                auto &lutTraces = sim.l1_luts[addr[1]];
+
+                if (addr[2] < lutTraces.size())
+                    return &lutTraces[addr[2]];
+            }
+            break;
+
+        case 2:
+            if (addr[1] < sim.l2_luts.size())
+            {
+                auto &lutTraces = sim.l2_luts[addr[1]];
+                if (addr[2] < lutTraces.size())
+                    return &lutTraces[addr[2]];
+            }
+            break;
+
+        case 3:
+            if (addr[1] < sim.l3_traces.size())
+                return &sim.l3_traces[addr[1]];
+            break;
+    }
+
+    return nullptr;
+}
+} // end anon namespace
+
+void simulate(Sim &sim, const SampleTime &maxtime)
+{
+    clear_simulated_traces(sim);
+
+    // L0
+    for (const auto &kv: sim.trigIO.l0.ioNIM | indexed(0))
+    {
+        const auto &io = kv.value();
+        const auto &trace = sim.sampledTraces[kv.index()];
+        simulate(io, trace, sim.l0_traces[kv.index() + Level0::NIM_IO_Offset], maxtime);
+    }
+
+    for (const auto &kv: sim.trigIO.l0.timers | indexed(0))
+        simulate(kv.value(), sim.l0_traces[kv.index()], maxtime);
+
+    simulate_sysclock(sim.l0_traces[Level0::SysClockOffset], maxtime);
+
+    // L1 LUT hierarchy. 0-2 first, then 3 & 4
+    for (const auto &kvLUT: sim.trigIO.l1.luts | indexed(0u))
+    {
+        const auto &lut = kvLUT.value();
+        const unsigned lutIndex = kvLUT.index();
+        const auto &connections = Level1::StaticConnections[kvLUT.index()];
+
+        LUT_Input_Timelines inputs;
+
+        for (unsigned i=0; i<inputs.size(); i++)
+            inputs[i] = lookup_trace(sim, connections[i].address);
+
+        LUT_Output_Timelines outputs;
+
+        for (unsigned i=0; i<outputs.size(); i++)
+            outputs[i] = lookup_trace(sim, { 1, lutIndex, i });
+
+        simulate(lut, inputs, outputs, maxtime);
+    }
+
+    // L2 LUTs with strobes and dynamic connections
+    for (const auto &kvLUT: sim.trigIO.l2.luts | indexed(0))
+    {
+        const auto &lut = kvLUT.value();
+        const unsigned lutIndex = kvLUT.index();
+
+        LUT_Input_Timelines inputs;
+
+        for (unsigned i=0; i<inputs.size(); i++)
+        {
+            UnitAddress dstAddr{ 2, lutIndex, i };
+            UnitAddress srcAddr = get_connection_unit_address(
+                sim.trigIO, dstAddr);
+            inputs[i] = lookup_trace(sim, srcAddr);
+            assert(inputs[i]);
+        }
+
+        LUT_Output_Timelines outputs;
+
+        for (unsigned i=0; i<outputs.size(); i++)
+        {
+            outputs[i] = lookup_trace(sim, { 1, lutIndex, i });
+            assert(outputs[i]);
+        }
+
+        simulate(lut, inputs, outputs, maxtime);
+    }
+
+    // L3 NIMs
+    for (const auto &kv: sim.trigIO.l3.ioNIM | indexed(0))
+    {
+        const auto &io = kv.value();
+        const unsigned ioIndex = kv.index() + Level3::NIM_IO_Unit_Offset;
+        UnitAddress dstAddr{ 3, ioIndex, 0 };
+        UnitAddress srcAddr = get_connection_unit_address(
+            sim.trigIO, dstAddr);
+        auto inputTrace = lookup_trace(sim, srcAddr);
+        assert(inputTrace);
+        simulate(io, *inputTrace,
+                 sim.l3_traces[kv.index() + Level3::NIM_IO_Unit_Offset],
+                 maxtime);
+    }
+
+    // L3 ECLs
+    for (const auto &kv: sim.trigIO.l3.ioECL | indexed(0))
+    {
+        const auto &io = kv.value();
+        const unsigned ioIndex = kv.index() + Level3::ECL_Unit_Offset;
+        UnitAddress dstAddr{ 3, ioIndex, 0 };
+        UnitAddress srcAddr = get_connection_unit_address(
+            sim.trigIO, dstAddr);
+        auto inputTrace = lookup_trace(sim, srcAddr);
+        assert(inputTrace);
+        simulate(io, *inputTrace,
+                 sim.l3_traces[kv.index() + Level3::ECL_Unit_Offset],
+                 maxtime);
+    }
+}
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

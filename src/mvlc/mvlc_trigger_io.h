@@ -194,8 +194,8 @@ struct UnitAddress: public std::array<int, 3>
     bool isPinAddress() const { return !isLevelAddress() && !isUnitAddress(); }
 };
 #else
-// Addressing: level, unit [, subunit]
-// subunit used to address LUT outputs in levels 1 and 2
+// Addressing: level, unit [, output]
+// output used to address LUT output pins in levels 1 and 2
 using UnitAddress = std::array<unsigned, 3>;
 #endif
 using UnitAddressVector = std::vector<UnitAddress>;

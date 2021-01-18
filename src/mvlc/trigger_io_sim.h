@@ -44,18 +44,19 @@ void simulate_sysclock(
     Timeline &output,
     const SampleTime &maxtime);
 
-using LUT_Input_Timelines = std::array<std::reference_wrapper<const Timeline>, LUT::InputBits>;
-using LUT_Output_Timelines = std::array<std::reference_wrapper<Timeline>, LUT::OutputBits>;
+// +1 for the strobe in and out traces. These entries may be nullptr if the
+// strobe is not used. Otherwise both must be valid.
+using LUT_Input_Timelines = std::array<const Timeline *, LUT::InputBits+1>;
+using LUT_Output_Timelines = std::array<Timeline *, LUT::OutputBits+1>;
 
 // Full LUT simulation with strobe input
 void simulate(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
-    const Timeline &strobeInput,
     LUT_Output_Timelines &outputs,
-    Timeline &strobeOutput, // for diagnostics only
     const SampleTime &maxtime);
 
+#if 0
 // LUT simulation without passing the strobe input
 inline void simulate(
     const LUT &lut,
@@ -66,14 +67,33 @@ inline void simulate(
     Timeline strobeOutput;
     simulate(lut, inputs, {}, outputs, strobeOutput, maxtime);
 }
+#endif
+
+// +1 for the strobe output trace
+using LUTOutputTraces = std::array<Timeline, LUT::OutputBits+1>;
 
 struct Sim
 {
+    // The trigger io setup
     TriggerIO trigIO;
-    std::unordered_map<UnitAddress, Timeline> timelines;
+
+    // 0-14 are the NIMs, additional things are going to be added
+    Snapshot sampledTraces;
+
+    // L0
+    std::array<Timeline, Level0::OutputCount> l0_traces;
+
+    // L1
+    std::array<LUTOutputTraces, Level1::LUTCount> l1_luts;
+
+    // L2
+    std::array<LUTOutputTraces, Level2::LUTCount> l2_luts;
+
+    // L3
+    std::array<Timeline, Level3::UnitCount> l3_traces;
 };
 
-void simulate(Sim &sim, const Snapshot &inputSnapshot, const SampleTime &maxtime);
+void simulate(Sim &sim, const SampleTime &maxtime);
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

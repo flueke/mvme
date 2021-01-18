@@ -60,16 +60,12 @@ int main(int argc, char *argv[])
     in3 = sysclock;
     in4 = sysclock;
     in5 = sysclock;
-
-    LUT_Input_Timelines lutInputs = { in0, in1, in2, in3, in4, in5 };
-    LUT_Output_Timelines lutOutputs = { out0, out1, out2 };
-
     strobeIn = sysclock;
 
-    simulate(lut,
-             lutInputs, strobeIn, // inputs and strobeIn
-             lutOutputs, strobeOut,  // outputs and strobeOut
-             maxtime);
+    LUT_Input_Timelines lutInputs = { &in0, &in1, &in2, &in3, &in4, &in5, &strobeIn };
+    LUT_Output_Timelines lutOutputs = { &out0, &out1, &out2, &strobeOut };
+
+    simulate(lut, lutInputs, lutOutputs, maxtime);
 
     // ------------------------------------------------------
     
