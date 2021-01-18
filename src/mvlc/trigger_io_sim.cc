@@ -225,12 +225,6 @@ void simulate(
                  maxtime);
     }
 
-    for (auto &output: outputs)
-        output->push_back({ 0ns, Edge::Falling });
-
-    // Start at t0=0 to find the first actual change in the input timelines.
-    SampleTime t0(0);
-
     // Get rid of the last input and output which refers to the strobes.
     std::array<const Timeline *, LUT::InputBits> actualInputs;
     for (size_t i=0; i<actualInputs.size(); i++)
@@ -239,6 +233,12 @@ void simulate(
     std::array<Timeline *, LUT::OutputBits> actualOutputs;
     for (size_t i=0; i<actualOutputs.size(); i++)
         actualOutputs[i] = outputs[i];
+
+    for (auto &output: actualOutputs)
+        output->push_back({ 0ns, Edge::Falling });
+
+    // Start at t0=0 to find the first actual change in the input timelines.
+    SampleTime t0(0);
 
     while (true)
     {
