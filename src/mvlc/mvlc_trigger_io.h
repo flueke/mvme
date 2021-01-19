@@ -196,6 +196,9 @@ struct UnitAddress: public std::array<int, 3>
 #else
 // Addressing: level, unit [, output]
 // output used to address LUT output pins in levels 1 and 2
+// This is not perfect as not every pin in the system can be addressed. Right
+// now the output pins are addressed except for L3 where the current code is
+// dealing with the input pins.
 using UnitAddress = std::array<unsigned, 3>;
 #endif
 using UnitAddressVector = std::vector<UnitAddress>;
@@ -443,6 +446,7 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 
+#if 0
 namespace std
 {
     template<> struct hash<mesytec::mvme_mvlc::trigger_io::UnitAddress>
@@ -458,5 +462,6 @@ namespace std
         }
     };
 }
+#endif
 
 #endif /* __MVME_MVLC_TRIGGER_IO_H__ */

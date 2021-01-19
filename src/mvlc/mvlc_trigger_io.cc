@@ -409,7 +409,7 @@ Level3::Level3()
     ioNIM.fill({});
     ioECL.fill({});
 
-    connections.fill({{0u}, {0u}});
+    connections.fill({0u, 0u});
 
     // FIXME: latch counter hack
     for (unsigned unit=Level3::CountersOffset;

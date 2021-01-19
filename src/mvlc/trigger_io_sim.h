@@ -56,19 +56,6 @@ void simulate(
     LUT_Output_Timelines &outputs,
     const SampleTime &maxtime);
 
-#if 0
-// LUT simulation without passing the strobe input
-inline void simulate(
-    const LUT &lut,
-    const LUT_Input_Timelines &inputs,
-    LUT_Output_Timelines &outputs,
-    const SampleTime &maxtime)
-{
-    Timeline strobeOutput;
-    simulate(lut, inputs, {}, outputs, strobeOutput, maxtime);
-}
-#endif
-
 // +1 for the strobe output trace
 using LUTOutputTraces = std::array<Timeline, LUT::OutputBits+1>;
 
@@ -77,19 +64,22 @@ struct Sim
     // The trigger io setup
     TriggerIO trigIO;
 
-    // 0-14 are the NIMs, additional things are going to be added
+    // 0-14 are the NIMs, additional things are going to be added in future
+    // MVLC firmware revisions. These traces contain the input side of the
+    // NIMs.
     Snapshot sampledTraces;
 
-    // L0
+    // L0 - simulated 'output' traces of the NIMs and simulated utility traces
+    // (timers, sysclock)
     std::array<Timeline, Level0::OutputCount> l0_traces;
 
-    // L1
+    // L1 - LUT outputs
     std::array<LUTOutputTraces, Level1::LUTCount> l1_luts;
 
-    // L2
+    // L2 - LUT outputs
     std::array<LUTOutputTraces, Level2::LUTCount> l2_luts;
 
-    // L3
+    // L3 - simulated 'output' traces
     std::array<Timeline, Level3::UnitCount> l3_traces;
 };
 

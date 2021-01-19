@@ -50,6 +50,9 @@ namespace data_format
     static const u32 EoE    = 0xC0000000u;
 };
 
+// Note: the MVLC transmits unsigned 16 bit time values. Floating point values
+// are used for the simulation code. This could be changed to signed integers
+// (signed to make time based calculations behave properly) if needed.
 using SampleTime = std::chrono::duration<float, std::chrono::nanoseconds::period>;
 
 struct Sample
