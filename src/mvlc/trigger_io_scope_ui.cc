@@ -46,9 +46,11 @@ struct ScopeData: public QwtSeriesData<QPointF>
 {
     ScopeData(
         const Timeline &timeline,
+        const double preTriggerTime,
         const double yOffset
         )
         : timeline(timeline)
+        , preTriggerTime(preTriggerTime)
         , yOffset(yOffset)
     {
         //qDebug() << __PRETTY_FUNCTION__  << this;
@@ -56,15 +58,15 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     ~ScopeData() override
     {
-        qDebug() << __PRETTY_FUNCTION__  << this;
+        //qDebug() << __PRETTY_FUNCTION__  << this;
     }
 
     QRectF boundingRect() const override
     {
         if (!timeline.empty())
         {
-            double tMin = timeline.empty() ? 0 : timeline.front().time.count();
-            double tMax = timeline.empty() ? 0 : timeline.back().time.count();
+            double tMin = timeline.front().time.count() - preTriggerTime;
+            double tMax = timeline.back().time.count() - preTriggerTime;
             double tRange = tMax - tMin;
             auto result = QRectF(tMin, yOffset, tRange, 1.0);
             //qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
@@ -83,7 +85,7 @@ struct ScopeData: public QwtSeriesData<QPointF>
     {
         if (i < timeline.size())
         {
-            double time = timeline[i].time.count();
+            double time = timeline[i].time.count() - preTriggerTime;
             //qDebug() << __PRETTY_FUNCTION__ << time;
             double value = static_cast<double>(timeline[i].edge);
             return { time, value + yOffset };
@@ -93,14 +95,16 @@ struct ScopeData: public QwtSeriesData<QPointF>
     }
 
     trigger_io_scope::Timeline timeline;
+    double preTriggerTime;
     double yOffset;
 
 };
 
-class ScopeScaleDraw: public QwtScaleDraw
+// Draws names instead of numeric coordinate values on the y axis.
+class ScopeYScaleDraw: public QwtScaleDraw
 {
     public:
-        ~ScopeScaleDraw() override
+        ~ScopeYScaleDraw() override
         {
             qDebug() << __PRETTY_FUNCTION__ << this;
         }
@@ -140,7 +144,7 @@ struct ScopePlotWidget::Private
 {
     QwtPlot *plot;
     QwtPlotGrid *grid;
-    ScopeScaleDraw *yScaleDraw;
+    ScopeYScaleDraw *yScaleDraw;
     QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setSnapshot()
     SampleTime xMax;
     ScrollZoomer *zoomer;
@@ -160,7 +164,7 @@ ScopePlotWidget::ScopePlotWidget(QWidget *parent)
     d->plot = new QwtPlot;
     d->plot->setCanvasBackground(QBrush(Qt::black));
 
-    d->yScaleDraw = new ScopeScaleDraw;
+    d->yScaleDraw = new ScopeYScaleDraw;
     d->plot->setAxisScaleDraw(QwtPlot::yLeft, d->yScaleDraw);
 
     d->grid = new QwtPlotGrid;
@@ -208,6 +212,7 @@ std::unique_ptr<QwtPlotCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData
 
 void ScopePlotWidget::setSnapshot(
     const Snapshot &snapshot,
+    unsigned preTriggerTime,
     const QStringList &names)
 {
     // FIXME: supercrappy, resize instead of deleting existing stuff. just
@@ -228,7 +233,7 @@ void ScopePlotWidget::setSnapshot(
 
     for (const auto &timeline: snapshot)
     {
-        auto scopeData = new ScopeData{ timeline, yOffset };
+        auto scopeData = new ScopeData(timeline, preTriggerTime, yOffset);
 
         auto name = idx < names.size() ? names[idx] : QString::number(idx);
         auto curve = make_scope_curve(scopeData, name);
@@ -237,6 +242,7 @@ void ScopePlotWidget::setSnapshot(
 
         yTicks.push_back(yOffset);
         d->yScaleDraw->addScaleEntry(yOffset, name);
+
         if (!timeline.empty())
             d->xMax = std::max(d->xMax, timeline.back().time);
 
@@ -246,11 +252,10 @@ void ScopePlotWidget::setSnapshot(
 
     d->yScaleDiv.setInterval(0.0, yOffset - Private::YSpacing);
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
-
     d->plot->setAxisScaleDiv(QwtPlot::yLeft, d->yScaleDiv);
-    d->plot->setAxisScale(QwtPlot::xBottom, 0.0, d->xMax.count());
 
-    //d->plot->replot();
+    //d->plot->setAxisScale(QwtPlot::xBottom, 0.0, d->xMax.count());
+
     // Tells the zoomer that we're currently completely zoomed out. Does a
     // plot->replot() unless the arg is false.
     d->zoomer->setZoomBase(true);
@@ -261,25 +266,11 @@ void ScopePlotWidget::Private::zoomerZoomed()
     qDebug() << __PRETTY_FUNCTION__ << this << zoomer->zoomRectIndex();
 
     if (zoomer->zoomRectIndex() == 0)
-        this->plot->setAxisScale(QwtPlot::xBottom, 0.0, this->xMax.count());
+        this->plot->setAxisAutoScale(QwtPlot::xBottom);
 
     plot->setAxisScaleDiv(QwtPlot::yLeft, yScaleDiv);
     plot->replot();
 }
-
-#if 0
-void ScopePlotWidget::addTimeline(const Timeline &timeline, const QString &name_)
-{
-    double yOffset = d->curves.size() * (1.0 + Private::YSpacing);
-    auto name = name_.isEmpty() ? QString::number(d->curves.size()) : name_;
-    d->curvesData.push_back(new ScopeData{ timeline, yOffset });
-    auto curve = make_scope_curve(d->curvesData.back(), name);
-    curve->attach(d->plot);
-    d->curves.push_back(curve.release());
-    d->plot->updateAxes();
-    d->plot->replot();
-}
-#endif
 
 QwtPlot *ScopePlotWidget::getPlot()
 {
@@ -371,7 +362,7 @@ void ScopeWidget::Private::analyze(const std::vector<u32> &buffer)
     mesytec::mvlc::util::log_buffer(std::cout, buffer, "scope buffer");
 
     auto snapshot = fill_snapshot_from_mvlc_buffer(buffer);
-    plot->setSnapshot(snapshot);
+    plot->setSnapshot(snapshot, this->scopeSetup.preTriggerTime);
 }
 
 ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)

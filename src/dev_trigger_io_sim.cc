@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 
     ScopePlotWidget simPlot0;
     simPlot0.setWindowTitle("Basic LUT");
-    simPlot0.setSnapshot(snapshot, timelineNames);
+    simPlot0.setSnapshot(snapshot, 0, timelineNames);
     //simPlot0.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
     simPlot0.resize(1400, 900);
     simPlot0.show();
