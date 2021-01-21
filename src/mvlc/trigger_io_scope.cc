@@ -53,23 +53,38 @@ std::error_code stop_scope(mvlc::MVLC mvlc)
         mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16);
 }
 
+namespace
+{
+bool is_fatal(const std::error_code &ec)
+{
+    return (ec == mvlc::ErrorType::ConnectionError
+            || ec == mvlc::ErrorType::ProtocolError);
+}
+}
+
 std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest)
 {
-    return mvlc.vmeBlockRead(
+    // XXX: this doesn't skip over stack error notification buffers that
+    // might arrive on the command pipe.
+
+    // block read from the mvlc
+    auto ec = mvlc.vmeBlockRead(
         mvlc::SelfVMEAddress, mvlc::vme_amods::MBLT64,
         std::numeric_limits<u16>::max(), dest);
+
+    if (is_fatal(ec))
+        return ec;
+
+    // readout reset
+    return mvlc.vmeWrite(
+        mvlc::SelfVMEAddress + 0x6034, 1,
+        mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16);
 }
 
 std::error_code acquire_scope_sample(
     mvlc::MVLC mvlc, ScopeSetup setup,
     std::vector<u32> &dest, std::atomic<bool> &cancel)
 {
-    auto is_fatal = [] (const std::error_code &ec)
-    {
-        return (ec == mvlc::ErrorType::ConnectionError
-                || ec == mvlc::ErrorType::ProtocolError);
-    };
-
     // Stop the stack error poller so that it doesn't read our samples off the
     // command pipe.
     auto errPollerLock = mvlc.suspendStackErrorPolling();
@@ -82,18 +97,10 @@ std::error_code acquire_scope_sample(
 
     while (!cancel && dest.size() <= 2)
     {
-        if (auto ec = read_scope(mvlc, dest))
-            if (is_fatal(ec))
-                return ec;
+        auto ec = read_scope(mvlc, dest);
 
-        // readout reset
-        if (auto ec = mvlc.vmeWrite(
-                mvlc::SelfVMEAddress + 0x6034, 1,
-                mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
-        {
-            if (is_fatal(ec))
-                return ec;
-        }
+        if (is_fatal(ec))
+            return ec;
     }
 
     if (auto ec = stop_scope(mvlc))
@@ -107,20 +114,11 @@ std::error_code acquire_scope_sample(
     do
     {
         tmpBuffer.clear();
-        if (auto ec = read_scope(mvlc, tmpBuffer))
-        {
-            if (is_fatal(ec))
-                return ec;
-        }
 
-        // readout reset
-        if (auto ec = mvlc.vmeWrite(
-                mvlc::SelfVMEAddress + 0x6034, 1,
-                mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
-        {
-            if (is_fatal(ec))
-                return ec;
-        }
+        auto ec = read_scope(mvlc, tmpBuffer);
+
+        if (is_fatal(ec))
+            return ec;
     } while (tmpBuffer.size() > 2);
 
     return {};

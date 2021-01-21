@@ -70,7 +70,8 @@ std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup);
 std::error_code stop_scope(mvlc::MVLC mvlc);
 std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest);
 
-// Starts, reads and stops the scope.
+// Starts, reads and stops the scope. Puts the first valid sample into the dest
+// buffer, other samples are discarded.
 std::error_code acquire_scope_sample(
     mvlc::MVLC mvlc, ScopeSetup setup,
     std::vector<u32> &dest, std::atomic<bool> &cancel);
