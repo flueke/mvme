@@ -272,7 +272,7 @@ void ScopePlotWidget::Private::zoomerZoomed()
     plot->replot();
 }
 
-QwtPlot *ScopePlotWidget::getPlot()
+QwtPlot *ScopePlotWidget::getQwtPlot()
 {
     return d->plot;
 }

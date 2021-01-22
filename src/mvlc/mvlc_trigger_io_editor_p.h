@@ -474,7 +474,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         // Output Connector -> Edge list
         QHash<QAbstractGraphicsShapeItem *, gfx::Edge *> m_edgesBySource;
 
-        // Used to show all hardwired connections to matter if they are
+        // Used to show all hardwired connections no matter if they are
         // considered to be in use or not.
         QVector<gfx::Edge *> m_staticEdges;
 

@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
     ScopePlotWidget simPlot0;
     simPlot0.setWindowTitle("TrigIO Test 0");
     simPlot0.setSnapshot(ioSnap);
-    simPlot0.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
+    simPlot0.getQwtPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
     simPlot0.show();
 
     int ret = app.exec();
