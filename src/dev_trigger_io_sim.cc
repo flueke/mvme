@@ -9,13 +9,16 @@
 #include <chrono>
 #include <iostream>
 #include <limits>
+#include <qnamespace.h>
 #include <random>
 
 #include "mvlc/trigger_io_scope.h"
 #include "mvlc/trigger_io_scope_ui.h"
 #include "mvlc/trigger_io_sim.h"
+#include "mvlc/trigger_io_sim_ui.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvme_qwt.h"
+#include "mvme_session.h"
 #include "qt_util.h"
 
 using namespace mesytec::mvme_mvlc;
@@ -25,139 +28,28 @@ using namespace std::chrono_literals;
 using std::cout;
 using std::endl;
 
-std::unique_ptr<QStandardItemModel> make_trace_tree_model(const TriggerIO &trigIO)
+void find_leave_items(const QStandardItem *root, std::vector<QStandardItem *> &dest, int checkColumn = 0)
 {
-    using Item = QStandardItem;
-    using ItemList = QList<Item *>;
-
-    auto make_item = [] (const QString &name) -> Item *
+    for (int row = 0; row < root->rowCount(); ++row)
     {
-        auto item = new Item(name);
-        item->setEditable(false);
-        item->setDragEnabled(false);
-        return item;
-    };
-
-    auto make_trace_item = [&make_item] (const QString &name) -> Item *
-    {
-        auto item = make_item(name);
-        item->setDragEnabled(true);
-        return item;
-    };
-
-    auto make_lut_item = [&make_item, &make_trace_item]
-        (const QString &name, bool hasStrobe) -> Item *
-    {
-        auto lutRoot = make_item(name);
-
-        for (auto i=0; i<LUT::InputBits; ++i)
+        for (int col = 0; col < root->columnCount(); ++col)
         {
-            auto item = make_trace_item(QString("in%1").arg(i));
-            lutRoot->appendRow(item);
+            if (auto child = root->child(row, col))
+            {
+                if (col == checkColumn && !child->hasChildren())
+                    dest.push_back(child);
+                else
+                    find_leave_items(child, dest, checkColumn);
+            }
         }
-
-        if (hasStrobe)
-            lutRoot->appendRow(make_trace_item("strobeIn"));
-
-        for (auto i=0; i<LUT::OutputBits; ++i)
-        {
-            auto item = make_trace_item(QString("out%1").arg(i));
-            lutRoot->appendRow(item);
-        }
-
-        if (hasStrobe)
-            lutRoot->appendRow(make_trace_item("strobeOut"));
-
-        return lutRoot;
-    };
-
-    auto model = std::make_unique<QStandardItemModel>();
-    auto root = model->invisibleRootItem();
-
-    // Sampled Traces
-    auto samplesRoot = make_item("Sampled Traces");
-    root->appendRow({ samplesRoot, nullptr });
-
-    for (auto i=0; i<NIM_IO_Count; ++i)
-    {
-        auto item = make_trace_item(QString("NIM%1").arg(i));
-        samplesRoot->appendRow(item);
     }
-
-    // L0
-    auto l0Root = make_item("L0 internal");
-    root->appendRow(l0Root);
-
-    for (auto i=0; i<TimerCount; ++i)
-    {
-        auto item = make_trace_item(QString("timer%1").arg(i));
-        l0Root->appendRow(item);
-    }
-
-    auto sysclockItem = make_item("sysclock");
-    l0Root->appendRow(sysclockItem);
-
-    for (auto i=0; i<NIM_IO_Count; ++i)
-    {
-        auto item = make_trace_item(QString("NIM%1").arg(i));
-        l0Root->appendRow(item);
-    }
-
-    // L1
-    auto l1Root = make_item("L1");
-    root->appendRow(l1Root);
-
-    for (auto i=0; i<Level1::LUTCount; ++i)
-    {
-        auto lutRoot = make_lut_item(QString("L1.LUT%1").arg(i), false);
-        l1Root->appendRow(lutRoot);
-    }
-
-    // L2
-    auto l2Root = make_item("L2");
-    root->appendRow(l2Root);
-
-    for (auto i=0; i<Level2::LUTCount; ++i)
-    {
-        auto lutRoot = make_lut_item(QString("L2.LUT%1").arg(i), true);
-        l2Root->appendRow(lutRoot);
-    }
-
-    // L3
-    auto l3Root = make_item("L3 internal");
-    root->appendRow(l3Root);
-
-    for (auto i=0; i<NIM_IO_Count; ++i)
-    {
-        auto item = make_trace_item(QString("NIM%1").arg(i));
-        l3Root->appendRow(item);
-    }
-
-    for (auto i=0; i<ECL_OUT_Count; ++i)
-    {
-        auto item = make_trace_item(QString("LVDS%1").arg(i));
-        l3Root->appendRow(item);
-    }
-
-    // Finalize
-    model->setHeaderData(0, Qt::Horizontal, "Trace");
-    model->setHeaderData(1, Qt::Horizontal, "Name");
-
-    return model;
-}
-
-std::unique_ptr<QStandardItemModel> make_trace_table_model()
-{
-    auto model = std::make_unique<QStandardItemModel>();
-    model->setColumnCount(2);
-    model->setHeaderData(0, Qt::Horizontal, "Trace");
-    model->setHeaderData(1, Qt::Horizontal, "Name");
-    return model;
-}
+};
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    mvme_init("dev_trigger_io_sim");
 
     LUT lut;
 
@@ -201,7 +93,7 @@ int main(int argc, char *argv[])
     simulate(lut, lutInputs, lutOutputs, maxtime);
 
     // ------------------------------------------------------
-    
+
     Snapshot snapshot = {
         in0, in1, in2, in3, in4, in5, strobeIn,
         out0, out1, out2, strobeOut
@@ -256,21 +148,59 @@ int main(int argc, char *argv[])
     auto traceSelectLayout = make_hbox(&traceSelectWidget);
 
     TriggerIO trigIO = {};
-    auto traceTreeModel = make_trace_tree_model(trigIO);
-    QTreeView traceTreeView;
+    auto traceTreeModel = make_trace_tree_model();
+    qDebug() << "traceTreeModel mimeTypes:" << traceTreeModel->mimeTypes();
+    TraceTreeView traceTreeView;
     traceTreeView.setModel(traceTreeModel.get());
-    traceTreeView.setExpandsOnDoubleClick(true);
-    traceTreeView.setDragEnabled(true);
 
     auto traceTableModel = make_trace_table_model();
-    QTableView traceTableView;
+    qDebug() << "traceTabelModel mimeTypes:" << traceTableModel->mimeTypes();
+    TraceTableView traceTableView;
     traceTableView.setModel(traceTableModel.get());
-    traceTableView.setDragEnabled(true);
 
     traceSelectLayout->addWidget(&traceTreeView);
     traceSelectLayout->addWidget(&traceTableView);
 
     traceSelectWidget.show();
+    traceSelectWidget.resize(800, 600);
+
+    QObject::connect(
+        &traceTableView, &QAbstractItemView::clicked,
+        [&] (const QModelIndex &index)
+        {
+            if (auto item = traceTableModel->itemFromIndex(index))
+            {
+                qDebug() << "table clicked, item =" << item
+                    << ", row =" << index.row()
+                    << ", col =" << index.column()
+                    << ", data =" << item->data()
+                    << item->data().value<PinAddress>()
+                    ;
+            }
+        });
+
+#if 0 // doesn't work for whatever reason. the match code in QAbstractItemModel is rather complex :(
+    auto treeMatches = traceTreeModel->match(
+        traceTreeModel->indexFromItem(traceTreeModel->invisibleRootItem()), // QModelIndex start
+        Qt::UserRole + 1, // role
+        QVariant::fromValue(PinAddress({2, 1, 3}, PinPosition::Input)), // value
+        -1, // hits
+        Qt::MatchRecursive // matchflags
+        );
+    qDebug() << "treeMatches =" << treeMatches;
+#endif
+
+    std::vector<QStandardItem *> leaves;
+
+    find_leave_items(traceTreeModel->invisibleRootItem(), leaves, 1);
+    qDebug() << "leaves=" << leaves;
+
+    for (auto leave: leaves)
+    {
+        traceTableModel->appendRow(leave->clone());
+        leave->setText("foobar!!!");
+    }
+
 
     int ret = app.exec();
     return ret;

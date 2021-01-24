@@ -396,6 +396,7 @@ if (MVME_ENABLE_MVLC)
         mvlc/trigger_io_scope.cc
         mvlc/trigger_io_scope_ui.cc
         mvlc/trigger_io_sim.cc
+        mvlc/trigger_io_sim_ui.cc
         mvlc/vmeconfig_from_crateconfig.cc
         mvlc/vmeconfig_to_crateconfig.cc
         mvme_mvlc_listfile.cc
