@@ -1,12 +1,12 @@
 ==================================================
 TODO list
 ==================================================
-* mvlc: module machen, dass des timestamp counter buffer vom mvlc ausliest. Wo
-  liegt das?
+* mvlc: module machen, dass den timestamp counter0 buffer vom mvlc ausliest. Wo
+  liegt der?
+* FW0016: test latch "not connected" and the "skip sysclock" adressing thing on L3
 * trigger_io_scope:
   - close widget on mvlc change or update mvlc instance (the widget currently
     retains the old instance)
-  - optimize ScopeData allocations
   - maybe store fifoOverflow in Snapshot
 * write mvlc stack errors to the mvme log file (right now they're completely
   lost after the daq ends)
@@ -14,9 +14,6 @@ TODO list
   timer -> stack_start connection is not disabled. Could find out which timer
   was used to trigger the event and remove the connection from the timer to the
   stackstart unit.
-* global: finally fix the DAQ stop logic: right now it only waits for the DAQ
-  side to stop while the analysis is still running and processing buffers. This
-  is not good. -> Need a common state and subsystem states or similar.
 * When a ListfitlerExtractor changes size an open RateMonitorWidget is not
   properly updated. The legend will be updated but the number of elements is
   not updated. Something is not correct here.
@@ -29,21 +26,6 @@ TODO list
 
 * analysis cross-process copy/paste is broken
 * make named indices inline renamable (maybe, these are weird anyways)
-
-Trigger IO simulation
-----------------------
-* configuration of the system: unit parameters, unit connections
-* a bit for each pin in the system
-* values for how long units take to change their state.
-  There is a minimum time for the gate generators, 8ns I think.
-* logic to simulate a certain time step and produce a new set of output bits
-* buffer for the bits to keep some history of what happened
-* state for certain units: remaining delay, remaining 'on' time (width)
-* for each unit: which input and output bits is it using, e.g. where to read
-  and where store the pin values from/to
-
-step(8ns, system)
-----------------------
 
 * doc: Add network tuning and data export section
 * document MVLC jumbo frame support in mvme manual

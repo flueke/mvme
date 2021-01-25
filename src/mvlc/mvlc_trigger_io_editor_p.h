@@ -391,11 +391,12 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         virtual void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev) override;
 
     private:
-        struct Level0NIMItems
+        struct Level0InputItems
         {
             QGraphicsRectItem *parent;
             QGraphicsSimpleTextItem *label;
             gfx::BlockItem *nimItem;
+            gfx::BlockItem *irqItem; // New in FW0016
 
         };
 
@@ -453,7 +454,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
 
         TriggerIO m_ioCfg;
 
-        Level0NIMItems m_level0NIMItems;
+        Level0InputItems m_level0InputItems;
         Level0UtilItems m_level0UtilItems;
         Level1Items m_level1Items;
         Level2Items m_level2Items;

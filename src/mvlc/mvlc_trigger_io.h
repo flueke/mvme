@@ -205,11 +205,11 @@ using UnitAddressVector = std::vector<UnitAddress>;
 
 struct UnitConnection
 {
-    static UnitConnection makeDynamic(bool available = true)
+    static UnitConnection makeDynamic(/*bool available = true*/)
     {
         UnitConnection res{0, 0, 0};
         res.isDynamic = true;
-        res.isAvailable = available;
+        //res.isAvailable = available;
         return res;
     }
 
@@ -348,7 +348,7 @@ struct Level3
     static const size_t NIM_IO_Unit_Offset = 16;
     static const size_t ECL_Unit_Offset = 30;
 
-    static const unsigned CounterLatchNotConnectedValue = 21;
+    static const unsigned CounterInputNotConnected = 21;
 
     static const std::array<QString, trigger_io::Level3::UnitCount+1> DefaultUnitNames;
     static const std::vector<std::vector<UnitAddressVector>> DynamicInputChoiceLists;
@@ -356,8 +356,7 @@ struct Level3
     std::array<StackStart, StackStartCount> stackStart = {};
     std::array<MasterTrigger, MasterTriggersCount> masterTriggers = {};
     std::array<Counter, CountersCount> counters = {};
-    // FIXME: maybe get rid of this. it's the same as in level0. The logic
-    // keeps it in sync.
+    // Same as in level0. The logic keeps it in sync.
     std::array<IO, NIM_IO_Count> ioNIM = {};
     std::array<IO, ECL_OUT_Count> ioECL = {};
 

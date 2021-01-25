@@ -226,9 +226,9 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
         // All L2 LUTs can connect to L1.LUT5 since FW0016
         for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
         {
-            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 5, 0 });
-            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 5, 1 });
-            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 5, 2 });
+            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 6, 0 });
+            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 6, 1 });
+            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 6, 2 });
         }
 
         // Strobes can connect to L0 up to and including the sysclock
@@ -244,13 +244,15 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
         for (unsigned i = 0; i < 3; i++)
             strobeChoices.push_back({ 1, 4, i });
 
-        // Strobe inputs can also connect to all of the L2 outputs
+        // Strobe inputs can also connect to L2.LUT0/1 outputs (circular!)
         for (unsigned i = 0; i < 3; i++)
             strobeChoices.push_back({ 2, 0, i });
+        for (unsigned i = 0; i < 3; i++)
+            strobeChoices.push_back({ 2, 1, i });
 
         // Strobe inputs can connect to the L1 outputs added in FW0016
         for (unsigned i = 0; i < 3; i++)
-            strobeChoices.push_back({ 1, 5, i });
+            strobeChoices.push_back({ 1, 6, i });
 
         result[unit].strobeChoices = strobeChoices;
     }
@@ -386,7 +388,6 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
 
         std::vector<UnitAddress> choices;
 
-        // Can connect up to the IRQ units
         for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
@@ -420,12 +421,14 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         // L0.sysclock
         choices.push_back({0, Level0::SysClockOffset});
 
+        // unconnected/not connected value
+        choices.push_back({3, Level3::UnitCount });
+
         // L2.LUT2 connectivity
         std::copy(Level2LUT2.begin(), Level2LUT2.end(), std::back_inserter(choices));
 
-        // FIXME: counter latch hack
+        // latch choices are the same as counter input choices
         std::vector<UnitAddress> latchChoices = choices;
-        latchChoices.push_back({3, Level3::UnitCount}); // "not connected"
 
         result.push_back({choices, latchChoices}); // counter input, latch input
     }
@@ -464,7 +467,7 @@ Level3::Level3()
         connections[unit][0] = 0;
         // one past the max connection value indicates "not-connected" for the
         // latch input
-        connections[unit][1] = 21;
+        connections[unit][1] = Level3::CounterInputNotConnected;
     }
 
     std::copy(DefaultUnitNames.begin(), DefaultUnitNames.end(),

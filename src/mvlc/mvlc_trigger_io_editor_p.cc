@@ -791,13 +791,13 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 : QGraphicsScene(parent)
 , m_ioCfg(ioCfg)
 {
-    auto make_level0_nim_items = [&] () -> Level0NIMItems
+    auto make_level0_input_items = [&] () -> Level0InputItems
     {
-        Level0NIMItems result = {};
+        Level0InputItems result = {};
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            150, 520);
+            150, 620);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -817,10 +817,32 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                 c->setBrush(gfx::Connector_Brush_Disabled);
             }
 
-            result.nimItem->moveBy(25, 25);
+            result.nimItem->moveBy(25, 25 + 140 + 5);
 
             auto label = new QGraphicsSimpleTextItem(QString("NIM Inputs"), result.nimItem);
             label->moveBy((result.nimItem->boundingRect().width()
+                           - label->boundingRect().width()) / 2.0, 0);
+        }
+
+        {
+            result.irqItem = new gfx::BlockItem(
+                100, 140, // width, height
+                trigger_io::Level0::IRQ_Inputs_Count, // inputCount
+                trigger_io::Level0::IRQ_Inputs_Count, // outputCount
+                16, // inputConnectorMargin
+                16, // outputConnectorMargin
+                result.parent);
+
+            for (auto c: result.irqItem->inputConnectors())
+            {
+                c->setEnabled(false);
+                c->setBrush(gfx::Connector_Brush_Disabled);
+            }
+
+            result.irqItem->moveBy(25, 25);
+
+            auto label = new QGraphicsSimpleTextItem(QString("IRQ Inputs"), result.irqItem);
+            label->moveBy((result.irqItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
         }
 
@@ -874,6 +896,9 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         QRectF lutRect = result.luts[0]->rect();
 
         lutRect.translate(25, 25);
+        result.luts[5]->setPos(lutRect.topLeft());
+
+        lutRect.translate(0, lutRect.height() + 25);
         result.luts[2]->setPos(lutRect.topLeft());
 
         lutRect.translate(0, lutRect.height() + 25);
@@ -885,6 +910,9 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         lutRect.moveTo(lutRect.width() + 50, 0);
         lutRect.translate(25, 25);
         lutRect.translate(0, (lutRect.height() + 25) / 2.0);
+        result.luts[6]->setPos(lutRect.topLeft());
+
+        lutRect.translate(0, lutRect.height() + 25);
         result.luts[4]->setPos(lutRect.topLeft());
 
         lutRect.translate(0, lutRect.height() + 25);
@@ -966,6 +994,9 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         lutRect.moveTo(xPos, 0);
         lutRect.translate(0, 25);
         lutRect.translate(0, (lutRect.height() + 25) / 2.0);
+        result.luts[2]->setPos(lutRect.topLeft());
+
+        lutRect.translate(0, lutRect.height() + 25);
         result.luts[1]->setPos(lutRect.topLeft());
 
         lutRect.translate(0, lutRect.height() + 25);
@@ -1139,11 +1170,13 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     };
 
     // Top row, side by side gray boxes for each level
-    m_level0NIMItems = make_level0_nim_items();
-    m_level0NIMItems.parent->moveBy(-160, 0);
+    m_level0InputItems = make_level0_input_items();
+    m_level0InputItems.parent->moveBy(-160, 0);
+
     m_level0UtilItems = make_level0_util_items();
     m_level0UtilItems.parent->moveBy(
-        0, m_level0NIMItems.parent->boundingRect().height() + 15);
+        0, m_level0InputItems.parent->boundingRect().height() + 15);
+
     m_level1Items = make_level1_items();
     m_level2Items = make_level2_items();
     m_level2Items.parent->moveBy(270, 0);
@@ -1153,7 +1186,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     m_level3UtilItems.parent->moveBy(
         540, m_level3Items.parent->boundingRect().height() + 15);
 
-    this->addItem(m_level0NIMItems.parent);
+    this->addItem(m_level0InputItems.parent);
     this->addItem(m_level1Items.parent);
     this->addItem(m_level2Items.parent);
     this->addItem(m_level3Items.parent);
@@ -1640,8 +1673,14 @@ QAbstractGraphicsShapeItem *
             if (trigger_io::Level0::NIM_IO_Offset <= addr[1]
                 && addr[1] < trigger_io::Level0::NIM_IO_Offset + trigger_io::NIM_IO_Count)
             {
-                return m_level0NIMItems.nimItem->outputConnectors().value(
+                return m_level0InputItems.nimItem->outputConnectors().value(
                     addr[1] - trigger_io::Level0::NIM_IO_Offset);
+            }
+            else if (trigger_io::Level0::IRQ_Inputs_Offset <= addr[1]
+                     && addr[1] < trigger_io::Level0::IRQ_Inputs_Offset + trigger_io::Level0::IRQ_Inputs_Count)
+            {
+                return m_level0InputItems.irqItem->outputConnectors().value(
+                    addr[1] - trigger_io::Level0::IRQ_Inputs_Offset);
             }
             else
             {
@@ -1871,9 +1910,11 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         {
             UnitAddress addr {3, static_cast<unsigned>(kv.index()), 0};
 
-            auto cond = [] (const Counter &counter)
+            auto cond = [&ioCfg, &addr] (const Counter &counter)
             {
-                return counter.softActivate;
+                return counter.softActivate &&
+                    // since FW0016
+                    ioCfg.l3.connections[addr[1]][0] != Level3::CounterInputNotConnected;
             };
 
             update_connectors_and_edge(kv.value(), addr, cond);
@@ -1885,7 +1926,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
             auto cond = [&ioCfg, &addr] (const Counter &)
             {
-                return ioCfg.l3.connections[addr[1]][1] != Level3::CounterLatchNotConnectedValue;
+                return ioCfg.l3.connections[addr[1]][1] != Level3::CounterInputNotConnected;
             };
 
             update_connectors_and_edge(kv.value(), addr, cond);
@@ -1909,7 +1950,8 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
         for (auto edge: getEdgesBySourceConnector(srcCon))
         {
-            edge->setVisible(edge->isVisible() && softActivate);
+            if (edge)
+                edge->setVisible(edge->isVisible() && softActivate);
         }
     }
 
@@ -1927,8 +1969,8 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
             dstCon->setEnabled(minInputBits.test(input));
             dstCon->setBrush(dstCon->isEnabled() ? Connector_Brush : Connector_Brush_Disabled);
 
-            auto edge = getEdgeByDestConnector(dstCon);
-            edge->setVisible(minInputBits.test(input) && edge->sourceItem()->isEnabled());
+            if (auto edge = getEdgeByDestConnector(dstCon))
+                edge->setVisible(minInputBits.test(input) && edge->sourceItem()->isEnabled());
         }
     }
 
@@ -1946,8 +1988,8 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
             dstCon->setEnabled(minInputBits.test(input));
             dstCon->setBrush(dstCon->isEnabled() ? Connector_Brush : Connector_Brush_Disabled);
 
-            auto edge = getEdgeByDestConnector(dstCon);
-            edge->setVisible(minInputBits.test(input) && edge->sourceItem()->isEnabled());
+            if (auto edge = getEdgeByDestConnector(dstCon))
+                edge->setVisible(minInputBits.test(input) && edge->sourceItem()->isEnabled());
         }
     }
 
@@ -1974,7 +2016,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
         {
             UnitAddress addr {3, static_cast<unsigned>(kv.index()), 1};
 
-            bool isConnected = ioCfg.l3.connections[addr[1]][1] != Level3::CounterLatchNotConnectedValue;
+            bool isConnected = ioCfg.l3.connections[addr[1]][1] != Level3::CounterInputNotConnected;
 
             bool softActivate = kv.value().softActivate;
 
@@ -2004,7 +2046,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
             std::copy(b, e, std::back_inserter(names));
 
-            m_level0NIMItems.nimItem->setOutputNames(names);
+            m_level0InputItems.nimItem->setOutputNames(names);
         }
 
         // l0 util
@@ -2133,7 +2175,7 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
     auto items = this->items(ev->scenePos());
 
     // level0
-    if (items.indexOf(m_level0NIMItems.nimItem) >= 0)
+    if (items.indexOf(m_level0InputItems.nimItem) >= 0)
     {
         ev->accept();
         emit editNIM_Inputs();
