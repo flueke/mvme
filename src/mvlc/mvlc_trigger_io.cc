@@ -32,11 +32,6 @@ namespace mvme_mvlc
 namespace trigger_io
 {
 
-#if 0
-const UnitAddress UnitAddress::Invalid = UnitAddress{-1, -1, -1};
-const UnitAddress UnitAddress::Dynamic = UnitAddress{-2, -2, -2};
-#endif
-
 LUT::LUT()
 {
     lutContents.fill({});
@@ -496,25 +491,6 @@ QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr)
 
     return {};
 }
-
-#if 0
-QString lookup_name_2(const TriggerIO &cfg, const UnitAddress &addr)
-{
-    try
-    {
-        // FIXME: use the pin address value -1 to indicate that a unit name is
-        // being looked up
-        //if (addr[2] < 0)
-        //    return cfg.unitNames.at(addr[0]).at(addr[1]);
-        return cfg.pinNames.at(addr[0]).at(addr[1]).at(addr[2]);
-        //return cfg.unitNames.at(addr.level()).at(addr.unit()).at(addr.pin());
-    }
-    catch (const std::out_of_range &)
-    { }
-
-    return {};
-}
-#endif
 
 QString lookup_default_name(const TriggerIO &cfg, const UnitAddress &addr)
 {

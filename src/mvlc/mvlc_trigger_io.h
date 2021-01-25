@@ -70,19 +70,6 @@ struct StackBusy
 
 using Names = std::vector<QString>;
 
-#if 0 // Used for some ideas below
-using UnitPinNames = std::vector<Names>;
-using LevelUnitPinNames = std::vector<UnitPinNames>;
-
-using LevelUnitNames = std::vector<Names>;
-
-using PinConnectionChoices = std::vector<unsigned>;
-using UnitInputChoices = std::vector<PinConnectionChoices>;
-using LevelUnitInputChoices = std::vector<UnitInputChoices>;
-using UnitConnectionSelection = std::vector<unsigned>;
-using LevelUnitConnectionSelections = std::vector<UnitConnectionSelection>;
-#endif
-
 struct LUT
 {
     static const u16 InputBits = 6;
@@ -174,54 +161,26 @@ struct SoftTrigger
     Activation activation;
 };
 
-#if 0
-struct UnitAddress: public std::array<int, 3>
-{
-    static const UnitAddress Invalid;
-    static const UnitAddress Dynamic;
-
-    UnitAddress(int level = -1, int unit = -1, int pin = -1)
-        : std::array<int, 3>{{level, unit, pin}}
-    {
-    }
-
-    int level() const { return (*this)[0]; }
-    int unit() const { return (*this)[1]; }
-    int pin() const { return (*this)[2]; }
-
-    bool isLevelAddress() const { return level() >= 0 && unit() < 0 };
-    bool isUnitAddress() const { return !isLevelAddress() && pin() < 0 };
-    bool isPinAddress() const { return !isLevelAddress() && !isUnitAddress(); }
-};
-#else
 // Addressing: level, unit [, output]
 // output used to address LUT output pins in levels 1 and 2
 // This is not perfect as not every pin in the system can be addressed. Right
 // now the output pins are addressed except for L3 where the current code is
 // dealing with the input pins.
 using UnitAddress = std::array<unsigned, 3>;
-#endif
 using UnitAddressVector = std::vector<UnitAddress>;
 
 struct UnitConnection
 {
-    static UnitConnection makeDynamic(/*bool available = true*/)
+    static UnitConnection makeDynamic()
     {
         UnitConnection res{0, 0, 0};
         res.isDynamic = true;
-        //res.isAvailable = available;
         return res;
     }
 
-#if 0
-    UnitConnection(int level, int unit, int subunit = 0)
-        : address({level, unit, subunit})
-    {}
-#else
     UnitConnection(unsigned level, unsigned unit, unsigned subunit = 0)
         : address({level, unit, subunit})
     {}
-#endif
 
     unsigned level() const { return address[0]; }
     unsigned unit() const { return address[1]; }
@@ -376,18 +335,6 @@ struct TriggerIO
     Level1 l1;
     Level2 l2;
     Level3 l3;
-
-    // TODO: more generic structure for names and connection choices and
-    // connection selections
-#if 0
-    static const LevelUnitNames DefaultUnitNames;
-    static const LevelUnitPinNames DefaultPinNames;
-    static const LevelUnitInputChoices UnitInputChoices;
-
-    LevelUnitNames unitNames;
-    LevelUnitPinNames pinNames;
-    LevelUnitConnectionSelections connections;
-#endif
 };
 
 QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
@@ -395,11 +342,6 @@ QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
 
 // Reset all pin names to their default value
 void reset_names(TriggerIO &ioCfg);
-
-#if 0
-QString lookup_name_2(const TriggerIO &ioCfg, const UnitAddress &addr);
-QString lookup_default_name_2(const TriggerIO &ioCfg, const UnitAddress &addr);
-#endif
 
 // Given a unit address looks up the 'connect' value for that unit. These
 // values have different meaning depending on the unit being checked (e.g. L3
@@ -452,23 +394,5 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
 } // end namespace mesytec
-
-#if 0
-namespace std
-{
-    template<> struct hash<mesytec::mvme_mvlc::trigger_io::UnitAddress>
-    {
-        std::size_t operator() (const mesytec::mvme_mvlc::trigger_io::UnitAddress &ua) const
-        {
-            std::size_t result = 0u;
-
-            for (size_t i=0; i<ua.size(); ++i)
-                result ^= std::hash<unsigned>{}(ua[i]) << i;
-
-            return result;
-        }
-    };
-}
-#endif
 
 #endif /* __MVME_MVLC_TRIGGER_IO_H__ */
