@@ -244,9 +244,6 @@ static const QString UnitNotAvailable = "N/A";
 
 struct Level0
 {
-    static const int OutputCount = 30;
-    static const int NIM_IO_Offset = 16;
-
     static const int IRQ_UnitCount = 2;
     static const int IRQ_UnitOffset = 4;
 
@@ -264,6 +261,15 @@ struct Level0
 
     static const size_t UtilityUnitCount = 16;
 
+    static const int NIM_IO_Offset = 16;
+
+    static const int IRQ_Inputs_Count = 6;
+    static const int IRQ_Inputs_Offset = 33;
+
+    // Total number of output pins on L0
+    static const int OutputCount = UtilityUnitCount + NIM_IO_Count + IRQ_Inputs_Count;
+
+
     static const std::array<QString, OutputCount> DefaultUnitNames;
 
     std::array<Timer, TimerCount> timers;                       // 0..3
@@ -274,6 +280,8 @@ struct Level0
                                                                 // 14 sysclock
                                                                 // 15 daq_start
     std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
+                                                                // 30..32 reserved for the ECL outputs on L3
+    std::array<IO, IRQ_Inputs_Count> ioIRQ;                     // 33..38 IRQ inputs
                                                                 // 48 Digital Oscilloscope
 
     QStringList unitNames;
@@ -283,7 +291,7 @@ struct Level0
 
 struct Level1
 {
-    static const size_t LUTCount = 5;
+    static const size_t LUTCount = 7;
     static const std::array<LUT_Connections, LUTCount> StaticConnections;
 
     std::array<LUT, LUTCount> luts;
@@ -293,7 +301,7 @@ struct Level1
 
 struct Level2
 {
-    static const size_t LUTCount = 2;
+    static const size_t LUTCount = 3;
     static const std::array<LUT_Connections, LUTCount> StaticConnections;
     static const size_t LUT_DynamicInputCount = 3;
 

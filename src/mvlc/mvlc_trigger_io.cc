@@ -20,6 +20,7 @@
  */
 #include "mvlc/mvlc_trigger_io.h"
 #include <boost/range/adaptor/indexed.hpp>
+#include <iterator>
 #include <minbool.h>
 
 using boost::adaptors::indexed;
@@ -113,6 +114,12 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "NIM11",
     "NIM12",
     "NIM13",
+    "IRQ_in0",
+    "IRQ_in1",
+    "IRQ_in2",
+    "IRQ_in3",
+    "IRQ_in4",
+    "IRQ_in5",
 };
 
 Level0::Level0()
@@ -128,6 +135,7 @@ Level0::Level0()
     slaveTriggers.fill({});
     stackBusy.fill({});
     ioNIM.fill({});
+    ioIRQ.fill({});
 }
 
 //
@@ -148,6 +156,12 @@ const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticCo
         { { {1, 0, 0}, {1, 0, 1}, {1, 0, 2}, {1, 1, 0}, {1, 1, 1}, {1, 1, 2} }, },
         // L1.LUT4
         { { {1, 1, 0}, {1, 1, 1}, {1, 1, 2}, {1, 2, 0}, {1, 2, 1}, {1, 2, 2} }, },
+
+        // L1.LUT5
+        { { {0, 33}, {0, 34}, {0, 35}, {0, 36}, {0, 37}, {0, 38} } },
+
+        // L1.LUT6
+        { { {1, 2, 0}, {1, 2, 1}, {1, 2, 2}, {1, 5, 0}, {1, 5, 1}, {1, 5, 2} }, },
     },
 };
 
@@ -178,7 +192,6 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
 
     for (size_t unit = 0; unit < result.size(); unit++)
     {
-
         // Common to all inputs: can connect to Level0 up to but excluding sysclock
         std::vector<UnitAddress> common(trigger_io::Level0::SysClockOffset);
 
@@ -199,11 +212,24 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
             for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 3, i });
         }
+        else if (unit == 2) // new in FW0016
+        {
+            // L2.LUT2 can connect to L1.LUT4
+            for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+                result[unit].lutChoices[i].push_back(UnitAddress{ 1, 4, i });
+        }
 
-        // Both L2 LUTs
+        // All L2 LUTs
         for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
             result[unit].lutChoices[i].push_back(UnitAddress{ 0, trigger_io::Level0::DAQStartOffset});
 
+        // All L2 LUTs can connect to L1.LUT5 since FW0016
+        for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+        {
+            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 5, 0 });
+            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 5, 1 });
+            result[unit].lutChoices[i].push_back(UnitAddress{ 1, 5, 2 });
+        }
 
         // Strobes can connect to L0 up to and including the sysclock
         std::vector<UnitAddress> strobeChoices(trigger_io::Level0::SysClockOffset + 1);
@@ -222,8 +248,9 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
         for (unsigned i = 0; i < 3; i++)
             strobeChoices.push_back({ 2, 0, i });
 
+        // Strobe inputs can connect to the L1 outputs added in FW0016
         for (unsigned i = 0; i < 3; i++)
-            strobeChoices.push_back({ 2, 1, i });
+            strobeChoices.push_back({ 1, 5, i });
 
         result[unit].strobeChoices = strobeChoices;
     }
@@ -243,9 +270,10 @@ const std::array<LUT_Connections, trigger_io::Level2::LUTCount> Level2::StaticCo
         { Dynamic, Dynamic, Dynamic , { 1, 3, 0 }, { 1, 3, 1 }, { 1, 3, 2 } },
         // L2.LUT1
         { Dynamic, Dynamic, Dynamic , { 1, 4, 0 }, { 1, 4, 1 }, { 1, 4, 2 } },
+        // L2.LUT2, new in FW0016
+        { Dynamic, Dynamic, Dynamic , { 1, 6, 0 }, { 1, 6, 1 }, { 1, 6, 2 } },
     },
 };
-
 
 const std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount>
     Level2::DynamicInputChoices = make_l2_input_choices();
@@ -280,7 +308,7 @@ const std::array<QString, trigger_io::Level3::UnitCount+1> Level3::DefaultUnitNa
     "MasterTrigger1",
     "MasterTrigger2",
     "MasterTrigger3",
-    "Counter0",
+    "Counter0+Stamper",
     "Counter1",
     "Counter2",
     "Counter3",
@@ -312,7 +340,7 @@ namespace
 {
 std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
 {
-    static const std::vector<UnitAddress> Level2Full =
+    static const std::vector<UnitAddress> Level2LUTs01 =
     {
         { 2, 0, 0 },
         { 2, 0, 1 },
@@ -320,6 +348,14 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         { 2, 1, 0 },
         { 2, 1, 1 },
         { 2, 1, 2 },
+    };
+
+    // New in FW0016
+    static const std::vector<UnitAddress> Level2LUT2 =
+    {
+        { 2, 2, 0 },
+        { 2, 2, 1 },
+        { 2, 2, 2 },
     };
 
     std::vector<std::vector<UnitAddressVector>> result;
@@ -338,7 +374,9 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
-        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
+        std::copy(Level2LUTs01.begin(), Level2LUTs01.end(), std::back_inserter(choices));
+        // FIXME FW0016 exclude sysclk from addressing?
+        std::copy(Level2LUT2.begin(), Level2LUT2.end(), std::back_inserter(choices));
         result.push_back({choices});
     }
 
@@ -352,7 +390,9 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         for (unsigned unit = 0; unit <= LastL0Unit; unit++)
             choices.push_back({0, unit });
 
-        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
+        std::copy(Level2LUTs01.begin(), Level2LUTs01.end(), std::back_inserter(choices));
+        // FIXME FW0016 exclude sysclk from addressing?
+        std::copy(Level2LUT2.begin(), Level2LUT2.end(), std::back_inserter(choices));
         result.push_back({choices});
     }
 
@@ -361,7 +401,7 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         // For Counters input0 is the counter input, input1 is the latch input.
         // Both can connect to L0[13:0], L2[5:0], L0[14]. The sysclk on L0[14]
         // was added at a later point, that's why it's separated from the other
-        // L0 units.
+        // L0 units. Since FW0016 both inputs can also connect to the new L2.LUT3.
         // The latch input also has a special "not-connected" value which is
         // one past the last valid connection value but this value is not
         // stored in here for now.
@@ -374,15 +414,18 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         for (unsigned unit = 0; unit < L0EndUnit; unit++)
             choices.push_back({0, unit });
 
-        // Full L2 connectivity
-        std::copy(Level2Full.begin(), Level2Full.end(), std::back_inserter(choices));
+        // L2.LUT0/1 connectivity
+        std::copy(Level2LUTs01.begin(), Level2LUTs01.end(), std::back_inserter(choices));
 
         // L0.sysclock
         choices.push_back({0, Level0::SysClockOffset});
 
+        // L2.LUT2 connectivity
+        std::copy(Level2LUT2.begin(), Level2LUT2.end(), std::back_inserter(choices));
+
         // FIXME: counter latch hack
         std::vector<UnitAddress> latchChoices = choices;
-        latchChoices.push_back({3, Level3::UnitCount});
+        latchChoices.push_back({3, Level3::UnitCount}); // "not connected"
 
         result.push_back({choices, latchChoices}); // counter input, latch input
     }
@@ -390,7 +433,8 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
     // NIM and ECL outputs can connect to Level2 only
     for (size_t i = 0; i < (trigger_io::NIM_IO_Count + trigger_io::ECL_OUT_Count); i++)
     {
-        std::vector<UnitAddress> choices = Level2Full;
+        std::vector<UnitAddress> choices = Level2LUTs01;
+        std::copy(Level2LUT2.begin(), Level2LUT2.end(), std::back_inserter(choices));
         result.push_back({choices});
     }
 
