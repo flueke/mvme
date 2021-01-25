@@ -305,7 +305,7 @@ const std::array<QString, trigger_io::Level3::UnitCount+1> Level3::DefaultUnitNa
     "MasterTrigger1",
     "MasterTrigger2",
     "MasterTrigger3",
-    "Counter0+Stamper",
+    "Counter0+Timestamper",
     "Counter1",
     "Counter2",
     "Counter3",
@@ -372,7 +372,8 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
             choices.push_back({0, unit });
 
         std::copy(Level2LUTs01.begin(), Level2LUTs01.end(), std::back_inserter(choices));
-        // FIXME FW0016 exclude sysclk from addressing?
+        // FW0016: excluded sysclk value
+        choices.push_back({ 3, Level3::UnitCount + 1 });
         std::copy(Level2LUT2.begin(), Level2LUT2.end(), std::back_inserter(choices));
         result.push_back({choices});
     }
@@ -387,7 +388,8 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
             choices.push_back({0, unit });
 
         std::copy(Level2LUTs01.begin(), Level2LUTs01.end(), std::back_inserter(choices));
-        // FIXME FW0016 exclude sysclk from addressing?
+        // FW0016: excluded sysclk value
+        choices.push_back({ 3, Level3::UnitCount + 1 });
         std::copy(Level2LUT2.begin(), Level2LUT2.end(), std::back_inserter(choices));
         result.push_back({choices});
     }

@@ -308,6 +308,7 @@ struct Level3
     static const size_t ECL_Unit_Offset = 30;
 
     static const unsigned CounterInputNotConnected = 21;
+    static const unsigned ExcludedSysclock = 20;
 
     static const std::array<QString, trigger_io::Level3::UnitCount+1> DefaultUnitNames;
     static const std::vector<std::vector<UnitAddressVector>> DynamicInputChoiceLists;

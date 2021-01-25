@@ -797,7 +797,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            150, 620);
+            150, 660);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -879,10 +879,10 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         Level1Items result = {};
 
-        // background box containing the 5 LUTs
+        // background box containing the LUTs
         result.parent = new QGraphicsRectItem(
             0, 0,
-            260, 520);
+            260, 660);
 
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
@@ -978,7 +978,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // background box containing the 2 LUTs
         result.parent = new QGraphicsRectItem(
             0, 0,
-            260, 520);
+            260, 660);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -1016,7 +1016,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         Level3Items result = {};
 
-        QRectF lutRect(0, 0, 80, 140);
+        //QRectF lutRect(0, 0, 80, 140);
 
         result.parent = new QGraphicsRectItem(
             0, 0,
@@ -1152,10 +1152,19 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             for (unsigned counter=0; counter<Level3::CountersCount; counter++)
             {
                 auto counterItem = new gfx::CounterItem(counter, result.utilsItem);
+
+                if (counter == 0) // make the counter+stamper block wider
+                {
+                    auto rect = counterItem->rect();
+                    rect.setWidth(rect.width() + 80);
+                    counterItem->setRect(rect);
+                }
+
                 counterItem->moveBy(
                     0,
                     (counterItem->boundingRect().height() + 2) * (Level3::CountersCount - 1 - counter));
                 result.counterItems.push_back(counterItem);
+
             }
         }
 
@@ -2983,8 +2992,23 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.checks_activate.push_back(check_activate);
             ret.combos_stack.push_back(combo_stack);
 
-            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex)[0]);
-            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][0]);
+            const auto choiceNames = inputChoiceNameLists.value(row + ret.FirstUnitIndex)[0];
+
+            // This takes into account that we have to skip over the syslock
+            // entry. It's the only entry with an empty name so we skip that
+            // but we still need the correct "connect value" to setup the MVLC,
+            // so the connect value is stored as the data() of the combo box
+            // item.
+            for (int conval = 0; conval < choiceNames.size(); ++conval)
+            {
+                const auto &name = choiceNames.value(conval);
+                if (!name.isEmpty())
+                    combo_connection->addItem(name, conval);
+            }
+
+            int indexToSelect = combo_connection->findData(l3.connections[row + ret.FirstUnitIndex][0]);
+            combo_connection->setCurrentIndex(indexToSelect);
+
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.stackStart[row].activate);
 
@@ -3071,8 +3095,22 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.combos_connection.push_back(combo_connection);
             ret.checks_activate.push_back(check_activate);
 
-            combo_connection->addItems(inputChoiceNameLists.value(row + ret.FirstUnitIndex)[0]);
-            combo_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][0]);
+            const auto choiceNames = inputChoiceNameLists.value(row + ret.FirstUnitIndex)[0];
+            // This takes into account that we have to skip over the syslock
+            // entry. It's the only entry with an empty name so we skip that
+            // but we still need the correct "connect value" to setup the MVLC,
+            // so the connect value is stored as the data() of the combo box
+            // item.
+            for (int conval = 0; conval < choiceNames.size(); ++conval)
+            {
+                const auto &name = choiceNames.value(conval);
+                if (!name.isEmpty())
+                    combo_connection->addItem(name, conval);
+            }
+
+            int indexToSelect = combo_connection->findData(l3.connections[row + ret.FirstUnitIndex][0]);
+            combo_connection->setCurrentIndex(indexToSelect);
+
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.masterTriggers[row].activate);
 
@@ -3119,7 +3157,6 @@ Level3UtilsDialog::Level3UtilsDialog(
             ret.combos_latch_connection.push_back(combo_latch_connection);
 
             auto latchInputChoicesNames = inputChoiceNameLists.value(row + ret.FirstUnitIndex)[1];
-            //latchInputChoicesNames.push_back("<not connected>");
 
             combo_latch_connection->addItems(latchInputChoicesNames);
             combo_latch_connection->setCurrentIndex(l3.connections[row + ret.FirstUnitIndex][1]);
@@ -3203,7 +3240,7 @@ Level3 Level3UtilsDialog::getSettings() const
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
             m_l3.connections[row + ui.FirstUnitIndex] =
-                { static_cast<unsigned>(ui.combos_connection[row]->currentIndex()) };
+                { ui.combos_connection[row]->currentData().toUInt() };
             auto &unit = m_l3.stackStart[row];
             unit.activate = ui.checks_activate[row]->isChecked();
             unit.stackIndex = ui.combos_stack[row]->currentData().toUInt();
@@ -3218,7 +3255,7 @@ Level3 Level3UtilsDialog::getSettings() const
         {
             m_l3.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
             m_l3.connections[row + ui.FirstUnitIndex] =
-                { static_cast<unsigned>(ui.combos_connection[row]->currentIndex())};
+                { ui.combos_connection[row]->currentData().toUInt() };
             auto &unit = m_l3.masterTriggers[row];
             unit.activate = ui.checks_activate[row]->isChecked();
         }
