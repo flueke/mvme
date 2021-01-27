@@ -797,7 +797,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         result.parent = new QGraphicsRectItem(
             0, 0,
-            150, 660);
+            150, 670);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -882,7 +882,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // background box containing the LUTs
         result.parent = new QGraphicsRectItem(
             0, 0,
-            260, 660);
+            260, 670);
 
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
@@ -978,7 +978,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // background box containing the 2 LUTs
         result.parent = new QGraphicsRectItem(
             0, 0,
-            260, 660);
+            260, 670);
         result.parent->setPen(Qt::NoPen);
         result.parent->setBrush(QBrush("#f3f3f3"));
 
@@ -1262,91 +1262,21 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
     // l2 lut busbars
     {
+        // strobe inputs
+        for (unsigned i=0; i<Level2::LUTCount; ++i)
+        add_h_busbar(m_level2Items.luts[i]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4/6, L2"));
+
         // l2.lut0
-        add_h_busbar(m_level2Items.luts[0]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4, L2"));
         for (int i=0; i<3; i++)
-            add_h_busbar(m_level2Items.luts[0]->getInputConnector(i), QSL("L0.Util, L1.LUT4.%1").arg(i));
+            add_h_busbar(m_level2Items.luts[0]->getInputConnector(i), QSL("L0.Util, L1.LUT4.%1/6").arg(i));
 
         // l2.lut1
-        add_h_busbar(m_level2Items.luts[1]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4, L2"));
         for (int i=0; i<3; i++)
-            add_h_busbar(m_level2Items.luts[1]->getInputConnector(i), QSL("L0.Util, L1.LUT3.%1").arg(i));
-    }
+            add_h_busbar(m_level2Items.luts[1]->getInputConnector(i), QSL("L0.Util, L1.LUT3.%1/6").arg(i));
 
-    // busbars to l3 utils
-    {
-        QGraphicsRectItem *vertBar = nullptr;
-        // vertical bus bar for connections going into l3 utils
-        {
-            auto bar = new QGraphicsRectItem(465, 107, 18, 760);
-            bar->setBrush(barBrush);
-            bar->setPen(Qt::NoPen);
-
-            this->addItem(bar);
-            m_connectionBars.push_back(bar);
-
-            vertBar = bar;
-        }
-        // vertbar text
-        {
-            auto text = new QGraphicsSimpleTextItem(
-                QSL("L0.Util/L2 to L3.Util"),
-                vertBar);
-            auto font = text->font();
-            font.setPixelSize(16);
-            text->setFont(font);
-            text->setRotation(-90);
-
-            auto pos = gfx::get_scene_center_point(vertBar);
-            pos.setX(pos.x() - text->boundingRect().height() * 0.5);
-            pos.setY(pos.y() * 1.3);
-            text->setPos(pos);
-        }
-        // l2.lut0 -> vertical bus bar to l3 utils
-        {
-            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
-            auto barPos = get_scene_center_point(m_level2Items.luts[0]->getOutputConnector(1));
-            barPos.setX(barPos.x() + 3.5);
-            barPos.setY(barPos.y() - 0.33 * m_level2Items.luts[0]->boundingRect().height());
-            set_big_arrow_bar_pos(bar, barPos);
-            bar->setRotation(90);
-
-            this->addItem(bar);
-            m_connectionBars.push_back(bar);
-        }
-        // l2.lut1 -> vertical bus bar to l3 utils
-        {
-            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
-            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
-            barPos.setX(barPos.x() + 3.5);
-            barPos.setY(barPos.y() - 0.33 * m_level2Items.luts[1]->boundingRect().height());
-            set_big_arrow_bar_pos(bar, barPos);
-            bar->setRotation(90);
-
-            this->addItem(bar);
-            m_connectionBars.push_back(bar);
-        }
-        // vertical bar -> l3 utils
-        {
-            auto bar = make_big_arrow_bar({0, 0, 34, 60}, 1.5, 0.3);
-            auto barPos = m_level3UtilItems.parent->mapToScene(m_level3UtilItems.parent->rect().center());
-            barPos.setX(vertBar->boundingRect().right());
-            set_big_arrow_bar_pos(bar, barPos);
-            bar->setRotation(90);
-
-            this->addItem(bar);
-            m_connectionBars.push_back(bar);
-        }
-        // l0 utils -> vertical bar to l3 utils
-        {
-            auto bar = make_big_arrow_bar({0, 0, 34, 200}, 1.5, 0.3);
-            auto py = m_level3UtilItems.parent->mapToScene(m_level0UtilItems.parent->rect().center()).y();
-            set_big_arrow_bar_pos(bar, { 250, py });
-            bar->setRotation(90);
-
-            this->addItem(bar);
-            m_connectionBars.push_back(bar);
-        }
+        // l2.lut2
+        for (int i=0; i<3; i++)
+            add_h_busbar(m_level2Items.luts[2]->getInputConnector(i), QSL("L0.Util, L1.LUT3.%1/6").arg(i));
     }
 
     // busbars to l3 outputs
@@ -1354,7 +1284,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         QGraphicsRectItem *vertBar = nullptr;
         // vertical bus bar for connections going into NIM/LVDS outputs
         {
-            auto bar = new QGraphicsRectItem(520, 25, 18, 475);
+            auto bar = new QGraphicsRectItem(520, 25, 18, 550);
             bar->setBrush(barBrush);
             bar->setPen(Qt::NoPen);
 
@@ -1378,24 +1308,13 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             pos.setY(pos.y() + text->boundingRect().width() * 0.5);
             text->setPos(pos);
         }
-        // l2.lut0 -> vertical bus bar to outputs
+        // l2.luts -> vertical bus bar to outputs
+        for (unsigned i=0; i<Level2::LUTCount; ++i)
         {
             auto bar = make_big_arrow_bar({ 0, 0, 34, 64 }, 1.5, 0.3);
-            auto barPos = get_scene_center_point(m_level2Items.luts[0]->getOutputConnector(1));
+            auto barPos = get_scene_center_point(m_level2Items.luts[i]->getOutputConnector(1));
             barPos.setX(barPos.x() + 4.5);
-            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[0]->boundingRect().height());
-            set_big_arrow_bar_pos(bar, barPos);
-            bar->setRotation(90);
-
-            this->addItem(bar);
-            m_connectionBars.push_back(bar);
-        }
-        // l2.lut1 -> vertical bus bar to outputs
-        {
-            auto bar = make_big_arrow_bar({ 0, 0, 34, 64 }, 1.5, 0.3);
-            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
-            barPos.setX(barPos.x() + 4.5);
-            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[1]->boundingRect().height());
+            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[i]->boundingRect().height());
             set_big_arrow_bar_pos(bar, barPos);
             bar->setRotation(90);
 
@@ -1405,9 +1324,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         // vertical bar -> l3 nim out
         {
             auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
-            auto barPos = get_scene_center_point(m_level2Items.luts[1]->getOutputConnector(1));
+            auto barPos = get_scene_center_point(m_level3Items.nimItem->getInputConnector(6));
             barPos.setX(vertBar->boundingRect().right());
-            barPos.setY(barPos.y() + 0.33 * m_level2Items.luts[1]->boundingRect().height());
             set_big_arrow_bar_pos(bar, barPos);
             bar->setRotation(90);
 
@@ -1420,6 +1338,71 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             auto barPos = get_scene_center_point(m_level3Items.eclItem->getInputConnector(1));
             barPos.setX(vertBar->boundingRect().right());
             set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+    }
+
+    // busbars to l3 utils
+    {
+        QGraphicsRectItem *vertBar = nullptr;
+        // vertical bus bar for connections going into l3 utils
+        {
+            auto bar = new QGraphicsRectItem(465, 107, 18, 780);
+            bar->setBrush(barBrush);
+            bar->setPen(Qt::NoPen);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+
+            vertBar = bar;
+        }
+        // vertbar text
+        {
+            auto text = new QGraphicsSimpleTextItem(
+                QSL("L0.Util/L2 to L3.Util"),
+                vertBar);
+            auto font = text->font();
+            font.setPixelSize(16);
+            text->setFont(font);
+            text->setRotation(-90);
+
+            auto pos = gfx::get_scene_center_point(vertBar);
+            pos.setX(pos.x() - text->boundingRect().height() * 0.5);
+            //pos.setY(pos.y() * 1.3);
+            text->setPos(pos);
+        }
+        // l2.luts -> vertical bus bar to l3 utils
+        for (unsigned i=0; i<Level2::LUTCount; ++i)
+        {
+            auto bar = make_big_arrow_bar({ 0, 0, 34, 10 }, 1.5, 0.3);
+            auto barPos = get_scene_center_point(m_level2Items.luts[i]->getOutputConnector(1));
+            barPos.setX(barPos.x() + 3.5);
+            barPos.setY(barPos.y() - 0.33 * m_level2Items.luts[i]->boundingRect().height());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // vertical bar -> l3 utils
+        {
+            auto bar = make_big_arrow_bar({0, 0, 34, 60}, 1.5, 0.3);
+            auto barPos = m_level3UtilItems.parent->mapToScene(m_level3UtilItems.parent->rect().center());
+            barPos.setX(vertBar->boundingRect().right());
+            set_big_arrow_bar_pos(bar, barPos);
+            bar->setRotation(90);
+
+            this->addItem(bar);
+            m_connectionBars.push_back(bar);
+        }
+        // l0 utils -> vertical bar to l3 utils
+        {
+            auto bar = make_big_arrow_bar({0, 0, 34, 200}, 1.5, 0.3);
+            auto py = m_level0UtilItems.parent->mapToScene(m_level0UtilItems.parent->rect().center()).y();
+            set_big_arrow_bar_pos(bar, { 250, py });
             bar->setRotation(90);
 
             this->addItem(bar);
