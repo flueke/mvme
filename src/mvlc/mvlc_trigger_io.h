@@ -204,6 +204,7 @@ static const QString UnitNotAvailable = "N/A";
 
 struct Level0
 {
+    // Describes the l0.util irq units
     static const int IRQ_UnitCount = 2;
     static const int IRQ_UnitOffset = 4;
 
@@ -223,6 +224,7 @@ struct Level0
 
     static const int NIM_IO_Offset = 16;
 
+    // Describes the IRQ Inputs on L0 (since FW0016)
     static const int IRQ_Inputs_Count = 6;
     static const int IRQ_Inputs_Offset = 33;
 
@@ -241,7 +243,7 @@ struct Level0
                                                                 // 15 daq_start
     std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
                                                                 // 30..32 reserved for the ECL outputs on L3
-    std::array<IO, IRQ_Inputs_Count> ioIRQ;                     // 33..38 IRQ inputs
+    std::array<IO, IRQ_Inputs_Count> ioIRQ;                     // 33..38 IRQ inputs (FW0016)
                                                                 // 48 Digital Oscilloscope
 
     QStringList unitNames;

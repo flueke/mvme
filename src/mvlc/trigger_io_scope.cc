@@ -29,10 +29,11 @@ std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup)
 
     try
     {
-        write(0x0200, UnitNumber); // select osci unit
+        write(0x0200, UnitNumber); // select DSO unit
         write(0x0300, setup.preTriggerTime);
         write(0x0302, setup.postTriggerTime);
         write(0x0304, setup.triggerChannels.to_ulong());
+        write(0x0308, setup.irqTriggers.to_ulong());
         write(0x0306, 1); // start capturing
     }
     catch (const std::error_code &ec)

@@ -33,7 +33,7 @@ struct ScopeSetup
     u16 preTriggerTime = 0u;
     u16 postTriggerTime = 0u;
     std::bitset<NIM_IO_Count> triggerChannels;
-    // TODO: add bitset for irq triggers
+    std::bitset<Level0::IRQ_Inputs_Count> irqTriggers;
 };
 
 namespace data_format
