@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
     simPlot0.setSnapshot(snapshot, 0, timelineNames);
     //simPlot0.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
     simPlot0.resize(1400, 900);
-    simPlot0.show();
+    //simPlot0.show();
 
     // Trace Select Stuff -------------------------------------
 
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
     traceSelectLayout->addWidget(&traceTreeView);
     traceSelectLayout->addWidget(&traceTableView);
 
-    traceSelectWidget.show();
+    //traceSelectWidget.show();
     traceSelectWidget.resize(800, 600);
 
     QObject::connect(
@@ -203,6 +203,28 @@ int main(int argc, char *argv[])
     }
 #endif
 
+    DSOSetup dsoSetup = {};
+    dsoSetup.preTriggerTime = 42;
+    dsoSetup.postTriggerTime = 1337;
+
+    for (size_t i=0; i<dsoSetup.nimTriggers.size(); i+=2)
+        dsoSetup.nimTriggers.set(i);
+
+    for (size_t i=0; i<dsoSetup.irqTriggers.size(); i+=2)
+        dsoSetup.irqTriggers.set(i);
+
+    std::chrono::milliseconds interval(23);
+
+
+    DSOControlWidget dsoControlWidget;
+    dsoControlWidget.setDSOSetup(dsoSetup, interval);
+    dsoControlWidget.show();
+
+    QObject::connect(&dsoControlWidget, &DSOControlWidget::startDSO,
+                     [&dsoControlWidget] () { dsoControlWidget.setDSOActive(true); });
+
+    QObject::connect(&dsoControlWidget, &DSOControlWidget::stopDSO,
+                     [&dsoControlWidget] () { dsoControlWidget.setDSOActive(false); });
 
     int ret = app.exec();
     return ret;

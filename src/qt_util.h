@@ -197,6 +197,12 @@ QVBoxLayout *make_vbox(QWidget *widget = nullptr)
     return make_layout<QVBoxLayout, Margin, Spacing>(widget);
 }
 
+template<int Margin = 2, int Spacing = 2>
+QGridLayout *make_grid(QWidget *widget = nullptr)
+{
+    return make_layout<QGridLayout, Margin, Spacing>(widget);
+}
+
 class QTextEdit;
 class QPushButton;
 class QLineEdit;

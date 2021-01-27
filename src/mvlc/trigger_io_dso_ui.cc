@@ -15,7 +15,9 @@
 #include <QTimer>
 #include <QStandardItemModel>
 #include <QStandardItem>
+#include <QTableWidget>
 #include <iterator>
+#include <QHeaderView>
 #include <qnamespace.h>
 
 #include "mesytec-mvlc/mvlc_error.h"
@@ -45,7 +47,7 @@ namespace trigger_io_dso
 struct ScopeData: public QwtSeriesData<QPointF>
 {
     ScopeData(
-        const Timeline &timeline,
+        const Trace &timeline,
         const double preTriggerTime,
         const double yOffset
         )
@@ -94,7 +96,7 @@ struct ScopeData: public QwtSeriesData<QPointF>
         return {};
     }
 
-    trigger_io_dso::Timeline timeline;
+    trigger_io_dso::Trace timeline;
     double preTriggerTime;
     double yOffset;
 
@@ -281,20 +283,198 @@ QwtPlot *DSOPlotWidget::getQwtPlot()
 // DSOControlWidget
 //
 
+namespace
+{
+template<typename Func>
+void for_all_table_items(QTableWidget *table, Func f)
+{
+    for (int row=0; row<table->rowCount(); ++row)
+        for (int col=0; col<table->columnCount(); ++col)
+            if (auto item = table->item(row, col))
+                f(item);
+}
+}
+
 struct DSOControlWidget::Private
 {
+    QSpinBox *spin_preTriggerTime,
+             *spin_postTriggerTime,
+             *spin_interval;
+
+    static const int TriggerCols = 5;
+    static const int TriggerRows = 4;
+
+    QTableWidget *table_triggers;
+    QWidget *setupWidget;
+    QPushButton *pb_start,
+                *pb_stop;
 };
 
 DSOControlWidget::DSOControlWidget(QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    d->spin_preTriggerTime = new QSpinBox;
+    d->spin_postTriggerTime = new QSpinBox;
+
+    for (auto spin: { d->spin_preTriggerTime, d->spin_postTriggerTime })
+    {
+        spin->setMinimum(0);
+        spin->setMaximum(std::numeric_limits<u16>::max());
+        spin->setSuffix(" ns");
+    }
+
+    d->spin_preTriggerTime->setValue(200);
+    d->spin_postTriggerTime->setValue(500);
+
+    d->table_triggers = new QTableWidget(Private::TriggerRows, Private::TriggerCols);
+
+    for (int row=0; row < Private::TriggerRows; ++row)
+    {
+        for (int col=0; col < Private::TriggerCols; ++col)
+        {
+            size_t trigNum = row * Private::TriggerCols + col;
+
+            auto item = std::make_unique<QTableWidgetItem>();
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+            item->setCheckState(Qt::Unchecked);
+
+            if (trigNum < NIM_IO_Count)
+                item->setText(QSL("NIM%1").arg(trigNum));
+            else
+                item->setText(QSL("IRQ%1").arg(trigNum - NIM_IO_Count + 1));
+
+
+            d->table_triggers->setItem(row, col, item.release());
+        }
+    }
+
+    d->table_triggers->verticalHeader()->hide();
+    d->table_triggers->horizontalHeader()->hide();
+    d->table_triggers->resizeColumnsToContents();
+    d->table_triggers->resizeRowsToContents();
+    d->table_triggers->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    d->table_triggers->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    d->table_triggers->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+    d->table_triggers->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+
+    auto pb_triggersAll = new QPushButton("all");
+    auto pb_triggersNone = new QPushButton("none");
+
+    d->spin_interval = new QSpinBox;
+    d->spin_interval->setMinimum(0);
+    d->spin_interval->setMaximum(5000);
+    d->spin_interval->setSingleStep(500);
+    d->spin_interval->setSpecialValueText("single shot");
+    d->spin_interval->setSuffix(" ms");
+
+    auto gb_triggers = new QGroupBox("Trigger Channels");
+    gb_triggers->setAlignment(Qt::AlignCenter);
+    auto l_triggers = make_grid(gb_triggers);
+    l_triggers->addWidget(d->table_triggers, 0, 0, 1, 2);
+    l_triggers->addWidget(pb_triggersAll, 1, 0);
+    l_triggers->addWidget(pb_triggersNone, 1, 1);
+
+    d->setupWidget = new QWidget;
+    auto setupLayout = new QFormLayout(d->setupWidget);
+    setupLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
+    setupLayout->addRow("Post Trigger Time",d->spin_postTriggerTime);
+    setupLayout->addRow(gb_triggers);
+    setupLayout->addRow("Interval", d->spin_interval);
+
+    d->pb_start = new QPushButton("Start DSO");
+    d->pb_stop = new QPushButton("Stop DSO");
+    d->pb_stop->setEnabled(false);
+
+    auto controlLayout = make_hbox();
+    controlLayout->addWidget(d->pb_start);
+    controlLayout->addWidget(d->pb_stop);
+
+    auto widgetLayout = make_vbox<4, 4>();
+    widgetLayout->addWidget(d->setupWidget);
+    widgetLayout->addLayout(controlLayout);
+
+    setLayout(widgetLayout);
+
+    connect(pb_triggersAll, &QPushButton::clicked, this, [this] () {
+                for_all_table_items(d->table_triggers, [] (auto item) {
+                    item->setCheckState(Qt::Checked);
+                });
+            });
+
+    connect(pb_triggersNone, &QPushButton::clicked, this, [this] () {
+                for_all_table_items(d->table_triggers, [] (auto item) {
+                    item->setCheckState(Qt::Unchecked);
+                });
+            });
+
+    connect(d->pb_start, &QPushButton::clicked, this, [this] () {
+        emit startDSO(getDSOSetup(), getInterval());
+    });
+
+    connect(d->pb_stop, &QPushButton::clicked, this, [this] () {
+        emit stopDSO();
+    });
 }
 
 DSOControlWidget::~DSOControlWidget()
 {
 }
 
+void DSOControlWidget::setDSOActive(bool active)
+{
+    d->setupWidget->setEnabled(!active);
+    d->pb_start->setEnabled(!active);
+    d->pb_stop->setEnabled(active);
+}
+
+DSOSetup DSOControlWidget::getDSOSetup() const
+{
+    DSOSetup setup = {};
+    setup.preTriggerTime = d->spin_preTriggerTime->value();
+    setup.postTriggerTime = d->spin_postTriggerTime->value();
+
+    for_all_table_items(d->table_triggers, [&setup] (auto item) {
+        if (item->checkState() == Qt::Checked)
+        {
+            size_t trigNum = item->row() * Private::TriggerCols + item->column();
+
+            if (trigNum < NIM_IO_Count)
+                setup.nimTriggers.set(trigNum);
+            else
+                setup.irqTriggers.set(trigNum - NIM_IO_Count);
+        }
+    });
+
+    return setup;
+}
+
+std::chrono::milliseconds DSOControlWidget::getInterval() const
+{
+    return std::chrono::milliseconds(d->spin_interval->value());
+}
+
+void DSOControlWidget::setDSOSetup(
+    const DSOSetup &setup,
+    const std::chrono::milliseconds &interval)
+{
+    d->spin_preTriggerTime->setValue(setup.preTriggerTime);
+    d->spin_postTriggerTime->setValue(setup.postTriggerTime);
+
+    for_all_table_items(d->table_triggers, [&setup] (auto item) {
+            size_t trigNum = item->row() * Private::TriggerCols + item->column();
+            bool checked = false;
+
+            if (trigNum < NIM_IO_Count)
+                checked = setup.nimTriggers.test(trigNum);
+            else
+                checked = setup.irqTriggers.test(trigNum - NIM_IO_Count);
+
+            item->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
+    });
+
+    d->spin_interval->setValue(interval.count());
+}
 
 //
 // ScopeWidget
@@ -318,7 +498,7 @@ struct ScopeWidget::Private
     mvlc::ThreadSafeQueue<std::vector<u32>> readerQueue;
     std::future<std::error_code> readerFuture;
     QTimer refreshTimer;
-    ScopeSetup scopeSetup;
+    DSOSetup scopeSetup;
 
     const double YSpacing = 0.5;
     DSOPlotWidget *plot;
@@ -334,7 +514,7 @@ struct ScopeWidget::Private
         scopeSetup.postTriggerTime = spin_postTriggerTime->value();
 
         for (auto bitIdx=0u; bitIdx<checks_triggerChannels.size(); ++bitIdx)
-            scopeSetup.triggerChannels.set(bitIdx, checks_triggerChannels[bitIdx]->isChecked());
+            scopeSetup.nimTriggers.set(bitIdx, checks_triggerChannels[bitIdx]->isChecked());
 
         std::vector<u32> sampleBuffer;
 

@@ -2,6 +2,7 @@
 #define __MVME_MVLC_TRIGGER_IO_DSO_UI_H__
 
 #include <QWidget>
+#include <chrono>
 #include "libmvme_export.h"
 #include "mvlc/trigger_io_dso.h"
 
@@ -35,16 +36,32 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
 {
     Q_OBJECT
     signals:
+        // Emitted on pressing the start button. If the interval is 0 only one
+        // snapshot should be acquired from the DSO. Otherwise the DSO is
+        // restarted using the same setup after the interval has elapsed.
         void startDSO(
-            const ScopeSetup &dsoSetup,
-                const std::chrono::milliseconds &interval = {});
+            const DSOSetup &dsoSetup,
+            const std::chrono::milliseconds &interval = {});
 
+        // Emitted on pressing the stop button.
         void stopDSO();
 
     public:
         DSOControlWidget(QWidget *parent = nullptr);
         ~DSOControlWidget() override;
 
+        DSOSetup getDSOSetup() const;
+        std::chrono::milliseconds getInterval() const;
+
+    public slots:
+        // Load the DSOSetup and the interval into the GUI.
+        void setDSOSetup(
+            const DSOSetup &setup,
+            const std::chrono::milliseconds &interval = {});
+
+        // Notify the widget about the current state of the DSO sampler. If
+        // enabled most of the UI except for the stop button will be disabled.
+        void setDSOActive(bool active);
 
     private:
         struct Private;
