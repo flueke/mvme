@@ -824,6 +824,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                            - label->boundingRect().width()) / 2.0, 0);
         }
 
+        // IRQ inputs
         {
             result.irqItem = new gfx::BlockItem(
                 100, 140, // width, height
@@ -854,12 +855,27 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                              - result.label->boundingRect().width(), 0);
 
         {
-            auto frontPanelInputsText = new QGraphicsSimpleTextItem(
+            auto text = new QGraphicsSimpleTextItem(
                 QSL("Front Panel NIM/TTL inputs"),
                 result.parent);
-            frontPanelInputsText->setRotation(-90);
-            frontPanelInputsText->moveBy(0, result.parent->boundingRect().height() * 0.5);
-            frontPanelInputsText->moveBy(0, frontPanelInputsText->boundingRect().width() * 0.5);
+            text->setRotation(-90);
+
+            auto pos = gfx::get_scene_center_point(result.nimItem);
+            pos.setX(0);
+            pos.setY(pos.y() + text->boundingRect().width() * 0.5);
+            text->setPos(pos);
+        }
+
+        {
+            auto text = new QGraphicsSimpleTextItem(
+                QSL("VME bus IRQ lines"),
+                result.parent);
+            text->setRotation(-90);
+
+            auto pos = gfx::get_scene_center_point(result.irqItem);
+            pos.setX(0);
+            pos.setY(pos.y() + text->boundingRect().width() * 0.5);
+            text->setPos(pos);
         }
 
         {
