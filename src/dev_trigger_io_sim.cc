@@ -195,11 +195,13 @@ int main(int argc, char *argv[])
     find_leave_items(traceTreeModel->invisibleRootItem(), leaves, 1);
     qDebug() << "leaves=" << leaves;
 
+#if 0
     for (auto leave: leaves)
     {
         traceTableModel->appendRow(leave->clone());
         leave->setText("foobar!!!");
     }
+#endif
 
 
     int ret = app.exec();
