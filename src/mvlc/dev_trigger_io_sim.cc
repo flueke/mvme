@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
     traceSelectLayout->addWidget(&traceTreeView);
     traceSelectLayout->addWidget(&traceTableView);
 
-    //traceSelectWidget.show();
+    traceSelectWidget.show();
     traceSelectWidget.resize(800, 600);
 
     QObject::connect(
