@@ -119,7 +119,7 @@ class ScopeYScaleDraw: public QwtScaleDraw
                 });
 
             if (it != std::end(m_data))
-                return { it->second + " (y=" + QwtScaleDraw::label(value).text() + ")" };
+                return { it->second /* + " (y=" + QwtScaleDraw::label(value).text() + ")" */ };
 
             return QwtScaleDraw::label(value);
         }
