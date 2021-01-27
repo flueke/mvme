@@ -27,7 +27,7 @@
 #include <QScrollBar>
 #include <qnamespace.h>
 
-#include "mvlc/trigger_io_scope_ui.h"
+#include "mvlc/trigger_io_dso_ui.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"
@@ -57,7 +57,7 @@ struct MVLCTriggerIOEditor::Private
     bool scriptAutorun = false;
     QStringList vmeEventNames;
 
-    trigger_io_scope::ScopeWidget *scopeWidget = nullptr;
+    trigger_io_dso::ScopeWidget *scopeWidget = nullptr;
     mvlc::MVLC mvlc;
 
     void onActionPrintFrontPanelSetup();
@@ -698,7 +698,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         {
             if (!d->scopeWidget)
             {
-                using namespace trigger_io_scope;
+                using namespace trigger_io_dso;
 
                 d->scopeWidget = new ScopeWidget(d->mvlc);
                 d->scopeWidget->setAttribute(Qt::WA_DeleteOnClose);

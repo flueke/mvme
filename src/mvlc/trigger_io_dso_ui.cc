@@ -1,4 +1,4 @@
-#include "mvlc/trigger_io_scope_ui.h"
+#include "mvlc/trigger_io_dso_ui.h"
 
 #include <chrono>
 #include <QBoxLayout>
@@ -29,7 +29,7 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_scope
+namespace trigger_io_dso
 {
 
 // Data provider for QwtPlotCurve.
@@ -94,7 +94,7 @@ struct ScopeData: public QwtSeriesData<QPointF>
         return {};
     }
 
-    trigger_io_scope::Timeline timeline;
+    trigger_io_dso::Timeline timeline;
     double preTriggerTime;
     double yOffset;
 
@@ -140,7 +140,7 @@ class ScopeYScaleDraw: public QwtScaleDraw
         std::vector<Entry> m_data;
 };
 
-struct ScopePlotWidget::Private
+struct DSOPlotWidget::Private
 {
     QwtPlot *plot;
     QwtPlotGrid *grid;
@@ -157,7 +157,7 @@ struct ScopePlotWidget::Private
     void zoomerZoomed();
 };
 
-ScopePlotWidget::ScopePlotWidget(QWidget *parent)
+DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
@@ -190,7 +190,7 @@ ScopePlotWidget::ScopePlotWidget(QWidget *parent)
     layout->addWidget(d->plot);
 }
 
-ScopePlotWidget::~ScopePlotWidget()
+DSOPlotWidget::~DSOPlotWidget()
 {
     //d->xMarker->detach();
 }
@@ -210,7 +210,7 @@ std::unique_ptr<QwtPlotCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData
     return curve;
 }
 
-void ScopePlotWidget::setSnapshot(
+void DSOPlotWidget::setSnapshot(
     const Snapshot &snapshot,
     unsigned preTriggerTime,
     const QStringList &names)
@@ -261,7 +261,7 @@ void ScopePlotWidget::setSnapshot(
     d->zoomer->setZoomBase(true);
 }
 
-void ScopePlotWidget::Private::zoomerZoomed()
+void DSOPlotWidget::Private::zoomerZoomed()
 {
     qDebug() << __PRETTY_FUNCTION__ << this << zoomer->zoomRectIndex();
 
@@ -272,11 +272,33 @@ void ScopePlotWidget::Private::zoomerZoomed()
     plot->replot();
 }
 
-QwtPlot *ScopePlotWidget::getQwtPlot()
+QwtPlot *DSOPlotWidget::getQwtPlot()
 {
     return d->plot;
 }
 
+//
+// DSOControlWidget
+//
+
+struct DSOControlWidget::Private
+{
+};
+
+DSOControlWidget::DSOControlWidget(QWidget *parent)
+    : QWidget(parent)
+    , d(std::make_unique<Private>())
+{
+}
+
+DSOControlWidget::~DSOControlWidget()
+{
+}
+
+
+//
+// ScopeWidget
+//
 struct ScopeWidget::Private
 {
     ScopeWidget *q;
@@ -299,7 +321,7 @@ struct ScopeWidget::Private
     ScopeSetup scopeSetup;
 
     const double YSpacing = 0.5;
-    ScopePlotWidget *plot;
+    DSOPlotWidget *plot;
     std::atomic<bool> stopSampling;
 
 
@@ -430,7 +452,7 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     auto gbControls = new QGroupBox("Setup");
     gbControls->setLayout(controlsLayout);
 
-    d->plot = new ScopePlotWidget;
+    d->plot = new DSOPlotWidget;
 
     auto widgetLayout = new QGridLayout;
     widgetLayout->addWidget(gbControls, 0, 0);

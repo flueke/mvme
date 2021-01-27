@@ -1,5 +1,5 @@
-#ifndef __MVME_MVLC_TRIGGER_IO_SCOPE_H__
-#define __MVME_MVLC_TRIGGER_IO_SCOPE_H__
+#ifndef __MVME_MVLC_TRIGGER_IO_DSO_H__
+#define __MVME_MVLC_TRIGGER_IO_DSO_H__
 
 #include <chrono>
 #include <mesytec-mvlc/mesytec-mvlc.h>
@@ -10,12 +10,12 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_scope
+namespace trigger_io_dso
 {
 
 using namespace trigger_io;
 
-// Support for the digital oscilloscope built into the MVLC trigger_io module.
+// Support for the digital storage oscilloscope (DSO) built into the MVLC trigger_io module.
 //
 // The osci is at level0, unit 48. The following needs to be done to read out osci data:
 // - set pre and post trigger times
@@ -106,8 +106,8 @@ Out & print(Out &out, const Timeline &timeline)
     return out;
 }
 
-} // end namespace trigger_io_scope
+} // end namespace trigger_io_dso
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 
-#endif /* __MVME_MVLC_TRIGGER_IO_SCOPE_H__ */
+#endif /* __MVME_MVLC_TRIGGER_IO_DSO_H__ */

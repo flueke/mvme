@@ -393,8 +393,8 @@ if (MVME_ENABLE_MVLC)
         mvlc/mvlc_trigger_io_util.cc
         mvlc_readout_worker.cc
         mvlc_stream_worker.cc
-        mvlc/trigger_io_scope.cc
-        mvlc/trigger_io_scope_ui.cc
+        mvlc/trigger_io_dso.cc
+        mvlc/trigger_io_dso_ui.cc
         mvlc/trigger_io_sim.cc
         mvlc/trigger_io_sim_ui.cc
         mvlc/vmeconfig_from_crateconfig.cc
@@ -540,7 +540,7 @@ endif(WIN32)
 if(MVME_ENABLE_MVLC)
     add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
     add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
-    add_mvme_executable(dev_mvlc_scope dev_mvlc_scope.cc)
+    add_mvme_executable(dev_mvlc_dso dev_mvlc_dso.cc)
     add_mvme_executable(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
 endif(MVME_ENABLE_MVLC)
 

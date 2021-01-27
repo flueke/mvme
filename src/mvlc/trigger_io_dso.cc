@@ -1,4 +1,4 @@
-#include "mvlc/trigger_io_scope.h"
+#include "mvlc/trigger_io_dso.h"
 #include "mesytec-mvlc/mvlc_constants.h"
 #include <chrono>
 
@@ -12,7 +12,7 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_scope
+namespace trigger_io_dso
 {
 
 static const unsigned UnitNumber = 48;

@@ -6,7 +6,7 @@
 #include <iterator>
 #include <unordered_map>
 #include "mvlc/mvlc_trigger_io.h"
-#include "mvlc/trigger_io_scope.h"
+#include "mvlc/trigger_io_dso.h"
 
 namespace mesytec
 {
@@ -15,7 +15,7 @@ namespace mvme_mvlc
 namespace trigger_io
 {
 
-using namespace trigger_io_scope;
+using namespace trigger_io_dso;
 using namespace std::chrono_literals;
 
 // Extend the timeline to toTime using the last input samples edge.

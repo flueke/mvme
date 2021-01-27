@@ -7,8 +7,8 @@
 #include <limits>
 #include <random>
 
-#include "mvlc/trigger_io_scope.h"
-#include "mvlc/trigger_io_scope_ui.h"
+#include "mvlc/trigger_io_dso.h"
+#include "mvlc/trigger_io_dso_ui.h"
 #include "mvlc/trigger_io_sim.h"
 #include "mvme_qwt.h"
 
@@ -19,7 +19,7 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
-    using namespace trigger_io_scope;
+    using namespace trigger_io_dso;
     using namespace trigger_io;
 
     QApplication app(argc, argv);
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     }
 
 
-    ScopePlotWidget plotWidget;
+    DSOPlotWidget plotWidget;
     plotWidget.setWindowTitle("Randomizing Edges");
     plotWidget.setSnapshot(snapshot);
     //plotWidget.show();
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 
     Snapshot ioSnap = { input, output, timer0Samples };
 
-    ScopePlotWidget simPlot0;
+    DSOPlotWidget simPlot0;
     simPlot0.setWindowTitle("TrigIO Test 0");
     simPlot0.setSnapshot(ioSnap);
     simPlot0.getQwtPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
