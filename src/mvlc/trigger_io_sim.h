@@ -20,7 +20,7 @@ using namespace std::chrono_literals;
 
 // Extend the timeline to toTime using the last input samples edge.
 // Does nothing if input is empty or the last sample time in input is >= toTime.
-inline void extend(Timeline &input, const SampleTime &toTime)
+inline void extend(Trace &input, const SampleTime &toTime)
 {
     if (!input.empty() && input.back().time < toTime)
         input.push_back({ toTime, input.back().edge });
@@ -28,26 +28,26 @@ inline void extend(Timeline &input, const SampleTime &toTime)
 
 void simulate(
     const IO &io,
-    const Timeline &input,
-    Timeline &output,
+    const Trace &input,
+    Trace &output,
     const SampleTime &maxtime);
 
 void simulate(
     const Timer &timer,
-    Timeline &output,
+    Trace &output,
     const SampleTime &maxtime);
 
 static const auto SysClockPeriod = 62.5ns;
 static const auto SysClockHalfPeriod = SysClockPeriod * 0.5;
 
 void simulate_sysclock(
-    Timeline &output,
+    Trace &output,
     const SampleTime &maxtime);
 
 // +1 for the strobe in and out traces. These entries may be nullptr if the
 // strobe is not used. Otherwise both must be valid.
-using LUT_Input_Timelines = std::array<const Timeline *, LUT::InputBits+1>;
-using LUT_Output_Timelines = std::array<Timeline *, LUT::OutputBits+1>;
+using LUT_Input_Timelines = std::array<const Trace *, LUT::InputBits+1>;
+using LUT_Output_Timelines = std::array<Trace *, LUT::OutputBits+1>;
 
 // Full LUT simulation with strobe input
 void simulate(
@@ -57,7 +57,7 @@ void simulate(
     const SampleTime &maxtime);
 
 // +1 for the strobe output trace
-using LUTOutputTraces = std::array<Timeline, LUT::OutputBits+1>;
+using LUTOutputTraces = std::array<Trace, LUT::OutputBits+1>;
 
 struct Sim
 {
@@ -71,7 +71,7 @@ struct Sim
 
     // L0 - simulated 'output' traces of the NIMs and simulated utility traces
     // (timers, sysclock)
-    std::array<Timeline, Level0::OutputCount> l0_traces;
+    std::array<Trace, Level0::OutputCount> l0_traces;
 
     // L1 - LUT outputs
     std::array<LUTOutputTraces, Level1::LUTCount> l1_luts;
@@ -80,7 +80,7 @@ struct Sim
     std::array<LUTOutputTraces, Level2::LUTCount> l2_luts;
 
     // L3 - simulated 'output' traces
-    std::array<Timeline, Level3::UnitCount> l3_traces;
+    std::array<Trace, Level3::UnitCount> l3_traces;
 };
 
 void simulate(Sim &sim, const SampleTime &maxtime);

@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     io.width = 20;
     io.holdoff = 30;
 
-    Timeline input {
+    Trace input {
         { 0ns,  Edge::Falling }, // initial state
 
         { 10ns, Edge::Rising },
@@ -91,14 +91,14 @@ int main(int argc, char *argv[])
         { 55ns,  Edge::Falling },
     };
 
-    Timeline output;
+    Trace output;
 
     auto simulateUpTo = SampleTime::max();
     simulateUpTo = 46ns; // 45 ignores the last input pulse, 46 uses it
 
     simulate(io, input, output, simulateUpTo);
 
-    Timeline sysclock;
+    Trace sysclock;
 
     simulate_sysclock(sysclock, 1000ns);
 
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
     timer0.delay_ns = 10;
     timer0.period = 5;
     timer0.range = Timer::Range::ns;
-    Timeline timer0Samples;
+    Trace timer0Samples;
     simulate(timer0, timer0Samples, 1000ns);
 
     Snapshot ioSnap = { input, output, timer0Samples };

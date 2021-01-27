@@ -17,7 +17,7 @@ namespace trigger_io_dso
 
 static const unsigned UnitNumber = 48;
 
-std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup)
+std::error_code start_scope(mvlc::MVLC mvlc, DSOSetup setup)
 {
     auto write = [&mvlc] (u32 addr, u16 value)
     {
@@ -32,7 +32,7 @@ std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup)
         write(0x0200, UnitNumber); // select DSO unit
         write(0x0300, setup.preTriggerTime);
         write(0x0302, setup.postTriggerTime);
-        write(0x0304, setup.triggerChannels.to_ulong());
+        write(0x0304, setup.nimTriggers.to_ulong());
         write(0x0308, setup.irqTriggers.to_ulong());
         write(0x0306, 1); // start capturing
     }
@@ -83,7 +83,7 @@ std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest)
 }
 
 std::error_code acquire_scope_sample(
-    mvlc::MVLC mvlc, ScopeSetup setup,
+    mvlc::MVLC mvlc, DSOSetup setup,
     std::vector<u32> &dest, std::atomic<bool> &cancel)
 {
     // Stop the stack error poller so that it doesn't read our samples off the

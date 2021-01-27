@@ -28,11 +28,11 @@ enum class Edge
     Rising = 1
 };
 
-struct ScopeSetup
+struct DSOSetup
 {
     u16 preTriggerTime = 0u;
     u16 postTriggerTime = 0u;
-    std::bitset<NIM_IO_Count> triggerChannels;
+    std::bitset<NIM_IO_Count> nimTriggers;
     std::bitset<Level0::IRQ_Inputs_Count> irqTriggers;
 };
 
@@ -62,19 +62,19 @@ struct Sample
     Edge edge;
 };
 
-using Timeline = std::vector<Sample>;       // Samples over time for one signal/pin.
-using Snapshot = std::vector<Timeline>;     // Collection of timelines representing a snapshot acquired from the scope.
+using Trace = std::vector<Sample>;       // Samples over time for one signal/pin.
+using Snapshot = std::vector<Trace>;     // Collection of traces representing a snapshot acquired from the scope.
 
 Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer);
 
-std::error_code start_scope(mvlc::MVLC mvlc, ScopeSetup setup);
+std::error_code start_scope(mvlc::MVLC mvlc, DSOSetup setup);
 std::error_code stop_scope(mvlc::MVLC mvlc);
 std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest);
 
 // Starts, reads and stops the scope. Puts the first valid sample into the dest
 // buffer, other samples are discarded.
 std::error_code acquire_scope_sample(
-    mvlc::MVLC mvlc, ScopeSetup setup,
+    mvlc::MVLC mvlc, DSOSetup setup,
     std::vector<u32> &dest, std::atomic<bool> &cancel);
 
 inline Edge invert(const Edge &e)
@@ -94,7 +94,7 @@ inline const char *to_string(const Edge &e)
 };
 
 template<typename Out>
-Out & print(Out &out, const Timeline &timeline)
+Out & print(Out &out, const Trace &timeline)
 {
     for (const auto &sample: timeline)
     {

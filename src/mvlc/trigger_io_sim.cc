@@ -12,8 +12,8 @@ using boost::adaptors::indexed;
 
 void simulate(
     const IO &io,
-    const Timeline &input,
-    Timeline &output,
+    const Trace &input,
+    Trace &output,
     const SampleTime &maxtime)
 {
     // Zero width means the IO outputs levels instead of pulses.
@@ -73,7 +73,7 @@ void simulate(
 
 void simulate(
     const Timer &timer,
-    Timeline &output,
+    Trace &output,
     const SampleTime &maxtime)
 {
     auto range_to_ns_factor = [] (const Timer::Range &timerRange)
@@ -118,7 +118,7 @@ void simulate(
 }
 
 void simulate_sysclock(
-    Timeline &output,
+    Trace &output,
     const SampleTime &maxtime)
 {
     static const auto SysClockHalfPeriod = 62.5ns * 0.5;
@@ -226,11 +226,11 @@ void simulate(
     }
 
     // Get rid of the last input and output which refers to the strobes.
-    std::array<const Timeline *, LUT::InputBits> actualInputs;
+    std::array<const Trace *, LUT::InputBits> actualInputs;
     for (size_t i=0; i<actualInputs.size(); i++)
         actualInputs[i] = inputs[i];
 
-    std::array<Timeline *, LUT::OutputBits> actualOutputs;
+    std::array<Trace *, LUT::OutputBits> actualOutputs;
     for (size_t i=0; i<actualOutputs.size(); i++)
         actualOutputs[i] = outputs[i];
 
@@ -258,7 +258,7 @@ void simulate(
         {
             // Check if the strobe is high at t0
             // TODO: split up state_at() and get rid of the wrap hack
-            std::array<const Timeline *, 1> strobeWrap = { outputs[LUT::OutputBits] };
+            std::array<const Trace *, 1> strobeWrap = { outputs[LUT::OutputBits] };
             strobeState = state_at(t0, strobeWrap);
 
             if (strobeState < 0)
@@ -304,7 +304,7 @@ bool in_range(const V &value, const B1 &lo, const B2 &hi)
 }
 
 // Returns the address of an output trace of the system.
-Timeline *lookup_trace(Sim &sim, const UnitAddress &addr)
+Trace *lookup_trace(Sim &sim, const UnitAddress &addr)
 {
     switch (addr[0])
     {

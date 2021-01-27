@@ -69,14 +69,14 @@ int main(int argc, char *argv[])
 
     const SampleTime maxtime(1000ns);
 
-    Timeline sysclock;
+    Trace sysclock;
 
     simulate_sysclock(sysclock, maxtime);
     auto sysclock_shifted = sysclock;
     for (auto &sample: sysclock_shifted)
         sample.time += SysClockHalfPeriod * 0.25;
 
-    Timeline in0, in1, in2, in3, in4, in5, strobeIn,
+    Trace in0, in1, in2, in3, in4, in5, strobeIn,
              out0, out1, out2, strobeOut;
 
     in0 = sysclock;
