@@ -138,6 +138,7 @@ struct MasterTrigger
 
 struct Counter
 {
+    static const u16 InputCount = 2u; // counter and latch inputs
     // If clearOnLatch is set the latch signal will also reset the counter to 0
     // (Frequency Counter Mode).
     bool clearOnLatch;

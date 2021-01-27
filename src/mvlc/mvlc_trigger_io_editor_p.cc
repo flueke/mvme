@@ -1988,32 +1988,16 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     // l3 Counters
     for (const auto &kv: ioCfg.l3.counters | indexed(ioCfg.l3.CountersOffset))
     {
-        // counter input
+        // The logic is the same for counter and latch inputs.
+        for (unsigned i=0; i<Counter::InputCount; ++i)
         {
-            UnitAddress addr {3, static_cast<unsigned>(kv.index()), 0};
+            UnitAddress addr {3, static_cast<unsigned>(kv.index()), i};
+
+            bool isConnected = ioCfg.l3.connections[addr[1]][i] != Level3::CounterInputNotConnected;
 
             bool softActivate = kv.value().softActivate;
 
             auto dstCon = getInputConnector(addr);
-            assert(dstCon);
-            dstCon->setEnabled(softActivate);
-            dstCon->setBrush(softActivate ? Connector_Brush : Connector_Brush_Disabled);
-
-            auto edge = getEdgeByDestConnector(dstCon);
-            edge->setVisible(edge->sourceItem()->isEnabled()
-                             && edge->destItem()->isEnabled());
-        }
-
-        // latch input
-        {
-            UnitAddress addr {3, static_cast<unsigned>(kv.index()), 1};
-
-            bool isConnected = ioCfg.l3.connections[addr[1]][1] != Level3::CounterInputNotConnected;
-
-            bool softActivate = kv.value().softActivate;
-
-            auto dstCon = getInputConnector(addr);
-
             assert(dstCon);
             dstCon->setEnabled(softActivate && isConnected);
             dstCon->setBrush(softActivate && isConnected ? Connector_Brush : Connector_Brush_Disabled);
