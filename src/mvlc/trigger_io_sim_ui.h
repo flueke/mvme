@@ -2,14 +2,11 @@
 #define __MVME_MVLC_TRIGGER_IO_SIM_UI_H__
 
 #include <memory>
-#include <QHeaderView>
-#include <QMetaType>
-#include <QStandardItemModel>
-#include <QTableView>
-#include <QTreeView>
 #include <QDebug>
+#include <QMetaType>
+#include <QWidget>
 
-#include "mvlc/mvlc_trigger_io.h"
+#include "mvlc/trigger_io_sim.h"
 
 namespace mesytec
 {
@@ -36,91 +33,20 @@ struct PinAddress
     PinAddress(const PinAddress &) = default;
     PinAddress &operator=(const PinAddress &) = default;
 
-#if 0
-    bool operator==(const PinAddress &o) const
+    inline bool operator==(const PinAddress &o) const
     {
-        qDebug() << __PRETTY_FUNCTION__;
-        return unit == o.unit
-            && pos == o.pos;
+        return unit == o.unit && pos == o.pos;
     }
 
-    bool operator!=(const PinAddress &o) const
+    inline bool operator!=(const PinAddress &o) const
     {
-        qDebug() << __PRETTY_FUNCTION__;
         return !(*this == o);
     }
-
-    bool operator<(const PinAddress &o) const
-    {
-        qDebug() << __PRETTY_FUNCTION__;
-        if (this->unit < o.unit)
-            return true;
-        if (this->unit > o.unit)
-            return false;
-        return this->pos < o.pos;
-    }
-#endif
 
     UnitAddress unit = { 0, 0, 0 };
     PinPosition pos = PinPosition::Input;
 };
 
-class TraceTreeModel: public QStandardItemModel
-{
-    public:
-        TraceTreeModel(QObject *parent = nullptr)
-            : QStandardItemModel(parent)
-        {
-        }
-};
-
-class TraceTableModel: public QStandardItemModel
-{
-    public:
-        TraceTableModel(QObject *parent = nullptr)
-            : QStandardItemModel(parent)
-        {
-        }
-
-        bool dropMimeData(const QMimeData *data, Qt::DropAction action,
-                          int row, int /*column*/, const QModelIndex &parent) override
-        {
-            // Pretend to always move column 0 to circumvent QStandardItemModel from adding columns.
-            return QStandardItemModel::dropMimeData(data, action, row, 0, parent);
-        }
-};
-
-class TraceTreeView: public QTreeView
-{
-    public:
-        TraceTreeView(QWidget *parent = nullptr)
-            : QTreeView(parent)
-        {
-            setExpandsOnDoubleClick(true);
-            setDragEnabled(true);
-        }
-};
-
-class TraceTableView: public QTableView
-{
-    public:
-        TraceTableView(QWidget *parent = nullptr)
-            : QTableView(parent)
-        {
-            setSelectionMode(QAbstractItemView::SingleSelection);
-            setSelectionBehavior(QAbstractItemView::SelectRows);
-            setDefaultDropAction(Qt::MoveAction);
-            setDragDropMode(QAbstractItemView::DragDrop);
-            setDragDropOverwriteMode(false);
-            setDragEnabled(true);
-            verticalHeader()->hide();
-        }
-};
-
-std::unique_ptr<TraceTreeModel> make_trace_tree_model();
-std::unique_ptr<TraceTableModel> make_trace_table_model();
-
-#if 0
 class TraceSelectWidget: public QWidget
 {
     Q_OBJECT
@@ -139,7 +65,6 @@ class TraceSelectWidget: public QWidget
         struct Private;
         std::unique_ptr<Private> d;
 };
-#endif
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
@@ -147,9 +72,12 @@ class TraceSelectWidget: public QWidget
 
 Q_DECLARE_METATYPE(mesytec::mvme_mvlc::trigger_io::PinAddress);
 
-QDataStream &operator<<(QDataStream &out, const mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
-QDataStream &operator>>(QDataStream &in, mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
+QDataStream &operator<<(
+    QDataStream &out, const mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
+QDataStream &operator>>(
+    QDataStream &in, mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
 
-QDebug operator<<(QDebug dbg, const mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
+QDebug operator<<(
+    QDebug dbg, const mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
 
 #endif /* __MVME_MVLC_TRIGGER_IO_SIM_UI_H__ */

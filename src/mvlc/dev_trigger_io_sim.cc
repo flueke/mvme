@@ -144,6 +144,7 @@ int main(int argc, char *argv[])
 //   Also there is no way to address the output pins of the L3 NIMs and LVDS
 //   units.
 
+#if 0
     QWidget traceSelectWidget;
     auto traceSelectLayout = make_hbox(&traceSelectWidget);
 
@@ -178,24 +179,16 @@ int main(int argc, char *argv[])
                     ;
             }
         });
-
-#if 0 // doesn't work for whatever reason. the match code in QAbstractItemModel is rather complex :(
-    auto treeMatches = traceTreeModel->match(
-        traceTreeModel->indexFromItem(traceTreeModel->invisibleRootItem()), // QModelIndex start
-        Qt::UserRole + 1, // role
-        QVariant::fromValue(PinAddress({2, 1, 3}, PinPosition::Input)), // value
-        -1, // hits
-        Qt::MatchRecursive // matchflags
-        );
-    qDebug() << "treeMatches =" << treeMatches;
 #endif
+    TraceSelectWidget traceSelectWidget;
+    traceSelectWidget.show();
 
+
+#if 0
     std::vector<QStandardItem *> leaves;
 
     find_leave_items(traceTreeModel->invisibleRootItem(), leaves, 1);
     qDebug() << "leaves=" << leaves;
-
-#if 0
     for (auto leave: leaves)
     {
         traceTableModel->appendRow(leave->clone());

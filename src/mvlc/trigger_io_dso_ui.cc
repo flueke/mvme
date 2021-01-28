@@ -314,6 +314,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    setWindowTitle("DSOControlWidget");
     d->spin_preTriggerTime = new QSpinBox;
     d->spin_postTriggerTime = new QSpinBox;
 
