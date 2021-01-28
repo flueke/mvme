@@ -226,7 +226,7 @@ struct Level0
 
     // Describes the IRQ Inputs on L0 (since FW0016)
     static const int IRQ_Inputs_Count = 6;
-    static const int IRQ_Inputs_Offset = 33;
+    static const int IRQ_Inputs_Offset = 30;
 
     // Total number of output pins on L0
     static const int OutputCount = UtilityUnitCount + NIM_IO_Count + IRQ_Inputs_Count;
@@ -242,8 +242,7 @@ struct Level0
                                                                 // 14 sysclock
                                                                 // 15 daq_start
     std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
-                                                                // 30..32 reserved for the ECL outputs on L3
-    std::array<IO, IRQ_Inputs_Count> ioIRQ;                     // 33..38 IRQ inputs (FW0016)
+    std::array<IO, IRQ_Inputs_Count> ioIRQ;                     // 30..35 IRQ inputs (FW0016)
                                                                 // 48 Digital Oscilloscope
 
     QStringList unitNames;
@@ -307,8 +306,8 @@ struct Level3
     static const size_t UnitCount =
         UtilityUnitCount + NIM_IO_Count + ECL_OUT_Count;
 
-    static const size_t NIM_IO_Unit_Offset = 16;
-    static const size_t ECL_Unit_Offset = 30;
+    static const int NIM_IO_Unit_Offset = 16;
+    static const int ECL_Unit_Offset = 30;
 
     static const unsigned CounterInputNotConnected = 21;
     static const unsigned ExcludedSysclock = 20;
