@@ -64,13 +64,11 @@ struct Sim
     // The trigger io setup
     TriggerIO trigIO;
 
-    // 0-14 are the NIMs, additional things are going to be added in future
-    // MVLC firmware revisions. These traces contain the input side of the
-    // NIMs.
+    // 0-13 are the NIMs, 14-19 the IRQ inputs.
     Snapshot sampledTraces;
 
-    // L0 - simulated 'output' traces of the NIMs and simulated utility traces
-    // (timers, sysclock)
+    // L0 - simulated 'output' traces of the NIMs, IRQs and simulated utility
+    // traces (timers, sysclock)
     std::array<Trace, Level0::OutputCount> l0_traces;
 
     // L1 - LUT outputs
@@ -84,6 +82,9 @@ struct Sim
 };
 
 void simulate(Sim &sim, const SampleTime &maxtime);
+
+// Returns the address of an output trace of the system.
+Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr);
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

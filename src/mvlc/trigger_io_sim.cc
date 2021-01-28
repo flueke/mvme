@@ -303,8 +303,9 @@ bool in_range(const V &value, const B1 &lo, const B2 &hi)
     return lo <= value && value < hi;
 }
 
-// Returns the address of an output trace of the system.
-Trace *lookup_trace(Sim &sim, const UnitAddress &addr)
+} // end anon namespace
+
+Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr)
 {
     switch (addr[0])
     {
@@ -340,7 +341,6 @@ Trace *lookup_trace(Sim &sim, const UnitAddress &addr)
 
     return nullptr;
 }
-} // end anon namespace
 
 void simulate(Sim &sim, const SampleTime &maxtime)
 {
@@ -369,12 +369,12 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         LUT_Input_Timelines inputs;
 
         for (unsigned i=0; i<inputs.size(); i++)
-            inputs[i] = lookup_trace(sim, connections[i].address);
+            inputs[i] = lookup_output_trace(sim, connections[i].address);
 
         LUT_Output_Timelines outputs;
 
         for (unsigned i=0; i<outputs.size(); i++)
-            outputs[i] = lookup_trace(sim, { 1, lutIndex, i });
+            outputs[i] = lookup_output_trace(sim, { 1, lutIndex, i });
 
         simulate(lut, inputs, outputs, maxtime);
     }
@@ -392,7 +392,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
             UnitAddress dstAddr{ 2, lutIndex, i };
             UnitAddress srcAddr = get_connection_unit_address(
                 sim.trigIO, dstAddr);
-            inputs[i] = lookup_trace(sim, srcAddr);
+            inputs[i] = lookup_output_trace(sim, srcAddr);
             assert(inputs[i]);
         }
 
@@ -400,7 +400,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 
         for (unsigned i=0; i<outputs.size(); i++)
         {
-            outputs[i] = lookup_trace(sim, { 1, lutIndex, i });
+            outputs[i] = lookup_output_trace(sim, { 1, lutIndex, i });
             assert(outputs[i]);
         }
 
@@ -415,7 +415,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         UnitAddress dstAddr{ 3, ioIndex, 0 };
         UnitAddress srcAddr = get_connection_unit_address(
             sim.trigIO, dstAddr);
-        auto inputTrace = lookup_trace(sim, srcAddr);
+        auto inputTrace = lookup_output_trace(sim, srcAddr);
         assert(inputTrace);
         simulate(io, *inputTrace,
                  sim.l3_traces[kv.index() + Level3::NIM_IO_Unit_Offset],
@@ -430,7 +430,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         UnitAddress dstAddr{ 3, ioIndex, 0 };
         UnitAddress srcAddr = get_connection_unit_address(
             sim.trigIO, dstAddr);
-        auto inputTrace = lookup_trace(sim, srcAddr);
+        auto inputTrace = lookup_output_trace(sim, srcAddr);
         assert(inputTrace);
         simulate(io, *inputTrace,
                  sim.l3_traces[kv.index() + Level3::ECL_Unit_Offset],
