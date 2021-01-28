@@ -504,10 +504,24 @@ QString lookup_default_name(const TriggerIO &cfg, const UnitAddress &addr)
             break;
 
         case 1:
-            return cfg.l1.luts[addr[1]].defaultOutputNames[addr[2]];
+            if (addr[1] < cfg.l1.luts.size())
+            {
+                const auto &names = cfg.l1.luts[addr[1]].defaultOutputNames;
+
+                if (addr[2] < names.size())
+                    return names[addr[2]];
+            }
+            break;
 
         case 2:
-            return cfg.l2.luts[addr[1]].defaultOutputNames[addr[2]];
+            if (addr[1] < cfg.l2.luts.size())
+            {
+                const auto &names = cfg.l2.luts[addr[1]].defaultOutputNames;
+
+                if (addr[2] < names.size())
+                    return names[addr[2]];
+            }
+            break;
 
         case 3:
             if (addr[1] < cfg.l3.DefaultUnitNames.size())
