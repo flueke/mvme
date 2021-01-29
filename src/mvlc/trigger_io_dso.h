@@ -19,8 +19,13 @@ using namespace trigger_io;
 //
 // The osci is at level0, unit 48. The following needs to be done to read out osci data:
 // - set pre and post trigger times
-// - set the trigger channel mask to specify which channels do trigger
+// - set the NIM and IRQ trigger masks
 // - start block reads from 0xffff0000, store the data somewhere
+// - write readout_reset (0x6034) after each block read
+//
+// While the DSO is active no other communication may take place as that would
+// mix DSO sample data with command responses. FIXME: This is currently not enforced
+// anywhere!
 
 enum class Edge
 {

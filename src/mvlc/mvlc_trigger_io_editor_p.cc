@@ -1169,12 +1169,14 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             {
                 auto counterItem = new gfx::CounterItem(counter, result.utilsItem);
 
+#if 0
                 if (counter == 0) // make the counter+stamper block wider
                 {
                     auto rect = counterItem->rect();
                     rect.setWidth(rect.width() + 80);
                     counterItem->setRect(rect);
                 }
+#endif
 
                 counterItem->moveBy(
                     0,

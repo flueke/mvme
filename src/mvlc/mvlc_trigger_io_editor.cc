@@ -693,7 +693,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         });
 
     action = toolbar->addAction(
-        QIcon(":/vme_event.png"), QSL("Osci"),
+        QIcon(":/vme_event.png"), QSL("DSO"),
         this, [this] ()
         {
             if (!d->scopeWidget)
@@ -712,6 +712,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             d->scopeWidget->show();
             d->scopeWidget->raise();
         });
+    action->setToolTip("Digital Storage Oscilloscope");
 
     auto mainLayout = make_vbox<2, 2>(this);
     mainLayout->addWidget(toolbar);
