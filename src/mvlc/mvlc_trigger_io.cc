@@ -305,7 +305,7 @@ const std::array<QString, trigger_io::Level3::UnitCount+1> Level3::DefaultUnitNa
     "MasterTrigger1",
     "MasterTrigger2",
     "MasterTrigger3",
-    "Counter0+Timestamper",
+    "Counter0",
     "Counter1",
     "Counter2",
     "Counter3",
