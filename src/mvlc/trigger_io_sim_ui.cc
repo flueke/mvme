@@ -316,17 +316,6 @@ std::unique_ptr<TraceTableModel> make_trace_table_model()
     model->setColumnCount(2);
     model->setHeaderData(0, Qt::Horizontal, "Trace");
     model->setHeaderData(1, Qt::Horizontal, "Name");
-
-    /*
-    auto root = model->invisibleRootItem();
-    root->appendRow({ make_trace_item("NIM0"), make_trace_item("NIM0_name") });
-    root->appendRow({ make_trace_item("NIM1"), make_trace_item("NIM1_name") });
-    root->appendRow({ make_trace_item("NIM2"), make_trace_item("NIM2_name") });
-    root->appendRow({ make_trace_item("NIM3"), make_trace_item("NIM3_name") });
-    root->appendRow({ make_trace_item("NIM4"), make_trace_item("NIM4_name") });
-    root->appendRow({ make_trace_item("NIM5"), make_trace_item("NIM5_name") });
-    */
-
     return model;
 }
 
@@ -416,6 +405,16 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
                         qDebug() << item->data().value<PinAddress>();
                 }
             });
+
+    // rowsInserted() is emitted when dropping external data and when doing and
+    // internal drag-move. It's a better fit than layoutChanged() which is
+    // emitted twice on drag-move.
+    connect(d->tableModel.get(), &QAbstractItemModel::rowsInserted,
+            this, [this] ()
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
+                emit selectionChanged(getSelection());
+            });
 }
 
 TraceSelectWidget::~TraceSelectWidget()
@@ -430,6 +429,28 @@ void TraceSelectWidget::setTriggerIO(const TriggerIO &trigIO)
 
 void TraceSelectWidget::setSelection(const QVector<PinAddress> &selection)
 {
+    // FIXME: might have to block signals or set a flag to avoid emitting
+    // seletionChanged() during this operation.
+    d->tableModel->removeRows(0, d->tableModel->rowCount());
+
+    for (const auto &pa: selection)
+        d->tableModel->appendRow(make_trace_row(pa));
+}
+
+QVector<PinAddress> TraceSelectWidget::getSelection() const
+{
+    QVector<PinAddress> result;
+
+    for (int row = 0; row < d->tableModel->rowCount(); ++row)
+    {
+        if (auto item = d->tableModel->item(row))
+        {
+            if (item->data(PinRole).canConvert<PinAddress>())
+                result.push_back(item->data(PinRole).value<PinAddress>());
+        }
+    }
+
+    return result;
 }
 
 } // end namespace trigger_io

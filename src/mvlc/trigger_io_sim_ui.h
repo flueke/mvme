@@ -60,6 +60,7 @@ class TraceSelectWidget: public QWidget
 
         void setTriggerIO(const TriggerIO &trigIO);
         void setSelection(const QVector<PinAddress> &selection);
+        QVector<PinAddress> getSelection() const;
 
     private:
         struct Private;
