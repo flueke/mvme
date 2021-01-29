@@ -640,7 +640,7 @@ ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
     widgetLayout->addWidget(d->plot, 0, 1);
 
     setLayout(widgetLayout);
-    setWindowTitle("Trigger IO Osci");
+    setWindowTitle("Trigger IO DSO");
 
     //connect(&d->refreshTimer, &QTimer::timeout,
     //        this, [this] () { d->refresh(); });
