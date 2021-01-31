@@ -357,7 +357,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         return;
     }
 
-    // L0
+    // L0 NIM input gate generators with sampled input
     for (const auto &kv: sim.trigIO.l0.ioNIM | indexed(0))
     {
         const auto &io = kv.value();
@@ -365,7 +365,13 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         simulate(io, trace, sim.l0_traces[kv.index() + Level0::NIM_IO_Offset], maxtime);
     }
 
-    // FIXME: missing IRQ inputs
+    // L0 IRQ gate generators with sampled input
+    for (const auto &kv: sim.trigIO.l0.ioIRQ | indexed(0))
+    {
+        const auto &io = kv.value();
+        const auto &trace = sim.sampledTraces[kv.index() + NIM_IO_Count]; // irq input traces directly follow the NIM traces
+        simulate(io, trace, sim.l0_traces[kv.index() + Level0::IRQ_Inputs_Offset], maxtime);
+    }
 
     for (const auto &kv: sim.trigIO.l0.timers | indexed(0))
         simulate(kv.value(), sim.l0_traces[kv.index()], maxtime);
