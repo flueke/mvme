@@ -370,7 +370,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
     for (const auto &kv: sim.trigIO.l0.timers | indexed(0))
         simulate(kv.value(), sim.l0_traces[kv.index()], maxtime);
 
-    simulate_sysclock(sim.l0_traces[Level0::SysClockOffset], maxtime);
+    //simulate_sysclock(sim.l0_traces[Level0::SysClockOffset], maxtime);
 
     // L1 LUT hierarchy. 0-2 first, then 3 & 4
     for (const auto &kvLUT: sim.trigIO.l1.luts | indexed(0u))
