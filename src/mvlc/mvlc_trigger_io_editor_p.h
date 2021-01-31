@@ -373,6 +373,7 @@ class TriggerIOGraphicsScene: public QGraphicsScene
     signals:
         void editLUT(int level, int unit);
         void editNIM_Inputs();
+        void editIRQ_Inputs();
         void editNIM_Outputs();
         void editECL_Outputs();
         void editL0Utils();
@@ -503,6 +504,24 @@ struct NIM_IO_Table_UI
     QVector<QComboBox *> combos_connection;
 };
 
+struct IRQ_Inputs_Table_UI
+{
+    enum Columns
+    {
+        ColActivate,
+        ColDelay,
+        ColWidth,
+        ColHoldoff,
+        ColInvert,
+        ColName,
+    };
+
+    QTableWidget *table;
+    QVector<QCheckBox *> checks_activate;
+    QVector<QCheckBox *> checks_invert;
+    QVector<QComboBox *> combos_connection;
+};
+
 struct ECL_Table_UI
 {
     enum Columns
@@ -555,6 +574,23 @@ class NIM_IO_SettingsDialog: public QDialog
             QWidget *parent = nullptr);
 
         NIM_IO_Table_UI m_tableUi;
+};
+
+class IRQ_Inputs_SettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        IRQ_Inputs_SettingsDialog(
+            const QStringList &names,
+            const QVector<trigger_io::IO> &settings,
+            QWidget *parent = nullptr);
+
+        QStringList getNames() const;
+        QVector<trigger_io::IO> getSettings() const;
+        QVector<std::vector<unsigned>> getConnections() const;
+
+    private:
+        IRQ_Inputs_Table_UI m_tableUi;
 };
 
 class ECL_SettingsDialog: public QDialog

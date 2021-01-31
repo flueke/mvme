@@ -2043,6 +2043,17 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
             m_level0InputItems.nimItem->setOutputNames(names);
         }
 
+        // l0 IRQ inputs
+        {
+            auto b = ioCfg.l0.unitNames.begin() + Level0::IRQ_Inputs_Offset;
+            auto e = b + Level0::IRQ_Inputs_Count;
+            QStringList names;
+
+            std::copy(b, e, std::back_inserter(names));
+
+            m_level0InputItems.irqItem->setOutputNames(names);
+        }
+
         // l0 util
         {
             auto b = ioCfg.l0.unitNames.begin();
@@ -2176,6 +2187,13 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
         return;
     }
 
+    if (items.indexOf(m_level0InputItems.irqItem) >= 0)
+    {
+        ev->accept();
+        emit editIRQ_Inputs();
+        return;
+    }
+
     if (items.indexOf(m_level0UtilItems.utilsItem) >= 0)
     {
         ev->accept();
@@ -2291,6 +2309,46 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 
     if (dir == trigger_io::IO::Direction::out)
         table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColConnection, 1);
+
+    table->resizeColumnsToContents();
+    table->resizeRowsToContents();
+
+    return ret;
+}
+
+IRQ_Inputs_Table_UI make_irq_inputs_settings_table()
+{
+    QStringList columnTitles = {
+        "Activate", "Delay", "Width", "Holdoff", "Invert", "Name"
+    };
+
+    IRQ_Inputs_Table_UI ret = {};
+
+    auto table = new QTableWidget(trigger_io::Level0::IRQ_Inputs_Count, columnTitles.size());
+    ret.table = table;
+
+    table->setHorizontalHeaderLabels(columnTitles);
+
+    for (int row = 0; row < table->rowCount(); ++row)
+    {
+        table->setVerticalHeaderItem(row, new QTableWidgetItem(
+                QString("IRQ%1").arg(row)));
+
+        auto check_activate = new QCheckBox;
+        auto check_invert = new QCheckBox;
+
+        ret.checks_activate.push_back(check_activate);
+        ret.checks_invert.push_back(check_invert);
+
+        table->setCellWidget(row, 0, make_centered(check_activate));
+        table->setCellWidget(row, 4, make_centered(check_invert));
+        table->setItem(row, 5, new QTableWidgetItem(
+                QString("IRQ%1").arg(row)));
+    }
+
+    reverse_rows(table);
+
+    table->horizontalHeader()->moveSection(IRQ_Inputs_Table_UI::ColName, 0);
 
     table->resizeColumnsToContents();
     table->resizeRowsToContents();
@@ -2500,6 +2558,87 @@ QVector<std::vector<unsigned>> NIM_IO_SettingsDialog::getConnections() const
 
     for (auto combo: m_tableUi.combos_connection)
         ret.push_back({static_cast<unsigned>(combo->currentIndex())});
+
+    return ret;
+}
+
+//
+// IRQ_Inputs_SettingsDialog
+//
+IRQ_Inputs_SettingsDialog::IRQ_Inputs_SettingsDialog(
+    const QStringList &names,
+    const QVector<trigger_io::IO> &settings,
+    QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowTitle("IRQ Input Settings");
+
+    m_tableUi = make_irq_inputs_settings_table();
+    auto &ui = m_tableUi;
+
+    for (int row = 0; row < ui.table->rowCount(); row++)
+    {
+        auto name = names.value(row);
+        auto io = settings.value(row);
+
+        ui.table->setItem(row, ui.ColName, new QTableWidgetItem(name));
+        ui.table->setItem(row, ui.ColDelay, new QTableWidgetItem(QString::number(io.delay)));
+        ui.table->setItem(row, ui.ColWidth, new QTableWidgetItem(QString::number(io.width)));
+        ui.table->setItem(row, ui.ColHoldoff, new QTableWidgetItem(QString::number(io.holdoff)));
+
+        ui.checks_activate[row]->setChecked(io.activate);
+        ui.checks_invert[row]->setChecked(io.invert);
+    }
+
+    auto bb = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
+        QDialogButtonBox::Apply | QDialogButtonBox::Help,
+        this);
+
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &QDialog::accepted);
+    connect(bb, &QDialogButtonBox::clicked,
+            this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_IRQ")));
+
+    auto widgetLayout = make_vbox(this);
+    widgetLayout->addWidget(ui.table, 1);
+    widgetLayout->addWidget(bb);
+
+    m_tableUi.table->resizeColumnsToContents();
+    m_tableUi.table->resizeRowsToContents();
+    resize(400, 200);
+}
+
+QStringList IRQ_Inputs_SettingsDialog::getNames() const
+{
+    auto &ui = m_tableUi;
+    QStringList ret;
+
+    for (int row = 0; row < ui.table->rowCount(); row++)
+        ret.push_back(ui.table->item(row, ui.ColName)->text());
+
+    return ret;
+}
+
+QVector<trigger_io::IO> IRQ_Inputs_SettingsDialog::getSettings() const
+{
+    auto &ui = m_tableUi;
+    QVector<trigger_io::IO> ret;
+
+    for (int row = 0; row < ui.table->rowCount(); row++)
+    {
+        trigger_io::IO irq;
+
+        irq.delay = ui.table->item(row, ui.ColDelay)->text().toUInt();
+        irq.width = ui.table->item(row, ui.ColWidth)->text().toUInt();
+        irq.holdoff = ui.table->item(row, ui.ColHoldoff)->text().toUInt();
+
+        irq.invert = ui.checks_invert[row]->isChecked();
+
+        ret.push_back(irq);
+    }
 
     return ret;
 }

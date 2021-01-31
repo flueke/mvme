@@ -310,6 +310,49 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         dialog.exec();
     });
 
+    // IRQ inputs
+    QObject::connect(scene, &TriggerIOGraphicsScene::editIRQ_Inputs,
+                     [this] ()
+    {
+        auto &ioCfg = d->ioCfg;
+
+        // read names stored in the Level0 structure
+        QStringList names;
+
+        std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.IRQ_Inputs_Offset,
+                    trigger_io::Level0::IRQ_Inputs_Count,
+                    std::back_inserter(names));
+
+        // settings stored in Level0
+        QVector<trigger_io::IO> settings;
+        std::copy(ioCfg.l0.ioIRQ.begin(), ioCfg.l0.ioIRQ.end(), std::back_inserter(settings));
+
+        IRQ_Inputs_SettingsDialog dialog(names, settings, this);
+        dialog.setWindowModality(Qt::WindowModal);
+
+        auto do_apply = [this, &dialog, &ioCfg] ()
+        {
+            auto names = dialog.getNames();
+
+            // Copy names to L0
+            std::copy_n(names.begin(),
+                        trigger_io::Level0::IRQ_Inputs_Count,
+                        ioCfg.l0.unitNames.begin() + ioCfg.l0.IRQ_Inputs_Offset);
+
+            auto settings = dialog.getSettings();
+            size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioIRQ.size());
+
+            // Copy settings to L0
+            std::copy_n(settings.begin(), count, ioCfg.l0.ioIRQ.begin());
+
+            setupModified();
+        };
+
+        connect(&dialog, &QDialog::accepted, this, do_apply);
+
+        dialog.exec();
+    });
+
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
                      [this] ()
     {
