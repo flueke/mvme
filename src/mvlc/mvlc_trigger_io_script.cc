@@ -339,6 +339,13 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), io_flags::NIM_IO_Flags);
     }
 
+    for (const auto &kv: ioCfg.l0.ioIRQ | indexed(0))
+    {
+        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.IRQ_Inputs_Offset];
+        ret += select_unit(0, kv.index() + ioCfg.l0.IRQ_Inputs_Offset);
+        ret += generate(kv.value(), io_flags::None);
+    }
+
     //
     // Level1
     //
@@ -1046,6 +1053,15 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             auto &unit = kv.value();
 
             unit = parse_io(writes[unitIndex], io_flags::NIM_IO_Flags);
+        }
+
+        for (const auto &kv: ioCfg.l0.ioIRQ | indexed(0))
+        {
+
+            unsigned unitIndex = kv.index() + Level0::IRQ_Inputs_Offset;
+            auto &unit = kv.value();
+
+            unit = parse_io(writes[unitIndex], io_flags::None);
         }
     }
 
