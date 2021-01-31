@@ -121,7 +121,7 @@ class ScopeYScaleDraw: public QwtScaleDraw
                 });
 
             if (it != std::end(m_data))
-                return { it->second /* + " (y=" + QwtScaleDraw::label(value).text() + ")" */ };
+                return { it->second /* + " (y=" + QwtScaleDraw::label(value).text() + ")" */  };
 
             return QwtScaleDraw::label(value);
         }
@@ -129,11 +129,13 @@ class ScopeYScaleDraw: public QwtScaleDraw
         void addScaleEntry(double yOffset, const QString &label)
         {
             m_data.push_back(std::make_pair(QwtInterval(yOffset, yOffset + 1.0), label));
+            invalidateCache();
         }
 
         void clear()
         {
             m_data.clear();
+            invalidateCache();
         }
 
     private:
@@ -146,8 +148,7 @@ struct DSOPlotWidget::Private
 {
     QwtPlot *plot;
     QwtPlotGrid *grid;
-    ScopeYScaleDraw *yScaleDraw;
-    QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setSnapshot()
+    QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setTraces()
     SampleTime xMax;
     ScrollZoomer *zoomer;
     //std::unique_ptr<QwtPlotMarker> xMarker;
@@ -165,9 +166,6 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
 {
     d->plot = new QwtPlot;
     d->plot->setCanvasBackground(QBrush(Qt::black));
-
-    d->yScaleDraw = new ScopeYScaleDraw;
-    d->plot->setAxisScaleDraw(QwtPlot::yLeft, d->yScaleDraw);
 
     d->grid = new QwtPlotGrid;
     d->grid->enableX(false);
@@ -212,7 +210,7 @@ std::unique_ptr<QwtPlotCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData
     return curve;
 }
 
-void DSOPlotWidget::setSnapshot(
+void DSOPlotWidget::setTraces(
     const Snapshot &snapshot,
     unsigned preTriggerTime,
     const QStringList &names)
@@ -226,7 +224,10 @@ void DSOPlotWidget::setSnapshot(
     }
 
     d->curves.clear();
-    d->yScaleDraw->clear();
+    // Always create a new scale draw instance here otherwise the y axis does
+    // not properly update (it does update when zooming, so it should be
+    // possible to keep the same instance).
+    auto yScaleDraw = std::make_unique<ScopeYScaleDraw>();
 
     QList<double> yTicks; // major ticks for the y scale
     double yOffset = 0.0;
@@ -243,7 +244,7 @@ void DSOPlotWidget::setSnapshot(
         d->curves.push_back(curve.release());
 
         yTicks.push_back(yOffset);
-        d->yScaleDraw->addScaleEntry(yOffset, name);
+        yScaleDraw->addScaleEntry(yOffset, name);
 
         if (!timeline.empty())
             d->xMax = std::max(d->xMax, timeline.back().time);
@@ -252,6 +253,7 @@ void DSOPlotWidget::setSnapshot(
         ++idx;
     }
 
+    d->plot->setAxisScaleDraw(QwtPlot::yLeft, yScaleDraw.release());
     d->yScaleDiv.setInterval(0.0, yOffset - Private::YSpacing);
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
     d->plot->setAxisScaleDiv(QwtPlot::yLeft, d->yScaleDiv);
@@ -261,6 +263,7 @@ void DSOPlotWidget::setSnapshot(
     // Tells the zoomer that we're currently completely zoomed out. Does a
     // plot->replot() unless the arg is false.
     d->zoomer->setZoomBase(true);
+    d->plot->replot();
 }
 
 void DSOPlotWidget::Private::zoomerZoomed()
@@ -299,7 +302,8 @@ struct DSOControlWidget::Private
 {
     QSpinBox *spin_preTriggerTime,
              *spin_postTriggerTime,
-             *spin_interval;
+             *spin_interval,
+             *spin_simMaxTime;
 
     static const int TriggerCols = 5;
     static const int TriggerRows = 4;
@@ -369,6 +373,10 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->spin_interval->setSpecialValueText("single shot");
     d->spin_interval->setSuffix(" ms");
 
+    d->spin_simMaxTime = new QSpinBox;
+    d->spin_simMaxTime->setMinimum(1000);
+    d->spin_simMaxTime->setSuffix(" ns");
+
     auto gb_triggers = new QGroupBox("Trigger Channels");
     gb_triggers->setAlignment(Qt::AlignCenter);
     auto l_triggers = make_grid(gb_triggers);
@@ -382,6 +390,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     setupLayout->addRow("Post Trigger Time",d->spin_postTriggerTime);
     setupLayout->addRow(gb_triggers);
     setupLayout->addRow("Interval", d->spin_interval);
+    setupLayout->addRow("Sim MaxTime", d->spin_simMaxTime);
 
     d->pb_start = new QPushButton("Start DSO");
     d->pb_stop = new QPushButton("Stop DSO");
@@ -410,7 +419,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
             });
 
     connect(d->pb_start, &QPushButton::clicked, this, [this] () {
-        emit startDSO(getDSOSetup(), getInterval());
+        emit startDSO(getDSOSetup(), getInterval(), getSimMaxTime());
     });
 
     connect(d->pb_stop, &QPushButton::clicked, this, [this] () {
@@ -455,9 +464,15 @@ std::chrono::milliseconds DSOControlWidget::getInterval() const
     return std::chrono::milliseconds(d->spin_interval->value());
 }
 
+SampleTime DSOControlWidget::getSimMaxTime() const
+{
+    return SampleTime(d->spin_simMaxTime->value());
+}
+
 void DSOControlWidget::setDSOSetup(
     const DSOSetup &setup,
-    const std::chrono::milliseconds &interval)
+    const std::chrono::milliseconds &interval,
+    const SampleTime &simMaxTime)
 {
     d->spin_preTriggerTime->setValue(setup.preTriggerTime);
     d->spin_postTriggerTime->setValue(setup.postTriggerTime);
@@ -475,183 +490,7 @@ void DSOControlWidget::setDSOSetup(
     });
 
     d->spin_interval->setValue(interval.count());
-}
-
-//
-// ScopeWidget
-//
-struct ScopeWidget::Private
-{
-    ScopeWidget *q;
-
-    mvlc::MVLC mvlc;
-
-    QSpinBox *spin_preTriggerTime,
-             *spin_postTriggerTime;
-
-    std::vector<QCheckBox *> checks_triggerChannels;
-
-    QPushButton *pb_start,
-                *pb_stop;
-
-    std::thread readerThread;
-    std::atomic<bool> readerQuit;
-    mvlc::ThreadSafeQueue<std::vector<u32>> readerQueue;
-    std::future<std::error_code> readerFuture;
-    QTimer refreshTimer;
-    DSOSetup scopeSetup;
-
-    const double YSpacing = 0.5;
-    DSOPlotWidget *plot;
-    std::atomic<bool> stopSampling;
-
-
-    void analyze(const std::vector<u32> &buffers);
-
-    void start()
-    {
-        scopeSetup = {};
-        scopeSetup.preTriggerTime = spin_preTriggerTime->value();
-        scopeSetup.postTriggerTime = spin_postTriggerTime->value();
-
-        for (auto bitIdx=0u; bitIdx<checks_triggerChannels.size(); ++bitIdx)
-            scopeSetup.nimTriggers.set(bitIdx, checks_triggerChannels[bitIdx]->isChecked());
-
-        std::vector<u32> sampleBuffer;
-
-        QProgressDialog progressDialog;
-        progressDialog.setLabelText(QSL("Waiting for sample..."));
-        progressDialog.setMinimum(0);
-        progressDialog.setMaximum(0);
-
-        QFutureWatcher<std::error_code> watcher;
-
-        QObject::connect(
-            &watcher, &QFutureWatcher<std::error_code>::finished,
-            &progressDialog, &QDialog::close);
-
-        QObject::connect(
-            &progressDialog, &QProgressDialog::canceled,
-            q, [this] () { stopSampling = true; });
-
-        stopSampling = false;
-
-        auto futureResult = QtConcurrent::run(
-            acquire_scope_sample, mvlc, scopeSetup,
-            std::ref(sampleBuffer),
-            std::ref(stopSampling));
-
-        watcher.setFuture(futureResult);
-        progressDialog.exec();
-
-        /*
-        if (auto ec = futureResult.result())
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "result=" << ec.message().c_str();
-        }
-        */
-
-        analyze(sampleBuffer);
-    }
-
-    void stop()
-    {
-        stopSampling = true;
-    }
-};
-
-void ScopeWidget::Private::analyze(const std::vector<u32> &buffer)
-{
-    mesytec::mvlc::util::log_buffer(std::cout, buffer, "scope buffer");
-
-    auto snapshot = fill_snapshot_from_mvlc_buffer(buffer);
-    plot->setSnapshot(snapshot, this->scopeSetup.preTriggerTime);
-}
-
-ScopeWidget::ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent)
-    : QWidget(parent)
-    , d(std::make_unique<Private>())
-{
-    d->q = this;
-    d->mvlc = mvlc;
-
-    d->spin_preTriggerTime = new QSpinBox;
-    d->spin_postTriggerTime = new QSpinBox;
-
-    for (auto spin: { d->spin_preTriggerTime, d->spin_postTriggerTime })
-    {
-        spin->setMinimum(0);
-        spin->setMaximum(std::numeric_limits<u16>::max());
-        spin->setSuffix(" ns");
-    }
-
-    d->spin_preTriggerTime->setValue(200);
-    d->spin_postTriggerTime->setValue(500);
-
-#if 1
-    auto channelsLayout = new QGridLayout;
-
-    for (auto bit = 0u; bit < trigger_io::NIM_IO_Count; ++bit)
-    {
-        d->checks_triggerChannels.emplace_back(new QCheckBox);
-        int col = trigger_io::NIM_IO_Count - bit - 1;
-        channelsLayout->addWidget(new QLabel(QString::number(bit)), 0, col);
-        channelsLayout->addWidget(d->checks_triggerChannels[bit], 1, col);
-    }
-
-    d->checks_triggerChannels[0]->setChecked(true); // initially let only channel 0 trigger
-#endif
-
-    auto pb_triggersAll = new QPushButton("all");
-    auto pb_triggersNone = new QPushButton("none");
-
-    connect(pb_triggersAll, &QPushButton::clicked,
-            this, [this] () { for (auto cb: d->checks_triggerChannels) cb->setChecked(true); });
-
-    connect(pb_triggersNone, &QPushButton::clicked,
-            this, [this] () { for (auto cb: d->checks_triggerChannels) cb->setChecked(false); });
-
-    channelsLayout->addWidget(pb_triggersAll, 0, trigger_io::NIM_IO_Count);
-    channelsLayout->addWidget(pb_triggersNone, 1, trigger_io::NIM_IO_Count);
-
-    d->pb_start = new QPushButton("Start");
-    d->pb_stop = new QPushButton("Stop");
-
-    connect(d->pb_start, &QPushButton::clicked, this, [this] () { d->start(); });
-    connect(d->pb_stop, &QPushButton::clicked, this, [this] () { d->stop(); });
-
-    auto buttonLayout = make_vbox();
-    buttonLayout->addWidget(d->pb_start);
-    buttonLayout->addWidget(d->pb_stop);
-
-    auto controlsLayout = new QFormLayout;
-    controlsLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
-    controlsLayout->addRow("Post Trigger Time", d->spin_postTriggerTime);
-    controlsLayout->addRow("Trigger Channels", channelsLayout);
-    //controlsLayout->addRow("Trigger Channels", combo_channels);
-    controlsLayout->addRow(buttonLayout);
-    auto gbControls = new QGroupBox("Setup");
-    gbControls->setLayout(controlsLayout);
-
-    d->plot = new DSOPlotWidget;
-
-    auto widgetLayout = new QGridLayout;
-    widgetLayout->addWidget(gbControls, 0, 0);
-    widgetLayout->addWidget(d->plot, 0, 1);
-
-    setLayout(widgetLayout);
-    setWindowTitle("Trigger IO DSO");
-
-    //connect(&d->refreshTimer, &QTimer::timeout,
-    //        this, [this] () { d->refresh(); });
-}
-
-ScopeWidget::~ScopeWidget()
-{
-    d->readerQuit = true;
-
-    if (d->readerThread.joinable())
-        d->readerThread.join();
+    d->spin_simMaxTime->setValue(simMaxTime.count());
 }
 
 } // end namespace trigger_io

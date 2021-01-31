@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 
     DSOPlotWidget plotWidget;
     plotWidget.setWindowTitle("Randomizing Edges");
-    plotWidget.setSnapshot(snapshot);
+    plotWidget.setTraces(snapshot);
     //plotWidget.show();
 
     auto randomize_data = [] (Snapshot &snapshot)
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
     QObject::connect(&timer, &QTimer::timeout, [&] () {
         randomize_data(snapshot);
-        plotWidget.setSnapshot(snapshot);
+        plotWidget.setTraces(snapshot);
     });
 
     timer.setInterval(1000);
@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 
     DSOPlotWidget simPlot0;
     simPlot0.setWindowTitle("TrigIO Test 0");
-    simPlot0.setSnapshot(ioSnap);
+    simPlot0.setTraces(ioSnap);
     simPlot0.getQwtPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
     simPlot0.show();
 

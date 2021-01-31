@@ -22,8 +22,8 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
         DSOPlotWidget(QWidget *parent = nullptr);
         ~DSOPlotWidget() override;
 
-        void setSnapshot(const Snapshot &snapshot, unsigned preTriggerTime = 0,
-                         const QStringList &names = {});
+        void setTraces(const Snapshot &snapshot, unsigned preTriggerTime = 0,
+                       const QStringList &names = {});
 
         QwtPlot *getQwtPlot();
 
@@ -41,7 +41,8 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
         // restarted using the same setup after the interval has elapsed.
         void startDSO(
             const DSOSetup &dsoSetup,
-            const std::chrono::milliseconds &interval = {});
+            const std::chrono::milliseconds &interval,
+            const SampleTime &simMaxTime);
 
         // Emitted on pressing the stop button.
         void stopDSO();
@@ -52,28 +53,18 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
 
         DSOSetup getDSOSetup() const;
         std::chrono::milliseconds getInterval() const;
+        SampleTime getSimMaxTime() const;
 
     public slots:
         // Load the DSOSetup and the interval into the GUI.
         void setDSOSetup(
             const DSOSetup &setup,
-            const std::chrono::milliseconds &interval = {});
+            const std::chrono::milliseconds &interval = {},
+            const SampleTime &simMaxTime = {});
 
         // Notify the widget about the current state of the DSO sampler. If
         // enabled most of the UI except for the stop button will be disabled.
         void setDSOActive(bool active);
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
-
-class ScopeWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        ScopeWidget(mvlc::MVLC &mvlc, QWidget *parent = nullptr);
-        ~ScopeWidget() override;
 
     private:
         struct Private;

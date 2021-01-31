@@ -60,6 +60,7 @@ class TraceTableModel: public BaseModel
         bool dropMimeData(const QMimeData *data, Qt::DropAction action,
                           int row, int /*column*/, const QModelIndex &parent) override
         {
+            qDebug() << __PRETTY_FUNCTION__;
             // Pretend to always move column 0 to circumvent QStandardItemModel
             // from adding columns.
             return QStandardItemModel::dropMimeData(data, action, row, 0, parent);

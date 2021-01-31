@@ -106,10 +106,10 @@ int main(int argc, char *argv[])
 
     DSOPlotWidget simPlot0;
     simPlot0.setWindowTitle("Basic LUT");
-    simPlot0.setSnapshot(snapshot, 0, timelineNames);
+    simPlot0.setTraces(snapshot, 0, timelineNames);
     //simPlot0.getPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
     simPlot0.resize(1400, 900);
-    //simPlot0.show();
+    simPlot0.show();
 
     // Trace Select Stuff -------------------------------------
 
@@ -180,7 +180,9 @@ int main(int argc, char *argv[])
             }
         });
 #endif
+    auto trigIO = load_default_trigger_io();
     TraceSelectWidget traceSelectWidget;
+    traceSelectWidget.setTriggerIO(trigIO);
     traceSelectWidget.show();
 
 

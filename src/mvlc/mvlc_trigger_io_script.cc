@@ -27,6 +27,7 @@
 #include <QVector>
 #include <yaml-cpp/yaml.h>
 
+#include "template_system.h"
 #include "vme_script.h"
 
 using boost::adaptors::indexed;
@@ -1192,6 +1193,12 @@ TriggerIO parse_trigger_io_script_text(const QString &text)
         parse_mvlc_meta_block(metaCmd.metaBlock, ioCfg);
 
     return ioCfg;
+}
+
+TriggerIO load_default_trigger_io()
+{
+    auto scriptContents = vats::read_default_mvlc_trigger_io_script().contents;
+    return parse_trigger_io_script_text(scriptContents);
 }
 
 } // end namespace mvme_mvlc

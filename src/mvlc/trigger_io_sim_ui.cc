@@ -1,4 +1,5 @@
 #include <QTableView>
+#include <QTimer>
 #include <QTreeView>
 
 #include "mvlc/trigger_io_sim_ui_p.h"
@@ -11,14 +12,14 @@ namespace mvme_mvlc
 namespace trigger_io
 {
 
-QStringList BaseModel::pinPathList(const PinAddress &pa) const
+QStringList pin_path_list(const TriggerIO &trigIO, const PinAddress &pa)
 {
     if (pa.unit[0] == 0)
     {
         if (pa.pos == PinPosition::Input)
-            return { "sampled", lookup_default_name(triggerIO(), pa.unit) };
+            return { "sampled", lookup_default_name(trigIO, pa.unit) };
         else
-            return { "L0", lookup_default_name(triggerIO(), pa.unit) };
+            return { "L0", lookup_default_name(trigIO, pa.unit) };
     }
 
     if (pa.unit[0] == 1 || pa.unit[0] == 2)
@@ -49,41 +50,131 @@ QStringList BaseModel::pinPathList(const PinAddress &pa) const
     if (pa.unit[0] == 3)
     {
         if (pa.pos == PinPosition::Input)
-            return { "L3in", lookup_default_name(triggerIO(), pa.unit) };
+            return { "L3in", lookup_default_name(trigIO, pa.unit) };
         else
-            return { "L3out", lookup_default_name(triggerIO(), pa.unit) };
+            return { "L3out", lookup_default_name(trigIO, pa.unit) };
     }
 
     return {};
 }
 
-QString BaseModel::pinPath(const PinAddress &pa) const
+QString pin_path(const TriggerIO &trigIO, const PinAddress &pa)
 {
-#if 1
-    return pinPathList(pa).join('.');
-#else
-    auto result = lookup_default_name(triggerIO(), pa.unit);
-
-    if (result.isEmpty())
-        result = "<pinPath>";
-
-    return result;
-#endif
+    return pin_path_list(trigIO, pa).join('.');
 }
 
-QString BaseModel::pinName(const PinAddress &pa) const
+QString pin_name(const TriggerIO &trigIO, const PinAddress &pa)
 {
-    auto parts = pinPathList(pa);
+    auto parts = pin_path_list(trigIO, pa);
     if (!parts.isEmpty())
         return parts.back();
     return "<pinName>";
 }
 
-QString BaseModel::pinUserName(const PinAddress &pa) const
+QString pin_user_name(const TriggerIO &trigIO, const PinAddress &pa)
 {
+    if (pa.unit[0] == 0)
+        return lookup_name(trigIO, pa.unit);
+
+    if (pa.unit[0] == 1)
+    {
+        if (pa.pos == PinPosition::Output)
+            return lookup_name(trigIO, pa.unit);
+        auto con =  Level1::StaticConnections[pa.unit[1]][pa.unit[2]];
+        return lookup_name(trigIO, con.address);
+    }
+
+    if (pa.unit[0] == 2)
+    {
+        if (pa.pos == PinPosition::Output)
+        {
+            if (pa.unit[2] < LUT::OutputBits)
+                return lookup_name(trigIO, pa.unit);
+            return {}; // strobeOut
+        }
+
+        auto con = Level2::StaticConnections[pa.unit[1]][pa.unit[2]];
+
+        if (!con.isDynamic)
+            return lookup_name(trigIO, con.address);
+
+        auto srcAddr = get_connection_unit_address(trigIO, pa.unit);
+        return lookup_name(trigIO, srcAddr);
+    }
+
+    if (pa.unit[0] == 3)
+    {
+        if (pa.pos == PinPosition::Output)
+            return lookup_name(trigIO, pa.unit);
+        auto srcAddr = get_connection_unit_address(trigIO, pa.unit);
+        return lookup_name(trigIO, srcAddr);
+    }
+
     return "<pinUserName>";
 }
 
+Trace *lookup_trace(Sim &sim, const PinAddress &pa)
+{
+    if (pa.pos == PinPosition::Output)
+        return lookup_output_trace(sim, pa.unit);
+
+    // Trace for an input pin is wanted.
+    assert(pa.pos == PinPosition::Input);
+
+    if (pa.unit[0] == 0
+        && pa.unit[1] - Level0::NIM_IO_Offset < sim.sampledTraces.size())
+    {
+        return &sim.sampledTraces[pa.unit[1] - Level0::NIM_IO_Offset];
+    }
+
+    if (pa.unit[0] == 1)
+    {
+        auto con =  Level1::StaticConnections[pa.unit[1]][pa.unit[2]];
+        return lookup_output_trace(sim, con.address);
+    }
+
+    if (pa.unit[0] == 2)
+    {
+        auto con = Level2::StaticConnections[pa.unit[1]][pa.unit[2]];
+
+        if (!con.isDynamic)
+            return lookup_output_trace(sim, con.address);
+
+        auto srcAddr = get_connection_unit_address(sim.trigIO, pa.unit);
+        return lookup_output_trace(sim, srcAddr);
+    }
+
+    if (pa.unit[0] == 3)
+    {
+        auto srcAddr = get_connection_unit_address(sim.trigIO, pa.unit);
+        return lookup_output_trace(sim, srcAddr);
+    }
+
+    return nullptr;
+}
+
+// 
+// BaseModel
+//
+QStringList BaseModel::pinPathList(const PinAddress &pa) const
+{
+    return pin_path_list(triggerIO(), pa);
+}
+
+QString BaseModel::pinPath(const PinAddress &pa) const
+{
+    return pin_path(triggerIO(), pa);
+}
+
+QString BaseModel::pinName(const PinAddress &pa) const
+{
+    return pin_name(triggerIO(), pa);
+}
+
+QString BaseModel::pinUserName(const PinAddress &pa) const
+{
+    return pin_user_name(triggerIO(), pa);
+}
 
 namespace
 {
@@ -412,8 +503,20 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
     connect(d->tableModel.get(), &QAbstractItemModel::rowsInserted,
             this, [this] ()
             {
-                qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
-                emit selectionChanged(getSelection());
+
+                // Note: resizing and the selectionChanged() signal emission is
+                // done from the event loop because at the point rowsInserted()
+                // is emitted and the slot is called for some reason the
+                // internal update of the table model is not completely done
+                // yet: rowCount() returns the udpated value but itme(row)
+                // still returns nullptr. Using the event loop hack here seems
+                // to fix the issue.
+                QTimer::singleShot(0, this, [this] () {
+                    d->tableView->resizeColumnsToContents();
+                    d->tableView->resizeRowsToContents();
+                    qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
+                    emit selectionChanged(getSelection());
+                });
             });
 }
 
@@ -443,8 +546,10 @@ QVector<PinAddress> TraceSelectWidget::getSelection() const
 
     for (int row = 0; row < d->tableModel->rowCount(); ++row)
     {
+        assert(d->tableModel->item(row));
         if (auto item = d->tableModel->item(row))
         {
+            assert(item->data(PinRole).canConvert<PinAddress>());
             if (item->data(PinRole).canConvert<PinAddress>())
                 result.push_back(item->data(PinRole).value<PinAddress>());
         }

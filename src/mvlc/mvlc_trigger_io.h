@@ -45,7 +45,9 @@ static const size_t ECL_OUT_Count = 3;
 
 struct Timer
 {
+    static const u16 MinPeriod = 8;
     using Range = mvlc::stacks::TimerBaseUnit;
+
     Range range;
     u16 delay_ns;
     u16 period;

@@ -463,6 +463,13 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         const ContainerObject &getGlobalObjectRoot() const;
         ContainerObject &getGlobalObjectRoot();
 
+        // Special accessor to find the MVLC Trigger IO config
+        VMEScriptConfig *getMVLCTriggerIOScript() const
+        {
+            return getGlobalObjectRoot().findChild<VMEScriptConfig *>(
+                QSL("mvlc_trigger_io"));
+        }
+
     protected:
         std::error_code read_impl(const QJsonObject &json) override;
         std::error_code write_impl(QJsonObject &json) const override;

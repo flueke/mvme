@@ -1,5 +1,6 @@
 #include "mvlc/trigger_io_sim.h"
 #include <boost/range/adaptor/indexed.hpp>
+#include <QDebug>
 
 namespace mesytec
 {
@@ -93,8 +94,12 @@ void simulate(
         return 0u;
     };
 
-    const auto timerHalfPeriod = SampleTime(
-        timer.period * range_to_ns_factor(timer.range) * 0.5);
+    auto timerPeriod = timer.period * range_to_ns_factor(timer.range);
+
+    if (timerPeriod < Timer::MinPeriod)
+        timerPeriod = Timer::MinPeriod;
+
+    const auto timerHalfPeriod = SampleTime(timerPeriod * 0.5);
 
     // Initial output level
     output.push_back({ 0ns, Edge::Falling });
@@ -346,6 +351,12 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 {
     clear_simulated_traces(sim);
 
+    if (sim.sampledTraces.size() < ExpectedSampledTraces)
+    {
+        qDebug() << "error: expected more sampled traces";
+        return;
+    }
+
     // L0
     for (const auto &kv: sim.trigIO.l0.ioNIM | indexed(0))
     {
@@ -353,6 +364,8 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         const auto &trace = sim.sampledTraces[kv.index()];
         simulate(io, trace, sim.l0_traces[kv.index() + Level0::NIM_IO_Offset], maxtime);
     }
+
+    // FIXME: missing IRQ inputs
 
     for (const auto &kv: sim.trigIO.l0.timers | indexed(0))
         simulate(kv.value(), sim.l0_traces[kv.index()], maxtime);

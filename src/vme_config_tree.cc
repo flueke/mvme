@@ -667,8 +667,7 @@ void VMEConfigTreeWidget::onVMEControllerTypeSet(const VMEControllerType &t)
 
     if (is_mvlc_controller(t))
     {
-        auto mvlcTriggerIO = cfg->getGlobalObjectRoot().findChild<VMEScriptConfig *>(
-            QSL("mvlc_trigger_io"));
+        auto mvlcTriggerIO = cfg->getMVLCTriggerIOScript();
 
         m_nodeMVLCTriggerIO = makeObjectNode(mvlcTriggerIO);
         m_nodeMVLCTriggerIO->setFlags(m_nodeMVLCTriggerIO->flags() & ~Qt::ItemIsEditable);

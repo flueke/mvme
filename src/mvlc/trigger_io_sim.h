@@ -59,8 +59,20 @@ void simulate(
 // +1 for the strobe output trace
 using LUTOutputTraces = std::array<Trace, LUT::OutputBits+1>;
 
+static const int ExpectedSampledTraces = NIM_IO_Count + Level0::IRQ_Inputs_Count;
+
 struct Sim
 {
+#if 0
+    Sim()
+    {
+        sampledTraces.resize(NIM_IO_Count + Level0::IRQ_Inputs_Count);
+    }
+
+    Sim(const Sim &) = default;
+    Sim &operator=(const Sim &) = default;
+#endif
+
     // The trigger io setup
     TriggerIO trigIO;
 

@@ -54,6 +54,9 @@ QString generate_trigger_io_script_text(
 
 TriggerIO parse_trigger_io_script_text(const QString &text);
 
+// Loads the default setup from the mvme templates directory.
+TriggerIO load_default_trigger_io();
+
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 } // end namespace trigger_io

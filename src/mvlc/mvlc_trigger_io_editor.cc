@@ -27,7 +27,7 @@
 #include <QScrollBar>
 #include <qnamespace.h>
 
-#include "mvlc/trigger_io_dso_ui.h"
+#include "mvlc/trigger_io_dso_widget.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"
@@ -57,7 +57,7 @@ struct MVLCTriggerIOEditor::Private
     bool scriptAutorun = false;
     QStringList vmeEventNames;
 
-    trigger_io_dso::ScopeWidget *scopeWidget = nullptr;
+    trigger_io::DSOWidget *dsoWidget = nullptr;
     mvlc::MVLC mvlc;
 
     void onActionPrintFrontPanelSetup();
@@ -696,21 +696,22 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         QIcon(":/vme_event.png"), QSL("DSO"),
         this, [this] ()
         {
-            if (!d->scopeWidget)
+            if (!d->dsoWidget)
             {
-                using namespace trigger_io_dso;
+                d->dsoWidget = new DSOWidget(
+                    d->scriptConfig,
+                    d->mvlc);
 
-                d->scopeWidget = new ScopeWidget(d->mvlc);
-                d->scopeWidget->setAttribute(Qt::WA_DeleteOnClose);
-                connect(d->scopeWidget, &QObject::destroyed,
-                        this, [this] () { d->scopeWidget = nullptr; });
-                add_widget_close_action(d->scopeWidget);
-                auto geoSaver = new WidgetGeometrySaver(d->scopeWidget);
-                geoSaver->addAndRestore(d->scopeWidget, "MVLCTriggerIOEditor/OsciWidgetGeometry");
+                d->dsoWidget->setAttribute(Qt::WA_DeleteOnClose);
+                connect(d->dsoWidget, &QObject::destroyed,
+                        this, [this] () { d->dsoWidget = nullptr; });
+                add_widget_close_action(d->dsoWidget);
+                auto geoSaver = new WidgetGeometrySaver(d->dsoWidget);
+                geoSaver->addAndRestore(d->dsoWidget, "MVLCTriggerIOEditor/DSOWidgetGeometry");
             }
 
-            d->scopeWidget->show();
-            d->scopeWidget->raise();
+            d->dsoWidget->show();
+            d->dsoWidget->raise();
         });
     action->setToolTip("Digital Storage Oscilloscope");
 

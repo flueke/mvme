@@ -47,6 +47,13 @@ struct PinAddress
     PinPosition pos = PinPosition::Input;
 };
 
+QStringList pin_path_list(const TriggerIO &trigIO, const PinAddress &pa);
+QString pin_path(const TriggerIO &trigIO, const PinAddress &pa);
+QString pin_name(const TriggerIO &trigIO, const PinAddress &pa);
+QString pin_user_name(const TriggerIO &trigIO, const PinAddress &pa);
+
+Trace *lookup_trace(Sim &sim, const PinAddress &pa);
+
 class TraceSelectWidget: public QWidget
 {
     Q_OBJECT
