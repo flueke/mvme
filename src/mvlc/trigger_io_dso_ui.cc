@@ -375,6 +375,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
 
     d->spin_simMaxTime = new QSpinBox;
     d->spin_simMaxTime->setMinimum(1000);
+    d->spin_simMaxTime->setMaximum(1000 * 1000);
     d->spin_simMaxTime->setSuffix(" ns");
 
     auto gb_triggers = new QGroupBox("Trigger Channels");
