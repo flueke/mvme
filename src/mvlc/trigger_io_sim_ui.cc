@@ -1,6 +1,7 @@
 #include <QTableView>
 #include <QTimer>
 #include <QTreeView>
+#include <qnamespace.h>
 
 #include "mvlc/trigger_io_sim_ui_p.h"
 #include "qt_util.h"
@@ -460,64 +461,80 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
 
     d->tableView = new TraceTableView;
     d->tableView->setModel(d->tableModel.get());
+    d->tableView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     auto widgetLayout = make_hbox(this);
     widgetLayout->addWidget(d->treeView);
     widgetLayout->addWidget(d->tableView);
 
-    connect(d->treeView, &QAbstractItemView::clicked,
-            [this] (const QModelIndex &index)
+    connect(
+        d->treeView, &QAbstractItemView::clicked,
+        [this] (const QModelIndex &index)
+        {
+            if (auto item = d->treeModel->itemFromIndex(index))
             {
-                if (auto item = d->treeModel->itemFromIndex(index))
-                {
-                    qDebug() << "tree clicked, item =" << item
-                        << ", row =" << index.row()
-                        << ", col =" << index.column()
-                        << ", data =" << item->data()
-                        ;
+                qDebug() << "tree clicked, item =" << item
+                    << ", row =" << index.row()
+                    << ", col =" << index.column()
+                    << ", data =" << item->data()
+                    ;
 
-                    if (item->data().canConvert<PinAddress>())
-                        qDebug() << item->data().value<PinAddress>();
-                }
-            });
+                if (item->data().canConvert<PinAddress>())
+                    qDebug() << item->data().value<PinAddress>();
+            }
+        });
 
-    connect(d->tableView, &QAbstractItemView::clicked,
-            [this] (const QModelIndex &index)
+    connect(
+        d->tableView, &QAbstractItemView::clicked,
+        [this] (const QModelIndex &index)
+        {
+            if (auto item = d->tableModel->itemFromIndex(index))
             {
-                if (auto item = d->tableModel->itemFromIndex(index))
-                {
-                    qDebug() << "table clicked, item =" << item
-                        << ", row =" << index.row()
-                        << ", col =" << index.column()
-                        << ", data =" << item->data()
-                        ;
+                qDebug() << "table clicked, item =" << item
+                    << ", row =" << index.row()
+                    << ", col =" << index.column()
+                    << ", data =" << item->data()
+                    ;
 
-                    if (item->data().canConvert<PinAddress>())
-                        qDebug() << item->data().value<PinAddress>();
-                }
-            });
+                if (item->data().canConvert<PinAddress>())
+                    qDebug() << item->data().value<PinAddress>();
+            }
+        });
 
     // rowsInserted() is emitted when dropping external data and when doing and
     // internal drag-move. It's a better fit than layoutChanged() which is
     // emitted twice on drag-move.
-    connect(d->tableModel.get(), &QAbstractItemModel::rowsInserted,
-            this, [this] ()
-            {
+    connect(
+        d->tableModel.get(), &QAbstractItemModel::rowsInserted,
+        this, [this] ()
+        {
 
-                // Note: resizing and the selectionChanged() signal emission is
-                // done from the event loop because at the point rowsInserted()
-                // is emitted and the slot is called for some reason the
-                // internal update of the table model is not completely done
-                // yet: rowCount() returns the udpated value but itme(row)
-                // still returns nullptr. Using the event loop hack here seems
-                // to fix the issue.
-                QTimer::singleShot(0, this, [this] () {
-                    d->tableView->resizeColumnsToContents();
-                    d->tableView->resizeRowsToContents();
-                    qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
-                    emit selectionChanged(getSelection());
-                });
+            // Note: resizing and the selectionChanged() signal emission is
+            // done from the event loop because at the point rowsInserted()
+            // is emitted and the slot is called for some reason the
+            // internal update of the table model is not completely done
+            // yet: rowCount() returns the udpated value but itme(row)
+            // still returns nullptr. Using the event loop hack here seems
+            // to fix the issue.
+            QTimer::singleShot(0, this, [this] () {
+                d->tableView->resizeColumnsToContents();
+                d->tableView->resizeRowsToContents();
+                qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
+                emit selectionChanged(getSelection());
             });
+        });
+
+    // Table context menu
+    connect(
+        d->tableView, &QWidget::customContextMenuRequested,
+        this, [this] (QPoint &pos)
+        {
+            /// xxx: leftoff here
+            // 1) Also the names in both models are not correct. They fix
+            // themselves on modifying the triggerIO so it's probably some
+            // initial stuff that's not correct.
+            // 2) When modifying the trigIO the tree gets collapsed :(
+        });
 }
 
 TraceSelectWidget::~TraceSelectWidget()
