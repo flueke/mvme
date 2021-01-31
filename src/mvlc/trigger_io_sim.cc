@@ -373,8 +373,12 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         simulate(io, trace, sim.l0_traces[kv.index() + Level0::IRQ_Inputs_Offset], maxtime);
     }
 
+    // L0 timers but only if softActivate is enabled.
     for (const auto &kv: sim.trigIO.l0.timers | indexed(0))
-        simulate(kv.value(), sim.l0_traces[kv.index()], maxtime);
+    {
+        if (kv.value().softActivate)
+            simulate(kv.value(), sim.l0_traces[kv.index()], maxtime);
+    }
 
     //simulate_sysclock(sim.l0_traces[Level0::SysClockOffset], maxtime);
 
