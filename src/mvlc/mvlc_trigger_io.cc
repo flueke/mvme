@@ -83,8 +83,8 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "timer1",
     "timer2",
     "timer3",
-    "IRQ0",
-    "IRQ1",
+    "IRQ_util0",
+    "IRQ_util1",
     "soft_trigger0",
     "soft_trigger1",
     "slave_trigger0",
@@ -109,12 +109,12 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "NIM11",
     "NIM12",
     "NIM13",
-    "IRQ_in0",
-    "IRQ_in1",
-    "IRQ_in2",
-    "IRQ_in3",
-    "IRQ_in4",
-    "IRQ_in5",
+    "IRQ1",
+    "IRQ2",
+    "IRQ3",
+    "IRQ4",
+    "IRQ5",
+    "IRQ6",
 };
 
 Level0::Level0()
@@ -472,8 +472,9 @@ Level3::Level3()
 }
 
 //
+// free functions
 //
-//
+
 QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr)
 {
     switch (addr[0])
