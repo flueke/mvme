@@ -302,8 +302,7 @@ struct DSOControlWidget::Private
 {
     QSpinBox *spin_preTriggerTime,
              *spin_postTriggerTime,
-             *spin_interval,
-             *spin_simMaxTime;
+             *spin_interval;
 
     static const int TriggerCols = 5;
     static const int TriggerRows = 4;
@@ -373,11 +372,6 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->spin_interval->setSpecialValueText("single shot");
     d->spin_interval->setSuffix(" ms");
 
-    d->spin_simMaxTime = new QSpinBox;
-    d->spin_simMaxTime->setMinimum(1000);
-    d->spin_simMaxTime->setMaximum(1000 * 1000);
-    d->spin_simMaxTime->setSuffix(" ns");
-
     auto gb_triggers = new QGroupBox("Trigger Channels");
     gb_triggers->setAlignment(Qt::AlignCenter);
     auto l_triggers = make_grid(gb_triggers);
@@ -391,7 +385,6 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     setupLayout->addRow("Post Trigger Time",d->spin_postTriggerTime);
     setupLayout->addRow(gb_triggers);
     setupLayout->addRow("Interval", d->spin_interval);
-    setupLayout->addRow("Sim MaxTime", d->spin_simMaxTime);
 
     d->pb_start = new QPushButton("Start DSO");
     d->pb_stop = new QPushButton("Stop DSO");
@@ -420,7 +413,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
             });
 
     connect(d->pb_start, &QPushButton::clicked, this, [this] () {
-        emit startDSO(getDSOSetup(), getInterval(), getSimMaxTime());
+        emit startDSO(getDSOSetup(), getInterval());
     });
 
     connect(d->pb_stop, &QPushButton::clicked, this, [this] () {
@@ -465,15 +458,9 @@ std::chrono::milliseconds DSOControlWidget::getInterval() const
     return std::chrono::milliseconds(d->spin_interval->value());
 }
 
-SampleTime DSOControlWidget::getSimMaxTime() const
-{
-    return SampleTime(d->spin_simMaxTime->value());
-}
-
 void DSOControlWidget::setDSOSetup(
     const DSOSetup &setup,
-    const std::chrono::milliseconds &interval,
-    const SampleTime &simMaxTime)
+    const std::chrono::milliseconds &interval)
 {
     d->spin_preTriggerTime->setValue(setup.preTriggerTime);
     d->spin_postTriggerTime->setValue(setup.postTriggerTime);
@@ -491,7 +478,6 @@ void DSOControlWidget::setDSOSetup(
     });
 
     d->spin_interval->setValue(interval.count());
-    d->spin_simMaxTime->setValue(simMaxTime.count());
 }
 
 } // end namespace trigger_io

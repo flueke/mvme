@@ -29,7 +29,6 @@ struct DSOWidget::Private
     Sim sim;
 
     std::chrono::milliseconds dsoInterval;
-    SampleTime simMaxTime;
     std::atomic<bool> stopSampling;
 
     DSOControlWidget *dsoControlWidget;
@@ -147,12 +146,13 @@ struct DSOWidget::Private
 
     void startDSO(
         const DSOSetup &dsoSetup,
-        const std::chrono::milliseconds &interval,
-        const SampleTime &simMaxTime)
+        const std::chrono::milliseconds &interval)
     {
         this->dsoSetup = dsoSetup;
         this->dsoInterval = interval;
-        this->simMaxTime = simMaxTime;
+        // Simulate up to twice the time interval between the pre and post
+        // trigger times.
+        SampleTime simMaxtime((dsoSetup.postTriggerTime + dsoSetup.preTriggerTime) * 2);
 
         QProgressDialog progressDialog;
         progressDialog.setLabelText(QSL("Waiting for sample..."));
@@ -189,7 +189,7 @@ struct DSOWidget::Private
         qDebug() << __PRETTY_FUNCTION__ << "starting sim";
         QElapsedTimer elapsed;
         elapsed.start();
-        simulate(this->sim, this->simMaxTime);
+        simulate(this->sim, simMaxtime);
         qDebug() << __PRETTY_FUNCTION__ << "sim finished" << elapsed.elapsed();
 
         on_traceSelection_changed(this->traceSelectWidget->getSelection());
@@ -266,9 +266,8 @@ DSOWidget::DSOWidget(
 
     connect(d->dsoControlWidget, &DSOControlWidget::startDSO,
             this, [this] (const DSOSetup &setup,
-                          const std::chrono::milliseconds &interval,
-                          const SampleTime &simMaxTime) {
-                d->startDSO(setup, interval, simMaxTime);
+                          const std::chrono::milliseconds &interval) {
+                d->startDSO(setup, interval);
             });
 }
 

@@ -41,8 +41,7 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
         // restarted using the same setup after the interval has elapsed.
         void startDSO(
             const DSOSetup &dsoSetup,
-            const std::chrono::milliseconds &interval,
-            const SampleTime &simMaxTime);
+            const std::chrono::milliseconds &interval);
 
         // Emitted on pressing the stop button.
         void stopDSO();
@@ -53,14 +52,12 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
 
         DSOSetup getDSOSetup() const;
         std::chrono::milliseconds getInterval() const;
-        SampleTime getSimMaxTime() const;
 
     public slots:
         // Load the DSOSetup and the interval into the GUI.
         void setDSOSetup(
             const DSOSetup &setup,
-            const std::chrono::milliseconds &interval = {},
-            const SampleTime &simMaxTime = {});
+            const std::chrono::milliseconds &interval = {});
 
         // Notify the widget about the current state of the DSO sampler. If
         // enabled most of the UI except for the stop button will be disabled.
