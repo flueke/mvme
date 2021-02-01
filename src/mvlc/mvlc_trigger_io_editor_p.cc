@@ -2332,7 +2332,7 @@ IRQ_Inputs_Table_UI make_irq_inputs_settings_table()
     for (int row = 0; row < table->rowCount(); ++row)
     {
         table->setVerticalHeaderItem(row, new QTableWidgetItem(
-                QString("IRQ%1").arg(row)));
+                QString("IRQ%1").arg(row+1)));
 
         auto check_activate = new QCheckBox;
         auto check_invert = new QCheckBox;
@@ -2819,7 +2819,7 @@ Level0UtilsDialog::Level0UtilsDialog(
 
     auto make_irq_units_table_ui = [](const Level0 &l0)
     {
-        static const QString RowTitleFormat = "IRQ%1";
+        static const QString RowTitleFormat = "IRQ_util%1";
         static const QStringList ColumnTitles = { "Name", "IRQ Index" };
         const size_t rowCount = l0.irqUnits.size();
         const int nameOffset = l0.IRQ_UnitOffset;
