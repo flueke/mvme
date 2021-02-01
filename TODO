@@ -1,7 +1,21 @@
 ==================================================
 TODO list
 ==================================================
-* mvlc: module machen, dass den timestamp counter0 buffer vom mvlc ausliest. Wo
+* MVLC DSO
+    Max retries exceeded: bessere Nachricht machen (possibly network problem).
+
+    * IRQ_in activate raus
+    * Timer: 8ns high, 8ns low, 8ns pause (lowest valid period is 24ns)
+      also wirklich 8ns oben, 16ns unten als max frequenz
+      hide timer delay column in GUI
+
+    * DOS gui:
+      - max height limit
+      - trigger linie rein (x)
+      - trigger kurven markieren (farbe oder text oder so)
+      - extra mvlc DSO config file
+
+* mvlc: modul machen, dass den timestamp counter0 buffer vom mvlc ausliest. Wo
   liegt der?
 * FW0016: test latch "not connected" and the "skip sysclock" adressing thing on L3
 * trigger_io_scope:
