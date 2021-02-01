@@ -842,7 +842,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
             result.irqItem->moveBy(25, 25);
 
-            auto label = new QGraphicsSimpleTextItem(QString("IRQ Inputs"), result.irqItem);
+            auto label = new QGraphicsSimpleTextItem(QString("IRQs"), result.irqItem);
             label->moveBy((result.irqItem->boundingRect().width()
                            - label->boundingRect().width()) / 2.0, 0);
         }
@@ -868,7 +868,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
 
         {
             auto text = new QGraphicsSimpleTextItem(
-                QSL("VME bus IRQ lines"),
+                QSL("VME IRQ lines"),
                 result.parent);
             text->setRotation(-90);
 
@@ -2349,6 +2349,8 @@ IRQ_Inputs_Table_UI make_irq_inputs_settings_table()
     reverse_rows(table);
 
     table->horizontalHeader()->moveSection(IRQ_Inputs_Table_UI::ColName, 0);
+    // Hide the activate column. It might be used in future firmware revisions.
+    table->horizontalHeader()->hideSection(IRQ_Inputs_Table_UI::ColActivate);
 
     table->resizeColumnsToContents();
     table->resizeRowsToContents();
