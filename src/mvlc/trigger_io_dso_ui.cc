@@ -341,7 +341,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
 
             auto item = std::make_unique<QTableWidgetItem>();
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-            item->setCheckState(Qt::Unchecked);
+            item->setCheckState(Qt::Checked);
 
             if (trigNum < NIM_IO_Count)
                 item->setText(QSL("NIM%1").arg(trigNum));
