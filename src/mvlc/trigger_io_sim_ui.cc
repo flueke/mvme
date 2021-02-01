@@ -1,7 +1,7 @@
 #include <QTableView>
 #include <QTimer>
 #include <QTreeView>
-#include <qnamespace.h>
+#include <QMenu>
 
 #include "mvlc/trigger_io_sim_ui_p.h"
 #include "qt_util.h"
@@ -441,10 +441,32 @@ class TraceTableView: public QTableView
 
 struct TraceSelectWidget::Private
 {
+    TraceSelectWidget *q;
     std::unique_ptr<TraceTreeModel> treeModel;
     std::unique_ptr<TraceTableModel> tableModel;
     TraceTreeView *treeView;
     TraceTableView *tableView;
+
+    void removeSelectedTraces()
+    {
+        auto selectionModel = this->tableView->selectionModel();
+
+        std::vector<int> rows;
+        for (const auto &idx: selectionModel->selectedRows())
+            rows.push_back(idx.row());
+
+        // Sort in descending order
+        std::sort(std::begin(rows), std::end(rows), std::greater<int>());
+
+        for (int row: rows)
+        {
+            auto rowItems = this->tableModel->takeRow(row);
+            qDeleteAll(rowItems);
+        }
+
+        qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
+        emit q->selectionChanged(q->getSelection());
+    }
 };
 
 TraceSelectWidget::TraceSelectWidget(QWidget *parent)
@@ -452,6 +474,7 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
     , d(std::make_unique<Private>())
 {
     setWindowTitle("TraceSelectWidget");
+    d->q = this;
     d->treeModel = make_trace_tree_model();
     d->tableModel = make_trace_table_model();
     d->tableModel->setItemPrototype(new TraceItem);
@@ -529,11 +552,18 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
         d->tableView, &QWidget::customContextMenuRequested,
         this, [this] (const QPoint &pos)
         {
-            /// xxx: leftoff here
-            // 1) Also the names in both models are not correct. They fix
-            // themselves on modifying the triggerIO so it's probably some
-            // initial stuff that's not correct.
-            // 2) When modifying the trigIO the tree gets collapsed :(
+            QMenu menu;
+
+            auto selectionModel = d->tableView->selectionModel();
+
+            if (!selectionModel->selectedRows().isEmpty())
+            {
+                menu.addAction(QIcon::fromTheme("edit-delete"), QSL("Remove selected"),
+                               [this] () { d->removeSelectedTraces(); });
+            }
+
+            if (!menu.isEmpty())
+                menu.exec(d->tableView->mapToGlobal(pos));
         });
 }
 
