@@ -4,16 +4,24 @@ TODO list
 * MVLC DSO
     Max retries exceeded: bessere Nachricht machen (possibly network problem).
 
-    * IRQ_in activate raus
     * Timer: 8ns high, 8ns low, 8ns pause (lowest valid period is 24ns)
       also wirklich 8ns oben, 16ns unten als max frequenz
       hide timer delay column in GUI
 
-    * DOS gui:
+    * DSO gui:
       - max height limit
       - trigger linie rein (x)
       - trigger kurven markieren (farbe oder text oder so)
-      - extra mvlc DSO config file
+      - histogramming: could switch between osciolloscope and histogram view.
+        draw rising and falling edge times in different colors.
+      - extra mvlc DSO config file to save restore the complete dso gui state:
+        * dso setup including trigger selection and interval, trace selection, trace tree expansion state,
+          maybe zoom level etc.
+
+      // 1) Names in both models are not correct. They fix
+      // themselves on modifying the triggerIO so it's probably some
+      // initial stuff that's not correct.
+      // 2) When modifying the trigIO the tree gets collapsed :(
 
 * mvlc: modul machen, dass den timestamp counter0 buffer vom mvlc ausliest. Wo
   liegt der?
