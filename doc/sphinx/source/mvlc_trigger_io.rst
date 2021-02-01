@@ -128,9 +128,9 @@ error at startup.
 Gate Generators
 ---------------
 Some of the Trigger I/O units have builtin gate generators to influence the
-signals they produce. These units are the NIM I/Os, ECL outputs, LUT strobe
-inputs and the SlaveTrigger inputs. The gate generators share a common set of
-properties:
+signals they produce. These units are the NIM I/Os, ECL outputs, VME IRQ inputs,
+LUT strobe inputs and the SlaveTrigger inputs. The gate generators share a
+common set of properties:
 
 * Delay
 
@@ -177,7 +177,7 @@ output side.
 Each of the NIM I/Os is driven by a :ref:`gate generator
 <mvlc_trigger_io_gate_generators>`. When a NIM is configured as an input the
 gate generator is used to generate the *internal* signal. If the NIM is
-configured as an output the gate generator effects the output signal of the
+configured as an output the gate generator affects the output signal of the
 NIM.
 
 Note that it is possible to use a NIM as both input and output at the same
@@ -190,6 +190,15 @@ LVDS outputs
 ~~~~~~~~~~~~
 These are similar to the NIM output units. Each of the 3 outputs needs to be
 activated separately.
+
+.. index:: mvlc_trigger_io_IRQ, IRQ, VME IRQ, IRQ Input Units
+
+IRQ inputs
+~~~~~~~~~~
+In addition to the front panel NIM inputs the Trigger I/O module also provides
+access to VME IRQs 1-6. Each IRQ unit is connected to a :ref:`gate generator
+<mvlc_trigger_io_gate_generators>` just like the NIM inputs. The output signal
+of the gate generator is available for further processing in a LUT on level 1.
 
 .. index:: mvlc_trigger_io_Timer, Timer
 .. _mvlc-trigger-io-Timer:
@@ -216,12 +225,12 @@ Settings
 
   Minimum: 0 - no delay, maximum: 65535 ns
 
-.. index:: mvlc_trigger_io_IRQ, IRQ
+.. index:: mvlc_trigger_io_IRQ_util, IRQ, VME IRQ, IRQ Utility Units
 
-IRQ Units
-~~~~~~~~~
-Generates a signal when one of the 7 available VME IRQs triggers. The only
-setting is the number of the IRQ (1-7) this unit should react to.
+IRQ Utility Units
+~~~~~~~~~~~~~~~~~
+These units generate a signal when one of the 7 available VME IRQs triggers.
+The only setting is the IRQ number (1-7) each unit should react to.
 
 .. index:: mvlc_trigger_io_SoftTrigger, Soft Trigger, SoftTrigger
 
