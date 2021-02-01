@@ -527,7 +527,7 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
     // Table context menu
     connect(
         d->tableView, &QWidget::customContextMenuRequested,
-        this, [this] (QPoint &pos)
+        this, [this] (const QPoint &pos)
         {
             /// xxx: leftoff here
             // 1) Also the names in both models are not correct. They fix
