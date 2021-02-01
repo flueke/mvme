@@ -5,6 +5,7 @@
 #include <functional>
 #include <iterator>
 #include <unordered_map>
+#include "libmvme_export.h"
 #include "mvlc/mvlc_trigger_io.h"
 #include "mvlc/trigger_io_dso.h"
 
@@ -26,13 +27,13 @@ inline void extend(Trace &input, const SampleTime &toTime)
         input.push_back({ toTime, input.back().edge });
 }
 
-void simulate(
+LIBMVME_EXPORT void simulate(
     const IO &io,
     const Trace &input,
     Trace &output,
     const SampleTime &maxtime);
 
-void simulate(
+LIBMVME_EXPORT void simulate(
     const Timer &timer,
     Trace &output,
     const SampleTime &maxtime);
@@ -40,7 +41,7 @@ void simulate(
 static const auto SysClockPeriod = 62.5ns;
 static const auto SysClockHalfPeriod = SysClockPeriod * 0.5;
 
-void simulate_sysclock(
+LIBMVME_EXPORT void simulate_sysclock(
     Trace &output,
     const SampleTime &maxtime);
 
@@ -50,7 +51,7 @@ using LUT_Input_Timelines = std::array<const Trace *, LUT::InputBits+1>;
 using LUT_Output_Timelines = std::array<Trace *, LUT::OutputBits+1>;
 
 // Full LUT simulation with strobe input
-void simulate(
+LIBMVME_EXPORT void simulate(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
     LUT_Output_Timelines &outputs,
@@ -61,7 +62,7 @@ using LUTOutputTraces = std::array<Trace, LUT::OutputBits+1>;
 
 static const int ExpectedSampledTraces = NIM_IO_Count + Level0::IRQ_Inputs_Count;
 
-struct Sim
+struct LIBMVME_EXPORT Sim
 {
 #if 0
     Sim()
@@ -93,10 +94,10 @@ struct Sim
     std::array<Trace, Level3::UnitCount> l3_traces;
 };
 
-void simulate(Sim &sim, const SampleTime &maxtime);
+LIBMVME_EXPORT void simulate(Sim &sim, const SampleTime &maxtime);
 
 // Returns the address of an output trace of the system.
-Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr);
+LIBMVME_EXPORT Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr);
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

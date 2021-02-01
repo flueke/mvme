@@ -6,6 +6,7 @@
 #include <QMetaType>
 #include <QWidget>
 
+#include "libmvme_export.h"
 #include "mvlc/trigger_io_sim.h"
 
 namespace mesytec
@@ -21,7 +22,7 @@ enum class PinPosition
     Output
 };
 
-struct PinAddress
+struct LIBMVME_EXPORT PinAddress
 {
     PinAddress() {}
 
@@ -47,14 +48,14 @@ struct PinAddress
     PinPosition pos = PinPosition::Input;
 };
 
-QStringList pin_path_list(const TriggerIO &trigIO, const PinAddress &pa);
-QString pin_path(const TriggerIO &trigIO, const PinAddress &pa);
-QString pin_name(const TriggerIO &trigIO, const PinAddress &pa);
-QString pin_user_name(const TriggerIO &trigIO, const PinAddress &pa);
+LIBMVME_EXPORT QStringList pin_path_list(const TriggerIO &trigIO, const PinAddress &pa);
+LIBMVME_EXPORT QString pin_path(const TriggerIO &trigIO, const PinAddress &pa);
+LIBMVME_EXPORT QString pin_name(const TriggerIO &trigIO, const PinAddress &pa);
+LIBMVME_EXPORT QString pin_user_name(const TriggerIO &trigIO, const PinAddress &pa);
 
-Trace *lookup_trace(Sim &sim, const PinAddress &pa);
+LIBMVME_EXPORT Trace *lookup_trace(Sim &sim, const PinAddress &pa);
 
-class TraceSelectWidget: public QWidget
+class LIBMVME_EXPORT TraceSelectWidget: public QWidget
 {
     Q_OBJECT
 

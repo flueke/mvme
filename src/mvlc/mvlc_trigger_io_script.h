@@ -44,18 +44,18 @@ namespace gen_flags
     static const Flag MetaIncludeDefaultUnitNames = 1u << 0;
 };
 
-QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr);
+LIBMVME_EXPORT QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr);
 
 // Generates a VME Script containing all the write commands needed to bring the
 // MVLCs Trigger I/O module into the state described by the TriggerIO structure.
-QString generate_trigger_io_script_text(
+LIBMVME_EXPORT QString generate_trigger_io_script_text(
     const TriggerIO &ioCfg,
     const gen_flags::Flag &flags = gen_flags::MetaIncludeDefaultUnitNames);
 
-TriggerIO parse_trigger_io_script_text(const QString &text);
+LIBMVME_EXPORT TriggerIO parse_trigger_io_script_text(const QString &text);
 
 // Loads the default setup from the mvme templates directory.
-TriggerIO load_default_trigger_io();
+LIBMVME_EXPORT TriggerIO load_default_trigger_io();
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec

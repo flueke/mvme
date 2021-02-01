@@ -31,6 +31,7 @@
 
 #include <mesytec-mvlc/mvlc_constants.h>
 #include "typedefs.h"
+#include "libmvme_export.h"
 
 namespace mesytec
 {
@@ -43,7 +44,7 @@ static const size_t TimerCount = 4;
 static const size_t NIM_IO_Count = 14;
 static const size_t ECL_OUT_Count = 3;
 
-struct Timer
+struct LIBMVME_EXPORT Timer
 {
     static const u16 MinPeriod = 8;
     using Range = mvlc::stacks::TimerBaseUnit;
@@ -54,7 +55,7 @@ struct Timer
     bool softActivate;
 };
 
-struct IO
+struct LIBMVME_EXPORT IO
 {
     enum class Direction { in, out };
     u16 delay;
@@ -65,14 +66,14 @@ struct IO
     bool activate;
 };
 
-struct StackBusy
+struct LIBMVME_EXPORT StackBusy
 {
     u16 stackIndex;
 };
 
 using Names = std::vector<QString>;
 
-struct LUT
+struct LIBMVME_EXPORT LUT
 {
     static const u16 InputBits = 6;
     static const u16 OutputBits = 3;
@@ -112,14 +113,14 @@ struct LUT
 
 // Minimize the given 6 -> 1 bit boolean function. Return a bitset with the
 // input bits affecting the output set, the other bits cleared.
-std::bitset<LUT::InputBits> minimize(const LUT::Bitmap &mapping);
+LIBMVME_EXPORT std::bitset<LUT::InputBits> minimize(const LUT::Bitmap &mapping);
 
 // Minimize each of the 3 6->1 bit functions the LUT implements. Return a
 // bitset with the bits affecting at least one of the outputs set, the other
 // bits cleared.
-std::bitset<LUT::InputBits> minimize(const LUT &lut);
+LIBMVME_EXPORT std::bitset<LUT::InputBits> minimize(const LUT &lut);
 
-struct StackStart
+struct LIBMVME_EXPORT StackStart
 {
     bool activate;
     u8 stackIndex;
@@ -130,7 +131,7 @@ struct StackStart
     //bool immediate;
 };
 
-struct MasterTrigger
+struct LIBMVME_EXPORT MasterTrigger
 {
     bool activate;
     // Note: the immediate flag is used to directly exec the stack which can be
@@ -138,7 +139,7 @@ struct MasterTrigger
     //bool immediate;
 };
 
-struct Counter
+struct LIBMVME_EXPORT Counter
 {
     static const u16 InputCount = 2u; // counter and latch inputs
     // If clearOnLatch is set the latch signal will also reset the counter to 0
@@ -147,7 +148,7 @@ struct Counter
     bool softActivate;
 };
 
-struct IRQ_Unit
+struct LIBMVME_EXPORT IRQ_Unit
 {
     // zero-based IRQ index (0 == IRQ1, 6 == IRQ7)
     u8 irqIndex;
@@ -158,7 +159,7 @@ struct IRQ_Unit
 //
 // If activation is set to Level a constant output level will be produced until
 // written again.The Pulse setting creaes a 8ns wide pulse instead.
-struct SoftTrigger
+struct LIBMVME_EXPORT SoftTrigger
 {
     enum class Activation { Pulse, Level };
     Activation activation;
@@ -172,7 +173,7 @@ struct SoftTrigger
 using UnitAddress = std::array<unsigned, 3>;
 using UnitAddressVector = std::vector<UnitAddress>;
 
-struct UnitConnection
+struct LIBMVME_EXPORT UnitConnection
 {
     static UnitConnection makeDynamic()
     {
@@ -204,7 +205,7 @@ using LUT_Connections = std::array<UnitConnection, trigger_io::LUT::InputBits>;
 
 static const QString UnitNotAvailable = "N/A";
 
-struct Level0
+struct LIBMVME_EXPORT Level0
 {
     // Describes the l0.util irq units
     static const int IRQ_UnitCount = 2;
@@ -252,7 +253,7 @@ struct Level0
     Level0();
 };
 
-struct Level1
+struct LIBMVME_EXPORT Level1
 {
     static const size_t LUTCount = 7;
     static const std::array<LUT_Connections, LUTCount> StaticConnections;
@@ -262,7 +263,7 @@ struct Level1
     Level1();
 };
 
-struct Level2
+struct LIBMVME_EXPORT Level2
 {
     static const size_t LUTCount = 3;
     static const std::array<LUT_Connections, LUTCount> StaticConnections;
@@ -292,7 +293,7 @@ struct Level2
     Level2();
 };
 
-struct Level3
+struct LIBMVME_EXPORT Level3
 {
     static const size_t StackStartCount = 4;
 
@@ -334,7 +335,7 @@ struct Level3
     Level3 &operator=(const Level3 &) = default;
 };
 
-struct TriggerIO
+struct LIBMVME_EXPORT TriggerIO
 {
     Level0 l0;
     Level1 l1;
@@ -342,21 +343,21 @@ struct TriggerIO
     Level3 l3;
 };
 
-QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
-QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
+LIBMVME_EXPORT QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
+LIBMVME_EXPORT QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
 
 // Reset all pin names to their default value
-void reset_names(TriggerIO &ioCfg);
+LIBMVME_EXPORT void reset_names(TriggerIO &ioCfg);
 
 // Given a unit address looks up the 'connect' value for that unit. These
 // values have different meaning depending on the unit being checked (e.g. L3
 // NIM outputs can only connect to the L2 LUTs).
-unsigned get_connection_value(const TriggerIO &ioCfg, const UnitAddress &addr);
+LIBMVME_EXPORT unsigned get_connection_value(const TriggerIO &ioCfg, const UnitAddress &addr);
 
 // Given a unit address this function looks up the 'connect' value stored in
 // the TriggerIO setup (get_connection_value()) then resolves this value to the
 // UnitAddress of the source unit of the connection.
-UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddress &addr);
+LIBMVME_EXPORT UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddress &addr);
 
 // This is how the mappings of a single LUT are stored in the MVLC memory.
 // 6 input bits, 4 output bits, 3 of which are used.
