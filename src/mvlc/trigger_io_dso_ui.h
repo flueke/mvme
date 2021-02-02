@@ -15,6 +15,7 @@ namespace mvme_mvlc
 namespace trigger_io_dso
 {
 
+// Plot widget for DSO or simulated traces.
 class LIBMVME_EXPORT DSOPlotWidget: public QWidget
 {
     Q_OBJECT
@@ -32,6 +33,7 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
         std::unique_ptr<Private> d;
 };
 
+// GUI controls to specify a DSOSetup and a DSO poll interval.
 class LIBMVME_EXPORT DSOControlWidget: public QWidget
 {
     Q_OBJECT

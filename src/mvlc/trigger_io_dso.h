@@ -67,8 +67,10 @@ struct Sample
     Edge edge;
 };
 
-using Trace = std::vector<Sample>;       // Samples over time for one signal/pin.
-using Snapshot = std::vector<Trace>;     // Collection of traces representing a snapshot acquired from the scope.
+// Samples over time for one signal/pin.
+using Trace = std::vector<Sample>;
+// Collection of traces representing e.g. a snapshot acquired from the scope.
+using Snapshot = std::vector<Trace>;
 
 Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer);
 

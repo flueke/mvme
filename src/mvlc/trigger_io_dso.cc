@@ -65,10 +65,10 @@ bool is_fatal(const std::error_code &ec)
 
 std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest)
 {
-    // XXX: this doesn't skip over stack error notification buffers that
-    // might arrive on the command pipe.
+    // Stack error notifications as part of the response are handled by the
+    // MVLCDialog layer by updating the internal error counters so they don't
+    // need special handling here.
 
-    // block read from the mvlc
     auto ec = mvlc.vmeBlockRead(
         mvlc::SelfVMEAddress, mvlc::vme_amods::MBLT64,
         std::numeric_limits<u16>::max(), dest);
