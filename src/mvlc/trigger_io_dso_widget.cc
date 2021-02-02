@@ -35,71 +35,6 @@ struct DSOWidget::Private
     TraceSelectWidget *traceSelectWidget;
     DSOPlotWidget *dsoPlotWidget;
 
-#if 0
-    std::thread readerThread;
-    std::atomic<bool> readerQuit;
-    mvlc::ThreadSafeQueue<std::vector<u32>> readerQueue;
-    std::future<std::error_code> readerFuture;
-    QTimer refreshTimer;
-    DSOSetup scopeSetup;
-
-    std::atomic<bool> stopSampling;
-
-
-    void analyze(const std::vector<u32> &buffers);
-
-    void start()
-    {
-        scopeSetup = {};
-        scopeSetup.preTriggerTime = spin_preTriggerTime->value();
-        scopeSetup.postTriggerTime = spin_postTriggerTime->value();
-
-        for (auto bitIdx=0u; bitIdx<checks_triggerChannels.size(); ++bitIdx)
-            scopeSetup.nimTriggers.set(bitIdx, checks_triggerChannels[bitIdx]->isChecked());
-
-        std::vector<u32> sampleBuffer;
-
-        QProgressDialog progressDialog;
-        progressDialog.setLabelText(QSL("Waiting for sample..."));
-        progressDialog.setMinimum(0);
-        progressDialog.setMaximum(0);
-
-        QFutureWatcher<std::error_code> watcher;
-
-        QObject::connect(
-            &watcher, &QFutureWatcher<std::error_code>::finished,
-            &progressDialog, &QDialog::close);
-
-        QObject::connect(
-            &progressDialog, &QProgressDialog::canceled,
-            q, [this] () { stopSampling = true; });
-
-        stopSampling = false;
-
-        auto futureResult = QtConcurrent::run(
-            acquire_scope_sample, mvlc, scopeSetup,
-            std::ref(sampleBuffer),
-            std::ref(stopSampling));
-
-        watcher.setFuture(futureResult);
-        progressDialog.exec();
-
-        /*
-        if (auto ec = futureResult.result())
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "result=" << ec.message().c_str();
-        }
-        */
-
-        analyze(sampleBuffer);
-    }
-
-    void stop()
-    {
-        stopSampling = true;
-    }
-#endif
-
     void on_trigger_io_modified()
     {
         qDebug() << __PRETTY_FUNCTION__;
@@ -200,16 +135,6 @@ struct DSOWidget::Private
     }
 };
 
-#if 0
-void DSOWidget::Private::analyze(const std::vector<u32> &buffer)
-{
-    mesytec::mvlc::util::log_buffer(std::cout, buffer, "scope buffer");
-
-    auto snapshot = fill_snapshot_from_mvlc_buffer(buffer);
-    plot->setTraces(snapshot, this->scopeSetup.preTriggerTime);
-}
-#endif
-
 DSOWidget::DSOWidget(
     VMEScriptConfig *trigIOScript,
     mvlc::MVLC mvlc,
@@ -249,10 +174,6 @@ DSOWidget::DSOWidget(
     widgetLayout->addWidget(splitter);
 
     setWindowTitle("Trigger IO DSO");
-
-    //connect(&d->refreshTimer, &QTimer::timeout,
-    //        this, [this] () { d->refresh(); });
-
 
     connect(d->trigIOScript, &VMEScriptConfig::modified,
             this, [this] () {
