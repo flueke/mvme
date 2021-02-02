@@ -3,7 +3,7 @@
 
 #include <chrono>
 #include <mesytec-mvlc/mesytec-mvlc.h>
-#include "mesytec-mvlc/util/threadsafequeue.h"
+#include "libmvme_export.h"
 #include "mvlc/mvlc_trigger_io.h"
 
 namespace mesytec
@@ -15,17 +15,19 @@ namespace trigger_io_dso
 
 using namespace trigger_io;
 
-// Support for the digital storage oscilloscope (DSO) built into the MVLC trigger_io module.
+// Support for the digital storage oscilloscope (DSO) built into the MVLC
+// trigger_io module.
 //
-// The osci is at level0, unit 48. The following needs to be done to read out osci data:
+// The DSO is at level0, unit 48. The following needs to be done to read out DSO data:
 // - set pre and post trigger times
 // - set the NIM and IRQ trigger masks
 // - start block reads from 0xffff0000, store the data somewhere
 // - write readout_reset (0x6034) after each block read
 //
 // While the DSO is active no other communication may take place as that would
-// mix DSO sample data with command responses. FIXME: This is currently not enforced
-// anywhere!
+// mix DSO sample data with command responses. This is enforced in
+// acquire_dso_sample() by locking the command mutex while the DSO is
+// activated.
 
 enum class Edge
 {
@@ -33,7 +35,7 @@ enum class Edge
     Rising = 1
 };
 
-struct DSOSetup
+struct LIBMVME_EXPORT DSOSetup
 {
     u16 preTriggerTime = 0u;
     u16 postTriggerTime = 0u;
@@ -61,7 +63,7 @@ namespace data_format
 // (signed to make time based calculations behave properly) if needed.
 using SampleTime = std::chrono::duration<float, std::chrono::nanoseconds::period>;
 
-struct Sample
+struct LIBMVME_EXPORT Sample
 {
     SampleTime time;
     Edge edge;
@@ -69,20 +71,22 @@ struct Sample
 
 // Samples over time for one signal/pin.
 using Trace = std::vector<Sample>;
-// Collection of traces representing e.g. a snapshot acquired from the scope.
+// Collection of traces representing e.g. a snapshot acquired from the DSO.
 using Snapshot = std::vector<Trace>;
 
-Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer);
-
-std::error_code start_scope(mvlc::MVLC mvlc, DSOSetup setup);
-std::error_code stop_scope(mvlc::MVLC mvlc);
-std::error_code read_scope(mvlc::MVLC mvlc, std::vector<u32> &dest);
-
-// Starts, reads and stops the scope. Puts the first valid sample into the dest
+// Starts, reads and stops the DSO. Puts the first valid sample into the dest
 // buffer, other samples are discarded.
-std::error_code acquire_scope_sample(
+// This function internally suspends the MVLCs stack error poller and locks the
+// command pipe. This way no other communication can take place while the DSO
+// is active.
+LIBMVME_EXPORT std::error_code
+acquire_dso_sample(
     mvlc::MVLC mvlc, DSOSetup setup,
     std::vector<u32> &dest, std::atomic<bool> &cancel);
+
+// Fill a snapshot from a DSO buffer obtained via acquire_dso_sample().
+LIBMVME_EXPORT Snapshot
+fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer);
 
 inline Edge invert(const Edge &e)
 {
@@ -101,9 +105,9 @@ inline const char *to_string(const Edge &e)
 };
 
 template<typename Out>
-Out & print(Out &out, const Trace &timeline)
+Out & print(Out &out, const Trace &trace)
 {
-    for (const auto &sample: timeline)
+    for (const auto &sample: trace)
     {
         out << "(" << sample.time.count()
             << ", " << static_cast<unsigned>(sample.edge)

@@ -175,7 +175,7 @@ struct DSOWidget::Private
         std::vector<u32> sampleBuffer;
 
         auto futureResult = QtConcurrent::run(
-            acquire_scope_sample, this->mvlc, this->dsoSetup,
+            acquire_dso_sample, this->mvlc, this->dsoSetup,
             std::ref(sampleBuffer),
             std::ref(stopSampling));
 
