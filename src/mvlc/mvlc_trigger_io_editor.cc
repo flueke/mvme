@@ -27,7 +27,7 @@
 #include <QScrollBar>
 #include <qnamespace.h>
 
-#include "mvlc/trigger_io_dso_widget.h"
+#include "mvlc/trigger_io_dso_sim.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"
@@ -57,7 +57,7 @@ struct MVLCTriggerIOEditor::Private
     bool scriptAutorun = false;
     QStringList vmeEventNames;
 
-    trigger_io::DSOWidget *dsoWidget = nullptr;
+    trigger_io::DSOSimWidget *dsoWidget = nullptr;
     mvlc::MVLC mvlc;
 
     void onActionPrintFrontPanelSetup();
@@ -741,7 +741,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         {
             if (!d->dsoWidget)
             {
-                d->dsoWidget = new DSOWidget(
+                d->dsoWidget = new DSOSimWidget(
                     d->scriptConfig,
                     d->mvlc);
 

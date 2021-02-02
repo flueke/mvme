@@ -395,7 +395,7 @@ if (MVME_ENABLE_MVLC)
         mvlc_stream_worker.cc
         mvlc/trigger_io_dso.cc
         mvlc/trigger_io_dso_ui.cc
-        mvlc/trigger_io_dso_widget.cc
+        mvlc/trigger_io_dso_sim.cc
         mvlc/trigger_io_sim.cc
         mvlc/trigger_io_sim_ui.cc
         mvlc/vmeconfig_from_crateconfig.cc

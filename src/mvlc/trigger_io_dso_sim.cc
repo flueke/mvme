@@ -1,4 +1,4 @@
-#include "mvlc/trigger_io_dso_widget.h"
+#include "mvlc/trigger_io_dso_sim.h"
 
 #include <QGroupBox>
 #include <QSplitter>
@@ -19,9 +19,9 @@ namespace trigger_io
 
 using namespace mesytec::mvme_mvlc::trigger_io_dso;
 
-struct DSOWidget::Private
+struct DSOSimWidget::Private
 {
-    DSOWidget *q;
+    DSOSimWidget *q;
 
     VMEScriptConfig *trigIOScript;
     mvlc::MVLC mvlc;
@@ -135,7 +135,7 @@ struct DSOWidget::Private
     }
 };
 
-DSOWidget::DSOWidget(
+DSOSimWidget::DSOSimWidget(
     VMEScriptConfig *trigIOScript,
     mvlc::MVLC mvlc,
     QWidget *parent)
@@ -192,7 +192,7 @@ DSOWidget::DSOWidget(
             });
 }
 
-DSOWidget::~DSOWidget()
+DSOSimWidget::~DSOSimWidget()
 {
 #if 0
     d->readerQuit = true;

@@ -1,5 +1,5 @@
-#ifndef __MVME_MVLC_TRIGGER_IO_DSO_WIDGET_H__
-#define __MVME_MVLC_TRIGGER_IO_DSO_WIDGET_H__
+#ifndef __MVME_MVLC_TRIGGER_IO_DSO_SIM_H__
+#define __MVME_MVLC_TRIGGER_IO_DSO_SIM_H__
 
 #include "mvme_context.h"
 
@@ -12,12 +12,12 @@ namespace trigger_io
 
 // Widget for controling both the MVLC DSO and the trigger io simulation.
 // Includes DSO controls, trace selection and the trace plot.
-class LIBMVME_EXPORT DSOWidget: public QWidget
+class LIBMVME_EXPORT DSOSimWidget: public QWidget
 {
     Q_OBJECT
     public:
-        DSOWidget(VMEScriptConfig *triggerIOScript, mvlc::MVLC mvlc, QWidget *parent = nullptr);
-        ~DSOWidget() override;
+        DSOSimWidget(VMEScriptConfig *triggerIOScript, mvlc::MVLC mvlc, QWidget *parent = nullptr);
+        ~DSOSimWidget() override;
 
     private:
         struct Private;
@@ -29,4 +29,4 @@ class LIBMVME_EXPORT DSOWidget: public QWidget
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 
-#endif /* __MVME_MVLC_TRIGGER_IO_DSO_WIDGET_H__ */
+#endif /* __MVME_MVLC_TRIGGER_IO_DSO_SIM_H__ */
