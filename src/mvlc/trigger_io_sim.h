@@ -64,15 +64,16 @@ static const int ExpectedSampledTraces = NIM_IO_Count + Level0::IRQ_Inputs_Count
 
 struct LIBMVME_EXPORT Sim
 {
-#if 0
     Sim()
     {
-        sampledTraces.resize(NIM_IO_Count + Level0::IRQ_Inputs_Count);
+        sampledTraces.resize(ExpectedSampledTraces);
     }
 
     Sim(const Sim &) = default;
     Sim &operator=(const Sim &) = default;
-#endif
+
+    Sim( Sim &&) = default;
+    Sim &operator=(Sim &&) = default;
 
     // The trigger io setup
     TriggerIO trigIO;
