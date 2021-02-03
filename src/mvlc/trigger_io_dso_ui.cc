@@ -165,7 +165,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     , d(std::make_unique<Private>())
 {
     d->plot = new QwtPlot;
-    d->plot->setCanvasBackground(QBrush(Qt::black));
+    d->plot->setCanvasBackground(QBrush(Qt::white));
 
     d->grid = new QwtPlotGrid;
     d->grid->enableX(false);
@@ -369,8 +369,9 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->spin_interval->setMinimum(0);
     d->spin_interval->setMaximum(5000);
     d->spin_interval->setSingleStep(500);
-    d->spin_interval->setSpecialValueText("single shot");
+    d->spin_interval->setSpecialValueText("once");
     d->spin_interval->setSuffix(" ms");
+    d->spin_interval->setValue(1000);
 
     auto gb_triggers = new QGroupBox("Trigger Channels");
     gb_triggers->setAlignment(Qt::AlignCenter);
