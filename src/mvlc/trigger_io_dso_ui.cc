@@ -149,9 +149,8 @@ struct DSOPlotWidget::Private
     QwtPlot *plot;
     QwtPlotGrid *grid;
     QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setTraces()
-    SampleTime xMax;
     ScrollZoomer *zoomer;
-    //std::unique_ptr<QwtPlotMarker> xMarker;
+    std::unique_ptr<QwtPlotMarker> triggerTimeMarker;
 
     std::vector<QwtPlotCurve *> curves;
 
@@ -179,12 +178,13 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     connect(d->zoomer, &QwtPlotZoomer::zoomed,
             this, [this] (const QRectF &) { d->zoomerZoomed(); });
 
-    //d->xMarker = std::make_unique<QwtPlotMarker>();
-    //d->xMarker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
-    //d->xMarker->setLabelOrientation( Qt::Vertical );
-    //d->xMarker->setLineStyle( QwtPlotMarker::VLine );
-    //d->xMarker->setLinePen(QColor("lawngreen"), 0, Qt::DashDotLine );
-    //d->xMarker->attach(d->plot);
+    d->triggerTimeMarker = std::make_unique<QwtPlotMarker>();
+    d->triggerTimeMarker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
+    d->triggerTimeMarker->setLabelOrientation( Qt::Horizontal );
+    d->triggerTimeMarker->setLineStyle( QwtPlotMarker::VLine );
+    d->triggerTimeMarker->setLinePen(QColor("black"), 0, Qt::DashDotLine );
+    d->triggerTimeMarker->setLabel(QwtText("Trigger"));
+    d->triggerTimeMarker->attach(d->plot);
 
     auto layout = make_vbox<0, 0>(this);
     layout->addWidget(d->plot);
@@ -192,7 +192,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
 
 DSOPlotWidget::~DSOPlotWidget()
 {
-    //d->xMarker->detach();
+    d->triggerTimeMarker->detach();
 }
 
 std::unique_ptr<QwtPlotCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData, const QString &curveName)
@@ -215,8 +215,8 @@ void DSOPlotWidget::setTraces(
     unsigned preTriggerTime,
     const QStringList &names)
 {
-    // FIXME: supercrappy, resize instead of deleting existing stuff. just
-    // update the data info for existing entries and replot.
+    // Deletes all existing curves. It would be better to just update their data
+    // entries but this works for now.
     for (auto curve: d->curves)
     {
         curve->detach();
@@ -224,6 +224,7 @@ void DSOPlotWidget::setTraces(
     }
 
     d->curves.clear();
+
     // Always create a new scale draw instance here otherwise the y axis does
     // not properly update (it does update when zooming, so it should be
     // possible to keep the same instance).
@@ -231,7 +232,7 @@ void DSOPlotWidget::setTraces(
 
     QList<double> yTicks; // major ticks for the y scale
     double yOffset = 0.0;
-    d->xMax = SampleTime(0);
+    const double yStep = 1.0 + Private::YSpacing;
     int idx = 0;
 
     for (const auto &timeline: snapshot)
@@ -246,15 +247,20 @@ void DSOPlotWidget::setTraces(
         yTicks.push_back(yOffset);
         yScaleDraw->addScaleEntry(yOffset, name);
 
-        if (!timeline.empty())
-            d->xMax = std::max(d->xMax, timeline.back().time);
-
-        yOffset += 1.0 + Private::YSpacing;
+        yOffset += yStep;
         ++idx;
     }
 
+    // Scale the y axis as if we would draw at least 10 traces. This avoids
+    // having a single trace scale over the whole vertical area which looks
+    // ridiculous.
+    double yScaleMaxValue = yOffset;
+
+    if (yScaleMaxValue < 10 * yStep)
+        yScaleMaxValue = 10 * yStep;
+
     d->plot->setAxisScaleDraw(QwtPlot::yLeft, yScaleDraw.release());
-    d->yScaleDiv.setInterval(0.0, yOffset - Private::YSpacing);
+    d->yScaleDiv.setInterval(0.0, yScaleMaxValue);
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
     d->plot->setAxisScaleDiv(QwtPlot::yLeft, d->yScaleDiv);
 
@@ -262,7 +268,6 @@ void DSOPlotWidget::setTraces(
 
     // Tells the zoomer that we're currently completely zoomed out. Does a
     // plot->replot() unless the arg is false.
-    d->zoomer->setZoomBase(true);
     d->plot->replot();
 }
 

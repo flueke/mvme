@@ -23,8 +23,10 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
         DSOPlotWidget(QWidget *parent = nullptr);
         ~DSOPlotWidget() override;
 
-        void setTraces(const Snapshot &snapshot, unsigned preTriggerTime = 0,
-                       const QStringList &names = {});
+        void setTraces(
+            const Snapshot &snapshot,
+            unsigned preTriggerTime = 0,
+            const QStringList &names = {});
 
         QwtPlot *getQwtPlot();
 
