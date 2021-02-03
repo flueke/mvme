@@ -1,7 +1,12 @@
 #ifndef __MVME_MVLC_TRIGGER_IO_DSO_SIM_H__
 #define __MVME_MVLC_TRIGGER_IO_DSO_SIM_H__
 
-#include "mvme_context.h"
+#include <chrono>
+#include <mesytec-mvlc/mvlc.h>
+#include <QWidget>
+
+#include "libmvme_export.h"
+#include "vme_config.h"
 
 namespace mesytec
 {
@@ -16,14 +21,17 @@ class LIBMVME_EXPORT DSOSimWidget: public QWidget
 {
     Q_OBJECT
     public:
-        DSOSimWidget(VMEScriptConfig *triggerIOScript, mvlc::MVLC mvlc, QWidget *parent = nullptr);
+        DSOSimWidget(
+            VMEScriptConfig *triggerIOScript,
+            mvlc::MVLC &mvlc,
+            QWidget *parent = nullptr);
+
         ~DSOSimWidget() override;
 
     private:
         struct Private;
         std::unique_ptr<Private> d;
 };
-
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
