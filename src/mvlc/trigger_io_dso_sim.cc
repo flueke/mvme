@@ -6,10 +6,139 @@
 #include <QtConcurrent>
 #include <chrono>
 #include <thread>
+#include <yaml-cpp/yaml.h>
 
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/trigger_io_dso_ui.h"
 #include "mvlc/trigger_io_sim_ui.h"
+#include "yaml-cpp/emittermanip.h"
+
+namespace mesytec
+{
+namespace mvme_mvlc
+{
+namespace trigger_io
+{
+
+using namespace mesytec::mvme_mvlc::trigger_io_dso;
+
+namespace
+{
+
+struct DSOSimGuiState
+{
+    DSOSetup dsoSetup;
+    std::chrono::milliseconds dsoInterval;
+    QVector<PinAddress> traceSelection;
+    // TODO: somehow store the expanded state of the trace tree
+};
+
+void to_yaml(YAML::Emitter &out, const DSOSetup &dsoSetup)
+{
+    out << YAML::BeginMap;
+
+    out << YAML::Key << "preTriggerTime"
+        << YAML::Value << dsoSetup.preTriggerTime;
+
+    out << YAML::Key << "postTriggerTime"
+        << YAML::Value << dsoSetup.postTriggerTime;
+
+    out << YAML::Key << "nimTriggers"
+        << YAML::Value << dsoSetup.nimTriggers.to_ulong();
+
+    out << YAML::Key << "irqTriggers"
+        << YAML::Value << dsoSetup.irqTriggers.to_ulong();
+
+    out << YAML::EndMap;
+}
+
+DSOSetup dso_setup_from_yaml(const YAML::Node &node)
+{
+    DSOSetup result;
+
+    result.preTriggerTime = node["preTriggerTime"].as<u16>();
+    result.postTriggerTime = node["postTriggerTime"].as<u16>();
+    result.nimTriggers = node["nimTriggers"].as<unsigned long>();
+    result.irqTriggers = node["irqTriggers"].as<unsigned long>();
+
+    return result;
+}
+
+void to_yaml(YAML::Emitter &out, const QVector<PinAddress> &traceSelection)
+{
+    out << YAML::BeginSeq;
+
+    for (const auto &pa: traceSelection)
+    {
+        out << YAML::Flow;
+        out << YAML::BeginSeq;
+
+        for (const auto &value: pa.unit)
+            out << value;
+
+        out << static_cast<int>(pa.pos);
+
+        out << YAML::EndSeq;
+    }
+
+    out << YAML::EndSeq;
+}
+
+QVector<PinAddress> trace_selection_from_yaml(const YAML::Node &node)
+{
+    QVector<PinAddress> result;
+
+    for (const auto &yPinAddress: node)
+    {
+        PinAddress pa;
+
+        for (size_t i=0; i<pa.unit.size(); ++i)
+            pa.unit[i] = yPinAddress[i].as<unsigned>();
+
+        pa.pos = static_cast<PinPosition>(yPinAddress[pa.unit.size()].as<int>());
+
+        result.push_back(pa);
+    }
+
+    return result;
+}
+
+QString to_yaml(const DSOSimGuiState &guiState)
+{
+    YAML::Emitter out;
+
+    out << YAML::BeginMap;
+
+    out << YAML::Key << "DSOSetup"
+        << YAML::Value;
+    to_yaml(out, guiState.dsoSetup);
+
+    out << YAML::Key << "DSOInterval"
+        << YAML::Value << guiState.dsoInterval.count();
+
+    out << YAML::Key << "TraceSelection"
+        << YAML::Value;
+    to_yaml(out, guiState.traceSelection);
+
+    assert(out.good());
+
+    return QString(out.c_str());
+}
+
+DSOSimGuiState dso_sim_gui_state_from_yaml(const QString &yamlString)
+{
+    DSOSimGuiState result;
+
+    YAML::Node yRoot = YAML::Load(yamlString.toStdString());
+
+    if (!yRoot) return result;
+
+    result.dsoSetup = dso_setup_from_yaml(yRoot["DSOSetup"]);
+    result.dsoInterval = std::chrono::milliseconds(yRoot["DSOInterval"].as<s64>());
+    result.traceSelection = trace_selection_from_yaml(yRoot["TraceSelection"]);
+
+    return result;
+}
 
 /* How the DSOSimWidget currently works:
  * - On clicking 'start' in the DSO control widget the DSOSimWidget runs both
@@ -26,20 +155,6 @@
  * filled on every invocation of run_dso_sim. Also traces are copied to the
  * plot widget.
  */
-
-
-
-namespace mesytec
-{
-namespace mvme_mvlc
-{
-namespace trigger_io
-{
-
-using namespace mesytec::mvme_mvlc::trigger_io_dso;
-
-namespace
-{
 
 struct DSO_Sim_Result
 {
@@ -84,10 +199,14 @@ DSO_Sim_Result run_dso_sim(
 
 struct DSOSimWidget::Private
 {
+    const char *GUIStateFileName = "mvlc_dso_sim_gui_state.yaml";
+    size_t GUIStateFileMaxSize = Megabytes(1);
+
     DSOSimWidget *q;
 
     VMEScriptConfig *trigIOScript;
     mvlc::MVLC mvlc;
+    // TODO: remove the next two variables. instead query the DSOControlWidget
     DSOSetup dsoSetup;
     std::chrono::milliseconds dsoInterval;
     std::atomic<bool> cancelDSO;
@@ -199,7 +318,34 @@ struct DSOSimWidget::Private
         return simMaxTime;
     }
 
+    void saveGUIState()
+    {
+        QFile outFile(GUIStateFileName);
 
+        if (outFile.open(QIODevice::WriteOnly))
+        {
+            DSOSimGuiState state;
+            state.dsoSetup = dsoControlWidget->getDSOSetup();
+            state.dsoInterval = dsoControlWidget->getInterval();
+            state.traceSelection = traceSelectWidget->getSelection();
+
+            outFile.write(to_yaml(state).toUtf8());
+        }
+    }
+
+    void loadGUIState()
+    {
+        QFile inFile(GUIStateFileName);
+
+        if (inFile.open(QIODevice::ReadOnly))
+        {
+            auto yStr = QString::fromUtf8(inFile.read(GUIStateFileMaxSize));
+            auto state = dso_sim_gui_state_from_yaml(yStr);
+
+            this->dsoControlWidget->setDSOSetup(state.dsoSetup, state.dsoInterval);
+            this->traceSelectWidget->setSelection(state.traceSelection);
+        }
+    }
 };
 
 DSOSimWidget::DSOSimWidget(
@@ -268,6 +414,7 @@ DSOSimWidget::DSOSimWidget(
                 d->onDSOSimRunFinished();
             });
 
+    d->loadGUIState();
     d->onTriggerIOModified(); // initial data pull from the script
 }
 
@@ -275,6 +422,7 @@ DSOSimWidget::~DSOSimWidget()
 {
     d->cancelDSO = true;
     d->resultWatcher.waitForFinished();
+    d->saveGUIState();
 }
 
 } // end namespace trigger_io
