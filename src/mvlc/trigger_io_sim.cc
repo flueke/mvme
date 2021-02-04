@@ -94,6 +94,10 @@ void simulate(
         return 0u;
     };
 
+//- FIXME: Timer sim: 8ns high, 8ns low, 8ns pause (lowest valid period is 24ns)
+//  also wirklich 8ns oben, 16ns unten als max frequenz
+//  hide timer delay column in GUI
+
     auto timerPeriod = timer.period * range_to_ns_factor(timer.range);
 
     if (timerPeriod < Timer::MinPeriod)

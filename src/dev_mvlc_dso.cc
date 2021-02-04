@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
 
+#if 0
     //
     // Scope plot with randomizing edges
     //
@@ -45,7 +46,7 @@ int main(int argc, char *argv[])
     DSOPlotWidget plotWidget;
     plotWidget.setWindowTitle("Randomizing Edges");
     plotWidget.setTraces(snapshot);
-    //plotWidget.show();
+    plotWidget.show();
 
     auto randomize_data = [] (Snapshot &snapshot)
     {
@@ -119,6 +120,24 @@ int main(int argc, char *argv[])
     simPlot0.setTraces(ioSnap);
     simPlot0.getQwtPlot()->setAxisScale(QwtPlot::xBottom, 0, 120, 5);
     simPlot0.show();
+#endif
+
+    Trace trace =
+    {
+        {  0ns, Edge::Falling },
+        { 200ns, Edge::Rising },
+        { 210ns, Edge::Falling },
+        { 220ns, Edge::Rising },
+        { 230ns, Edge::Falling },
+    };
+
+    unsigned preTriggerTime = 200;
+    DSOPlotWidget plotWidget;
+    plotWidget.setTraces(
+        { trace },
+        preTriggerTime);
+    plotWidget.show();
+
 
     int ret = app.exec();
     return ret;

@@ -3,12 +3,13 @@ TODO list
 ==================================================
 
 * DSOPlotWidget
-  - x-axis max sim time scaling
+  - x-axis max sim time scaling: make x-axis scale user-settable
   - setZoomBase handling when fulling zooming out (needed once x-axis scales to max sim time)
   - vertical mouse hover bar showing the state of all traces
   - special color or formatted text or line style for curves that are in the trigger set.
 
 * DSO+SIM
+- debug feature similar to mvlc
 - Timer sim: 8ns high, 8ns low, 8ns pause (lowest valid period is 24ns)
   also wirklich 8ns oben, 16ns unten als max frequenz
   hide timer delay column in GUI

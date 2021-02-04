@@ -4,6 +4,7 @@
 #include <QSplitter>
 #include <QProgressDialog>
 #include <QtConcurrent>
+#include <QPushButton>
 #include <chrono>
 #include <thread>
 #include <yaml-cpp/yaml.h>
@@ -152,7 +153,7 @@ DSOSimGuiState dso_sim_gui_state_from_yaml(const QString &yamlString)
  *   QTimer.
  *
  * The code is not focused on performance. A new Sim structure is created and
- * filled on every invocation of run_dso_sim. Also traces are copied to the
+ * filled on every invocation of run_dso_and_sim. Also traces are copied to the
  * plot widget.
  */
 
@@ -163,7 +164,7 @@ struct DSO_Sim_Result
     Sim sim;
 };
 
-DSO_Sim_Result run_dso_sim(
+DSO_Sim_Result run_dso_and_sim(
     mvlc::MVLC mvlc,
     DSOSetup dsoSetup,
     TriggerIO trigIO,
@@ -193,6 +194,24 @@ DSO_Sim_Result run_dso_sim(
 
     qDebug() << __PRETTY_FUNCTION__ << "leave";
     return result;
+}
+
+bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
+{
+    if (pa.unit[0] == 0 && pa.pos == PinPosition::Input)
+    {
+        int nimTraceIndex = pa.unit[1] - Level0::NIM_IO_Offset;
+
+        if (0 <= nimTraceIndex && nimTraceIndex < static_cast<int>(dsoSetup.nimTriggers.size()))
+            return dsoSetup.nimTriggers.test(nimTraceIndex);
+
+        int irqTraceIndex = pa.unit[1] - Level0::IRQ_Inputs_Offset;
+
+        if (0 <= irqTraceIndex && irqTraceIndex < static_cast<int>(dsoSetup.irqTriggers.size()))
+            return dsoSetup.irqTriggers.test(irqTraceIndex);
+    }
+
+    return false;
 }
 
 } // end anon namespace
@@ -234,36 +253,46 @@ struct DSOSimWidget::Private
         qDebug() << __PRETTY_FUNCTION__
             << "selection size =" << selection.size();
 
+        auto dsoSetup = this->dsoControlWidget->getDSOSetup();
+
         Snapshot traces;
-        traces.reserve(selection.size());
         QStringList traceNames;
+        std::vector<bool> isTriggerTrace; // the evil bool vector :O
+
+        traces.reserve(selection.size());
         traceNames.reserve(selection.size());
 
         for (const auto &pa: selection)
         {
             if (auto trace = lookup_trace(this->lastResult.sim, pa))
             {
-                traces.push_back(*trace); // copy the trace
-
                 QString name = QSL("%1 (%2)")
                     .arg(pin_path(this->lastResult.sim.trigIO, pa))
                     .arg(pin_user_name(this->lastResult.sim.trigIO, pa))
                     ;
 
+                bool isTrigger = is_trigger_pin(pa, dsoSetup);
+
+                if (isTrigger)
+                    name = QSL("<i>%1</i>").arg(name);
+
+                traces.push_back(*trace); // copy the trace
                 traceNames.push_back(name);
+                isTriggerTrace.push_back(isTrigger);
             }
         }
 
         std::reverse(std::begin(traces), std::end(traces));
         std::reverse(std::begin(traceNames), std::end(traceNames));
+        std::reverse(std::begin(isTriggerTrace), std::end(isTriggerTrace));
 
-        auto dsoSetup = this->dsoControlWidget->getDSOSetup();
+        this->dsoPlotWidget->setXInterval(
+            -dsoSetup.preTriggerTime, getSimMaxTime().count());
 
         this->dsoPlotWidget->setTraces(
             traces, dsoSetup.preTriggerTime, traceNames);
 
-        this->dsoPlotWidget->setXInterval(
-            -dsoSetup.preTriggerTime, getSimMaxTime().count());
+        this->dsoPlotWidget->setTraceTriggerInfo(isTriggerTrace);
     }
 
     void startDSO()
@@ -285,7 +314,7 @@ struct DSOSimWidget::Private
     void runDSO()
     {
         auto future = QtConcurrent::run(
-            run_dso_sim,
+            run_dso_and_sim,
             this->mvlc,
             this->dsoControlWidget->getDSOSetup(),
             this->lastResult.sim.trigIO,
@@ -351,6 +380,10 @@ struct DSOSimWidget::Private
             this->traceSelectWidget->setSelection(state.traceSelection);
         }
     }
+
+    void onDebugButtonClicked()
+    {
+    }
 };
 
 DSOSimWidget::DSOSimWidget(
@@ -376,11 +409,16 @@ DSOSimWidget::DSOSimWidget(
     auto l_traceSelect = make_hbox<0, 0>(gb_traceSelect);
     l_traceSelect->addWidget(d->traceSelectWidget);
 
+    auto pb_debug = new QPushButton("Debug");
+    auto l_debugButton = make_hbox();
+    l_debugButton->addWidget(pb_debug);
+    l_debugButton->addStretch();
+
     auto w_left = new QWidget;
     auto l_left = make_vbox<0, 0>(w_left);
     l_left->addWidget(gb_dsoControl, 0);
     l_left->addWidget(gb_traceSelect, 1);
-
+    l_left->addLayout(l_debugButton, 0);
 
     auto splitter = new QSplitter(Qt::Horizontal);
     splitter->addWidget(w_left);
@@ -416,6 +454,11 @@ DSOSimWidget::DSOSimWidget(
     connect(&d->resultWatcher, &QFutureWatcher<DSO_Sim_Result>::finished,
             this, [this] () {
                 d->onDSOSimRunFinished();
+            });
+
+    connect(pb_debug, &QPushButton::clicked,
+            this, [this] () {
+                d->onDebugButtonClicked();
             });
 
     d->loadGUIState();

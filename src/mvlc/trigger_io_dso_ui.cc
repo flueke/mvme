@@ -185,7 +185,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->triggerTimeMarker->setLabelOrientation( Qt::Horizontal );
     d->triggerTimeMarker->setLineStyle( QwtPlotMarker::VLine );
     d->triggerTimeMarker->setLinePen(QColor("black"), 0, Qt::DashDotLine );
-    d->triggerTimeMarker->setLabel(QwtText("Trigger"));
+    d->triggerTimeMarker->setLabel(QwtText("\nTrigger"));
     d->triggerTimeMarker->attach(d->plot);
 
     auto layout = make_vbox<0, 0>(this);
@@ -264,17 +264,29 @@ void DSOPlotWidget::setTraces(
     d->plot->setAxisScaleDraw(QwtPlot::yLeft, yScaleDraw.release());
     d->yScaleDiv.setInterval(0.0, yScaleMaxValue);
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
-    d->plot->setAxisScaleDiv(QwtPlot::yLeft, d->yScaleDiv);
 
-    //d->plot->setAxisScale(QwtPlot::xBottom, 0.0, d->xMax.count());
-
-    // Tells the zoomer that we're currently completely zoomed out. Does a
-    // plot->replot() unless the arg is false.
-    //if (d->zoomer->zoomRectIndex() == 0)
-    //    d->zoomer->setZoomBase(true);
-    //else
-    //    d->plot->replot();
     d->replot();
+}
+
+void DSOPlotWidget::setTraceTriggerInfo(const std::vector<bool> &isTriggerTrace)
+{
+    const size_t maxIdx = std::min(d->curves.size(), isTriggerTrace.size());
+
+    for (size_t i=0; i<maxIdx; ++i)
+    {
+        QPen pen;
+        if (isTriggerTrace[i])
+        {
+            pen.setColor("maroon");
+            pen.setWidth(3);
+        }
+        else
+        {
+            pen.setColor(Qt::green);
+        }
+
+        d->curves[i]->setPen(pen);
+    }
 }
 
 void DSOPlotWidget::setXInterval(double xMin, double xMax)
