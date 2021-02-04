@@ -206,9 +206,6 @@ struct DSOSimWidget::Private
 
     VMEScriptConfig *trigIOScript;
     mvlc::MVLC mvlc;
-    // TODO: remove the next two variables. instead query the DSOControlWidget
-    DSOSetup dsoSetup;
-    std::chrono::milliseconds dsoInterval;
     std::atomic<bool> cancelDSO;
     DSO_Sim_Result lastResult;
 
@@ -260,22 +257,19 @@ struct DSOSimWidget::Private
         std::reverse(std::begin(traces), std::end(traces));
         std::reverse(std::begin(traceNames), std::end(traceNames));
 
+        auto dsoSetup = this->dsoControlWidget->getDSOSetup();
+
         this->dsoPlotWidget->setTraces(
-            traces, this->dsoSetup.preTriggerTime, traceNames);
+            traces, dsoSetup.preTriggerTime, traceNames);
     }
 
-    void startDSO(
-        const DSOSetup &dsoSetup,
-        const std::chrono::milliseconds &interval)
+    void startDSO()
     {
         if (this->resultWatcher.isRunning())
             return;
 
         this->cancelDSO = false;
         this->dsoControlWidget->setDSOActive(true);
-
-        this->dsoSetup = dsoSetup;
-        this->dsoInterval = interval;
 
         runDSO();
     }
@@ -290,7 +284,7 @@ struct DSOSimWidget::Private
         auto future = QtConcurrent::run(
             run_dso_sim,
             this->mvlc,
-            this->dsoSetup,
+            this->dsoControlWidget->getDSOSetup(),
             this->lastResult.sim.trigIO,
             getSimMaxTime(),
             std::ref(this->cancelDSO));
@@ -300,18 +294,26 @@ struct DSOSimWidget::Private
 
     void onDSOSimRunFinished()
     {
-        this->lastResult = this->resultWatcher.result();
+        auto result = resultWatcher.result();
 
-        updatePlotTraces(this->traceSelectWidget->getSelection());
+        if (!this->cancelDSO && !result.ec && result.dsoBuffer.size() > 2)
+        {
+            this->lastResult = result;
 
-        if (!this->cancelDSO && this->dsoInterval != std::chrono::milliseconds::zero())
-            QTimer::singleShot(this->dsoInterval, q, [this] () { runDSO(); });
+            updatePlotTraces(this->traceSelectWidget->getSelection());
+        }
+
+        auto interval = this->dsoControlWidget->getInterval();
+
+        if (!this->cancelDSO && interval != std::chrono::milliseconds::zero())
+            QTimer::singleShot(interval, q, [this] () { runDSO(); });
         else
             this->dsoControlWidget->setDSOActive(false);
     }
 
     SampleTime getSimMaxTime() const
     {
+        auto dsoSetup = this->dsoControlWidget->getDSOSetup();
         // Simulate up to twice the time interval between the pre and post
         // trigger times.
         SampleTime simMaxTime((dsoSetup.postTriggerTime + dsoSetup.preTriggerTime) * 2);
@@ -399,9 +401,8 @@ DSOSimWidget::DSOSimWidget(
             });
 
     connect(d->dsoControlWidget, &DSOControlWidget::startDSO,
-            this, [this] (const DSOSetup &setup,
-                          const std::chrono::milliseconds &interval) {
-                d->startDSO(setup, interval);
+            this, [this] () {
+                d->startDSO();
             });
 
     connect(d->dsoControlWidget, &DSOControlWidget::stopDSO,
