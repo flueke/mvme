@@ -27,7 +27,7 @@
 #include <QScrollBar>
 #include <qnamespace.h>
 
-#include "mvlc/trigger_io_dso_sim.h"
+#include "mvlc/trigger_io_dso_sim_widget.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_trigger_io_util.h"
 #include "qt_assistant_remote_control.h"

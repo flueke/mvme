@@ -1,4 +1,4 @@
-#include "mvlc/trigger_io_dso_sim.h"
+#include "mvlc/trigger_io_dso_sim_widget.h"
 
 #include <QGroupBox>
 #include <QSplitter>
@@ -261,6 +261,9 @@ struct DSOSimWidget::Private
 
         this->dsoPlotWidget->setTraces(
             traces, dsoSetup.preTriggerTime, traceNames);
+
+        this->dsoPlotWidget->setXInterval(
+            -dsoSetup.preTriggerTime, getSimMaxTime().count());
     }
 
     void startDSO()
