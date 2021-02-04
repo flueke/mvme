@@ -28,6 +28,9 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
             unsigned preTriggerTime = 0,
             const QStringList &names = {});
 
+        void setXInterval(double xMin, double xMax);
+        void setXAutoScale();
+
         QwtPlot *getQwtPlot();
 
     private:

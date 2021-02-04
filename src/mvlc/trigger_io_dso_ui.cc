@@ -146,17 +146,19 @@ class ScopeYScaleDraw: public QwtScaleDraw
 
 struct DSOPlotWidget::Private
 {
+    constexpr static const double YSpacing = 0.5;
+
     QwtPlot *plot;
     QwtPlotGrid *grid;
     QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setTraces()
+    QwtInterval xAxisInterval;
     ScrollZoomer *zoomer;
     std::unique_ptr<QwtPlotMarker> triggerTimeMarker;
 
     std::vector<QwtPlotCurve *> curves;
 
-    constexpr static const double YSpacing = 0.5;
 
-    void zoomerZoomed();
+    void replot();
 };
 
 DSOPlotWidget::DSOPlotWidget(QWidget *parent)
@@ -176,7 +178,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->zoomer->setTrackerMode(QwtPicker::AlwaysOff);
 
     connect(d->zoomer, &QwtPlotZoomer::zoomed,
-            this, [this] (const QRectF &) { d->zoomerZoomed(); });
+            this, [this] (const QRectF &) { d->replot(); });
 
     d->triggerTimeMarker = std::make_unique<QwtPlotMarker>();
     d->triggerTimeMarker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
@@ -268,22 +270,43 @@ void DSOPlotWidget::setTraces(
 
     // Tells the zoomer that we're currently completely zoomed out. Does a
     // plot->replot() unless the arg is false.
-    if (d->zoomer->zoomRectIndex() == 0)
-        d->zoomer->setZoomBase(true);
-    else
-        d->plot->replot();
+    //if (d->zoomer->zoomRectIndex() == 0)
+    //    d->zoomer->setZoomBase(true);
+    //else
+    //    d->plot->replot();
+    d->replot();
 }
 
-void DSOPlotWidget::Private::zoomerZoomed()
+void DSOPlotWidget::setXInterval(double xMin, double xMax)
 {
+    d->xAxisInterval = QwtInterval(xMin, xMax);
+    d->replot();
+}
+
+void DSOPlotWidget::setXAutoScale()
+{
+    d->xAxisInterval.invalidate();
+    d->replot();
+}
+
+void DSOPlotWidget::Private::replot()
+{
+    // Undoes any zooming on the y axis
+    plot->setAxisScaleDiv(QwtPlot::yLeft, yScaleDiv);
+
     if (zoomer->zoomRectIndex() == 0)
     {
-        plot->setAxisAutoScale(QwtPlot::xBottom);
+        if (xAxisInterval.isValid())
+            plot->setAxisScale(QwtPlot::xBottom, xAxisInterval.minValue(), xAxisInterval.maxValue());
+        else
+            plot->setAxisAutoScale(QwtPlot::xBottom);
+
         zoomer->setZoomBase(true);
     }
-
-    plot->setAxisScaleDiv(QwtPlot::yLeft, yScaleDiv);
-    plot->replot();
+    else
+    {
+        plot->replot();
+    }
 }
 
 QwtPlot *DSOPlotWidget::getQwtPlot()
