@@ -268,15 +268,19 @@ void DSOPlotWidget::setTraces(
 
     // Tells the zoomer that we're currently completely zoomed out. Does a
     // plot->replot() unless the arg is false.
-    d->plot->replot();
+    if (d->zoomer->zoomRectIndex() == 0)
+        d->zoomer->setZoomBase(true);
+    else
+        d->plot->replot();
 }
 
 void DSOPlotWidget::Private::zoomerZoomed()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << zoomer->zoomRectIndex();
-
     if (zoomer->zoomRectIndex() == 0)
-        this->plot->setAxisAutoScale(QwtPlot::xBottom);
+    {
+        plot->setAxisAutoScale(QwtPlot::xBottom);
+        zoomer->setZoomBase(true);
+    }
 
     plot->setAxisScaleDiv(QwtPlot::yLeft, yScaleDiv);
     plot->replot();
