@@ -27,7 +27,16 @@ using namespace trigger_io;
 // While the DSO is active no other communication may take place as that would
 // mix DSO sample data with command responses. This is enforced in
 // acquire_dso_sample() by locking the command mutex while the DSO is
-// activated.
+// activated. Also the stack error poller built into the MVLC object is
+// suspended during the time the DSO is active.
+//
+// As the DSO may never receive a trigger the acquire_dso_sample() function may
+// keep trying to read a valid buffer forever. By setting the 'cancel' flag the
+// function can be made to return.
+// Problem: When running a vme script in mvme the GUI is blocked by the script
+// exec progress dialog so the DSO can't be stopped. Also the user will not
+// know why everything is stalled.
+// Solution: add a timeout parameter to acquire_dso_sample() and return after that time has elapsed.
 
 enum class Edge
 {
@@ -79,10 +88,14 @@ using Snapshot = std::vector<Trace>;
 // This function internally suspends the MVLCs stack error poller and locks the
 // command pipe. This way no other communication can take place while the DSO
 // is active.
+// If no valid sample is received within the timeout std::errc::timed_out is
+// returned. The timeout is needed as the DSO may never receive a trigger.
 LIBMVME_EXPORT std::error_code
 acquire_dso_sample(
     mvlc::MVLC mvlc, DSOSetup setup,
-    std::vector<u32> &dest, std::atomic<bool> &cancel);
+    std::vector<u32> &dest,
+    std::atomic<bool> &cancel,
+    const std::chrono::milliseconds &timeout = std::chrono::milliseconds(3000));
 
 // Fill a snapshot from a DSO buffer obtained via acquire_dso_sample().
 LIBMVME_EXPORT Snapshot

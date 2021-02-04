@@ -87,8 +87,12 @@ std::error_code read_dso(mvlc::MVLCDialog &mvlc, std::vector<u32> &dest)
 
 std::error_code acquire_dso_sample(
     mvlc::MVLC mvlc, DSOSetup setup,
-    std::vector<u32> &dest, std::atomic<bool> &cancel)
+    std::vector<u32> &dest,
+    std::atomic<bool> &cancel,
+    const std::chrono::milliseconds &timeout)
 {
+    auto tStart = std::chrono::steady_clock::now();
+
     // Stop the stack error poller so that it doesn't read our samples off the
     // command pipe.
     auto errPollerLock = mvlc.suspendStackErrorPolling();
@@ -111,13 +115,19 @@ std::error_code acquire_dso_sample(
         return ec;
 
     dest.clear();
+    bool timed_out = false;
 
-    while (!cancel && dest.size() <= 2)
+    while (!cancel && dest.size() <= 2 && !timed_out)
     {
         auto ec = read_dso(dlg, dest);
 
         if (is_fatal(ec))
             return ec;
+
+        auto elapsed = std::chrono::steady_clock::now() - tStart;
+
+        if (elapsed >= timeout)
+            timed_out = true;
     }
 
     if (auto ec = stop_dso(dlg))
@@ -138,6 +148,9 @@ std::error_code acquire_dso_sample(
             return ec;
 
     } while (tmpBuffer.size() > 2);
+
+    if (timed_out && dest.size() <= 2)
+        return make_error_code(std::errc::timed_out);
 
     return {};
 }
