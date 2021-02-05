@@ -1,18 +1,19 @@
 #include "mvlc/trigger_io_dso_sim_widget.h"
 
-#include <QGroupBox>
-#include <QSplitter>
-#include <QProgressDialog>
-#include <QtConcurrent>
-#include <QPushButton>
 #include <chrono>
+#include <QGroupBox>
+#include <QProgressDialog>
+#include <QPushButton>
+#include <QSplitter>
+#include <QtConcurrent>
+#include <QTextBrowser>
 #include <thread>
 #include <yaml-cpp/yaml.h>
 
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/trigger_io_dso_ui.h"
 #include "mvlc/trigger_io_sim_ui.h"
-#include "yaml-cpp/emittermanip.h"
+#include "util/qt_font.h"
 
 namespace mesytec
 {
@@ -214,10 +215,80 @@ bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
     return false;
 }
 
+void show_debug_widget(const DSO_Sim_Result &dsoSimResult)
+{
+    QString text;
+    QTextStream out(&text);
+
+    {
+        const auto &dsoBuffer = dsoSimResult.dsoBuffer;
+
+        out << "<html><body><pre>";
+
+        out << "DSO buffer (size=" << dsoBuffer.size() << "):"  << endl;
+
+        for (size_t i=0; i<dsoBuffer.size(); ++i)
+        {
+            out << QSL("%1:").arg(i, 3, 10, QLatin1Char(' '));
+
+            u32 word = dsoBuffer[i];
+
+            out << QString("0x%1").arg(word, 8, 16, QLatin1Char('0'));
+
+            if (3 <= i && i < dsoBuffer.size() - 1)
+            {
+                auto entry = extract_dso_entry(word);
+
+                out << "    "
+                    << (QSL("addr=%1, time=%2, edge=%3")
+                        .arg(static_cast<unsigned>(entry.address), 2, 10, QLatin1Char(' '))
+                        .arg(entry.time, 5, 10, QLatin1Char(' '))
+                        .arg(static_cast<int>(entry.edge)))
+                    ;
+            }
+
+            out << endl;
+        }
+
+        out << "-----" << endl;
+
+        out << "</pre></body></html>";
+    }
+
+    {
+        auto widget = new QTextBrowser;
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        widget->setWindowTitle("MVLC DSO Debug");
+        widget->setFont(make_monospace_font());
+        add_widget_close_action(widget);
+        auto geoSaver = new WidgetGeometrySaver(widget);
+        geoSaver->addAndRestore(widget, QSL("MVLCTriggerIOEditor/DSODebugWidgetGeometry"));
+
+        auto textDoc = new QTextDocument(widget);
+        textDoc->setHtml(text);
+        widget->setDocument(textDoc);
+
+        widget->show();
+    }
+}
+
 } // end anon namespace
 
 struct DSOSimWidget::Private
 {
+    struct Stats
+    {
+        size_t sampleCount;
+        QTime lastSampleTime;
+    };
+
+    enum class DebugAction
+    {
+        None,
+        Next,
+        OnError
+    };
+
     const char *GUIStateFileName = "mvlc_dso_sim_gui_state.yaml";
     size_t GUIStateFileMaxSize = Megabytes(1);
 
@@ -227,12 +298,15 @@ struct DSOSimWidget::Private
     mvlc::MVLC mvlc;
     std::atomic<bool> cancelDSO;
     DSO_Sim_Result lastResult;
+    Stats stats = {};
+    DebugAction debugAction;
 
     QFutureWatcher<DSO_Sim_Result> resultWatcher;
 
     DSOControlWidget *dsoControlWidget;
     TraceSelectWidget *traceSelectWidget;
     DSOPlotWidget *dsoPlotWidget;
+    QLabel *label_status;
 
     void onTriggerIOModified()
     {
@@ -302,8 +376,10 @@ struct DSOSimWidget::Private
 
         this->cancelDSO = false;
         this->dsoControlWidget->setDSOActive(true);
+        this->stats = {};
 
         runDSO();
+        updateStatusLabel();
     }
 
     void stopDSO()
@@ -328,9 +404,20 @@ struct DSOSimWidget::Private
     {
         auto result = resultWatcher.result();
 
+        if (!this->cancelDSO)
+        {
+            if (debugAction == DebugAction::Next)
+            {
+                debugAction = {};
+                show_debug_widget(result);
+            }
+        }
+
         if (!this->cancelDSO && !result.ec && result.dsoBuffer.size() > 2)
         {
             this->lastResult = result;
+            ++stats.sampleCount;
+            stats.lastSampleTime = QTime::currentTime();
 
             updatePlotTraces(this->traceSelectWidget->getSelection());
         }
@@ -341,6 +428,8 @@ struct DSOSimWidget::Private
             QTimer::singleShot(interval, q, [this] () { runDSO(); });
         else
             this->dsoControlWidget->setDSOActive(false);
+
+        updateStatusLabel();
     }
 
     SampleTime getSimMaxTime() const
@@ -381,8 +470,14 @@ struct DSOSimWidget::Private
         }
     }
 
-    void onDebugButtonClicked()
+    void updateStatusLabel()
     {
+        QString str = QSL("Status: %1, Triggers: %2, Last Trigger: %3")
+            .arg(cancelDSO ? "inactive" : "active")
+            .arg(stats.sampleCount)
+            .arg(stats.lastSampleTime.toString())
+            ;
+        label_status->setText(str);
     }
 };
 
@@ -409,16 +504,27 @@ DSOSimWidget::DSOSimWidget(
     auto l_traceSelect = make_hbox<0, 0>(gb_traceSelect);
     l_traceSelect->addWidget(d->traceSelectWidget);
 
-    auto pb_debug = new QPushButton("Debug");
-    auto l_debugButton = make_hbox();
-    l_debugButton->addWidget(pb_debug);
-    l_debugButton->addStretch();
+    QFont smallFont;
+    smallFont.setPointSizeF(smallFont.pointSizeF() - 2.0);
+
+    d->label_status = new QLabel;
+    auto pb_debugNext = new QPushButton("Debug next buffer");
+    auto pb_debugOnError = new QPushButton("Debug on error");
+
+    for (auto widget: std::vector<QWidget *>{ d->label_status, pb_debugNext, pb_debugOnError })
+        widget->setFont(smallFont);
+
+    auto l_status = make_hbox();
+    l_status->addWidget(d->label_status, 1);
+    l_status->addWidget(pb_debugNext);
+    l_status->addWidget(pb_debugOnError);
+    pb_debugOnError->hide();
 
     auto w_left = new QWidget;
     auto l_left = make_vbox<0, 0>(w_left);
     l_left->addWidget(gb_dsoControl, 0);
     l_left->addWidget(gb_traceSelect, 1);
-    l_left->addLayout(l_debugButton, 0);
+    l_left->addLayout(l_status, 0);
 
     auto splitter = new QSplitter(Qt::Horizontal);
     splitter->addWidget(w_left);
@@ -456,9 +562,14 @@ DSOSimWidget::DSOSimWidget(
                 d->onDSOSimRunFinished();
             });
 
-    connect(pb_debug, &QPushButton::clicked,
+    connect(pb_debugNext, &QPushButton::clicked,
             this, [this] () {
-                d->onDebugButtonClicked();
+                d->debugAction = Private::DebugAction::Next;
+            });
+
+    connect(pb_debugOnError, &QPushButton::clicked,
+            this, [this] () {
+                d->debugAction = Private::DebugAction::OnError;
             });
 
     d->loadGUIState();

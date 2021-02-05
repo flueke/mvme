@@ -157,51 +157,32 @@ std::error_code acquire_dso_sample(
     return {};
 }
 
-namespace
-{
-struct BufferEntry
-{
-    u8 address;
-    Edge edge;
-    u16 time;
-};
-
-inline BufferEntry extract_entry(u32 dataWord)
-{
-    BufferEntry result;
-    result.address = (dataWord >> data_format::AddressShift) & data_format::AddressMask;
-    result.edge = Edge((dataWord >> data_format::EdgeShift) & data_format::EdgeMask);
-    result.time = (dataWord >> data_format::TimeShift) & data_format::TimeMask;
-    return result;
-}
-}
-
 Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer)
 {
     using namespace std::chrono_literals;
 
     if (buffer.size() < 2 + 2)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "got a short buffer";
+        //qDebug() << __PRETTY_FUNCTION__ << "got a short buffer";
         return {};
     }
 
     if ((buffer[0] >> 24) != 0xF3
         || (buffer[1] >> 24) != 0xF5)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "invalid frame and block headers";
+        //qDebug() << __PRETTY_FUNCTION__ << "invalid frame and block headers";
         return {};
     }
 
     if (buffer[2] != data_format::Header)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "invalid Header";
+        //qDebug() << __PRETTY_FUNCTION__ << "invalid Header";
         return {};
     }
 
     if (buffer[buffer.size()-1] != data_format::EoE)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "invalid EoE";
+        //qDebug() << __PRETTY_FUNCTION__ << "invalid EoE";
         return {};
     }
 
@@ -211,10 +192,10 @@ Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer)
     for (size_t i=3; i<buffer.size()-1; ++i)
     {
         const u32 word = buffer[i];
-        const auto entry = extract_entry(word);
+        const auto entry = extract_dso_entry(word);
 
-        qDebug("entry: addr=%u, time=%u, edge=%s",
-               entry.address, entry.time, to_string(entry.edge));
+        //qDebug("entry: addr=%u, time=%u, edge=%s",
+        //       entry.address, entry.time, to_string(entry.edge));
 
         if (entry.address >= result.size())
             result.resize(entry.address + 1);

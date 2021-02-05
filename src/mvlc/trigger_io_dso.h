@@ -130,6 +130,22 @@ Out & print(Out &out, const Trace &trace)
     return out;
 }
 
+struct DSOBufferEntry
+{
+    u8 address;
+    Edge edge;
+    u16 time;
+};
+
+inline DSOBufferEntry extract_dso_entry(u32 dataWord)
+{
+    DSOBufferEntry result;
+    result.address = (dataWord >> data_format::AddressShift) & data_format::AddressMask;
+    result.edge = Edge((dataWord >> data_format::EdgeShift) & data_format::EdgeMask);
+    result.time = (dataWord >> data_format::TimeShift) & data_format::TimeMask;
+    return result;
+}
+
 } // end namespace trigger_io_dso
 } // end namespace mvme_mvlc
 } // end namespace mesytec
