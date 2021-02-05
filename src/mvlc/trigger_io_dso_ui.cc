@@ -268,7 +268,7 @@ void DSOPlotWidget::setTraces(
     d->replot();
 }
 
-void DSOPlotWidget::setTraceTriggerInfo(const std::vector<bool> &isTriggerTrace)
+void DSOPlotWidget::setTriggerTraceInfo(const std::vector<bool> &isTriggerTrace)
 {
     const size_t maxIdx = std::min(d->curves.size(), isTriggerTrace.size());
 
@@ -276,14 +276,9 @@ void DSOPlotWidget::setTraceTriggerInfo(const std::vector<bool> &isTriggerTrace)
     {
         QPen pen;
         if (isTriggerTrace[i])
-        {
-            pen.setColor("maroon");
-            pen.setWidth(3);
-        }
+            pen.setColor(Qt::darkGreen);
         else
-        {
             pen.setColor(Qt::green);
-        }
 
         d->curves[i]->setPen(pen);
     }
@@ -458,7 +453,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
             });
 
     connect(d->pb_start, &QPushButton::clicked, this, [this] () {
-        emit startDSO(getDSOSetup(), getInterval());
+        emit startDSO();
     });
 
     connect(d->pb_stop, &QPushButton::clicked, this, [this] () {
@@ -472,7 +467,6 @@ DSOControlWidget::~DSOControlWidget()
 
 void DSOControlWidget::setDSOActive(bool active)
 {
-    d->setupWidget->setEnabled(!active);
     d->pb_start->setEnabled(!active);
     d->pb_stop->setEnabled(active);
 }

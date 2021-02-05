@@ -32,7 +32,7 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
         // index should be treated as a trigger trace, e.g. drawn in a
         // different style/color. Must be called after setTraces to have an
         // effect.
-        void setTraceTriggerInfo(const std::vector<bool> &triggerTraces);
+        void setTriggerTraceInfo(const std::vector<bool> &triggerTraces);
 
         void setXInterval(double xMin, double xMax);
         void setXAutoScale();
@@ -49,12 +49,12 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        // Emitted on pressing the start button. If the interval is 0 only one
-        // snapshot should be acquired from the DSO. Otherwise the DSO is
-        // restarted using the same setup after the interval has elapsed.
-        void startDSO(
-            const DSOSetup &dsoSetup,
-            const std::chrono::milliseconds &interval);
+        // Emitted on pressing the start button.
+        // Use getDSOSetup() and getInterval() to query for the DSO parameters.
+        // If the interval is 0 only one snapshot should be acquired from the
+        // DSO. Otherwise the DSO is restarted using the same setup after the
+        // interval has elapsed.
+        void startDSO();
 
         // Emitted on pressing the stop button.
         void stopDSO();

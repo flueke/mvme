@@ -292,7 +292,7 @@ struct DSOSimWidget::Private
         this->dsoPlotWidget->setTraces(
             traces, dsoSetup.preTriggerTime, traceNames);
 
-        this->dsoPlotWidget->setTraceTriggerInfo(isTriggerTrace);
+        this->dsoPlotWidget->setTriggerTraceInfo(isTriggerTrace);
     }
 
     void startDSO()
