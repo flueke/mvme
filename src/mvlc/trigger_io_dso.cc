@@ -18,7 +18,9 @@ namespace trigger_io_dso
 
 namespace
 {
+
 static const unsigned UnitNumber = 48;
+static const u32 DSOReadAddress = mvlc::SelfVMEAddress + 4;
 
 bool is_fatal(const std::error_code &ec)
 {
@@ -72,7 +74,7 @@ std::error_code read_dso(mvlc::MVLCDialog &mvlc, std::vector<u32> &dest)
 {
     // block read
     auto ec = mvlc.vmeBlockRead(
-        mvlc::SelfVMEAddress, mvlc::vme_amods::MBLT64,
+        DSOReadAddress, mvlc::vme_amods::MBLT64,
         std::numeric_limits<u16>::max(), dest);
 
     if (is_fatal(ec))
