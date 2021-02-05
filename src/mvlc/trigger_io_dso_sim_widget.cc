@@ -172,8 +172,6 @@ DSO_Sim_Result run_dso_and_sim(
     SampleTime simMaxTime,
     std::atomic<bool> &cancel)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "enter";
-
     DSO_Sim_Result result = {};
     // Immediately copy the trigIO config into the result. The widget reuses
     // that copy for it's internal state once this function returns.
@@ -193,7 +191,6 @@ DSO_Sim_Result run_dso_and_sim(
 
     simulate(result.sim, simMaxTime);
 
-    qDebug() << __PRETTY_FUNCTION__ << "leave";
     return result;
 }
 
@@ -310,8 +307,6 @@ struct DSOSimWidget::Private
 
     void onTriggerIOModified()
     {
-        qDebug() << __PRETTY_FUNCTION__;
-
         auto trigIO = parse_trigger_io_script_text(this->trigIOScript->getScriptContents());
         this->traceSelectWidget->setTriggerIO(trigIO);
         this->lastResult.sim.trigIO = trigIO;
@@ -324,9 +319,6 @@ struct DSOSimWidget::Private
     void updatePlotTraces(
         const QVector<PinAddress> &selection)
     {
-        qDebug() << __PRETTY_FUNCTION__
-            << "selection size =" << selection.size();
-
         auto dsoSetup = this->dsoControlWidget->getDSOSetup();
 
         Snapshot traces;
