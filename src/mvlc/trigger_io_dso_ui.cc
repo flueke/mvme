@@ -229,7 +229,7 @@ void DSOPlotWidget::setTraces(
 
     // Always create a new scale draw instance here otherwise the y axis does
     // not properly update (it does update when zooming, so it should be
-    // possible to keep the same instance).
+    // possible to keep the same instance). FIXME: fix this O.o
     auto yScaleDraw = std::make_unique<ScopeYScaleDraw>();
 
     QList<double> yTicks; // major ticks for the y scale
@@ -237,9 +237,9 @@ void DSOPlotWidget::setTraces(
     const double yStep = 1.0 + Private::YSpacing;
     int idx = 0;
 
-    for (const auto &timeline: snapshot)
+    for (auto trace: snapshot)
     {
-        auto scopeData = new ScopeData(timeline, preTriggerTime, yOffset);
+        auto scopeData = new ScopeData(trace, preTriggerTime, yOffset);
 
         auto name = idx < names.size() ? names[idx] : QString::number(idx);
         auto curve = make_scope_curve(scopeData, name);
@@ -261,6 +261,7 @@ void DSOPlotWidget::setTraces(
     if (yScaleMaxValue < 10 * yStep)
         yScaleMaxValue = 10 * yStep;
 
+    // FIXME: the ScopeYScaleDraws seem to leak!
     d->plot->setAxisScaleDraw(QwtPlot::yLeft, yScaleDraw.release());
     d->yScaleDiv.setInterval(0.0, yScaleMaxValue);
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
@@ -407,10 +408,10 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->spin_interval = new QSpinBox;
     d->spin_interval->setMinimum(0);
     d->spin_interval->setMaximum(5000);
-    d->spin_interval->setSingleStep(25);
+    d->spin_interval->setSingleStep(10);
     d->spin_interval->setSpecialValueText("once");
     d->spin_interval->setSuffix(" ms");
-    d->spin_interval->setValue(1000);
+    d->spin_interval->setValue(500);
 
     auto gb_triggers = new QGroupBox("Trigger Channels");
     gb_triggers->setAlignment(Qt::AlignCenter);
