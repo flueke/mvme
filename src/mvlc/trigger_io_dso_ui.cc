@@ -407,7 +407,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->spin_interval = new QSpinBox;
     d->spin_interval->setMinimum(0);
     d->spin_interval->setMaximum(5000);
-    d->spin_interval->setSingleStep(500);
+    d->spin_interval->setSingleStep(25);
     d->spin_interval->setSpecialValueText("once");
     d->spin_interval->setSuffix(" ms");
     d->spin_interval->setValue(1000);
