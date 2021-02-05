@@ -9,23 +9,16 @@ TODO list
   - special color or formatted text or line style for curves that are in the trigger set.
 
 * DSO+SIM
-- debug feature similar to mvlc
-- Timer sim: 8ns high, 8ns low, 8ns pause (lowest valid period is 24ns)
-  also wirklich 8ns oben, 16ns unten als max frequenz
-  hide timer delay column in GUI
+- debug feature similar to mvlc buffer debug
+
 
 * DSO gui:
   - histogramming: could switch between osciolloscope and histogram view.
     draw rising and falling edge times in different colors.
-  - extra mvlc DSO config file to save restore the complete dso gui state:
-    * dso setup including trigger selection and interval, trace selection, trace tree expansion state,
-      maybe zoom level etc.
-
   - When modifying the trigIO the tree gets collapsed :(
 
 * mvlc: modul machen, dass den timestamp counter0 buffer vom mvlc ausliest. Wo
   liegt der?
-* FW0016: test latch "not connected" and the "skip sysclock" adressing thing on L3
 * trigger_io_scope:
   - close widget on mvlc change or update mvlc instance (the widget currently
     retains the old instance)
@@ -59,7 +52,6 @@ TODO list
     - analysis ui
     - EventServer
 
-  - Display Listfilters below a single listfilter node. Order matters here.
   - Rename (internally these are called extractors):
     * MultiwordFilter -> Word Pattern Filter
     * Listfilter -> Word Order Filter
@@ -70,16 +62,8 @@ TODO list
 
   - Conditions: core should be functional, work on the UIs again
 
-  - listfilter display in the analysis is out of order. It should be one
-    listfilter parent ndoe with the individual filters in correct order as
-    children.
   - listfilter add is buggy: the last filter is selected and will be edited if
     not manually pressing the 'add' button
-
-  - batched histo accumulation: instead of directly updating the histos do
-    store memory locations to be incremented in some buffer. once that is full
-    perform all updates at once. This should increase the speed (even more if
-    the addresses where sorted).
 
 * vme modules: allow saving a concrete module to a vme template.
   Allow instantiating modules from user vme templates.  Important: handle the
@@ -89,7 +73,6 @@ TODO list
 * analysis: allow more than just "default filters". the new system should be
   able to handle loading arbitrary analysis files as default filters. Matching
   is done via the module type names.
-
 
 * non-existent workspace directories mentioned in the mvme.ini file are
   silently created. This is annoying when renaming a workspace and starting mvme again.
