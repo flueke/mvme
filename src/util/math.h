@@ -33,6 +33,12 @@ static constexpr double make_quiet_nan()
     return std::numeric_limits<double>::quiet_NaN();
 }
 
+// https://stackoverflow.com/a/4609795
+template <typename T> int sgn(T val)
+{
+    return (T(0) < val) - (val < T(0));
+}
+
 }
 }
 

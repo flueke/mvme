@@ -1,6 +1,7 @@
 #include "mvlc/trigger_io_dso.h"
 #include "mesytec-mvlc/mvlc_constants.h"
 #include "mesytec-mvlc/mvlc_dialog.h"
+#include "util/math.h"
 #include <chrono>
 
 #ifndef __WIN32
@@ -87,6 +88,23 @@ std::error_code read_dso(mvlc::MVLCDialog &mvlc, std::vector<u32> &dest)
 }
 }
 
+std::bitset<CombinedTriggerCount> combined_triggers(const DSOSetup &setup)
+{
+    std::bitset<CombinedTriggerCount> result;
+
+    assert(result.size() == setup.nimTriggers.size() + setup.irqTriggers.size());
+
+    size_t bitIndex = 0;
+
+    for (size_t i=0; i<setup.nimTriggers.size(); ++i, ++bitIndex)
+        result.set(bitIndex, setup.nimTriggers.test(i));
+
+    for (size_t i=0; i<setup.irqTriggers.size(); ++i, ++bitIndex)
+        result.set(bitIndex, setup.irqTriggers.test(i));
+
+    return result;
+}
+
 std::error_code acquire_dso_sample(
     mvlc::MVLC mvlc, DSOSetup setup,
     std::vector<u32> &dest,
@@ -157,7 +175,7 @@ std::error_code acquire_dso_sample(
     return {};
 }
 
-Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer)
+Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
 {
     using namespace std::chrono_literals;
 
@@ -217,6 +235,77 @@ Snapshot fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer)
     }
 
     return result;
+}
+
+/* Jitter elimination:
+ * - Look through the traces that are in the set of triggers.
+ * - In each trigger trace find the time of the Rising sample that's
+ *   closest to the preTriggerTime. Assume that this is the trace that was
+ *   the trigger.
+ * - From that closest time extract the 3 low bits. This is the jitter
+ *   value of the snapshot.
+ * - Subtract the jitter value from all samples of all traces in the snapshot.
+ */
+s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup)
+{
+    auto combinedTriggers = combined_triggers(dsoSetup);
+
+    // Adjusted by dsoSetup.preTriggerTime so a non-jittered trigger should
+    // have a value of 0.
+    s32 triggerTime = std::numeric_limits<s32>::max();
+
+    for (size_t traceIdx=0;
+         traceIdx<snapshot.size() && traceIdx < combinedTriggers.size();
+         traceIdx++)
+    {
+        if (!combinedTriggers.test(traceIdx))
+            continue;
+
+        auto &trace = snapshot[traceIdx];
+
+        for (auto &sample: trace)
+        {
+            if (sample.edge == Edge::Rising)
+            {
+                s32 tt = sample.time.count() - dsoSetup.preTriggerTime;
+                qDebug() << __PRETTY_FUNCTION__
+                    << "tt=" << tt
+                    << std::abs(triggerTime);
+                if (std::abs(tt) < std::abs(triggerTime))
+                    triggerTime = tt;
+            }
+        }
+    }
+
+    s32 jitterValue = (std::abs(triggerTime) & 0b111) * mvme::util::sgn(triggerTime);
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "triggerTime:" << triggerTime
+        << ", jitterValue:" << jitterValue;
+
+    return jitterValue;
+}
+
+void
+pre_process_dso_snapshot(
+    Snapshot &snapshot,
+    const DSOSetup &dsoSetup,
+    SampleTime extendToTime)
+{
+    // Jitter correction
+    s32 jitter = calculate_jitter_value(snapshot, dsoSetup);
+
+    if (jitter != 0)
+    {
+        for (auto &trace: snapshot)
+        {
+            for (auto &sample: trace)
+            {
+                if (sample.time != SampleTime::zero())
+                    sample.time = SampleTime(sample.time.count() - jitter);
+            }
+        }
+    }
 }
 
 } // end namespace trigger_io

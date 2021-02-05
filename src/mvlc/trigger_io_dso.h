@@ -52,6 +52,11 @@ struct LIBMVME_EXPORT DSOSetup
     std::bitset<Level0::IRQ_Inputs_Count> irqTriggers;
 };
 
+static const size_t CombinedTriggerCount = NIM_IO_Count + Level0::IRQ_Inputs_Count;
+
+LIBMVME_EXPORT std::bitset<CombinedTriggerCount>
+combined_triggers(const DSOSetup &setup);
+
 namespace data_format
 {
     static const u32 MatchBitsMask = 0b00;
@@ -99,7 +104,15 @@ acquire_dso_sample(
 
 // Fill a snapshot from a DSO buffer obtained via acquire_dso_sample().
 LIBMVME_EXPORT Snapshot
-fill_snapshot_from_mvlc_buffer(const std::vector<u32> &buffer);
+fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer);
+
+LIBMVME_EXPORT void
+pre_process_dso_snapshot(
+    Snapshot &snapshot,
+    const DSOSetup &dsoSetup,
+    SampleTime extendToTime = SampleTime::min());
+
+s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup);
 
 inline Edge invert(const Edge &e)
 {

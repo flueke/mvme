@@ -165,6 +165,11 @@ struct DSO_Sim_Result
     Sim sim;
 };
 
+// XXX: this is so ulgy and sim.sampledTraces can diverge from what was last
+// read into dsoBuffer. It has to as otherwise the whole gui will be populated
+// with the sim calculated from a possibly empty dsoBuffer instead of happily
+// displaying the previous good state. Handle the whole thing in a better way
+// if possible.
 DSO_Sim_Result run_dso_and_sim(
     mvlc::MVLC mvlc,
     DSOSetup dsoSetup,
@@ -183,10 +188,16 @@ DSO_Sim_Result run_dso_and_sim(
         return result;
     }
 
-    result.sim.sampledTraces = fill_snapshot_from_mvlc_buffer(
-        result.dsoBuffer);
+    auto sampledTraces = fill_snapshot_from_dso_buffer(result.dsoBuffer);
 
-    if (cancel || result.sim.sampledTraces.empty())
+    if (sampledTraces.empty())
+        return result;
+
+    pre_process_dso_snapshot(sampledTraces, dsoSetup, simMaxTime);
+
+    result.sim.sampledTraces = sampledTraces;
+
+    if (cancel)
         return result;
 
     simulate(result.sim, simMaxTime);
@@ -212,39 +223,55 @@ bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
     return false;
 }
 
-void show_debug_widget(const DSO_Sim_Result &dsoSimResult)
+void show_debug_widget(
+    const DSO_Sim_Result &dsoSimResult,
+    const DSOSetup &dsoSetup)
 {
     QString text;
     QTextStream out(&text);
 
     {
         const auto &dsoBuffer = dsoSimResult.dsoBuffer;
+        auto combinedTriggers = combined_triggers(dsoSetup);
+        auto jitter = calculate_jitter_value(dsoSimResult.sim.sampledTraces, dsoSetup);
 
         out << "<html><body><pre>";
+
+        out << "DSO setup: preTriggerTime=" << dsoSetup.preTriggerTime
+            << ", postTriggerTime=" << dsoSetup.postTriggerTime
+            << endl;
+
+        out << "Calculated jitter: " << jitter << endl;
 
         out << "DSO buffer (size=" << dsoBuffer.size() << "):"  << endl;
 
         for (size_t i=0; i<dsoBuffer.size(); ++i)
         {
-            out << QSL("%1:").arg(i, 3, 10, QLatin1Char(' '));
+            QString line = QSL("%1: ").arg(i, 3, 10, QLatin1Char(' '));
 
             u32 word = dsoBuffer[i];
 
-            out << QString("0x%1").arg(word, 8, 16, QLatin1Char('0'));
+            line += QString("0x%1").arg(word, 8, 16, QLatin1Char('0'));
 
             if (3 <= i && i < dsoBuffer.size() - 1)
             {
                 auto entry = extract_dso_entry(word);
 
-                out << "    "
-                    << (QSL("addr=%1, time=%2, edge=%3")
+                line +=  "    ";
+                line += (QSL("addr=%1, time=%2, edge=%3")
                         .arg(static_cast<unsigned>(entry.address), 2, 10, QLatin1Char(' '))
                         .arg(entry.time, 5, 10, QLatin1Char(' '))
                         .arg(static_cast<int>(entry.edge)))
                     ;
+
+                if (entry.address < combinedTriggers.size()
+                    && combinedTriggers.test(entry.address))
+                {
+                    line = "<i>" + line + "</i>";
+                }
             }
 
-            out << endl;
+            out << line << endl;
         }
 
         out << "-----" << endl;
@@ -401,7 +428,7 @@ struct DSOSimWidget::Private
             if (debugAction == DebugAction::Next)
             {
                 debugAction = {};
-                show_debug_widget(result);
+                show_debug_widget(result, this->dsoControlWidget->getDSOSetup());
             }
         }
 
