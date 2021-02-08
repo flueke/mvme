@@ -159,6 +159,8 @@ inline DSOBufferEntry extract_dso_entry(u32 dataWord)
     return result;
 }
 
+Edge edge_at(const Trace &trace, const SampleTime &t);
+
 } // end namespace trigger_io_dso
 } // end namespace mvme_mvlc
 } // end namespace mesytec

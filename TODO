@@ -4,18 +4,14 @@ TODO list
 
 * DSOPlotWidget
   - x-axis max sim time scaling: make x-axis scale user-settable
-  - setZoomBase handling when fulling zooming out (needed once x-axis scales to max sim time)
-  - vertical mouse hover bar showing the state of all traces
-  - special color or formatted text or line style for curves that are in the trigger set.
 
 * DSO+SIM
-- debug feature similar to mvlc buffer debug
 
 
 * DSO gui:
   - histogramming: could switch between osciolloscope and histogram view.
     draw rising and falling edge times in different colors.
-  - When modifying the trigIO the tree gets collapsed :(
+  - When modifying the trigIO the trace select tree gets collapsed :(
 
 * mvlc: modul machen, dass den timestamp counter0 buffer vom mvlc ausliest. Wo
   liegt der?

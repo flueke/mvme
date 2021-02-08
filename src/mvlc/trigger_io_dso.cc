@@ -308,6 +308,21 @@ pre_process_dso_snapshot(
     }
 }
 
+Edge edge_at(const Trace &trace, const SampleTime &t)
+{
+    Edge result = Edge::Falling;
+
+    for (const auto &sample: trace)
+    {
+        if (sample.time <= t)
+            result = sample.edge;
+        else
+            break;
+    }
+
+    return result;
+}
+
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
 } // end namespace mesytec

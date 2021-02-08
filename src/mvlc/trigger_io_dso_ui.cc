@@ -18,7 +18,8 @@
 #include <QTableWidget>
 #include <iterator>
 #include <QHeaderView>
-#include <qnamespace.h>
+#include <qwt_picker_machine.h>
+#include <qwt_symbol.h>
 
 #include "mesytec-mvlc/mvlc_error.h"
 #include "mesytec-mvlc/util/threadsafequeue.h"
@@ -153,12 +154,35 @@ struct DSOPlotWidget::Private
     QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setTraces()
     QwtInterval xAxisInterval;
     ScrollZoomer *zoomer;
+    QwtPlotPicker *mousePosPicker;
+    double lastMousePosPickerX = 0.0;
     std::unique_ptr<QwtPlotMarker> triggerTimeMarker;
 
     std::vector<QwtPlotCurve *> curves;
-
+    std::vector<QwtPlotMarker *> curveMarkers;
 
     void replot();
+
+    void updateCurveMarkers()
+    {
+        if (!mousePosPicker->isEnabled())
+            return;
+
+        for (size_t curveIdx = 0; curveIdx < curveMarkers.size(); ++curveIdx)
+        {
+            auto curve = curves[curveIdx];
+            auto scopeData = reinterpret_cast<const ScopeData *>(curve->data());
+            SampleTime st(lastMousePosPickerX + scopeData->preTriggerTime);
+            Edge edge = edge_at(scopeData->timeline, st);
+
+            auto marker = curveMarkers[curveIdx];
+            marker->setXValue(lastMousePosPickerX);
+            marker->setLabel(QwtText(QString::number(static_cast<int>(edge))));
+        }
+
+        this->replot();
+
+    }
 };
 
 DSOPlotWidget::DSOPlotWidget(QWidget *parent)
@@ -176,6 +200,32 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->zoomer = new ScrollZoomer(d->plot->canvas());
     d->zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     d->zoomer->setTrackerMode(QwtPicker::AlwaysOff);
+
+    // Draws a vertical line at the current cursor position and keep track of
+    // the cursor x-coordinate.
+    d->mousePosPicker = new QwtPlotPicker(d->plot->canvas());
+    d->mousePosPicker->setTrackerMode(QwtPicker::AlwaysOn);
+    d->mousePosPicker->setRubberBand(QwtPicker::VLineRubberBand);
+    {
+        QPen pen(Qt::black, 1.0, Qt::DotLine);
+        d->mousePosPicker->setRubberBandPen(pen);
+    }
+    d->mousePosPicker->setStateMachine(new QwtPickerTrackerMachine);
+
+    connect(d->mousePosPicker, &QwtPlotPicker::moved,
+            this, [this] (const QPointF &pos) {
+                d->lastMousePosPickerX = pos.x();
+                d->updateCurveMarkers();
+            });
+
+    connect(d->zoomer, &QwtPicker::activated,
+            this, [this] (bool zoomerActive)
+            {
+                d->mousePosPicker->setEnabled(!zoomerActive);
+                for (auto marker: d->curveMarkers)
+                    marker->setVisible(!zoomerActive);
+                d->replot();
+            });
 
     connect(d->zoomer, &QwtPlotZoomer::zoomed,
             this, [this] (const QRectF &) { d->replot(); });
@@ -227,9 +277,17 @@ void DSOPlotWidget::setTraces(
 
     d->curves.clear();
 
+    for (auto marker: d->curveMarkers)
+    {
+        marker->detach();
+        delete marker;
+    }
+
+    d->curveMarkers.clear();
+
     // Always create a new scale draw instance here otherwise the y axis does
     // not properly update (it does update when zooming, so it should be
-    // possible to keep the same instance). FIXME: fix this O.o
+    // possible to somehow keep the same instance). FIXME: fix this O.o
     auto yScaleDraw = std::make_unique<ScopeYScaleDraw>();
 
     QList<double> yTicks; // major ticks for the y scale
@@ -249,6 +307,13 @@ void DSOPlotWidget::setTraces(
         yTicks.push_back(yOffset);
         yScaleDraw->addScaleEntry(yOffset, name);
 
+        auto marker = new QwtPlotMarker;
+        marker->setYValue(yOffset + 0.5);
+        //marker->setSymbol(new QwtSymbol(QwtSymbol::Diamond));
+        marker->setLabelAlignment(Qt::AlignLeft | Qt::AlignCenter);
+        marker->attach(d->plot);
+        d->curveMarkers.push_back(marker);
+
         yOffset += yStep;
         ++idx;
     }
@@ -261,12 +326,11 @@ void DSOPlotWidget::setTraces(
     if (yScaleMaxValue < 10 * yStep)
         yScaleMaxValue = 10 * yStep;
 
-    // FIXME: the ScopeYScaleDraws seem to leak!
     d->plot->setAxisScaleDraw(QwtPlot::yLeft, yScaleDraw.release());
     d->yScaleDiv.setInterval(0.0, yScaleMaxValue);
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
 
-    d->replot();
+    d->updateCurveMarkers();
 }
 
 void DSOPlotWidget::setTriggerTraceInfo(const std::vector<bool> &isTriggerTrace)
