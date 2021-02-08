@@ -133,6 +133,8 @@ Level0::Level0()
     ioIRQ.fill({});
 }
 
+static const UnitConnection Dynamic = UnitConnection::makeDynamic();
+
 //
 // Level1
 //
@@ -145,7 +147,7 @@ const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticCo
         // L1.LUT1
         { { {0, 20}, {0, 21}, {0, 22}, {0, 23}, {0, 24}, {0, 25} } },
         // L1.LUT2
-        { { {0,  24}, {0,  25}, {0, 26}, {0, 27}, {0, 28}, {0, 29} }, },
+        { Dynamic, Dynamic, Dynamic, {0, 27}, {0, 28}, {0, 29} },
 
         // L1.LUT3
         { { {1, 0, 0}, {1, 0, 1}, {1, 0, 2}, {1, 1, 0}, {1, 1, 1}, {1, 1, 2} }, },
@@ -158,6 +160,13 @@ const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticCo
         // L1.LUT6
         { { {1, 2, 0}, {1, 2, 1}, {1, 2, 2}, {1, 5, 0}, {1, 5, 1}, {1, 5, 2} }, },
     },
+};
+
+const std::vector<UnitAddressVector> Level1::LUT2DynamicInputChoices =
+{
+    { { 0, 24 }, { 0, 30 } }, // nim8,  irq1
+    { { 0, 25 }, { 0, 31 } }, // nim9,  irq2
+    { { 0, 26 }, { 0, 32 } }, // nim10, irq3
 };
 
 Level1::Level1()
@@ -174,6 +183,8 @@ Level1::Level1()
             luts[unit].outputNames[output] = luts[unit].defaultOutputNames[output];
         }
     }
+
+    lut2Connections.fill({});
 }
 
 //
@@ -198,28 +209,28 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
         if (unit == 0)
         {
             // L2.LUT0 can connect to L1.LUT4
-            for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+            for (unsigned i = 0; i < LUT_DynamicInputCount; i++)
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 4, i });
         }
         else if (unit == 1)
         {
             // L2.LUT1 can connect to L1.LUT3
-            for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+            for (unsigned i = 0; i < LUT_DynamicInputCount; i++)
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 3, i });
         }
         else if (unit == 2) // new in FW0016
         {
             // L2.LUT2 can connect to L1.LUT4
-            for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+            for (unsigned i = 0; i < LUT_DynamicInputCount; i++)
                 result[unit].lutChoices[i].push_back(UnitAddress{ 1, 4, i });
         }
 
         // All L2 LUTs
-        for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+        for (unsigned i = 0; i < LUT_DynamicInputCount; i++)
             result[unit].lutChoices[i].push_back(UnitAddress{ 0, trigger_io::Level0::DAQStartOffset});
 
         // All L2 LUTs can connect to L1.LUT5 since FW0016
-        for (unsigned i = 0; i < Level2::LUT_DynamicInputCount; i++)
+        for (unsigned i = 0; i < LUT_DynamicInputCount; i++)
         {
             result[unit].lutChoices[i].push_back(UnitAddress{ 1, 6, 0 });
             result[unit].lutChoices[i].push_back(UnitAddress{ 1, 6, 1 });
@@ -255,8 +266,6 @@ std::array<Level2::LUTDynamicInputChoices, Level2::LUTCount> make_l2_input_choic
     return result;
 }
 } // end anon namespace
-
-static const UnitConnection Dynamic = UnitConnection::makeDynamic();
 
 // Using level 1 unit + output address values (basically full addresses
 // without the need for a Level1::OutputPinMapping).
@@ -572,6 +581,8 @@ unsigned get_connection_value(const TriggerIO &ioCfg, const UnitAddress &addr)
     {
         case 0:
         case 1:
+            if (addr[1] == 2)
+                return ioCfg.l1.lut2Connections[addr[2]];
             return 0;
 
         case 2:
@@ -594,6 +605,8 @@ UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddres
     {
         case 0:
         case 1:
+            if (addr[1] == 2 && addr[2] < LUT_DynamicInputCount)
+                return ioCfg.l1.LUT2DynamicInputChoices[addr[2]][conValue];
             return {};
 
         case 2:

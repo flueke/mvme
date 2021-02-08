@@ -358,6 +358,20 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += QString("L1.LUT%1").arg(unitIndex);
         ret += select_unit(1, unitIndex);
         ret += write_lut(kv.value());
+
+        if (unitIndex == 2)
+        {
+            const auto &inputChoices = Level1::LUT2DynamicInputChoices;
+
+            for (size_t input = 0; input < LUT_DynamicInputCount; ++input)
+            {
+                unsigned conValue = ioCfg.l1.lut2Connections[input];
+                UnitAddress conAddress = inputChoices[input][conValue];
+                u16 regOffset = input * 2;
+
+                ret += write_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
+            }
+        }
     }
 
     //
@@ -377,7 +391,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
 
         const auto &l2InputChoices = Level2::DynamicInputChoices[unitIndex];
 
-        for (size_t input = 0; input < Level2::LUT_DynamicInputCount; input++)
+        for (size_t input = 0; input < LUT_DynamicInputCount; input++)
         {
             unsigned conValue = ioCfg.l2.lutConnections[unitIndex][input];
             UnitAddress conAddress = l2InputChoices.lutChoices[input][conValue];
@@ -1074,6 +1088,16 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index();
             auto &unit = kv.value();
             unit = parse_lut(writes[unitIndex], unit.outputNames, unit.defaultOutputNames);
+
+            if (unitIndex == 2)
+            {
+                // dynamic input connections
+                for (size_t input = 0; input < LUT_DynamicInputCount; ++input)
+                {
+                    ioCfg.l1.lut2Connections[input] =
+                        writes[unitIndex][UnitConnectBase + 2 * input];
+                }
+            }
         }
     }
 
@@ -1089,7 +1113,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unit = parse_lut(writes[unitIndex], unit.outputNames, unit.defaultOutputNames);
 
             // dynamic input connections
-            for (size_t input = 0; input < Level2::LUT_DynamicInputCount; ++input)
+            for (size_t input = 0; input < LUT_DynamicInputCount; ++input)
             {
                 ioCfg.l2.lutConnections[unitIndex][input] =
                     writes[unitIndex][UnitConnectBase + 2 * input];

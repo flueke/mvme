@@ -1450,6 +1450,9 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             unsigned inputIndex = conkv.index();
             UnitConnection con = conkv.value();
 
+            if (con.isDynamic)
+                continue;
+
             auto sourceConnector = getOutputConnector(con.address);
             auto destConnector = getInputConnector({1, lutIndex, inputIndex});
 
@@ -1458,6 +1461,21 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                 addEdge(sourceConnector, destConnector);
                 addStaticConnectionEdge(sourceConnector, destConnector);
             }
+        }
+    }
+
+    // L1.LUT2 dynamic connections
+    for (unsigned input=0; input<LUT_DynamicInputCount; ++input)
+    {
+        unsigned conValue = ioCfg.l1.lut2Connections[input];
+        UnitAddress conAddress = Level1::LUT2DynamicInputChoices[input][conValue];
+
+        auto sourceConnector = getOutputConnector(conAddress);
+        auto destConnector = getInputConnector({1, 2, input});
+
+        if (sourceConnector && destConnector)
+        {
+            addEdge(sourceConnector, destConnector);
         }
     }
 
@@ -1492,7 +1510,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         unsigned unitIndex = lutkv.index();
         const auto &l2InputChoices = Level2::DynamicInputChoices[unitIndex];
 
-        for (unsigned input = 0; input < Level2::LUT_DynamicInputCount; input++)
+        for (unsigned input = 0; input < LUT_DynamicInputCount; input++)
         {
             unsigned conValue = ioCfg.l2.lutConnections[unitIndex][input];
             UnitAddress conAddress = l2InputChoices.lutChoices[input][conValue];
@@ -1834,7 +1852,17 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     // level1
     //
 
-    // nothing to do for now
+    // L1.LUT2 edge update
+    {
+        unsigned unitIndex = 2;
+        for (unsigned input=0; input < LUT::InputBits; input++)
+        {
+            UnitAddress addr {1, unitIndex, input};
+
+            update_connectors_and_edge(
+                ioCfg.l1.luts[unitIndex], addr, [] (const auto &) { return true; });
+        }
+    }
 
     //
     // level2
@@ -3413,7 +3441,7 @@ Level3 Level3UtilsDialog::getSettings() const
 
 LUTOutputEditor::LUTOutputEditor(
     const QVector<QStringList> &inputNameLists,
-    const Level2::DynamicConnections &dynamicInputValues,
+    const LUT_DynamicConnections &dynamicInputValues,
     QWidget *parent)
     : QWidget(parent)
     , m_outputFixedValueButton(new QPushButton(this))
@@ -3774,7 +3802,18 @@ LUTEditor::LUTEditor(
     const QString &lutName,
     const LUT &lut,
     const QVector<QStringList> &inputNameLists,
-    const Level2::DynamicConnections &dynConValues,
+    const LUT_DynamicConnections &dynConValues,
+    const QStringList &outputNames,
+    QWidget *parent)
+    : LUTEditor(lutName, lut, inputNameLists, dynConValues, outputNames, {}, 0u, {}, {}, parent)
+{
+}
+
+LUTEditor::LUTEditor(
+    const QString &lutName,
+    const LUT &lut,
+    const QVector<QStringList> &inputNameLists,
+    const LUT_DynamicConnections &dynConValues,
     const QStringList &outputNames,
     const QStringList &strobeInputNames,
     unsigned strobeConValue,
@@ -3971,9 +4010,9 @@ QStringList LUTEditor::getOutputNames() const
     return ret;
 }
 
-Level2::DynamicConnections LUTEditor::getDynamicConnectionValues()
+LUT_DynamicConnections LUTEditor::getDynamicConnectionValues()
 {
-    Level2::DynamicConnections ret = {};
+    LUT_DynamicConnections ret = {};
 
     for (size_t input = 0; input < ret.size(); input++)
         ret[input] = m_inputSelectCombos[input]->currentIndex();

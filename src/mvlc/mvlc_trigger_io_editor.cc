@@ -117,19 +117,22 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         {
             const auto &connections = Level1::StaticConnections[unit];
 
-            for (auto address: connections)
+            for (size_t inputIndex = 0; inputIndex < connections.size(); inputIndex++)
             {
-                // handles static Level1 -> Level0 connections
-                if (address[0] == 0)
+                auto &con = connections[inputIndex];
+
+                if (!con.isDynamic)
                 {
-                    inputNameLists.push_back(
-                        {ioCfg.l0.unitNames.value(address[1])});
+                    auto name = lookup_name(ioCfg, con.address);
+                    inputNameLists.push_back({name});
                 }
-                // handles internal Level1 connections
-                else if (address[0] == 1)
+                else
                 {
-                    inputNameLists.push_back(
-                        {ioCfg.l1.luts[address[1]].outputNames[address[2]]});
+                    assert(unit == 2);
+                    QStringList choiceNames;
+                    for (auto &address: Level1::LUT2DynamicInputChoices[inputIndex])
+                        choiceNames.push_back(lookup_name(ioCfg, address));
+                    inputNameLists.push_back(choiceNames);
                 }
             }
         }
@@ -195,12 +198,26 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         if (level == 1)
         {
-            lutEditor = std::make_unique<LUTEditor>(
-                lutName,
-                ioCfg.l1.luts[unit],
-                inputNameLists, outputNames,
-                this);
-            lutEditor->resize(850, 650);
+            if (unit == 2)
+            {
+                lutEditor = std::make_unique<LUTEditor>(
+                    lutName,
+                    ioCfg.l1.luts[unit],
+                    inputNameLists,
+                    ioCfg.l1.lut2Connections,
+                    outputNames,
+                    this);
+                lutEditor->resize(850, 1000);
+            }
+            else
+            {
+                lutEditor = std::make_unique<LUTEditor>(
+                    lutName,
+                    ioCfg.l1.luts[unit],
+                    inputNameLists, outputNames,
+                    this);
+                lutEditor->resize(850, 650);
+            }
         }
         else if (level == 2)
         {
@@ -241,6 +258,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             std::copy_n(outputNames.begin(), count, lut->outputNames.begin());
 
             lut->lutContents = lutEditor->getLUTContents();
+
+            if (level == 1 && unit == 2)
+            {
+                ioCfg.l1.lut2Connections = lutEditor->getDynamicConnectionValues();
+            }
 
             if (level == 2)
             {

@@ -793,7 +793,7 @@ class LUTOutputEditor: public QWidget
     public:
         LUTOutputEditor(
             const QVector<QStringList> &inputNameLists = {},
-            const Level2::DynamicConnections &dynConValues = {},
+            const LUT_DynamicConnections &dynConValues = {},
             QWidget *parent = nullptr);
 
         // LUT mapping for the output bit being edited
@@ -831,12 +831,21 @@ class LUTEditor: public QDialog
             const QStringList &outputNames,
             QWidget *parent = nullptr);
 
+        // LUT with dynamic input choices but no strobe
+        LUTEditor(
+            const QString &lutName,
+            const LUT &lut,
+            const QVector<QStringList> &inputNameLists,
+            const LUT_DynamicConnections &dynConValues,
+            const QStringList &outputNames,
+            QWidget *parent = nullptr);
+
         // LUT with strobe inputs
         LUTEditor(
             const QString &lutName,
             const LUT &lut,
             const QVector<QStringList> &inputNameLists,
-            const Level2::DynamicConnections &dynConValues,
+            const LUT_DynamicConnections &dynConValues,
             const QStringList &outputNames,
             const QStringList &strobeInputChoiceNames,
             unsigned strobeConValue,
@@ -846,7 +855,7 @@ class LUTEditor: public QDialog
 
         LUT::Contents getLUTContents() const;
         QStringList getOutputNames() const;
-        Level2::DynamicConnections getDynamicConnectionValues();
+        LUT_DynamicConnections getDynamicConnectionValues();
 
         unsigned getStrobeConnectionValue();
         trigger_io::IO getStrobeSettings();

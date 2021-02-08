@@ -253,6 +253,9 @@ struct LIBMVME_EXPORT Level0
     Level0();
 };
 
+static const size_t LUT_DynamicInputCount = 3;
+using LUT_DynamicConnections = std::array<unsigned, LUT_DynamicInputCount>;
+
 struct LIBMVME_EXPORT Level1
 {
     static const size_t LUTCount = 7;
@@ -260,22 +263,25 @@ struct LIBMVME_EXPORT Level1
 
     std::array<LUT, LUTCount> luts;
 
+    static const std::vector<UnitAddressVector> LUT2DynamicInputChoices;
+
+    // The first 3 inputs of L1.LUT2 have dynamic connections. The selected
+    // value is stored here.
+    LUT_DynamicConnections lut2Connections;
+
     Level1();
 };
 
 struct LIBMVME_EXPORT Level2
 {
-    static const size_t LUTCount = 3;
-    static const std::array<LUT_Connections, LUTCount> StaticConnections;
-    static const size_t LUT_DynamicInputCount = 3;
-
-    using DynamicConnections = std::array<unsigned, LUT_DynamicInputCount>;
-
     struct LUTDynamicInputChoices
     {
         std::vector<UnitAddressVector> lutChoices;
         UnitAddressVector strobeChoices;
     };
+
+    static const size_t LUTCount = 3;
+    static const std::array<LUT_Connections, LUTCount> StaticConnections;
 
     // List of possible input connection choices per LUT (including the LUTs
     // strobe GG input).
@@ -285,7 +291,7 @@ struct LIBMVME_EXPORT Level2
 
     // The first 3 inputs of each LUT have dynamic connections. The selected
     // value is stored here.
-    std::array<DynamicConnections, LUTCount> lutConnections;
+    std::array<LUT_DynamicConnections, LUTCount> lutConnections;
 
     // The strobe GG is also dynamically connected.
     std::array<unsigned, trigger_io::Level2::LUTCount> strobeConnections;
