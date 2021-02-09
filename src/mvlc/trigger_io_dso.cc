@@ -229,12 +229,35 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
         // make plotting work just like for the non-overflow case.
         // TODO: use the overflow information somewhere? Keep the 1 and handle
         // it in some upper layer?
+        /*
         if (timeline.size() == 1)
             if (timeline[0].time == 1ns)
                 timeline[0].time = 0ns;
+        */
     }
 
     return result;
+}
+
+void extend_traces_to_post_trigger(Snapshot &snapshot, const DSOSetup &dsoSetup)
+{
+    SampleTime extendTo(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
+
+    for (auto &trace: snapshot)
+    {
+        if (trace.empty())
+            continue;
+
+        if (trace.back().time < extendTo)
+        {
+            Edge edge = trace.back().edge;
+
+            if (has_overflow_marker(trace))
+                edge = Edge::Unknown;
+
+            trace.push_back({ extendTo, edge });
+        }
+    }
 }
 
 /* Jitter elimination:
@@ -246,6 +269,7 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
  *   value of the snapshot.
  * - Subtract the jitter value from all samples of all traces in the snapshot.
  */
+#if 0
 s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup)
 {
     auto combinedTriggers = combined_triggers(dsoSetup);
