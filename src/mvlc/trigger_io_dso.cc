@@ -309,6 +309,49 @@ s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup)
 
     return jitterValue;
 }
+#else
+/* Korrektur des Flankenjitters der Triggerflanke:
+ * Von der pretrigger_time werden die untersten 3 Bits nicht verwendet. Sie
+ * darf aber schon auf jeden Wert gesetzt werden, es spielt keine Rolle.Also
+ * für alle Berechnungen die untersten 3 Bits auf 000 setzen.
+ * - nach pretrigger_time [15:3] == edge_time[15:3] suchen. (Es muß eine
+ *   steigende Flanke sein, sonst sind die Daten kaputt)
+ * - Wert der untersten 3Bits dieser gefundenen trigger edge time von allen
+ *   edge times des gleichen trails abzienen. Der trigger edge liegt jetzt auf
+ *   0, die anderen Flanken sind korrigiert.
+ */
+std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup)
+{
+    auto combinedTriggers = combined_triggers(dsoSetup);
+
+    const unsigned maskedPreTrig = dsoSetup.preTriggerTime & (~0b111);
+
+    for (size_t traceIdx=0;
+         traceIdx<snapshot.size() && traceIdx < combinedTriggers.size();
+         traceIdx++)
+    {
+        if (!combinedTriggers.test(traceIdx))
+            continue;
+
+        auto &trace = snapshot[traceIdx];
+
+        for (auto &sample: trace)
+        {
+            if (sample.edge == Edge::Rising)
+            {
+                unsigned maskedSampleTime = static_cast<unsigned>(sample.time.count()) & (~0b111);
+
+                if (maskedPreTrig == maskedSampleTime)
+                {
+                    return std::make_pair(static_cast<unsigned>(sample.time.count()) & 0b111, true);
+                }
+            }
+        }
+    }
+
+    return std::make_pair(0u, false);
+}
+#endif
 
 void
 pre_process_dso_snapshot(
@@ -317,7 +360,8 @@ pre_process_dso_snapshot(
     SampleTime extendToTime)
 {
     // Jitter correction
-    s32 jitter = calculate_jitter_value(snapshot, dsoSetup);
+    auto jitterResult = calculate_jitter_value(snapshot, dsoSetup);
+    unsigned jitter = jitterResult.first;
 
     if (jitter != 0)
     {

@@ -41,7 +41,8 @@ using namespace trigger_io;
 enum class Edge
 {
     Falling = 0,
-    Rising = 1
+    Rising = 1,
+    Unknown = 2,
 };
 
 struct LIBMVME_EXPORT DSOSetup
@@ -76,6 +77,8 @@ namespace data_format
 // are used for the simulation code. This could be changed to signed integers
 // (signed to make time based calculations behave properly) if needed.
 using SampleTime = std::chrono::duration<float, std::chrono::nanoseconds::period>;
+// TODO: try
+// using SampleTime = std::chrono::duration<s64, std::chrono::nanoseconds::period>;
 
 struct LIBMVME_EXPORT Sample
 {
@@ -106,17 +109,30 @@ acquire_dso_sample(
 LIBMVME_EXPORT Snapshot
 fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer);
 
+// Extend traces to dsoSetup.postTriggerTime. If a trace starts with an
+// overflow marker it is extended using Edge::Unknown, otherwise the last edges
+// value in the trace is used to extend to postTriggerTime.
+LIBMVME_EXPORT void
+extend_traces_to_post_trigger(Snapshot &snapshot, const DSOSetup &dsoSetup);
+
 LIBMVME_EXPORT void
 pre_process_dso_snapshot(
     Snapshot &snapshot,
     const DSOSetup &dsoSetup,
     SampleTime extendToTime = SampleTime::min());
 
-s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup);
+//s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup);
+std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup);
 
 inline Edge invert(const Edge &e)
 {
-    return (e == Edge::Falling ? Edge::Rising : Edge::Falling);
+    if (e == Edge::Falling)
+        return Edge::Rising;
+
+    if (e == Edge::Rising)
+        return Edge::Falling;
+
+    return e;
 }
 
 inline const char *to_string(const Edge &e)
@@ -125,6 +141,7 @@ inline const char *to_string(const Edge &e)
     {
         case Edge::Falling: return "falling";
         case Edge::Rising: return "rising";
+        case Edge::Unknown: return "unknown";
     }
 
     return {};
@@ -160,6 +177,13 @@ inline DSOBufferEntry extract_dso_entry(u32 dataWord)
 }
 
 Edge edge_at(const Trace &trace, const SampleTime &t);
+
+inline bool has_overflow_marker(const Trace &trace)
+{
+    if (!trace.empty())
+        return trace.front().time == SampleTime(1);
+    return false;
+}
 
 } // end namespace trigger_io_dso
 } // end namespace mvme_mvlc
