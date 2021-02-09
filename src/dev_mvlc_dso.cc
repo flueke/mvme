@@ -122,22 +122,43 @@ int main(int argc, char *argv[])
     simPlot0.show();
 #endif
 
-    Trace trace =
+    Snapshot traces =
     {
-        {  0ns, Edge::Falling },
-        { 200ns, Edge::Rising },
-        { 210ns, Edge::Falling },
-        { 220ns, Edge::Rising },
-        { 230ns, Edge::Falling },
+        {
+            {  0ns, Edge::Falling },
+            { 50ns, Edge::Rising },
+            { 60ns, Edge::Falling },
+            { 70ns, Edge::Rising },
+            { 80ns, Edge::Falling },
+        },
+
+        {
+            {  0ns, Edge::Falling },
+            { 50ns, Edge::Rising },
+            { 60ns, Edge::Falling },
+            { 70ns, Edge::Rising },
+            { 80ns, Edge::Unknown },
+            { 90ns, Edge::Unknown },
+        },
     };
 
-    unsigned preTriggerTime = 200;
-    DSOPlotWidget plotWidget;
-    plotWidget.setTraces(
-        { trace },
-        preTriggerTime);
-    plotWidget.show();
+    QStringList traceNames =
+    {
+        "basic",
+        "with_unknown"
+    };
 
+    DSOSetup dsoSetup;
+    dsoSetup.preTriggerTime = 50;
+    dsoSetup.postTriggerTime = 150;
+
+    extend_traces_to_post_trigger(traces, dsoSetup);
+
+    DSOPlotWidget plotWidget;
+    plotWidget.setXInterval(-1.0 * dsoSetup.preTriggerTime, dsoSetup.postTriggerTime);
+    plotWidget.setTraces(traces, dsoSetup.preTriggerTime, traceNames);
+
+    plotWidget.show();
 
     int ret = app.exec();
     return ret;

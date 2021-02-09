@@ -233,7 +233,7 @@ void show_debug_widget(
     {
         const auto &dsoBuffer = dsoSimResult.dsoBuffer;
         auto combinedTriggers = combined_triggers(dsoSetup);
-        auto jitter = calculate_jitter_value(dsoSimResult.sim.sampledTraces, dsoSetup);
+        auto jitter = calculate_jitter_value(dsoSimResult.sim.sampledTraces, dsoSetup).first;
 
         out << "<html><body><pre>";
 
@@ -380,7 +380,7 @@ struct DSOSimWidget::Private
         std::reverse(std::begin(isTriggerTrace), std::end(isTriggerTrace));
 
         this->dsoPlotWidget->setXInterval(
-            -dsoSetup.preTriggerTime, getSimMaxTime().count());
+            -1.0 * dsoSetup.preTriggerTime, getSimMaxTime().count());
 
         this->dsoPlotWidget->setTraces(
             traces, dsoSetup.preTriggerTime, traceNames);

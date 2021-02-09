@@ -91,16 +91,61 @@ struct ScopeData: public QwtSeriesData<QPointF>
             double time = timeline[i].time.count() - preTriggerTime;
             //qDebug() << __PRETTY_FUNCTION__ << time;
             double value = static_cast<double>(timeline[i].edge);
+            if (timeline[i].edge == Edge::Unknown)
+                value = 0.5;
             return { time, value + yOffset };
         }
 
         return {};
     }
 
+    Edge sampleEdge(size_t i) const
+    {
+        if (i < timeline.size())
+            return timeline[i].edge;
+        return Edge::Unknown;
+    }
+
     trigger_io_dso::Trace timeline;
     double preTriggerTime;
     double yOffset;
 
+};
+
+class ScopeCurve: public QwtPlotCurve
+{
+    public:
+        using QwtPlotCurve::QwtPlotCurve;
+
+    protected:
+        void drawSteps(
+            QPainter *painter,
+            const QwtScaleMap &xMap,
+            const QwtScaleMap &yMap,
+            const QRectF &canvasRect,
+            int from,
+            int to
+            ) const override
+        {
+            auto sd = reinterpret_cast<const ScopeData *>(data());
+
+            int unknownSamples = 0;
+
+            for (int i=to-1; i>=from; --i)
+            {
+                if (sd->sampleEdge(i) == Edge::Unknown)
+                    ++unknownSamples;
+            }
+
+            //qDebug() << __PRETTY_FUNCTION__ << "from=" << from << ", to=" << to
+            //    << "unknownSamples=" << unknownSamples;
+
+            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, to-unknownSamples);
+
+            painter->setPen(Qt::darkRed);
+
+            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, to-unknownSamples, to);
+        }
 };
 
 // Draws names instead of numeric coordinate values on the y axis.
@@ -145,6 +190,23 @@ class ScopeYScaleDraw: public QwtScaleDraw
         std::vector<Entry> m_data;
 };
 
+namespace
+{
+QString edge_to_marker_text(Edge edge)
+{
+    switch (edge)
+    {
+        case Edge::Falling:
+            return "0";
+        case Edge::Rising:
+            return "1";
+        case Edge::Unknown:
+            return "unk";
+        }
+    return {};
+}
+}
+
 struct DSOPlotWidget::Private
 {
     constexpr static const double YSpacing = 0.5;
@@ -158,7 +220,7 @@ struct DSOPlotWidget::Private
     double lastMousePosPickerX = 0.0;
     std::unique_ptr<QwtPlotMarker> triggerTimeMarker;
 
-    std::vector<QwtPlotCurve *> curves;
+    std::vector<ScopeCurve *> curves;
     std::vector<QwtPlotMarker *> curveMarkers;
 
     void replot();
@@ -177,11 +239,10 @@ struct DSOPlotWidget::Private
 
             auto marker = curveMarkers[curveIdx];
             marker->setXValue(lastMousePosPickerX);
-            marker->setLabel(QwtText(QString::number(static_cast<int>(edge))));
+            marker->setLabel(QwtText(edge_to_marker_text(edge)));
         }
 
         this->replot();
-
     }
 };
 
@@ -247,9 +308,9 @@ DSOPlotWidget::~DSOPlotWidget()
     d->triggerTimeMarker->detach();
 }
 
-std::unique_ptr<QwtPlotCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData, const QString &curveName)
+std::unique_ptr<ScopeCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData, const QString &curveName)
 {
-    auto curve = std::make_unique<QwtPlotCurve>(curveName);
+    auto curve = std::make_unique<ScopeCurve>(curveName);
     curve->setData(scopeData);
     curve->setStyle(QwtPlotCurve::Steps);
     curve->setCurveAttribute(QwtPlotCurve::Inverted);
@@ -369,9 +430,13 @@ void DSOPlotWidget::Private::replot()
     if (zoomer->zoomRectIndex() == 0)
     {
         if (xAxisInterval.isValid())
+        {
             plot->setAxisScale(QwtPlot::xBottom, xAxisInterval.minValue(), xAxisInterval.maxValue());
+        }
         else
+        {
             plot->setAxisAutoScale(QwtPlot::xBottom);
+        }
 
         zoomer->setZoomBase(true);
     }
