@@ -1479,6 +1479,23 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
         }
     }
 
+    // L1.LUT2 static edges for the dynamic connections (a special case)
+    for (unsigned input=0; input<LUT_DynamicInputCount; ++input)
+    {
+        const auto &choices = Level1::LUT2DynamicInputChoices[input];
+
+        for (const auto &srcAddr: choices)
+        {
+            auto sourceConnector = getOutputConnector(srcAddr);
+            auto destConnector = getInputConnector({1, 2, input});
+
+        if (sourceConnector && destConnector)
+        {
+            addStaticConnectionEdge(sourceConnector, destConnector);
+        }
+        }
+    }
+
     // static level 2 connections
     for (const auto &lutkv: Level2::StaticConnections | indexed(0))
     {
