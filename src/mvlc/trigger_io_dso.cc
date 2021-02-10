@@ -239,10 +239,8 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
     return result;
 }
 
-void extend_traces_to_post_trigger(Snapshot &snapshot, const DSOSetup &dsoSetup)
+void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
 {
-    SampleTime extendTo(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
-
     for (auto &trace: snapshot)
     {
         if (trace.empty())
@@ -258,6 +256,12 @@ void extend_traces_to_post_trigger(Snapshot &snapshot, const DSOSetup &dsoSetup)
             trace.push_back({ extendTo, edge });
         }
     }
+}
+
+void extend_traces_to_post_trigger(Snapshot &snapshot, const DSOSetup &dsoSetup)
+{
+    SampleTime extendTo(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
+    extend_traces_to(snapshot, extendTo);
 }
 
 /* Jitter elimination:
@@ -367,13 +371,24 @@ pre_process_dso_snapshot(
     {
         for (auto &trace: snapshot)
         {
+            // Never correct the first sample: it is either 0 or 1 to indicate
+            // overflow.
+            bool isFirstSample = true;
+
             for (auto &sample: trace)
             {
-                if (sample.time != SampleTime::zero())
+                if (!isFirstSample && sample.time != SampleTime::zero())
                     sample.time = SampleTime(sample.time.count() - jitter);
+
+                isFirstSample = false;
             }
         }
     }
+
+    if (extendToTime == SampleTime::zero())
+        extendToTime = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
+
+    extend_traces_to(snapshot, extendToTime);
 }
 
 Edge edge_at(const Trace &trace, const SampleTime &t)

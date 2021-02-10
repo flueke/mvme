@@ -137,8 +137,9 @@ class ScopeCurve: public QwtPlotCurve
                     ++unknownSamples;
             }
 
-            //qDebug() << __PRETTY_FUNCTION__ << "from=" << from << ", to=" << to
-            //    << "unknownSamples=" << unknownSamples;
+            qDebug() << __PRETTY_FUNCTION__ << "from=" << from << ", to=" << to
+                << "unknownSamples=" << unknownSamples
+                << ", #samples=" << sd->size();
 
             QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, to-unknownSamples);
 
