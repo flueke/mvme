@@ -332,6 +332,8 @@ struct DSOSimWidget::Private
     DSOPlotWidget *dsoPlotWidget;
     QLabel *label_status;
 
+    std::unique_lock<mvlc::Mutex> errPollerLock;
+
     void onTriggerIOModified()
     {
         auto trigIO = parse_trigger_io_script_text(this->trigIOScript->getScriptContents());
@@ -393,6 +395,10 @@ struct DSOSimWidget::Private
         if (this->resultWatcher.isRunning())
             return;
 
+        // Suspend the stack error poller so that it doesn't read any DSO
+        // samples off the command pipe. The lock is unlocked in
+        // onDSOSimRunFinished().
+        errPollerLock = mvlc.suspendStackErrorPolling();
         this->cancelDSO = false;
         this->dsoControlWidget->setDSOActive(true);
         this->stats = {};
@@ -446,7 +452,10 @@ struct DSOSimWidget::Private
         if (!this->cancelDSO && interval != std::chrono::milliseconds::zero())
             QTimer::singleShot(interval, q, [this] () { runDSO(); });
         else
+        {
+            errPollerLock.unlock();
             this->dsoControlWidget->setDSOActive(false);
+        }
 
         updateStatusLabel();
     }
