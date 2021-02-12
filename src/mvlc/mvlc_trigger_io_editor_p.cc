@@ -2878,7 +2878,7 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
 
             auto spin_irqIndex = new QSpinBox;
-            spin_irqIndex->setRange(1, 7);
+            spin_irqIndex->setRange(1, 10);
             spin_irqIndex->setValue(l0.irqUnits[row].irqIndex + 1);
 
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
