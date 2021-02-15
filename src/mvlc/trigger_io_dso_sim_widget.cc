@@ -439,7 +439,7 @@ struct DSOSimWidget::Private
         std::reverse(std::begin(isTriggerTrace), std::end(isTriggerTrace));
 
         this->dsoPlotWidget->setXInterval(
-            -1.0 * dsoSetup.preTriggerTime, getSimMaxTime().count());
+            -1.0 * dsoSetup.preTriggerTime, getSimMaxTime().count() - dsoSetup.preTriggerTime);
 
         this->dsoPlotWidget->setTraces(
             traces, dsoSetup.preTriggerTime, traceNames);
