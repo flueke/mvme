@@ -19,6 +19,9 @@ namespace trigger_io_dso
 class LIBMVME_EXPORT DSOPlotWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void traceClicked(const Trace &trace, const QString &name);
+
     public:
         DSOPlotWidget(QWidget *parent = nullptr);
         ~DSOPlotWidget() override;

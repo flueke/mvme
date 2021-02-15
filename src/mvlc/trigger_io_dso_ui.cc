@@ -48,11 +48,11 @@ namespace trigger_io_dso
 struct ScopeData: public QwtSeriesData<QPointF>
 {
     ScopeData(
-        const Trace &timeline,
+        const Trace &trace,
         const double preTriggerTime,
         const double yOffset
         )
-        : timeline(timeline)
+        : trace(trace)
         , preTriggerTime(preTriggerTime)
         , yOffset(yOffset)
     {
@@ -66,10 +66,10 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     QRectF boundingRect() const override
     {
-        if (!timeline.empty())
+        if (!trace.empty())
         {
-            double tMin = timeline.front().time.count() - preTriggerTime;
-            double tMax = timeline.back().time.count() - preTriggerTime;
+            double tMin = trace.front().time.count() - preTriggerTime;
+            double tMax = trace.back().time.count() - preTriggerTime;
             double tRange = tMax - tMin;
             auto result = QRectF(tMin, yOffset, tRange, 1.0);
             //qDebug() << __PRETTY_FUNCTION__ << "result=" << result;
@@ -81,17 +81,17 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     size_t size() const override
     {
-        return timeline.size();
+        return trace.size();
     }
 
     QPointF sample(size_t i) const override
     {
-        if (i < timeline.size())
+        if (i < trace.size())
         {
-            double time = timeline[i].time.count() - preTriggerTime;
+            double time = trace[i].time.count() - preTriggerTime;
             //qDebug() << __PRETTY_FUNCTION__ << time;
-            double value = static_cast<double>(timeline[i].edge);
-            if (timeline[i].edge == Edge::Unknown)
+            double value = static_cast<double>(trace[i].edge);
+            if (trace[i].edge == Edge::Unknown)
                 value = 0.5;
             return { time, value + yOffset };
         }
@@ -101,12 +101,17 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     Edge sampleEdge(size_t i) const
     {
-        if (i < timeline.size())
-            return timeline[i].edge;
+        if (i < trace.size())
+            return trace[i].edge;
         return Edge::Unknown;
     }
 
-    trigger_io_dso::Trace timeline;
+    QwtInterval interval() const
+    {
+        return QwtInterval(yOffset, 1.0);
+    }
+
+    trigger_io_dso::Trace trace;
     double preTriggerTime;
     double yOffset;
 
@@ -116,6 +121,11 @@ class ScopeCurve: public QwtPlotCurve
 {
     public:
         using QwtPlotCurve::QwtPlotCurve;
+
+        const ScopeData *scopeData() const
+        {
+            return reinterpret_cast<const ScopeData *>(data());
+        }
 
     protected:
         void drawSteps(
@@ -127,7 +137,7 @@ class ScopeCurve: public QwtPlotCurve
             int to
             ) const override
         {
-            auto sd = reinterpret_cast<const ScopeData *>(data());
+            auto sd = scopeData();
 
             int unknownSamples = 0;
 
@@ -145,7 +155,7 @@ class ScopeCurve: public QwtPlotCurve
 
             painter->setPen(Qt::darkRed);
 
-            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, to-unknownSamples, to);
+            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, (to-unknownSamples)+1, to);
         }
 };
 
@@ -212,6 +222,7 @@ struct DSOPlotWidget::Private
 {
     constexpr static const double YSpacing = 0.5;
 
+    DSOPlotWidget *q;
     QwtPlot *plot;
     QwtPlotGrid *grid;
     QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setTraces()
@@ -236,7 +247,7 @@ struct DSOPlotWidget::Private
             auto curve = curves[curveIdx];
             auto scopeData = reinterpret_cast<const ScopeData *>(curve->data());
             SampleTime st(lastMousePosPickerX + scopeData->preTriggerTime);
-            Edge edge = edge_at(scopeData->timeline, st);
+            Edge edge = edge_at(scopeData->trace, st);
 
             auto marker = curveMarkers[curveIdx];
             marker->setXValue(lastMousePosPickerX);
@@ -245,12 +256,29 @@ struct DSOPlotWidget::Private
 
         this->replot();
     }
+
+    void onYScaleClicked(double yValue)
+    {
+        for (size_t curveIdx = 0; curveIdx < curves.size(); ++curveIdx)
+        {
+            auto curve = curves[curveIdx];
+            auto scopeData = curve->scopeData();
+
+            if (scopeData->interval().contains(yValue))
+            {
+                auto name = curve->title().text();
+                const auto &trace = scopeData->trace;
+                emit q->traceClicked(trace, name);
+            }
+        }
+    }
 };
 
 DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    d->q = this;
     d->plot = new QwtPlot;
     d->plot->setCanvasBackground(QBrush(Qt::white));
 
@@ -259,7 +287,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->grid->setPen(Qt::darkGreen, 0.0, Qt::DotLine);
     d->grid->attach(d->plot);
 
-    d->zoomer = new ScrollZoomer(d->plot->canvas());
+    d->zoomer = new ScrollZoomer(d->plot->canvas()); // Note: canvas is also the zoomers parent
     d->zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     d->zoomer->setTrackerMode(QwtPicker::AlwaysOff);
 
@@ -299,6 +327,15 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->triggerTimeMarker->setLinePen(QColor("black"), 0, Qt::DashDotLine );
     d->triggerTimeMarker->setLabel(QwtText("\nTrigger"));
     d->triggerTimeMarker->attach(d->plot);
+
+    auto scalePicker = new ScalePicker(d->plot);
+    connect(scalePicker, &ScalePicker::clicked,
+            this, [this] (int axis, double value)
+            {
+                //qDebug() << __PRETTY_FUNCTION__ << axis << value;
+                if (axis == QwtPlot::yLeft)
+                    d->onYScaleClicked(value);
+            });
 
     auto layout = make_vbox<0, 0>(this);
     layout->addWidget(d->plot);
@@ -357,7 +394,7 @@ void DSOPlotWidget::setTraces(
     const double yStep = 1.0 + Private::YSpacing;
     int idx = 0;
 
-    for (auto trace: snapshot)
+    for (const auto &trace: snapshot)
     {
         auto scopeData = new ScopeData(trace, preTriggerTime, yOffset);
 
@@ -369,9 +406,9 @@ void DSOPlotWidget::setTraces(
         yTicks.push_back(yOffset);
         yScaleDraw->addScaleEntry(yOffset, name);
 
+        // Horizontal 0 marker for the trace.
         auto marker = new QwtPlotMarker;
         marker->setYValue(yOffset + 0.5);
-        //marker->setSymbol(new QwtSymbol(QwtSymbol::Diamond));
         marker->setLabelAlignment(Qt::AlignLeft | Qt::AlignCenter);
         marker->attach(d->plot);
         d->curveMarkers.push_back(marker);
