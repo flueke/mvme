@@ -223,7 +223,7 @@ if(MVME_ENABLE_MVLC)
     add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
     target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
 
-    if(BUILD_TESTS)
+    if(MVME_BUILD_TESTS)
         function(add_mvlc_gtest exe_name exe_source)
             add_executable(${exe_name} ${exe_source})
             add_dependencies(${exe_name} libmvme_mvlc)
@@ -232,7 +232,7 @@ if(MVME_ENABLE_MVLC)
         endfunction(add_mvlc_gtest)
         add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
         add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
-    endif(BUILD_TESTS)
+    endif(MVME_BUILD_TESTS)
 endif(MVME_ENABLE_MVLC)
 
 #
@@ -567,7 +567,7 @@ if (NOT WIN32)
         LIBRARY DESTINATION lib)
 endif (NOT WIN32)
 
-if(BUILD_TESTS)
+if(MVME_BUILD_TESTS)
 
     function(add_mvme_gtest exe_name exe_source)
         add_executable(${exe_name} ${exe_source})
@@ -591,6 +591,6 @@ if(BUILD_TESTS)
 
     add_mvme_executable(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
-endif(BUILD_TESTS)
+endif(MVME_BUILD_TESTS)
 
 # vim:tw=0
