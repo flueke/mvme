@@ -137,9 +137,9 @@ class ScopeCurve: public QwtPlotCurve
                     ++unknownSamples;
             }
 
-            qDebug() << __PRETTY_FUNCTION__ << "from=" << from << ", to=" << to
-                << "unknownSamples=" << unknownSamples
-                << ", #samples=" << sd->size();
+            //qDebug() << __PRETTY_FUNCTION__ << "from=" << from << ", to=" << to
+            //    << "unknownSamples=" << unknownSamples
+            //    << ", #samples=" << sd->size();
 
             QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, to-unknownSamples);
 
@@ -155,7 +155,7 @@ class ScopeYScaleDraw: public QwtScaleDraw
     public:
         ~ScopeYScaleDraw() override
         {
-            qDebug() << __PRETTY_FUNCTION__ << this;
+            //qDebug() << __PRETTY_FUNCTION__ << this;
         }
 
         QwtText label(double value) const override
