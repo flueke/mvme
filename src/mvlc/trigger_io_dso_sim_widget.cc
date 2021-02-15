@@ -223,7 +223,7 @@ bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
     return false;
 }
 
-void show_debug_widget(
+void show_dso_buffer_debug_widget(
     const DSO_Sim_Result &dsoSimResult,
     const DSOSetup &dsoSetup)
 {
@@ -286,7 +286,64 @@ void show_debug_widget(
         widget->setFont(make_monospace_font());
         add_widget_close_action(widget);
         auto geoSaver = new WidgetGeometrySaver(widget);
+        widget->resize(800, 600);
         geoSaver->addAndRestore(widget, QSL("MVLCTriggerIOEditor/DSODebugWidgetGeometry"));
+
+        auto textDoc = new QTextDocument(widget);
+        textDoc->setHtml(text);
+        widget->setDocument(textDoc);
+
+        widget->show();
+    }
+}
+
+void show_trace_debug_widget(const Trace &trace, const QString &name)
+{
+    QString text;
+    QTextStream out(&text);
+
+    {
+        out << "<html><body><pre>";
+
+        out << "Trace Name: " << name << endl;
+        out << "Trace Size: " << trace.size() << endl;
+
+        if (!trace.empty())
+        {
+            out << "First Time: " << trace.front().time.count() << endl;
+            out << "Last Time: " << trace.back().time.count() << endl;
+            out << endl;
+
+            for (size_t sampleIndex = 0; sampleIndex < trace.size(); ++sampleIndex)
+            {
+                if (sampleIndex > 0 && sampleIndex % 4 == 0)
+                    out << endl;
+
+                const auto &sample = trace[sampleIndex];
+                out << "(" << qSetFieldWidth(8) << sample.time.count() << qSetFieldWidth(0)
+                    << ", " << to_string(sample.edge) << ")";
+
+                if (sampleIndex < trace.size() - 1)
+                    out << ", ";
+
+            }
+
+            out << endl;
+        }
+
+
+        out << "</pre></body></html>";
+    }
+
+    {
+        auto widget = new QTextBrowser;
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        widget->setWindowTitle("MVLC DSO Trace Debug Info");
+        widget->setFont(make_monospace_font());
+        add_widget_close_action(widget);
+        auto geoSaver = new WidgetGeometrySaver(widget);
+        widget->resize(800, 600);
+        geoSaver->addAndRestore(widget, QSL("MVLCTriggerIOEditor/TraceDebugWidgetGeometry"));
 
         auto textDoc = new QTextDocument(widget);
         textDoc->setHtml(text);
@@ -434,7 +491,7 @@ struct DSOSimWidget::Private
             if (debugAction == DebugAction::Next)
             {
                 debugAction = {};
-                show_debug_widget(result, this->dsoControlWidget->getDSOSetup());
+                show_dso_buffer_debug_widget(result, this->dsoControlWidget->getDSOSetup());
             }
         }
 
@@ -598,6 +655,12 @@ DSOSimWidget::DSOSimWidget(
     connect(pb_debugOnError, &QPushButton::clicked,
             this, [this] () {
                 d->debugAction = Private::DebugAction::OnError;
+            });
+
+    connect(d->dsoPlotWidget, &DSOPlotWidget::traceClicked,
+            this, [] (const Trace &trace, const QString &name)
+            {
+                show_trace_debug_widget(trace, name);
             });
 
     d->loadGUIState();
