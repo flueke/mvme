@@ -109,6 +109,9 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "NIM11",
     "NIM12",
     "NIM13",
+    "<unused>",
+    "<unused>",
+    "<unused>",
     "IRQ1",
     "IRQ2",
     "IRQ3",
@@ -155,7 +158,7 @@ const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticCo
         { { {1, 1, 0}, {1, 1, 1}, {1, 1, 2}, {1, 2, 0}, {1, 2, 1}, {1, 2, 2} }, },
 
         // L1.LUT5
-        { { {0, 30}, {0, 31}, {0, 32}, {0, 33}, {0, 34}, {0, 35} } },
+        { { {0, 33}, {0, 34}, {0, 35}, {0, 36}, {0, 37}, {0, 38} } },
 
         // L1.LUT6
         { { {1, 2, 0}, {1, 2, 1}, {1, 2, 2}, {1, 5, 0}, {1, 5, 1}, {1, 5, 2} }, },
@@ -164,9 +167,9 @@ const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticCo
 
 const std::vector<UnitAddressVector> Level1::LUT2DynamicInputChoices =
 {
-    { { 0, 24 }, { 0, 30 } }, // nim8,  irq1
-    { { 0, 25 }, { 0, 31 } }, // nim9,  irq2
-    { { 0, 26 }, { 0, 32 } }, // nim10, irq3
+    { { 0, 24 }, { 0, 33 } }, // nim8,  irq1
+    { { 0, 25 }, { 0, 34 } }, // nim9,  irq2
+    { { 0, 26 }, { 0, 35 } }, // nim10, irq3
 };
 
 Level1::Level1()

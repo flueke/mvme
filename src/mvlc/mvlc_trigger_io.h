@@ -227,13 +227,16 @@ struct LIBMVME_EXPORT Level0
 
     static const int NIM_IO_Offset = 16;
 
+    // Address gap between the NIM and IRQ units. These addresses are taken by the LVDS outputs on Level3.
+    static const int NIM_to_IRQ_Gap = ECL_OUT_Count;
+
     // Describes the IRQ Inputs on L0 (since FW0016)
     static const int IRQ_Inputs_Count = 6;
-    static const int IRQ_Inputs_Offset = 30;
+    static const int IRQ_Inputs_Offset = 33;
 
-    // Total number of output pins on L0
-    static const int OutputCount = UtilityUnitCount + NIM_IO_Count + IRQ_Inputs_Count;
-
+    // Total number of output pins on L0 including the unused gap pins.
+    static const int OutputCount = UtilityUnitCount + NIM_IO_Count
+        + NIM_to_IRQ_Gap + IRQ_Inputs_Count;
 
     static const std::array<QString, OutputCount> DefaultUnitNames;
 
