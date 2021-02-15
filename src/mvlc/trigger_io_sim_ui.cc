@@ -122,10 +122,31 @@ Trace *lookup_trace(Sim &sim, const PinAddress &pa)
     // Trace for an input pin is wanted.
     assert(pa.pos == PinPosition::Input);
 
-    if (pa.unit[0] == 0
-        && pa.unit[1] - Level0::NIM_IO_Offset < sim.sampledTraces.size())
+    if (pa.unit[0] == 0)
     {
-        return &sim.sampledTraces[pa.unit[1] - Level0::NIM_IO_Offset];
+        unsigned pin = pa.unit[1];
+
+        if (Level0::NIM_IO_Offset <= pin
+            && pin < Level0::NIM_IO_Offset + NIM_IO_Count)
+        {
+            unsigned idx = pin - Level0::NIM_IO_Offset;
+
+            assert(idx < sim.sampledTraces.size());
+
+            if (idx < sim.sampledTraces.size())
+                return &sim.sampledTraces[idx];
+        }
+
+        if (Level0::IRQ_Inputs_Offset <= pin
+            && pin < Level0::IRQ_Inputs_Offset + Level0::IRQ_Inputs_Count)
+        {
+            unsigned idx = pin - Level0::IRQ_Inputs_Offset + NIM_IO_Count;;
+
+            assert(idx < sim.sampledTraces.size());
+
+            if (idx < sim.sampledTraces.size())
+                return &sim.sampledTraces[idx];
+        }
     }
 
     if (pa.unit[0] == 1)
