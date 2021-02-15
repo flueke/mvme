@@ -1169,14 +1169,12 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
             {
                 auto counterItem = new gfx::CounterItem(counter, result.utilsItem);
 
-#if 0
                 if (counter == 0) // make the counter+stamper block wider
                 {
                     auto rect = counterItem->rect();
-                    rect.setWidth(rect.width() + 80);
+                    rect.setWidth(rect.width() + 75);
                     counterItem->setRect(rect);
                 }
-#endif
 
                 counterItem->moveBy(
                     0,
@@ -3313,8 +3311,13 @@ Level3UtilsDialog::Level3UtilsDialog(
 
         for (int row = 0; row < table->rowCount(); ++row)
         {
-            table->setVerticalHeaderItem(row, new QTableWidgetItem(
-                    QString("Counter%1").arg(row)));
+            QString counterUnitName;
+            if (row == 0)
+                counterUnitName = QSL("Counter0+Timestamper");
+            else
+                counterUnitName = QSL("Counter%1").arg(row);
+
+            table->setVerticalHeaderItem(row, new QTableWidgetItem(counterUnitName));
 
             auto combo_counter_connection = new QComboBox;
 
