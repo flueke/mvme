@@ -27,8 +27,7 @@ using namespace trigger_io;
 // While the DSO is active no other communication may take place as that would
 // mix DSO sample data with command responses. This is enforced in
 // acquire_dso_sample() by locking the command mutex while the DSO is
-// activated. Also the stack error poller built into the MVLC object is
-// suspended during the time the DSO is active.
+// active.
 //
 // As the DSO may never receive a trigger the acquire_dso_sample() function may
 // keep trying to read a valid buffer forever. By setting the 'cancel' flag the
