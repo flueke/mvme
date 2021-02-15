@@ -141,7 +141,7 @@ class ScopeCurve: public QwtPlotCurve
 
             int unknownSamples = 0;
 
-            for (int i=to-1; i>=from; --i)
+            for (int i=to; i>=from; --i)
             {
                 if (sd->sampleEdge(i) == Edge::Unknown)
                     ++unknownSamples;
