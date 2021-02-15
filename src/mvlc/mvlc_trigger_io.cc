@@ -150,7 +150,7 @@ const std::array<LUT_Connections, trigger_io::Level1::LUTCount> Level1::StaticCo
         // L1.LUT1
         { { {0, 20}, {0, 21}, {0, 22}, {0, 23}, {0, 24}, {0, 25} } },
         // L1.LUT2
-        { Dynamic, Dynamic, Dynamic, {0, 27}, {0, 28}, {0, 29} },
+        { { Dynamic, Dynamic, Dynamic, {0, 27}, {0, 28}, {0, 29} } },
 
         // L1.LUT3
         { { {1, 0, 0}, {1, 0, 1}, {1, 0, 2}, {1, 1, 0}, {1, 1, 1}, {1, 1, 2} }, },
