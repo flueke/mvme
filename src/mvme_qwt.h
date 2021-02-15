@@ -41,6 +41,7 @@
 #include <qwt_widget_overlay.h>
 #include "scrollzoomer.h"
 #include "libmvme_export.h"
+#include "util/qwt_scalepicker.h"
 
 namespace mvme_qwt
 {
