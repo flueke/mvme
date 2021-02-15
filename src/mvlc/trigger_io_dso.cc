@@ -139,6 +139,7 @@ std::error_code acquire_dso_sample(
 
     while (!cancel && dest.size() <= 2 && !timed_out)
     {
+        dest.clear();
         auto ec = read_dso(dlg, dest);
 
         if (is_fatal(ec))
