@@ -3,8 +3,7 @@ TODO list
 ==================================================
 
 * DSOPlotWidget
-  - drawing unknown edge value in red doesn't work for the dig_oszi.vme
-    testcase
+  - Maybe extend traces from post trigger time to sim max time with Unknown.
   - x-axis max sim time scaling: make x-axis scale user-settable
 
 * DSO+SIM
