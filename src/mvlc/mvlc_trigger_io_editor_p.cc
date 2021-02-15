@@ -528,7 +528,7 @@ void LineAndArrow::setArrowSize(qreal arrowSize)
 void LineAndArrow::setEnd(const QPointF &p)
 {
     m_sceneEnd = p;
-    qDebug() << __PRETTY_FUNCTION__ <<  "given endPoint = " << p << ", mapFromScene =" << mapFromScene(p);
+    //qDebug() << __PRETTY_FUNCTION__ <<  "given endPoint = " << p << ", mapFromScene =" << mapFromScene(p);
     adjust();
 }
 
@@ -1660,8 +1660,8 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     // Set the config. This triggers the initial edge updates.
     setTriggerIOConfig(ioCfg);
 
-    qDebug() << __PRETTY_FUNCTION__ << "created" << m_edges.size() << " Edges";
-    qDebug() << __PRETTY_FUNCTION__ << "sceneRect=" << this->sceneRect();
+    //qDebug() << __PRETTY_FUNCTION__ << "created" << m_edges.size() << " Edges";
+    //qDebug() << __PRETTY_FUNCTION__ << "sceneRect=" << this->sceneRect();
 };
 
 QAbstractGraphicsShapeItem *
