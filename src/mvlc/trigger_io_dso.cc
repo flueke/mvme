@@ -249,12 +249,15 @@ void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
 
         if (trace.back().time < extendTo)
         {
-            Edge edge = trace.back().edge;
-
             if (has_overflow_marker(trace))
-                edge = Edge::Unknown;
-
-            trace.push_back({ extendTo, edge });
+            {
+                trace.push_back({ trace.back().time, Edge::Unknown });
+                trace.push_back({ extendTo, Edge::Unknown });
+            }
+            else
+            {
+                trace.push_back({ extendTo, trace.back().edge });
+            }
         }
     }
 }
@@ -372,8 +375,8 @@ pre_process_dso_snapshot(
     {
         for (auto &trace: snapshot)
         {
-            // Never correct the first sample: it is either 0 or 1 to indicate
-            // overflow.
+            // Never correct the first sample: it is either 0 or 1 (the latter
+            // to indicate overflow).
             bool isFirstSample = true;
 
             for (auto &sample: trace)
