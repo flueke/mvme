@@ -1738,6 +1738,7 @@ QAbstractGraphicsShapeItem *
             return nullptr;
     }
 
+    assert(false);
     return nullptr;
 }
 
@@ -1870,7 +1871,7 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
     // L1.LUT2 edge update
     {
         unsigned unitIndex = 2;
-        for (unsigned input=0; input < LUT::InputBits; input++)
+        for (unsigned input=0; input < LUT_DynamicInputCount; input++)
         {
             UnitAddress addr {1, unitIndex, input};
 
