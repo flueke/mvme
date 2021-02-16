@@ -7,6 +7,8 @@
 #include <QSplitter>
 #include <QtConcurrent>
 #include <QTextBrowser>
+#include <exception>
+#include <stdexcept>
 #include <thread>
 #include <yaml-cpp/yaml.h>
 
@@ -160,7 +162,11 @@ DSOSimGuiState dso_sim_gui_state_from_yaml(const QString &yamlString)
 
 struct DSO_Sim_Result
 {
+    // Error code from the MVLC io operations or set to std::errc::io_error
+    // when an exception is caught.
     std::error_code ec;
+    // Copy of the caught exception if any.
+    std::exception_ptr ex;
     std::vector<u32> dsoBuffer;
     Sim sim;
 };
@@ -178,29 +184,94 @@ DSO_Sim_Result run_dso_and_sim(
     std::atomic<bool> &cancel)
 {
     DSO_Sim_Result result = {};
-    // Immediately copy the trigIO config into the result. The widget reuses
-    // that copy for it's internal state once this function returns.
-    result.sim.trigIO = trigIO;
 
-    if (auto ec = acquire_dso_sample(mvlc, dsoSetup, result.dsoBuffer, cancel))
+    // acquire
+    try
     {
-        result.ec = ec;
-        return result;
+        // Immediately copy the trigIO config into the result. The widget reuses
+        // that copy for it's internal state once this function returns.
+        result.sim.trigIO = trigIO;
+
+        if (auto ec = acquire_dso_sample(mvlc, dsoSetup, result.dsoBuffer, cancel))
+        {
+            result.ec = ec;
+            return result;
+        }
+
+        auto sampledTraces = fill_snapshot_from_dso_buffer(result.dsoBuffer);
+
+        if (sampledTraces.empty())
+            return result;
+
+        pre_process_dso_snapshot(sampledTraces, dsoSetup, simMaxTime);
+
+        result.sim.sampledTraces = sampledTraces;
     }
-
-    auto sampledTraces = fill_snapshot_from_dso_buffer(result.dsoBuffer);
-
-    if (sampledTraces.empty())
-        return result;
-
-    pre_process_dso_snapshot(sampledTraces, dsoSetup, simMaxTime);
-
-    result.sim.sampledTraces = sampledTraces;
+    catch (const std::system_error &e)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! system_error in run_dso_and_sim: " << e.what()
+            << e.code().message().c_str();
+        result.ec = e.code();
+        result.ex = std::current_exception();
+    }
+    catch (const std::runtime_error &e)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! runtime_error in run_dso_and_sim: " << e.what();
+        // assign something so the caller can react
+        result.ec = make_error_code(std::errc::io_error);
+        result.ex = std::current_exception();
+    }
+    catch (const std::exception &e)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! std::exception in run_dso_and_sim: " << e.what();
+        // assign something so the caller can react
+        result.ec = make_error_code(std::errc::io_error);
+        result.ex = std::current_exception();
+    }
+    catch (...)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! unknown exception in run_dso_and_sim!";
+        // assign something so the caller can react
+        result.ec = make_error_code(std::errc::io_error);
+        result.ex = std::current_exception();
+    }
 
     if (cancel)
         return result;
 
-    simulate(result.sim, simMaxTime);
+    // simulate
+    try
+    {
+        simulate(result.sim, simMaxTime);
+    }
+    catch (const std::system_error &e)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! system_error from simulate: " << e.what()
+            << e.code().message().c_str();
+        result.ec = e.code();
+        result.ex = std::current_exception();
+    }
+    catch (const std::runtime_error &e)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! runtime_error from simulate: " << e.what();
+        // assign something so the caller can react
+        result.ec = make_error_code(std::errc::io_error);
+        result.ex = std::current_exception();
+    }
+    catch (const std::exception &e)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! std::exception from simulate: " << e.what();
+        // assign something so the caller can react
+        result.ec = make_error_code(std::errc::io_error);
+        result.ex = std::current_exception();
+    }
+    catch (...)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "!!! unknown exception from simulate!";
+        // assign something so the caller can react
+        result.ec = make_error_code(std::errc::io_error);
+        result.ex = std::current_exception();
+    }
 
     return result;
 }
@@ -236,6 +307,36 @@ void show_dso_buffer_debug_widget(
         auto jitter = calculate_jitter_value(dsoSimResult.sim.sampledTraces, dsoSetup).first;
 
         out << "<html><body><pre>";
+
+        if (dsoSimResult.ec)
+            out << "Result: error_code: " << dsoSimResult.ec.message().c_str() << endl;
+
+        if (dsoSimResult.ex)
+        {
+            out << "Result: exception: ";
+            try
+            {
+                std::rethrow_exception(dsoSimResult.ex);
+            }
+            catch (const std::system_error &e)
+            {
+                out << "system_error: " << e.what();
+            }
+            catch (const std::runtime_error &e)
+            {
+                out << "runtime_error: " << e.what();
+            }
+            catch (const std::exception &e)
+            {
+                out << "std::exception: " << e.what();
+            }
+            catch (...)
+            {
+                out << "unhandled exception";
+            }
+
+            out << endl << endl;
+        }
 
         out << "DSO setup: preTriggerTime=" << dsoSetup.preTriggerTime
             << ", postTriggerTime=" << dsoSetup.postTriggerTime
@@ -369,6 +470,7 @@ struct DSOSimWidget::Private
     {
         size_t sampleCount;
         QTime lastSampleTime;
+        size_t errorCount;
     };
 
     enum class DebugAction
@@ -495,6 +597,9 @@ struct DSOSimWidget::Private
 
         if (!this->cancelDSO)
         {
+            if (result.ec)
+                ++stats.errorCount;
+
             if (debugAction == DebugAction::Next)
             {
                 debugAction = {};
@@ -569,6 +674,10 @@ struct DSOSimWidget::Private
             .arg(stats.sampleCount)
             .arg(stats.lastSampleTime.toString())
             ;
+
+        if (stats.errorCount)
+            str += QSL(", Errors: %1").arg(stats.errorCount);
+
         label_status->setText(str);
     }
 };
