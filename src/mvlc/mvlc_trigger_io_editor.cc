@@ -792,6 +792,9 @@ MVLCTriggerIOEditor::~MVLCTriggerIOEditor()
 {
     if (d->scriptEditor)
         d->scriptEditor->close();
+
+    if (d->dsoWidget)
+        d->dsoWidget->close();
 }
 
 void MVLCTriggerIOEditor::setVMEEventNames(const QStringList &names)
@@ -802,6 +805,9 @@ void MVLCTriggerIOEditor::setVMEEventNames(const QStringList &names)
 void MVLCTriggerIOEditor::setMVLC(mvlc::MVLC mvlc)
 {
     d->mvlc = mvlc;
+
+    if (d->dsoWidget)
+        d->dsoWidget->setMVLC(mvlc);
 }
 
 void MVLCTriggerIOEditor::runScript_()

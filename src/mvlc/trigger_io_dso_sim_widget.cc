@@ -353,6 +353,14 @@ void show_trace_debug_widget(const Trace &trace, const QString &name)
     }
 }
 
+template<typename Lock> void safe_unlock(Lock &lock)
+{
+    try
+    {
+        lock.unlock();
+    } catch (const std::system_error &) {}
+}
+
 } // end anon namespace
 
 struct DSOSimWidget::Private
@@ -510,7 +518,7 @@ struct DSOSimWidget::Private
             QTimer::singleShot(interval, q, [this] () { runDSO(); });
         else
         {
-            errPollerLock.unlock();
+            safe_unlock(errPollerLock);
             this->dsoControlWidget->setDSOActive(false);
         }
 
@@ -568,7 +576,7 @@ struct DSOSimWidget::Private
 
 DSOSimWidget::DSOSimWidget(
     VMEScriptConfig *trigIOScript,
-    mvlc::MVLC &mvlc,
+    mvlc::MVLC mvlc,
     QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
@@ -671,7 +679,19 @@ DSOSimWidget::~DSOSimWidget()
 {
     d->cancelDSO = true;
     d->resultWatcher.waitForFinished();
+    safe_unlock(d->errPollerLock);
     d->saveGUIState();
+}
+
+void DSOSimWidget::setMVLC(mvlc::MVLC mvlc)
+{
+    d->stopDSO();
+
+    if (d->resultWatcher.isRunning())
+        d->resultWatcher.waitForFinished();
+
+    safe_unlock(d->errPollerLock);
+    d->mvlc = mvlc;
 }
 
 } // end namespace trigger_io

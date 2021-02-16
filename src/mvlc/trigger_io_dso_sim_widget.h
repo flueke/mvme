@@ -23,10 +23,12 @@ class LIBMVME_EXPORT DSOSimWidget: public QWidget
     public:
         DSOSimWidget(
             VMEScriptConfig *triggerIOScript,
-            mvlc::MVLC &mvlc,
+            mvlc::MVLC mvlc,
             QWidget *parent = nullptr);
 
         ~DSOSimWidget() override;
+
+        void setMVLC(mvlc::MVLC mvlc);
 
     private:
         struct Private;
