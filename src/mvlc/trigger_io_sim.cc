@@ -220,6 +220,9 @@ void simulate(
             if (it == std::rend(timeline))
                 return -1;
 
+            if (it->edge == Edge::Unknown)
+                return -2;
+
             result |= (static_cast<unsigned>(it->edge) << shift++);
         }
 
@@ -263,6 +266,8 @@ void simulate(
 
         if (inputCombination < 0)
             break;
+
+        assert(inputCombination < LUT::InputCombinations);
 
         s32 strobeState = 0;
 
