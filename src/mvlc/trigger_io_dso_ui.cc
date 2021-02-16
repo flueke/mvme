@@ -235,23 +235,23 @@ struct DSOPlotWidget::Private
     std::unique_ptr<QwtPlotMarker> postTriggerTimeMarker;
 
     std::vector<ScopeCurve *> curves;
-    std::vector<QwtPlotMarker *> curveMarkers;
+    std::vector<QwtPlotMarker *> curveValueLabels;
 
     void replot();
 
-    void updateCurveMarkers()
+    void updateCurveValueLabels()
     {
         if (!mousePosPicker->isEnabled())
             return;
 
-        for (size_t curveIdx = 0; curveIdx < curveMarkers.size(); ++curveIdx)
+        for (size_t curveIdx = 0; curveIdx < curveValueLabels.size(); ++curveIdx)
         {
             auto curve = curves[curveIdx];
             auto scopeData = reinterpret_cast<const ScopeData *>(curve->data());
             SampleTime st(lastMousePosPickerX + scopeData->preTriggerTime);
             Edge edge = edge_at(scopeData->trace, st);
 
-            auto marker = curveMarkers[curveIdx];
+            auto marker = curveValueLabels[curveIdx];
             marker->setXValue(lastMousePosPickerX);
             marker->setLabel(QwtText(edge_to_marker_text(edge)));
         }
@@ -294,8 +294,8 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->zoomer->setHScrollBarMode(Qt::ScrollBarAlwaysOn);
     d->zoomer->setTrackerMode(QwtPicker::AlwaysOff);
 
-    // Draws a vertical line at the current cursor position and keep track of
-    // the cursor x-coordinate.
+    // Draws a vertical line and the x-coordinate at the current mouse position
+    // inside the plot.
     d->mousePosPicker = new QwtPlotPicker(d->plot->canvas());
     d->mousePosPicker->setTrackerMode(QwtPicker::AlwaysOn);
     d->mousePosPicker->setRubberBand(QwtPicker::VLineRubberBand);
@@ -305,17 +305,31 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     }
     d->mousePosPicker->setStateMachine(new QwtPickerTrackerMachine);
 
+    // Record picker pos and update the trace value labels inside the plot.
     connect(d->mousePosPicker, &QwtPlotPicker::moved,
             this, [this] (const QPointF &pos) {
                 d->lastMousePosPickerX = pos.x();
-                d->updateCurveMarkers();
+                d->updateCurveValueLabels();
             });
 
+    // The picker emits this on mouse enter/leave. Show/hide the trace value
+    // labels accordingly.
+    connect(d->mousePosPicker, &QwtPlotPicker::activated,
+            this, [this] (bool active)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "mousePosPicker::activated" << active;
+                for (auto marker: d->curveValueLabels)
+                    marker->setVisible(active);
+                d->replot();
+            });
+
+    // When starting to zoom (dragging the zoom rectangle with the mouse)
+    // disable the curve value labels and the picker for the mouse position.
     connect(d->zoomer, &QwtPicker::activated,
             this, [this] (bool zoomerActive)
             {
                 d->mousePosPicker->setEnabled(!zoomerActive);
-                for (auto marker: d->curveMarkers)
+                for (auto marker: d->curveValueLabels)
                     marker->setVisible(!zoomerActive);
                 d->replot();
             });
@@ -389,13 +403,13 @@ void DSOPlotWidget::setTraces(
 
     d->curves.clear();
 
-    for (auto marker: d->curveMarkers)
+    for (auto marker: d->curveValueLabels)
     {
         marker->detach();
         delete marker;
     }
 
-    d->curveMarkers.clear();
+    d->curveValueLabels.clear();
 
     // Always create a new scale draw instance here otherwise the y axis does
     // not properly update (it does update when zooming, so it should be
@@ -424,7 +438,7 @@ void DSOPlotWidget::setTraces(
         marker->setYValue(yOffset + 0.5);
         marker->setLabelAlignment(Qt::AlignLeft | Qt::AlignCenter);
         marker->attach(d->plot);
-        d->curveMarkers.push_back(marker);
+        d->curveValueLabels.push_back(marker);
 
         yOffset += yStep;
         ++idx;
@@ -442,7 +456,7 @@ void DSOPlotWidget::setTraces(
     d->yScaleDiv.setInterval(0.0, yScaleMaxValue);
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
 
-    d->updateCurveMarkers();
+    d->updateCurveValueLabels();
 }
 
 void DSOPlotWidget::setPostTriggerTime(double postTrigger)
