@@ -61,7 +61,7 @@ namespace data_format
 {
     static const u32 MatchBitsMask = 0b00;
     static const u32 MatchBitsShift = 30;
-    static const u32 AddressMask = 0b11111;
+    static const u32 AddressMask = 0b111111;
     static const u32 AddressShift = 17;
     static const u32 EdgeMask = 0b1;
     static const u32 EdgeShift = 16;
