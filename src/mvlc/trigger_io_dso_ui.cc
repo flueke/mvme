@@ -109,7 +109,7 @@ struct ScopeData: public QwtSeriesData<QPointF>
 
     QwtInterval interval() const
     {
-        return QwtInterval(yOffset, 1.0);
+        return QwtInterval(yOffset, yOffset + 1.0);
     }
 
     trigger_io_dso::Trace trace;
