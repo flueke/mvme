@@ -449,9 +449,8 @@ struct DSOSimWidget::Private
         this->dsoPlotWidget->setXInterval(
             -1.0 * dsoSetup.preTriggerTime, getSimMaxTime().count() - dsoSetup.preTriggerTime);
 
-        this->dsoPlotWidget->setTraces(
-            traces, dsoSetup.preTriggerTime, traceNames);
-
+        this->dsoPlotWidget->setTraces(traces, dsoSetup.preTriggerTime, traceNames);
+        this->dsoPlotWidget->setPostTriggerTime(dsoSetup.postTriggerTime);
         this->dsoPlotWidget->setTriggerTraceInfo(isTriggerTrace);
     }
 

@@ -18,6 +18,7 @@
 #include <QTableWidget>
 #include <iterator>
 #include <QHeaderView>
+#include <qnamespace.h>
 #include <qwt_picker_machine.h>
 #include <qwt_symbol.h>
 
@@ -231,6 +232,7 @@ struct DSOPlotWidget::Private
     QwtPlotPicker *mousePosPicker;
     double lastMousePosPickerX = 0.0;
     std::unique_ptr<QwtPlotMarker> triggerTimeMarker;
+    std::unique_ptr<QwtPlotMarker> postTriggerTimeMarker;
 
     std::vector<ScopeCurve *> curves;
     std::vector<QwtPlotMarker *> curveMarkers;
@@ -289,6 +291,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
 
     d->zoomer = new ScrollZoomer(d->plot->canvas()); // Note: canvas is also the zoomers parent
     d->zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
+    d->zoomer->setHScrollBarMode(Qt::ScrollBarAlwaysOn);
     d->zoomer->setTrackerMode(QwtPicker::AlwaysOff);
 
     // Draws a vertical line at the current cursor position and keep track of
@@ -320,13 +323,23 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     connect(d->zoomer, &QwtPlotZoomer::zoomed,
             this, [this] (const QRectF &) { d->replot(); });
 
-    d->triggerTimeMarker = std::make_unique<QwtPlotMarker>();
-    d->triggerTimeMarker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
-    d->triggerTimeMarker->setLabelOrientation( Qt::Horizontal );
-    d->triggerTimeMarker->setLineStyle( QwtPlotMarker::VLine );
-    d->triggerTimeMarker->setLinePen(QColor("black"), 0, Qt::DashDotLine );
-    d->triggerTimeMarker->setLabel(QwtText("\nTrigger"));
-    d->triggerTimeMarker->attach(d->plot);
+    auto add_time_marker = [this] (const QString &label)
+    {
+        auto marker = std::make_unique<QwtPlotMarker>();
+        marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
+        marker->setLabelOrientation( Qt::Horizontal );
+        marker->setLineStyle( QwtPlotMarker::VLine );
+        marker->setLinePen(QColor("black"), 0, Qt::DashDotLine );
+        marker->setLabel(QwtText(label));
+        marker->attach(d->plot);
+        return marker;
+    };
+
+    // Start with a newline to hopefully render the label below the zoomers
+    // scrollbar.
+    d->triggerTimeMarker = add_time_marker("\nTrigger");
+    d->postTriggerTimeMarker = add_time_marker("\nPost Trigger");
+    d->postTriggerTimeMarker->hide();
 
     auto scalePicker = new ScalePicker(d->plot);
     connect(scalePicker, &ScalePicker::clicked,
@@ -406,7 +419,7 @@ void DSOPlotWidget::setTraces(
         yTicks.push_back(yOffset);
         yScaleDraw->addScaleEntry(yOffset, name);
 
-        // Horizontal 0 marker for the trace.
+        // Horizontal dotted 0 level line for the trace.
         auto marker = new QwtPlotMarker;
         marker->setYValue(yOffset + 0.5);
         marker->setLabelAlignment(Qt::AlignLeft | Qt::AlignCenter);
@@ -430,6 +443,12 @@ void DSOPlotWidget::setTraces(
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
 
     d->updateCurveMarkers();
+}
+
+void DSOPlotWidget::setPostTriggerTime(double postTrigger)
+{
+    d->postTriggerTimeMarker->setXValue(postTrigger);
+    d->postTriggerTimeMarker->show();
 }
 
 void DSOPlotWidget::setTriggerTraceInfo(const std::vector<bool> &isTriggerTrace)

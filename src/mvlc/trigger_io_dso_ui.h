@@ -31,6 +31,8 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
             unsigned preTriggerTime = 0,
             const QStringList &names = {});
 
+        void setPostTriggerTime(double postTriggerTime);
+
         // Set the vector element to true if the trace with the corresponding
         // index should be treated as a trigger trace, e.g. drawn in a
         // different style/color. Must be called after setTraces to have an
