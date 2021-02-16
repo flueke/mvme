@@ -75,60 +75,6 @@ void simulate(
     }
 }
 
-void simulate(
-    const Timer &timer,
-    Trace &output,
-    const SampleTime &maxtime)
-{
-    auto range_to_ns_factor = [] (const Timer::Range &timerRange)
-    {
-        switch (timerRange)
-        {
-            case Timer::Range::ns:
-                return 1u;
-            case Timer::Range::us:
-                return 1000u;
-            case Timer::Range::ms:
-                return 1000 * 1000u;
-            case Timer::Range::s:
-                return 1000 * 1000 * 1000u;
-        }
-
-        return 0u;
-    };
-
-//- FIXME: Timer sim: 8ns high, 8ns low, 8ns pause (lowest valid period is 24ns)
-//  also wirklich 8ns oben, 16ns unten als max frequenz
-//  hide timer delay column in GUI
-
-    auto timerPeriod = timer.period * range_to_ns_factor(timer.range);
-
-    if (timerPeriod < Timer::MinPeriod)
-        timerPeriod = Timer::MinPeriod;
-
-    const auto timerHalfPeriod = SampleTime(timerPeriod * 0.5);
-
-    // Initial output level
-    output.push_back({ 0ns, Edge::Falling });
-
-    // First delayed pulse
-    output.push_back({ SampleTime(timer.delay_ns), Edge::Rising });
-    output.push_back({ SampleTime(timer.delay_ns + timerHalfPeriod.count()), Edge::Falling });
-
-    // Generate the rest of the pulses up to maxtime based of the time of the
-    // last falling edge.
-    // Note: might be better to remember the number of pulses generated and use
-    // multiplication to calculate the next times. This way errors won't accumulate.
-    while (output.back().time < maxtime)
-    {
-        Sample outRising = { output.back().time + timerHalfPeriod, Edge::Rising };
-        Sample outFalling = { outRising.time + timerHalfPeriod, Edge::Falling };
-
-        output.emplace_back(outRising);
-        output.emplace_back(outFalling);
-    }
-}
-
 void simulate_sysclock(
     Trace &output,
     const SampleTime &maxtime)
@@ -381,18 +327,10 @@ void simulate(Sim &sim, const SampleTime &maxtime)
     for (const auto &kv: sim.trigIO.l0.ioIRQ | indexed(0))
     {
         const auto &io = kv.value();
-        const auto &trace = sim.sampledTraces[kv.index() + NIM_IO_Count]; // irq input traces directly follow the NIM traces
+        // irq input traces directly follow the NIM traces
+        const auto &trace = sim.sampledTraces[kv.index() + NIM_IO_Count];
         simulate(io, trace, sim.l0_traces[kv.index() + Level0::IRQ_Inputs_Offset], maxtime);
     }
-
-    // L0 timers but only if softActivate is enabled.
-    for (const auto &kv: sim.trigIO.l0.timers | indexed(0))
-    {
-        if (kv.value().softActivate)
-            simulate(kv.value(), sim.l0_traces[kv.index()], maxtime);
-    }
-
-    //simulate_sysclock(sim.l0_traces[Level0::SysClockOffset], maxtime);
 
     // L1 LUT hierarchy. 0-2 first, then 3 & 4
     for (const auto &kvLUT: sim.trigIO.l1.luts | indexed(0u))
