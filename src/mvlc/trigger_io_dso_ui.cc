@@ -1,24 +1,25 @@
 #include "mvlc/trigger_io_dso_ui.h"
 
 #include <chrono>
+#include <cmath>
+#include <iterator>
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDebug>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHeaderView>
 #include <QLabel>
+#include <qnamespace.h>
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStandardItem>
+#include <QStandardItemModel>
+#include <QTableWidget>
 #include <QtConcurrent>
 #include <QTimer>
-#include <QStandardItemModel>
-#include <QStandardItem>
-#include <QTableWidget>
-#include <iterator>
-#include <QHeaderView>
-#include <qnamespace.h>
 #include <qwt_picker_machine.h>
 #include <qwt_symbol.h>
 
@@ -34,6 +35,9 @@ namespace mesytec
 namespace mvme_mvlc
 {
 namespace trigger_io_dso
+{
+
+namespace
 {
 
 // Data provider for QwtPlotCurve.
@@ -202,8 +206,6 @@ class ScopeYScaleDraw: public QwtScaleDraw
         std::vector<Entry> m_data;
 };
 
-namespace
-{
 QString edge_to_marker_text(Edge edge)
 {
     switch (edge)
@@ -217,7 +219,23 @@ QString edge_to_marker_text(Edge edge)
         }
     return {};
 }
-}
+
+class DSOPlotMouseTracker: public QwtPlotPicker
+{
+    public:
+        using QwtPlotPicker::QwtPlotPicker;
+
+    protected:
+        QwtText trackerTextF(const QPointF &pos) const override
+        {
+            if (rubberBand() != QwtPicker::VLineRubberBand)
+                return QwtPlotPicker::trackerTextF(pos);
+
+            return QwtText(QString::number(std::floor(pos.x())));
+        }
+};
+
+} // end anon namespace
 
 struct DSOPlotWidget::Private
 {
@@ -229,7 +247,7 @@ struct DSOPlotWidget::Private
     QwtScaleDiv yScaleDiv; // copy of the y-axis scale division calculated in setTraces()
     QwtInterval xAxisInterval;
     ScrollZoomer *zoomer;
-    QwtPlotPicker *mousePosPicker;
+    QwtPlotPicker *mousePosTracker;
     double lastMousePosPickerX = 0.0;
     std::unique_ptr<QwtPlotMarker> triggerTimeMarker;
     std::unique_ptr<QwtPlotMarker> postTriggerTimeMarker;
@@ -241,7 +259,7 @@ struct DSOPlotWidget::Private
 
     void updateCurveValueLabels()
     {
-        if (!mousePosPicker->isEnabled())
+        if (!mousePosTracker->isEnabled())
             return;
 
         for (size_t curveIdx = 0; curveIdx < curveValueLabels.size(); ++curveIdx)
@@ -283,6 +301,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->q = this;
     d->plot = new QwtPlot;
     d->plot->setCanvasBackground(QBrush(Qt::white));
+    d->plot->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
     d->grid = new QwtPlotGrid;
     d->grid->enableX(false);
@@ -296,17 +315,17 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
 
     // Draws a vertical line and the x-coordinate at the current mouse position
     // inside the plot.
-    d->mousePosPicker = new QwtPlotPicker(d->plot->canvas());
-    d->mousePosPicker->setTrackerMode(QwtPicker::AlwaysOn);
-    d->mousePosPicker->setRubberBand(QwtPicker::VLineRubberBand);
+    d->mousePosTracker = new DSOPlotMouseTracker(d->plot->canvas());
+    d->mousePosTracker->setTrackerMode(QwtPicker::AlwaysOn);
+    d->mousePosTracker->setRubberBand(QwtPicker::VLineRubberBand);
     {
         QPen pen(Qt::black, 1.0, Qt::DotLine);
-        d->mousePosPicker->setRubberBandPen(pen);
+        d->mousePosTracker->setRubberBandPen(pen);
     }
-    d->mousePosPicker->setStateMachine(new QwtPickerTrackerMachine);
+    d->mousePosTracker->setStateMachine(new QwtPickerTrackerMachine);
 
     // Record picker pos and update the trace value labels inside the plot.
-    connect(d->mousePosPicker, &QwtPlotPicker::moved,
+    connect(d->mousePosTracker, &QwtPlotPicker::moved,
             this, [this] (const QPointF &pos) {
                 d->lastMousePosPickerX = pos.x();
                 d->updateCurveValueLabels();
@@ -314,10 +333,9 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
 
     // The picker emits this on mouse enter/leave. Show/hide the trace value
     // labels accordingly.
-    connect(d->mousePosPicker, &QwtPlotPicker::activated,
+    connect(d->mousePosTracker, &QwtPlotPicker::activated,
             this, [this] (bool active)
             {
-                qDebug() << __PRETTY_FUNCTION__ << "mousePosPicker::activated" << active;
                 for (auto marker: d->curveValueLabels)
                     marker->setVisible(active);
                 d->replot();
@@ -328,7 +346,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     connect(d->zoomer, &QwtPicker::activated,
             this, [this] (bool zoomerActive)
             {
-                d->mousePosPicker->setEnabled(!zoomerActive);
+                d->mousePosTracker->setEnabled(!zoomerActive);
                 for (auto marker: d->curveValueLabels)
                     marker->setVisible(!zoomerActive);
                 d->replot();
@@ -355,6 +373,8 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     d->postTriggerTimeMarker = add_time_marker("\nPost Trigger");
     d->postTriggerTimeMarker->hide();
 
+    // Reacts to clicks on the scale. Does not work for the labels but only for
+    // the area enclosing the scale ticks.
     auto scalePicker = new ScalePicker(d->plot);
     connect(scalePicker, &ScalePicker::clicked,
             this, [this] (int axis, double value)
