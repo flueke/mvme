@@ -74,6 +74,8 @@ std::error_code LIBMVME_EXPORT
 mesytec::mvme_mvlc::trigger_io::TriggerIO LIBMVME_EXPORT
     update_trigger_io(const VMEConfig &vmeConfig);
 
+// Reads the trigger io script from the VMEConfig, runs update_trigger_io(),
+// recreates the script and stores it back in the VMEConfig.
 void LIBMVME_EXPORT update_trigger_io_inplace(const VMEConfig &vmeConfig);
 
 } // end namespace mvme_mvlc
