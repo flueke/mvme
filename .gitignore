@@ -10,3 +10,4 @@ doc/mvme.qhc
 build*/
 .vscode/
 .cmake/
+.cache/
