@@ -74,17 +74,9 @@ std::error_code stop_dso(mvlc::MVLCDialog &mvlc)
 std::error_code read_dso(mvlc::MVLCDialog &mvlc, std::vector<u32> &dest)
 {
     // block read
-    auto ec = mvlc.vmeBlockRead(
+    return mvlc.vmeBlockRead(
         DSOReadAddress, mvlc::vme_amods::MBLT64,
         std::numeric_limits<u16>::max(), dest);
-
-    if (is_fatal(ec))
-        return ec;
-
-    // readout reset
-    return mvlc.vmeWrite(
-        mvlc::SelfVMEAddress + 0x6034, 1,
-        mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16);
 }
 }
 

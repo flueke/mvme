@@ -22,7 +22,6 @@ using namespace trigger_io;
 // - set pre and post trigger times
 // - set the NIM and IRQ trigger masks
 // - start block reads from 0xffff0000, store the data somewhere
-// - write readout_reset (0x6034) after each block read
 //
 // While the DSO is active no other communication may take place as that would
 // mix DSO sample data with command responses. This is enforced in
