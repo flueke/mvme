@@ -159,21 +159,12 @@ std::unique_ptr<TraceTreeModel> make_trace_tree_model()
     auto model = std::make_unique<TraceTreeModel>();
     auto root = model->invisibleRootItem();
 
-    // Sampled Traces (NIMs and IRQs)
+    // Sampled Traces
     auto samplesRoot = make_non_trace_item("sampled");
     root->appendRow({ samplesRoot, make_non_trace_item() });
 
-    for (auto i=0u; i<NIM_IO_Count; ++i)
-    {
-        UnitAddress unit = { 0, i+Level0::NIM_IO_Offset, 0 };
-        samplesRoot->appendRow(make_trace_row({ unit, PinPosition::Input }));
-    }
-
-    for (auto i=0u; i<Level0::IRQ_Inputs_Count; ++i)
-    {
-        UnitAddress unit = { 0, i+Level0::IRQ_Inputs_Offset, 0 };
-        samplesRoot->appendRow(make_trace_row({ unit, PinPosition::Input }));
-    }
+    for (auto pinAddress: trace_index_to_pin_list())
+        samplesRoot->appendRow(make_trace_row(pinAddress));
 
     // L0
     auto l0Root = make_non_trace_item("L0");

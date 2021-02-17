@@ -8,6 +8,7 @@
 #include "libmvme_export.h"
 #include "mvlc/mvlc_trigger_io.h"
 #include "mvlc/trigger_io_dso.h"
+#include "mvlc/trigger_io_sim_pinaddress.h"
 
 namespace mesytec
 {
@@ -60,13 +61,11 @@ LIBMVME_EXPORT void simulate(
 // +1 for the strobe output trace
 using LUTOutputTraces = std::array<Trace, LUT::OutputBits+1>;
 
-static const int ExpectedSampledTraces = NIM_IO_Count + Level0::IRQ_Inputs_Count;
-
 struct LIBMVME_EXPORT Sim
 {
     Sim()
     {
-        sampledTraces.resize(ExpectedSampledTraces);
+        sampledTraces.resize(DSOExpectedSampledTraces);
     }
 
     Sim(const Sim &) = default;
@@ -99,43 +98,6 @@ LIBMVME_EXPORT void simulate(Sim &sim, const SampleTime &maxtime);
 
 // Returns the address of an output trace of the system.
 LIBMVME_EXPORT Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr);
-
-enum class PinPosition
-{
-    Input,
-    Output
-};
-
-struct LIBMVME_EXPORT PinAddress
-{
-    PinAddress() {}
-
-    PinAddress(const UnitAddress &unit_, const PinPosition &pos_)
-        : unit(unit_)
-        , pos(pos_)
-    {}
-
-    PinAddress(const PinAddress &) = default;
-    PinAddress &operator=(const PinAddress &) = default;
-
-    inline bool operator==(const PinAddress &o) const
-    {
-        return unit == o.unit && pos == o.pos;
-    }
-
-    inline bool operator!=(const PinAddress &o) const
-    {
-        return !(*this == o);
-    }
-
-    UnitAddress unit = { 0, 0, 0 };
-    PinPosition pos = PinPosition::Input;
-};
-
-LIBMVME_EXPORT QStringList pin_path_list(const TriggerIO &trigIO, const PinAddress &pa);
-LIBMVME_EXPORT QString pin_path(const TriggerIO &trigIO, const PinAddress &pa);
-LIBMVME_EXPORT QString pin_name(const TriggerIO &trigIO, const PinAddress &pa);
-LIBMVME_EXPORT QString pin_user_name(const TriggerIO &trigIO, const PinAddress &pa);
 
 LIBMVME_EXPORT Trace *lookup_trace(Sim &sim, const PinAddress &pa);
 

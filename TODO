@@ -2,6 +2,9 @@
 TODO list
 ==================================================
 
+* NIM Sim: GG nur simulieren wenn NIM als Input konfiguriert!
+* L0 Sim: copy util input pin traces to util output pin sim traces
+
 * DSOPlotWidget
   - Maybe extend traces from post trigger time to sim max time with Unknown.
   - x-axis max sim time scaling: make x-axis scale user-settable

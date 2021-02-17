@@ -5,6 +5,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "libmvme_export.h"
 #include "mvlc/mvlc_trigger_io.h"
+#include "mvlc/trigger_io_sim_pinaddress.h"
 
 namespace mesytec
 {
@@ -185,6 +186,17 @@ inline bool has_overflow_marker(const Trace &trace)
         return trace.front().time == SampleTime(1);
     return false;
 }
+
+static const int DSOExpectedSampledTraces =
+    NIM_IO_Count + Level0::IRQ_Inputs_Count + Level0::UtilityUnitCount;
+
+
+// The list of pin addresses in DSO trace index order.
+// The Snapshot created by fill_snapshot_from_dso_buffer() contains traces in
+// this order.
+const std::vector<PinAddress> &trace_index_to_pin_list();
+
+int get_trace_index(const PinAddress &pa);
 
 } // end namespace trigger_io_dso
 } // end namespace mvme_mvlc

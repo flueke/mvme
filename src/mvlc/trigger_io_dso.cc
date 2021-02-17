@@ -402,6 +402,55 @@ Edge edge_at(const Trace &trace, const SampleTime &t)
     return result;
 }
 
+namespace
+{
+std::vector<PinAddress> make_trace_index_to_pin_list()
+{
+    std::vector<PinAddress> result;
+
+    // 14 NIMs
+    for (auto i=0u; i<NIM_IO_Count; ++i)
+    {
+        UnitAddress unit = { 0, i+Level0::NIM_IO_Offset, 0 };
+        result.push_back({ unit, PinPosition::Input });
+    }
+
+    // 6 IRQs
+    for (auto i=0u; i<Level0::IRQ_Inputs_Count; ++i)
+    {
+        UnitAddress unit = { 0, i+Level0::IRQ_Inputs_Offset, 0 };
+        result.push_back({ unit, PinPosition::Input });
+    }
+
+    // 16 Utility traces
+    for (auto i=0u; i<Level0::UtilityUnitCount; ++i)
+    {
+        UnitAddress unit = { 0, i, 0 };
+        result.push_back({ unit, PinPosition::Input });
+    }
+
+    return result;
+}
+}
+
+const std::vector<PinAddress> &trace_index_to_pin_list()
+{
+    static const auto result = make_trace_index_to_pin_list();
+    return result;
+}
+
+int get_trace_index(const PinAddress &pa)
+{
+    const auto &lst = trace_index_to_pin_list();
+
+    auto it = std::find(std::begin(lst), std::end(lst), pa);
+
+    if (it == std::end(lst))
+        return -1;
+
+    return it - std::begin(lst);
+}
+
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
 } // end namespace mesytec
