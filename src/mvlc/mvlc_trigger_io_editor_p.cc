@@ -2861,6 +2861,7 @@ Level0UtilsDialog::Level0UtilsDialog(
         return ret;
     };
 
+#if 0
     auto make_irq_units_table_ui = [](const Level0 &l0)
     {
         static const QString RowTitleFormat = "IRQ_util%1";
@@ -2963,6 +2964,7 @@ Level0UtilsDialog::Level0UtilsDialog(
 
         return ret;
     };
+#endif
 
     auto make_stack_busy_table_ui = [&vmeEventNames](const Level0 &l0)
     {
@@ -3009,17 +3011,21 @@ Level0UtilsDialog::Level0UtilsDialog(
     };
 
     ui_timers = make_timers_table_ui(l0);
+#if 0
     ui_irqUnits = make_irq_units_table_ui(l0);
     ui_softTriggers = make_soft_triggers_table_ui(l0);
     ui_slaveTriggers = make_slave_triggers_table_ui(l0);
+#endif
     ui_stackBusy = make_stack_busy_table_ui(l0);
 
-    std::array<Table_UI_Base *, 5> tableUIs =
+    std::array<Table_UI_Base *, 2> tableUIs =
     {
         &ui_timers,
+#if 0
         &ui_irqUnits,
         &ui_softTriggers,
         &ui_slaveTriggers,
+#endif
         &ui_stackBusy,
     };
 
@@ -3028,10 +3034,12 @@ Level0UtilsDialog::Level0UtilsDialog(
 
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_timers.parentWidget, "Timers"), 0, 0);
+#if 0
     grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
     grid->addWidget(make_groupbox(ui_softTriggers.table, "Soft Triggers"), 0, 2);
 
     grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
+#endif
     grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
 
     auto bb = new QDialogButtonBox(
@@ -3067,6 +3075,7 @@ Level0 Level0UtilsDialog::getSettings() const
         }
     }
 
+#if 0
     {
         auto &ui = ui_irqUnits;
 
@@ -3107,6 +3116,7 @@ Level0 Level0UtilsDialog::getSettings() const
             unit.invert = ui.checks_invert[row]->isChecked();
         }
     }
+#endif
 
     {
         auto &ui = ui_stackBusy;

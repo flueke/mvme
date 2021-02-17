@@ -148,7 +148,7 @@ struct LIBMVME_EXPORT Counter
     bool softActivate;
 };
 
-struct LIBMVME_EXPORT IRQ_Unit
+struct LIBMVME_EXPORT IRQ_Util
 {
     // zero-based IRQ index (0 == IRQ1, 6 == IRQ7)
     u8 irqIndex;
@@ -163,6 +163,34 @@ struct LIBMVME_EXPORT SoftTrigger
 {
     enum class Activation { Pulse, Level };
     Activation activation;
+};
+
+// SlaveTrigger consisting of a gate generator and the slave trigger index to
+// output.
+struct SlaveTrigger
+{
+    IO gateGenerator;
+    u8 triggerIndex; // slave trigger index to output (0..3)
+};
+
+// Generic trigger resource unit. Replaces individual IRQ, SoftTrigger, and
+// SlaveTrigger units since FW0016_55.
+struct TriggerResource
+{
+    // Note: 'type' is stored in connection register offset 0,
+    // slaveTrigger.triggerIndex is stored in connection register offset 2.
+
+    enum class Type: u8
+    {
+        IRQ,
+        SoftTrigger,
+        SlaveTrigger
+    };
+
+    Type type;
+    IRQ_Util irqUtil;
+    SoftTrigger softTrigger;
+    SlaveTrigger slaveTrigger;
 };
 
 // Addressing: level, unit [, output]
@@ -207,15 +235,8 @@ static const QString UnitNotAvailable = "N/A";
 
 struct LIBMVME_EXPORT Level0
 {
-    // Describes the l0.util irq units
-    static const int IRQ_UnitCount = 2;
-    static const int IRQ_UnitOffset = 4;
-
-    static const int SoftTriggerCount = 2;
-    static const int SoftTriggerOffset = 6;
-
-    static const int SlaveTriggerCount = 4;
-    static const int SlaveTriggerOffset = 8;
+    static const int TriggerResourceCount = 8;
+    static const int TriggerResourceOffset = 4;
 
     static const int StackBusyCount = 2;
     static const int StackBusyOffset = 12;
@@ -227,7 +248,8 @@ struct LIBMVME_EXPORT Level0
 
     static const int NIM_IO_Offset = 16;
 
-    // Address gap between the NIM and IRQ units. These addresses are taken by the LVDS outputs on Level3.
+    // Address gap between the NIM and IRQ units. These addresses are taken by
+    // the LVDS outputs on Level3.
     static const int NIM_to_IRQ_Gap = ECL_OUT_Count;
 
     // Describes the IRQ Inputs on L0 (since FW0016)
@@ -240,16 +262,16 @@ struct LIBMVME_EXPORT Level0
 
     static const std::array<QString, OutputCount> DefaultUnitNames;
 
-    std::array<Timer, TimerCount> timers;                       // 0..3
-    std::array<IRQ_Unit, IRQ_UnitCount> irqUnits;               // 4, 5 are irq units
-    std::array<SoftTrigger, SoftTriggerCount> softTriggers;     // 6, 7 are software triggers
-    std::array<IO, SlaveTriggerCount> slaveTriggers;            // 8..11
-    std::array<StackBusy, StackBusyCount> stackBusy;            // 12, 13
-                                                                // 14 sysclock
-                                                                // 15 daq_start
-    std::array<IO, NIM_IO_Count> ioNIM;                         // 16..29
-    std::array<IO, IRQ_Inputs_Count> ioIRQ;                     // 30..35 IRQ inputs (FW0016)
-                                                                // 48 Digital Oscilloscope
+    std::array<Timer, TimerCount> timers;                               // 0..3
+    std::array<TriggerResource, TriggerResourceCount> triggerResources; // 4..11
+
+    std::array<StackBusy, StackBusyCount> stackBusy;                    // 12, 13
+                                                                        // 14 sysclock
+                                                                        // 15 daq_start
+    std::array<IO, NIM_IO_Count> ioNIM;                                 // 16..29
+    // 30..32 is shared with the L3 ECL Outputs
+    std::array<IO, IRQ_Inputs_Count> ioIRQ;                             // 33..38 IRQ inputs
+                                                                        // 48 Digital Oscilloscope
 
     QStringList unitNames;
 

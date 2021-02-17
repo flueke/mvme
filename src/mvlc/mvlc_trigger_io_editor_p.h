@@ -647,6 +647,7 @@ class Level0UtilsDialog: public QDialog
             QVector<QCheckBox *> checks_softActivate;
         };
 
+#if 0
         struct IRQUnits_UI: public Table_UI_Base
         {
             enum Columns
@@ -688,6 +689,7 @@ class Level0UtilsDialog: public QDialog
 
             QVector<QCheckBox *> checks_invert;
         };
+#endif
 
         struct StackBusy_UI: public Table_UI_Base
         {
@@ -704,9 +706,11 @@ class Level0UtilsDialog: public QDialog
 
         mutable Level0 m_l0;
         TimersTable_UI ui_timers;
+#if 0
         IRQUnits_UI ui_irqUnits;
         SoftTriggers_UI ui_softTriggers;
         SlaveTriggers_UI ui_slaveTriggers;
+#endif
         StackBusy_UI ui_stackBusy;
 };
 

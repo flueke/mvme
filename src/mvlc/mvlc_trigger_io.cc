@@ -83,14 +83,14 @@ const std::array<QString, trigger_io::Level0::OutputCount> Level0::DefaultUnitNa
     "timer1",
     "timer2",
     "timer3",
-    "IRQ_util0",
-    "IRQ_util1",
-    "soft_trigger0",
-    "soft_trigger1",
-    "slave_trigger0",
-    "slave_trigger1",
-    "slave_trigger2",
-    "slave_trigger3",
+    "trigger_resource0",
+    "trigger_resource1",
+    "trigger_resource2",
+    "trigger_resource3",
+    "trigger_resource4",
+    "trigger_resource5",
+    "trigger_resource6",
+    "trigger_resource7",
     "stack_busy0",
     "stack_busy1",
     "sysclk",
@@ -128,9 +128,7 @@ Level0::Level0()
               std::back_inserter(unitNames));
 
     timers.fill({});
-    irqUnits.fill({});
-    softTriggers.fill({});
-    slaveTriggers.fill({});
+    triggerResources.fill({});
     stackBusy.fill({});
     ioNIM.fill({});
     ioIRQ.fill({});

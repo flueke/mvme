@@ -39,6 +39,8 @@ namespace mvme_mvlc
 namespace trigger_io
 {
 
+static const u16 StrobeGGIOOffset = 0x32u;
+
 struct Write
 {
     // Opt_HexValue indicates that the register value should be printed in
@@ -144,7 +146,7 @@ ScriptParts generate(const trigger_io::Timer &unit, int index)
     return ret;
 }
 
-ScriptParts generate(const trigger_io::IRQ_Unit &unit, int index)
+ScriptParts generate(const trigger_io::IRQ_Util &unit, int index)
 {
     (void) index;
 
@@ -167,27 +169,21 @@ namespace io_flags
     using Flags = u8;
     static const Flags HasDirection    = 1u << 0;
     static const Flags HasActivation   = 1u << 1;
-    static const Flags StrobeGGOffsets = 1u << 2;
 
     static const Flags None             = 0u;
     static const Flags NIM_IO_Flags     = HasDirection | HasActivation;
     static const Flags ECL_IO_Flags     = HasActivation;
-    static const Flags StrobeGG_Flags   = StrobeGGOffsets;
 }
 
 /* The IO structure is used for different units sharing IO properties:
  * NIM I/Os, ECL Outputs, slave triggers, and strobe gate generators.
- * The common properties are delay, width, holdoff and invert. They start at
- * register offset 0 except for the strobe GGs where the registers are offset
- * by one address increment (2 bytes).
- * The activation and direction registers are at offsets 10 and 16. They are
- * only written out if the respective io_flags bit is set.
+ * The activation and direction registers are only written out if the
+ * respective io_flags bit is set. The offset value is added to all base
+ * register addresses.
  */
-ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
+ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags, u16 offset = 0)
 {
     ScriptParts ret;
-
-    u16 offset = (ioFlags & io_flags::StrobeGGOffsets) ? 0x32u : 0u;
 
     ret += write_unit_reg(offset + 0, io.delay, "delay [ns]");
     ret += write_unit_reg(offset + 2, io.width, "width [ns]");
@@ -196,10 +192,41 @@ ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags)
                           "invert (start on trailing edge of input)");
 
     if (ioFlags & io_flags::HasDirection)
-        ret += write_unit_reg(10, static_cast<u16>(io.direction), "direction (0:in, 1:out)");
+        ret += write_unit_reg(offset + 10, static_cast<u16>(io.direction), "direction (0:in, 1:out)");
 
     if (ioFlags & io_flags::HasActivation)
-        ret += write_unit_reg(16, static_cast<u16>(io.activate), "output activate");
+        ret += write_unit_reg(offset + 16, static_cast<u16>(io.activate), "output activate");
+
+    return ret;
+}
+
+ScriptParts generate(const trigger_io::TriggerResource &unit, int /*index*/)
+{
+    ScriptParts ret;
+
+    ret += write_unit_reg(0x80u, static_cast<u16>(unit.type),
+                          "type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger");
+
+    ret += write_unit_reg(0, static_cast<u16>(unit.irqUtil.irqIndex),
+                          "irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)");
+
+    ret += write_unit_reg(4, static_cast<u16>(unit.softTrigger.activation),
+                          "soft trigger output activation: 0=level, 1=pulse");
+
+    auto ggParts = generate(unit.slaveTrigger.gateGenerator, io_flags::None, 6);
+
+    for (auto &part: ggParts)
+    {
+        if (auto write = boost::get<Write>(&part))
+        {
+            write->comment = "slave_trigger: " + write->comment;
+        }
+    }
+
+    ret += ggParts;
+
+    ret += write_unit_reg(0x82u, unit.slaveTrigger.triggerIndex,
+                          "slave trigger number (0..3)");
 
     return ret;
 }
@@ -304,6 +331,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += generate(kv.value(), kv.index());
     }
 
+#if 0
     for (const auto &kv: ioCfg.l0.irqUnits | indexed(0))
     {
         ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.IRQ_UnitOffset];
@@ -323,6 +351,14 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.SlaveTriggerOffset];
         ret += select_unit(0, kv.index() + ioCfg.l0.SlaveTriggerOffset);
         ret += generate(kv.value(), io_flags::None);
+    }
+#endif
+
+    for (const auto &kv: ioCfg.l0.triggerResources | indexed(0))
+    {
+        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.TriggerResourceOffset];
+        ret += select_unit(0, kv.index() + ioCfg.l0.TriggerResourceOffset);
+        ret += generate(kv.value(), kv.index());
     }
 
     for (const auto &kv: ioCfg.l0.stackBusy | indexed(0))
@@ -402,7 +438,7 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
 
         // strobe GG
         ret += QString("L2.LUT%1 strobe gate generator").arg(unitIndex);
-        ret += generate(kv.value().strobeGG, io_flags::StrobeGG_Flags);
+        ret += generate(kv.value().strobeGG, io_flags::None, StrobeGGIOOffset);
 
         // strobe_input
         {
@@ -802,19 +838,17 @@ using UnitWrites = QMap<u16, RegisterWrites>;
 // Holds per level UnitWrites
 using LevelWrites = std::array<UnitWrites, LevelCount>;
 
-trigger_io::IO parse_io(const RegisterWrites &writes, const io_flags::Flags &ioFlags)
+trigger_io::IO parse_io(const RegisterWrites &writes, u16 offset = 0)
 {
     trigger_io::IO io = {};
-
-    u16 offset = (ioFlags & io_flags::StrobeGGOffsets) ? 0x32u : 0u;
 
     io.delay     = writes[offset + 0];
     io.width     = writes[offset + 2];
     io.holdoff   = writes[offset + 4];
     io.invert    = static_cast<bool>(writes[offset + 6]);
 
-    io.direction = static_cast<trigger_io::IO::Direction>(writes[10]);
-    io.activate  = static_cast<bool>(writes[16]);
+    io.direction = static_cast<trigger_io::IO::Direction>(writes[offset+10]);
+    io.activate  = static_cast<bool>(writes[offset+16]);
 
     return io;
 }
@@ -854,7 +888,7 @@ LUT parse_lut(
     }
 
     lut.strobedOutputs = writes[0x20];
-    lut.strobeGG = parse_io(writes, io_flags::StrobeGG_Flags);
+    lut.strobeGG = parse_io(writes, StrobeGGIOOffset);
 
     std::copy(outputNames.begin(), outputNames.end(),
               lut.outputNames.begin());
@@ -1027,28 +1061,16 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unit.period = writes[unitIndex][6];
         }
 
-        for (const auto &kv: ioCfg.l0.irqUnits | indexed(0))
+        for (const auto &kv: ioCfg.l0.triggerResources | indexed(0))
         {
-            unsigned unitIndex = kv.index() + Level0::IRQ_UnitOffset;
+            unsigned unitIndex = kv.index() + Level0::TriggerResourceOffset;
             auto &unit = kv.value();
 
-            unit.irqIndex = writes[unitIndex][0];
-        }
-
-        for (const auto &kv: ioCfg.l0.softTriggers | indexed(0))
-        {
-            unsigned unitIndex = kv.index() + Level0::SoftTriggerOffset;
-            auto &unit = kv.value();
-
-            unit.activation = static_cast<SoftTrigger::Activation>(writes[unitIndex][2]);
-        }
-
-        for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))
-        {
-            unsigned unitIndex = kv.index() + Level0::SlaveTriggerOffset;
-            auto &unit = kv.value();
-
-            unit = parse_io(writes[unitIndex], io_flags::None);
+            unit.type = static_cast<TriggerResource::Type>(writes[unitIndex][0x80u]);
+            unit.irqUtil.irqIndex = writes[unitIndex][0];
+            unit.softTrigger.activation = static_cast<SoftTrigger::Activation>(writes[unitIndex][4]);
+            unit.slaveTrigger.gateGenerator = parse_io(writes[unitIndex], 6);
+            unit.slaveTrigger.triggerIndex = writes[unitIndex][0x82u];
         }
 
         for (const auto &kv: ioCfg.l0.stackBusy | indexed(0))
@@ -1066,7 +1088,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index() + Level0::NIM_IO_Offset;
             auto &unit = kv.value();
 
-            unit = parse_io(writes[unitIndex], io_flags::NIM_IO_Flags);
+            unit = parse_io(writes[unitIndex]);
         }
 
         for (const auto &kv: ioCfg.l0.ioIRQ | indexed(0))
@@ -1075,7 +1097,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index() + Level0::IRQ_Inputs_Offset;
             auto &unit = kv.value();
 
-            unit = parse_io(writes[unitIndex], io_flags::None);
+            unit = parse_io(writes[unitIndex]);
         }
     }
 
