@@ -13,7 +13,7 @@ namespace mvme_mvlc
 namespace trigger_io
 {
 
-// 
+//
 // BaseModel
 //
 QStringList BaseModel::pinPathList(const PinAddress &pa) const

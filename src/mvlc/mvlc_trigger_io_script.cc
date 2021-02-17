@@ -160,7 +160,7 @@ ScriptParts generate(const trigger_io::SoftTrigger &unit)
 {
     ScriptParts ret;
     ret += write_unit_reg(2, static_cast<u16>(unit.activation),
-                          "output activation: 0=level, 1=pulse");
+                          "output activation: 0=pulse, 1=level");
     return ret;
 }
 
@@ -211,7 +211,7 @@ ScriptParts generate(const trigger_io::TriggerResource &unit, int /*index*/)
                           "irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)");
 
     ret += write_unit_reg(4, static_cast<u16>(unit.softTrigger.activation),
-                          "soft trigger output activation: 0=level, 1=pulse");
+                          "soft trigger output activation: 0=pulse, 1=level");
 
     auto ggParts = generate(unit.slaveTrigger.gateGenerator, io_flags::None, 6);
 

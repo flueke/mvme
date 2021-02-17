@@ -3010,6 +3010,123 @@ Level0UtilsDialog::Level0UtilsDialog(
         return ret;
     };
 
+    auto make_trigger_resource_ui = [&vmeEventNames](const Level0 &l0)
+    {
+        static const QString RowTitleFormat = "TriggerResource%1";
+        static const QStringList ColumnTitles =
+        {
+            "Type",
+            "Name",
+            "IRQ Index",
+            "Activation",
+            "Trigger Index",
+            "Delay",
+            "Width",
+            "Holdoff",
+            "Invert"
+        };
+
+        const size_t rowCount = l0.triggerResources.size();
+        const int nameOffset = l0.TriggerResourceOffset;
+
+        TriggerResource_UI ret = {};
+
+        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
+        ret.table->setHorizontalHeaderLabels(ColumnTitles);
+        auto table = ret.table;
+
+        for (int row = 0; row < ret.table->rowCount(); ++row)
+        {
+            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
+
+            const auto &tr = l0.triggerResources[row];
+
+            // Type
+            auto combo_type = new QComboBox;
+            combo_type->addItem("IRQ", static_cast<int>(TriggerResource::Type::IRQ));
+            combo_type->addItem("SoftTrigger", static_cast<int>(TriggerResource::Type::SoftTrigger));
+            combo_type->addItem("SlaveTrigger", static_cast<int>(TriggerResource::Type::SlaveTrigger));
+            combo_type->setCurrentIndex(combo_type->findData(static_cast<int>(tr.type)));
+
+            auto on_type_changed = [combo_type, table, row] ()
+            {
+                auto update_enabled = [](QTableWidget *table, int row, int col, bool enabled)
+                {
+                    if (auto item = table->item(row, col))
+                    {
+                        if (enabled)
+                            item->setFlags(item->flags() | Qt::ItemIsEnabled);
+                        else
+                            item->setFlags(item->flags() & (~Qt::ItemIsEnabled));
+                    }
+                    else if (auto widget = table->cellWidget(row, col))
+                    {
+                        widget->setEnabled(enabled);
+                    }
+                };
+
+                using UI = TriggerResource_UI;
+                using Type = TriggerResource::Type;
+
+                auto type = static_cast<Type>(combo_type->currentData().toInt());
+
+                update_enabled(table, row, UI::ColIRQIndex, type == Type::IRQ);
+                update_enabled(table, row, UI::ColPermaEnable, type == Type::SoftTrigger);
+                update_enabled(table, row, UI::ColSlaveTriggerIndex, type == Type::SlaveTrigger);
+                update_enabled(table, row, UI::ColDelay, type == Type::SlaveTrigger);
+                update_enabled(table, row, UI::ColWidth, type == Type::SlaveTrigger);
+                update_enabled(table, row, UI::ColHoldoff, type == Type::SlaveTrigger);
+                update_enabled(table, row, UI::ColInvert, type == Type::SlaveTrigger);
+            };
+
+            connect(combo_type, qOverload<int>(&QComboBox::currentIndexChanged),
+                    table, on_type_changed);
+
+            // IRQ
+            auto spin_irqIndex = new QSpinBox;
+            spin_irqIndex->setRange(1, 10);
+            spin_irqIndex->setValue(tr.irqUtil.irqIndex + 1);
+
+            // SoftTrigger
+            auto combo_activation = new QComboBox;
+            ret.combos_activation.push_back(combo_activation);
+            combo_activation->addItem("Pulse", static_cast<int>(SoftTrigger::Activation::Pulse));
+            combo_activation->addItem("Level", static_cast<int>(SoftTrigger::Activation::Level));
+            combo_activation->setCurrentIndex(combo_activation->findData(static_cast<int>(tr.softTrigger.activation)));
+
+            // SlaveTrigger
+            auto spin_slaveTriggerIndex = new QSpinBox;
+            spin_slaveTriggerIndex->setRange(0, 3);
+            spin_slaveTriggerIndex->setValue(tr.slaveTrigger.triggerIndex);
+
+            auto check_invert = new QCheckBox;
+            check_invert->setChecked(tr.slaveTrigger.gateGenerator.invert);
+
+            // Populate the table
+            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(l0.unitNames.value(row + nameOffset)));
+            ret.table->setCellWidget(row, ret.ColType, combo_type);
+            ret.table->setCellWidget(row, ret.ColIRQIndex, spin_irqIndex);
+            ret.table->setCellWidget(row, ret.ColPermaEnable, combo_activation);
+            ret.table->setCellWidget(row, ret.ColSlaveTriggerIndex, spin_slaveTriggerIndex);
+            ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(QString::number(tr.slaveTrigger.gateGenerator.delay)));
+            ret.table->setItem(row, ret.ColWidth, new QTableWidgetItem(QString::number(tr.slaveTrigger.gateGenerator.width)));
+            ret.table->setItem(row, ret.ColHoldoff, new QTableWidgetItem(QString::number(tr.slaveTrigger.gateGenerator.holdoff)));
+            ret.table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
+
+            // Force initial type update
+            on_type_changed();
+
+            // Store input elements
+            ret.combos_type.push_back(combo_type);
+            ret.spins_irqIndex.push_back(spin_irqIndex);
+            ret.combos_activation.push_back(combo_activation);
+            ret.checks_invert.push_back(check_invert);
+            ret.spins_slaveTriggerIndex.push_back(spin_slaveTriggerIndex);
+        }
+
+        return ret;
+    };
+
     ui_timers = make_timers_table_ui(l0);
 #if 0
     ui_irqUnits = make_irq_units_table_ui(l0);
@@ -3017,8 +3134,9 @@ Level0UtilsDialog::Level0UtilsDialog(
     ui_slaveTriggers = make_slave_triggers_table_ui(l0);
 #endif
     ui_stackBusy = make_stack_busy_table_ui(l0);
+    ui_triggerResources = make_trigger_resource_ui(l0);
 
-    std::array<Table_UI_Base *, 2> tableUIs =
+    std::vector<Table_UI_Base *> tableUIs =
     {
         &ui_timers,
 #if 0
@@ -3027,20 +3145,28 @@ Level0UtilsDialog::Level0UtilsDialog(
         &ui_slaveTriggers,
 #endif
         &ui_stackBusy,
+        &ui_triggerResources
     };
 
     for (auto ui: tableUIs)
+    {
         reverse_rows(ui->table);
+        ui->table->resizeColumnsToContents();
+        ui->table->resizeRowsToContents();
+    }
 
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_timers.parentWidget, "Timers"), 0, 0);
+    grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 0);
+    grid->addWidget(make_groupbox(ui_triggerResources.table, "Trigger Resources"), 0, 1, 2, 1);
+    grid->setColumnStretch(0, 1);
+    grid->setColumnStretch(1, 2);
 #if 0
     grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
     grid->addWidget(make_groupbox(ui_softTriggers.table, "Soft Triggers"), 0, 2);
 
     grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
 #endif
-    grid->addWidget(make_groupbox(ui_stackBusy.table, "StackBusy"), 1, 1);
 
     auto bb = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
@@ -3072,6 +3198,27 @@ Level0 Level0UtilsDialog::getSettings() const
             unit.period = ui.table->item(row, ui.ColPeriod)->text().toUInt();
             unit.delay_ns = ui.table->item(row, ui.ColDelay)->text().toUInt();
             unit.softActivate = ui.checks_softActivate[row]->isChecked();
+        }
+    }
+
+    {
+        auto &ui = ui_triggerResources;
+
+        for (int row = 0; row < ui.table->rowCount(); row++)
+        {
+            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
+
+            auto &tr = m_l0.triggerResources[row];
+            tr.type = static_cast<TriggerResource::Type>(ui.combos_type[row]->currentData().toInt());
+            tr.irqUtil.irqIndex = ui.spins_irqIndex[row]->value() - 1;
+            tr.softTrigger.activation = static_cast<SoftTrigger::Activation>(
+                ui.combos_activation[row]->currentData().toInt());
+
+            tr.slaveTrigger.triggerIndex = ui.spins_slaveTriggerIndex[row]->value();
+            tr.slaveTrigger.gateGenerator.delay = ui.table->item(row, ui.ColDelay)->text().toUInt();
+            tr.slaveTrigger.gateGenerator.width = ui.table->item(row, ui.ColWidth)->text().toUInt();
+            tr.slaveTrigger.gateGenerator.holdoff = ui.table->item(row, ui.ColHoldoff)->text().toUInt();
+            tr.slaveTrigger.gateGenerator.invert = ui.checks_invert[row]->isChecked();
         }
     }
 

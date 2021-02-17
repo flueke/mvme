@@ -590,7 +590,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         Level0UtilsDialog dialog(ioCfg.l0, d->vmeEventNames, this);
         dialog.setWindowModality(Qt::WindowModal);
-        dialog.resize(1200, 600);
+        dialog.resize(1300, 600);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
         {

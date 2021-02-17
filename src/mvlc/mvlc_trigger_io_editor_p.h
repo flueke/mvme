@@ -690,6 +690,29 @@ class Level0UtilsDialog: public QDialog
             QVector<QCheckBox *> checks_invert;
         };
 #endif
+        struct TriggerResource_UI: public Table_UI_Base
+        {
+            enum Columns
+            {
+                ColName,
+                ColType,
+                ColIRQIndex,
+                ColPermaEnable,
+                ColSlaveTriggerIndex,
+                ColDelay,
+                ColWidth,
+                ColHoldoff,
+                ColInvert,
+            };
+
+            static const int FirstUnitIndex = Level0::TriggerResourceOffset;
+
+            QVector<QComboBox *> combos_type;
+            QVector<QSpinBox *> spins_irqIndex;
+            QVector<QComboBox *> combos_activation;
+            QVector<QCheckBox *> checks_invert;
+            QVector<QSpinBox *> spins_slaveTriggerIndex;
+        };
 
         struct StackBusy_UI: public Table_UI_Base
         {
@@ -704,6 +727,7 @@ class Level0UtilsDialog: public QDialog
             QVector<QComboBox *> combos_stack;
         };
 
+
         mutable Level0 m_l0;
         TimersTable_UI ui_timers;
 #if 0
@@ -712,6 +736,7 @@ class Level0UtilsDialog: public QDialog
         SlaveTriggers_UI ui_slaveTriggers;
 #endif
         StackBusy_UI ui_stackBusy;
+        TriggerResource_UI ui_triggerResources;
 };
 
 class Level3UtilsDialog: public QDialog
