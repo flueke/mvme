@@ -21,7 +21,7 @@ using namespace trigger_io;
 //
 // The DSO is at level0, unit 48. The following needs to be done to read out DSO data:
 // - set pre and post trigger times
-// - set the NIM and IRQ trigger masks
+// - set the NIM, IRQ and level0 util trigger masks
 // - start block reads from 0xffff0000, store the data somewhere
 //
 // While the DSO is active no other communication may take place as that would
@@ -50,9 +50,10 @@ struct LIBMVME_EXPORT DSOSetup
     u16 postTriggerTime = 0u;
     std::bitset<NIM_IO_Count> nimTriggers;
     std::bitset<Level0::IRQ_Inputs_Count> irqTriggers;
+    std::bitset<Level0::UtilityUnitCount> utilTriggers;
 };
 
-static const size_t CombinedTriggerCount = NIM_IO_Count + Level0::IRQ_Inputs_Count;
+static const size_t CombinedTriggerCount = NIM_IO_Count + Level0::IRQ_Inputs_Count + Level0::UtilityUnitCount;
 
 LIBMVME_EXPORT std::bitset<CombinedTriggerCount>
 combined_triggers(const DSOSetup &setup);

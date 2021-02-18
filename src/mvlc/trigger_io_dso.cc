@@ -46,6 +46,7 @@ std::error_code start_dso(mvlc::MVLCDialog &mvlc, DSOSetup setup)
         self_write_throw(mvlc, 0x0302, setup.postTriggerTime);
         self_write_throw(mvlc, 0x0304, setup.nimTriggers.to_ulong());
         self_write_throw(mvlc, 0x0308, setup.irqTriggers.to_ulong());
+        self_write_throw(mvlc, 0x030A, setup.utilTriggers.to_ulong());
         self_write_throw(mvlc, 0x0306, 1); // start capturing
     }
     catch (const std::error_code &ec)
@@ -84,7 +85,7 @@ std::bitset<CombinedTriggerCount> combined_triggers(const DSOSetup &setup)
 {
     std::bitset<CombinedTriggerCount> result;
 
-    assert(result.size() == setup.nimTriggers.size() + setup.irqTriggers.size());
+    assert(result.size() == setup.nimTriggers.size() + setup.irqTriggers.size() + setup.utilTriggers.size());
 
     size_t bitIndex = 0;
 
@@ -93,6 +94,9 @@ std::bitset<CombinedTriggerCount> combined_triggers(const DSOSetup &setup)
 
     for (size_t i=0; i<setup.irqTriggers.size(); ++i, ++bitIndex)
         result.set(bitIndex, setup.irqTriggers.test(i));
+
+    for (size_t i=0; i<setup.utilTriggers.size(); ++i, ++bitIndex)
+        result.set(bitIndex, setup.utilTriggers.test(i));
 
     return result;
 }
