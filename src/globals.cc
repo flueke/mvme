@@ -131,7 +131,7 @@ QString to_string(const MVMEState &state)
         { MVMEState::Idle,                  QSL("Idle") },
         { MVMEState::Starting,              QSL("Starting") },
         { MVMEState::Running,               QSL("Running") },
-        { MVMEState::Stopping,              QSL("Stepping") },
+        { MVMEState::Stopping,              QSL("Stopping") },
     };
 
     return MVMEState_StringTable.value(state);
