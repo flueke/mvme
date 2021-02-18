@@ -53,6 +53,9 @@ void to_yaml(YAML::Emitter &out, const DSOSetup &dsoSetup)
     out << YAML::Key << "irqTriggers"
         << YAML::Value << dsoSetup.irqTriggers.to_ulong();
 
+    out << YAML::Key << "utilTriggers"
+        << YAML::Value << dsoSetup.utilTriggers.to_ulong();
+
     out << YAML::EndMap;
 }
 
@@ -64,6 +67,7 @@ DSOSetup dso_setup_from_yaml(const YAML::Node &node)
     result.postTriggerTime = node["postTriggerTime"].as<u16>();
     result.nimTriggers = node["nimTriggers"].as<unsigned long>();
     result.irqTriggers = node["irqTriggers"].as<unsigned long>();
+    result.utilTriggers = node["utilTriggers"].as<unsigned long>();
 
     return result;
 }
@@ -281,6 +285,7 @@ DSO_Sim_Result run_dso_and_sim(
 
 bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
 {
+#if 0
     if (pa.unit[0] == 0 && pa.pos == PinPosition::Input)
     {
         int nimTraceIndex = pa.unit[1] - Level0::NIM_IO_Offset;
@@ -295,6 +300,15 @@ bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
     }
 
     return false;
+#else
+    auto combinedTriggers = get_combined_triggers(dsoSetup);
+    int idx = get_trace_index(pa);
+
+    if (idx < 0)
+        return false;
+
+    return combinedTriggers.test(idx);
+#endif
 }
 
 void show_dso_buffer_debug_widget(
@@ -512,13 +526,23 @@ struct DSOSimWidget::Private
 
         // Update the names in the plot widget by rebuilding the trace list
         // from the current selection.
-        updatePlotTraces(this->traceSelectWidget->getSelection());
+        updatePlotTraces();
     }
 
-    void updatePlotTraces(
-        const QVector<PinAddress> &selection)
+    DSOSetup buildDSOSetup() const
     {
-        auto dsoSetup = this->dsoControlWidget->getDSOSetup();
+        DSOSetup dsoSetup;
+        dsoSetup.preTriggerTime = dsoControlWidget->getPreTrigerTime();
+        dsoSetup.postTriggerTime = dsoControlWidget->getPostTriggerTime();
+        auto combinedTriggers = traceSelectWidget->getTriggers();
+        set_combined_triggers(dsoSetup, combinedTriggers);
+        return dsoSetup;
+    }
+
+    void updatePlotTraces()
+    {
+        auto selection = traceSelectWidget->getSelection();
+        auto dsoSetup = buildDSOSetup();
 
         Snapshot traces;
         QStringList traceNames;
@@ -585,7 +609,7 @@ struct DSOSimWidget::Private
         auto future = QtConcurrent::run(
             run_dso_and_sim,
             this->mvlc,
-            this->dsoControlWidget->getDSOSetup(),
+            this->buildDSOSetup(),
             this->lastResult.sim.trigIO,
             getSimMaxTime(),
             std::ref(this->cancelDSO));
@@ -605,7 +629,7 @@ struct DSOSimWidget::Private
             if (debugAction == DebugAction::Next)
             {
                 debugAction = {};
-                show_dso_buffer_debug_widget(result, this->dsoControlWidget->getDSOSetup());
+                show_dso_buffer_debug_widget(result, this->buildDSOSetup());
             }
         }
 
@@ -615,7 +639,7 @@ struct DSOSimWidget::Private
             ++stats.sampleCount;
             stats.lastSampleTime = QTime::currentTime();
 
-            updatePlotTraces(this->traceSelectWidget->getSelection());
+            updatePlotTraces();
         }
 
         auto interval = this->dsoControlWidget->getInterval();
@@ -633,7 +657,7 @@ struct DSOSimWidget::Private
 
     SampleTime getSimMaxTime() const
     {
-        auto dsoSetup = this->dsoControlWidget->getDSOSetup();
+        auto dsoSetup = this->buildDSOSetup();
         // Simulate up to twice the time interval between the pre and post
         // trigger times.
         SampleTime simMaxTime((dsoSetup.postTriggerTime + dsoSetup.preTriggerTime) * 2);
@@ -647,7 +671,7 @@ struct DSOSimWidget::Private
         if (outFile.open(QIODevice::WriteOnly))
         {
             DSOSimGuiState state;
-            state.dsoSetup = dsoControlWidget->getDSOSetup();
+            state.dsoSetup = buildDSOSetup();
             state.dsoInterval = dsoControlWidget->getInterval();
             state.traceSelection = traceSelectWidget->getSelection();
 
@@ -664,7 +688,12 @@ struct DSOSimWidget::Private
             auto yStr = QString::fromUtf8(inFile.read(GUIStateFileMaxSize));
             auto state = dso_sim_gui_state_from_yaml(yStr);
 
-            this->dsoControlWidget->setDSOSetup(state.dsoSetup, state.dsoInterval);
+            this->dsoControlWidget->setDSOSettings(
+                state.dsoSetup.preTriggerTime,
+                state.dsoSetup.postTriggerTime,
+                state.dsoInterval);
+            auto combinedTriggers = get_combined_triggers(state.dsoSetup);
+            this->traceSelectWidget->setTriggers(combinedTriggers);
             this->traceSelectWidget->setSelection(state.traceSelection);
         }
     }
@@ -746,8 +775,13 @@ DSOSimWidget::DSOSimWidget(
             });
 
     connect(d->traceSelectWidget, &TraceSelectWidget::selectionChanged,
-            this, [this] (const QVector<PinAddress> &selection) {
-                d->updatePlotTraces(selection);
+            this, [this] (const QVector<PinAddress> &) {
+                d->updatePlotTraces();
+            });
+
+    connect(d->traceSelectWidget, &TraceSelectWidget::triggersChanged,
+            this, [this] () {
+                d->updatePlotTraces();
             });
 
     connect(d->dsoControlWidget, &DSOControlWidget::startDSO,

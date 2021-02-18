@@ -2,6 +2,7 @@
 #include <QTimer>
 #include <QTreeView>
 #include <QMenu>
+#include <qnamespace.h>
 
 #include "mvlc/trigger_io_sim_ui_p.h"
 #include "qt_util.h"
@@ -160,11 +161,17 @@ std::unique_ptr<TraceTreeModel> make_trace_tree_model()
     auto root = model->invisibleRootItem();
 
     // Sampled Traces
-    auto samplesRoot = make_non_trace_item("sampled");
+    auto samplesRoot = make_non_trace_item("samples & triggers");
+    model->samplesRoot = samplesRoot;
     root->appendRow({ samplesRoot, make_non_trace_item() });
 
     for (auto pinAddress: trace_index_to_pin_list())
-        samplesRoot->appendRow(make_trace_row(pinAddress));
+    {
+        auto row = make_trace_row(pinAddress);
+        row[0]->setFlags(row[0]->flags() | Qt::ItemIsUserCheckable);
+        row[0]->setCheckState(Qt::Unchecked);
+        samplesRoot->appendRow(row);
+    }
 
     // L0
     auto l0Root = make_non_trace_item("L0");
@@ -296,6 +303,7 @@ struct TraceSelectWidget::Private
     std::unique_ptr<TraceTableModel> tableModel;
     TraceTreeView *treeView;
     TraceTableView *tableView;
+    CombinedTriggers triggerBits;
 
     void removeSelectedTraces()
     {
@@ -331,6 +339,8 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
 
     d->treeView = new TraceTreeView;
     d->treeView->setModel(d->treeModel.get());
+    d->treeView->resizeColumnToContents(0);
+    d->treeView->resizeColumnToContents(1);
 
     d->tableView = new TraceTableView;
     d->tableView->setModel(d->tableModel.get());
@@ -356,6 +366,27 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
                     qDebug() << item->data().value<PinAddress>();
             }
         });
+
+    // Detect checkstate changes on the items contributing to the trigger bits.
+    connect(
+        d->treeModel.get(), &QStandardItemModel::itemChanged,
+        [this] (const QStandardItem *item)
+        {
+            if (item->parent() == d->treeModel->samplesRoot)
+            {
+                int triggerIndex = item->row();
+                assert(triggerIndex < static_cast<int>(d->triggerBits.size()));
+                bool isChecked = item->checkState() == Qt::Checked;
+
+                if (d->triggerBits.test(triggerIndex) != isChecked)
+                {
+                    d->triggerBits.set(triggerIndex, isChecked);
+                    qDebug() << __PRETTY_FUNCTION__ << "emit triggersChanged";
+                    emit triggersChanged(d->triggerBits);
+                }
+            }
+        });
+
 
     connect(
         d->tableView, &QAbstractItemView::clicked,
@@ -386,10 +417,20 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
             // done from the event loop because at the point rowsInserted()
             // is emitted and the slot is called for some reason the
             // internal update of the table model is not completely done
-            // yet: rowCount() returns the udpated value but itme(row)
+            // yet: rowCount() returns the udpated value but item(row)
             // still returns nullptr. Using the event loop hack here seems
             // to fix the issue.
             QTimer::singleShot(0, this, [this] () {
+                // Remove the checkboxes that are present when sample items are
+                // dropped here.
+                for (int row=0; row<d->tableModel->rowCount(); ++row)
+                {
+                    if (auto item = d->tableModel->item(row, 0))
+                    {
+                        item->setFlags(item->flags() & (~Qt::ItemIsUserCheckable));
+                        item->setData(QVariant(), Qt::CheckStateRole);
+                    }
+                }
                 d->tableView->resizeColumnsToContents();
                 d->tableView->resizeRowsToContents();
                 qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
@@ -453,6 +494,23 @@ QVector<PinAddress> TraceSelectWidget::getSelection() const
     }
 
     return result;
+}
+
+void TraceSelectWidget::setTriggers(const CombinedTriggers &triggers)
+{
+    assert(d->treeModel->samplesRoot);
+    assert(static_cast<size_t>(d->treeModel->samplesRoot->rowCount()) == triggers.size());
+
+    for (size_t i=0; i<triggers.size(); ++i)
+    {
+        auto item = d->treeModel->samplesRoot->child(i, 0);
+        item->setCheckState(triggers.test(i) ? Qt::Checked : Qt::Unchecked);
+    }
+}
+
+CombinedTriggers TraceSelectWidget::getTriggers() const
+{
+    return d->triggerBits;
 }
 
 } // end namespace trigger_io

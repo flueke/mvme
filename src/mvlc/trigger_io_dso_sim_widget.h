@@ -16,7 +16,7 @@ namespace trigger_io
 {
 
 // Widget for controling both the MVLC DSO and the trigger io simulation.
-// Includes DSO controls, trace selection and the trace plot.
+// Includes DSO controls, trigger+trace selection and the trace plot.
 class LIBMVME_EXPORT DSOSimWidget: public QWidget
 {
     Q_OBJECT

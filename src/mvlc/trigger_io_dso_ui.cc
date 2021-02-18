@@ -567,7 +567,6 @@ struct DSOControlWidget::Private
     static const int TriggerCols = 6;
     static const int TriggerRows = 6;
 
-    QTableWidget *table_triggers;
     QWidget *setupWidget;
     QPushButton *pb_start,
                 *pb_stop;
@@ -591,42 +590,6 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->spin_preTriggerTime->setValue(200);
     d->spin_postTriggerTime->setValue(500);
 
-    d->table_triggers = new QTableWidget(Private::TriggerRows, Private::TriggerCols);
-
-    for (int row=0; row < Private::TriggerRows; ++row)
-    {
-        for (int col=0; col < Private::TriggerCols; ++col)
-        {
-            size_t trigNum = row * Private::TriggerCols + col;
-
-            auto item = std::make_unique<QTableWidgetItem>();
-            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-            item->setCheckState(Qt::Checked);
-
-            item->setText(get_trigger_default_name(trigNum));
-
-            //if (trigNum < NIM_IO_Count)
-            //    item->setText(QSL("NIM%1").arg(trigNum));
-            //else
-            //    item->setText(QSL("IRQ%1").arg(trigNum - NIM_IO_Count + 1));
-
-
-            d->table_triggers->setItem(row, col, item.release());
-        }
-    }
-
-    d->table_triggers->verticalHeader()->hide();
-    d->table_triggers->horizontalHeader()->hide();
-    d->table_triggers->resizeColumnsToContents();
-    d->table_triggers->resizeRowsToContents();
-    //d->table_triggers->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    //d->table_triggers->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    //d->table_triggers->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-    //d->table_triggers->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
-
-    auto pb_triggersAll = new QPushButton("all");
-    auto pb_triggersNone = new QPushButton("none");
-
     d->spin_interval = new QSpinBox;
     d->spin_interval->setMinimum(0);
     d->spin_interval->setMaximum(5000);
@@ -635,18 +598,10 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->spin_interval->setSuffix(" ms");
     d->spin_interval->setValue(500);
 
-    auto gb_triggers = new QGroupBox("Trigger Channels");
-    gb_triggers->setAlignment(Qt::AlignCenter);
-    auto l_triggers = make_grid(gb_triggers);
-    l_triggers->addWidget(d->table_triggers, 0, 0, 1, 2);
-    l_triggers->addWidget(pb_triggersAll, 1, 0);
-    l_triggers->addWidget(pb_triggersNone, 1, 1);
-
     d->setupWidget = new QWidget;
     auto setupLayout = new QFormLayout(d->setupWidget);
     setupLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
     setupLayout->addRow("Post Trigger Time",d->spin_postTriggerTime);
-    setupLayout->addRow(gb_triggers);
     setupLayout->addRow("Interval", d->spin_interval);
 
     d->pb_start = new QPushButton("Start DSO");
@@ -662,18 +617,6 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     widgetLayout->addLayout(controlLayout);
 
     setLayout(widgetLayout);
-
-    connect(pb_triggersAll, &QPushButton::clicked, this, [this] () {
-                for_all_table_items(d->table_triggers, [] (auto item) {
-                    item->setCheckState(Qt::Checked);
-                });
-            });
-
-    connect(pb_triggersNone, &QPushButton::clicked, this, [this] () {
-                for_all_table_items(d->table_triggers, [] (auto item) {
-                    item->setCheckState(Qt::Unchecked);
-                });
-            });
 
     connect(d->pb_start, &QPushButton::clicked, this, [this] () {
         emit startDSO();
@@ -694,22 +637,14 @@ void DSOControlWidget::setDSOActive(bool active)
     d->pb_stop->setEnabled(active);
 }
 
-DSOSetup DSOControlWidget::getDSOSetup() const
+unsigned DSOControlWidget::getPreTrigerTime()
 {
-    DSOSetup setup = {};
-    setup.preTriggerTime = d->spin_preTriggerTime->value();
-    setup.postTriggerTime = d->spin_postTriggerTime->value();
+    return d->spin_preTriggerTime->value();
+}
 
-    auto triggerBits = get_combined_triggers(setup);
-
-    for_all_table_items(d->table_triggers, [&triggerBits] (auto item) {
-        size_t trigNum = item->row() * Private::TriggerCols + item->column();
-        triggerBits.set(trigNum, item->checkState() == Qt::Checked);
-    });
-
-    set_combined_triggers(setup, triggerBits);
-
-    return setup;
+unsigned DSOControlWidget::getPostTriggerTime()
+{
+    return d->spin_postTriggerTime->value();
 }
 
 std::chrono::milliseconds DSOControlWidget::getInterval() const
@@ -717,20 +652,13 @@ std::chrono::milliseconds DSOControlWidget::getInterval() const
     return std::chrono::milliseconds(d->spin_interval->value());
 }
 
-void DSOControlWidget::setDSOSetup(
-    const DSOSetup &setup,
+void DSOControlWidget::setDSOSettings(
+    unsigned preTriggerTime,
+    unsigned postTriggerTime,
     const std::chrono::milliseconds &interval)
 {
-    d->spin_preTriggerTime->setValue(setup.preTriggerTime);
-    d->spin_postTriggerTime->setValue(setup.postTriggerTime);
-
-    auto triggerBits = get_combined_triggers(setup);
-
-    for_all_table_items(d->table_triggers, [&triggerBits] (auto item) {
-            size_t trigNum = item->row() * Private::TriggerCols + item->column();
-            item->setCheckState(triggerBits.test(trigNum) ? Qt::Checked : Qt::Unchecked);
-    });
-
+    d->spin_preTriggerTime->setValue(preTriggerTime);
+    d->spin_postTriggerTime->setValue(postTriggerTime);
     d->spin_interval->setValue(interval.count());
 }
 

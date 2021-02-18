@@ -22,6 +22,7 @@ class LIBMVME_EXPORT TraceSelectWidget: public QWidget
 
     signals:
         void selectionChanged(const QVector<PinAddress> &selection);
+        void triggersChanged(const CombinedTriggers &triggers);
 
     public:
         TraceSelectWidget(QWidget *parent = nullptr);
@@ -30,6 +31,10 @@ class LIBMVME_EXPORT TraceSelectWidget: public QWidget
         void setTriggerIO(const TriggerIO &trigIO);
         void setSelection(const QVector<PinAddress> &selection);
         QVector<PinAddress> getSelection() const;
+
+        // Trigger bits in DSO trace order.
+        void setTriggers(const CombinedTriggers &triggers);
+        CombinedTriggers getTriggers() const;
 
     private:
         struct Private;

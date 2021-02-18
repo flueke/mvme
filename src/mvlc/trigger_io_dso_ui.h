@@ -31,7 +31,7 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
             unsigned preTriggerTime = 0,
             const QStringList &names = {});
 
-        void setPostTriggerTime(double postTriggerTime);
+        void setPostTriggerTime(double postTriggerTime); // FIXME: move into setTraces()?
 
         // Set the vector element to true if the trace with the corresponding
         // index should be treated as a trigger trace, e.g. drawn in a
@@ -55,10 +55,10 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
     Q_OBJECT
     signals:
         // Emitted on pressing the start button.
-        // Use getDSOSetup() and getInterval() to query for the DSO parameters.
-        // If the interval is 0 only one snapshot should be acquired from the
-        // DSO. Otherwise the DSO is restarted using the same setup after the
-        // interval has elapsed.
+        // Use getPre/PostTriggerTime() and getInterval() to query for the DSO
+        // parameters. If the interval is 0 only one snapshot should be
+        // acquired from the DSO. Otherwise the DSO is restarted using the same
+        // setup after the interval has elapsed.
         void startDSO();
 
         // Emitted on pressing the stop button.
@@ -68,17 +68,18 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
         DSOControlWidget(QWidget *parent = nullptr);
         ~DSOControlWidget() override;
 
-        DSOSetup getDSOSetup() const;
+        unsigned getPreTrigerTime();
+        unsigned getPostTriggerTime();
         std::chrono::milliseconds getInterval() const;
 
     public slots:
-        // Load the DSOSetup and the interval into the GUI.
-        void setDSOSetup(
-            const DSOSetup &setup,
+        // Load the pre- and postTriggerTimes and the interval into the GUI.
+        void setDSOSettings(
+            unsigned preTriggerTime,
+            unsigned postTriggerTime,
             const std::chrono::milliseconds &interval = {});
 
-        // Notify the widget about the current state of the DSO sampler. If
-        // enabled most of the UI except for the stop button will be disabled.
+        // Notify the widget about the current state of the DSO sampler.
         void setDSOActive(bool active);
 
     private:

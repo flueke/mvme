@@ -212,8 +212,10 @@ int main(int argc, char *argv[])
 
 
     DSOControlWidget dsoControlWidget;
-    dsoControlWidget.setDSOSetup(dsoSetup, interval);
+    dsoControlWidget.setDSOSettings(dsoSetup.preTriggerTime, dsoSetup.postTriggerTime, interval);
     dsoControlWidget.show();
+
+    traceSelectWidget.setTriggers(get_combined_triggers(dsoSetup));
 
     QObject::connect(&dsoControlWidget, &DSOControlWidget::startDSO,
                      [&dsoControlWidget] () { dsoControlWidget.setDSOActive(true); });

@@ -41,7 +41,7 @@ class BaseModel: public QStandardItemModel
         QString pinUserName(const PinAddress &pa) const;
 
     private:
-        TriggerIO m_trigIO;
+        TriggerIO m_trigIO; // not efficient at all as both models keep a full copy of the trigger io setup...
 };
 
 class TraceTreeModel: public BaseModel
@@ -49,6 +49,8 @@ class TraceTreeModel: public BaseModel
     Q_OBJECT
     public:
         using BaseModel::BaseModel;
+
+    QStandardItem *samplesRoot = nullptr;
 };
 
 class TraceTableModel: public BaseModel

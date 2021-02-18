@@ -81,7 +81,7 @@ std::error_code read_dso(mvlc::MVLCDialog &mvlc, std::vector<u32> &dest)
 }
 }
 
-std::bitset<CombinedTriggerCount>
+CombinedTriggers
 get_combined_triggers(const DSOSetup &setup)
 {
     std::bitset<CombinedTriggerCount> result;
@@ -103,7 +103,7 @@ get_combined_triggers(const DSOSetup &setup)
 }
 
 void
-set_combined_triggers(DSOSetup &setup, const std::bitset<CombinedTriggerCount> &combinedTriggers)
+set_combined_triggers(DSOSetup &setup, const CombinedTriggers &combinedTriggers)
 {
     size_t cIndex = 0;
 
