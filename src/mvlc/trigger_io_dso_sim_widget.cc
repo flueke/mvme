@@ -194,7 +194,8 @@ DSO_Sim_Result run_dso_and_sim(
 
         if (auto ec = acquire_dso_sample(mvlc, dsoSetup, result.dsoBuffer, cancel))
         {
-            result.ec = ec;
+            if (ec != make_error_code(std::errc::timed_out))
+                result.ec = ec;
             return result;
         }
 
@@ -501,7 +502,7 @@ struct DSOSimWidget::Private
     DSOPlotWidget *dsoPlotWidget;
     QLabel *label_status;
 
-    std::unique_lock<mvlc::Mutex> errPollerLock;
+    //std::unique_lock<mvlc::Mutex> errPollerLock;
 
     void onTriggerIOModified()
     {
@@ -563,10 +564,9 @@ struct DSOSimWidget::Private
         if (this->resultWatcher.isRunning())
             return;
 
-        // Suspend the stack error poller so that it doesn't read any DSO
-        // samples off the command pipe. The lock is unlocked in
-        // onDSOSimRunFinished().
-        //errPollerLock = mvlc.suspendStackErrorPolling();
+        // Stop the stack error poller so that it doesn't read any DSO
+        // samples off the command pipe.
+        mvlc.stopStackErrorPolling();
         this->cancelDSO = false;
         this->dsoControlWidget->setDSOActive(true);
         this->stats = {};
@@ -624,7 +624,7 @@ struct DSOSimWidget::Private
             QTimer::singleShot(interval, q, [this] () { runDSO(); });
         else
         {
-            safe_unlock(errPollerLock);
+            mvlc.startStackErrorPolling();
             this->dsoControlWidget->setDSOActive(false);
         }
 
@@ -789,7 +789,7 @@ DSOSimWidget::~DSOSimWidget()
 {
     d->cancelDSO = true;
     d->resultWatcher.waitForFinished();
-    safe_unlock(d->errPollerLock);
+    d->mvlc.startStackErrorPolling();
     d->saveGUIState();
 }
 
@@ -800,7 +800,7 @@ void DSOSimWidget::setMVLC(mvlc::MVLC mvlc)
     if (d->resultWatcher.isRunning())
         d->resultWatcher.waitForFinished();
 
-    safe_unlock(d->errPollerLock);
+    d->mvlc.startStackErrorPolling();
     d->mvlc = mvlc;
 }
 
