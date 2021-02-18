@@ -240,6 +240,7 @@ DSO_Sim_Result run_dso_and_sim(
         return result;
 
     // simulate
+#if 0
     try
     {
         simulate(result.sim, simMaxTime);
@@ -272,6 +273,7 @@ DSO_Sim_Result run_dso_and_sim(
         result.ec = make_error_code(std::errc::io_error);
         result.ex = std::current_exception();
     }
+#endif
 
     return result;
 }
@@ -564,7 +566,7 @@ struct DSOSimWidget::Private
         // Suspend the stack error poller so that it doesn't read any DSO
         // samples off the command pipe. The lock is unlocked in
         // onDSOSimRunFinished().
-        errPollerLock = mvlc.suspendStackErrorPolling();
+        //errPollerLock = mvlc.suspendStackErrorPolling();
         this->cancelDSO = false;
         this->dsoControlWidget->setDSOActive(true);
         this->stats = {};

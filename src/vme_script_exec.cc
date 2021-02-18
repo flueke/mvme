@@ -28,7 +28,7 @@ ResultList run_script(
     if (auto mvlcCtrl = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
     {
         auto mvlc = mvlcCtrl->getMVLC();
-        mvlcErrorPollerSuspendMutex = mvlc.trySuspendStackErrorPolling();
+        mvlcErrorPollerSuspendMutex = mvlc.suspendStackErrorPolling();
     }
 
     for (auto cmd: script)

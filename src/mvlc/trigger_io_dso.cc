@@ -138,7 +138,7 @@ std::error_code acquire_dso_sample(
 
     // Stop the stack error poller so that it doesn't read our samples off the
     // command pipe.
-    auto errPollerLock = mvlc.trySuspendStackErrorPolling();
+    auto errPollerLock = mvlc.suspendStackErrorPolling();
 
     // To enforce that no other communication takes places on the command pipe
     // while the DSO is active we lock the command pipe here, then create a
