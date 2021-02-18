@@ -564,8 +564,8 @@ struct DSOControlWidget::Private
              *spin_postTriggerTime,
              *spin_interval;
 
-    static const int TriggerCols = 5;
-    static const int TriggerRows = 4;
+    static const int TriggerCols = 6;
+    static const int TriggerRows = 6;
 
     QTableWidget *table_triggers;
     QWidget *setupWidget;
@@ -603,10 +603,12 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
             item->setCheckState(Qt::Checked);
 
-            if (trigNum < NIM_IO_Count)
-                item->setText(QSL("NIM%1").arg(trigNum));
-            else
-                item->setText(QSL("IRQ%1").arg(trigNum - NIM_IO_Count + 1));
+            item->setText(get_trigger_default_name(trigNum));
+
+            //if (trigNum < NIM_IO_Count)
+            //    item->setText(QSL("NIM%1").arg(trigNum));
+            //else
+            //    item->setText(QSL("IRQ%1").arg(trigNum - NIM_IO_Count + 1));
 
 
             d->table_triggers->setItem(row, col, item.release());
@@ -617,10 +619,10 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->table_triggers->horizontalHeader()->hide();
     d->table_triggers->resizeColumnsToContents();
     d->table_triggers->resizeRowsToContents();
-    d->table_triggers->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    d->table_triggers->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    d->table_triggers->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-    d->table_triggers->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+    //d->table_triggers->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    //d->table_triggers->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    //d->table_triggers->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+    //d->table_triggers->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
     auto pb_triggersAll = new QPushButton("all");
     auto pb_triggersNone = new QPushButton("none");
@@ -698,17 +700,14 @@ DSOSetup DSOControlWidget::getDSOSetup() const
     setup.preTriggerTime = d->spin_preTriggerTime->value();
     setup.postTriggerTime = d->spin_postTriggerTime->value();
 
-    for_all_table_items(d->table_triggers, [&setup] (auto item) {
-        if (item->checkState() == Qt::Checked)
-        {
-            size_t trigNum = item->row() * Private::TriggerCols + item->column();
+    auto triggerBits = get_combined_triggers(setup);
 
-            if (trigNum < NIM_IO_Count)
-                setup.nimTriggers.set(trigNum);
-            else
-                setup.irqTriggers.set(trigNum - NIM_IO_Count);
-        }
+    for_all_table_items(d->table_triggers, [&triggerBits] (auto item) {
+        size_t trigNum = item->row() * Private::TriggerCols + item->column();
+        triggerBits.set(trigNum, item->checkState() == Qt::Checked);
     });
+
+    set_combined_triggers(setup, triggerBits);
 
     return setup;
 }
@@ -725,16 +724,11 @@ void DSOControlWidget::setDSOSetup(
     d->spin_preTriggerTime->setValue(setup.preTriggerTime);
     d->spin_postTriggerTime->setValue(setup.postTriggerTime);
 
-    for_all_table_items(d->table_triggers, [&setup] (auto item) {
+    auto triggerBits = get_combined_triggers(setup);
+
+    for_all_table_items(d->table_triggers, [&triggerBits] (auto item) {
             size_t trigNum = item->row() * Private::TriggerCols + item->column();
-            bool checked = false;
-
-            if (trigNum < NIM_IO_Count)
-                checked = setup.nimTriggers.test(trigNum);
-            else
-                checked = setup.irqTriggers.test(trigNum - NIM_IO_Count);
-
-            item->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
+            item->setCheckState(triggerBits.test(trigNum) ? Qt::Checked : Qt::Unchecked);
     });
 
     d->spin_interval->setValue(interval.count());
