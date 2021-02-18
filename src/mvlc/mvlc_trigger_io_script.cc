@@ -146,24 +146,6 @@ ScriptParts generate(const trigger_io::Timer &unit, int index)
     return ret;
 }
 
-ScriptParts generate(const trigger_io::IRQ_Util &unit, int index)
-{
-    (void) index;
-
-    ScriptParts ret;
-    ret += write_unit_reg(0, static_cast<u16>(unit.irqIndex),
-                          "irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)");
-    return ret;
-}
-
-ScriptParts generate(const trigger_io::SoftTrigger &unit)
-{
-    ScriptParts ret;
-    ret += write_unit_reg(2, static_cast<u16>(unit.activation),
-                          "output activation: 0=pulse, 1=level");
-    return ret;
-}
-
 namespace io_flags
 {
     using Flags = u8;
@@ -330,29 +312,6 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
         ret += select_unit(0, kv.index());
         ret += generate(kv.value(), kv.index());
     }
-
-#if 0
-    for (const auto &kv: ioCfg.l0.irqUnits | indexed(0))
-    {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.IRQ_UnitOffset];
-        ret += select_unit(0, kv.index() + ioCfg.l0.IRQ_UnitOffset);
-        ret += generate(kv.value(), kv.index());
-    }
-
-    for (const auto &kv: ioCfg.l0.softTriggers | indexed(0))
-    {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.SoftTriggerOffset];
-        ret += select_unit(0, kv.index() + ioCfg.l0.SoftTriggerOffset);
-        ret += generate(kv.value());
-    }
-
-    for (const auto &kv: ioCfg.l0.slaveTriggers | indexed(0))
-    {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.SlaveTriggerOffset];
-        ret += select_unit(0, kv.index() + ioCfg.l0.SlaveTriggerOffset);
-        ret += generate(kv.value(), io_flags::None);
-    }
-#endif
 
     for (const auto &kv: ioCfg.l0.triggerResources | indexed(0))
     {

@@ -167,7 +167,7 @@ struct LIBMVME_EXPORT SoftTrigger
 
 // SlaveTrigger consisting of a gate generator and the slave trigger index to
 // output.
-struct SlaveTrigger
+struct LIBMVME_EXPORT SlaveTrigger
 {
     IO gateGenerator;
     u8 triggerIndex; // slave trigger index to output (0..3)
@@ -175,7 +175,7 @@ struct SlaveTrigger
 
 // Generic trigger resource unit. Replaces individual IRQ, SoftTrigger, and
 // SlaveTrigger units since FW0016_55.
-struct TriggerResource
+struct LIBMVME_EXPORT TriggerResource
 {
     // Note: 'type' is stored in connection register offset 0,
     // slaveTrigger.triggerIndex is stored in connection register offset 2.

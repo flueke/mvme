@@ -647,49 +647,6 @@ class Level0UtilsDialog: public QDialog
             QVector<QCheckBox *> checks_softActivate;
         };
 
-#if 0
-        struct IRQUnits_UI: public Table_UI_Base
-        {
-            enum Columns
-            {
-                ColName,
-                ColIRQIndex,
-            };
-
-            static const int FirstUnitIndex = Level0::IRQ_UnitOffset;
-
-            QVector<QSpinBox *> spins_irqIndex;
-        };
-
-        struct SoftTriggers_UI: public Table_UI_Base
-        {
-            enum Columns
-            {
-                ColName,
-                ColPermaEnable,
-            };
-
-            static const int FirstUnitIndex = Level0::SoftTriggerOffset;
-
-            QVector<QComboBox *> combos_activation;
-        };
-
-        struct SlaveTriggers_UI: public Table_UI_Base
-        {
-            enum Columns
-            {
-                ColName,
-                ColDelay,
-                ColWidth,
-                ColHoldoff,
-                ColInvert,
-            };
-
-            static const int FirstUnitIndex = Level0::SlaveTriggerOffset;
-
-            QVector<QCheckBox *> checks_invert;
-        };
-#endif
         struct TriggerResource_UI: public Table_UI_Base
         {
             enum Columns
@@ -730,11 +687,6 @@ class Level0UtilsDialog: public QDialog
 
         mutable Level0 m_l0;
         TimersTable_UI ui_timers;
-#if 0
-        IRQUnits_UI ui_irqUnits;
-        SoftTriggers_UI ui_softTriggers;
-        SlaveTriggers_UI ui_slaveTriggers;
-#endif
         StackBusy_UI ui_stackBusy;
         TriggerResource_UI ui_triggerResources;
 };

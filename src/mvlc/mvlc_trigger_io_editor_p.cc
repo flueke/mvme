@@ -2861,111 +2861,6 @@ Level0UtilsDialog::Level0UtilsDialog(
         return ret;
     };
 
-#if 0
-    auto make_irq_units_table_ui = [](const Level0 &l0)
-    {
-        static const QString RowTitleFormat = "IRQ_util%1";
-        static const QStringList ColumnTitles = { "Name", "IRQ Index" };
-        const size_t rowCount = l0.irqUnits.size();
-        const int nameOffset = l0.IRQ_UnitOffset;
-
-        IRQUnits_UI ret = {};
-        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-        ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-        for (int row = 0; row < ret.table->rowCount(); ++row)
-        {
-            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-            auto spin_irqIndex = new QSpinBox;
-            spin_irqIndex->setRange(1, 10);
-            spin_irqIndex->setValue(l0.irqUnits[row].irqIndex + 1);
-
-            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                    l0.unitNames.value(row + nameOffset)));
-
-            ret.table->setCellWidget(row, ret.ColIRQIndex, spin_irqIndex);
-
-            ret.spins_irqIndex.push_back(spin_irqIndex);
-        }
-
-        ret.table->resizeColumnsToContents();
-        ret.table->resizeRowsToContents();
-
-        return ret;
-    };
-
-    auto make_soft_triggers_table_ui = [](const Level0 &l0)
-    {
-        static const QString RowTitleFormat = "SoftTrigger%1";
-        static const QStringList ColumnTitles = { "Name", "Activation" };
-        const int rowCount = l0.SoftTriggerCount;
-        const int nameOffset = l0.SoftTriggerOffset;
-
-        SoftTriggers_UI ret = {};
-        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-        ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-        for (int row = 0; row < ret.table->rowCount(); ++row)
-        {
-            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-            const auto &st = l0.softTriggers[row];
-
-            auto combo_activation = new QComboBox;
-            ret.combos_activation.push_back(combo_activation);
-            combo_activation->addItem("Pulse", static_cast<int>(SoftTrigger::Activation::Pulse));
-            combo_activation->addItem("Level", static_cast<int>(SoftTrigger::Activation::Level));
-            combo_activation->setCurrentIndex(combo_activation->findData(static_cast<int>(st.activation)));
-
-            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                    l0.unitNames.value(row + nameOffset)));
-            ret.table->setCellWidget(row, ret.ColPermaEnable, combo_activation);
-        }
-
-        ret.table->resizeColumnsToContents();
-        ret.table->resizeRowsToContents();
-
-        return ret;
-    };
-
-    auto make_slave_triggers_table_ui = [](const Level0 &l0)
-    {
-        static const QString RowTitleFormat = "SlaveTrigger%1";
-        static const QStringList ColumnTitles = { "Name", "Delay", "Width", "Holdoff", "Invert" };
-        const size_t rowCount = l0.slaveTriggers.size();
-        const int nameOffset = l0.SlaveTriggerOffset;
-
-        SlaveTriggers_UI ret = {};
-        ret.table = new QTableWidget(rowCount, ColumnTitles.size());
-        ret.table->setHorizontalHeaderLabels(ColumnTitles);
-
-        for (int row = 0; row < ret.table->rowCount(); ++row)
-        {
-            ret.table->setVerticalHeaderItem(row, new QTableWidgetItem(RowTitleFormat.arg(row)));
-
-            const auto &io = l0.slaveTriggers[row];
-
-            auto check_invert = new QCheckBox;
-            check_invert->setChecked(io.invert);
-            ret.checks_invert.push_back(check_invert);
-
-            ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
-                    l0.unitNames.value(row + nameOffset)));
-
-            ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(QString::number(io.delay)));
-            ret.table->setItem(row, ret.ColWidth, new QTableWidgetItem(QString::number(io.width)));
-            ret.table->setItem(row, ret.ColHoldoff, new QTableWidgetItem(QString::number(io.holdoff)));
-            ret.table->setCellWidget(row, ret.ColInvert, make_centered(check_invert));
-        }
-
-        ret.table->resizeColumnsToContents();
-        ret.table->resizeRowsToContents();
-
-        return ret;
-    };
-#endif
-
     auto make_stack_busy_table_ui = [&vmeEventNames](const Level0 &l0)
     {
         static const QString RowTitleFormat = "StackBusy%1";
@@ -3128,22 +3023,12 @@ Level0UtilsDialog::Level0UtilsDialog(
     };
 
     ui_timers = make_timers_table_ui(l0);
-#if 0
-    ui_irqUnits = make_irq_units_table_ui(l0);
-    ui_softTriggers = make_soft_triggers_table_ui(l0);
-    ui_slaveTriggers = make_slave_triggers_table_ui(l0);
-#endif
     ui_stackBusy = make_stack_busy_table_ui(l0);
     ui_triggerResources = make_trigger_resource_ui(l0);
 
     std::vector<Table_UI_Base *> tableUIs =
     {
         &ui_timers,
-#if 0
-        &ui_irqUnits,
-        &ui_softTriggers,
-        &ui_slaveTriggers,
-#endif
         &ui_stackBusy,
         &ui_triggerResources
     };
@@ -3161,12 +3046,6 @@ Level0UtilsDialog::Level0UtilsDialog(
     grid->addWidget(make_groupbox(ui_triggerResources.table, "Trigger Resources"), 0, 1, 2, 1);
     grid->setColumnStretch(0, 1);
     grid->setColumnStretch(1, 2);
-#if 0
-    grid->addWidget(make_groupbox(ui_irqUnits.table, "IRQ Units"), 0, 1);
-    grid->addWidget(make_groupbox(ui_softTriggers.table, "Soft Triggers"), 0, 2);
-
-    grid->addWidget(make_groupbox(ui_slaveTriggers.table, "SlaveTriggers"), 1, 0);
-#endif
 
     auto bb = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
@@ -3221,49 +3100,6 @@ Level0 Level0UtilsDialog::getSettings() const
             tr.slaveTrigger.gateGenerator.invert = ui.checks_invert[row]->isChecked();
         }
     }
-
-#if 0
-    {
-        auto &ui = ui_irqUnits;
-
-        for (int row = 0; row < ui.table->rowCount(); row++)
-        {
-            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
-
-            auto &unit = m_l0.irqUnits[row];
-            unit.irqIndex = ui.spins_irqIndex[row]->value() - 1;
-        }
-    }
-
-    {
-        auto &ui = ui_softTriggers;
-
-        for (int row = 0; row < ui.table->rowCount(); row++)
-        {
-            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
-
-            auto &unit = m_l0.softTriggers[row];
-            unit.activation = static_cast<SoftTrigger::Activation>(
-                ui.combos_activation[row]->currentData().toInt());
-        }
-    }
-
-    {
-        auto &ui = ui_slaveTriggers;
-
-        for (int row = 0; row < ui.table->rowCount(); row++)
-        {
-            m_l0.unitNames[row + ui.FirstUnitIndex] = ui.table->item(row, ui.ColName)->text();
-
-            auto &unit = m_l0.slaveTriggers[row];
-
-            unit.delay = ui.table->item(row, ui.ColDelay)->text().toUInt();
-            unit.width = ui.table->item(row, ui.ColWidth)->text().toUInt();
-            unit.holdoff = ui.table->item(row, ui.ColHoldoff)->text().toUInt();
-            unit.invert = ui.checks_invert[row]->isChecked();
-        }
-    }
-#endif
 
     {
         auto &ui = ui_stackBusy;
