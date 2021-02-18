@@ -3048,6 +3048,7 @@ Level0UtilsDialog::Level0UtilsDialog(
             combo_type->addItem("SlaveTrigger", static_cast<int>(TriggerResource::Type::SlaveTrigger));
             combo_type->setCurrentIndex(combo_type->findData(static_cast<int>(tr.type)));
 
+            // Enable/disable cells based on the resource type selection.
             auto on_type_changed = [combo_type, table, row] ()
             {
                 auto update_enabled = [](QTableWidget *table, int row, int col, bool enabled)
@@ -3089,7 +3090,6 @@ Level0UtilsDialog::Level0UtilsDialog(
 
             // SoftTrigger
             auto combo_activation = new QComboBox;
-            ret.combos_activation.push_back(combo_activation);
             combo_activation->addItem("Pulse", static_cast<int>(SoftTrigger::Activation::Pulse));
             combo_activation->addItem("Level", static_cast<int>(SoftTrigger::Activation::Level));
             combo_activation->setCurrentIndex(combo_activation->findData(static_cast<int>(tr.softTrigger.activation)));
