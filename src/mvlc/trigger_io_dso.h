@@ -55,8 +55,13 @@ struct LIBMVME_EXPORT DSOSetup
 
 static const size_t CombinedTriggerCount = NIM_IO_Count + Level0::IRQ_Inputs_Count + Level0::UtilityUnitCount;
 
+// Returns a flat bitset containing the nim, irq and util trigger bits.
 LIBMVME_EXPORT std::bitset<CombinedTriggerCount>
-combined_triggers(const DSOSetup &setup);
+get_combined_triggers(const DSOSetup &setup);
+
+// Sets the trigger bits from the combinedTriggers set on the DSOSetup structure.
+LIBMVME_EXPORT void
+set_combined_triggers(DSOSetup &setup, const std::bitset<CombinedTriggerCount> &combinedTriggers);
 
 namespace data_format
 {
@@ -198,6 +203,10 @@ static const int DSOExpectedSampledTraces =
 const std::vector<PinAddress> &trace_index_to_pin_list();
 
 int get_trace_index(const PinAddress &pa);
+
+LIBMVME_EXPORT QString
+get_trigger_default_name(unsigned combinedTriggerIndex);
+
 
 } // end namespace trigger_io_dso
 } // end namespace mvme_mvlc

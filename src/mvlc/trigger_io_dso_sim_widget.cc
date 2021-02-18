@@ -303,7 +303,7 @@ void show_dso_buffer_debug_widget(
 
     {
         const auto &dsoBuffer = dsoSimResult.dsoBuffer;
-        auto combinedTriggers = combined_triggers(dsoSetup);
+        auto combinedTriggers = get_combined_triggers(dsoSetup);
         auto jitter = calculate_jitter_value(dsoSimResult.sim.sampledTraces, dsoSetup).first;
 
         out << "<html><body><pre>";

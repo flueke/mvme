@@ -374,7 +374,11 @@ struct LIBMVME_EXPORT TriggerIO
     Level3 l3;
 };
 
+// Returns the user supplied name for the given address stored in the
+// TriggerIO.
 LIBMVME_EXPORT QString lookup_name(const TriggerIO &ioCfg, const UnitAddress &addr);
+
+// Returns the default name/unit name for the given address.
 LIBMVME_EXPORT QString lookup_default_name(const TriggerIO &ioCfg, const UnitAddress &addr);
 
 // Reset all pin names to their default value

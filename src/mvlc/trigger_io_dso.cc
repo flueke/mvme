@@ -81,7 +81,8 @@ std::error_code read_dso(mvlc::MVLCDialog &mvlc, std::vector<u32> &dest)
 }
 }
 
-std::bitset<CombinedTriggerCount> combined_triggers(const DSOSetup &setup)
+std::bitset<CombinedTriggerCount>
+get_combined_triggers(const DSOSetup &setup)
 {
     std::bitset<CombinedTriggerCount> result;
 
@@ -99,6 +100,32 @@ std::bitset<CombinedTriggerCount> combined_triggers(const DSOSetup &setup)
         result.set(bitIndex, setup.utilTriggers.test(i));
 
     return result;
+}
+
+void
+set_combined_triggers(DSOSetup &setup, const std::bitset<CombinedTriggerCount> &combinedTriggers)
+{
+    size_t cIndex = 0;
+
+    for (size_t i=0; i<setup.nimTriggers.size(); ++i, ++cIndex)
+    {
+        assert(cIndex < combinedTriggers.size());
+        setup.nimTriggers.set(i, combinedTriggers.test(cIndex));
+    }
+
+    for (size_t i=0; i<setup.irqTriggers.size(); ++i, ++cIndex)
+    {
+        assert(cIndex < combinedTriggers.size());
+        setup.irqTriggers.set(i, combinedTriggers.test(cIndex));
+    }
+
+    for (size_t i=0; i<setup.utilTriggers.size(); ++i, ++cIndex)
+    {
+        assert(cIndex < combinedTriggers.size());
+        setup.utilTriggers.set(i, combinedTriggers.test(cIndex));
+    }
+
+    assert(cIndex == combinedTriggers.size());
 }
 
 std::error_code acquire_dso_sample(
@@ -326,7 +353,7 @@ s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup)
  */
 std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup)
 {
-    auto combinedTriggers = combined_triggers(dsoSetup);
+    auto combinedTriggers = get_combined_triggers(dsoSetup);
 
     const unsigned maskedPreTrig = dsoSetup.preTriggerTime & (~0b111);
 
@@ -453,6 +480,27 @@ int get_trace_index(const PinAddress &pa)
         return -1;
 
     return it - std::begin(lst);
+}
+
+QString get_trigger_default_name(unsigned combinedTriggerIndex)
+{
+    const auto &pinList = trace_index_to_pin_list();
+
+    assert(combinedTriggerIndex < pinList.size());
+
+    if (combinedTriggerIndex < pinList.size())
+    {
+        auto pa = pinList.at(combinedTriggerIndex);
+
+        assert(get_trace_index(pa) == static_cast<int>(combinedTriggerIndex));
+        assert(pa.unit[0] == 0);
+        assert(pa.unit[1] < Level0::DefaultUnitNames.size());
+
+        if (pa.unit[1] < Level0::DefaultUnitNames.size())
+            return Level0::DefaultUnitNames.at(pa.unit[1]);
+    }
+
+    return {};
 }
 
 } // end namespace trigger_io
