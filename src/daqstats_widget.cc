@@ -272,7 +272,7 @@ struct DAQStatsWidgetPrivate
         {
             if (needNewline)
                 text += QSL("\n");
-            text += QString("wrongly received non-error frames: %1").arg(counters.nonErrorFrames);
+            text += QString("unexpected non-error frames: %1").arg(counters.nonErrorFrames);
         }
 
         label_mvlcStackErrors->setText(text);
