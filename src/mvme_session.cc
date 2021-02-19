@@ -29,7 +29,6 @@
 #include "build_info.h"
 #include "git_sha1.h"
 #include "mvlc/mvlc_qt_object.h"
-#include "mvlc/trigger_io_sim_ui.h"
 #include "mvme_stream_worker.h"
 #include "mvlc_stream_worker.h"
 #include "vme_config.h"
@@ -67,11 +66,6 @@ void mvme_init(const QString &appName)
     REG_META_VEC(s32);
 
 #undef REG_META_VEC
-
-    qRegisterMetaType<mesytec::mvme_mvlc::trigger_io::PinAddress>();
-    qRegisterMetaTypeStreamOperators<mesytec::mvme_mvlc::trigger_io::PinAddress>(
-        "mesytec::mvme_mvlc::trigger_io::PinAddress");
-    //QMetaType::registerComparators<mesytec::mvme_mvlc::trigger_io::PinAddress>();
 
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
     QCoreApplication::setOrganizationName("mesytec");

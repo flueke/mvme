@@ -1,7 +1,10 @@
 #ifndef __MVME_MVLC_TRIGGER_IO_SIM_PINADDRESS_H__
 #define __MVME_MVLC_TRIGGER_IO_SIM_PINADDRESS_H__
 
+#include <QDebug>
+#include <QMetaType>
 #include <QString>
+
 #include "libmvme_export.h"
 #include "mvlc/mvlc_trigger_io.h"
 
@@ -52,5 +55,16 @@ LIBMVME_EXPORT QString pin_user_name(const TriggerIO &trigIO, const PinAddress &
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
 } // end namespace mesytec
+
+Q_DECLARE_METATYPE(mesytec::mvme_mvlc::trigger_io::PinAddress);
+
+QDataStream &operator<<(
+    QDataStream &out, const mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
+
+QDataStream &operator>>(
+    QDataStream &in, mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
+
+QDebug operator<<(
+    QDebug dbg, const mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
 
 #endif /* __MVME_MVLC_TRIGGER_IO_SIM_PINADDRESS_H__ */

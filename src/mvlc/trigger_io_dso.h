@@ -11,10 +11,8 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_dso
+namespace trigger_io
 {
-
-using namespace trigger_io;
 
 // Support for the digital storage oscilloscope (DSO) built into the MVLC
 // trigger_io module.
@@ -211,7 +209,7 @@ LIBMVME_EXPORT QString
 get_trigger_default_name(unsigned combinedTriggerIndex);
 
 
-} // end namespace trigger_io_dso
+} // end namespace trigger_io
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 

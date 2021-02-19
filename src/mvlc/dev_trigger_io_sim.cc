@@ -13,16 +13,16 @@
 #include <random>
 
 #include "mvlc/trigger_io_dso.h"
-#include "mvlc/trigger_io_dso_ui.h"
+#include "mvlc/trigger_io_dso_sim_ui.h"
+#include "mvlc/trigger_io_dso_sim_ui_p.h"
+#include "mvlc/trigger_io_dso_plot_widget.h"
 #include "mvlc/trigger_io_sim.h"
-#include "mvlc/trigger_io_sim_ui.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvme_qwt.h"
 #include "mvme_session.h"
 #include "qt_util.h"
 
 using namespace mesytec::mvme_mvlc;
-using namespace trigger_io_dso;
 using namespace trigger_io;
 using namespace std::chrono_literals;
 using std::cout;

@@ -17,7 +17,6 @@ namespace mvme_mvlc
 namespace trigger_io
 {
 
-using namespace trigger_io_dso;
 using namespace std::chrono_literals;
 
 // Extend the timeline to toTime using the last input samples edge.

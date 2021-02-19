@@ -8,7 +8,8 @@
 #include <random>
 
 #include "mvlc/trigger_io_dso.h"
-#include "mvlc/trigger_io_dso_ui.h"
+#include "mvlc/trigger_io_dso_sim_ui.h"
+#include "mvlc/trigger_io_dso_plot_widget.h"
 #include "mvlc/trigger_io_sim.h"
 #include "mvme_qwt.h"
 
@@ -19,7 +20,6 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
-    using namespace trigger_io_dso;
     using namespace trigger_io;
 
     QApplication app(argc, argv);

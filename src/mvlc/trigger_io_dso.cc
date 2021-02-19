@@ -14,7 +14,7 @@ namespace mesytec
 {
 namespace mvme_mvlc
 {
-namespace trigger_io_dso
+namespace trigger_io
 {
 
 namespace
