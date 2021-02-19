@@ -1,5 +1,0 @@
-# This script activates SoftTrigger0 of the MVLC Trigger IO module.
-
-setbase 0xffff0000      # use the mvlc vme interface as the base address
-0x0200 0x0006           # select soft_trigger0 (Level0.Unit6)
-0x0300 1                # activate the trigger
