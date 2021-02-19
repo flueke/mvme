@@ -367,9 +367,12 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
     d->tableView->setModel(d->tableModel.get());
     d->tableView->setContextMenuPolicy(Qt::CustomContextMenu);
 
+    auto splitter = new QSplitter(Qt::Horizontal);
+    splitter->addWidget(d->treeView);
+    splitter->addWidget(d->tableView);
+
     auto widgetLayout = make_hbox(this);
-    widgetLayout->addWidget(d->treeView);
-    widgetLayout->addWidget(d->tableView);
+    widgetLayout->addWidget(splitter);
 
     connect(
         d->treeView, &QAbstractItemView::clicked,
