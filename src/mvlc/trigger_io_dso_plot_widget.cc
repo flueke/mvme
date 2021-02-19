@@ -348,7 +348,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
             {
                 d->mousePosTracker->setEnabled(!zoomerActive);
                 for (auto marker: d->curveValueLabels)
-                    marker->setVisible(!zoomerActive);
+                    marker->setVisible(!zoomerActive && d->mousePosTracker->isActive());
                 d->replot();
             });
 
@@ -402,9 +402,6 @@ std::unique_ptr<ScopeCurve> make_scope_curve(QwtSeriesData<QPointF> *scopeData, 
     curve->setPen(Qt::green);
     curve->setRenderHint(QwtPlotItem::RenderAntialiased);
 
-    //curve->setItemInterest(QwtPlotItem::ScaleInterest); // TODO: try and
-    //see if this information can be used for the last sample in ScopeData
-    //    (to draw to the end of the x-axis).
     return curve;
 }
 
@@ -420,15 +417,14 @@ void DSOPlotWidget::setTraces(
         curve->detach();
         delete curve;
     }
-
     d->curves.clear();
 
+    // Delete curve value labels
     for (auto marker: d->curveValueLabels)
     {
         marker->detach();
         delete marker;
     }
-
     d->curveValueLabels.clear();
 
     // Always create a new scale draw instance here otherwise the y axis does
@@ -458,6 +454,7 @@ void DSOPlotWidget::setTraces(
         marker->setYValue(yOffset + 0.5);
         marker->setLabelAlignment(Qt::AlignLeft | Qt::AlignCenter);
         marker->attach(d->plot);
+        marker->setVisible(d->mousePosTracker->isActive());
         d->curveValueLabels.push_back(marker);
 
         yOffset += yStep;
