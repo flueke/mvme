@@ -5,6 +5,7 @@
 
 #include "mvlc/trigger_io_dso_sim_ui.h"
 #include "mvlc/trigger_io_dso.h"
+#include "util/qt_model_view_util.h"
 
 namespace mesytec
 {
@@ -92,6 +93,9 @@ class LIBMVME_EXPORT TraceSelectWidget: public QWidget
         // Trigger bits in DSO trace order.
         void setTriggers(const CombinedTriggers &triggers);
         CombinedTriggers getTriggers() const;
+
+        mvme::TreeViewExpansionState getTreeExpansionState() const;
+        void setTreeExpansionState(const mvme::TreeViewExpansionState &expansionState);
 
     private:
         struct Private;

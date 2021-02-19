@@ -23,6 +23,7 @@
 #include "mvlc/trigger_io_dso_plot_widget.h"
 #include "mvlc/trigger_io_sim.h"
 #include "util/qt_font.h"
+#include "util/qt_model_view_util.h"
 
 namespace mesytec
 {
@@ -30,6 +31,8 @@ namespace mvme_mvlc
 {
 namespace trigger_io
 {
+
+using namespace mesytec::mvme;
 
 //
 // Trace and Trigger Selection
@@ -178,7 +181,7 @@ std::unique_ptr<TraceTreeModel> make_trace_tree_model()
     auto root = model->invisibleRootItem();
 
     // Sampled Traces
-    auto samplesRoot = make_non_trace_item("samples & triggers");
+    auto samplesRoot = make_non_trace_item("Samples+Triggers");
     model->samplesRoot = samplesRoot;
     root->appendRow({ samplesRoot, make_non_trace_item() });
 
@@ -285,6 +288,7 @@ std::unique_ptr<TraceTableModel> make_trace_table_model()
     return model;
 }
 
+
 class TraceTreeView: public QTreeView
 {
     public:
@@ -380,14 +384,8 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
         {
             if (auto item = d->treeModel->itemFromIndex(index))
             {
-                qDebug() << "tree clicked, item =" << item
-                    << ", row =" << index.row()
-                    << ", col =" << index.column()
-                    << ", data =" << item->data()
-                    ;
-
                 if (item->data().canConvert<PinAddress>())
-                    qDebug() << item->data().value<PinAddress>();
+                    qDebug() << "tree click on" << item->data().value<PinAddress>();
             }
         });
 
@@ -418,14 +416,10 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
         {
             if (auto item = d->tableModel->itemFromIndex(index))
             {
-                qDebug() << "table clicked, item =" << item
-                    << ", row =" << index.row()
-                    << ", col =" << index.column()
-                    << ", data =" << item->data()
-                    ;
-
                 if (item->data().canConvert<PinAddress>())
-                    qDebug() << item->data().value<PinAddress>();
+                {
+                    qDebug() << "table click on" << item->data().value<PinAddress>();
+                }
             }
         });
 
@@ -455,7 +449,7 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
                         item->setData(QVariant(), Qt::CheckStateRole);
                     }
                 }
-                d->tableView->resizeColumnsToContents();
+                d->tableView->resizeColumnToContents(0);
                 d->tableView->resizeRowsToContents();
                 qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
                 emit selectionChanged(getSelection());
@@ -488,7 +482,9 @@ TraceSelectWidget::~TraceSelectWidget()
 
 void TraceSelectWidget::setTriggerIO(const TriggerIO &trigIO)
 {
+    auto expansionState = make_expansion_state(d->treeView, d->treeModel.get());
     d->treeModel->setTriggerIO(trigIO);
+    set_expansion_state(d->treeView, expansionState);
     d->tableModel->setTriggerIO(trigIO);
 }
 
@@ -535,6 +531,16 @@ void TraceSelectWidget::setTriggers(const CombinedTriggers &triggers)
 CombinedTriggers TraceSelectWidget::getTriggers() const
 {
     return d->triggerBits;
+}
+
+TreeViewExpansionState TraceSelectWidget::getTreeExpansionState() const
+{
+    return make_expansion_state(d->treeView, d->treeModel.get());
+}
+
+void TraceSelectWidget::setTreeExpansionState(const TreeViewExpansionState &expansionState)
+{
+    return set_expansion_state(d->treeView, expansionState);
 }
 
 //
@@ -585,7 +591,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     auto setupLayout = new QFormLayout(d->setupWidget);
     setupLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
     setupLayout->addRow("Post Trigger Time",d->spin_postTriggerTime);
-    setupLayout->addRow("Interval", d->spin_interval);
+    setupLayout->addRow("Read Interval", d->spin_interval);
 
     d->pb_start = new QPushButton("Start DSO");
     d->pb_stop = new QPushButton("Stop DSO");
@@ -654,7 +660,7 @@ struct DSOSimGuiState
     DSOSetup dsoSetup;
     std::chrono::milliseconds dsoInterval;
     QVector<PinAddress> traceSelection;
-    // TODO: somehow store the expanded state of the trace tree
+    std::vector<std::vector<int>> traceTreeExpansionState;
 };
 
 void to_yaml(YAML::Emitter &out, const DSOSetup &dsoSetup)
@@ -683,11 +689,25 @@ DSOSetup dso_setup_from_yaml(const YAML::Node &node)
 {
     DSOSetup result;
 
-    result.preTriggerTime = node["preTriggerTime"].as<u16>();
-    result.postTriggerTime = node["postTriggerTime"].as<u16>();
-    result.nimTriggers = node["nimTriggers"].as<unsigned long>();
-    result.irqTriggers = node["irqTriggers"].as<unsigned long>();
-    result.utilTriggers = node["utilTriggers"].as<unsigned long>();
+    try
+    {
+        if (node["preTriggerTime"])
+            result.preTriggerTime = node["preTriggerTime"].as<u16>();
+
+        if (node["postTriggerTime"])
+            result.postTriggerTime = node["postTriggerTime"].as<u16>();
+
+        if (node["nimTriggers"])
+            result.nimTriggers = node["nimTriggers"].as<unsigned long>();
+
+        if (node["irqTriggers"])
+            result.irqTriggers = node["irqTriggers"].as<unsigned long>();
+
+        if (node["utilTriggers"])
+            result.utilTriggers = node["utilTriggers"].as<unsigned long>();
+
+    } catch (const YAML::Exception &)
+    {}
 
     return result;
 }
@@ -731,6 +751,29 @@ QVector<PinAddress> trace_selection_from_yaml(const YAML::Node &node)
     return result;
 }
 
+void to_yaml(YAML::Emitter &out, const mvme::TreeViewExpansionState &expansionState)
+{
+    out << YAML::BeginSeq;
+
+    for (auto &entry: expansionState)
+        out << YAML::Flow << entry;
+
+    out << YAML::EndSeq;
+}
+
+mvme::TreeViewExpansionState tree_view_expansion_state_from_yaml(const YAML::Node &node)
+{
+    mvme::TreeViewExpansionState result;
+
+    for (const auto &yEntry: node)
+    {
+        auto entry = yEntry.as<std::vector<int>>();
+        result.emplace_back(entry);
+    }
+
+    return result;
+}
+
 QString to_yaml(const DSOSimGuiState &guiState)
 {
     YAML::Emitter out;
@@ -748,6 +791,10 @@ QString to_yaml(const DSOSimGuiState &guiState)
         << YAML::Value;
     to_yaml(out, guiState.traceSelection);
 
+    out << YAML::Key << "TraceTreeExpansion"
+        << YAML::Value;
+    to_yaml(out, guiState.traceTreeExpansionState);
+
     assert(out.good());
 
     return QString(out.c_str());
@@ -761,9 +808,17 @@ DSOSimGuiState dso_sim_gui_state_from_yaml(const QString &yamlString)
 
     if (!yRoot) return result;
 
-    result.dsoSetup = dso_setup_from_yaml(yRoot["DSOSetup"]);
-    result.dsoInterval = std::chrono::milliseconds(yRoot["DSOInterval"].as<s64>());
-    result.traceSelection = trace_selection_from_yaml(yRoot["TraceSelection"]);
+    if (yRoot["DSOSetup"])
+        result.dsoSetup = dso_setup_from_yaml(yRoot["DSOSetup"]);
+
+    if (yRoot["DSOInterval"])
+        result.dsoInterval = std::chrono::milliseconds(yRoot["DSOInterval"].as<s64>());
+
+    if (yRoot["TraceSelection"])
+        result.traceSelection = trace_selection_from_yaml(yRoot["TraceSelection"]);
+
+    if (yRoot["TraceTreeExpansion"])
+        result.traceTreeExpansionState = tree_view_expansion_state_from_yaml(yRoot["TraceTreeExpansion"]);
 
     return result;
 }
@@ -1294,6 +1349,7 @@ struct DSOSimWidget::Private
             state.dsoSetup = buildDSOSetup();
             state.dsoInterval = dsoControlWidget->getInterval();
             state.traceSelection = traceSelectWidget->getSelection();
+            state.traceTreeExpansionState = traceSelectWidget->getTreeExpansionState();
 
             outFile.write(to_yaml(state).toUtf8());
         }
@@ -1315,6 +1371,7 @@ struct DSOSimWidget::Private
             auto combinedTriggers = get_combined_triggers(state.dsoSetup);
             this->traceSelectWidget->setTriggers(combinedTriggers);
             this->traceSelectWidget->setSelection(state.traceSelection);
+            this->traceSelectWidget->setTreeExpansionState(state.traceTreeExpansionState);
         }
     }
 
@@ -1352,7 +1409,7 @@ DSOSimWidget::DSOSimWidget(
     auto l_dsoControl = make_hbox<0, 0>(gb_dsoControl);
     l_dsoControl->addWidget(d->dsoControlWidget);
 
-    auto gb_traceSelect = new QGroupBox("Trace Selection");
+    auto gb_traceSelect = new QGroupBox("Trace+Trigger Selection");
     auto l_traceSelect = make_hbox<0, 0>(gb_traceSelect);
     l_traceSelect->addWidget(d->traceSelectWidget);
 
@@ -1435,8 +1492,8 @@ DSOSimWidget::DSOSimWidget(
                 show_trace_debug_widget(trace, name);
             });
 
-    d->loadGUIState();
     d->onTriggerIOModified(); // initial data pull from the script
+    d->loadGUIState(); // load last saved GUI state from disk
 }
 
 DSOSimWidget::~DSOSimWidget()
