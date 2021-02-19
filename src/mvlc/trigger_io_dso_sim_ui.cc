@@ -403,7 +403,7 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
                 if (d->triggerBits.test(triggerIndex) != isChecked)
                 {
                     d->triggerBits.set(triggerIndex, isChecked);
-                    qDebug() << __PRETTY_FUNCTION__ << "emit triggersChanged";
+                    //qDebug() << __PRETTY_FUNCTION__ << "emit triggersChanged";
                     emit triggersChanged(d->triggerBits);
                 }
             }
@@ -920,7 +920,7 @@ DSO_Sim_Result run_dso_and_sim(
         return result;
 
     // simulate
-#if 0
+#if 1
     try
     {
         simulate(result.sim, simMaxTime);
