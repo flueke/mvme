@@ -231,7 +231,7 @@ class DSOPlotMouseTracker: public QwtPlotPicker
             if (rubberBand() != QwtPicker::VLineRubberBand)
                 return QwtPlotPicker::trackerTextF(pos);
 
-            return QwtText(QString::number(std::floor(pos.x())));
+            return QwtText(QSL("t=%1").arg(QString::number(std::floor(pos.x()))));
         }
 };
 
@@ -250,6 +250,7 @@ struct DSOPlotWidget::Private
     QwtPlotPicker *mousePosTracker;
     double lastMousePosPickerX = 0.0;
     std::unique_ptr<QwtPlotMarker> triggerTimeMarker;
+    std::unique_ptr<QwtPlotMarker> preTriggerTimeMarker;
     std::unique_ptr<QwtPlotMarker> postTriggerTimeMarker;
 
     std::vector<ScopeCurve *> curves;
@@ -370,6 +371,8 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     // Start with a newline to hopefully render the label below the zoomers
     // scrollbar.
     d->triggerTimeMarker = add_time_marker("\nTrigger");
+    d->preTriggerTimeMarker = add_time_marker("\nPre Trigger");
+    d->preTriggerTimeMarker->hide();
     d->postTriggerTimeMarker = add_time_marker("\nPost Trigger");
     d->postTriggerTimeMarker->hide();
 
@@ -474,6 +477,12 @@ void DSOPlotWidget::setTraces(
     d->yScaleDiv.setTicks(QwtScaleDiv::MajorTick, yTicks);
 
     d->updateCurveValueLabels();
+}
+
+void DSOPlotWidget::setPreTriggerTime(double preTrigger)
+{
+    d->preTriggerTimeMarker->setXValue(preTrigger);
+    d->preTriggerTimeMarker->show();
 }
 
 void DSOPlotWidget::setPostTriggerTime(double postTrigger)

@@ -14,26 +14,27 @@ namespace trigger_io
 
 using boost::adaptors::indexed;
 
-void simulate(
+void simulate_gg(
     const IO &io,
     const Trace &input,
     Trace &output,
     const SampleTime &maxtime)
 {
     // Zero width means the IO outputs levels instead of pulses.
+    // Also the delay setting does not have an effect.
     if (io.width == 0)
     {
-        // Copy all input samples to the output, inverting if required.
+        // Copy all input samples to the output. The invert flag does not
+        // effect the output level!
         std::transform(
             std::begin(input), std::end(input), std::back_inserter(output),
-            [&io] (const Sample &sample) -> Sample
+            [] (const Sample &sample) -> Sample
             {
-                return { sample.time, io.invert ? invert(sample.edge) : sample.edge };
+                return { sample.time, sample.edge };
             });
 
         // Extend to maxtime using the last samples edge.
-        extend(output, maxtime);
-
+        //extend(output, maxtime);
         return;
     }
 
@@ -59,7 +60,7 @@ void simulate(
         if ((inSample.edge == Edge::Rising && !io.invert)
             || (inSample.edge == Edge::Falling
                 && io.invert
-                && inSample.time != 0ns)) // ignore the initial Falling state starting off each timeline
+                && it != std::begin(input))) // ignore the first sample representing the initial assumed low state
         {
             Sample outRising = { inSample.time + std::chrono::nanoseconds(io.delay), Edge::Rising };
             Sample outFalling = { outRising.time + std::chrono::nanoseconds(io.width), Edge::Falling };
@@ -72,29 +73,16 @@ void simulate(
             if (outFalling.time >= maxtime)
                 break;
         }
-    }
-}
 
-void simulate_sysclock(
-    Trace &output,
-    const SampleTime &maxtime)
-{
-    static const auto SysClockHalfPeriod = 62.5ns * 0.5;
+        if (inSample.edge == Edge::Unknown)
+            break;
 
-    output.push_back({ 0ns, Edge::Falling });
-
-    while (output.back().time < maxtime)
-    {
-        Sample outRising = { output.back().time + SysClockHalfPeriod, Edge::Rising };
-        Sample outFalling = { outRising.time + SysClockHalfPeriod, Edge::Falling };
-
-        output.emplace_back(outRising);
-        output.emplace_back(outFalling);
     }
 }
 
 // Full LUT simulation with strobe input
-void simulate(
+#if 1
+void simulate_lut(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
     LUT_Output_Timelines &outputs,
@@ -180,7 +168,7 @@ void simulate(
         assert(inputs[LUT::InputBits]);
         assert(outputs[LUT::OutputBits]);
 
-        simulate(lut.strobeGG,
+        simulate_gg(lut.strobeGG,
                  *inputs[LUT::InputBits],
                  *outputs[LUT::OutputBits],
                  maxtime);
@@ -195,8 +183,8 @@ void simulate(
     for (size_t i=0; i<actualOutputs.size(); i++)
         actualOutputs[i] = outputs[i];
 
-    for (auto &output: actualOutputs)
-        output->push_back({ 0ns, Edge::Falling });
+    //for (auto &output: actualOutputs)
+    //    output->push_back({ 0ns, Edge::Falling });
 
     // Start at t0=0 to find the first actual change in the input timelines.
     SampleTime t0(0);
@@ -239,6 +227,62 @@ void simulate(
             actualOutputs[outIdx]->push_back({ t0, outEdge });
         }
     }
+}
+#endif
+
+void simulate_lut2(
+    const LUT &lut,
+    const std::array<const Trace *, LUT::InputBits> &inputs,
+    std::array<Trace *, LUT::OutputBits> &outputs,
+    const SampleTime &maxtime)
+{
+    auto find_earliest_sample_time = [] (const auto &traces)
+    {
+        auto result = SampleTime::max();
+
+        for (const auto &trace: traces)
+        {
+            if (!trace->empty())
+                if (trace->front().time < result)
+                    result = trace->front().time;
+        }
+
+        return result;
+    };
+
+    // TODO: split into edge_at(t, timeline) and/or sample_at(t, timeline)
+    auto state_at = [] (SampleTime t, const auto &traces) -> s32
+    {
+        unsigned result = 0;
+        unsigned shift = 0;
+
+        for (const auto &tracePtr: traces)
+        {
+            if (!tracePtr) continue;
+
+            const auto &timeline = *tracePtr;
+
+            auto it = std::find_if(
+                std::rbegin(timeline), std::rend(timeline),
+                [t] (const Sample &sample)
+                {
+                    return sample.time <= t;
+                });
+
+            if (it == std::rend(timeline))
+                return -1;
+
+            if (it->edge == Edge::Unknown)
+                return -2;
+
+            result |= (static_cast<unsigned>(it->edge) << shift++);
+        }
+
+        return static_cast<s32>(result);
+    };
+
+    auto t0 = find_earliest_sample_time(inputs);
+    auto s0 = state_at(t0, inputs);
 }
 
 namespace
@@ -305,16 +349,165 @@ Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr)
     return nullptr;
 }
 
+static const SampleTime GateGeneratorDelay = 8ns;
+static const SampleTime LevelOutputDelay = 8ns;
+static const SampleTime IRQInputDelay = 24ns;
+static const SampleTime NIMInputDelay = 28ns;
+
+void apply_delay(Trace &trace, SampleTime delay)
+{
+    std::for_each(
+        std::begin(trace), std::end(trace),
+        [delay] (Sample &sample) {
+            sample.time += delay;
+        });
+}
+
 void simulate(Sim &sim, const SampleTime &maxtime)
 {
+#if 1
+    auto tStart = QTime::currentTime();
+
     clear_simulated_traces(sim);
 
+    // Create missing traces to avoid having to check repeatedly in the rest of
+    // the sim code.
     if (sim.sampledTraces.size() < DSOExpectedSampledTraces)
+        sim.sampledTraces.resize(DSOExpectedSampledTraces);
+
+    // L0 NIMs
+    for (const auto &kv: sim.trigIO.l0.ioNIM | indexed(0))
     {
-        qDebug() << "error: expected more sampled traces";
-        return;
+        const SampleTime Delay = NIMInputDelay + GateGeneratorDelay + LevelOutputDelay;
+
+        UnitAddress ua{0, static_cast<unsigned>(Level0::NIM_IO_Offset + kv.index())};
+
+        auto inputTrace = lookup_input_trace(sim, ua);
+        auto outputTrace = lookup_output_trace(sim, ua);
+        assert(inputTrace);
+        assert(outputTrace);
+
+        auto &io = kv.value();
+
+        // The NIM is configured as an output which means the GG has already
+        // been applied to the sampled trace. Copy and apply the delay.
+        if (io.direction == IO::Direction::out)
+        {
+            std::copy(std::begin(*inputTrace), std::end(*inputTrace),
+                      std::back_inserter(*outputTrace));
+        }
+        else
+        {
+            simulate_gg(kv.value(), *inputTrace, *outputTrace, maxtime);
+        }
+
+        apply_delay(*outputTrace, Delay);
     }
 
+    // IRQ Inputs
+    for (const auto &kv: sim.trigIO.l0.ioIRQ | indexed(0))
+    {
+        const SampleTime Delay = IRQInputDelay + GateGeneratorDelay + LevelOutputDelay;
+
+        UnitAddress ua{0, static_cast<unsigned>(Level0::IRQ_Inputs_Offset + kv.index())};
+
+        auto inputTrace = lookup_input_trace(sim, ua);
+        auto outputTrace = lookup_output_trace(sim, ua);
+        assert(inputTrace);
+        assert(outputTrace);
+
+        simulate_gg(kv.value(), *inputTrace, *outputTrace, maxtime);
+
+        apply_delay(*outputTrace, Delay);
+    }
+
+    // L1 LUT hierarchy. 0-2 first, then 3 & 4
+    for (const auto &kvLUT: sim.trigIO.l1.luts | indexed(0u))
+    {
+        const auto &lut = kvLUT.value();
+        const unsigned lutIndex = kvLUT.index();
+        const auto &connections = Level1::StaticConnections[kvLUT.index()];
+
+        LUT_Input_Timelines inputs;
+
+        for (unsigned i=0; i<inputs.size(); i++)
+            inputs[i] = lookup_output_trace(sim, connections[i].address);
+
+        LUT_Output_Timelines outputs;
+
+        for (unsigned i=0; i<outputs.size(); i++)
+            outputs[i] = lookup_output_trace(sim, { 1, lutIndex, i });
+
+        simulate_lut(lut, inputs, outputs, maxtime);
+    }
+
+
+    // L2 LUTs with strobes and dynamic connections
+    for (const auto &kvLUT: sim.trigIO.l2.luts | indexed(0))
+    {
+        const auto &lut = kvLUT.value();
+        const unsigned lutIndex = kvLUT.index();
+
+        LUT_Input_Timelines inputs;
+
+        for (unsigned i=0; i<inputs.size(); i++)
+        {
+            UnitAddress dstAddr{ 2, lutIndex, i };
+            UnitAddress srcAddr = get_connection_unit_address(
+                sim.trigIO, dstAddr);
+            inputs[i] = lookup_output_trace(sim, srcAddr);
+            assert(inputs[i]);
+        }
+
+        LUT_Output_Timelines outputs;
+
+        for (unsigned i=0; i<outputs.size(); i++)
+        {
+            outputs[i] = lookup_output_trace(sim, { 2, lutIndex, i });
+            assert(outputs[i]);
+        }
+
+        simulate_lut(lut, inputs, outputs, maxtime);
+    }
+
+#if 0
+    // L3 NIMs
+    for (const auto &kv: sim.trigIO.l3.ioNIM | indexed(0))
+    {
+        const auto &io = kv.value();
+        const unsigned ioIndex = kv.index() + Level3::NIM_IO_Unit_Offset;
+        UnitAddress dstAddr{ 3, ioIndex, 0 };
+        UnitAddress srcAddr = get_connection_unit_address(
+            sim.trigIO, dstAddr);
+        auto inputTrace = lookup_output_trace(sim, srcAddr);
+        assert(inputTrace);
+        simulate_gg(io, *inputTrace,
+                 sim.l3_traces[kv.index() + Level3::NIM_IO_Unit_Offset],
+                 maxtime);
+    }
+
+    // L3 ECLs
+    for (const auto &kv: sim.trigIO.l3.ioECL | indexed(0))
+    {
+        const auto &io = kv.value();
+        const unsigned ioIndex = kv.index() + Level3::ECL_Unit_Offset;
+        UnitAddress dstAddr{ 3, ioIndex, 0 };
+        UnitAddress srcAddr = get_connection_unit_address(
+            sim.trigIO, dstAddr);
+        auto inputTrace = lookup_output_trace(sim, srcAddr);
+        assert(inputTrace);
+        simulate_gg(io, *inputTrace,
+                 sim.l3_traces[kv.index() + Level3::ECL_Unit_Offset],
+                 maxtime);
+    }
+#endif
+
+    auto tEnd = QTime::currentTime();
+    auto dt = tStart.msecsTo(tEnd);
+    qDebug() << "simulated up to" << maxtime.count() << "ns";
+    qDebug() << "simulate() took" << dt << "ms";
+
+#else
     // L0 NIM input gate generators with sampled input
     for (const auto &kv: sim.trigIO.l0.ioNIM | indexed(0))
     {
@@ -409,6 +602,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
                  sim.l3_traces[kv.index() + Level3::ECL_Unit_Offset],
                  maxtime);
     }
+#endif
 }
 
 Trace *lookup_trace(Sim &sim, const PinAddress &pa)

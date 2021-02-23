@@ -263,34 +263,6 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
     return result;
 }
 
-void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
-{
-    for (auto &trace: snapshot)
-    {
-        if (trace.empty())
-            continue;
-
-        if (trace.back().time < extendTo)
-        {
-            if (has_overflow_marker(trace))
-            {
-                trace.push_back({ trace.back().time, Edge::Unknown });
-                trace.push_back({ extendTo, Edge::Unknown });
-            }
-            else
-            {
-                trace.push_back({ extendTo, trace.back().edge });
-            }
-        }
-    }
-}
-
-void extend_traces_to_post_trigger(Snapshot &snapshot, const DSOSetup &dsoSetup)
-{
-    SampleTime extendTo(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
-    extend_traces_to(snapshot, extendTo);
-}
-
 /* Jitter elimination:
  * - Look through the traces that are in the set of triggers.
  * - In each trigger trace find the time of the Rising sample that's
@@ -384,11 +356,35 @@ std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const
 }
 #endif
 
+namespace
+{
+void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
+{
+    for (auto &trace: snapshot)
+    {
+        if (trace.empty())
+            continue;
+
+        if (trace.back().time < extendTo)
+        {
+            if (has_overflow_marker(trace))
+            {
+                trace.push_back({ trace.back().time, Edge::Unknown });
+                trace.push_back({ extendTo, Edge::Unknown });
+            }
+            else
+            {
+                trace.push_back({ extendTo, trace.back().edge });
+            }
+        }
+    }
+}
+}
+
 void
 pre_process_dso_snapshot(
     Snapshot &snapshot,
-    const DSOSetup &dsoSetup,
-    SampleTime extendToTime)
+    const DSOSetup &dsoSetup)
 {
     // Jitter correction
     auto jitterResult = calculate_jitter_value(snapshot, dsoSetup);
@@ -412,10 +408,9 @@ pre_process_dso_snapshot(
         }
     }
 
-    if (extendToTime == SampleTime::zero())
-        extendToTime = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
+    auto postTrigger = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
 
-    extend_traces_to(snapshot, extendToTime);
+    extend_traces_to(snapshot, postTrigger);
 }
 
 Edge edge_at(const Trace &trace, const SampleTime &t)

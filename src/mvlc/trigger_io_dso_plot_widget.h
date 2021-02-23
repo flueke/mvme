@@ -31,6 +31,7 @@ class LIBMVME_EXPORT DSOPlotWidget: public QWidget
             unsigned preTriggerTime = 0,
             const QStringList &names = {});
 
+        void setPreTriggerTime(double preTriggerTime); // FIXME: move into setTraces()?
         void setPostTriggerTime(double postTriggerTime); // FIXME: move into setTraces()?
 
         // Set the vector element to true if the trace with the corresponding

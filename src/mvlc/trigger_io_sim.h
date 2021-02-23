@@ -27,7 +27,8 @@ inline void extend(Trace &input, const SampleTime &toTime)
         input.push_back({ toTime, input.back().edge });
 }
 
-LIBMVME_EXPORT void simulate(
+// Simulate a gate generator.
+LIBMVME_EXPORT void simulate_gg(
     const IO &io,
     const Trace &input,
     Trace &output,
@@ -38,20 +39,13 @@ LIBMVME_EXPORT void simulate(
     Trace &output,
     const SampleTime &maxtime);
 
-static const auto SysClockPeriod = 62.5ns;
-static const auto SysClockHalfPeriod = SysClockPeriod * 0.5;
-
-LIBMVME_EXPORT void simulate_sysclock(
-    Trace &output,
-    const SampleTime &maxtime);
-
 // +1 for the strobe in and out traces. These entries may be nullptr if the
 // strobe is not used. Otherwise both must be valid.
 using LUT_Input_Timelines = std::array<const Trace *, LUT::InputBits+1>;
 using LUT_Output_Timelines = std::array<Trace *, LUT::OutputBits+1>;
 
 // Full LUT simulation with strobe input
-LIBMVME_EXPORT void simulate(
+LIBMVME_EXPORT void simulate_lut(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
     LUT_Output_Timelines &outputs,
@@ -99,6 +93,11 @@ LIBMVME_EXPORT void simulate(Sim &sim, const SampleTime &maxtime);
 LIBMVME_EXPORT Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr);
 
 LIBMVME_EXPORT Trace *lookup_trace(Sim &sim, const PinAddress &pa);
+
+inline Trace *lookup_input_trace(Sim &sim, const UnitAddress &addr)
+{
+    return lookup_trace(sim, PinAddress(addr, PinPosition::Input));
+}
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

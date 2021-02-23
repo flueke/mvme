@@ -195,20 +195,9 @@ std::unique_ptr<TraceTreeModel> make_trace_tree_model()
         samplesRoot->appendRow(row);
     }
 
-    // L0
+    // L0 NIMs and IRQs
     auto l0Root = make_non_trace_item("L0");
     root->appendRow(l0Root);
-
-    for (auto i=0u; i<TimerCount; ++i)
-    {
-        UnitAddress unit = { 0, i, 0 };
-        l0Root->appendRow(make_trace_row({ unit, PinPosition::Output }));
-    }
-
-    {
-        UnitAddress unit = { 0, Level0::SysClockOffset, 0 };
-        l0Root->appendRow(make_trace_row({ unit, PinPosition::Output }));
-    }
 
     for (auto i=0u; i<NIM_IO_Count; ++i)
     {
@@ -911,7 +900,7 @@ DSO_Sim_Result run_dso_and_sim(
         if (sampledTraces.empty())
             return result;
 
-        pre_process_dso_snapshot(sampledTraces, dsoSetup, simMaxTime);
+        pre_process_dso_snapshot(sampledTraces, dsoSetup);
 
         result.sim.sampledTraces = sampledTraces;
     }
@@ -1079,12 +1068,14 @@ void show_dso_buffer_debug_widget(
                 auto entry = extract_dso_entry(word);
 
                 line +=  "    ";
-                line += (QSL("addr=%1, time=%2, edge=%3")
+                line += (QSL("addr=%1, time=%2, edge=%3, name=%4")
                         .arg(static_cast<unsigned>(entry.address), 2, 10, QLatin1Char(' '))
                         .arg(entry.time, 5, 10, QLatin1Char(' '))
-                        .arg(static_cast<int>(entry.edge)))
-                    ;
+                        .arg(static_cast<int>(entry.edge))
+                        .arg(get_trigger_default_name(entry.address))
+                        );
 
+                // Make text for triggering addresses italic
                 if (entry.address < combinedTriggers.size()
                     && combinedTriggers.test(entry.address))
                 {
@@ -1281,6 +1272,7 @@ struct DSOSimWidget::Private
             -1.0 * dsoSetup.preTriggerTime, getSimMaxTime().count() - dsoSetup.preTriggerTime);
 
         this->dsoPlotWidget->setTraces(traces, dsoSetup.preTriggerTime, traceNames);
+        this->dsoPlotWidget->setPreTriggerTime(-1.0 * dsoSetup.preTriggerTime);
         this->dsoPlotWidget->setPostTriggerTime(dsoSetup.postTriggerTime);
         this->dsoPlotWidget->setTriggerTraceInfo(isTriggerTrace);
     }
@@ -1362,9 +1354,14 @@ struct DSOSimWidget::Private
     SampleTime getSimMaxTime() const
     {
         auto dsoSetup = this->buildDSOSetup();
+#if 0
         // Simulate up to twice the time interval between the pre and post
         // trigger times.
         SampleTime simMaxTime((dsoSetup.postTriggerTime + dsoSetup.preTriggerTime) * 2);
+#else
+        // Simulate up to the postTriggerTime
+        SampleTime simMaxTime((dsoSetup.postTriggerTime + dsoSetup.preTriggerTime));
+#endif
         return simMaxTime;
     }
 
