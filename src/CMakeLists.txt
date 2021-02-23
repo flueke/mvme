@@ -325,6 +325,7 @@ add_library(libmvme SHARED
     util/qwt_scalepicker.cpp
     util/strings.cc
     util/variablify.cc
+    util/qledindicator.cpp
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc

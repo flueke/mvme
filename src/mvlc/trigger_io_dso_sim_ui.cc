@@ -15,6 +15,7 @@
 
 #include <chrono>
 #include <exception>
+#include <qnamespace.h>
 #include <stdexcept>
 #include <thread>
 #include <yaml-cpp/yaml.h>
@@ -24,6 +25,7 @@
 #include "mvlc/trigger_io_sim.h"
 #include "util/qt_font.h"
 #include "util/qt_model_view_util.h"
+#include "util/qledindicator.h"
 
 namespace mesytec
 {
@@ -559,6 +561,12 @@ struct DSOControlWidget::Private
     QWidget *setupWidget;
     QPushButton *pb_start,
                 *pb_stop;
+    QLedIndicator *triggerLed;
+
+    const QColor ledActiveOffColor1 = QColor(0,28,0);
+    const QColor ledActiveOffColor2 = QColor(0,128,0);
+    const QColor ledInactiveOffColor1 = QColor(115, 0, 0);
+    const QColor ledInactiveOffColor2 = QColor(100, 0, 0);
 };
 
 DSOControlWidget::DSOControlWidget(QWidget *parent)
@@ -595,11 +603,14 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
 
     d->pb_start = new QPushButton("Start DSO");
     d->pb_stop = new QPushButton("Stop DSO");
-    d->pb_stop->setEnabled(false);
+    d->triggerLed = new QLedIndicator;
 
     auto controlLayout = make_hbox();
     controlLayout->addWidget(d->pb_start);
     controlLayout->addWidget(d->pb_stop);
+    controlLayout->addWidget(d->triggerLed);
+    controlLayout->setStretch(0, 1);
+    controlLayout->setStretch(1, 1);
 
     auto widgetLayout = make_vbox<4, 4>();
     widgetLayout->addWidget(d->setupWidget);
@@ -614,6 +625,8 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     connect(d->pb_stop, &QPushButton::clicked, this, [this] () {
         emit stopDSO();
     });
+
+    setDSOActive(false);
 }
 
 DSOControlWidget::~DSOControlWidget()
@@ -624,6 +637,21 @@ void DSOControlWidget::setDSOActive(bool active)
 {
     d->pb_start->setEnabled(!active);
     d->pb_stop->setEnabled(active);
+
+    d->triggerLed->setOffColor1(active ? d->ledActiveOffColor1 : d->ledInactiveOffColor1);
+    d->triggerLed->setOffColor2(active ? d->ledActiveOffColor2 : d->ledInactiveOffColor2);
+    d->triggerLed->setChecked(false);
+}
+
+void DSOControlWidget::dsoTriggered()
+{
+    if (!d->triggerLed->isChecked())
+    {
+        d->triggerLed->setChecked(true);
+        QTimer::singleShot(100, Qt::PreciseTimer, d->triggerLed, [this] () {
+            d->triggerLed->setChecked(false);
+        });
+    }
 }
 
 unsigned DSOControlWidget::getPreTrigerTime()
@@ -1190,8 +1218,7 @@ struct DSOSimWidget::Private
     TraceSelectWidget *traceSelectWidget;
     DSOPlotWidget *dsoPlotWidget;
     QLabel *label_status;
-
-    //std::unique_lock<mvlc::Mutex> errPollerLock;
+    QTimer statusUpdateTimer;
 
     void onTriggerIOModified()
     {
@@ -1313,6 +1340,7 @@ struct DSOSimWidget::Private
             this->lastResult = result;
             ++stats.sampleCount;
             stats.lastSampleTime = QTime::currentTime();
+            dsoControlWidget->dsoTriggered();
 
             updatePlotTraces();
         }
@@ -1323,6 +1351,7 @@ struct DSOSimWidget::Private
             QTimer::singleShot(interval, q, [this] () { runDSO(); });
         else
         {
+            this->cancelDSO = true;
             mvlc.startStackErrorPolling();
             this->dsoControlWidget->setDSOActive(false);
         }
@@ -1487,10 +1516,16 @@ DSOSimWidget::DSOSimWidget(
             });
 
     connect(d->dsoPlotWidget, &DSOPlotWidget::traceClicked,
-            this, [] (const Trace &trace, const QString &name)
-            {
+            this, [] (const Trace &trace, const QString &name) {
                 show_trace_debug_widget(trace, name);
             });
+
+    connect(&d->statusUpdateTimer, &QTimer::timeout,
+            this, [this] () {
+                d->updateStatusLabel();
+            });
+    d->statusUpdateTimer.setInterval(500);
+    d->statusUpdateTimer.start();
 
     d->onTriggerIOModified(); // initial data pull from the script
     d->loadGUIState(); // load last saved GUI state from disk
