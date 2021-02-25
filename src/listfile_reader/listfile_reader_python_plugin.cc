@@ -114,7 +114,14 @@ void *plugin_init (const char *pluginFilename, int argc, const char *argv[])
     auto ctx = new Context{};
 
     // TODO: catch exceptions
-    ctx->usercode = py::module::import("listfile_reader_python_printer");
+    if (argc > 0)
+    {
+        ctx->usercode = py::module::import(argv[0]);
+    }
+    else
+    {
+        ctx->usercode = py::module::import("listfile_reader_python_printer");
+    }
 
     // TODO: check if the retrieved attributes are callable
     ctx->py_begin_run = ctx->usercode.attr("begin_run");
@@ -134,6 +141,7 @@ void begin_run (Context *ctx, const RunDescription *run)
     cout << __PRETTY_FUNCTION__ << endl;
 
     ctx->usercode.reload();
+
     // TODO: check if the retrieved attributes are callable
     ctx->py_begin_run = ctx->usercode.attr("begin_run");
     ctx->py_event_data = ctx->usercode.attr("event_data");

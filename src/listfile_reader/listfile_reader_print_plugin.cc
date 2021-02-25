@@ -58,6 +58,23 @@ void begin_run (void *userptr, const RunDescription *run)
     (void) userptr;
     (void) run;
     cout << __PRETTY_FUNCTION__ << endl;
+    cout << "listfileFilename: " << run->listfileFilename << endl
+        << "eventCount: " << run->eventCount << endl;
+
+    for (int ei=0; ei<run->eventCount; ++ei)
+    {
+        auto &eventDescr = run->events[ei];
+
+        cout << "  event" << ei << ": name=" << eventDescr.name
+            << ", moduleCount=" << eventDescr.moduleCount << endl;
+
+        for (int mi=0; mi<eventDescr.moduleCount; ++mi)
+        {
+            auto &module = eventDescr.modules[mi];
+
+            cout << "    module" << mi << ": name=" << module.name << ", type=" << module.type << endl;
+        }
+    }
 }
 
 static size_t g_eventsProcessed = 0;;

@@ -32,3 +32,6 @@ target_include_directories(cpp11-on-multicore INTERFACE ${CMAKE_CURRENT_SOURCE_D
 if (MVME_ENABLE_MVLC)
     add_subdirectory(mesytec-mvlc)
 endif(MVME_ENABLE_MVLC)
+
+# install pybind11 to include/
+INSTALL(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pybind11 DESTINATION include)

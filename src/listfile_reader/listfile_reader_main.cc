@@ -25,17 +25,13 @@ Purpose of the mvme_listfile_reader program:
 - Read mvme listfiles and pass readout data to handler code.
 - Accept any type of mvme listfile types (MVMELST, MVLC_*) both as a flat file
   and within a ZIP archive.
-- If multi event splitting is wanted load the filter strings from the standard
-  mvme template system (vats).
 - Load user specified code and invoke it with data extracted from the listfile.
 
-mvme_listfile_reader
-    input_listfile_filename0, input_listfile_filename1, ...
-
-    --multi-event-splitting / --no-multi-event-splitting
-    --dump-data / --no-dump-data
-    --plugin my_c_plugin.so,--foo=bar,-osomething
-    --plugin my_qt_plugin.so
+TODO:
+- somehow let the user enable multi event splitting and load appropriate
+  splitting filters for each module
+- Better command line parsing
+- Improve error handling.
 
 Notes:
 - There is no need to specify the library extension when using
@@ -44,15 +40,6 @@ Notes:
 - C-style libraries need to be wrapped in an extern "C" block if compiled using
   a c++ compiler.
 
-- make the dumper/printer code a plugin too and prepend it to the list of
-  default plugins. Remove it if --no-print-data is specified.
-
-- multi event splitting config is stored in the analysis right now. This
-  functionality should be included in the mvme-read-listfile program.
-
-- How to handle system events? These do not really fit into the event.module
-  scheme.
-
 */
 
 #include <iostream>
@@ -60,7 +47,6 @@ Notes:
 
 #include <QApplication>
 #include <QLibrary>
-
 
 #include "analysis/analysis.h"
 #include "daqcontrol.h"
@@ -72,6 +58,7 @@ Notes:
 #include "util_zip.h"
 #include "vme_config_scripts.h"
 
+using std::cerr;
 using std::cout;
 using std::endl;
 using namespace mesytec;
@@ -88,8 +75,15 @@ struct RawDataPlugin
     void *userptr;
 };
 
-struct library_load_error: public std::exception {};
-struct resolve_error: public std::exception {};
+struct library_load_error: public std::runtime_error
+{
+    using runtime_error::runtime_error;
+};
+
+struct resolve_error: public std::runtime_error
+{
+    using runtime_error::runtime_error;
+};
 
 template<typename Signature>
 Signature resolve(QLibrary &lib, const char *func)
@@ -100,13 +94,13 @@ Signature resolve(QLibrary &lib, const char *func)
     std::cout << "Error resolving function \"" << func << "\""
         << " from library " << lib.fileName().toStdString() << endl;
 
-    throw resolve_error();
+    throw resolve_error(std::string("resolve_error ") + func);
 }
 
 //
 // Load a single plugin
 //
-RawDataPlugin load_plugin(const QString &name)
+RawDataPlugin load_plugin(const QString &name, const std::vector<std::string> &pluginArgs)
 {
     QLibrary pluginLib(name);
     pluginLib.setLoadHints(QLibrary::ExportExternalSymbolsHint);
@@ -114,8 +108,9 @@ RawDataPlugin load_plugin(const QString &name)
     if (!pluginLib.load())
     {
         cout << "Error loading plugin " << pluginLib.fileName().toStdString()
+            << ": " << pluginLib.errorString().toStdString()
             << endl;
-        throw library_load_error();
+        throw library_load_error("library_load_error " + pluginLib.errorString().toStdString());
     }
 
     RawDataPlugin plugin = {};
@@ -134,13 +129,20 @@ RawDataPlugin load_plugin(const QString &name)
 
         plugin.info(&plugin_name, &plugin_descr);
 
-        cout << "Loaded plugin from " << pluginLib.fileName().toStdString()
+        cout << "Loading plugin from " << pluginLib.fileName().toStdString()
             << ": name=" << plugin_name
             << ", description=" << plugin_descr
             << endl;
     }
 
-    plugin.userptr = plugin.init(plugin.filename.toStdString().c_str(), 0, nullptr);
+    auto args = std::make_unique<const char *[]>(pluginArgs.size());
+
+    for (size_t i=0; i<pluginArgs.size(); i++)
+        args[i] = pluginArgs[i].data();
+
+    plugin.userptr = plugin.init(
+        plugin.filename.toStdString().c_str(),
+        pluginArgs.size(), args.get());
 
     return plugin;
 }
@@ -148,9 +150,6 @@ RawDataPlugin load_plugin(const QString &name)
 //
 // process_listfile
 //
-static const size_t DataBufferCount = 2;
-static const size_t DataBufferSize = Megabytes(1);
-
 RunDescription * make_run_description(
     memory::Arena &arena,
     const QString &listfileFilename,
@@ -173,7 +172,7 @@ RunDescription * make_run_description(
 
         for (int mi = 0; mi < moduleConfigs.size(); mi++)
         {
-            auto moduleConfig = moduleConfigs[ei];
+            auto moduleConfig = moduleConfigs[mi];
             auto &module = event.modules[mi];
 
             module.name = arena.pushCString(
@@ -284,7 +283,6 @@ void process_one_listfile(
     for (auto &plugin: plugins)
         plugin.begin_run(plugin.userptr, runDescription);
 
-
     QEventLoop loop;
 
     QObject::connect(&mvmeContext, &MVMEContext::mvmeStreamWorkerStateChanged,
@@ -304,84 +302,74 @@ void process_one_listfile(
 
 int main(int argc, char *argv[])
 {
-    // TODO: use lyra to parse the command line
-
     QApplication app(argc, argv);
 
-    std::vector<QString> inputFilenames;
-    std::vector<QString> pluginSpecs;
-    std::vector<RawDataPlugin> plugins;
-
-    for (int i = 1; i < argc; i++)
+    if (argc <= 1)
     {
-        inputFilenames.emplace_back(QString(argv[i]));
-    }
-
-    try
-    {
-        auto plugin = load_plugin("listfile_reader_print_plugin");
-        plugins.emplace_back(plugin);
-    }
-    catch (const resolve_error &)
-    {
-        //return 1;
-    }
-
-#if 0
-    try
-    {
-        auto plugin = load_plugin("listfile_reader_python_plugin");
-        plugins.emplace_back(plugin);
-    }
-    // FIXME: this didn't catch some library_load error.
-    catch (const resolve_error &)
-    {
-        //return 1;
-    }
-#endif
-
-    if (plugins.empty())
-    {
-        cout << "Error: no plugins could be loaded" << endl;
+        cerr << "Usage: listfile_reader <listfile> [<plugin> [<plugin_arg0>, <plugin_arg1>, ...]]" << endl;
         return 1;
     }
+
+    if (argv[1] == std::string("--help") || argv[1] == std::string("-h"))
+    {
+        cerr << "Usage: listfile_reader <listfile> [<plugin> [<plugin_arg0>, <plugin_arg1>, ...]]" << endl;
+        return 0;
+    }
+
+    QString inputFilename(argv[1]);
+    QString pluginName("listfile_reader_print_plugin");
+    std::vector<std::string> pluginArgs;
+
+    if (argc > 2)
+    {
+        pluginName = argv[2];
+
+        for (int i=3; i<argc; ++i)
+        {
+            pluginArgs.push_back(argv[i]);
+        }
+    }
+
+    RawDataPlugin pluginInstance;
+
+    try
+    {
+        pluginInstance = load_plugin(pluginName, pluginArgs);
+    }
+    catch (const std::runtime_error &e)
+    {
+        cerr << "Error loading plugin " << pluginName.toStdString()
+            << ": " << e.what() << endl;
+        return 1;
+    }
+
+    assert(!pluginInstance.filename.isEmpty());
 
     mvme_init(argv[0]);
 
     MVMEContext mvmeContext;
 
-    // For each listfile:
-    //   open the file for reading (zip/non-zip should work)
-    //   read the vme config from the file, get the vme controller type, create the factory
-    for (const auto &listfileFilename: inputFilenames)
+    try
     {
-        try
-        {
-            //if (auto ec = process_one_listfile(listfileFilename))
-            //    throw ec;
-            process_one_listfile(listfileFilename, plugins, mvmeContext);
-        }
-        catch (const std::error_code &ec)
-        {
-            cout << "Error processing file: " << listfileFilename.toStdString()
-                << ": " << ec.message() << endl;
-        }
-        catch (const std::exception &e)
-        {
-            cout << "Error processing file: " << listfileFilename.toStdString()
-                << ": " << e.what() << endl;
-        }
-        catch (const QString &msg)
-        {
-            cout << "Error processing file: " << listfileFilename.toStdString()
-                << ": " << msg.toStdString() << endl;
-        }
+        process_one_listfile(inputFilename, { pluginInstance }, mvmeContext);
+    }
+    catch (const std::error_code &ec)
+    {
+        cout << "Error processing file: " << inputFilename.toStdString()
+            << ": " << ec.message() << endl;
+    }
+    catch (const std::exception &e)
+    {
+        cout << "Error processing file: " << inputFilename.toStdString()
+            << ": " << e.what() << endl;
+    }
+    catch (const QString &msg)
+    {
+        cout << "Error processing file: " << inputFilename.toStdString()
+            << ": " << msg.toStdString() << endl;
     }
 
-    for (auto &plugin: plugins)
-    {
-        plugin.destroy(plugin.userptr);
-    }
+    pluginInstance.destroy(pluginInstance.userptr);
 
     return 0;
 }

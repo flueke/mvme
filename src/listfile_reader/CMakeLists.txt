@@ -23,4 +23,11 @@ if (MVME_WITH_PYBIND11)
 
 endif(MVME_WITH_PYBIND11)
 
+install(FILES listfile_reader.h listfile_reader_print_plugin.cc
+    listfile_reader_python_plugin.cc listfile_reader_python_printer.py
+    DESTINATION share/listfile_reader)
+
+install(FILES CMakeLists_to_install.txt DESTINATION share/listfile_reader
+    RENAME CMakeLists.txt)
+
 # vim:tw=0

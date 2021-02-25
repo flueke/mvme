@@ -1,0 +1,35 @@
+# CMakeLists for compiling listfile_reader plugins.
+# Run 'source bin/initMVME' from the root of the mvme directory before invoking cmake.
+
+cmake_minimum_required(VERSION 3.12)
+project(mvme_listfile_reader_plugins)
+
+if (EXISTS "$ENV{MVME}")
+    file(TO_CMAKE_PATH "$ENV{MVME}" MVME)
+else()
+    message(FATAL_ERROR "MVME environment variable not set or specified path does not exist.")
+endif()
+
+
+add_library(listfile_reader_print_plugin SHARED listfile_reader_print_plugin.cc)
+
+install(TARGETS listfile_reader_print_plugin DESTINATION ${MVME}/lib)
+
+option(ENABLE_PYTHON "Enable the listfile_reader_python_plugin" OFF)
+
+if (ENABLE_PYTHON)
+
+    add_subdirectory(${MVME}/include/pybind11 ${CMAKE_BINARY_DIR}/pybind11)
+
+    add_library(listfile_reader_python_plugin SHARED listfile_reader_python_plugin.cc)
+    target_link_libraries(listfile_reader_python_plugin PRIVATE pybind11::embed)
+    target_include_directories(listfile_reader_python_plugin
+        PRIVATE ${PYBIND11_INCLUDE_DIR}
+        PRIVATE ${PYTHON_INCLUDE_DIRS})
+
+    install(TARGETS listfile_reader_python_plugin DESTINATION ${MVME}/lib)
+    install(FILES listfile_reader_python_printer.py DESTINATION ${MVME}/lib)
+
+endif(ENABLE_PYTHON)
+
+# vim:ft=cmake:tw=0
