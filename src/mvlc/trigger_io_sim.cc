@@ -2,6 +2,7 @@
 
 #include <boost/range/adaptor/indexed.hpp>
 #include <QDebug>
+#include <QTime>
 
 #include "qt_util.h"
 
