@@ -4043,7 +4043,9 @@ trigger_io::IO LUTEditor::getStrobeSettings()
 {
     auto &ui = m_strobeTableUi;
 
-    trigger_io::IO ret = {};
+    // Create a default initialized LUT strobe GG and update it with the values
+    // from the UI.
+    auto ret = LUT().strobeGG;
 
     ret.delay = ui.table->item(0, ui.ColDelay)->text().toUInt();
     ret.holdoff = ui.table->item(0, ui.ColHoldoff)->text().toUInt();

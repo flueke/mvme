@@ -849,6 +849,10 @@ LUT parse_lut(
     lut.strobedOutputs = writes[0x20];
     lut.strobeGG = parse_io(writes, StrobeGGIOOffset);
 
+    // Force the width to 8 if it was set to 0 or not specified.
+    if (lut.strobeGG.width == 0)
+        lut.strobeGG.width = LUT::StrobeGGDefaultWidth;
+
     std::copy(outputNames.begin(), outputNames.end(),
               lut.outputNames.begin());
 
