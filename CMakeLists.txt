@@ -246,13 +246,16 @@ endif()
 #
 # These files are handled using an external deploy directory which is added via
 # the install() command.
+option(MVME_INSTALL_DEPLOY_FILES "Install additional library files from a special deploy directory." OFF)
 
 if (WIN32)
-    # C:\src\deploy\mvme-x64-libusb-0.1-Debug
-    # C:\src\deploy\mvme-x64-libusb-0.1-Release
-    set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
+    if (MVME_INSTALL_DEPLOY_FILES)
+        # C:\src\deploy\mvme-x64-libusb-0.1-Debug
+        # C:\src\deploy\mvme-x64-libusb-0.1-Release
+        set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
 
-    install(DIRECTORY "${DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
+        install(DIRECTORY "${DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
+    endif()
 
     set(CPACK_GENERATOR "NSIS") # "NSIS;ZIP"
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
@@ -271,11 +274,13 @@ if (WIN32)
 
     set(CPACK_SOURCE_GENERATOR "ZIP")
 else()
-    if (EXISTS "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/")
-        # Install additional deployment files: shared objects, qt plugins, etc.
-        install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
-            DESTINATION .
-            USE_SOURCE_PERMISSIONS)
+    if (MVME_INSTALL_DEPLOY_FILES)
+        if (EXISTS "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/")
+            # Install additional deployment files: shared objects, qt plugins, etc.
+            install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
+                DESTINATION .
+                USE_SOURCE_PERMISSIONS)
+        endif()
     endif()
 
     set(CPACK_GENERATOR "TBZ2")
