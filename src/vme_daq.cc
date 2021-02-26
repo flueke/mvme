@@ -38,39 +38,20 @@
 #include "vme_script.h"
 
 using namespace mesytec::mvme;
+using namespace vme_script::run_script_options;
 
+#if __WIN32
 static const unsigned Win32TimePeriod = 1;
-
-//
-// vme_daq_init
-//
-QVector<ScriptWithResults>
-vme_daq_init(
-    VMEConfig *config,
-    VMEController *controller,
-    std::function<void (const QString &)> logger,
-    vme_script::run_script_options::Flag opts
-    )
-{
-    return vme_daq_init(
-        config,
-        controller,
-        logger,
-        logger,
-        opts);
-}
+#endif
 
 QVector<ScriptWithResults>
-vme_daq_init(
+vme_daq_run_global_daq_start_scripts(
     VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
-    vme_script::run_script_options::Flag opts
-    )
+    vme_script::run_script_options::Flag opts)
 {
-    using namespace vme_script::run_script_options;
-
     QVector<ScriptWithResults> ret;
 
     auto startScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
@@ -109,6 +90,68 @@ vme_daq_init(
             }
         }
     }
+
+    return ret;
+}
+
+QVector<ScriptWithResults>
+vme_daq_run_global_daq_stop_scripts(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts)
+{
+    QVector<ScriptWithResults> ret;
+
+    auto stopScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop")->findChildren<VMEScriptConfig *>();
+
+    if (!stopScripts.isEmpty())
+    {
+        logger(QSL("Global DAQ Stop scripts:"));
+        for (auto scriptConfig: stopScripts)
+        {
+            if (!scriptConfig->isEnabled())
+                continue;
+
+            logger(QString("  %1").arg(scriptConfig->objectName()));
+            auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
+            auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
+            try
+            {
+                auto script = parse(scriptConfig);
+                auto results = run_script(
+                    controller, script,
+                    indentingLogger, indentingErrorLogger,
+                    opts | LogEachResult);
+
+                ret.push_back({ scriptConfig, results });
+                if ((opts & AbortOnError) && has_errors(results))
+                    return ret;
+            }
+            catch (const vme_script::ParseError &e)
+            {
+                ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
+
+                if (opts & AbortOnError)
+                    return ret;
+            }
+        }
+    }
+
+    return ret;
+}
+
+QVector<ScriptWithResults>
+vme_daq_run_init_modules(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts)
+{
+    QVector<ScriptWithResults> ret;
 
     logger(QSL(""));
     logger(QSL("Initializing Modules:"));
@@ -163,7 +206,20 @@ vme_daq_init(
         }
     }
 
-    logger(QSL("Events DAQ Start"));
+    return ret;
+}
+
+QVector<ScriptWithResults>
+vme_daq_run_event_daq_start_scripts(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts)
+{
+    QVector<ScriptWithResults> ret;
+
+    logger(QSL("Running Event DAQ Start Scripts"));
     for (auto eventConfig: config->getEventConfigs())
     {
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
@@ -190,6 +246,87 @@ vme_daq_init(
                 return ret;
         }
     }
+
+    return ret;
+}
+
+QVector<ScriptWithResults>
+vme_daq_run_event_daq_stop_scripts(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts)
+{
+    QVector<ScriptWithResults> ret;
+
+    logger(QSL("Running Event DAQ Stop Scripts"));
+    for (auto eventConfig: config->getEventConfigs())
+    {
+        logger(QString("  %1").arg(eventConfig->objectName()));
+        auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
+        auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
+        auto scriptConfig = eventConfig->vmeScripts["daq_stop"];
+
+        try
+        {
+            auto script = parse(scriptConfig);
+            auto results = run_script(
+                controller, script,
+                indentingLogger, indentingErrorLogger,
+                opts | LogEachResult);
+
+            ret.push_back({ scriptConfig, results });
+            if ((opts & AbortOnError) && has_errors(results))
+                return ret;
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
+
+            if (opts & AbortOnError)
+                return ret;
+        }
+    }
+
+    return ret;
+}
+
+//
+// vme_daq_init
+//
+QVector<ScriptWithResults>
+vme_daq_init(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    vme_script::run_script_options::Flag opts
+    )
+{
+    return vme_daq_init(
+        config,
+        controller,
+        logger,
+        logger,
+        opts);
+}
+
+QVector<ScriptWithResults>
+vme_daq_init(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts
+    )
+{
+    using namespace vme_script::run_script_options;
+
+    QVector<ScriptWithResults> ret;
+
+    ret += vme_daq_run_global_daq_start_scripts(config, controller, logger, errorLogger, opts);
+    ret += vme_daq_run_init_modules(config, controller, logger, errorLogger, opts);
+    ret += vme_daq_run_event_daq_start_scripts(config, controller, logger, errorLogger, opts);
 
 #if __WIN32
     TRY_ASSERT(timeBeginPeriod(Win32TimePeriod) == TIMERR_NOERROR);
@@ -225,78 +362,14 @@ vme_daq_shutdown(
     TRY_ASSERT(timeEndPeriod(Win32TimePeriod) == TIMERR_NOERROR);
 #endif
 
-    using namespace vme_script::run_script_options;
-
-    QVector<ScriptWithResults> ret;
-
     logger(QSL("DAQ stopped on %1")
            .arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
     logger("");
 
-    logger(QSL("Events DAQ Stop"));
-    for (auto eventConfig: config->getEventConfigs())
-    {
-        logger(QString("  %1").arg(eventConfig->objectName()));
-        auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-        auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
-        auto scriptConfig = eventConfig->vmeScripts["daq_stop"];
+    QVector<ScriptWithResults> ret;
 
-        try
-        {
-            auto script = parse(scriptConfig);
-            auto results = run_script(
-                controller, script,
-                indentingLogger, indentingErrorLogger,
-                opts | LogEachResult);
-
-            ret.push_back({ scriptConfig, results });
-            if ((opts & AbortOnError) && has_errors(results))
-                return ret;
-        }
-        catch (const vme_script::ParseError &e)
-        {
-            ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
-
-            if (opts & AbortOnError)
-                return ret;
-        }
-    }
-
-    auto stopScripts = config->getGlobalObjectRoot().findChild<ContainerObject *>(
-        "daq_stop")->findChildren<VMEScriptConfig *>();
-
-    if (!stopScripts.isEmpty())
-    {
-        logger(QSL("Global DAQ Stop scripts:"));
-        for (auto scriptConfig: stopScripts)
-        {
-            if (!scriptConfig->isEnabled())
-                continue;
-
-            logger(QString("  %1").arg(scriptConfig->objectName()));
-            auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-            auto indentingErrorLogger = [errorLogger](const QString &str) { errorLogger(QSL("    ") + str); };
-            try
-            {
-                auto script = parse(scriptConfig);
-                auto results = run_script(
-                    controller, script,
-                    indentingLogger, indentingErrorLogger,
-                    opts | LogEachResult);
-
-                ret.push_back({ scriptConfig, results });
-                if ((opts & AbortOnError) && has_errors(results))
-                    return ret;
-            }
-            catch (const vme_script::ParseError &e)
-            {
-                ret.push_back({ scriptConfig, {}, std::make_shared<vme_script::ParseError>(e)});
-
-                if (opts & AbortOnError)
-                    return ret;
-            }
-        }
-    }
+    ret += vme_daq_run_event_daq_stop_scripts(config, controller, logger, errorLogger, opts);
+    ret += vme_daq_run_global_daq_stop_scripts(config, controller, logger, errorLogger, opts);
 
     return ret;
 }

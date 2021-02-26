@@ -55,7 +55,7 @@ std::error_code LIBMVME_EXPORT
     enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
 
 std::error_code LIBMVME_EXPORT
-    disable_all_triggers(MVLCObject &mvlc);
+    disable_all_triggers_and_daq_mode(MVLCObject &mvlc);
 
 std::error_code LIBMVME_EXPORT
     reset_stack_offsets(MVLCObject &mvlc);

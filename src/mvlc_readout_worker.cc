@@ -152,6 +152,7 @@ struct MVLCReadoutWorker::Private
     MVLCObject *mvlcObj = nullptr;;
 
     u32 nextOutputBufferNumber = 1u;;
+    std::vector<u32> stackTriggers; // XXX: Updated in daqStartSequence()
 
     std::atomic<DAQState> state;
     std::atomic<DAQState> desiredState;
@@ -191,7 +192,138 @@ struct MVLCReadoutWorker::Private
         daqStats.droppedBuffers = rdoCounters.snoopMissedBuffers;
         daqStats.listFileBytesWritten = rdoCounters.listfileWriterCounters.bytesWritten;
     }
+
+    bool daqStartSequence();
 };
+
+bool MVLCReadoutWorker::Private::daqStartSequence()
+{
+    auto logger = [this](const QString &msg)
+    {
+        q->logMessage(msg);
+    };
+
+    auto run_init_func = [this] (auto initFunc, const QString &partTitle)
+    {
+        auto logger = [this] (const QString &msg) { q->logMessage(msg); };
+        auto error_logger = [this] (const QString &msg) { q->getContext().errorLogger(msg); };
+
+        vme_script::run_script_options::Flag opts = 0u;
+        if (!q->getContext().runInfo->ignoreStartupErrors)
+            opts = vme_script::run_script_options::AbortOnError;
+
+        auto initResults = initFunc(q->getContext().vmeConfig, mvlcCtrl, logger, error_logger, opts);
+
+        if (!q->getContext().runInfo->ignoreStartupErrors
+            && has_errors(initResults))
+        {
+            q->logMessage("");
+            q->logMessage(partTitle + " Errors:");
+            auto logger = [this] (const QString &msg) { q->logMessage("  " + msg); };
+            log_errors(initResults, logger);
+            return false;
+        }
+
+        return true;
+    };
+
+
+    auto &mvlc = *mvlcObj;
+    auto &vmeConfig = *q->getContext().vmeConfig;
+
+    // Global DAQ Start Scripts ==========================================================
+
+    if (!run_init_func(vme_daq_run_global_daq_start_scripts, "Global DAQ Start Scripts"))
+        return false;
+
+    logger("");
+    logger("Initializing MVLC");
+
+    // Clear triggers and stacks =========================================================
+
+    logger("  Disabling triggers");
+
+    if (auto ec = disable_all_triggers_and_daq_mode(mvlc))
+    {
+        logger(QString("Error disabling readout triggers: %1")
+               .arg(ec.message().c_str()));
+        return false;
+    }
+
+    logger("  Resetting stack offsets");
+
+    if (auto ec = reset_stack_offsets(mvlc))
+    {
+        logger(QString("Error resetting stack offsets: %1")
+               .arg(ec.message().c_str()));
+        return false;
+    }
+
+    // Trigger IO ========================================================================
+
+    logger("  Applying MVLC Trigger & I/O setup");
+
+    if (auto ec = setup_trigger_io(mvlc, vmeConfig, logger))
+    {
+        logger(QSL("Error applying MVLC Trigger & I/O setup: %1").arg(ec.message().c_str()));
+        return false;
+    }
+
+    // Init Modules ======================================================================
+
+    if (!run_init_func(vme_daq_run_init_modules, "Modules Init"))
+        return false;
+
+    // Setup readout stacks ==============================================================
+
+    if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
+    {
+        logger(QString("Error setting up readout stacks: %1").arg(ec.message().c_str()));
+        return false;
+    }
+
+    // Enable stack triggers =============================================================
+
+    logger("");
+    logger("Enabling MVLC stack triggers");
+
+    std::error_code ec;
+    std::vector<u32> triggers;
+
+    std::tie(triggers, ec) = get_trigger_values(vmeConfig, logger);
+
+    if (ec)
+    {
+        logger(QString("Error enabling stack triggers: %1").arg(ec.message().c_str()));
+        return false;
+    }
+
+    this->stackTriggers = triggers;
+
+    if (auto ec = setup_readout_triggers(mvlc, triggers))
+    {
+        logger(QString("Error enabling stack triggers: %1").arg(ec.message().c_str()));
+        return false;
+    }
+
+    // Event daq start scripts ===========================================================
+
+    logger("");
+
+    if (!run_init_func(vme_daq_run_event_daq_start_scripts, "Event DAQ Start Scripts"))
+        return false;
+
+    // Set daq_start flag (DAQModeEnableRegister) ========================================
+    logger("");
+    logger("Enabling MVLC daq_start");
+    if (auto ec = enable_daq_mode(mvlc))
+    {
+        logger(QString("Error enabling daq_start: %1").arg(ec.message().c_str()));
+        return false;
+    }
+
+    return true;
+}
 
 MVLCReadoutWorker::MVLCReadoutWorker(QObject *parent)
     : VMEReadoutWorker(parent)
@@ -294,30 +426,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
                    .arg(d->mvlcCtrl->getIdentifyingString())
                    .arg(d->mvlcObj->getConnectionInfo()));
 
-        // Run the standard VME DAQ init sequence
-        if (!this->do_VME_DAQ_Init(d->mvlcCtrl))
+        if (!d->daqStartSequence())
         {
             set_daq_state(DAQState::Idle);
             return;
         }
-
-        logMessage("");
-
-        // Stack and trigger io setup. The only thing left to do for the MVLC
-        // to produce data is to enable the stack triggers.
-        if (auto ec = setup_mvlc(*d->mvlcObj, *getContext().vmeConfig, logger))
-            throw ec;
-
-        logMessage("  Enabling triggers");
-
-        std::vector<u32> triggers;
-        std::error_code ec;
-
-        std::tie(triggers, ec) = get_trigger_values(
-            *getContext().vmeConfig, logger);
-
-        if (ec)
-            throw ec;
 
         mvlc::listfile::WriteHandle *listfileWriteHandle = nullptr;
         QString listfileArchiveName;
@@ -378,7 +491,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         d->mvlcReadoutWorker = std::make_unique<mvlc::ReadoutWorker>(
             d->mvlcCtrl->getMVLC(),
-            triggers,
+            d->stackTriggers,
             *d->snoopQueues,
             listfileWriteHandle);
 
@@ -504,16 +617,6 @@ void MVLCReadoutWorker::stop()
                 });
             QCoreApplication::processEvents();
         }
-
-        // Note: the set_daq_state() update needed to propagate the new state via a
-        // Qt signal is not done here but in MVLCReadoutWorker::start(). The
-        // reason is that this method here is invoked directly by the GUI
-        // thread which will lead to the daqStopped() signal arriving before
-        // the actual DAQ shutdown sequence is complete. This previously didn't
-        // cause any issues but with the introduction of the run_logs system
-        // (LogfileHelper) the state change has to be emitted from the worker
-        // thread as otherwise the DAQ stop log message will be lost.
-
         logMessage(QString(QSL("MVLC readout stopped")));
     }
 }

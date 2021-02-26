@@ -1,0 +1,42 @@
+MVME MVLC DAQ Start and Stop Sequence in 1.3.0 an earlier versions
+==================================================================
+
+* MVME Scripts
+    - Global "DAQ Start" scripts
+    - Modules Init ((event0, module0), (event0, module1),..., (eventN, moduleM))
+    - Events "DAQ Start" scripts
+
+* "MVLC Readout Stacks and Trigger I/O" setup_mvlc() in mvlc_daq.cc
+
+    - "Disabling triggers" disable_all_triggers()
+      For all mvlc stacks: set the trigger register for the stack to 0 (NoTrigger)
+
+    - "Resetting stack offsets" reset_stack_offsets()
+      For all mvlc stacks: set the stack offset register to 0
+
+    - "Setting up readout stacks" setup_readout_stacks()
+      For each Event build a readout command stack and upload it. Then adjust
+      the stack offset register to point to the start of the readout stack.
+
+    - "Applying trigger & I/O setup" setup_trigger_io()
+
+      * Update the trigger IO setup to implement periodic events:
+        TimerN <- StackStartN
+
+      * Run the updated Trigger IO script
+
+* "Enterling readout loop" (mesytec::mvlc::ReadoutWorker)
+    - Enable stack triggers
+    - Set "daq start" bit (DAQModeEnableRegister 0x1300)
+    Both done in setup_readout_triggers()
+
+---
+
+* Just before "Leaving readout loop" (mesytec::mvlc::ReadoutWorker)
+    - Clear "daq start" bit
+    - Disable stack triggers
+    terminateReadout() -> disable_all_triggers()
+
+* After "Leaving readout loop"
+    - Events "DAQ Stop" scripts
+    - Global "DAQ Stop" Scripts"

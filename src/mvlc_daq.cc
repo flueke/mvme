@@ -32,9 +32,9 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-std::error_code disable_all_triggers(MVLCObject &mvlc)
+std::error_code disable_all_triggers_and_daq_mode(MVLCObject &mvlc)
 {
-    return mvlc::disable_all_triggers<mvme_mvlc::MVLCObject>(mvlc);
+    return mvlc::disable_all_triggers_and_daq_mode<mvme_mvlc::MVLCObject>(mvlc);
 }
 
 std::error_code reset_stack_offsets(MVLCObject &mvlc)
@@ -369,7 +369,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
 
     logger("  Disabling triggers");
 
-    if (auto ec = disable_all_triggers(mvlc))
+    if (auto ec = disable_all_triggers_and_daq_mode(mvlc))
     {
         logger(QString("Error disabling readout triggers: %1")
                .arg(ec.message().c_str()));

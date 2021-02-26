@@ -48,19 +48,61 @@ struct ScriptWithResults
 {
     // Non-owning pointer to the vme script config that produced the result
     // list.
-    // TODO: change this to a shared_ptr, weak_ptr or use a copy of the script.
     const VMEScriptConfig *scriptConfig = nullptr;
 
     // The symbol tables used when evaluating the script.
     //const vme_script::SymbolTables symbols;
 
     // List of results of running the script.
-    const vme_script::ResultList results;
+    vme_script::ResultList results;
 
     // A ParseError instance or nullptr if parsing the script was sucessful.
     std::shared_ptr<vme_script::ParseError> parseError = {};
 };
 
+QVector<ScriptWithResults> LIBMVME_EXPORT
+vme_daq_run_global_daq_start_scripts(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts = 0);
+
+QVector<ScriptWithResults> LIBMVME_EXPORT
+vme_daq_run_global_daq_stop_scripts(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts = 0);
+
+QVector<ScriptWithResults> LIBMVME_EXPORT
+vme_daq_run_init_modules(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts = 0);
+
+QVector<ScriptWithResults> LIBMVME_EXPORT
+vme_daq_run_event_daq_start_scripts(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts = 0);
+
+QVector<ScriptWithResults> LIBMVME_EXPORT
+vme_daq_run_event_daq_stop_scripts(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts = 0);
+
+
+// Standard VME init sequence for VMUSB and SIS3153. MVLC does its own thing
+// since 1.4.0-beta.
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_init(
     VMEConfig *vmeConfig,
@@ -76,10 +118,14 @@ vme_daq_init(
     std::function<void (const QString &)> errorLogger,
     vme_script::run_script_options::Flag opts = 0u);
 
-/* Counterpart to vme_daq_init. Runs
+/* Counterpart to vme_daq_init for the VMUSB and SIS3153.
+ * Runs
  * - for each event
  *     - event DAQ stop script
  * - global DAQ stop scripts
+ *
+ * As is the case with vme_daq_init() the MVLC does its own thing sice
+ * 1.4.0-beta.
  */
 QVector<ScriptWithResults>
 vme_daq_shutdown(
