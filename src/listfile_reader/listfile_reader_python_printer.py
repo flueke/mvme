@@ -24,5 +24,7 @@ def event_data(eventIndex, modules):
             for value in dynamicData:
                 print("    0x%08X" % (value, ))
 
+    raise 42
+
 def end_run(userobject):
     pass

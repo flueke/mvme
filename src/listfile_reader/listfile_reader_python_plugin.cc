@@ -38,17 +38,6 @@ static const char *PluginDescription = "Passes event data to a python script";
 namespace
 {
 
-struct Context
-{
-    py::scoped_interpreter interp;
-    py::module usercode;
-    py::object userobject;
-    py::object py_begin_run;
-    py::object py_event_data;
-    py::object py_end_run;
-    std::vector<ModuleData> moduleDataBuffer;
-};
-
 PYBIND11_EMBEDDED_MODULE(py_listfile_reader, m)
 {
     py::class_<ModuleReadoutDescription>(m, "ModuleReadoutDescription")
@@ -97,6 +86,17 @@ PYBIND11_EMBEDDED_MODULE(py_listfile_reader, m)
         .def_readonly("suffix", &ModuleData::suffix)
         ;
 }
+
+struct Context
+{
+    py::scoped_interpreter interp;
+    py::module usercode;
+    py::object userobject;
+    py::object py_begin_run;
+    py::object py_event_data;
+    py::object py_end_run;
+    std::vector<ModuleData> moduleDataBuffer;
+};
 
 }
 
