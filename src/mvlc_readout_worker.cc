@@ -36,6 +36,7 @@
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_util.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
+#include "util/strings.h"
 #include "util_zip.h"
 #include "vme_analysis_common.h"
 
@@ -257,6 +258,30 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
         logger(QString("Error resetting stack offsets: %1")
                .arg(ec.message().c_str()));
         return false;
+    }
+
+    // MVLC Eth Jumbo Frames and Eth Receive Buffer Size =================================
+    if (mvlc.connectionType() == mvlc::ConnectionType::ETH)
+    {
+        bool enableJumboFrames = vmeConfig.getControllerSettings().value("mvlc_eth_enable_jumbos").toBool();
+
+        logger(QSL("  %1 jumbo frame support")
+               .arg(enableJumboFrames ? QSL("Enabling") : QSL("Disabling")));
+
+        if (auto ec = mvlc.writeRegister(mvlc::registers::jumbo_frame_enable, enableJumboFrames))
+        {
+            logger(QSL("Error %1 jumbo frames: %2")
+                   .arg(enableJumboFrames ? QSL("enabling") : QSL("disabling"))
+                   .arg(ec.message().c_str()));
+            return false;
+        }
+
+        if (auto eth = dynamic_cast<mvlc::eth::MVLC_ETH_Interface *>(mvlc.getImpl()))
+        {
+            auto counters = eth->getThrottleCounters();
+            logger(QSL("  Eth receive buffer size: %1")
+                   .arg(format_number(counters.rcvBufferSize, QSL("B"), UnitScaling::Binary, 0, 'f', 0)));
+        }
     }
 
     // Trigger IO ========================================================================
