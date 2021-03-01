@@ -2910,8 +2910,8 @@ Level0UtilsDialog::Level0UtilsDialog(
         static const QString RowTitleFormat = "TriggerResource%1";
         static const QStringList ColumnTitles =
         {
-            "Type",
             "Name",
+            "Type",
             "IRQ Index",
             "Activation",
             "Trigger Index",
