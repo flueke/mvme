@@ -7,108 +7,108 @@
         ],
         "connections": [
             {
-                "dstId": "{20f87f14-f4ee-4c30-bfb9-6e69ee09a891}",
+                "dstId": "{b2e3c627-4cc1-4fee-92b5-1d4284ad0bcc}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{fe254283-a447-42fe-a865-11861cfa33f9}",
+                "srcId": "{39a629dd-5308-4c5a-b115-157010ce168d}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{f401375d-3376-4509-8a62-1d1828aee5a7}",
+                "dstId": "{245ce538-3a32-43d4-a9e6-bdc824054e11}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{876f8efd-0631-4515-810b-102a038c60ef}",
+                "srcId": "{a9ce8a5b-9508-4a41-8870-9a291b0ba9c1}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{22be73fe-1b9b-4ceb-a162-15bafd0e0b34}",
+                "dstId": "{f5321a8f-f2af-4011-b22a-05b24866a82a}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{6ec258e5-27a2-4d59-a82a-19813b5bf4d1}",
+                "srcId": "{a4f0dbd8-b0ca-4286-8fd6-28cad6937c53}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{e9baca90-f313-48c9-a7c1-4035b80334a4}",
+                "dstId": "{66f724a3-726c-4c36-a5ce-3c190d83de20}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{9f3985be-9abd-4562-b25a-5637c85b7095}",
+                "srcId": "{28ba4517-da5f-42be-b309-351f516f776a}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{c3c1b272-b756-4d30-9d85-2446c4677a65}",
+                "dstId": "{1543d8ca-6956-4d24-b4bd-9879f0b2fe0a}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{fd7c8edb-fa1b-4955-9007-3630ae8107bb}",
+                "srcId": "{a9ce8a5b-9508-4a41-8870-9a291b0ba9c1}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{b73a5ad3-e272-471b-ace5-f6b0e4064b66}",
+                "dstId": "{d18136d2-53f7-4854-984f-647e6f713a34}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{fe254283-a447-42fe-a865-11861cfa33f9}",
+                "srcId": "{6006b082-e0ff-4cb4-8439-5f39533c4cc7}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{876f8efd-0631-4515-810b-102a038c60ef}",
+                "dstId": "{d99a4cab-ccb3-4258-9126-896731bd8a93}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{9f6f7b1e-6a0e-484b-abaa-743add771902}",
+                "srcId": "{cf3cb213-ab31-4f85-8ae9-bfb01d729dd0}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{b5cc3387-8e55-47e3-9212-aac15706c346}",
+                "dstId": "{a2fb1cbf-e3de-4148-87f3-3a10febb9ebb}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{9f6f7b1e-6a0e-484b-abaa-743add771902}",
+                "srcId": "{d1244a88-988f-47eb-9d1c-5e2295f0880e}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{9f3985be-9abd-4562-b25a-5637c85b7095}",
+                "dstId": "{28ba4517-da5f-42be-b309-351f516f776a}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{c9cc6984-07bf-44e5-907b-0787cd9f6ed7}",
+                "srcId": "{bce3d292-1bc1-4b18-920c-77c69ed11b79}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{67b7f8e2-a91f-4290-8b79-7e0cbafa62a9}",
+                "dstId": "{1badeafd-5f5f-4485-a54d-c846e84e5802}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{6ec258e5-27a2-4d59-a82a-19813b5bf4d1}",
+                "srcId": "{bce3d292-1bc1-4b18-920c-77c69ed11b79}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{fcdad06d-e7d3-4150-9fad-d41584eb1f68}",
+                "dstId": "{7d88dd24-7ae0-4dcd-bbad-d92385d1baea}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{b73a5ad3-e272-471b-ace5-f6b0e4064b66}",
+                "srcId": "{cf3cb213-ab31-4f85-8ae9-bfb01d729dd0}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{ca24d752-6c0a-4344-81e6-fb6c95297ec6}",
+                "dstId": "{6006b082-e0ff-4cb4-8439-5f39533c4cc7}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{22be73fe-1b9b-4ceb-a162-15bafd0e0b34}",
+                "srcId": "{a4f0dbd8-b0ca-4286-8fd6-28cad6937c53}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{f81814f0-d02b-4f60-9341-a16f3e8b1ba0}",
+                "dstId": "{d1244a88-988f-47eb-9d1c-5e2295f0880e}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{c9cc6984-07bf-44e5-907b-0787cd9f6ed7}",
+                "srcId": "{39a629dd-5308-4c5a-b115-157010ce168d}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{7bdf9529-ee2e-4b87-8af5-2c1b28262e2a}",
+                "dstId": "{e964335a-5cf4-4f15-9aae-909daf748932}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{c3c1b272-b756-4d30-9d85-2446c4677a65}",
+                "srcId": "{7d88dd24-7ae0-4dcd-bbad-d92385d1baea}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{b39595fc-0a1a-4ec0-aeba-10d0c0f28c82}",
+                "dstId": "{bc2f29dd-cb57-428a-b3ed-8329befadda5}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{fd7c8edb-fa1b-4955-9007-3630ae8107bb}",
+                "srcId": "{1543d8ca-6956-4d24-b4bd-9879f0b2fe0a}",
                 "srcIndex": 0
             }
         ],
@@ -117,48 +117,48 @@
                 "data": {
                     "displayLocation": "sink",
                     "members": [
-                        "{20f87f14-f4ee-4c30-bfb9-6e69ee09a891}",
-                        "{b5cc3387-8e55-47e3-9212-aac15706c346}",
-                        "{67b7f8e2-a91f-4290-8b79-7e0cbafa62a9}",
-                        "{b39595fc-0a1a-4ec0-aeba-10d0c0f28c82}",
-                        "{f81814f0-d02b-4f60-9341-a16f3e8b1ba0}"
+                        "{d99a4cab-ccb3-4258-9126-896731bd8a93}",
+                        "{b2e3c627-4cc1-4fee-92b5-1d4284ad0bcc}",
+                        "{1badeafd-5f5f-4485-a54d-c846e84e5802}",
+                        "{245ce538-3a32-43d4-a9e6-bdc824054e11}",
+                        "{f5321a8f-f2af-4011-b22a-05b24866a82a}"
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{9f8d3852-c2f9-4a15-b1cf-1fdbf982e667}",
-                "name": "Raw Histos mdpp16_qdc",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{9d1981f9-c610-4eb5-944c-dfcdb169c4db}",
+                "name": "Raw Histos MDPP16_QDC",
                 "userLevel": 0
             },
             {
                 "data": {
                     "displayLocation": "operator",
                     "members": [
-                        "{b73a5ad3-e272-471b-ace5-f6b0e4064b66}",
-                        "{876f8efd-0631-4515-810b-102a038c60ef}",
-                        "{22be73fe-1b9b-4ceb-a162-15bafd0e0b34}",
-                        "{c3c1b272-b756-4d30-9d85-2446c4677a65}",
-                        "{9f3985be-9abd-4562-b25a-5637c85b7095}"
+                        "{7d88dd24-7ae0-4dcd-bbad-d92385d1baea}",
+                        "{d1244a88-988f-47eb-9d1c-5e2295f0880e}",
+                        "{28ba4517-da5f-42be-b309-351f516f776a}",
+                        "{1543d8ca-6956-4d24-b4bd-9879f0b2fe0a}",
+                        "{6006b082-e0ff-4cb4-8439-5f39533c4cc7}"
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{0cf97431-e951-4b35-baed-76a4330a7305}",
-                "name": "Cal mdpp16_qdc",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{5b3c2c94-94e3-4e0b-a7e3-875b6a69b6d5}",
+                "name": "Cal MDPP16_QDC",
                 "userLevel": 1
             },
             {
                 "data": {
                     "displayLocation": "sink",
                     "members": [
-                        "{fcdad06d-e7d3-4150-9fad-d41584eb1f68}",
-                        "{f401375d-3376-4509-8a62-1d1828aee5a7}",
-                        "{ca24d752-6c0a-4344-81e6-fb6c95297ec6}",
-                        "{7bdf9529-ee2e-4b87-8af5-2c1b28262e2a}",
-                        "{e9baca90-f313-48c9-a7c1-4035b80334a4}"
+                        "{e964335a-5cf4-4f15-9aae-909daf748932}",
+                        "{a2fb1cbf-e3de-4148-87f3-3a10febb9ebb}",
+                        "{66f724a3-726c-4c36-a5ce-3c190d83de20}",
+                        "{bc2f29dd-cb57-428a-b3ed-8329befadda5}",
+                        "{d18136d2-53f7-4854-984f-647e6f713a34}"
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{3b4a15cd-fdc7-4deb-bcb3-0d60ba3c31dd}",
-                "name": "Cal Histos mdpp16_qdc",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{9a59b4f1-423f-44fd-ab70-5c920f2f8818}",
+                "name": "Cal Histos MDPP16_QDC",
                 "userLevel": 1
             }
         ],
@@ -168,91 +168,15 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "channel_time",
+                    "xAxisTitle": "timestamp",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{20f87f14-f4ee-4c30-bfb9-6e69ee09a891}",
-                "name": "channel_time_raw",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{f5321a8f-f2af-4011-b22a-05b24866a82a}",
+                "name": "timestamp_raw",
                 "userLevel": 0
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": ""
-                },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{b73a5ad3-e272-471b-ace5-f6b0e4064b66}",
-                "name": "channel_time",
-                "userLevel": 1
             },
             {
                 "class": "analysis::Histo1DSink",
@@ -264,8 +188,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{b5cc3387-8e55-47e3-9212-aac15706c346}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{b2e3c627-4cc1-4fee-92b5-1d4284ad0bcc}",
                 "name": "integration_long_raw",
                 "userLevel": 0
             },
@@ -274,76 +198,91 @@
                 "data": {
                     "calibrations": [
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 1600,
                             "unitMin": 0
                         }
                     ],
-                    "unitLabel": ""
+                    "unitLabel": "ns"
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{876f8efd-0631-4515-810b-102a038c60ef}",
-                "name": "integration_long",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{7d88dd24-7ae0-4dcd-bbad-d92385d1baea}",
+                "name": "channel_time",
                 "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "trigger_time",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{245ce538-3a32-43d4-a9e6-bdc824054e11}",
+                "name": "trigger_time_raw",
+                "userLevel": 0
             },
             {
                 "class": "analysis::Histo1DSink",
@@ -355,8 +294,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{67b7f8e2-a91f-4290-8b79-7e0cbafa62a9}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{1badeafd-5f5f-4485-a54d-c846e84e5802}",
                 "name": "integration_short_raw",
                 "userLevel": 0
             },
@@ -431,8 +370,8 @@
                     ],
                     "unitLabel": ""
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{22be73fe-1b9b-4ceb-a162-15bafd0e0b34}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{28ba4517-da5f-42be-b309-351f516f776a}",
                 "name": "integration_short",
                 "userLevel": 1
             },
@@ -441,15 +380,91 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "trigger_time",
+                    "xAxisTitle": "channel_time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{b39595fc-0a1a-4ec0-aeba-10d0c0f28c82}",
-                "name": "trigger_time_raw",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{d99a4cab-ccb3-4258-9126-896731bd8a93}",
+                "name": "channel_time_raw",
                 "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 4096,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{d1244a88-988f-47eb-9d1c-5e2295f0880e}",
+                "name": "integration_long",
+                "userLevel": 1
             },
             {
                 "class": "analysis::CalibrationMinMax",
@@ -466,40 +481,25 @@
                     ],
                     "unitLabel": ""
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{c3c1b272-b756-4d30-9d85-2446c4677a65}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{1543d8ca-6956-4d24-b4bd-9879f0b2fe0a}",
                 "name": "trigger_time",
                 "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "resolutionReductionFactor": 0,
-                    "xAxisTitle": "timestamp",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{f81814f0-d02b-4f60-9341-a16f3e8b1ba0}",
-                "name": "timestamp_raw",
-                "userLevel": 0
             },
             {
                 "class": "analysis::CalibrationMinMax",
                 "data": {
                     "calibrations": [
                         {
-                            "unitMax": 1073741824,
+                            "unitMax": 67108864,
                             "unitMin": 0
                         }
                     ],
-                    "unitLabel": ""
+                    "unitLabel": "us"
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{9f3985be-9abd-4562-b25a-5637c85b7095}",
-                "name": "timestamp",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{6006b082-e0ff-4cb4-8439-5f39533c4cc7}",
+                "name": "module_timestamp",
                 "userLevel": 1
             },
             {
@@ -512,8 +512,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{fcdad06d-e7d3-4150-9fad-d41584eb1f68}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{e964335a-5cf4-4f15-9aae-909daf748932}",
                 "name": "channel_time",
                 "userLevel": 1
             },
@@ -527,8 +527,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{f401375d-3376-4509-8a62-1d1828aee5a7}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{a2fb1cbf-e3de-4148-87f3-3a10febb9ebb}",
                 "name": "integration_long",
                 "userLevel": 1
             },
@@ -542,8 +542,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{ca24d752-6c0a-4344-81e6-fb6c95297ec6}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{66f724a3-726c-4c36-a5ce-3c190d83de20}",
                 "name": "integration_short",
                 "userLevel": 1
             },
@@ -557,8 +557,8 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{7bdf9529-ee2e-4b87-8af5-2c1b28262e2a}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{bc2f29dd-cb57-428a-b3ed-8329befadda5}",
                 "name": "trigger_time",
                 "userLevel": 1
             },
@@ -572,12 +572,36 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{e9baca90-f313-48c9-a7c1-4035b80334a4}",
-                "name": "timestamp",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{d18136d2-53f7-4854-984f-647e6f713a34}",
+                "name": "module_timestamp",
                 "userLevel": 1
             }
         ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{53fac506-2e11-49f8-922f-404c4136957c}",
+                    "moduleName": "MDPP32_QDC",
+                    "moduleTypeName": "mdpp32_qdc"
+                },
+                {
+                    "moduleId": "{ec62ad2c-bc58-4a19-b80e-1a0765785808}",
+                    "moduleName": "MDPP16_SCP",
+                    "moduleTypeName": "mdpp16_scp"
+                },
+                {
+                    "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
+                    "moduleName": "MDPP16_QDC",
+                    "moduleTypeName": "mdpp16_qdc"
+                },
+                {
+                    "moduleId": "{d9c04e92-2e90-4e87-bafa-6cb051f7b4fd}",
+                    "moduleName": "MVLC_Event_Stamper",
+                    "moduleTypeName": "mvlc_ts"
+                }
+            ]
+        },
         "sources": [
             {
                 "class": "analysis::Extractor",
@@ -594,9 +618,9 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{fe254283-a447-42fe-a865-11861cfa33f9}",
-                "moduleId": "{1088c053-4c6b-4b74-a2e1-6cfecb7c4446}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{cf3cb213-ab31-4f85-8ae9-bfb01d729dd0}",
+                "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
                 "name": "channel_time"
             },
             {
@@ -614,9 +638,9 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{9f6f7b1e-6a0e-484b-abaa-743add771902}",
-                "moduleId": "{1088c053-4c6b-4b74-a2e1-6cfecb7c4446}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{39a629dd-5308-4c5a-b115-157010ce168d}",
+                "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
                 "name": "integration_long"
             },
             {
@@ -634,9 +658,9 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{6ec258e5-27a2-4d59-a82a-19813b5bf4d1}",
-                "moduleId": "{1088c053-4c6b-4b74-a2e1-6cfecb7c4446}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{bce3d292-1bc1-4b18-920c-77c69ed11b79}",
+                "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
                 "name": "integration_short"
             },
             {
@@ -654,9 +678,9 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{fd7c8edb-fa1b-4955-9007-3630ae8107bb}",
-                "moduleId": "{1088c053-4c6b-4b74-a2e1-6cfecb7c4446}",
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{a9ce8a5b-9508-4a41-8870-9a291b0ba9c1}",
+                "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
                 "name": "trigger_time"
             },
             {
@@ -674,10 +698,10 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{c9cc6984-07bf-44e5-907b-0787cd9f6ed7}",
-                "moduleId": "{1088c053-4c6b-4b74-a2e1-6cfecb7c4446}",
-                "name": "timestamp"
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{a4f0dbd8-b0ca-4286-8fd6-28cad6937c53}",
+                "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
+                "name": "module_timestamp"
             }
         ]
     }
