@@ -26,6 +26,7 @@
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <memory>
+#include <qnamespace.h>
 
 #include "analysis_serialization.h"
 #include "../template_system.h"
@@ -514,7 +515,8 @@ void add_default_filters(Analysis *analysis, ModuleConfig *module)
     for (auto &obj: objectStore.allObjects())
     {
         obj->setObjectName(obj->objectName().replace(
-                module->getModuleMeta().typeName, module->objectName()));
+                module->getModuleMeta().typeName, module->objectName(),
+                Qt::CaseInsensitive));
     }
 
     // Add the loaded objects to the target analysis.
