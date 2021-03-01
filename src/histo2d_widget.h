@@ -73,8 +73,10 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEd
         virtual analysis::ConditionLink getEditCondition() const override;
         virtual void beginEditCondition() override;
 
-    private slots:
+    public slots:
         void replot();
+
+    private slots:
         void exportPlot();
         void exportPlotToClipboard();
         void mouseCursorMovedToPlotCoord(QPointF);

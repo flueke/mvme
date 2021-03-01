@@ -4094,6 +4094,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                         m_context->addObjectWidget(widget, widgetInfo.sink.get(),
                                                    widgetInfo.sink->getId().toString());
+                        widget->replot();
                     }
                     else if (auto widget = qobject_cast<Histo1DWidget *>(
                             m_context->getObjectWidget(widgetInfo.sink.get())))
@@ -4131,6 +4132,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                             m_context->addObjectWidget(widget, widgetInfo.sink.get(),
                                                        widgetInfo.sink->getId().toString());
+                            widget->replot();
                         }
                         else
                         {
@@ -4174,6 +4176,8 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         widget->setContext(m_context);
 
                         m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+
+                        widget->replot();
                     }
                     else
                     {

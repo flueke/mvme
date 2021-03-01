@@ -1719,7 +1719,6 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
     }
     else
     {
-
         m_d->m_rateEstimationData.visible = false;
         m_d->m_rateEstimationX1Marker->hide();
         m_d->m_rateEstimationX2Marker->hide();
