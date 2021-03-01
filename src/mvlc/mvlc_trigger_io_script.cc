@@ -1165,7 +1165,7 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
             unsigned unitIndex = kv.index() + Level3::ECL_Unit_Offset;
             auto &unit = kv.value();
 
-            unit = parse_io(writes[unitIndex], io_flags::ECL_IO_Flags);
+            unit = parse_io(writes[unitIndex]);
 
             ioCfg.l3.connections[unitIndex] = { writes[unitIndex][0x80] };
         }
