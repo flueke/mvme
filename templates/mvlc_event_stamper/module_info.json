@@ -1,0 +1,7 @@
+{
+    "typeId"        : 12,
+    "typeName"      : "mvlc_event_stamper",
+    "displayName"   : "MVLC Event Stamper",
+    "vendorName"    : "mesytec",
+    "vmeAddress": "0xffff0000"
+}

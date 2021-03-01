@@ -1,0 +1,26 @@
+# MVLC_Event_Stamper
+# uses Counter 0 as event time stamper. Strobe input generates an event stamp
+# lower 30 bits of the counter are copied to the EOE word.
+# two thresholds are available to signal a lower event treshold (usually by MVLC IRQ 8) for readout cycle start
+# A second one to signal "FIFO almost full" to stop the trigger
+# Start cycle signal:
+0x6010 8     # irq level 8 for start threshold
+0x6012 9	 # irq level for pause trigger
+
+# IRQ-FIFO threshold for cycle start
+0x601E $(${mesy_readout_num_events} + 2)
+
+# Threshold for pause trigger
+0x6018 200
+
+
+# max_transfer_data
+0x601A ${mesy_readout_num_events}       # multi event mode == 0x3 -> Berr is emitted when more or equal the
+                                        #   specified number of words have been sent and "End Of Event" is detected.
+                                        # multi event mode == 0xb -> Berr is emitted when the specified number
+                                        #   of events has been transmitted.
+
+# MCST - Multicast Setup
+# #####################################
+0x6020 0x80                             # Enable multicast
+0x6024 0x${mesy_mcst}                   # Set 8 high bits of MCST address
