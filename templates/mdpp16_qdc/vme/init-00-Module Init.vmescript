@@ -3,12 +3,14 @@
 # Operation Mode
 # ############################################################################
 # tdc_resolution
-0x6042  2           # 0 ->  24 ps = 25 ns / 1024
+0x6042  0           # 0 ->  24 ps = 25 ns / 1024
                     # 1 ->  49 ps = 25 ns / 512
                     # 2 ->  98 ps = 25 ns / 256
                     # 3 -> 195 ps = 25 ns / 128
                     # 4 -> 391 ps = 25 ns / 64
                     # 5 -> 781 ps = 25 ns / 32
+# ADC resolution
+0x6046	0			# 0 = 16 bit ... 4 = 12Bit
 
 # output_format
 0x6044  3           # 0 -> time and long integral
