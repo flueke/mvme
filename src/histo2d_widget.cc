@@ -865,11 +865,15 @@ void Histo2DWidget::replot()
     updateCursorInfoLabel();
 
     // window and axis titles
-    QString windowTitle;
-
     if (m_d->m_histo)
     {
-        windowTitle = QString("Histogram %1").arg(m_d->m_histo->objectName());
+        QStringList pathParts;
+
+        if (m_d->m_sink)
+            pathParts = analysis::make_parent_path_list(m_d->m_sink);
+
+        pathParts.push_back(m_d->m_histo->objectName());
+        setWindowTitle(pathParts.join('/'));
 
         auto axisInfo = m_d->m_histo->getAxisInfo(Qt::XAxis);
         m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
@@ -879,7 +883,9 @@ void Histo2DWidget::replot()
     }
     else if (m_d->m_histo1DSink)
     {
-        windowTitle = QString("%1 2D combined").arg(m_d->m_histo1DSink->objectName());
+        auto pathParts = analysis::make_parent_path_list(m_d->m_histo1DSink);
+        pathParts.push_back(QString("%1 2D combined").arg(m_d->m_histo1DSink->objectName()));
+        setWindowTitle(pathParts.join('/'));
 
         m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(QSL("Histogram #"));
 
@@ -894,8 +900,6 @@ void Histo2DWidget::replot()
     {
         InvalidCodePath;
     }
-
-    setWindowTitle(windowTitle);
 
     // stats display
     auto infoText = (QString(

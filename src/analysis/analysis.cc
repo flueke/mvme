@@ -4412,6 +4412,21 @@ DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
     return nullptr;
 }
 
+QVector<DirectoryPtr> Analysis::getParentDirectories(const AnalysisObjectPtr &obj) const
+{
+    QVector<DirectoryPtr> result;
+
+    AnalysisObjectPtr tmp = obj;
+
+    while (auto parent = getParentDirectory(tmp))
+    {
+        result.push_back(parent);
+        tmp = parent;
+    }
+
+    return result;
+}
+
 AnalysisObjectVector Analysis::getDirectoryContents(const QUuid &directoryId) const
 {
     return getDirectoryContents(getDirectory(directoryId));
@@ -5622,6 +5637,22 @@ std::pair<std::unique_ptr<Analysis>, QString>
     if (options & read_options::BuildAnalysis)
     {
         result.first->beginRun({}, vmeConfig, logger);
+    }
+
+    return result;
+}
+
+QStringList
+make_parent_path_list(const AnalysisObjectPtr &obj)
+{
+    QStringList result;
+
+    if (auto analysis = obj->getAnalysis())
+    {
+        auto dirs = analysis->getParentDirectories(obj);
+
+        for (auto dir: dirs)
+            result.push_front(dir->objectName());
     }
 
     return result;

@@ -1124,8 +1124,17 @@ void Histo1DWidget::replot()
     }
 
     // window and axis titles
-    auto name = m_d->getCurrentHisto()->objectName();
-    setWindowTitle(QString("Histogram %1").arg(name));
+    {
+        QStringList pathParts;
+
+        if (auto sink = getSink())
+        {
+            pathParts = analysis::make_parent_path_list(sink);
+        }
+
+        pathParts.push_back(m_d->getCurrentHisto()->objectName());
+        setWindowTitle(pathParts.join('/'));
+    }
 
     auto axisInfo = m_d->getCurrentHisto()->getAxisInfo(Qt::XAxis);
     m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));

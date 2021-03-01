@@ -713,7 +713,9 @@ void RateMonitorWidget::replot()
 {
     if (m_d->m_sink)
     {
-        setWindowTitle(QString("Rate %1").arg(m_d->m_sink->objectName()));
+        auto pathParts = analysis::make_parent_path_list(m_d->m_sink);
+        pathParts.push_back(m_d->m_sink->objectName());
+        setWindowTitle(pathParts.join('/'));
 
         auto &sink = m_d->m_sink;
         m_d->m_samplers = sink->getRateSamplers();

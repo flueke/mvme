@@ -169,6 +169,7 @@ class LIBMVME_EXPORT AnalysisObject:
 
         void setAnalysis(Analysis *analysis) { m_analysis = analysis; }
         Analysis *getAnalysis() { return m_analysis; }
+        const Analysis *getAnalysis() const { return m_analysis; }
 
     protected:
         /* Invoked by the clone() method on the cloned object. The source of the clone is
@@ -1916,6 +1917,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         int directoryCount() const { return m_directories.size(); }
 
         DirectoryPtr getParentDirectory(const AnalysisObjectPtr &obj) const;
+        QVector<DirectoryPtr> getParentDirectories(const AnalysisObjectPtr &obj) const;
         AnalysisObjectVector getDirectoryContents(const QUuid &directoryId) const;
         AnalysisObjectVector getDirectoryContents(const DirectoryPtr &directory) const;
         AnalysisObjectVector getDirectoryContents(const Directory *directory) const;
@@ -2138,6 +2140,10 @@ LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
     read_analysis_config_from_file(const QString &filename, const VMEConfig *vmeConfig,
                                    read_options::Opt = read_options::BuildAnalysis,
                                    Logger logger = {});
+
+// Returns a list of parent directory names of the object.
+QStringList LIBMVME_EXPORT
+make_parent_path_list(const AnalysisObjectPtr &obj);
 
 } // end namespace analysis
 
