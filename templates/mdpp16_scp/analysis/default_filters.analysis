@@ -551,7 +551,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{9f92e038-6dea-46b4-b5fa-3e96f3450a56}",
                 "moduleId": "{ec62ad2c-bc58-4a19-b80e-1a0765785808}",
-                "name": "moduel_timestamp"
+                "name": "module_timestamp"
             }
         ]
     }
