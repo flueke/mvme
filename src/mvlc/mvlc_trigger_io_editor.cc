@@ -817,6 +817,7 @@ void MVLCTriggerIOEditor::runScript_()
 
 void MVLCTriggerIOEditor::setupModified()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     d->scene->setTriggerIOConfig(d->ioCfg);
 
     regenerateScript();
@@ -827,9 +828,18 @@ void MVLCTriggerIOEditor::setupModified()
 
 void MVLCTriggerIOEditor::regenerateScript()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     auto &ioCfg = d->ioCfg;
     auto scriptText = generate_trigger_io_script_text(ioCfg);
     d->scriptConfig->setScriptContents(scriptText);
+
+#ifndef NDEBUG
+    {
+        auto tmpIoCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+        auto tmpText = generate_trigger_io_script_text(tmpIoCfg);
+        assert(scriptText == tmpText);
+    }
+#endif
 }
 
 void MVLCTriggerIOEditor::reload()
