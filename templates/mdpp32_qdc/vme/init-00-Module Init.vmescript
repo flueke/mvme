@@ -10,6 +10,9 @@
                     # 4 -> 391 ps = 25 ns / 64
                     # 5 -> 781 ps = 25 ns / 32
                     #
+# ADC resolution
+0x6046	0			# 0 = 16 bit ... 4 = 12Bit
+
 # output_format
 0x6044  3           # 0 -> time and long integral
                     # 1 -> long integral only (QDC-mode)
@@ -91,7 +94,7 @@
                     # 0x9 -> events in buffer above threshold 0x601E
 
 # NIM4 input
-0x6068  1           # 0 -> off
+0x6068  0           # 0 -> off
                     # 1 -> trig0_in
 
 # NIM3
