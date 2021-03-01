@@ -1,5 +1,16 @@
 # Settings related to the readout loop
 # #####################################
+# Trigger output via IRQ-lines at Backplane; MDPP-16
+# Each bit corresponds to one of the MDPP-16 channels.
+# 0x6300 0b1111'1111'1111'1111  # IRQ 1
+# 0x6304 0b1111'1111'1111'1111  # IRQ 2
+# 0x6308 0b1111'1111'1111'1111  # IRQ 3
+# 0x630C 0b1111'1111'1111'1111  # IRQ 4
+# 0x6310 0b1111'1111'1111'1111  # IRQ 5
+# 0x6314 0b1111'1111'1111'1111  # IRQ 6
+# 0x6318 0b1111'1111'1111'1111  # IRQ 7
+#######################################
+
 0x6010  ${sys_irq}                          # irq level
 
 # IRQ_source and thresholds

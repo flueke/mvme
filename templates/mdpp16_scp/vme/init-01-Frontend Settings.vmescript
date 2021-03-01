@@ -8,28 +8,30 @@
 # tf_int_diff
 0x6110  20      # TF integration/differentiation time common for both selected channels
                 # range 1..127 in multiples of 12.5 ns;
-				#    (12.5 (15) ns to 1.6 us)
+                #    (12.5 (15) ns to 1.6 us)
 
 # PZ0 (signal_decay_time0 for selected channel0)
-0x6112  0xffff  # range 64..64k, 0.8 us to 800 us and infinite
+0x6112   $(25000 / 12.5)  # first term: decay time in ns
+                # range 64..64k, 0.8 us to 800 us and infinite
                 # multiples of 12.5 ns
 
 # PZ1 (signal_decay_time1 for selected channel1)
-0x6114  0xffff  # same as signal_decay_time0
+0x6114   $(25000 / 12.5)  # first term: decay time in ns
 
 # Gain (common for both selected channels)
-0x611A  200     # gain * 100
+0x611A  $(2.0 / 100)  # gain * 100
                 # range 1..250
                 # 100   -> gain = 1
                 # 25000 -> gain = 250
                 #
 # threshold0
-0x611C  2000    # 0..64k, 64k corresponds to full range
+0x611C  500    # 0..64k, 64k corresponds to full range
 # threshold1
-0x611E  2000    # same as threshold0
+0x611E  500    # same as threshold0
 
 # shaping_time (common for both selected channels)
-0x6124  200     # FWHM-width in multiples of 12.5ns (200 == 2.5 us)
+0x6124  $(2000 / 12.5)  # first term: in ns
+                # FWHM-width in multiples of 12.5ns (200 == 2.5 us)
                 # range 8..2000 (100 ns to 25 us)
 
 # signal_rise_time, determines the flat top of trapezoidal shaper (common for both selected channels)
@@ -150,5 +152,3 @@
 0x6128    1000    # reset_time
 0x612A      80    # signal_rise_time
 */
-
-
