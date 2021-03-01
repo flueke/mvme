@@ -633,7 +633,7 @@
                     "rngSeed": "224920f5e8c1b653",
                     "subFilters": [
                         {
-                            "filterString": "0001XXXXXX00AAAA0000DDDDDDDDDDDD",
+                            "filterString": "0001XXXXXX00AAAADDDDDDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
@@ -653,7 +653,7 @@
                     "rngSeed": "ae065aa9db888187",
                     "subFilters": [
                         {
-                            "filterString": "0001XXXXXX11AAAA0000DDDDDDDDDDDD",
+                            "filterString": "0001XXXXXX11AAAADDDDDDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
