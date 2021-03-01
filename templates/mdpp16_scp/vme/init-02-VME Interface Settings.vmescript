@@ -2,7 +2,7 @@
 # #####################################
 # Trigger output via IRQ-lines at Backplane; MDPP-16
 # Each bit corresponds to one of the MDPP-16 channels.
-# 0x6300 0b1111'1111'1111'1111  # IRQ 1
+# 0x6300 0b1111'1111'1111'1111  # IRQ 1 ; example: all channels add their triggers to this IRQ line
 # 0x6304 0b1111'1111'1111'1111  # IRQ 2
 # 0x6308 0b1111'1111'1111'1111  # IRQ 3
 # 0x630C 0b1111'1111'1111'1111  # IRQ 4
