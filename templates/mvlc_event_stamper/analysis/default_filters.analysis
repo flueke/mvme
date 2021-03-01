@@ -1,0 +1,116 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+            {
+                "dstId": "{9ebb7e70-c3ec-41b9-b821-2ee0d01c680a}",
+                "dstIndex": 0,
+                "dstParamIndex": 0,
+                "srcId": "{7ead1ba5-a0a0-4a44-9058-1a4784dae358}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{a6c29dea-3700-452f-8bd1-ac43c0f7aadd}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{7ead1ba5-a0a0-4a44-9058-1a4784dae358}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "members": [
+                        "{a6c29dea-3700-452f-8bd1-ac43c0f7aadd}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{ad927c90-ab22-4ac0-b4b4-0d7030b5dd8e}",
+                "name": "MVLC_Event_Stamper",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "members": [
+                        "{9ebb7e70-c3ec-41b9-b821-2ee0d01c680a}",
+                        "{cb81e49f-dbc1-40b2-8ca7-dc781ce8dc29}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{e100bfc7-a6c0-4353-94fb-7335ae94987f}",
+                "name": "MVLC_Event_Stamper",
+                "userLevel": 1
+            }
+        ],
+        "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{a6c29dea-3700-452f-8bd1-ac43c0f7aadd}",
+                "name": "module_timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 67108864,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "us"
+                },
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{9ebb7e70-c3ec-41b9-b821-2ee0d01c680a}",
+                "name": "module_timestamp",
+                "userLevel": 1
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{d9c04e92-2e90-4e87-bafa-6cb051f7b4fd}",
+                    "moduleName": "MVLC Event Stamper",
+                    "moduleTypeName": "mvlc_event_stamper"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "79ae191bf2cdf788",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "id": "{7ead1ba5-a0a0-4a44-9058-1a4784dae358}",
+                "moduleId": "{d9c04e92-2e90-4e87-bafa-6cb051f7b4fd}",
+                "name": "module_timestamp"
+            }
+        ]
+    }
+}
