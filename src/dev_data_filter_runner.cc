@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 
     if (filterBytes.isEmpty())
     {
-        err << "Empty filter given. Use --filter to specify a filter string." << Qt::endl;
+        err << "Empty filter given. Use --filter to specify a filter string." << '\n';
         return 1;
     }
 
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 
         auto test_one_word = [&](u32 dataWord)
         {
-            out << "Matching data word " << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0')) << ":" <<  Qt::endl;
+            out << "Matching data word " << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0')) << ":" <<  '\n';
 
             // single filter
 
@@ -101,11 +101,11 @@ int main(int argc, char *argv[])
                     << ", extractMask('A') = " << QString("0x%1").arg(extractMaskA, 8, 16, QLatin1Char('0'))
                     << ", extractShift('A')= " << extractShiftA
                     << ", extractBits('A') = " << extractBitsA
-                    << Qt::endl;
+                    << '\n';
             }
             else
             {
-                out << "  singleFilter does not match" << Qt::endl;
+                out << "  singleFilter does not match" << '\n';
             }
 
             // multi filter
@@ -119,11 +119,11 @@ int main(int argc, char *argv[])
                 out << "  multiFilter is complete: "
                     << "address=" << address
                     << ", value=" << value
-                    << Qt::endl;
+                    << '\n';
             }
             else
             {
-                out << "  multiFilter is not complete" << Qt::endl;
+                out << "  multiFilter is not complete" << '\n';
             }
 
         };
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
         }
     } catch (const char *e)
     {
-        err << e << Qt::endl;
+        err << e << '\n';
         return 1;
     }
 
