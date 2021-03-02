@@ -422,8 +422,9 @@ if (MVME_ENABLE_MVLC)
     # yaml-cpp to the global include paths.
     #include_directories(${MVME_YAML_DIR}/include)
 
-    add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
-    target_link_libraries(dev_mvlc_daq_init libmvme)
+    # FIXME: revive this tool
+    #add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
+    #target_link_libraries(dev_mvlc_daq_init libmvme)
 
     add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
     target_link_libraries(dev_mvlc_trigger_gui libmvme)

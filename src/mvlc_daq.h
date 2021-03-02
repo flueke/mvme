@@ -45,8 +45,10 @@ using Logger = std::function<void (const QString &)>;
 
 // Builds and uploads the readout stacks and performs the trigger I/O setup.
 // Note: the readout triggers are not enabled by this function.
+#if 0
 std::error_code LIBMVME_EXPORT
     setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger);
+#endif
 
 std::pair<std::vector<u32>, std::error_code> LIBMVME_EXPORT get_trigger_values(
     const VMEConfig &vmeConfig, Logger logger);

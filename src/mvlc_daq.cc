@@ -363,6 +363,7 @@ inline std::error_code write_vme_reg(MVLCObject &mvlc, u16 reg, u16 value)
                          vme_address_modes::a32UserData, mvlc::VMEDataWidth::D16);
 }
 
+#if 0
 std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
     logger("Initializing MVLC Readout Stacks and Trigger I/O");
@@ -426,6 +427,7 @@ std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger
 
     return {};
 }
+#endif
 
 mesytec::mvme_mvlc::trigger_io::TriggerIO
     update_trigger_io(const VMEConfig &vmeConfig)
