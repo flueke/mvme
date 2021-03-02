@@ -453,6 +453,9 @@ bool VMEConfigTree::dropMimeDataOnModulesInit(
 {
     assert(parentItem && parentItem->type() == NodeType_EventModulesInit);
 
+    if (m_configWidget->getDAQState() != DAQState::Idle)
+        return false;
+
     // parentItem is the destination "Modules Init" node, parentIndex is the
     // index the module should be placed at once dropped.
     // The parent node of parentItem is the destination event node.

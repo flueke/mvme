@@ -130,6 +130,8 @@ class VMEConfigTreeWidget: public QWidget
         bool canCopy(const ConfigObject *obj) const;
         bool canPaste() const;
 
+        DAQState getDAQState() const { return m_daqState; }
+
         VMEConfig *m_config = nullptr;
         QString m_configFilename;
         QString m_workspaceDirectory;
