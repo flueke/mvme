@@ -173,7 +173,7 @@ ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId,
     : QTreeWidget(parent)
     , m_d(std::make_unique<Private>(this))
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 
     // Private setup
     m_d->m_context = ctx;
@@ -223,7 +223,7 @@ ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId,
 
 ConditionTreeWidget::~ConditionTreeWidget()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void ConditionTreeWidget::repopulate()
@@ -291,7 +291,7 @@ static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0
 
 void ConditionTreeWidget::highlightConditionLink(const ConditionLink &cl)
 {
-    qDebug() << __PRETTY_FUNCTION__ << cl.condition << cl.subIndex;
+    //qDebug() << __PRETTY_FUNCTION__ << cl.condition << cl.subIndex;
 
     clearHighlights();
 
@@ -329,7 +329,7 @@ void ConditionTreeWidget::clearHighlights()
 
 void ConditionTreeWidget::setModificationButtonsVisible(const ConditionLink &cl, bool visible)
 {
-    qDebug() << __PRETTY_FUNCTION__ << cl.condition << visible;
+    //qDebug() << __PRETTY_FUNCTION__ << cl.condition << visible;
 
     QTreeWidgetItem *node = nullptr;
 
@@ -521,13 +521,13 @@ ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
 
 ConditionWidget::~ConditionWidget()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 
 void ConditionWidget::repopulate()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 
     clear_stacked_widget(m_d->m_treeStack);
     m_d->m_treesByEventId.clear();
@@ -578,7 +578,7 @@ void ConditionWidget::repopulate()
 
 void ConditionWidget::repopulate(int eventIndex)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << eventIndex;
+    //qDebug() << __PRETTY_FUNCTION__ << this << eventIndex;
 
     if (auto tree = qobject_cast<ConditionTreeWidget *>(m_d->m_treeStack->widget(eventIndex)))
     {
