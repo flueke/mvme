@@ -301,6 +301,7 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
 
     // Setup readout stacks ==============================================================
 
+    logger("Setting up MVLC readout stacks");
     if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
     {
         logger(QString("Error setting up readout stacks: %1").arg(ec.message().c_str()));

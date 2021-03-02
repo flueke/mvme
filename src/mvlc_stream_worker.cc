@@ -478,7 +478,7 @@ void MVLC_StreamWorker::start()
         // Reset the parser counters and the snapshot copy
         m_parserCounters = {};
         m_parserCountersSnapshot.access().ref() = m_parserCounters;
-        logParserInfo(m_parser);
+        //logParserInfo(m_parser);
     }
     catch (const vme_script::ParseError &e)
     {
