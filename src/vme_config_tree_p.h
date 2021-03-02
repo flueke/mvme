@@ -19,6 +19,9 @@ class VMEConfigTree: public QTreeWidget
         virtual bool dropMimeData(QTreeWidgetItem *parent, int index,
                                   const QMimeData *data, Qt::DropAction action) override;
 
+        bool dropMimeDataOnModulesInit(QTreeWidgetItem *parent, int index,
+                                       const QMimeData *data, Qt::DropAction action);
+
         virtual Qt::DropActions supportedDropActions() const override
         {
             return /*Qt::CopyAction |*/ Qt::MoveAction;

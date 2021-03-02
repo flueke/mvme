@@ -79,7 +79,7 @@ class VMEConfigTreeWidget: public QWidget
 
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
-        TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
+        TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module, int moduleIndex);
 
         TreeNode *makeObjectNode(ConfigObject *obj);
         TreeNode *addObjectNode(QTreeWidgetItem *parentNode, int parentIndex, ConfigObject *obj);
@@ -97,7 +97,7 @@ class VMEConfigTreeWidget: public QWidget
         void onEventAdded(EventConfig *config, bool expandNode);
         void onEventAboutToBeRemoved(EventConfig *config);
 
-        void onModuleAdded(ModuleConfig *config);
+        void onModuleAdded(ModuleConfig *config, int index);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
 
         // context menu action implementations

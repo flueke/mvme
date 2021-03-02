@@ -37,6 +37,7 @@
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QUrl>
+#include <qnamespace.h>
 
 #include "mvme.h"
 #include "mvme_stream_worker.h"
@@ -290,6 +291,32 @@ QStringList VMEConfigTree::mimeTypes() const
     return { VMEConfigObjectIdListMIMEType };
 }
 
+std::vector<ConfigObject *> get_vme_config_objects_from_id_list(const VMEConfig *vmeConfig, const QByteArray &data)
+{
+    std::vector<ConfigObject *> result;
+
+    auto ids = decode_id_list(data);
+
+    for (auto id: ids)
+    {
+        auto sourceObject = vmeConfig->findChildByPredicate<ConfigObject *>(
+            [&id](ConfigObject *obj) { return obj->getId() == id; });
+        if (sourceObject)
+            result.push_back(sourceObject);
+    }
+
+    return result;
+}
+
+ConfigObject * get_first_vme_config_object_from_id_list(const VMEConfig *vmeConfig, const QByteArray &data)
+{
+    auto objects = get_vme_config_objects_from_id_list(vmeConfig, data);
+
+    if (!objects.empty())
+        return objects.at(0);
+    return nullptr;
+}
+
 QMimeData *VMEConfigTree::mimeData(const QList<QTreeWidgetItem *> items) const
 {
     QVector<QByteArray> idData;
@@ -305,6 +332,11 @@ QMimeData *VMEConfigTree::mimeData(const QList<QTreeWidgetItem *> items) const
 
             case NodeType_Container:
                 if (auto source = get_pointer<ContainerObject>(item, DataRole_Pointer))
+                    idData.push_back(source->getId().toByteArray());
+                break;
+
+            case NodeType_Module:
+                if (auto source = get_pointer<ModuleConfig>(item, DataRole_Pointer))
                     idData.push_back(source->getId().toByteArray());
                 break;
 
@@ -341,6 +373,12 @@ bool VMEConfigTree::dropMimeData(
     if (!parentItem)
         return false;
 
+    // Drop onto a "Modules Init" node
+    if (parentItem->type() == NodeType::NodeType_EventModulesInit)
+    {
+        return dropMimeDataOnModulesInit(parentItem, parentIndex, data, action);
+    }
+
     if (parentItem->type() != NodeType_Container)
         return false;
 
@@ -365,7 +403,7 @@ bool VMEConfigTree::dropMimeData(
         return false;
 
     // Collect source objects (Note: this can currently only be a single object
-    // because multi selections are not possible.
+    // because multi selections are not possible).
     std::vector<ConfigObject *> sourceObjects;
 
     for (auto sid: ids)
@@ -401,6 +439,94 @@ bool VMEConfigTree::dropMimeData(
     destContainer->addChild(sourceObject, parentIndex);
 
     // FIXME: move/copy the config objects here
+
+    // Always return false to stop the QTreeWidget implementation from updating
+    // its internal model. We update things ourselves.
+    return false;
+}
+
+bool VMEConfigTree::dropMimeDataOnModulesInit(
+    QTreeWidgetItem *parentItem,
+    int parentIndex,
+    const QMimeData *data,
+    Qt::DropAction /*action*/)
+{
+    assert(parentItem && parentItem->type() == NodeType_EventModulesInit);
+
+    // parentItem is the destination "Modules Init" node, parentIndex is the
+    // index the module should be placed at once dropped.
+    // The parent node of parentItem is the destination event node.
+    auto destEventNode = reinterpret_cast<EventNode *>(parentItem->parent());
+
+    if (!destEventNode || destEventNode->type() != NodeType_Event)
+        return false;
+
+    auto destEvent = Var2Ptr<EventConfig>(destEventNode->data(0, DataRole_Pointer));
+
+    if (!destEvent)
+        return false;
+
+    const auto mimeType = VMEConfigObjectIdListMIMEType;
+
+    if (!data->hasFormat(mimeType))
+        return false;
+
+    auto vmeConfig = m_configWidget->getConfig();
+
+    if (!vmeConfig)
+        return false;
+
+    auto droppedObj = get_first_vme_config_object_from_id_list(vmeConfig, data->data(mimeType));
+
+    if (!droppedObj || !qobject_cast<ModuleConfig *>(droppedObj))
+        return false;
+
+    auto moduleConfig = qobject_cast<ModuleConfig *>(droppedObj);
+
+    if (!moduleConfig)
+        return false;
+
+    // XXX: Limit drag and drop for module to the same VME Event. The only
+    // reason for this is that the analysis operators attached to a module
+    // being moved between events will be run in the wrong event context after
+    // the move.
+    if (moduleConfig->getEventConfig() != destEvent)
+        return false;
+
+    move_module(moduleConfig, destEvent, parentIndex);
+
+#ifndef QT_NO_DEBUG
+    // Consistency check: module, module readout and the actual module order in
+    // the event config have to be the same.
+
+    if (auto parentEvent = moduleConfig->getEventConfig())
+    {
+        auto modules = parentEvent->getModuleConfigs();
+        auto modulesNode = destEventNode->modulesNode;
+        auto readoutLoopNode = destEventNode->readoutLoopNode;
+
+        for (int moduleIndex=0; moduleIndex < modules.size(); ++moduleIndex)
+        {
+            int readoutNodeIndex = moduleIndex + 1;
+
+            auto module = modules.at(moduleIndex);
+            auto moduleNode = modulesNode->child(moduleIndex);
+            auto readoutNode = readoutLoopNode->child(readoutNodeIndex);
+
+            assert(module);
+            assert(moduleNode);
+            assert(readoutNode);
+
+            assert(get_pointer<ModuleConfig>(moduleNode, DataRole_Pointer)
+                   == module);
+
+            assert(get_pointer<VMEScriptConfig>(readoutNode, DataRole_Pointer)
+                   == module->getReadoutScript());
+        }
+    }
+
+#endif
+
 
     // Always return false to stop the QTreeWidget implementation from updating
     // its internal model. We update things ourselves.
@@ -752,6 +878,7 @@ TreeNode *VMEConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     auto modulesNode = eventNode->modulesNode;
     modulesNode->setText(0, QSL("Modules Init"));
     modulesNode->setIcon(0, QIcon(":/config_category.png"));
+    modulesNode->setFlags(modulesNode->flags() | Qt::ItemIsDropEnabled);
     eventNode->addChild(modulesNode);
     modulesNode->setExpanded(true);
 
@@ -798,16 +925,17 @@ TreeNode *VMEConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     return eventNode;
 }
 
-TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *module)
+TreeNode *VMEConfigTreeWidget::addModuleNodes(
+    EventNode *parent, ModuleConfig *module, int moduleIndex)
 {
     auto moduleNode = new ModuleNode;
     moduleNode->setData(0, DataRole_Pointer, Ptr2Var(module));
     moduleNode->setText(0, module->objectName());
     //moduleNode->setCheckState(0, Qt::Checked);
     moduleNode->setIcon(0, QIcon(":/vme_module.png"));
-    moduleNode->setFlags(moduleNode->flags() | Qt::ItemIsEditable);
+    moduleNode->setFlags(moduleNode->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
     m_treeMap[module] = moduleNode;
-    parent->modulesNode->addChild(moduleNode);
+    parent->modulesNode->insertChild(moduleIndex, moduleNode);
 
     // Module reset node
     {
@@ -827,6 +955,7 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
         moduleNode->addChild(node);
     }
 
+    // Readout node under the "Readout Loop" parent
     {
         auto readoutNode = makeNode(module->getReadoutScript());
         moduleNode->readoutNode = readoutNode;
@@ -834,7 +963,8 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
         readoutNode->setIcon(0, QIcon(":/vme_module.png"));
 
         auto readoutLoopNode = parent->readoutLoopNode;
-        readoutLoopNode->insertChild(readoutLoopNode->childCount() - 1, readoutNode);
+        // Plus one to the index to account for the "Cycle Start" node
+        readoutLoopNode->insertChild(moduleIndex+1, readoutNode);
     }
 
     return moduleNode;
@@ -1330,8 +1460,9 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig, bool expandNode
 {
     addEventNode(m_nodeEvents, eventConfig);
 
+    int moduleIndex = 0;
     for (auto module: eventConfig->getModuleConfigs())
-        onModuleAdded(module);
+        onModuleAdded(module, moduleIndex++);
 
     connect(eventConfig, &EventConfig::moduleAdded,
             this, &VMEConfigTreeWidget::onModuleAdded);
@@ -1403,10 +1534,10 @@ void VMEConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
     delete m_treeMap.take(config);
 }
 
-void VMEConfigTreeWidget::onModuleAdded(ModuleConfig *module)
+void VMEConfigTreeWidget::onModuleAdded(ModuleConfig *module, int moduleIndex)
 {
     auto eventNode = static_cast<EventNode *>(m_treeMap[module->parent()]);
-    addModuleNodes(eventNode, module);
+    addModuleNodes(eventNode, module, moduleIndex);
 
     auto updateModuleNodes = [module, this](bool isModified) {
         auto node = static_cast<ModuleNode *>(m_treeMap.value(module, nullptr));
@@ -1429,6 +1560,8 @@ void VMEConfigTreeWidget::onModuleAdded(ModuleConfig *module)
 
     connect(module, &ModuleConfig::modified, this, updateModuleNodes);
     onActionShowAdvancedChanged();
+
+
 }
 
 void VMEConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
