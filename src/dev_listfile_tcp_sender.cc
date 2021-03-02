@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
     }
     catch (const QString &e)
     {
-        qDebug() << e << endl;
+        qDebug() << e << '\n';
         return 1;
     }
 

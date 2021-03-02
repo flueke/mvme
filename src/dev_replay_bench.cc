@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 
     if (args.size() < 2)
     {
-        qout << "Usage: " << args[0] << " <listfile> [<analysis>]" << endl;
+        qout << "Usage: " << args[0] << " <listfile> [<analysis>]" << '\n';
         return 1;
     }
 
@@ -78,10 +78,10 @@ int main(int argc, char *argv[])
         ret = app.exec();
 
 
-        qout << ">>>>> Begin LogBuffer:" << endl;
+        qout << ">>>>> Begin LogBuffer:" << '\n';
         for (const auto &line: mvmeContext.getLogBuffer())
-            qout << line << endl;
-        qout << "<<<<< End LogBuffer:" << endl;
+            qout << line << '\n';
+        qout << "<<<<< End LogBuffer:" << '\n';
 
         if (auto dropped = mvmeContext.getDAQStats().droppedBuffers)
             throw std::runtime_error(QSL("droppedBuffers=%1, expected 0!").arg(dropped).toStdString());
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 
         qout << "elapsed=" << countersJ["elapsed_s"].toDouble() << " s"
             << ", data=" << countersJ["data_mb"].toDouble() << " MB"
-            << ", rate=" << countersJ["rate_mbs"].toDouble() << " MB/s" << endl;
+            << ", rate=" << countersJ["rate_mbs"].toDouble() << " MB/s" << '\n';
 
         auto reportFilename = QSL("mvme_replay_bench-%1-%2.json")
             .arg(QFileInfo(listfileFilename).baseName())
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     }
     catch (const std::runtime_error &e)
     {
-        qout << "Error: " << e.what() << endl;
+        qout << "Error: " << e.what() << '\n';
         ret = 1;
     }
 
