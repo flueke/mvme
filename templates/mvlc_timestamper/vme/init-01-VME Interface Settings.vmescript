@@ -1,4 +1,4 @@
 # MCST - Multicast Setup
 # #####################################
 0x6020 0x80                             # Enable multicast
-0x6024 0x${mesy_mcst}                        # Set 8 high bits of MCST address
+0x6024 0x${mesy_mcst}                   # Set 8 high bits of MCST address
