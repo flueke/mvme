@@ -219,11 +219,28 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
         }
     }
 
+    // init_trigger_io
+    {
+        dstConfig.initTriggerIO.setName("init_trigger_io");
+
+        auto script = qobject_cast<VMEScriptConfig *>(
+            vmeConfig->getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
+
+        if (script)
+        {
+            add_stack_group(
+                dstConfig.initTriggerIO,
+                {},
+                mesytec::mvme::parse(script));
+        }
+    }
 
     // init_commands
-    // order is global_daq_start, module_init, events_daq_start
+    // order is global_daq_start, module_init
+    // Does not include the event multicast daq start scripts
     dstConfig.initCommands.setName("init_commands");
 
+    // global daq start
     auto startScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
         "daq_start")->findChildren<VMEScriptConfig *>();
 
@@ -235,6 +252,7 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
             mesytec::mvme::parse(script));
     }
 
+    // module init
     for (const auto &eventConfig: eventConfigs)
     {
         auto eventName = eventConfig->objectName().toStdString();
@@ -262,34 +280,11 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
                         script, moduleConfig->getBaseAddress()));
             }
         }
-
-        {
-            auto script = eventConfig->vmeScripts["daq_start"];
-
-            add_stack_group(
-                dstConfig.initCommands,
-                eventName + "." + script->objectName().toStdString(),
-                mesytec::mvme::parse(script));
-        }
     }
 
     // stop_commands
-    // order is events_daq_stop, global_daq_stop
+    // contains onyl the global daq stop commands
     dstConfig.stopCommands.setName("stop_commands");
-
-    for (const auto &eventConfig: eventConfigs)
-    {
-        auto eventName = eventConfig->objectName().toStdString();
-
-        {
-            auto script = eventConfig->vmeScripts["daq_stop"];
-
-            add_stack_group(
-                dstConfig.stopCommands,
-                eventName + "." + script->objectName().toStdString(),
-                mesytec::mvme::parse(script));
-        }
-    }
 
     auto stopScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
         "daq_stop")->findChildren<VMEScriptConfig *>();
@@ -302,20 +297,34 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
             mesytec::mvme::parse(script));
     }
 
-    // init_trigger_io
+    // mcst daq start
+    dstConfig.mcstDaqStart.setName("mcst_daq_start");
+
+    for (const auto &eventConfig: eventConfigs)
     {
-        dstConfig.initTriggerIO.setName("init_trigger_io");
+        auto eventName = eventConfig->objectName().toStdString();
 
-        auto script = qobject_cast<VMEScriptConfig *>(
-            vmeConfig->getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
+        auto script = eventConfig->vmeScripts["daq_start"];
 
-        if (script)
-        {
-            add_stack_group(
-                dstConfig.initTriggerIO,
-                {},
-                mesytec::mvme::parse(script));
-        }
+        add_stack_group(
+            dstConfig.mcstDaqStart,
+            eventName + "." + script->objectName().toStdString(),
+            mesytec::mvme::parse(script));
+    }
+
+    // mcst daq stop
+    dstConfig.mcstDaqStop.setName("mcst_daq_stop");
+
+    for (const auto &eventConfig: eventConfigs)
+    {
+        auto eventName = eventConfig->objectName().toStdString();
+
+        auto script = eventConfig->vmeScripts["daq_stop"];
+
+        add_stack_group(
+            dstConfig.mcstDaqStop,
+            eventName + "." + script->objectName().toStdString(),
+            mesytec::mvme::parse(script));
     }
 
     return dstConfig;

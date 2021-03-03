@@ -232,11 +232,6 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
     auto &mvlc = *mvlcObj;
     auto &vmeConfig = *q->getContext().vmeConfig;
 
-    // Global DAQ Start Scripts ==========================================================
-
-    if (!run_init_func(vme_daq_run_global_daq_start_scripts, "Global DAQ Start Scripts"))
-        return false;
-
     logger("");
     logger("Initializing MVLC");
 
@@ -261,6 +256,7 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
     }
 
     // MVLC Eth Jumbo Frames and Eth Receive Buffer Size =================================
+
     if (mvlc.connectionType() == mvlc::ConnectionType::ETH)
     {
         bool enableJumboFrames = vmeConfig.getControllerSettings().value("mvlc_eth_enable_jumbos").toBool();
@@ -294,6 +290,11 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
         return false;
     }
 
+    // Global DAQ Start Scripts ==========================================================
+
+    if (!run_init_func(vme_daq_run_global_daq_start_scripts, "Global DAQ Start Scripts"))
+        return false;
+
     // Init Modules ======================================================================
 
     if (!run_init_func(vme_daq_run_init_modules, "Modules Init"))
@@ -308,44 +309,21 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
         return false;
     }
 
-    // Enable stack triggers =============================================================
+    // Create MVLC stack trigger values from the VMEConfig and store in a
+    // member variable.
 
-    logger("");
-    logger("Enabling MVLC stack triggers");
-
-    std::error_code ec;
-    std::vector<u32> triggers;
-
-    std::tie(triggers, ec) = get_trigger_values(vmeConfig, logger);
-
-    if (ec)
     {
-        logger(QString("Error enabling stack triggers: %1").arg(ec.message().c_str()));
-        return false;
-    }
+        std::vector<u32> triggers;
+        std::error_code ec;
+        std::tie(triggers, ec) = get_trigger_values(vmeConfig, logger);
 
-    this->stackTriggers = triggers;
+        if (ec)
+        {
+            logger(QString("MVLC Stack Trigger setup error: %1").arg(ec.message().c_str()));
+            return false;
+        }
 
-    if (auto ec = setup_readout_triggers(mvlc, triggers))
-    {
-        logger(QString("Error enabling stack triggers: %1").arg(ec.message().c_str()));
-        return false;
-    }
-
-    // Event daq start scripts ===========================================================
-
-    logger("");
-
-    if (!run_init_func(vme_daq_run_event_daq_start_scripts, "Event DAQ Start Scripts"))
-        return false;
-
-    // Set daq_start flag (DAQModeEnableRegister) ========================================
-    logger("");
-    logger("Enabling MVLC daq_start");
-    if (auto ec = enable_daq_mode(mvlc))
-    {
-        logger(QString("Error enabling daq_start: %1").arg(ec.message().c_str()));
-        return false;
+        this->stackTriggers = triggers;
     }
 
     return true;
@@ -458,6 +436,12 @@ void MVLCReadoutWorker::start(quint32 cycles)
             return;
         }
 
+        const auto vmeConfig = getContext().vmeConfig;
+
+        // mesytec-mvlc CrateConfig
+        auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+
+        // listfile handling
         mvlc::listfile::WriteHandle *listfileWriteHandle = nullptr;
         QString listfileArchiveName;
 
@@ -502,24 +486,25 @@ void MVLCReadoutWorker::start(quint32 cycles)
             {
                 // Standard listfile preamble including a mesytec-mvlc
                 // CrateConfig generated from our VMEConfig.
-                mvlc::listfile::listfile_write_preamble(
-                    *listfileWriteHandle,
-                    mesytec::mvme::vmeconfig_to_crateconfig(getContext().vmeConfig));
+                mvlc::listfile::listfile_write_preamble(*listfileWriteHandle, crateConfig);
 
                 // Write our VMEConfig to the listfile aswell (the CrateConfig
                 // from the library does not have all the meta information
                 // stored in the VMEConfig).
                 mvme_mvlc_listfile::listfile_write_mvme_config(
-                    *listfileWriteHandle,
-                    *getContext().vmeConfig);
+                    *listfileWriteHandle, *vmeConfig);
             }
         }
 
+        // mesytec-mvlc readout worker
         d->mvlcReadoutWorker = std::make_unique<mvlc::ReadoutWorker>(
             d->mvlcCtrl->getMVLC(),
             d->stackTriggers,
             *d->snoopQueues,
             listfileWriteHandle);
+
+        d->mvlcReadoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
+        d->mvlcReadoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);
 
         auto fStart = d->mvlcReadoutWorker->start();
 
@@ -554,7 +539,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         logMessage("Leaving readout loop");
         logMessage("");
 
-        vme_daq_shutdown(getContext().vmeConfig, d->mvlcCtrl, logger, errorLogger);
+        vme_daq_shutdown(vmeConfig, d->mvlcCtrl, logger, errorLogger);
         m_workerContext.daqStats.stop();
 
         // add the log buffer and the analysis configs to the listfile archive

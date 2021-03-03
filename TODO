@@ -2,6 +2,8 @@
 TODO list
 ==================================================
 
+* update mvlc/vmeconfig_from_crateconfig (needs mcstDaqStart & mcstDaqStop)
+
 * NIM Sim: GG nur simulieren wenn NIM als Input konfiguriert!
 * L0 Sim: copy util input pin traces to util output pin sim traces
 * MVLC soft trigger vme script snippet needs to be updated!
