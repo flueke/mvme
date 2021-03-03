@@ -235,7 +235,7 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "time",
+                    "xAxisTitle": "channel_time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
@@ -318,7 +318,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{4945a97f-d8db-4277-ba4c-3588d0814053}",
-                "name": "time",
+                "name": "channel_time",
                 "userLevel": 1
             },
             {
@@ -407,14 +407,14 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "time",
+                    "xAxisTitle": "channel_time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{edb5fe79-444d-4f3d-9e04-3a2e9f62dba9}",
-                "name": "time",
+                "name": "channel_time",
                 "userLevel": 1
             },
             {
@@ -487,7 +487,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{e601c93b-852f-4df8-b7dc-fa588f7cffc0}",
                 "moduleId": "{b8f312fc-5a07-4172-bca0-25177c1a4789}",
-                "name": "time"
+                "name": "channel_time"
             },
             {
                 "class": "analysis::Extractor",

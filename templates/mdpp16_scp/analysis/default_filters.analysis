@@ -220,7 +220,7 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "time",
+                    "xAxisTitle": "channel_time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
@@ -422,14 +422,14 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "time",
+                    "xAxisTitle": "channel_time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{68743194-e0f6-4452-a04c-e47a0b225918}",
-                "name": "time",
+                "name": "channel_time",
                 "userLevel": 1
             },
             {
