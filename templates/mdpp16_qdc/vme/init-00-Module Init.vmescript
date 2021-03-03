@@ -25,19 +25,18 @@
 # Trigger Setup
 # ############################################################################
 # win_start
-0x6050  16320       # 16320 = -100ns
-					# Window of interest start time relative to trigger.
-					# Window start   = 16384  + delay[ns]/25[ns]*16;
-					#  Hex notation: = 0x3FFF + delay[ns]/25[ns]*16;
-					# Delay can be negative to register hits before the trigger
-                    # Delay may be in the range [-25560 ns, +25560 ns]
+0x6050  $(16384 - 100 / 1.56) # second term: offset in ns, positive or negative
+                    # Window of interest start time relative to trigger.
+                    # Window start   = 16384  + delay[ns] / 1.56;
+                    # Delay can be negative to register hits before the trigger.
+                    # Delay may be in the range [-25560 ns, +25560 ns].
                     # < 0 -> window starts before trigger
                     # > 0 -> window is delayed
 
 # win_width (14 bit value)
-0x6054  128         # 128 = 200ns
-					# win_width = (win_width[ns] / 25ns * 16)
-					# max value 16383; (Hex notation: 0x3FFF)
+0x6054  $(200 / 1.56)    # first term in ns;
+                    # win_width = (win_width[ns] / 25ns * 16)
+                    # max value 16383; (Hex notation: 0x3FFF)
                     # Range: [0, 25560 ns]
 
 # trig_source
@@ -73,6 +72,8 @@
                     # |      0 | B0 | active | 0 | Chan  | X  | X  |
                     # |        |    |        |   | [3:0] |    |    |
                     # +--------+----+--------+---+-------+----+----+
+
+
 # I/O
 # ############################################################################
 # Sorted from top to bottom, as on the front panel.
