@@ -310,14 +310,14 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "timestamp",
+                    "xAxisTitle": "module_timestamp",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{18a5a409-329c-40a2-8878-52bc5c47feb4}",
-                "name": "timestamp_raw",
+                "name": "module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -333,7 +333,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{5b6e1073-ab8d-40db-ba74-f74291f6973e}",
-                "name": "timestamp",
+                "name": "module_timestamp",
                 "userLevel": 1
             },
             {
@@ -371,14 +371,14 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "timestamp",
+                    "xAxisTitle": "module_timestamp",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{df07569d-d182-42d1-8b02-ebb4cbb5b670}",
-                "name": "timestamp",
+                "name": "module_timestamp",
                 "userLevel": 1
             }
         ],
@@ -441,7 +441,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d997b702-729d-4e3e-8a8d-a737513585af}",
                 "moduleId": "{1b20ac4a-8af3-4c37-9832-baa175d0e387}",
-                "name": "timestamp"
+                "name": "module_timestamp"
             }
         ]
     }
