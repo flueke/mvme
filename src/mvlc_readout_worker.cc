@@ -302,6 +302,7 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
 
     // Setup readout stacks ==============================================================
 
+    logger("");
     logger("Setting up MVLC readout stacks");
     if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
     {
@@ -511,6 +512,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         if (auto ec = fStart.get())
             throw ec;
 
+        logMessage("");
         logMessage("Entering readout loop");
 
         set_daq_state(DAQState::Running);
@@ -539,7 +541,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         logMessage("Leaving readout loop");
         logMessage("");
 
-        vme_daq_shutdown(vmeConfig, d->mvlcCtrl, logger, errorLogger);
+        mvlc_daq_shutdown(vmeConfig, d->mvlcCtrl, logger, errorLogger);
         m_workerContext.daqStats.stop();
 
         // add the log buffer and the analysis configs to the listfile archive

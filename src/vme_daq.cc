@@ -375,6 +375,27 @@ vme_daq_shutdown(
 }
 
 //
+// mvlc_daq_shutdown
+//
+QVector<ScriptWithResults>
+mvlc_daq_shutdown(
+    VMEConfig *config,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts
+    )
+{
+    logger(QSL("DAQ stopped on %1")
+           .arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
+    logger("");
+
+    QVector<ScriptWithResults> ret;
+    ret += vme_daq_run_global_daq_stop_scripts(config, controller, logger, errorLogger, opts);
+    return ret;
+}
+
+//
 // build_event_readout_script
 //
 vme_script::VMEScript build_event_readout_script(
@@ -771,4 +792,30 @@ void log_errors(const QVector<ScriptWithResults> &results,
             }
         }
     }
+}
+
+QVector<VMEScriptConfig *> collect_event_mcst_daq_start_scripts(const VMEConfig *vmeConfig)
+{
+    QVector<VMEScriptConfig *> result;
+
+    for (const auto &eventConfig: vmeConfig->getEventConfigs())
+    {
+        if (auto script = eventConfig->vmeScripts["daq_start"])
+            result.push_back(script);
+    }
+
+    return result;
+}
+
+QVector<VMEScriptConfig *> collect_event_mcst_daq_stop_scripts(const VMEConfig *vmeConfig)
+{
+    QVector<VMEScriptConfig *> result;
+
+    for (const auto &eventConfig: vmeConfig->getEventConfigs())
+    {
+        if (auto script = eventConfig->vmeScripts["daq_stop"])
+            result.push_back(script);
+    }
+
+    return result;
 }

@@ -123,9 +123,6 @@ vme_daq_init(
  * - for each event
  *     - event DAQ stop script
  * - global DAQ stop scripts
- *
- * As is the case with vme_daq_init() the MVLC does its own thing sice
- * 1.4.0-beta.
  */
 QVector<ScriptWithResults>
 vme_daq_shutdown(
@@ -136,6 +133,17 @@ vme_daq_shutdown(
 
 QVector<ScriptWithResults>
 vme_daq_shutdown(
+    VMEConfig *vmeConfig,
+    VMEController *controller,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> errorLogger,
+    vme_script::run_script_options::Flag opts = 0);
+
+// Since 1.4.0-beta the mvlc runs the mcast event daq start scripts in the
+// readout worker. This version of the shutdown function only runs the global
+// daq stop scripts.
+QVector<ScriptWithResults>
+mvlc_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
@@ -198,5 +206,8 @@ class DAQReadoutListfileHelper
  * output flags.
  */
 QString make_new_listfile_name(ListFileOutputInfo *outInfo);
+
+QVector<VMEScriptConfig *> collect_event_mcst_daq_start_scripts(const VMEConfig *vmeConfig);
+QVector<VMEScriptConfig *> collect_event_mcst_daq_stop_scripts(const VMEConfig *vmeConfig);
 
 #endif /* __VME_DAQ_H__ */
