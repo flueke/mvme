@@ -38,49 +38,93 @@ setbase 0xffff0000
 0x0304      0    # delay [ns]
 0x0306      0    # period [in range units]
 
-# IRQ0
+# trigger_resource0
 0x0200 0x0004    # select L0.Unit4
+0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
 0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
-# IRQ1
+# trigger_resource1
 0x0200 0x0005    # select L0.Unit5
+0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
 0x0300      6    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
-# soft_trigger0
+# trigger_resource2
 0x0200 0x0006    # select L0.Unit6
-0x0302      0    # output activation: 0=level, 1=pulse
+0x0380      1    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
-# soft_trigger1
+# trigger_resource3
 0x0200 0x0007    # select L0.Unit7
-0x0302      0    # output activation: 0=level, 1=pulse
+0x0380      1    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
-# slave_trigger0
+# trigger_resource4
 0x0200 0x0008    # select L0.Unit8
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
-# slave_trigger1
+# trigger_resource5
 0x0200 0x0009    # select L0.Unit9
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
-# slave_trigger2
+# trigger_resource6
 0x0200 0x000a    # select L0.Unit10
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
-# slave_trigger3
+# trigger_resource7
 0x0200 0x000b    # select L0.Unit11
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+0x0304      0    # soft trigger output activation: 0=pulse, 1=level
+0x0306      0    # slave_trigger: delay [ns]
+0x0308      0    # slave_trigger: width [ns]
+0x030a      0    # slave_trigger: holdoff [ns]
+0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+0x0382      0    # slave trigger number (0..3)
 
 # stack_busy0
 0x0200 0x000c    # select L0.Unit12
@@ -216,6 +260,48 @@ setbase 0xffff0000
 0x030a      1    # direction (0:in, 1:out)
 0x0310      1    # output activate
 
+# IRQ1
+0x0200 0x0021    # select L0.Unit33
+0x0300      0    # delay [ns]
+0x0302      0    # width [ns]
+0x0304      0    # holdoff [ns]
+0x0306      0    # invert (start on trailing edge of input)
+
+# IRQ2
+0x0200 0x0022    # select L0.Unit34
+0x0300      0    # delay [ns]
+0x0302      0    # width [ns]
+0x0304      0    # holdoff [ns]
+0x0306      0    # invert (start on trailing edge of input)
+
+# IRQ3
+0x0200 0x0023    # select L0.Unit35
+0x0300      0    # delay [ns]
+0x0302      0    # width [ns]
+0x0304      0    # holdoff [ns]
+0x0306      0    # invert (start on trailing edge of input)
+
+# IRQ4
+0x0200 0x0024    # select L0.Unit36
+0x0300      0    # delay [ns]
+0x0302      0    # width [ns]
+0x0304      0    # holdoff [ns]
+0x0306      0    # invert (start on trailing edge of input)
+
+# IRQ5
+0x0200 0x0025    # select L0.Unit37
+0x0300      0    # delay [ns]
+0x0302      0    # width [ns]
+0x0304      0    # holdoff [ns]
+0x0306      0    # invert (start on trailing edge of input)
+
+# IRQ6
+0x0200 0x0026    # select L0.Unit38
+0x0300      0    # delay [ns]
+0x0302      0    # width [ns]
+0x0304      0    # holdoff [ns]
+0x0306      0    # invert (start on trailing edge of input)
+
 # Level1 #####################################################
 
 # L1.LUT0
@@ -274,6 +360,9 @@ setbase 0xffff0000
 0x031a 0x1111    # cells 52-55
 0x031c 0x1111    # cells 56-59
 0x031e 0x1111    # cells 60-63
+0x0380      0    # connect input0 to 'Gated_Trig3'
+0x0382      0    # connect input1 to 'Gated_Trig4'
+0x0384      0    # connect input2 to 'Free_Trigger'
 
 # L1.LUT3
 0x0200 0x0103    # select L1.Unit3
@@ -312,6 +401,44 @@ setbase 0xffff0000
 0x031a 0x0000    # cells 52-55
 0x031c 0x2222    # cells 56-59
 0x031e 0x2222    # cells 60-63
+
+# L1.LUT5
+0x0200 0x0105    # select L1.Unit5
+0x0300 0x0000    # cells 0-3
+0x0302 0x0000    # cells 4-7
+0x0304 0x0000    # cells 8-11
+0x0306 0x0000    # cells 12-15
+0x0308 0x0000    # cells 16-19
+0x030a 0x0000    # cells 20-23
+0x030c 0x0000    # cells 24-27
+0x030e 0x0000    # cells 28-31
+0x0310 0x0000    # cells 32-35
+0x0312 0x0000    # cells 36-39
+0x0314 0x0000    # cells 40-43
+0x0316 0x0000    # cells 44-47
+0x0318 0x0000    # cells 48-51
+0x031a 0x0000    # cells 52-55
+0x031c 0x0000    # cells 56-59
+0x031e 0x0000    # cells 60-63
+
+# L1.LUT6
+0x0200 0x0106    # select L1.Unit6
+0x0300 0x0000    # cells 0-3
+0x0302 0x0000    # cells 4-7
+0x0304 0x0000    # cells 8-11
+0x0306 0x0000    # cells 12-15
+0x0308 0x0000    # cells 16-19
+0x030a 0x0000    # cells 20-23
+0x030c 0x0000    # cells 24-27
+0x030e 0x0000    # cells 28-31
+0x0310 0x0000    # cells 32-35
+0x0312 0x0000    # cells 36-39
+0x0314 0x0000    # cells 40-43
+0x0316 0x0000    # cells 44-47
+0x0318 0x0000    # cells 48-51
+0x031a 0x0000    # cells 52-55
+0x031c 0x0000    # cells 56-59
+0x031e 0x0000    # cells 60-63
 
 # Level2 #####################################################
 
@@ -375,6 +502,36 @@ setbase 0xffff0000
 0x0338      0    # invert (start on trailing edge of input)
 0x0386     19    # connect strobe_input to 'L1.LUT4.OUT1'
 
+# L2.LUT2
+0x0200 0x0202    # select L2.Unit2
+0x0300 0x0000    # cells 0-3
+0x0302 0x0000    # cells 4-7
+0x0304 0x0000    # cells 8-11
+0x0306 0x0000    # cells 12-15
+0x0308 0x0000    # cells 16-19
+0x030a 0x0000    # cells 20-23
+0x030c 0x0000    # cells 24-27
+0x030e 0x0000    # cells 28-31
+0x0310 0x0000    # cells 32-35
+0x0312 0x0000    # cells 36-39
+0x0314 0x0000    # cells 40-43
+0x0316 0x0000    # cells 44-47
+0x0318 0x0000    # cells 48-51
+0x031a 0x0000    # cells 52-55
+0x031c 0x0000    # cells 56-59
+0x031e 0x0000    # cells 60-63
+0x0320 0b0000    # strobed_outputs
+0x0380      0    # connect input0 to 't_event1'
+0x0382      0    # connect input1 to 't_event1'
+0x0384      0    # connect input2 to 't_event1'
+
+# L2.LUT2 strobe gate generator
+0x0332      0    # delay [ns]
+0x0334      8    # width [ns]
+0x0336      0    # holdoff [ns]
+0x0338      0    # invert (start on trailing edge of input)
+0x0386      0    # connect strobe_input to 't_event1'
+
 # Level3 #####################################################
 
 # StackStart0
@@ -425,7 +582,7 @@ setbase 0xffff0000
 0x0300      0    # activate
 0x0380      0    # connect input0 to 't_event1'
 
-# Counter0
+# Counter0+Timestamper
 0x0200 0x0308    # select L3.Unit8
 0x030e      0    # clear on latch
 0x0380     14    # connect input0 to 'Gated_trigger'
@@ -594,6 +751,15 @@ names:
     27: Daq_Start
     28: Stack_Busy
     29: IRQ7_Module_Busy
+    30: <unused>
+    31: <unused>
+    32: <unused>
+    33: IRQ1
+    34: IRQ2
+    35: IRQ3
+    36: IRQ4
+    37: IRQ5
+    38: IRQ6
   level1:
     0:
       0: Trigger_OR
@@ -615,6 +781,14 @@ names:
       0: L1.LUT4.OUT0
       1: L1.LUT4.OUT1
       2: L1.LUT4.OUT2
+    5:
+      0: L1.LUT5.OUT0
+      1: L1.LUT5.OUT1
+      2: L1.LUT5.OUT2
+    6:
+      0: L1.LUT6.OUT0
+      1: L1.LUT6.OUT1
+      2: L1.LUT6.OUT2
   level2:
     0:
       0: Gated_trigger
@@ -624,6 +798,10 @@ names:
       0: Stack_Busy
       1: IRQ7_Module_Busy
       2: ""
+    2:
+      0: L2.LUT2.OUT0
+      1: L2.LUT2.OUT1
+      2: L2.LUT2.OUT2
   level3:
     0: ss_event1
     1: StackStart1
@@ -652,7 +830,7 @@ settings:
     1:
       soft_activate: false
     2:
-      soft_activate: true
+      soft_activate: false
     3:
       soft_activate: false
   level3:
