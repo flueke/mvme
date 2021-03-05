@@ -4,6 +4,41 @@
 Changelog
 ##################################################
 
+Version 1.4.0
+-------------
+* [mvlc] Trigger/IO updates for firmware FW0017
+
+  - Replace IRQ, SoftTrigger and SlaveTrigger units with the new
+    TriggerResource units
+
+  - Support the IRQ input, L1.LUT5/6 and L2.LUT2 units
+
+  - Support Frequency Counter Mode for Counter units
+
+  - Basic support for the Digital Storage Oscilloscpe built into the Trigger/IO
+    system.
+
+  - Crash fixes when parsing Trigger/IO scripts
+
+* [mvlc] Updates to the DAQ Start and Stop sequence
+
+* [vme_config] The order of Modules within an Event can now be changed via drag
+  and drop.
+
+* [analysis]
+
+  - Performance and visual updates for the RateMonitors
+
+  - Display directory hierarchy in Histogram and RateMonitor window titles
+
+* [vme_templates]
+
+  - Add the new MDPP-16/32 channel based IRQ signalling.
+
+  - Add the 'stop acq' sequence to all module 'VME Interface Settings' scripts.
+    This makes modules not produce data/triggers directly after being
+    intialized but only after the 'Event DAQ Start' script has been executed.
+
 Version 1.3.0
 -------------
 * [mvlc] Support MVLC ethernet readout throttling

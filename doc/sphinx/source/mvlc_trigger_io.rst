@@ -225,41 +225,51 @@ Settings
 
   Minimum: 0 - no delay, maximum: 65535 ns
 
+.. index:: mvlc_trigger_io_TriggerResource, Trigger Resource
+
+Trigger Resource Units
+~~~~~~~~~~~~~~~~~~~~~~
+
+Each TriggerResource can be configured as one of IRQ, SoftTrigger or SlaveTrigger unit types.
+
 .. index:: mvlc_trigger_io_IRQ_util, IRQ, VME IRQ, IRQ Utility Units
 
 IRQ Utility Units
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 These units generate a signal when one of the 7 available VME IRQs triggers.
 The only setting is the IRQ number (1-7) each unit should react to.
 
 .. index:: mvlc_trigger_io_SoftTrigger, Soft Trigger, SoftTrigger
 
 Soft Triggers
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 Software triggers which can either be permanently activated via the GUI editor
 or pulsed by executing one of the folowing VME Scripts:
 
+Software triggers which can be pulsed or permanently activated via a VME write
+instruction.
+
+Example script:
+
 ::
 
-   setbase 0xffff0000		# use the mvlc vme interface as the base address
-   0x0200 0x0006          	# select soft_trigger0 (Level0.Unit6)
-   0x0300 1                	# activate the trigger
+   setbase 0xffff0000      # use the mvlc vme interface as the base address for the following writes
 
-::
+   set trigger_index 0                         # valid values: 0-7 (trigger_resource units)
 
-   setbase 0xffff0000		# use the mvlc vme interface as the base address
-   0x0200 0x0007          	# select soft_trigger1 (Level0.Unit7)
-   0x0300 1                	# activate the trigger
+   set trigger_unit $(4 + ${trigger_index})    # Level0 Units 4-11
+   0x0200 ${trigger_unit}                      # select the unit
+   0x0302 0                                    # write to the soft_trigger output activation register
+                                               # 0: generate a 8ns pulse, 1: set the output to permanently high
 
-To use the above scripts in mvme right-click the ``Manual`` section in the VME
-Config area and choose ``Add Script``, type a name and double-click the newly
-created script to edit it. Then paste the script text into the editor and use
-the ``Run Script`` button to execute it.
+The above script is available in mvme by right-clicking on the ``Manual``
+directory in the VME Config Tree and choosing ``Add Script from Library -> MVLC
+SoftTrigger``.
 
 .. index:: mvlc_trigger_io_SlaveTrigger, Slave Trigger, SlaveTrigger
 
 Slave Triggers
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 Activates when one of the slave triggers fires. This feature will be available
 in the future with a special multi-crate firmware and supporting software.
 
