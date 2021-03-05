@@ -193,8 +193,7 @@ inline bool has_overflow_marker(const Trace &trace)
     return false;
 }
 
-static const int DSOExpectedSampledTraces =
-    NIM_IO_Count + Level0::IRQ_Inputs_Count + Level0::UtilityUnitCount;
+static const int DSOExpectedSampledTraces = CombinedTriggerCount;
 
 
 // The list of pin addresses in DSO trace index order.

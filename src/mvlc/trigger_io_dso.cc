@@ -229,7 +229,7 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
     }
 
     Snapshot result;
-    result.reserve(NIM_IO_Count + Level0::IRQ_Inputs_Count);
+    result.reserve(DSOExpectedSampledTraces);
 
     for (size_t i=3; i<buffer.size()-1; ++i)
     {
