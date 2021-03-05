@@ -195,6 +195,9 @@ std::unique_ptr<TraceTreeModel> make_trace_tree_model()
         samplesRoot->appendRow(row);
     }
 
+#define ENABLE_SIMULATED_TRACES 0
+
+#if ENABLE_SIMULATED_TRACES
     // L0 NIMs and IRQs
     auto l0Root = make_non_trace_item("L0");
     root->appendRow(l0Root);
@@ -262,6 +265,7 @@ std::unique_ptr<TraceTreeModel> make_trace_tree_model()
         UnitAddress unit = { 3, i+Level3::ECL_Unit_Offset, 0 };
         l3OutRoot->appendRow(make_trace_row({ unit, PinPosition::Output }));
     }
+#endif
 
     // Finalize
     model->setHeaderData(0, Qt::Horizontal, "Trace");
