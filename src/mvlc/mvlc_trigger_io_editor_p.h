@@ -654,7 +654,6 @@ class Level0UtilsDialog: public QDialog
                 ColName,
                 ColType,
                 ColIRQIndex,
-                ColPermaEnable,
                 ColSlaveTriggerIndex,
                 ColDelay,
                 ColWidth,
@@ -666,7 +665,6 @@ class Level0UtilsDialog: public QDialog
 
             QVector<QComboBox *> combos_type;
             QVector<QSpinBox *> spins_irqIndex;
-            QVector<QComboBox *> combos_activation;
             QVector<QCheckBox *> checks_invert;
             QVector<QSpinBox *> spins_slaveTriggerIndex;
         };

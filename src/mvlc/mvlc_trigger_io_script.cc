@@ -192,9 +192,6 @@ ScriptParts generate(const trigger_io::TriggerResource &unit, int /*index*/)
     ret += write_unit_reg(0, static_cast<u16>(unit.irqUtil.irqIndex),
                           "irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)");
 
-    ret += write_unit_reg(4, static_cast<u16>(unit.softTrigger.activation),
-                          "soft trigger output activation: 0=pulse, 1=level");
-
     auto ggParts = generate(unit.slaveTrigger.gateGenerator, io_flags::None, 6);
 
     for (auto &part: ggParts)
@@ -1031,7 +1028,6 @@ TriggerIO build_config_from_writes(const LevelWrites &levelWrites)
 
             unit.type = static_cast<TriggerResource::Type>(writes[unitIndex][0x80u]);
             unit.irqUtil.irqIndex = writes[unitIndex][0];
-            unit.softTrigger.activation = static_cast<SoftTrigger::Activation>(writes[unitIndex][4]);
             unit.slaveTrigger.gateGenerator = parse_io(writes[unitIndex], 6);
             unit.slaveTrigger.triggerIndex = writes[unitIndex][0x82u];
         }

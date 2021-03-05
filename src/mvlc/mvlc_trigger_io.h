@@ -154,17 +154,6 @@ struct LIBMVME_EXPORT IRQ_Util
     u8 irqIndex;
 };
 
-// Soft triggers. Register 0 of each SoftTrigger can be written to generate the
-// software trigger.
-//
-// If activation is set to Level a constant output level will be produced until
-// written again.The Pulse setting creaes a 8ns wide pulse instead.
-struct LIBMVME_EXPORT SoftTrigger
-{
-    enum class Activation { Pulse, Level };
-    Activation activation;
-};
-
 // SlaveTrigger consisting of a gate generator and the slave trigger index to
 // output.
 struct LIBMVME_EXPORT SlaveTrigger
@@ -189,7 +178,6 @@ struct LIBMVME_EXPORT TriggerResource
 
     Type type;
     IRQ_Util irqUtil;
-    SoftTrigger softTrigger;
     SlaveTrigger slaveTrigger;
 };
 

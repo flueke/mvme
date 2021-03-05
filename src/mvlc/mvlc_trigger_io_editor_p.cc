@@ -2905,7 +2905,7 @@ Level0UtilsDialog::Level0UtilsDialog(
         return ret;
     };
 
-    auto make_trigger_resource_ui = [&vmeEventNames](const Level0 &l0)
+    auto make_trigger_resource_ui = [](const Level0 &l0)
     {
         static const QString RowTitleFormat = "TriggerResource%1";
         static const QStringList ColumnTitles =
@@ -2913,7 +2913,6 @@ Level0UtilsDialog::Level0UtilsDialog(
             "Name",
             "Type",
             "IRQ Index",
-            "Activation",
             "Trigger Index",
             "Delay",
             "Width",
@@ -2967,7 +2966,6 @@ Level0UtilsDialog::Level0UtilsDialog(
                 auto type = static_cast<Type>(combo_type->currentData().toInt());
 
                 update_enabled(table, row, UI::ColIRQIndex, type == Type::IRQ);
-                update_enabled(table, row, UI::ColPermaEnable, type == Type::SoftTrigger);
                 update_enabled(table, row, UI::ColSlaveTriggerIndex, type == Type::SlaveTrigger);
                 update_enabled(table, row, UI::ColDelay, type == Type::SlaveTrigger);
                 update_enabled(table, row, UI::ColWidth, type == Type::SlaveTrigger);
@@ -2983,12 +2981,6 @@ Level0UtilsDialog::Level0UtilsDialog(
             spin_irqIndex->setRange(1, 10);
             spin_irqIndex->setValue(tr.irqUtil.irqIndex + 1);
 
-            // SoftTrigger
-            auto combo_activation = new QComboBox;
-            combo_activation->addItem("Pulse", static_cast<int>(SoftTrigger::Activation::Pulse));
-            combo_activation->addItem("Level", static_cast<int>(SoftTrigger::Activation::Level));
-            combo_activation->setCurrentIndex(combo_activation->findData(static_cast<int>(tr.softTrigger.activation)));
-
             // SlaveTrigger
             auto spin_slaveTriggerIndex = new QSpinBox;
             spin_slaveTriggerIndex->setRange(0, 3);
@@ -3001,7 +2993,6 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(l0.unitNames.value(row + nameOffset)));
             ret.table->setCellWidget(row, ret.ColType, combo_type);
             ret.table->setCellWidget(row, ret.ColIRQIndex, spin_irqIndex);
-            ret.table->setCellWidget(row, ret.ColPermaEnable, combo_activation);
             ret.table->setCellWidget(row, ret.ColSlaveTriggerIndex, spin_slaveTriggerIndex);
             ret.table->setItem(row, ret.ColDelay, new QTableWidgetItem(QString::number(tr.slaveTrigger.gateGenerator.delay)));
             ret.table->setItem(row, ret.ColWidth, new QTableWidgetItem(QString::number(tr.slaveTrigger.gateGenerator.width)));
@@ -3014,7 +3005,6 @@ Level0UtilsDialog::Level0UtilsDialog(
             // Store input elements
             ret.combos_type.push_back(combo_type);
             ret.spins_irqIndex.push_back(spin_irqIndex);
-            ret.combos_activation.push_back(combo_activation);
             ret.checks_invert.push_back(check_invert);
             ret.spins_slaveTriggerIndex.push_back(spin_slaveTriggerIndex);
         }
@@ -3090,8 +3080,6 @@ Level0 Level0UtilsDialog::getSettings() const
             auto &tr = m_l0.triggerResources[row];
             tr.type = static_cast<TriggerResource::Type>(ui.combos_type[row]->currentData().toInt());
             tr.irqUtil.irqIndex = ui.spins_irqIndex[row]->value() - 1;
-            tr.softTrigger.activation = static_cast<SoftTrigger::Activation>(
-                ui.combos_activation[row]->currentData().toInt());
 
             tr.slaveTrigger.triggerIndex = ui.spins_slaveTriggerIndex[row]->value();
             tr.slaveTrigger.gateGenerator.delay = ui.table->item(row, ui.ColDelay)->text().toUInt();
