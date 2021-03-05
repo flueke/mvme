@@ -1061,13 +1061,19 @@ void show_dso_buffer_debug_widget(
 
         for (size_t i=0; i<dsoBuffer.size(); ++i)
         {
-            QString line = QSL("%1: ").arg(i, 3, 10, QLatin1Char(' '));
-
             u32 word = dsoBuffer[i];
+
+            auto ft = mvlc::get_frame_type(word);
+
+            QString line = QSL("%1: ").arg(i, 3, 10, QLatin1Char(' '));
 
             line += QString("0x%1").arg(word, 8, 16, QLatin1Char('0'));
 
-            if (3 <= i && i < dsoBuffer.size() - 1)
+            if (3 <= i && i < dsoBuffer.size() - 1
+                && ! (ft == mvlc::frame_headers::StackFrame
+                      || ft == mvlc::frame_headers::StackContinuation
+                      || ft == mvlc::frame_headers::BlockRead)
+               )
             {
                 auto entry = extract_dso_entry(word);
 

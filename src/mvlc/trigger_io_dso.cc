@@ -209,8 +209,8 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
         return {};
     }
 
-    if ((buffer[0] >> 24) != 0xF3
-        || (buffer[1] >> 24) != 0xF5)
+    if ((mvlc::get_frame_type(buffer[0]) != mvlc::frame_headers::StackFrame)
+         || (mvlc::get_frame_type(buffer[1]) != mvlc::frame_headers::BlockRead))
     {
         //qDebug() << __PRETTY_FUNCTION__ << "invalid frame and block headers";
         return {};
@@ -234,6 +234,15 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
     for (size_t i=3; i<buffer.size()-1; ++i)
     {
         const u32 word = buffer[i];
+
+        auto ft = mvlc::get_frame_type(word);
+
+        // Skipper over embedded stack and block frames
+        if (ft == mvlc::frame_headers::StackFrame
+            || ft == mvlc::frame_headers::StackContinuation
+            || ft == mvlc::frame_headers::BlockRead)
+            continue;
+
         const auto entry = extract_dso_entry(word);
 
         //qDebug("entry: addr=%u, time=%u, edge=%s",
