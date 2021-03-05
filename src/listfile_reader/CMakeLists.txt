@@ -20,6 +20,7 @@ if (MVME_WITH_PYBIND11)
 
     install(TARGETS listfile_reader_python_plugin DESTINATION lib)
     install(FILES listfile_reader_python_printer.py DESTINATION lib)
+    file(COPY listfile_reader_python_printer.py DESTINATION ${CMAKE_BINARY_DIR})
 
 endif(MVME_WITH_PYBIND11)
 
