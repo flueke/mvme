@@ -19,7 +19,7 @@
 0x6114   $(25000 / 12.5)  # first term: decay time in ns
 
 # Gain (common for both selected channels)
-0x611A  $(2.0 / 100)  # gain * 100
+0x611A  $(2.0 * 100)  # gain * 100
                 # range 1..250
                 # 100   -> gain = 1
                 # 25000 -> gain = 250
