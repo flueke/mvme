@@ -80,6 +80,8 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO LIBMVME_EXPORT
 // recreates the script and stores it back in the VMEConfig.
 void LIBMVME_EXPORT update_trigger_io_inplace(const VMEConfig &vmeConfig);
 
+mvlc::StackCommandBuilder make_module_init_stack(const VMEConfig &vmeConfig);
+
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 

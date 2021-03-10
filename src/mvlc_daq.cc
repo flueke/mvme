@@ -21,8 +21,10 @@
 #include "mvlc_daq.h"
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include "mesytec-mvlc/mvlc_command_builders.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_trigger_io_script.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvlc/mvlc_util.h"
 #include "util/strings.h"
 #include "vme_daq.h"
@@ -503,6 +505,39 @@ void update_trigger_io_inplace(const VMEConfig &vmeConfig)
     {
         scriptConfig->setScriptContents(ioCfgText);
     }
+}
+
+mvlc::StackCommandBuilder make_module_init_stack(const VMEConfig &config)
+{
+    mvlc::StackCommandBuilder stack;
+
+    for (auto eventConfig: config.getEventConfigs())
+    {
+        for (auto module: eventConfig->getModuleConfigs())
+        {
+            if (!module->isEnabled())
+                continue;
+
+            auto path = QSL("%1.%2")
+                .arg(eventConfig->objectName())
+                .arg(module->objectName()).toStdString();
+
+            stack.addGroup(
+                path + ".Module Reset",
+                mvme::convert_script(module->getResetScript(), module->getBaseAddress()));
+
+            for (auto initScript: module->getInitScripts())
+            {
+                stack.addGroup(
+                    path + "." + initScript->objectName().toStdString(),
+                    mvme::convert_script(initScript, module->getBaseAddress()));
+            }
+        }
+    }
+
+
+
+    return stack;
 }
 
 } // end namespace mvme_mvlc

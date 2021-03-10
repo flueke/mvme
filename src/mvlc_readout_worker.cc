@@ -26,11 +26,13 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <thread>
+#include <sstream>
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_impl_usb.h>
 
+#include "mesytec-mvlc/mvlc_constants.h"
 #include "mvlc_daq.h"
 #include "mvme_mvlc_listfile.h"
 #include "mvlc/mvlc_qt_object.h"
@@ -297,8 +299,24 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
 
     // Init Modules ======================================================================
 
+#define USE_STACKED_MODULE_INIT 0
+#if USE_STACKED_MODULE_INIT
+    // A variant using the mvlc stack executor to run multiple commands in a
+    // single stack instead of running commands one by one.
+    {
+        auto stack = make_module_init_stack(vmeConfig);
+        auto mvlc_ = mvlc.getMVLC();
+        auto results = execute_stack_and_parse_results(
+            mvlc_, stack, stacks::StackMemoryWords);
+        std::ostringstream ss;
+        ss << results;
+        logger(ss.str().c_str());
+    }
+#else
     if (!run_init_func(vme_daq_run_init_modules, "Modules Init"))
         return false;
+#endif
+#undef USE_STACKED_MODULE_INIT
 
     // Setup readout stacks ==============================================================
 
