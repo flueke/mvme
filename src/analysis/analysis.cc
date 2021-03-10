@@ -4353,6 +4353,7 @@ void Analysis::setDirectories(const DirectoryVector &dirs)
 void Analysis::addDirectory(const DirectoryPtr &dir)
 {
     qDebug() << __PRETTY_FUNCTION__;
+    assert(dir);
     dir->setAnalysis(this);
     m_directories.push_back(dir);
     setModified();
@@ -4384,6 +4385,7 @@ DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
 
     for (const auto &dir: m_directories)
     {
+        assert(dir);
         if (dir->contains(obj))
         {
             if (found)
