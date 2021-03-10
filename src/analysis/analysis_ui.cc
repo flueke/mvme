@@ -138,7 +138,7 @@ struct AnalysisWidgetPrivate
     void doPeriodicUpdate();
 
     void closeAllUniqueWidgets();
-    void closeAllHistogramWidgets();
+    void closeAllSinkWidgets();
 
     void updateActions();
 
@@ -416,8 +416,9 @@ void AnalysisWidgetPrivate::closeAllUniqueWidgets()
     }
 }
 
-/* Close any open histograms belonging to the current analysis. */
-void AnalysisWidgetPrivate::closeAllHistogramWidgets()
+/* Close any open histograms and other sink widgets belonging to the current
+ * analysis. */
+void AnalysisWidgetPrivate::closeAllSinkWidgets()
 {
     auto close_if_not_null = [](QWidget *widget)
     {
@@ -436,7 +437,7 @@ void AnalysisWidgetPrivate::closeAllHistogramWidgets()
                 close_if_not_null(m_context->getObjectWidget(histoPtr.get()));
             }
         }
-        else if (auto sink = qobject_cast<Histo2DSink *>(op.get()))
+        else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
         {
             close_if_not_null(m_context->getObjectWidget(sink));
         }
@@ -470,7 +471,7 @@ void AnalysisWidgetPrivate::actionNew()
      * unique widgets might perform actions on the analysis in their reject()
      * code. */
     closeAllUniqueWidgets();
-    closeAllHistogramWidgets();
+    closeAllSinkWidgets();
 
     AnalysisPauser pauser(m_context);
     m_context->getAnalysis()->clear();
@@ -514,7 +515,7 @@ void AnalysisWidgetPrivate::actionOpen()
     }
 
     closeAllUniqueWidgets();
-    closeAllHistogramWidgets();
+    closeAllSinkWidgets();
 
     m_context->loadAnalysisConfig(fileName);
 }
@@ -740,7 +741,7 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
     // This is the standard procedure when loading an analysis config
     closeAllUniqueWidgets();
-    closeAllHistogramWidgets();
+    closeAllSinkWidgets();
 
     if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
     {
