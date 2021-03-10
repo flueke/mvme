@@ -1,4 +1,48 @@
 # MCST - Multicast Setup
 # #####################################
-0x6020 0x80                             # Enable multicast
-0x6024 0x${mesy_mcst}                   # Set 8 high bits of MCST address
+#
+# Warning: MVLC can only have a *one* multicast address. Only enable the next
+# two lines if this is the only MVLC Counter / Stamper module in your setup.
+#0x6020 0x80                             # Enable multicast
+#0x6024 0x${mesy_mcst}                   # Set 8 high bits of MCST address
+
+
+# Counter reset
+
+/*
+# counter0
+0x0200 0x0308           # counter select
+0x0308 1                # reset counter
+*/
+
+# counter1
+0x0200 0x0309           # counter select
+0x0308 1                # reset counter
+
+# counter2
+0x0200 0x030a           # counter select
+0x0308 1                # reset counter
+
+# counter3
+0x0200 0x030b           # counter select
+0x0308 1                # reset counter
+
+# counter4
+0x0200 0x030c           # counter select
+0x0308 1                # reset counter
+
+# counter5
+0x0200 0x030d           # counter select
+0x0308 1                # reset counter
+
+# counter6
+0x0200 0x030e           # counter select
+0x0308 1                # reset counter
+
+# counter7
+0x0200 0x030f           # counter select
+0x0308 1                # reset counter
+
+# counter8
+0x0200 0x0310           # counter select
+0x0308 1                # reset counter

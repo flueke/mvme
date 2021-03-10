@@ -12,13 +12,15 @@
 
 setbase 0xffff0000      # use the mvlc vme interface as the base address
 
-# counter0
+/*
+# counter0 (also the Timestamper unit)
 0x0200 0x0308           # counter select
 #0x030a 1                # latch the counter (only needed if not done in the trigger_io module)
 read a32 d16 0x0300     # counter readout
 read a32 d16 0x0302
 read a32 d16 0x0304
 read a32 d16 0x0306
+*/
 
 # counter1
 0x0200 0x0309           # counter select
