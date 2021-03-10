@@ -4,6 +4,10 @@
 Changelog
 ##################################################
 
+Version 1.4.1
+-------------
+* [vme_templates] Fix gain calculation in MDPP16-SCP ``Frontend Settings`` script.
+
 Version 1.4.0
 -------------
 * [mvlc] Trigger/IO updates for firmware FW0017
