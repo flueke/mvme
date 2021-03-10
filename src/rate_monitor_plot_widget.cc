@@ -23,6 +23,7 @@
 #include <QBoxLayout>
 #include <QDebug>
 
+#include <cmath>
 #include <qwt_curve_fitter.h>
 #include <qwt_date_scale_draw.h>
 #include <qwt_date_scale_engine.h>
@@ -77,19 +78,30 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     // backwards until it finds a non-NaN sample and return that value. This
     // fixes severe performance issues when plotting data which includes NaNs
     // while also being a visual improvement over replacing the NaN with 0.
+    //
     // Note2: NaNs are frequently recorded when using the VMMR to read out MMR
     // monitoring data as that happens on a best-effort basis.
+    //
+    // Note3 (210310): Things are very slow when many NaNs are present. Trying
+    // to implementing something faster by remembering the last valid sample
+    // value.
     virtual QPointF sample(size_t i) const override
     {
         double x = sampler->getSampleTime(i) * 1000.0;
         double y = sampler->getSample(i);
+        auto si = static_cast<ssize_t>(i);
 
-        while (i > 0 && std::isnan(y))
-            y = sampler->getSample(--i);
+        if (std::isnan(y))
+        {
+            if (si > prevSampleIndex_)
+                y = prevSampleValue_;
+        }
 
-        // The very first sample was a NaN
         if (std::isnan(y))
             y = 0.0;
+
+        prevSampleIndex_ = si;
+        prevSampleValue_ = y;
 
         return {x, y};
     }
@@ -101,6 +113,15 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     }
 
     RateSamplerPtr sampler;
+
+    mutable ssize_t prevSampleIndex_;
+    mutable double prevSampleValue_;
+
+    void beginDrawing() const
+    {
+        prevSampleIndex_ = -1;
+        prevSampleValue_ = 0.0;
+    }
 };
 
 class RateMonitorPlotCurve: public QwtPlotCurve
@@ -113,13 +134,17 @@ class RateMonitorPlotCurve: public QwtPlotCurve
                        const QwtScaleMap &xMap, const QwtScaleMap &yMap,
                        const QRectF &canvasRect, int from, int to ) const override
         {
-            //auto tStart = std::chrono::steady_clock::now();
+            auto rmpd = reinterpret_cast<const RateMonitorPlotData *>(data());
+            rmpd->beginDrawing();
+
+            auto tStart = std::chrono::steady_clock::now();
 
             QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
 
-            //auto dt = std::chrono::steady_clock::now() - tStart;
-            //qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
-            //    std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
+            auto dt = std::chrono::steady_clock::now() - tStart;
+
+            qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
+                std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
         }
 };
 
@@ -215,6 +240,7 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
     curve->setStyle(QwtPlotCurve::Lines);
+    //curve->setPaintAttribute(QwtPlotCurve::FilterPoints);
     curve->setRenderHint(QwtPlotItem::RenderAntialiased);
 
     curve->attach(m_d->m_plot);
