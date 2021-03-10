@@ -7,17 +7,10 @@
         ],
         "connections": [
             {
-                "dstId": "{1df531d8-90a2-4692-8fac-e9e358880d4b}",
+                "dstId": "{a6ed3475-50d4-4f2d-b9c1-72ef41674f24}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
                 "srcId": "{28fe1525-e321-4ccd-8a0b-4cb0836bc390}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{07e93abe-1b89-48b1-9414-01add6346298}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{e23d667b-bf43-4b4e-82ad-28a37d6e03d7}",
                 "srcIndex": 0
             },
             {
@@ -28,24 +21,17 @@
                 "srcIndex": 0
             },
             {
-                "dstId": "{592dc6ae-7203-4947-920a-5ee3b0f926c9}",
+                "dstId": "{76ab1b4b-2a88-4171-9f71-6f395def8267}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{e23d667b-bf43-4b4e-82ad-28a37d6e03d7}",
+                "srcId": "{07e93abe-1b89-48b1-9414-01add6346298}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{8f37b4b8-f42a-4d76-a52c-d6f955c10cda}",
+                "dstId": "{693929ee-f7af-4265-9f9a-5d2101dc6151}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{348442e3-2f7a-4afb-a23c-8f37bd06e72e}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{a3be873e-ed77-45b5-9743-de6112577156}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{aac67f29-3b39-480b-8466-9d69c25a4a00}",
+                "srcId": "{19dd5797-955c-4ad9-a912-3304c81810c2}",
                 "srcIndex": 0
             },
             {
@@ -56,45 +42,10 @@
                 "srcIndex": 0
             },
             {
-                "dstId": "{76ab1b4b-2a88-4171-9f71-6f395def8267}",
+                "dstId": "{592dc6ae-7203-4947-920a-5ee3b0f926c9}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{07e93abe-1b89-48b1-9414-01add6346298}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{a6ed3475-50d4-4f2d-b9c1-72ef41674f24}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{28fe1525-e321-4ccd-8a0b-4cb0836bc390}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{348442e3-2f7a-4afb-a23c-8f37bd06e72e}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{62e09619-0f6f-4dcf-aa70-e9ed86d30713}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{4d4493f5-5db6-4dd2-b209-bb53c9f1e4cb}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{5c30d57c-19df-4e3c-b986-1d3d5bdc001f}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{942db57d-8fff-4263-bec6-9ad523eb1f7b}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{a6ed3475-50d4-4f2d-b9c1-72ef41674f24}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{645fd444-6d03-478d-b2ef-c8fd6482a683}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{a3be873e-ed77-45b5-9743-de6112577156}",
+                "srcId": "{e23d667b-bf43-4b4e-82ad-28a37d6e03d7}",
                 "srcIndex": 0
             },
             {
@@ -105,10 +56,59 @@
                 "srcIndex": 0
             },
             {
-                "dstId": "{693929ee-f7af-4265-9f9a-5d2101dc6151}",
+                "dstId": "{645fd444-6d03-478d-b2ef-c8fd6482a683}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{19dd5797-955c-4ad9-a912-3304c81810c2}",
+                "srcId": "{a3be873e-ed77-45b5-9743-de6112577156}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{07e93abe-1b89-48b1-9414-01add6346298}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{e23d667b-bf43-4b4e-82ad-28a37d6e03d7}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{348442e3-2f7a-4afb-a23c-8f37bd06e72e}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{62e09619-0f6f-4dcf-aa70-e9ed86d30713}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{942db57d-8fff-4263-bec6-9ad523eb1f7b}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{a6ed3475-50d4-4f2d-b9c1-72ef41674f24}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{a3be873e-ed77-45b5-9743-de6112577156}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{aac67f29-3b39-480b-8466-9d69c25a4a00}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{1df531d8-90a2-4692-8fac-e9e358880d4b}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{28fe1525-e321-4ccd-8a0b-4cb0836bc390}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{8f37b4b8-f42a-4d76-a52c-d6f955c10cda}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{348442e3-2f7a-4afb-a23c-8f37bd06e72e}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{4d4493f5-5db6-4dd2-b209-bb53c9f1e4cb}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{5c30d57c-19df-4e3c-b986-1d3d5bdc001f}",
                 "srcIndex": 0
             }
         ],
@@ -124,7 +124,7 @@
                         "{693929ee-f7af-4265-9f9a-5d2101dc6151}"
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{9f068ca0-1ca6-4d77-b179-93fd4fce8a6a}",
                 "name": "Raw Histos MDPP32_QDC",
                 "userLevel": 0
@@ -140,7 +140,7 @@
                         "{5c30d57c-19df-4e3c-b986-1d3d5bdc001f}"
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{e43ea2de-0e28-439b-a8bb-88aeca3e6d3f}",
                 "name": "Cal MDPP32_QDC",
                 "userLevel": 1
@@ -156,7 +156,7 @@
                         "{4d4493f5-5db6-4dd2-b209-bb53c9f1e4cb}"
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{9f442795-06ff-4c5f-96ba-28bbfe1756d7}",
                 "name": "Cal Histos MDPP32_QDC",
                 "userLevel": 1
@@ -173,7 +173,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{693929ee-f7af-4265-9f9a-5d2101dc6151}",
                 "name": "trigger_time_raw",
                 "userLevel": 0
@@ -188,7 +188,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{8c7637fc-a82e-4f77-a446-9c66e116dd96}",
                 "name": "module_timestamp_raw",
                 "userLevel": 0
@@ -198,137 +198,137 @@
                 "data": {
                     "calibrations": [
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         }
                     ],
                     "unitLabel": ""
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{07e93abe-1b89-48b1-9414-01add6346298}",
                 "name": "integration_short",
                 "userLevel": 1
@@ -338,137 +338,137 @@
                 "data": {
                     "calibrations": [
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         },
                         {
-                            "unitMax": 4096,
+                            "unitMax": 65536,
                             "unitMin": 0
                         }
                     ],
                     "unitLabel": ""
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{a3be873e-ed77-45b5-9743-de6112577156}",
                 "name": "integration_long",
                 "userLevel": 1
@@ -483,7 +483,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{1df531d8-90a2-4692-8fac-e9e358880d4b}",
                 "name": "channel_time_raw",
                 "userLevel": 0
@@ -503,7 +503,7 @@
                     ],
                     "unitLabel": ""
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{5c30d57c-19df-4e3c-b986-1d3d5bdc001f}",
                 "name": "trigger_time",
                 "userLevel": 1
@@ -519,7 +519,7 @@
                     ],
                     "unitLabel": "us"
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{348442e3-2f7a-4afb-a23c-8f37bd06e72e}",
                 "name": "module_timestamp",
                 "userLevel": 1
@@ -659,7 +659,7 @@
                     ],
                     "unitLabel": "ns"
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{a6ed3475-50d4-4f2d-b9c1-72ef41674f24}",
                 "name": "channel_time",
                 "userLevel": 1
@@ -674,7 +674,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{e9014af5-6f37-4bb4-b9aa-46457ab04b83}",
                 "name": "integration_long_raw",
                 "userLevel": 0
@@ -689,7 +689,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{592dc6ae-7203-4947-920a-5ee3b0f926c9}",
                 "name": "integration_short_raw",
                 "userLevel": 0
@@ -704,7 +704,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{4d4493f5-5db6-4dd2-b209-bb53c9f1e4cb}",
                 "name": "trigger_time",
                 "userLevel": 1
@@ -719,7 +719,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{8f37b4b8-f42a-4d76-a52c-d6f955c10cda}",
                 "name": "module_timestamp",
                 "userLevel": 1
@@ -734,7 +734,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{76ab1b4b-2a88-4171-9f71-6f395def8267}",
                 "name": "integration_short",
                 "userLevel": 1
@@ -749,7 +749,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{645fd444-6d03-478d-b2ef-c8fd6482a683}",
                 "name": "integration_long",
                 "userLevel": 1
@@ -764,7 +764,7 @@
                     "xLimitMin": null
                 },
                 "enabled": true,
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{942db57d-8fff-4263-bec6-9ad523eb1f7b}",
                 "name": "channel_time",
                 "userLevel": 1
@@ -773,8 +773,8 @@
         "properties": {
             "ModuleProperties": [
                 {
-                    "moduleId": "{53fac506-2e11-49f8-922f-404c4136957c}",
-                    "moduleName": "MDPP32_QDC",
+                    "moduleId": "{792abbd7-74b1-49a2-910c-58a5b0e5ae5b}",
+                    "moduleName": "mdpp32_qdc",
                     "moduleTypeName": "mdpp32_qdc"
                 }
             ]
@@ -795,9 +795,9 @@
                         }
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{28fe1525-e321-4ccd-8a0b-4cb0836bc390}",
-                "moduleId": "{53fac506-2e11-49f8-922f-404c4136957c}",
+                "moduleId": "{792abbd7-74b1-49a2-910c-58a5b0e5ae5b}",
                 "name": "channel_time"
             },
             {
@@ -815,9 +815,9 @@
                         }
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{aac67f29-3b39-480b-8466-9d69c25a4a00}",
-                "moduleId": "{53fac506-2e11-49f8-922f-404c4136957c}",
+                "moduleId": "{792abbd7-74b1-49a2-910c-58a5b0e5ae5b}",
                 "name": "integration_long"
             },
             {
@@ -835,9 +835,9 @@
                         }
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{e23d667b-bf43-4b4e-82ad-28a37d6e03d7}",
-                "moduleId": "{53fac506-2e11-49f8-922f-404c4136957c}",
+                "moduleId": "{792abbd7-74b1-49a2-910c-58a5b0e5ae5b}",
                 "name": "integration_short"
             },
             {
@@ -855,9 +855,9 @@
                         }
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{62e09619-0f6f-4dcf-aa70-e9ed86d30713}",
-                "moduleId": "{53fac506-2e11-49f8-922f-404c4136957c}",
+                "moduleId": "{792abbd7-74b1-49a2-910c-58a5b0e5ae5b}",
                 "name": "module_timestamp"
             },
             {
@@ -875,9 +875,9 @@
                         }
                     ]
                 },
-                "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
+                "eventId": "{ccaa98e6-8972-4089-b909-a9f9188685c3}",
                 "id": "{19dd5797-955c-4ad9-a912-3304c81810c2}",
-                "moduleId": "{53fac506-2e11-49f8-922f-404c4136957c}",
+                "moduleId": "{792abbd7-74b1-49a2-910c-58a5b0e5ae5b}",
                 "name": "trigger_time"
             }
         ]
