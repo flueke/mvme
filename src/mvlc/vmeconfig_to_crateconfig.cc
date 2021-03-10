@@ -6,106 +6,123 @@ namespace mesytec
 namespace mvme
 {
 
+mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
+{
+    using namespace vme_script;
+    using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
+
+    mesytec::mvlc::StackCommand dstCmd;
+
+    switch (srcCmd.type)
+    {
+        case CommandType::Read:
+        case CommandType::ReadAbs:
+            dstCmd.type = mvlcCT::VMERead;
+            dstCmd.address = srcCmd.address;
+            dstCmd.amod = srcCmd.addressMode;
+            dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+                                ? mesytec::mvlc::VMEDataWidth::D16
+                                : mesytec::mvlc::VMEDataWidth::D32);
+            break;
+
+        case CommandType::Write:
+        case CommandType::WriteAbs:
+            dstCmd.type = mvlcCT::VMEWrite;
+            dstCmd.address = srcCmd.address;
+            dstCmd.value = srcCmd.value;
+            dstCmd.amod = srcCmd.addressMode;
+            dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+                                ? mesytec::mvlc::VMEDataWidth::D16
+                                : mesytec::mvlc::VMEDataWidth::D32);
+            break;
+
+        case CommandType::Wait:
+            dstCmd.type = mvlcCT::SoftwareDelay;
+            dstCmd.value = srcCmd.delay_ms;
+            break;
+
+        case CommandType::Marker:
+            dstCmd.type = mvlcCT::WriteMarker;
+            dstCmd.value = srcCmd.value;
+            break;
+
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+            dstCmd.type = mvlcCT::VMERead;
+            dstCmd.amod = mesytec::mvlc::vme_amods::BLT32;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+            dstCmd.type = mvlcCT::VMERead;
+            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
+        case CommandType::MBLTSwapped:
+            dstCmd.type = mvlcCT::VMEMBLTSwapped;
+            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
+#if 0 // TODO: This is not currently neither implemented in vme_script nor the MVLC
+        case CommandType::Blk2eSST64:
+            dstCmd.type = mvlcCT::VMERead;
+            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+#endif
+
+        case CommandType::MVLC_WriteSpecial:
+            dstCmd.type = mvlcCT::WriteSpecial;
+            dstCmd.value = srcCmd.value;
+            break;
+
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
+        case CommandType::MetaBlock:
+        case CommandType::SetVariable:
+        case CommandType::Print:
+            break;
+
+        default:
+            qDebug() << __PRETTY_FUNCTION__ << "unhandled command type"
+                << to_string(srcCmd.type)
+                << static_cast<int>(srcCmd.type);
+            assert(!"unhandled command type");
+            break;
+    }
+
+    return dstCmd;
+}
+
+std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &contents)
+{
+    std::vector<mvlc::StackCommand> ret;
+
+    std::transform(
+        std::begin(contents), std::end(contents),
+        std::back_inserter(ret),
+        convert_command);
+
+    return ret;
+}
+
+std::vector<mvlc::StackCommand> convert_script(const VMEScriptConfig *script, u32 baseAddress)
+{
+    return convert_script(parse(script, baseAddress));
+}
+
 mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 {
     using namespace vme_script;
 
-    auto convert_command = [](const auto &srcCmd)
-    {
-        using namespace vme_script;
-        using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
-
-        mesytec::mvlc::StackCommand dstCmd;
-
-        switch (srcCmd.type)
-        {
-            case CommandType::Read:
-            case CommandType::ReadAbs:
-                dstCmd.type = mvlcCT::VMERead;
-                dstCmd.address = srcCmd.address;
-                dstCmd.amod = srcCmd.addressMode;
-                dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
-                                    ? mesytec::mvlc::VMEDataWidth::D16
-                                    : mesytec::mvlc::VMEDataWidth::D32);
-                break;
-
-            case CommandType::Write:
-            case CommandType::WriteAbs:
-                dstCmd.type = mvlcCT::VMEWrite;
-                dstCmd.address = srcCmd.address;
-                dstCmd.value = srcCmd.value;
-                dstCmd.amod = srcCmd.addressMode;
-                dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
-                                    ? mesytec::mvlc::VMEDataWidth::D16
-                                    : mesytec::mvlc::VMEDataWidth::D32);
-                break;
-
-            case CommandType::Wait:
-                dstCmd.type = mvlcCT::SoftwareDelay;
-                dstCmd.value = srcCmd.delay_ms;
-                break;
-
-            case CommandType::Marker:
-                dstCmd.type = mvlcCT::WriteMarker;
-                dstCmd.value = srcCmd.value;
-                break;
-
-            case CommandType::BLT:
-            case CommandType::BLTFifo:
-                dstCmd.type = mvlcCT::VMERead;
-                dstCmd.amod = mesytec::mvlc::vme_amods::BLT32;
-                dstCmd.address = srcCmd.address;
-                dstCmd.transfers = srcCmd.transfers;
-                break;
-
-            case CommandType::MBLT:
-            case CommandType::MBLTFifo:
-                dstCmd.type = mvlcCT::VMERead;
-                dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
-                dstCmd.address = srcCmd.address;
-                dstCmd.transfers = srcCmd.transfers;
-                break;
-
-            case CommandType::MBLTSwapped:
-                dstCmd.type = mvlcCT::VMEMBLTSwapped;
-                dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
-                dstCmd.address = srcCmd.address;
-                dstCmd.transfers = srcCmd.transfers;
-                break;
-
-#if 0 // TODO: This is not currently neither implemented in vme_script nor the MVLC
-            case CommandType::Blk2eSST64:
-                dstCmd.type = mvlcCT::VMERead;
-                dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
-                dstCmd.address = srcCmd.address;
-                dstCmd.transfers = srcCmd.transfers;
-                break;
-#endif
-
-            case CommandType::MVLC_WriteSpecial:
-                dstCmd.type = mvlcCT::WriteSpecial;
-                dstCmd.value = srcCmd.value;
-                break;
-
-            case CommandType::SetBase:
-            case CommandType::ResetBase:
-            case CommandType::MetaBlock:
-            case CommandType::SetVariable:
-            case CommandType::Print:
-                break;
-
-            default:
-                qDebug() << __PRETTY_FUNCTION__ << "unhandled command type"
-                    << to_string(srcCmd.type)
-                    << static_cast<int>(srcCmd.type);
-                assert(!"unhandled command type");
-                break;
-        }
-
-        return dstCmd;
-    };
-
-    auto add_stack_group = [&convert_command](
+    auto add_stack_group = [](
         mesytec::mvlc::StackCommandBuilder &stack, const std::string &groupName,
         const vme_script::VMEScript &contents)
     {
