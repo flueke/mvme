@@ -82,7 +82,7 @@ void simulate_gg(
 }
 
 // Full LUT simulation with strobe input
-#if 1
+#if 0
 void simulate_lut(
     const LUT &lut,
     const LUT_Input_Timelines &inputs,
@@ -231,6 +231,7 @@ void simulate_lut(
 }
 #endif
 
+#if 0
 void simulate_lut2(
     const LUT &lut,
     const std::array<const Trace *, LUT::InputBits> &inputs,
@@ -284,6 +285,171 @@ void simulate_lut2(
 
     auto t0 = find_earliest_sample_time(inputs);
     auto s0 = state_at(t0, inputs);
+}
+#endif
+
+namespace
+{
+
+// Get the earliest sample time in the input traces that is later than
+// the given t0.
+// Returns SampleTime::min() if no matching sample is found.
+// C must be a container containing (raw) pointers to Trace.
+template<typename C>
+SampleTime find_sample_time_after(SampleTime t0, const C &traces)
+{
+    auto result = SampleTime::min();
+
+    for (const auto &tracePtr: traces)
+    {
+        if (!tracePtr) continue;
+
+        const auto &timeline = *tracePtr;
+
+        auto it = std::find_if(
+            std::begin(timeline), std::end(timeline),
+            [t0] (const Sample &sample)
+            {
+                return sample.time > t0;
+            });
+
+        if (it != std::end(timeline)
+            && (result == SampleTime::min()
+                || it->time < result))
+        {
+            result = it->time;
+        }
+    }
+
+
+    return result;
+}
+
+// Reverse search in the trace for time <= t. Return the edge of that sample or
+// Edge::Unknown if no matching sample is found.
+Edge edge_at(SampleTime t, const Trace &trace)
+{
+    auto it = std::find_if(
+        std::rbegin(trace), std::rend(trace),
+        [t] (const Sample &sample)
+        {
+            return sample.time <= t;
+        });
+
+    return it == std::rend(trace) ? Edge::Unknown : it->edge;
+}
+
+inline Edge edge_at(SampleTime t, const Trace *trace)
+{
+    assert(trace);
+    return edge_at(t, *trace);
+}
+
+void simulate_single_lut_output(
+    const LUT::Bitmap &mapping,
+    const LutInputTraces &inputs,
+    Trace *outputTrace,
+    const Trace *strobeTrace,      // set to nullptr if the output being simulated is not strobed
+    const SampleTime &maxtime)
+{
+    assert(outputTrace);
+
+    // Determine which inputs actually have an effect on the output.
+    auto usedInputs = minimize(mapping);
+
+    if (usedInputs.none()) // No input has an effect on the output.
+    {
+        Edge staticOutputValue = mapping.test(0) ? Edge::Rising : Edge::Falling;
+
+        if (!strobeTrace || staticOutputValue == Edge::Falling)
+        {
+            outputTrace->push_back({0ns, staticOutputValue});
+            outputTrace->push_back({maxtime, staticOutputValue});
+        }
+        else // strobed and output set to 1 (Rising)
+        {
+            // In this case the output is equal to the strobe input.
+            std::copy(std::begin(*strobeTrace), std::end(*strobeTrace),
+                      std::back_inserter(*outputTrace));
+        }
+    }
+    else // At least one input affects the output -> simulate.
+    {
+        assert(usedInputs.any());
+
+        SampleTime t0(0);
+
+        while (true)
+        {
+            t0 = find_sample_time_after(t0, inputs);
+
+            if (t0 == SampleTime::min())
+                return;
+
+            u32 inputCombination = 0u;
+
+            for (size_t inIdx = 0; inIdx < inputs.size(); ++inIdx)
+            {
+                if (usedInputs.test(inIdx))
+                {
+                    auto edge = edge_at(t0, inputs[inIdx]);
+
+                    if (edge == Edge::Unknown)
+                        return;
+
+                    inputCombination |= static_cast<unsigned>(edge) << inIdx;
+                }
+            }
+
+            assert(inputCombination < LUT::InputCombinations);
+
+            if (!strobeTrace || edge_at(t0, strobeTrace) == Edge::Rising)
+            {
+                auto outEdge = (mapping.test(inputCombination)
+                                ? Edge::Rising : Edge::Falling);
+
+                outputTrace->push_back({ t0, outEdge });
+            }
+        }
+    }
+}
+
+}
+
+void simulate_lut(
+    const LUT &lut,
+    const LutInputTraces &inputs,
+    const Trace *strobeInput,
+    LutOutputTraces outputs,
+    Trace *strobeOutput,
+    const SampleTime &maxtime)
+{
+    assert((strobeInput && strobeOutput) || (!strobeInput && !strobeOutput));
+
+    assert((lut.strobedOutputs.any() && strobeInput && strobeOutput)
+           || lut.strobedOutputs.none());
+
+    // Simulate the strobe
+    if (strobeInput && strobeOutput)
+    {
+        simulate_gg(
+            lut.strobeGG,
+            *strobeInput,
+            *strobeOutput,
+            maxtime);
+    }
+
+    for (auto outIdx=0; outIdx<LUT::OutputBits; ++outIdx)
+    {
+        bool isStrobed = lut.strobedOutputs.test(outIdx);
+
+        simulate_single_lut_output(
+            lut.lutContents[outIdx],
+            inputs,
+            outputs[outIdx],
+            isStrobed ? strobeOutput : nullptr,
+            maxtime);
+    }
 }
 
 namespace
@@ -427,8 +593,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 
         auto inputTrace = lookup_input_trace(sim, ua);
         auto outputTrace = lookup_output_trace(sim, ua);
-        assert(inputTrace);
-        assert(outputTrace);
+        assert(inputTrace && outputTrace && (inputTrace != outputTrace));
 
         simulate_gg(kv.value(), *inputTrace, *outputTrace, maxtime);
 
@@ -442,12 +607,12 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         const unsigned lutIndex = kvLUT.index();
         const auto &connections = Level1::StaticConnections[kvLUT.index()];
 
-        LUT_Input_Timelines inputs;
+        LutInputTraces inputs;
 
         for (unsigned i=0; i<inputs.size(); i++)
             inputs[i] = lookup_output_trace(sim, connections[i].address);
 
-        LUT_Output_Timelines outputs;
+        LutOutputTraces outputs;
 
         for (unsigned i=0; i<outputs.size(); i++)
             outputs[i] = lookup_output_trace(sim, { 1, lutIndex, i });
@@ -462,7 +627,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         const auto &lut = kvLUT.value();
         const unsigned lutIndex = kvLUT.index();
 
-        LUT_Input_Timelines inputs;
+        LutInputTraces inputs;
 
         for (unsigned i=0; i<inputs.size(); i++)
         {
@@ -473,7 +638,17 @@ void simulate(Sim &sim, const SampleTime &maxtime)
             assert(inputs[i]);
         }
 
-        LUT_Output_Timelines outputs;
+        Trace *strobeInput = nullptr;
+
+        {
+            UnitAddress dstAddr{ 2, lutIndex, LUT::StrobeGGInput };
+            UnitAddress srcAddr = get_connection_unit_address(
+                sim.trigIO, dstAddr);
+            strobeInput = lookup_output_trace(sim, srcAddr);
+            assert(strobeInput);
+        }
+
+        LutOutputTraces outputs;
 
         for (unsigned i=0; i<outputs.size(); i++)
         {
@@ -481,7 +656,15 @@ void simulate(Sim &sim, const SampleTime &maxtime)
             assert(outputs[i]);
         }
 
-        simulate_lut(lut, inputs, outputs, maxtime);
+        Trace *strobeOutput = lookup_output_trace(sim, { 2, lutIndex,
+            Sim::StrobeGGOutputTraceIndex });
+        assert(strobeOutput);
+
+        simulate_lut(
+            lut,
+            inputs, strobeInput,
+            outputs, strobeOutput,
+            maxtime);
     }
 
 #if 0
@@ -518,8 +701,8 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 
     auto tEnd = QTime::currentTime();
     auto dt = tStart.msecsTo(tEnd);
-    qDebug() << "simulated up to" << maxtime.count() << "ns";
-    qDebug() << "simulate() took" << dt << "ms";
+    //qDebug() << "simulated up to" << maxtime.count() << "ns";
+    //qDebug() << "simulate() took" << dt << "ms";
 
 #else
     // L0 NIM input gate generators with sampled input

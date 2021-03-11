@@ -39,23 +39,38 @@ LIBMVME_EXPORT void simulate(
     Trace &output,
     const SampleTime &maxtime);
 
-// +1 for the strobe in and out traces. These entries may be nullptr if the
-// strobe is not used. Otherwise both must be valid.
-using LUT_Input_Timelines = std::array<const Trace *, LUT::InputBits+1>;
-using LUT_Output_Timelines = std::array<Trace *, LUT::OutputBits+1>;
+using LutInputTraces = std::array<const Trace *, LUT::InputBits>;
+using LutOutputTraces = std::array<Trace *, LUT::OutputBits>;
 
 // Full LUT simulation with strobe input
 LIBMVME_EXPORT void simulate_lut(
     const LUT &lut,
-    const LUT_Input_Timelines &inputs,
-    LUT_Output_Timelines &outputs,
+    const LutInputTraces &inputs,
+    const Trace *strobeInput,
+    LutOutputTraces outputs,
+    Trace *strobeOutput,
     const SampleTime &maxtime);
 
-// +1 for the strobe output trace
-using LUTOutputTraces = std::array<Trace, LUT::OutputBits+1>;
+// LUT simulation without the strobe
+inline void simulate_lut(
+    const LUT &lut,
+    const LutInputTraces &inputs,
+    LutOutputTraces outputs,
+    const SampleTime &maxtime)
+{
+    simulate_lut(
+        lut,
+        inputs, nullptr,
+        outputs, nullptr,
+        maxtime);
+}
 
 struct LIBMVME_EXPORT Sim
 {
+    // +1 for the strobe output trace
+    using LutOutputAndStrobeTraces = std::array<Trace, LUT::OutputBits+1>;
+    static const size_t StrobeGGOutputTraceIndex = LUT::OutputBits;
+
     Sim()
     {
         sampledTraces.resize(DSOExpectedSampledTraces);
@@ -78,10 +93,10 @@ struct LIBMVME_EXPORT Sim
     std::array<Trace, Level0::OutputCount> l0_traces;
 
     // L1 - LUT outputs
-    std::array<LUTOutputTraces, Level1::LUTCount> l1_luts;
+    std::array<LutOutputAndStrobeTraces, Level1::LUTCount> l1_luts;
 
     // L2 - LUT outputs
-    std::array<LUTOutputTraces, Level2::LUTCount> l2_luts;
+    std::array<LutOutputAndStrobeTraces, Level2::LUTCount> l2_luts;
 
     // L3 - simulated 'output' traces
     std::array<Trace, Level3::UnitCount> l3_traces;
