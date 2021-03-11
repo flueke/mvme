@@ -195,7 +195,7 @@ std::unique_ptr<TraceTreeModel> make_trace_tree_model()
         samplesRoot->appendRow(row);
     }
 
-#define ENABLE_SIMULATED_TRACES 0
+#define ENABLE_SIMULATED_TRACES 1
 
 #if ENABLE_SIMULATED_TRACES
     // L0 NIMs and IRQs
@@ -341,6 +341,20 @@ struct TraceSelectWidget::Private
         qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
         emit q->selectionChanged(q->getSelection());
     }
+
+#if 0
+    void debugClickPinAddress(const PinAddress &pa)
+    {
+        qDebug() << "click on" << pa;
+
+        if (pa.pos == PinPosition::Input)
+        {
+            qDebug() << "connection source address: " <<
+                get_connection_unit_address(
+                    treeModel->triggerIO(), pa.unit);
+        }
+    }
+#endif
 };
 
 TraceSelectWidget::TraceSelectWidget(QWidget *parent)
@@ -380,7 +394,10 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
             if (auto item = d->treeModel->itemFromIndex(index))
             {
                 if (item->data().canConvert<PinAddress>())
-                    qDebug() << "tree click on" << item->data().value<PinAddress>();
+                {
+                    //d->debugClickPinAddress(item->data().value<PinAddress>());
+                    emit debugTraceClicked(item->data().value<PinAddress>());
+                }
             }
         });
 
@@ -413,7 +430,8 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
             {
                 if (item->data().canConvert<PinAddress>())
                 {
-                    qDebug() << "table click on" << item->data().value<PinAddress>();
+                    //d->debugClickPinAddress(item->data().value<PinAddress>());
+                    emit debugTraceClicked(item->data().value<PinAddress>());
                 }
             }
         });
@@ -1424,6 +1442,21 @@ struct DSOSimWidget::Private
 
         label_status->setText(str);
     }
+
+    void debugOnTraceClicked(const PinAddress &pa)
+    {
+        auto &sim = lastResult.sim;
+
+        qDebug() << "click on" << pa;
+
+        if (pa.pos == PinPosition::Input)
+        {
+            qDebug() << "  connection source address: " <<
+                get_connection_unit_address(sim.trigIO, pa.unit);
+        }
+
+        qDebug() << "  trace:" << lookup_trace(sim, pa);
+    }
 };
 
 DSOSimWidget::DSOSimWidget(
@@ -1495,6 +1528,11 @@ DSOSimWidget::DSOSimWidget(
     connect(d->traceSelectWidget, &TraceSelectWidget::triggersChanged,
             this, [this] () {
                 d->updatePlotTraces();
+            });
+
+    connect(d->traceSelectWidget, &TraceSelectWidget::debugTraceClicked,
+            this, [this] (const PinAddress &pa) {
+                d->debugOnTraceClicked(pa);
             });
 
     connect(d->dsoControlWidget, &DSOControlWidget::startDSO,

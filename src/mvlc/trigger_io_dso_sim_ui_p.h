@@ -81,6 +81,7 @@ class LIBMVME_EXPORT TraceSelectWidget: public QWidget
     signals:
         void selectionChanged(const QVector<PinAddress> &selection);
         void triggersChanged(const CombinedTriggers &triggers);
+        void debugTraceClicked(const PinAddress &pa);
 
     public:
         TraceSelectWidget(QWidget *parent = nullptr);
