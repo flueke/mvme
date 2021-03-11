@@ -39,18 +39,18 @@ static void check_one_file(const QString &filename)
 
     if (!f.open(QIODevice::ReadOnly))
     {
-        out << "EE " << filename << " -> " << f.errorString() << endl;
+        out << "EE " << filename << " -> " << f.errorString() << "\n";
         return;
     }
 
     try
     {
         vme_script::parse(&f);
-        out << "OK " << filename << endl;
+        out << "OK " << filename << "\n";
     }
     catch (const vme_script::ParseError &e)
     {
-        out << "EE " << filename << " -> " << e.toString() << endl;
+        out << "EE " << filename << " -> " << e.toString() << "\n";
     }
 }
 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 {
     if (argc < 2)
     {
-        out << "Usage: " << argv[0] << "(file|directory)+" << endl;
+        out << "Usage: " << argv[0] << "(file|directory)+" << "\n";
     }
 
     int ret = 0;

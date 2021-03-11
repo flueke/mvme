@@ -191,10 +191,10 @@ int main(int argc, char *argv[])
         || listenHost.isEmpty()
         || listenPort == 0)
     {
-        cout << "Usage: " << argv[0] << " --listfile <filename> --host <listenhost> --port <listport>" << endl;
-        cout << "Example: " << argv[0] << " --listfile outfile.mvmelst --host example.com --port 1234" << endl;
-        cout << "The program will listen on the given host and port and write received data to the specified listfile filename." << endl;
-        cout << "If no output listfile filename is given the data will only be received but not written to disk." << endl;
+        cout << "Usage: " << argv[0] << " --listfile <filename> --host <listenhost> --port <listport>" << "\n";
+        cout << "Example: " << argv[0] << " --listfile outfile.mvmelst --host example.com --port 1234" << "\n";
+        cout << "The program will listen on the given host and port and write received data to the specified listfile filename." << "\n";
+        cout << "If no output listfile filename is given the data will only be received but not written to disk." << "\n";
 
         return showHelp ? 0 : 1;
     }
@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
                    .arg(server.errorString()));
         }
 
-        cout << "Waiting for incoming connection..." << endl;
+        cout << "Waiting for incoming connection..." << "\n";
 
         if (!server.waitForNewConnection(-1))
         {
@@ -237,18 +237,18 @@ int main(int argc, char *argv[])
         cout << "New client connection from "
             << context.socket->peerAddress().toString().toStdString()
             << ":" << context.socket->peerPort()
-            << endl;
+            << "\n";
 
         context.startTime = Context::ClockType::now();
 
         receive_and_write_listfile(context);
 
-        cout << "closing output file" << endl;
+        cout << "closing output file" << "\n";
 
         if (outfile.isOpen())
             outfile.close();
 
-        cout << "output file closed" << endl;
+        cout << "output file closed" << "\n";
 
         context.endTime = Context::ClockType::now();
 
@@ -256,14 +256,14 @@ int main(int argc, char *argv[])
         double mbRead = static_cast<double>(context.bytesRead) / Megabytes(1);
         double mbPerSecond = mbRead / secondsElapsed.count();
 
-        cout << "Number of socket reads: " << context.readCount << endl;
-        cout << "MB read: " << mbRead << ", " << context.bytesRead << " bytes" << endl;
-        cout << "Rate: " << mbPerSecond << " MB/s" << endl;
-        cout << "Elapsed seconds: " << secondsElapsed.count() << endl;
+        cout << "Number of socket reads: " << context.readCount << "\n";
+        cout << "MB read: " << mbRead << ", " << context.bytesRead << " bytes" << "\n";
+        cout << "Rate: " << mbPerSecond << " MB/s" << "\n";
+        cout << "Elapsed seconds: " << secondsElapsed.count() << "\n";
     }
     catch (const QString &e)
     {
-        qDebug() << e << endl;
+        qDebug() << e << "\n";
         return 1;
     }
 

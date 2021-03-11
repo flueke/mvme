@@ -43,7 +43,7 @@ static QTextStream &print_options(QTextStream &out, struct option *opts)
         out << opts->name;
         needComma = true;
     }
-    out << endl;
+    out << "\n";
 
     return out;
 }
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
         if (!inFile.open(QIODevice::ReadOnly))
         {
             err << "Error opening " << inputFilename << " for reading: "
-                << inFile.errorString() << endl;
+                << inFile.errorString() << "\n";
             return 1;
         }
     }
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
     {
         if (!inFile.open(stdin, QIODevice::ReadOnly))
         {
-            err << "Error reading from standard input" << endl;
+            err << "Error reading from standard input" << "\n";
             return 1;
         }
     }
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
                 ++nErrorEntries;
                 VMEError error(static_cast<VMEError::ErrorType>(errorType), errorCode);
                 out << "Entry #" << nEntriesRead << ": Error was \""
-                    << error.toString() << "\" (" << error.errorCode() << ")" << endl;
+                    << error.toString() << "\" (" << error.errorCode() << ")" << "\n";
             }
 
             ++nEntriesRead;
@@ -159,14 +159,14 @@ int main(int argc, char *argv[])
     }
     catch (const QString &e)
     {
-        err << "!!! " << e << endl;
+        err << "!!! " << e << "\n";
         ret = 1;
     }
 
     out << "nEntriesRead = " << nEntriesRead
         << ", nErrorEntries = " << nErrorEntries
         << ", nDataBytesRead = " << nDataBytesRead
-        << endl;
+        << "\n";
 
     return ret;
 }

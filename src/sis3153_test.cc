@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
         sisAddress = QString(argv[1]);
     }
 
-    qout << "Sending stop command to " << sisAddress << endl;
+    qout << "Sending stop command to " << sisAddress << "\n";
 
     try
     {
@@ -51,12 +51,12 @@ int main(int argc, char *argv[])
         if (error.isError()) throw error;
 
         dump_registers(&sis, [&qout](const QString &str) {
-            qout << str << endl;
+            qout << str << "\n";
         });
     }
     catch (const VMEError &e)
     {
-        qout << "Error: " << e.toString() << endl;
+        qout << "Error: " << e.toString() << "\n";
         return 1;
     }
 

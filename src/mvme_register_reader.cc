@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
             catch (const QString &e)
             {
                 err << "Error reading module register map from " << optarg
-                    << ": " << e << endl;
+                    << ": " << e << "\n";
                 return 1;
             }
         }
@@ -185,12 +185,12 @@ int main(int argc, char *argv[])
                     .arg(regValue, 6, 10)
                     .arg(moduleRegisterMap[regAddr])
                    )
-                << endl;
+                << "\n";
         }
     }
     catch (const VMEError &e)
     {
-        err << e.toString() << endl;
+        err << e.toString() << "\n";
         return 1;
     }
 

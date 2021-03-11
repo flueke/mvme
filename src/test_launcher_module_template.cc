@@ -44,7 +44,7 @@ static QTextStream &print_options(QTextStream &out, struct option *opts)
         out << opts->name;
         needComma = true;
     }
-    out << endl;
+    out << "\n";
 
     return out;
 }
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
     //
     if (testInfo.moduleType.isEmpty())
     {
-        err << "Missing module-type!" << endl;
+        err << "Missing module-type!" << "\n";
         return 1;
     }
 
@@ -274,12 +274,12 @@ int main(int argc, char *argv[])
     }
     catch (const VMEError &e)
     {
-        err << "Error: " << e.toString() << endl;
+        err << "Error: " << e.toString() << "\n";
         ret = 1;
     }
     catch (const QString &e)
     {
-        err << "Error: " << e << endl;
+        err << "Error: " << e << "\n";
         ret = 1;
     }
 
