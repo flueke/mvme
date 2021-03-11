@@ -2004,7 +2004,6 @@ void Histo1DWidget::selectHistogram(int index)
 
         //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
 
-        m_d->activatePlotPicker(m_d->m_zoomer);
         m_d->displayChanged();
 
         QSignalBlocker sb(m_d->m_histoSpin);
