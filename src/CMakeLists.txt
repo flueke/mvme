@@ -229,6 +229,7 @@ if(MVME_ENABLE_MVLC)
             add_dependencies(${exe_name} libmvme_mvlc)
             target_link_libraries(${exe_name} libmvme_mvlc gtest gtest_main)
             add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+            target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
         endfunction(add_mvlc_gtest)
         add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
         add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
@@ -484,6 +485,7 @@ function(add_mvme_executable exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
     target_link_libraries(${exe_name} PRIVATE libmvme)
     target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/external)
+    target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
 endfunction(add_mvme_executable)
 
 #
@@ -562,6 +564,7 @@ if(MVME_BUILD_TESTS)
         target_include_directories(${exe_name}
             PRIVATE ${CMAKE_SOURCE_DIR}/external
             )
+        target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_mvme_gtest)
 
