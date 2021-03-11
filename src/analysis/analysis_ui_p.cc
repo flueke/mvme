@@ -586,8 +586,7 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
     layout->addLayout(buttonBoxLayout, row++, 0);
 
-    layout->setRowStretch(0, 0);
-    layout->setRowStretch(1, 1);
+    layout->setRowStretch(2, 1); // m_opConfigWidget may stretch
 
     // The widget is complete, now populate the slot grid.
     repopulateSlotGrid();
