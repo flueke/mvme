@@ -609,6 +609,7 @@ void EventServer::endRun(const DAQStats &daqStats, const std::exception * /*e*/)
 
 void EventServer::beginEvent(s32 eventIndex)
 {
+    Q_UNUSED(eventIndex);
     if (!m_d->m_enabled) return;
     // Noop
     assert(m_d->m_runInProgress);
@@ -616,11 +617,21 @@ void EventServer::beginEvent(s32 eventIndex)
 
 void EventServer::processModulePrefix(s32 eventIndex, s32 moduleIndex,
                        const u32 *data, u32 size)
-{}
+{
+    Q_UNUSED(eventIndex);
+    Q_UNUSED(moduleIndex);
+    Q_UNUSED(data);
+    Q_UNUSED(size);
+}
 
 void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
                        const u32 *data, u32 size)
 {
+    Q_UNUSED(eventIndex);
+    Q_UNUSED(moduleIndex);
+    Q_UNUSED(data);
+    Q_UNUSED(size);
+
     if (!m_d->m_enabled) return;
     // Noop for this server case. We're interested in the endEvent() call as at
     // that point all data from all modules has been processed by the a2
@@ -631,7 +642,12 @@ void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
 
 void EventServer::processModuleSuffix(s32 eventIndex, s32 moduleIndex,
                        const u32 *data, u32 size)
-{}
+{
+    Q_UNUSED(eventIndex);
+    Q_UNUSED(moduleIndex);
+    Q_UNUSED(data);
+    Q_UNUSED(size);
+}
 
 void EventServer::processTimetick()
 {
