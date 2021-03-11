@@ -2394,6 +2394,18 @@ void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
                 llO = (ulA - llB) / ulA;
                 ulO = (llA - ulB) / llA;
             } break;
+
+        case 6: // C = (A * B)
+            {
+                llO = (llA * llB);
+                ulO = (ulA * ulB);
+            } break;
+
+        case 7: // C = (A / B)
+            {
+                llO = (llA / ulB);
+                ulO = (ulA / llB);
+            } break;
     }
 
     spin_outputLowerLimit->setValue(llO);

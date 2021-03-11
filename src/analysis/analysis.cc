@@ -2132,6 +2132,34 @@ static const QVector<EquationImpl> EquationImpls =
             }
         }
     },
+
+    { QSL("C = A * B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid);
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value * b[i].value);
+                }
+            }
+        }
+    },
+
+    { QSL("C = A / B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (b[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value / b[i].value);
+                }
+            }
+        }
+    },
 };
 
 BinarySumDiff::BinarySumDiff(QObject *parent)

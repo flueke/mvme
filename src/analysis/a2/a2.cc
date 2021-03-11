@@ -1018,6 +1018,10 @@ static BinaryEquationFunction BinaryEquationTable[] =
     add_binary_equation(o[i] = a[i] / (a[i] - b[i])),
 
     add_binary_equation(o[i] = (a[i] - b[i]) / a[i]),
+
+    add_binary_equation(o[i] = (a[i] * b[i])),
+
+    add_binary_equation(o[i] = (a[i] / b[i])),
 };
 #undef add_binary_equation
 
@@ -1051,6 +1055,10 @@ static BinaryEquationFunction_idx BinaryEquationTable_idx[] =
     add_binary_equation_idx(o[0] = a[ai] / (a[ai] - b[bi])),
 
     add_binary_equation_idx(o[0] = (a[ai] - b[bi]) / a[ai]),
+
+    add_binary_equation_idx(o[0] = (a[ai] * b[bi])),
+
+    add_binary_equation_idx(o[0] = (a[ai] / b[bi])),
 };
 #undef add_binary_equation_idx
 
