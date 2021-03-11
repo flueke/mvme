@@ -376,6 +376,20 @@ void simulate(Sim &sim, const SampleTime &maxtime)
     if (sim.sampledTraces.size() < DSOExpectedSampledTraces)
         sim.sampledTraces.resize(DSOExpectedSampledTraces);
 
+    // L0 utilities: No simulation for now, just copy from the sampled traces
+    // to the L0 output traces
+    for (unsigned utilIndex=0; utilIndex<Level0::UtilityUnitCount; ++utilIndex)
+    {
+        UnitAddress ua{0, utilIndex};
+
+        auto inputTrace = lookup_input_trace(sim, ua);
+        auto outputTrace = lookup_output_trace(sim, ua);
+        assert(inputTrace && outputTrace && (inputTrace != outputTrace));
+
+        std::copy(std::begin(*inputTrace), std::end(*inputTrace),
+                  std::back_inserter(*outputTrace));
+    }
+
     // L0 NIMs
     for (const auto &kv: sim.trigIO.l0.ioNIM | indexed(0))
     {
@@ -385,8 +399,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 
         auto inputTrace = lookup_input_trace(sim, ua);
         auto outputTrace = lookup_output_trace(sim, ua);
-        assert(inputTrace);
-        assert(outputTrace);
+        assert(inputTrace && outputTrace && (inputTrace != outputTrace));
 
         auto &io = kv.value();
 
