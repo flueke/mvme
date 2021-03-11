@@ -67,4 +67,7 @@ QDataStream &operator>>(
 QDebug operator<<(
     QDebug dbg, const mesytec::mvme_mvlc::trigger_io::PinAddress &pin);
 
+QDebug operator<<(
+    QDebug dbg, const mesytec::mvme_mvlc::trigger_io::UnitAddress &unit);
+
 #endif /* __MVME_MVLC_TRIGGER_IO_SIM_PINADDRESS_H__ */

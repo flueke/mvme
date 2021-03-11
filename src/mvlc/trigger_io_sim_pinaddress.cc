@@ -1,5 +1,6 @@
 #include "mvlc/trigger_io_sim_pinaddress.h"
 #include "util/qt_str.h"
+#include <QDataStream>
 
 namespace mesytec
 {
@@ -112,3 +113,44 @@ QString pin_user_name(const TriggerIO &trigIO, const PinAddress &pa)
 } // end namespace trigger_io
 } // end namespace mvme_mvlc
 } // end namespace mesytec
+
+QDataStream &operator<<(QDataStream &out,
+                        const mesytec::mvme_mvlc::trigger_io::PinAddress &pa)
+{
+    for (unsigned val: pa.unit)
+        out << val;
+    out << static_cast<unsigned>(pa.pos);
+    return out;
+}
+
+QDataStream &operator>>(QDataStream &in,
+                        mesytec::mvme_mvlc::trigger_io::PinAddress &pa)
+{
+    for (size_t i=0; i<pa.unit.size(); ++i)
+        in >> pa.unit[i];
+    unsigned pos;
+    in >> pos;
+    pa.pos = static_cast<mesytec::mvme_mvlc::trigger_io::PinPosition>(pos);
+    return in;
+}
+
+QDebug operator<<(QDebug dbg, const mesytec::mvme_mvlc::trigger_io::PinAddress &pa)
+{
+    using namespace mesytec::mvme_mvlc::trigger_io;
+
+    dbg.nospace() << "PinAddress("
+        << pa.unit[0] << ", " << pa.unit[1] << ", " << pa.unit[2]
+        << ", pos=" << (pa.pos == PinPosition::Input ? "in" : "out")
+        << ")";
+    return dbg.maybeSpace();
+}
+
+QDebug operator<<(QDebug dbg, const mesytec::mvme_mvlc::trigger_io::UnitAddress &unit)
+{
+    using namespace mesytec::mvme_mvlc::trigger_io;
+
+    dbg.nospace() << "UnitAddress("
+        << unit[0] << ", " << unit[1] << ", " << unit[2]
+        << ")";
+    return dbg.maybeSpace();
+}
