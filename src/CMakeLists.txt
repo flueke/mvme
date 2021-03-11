@@ -202,7 +202,7 @@ if(MVME_ENABLE_MVLC)
 
     install(TARGETS libmvme_mvlc
         RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib 
+        LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
 
     # mvlc_dev_gui
