@@ -487,35 +487,17 @@ function(add_mvme_executable exe_name exe_sources)
 endfunction(add_mvme_executable)
 
 #
-# SIS3153 daq stop test
-#
-add_mvme_executable(sis3153_test sis3153_test.cc)
-
-#
-# mvme_register_reader
-#
-add_mvme_executable(mvme_register_reader mvme_register_reader.cc)
-
-#
 # vme_script_checker
 #
 add_mvme_executable(vme_script_checker vme_script_checker.cc)
-
-#
-# test_launcher_vme_module_template
-#
-add_mvme_executable(test_launcher_module_template "test_launcher_module_template.cc")
 
 #
 # vmusb_read_buffers_file
 #
 add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
 
-add_mvme_executable(dev_datagen "dev_datagen.cc")
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
-add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
-add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
 #install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
@@ -524,14 +506,10 @@ add_mvme_executable(dev_rate_monitoring "dev_rate_monitoring.cc")
 add_mvme_executable(dev_rate_monitor_widget "dev_rate_monitor_widget.cc")
 
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-add_mvme_executable(dev_data_filter_edit "dev_data_filter_edit.cc")
 add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
 add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
-add_mvme_executable(dev_configobject_testing "dev_configobject_testing.cc")
-add_mvme_executable(dev_vme_config_ui_variable_editor "dev_vme_config_variable_editor.cc")
 add_mvme_executable(dev_zip_write_test zip-write-test.cc)
 target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
-add_mvme_executable(dev_variantmap_to_json_test "dev_variantmap_to_json_test.cc")
 add_mvme_executable(dev_make_default_module_analyses "dev_make_default_module_analyses.cc")
 add_mvme_executable(dev_replay_bench dev_replay_bench.cc)
 
