@@ -67,7 +67,9 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     explicit RateMonitorPlotData(const RateSamplerPtr &sampler)
         : QwtSeriesData<QPointF>()
         , sampler(sampler)
-    { }
+    {
+        beginDrawing();
+    }
 
     size_t size() const override
     {
@@ -89,16 +91,12 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     {
         double x = sampler->getSampleTime(i) * 1000.0;
         double y = sampler->getSample(i);
+
         auto si = static_cast<ssize_t>(i);
+        assert(si > prevSampleIndex_);
 
         if (std::isnan(y))
-        {
-            if (si > prevSampleIndex_)
-                y = prevSampleValue_;
-        }
-
-        if (std::isnan(y))
-            y = 0.0;
+            y = prevSampleValue_;
 
         prevSampleIndex_ = si;
         prevSampleValue_ = y;
