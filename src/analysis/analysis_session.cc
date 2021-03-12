@@ -237,6 +237,13 @@ void load_objects(QDataStream &in, analysis::Analysis *analysis)
         {
             detail::load(in, dest);
         }
+        else
+        {
+            // The object is not present in the destination analysis. Read into
+            // a temporary object instead.
+            auto tmpDest = std::make_unique<T>();
+            detail::load(in, tmpDest.get());
+        }
     }
 }
 
