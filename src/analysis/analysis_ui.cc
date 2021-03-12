@@ -547,8 +547,16 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 
 QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
+    auto path = m_context->getWorkspaceDirectory();
+
+    if (m_context->getMode() == GlobalMode::ListFile)
+    {
+        const auto &replayHandle = m_context->getReplayFileHandle();
+        path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
+    }
+
     auto result = saveAnalysisConfigAs(m_context->getAnalysis(),
-                                       m_context->getWorkspaceDirectory(),
+                                       path,
                                        AnalysisFileFilter,
                                        m_context);
 
