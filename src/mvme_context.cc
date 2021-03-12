@@ -46,6 +46,7 @@
 #include "util/ticketmutex.h"
 #include "vme_analysis_common.h"
 #include "vme_config_ui.h"
+#include "vme_config_util.h"
 #include "vme_controller_factory.h"
 #include "vme_script.h"
 #include "vmusb_buffer_processor.h"
@@ -81,6 +82,7 @@ static const int PeriodicLoggingInterval_ms = 5000;
 
 static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
+static const QString ListfileVMEConfigAutoSaveFileName = QSL(".autosaved_vmeconfig_from_listfile.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 static const QString RunNotesFilename = QSL("mvme_run_notes.txt");
 
@@ -1440,10 +1442,10 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, u16 openListf
     m_d->listfileReplayHandle = std::move(handle);
     m_d->listfileReplayWorker->setListfile(&m_d->listfileReplayHandle);
 
-    // TODO: make a unique filename based on the listfile name and save the vme config immediately
     setConfigFileName(QString(), false);
     setRunNotes(m_d->listfileReplayHandle.runNotes);
     setMode(GlobalMode::ListFile);
+
 
     // optionally load the analysis from the listfile
     if ((openListfileFlags & OpenListfileFlags::LoadAnalysis) && !m_d->listfileReplayHandle.analysisBlob.isEmpty())
@@ -2597,10 +2599,33 @@ void MVMEContextPrivate::workspaceClosingCleanup()
     if (!m_q->isWorkspaceOpen())
         return;
 
-    // cleanup files in the previous workspace that's being closed
+    // cleanup files in the workspace that's being closed
     m_q->cleanupWorkspaceAutoSaveFiles();
     maybeSaveDAQNotes();
     m_q->setRunNotes({});
+
+    if (m_q->getMode() == GlobalMode::ListFile
+        && m_q->m_configFileName.isEmpty()
+        && !m_q->m_analysisConfigFileName.isEmpty())
+    {
+        // Detected the following:
+        // - daq mode and vme and analysis loaded from listfile
+        // - analysis was saved to disk (it has a filename)
+        // - vme config was not saved to disk (no filename)
+        // -> On next start the vme and analysis configs would not match. Users
+        // will likely be confused as to what's happening.
+        // - Solution:
+        // Create a save file containing the vme config loaded from the listfile.
+        // Set it to be the new auto load vme config in the mvmeworkspace.ini.
+        QFile outFile(ListfileVMEConfigAutoSaveFileName);
+
+        if (outFile.open(QIODevice::WriteOnly))
+        {
+            auto vmeConfig = m_q->getVMEConfig();
+            if (mvme::vme_config::serialize_vme_config_to_device(outFile, *vmeConfig))
+                m_q->makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), ListfileVMEConfigAutoSaveFileName);
+        }
+    }
 }
 
 void MVMEContext::cleanupWorkspaceAutoSaveFiles()
@@ -2741,10 +2766,9 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
         return;
     }
 
-    setVMEConfig(vmeConfig.get());
+    setVMEConfig(vmeConfig.release());
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
-    vmeConfig.release();
 
     if (m_d->m_vmeConfigAutoSaver)
     {
