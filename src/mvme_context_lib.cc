@@ -33,16 +33,9 @@ const ListfileReplayHandle &context_open_listfile(
                          && context->getDAQState() == DAQState::Running);
 
     auto handle = open_listfile(filename);
-    auto analysisBlob = handle.analysisBlob;
 
     // Transfers ownership to the context.
-    context->setReplayFileHandle(std::move(handle));
-
-    if ((flags & OpenListfileFlags::LoadAnalysis) && !analysisBlob.isEmpty())
-    {
-        context->loadAnalysisConfig(analysisBlob, QSL("ZIP Archive"));
-        context->setAnalysisConfigFileName(QString());
-    }
+    context->setReplayFileHandle(std::move(handle), flags);
 
     if (wasReplaying)
     {

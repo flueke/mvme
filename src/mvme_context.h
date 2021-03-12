@@ -131,7 +131,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         MVMEState getMVMEState() const;
         DAQStats getDAQStats() const;
 
-        bool setReplayFileHandle(ListfileReplayHandle listfile);
+        bool setReplayFileHandle(ListfileReplayHandle listfile, u16 openListfileFlags = 0);
         const ListfileReplayHandle &getReplayFileHandle() const;
         ListfileReplayHandle &getReplayFileHandle();
         void closeReplayFileHandle();

@@ -36,6 +36,8 @@ struct LIBMVME_EXPORT ListfileReplayHandle
     // ZIP. As long as this file is open no other file member of the archive
     // can be opened. This is a restriction of the ZIP library.
     // If replaying from flat file this is a plain QFile instance.
+    // XXX: Not used for MVLC listfiles stored inside ZIP archives. Still used
+    // for flat MVLC listfiles.
     std::unique_ptr<QIODevice> listfile;
 
     // The ZIP archive containing the listfile or nullptr if playing directly

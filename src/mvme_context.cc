@@ -1390,7 +1390,7 @@ static bool handle_vme_analysis_assignment(
     return true;
 }
 
-bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
+bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, u16 openListfileFlags)
 {
     using namespace vme_analysis_common;
 
@@ -1440,9 +1440,17 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle)
     m_d->listfileReplayHandle = std::move(handle);
     m_d->listfileReplayWorker->setListfile(&m_d->listfileReplayHandle);
 
+    // TODO: make a unique filename based on the listfile name and save the vme config immediately
     setConfigFileName(QString(), false);
     setRunNotes(m_d->listfileReplayHandle.runNotes);
     setMode(GlobalMode::ListFile);
+
+    // optionally load the analysis from the listfile
+    if ((openListfileFlags & OpenListfileFlags::LoadAnalysis) && !m_d->listfileReplayHandle.analysisBlob.isEmpty())
+    {
+        loadAnalysisConfig(m_d->listfileReplayHandle.analysisBlob, QSL("ZIP Archive"));
+        setAnalysisConfigFileName(QString());
+    }
 
     bool ret = handle_vme_analysis_assignment(
         getVMEConfig(), getAnalysis(),
