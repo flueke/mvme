@@ -215,7 +215,7 @@ class ModuleDataConsumer: public IMVMEStreamModuleConsumer
         void beginRun(const RunInfo &, const VMEConfig *, const analysis::Analysis *) override {}
         void endRun(const DAQStats &, const std::exception * = nullptr) override {}
 
-        void beginEvent(s32 eventIndex) override
+        void beginEvent(s32 /*eventIndex*/) override
         {
             std::fill(m_moduleDataList.begin(), m_moduleDataList.end(), ModuleData{});
         }
@@ -252,7 +252,7 @@ class ModuleDataConsumer: public IMVMEStreamModuleConsumer
         }
 
         void processTimetick() override { }
-        void setLogger(Logger logger) override { }
+        void setLogger(Logger /*logger*/) override { }
 
     private:
         RunDescription *m_runDescription;
