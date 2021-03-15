@@ -4,6 +4,22 @@
 Changelog
 ##################################################
 
+Version 1.4.2
+-------------
+* [vme_templates]
+
+  - Wait 500ms instead of 50ms in the reset scripts of MDPP-32_PADC/QDC
+
+  - Update MDPP-32_QDC calibration to 16 bits
+
+  - Do not set vme mcst address in the mvlc_timestamper ``VME Interface Settings`` script.
+
+* Improve Rate Monitor draw performance
+
+* Make Rate Estimation work in projections of 2D histograms
+
+* Analysis session data parsing fixes
+
 Version 1.4.1
 -------------
 * [vme_templates] Fix gain calculation in MDPP16-SCP ``Frontend Settings`` script.
