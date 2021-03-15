@@ -6,6 +6,7 @@ Changelog
 
 Version 1.4.2
 -------------
+
 * [vme_templates]
 
   - Wait 500ms instead of 50ms in the reset scripts of MDPP-32_PADC/QDC
@@ -14,11 +15,13 @@ Version 1.4.2
 
   - Do not set vme mcst address in the mvlc_timestamper ``VME Interface Settings`` script.
 
-* Improve Rate Monitor draw performance
+* [analysis]
 
-* Make Rate Estimation work in projections of 2D histograms
+  - Improve Rate Monitor draw performance
 
-* Analysis session data parsing fixes
+  - Make Rate Estimation work in projections of 2D histograms
+
+  - Analysis session data parsing fixes
 
 Version 1.4.1
 -------------
