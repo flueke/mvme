@@ -3069,22 +3069,3 @@ DAQPauser::~DAQPauser()
         context->resumeDAQ();
     }
 }
-
-QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
-                                        const QString &fileName,
-                                        QString startPath,
-                                        QString fileFilter,
-                                        MVMEContext *context)
-{
-    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
-    return gui_saveAnalysisConfig(analysis, fileName, startPath, fileFilter);
-}
-
-QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
-                                          QString startPath,
-                                          QString fileFilter,
-                                          MVMEContext *context)
-{
-    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
-    return gui_saveAnalysisConfigAs(analysis, startPath, fileFilter);
-}

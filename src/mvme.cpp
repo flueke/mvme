@@ -598,52 +598,12 @@ void MVMEMainWindow::onActionNewWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (m_d->m_context->getVMEConfig()->isModified())
-    {
-        QMessageBox msgBox(
-            QMessageBox::Question, "Save VME configuration?",
-            "The current VME configuration has modifications. Do you want to save it?",
-            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save && !onActionSaveVMEConfig_triggered())
-        {
-            return;
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
     // analysis config
-    if (m_d->m_context->getAnalysis()->isModified())
-    {
-        QMessageBox msgBox(
-            QMessageBox::Question, QSL("Save analysis config?"),
-            QSL("The current analysis configuration has modifications. Do you want to save it?"),
-            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
-                                             m_d->m_context->getAnalysisConfigFilename(),
-                                             m_d->m_context->getWorkspaceDirectory(),
-                                             DefaultAnalysisFileFilter,
-                                             m_d->m_context);
-            if (!result.first)
-            {
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!analysis_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
    /* Use the parent directory of last opened workspace as the start directory
     * for browsing. */
@@ -686,52 +646,12 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (m_d->m_context->getVMEConfig()->isModified())
-    {
-        QMessageBox msgBox(
-            QMessageBox::Question, "Save VME configuration?",
-            "The current VME configuration has modifications. Do you want to save it?",
-            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save && !onActionSaveVMEConfig_triggered())
-        {
-            return;
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
     // analysis config
-    if (m_d->m_context->getAnalysis()->isModified())
-    {
-        QMessageBox msgBox(
-            QMessageBox::Question, QSL("Save analysis config?"),
-            QSL("The current analysis configuration has modifications. Do you want to save it?"),
-            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
-                                             m_d->m_context->getAnalysisConfigFilename(),
-                                             m_d->m_context->getWorkspaceDirectory(),
-                                             DefaultAnalysisFileFilter,
-                                             m_d->m_context);
-            if (!result.first)
-            {
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!analysis_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
    /* Use the parent directory of last opened workspace as the start directory
     * for browsing. */
@@ -933,56 +853,17 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
     }
 
     // Handle modified DAQConfig
-    if (m_d->m_context->getVMEConfig()->isModified())
+    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
     {
-        QMessageBox msgBox(QMessageBox::Question, QSL("Save DAQ configuration?"),
-                           QSL("The current DAQ configuration has modifications. Do you want to save it?"),
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!onActionSaveVMEConfig_triggered())
-            {
-                event->ignore();
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            event->ignore();
-            return;
-        }
+        event->ignore();
+        return;
     }
 
     // Handle modified AnalysisConfig
-    auto analysis = m_d->m_context->getAnalysis();
-    if (analysis->isModified())
+    if (!analysis_maybe_save_if_modified(m_d->m_context).first)
     {
-        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
-                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
-                                             m_d->m_context->getAnalysisConfigFilename(),
-                                             m_d->m_context->getWorkspaceDirectory(),
-                                             DefaultAnalysisFileFilter,
-                                             m_d->m_context);
-            if (!result.first)
-            {
-                event->ignore();
-                return;
-            }
-            m_d->m_context->setAnalysisConfigFilename(result.second);
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            event->ignore();
-            return;
-        }
+        event->ignore();
+        return;
     }
 
     // window sizes and positions
@@ -1079,25 +960,8 @@ void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
 
 void MVMEMainWindow::onActionNewVMEConfig_triggered()
 {
-    if (m_d->m_context->getVMEConfig()->isModified())
-    {
-        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
-                           "The current configuration has modifications. Do you want to save it?",
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!onActionSaveVMEConfig_triggered())
-            {
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
     new_vme_config(m_d->m_context);
 }
@@ -1107,25 +971,8 @@ static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);;
 
 void MVMEMainWindow::onActionOpenVMEConfig_triggered()
 {
-    if (m_d->m_context->getVMEConfig()->isModified())
-    {
-        QMessageBox msgBox(QMessageBox::Question, "Save VME configuration?",
-                           "The current VME configuration has modifications. Do you want to save it?",
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!onActionSaveVMEConfig_triggered())
-            {
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
     auto path = m_d->m_context->getWorkspaceDirectory();
 
@@ -1283,25 +1130,8 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
 
 void MVMEMainWindow::onActionImportFromMVLC_triggered()
 {
-    if (m_d->m_context->getVMEConfig()->isModified())
-    {
-        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
-                           "The current VME configuration has modifications. Do you want to save it?",
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!onActionSaveVMEConfig_triggered())
-            {
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
@@ -1349,25 +1179,8 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
 
 void MVMEMainWindow::onActionOpenListfile_triggered()
 {
-    if (m_d->m_context->getVMEConfig()->isModified())
-    {
-        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
-                           "The current VME configuration has modifications. Do you want to save it?",
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!onActionSaveVMEConfig_triggered())
-            {
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+        return;
 
     QString path = m_d->m_context->getListFileOutputInfo().fullDirectory;
 

@@ -410,15 +410,4 @@ struct DAQPauser
     bool was_running;
 };
 
-QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
-                                        const QString &fileName,
-                                        QString startPath,
-                                        QString fileFilter,
-                                        MVMEContext *context);
-
-QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
-                                           QString startPath,
-                                           QString fileFilter,
-                                           MVMEContext *context);
-
 #endif

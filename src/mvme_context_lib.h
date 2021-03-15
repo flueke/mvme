@@ -24,7 +24,13 @@
 #include "mvme_listfile_utils.h"
 #include "mvme_context.h"
 
-// Saving of vme and analysis configs
+// Saving of vme and analysis configs.
+//
+// The returned boolean is true if the config was saved or the user wants to
+// discard pending changes. False if the config could not be saved or the user
+// wants to cancel the current action.
+// The second member of the return value contains the name of the file that was
+// written.
 
 QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
                                         const QString &fileName,
@@ -35,8 +41,33 @@ QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
                                           QString startPath,
                                           QString fileFilter);
 
+// These add vme properties from the vme config to the analysis then call the
+// gui_saveAnalysisConfig*() functions.
+QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
+                                        const QString &fileName,
+                                        QString startPath,
+                                        QString fileFilter,
+                                        MVMEContext *context);
+
+QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
+                                           QString startPath,
+                                           QString fileFilter,
+                                           MVMEContext *context);
+
+// These get the VMEConfig/Analysis object from the context. If the object is
+// modified the save -> saveas sequence is run.
+QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context);
 
 
+
+QPair<bool, QString> save_vme_config(VMEConfig *vmeConfig, const QString &filename, QString startPath);
+QPair<bool, QString> save_vme_config_as(VMEConfig *vmeConfig, QString startPath);
+
+QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context);
+
+
+
+// listfile opening
 struct OpenListfileFlags
 {
     static const u16 LoadAnalysis = 1u << 0;

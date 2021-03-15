@@ -21,16 +21,18 @@
 #include "mvme_context_lib.h"
 
 #include <QFileDialog>
+#include <QMessageBox>
 #include <QStandardPaths>
 
 #include "analysis/analysis.h"
 #include "mvme_context.h"
 #include "template_system.h"
 #include "util_zip.h"
+#include "vme_config_util.h"
 
 namespace
 {
-    bool saveAnalysisConfigImpl(analysis::Analysis *analysis_ng, const QString &fileName)
+    bool save_analysis_impl(analysis::Analysis *analysis_ng, const QString &fileName)
     {
         QJsonObject json;
         {
@@ -39,6 +41,12 @@ namespace
             json[QSL("AnalysisNG")] = destObject;
         }
         return gui_write_json_file(fileName, QJsonDocument(json));
+    }
+
+    bool save_vmeconfig_impl(VMEConfig *vmeConfig, const QString &filename)
+    {
+        auto doc = mvme::vme_config::serialize_vme_config_to_json_document(*vmeConfig);
+        return gui_write_json_file(filename, doc);
     }
 }
 
@@ -49,7 +57,7 @@ QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
     if (fileName.isEmpty())
         return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
 
-    if (saveAnalysisConfigImpl(analysis_ng, fileName))
+    if (save_analysis_impl(analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }
@@ -73,12 +81,159 @@ QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
     if (fi.completeSuffix().isEmpty())
         fileName += QSL(".analysis");
 
-    if (saveAnalysisConfigImpl(analysis_ng, fileName))
+    if (save_analysis_impl(analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }
 
     return qMakePair(false, QString());
+}
+
+QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
+                                        const QString &fileName,
+                                        QString startPath,
+                                        QString fileFilter,
+                                        MVMEContext *context)
+{
+    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
+    return gui_saveAnalysisConfig(analysis, fileName, startPath, fileFilter);
+}
+
+QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
+                                          QString startPath,
+                                          QString fileFilter,
+                                          MVMEContext *context)
+{
+    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
+    return gui_saveAnalysisConfigAs(analysis, startPath, fileFilter);
+}
+
+static const QString AnalysisFileFilter = QSL(
+    "MVME Analysis Files (*.analysis);; All Files (*.*)");
+
+static const QString VMEConfigFileFilter = QSL(
+    "MVME VME Config Files (*.vme *.mvmecfg);; All Files (*.*)");
+
+QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context)
+{
+    auto result = qMakePair(true, QString());
+
+    auto analysis = context->getAnalysis();
+
+    if (analysis->isModified())
+    {
+        QMessageBox msgBox(
+            QMessageBox::Question,
+            QSL("Save analysis configuration?"),
+            QSL("The current analysis configuration has modifications. Do you want to save it?"),
+            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int choice = msgBox.exec();
+
+        if (choice == QMessageBox::Save)
+        {
+            result = saveAnalysisConfig(
+                analysis,
+                context->getAnalysisConfigFilename(),
+                context->getWorkspaceDirectory(),
+                AnalysisFileFilter,
+                context);
+
+            if (result.first)
+            {
+                analysis->setModified(false);
+                context->setAnalysisConfigFilename(result.second);
+                context->analysisWasSaved();
+            }
+        }
+        else if (choice == QMessageBox::Cancel)
+        {
+            result.first = false;
+        }
+        else
+        {
+            assert(choice == QMessageBox::Discard);
+        }
+    }
+
+    return result;
+}
+
+QPair<bool, QString> save_vme_config(VMEConfig *vmeConfig, const QString &filename, QString startPath)
+{
+    if (filename.isEmpty())
+        return save_vme_config_as(vmeConfig, startPath);
+
+    if (save_vmeconfig_impl(vmeConfig, filename))
+        return qMakePair(true, filename);
+
+    return qMakePair(false, QString());
+}
+
+QPair<bool, QString> save_vme_config_as(VMEConfig *vmeConfig, QString path)
+{
+    if (path.isEmpty())
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    QString filename = QFileDialog::getSaveFileName(
+        nullptr, "Save VME Config As", path, VMEConfigFileFilter);
+
+    if (filename.isEmpty())
+        return qMakePair(false, QString());
+
+    QFileInfo fi(filename);
+    if (fi.completeSuffix().isEmpty())
+    {
+        filename += QSL(".vme");
+    }
+
+    if (save_vmeconfig_impl(vmeConfig, filename))
+        return qMakePair(true, filename);
+
+    return qMakePair(false, QString());
+}
+
+QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context)
+{
+    auto result = qMakePair(true, QString());
+
+    auto vmeConfig = context->getVMEConfig();
+
+    if (vmeConfig->isModified())
+    {
+        QMessageBox msgBox(
+            QMessageBox::Question,
+            QSL("Save VME configuration?"),
+            QSL("The current VME configuration has modifications. Do you want to save it?"),
+            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int choice = msgBox.exec();
+
+        if (choice == QMessageBox::Save)
+        {
+            result = save_vme_config(
+                vmeConfig,
+                context->getVMEConfigFilename(),
+                context->getWorkspaceDirectory());
+
+            if (result.first)
+            {
+                vmeConfig->setModified(false);
+                context->setVMEConfigFilename(result.second);
+                context->vmeConfigWasSaved();
+            }
+        }
+        else if (choice == QMessageBox::Cancel)
+        {
+            result.first = false;
+        }
+        else
+        {
+            assert(choice == QMessageBox::Discard);
+        }
+    }
+
+    return result;
 }
 
 const ListfileReplayHandle &context_open_listfile(

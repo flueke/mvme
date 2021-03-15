@@ -446,26 +446,8 @@ void AnalysisWidgetPrivate::closeAllSinkWidgets()
 
 void AnalysisWidgetPrivate::actionNew()
 {
-    if (m_context->getAnalysis()->isModified())
-    {
-        QMessageBox msgBox(
-            QMessageBox::Question, QSL("Save analysis configuration?"),
-            QSL("The current analysis configuration has modifications. Do you want to save it?"),
-            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!actionSave().first)
-                return;
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-        // else discard
-    }
+    if (!analysis_maybe_save_if_modified(m_context).first)
+        return;
 
     /* Close any active unique widgets _before_ replacing the analysis as the
      * unique widgets might perform actions on the analysis in their reject()
@@ -494,25 +476,8 @@ void AnalysisWidgetPrivate::actionOpen()
     if (fileName.isEmpty())
         return;
 
-    if (m_context->getAnalysis()->isModified())
-    {
-        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
-                           QSL("The current analysis configuration has modifications."
-                               " Do you want to save it?"),
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!actionSave().first)
-                return;
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-        // else discard
-    }
+    if (!analysis_maybe_save_if_modified(m_context).first)
+        return;
 
     closeAllUniqueWidgets();
     closeAllSinkWidgets();
@@ -717,35 +682,8 @@ void AnalysisWidgetPrivate::actionLoadSession()
         analysisJson = QJsonDocument(result.first);
     }
 
-    if (m_context->getAnalysis()->isModified())
-    {
-        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
-                           QSL("The current analysis configuration has modifications."
-                               " Do you want to save it?"),
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            auto result = saveAnalysisConfig(
-                m_context->getAnalysis(),
-                m_context->getAnalysisConfigFilename(),
-                m_context->getWorkspaceDirectory(),
-                AnalysisFileFilter,
-                m_context);
-
-            if (!result.first)
-            {
-                m_context->logMessage(QSL("Error: ") + result.second);
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
+    if (!analysis_maybe_save_if_modified(m_context).first)
+        return;
 
     // This is the standard procedure when loading an analysis config
     closeAllUniqueWidgets();

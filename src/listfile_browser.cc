@@ -156,56 +156,15 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
         return;
     }
 
-    if (m_context->getVMEConfig()->isModified())
-    {
-        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
-                           "The current VME configuration has modifications. Do you want to save it?",
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            if (!m_mainWindow->onActionSaveVMEConfig_triggered())
-            {
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
-            return;
-        }
-    }
-
+    if (!vmeconfig_maybe_save_if_modified(m_context).first)
+        return;
 
     u16 flags = m_analysisLoadActionCombo->currentData().toUInt(0);
 
     if ((flags & OpenListfileFlags::LoadAnalysis) && m_context->getAnalysis()->isModified())
     {
-        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
-                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
-                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-
-        int result = msgBox.exec();
-
-        if (result == QMessageBox::Save)
-        {
-            auto result = saveAnalysisConfig(
-                m_context->getAnalysis(),
-                m_context->getAnalysisConfigFilename(),
-                m_context->getWorkspaceDirectory(),
-                AnalysisFileFilter,
-                m_context);
-
-            if (!result.first)
-            {
-                m_context->logMessage(QSL("Error: ") + result.second);
-                return;
-            }
-        }
-        else if (result == QMessageBox::Cancel)
-        {
+        if (!analysis_maybe_save_if_modified(m_context).first)
             return;
-        }
     }
 
     auto filename = m_fsModel->filePath(mi);
