@@ -1446,7 +1446,6 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, u16 openListf
     setRunNotes(m_d->listfileReplayHandle.runNotes);
     setMode(GlobalMode::ListFile);
 
-
     // optionally load the analysis from the listfile
     if ((openListfileFlags & OpenListfileFlags::LoadAnalysis) && !m_d->listfileReplayHandle.analysisBlob.isEmpty())
     {
