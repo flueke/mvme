@@ -476,7 +476,7 @@ void AnalysisWidgetPrivate::actionNew()
     AnalysisPauser pauser(m_context);
     m_context->getAnalysis()->clear();
     m_context->getAnalysis()->setModified(false);
-    m_context->setAnalysisConfigFileName(QString());
+    m_context->setAnalysisConfigFilename(QString());
     m_context->analysisWasCleared();
     repopulate();
 }
@@ -522,7 +522,7 @@ void AnalysisWidgetPrivate::actionOpen()
 
 QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 {
-    QString fileName = m_context->getAnalysisConfigFileName();
+    QString fileName = m_context->getAnalysisConfigFilename();
 
     if (fileName.isEmpty())
     {
@@ -536,7 +536,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
                                          m_context);
         if (result.first)
         {
-            m_context->setAnalysisConfigFileName(result.second);
+            m_context->setAnalysisConfigFilename(result.second);
             m_context->getAnalysis()->setModified(false);
             m_context->analysisWasSaved();
         }
@@ -562,7 +562,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 
     if (result.first)
     {
-        m_context->setAnalysisConfigFileName(result.second);
+        m_context->setAnalysisConfigFilename(result.second);
         m_context->getAnalysis()->setModified(false);
     }
 
@@ -730,7 +730,7 @@ void AnalysisWidgetPrivate::actionLoadSession()
         {
             auto result = saveAnalysisConfig(
                 m_context->getAnalysis(),
-                m_context->getAnalysisConfigFileName(),
+                m_context->getAnalysisConfigFilename(),
                 m_context->getWorkspaceDirectory(),
                 AnalysisFileFilter,
                 m_context);
@@ -753,7 +753,7 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
     if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
     {
-        m_context->setAnalysisConfigFileName(QString());
+        m_context->setAnalysisConfigFilename(QString());
         progressDialog.setLabelText(QSL("Loading session data..."));
 
 
@@ -876,7 +876,7 @@ void AnalysisWidgetPrivate::actionStepNextEvent()
 
 void AnalysisWidgetPrivate::updateWindowTitle()
 {
-    QString fileName = m_context->getAnalysisConfigFileName();
+    QString fileName = m_context->getAnalysisConfigFilename();
 
     if (fileName.isEmpty())
         fileName = QSL("<not saved>");

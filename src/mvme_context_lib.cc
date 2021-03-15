@@ -19,10 +19,67 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme_context_lib.h"
+
+#include <QFileDialog>
+#include <QStandardPaths>
+
 #include "analysis/analysis.h"
 #include "mvme_context.h"
 #include "template_system.h"
 #include "util_zip.h"
+
+namespace
+{
+    bool saveAnalysisConfigImpl(analysis::Analysis *analysis_ng, const QString &fileName)
+    {
+        QJsonObject json;
+        {
+            QJsonObject destObject;
+            analysis_ng->write(destObject);
+            json[QSL("AnalysisNG")] = destObject;
+        }
+        return gui_write_json_file(fileName, QJsonDocument(json));
+    }
+}
+
+QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
+                                            const QString &fileName, QString startPath,
+                                            QString fileFilter)
+{
+    if (fileName.isEmpty())
+        return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
+
+    if (saveAnalysisConfigImpl(analysis_ng, fileName))
+    {
+        return qMakePair(true, fileName);
+    }
+    return qMakePair(false, QString());
+}
+
+QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
+                                              QString path, QString fileFilter)
+{
+    if (path.isEmpty())
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"),
+                                                    path, fileFilter);
+
+    if (fileName.isEmpty())
+        return qMakePair(false, QString());
+
+    QFileInfo fi(fileName);
+
+    if (fi.completeSuffix().isEmpty())
+        fileName += QSL(".analysis");
+
+    if (saveAnalysisConfigImpl(analysis_ng, fileName))
+    {
+        return qMakePair(true, fileName);
+    }
+
+    return qMakePair(false, QString());
+}
 
 const ListfileReplayHandle &context_open_listfile(
     MVMEContext *context,
@@ -119,6 +176,6 @@ void LIBMVME_EXPORT new_vme_config(MVMEContext *context)
     }
 
     context->setVMEConfig(vmeConfig);
-    context->setConfigFileName(QString());
+    context->setVMEConfigFilename(QString());
     context->setMode(GlobalMode::DAQ);
 }

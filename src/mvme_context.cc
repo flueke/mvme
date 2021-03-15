@@ -81,9 +81,13 @@ static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 
 static const int DefaultListFileCompression = 1;
+
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
-static const QString ListfileVMEConfigAutoSaveFileName = QSL(".autosaved_vmeconfig_from_listfile.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
+
+static const QString ListfileVMEConfigFilename = QSL(".listfile_vmeconfig.vme");
+static const QString ListfileAnalysisConfigFilename = QSL(".listfile_analysis.analysis");
+
 static const QString RunNotesFilename = QSL("mvme_run_notes.txt");
 
 static const QString VMEConfigAutoSaveFilename = QSL(".vme_autosave.vme");
@@ -1442,7 +1446,7 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, u16 openListf
     m_d->listfileReplayHandle = std::move(handle);
     m_d->listfileReplayWorker->setListfile(&m_d->listfileReplayHandle);
 
-    setConfigFileName(QString(), false);
+    setVMEConfigFilename(QString(), false);
     setRunNotes(m_d->listfileReplayHandle.runNotes);
     setMode(GlobalMode::ListFile);
 
@@ -1450,7 +1454,7 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, u16 openListf
     if ((openListfileFlags & OpenListfileFlags::LoadAnalysis) && !m_d->listfileReplayHandle.analysisBlob.isEmpty())
     {
         loadAnalysisConfig(m_d->listfileReplayHandle.analysisBlob, QSL("ZIP Archive"));
-        setAnalysisConfigFileName(QString());
+        setAnalysisConfigFilename(QString());
     }
 
     bool ret = handle_vme_analysis_assignment(
@@ -1503,7 +1507,7 @@ void MVMEContext::closeReplayFileHandle()
     else
     {
         setVMEConfig(new VMEConfig);
-        setConfigFileName(QString());
+        setVMEConfigFilename(QString());
         setMode(GlobalMode::DAQ);
     }
 }
@@ -1569,7 +1573,7 @@ QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) con
     return m_objectMappings[category].value(key, nullptr);
 }
 
-void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
+void MVMEContext::setVMEConfigFilename(QString name, bool updateWorkspace)
 {
     if (m_configFileName != name || updateWorkspace)
     {
@@ -1583,7 +1587,7 @@ void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
     }
 }
 
-void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
+void MVMEContext::setAnalysisConfigFilename(QString name, bool updateWorkspace)
 {
     if (m_analysisConfigFileName != name || updateWorkspace)
     {
@@ -2358,7 +2362,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
                     case QMessageBox::Open:
                         loadVMEConfig(dir.filePath(VMEConfigAutoSaveFilename));
                         getVMEConfig()->setModified(true);
-                        setConfigFileName(lastVMEConfig);
+                        setVMEConfigFilename(lastVMEConfig);
                         break;
 
                     case QMessageBox::Cancel:
@@ -2393,7 +2397,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
                 qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
                 // No previous filename is known so use a default name without updating
                 // the workspace settings.
-                setConfigFileName(DefaultVMEConfigFileName, false);
+                setVMEConfigFilename(DefaultVMEConfigFileName, false);
             }
         }
 
@@ -2429,7 +2433,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
                     case QMessageBox::Open:
                         loadAnalysisConfig(dir.filePath(AnalysisAutoSaveFilename));
                         getAnalysis()->setModified(true);
-                        setAnalysisConfigFileName(lastAnalysisConfig);
+                        setAnalysisConfigFilename(lastAnalysisConfig);
                         break;
 
                     case QMessageBox::Cancel:
@@ -2451,7 +2455,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
                 if (!couldLoad)
                 {
-                    setAnalysisConfigFileName(DefaultAnalysisConfigFileName);
+                    setAnalysisConfigFilename(DefaultAnalysisConfigFileName);
                     getAnalysis()->setModified();
                 }
             }
@@ -2463,7 +2467,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
             else
             {
                 qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
-                setAnalysisConfigFileName(DefaultAnalysisConfigFileName, false);
+                setAnalysisConfigFilename(DefaultAnalysisConfigFileName, false);
             }
 
             // No exceptions thrown -> store workspace directory in global settings
@@ -2603,6 +2607,7 @@ void MVMEContextPrivate::workspaceClosingCleanup()
     maybeSaveDAQNotes();
     m_q->setRunNotes({});
 
+#if 0
     if (m_q->getMode() == GlobalMode::ListFile
         && m_q->m_configFileName.isEmpty()
         && !m_q->m_analysisConfigFileName.isEmpty())
@@ -2616,15 +2621,16 @@ void MVMEContextPrivate::workspaceClosingCleanup()
         // - Solution:
         // Create a save file containing the vme config loaded from the listfile.
         // Set it to be the new auto load vme config in the mvmeworkspace.ini.
-        QFile outFile(ListfileVMEConfigAutoSaveFileName);
+        QFile outFile(ListfileVMEConfigFilename);
 
         if (outFile.open(QIODevice::WriteOnly))
         {
             auto vmeConfig = m_q->getVMEConfig();
             if (mvme::vme_config::serialize_vme_config_to_device(outFile, *vmeConfig))
-                m_q->makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), ListfileVMEConfigAutoSaveFileName);
+                m_q->makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), ListfileVMEConfigFilename);
         }
     }
+#endif
 }
 
 void MVMEContext::cleanupWorkspaceAutoSaveFiles()
@@ -2766,7 +2772,7 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
     }
 
     setVMEConfig(vmeConfig.release());
-    setConfigFileName(fileName);
+    setVMEConfigFilename(fileName);
     setMode(GlobalMode::DAQ);
 
     if (m_d->m_vmeConfigAutoSaver)
@@ -2799,7 +2805,7 @@ bool MVMEContext::loadAnalysisConfig(const QString &fileName)
 
     if (loadAnalysisConfig(doc, QFileInfo(fileName).fileName()))
     {
-        setAnalysisConfigFileName(fileName);
+        setAnalysisConfigFilename(fileName);
         return true;
     }
 
@@ -2815,7 +2821,7 @@ bool MVMEContext::loadAnalysisConfig(QIODevice *input, const QString &inputInfo)
 
     if (loadAnalysisConfig(doc, inputInfo))
     {
-        setAnalysisConfigFileName(QString());
+        setAnalysisConfigFilename(QString());
         return true;
     }
 
@@ -2902,7 +2908,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     {
         if (m_analysis)
             m_analysis->clear();
-        setAnalysisConfigFileName(QString());
+        setAnalysisConfigFilename(QString());
         if (m_mainwin)
         {
             QMessageBox::critical(m_mainwin, QSL("Error"),

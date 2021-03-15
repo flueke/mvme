@@ -22,10 +22,20 @@
 #define __MVME_CONTEXT_LIB_H__
 
 #include "mvme_listfile_utils.h"
-#include "mvme_stream_worker.h"
-#include "listfile_replay.h"
+#include "mvme_context.h"
 
-class MVMEContext;
+// Saving of vme and analysis configs
+
+QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
+                                        const QString &fileName,
+                                        QString startPath,
+                                        QString fileFilter);
+
+QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
+                                          QString startPath,
+                                          QString fileFilter);
+
+
 
 struct OpenListfileFlags
 {

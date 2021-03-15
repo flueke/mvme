@@ -224,11 +224,11 @@ class LIBMVME_EXPORT MVMEContext: public QObject
             return qobject_cast<T *>(getConfigForObject(object));
         }
 
-        void setConfigFileName(QString name, bool updateWorkspace = true);
-        QString getConfigFileName() const { return m_configFileName; }
+        void setVMEConfigFilename(QString name, bool updateWorkspace = true);
+        QString getVMEConfigFilename() const { return m_configFileName; }
 
-        void setAnalysisConfigFileName(QString name, bool updateWorkspace = true);
-        QString getAnalysisConfigFileName() const { return m_analysisConfigFileName; }
+        void setAnalysisConfigFilename(QString name, bool updateWorkspace = true);
+        QString getAnalysisConfigFilename() const { return m_analysisConfigFileName; }
 
         // Logs the given msg as-is.
         void logMessageRaw(const QString &msg);

@@ -186,7 +186,7 @@ QJsonObject make_analysis_benchmark_info(const MVMEContext &mvmeContext)
     // BenchInfo
     {
         auto listfileFilename = mvmeContext.getReplayFileHandle().inputFilename;
-        auto analysisFilename = mvmeContext.getAnalysisConfigFileName();
+        auto analysisFilename = mvmeContext.getAnalysisConfigFilename();
 
         QJsonObject infoJ;
 

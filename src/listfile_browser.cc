@@ -191,7 +191,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
         {
             auto result = saveAnalysisConfig(
                 m_context->getAnalysis(),
-                m_context->getAnalysisConfigFileName(),
+                m_context->getAnalysisConfigFilename(),
                 m_context->getWorkspaceDirectory(),
                 AnalysisFileFilter,
                 m_context);

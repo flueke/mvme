@@ -29,7 +29,6 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFile>
-#include <QFileDialog>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QJsonDocument>
@@ -43,7 +42,6 @@
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QStandardItemModel>
-#include <QStandardPaths>
 #include <QThread>
 #include <mesytec-mvlc/mvlc_constants.h>
 
@@ -639,55 +637,3 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
 }
 #endif
 
-namespace
-{
-    bool saveAnalysisConfigImpl(analysis::Analysis *analysis_ng, const QString &fileName)
-    {
-        QJsonObject json;
-        {
-            QJsonObject destObject;
-            analysis_ng->write(destObject);
-            json[QSL("AnalysisNG")] = destObject;
-        }
-        return gui_write_json_file(fileName, QJsonDocument(json));
-    }
-}
-
-QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
-                                            const QString &fileName, QString startPath,
-                                            QString fileFilter)
-{
-    if (fileName.isEmpty())
-        return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
-
-    if (saveAnalysisConfigImpl(analysis_ng, fileName))
-    {
-        return qMakePair(true, fileName);
-    }
-    return qMakePair(false, QString());
-}
-
-QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
-                                              QString path, QString fileFilter)
-{
-    if (path.isEmpty())
-        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-
-    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"),
-                                                    path, fileFilter);
-
-    if (fileName.isEmpty())
-        return qMakePair(false, QString());
-
-    QFileInfo fi(fileName);
-
-    if (fi.completeSuffix().isEmpty())
-        fileName += QSL(".analysis");
-
-    if (saveAnalysisConfigImpl(analysis_ng, fileName))
-    {
-        return qMakePair(true, fileName);
-    }
-
-    return qMakePair(false, QString());
-}

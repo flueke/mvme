@@ -630,7 +630,7 @@ void MVMEMainWindow::onActionNewWorkspace_triggered()
         if (result == QMessageBox::Save)
         {
             auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
-                                             m_d->m_context->getAnalysisConfigFileName(),
+                                             m_d->m_context->getAnalysisConfigFilename(),
                                              m_d->m_context->getWorkspaceDirectory(),
                                              DefaultAnalysisFileFilter,
                                              m_d->m_context);
@@ -718,7 +718,7 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
         if (result == QMessageBox::Save)
         {
             auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
-                                             m_d->m_context->getAnalysisConfigFileName(),
+                                             m_d->m_context->getAnalysisConfigFilename(),
                                              m_d->m_context->getWorkspaceDirectory(),
                                              DefaultAnalysisFileFilter,
                                              m_d->m_context);
@@ -967,7 +967,7 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
         if (result == QMessageBox::Save)
         {
             auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
-                                             m_d->m_context->getAnalysisConfigFileName(),
+                                             m_d->m_context->getAnalysisConfigFilename(),
                                              m_d->m_context->getWorkspaceDirectory(),
                                              DefaultAnalysisFileFilter,
                                              m_d->m_context);
@@ -976,7 +976,7 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
                 event->ignore();
                 return;
             }
-            m_d->m_context->setAnalysisConfigFileName(result.second);
+            m_d->m_context->setAnalysisConfigFilename(result.second);
         }
         else if (result == QMessageBox::Cancel)
         {
@@ -1144,12 +1144,12 @@ void MVMEMainWindow::onActionOpenVMEConfig_triggered()
 
 bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 {
-    if (m_d->m_context->getConfigFileName().isEmpty())
+    if (m_d->m_context->getVMEConfigFilename().isEmpty())
     {
         return onActionSaveVMEConfigAs_triggered();
     }
 
-    QString fileName = m_d->m_context->getConfigFileName();
+    QString fileName = m_d->m_context->getVMEConfigFilename();
     QFile outFile(fileName);
 
     if (!outFile.open(QIODevice::WriteOnly))
@@ -1169,7 +1169,7 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
     }
 
     vmeConfig->setModified(false);
-    m_d->m_context->setConfigFileName(fileName);
+    m_d->m_context->setVMEConfigFilename(fileName);
     m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
 
@@ -1178,7 +1178,7 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 
 bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 {
-    QString path = QFileInfo(m_d->m_context->getConfigFileName()).absolutePath();
+    QString path = QFileInfo(m_d->m_context->getVMEConfigFilename()).absolutePath();
 
     if (path.isEmpty())
         path = m_d->m_context->getWorkspaceDirectory();
@@ -1221,7 +1221,7 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
     }
 
     vmeConfig->setModified(false);
-    m_d->m_context->setConfigFileName(fileName);
+    m_d->m_context->setVMEConfigFilename(fileName);
     m_d->m_context->vmeConfigWasSaved();
     updateWindowTitle();
 
@@ -1232,7 +1232,7 @@ static const QString yamlOrAnyFileFilter = QSL("YAML Files (*.yaml);; All Files 
 
 bool MVMEMainWindow::onActionExportToMVLC_triggered()
 {
-    auto basename = QFileInfo(m_d->m_context->getConfigFileName()).completeBaseName();
+    auto basename = QFileInfo(m_d->m_context->getVMEConfigFilename()).completeBaseName();
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
     if (!basename.isEmpty())
@@ -1343,7 +1343,7 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
     auto configName = fi.baseName() + QSL("-imported.vme");
 
     m_d->m_context->setVMEConfig(vmeConfig.release());
-    m_d->m_context->setConfigFileName(configName, false);
+    m_d->m_context->setVMEConfigFilename(configName, false);
     m_d->m_context->setMode(GlobalMode::DAQ);
 }
 

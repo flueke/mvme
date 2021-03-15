@@ -102,13 +102,4 @@ class ModuleConfigDialog: public QDialog
         std::unique_ptr<Private> m_d;
 };
 
-QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
-                                        const QString &fileName,
-                                        QString startPath,
-                                        QString fileFilter);
-
-QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
-                                          QString startPath,
-                                          QString fileFilter);
-
 #endif /* __CONFIG_WIDGETS_H__ */
