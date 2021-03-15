@@ -598,7 +598,7 @@ void MVMEMainWindow::onActionNewWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (m_d->m_context->getConfig()->isModified())
+    if (m_d->m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(
             QMessageBox::Question, "Save VME configuration?",
@@ -686,7 +686,7 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (m_d->m_context->getConfig()->isModified())
+    if (m_d->m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(
             QMessageBox::Question, "Save VME configuration?",
@@ -933,7 +933,7 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
     }
 
     // Handle modified DAQConfig
-    if (m_d->m_context->getConfig()->isModified())
+    if (m_d->m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save DAQ configuration?"),
                            QSL("The current DAQ configuration has modifications. Do you want to save it?"),
@@ -1079,7 +1079,7 @@ void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
 
 void MVMEMainWindow::onActionNewVMEConfig_triggered()
 {
-    if (m_d->m_context->getConfig()->isModified())
+    if (m_d->m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
                            "The current configuration has modifications. Do you want to save it?",
@@ -1107,7 +1107,7 @@ static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);;
 
 void MVMEMainWindow::onActionOpenVMEConfig_triggered()
 {
-    if (m_d->m_context->getConfig()->isModified())
+    if (m_d->m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save VME configuration?",
                            "The current VME configuration has modifications. Do you want to save it?",
@@ -1260,7 +1260,7 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
 
     try
     {
-        auto vmeConfig = m_d->m_context->getConfig();
+        auto vmeConfig = m_d->m_context->getVMEConfig();
         auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
         auto yamlString = mesytec::mvlc::to_yaml(crateConfig);
         auto yamlBytes = QByteArray::fromStdString(yamlString);
@@ -1283,7 +1283,7 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
 
 void MVMEMainWindow::onActionImportFromMVLC_triggered()
 {
-    if (m_d->m_context->getConfig()->isModified())
+    if (m_d->m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
                            "The current VME configuration has modifications. Do you want to save it?",
@@ -1349,7 +1349,7 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
 
 void MVMEMainWindow::onActionOpenListfile_triggered()
 {
-    if (m_d->m_context->getConfig()->isModified())
+    if (m_d->m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
                            "The current VME configuration has modifications. Do you want to save it?",

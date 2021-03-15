@@ -156,7 +156,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
         return;
     }
 
-    if (m_context->getConfig()->isModified())
+    if (m_context->getVMEConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
                            "The current VME configuration has modifications. Do you want to save it?",
