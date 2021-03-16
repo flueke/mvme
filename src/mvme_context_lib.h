@@ -52,7 +52,8 @@ QPair<bool, QString> save_vme_config(VMEConfig *vmeConfig, const QString &filena
 QPair<bool, QString> save_vme_config_as(VMEConfig *vmeConfig, QString startPath);
 
 // These get the VMEConfig/Analysis object from the context. If the object is
-// modified the save -> saveas sequence is run.
+// modified the save -> saveas sequence is run. They also set the new filename
+// on the context object and restart the file autosaver.
 QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context);
 QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context);
 
