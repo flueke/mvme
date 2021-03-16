@@ -32,36 +32,28 @@
 
 namespace
 {
-    bool save_analysis_impl(analysis::Analysis *analysis_ng, const QString &fileName)
-    {
-        QJsonObject json;
-        {
-            QJsonObject destObject;
-            analysis_ng->write(destObject);
-            json[QSL("AnalysisNG")] = destObject;
-        }
-        return gui_write_json_file(fileName, QJsonDocument(json));
-    }
 
-    bool save_vmeconfig_impl(VMEConfig *vmeConfig, const QString &filename)
+static const QString AnalysisFileFilter = QSL(
+    "MVME Analysis Files (*.analysis);; All Files (*.*)");
+
+static const QString VMEConfigFileFilter = QSL(
+    "MVME VME Config Files (*.vme *.mvmecfg);; All Files (*.*)");
+
+bool save_analysis_impl(analysis::Analysis *analysis_ng, const QString &fileName)
+{
+    QJsonObject json;
     {
-        auto doc = mvme::vme_config::serialize_vme_config_to_json_document(*vmeConfig);
-        return gui_write_json_file(filename, doc);
+        QJsonObject destObject;
+        analysis_ng->write(destObject);
+        json[QSL("AnalysisNG")] = destObject;
     }
+    return gui_write_json_file(fileName, QJsonDocument(json));
 }
 
-QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
-                                            const QString &fileName, QString startPath,
-                                            QString fileFilter)
+bool save_vmeconfig_impl(VMEConfig *vmeConfig, const QString &filename)
 {
-    if (fileName.isEmpty())
-        return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
-
-    if (save_analysis_impl(analysis_ng, fileName))
-    {
-        return qMakePair(true, fileName);
-    }
-    return qMakePair(false, QString());
+    auto doc = mvme::vme_config::serialize_vme_config_to_json_document(*vmeConfig);
+    return gui_write_json_file(filename, doc);
 }
 
 QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
@@ -89,7 +81,24 @@ QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
+QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
+                                            const QString &fileName, QString startPath,
+                                            QString fileFilter)
+{
+    if (fileName.isEmpty())
+        return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
+
+    if (save_analysis_impl(analysis_ng, fileName))
+    {
+        return qMakePair(true, fileName);
+    }
+    return qMakePair(false, QString());
+}
+
+} // end anon namespace
+
+
+QPair<bool, QString> save_analysis_config(analysis::Analysis *analysis,
                                         const QString &fileName,
                                         QString startPath,
                                         QString fileFilter,
@@ -99,7 +108,7 @@ QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
     return gui_saveAnalysisConfig(analysis, fileName, startPath, fileFilter);
 }
 
-QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
+QPair<bool, QString> save_analysis_config_as(analysis::Analysis *analysis,
                                           QString startPath,
                                           QString fileFilter,
                                           MVMEContext *context)
@@ -107,12 +116,6 @@ QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
     vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
     return gui_saveAnalysisConfigAs(analysis, startPath, fileFilter);
 }
-
-static const QString AnalysisFileFilter = QSL(
-    "MVME Analysis Files (*.analysis);; All Files (*.*)");
-
-static const QString VMEConfigFileFilter = QSL(
-    "MVME VME Config Files (*.vme *.mvmecfg);; All Files (*.*)");
 
 QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context)
 {
@@ -132,7 +135,7 @@ QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context)
 
         if (choice == QMessageBox::Save)
         {
-            result = saveAnalysisConfig(
+            result = save_analysis_config(
                 analysis,
                 context->getAnalysisConfigFilename(),
                 context->getWorkspaceDirectory(),

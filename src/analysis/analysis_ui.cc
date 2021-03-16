@@ -495,7 +495,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
     }
     else
     {
-        auto result = saveAnalysisConfig(m_context->getAnalysis(), fileName,
+        auto result = save_analysis_config(m_context->getAnalysis(), fileName,
                                          m_context->getWorkspaceDirectory(),
                                          AnalysisFileFilter,
                                          m_context);
@@ -520,7 +520,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
         path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
     }
 
-    auto result = saveAnalysisConfigAs(m_context->getAnalysis(),
+    auto result = save_analysis_config_as(m_context->getAnalysis(),
                                        path,
                                        AnalysisFileFilter,
                                        m_context);

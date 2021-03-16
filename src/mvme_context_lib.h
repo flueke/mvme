@@ -32,37 +32,28 @@
 // The second member of the return value contains the name of the file that was
 // written.
 
-QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
-                                        const QString &fileName,
-                                        QString startPath,
-                                        QString fileFilter);
-
-QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
-                                          QString startPath,
-                                          QString fileFilter);
-
-// These add vme properties from the vme config to the analysis then call the
-// gui_saveAnalysisConfig*() functions.
-QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
+// These add vme properties from the vme config to the analysis then save the
+// analysis to the user selected output file.
+QPair<bool, QString> save_analysis_config(analysis::Analysis *analysis,
                                         const QString &fileName,
                                         QString startPath,
                                         QString fileFilter,
                                         MVMEContext *context);
 
-QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
+QPair<bool, QString> save_analysis_config_as(analysis::Analysis *analysis,
                                            QString startPath,
                                            QString fileFilter,
                                            MVMEContext *context);
 
-// These get the VMEConfig/Analysis object from the context. If the object is
-// modified the save -> saveas sequence is run.
-QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context);
 
 
 
 QPair<bool, QString> save_vme_config(VMEConfig *vmeConfig, const QString &filename, QString startPath);
 QPair<bool, QString> save_vme_config_as(VMEConfig *vmeConfig, QString startPath);
 
+// These get the VMEConfig/Analysis object from the context. If the object is
+// modified the save -> saveas sequence is run.
+QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context);
 QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context);
 
 
