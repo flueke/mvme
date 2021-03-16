@@ -309,11 +309,28 @@ QJsonDocument gui_read_json_file(const QString &fileName)
 
     if (!inFile.open(QIODevice::ReadOnly))
     {
-        QMessageBox::critical(0, QSL("Error"), QString("Error reading from %1").arg(fileName));
+        QMessageBox::critical(nullptr, QSL("Error"), QString("Error reading from %1: %2")
+                              .arg(fileName, inFile.errorString()));
         return QJsonDocument();
     }
 
-    return gui_read_json(&inFile);
+    auto data = inFile.readAll();
+
+    if (data.isEmpty())
+        return QJsonDocument();
+
+    QJsonParseError parseError;
+    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
+
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        QMessageBox::critical(nullptr, "Error", QString("Error parsing JSON file %1: %2 at offset %3")
+                              .arg(fileName)
+                              .arg(parseError.errorString())
+                              .arg(parseError.offset));
+    }
+
+    return doc;
 }
 
 QJsonDocument gui_read_json(QIODevice *input)
@@ -328,10 +345,9 @@ QJsonDocument gui_read_json(QIODevice *input)
 
     if (parseError.error != QJsonParseError::NoError)
     {
-        QMessageBox::critical(0, "Error", QString("Error reading JSON: %1 at offset %2")
+        QMessageBox::critical(nullptr, "Error", QString("Error parsing JSON: %1 at offset %2")
                               .arg(parseError.errorString())
-                              .arg(parseError.offset)
-                             );
+                              .arg(parseError.offset));
     }
     return doc;
 }
@@ -339,15 +355,21 @@ QJsonDocument gui_read_json(QIODevice *input)
 bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc)
 {
     QFile outFile(fileName);
+
     if (!outFile.open(QIODevice::WriteOnly))
     {
-        QMessageBox::critical(0, QSL("Error"), QString("Error opening %1 for writing").arg(fileName));
+        QMessageBox::critical(0, QSL("Error"), QString("Error opening %1 for writing: %2")
+                              .arg(fileName, outFile.errorString()));
         return false;
     }
 
-    if (outFile.write(doc.toJson()) < 0)
+    auto data = doc.toJson();
+    auto written = outFile.write(data);
+
+    if (written != data.size())
     {
-        QMessageBox::critical(0, QSL("Error"), QString("Error writing to %1").arg(fileName));
+        QMessageBox::critical(0, QSL("Error"), QString("Error writing to %1: %2")
+                              .arg(fileName, outFile.errorString()));
         return false;
     }
 

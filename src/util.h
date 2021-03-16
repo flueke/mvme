@@ -319,6 +319,9 @@ class LIBMVME_CORE_EXPORT TemplateLoader: public QObject
 
 LIBMVME_CORE_EXPORT QJsonDocument gui_read_json(QIODevice *input);
 LIBMVME_CORE_EXPORT QJsonDocument gui_read_json_file(const QString &fileName);
+
+// Writes the JSON data to the output file. Error reporting is done using
+// QMessageBoxes.
 LIBMVME_CORE_EXPORT bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
 
 LIBMVME_CORE_EXPORT QPair<double, QString> byte_unit(size_t bytes);
