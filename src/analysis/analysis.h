@@ -2145,6 +2145,8 @@ LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
 QStringList LIBMVME_EXPORT
 make_parent_path_list(const AnalysisObjectPtr &obj);
 
+QJsonDocument serialize_analysis_to_json_document(const Analysis &analysis);
+
 } // end namespace analysis
 
 #endif /* __ANALYSIS_H__ */

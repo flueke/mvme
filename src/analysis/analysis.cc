@@ -5688,4 +5688,12 @@ make_parent_path_list(const AnalysisObjectPtr &obj)
     return result;
 }
 
+QJsonDocument serialize_analysis_to_json_document(const Analysis &analysis)
+{
+    QJsonObject json;
+    analysis.write(json);
+    json[QSL("AnalysisNG")] = json;
+    return QJsonDocument(json);
+}
+
 } // end namespace analysis

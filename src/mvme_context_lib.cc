@@ -30,8 +30,22 @@
 #include "util_zip.h"
 #include "vme_config_util.h"
 
+
 namespace
 {
+
+bool write_json_to_file(const QString &filename, const QJsonDocument &doc)
+{
+    QFile outfile(filename);
+
+    if (!outfile.open(QIODevice::WriteOnly))
+        return false;
+
+    auto data = doc.toJson();
+    auto written = outfile.write(data);
+
+    return written == data.size();
+}
 
 static const QString AnalysisFileFilter = QSL(
     "MVME Analysis Files (*.analysis);; All Files (*.*)");
@@ -39,26 +53,66 @@ static const QString AnalysisFileFilter = QSL(
 static const QString VMEConfigFileFilter = QSL(
     "MVME VME Config Files (*.vme *.mvmecfg);; All Files (*.*)");
 
-bool save_analysis_impl(analysis::Analysis *analysis_ng, const QString &fileName)
+bool gui_save_analysis_impl(analysis::Analysis *analysis_ng, const QString &fileName)
 {
-    QJsonObject json;
-    {
-        QJsonObject destObject;
-        analysis_ng->write(destObject);
-        json[QSL("AnalysisNG")] = destObject;
-    }
-    return gui_write_json_file(fileName, QJsonDocument(json));
+    auto doc = analysis::serialize_analysis_to_json_document(*analysis_ng);
+    return gui_write_json_file(fileName, doc);
 }
 
-bool save_vmeconfig_impl(VMEConfig *vmeConfig, const QString &filename)
+bool gui_save_vmeconfig_impl(VMEConfig *vmeConfig, const QString &filename)
 {
     auto doc = mvme::vme_config::serialize_vme_config_to_json_document(*vmeConfig);
     return gui_write_json_file(filename, doc);
 }
 
-QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
-                                              QString path, QString fileFilter)
+} // end anon namespace
+
+//
+// non-gui write functions
+//
+bool write_vme_config_to_file(const QString &filename, const VMEConfig *vmeConfig)
 {
+    auto doc = mvme::vme_config::serialize_vme_config_to_json_document(*vmeConfig);
+    return write_json_to_file(filename, doc);
+}
+
+bool write_analysis_to_file(const QString &filename, const analysis::Analysis *analysis)
+{
+    auto doc = analysis::serialize_analysis_to_json_document(*analysis);
+    return write_json_to_file(filename, doc);
+}
+
+
+//
+// analysis
+//
+
+QPair<bool, QString> gui_save_analysis_config(
+    analysis::Analysis *analysis,
+    const QString &fileName,
+    QString startPath,
+    QString fileFilter,
+    MVMEContext *context)
+{
+    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
+
+    if (fileName.isEmpty())
+        return gui_save_analysis_config_as(analysis, startPath, fileFilter, context);
+
+    if (gui_save_analysis_impl(analysis, fileName))
+        return qMakePair(true, fileName);
+
+    return qMakePair(false, QString());
+}
+
+QPair<bool, QString> gui_save_analysis_config_as(
+    analysis::Analysis *analysis,
+    QString path,
+    QString fileFilter,
+    MVMEContext *context)
+{
+    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
+
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
@@ -73,51 +127,13 @@ QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
     if (fi.completeSuffix().isEmpty())
         fileName += QSL(".analysis");
 
-    if (save_analysis_impl(analysis_ng, fileName))
-    {
+    if (gui_save_analysis_impl(analysis, fileName))
         return qMakePair(true, fileName);
-    }
 
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
-                                            const QString &fileName, QString startPath,
-                                            QString fileFilter)
-{
-    if (fileName.isEmpty())
-        return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
-
-    if (save_analysis_impl(analysis_ng, fileName))
-    {
-        return qMakePair(true, fileName);
-    }
-    return qMakePair(false, QString());
-}
-
-} // end anon namespace
-
-
-QPair<bool, QString> save_analysis_config(analysis::Analysis *analysis,
-                                        const QString &fileName,
-                                        QString startPath,
-                                        QString fileFilter,
-                                        MVMEContext *context)
-{
-    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
-    return gui_saveAnalysisConfig(analysis, fileName, startPath, fileFilter);
-}
-
-QPair<bool, QString> save_analysis_config_as(analysis::Analysis *analysis,
-                                          QString startPath,
-                                          QString fileFilter,
-                                          MVMEContext *context)
-{
-    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
-    return gui_saveAnalysisConfigAs(analysis, startPath, fileFilter);
-}
-
-QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context)
+QPair<bool, QString> gui_analysis_maybe_save_if_modified(MVMEContext *context)
 {
     auto result = qMakePair(true, QString());
 
@@ -135,7 +151,7 @@ QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context)
 
         if (choice == QMessageBox::Save)
         {
-            result = save_analysis_config(
+            result = gui_save_analysis_config(
                 analysis,
                 context->getAnalysisConfigFilename(),
                 context->getWorkspaceDirectory(),
@@ -162,18 +178,27 @@ QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context)
     return result;
 }
 
-QPair<bool, QString> save_vme_config(VMEConfig *vmeConfig, const QString &filename, QString startPath)
+//
+// vme config
+//
+
+QPair<bool, QString> gui_save_vme_config(
+    VMEConfig *vmeConfig,
+    const QString &filename,
+    QString startPath)
 {
     if (filename.isEmpty())
-        return save_vme_config_as(vmeConfig, startPath);
+        return gui_save_vme_config_as(vmeConfig, startPath);
 
-    if (save_vmeconfig_impl(vmeConfig, filename))
+    if (gui_save_vmeconfig_impl(vmeConfig, filename))
         return qMakePair(true, filename);
 
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> save_vme_config_as(VMEConfig *vmeConfig, QString path)
+QPair<bool, QString> gui_save_vme_config_as(
+    VMEConfig *vmeConfig,
+    QString path)
 {
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -190,13 +215,13 @@ QPair<bool, QString> save_vme_config_as(VMEConfig *vmeConfig, QString path)
         filename += QSL(".vme");
     }
 
-    if (save_vmeconfig_impl(vmeConfig, filename))
+    if (gui_save_vmeconfig_impl(vmeConfig, filename))
         return qMakePair(true, filename);
 
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context)
+QPair<bool, QString> gui_vmeconfig_maybe_save_if_modified(MVMEContext *context)
 {
     auto result = qMakePair(true, QString());
 
@@ -214,7 +239,7 @@ QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context)
 
         if (choice == QMessageBox::Save)
         {
-            result = save_vme_config(
+            result = gui_save_vme_config(
                 vmeConfig,
                 context->getVMEConfigFilename(),
                 context->getWorkspaceDirectory());

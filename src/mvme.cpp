@@ -598,11 +598,11 @@ void MVMEMainWindow::onActionNewWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
         return;
 
     // analysis config
-    if (!analysis_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_d->m_context).first)
         return;
 
    /* Use the parent directory of last opened workspace as the start directory
@@ -646,11 +646,11 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
         return;
 
     // analysis config
-    if (!analysis_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_d->m_context).first)
         return;
 
    /* Use the parent directory of last opened workspace as the start directory
@@ -853,14 +853,14 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
     }
 
     // Handle modified DAQConfig
-    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
     {
         event->ignore();
         return;
     }
 
     // Handle modified AnalysisConfig
-    if (!analysis_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_d->m_context).first)
     {
         event->ignore();
         return;
@@ -960,7 +960,7 @@ void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
 
 void MVMEMainWindow::onActionNewVMEConfig_triggered()
 {
-    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
         return;
 
     new_vme_config(m_d->m_context);
@@ -971,7 +971,7 @@ static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);;
 
 void MVMEMainWindow::onActionOpenVMEConfig_triggered()
 {
-    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
         return;
 
     auto path = m_d->m_context->getWorkspaceDirectory();
@@ -1130,7 +1130,7 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
 
 void MVMEMainWindow::onActionImportFromMVLC_triggered()
 {
-    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
         return;
 
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -1179,7 +1179,7 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
 
 void MVMEMainWindow::onActionOpenListfile_triggered()
 {
-    if (!vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
         return;
 
     QString path = m_d->m_context->getListFileOutputInfo().fullDirectory;
