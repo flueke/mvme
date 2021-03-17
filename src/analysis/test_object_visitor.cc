@@ -29,21 +29,25 @@ class CountingVisitor: public ObjectVisitor
     public:
         virtual void visit(SourceInterface *source) override
         {
+            Q_UNUSED(source);
             nSources++;
         }
 
         virtual void visit(OperatorInterface *op) override
         {
+            Q_UNUSED(op);
             nOperators++;
         }
 
         virtual void visit(SinkInterface *sink) override
         {
+            Q_UNUSED(sink);
             nSinks++;
         }
 
         virtual void visit(Directory *dir) override
         {
+            Q_UNUSED(dir);
             nDirs++;
         }
 
