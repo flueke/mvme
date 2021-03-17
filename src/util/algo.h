@@ -22,12 +22,19 @@
 #define __MVME_UTIL_ALGO_H__
 
 #include <cstddef>
+#include <iterator>
 
 template<typename BS>
 void copy_bitset(const BS &in, BS &dest)
 {
     for (size_t i = 0; i < in.size(); i++)
         dest.set(i, in.test(i));
+}
+
+template<typename M, typename K>
+bool map_contains(const M &theMap, const K &theKey)
+{
+    return theMap.find(theKey) != std::end(theMap);
 }
 
 #endif /* __MVME_UTIL_ALGO_H__ */
