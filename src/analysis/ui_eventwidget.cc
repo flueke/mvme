@@ -49,6 +49,7 @@
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
+#include "util/algo.h"
 
 namespace analysis
 {
@@ -1393,9 +1394,17 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
 
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
-        tb->addAction(QSL("Repopulate (dev)"), this, [this]() {
-            m_d->repopulate();
-        });
+        tb->addAction(
+            QSL("Repopulate"), this, [this]() {
+                m_d->repopulate();
+            });
+
+        tb->addAction(
+            QSL("Print ModuleProperties"), this, [this] () {
+                auto analysis = getAnalysis();
+                auto modProps = analysis->property("ModuleProperties");
+                qDebug() << modProps;
+            });
 #endif
     }
 
@@ -2120,6 +2129,7 @@ void EventWidgetPrivate::populateDataSourceTree(
         }
     }
 
+#if 0
     // Add unassigned data sources below a special root node
     for (const auto &source: analysis->getSources())
     {
@@ -2148,6 +2158,98 @@ void EventWidgetPrivate::populateDataSourceTree(
             m_objectMap[source] = sourceNode;
         }
     }
+#else
+
+    // moduleId -> [ sources ]
+    std::map<QUuid, std::vector<SourcePtr>> unassignedSourcesByModId;
+
+    for (const auto &source: analysis->getSources())
+        if (!map_contains(m_objectMap, source))
+            unassignedSourcesByModId[source->getModuleId()].emplace_back(source);
+
+    // moduleId -> { properties }
+    if (!unassignedSourcesByModId.empty())
+    {
+        std::map<QUuid, QVariantMap> modPropsByModId;
+
+        for (const auto &var: analysis->property("ModuleProperties").toList())
+        {
+            auto props = var.toMap();
+            modPropsByModId[QUuid::fromString(props["moduleId"].toString())] = props;
+        }
+
+        std::map<QUuid, TreeNode *> unassignedModuleNodes;
+
+        for (const auto &entry: unassignedSourcesByModId)
+        {
+            auto modId = entry.first;
+
+            if (!map_contains(unassignedModuleNodes, modId))
+            {
+
+                auto node = new TreeNode;
+                node->setIcon(0, QIcon(":/vme_module.png"));
+
+                if (map_contains(modPropsByModId, modId))
+                {
+                    const auto &modProps = modPropsByModId[modId];
+                    auto text = QSL("%1 (type=%2)")
+                        .arg(modProps["moduleName"].toString(),
+                             modProps["moduleTypeName"].toString());
+                    node->setText(0, text);
+                }
+                else
+                {
+                    node->setText(0, "unknown module");
+                }
+
+                unassignedModuleNodes[modId] = node;
+            }
+
+            assert(map_contains(unassignedModuleNodes, modId));
+
+            auto moduleNode = unassignedModuleNodes.at(modId);
+            const auto &sources = entry.second;
+
+            for (const auto &source: sources)
+            {
+                auto sourceNode = make_datasource_node(source.get());
+                moduleNode->addChild(sourceNode);
+                assert(m_objectMap.count(source) == 0);
+                m_objectMap[source] = sourceNode;
+            }
+        }
+
+        if (!tree->unassignedDataSourcesRoot) // XXX: cannot be true at this point?
+        {
+            auto node = new TreeNode({QSL("Unassigned")});
+            node->setFlags(node->flags() &
+                           (~Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
+            node->setIcon(0, QIcon(QSL(":/exclamation-circle.png")));
+
+            tree->unassignedDataSourcesRoot = node;
+            tree->addTopLevelItem(node);
+            node->setExpanded(true);
+        }
+
+        std::vector<TreeNode *> moduleNodes;
+
+        for (const auto &entry: unassignedModuleNodes)
+            moduleNodes.emplace_back(entry.second);
+
+        std::sort(
+            std::begin(moduleNodes), std::end(moduleNodes),
+            [] (const TreeNode *a, const TreeNode *b)
+            {
+                static const auto collator = make_natural_order_collator();
+                return collator.compare(a->text(0), b->text(0)) < 0;
+            });
+
+        for (const auto node: moduleNodes)
+            tree->unassignedDataSourcesRoot->addChild(node);
+    }
+
+#endif
 }
 
 UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
