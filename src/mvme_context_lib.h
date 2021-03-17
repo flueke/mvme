@@ -58,17 +58,12 @@ QPair<bool, QString> analysis_maybe_save_if_modified(MVMEContext *context);
 QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context);
 
 
-
-// listfile opening
-struct OpenListfileFlags
-{
-    static const u16 LoadAnalysis = 1u << 0;
-};
-
 /* IMPORTANT: Does not check if the current analysis is modified before loading
  * one from the listfile. Perform this check before calling this function!. */
 LIBMVME_EXPORT const ListfileReplayHandle &context_open_listfile(
-    MVMEContext *context, const QString &filename, u16 flags = 0);
+    MVMEContext *context,
+    const QString &filename,
+    OpenListfileOptions options = {});
 
 struct AnalysisPauser
 {

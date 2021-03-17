@@ -63,8 +63,8 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
     {
         auto label = new QLabel(QSL("On listfile load"));
         auto combo = m_analysisLoadActionCombo;
-        combo->addItem(QSL("keep current analysis"),        0u);
-        combo->addItem(QSL("load analysis from listfile"),  OpenListfileFlags::LoadAnalysis);
+        combo->addItem(QSL("keep current analysis"),        false);
+        combo->addItem(QSL("load analysis from listfile"),  true);
 
         auto layout = new QHBoxLayout;
         layout->addWidget(label);
@@ -159,9 +159,11 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
     if (!vmeconfig_maybe_save_if_modified(m_context).first)
         return;
 
-    u16 flags = m_analysisLoadActionCombo->currentData().toUInt(0);
+    OpenListfileOptions opts = {};
 
-    if ((flags & OpenListfileFlags::LoadAnalysis) && m_context->getAnalysis()->isModified())
+    opts.loadAnalysis = m_analysisLoadActionCombo->currentData().toBool();
+
+    if (opts.loadAnalysis && m_context->getAnalysis()->isModified())
     {
         if (!analysis_maybe_save_if_modified(m_context).first)
             return;
@@ -171,7 +173,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
 
     try
     {
-        const auto &replayHandle = context_open_listfile(m_context, filename, flags);
+        const auto &replayHandle = context_open_listfile(m_context, filename, opts);
 
         if (!replayHandle.messages.isEmpty())
         {

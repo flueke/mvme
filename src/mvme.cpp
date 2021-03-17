@@ -1203,7 +1203,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
     try
     {
-        u16 openFlags = 0;
+        OpenListfileOptions opts;
 
         if (fileName.endsWith(".zip"))
         {
@@ -1216,13 +1216,11 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
             box.setDefaultButton(QMessageBox::No);
 
             if (box.exec() == QMessageBox::Yes)
-            {
-                openFlags |= OpenListfileFlags::LoadAnalysis;
-            }
+                opts.loadAnalysis = true;
         }
 
         const auto &replayHandle = context_open_listfile(
-            m_d->m_context, fileName, openFlags);
+            m_d->m_context, fileName, opts);
 
         if (!replayHandle.messages.isEmpty())
         {

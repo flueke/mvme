@@ -241,7 +241,8 @@ QPair<bool, QString> vmeconfig_maybe_save_if_modified(MVMEContext *context)
 
 const ListfileReplayHandle &context_open_listfile(
     MVMEContext *context,
-    const QString &filename, u16 flags)
+    const QString &filename,
+    OpenListfileOptions options)
 {
     // save current replay state and set new listfile on the context object
     bool wasReplaying = (context->getMode() == GlobalMode::ListFile
@@ -250,7 +251,7 @@ const ListfileReplayHandle &context_open_listfile(
     auto handle = open_listfile(filename);
 
     // Transfers ownership to the context.
-    context->setReplayFileHandle(std::move(handle), flags);
+    context->setReplayFileHandle(std::move(handle), options);
 
     if (wasReplaying)
     {

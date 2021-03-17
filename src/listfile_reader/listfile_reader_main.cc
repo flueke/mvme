@@ -266,7 +266,7 @@ void process_one_listfile(
     MVMEContext &mvmeContext)
 {
     // FIXME: how does error reporting work here?
-    /*auto& replayHandle =*/ context_open_listfile(&mvmeContext, filename, 0);
+    /*auto& replayHandle =*/ context_open_listfile(&mvmeContext, filename, {});
 
     memory::Arena arena(4096);
     auto runDescription = make_run_description(arena, filename, *mvmeContext.getVMEConfig());

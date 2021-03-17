@@ -62,6 +62,12 @@ namespace ui
 
 struct MVMEContextPrivate;
 
+// listfile opening
+struct OpenListfileOptions
+{
+    bool loadAnalysis = false;
+};
+
 class LIBMVME_EXPORT MVMEContext: public QObject
 {
     Q_OBJECT
@@ -130,7 +136,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         MVMEState getMVMEState() const;
         DAQStats getDAQStats() const;
 
-        bool setReplayFileHandle(ListfileReplayHandle listfile, u16 openListfileFlags = 0);
+        bool setReplayFileHandle(ListfileReplayHandle listfile, OpenListfileOptions options = {});
         const ListfileReplayHandle &getReplayFileHandle() const;
         ListfileReplayHandle &getReplayFileHandle();
         void closeReplayFileHandle();

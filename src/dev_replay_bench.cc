@@ -52,10 +52,11 @@ int main(int argc, char *argv[])
     {
         MVMEContext mvmeContext;
 
+        OpenListfileOptions openOpts = { .loadAnalysis = analysisFilename.isEmpty() } ;
+
         // FIXME: how does error reporting work here?
         /*auto& replayHandle =*/ context_open_listfile(
-            &mvmeContext, listfileFilename,
-            analysisFilename.isEmpty() ? OpenListfileFlags::LoadAnalysis : 0);
+            &mvmeContext, listfileFilename, openOpts);
 
         if (!analysisFilename.isEmpty())
         {
