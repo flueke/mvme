@@ -143,7 +143,7 @@ class AnalysisSerializer
             auto vmeConfig = m_context->getVMEConfig();
             auto analysis = m_context->getAnalysis();
 
-            vme_analysis_common::add_vme_properties_to_analysis(vmeConfig, analysis);
+            vme_analysis_common::set_vme_properties_on_analysis(vmeConfig, analysis);
 
             QJsonObject contents;
             analysis->write(contents);
@@ -1364,35 +1364,18 @@ DAQStats MVMEContext::getDAQStats() const
     return {};
 }
 
-static bool handle_vme_analysis_assignment(
+static void handle_vme_analysis_assignment(
     const VMEConfig *vmeConfig,
     analysis::Analysis *analysis,
-    analysis::ui::AnalysisWidget *analysisUi = nullptr,
-    QWidget *assignmentUiParent = nullptr)
+    analysis::ui::AnalysisWidget *analysisUi = nullptr)
 {
     using namespace analysis;
     using namespace vme_analysis_common;
 
-    if (!auto_assign_vme_modules(vmeConfig, analysis))
-    {
-        if (!run_vme_analysis_module_assignment_ui(vmeConfig, analysis, assignmentUiParent))
-            return false;
-    }
-
-    add_vme_properties_to_analysis(vmeConfig, analysis);
-
-    // This is deliberately commented out. It would remove all non-assigned
-    // objects from the analysis and thus potentially free up memory (mostly
-    // from histograms).
-    // Instead of doing this the objects are kept now and the analysis is not
-    // modified. This was done to not confuse users with analysis setups being
-    // magially set to 'modified' all the time.
-    //remove_analysis_objects_unless_matching(analysis, vmeConfig);
+    auto_assign_vme_modules(vmeConfig, analysis);
 
     if (analysisUi)
         analysisUi->repopulate();
-
-    return true;
 }
 
 bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileOptions options)
@@ -1467,11 +1450,11 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
         }
     }
 
-    bool ret = handle_vme_analysis_assignment(
+    handle_vme_analysis_assignment(
         getVMEConfig(), getAnalysis(),
-        getAnalysisUi(), getMainWindow());
+        getAnalysisUi());
 
-    return ret;
+    return true;
 }
 
 const ListfileReplayHandle &MVMEContext::getReplayFileHandle() const
@@ -2880,12 +2863,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         return false;
     }
 
-    if (!handle_vme_analysis_assignment(
-            getVMEConfig(), analysis_ng.get(),
-            nullptr, getMainWindow()))
-    {
-        return false;
-    }
+    handle_vme_analysis_assignment(getVMEConfig(), analysis_ng.get());
 
     try
     {
