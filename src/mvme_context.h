@@ -68,6 +68,11 @@ struct OpenListfileOptions
     bool loadAnalysis = false;
 };
 
+// Filenames used for the temporary vme and analysis configs created when
+// opening a listfile.
+static const QString ListfileTempVMEConfigFilename = QSL(".vmeconfig_from_listfile.vme");
+static const QString ListfileTempAnalysisConfigFilename = QSL(".analysis_from_listfile.analysis");
+
 class LIBMVME_EXPORT MVMEContext: public QObject
 {
     Q_OBJECT

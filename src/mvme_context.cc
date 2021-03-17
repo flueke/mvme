@@ -85,9 +85,6 @@ static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
-static const QString ListfileVMEConfigFilename = QSL(".listfile_vmeconfig.vme");
-static const QString ListfileAnalysisConfigFilename = QSL(".listfile_analysis.analysis");
-
 static const QString RunNotesFilename = QSL("mvme_run_notes.txt");
 
 static const QString VMEConfigAutoSaveFilename = QSL(".vme_autosave.vme");
@@ -605,6 +602,8 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
 
 MVMEContext::~MVMEContext()
 {
+    qDebug() << "Entering" << __PRETTY_FUNCTION__;
+
     if (getDAQState() != DAQState::Idle)
     {
         qDebug() << __PRETTY_FUNCTION__ << "waiting for DAQ/Replay to stop";
@@ -673,7 +672,7 @@ MVMEContext::~MVMEContext()
 
     delete m_d;
 
-    qDebug() << __PRETTY_FUNCTION__ << "context being destroyed";
+    qDebug() << __PRETTY_FUNCTION__ << "Leaving" << __PRETTY_FUNCTION__;
 }
 
 void MVMEContext::setVMEConfig(VMEConfig *config)
@@ -1450,11 +1449,22 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
     setRunNotes(m_d->listfileReplayHandle.runNotes);
     setMode(GlobalMode::ListFile);
 
+    // Write the vme config loaded from the listfile to disk and update the
+    // LastVMEConfig entry in the workspace ini. This way we'll be able to keep
+    // the same vme config on listfile close.
+    if (write_vme_config_to_file(ListfileTempVMEConfigFilename, getVMEConfig()))
+        makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), ListfileTempVMEConfigFilename);
+
     // optionally load the analysis from the listfile
     if (options.loadAnalysis && !m_d->listfileReplayHandle.analysisBlob.isEmpty())
     {
-        loadAnalysisConfig(m_d->listfileReplayHandle.analysisBlob, QSL("ZIP Archive"));
-        setAnalysisConfigFilename(QString());
+        if (loadAnalysisConfig(m_d->listfileReplayHandle.analysisBlob, QSL("ZIP Archive")))
+        {
+            if (write_analysis_to_file(ListfileTempAnalysisConfigFilename, getAnalysis()))
+                makeWorkspaceSettings()->setValue(QSL("LastAnalysisConfig"), ListfileTempAnalysisConfigFilename);
+
+            setAnalysisConfigFilename(QString(), false);
+        }
     }
 
     bool ret = handle_vme_analysis_assignment(
@@ -1484,7 +1494,7 @@ void MVMEContext::closeReplayFileHandle()
     m_d->listfileReplayHandle = {};
     m_d->m_isFirstConnectionAttempt = true;
 
-    // Reload the Run Notes
+    // Reload the "Run Notes" from the workspace file
     {
         QFile f(RunNotesFilename);
 
@@ -1503,6 +1513,8 @@ void MVMEContext::closeReplayFileHandle()
     {
         QDir wsDir(getWorkspaceDirectory());
         loadVMEConfig(wsDir.filePath(lastVMEConfig));
+        if (lastVMEConfig == ListfileTempVMEConfigFilename)
+            setVMEConfigFilename({});
     }
     else
     {
@@ -2382,6 +2394,8 @@ void MVMEContext::openWorkspace(const QString &dirName)
                     << " (INI)";
 
                 loadVMEConfig(dir.filePath(lastVMEConfig));
+                if (lastVMEConfig == ListfileTempVMEConfigFilename)
+                    setVMEConfigFilename({}, false);
             }
             // Check if a file with the default name exists and if so load it.
             else if (QFile::exists(dir.filePath(DefaultVMEConfigFileName)))
@@ -2457,6 +2471,11 @@ void MVMEContext::openWorkspace(const QString &dirName)
                 {
                     setAnalysisConfigFilename(DefaultAnalysisConfigFileName);
                     getAnalysis()->setModified();
+                }
+                else
+                {
+                    if (lastAnalysisConfig == ListfileTempAnalysisConfigFilename)
+                        setAnalysisConfigFilename({}, false);
                 }
             }
             else if (QFile::exists(dir.filePath(DefaultAnalysisConfigFileName)))
