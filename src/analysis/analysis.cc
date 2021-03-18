@@ -37,7 +37,7 @@
 #include "util/qt_metaobject.h"
 #include "vme_config.h"
 
-#define ENABLE_ANALYSIS_DEBUG 1
+#define ENABLE_ANALYSIS_DEBUG 0
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -214,7 +214,7 @@ void AnalysisObject::setUserLevel(s32 level)
 std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 {
     auto qobjectPtr  = metaObject()->newInstance();
-    qDebug() << metaObject()->className() << qobjectPtr;
+    //qDebug() << metaObject()->className() << qobjectPtr;
     auto downcastPtr = qobject_cast<AnalysisObject *>(qobjectPtr);
     assert(downcastPtr);
 
@@ -574,7 +574,7 @@ void Extractor::beginRun(const RunInfo &, Logger)
 
     u32 addressCount = 1u << get_extract_bits(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
 
-    qDebug() << __PRETTY_FUNCTION__ << this << "addressCount" << addressCount;
+    //qDebug() << __PRETTY_FUNCTION__ << this << "addressCount" << addressCount;
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
@@ -2803,7 +2803,9 @@ void Histo1DSink::beginRun(const RunInfo &runInfo, Logger)
 
 void Histo1DSink::clearState()
 {
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << objectName();
+#endif
     for (auto &histo: m_histos)
     {
         histo->clear();
@@ -2865,6 +2867,7 @@ Histo2DSink::Histo2DSink(QObject *parent)
 // the input parameters limits. Clears the histogram.
 void Histo2DSink::beginRun(const RunInfo &runInfo, Logger)
 {
+#if ENABLE_ANALYSIS_DEBUG
     if (m_inputX.inputPipe && m_inputY.inputPipe)
     {
         auto sourceX = m_inputX.inputPipe->getSource();
@@ -2882,6 +2885,7 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger)
             << ", required_inputs_connected_and_valid =" << required_inputs_connected_and_valid(this)
             ;
     }
+#endif
 
     if (m_inputX.inputPipe && m_inputY.inputPipe
         && 0 <= m_inputX.paramIndex && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
@@ -2967,7 +2971,9 @@ void Histo2DSink::beginRun(const RunInfo &runInfo, Logger)
 
 void Histo2DSink::clearState()
 {
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << objectName();
+#endif
     if (m_histo)
     {
         m_histo->clear();
@@ -3202,7 +3208,9 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger)
 
 void RateMonitorSink::clearState()
 {
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << objectName();
+#endif
 
     for (auto &sampler: m_samplers)
     {
@@ -4813,12 +4821,14 @@ void Analysis::beginRun(const RunInfo &runInfo,
         || m_vmeMap != vmeMap
         || getObjectFlags() & ObjectFlags::NeedsRebuild);
 
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__
         << "fullBuild =" << fullBuild
         << ", keepAnalysisState =" << runInfo.keepAnalysisState
         << ", runId =" << runInfo.runId
         << ", localFlags =" << to_string(getObjectFlags())
         ;
+#endif
 
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
@@ -4863,6 +4873,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
     {
         if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
         {
+#if ENABLE_ANALYSIS_DEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "beginRun() on"
                 << " class =" << source->metaObject()->className()
@@ -4870,6 +4881,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
                 << ", id =" << source->getId()
                 << ", fullBuild =" << fullBuild
                 << ", objectFlags =" << to_string(source->getObjectFlags());
+#endif
 
             source->beginRun(runInfo, logger);
             source->clearObjectFlags(ObjectFlags::NeedsRebuild);
@@ -4895,6 +4907,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
 
         if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
         {
+#if ENABLE_ANALYSIS_DEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "beginRun() on"
                 << " class =" << op->metaObject()->className()
@@ -4904,6 +4917,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
                 << ", objectFlags =" << to_string(op->getObjectFlags())
                 << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
                 ;
+#endif
 
             op->beginRun(runInfo, logger);
             op->clearObjectFlags(ObjectFlags::NeedsRebuild);

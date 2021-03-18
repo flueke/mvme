@@ -306,6 +306,8 @@ bool auto_assign_vme_modules(const VMEConfig *vmeConfig, analysis::Analysis *ana
 
 bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *analysis, LoggerFun logger)
 {
+    // TODO: implement priority matching based on module names (the types have to match of course)
+
     auto do_log = [logger] (const QString &msg) { if (logger) logger(msg); };
 
 
@@ -323,6 +325,7 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
         analysisModuleAndEventIds.insert(std::make_pair(modInfo.id, modInfo.eventId));
     }
 
+#if 0
     qDebug() << __PRETTY_FUNCTION__ << "vModInfos:";
     for (const auto &mi: vModInfos)
         qDebug() << __PRETTY_FUNCTION__ << "  " << mi;
@@ -330,6 +333,7 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
     qDebug() << __PRETTY_FUNCTION__ << "aModInfos:";
     for (const auto &mi: aModInfos)
         qDebug() << __PRETTY_FUNCTION__ << "  " << mi;
+#endif
 
 
     //qDebug() << __PRETTY_FUNCTION__ << "analysisModuleAndEventIds:" << analysisModuleAndEventIds;
@@ -386,11 +390,10 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
             info.toEventId      = targetModInfo.eventId;
             moduleChangeInfos.push_back(info);
 
-            qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite: modules:"
-                << to_string(modInfo) << "->" << to_string(targetModInfo)
-                << ", event ids =" << eventId << "->" << info.toEventId;
+            //qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite: modules:"
+            //    << to_string(modInfo) << "->" << to_string(targetModInfo)
+            //    << ", event ids =" << eventId << "->" << info.toEventId;
         }
-        // TODO: implement priority matching based on module names (the types have to match of course)
     }
 
     // Not all modules can be auto assigned
