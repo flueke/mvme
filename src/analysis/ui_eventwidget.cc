@@ -79,7 +79,8 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Directory:
             {
                 auto qo = get_qobject(node, dataRole);
-                qDebug() << __PRETTY_FUNCTION__ << qo;
+                if (qo == nullptr)
+                    qDebug() << __PRETTY_FUNCTION__ << "null object for node" << node << ", type=" << node->type() << ", text=" << node->text(0);
                 if (auto ao = qobject_cast<AnalysisObject *>(qo))
                     return ao->shared_from_this();
             }
