@@ -363,7 +363,6 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
     for (auto moduleAndEventId: analysisModuleAndEventIds)
     {
         auto moduleId = moduleAndEventId.first;
-        auto eventId = moduleAndEventId.second;
 
         ModuleInfo modInfo = *std::find_if(aModInfos.begin(), aModInfos.end(),
                                            [moduleId](const auto &modInfo) { return modInfo.id == moduleId; });
@@ -390,6 +389,7 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
             info.toEventId      = targetModInfo.eventId;
             moduleChangeInfos.push_back(info);
 
+            //auto eventId = moduleAndEventId.second;
             //qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite: modules:"
             //    << to_string(modInfo) << "->" << to_string(targetModInfo)
             //    << ", event ids =" << eventId << "->" << info.toEventId;
