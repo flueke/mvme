@@ -1945,6 +1945,8 @@ void MVMEContext::onGlobalChildAboutToBeRemoved(ConfigObject *config)
 void MVMEContext::onModuleAdded(ModuleConfig *module)
 {
     //qDebug() << __PRETTY_FUNCTION__ << module;
+    if (auto analysis = getAnalysis())
+        vme_analysis_common::update_analysis_vme_properties(getVMEConfig(), analysis);
     emit moduleAdded(module);
 }
 
@@ -1955,6 +1957,7 @@ void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
     {
         emit objectAboutToBeRemoved(script);
     }
+
     emit moduleAboutToBeRemoved(module);
 }
 
