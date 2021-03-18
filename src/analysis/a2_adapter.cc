@@ -608,6 +608,29 @@ DEF_OP_MAGIC(expression_operator_magic)
     return result;
 }
 
+DEF_OP_MAGIC(scaler_overflow_magic)
+{
+    OP_MAGIC_NOWARN;
+    LOG("");
+
+    auto a1_op = qobject_cast<analysis::ScalerOverflow *>(op.get());
+
+    assert(a1_op);
+
+    a2::PipeVectors a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
+
+    a2::Operator result = {};
+
+    result = a2::make_scaler_overflow_idx(
+        arena,
+        a2_input,
+        inputSlots[0]->paramIndex,
+        a1_op->getScalerBits(),
+        a1_op->getOutputUpperLimit());
+
+    return result;
+}
+
 //
 // Sinks
 //
@@ -910,6 +933,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ConditionFilter::staticMetaObject,         condition_filter_magic },
     { &analysis::Sum::staticMetaObject,                     sum_magic },
     { &analysis::ExpressionOperator::staticMetaObject,      expression_operator_magic },
+    { &analysis::ScalerOverflow::staticMetaObject,          scaler_overflow_magic },
 
     { &analysis::ConditionInterval::staticMetaObject,       condition_interval_magic },
     { &analysis::ConditionRectangle::staticMetaObject,      condition_rectangle_magic },

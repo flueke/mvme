@@ -91,6 +91,7 @@ enum OperatorType
     Operator_Aggregate_SigmaX,
 
     Operator_Expression,
+    Operator_ScalerOverflow,
 
     Operator_ConditionInterval,
     Operator_ConditionRectangle,

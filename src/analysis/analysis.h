@@ -1342,6 +1342,72 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         QVector<std::shared_ptr<Pipe>> m_outputs;
 };
 
+class LIBMVME_EXPORT ScalerOverflow: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        Q_INVOKABLE ScalerOverflow(QObject *parent = 0);
+
+        // Init and execute
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        // Inputs
+        virtual bool hasVariableNumberOfSlots() const override { return false; }
+        virtual bool addSlot() override { return false; }
+        virtual bool removeLastSlot() override { return false; }
+
+        virtual s32 getNumberOfSlots() const override { return 1; }
+        virtual Slot *getSlot(s32 slotIndex) override
+        {
+            if (slotIndex == 0)
+                return &m_input;
+            return nullptr;
+        }
+
+        // Outputs
+        virtual bool hasVariableNumberOfOutputs() const override { return false; }
+        virtual s32 getNumberOfOutputs() const override { return 2; };
+        virtual QString getOutputName(s32 outputIndex) const override
+        {
+            if (outputIndex == 0)
+                return QSL("value");
+            if (outputIndex == 1)
+                return QSL("overflow count");
+            return {};
+        }
+
+        virtual Pipe *getOutput(s32 outputIndex) override
+        {
+            if (outputIndex == 0)
+                return &m_valueOutput;
+            if (outputIndex == 1)
+                return &m_overflowCountOutput;
+            return nullptr;
+        }
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override { return QSL("Scaler Overflow"); }
+        virtual QString getShortName() const override { return QSL("ScalerOverflow"); }
+
+        // ScalerOverflow specific
+        void setScalerBits(unsigned bits) { m_scalerBits = bits; }
+        unsigned getScalerBits() const { return m_scalerBits; }
+        void setOutputUpperLimit(double limit) { m_outputUpperLimit = limit; }
+        double getOutputUpperLimit() const { return m_outputUpperLimit; }
+
+    private:
+        Slot m_input;
+        Pipe m_valueOutput;
+        Pipe m_overflowCountOutput;
+        unsigned m_scalerBits;
+        double m_outputUpperLimit;
+};
+
 //
 // Conditions
 //

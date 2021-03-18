@@ -442,6 +442,16 @@ struct A2;
 void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 
 /* ===============================================
+ * ScalerOverflow
+ * =============================================== */
+Operator make_scaler_overflow_idx(
+    memory::Arena *arena,
+    const PipeVectors &input,
+    s32 inputParamIndex,
+    unsigned scalerBits,
+    double outputUpperLimit);
+
+/* ===============================================
  * Conditions
  * =============================================== */
 

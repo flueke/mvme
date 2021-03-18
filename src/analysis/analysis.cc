@@ -2650,6 +2650,65 @@ ExpressionOperator *ExpressionOperator::cloneViaSerialization() const
 }
 
 //
+// ScalerOverflow
+//
+ScalerOverflow::ScalerOverflow(QObject *parent)
+    : OperatorInterface(parent)
+    , m_input(this, 0, QSL("scalerIn"))
+    , m_valueOutput(this, 0)
+    , m_overflowCountOutput(this, 1)
+    , m_scalerBits(0)
+    , m_outputUpperLimit(0.0)
+{
+    m_input.acceptedInputTypes = InputType::Value;
+    m_valueOutput.parameters.resize(1);
+    m_overflowCountOutput.parameters.resize(1);
+}
+
+void ScalerOverflow::beginRun(const RunInfo &, Logger)
+{
+    if (!m_input.isParamIndexInRange())
+    {
+        m_valueOutput.parameters.resize(0);
+        m_overflowCountOutput.parameters.resize(0);
+        return;
+    }
+
+    m_valueOutput.parameters.resize(1);
+    m_overflowCountOutput.parameters.resize(1);
+
+    // value output
+    {
+        auto &out = m_valueOutput.parameters;
+        auto &in = m_input.inputPipe->getParameters();
+
+        out.unit = in.unit;
+        out[0].lowerLimit = 0.0;
+        out[0].upperLimit = m_outputUpperLimit;
+    }
+
+    // overflow count output
+    {
+        auto &out = m_overflowCountOutput.parameters;
+
+        out[0].lowerLimit = 0.0;
+        out[0].upperLimit = std::numeric_limits<double>::max();
+    }
+}
+
+void ScalerOverflow::write(QJsonObject &json) const
+{
+    json["scalerBits"] = static_cast<qint64>(m_scalerBits);
+    json["outputUpperLimit"] = m_outputUpperLimit;
+}
+
+void ScalerOverflow::read(const QJsonObject &json)
+{
+    m_scalerBits = static_cast<unsigned>(json["scalerBits"].toInt());
+    m_outputUpperLimit = json["outputUpperLimit"].toDouble();
+}
+
+//
 // Histo1DSink
 //
 
@@ -3742,6 +3801,7 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<BinarySumDiff>();
     m_objectFactory.registerOperator<AggregateOps>();
     m_objectFactory.registerOperator<ExpressionOperator>();
+    m_objectFactory.registerOperator<ScalerOverflow>();
 #if 0
     m_objectFactory.registerOperator<ConditionInterval>();
     m_objectFactory.registerOperator<ConditionRectangle>();

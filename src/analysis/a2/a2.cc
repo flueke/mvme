@@ -2428,6 +2428,78 @@ void expression_operator_step(Operator *op, A2 *)
     d->expr_step.eval();
 }
 
+//
+// ScalerOverflow
+//
+struct ScalerOverflowData
+{
+    double previousValue;
+    double scalerMaxValue;
+    unsigned overflowCount;
+};
+
+Operator make_scaler_overflow_idx(
+    memory::Arena *arena,
+    const PipeVectors &input,
+    s32 inputParamIndex,
+    unsigned scalerBits,
+    double outputUpperLimit)
+{
+    auto result = make_operator(arena, Operator_ScalerOverflow, 1, 2);
+    auto d = arena->push<ScalerOverflowData>({});
+    result.d = d;
+
+    d->previousValue = 0.0;
+    d->scalerMaxValue = 1u << scalerBits;
+    d->overflowCount = 0;
+
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, 1);
+    push_output_vectors(arena, &result, 1, 1);
+
+    // value
+    result.outputLowerLimits[0][0] = input.lowerLimits[inputParamIndex];
+    result.outputUpperLimits[0][0] = outputUpperLimit;
+
+    // overflow count
+    result.outputLowerLimits[1][0] = 0.0;
+    result.outputUpperLimits[1][0] = std::numeric_limits<double>::max();
+
+    return result;
+}
+
+void scaler_overflow_step_idx(Operator *op, A2 *)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ScalerOverflow);
+
+    auto input = op->inputs[0];
+    auto valueOutput = op->outputs[0];
+    auto overflowCountOutput = op->outputs[1];
+    auto d = reinterpret_cast<ScalerOverflowData *>(op->d);
+
+    double inputValue = input[0];
+
+    if (is_param_valid(inputValue))
+    {
+        double diff = inputValue - d->previousValue;
+
+        if (diff < 0.0)
+            ++d->overflowCount;
+
+        double result = inputValue + d->overflowCount * d->scalerMaxValue;
+        valueOutput[0] = result;
+        d->previousValue = inputValue;
+    }
+    else
+    {
+        valueOutput[0] = invalid_param();
+    }
+
+    overflowCountOutput[0] = d->overflowCount;
+}
+
 /* ===============================================
  * Conditions
  * =============================================== */
@@ -3648,6 +3720,7 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_Aggregate_SigmaX] = { aggregate_sigmax_step };
 
     result[Operator_Expression] = { expression_operator_step };
+    result[Operator_ScalerOverflow] = { scaler_overflow_step_idx };
 
     result[Operator_ConditionInterval] = { condition_interval_step };
     result[Operator_ConditionRectangle] = { condition_rectangle_step };
