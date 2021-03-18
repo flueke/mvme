@@ -1394,6 +1394,7 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
 
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
+
         tb->addAction(
             QSL("Repopulate"), this, [this]() {
                 m_d->repopulate();
@@ -1402,8 +1403,9 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
         tb->addAction(
             QSL("Print ModuleProperties"), this, [this] () {
                 auto analysis = getAnalysis();
-                auto modProps = analysis->property("ModuleProperties");
-                qDebug() << modProps;
+                auto modPropsList = analysis->property("ModuleProperties").toList();
+                for (const auto &modProps: modPropsList)
+                    qDebug() << modProps;
             });
 #endif
     }
@@ -2007,12 +2009,32 @@ QCollator make_natural_order_collator()
     return result;
 }
 
-bool qobj_natural_compare(const QObject *a, const QObject *b)
+// Creates a compare function (usable by std::sort) which uses a natural order
+// comparator to compare the attributes returned by the given accessor
+// function.
+template<typename A>
+auto make_natural_order_comparator(A accessor)
 {
     static const auto collator = make_natural_order_collator();
-    return collator.compare(a->objectName(), b->objectName()) < 0;
+
+    auto comparator = [accessor] (const auto &a, const auto &b)
+    {
+        return collator.compare(accessor(a), accessor(b)) < 0;
+    };
+
+    return comparator;
 }
 
+// Compares by objectName()
+bool qobj_natural_compare(const QObject *a, const QObject *b)
+{
+    static const auto comparator = make_natural_order_comparator(
+        [] (const QObject *o) { return o->objectName(); });
+
+    return comparator(a, b);
+}
+
+// Compares object names of references objects.
 bool qobj_ptr_natural_compare(const std::shared_ptr<QObject> &a, const std::shared_ptr<QObject> &b)
 {
     return qobj_natural_compare(a.get(), b.get());
@@ -2129,36 +2151,22 @@ void EventWidgetPrivate::populateDataSourceTree(
         }
     }
 
-#if 0
-    // Add unassigned data sources below a special root node
-    for (const auto &source: analysis->getSources())
-    {
-        if (source->getModuleId().isNull()
-            || source->getEventId().isNull()
-            || (m_objectMap.find(source) == m_objectMap.end()))
-        {
-            if (!tree->unassignedDataSourcesRoot)
-            {
-                auto node = new TreeNode({QSL("Unassigned")});
-                node->setFlags(node->flags() &
-                               (~Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
-                node->setIcon(0, QIcon(QSL(":/exclamation-circle.png")));
+    // Handle data sources that are not assigned to any of the modules present
+    // in the current vme config.
+    //
+    // * The goal is to create a subtree like this:
+    //
+    //   unassigned -> module0 -> source00
+    //                         -> source01
+    //              -> module1 -> source10
+    //                         -> source11
+    //              ...
+    //
+    // * Use information stored in the "ModuleProperties" property of the
+    //   Analysis object to set names and types of the unknown modules.
+    //   If no module information is present in the analysis create an "unknown
+    //   module" node.
 
-                tree->unassignedDataSourcesRoot = node;
-                tree->addTopLevelItem(node);
-                node->setExpanded(true);
-            }
-
-            assert(tree->unassignedDataSourcesRoot);
-
-            auto sourceNode = make_datasource_node(source.get());
-            tree->unassignedDataSourcesRoot->addChild(sourceNode);
-
-            assert(m_objectMap.count(source) == 0);
-            m_objectMap[source] = sourceNode;
-        }
-    }
-#else
 
     // moduleId -> [ sources ]
     std::map<QUuid, std::vector<SourcePtr>> unassignedSourcesByModId;
@@ -2167,89 +2175,98 @@ void EventWidgetPrivate::populateDataSourceTree(
         if (!map_contains(m_objectMap, source))
             unassignedSourcesByModId[source->getModuleId()].emplace_back(source);
 
+    if (unassignedSourcesByModId.empty())
+        return;
+
     // moduleId -> { properties }
-    if (!unassignedSourcesByModId.empty())
+    std::map<QUuid, QVariantMap> modPropsByModId;
+
+    for (const auto &var: analysis->property("ModuleProperties").toList())
     {
-        std::map<QUuid, QVariantMap> modPropsByModId;
-
-        for (const auto &var: analysis->property("ModuleProperties").toList())
-        {
-            auto props = var.toMap();
-            modPropsByModId[QUuid::fromString(props["moduleId"].toString())] = props;
-        }
-
-        std::map<QUuid, TreeNode *> unassignedModuleNodes;
-
-        for (const auto &entry: unassignedSourcesByModId)
-        {
-            auto modId = entry.first;
-
-            if (!map_contains(unassignedModuleNodes, modId))
-            {
-
-                auto node = new TreeNode;
-                node->setIcon(0, QIcon(":/vme_module.png"));
-
-                if (map_contains(modPropsByModId, modId))
-                {
-                    const auto &modProps = modPropsByModId[modId];
-                    auto text = QSL("%1 (type=%2)")
-                        .arg(modProps["moduleName"].toString(),
-                             modProps["moduleTypeName"].toString());
-                    node->setText(0, text);
-                }
-                else
-                {
-                    node->setText(0, "unknown module");
-                }
-
-                unassignedModuleNodes[modId] = node;
-            }
-
-            assert(map_contains(unassignedModuleNodes, modId));
-
-            auto moduleNode = unassignedModuleNodes.at(modId);
-            const auto &sources = entry.second;
-
-            for (const auto &source: sources)
-            {
-                auto sourceNode = make_datasource_node(source.get());
-                moduleNode->addChild(sourceNode);
-                assert(m_objectMap.count(source) == 0);
-                m_objectMap[source] = sourceNode;
-            }
-        }
-
-        if (!tree->unassignedDataSourcesRoot) // XXX: cannot be true at this point?
-        {
-            auto node = new TreeNode({QSL("Unassigned")});
-            node->setFlags(node->flags() &
-                           (~Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
-            node->setIcon(0, QIcon(QSL(":/exclamation-circle.png")));
-
-            tree->unassignedDataSourcesRoot = node;
-            tree->addTopLevelItem(node);
-            node->setExpanded(true);
-        }
-
-        std::vector<TreeNode *> moduleNodes;
-
-        for (const auto &entry: unassignedModuleNodes)
-            moduleNodes.emplace_back(entry.second);
-
-        std::sort(
-            std::begin(moduleNodes), std::end(moduleNodes),
-            [] (const TreeNode *a, const TreeNode *b)
-            {
-                static const auto collator = make_natural_order_collator();
-                return collator.compare(a->text(0), b->text(0)) < 0;
-            });
-
-        for (const auto node: moduleNodes)
-            tree->unassignedDataSourcesRoot->addChild(node);
+        auto props = var.toMap();
+        modPropsByModId[QUuid::fromString(props["moduleId"].toString())] = props;
     }
 
-#endif
+    // moduleId -> module root node
+    std::map<QUuid, TreeNode *> unassignedModuleNodes;
+
+    for (auto &entry: unassignedSourcesByModId)
+    {
+        auto modId = entry.first;
+
+        if (!map_contains(unassignedModuleNodes, modId))
+        {
+
+            // create the module node
+            auto node = new TreeNode;
+            node->setIcon(0, QIcon(":/vme_module.png"));
+
+            if (map_contains(modPropsByModId, modId))
+            {
+                const auto &modProps = modPropsByModId[modId];
+                auto modName = modProps["moduleName"].toString();
+                auto modType = modProps["moduleType"].toString();
+                auto text = modName;
+                if (!modName.contains(modType))
+                    text += QSL(" (type=%1)").arg(modType);
+
+                node->setText(0, text);
+            }
+            else
+            {
+                // no properties known for this module
+                node->setText(0, "unknown module");
+            }
+
+            unassignedModuleNodes[modId] = node;
+        }
+
+        assert(map_contains(unassignedModuleNodes, modId));
+
+        // add sources under the module node
+        auto moduleNode = unassignedModuleNodes[modId];
+        auto &sources = entry.second;
+
+        std::sort(std::begin(sources), std::end(sources), qobj_ptr_natural_compare);
+
+        for (const auto &source: sources)
+        {
+            auto sourceNode = make_datasource_node(source.get());
+            moduleNode->addChild(sourceNode);
+            assert(m_objectMap.count(source) == 0);
+            m_objectMap[source] = sourceNode;
+        }
+    }
+
+    assert(unassignedSourcesByModId.size() == unassignedModuleNodes.size());
+
+    // Collect the module nodes in a vector for sorting
+    std::vector<TreeNode *> moduleNodes;
+
+    for (const auto &entry: unassignedModuleNodes)
+        moduleNodes.emplace_back(entry.second);
+
+    std::sort(
+        std::begin(moduleNodes), std::end(moduleNodes),
+        make_natural_order_comparator([] (const auto &node) { return node->text(0); }));
+
+
+    // We do have unassigned module so create the root node to hold them.
+    {
+        assert(!tree->unassignedDataSourcesRoot);
+        auto node = new TreeNode({QSL("Unassigned")});
+        node->setFlags(node->flags() &
+                       (~Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled));
+        node->setIcon(0, QIcon(QSL(":/exclamation-circle.png")));
+
+        tree->unassignedDataSourcesRoot = node;
+        tree->addTopLevelItem(node);
+        node->setExpanded(true);
+    }
+
+    // Add the module nodes below the "unassigned" node
+    for (const auto node: moduleNodes)
+        tree->unassignedDataSourcesRoot->addChild(node);
 }
 
 UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
