@@ -38,10 +38,12 @@ namespace vme_analysis_common
 
 using LoggerFun = std::function<void (const QString &)>;
 
-/** Adds information about each module in the vmeConfig to the analysis.
- * The information is stored as a dynamic QObject property using the name "ModuleProperties".
- */
-void set_vme_properties_on_analysis(const VMEConfig *vmeConfig, analysis::Analysis *analysis);
+// Adds information about each module from the VMEConfig to the Analysis. Info
+// is updated if it already exists.
+// Module info for modules that are not present anymore in the VMEConfig is
+// kept in the analysis.
+void update_analysis_vme_properties(const VMEConfig *vmeConfig, analysis::Analysis *analysis);
+void remove_analysis_module_properties(const QUuid &moduleId, analysis::Analysis *analysis);
 
 struct ModuleInfo
 {

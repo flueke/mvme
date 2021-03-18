@@ -1940,6 +1940,19 @@ class LIBMVME_EXPORT Analysis: public QObject
         void addObjects(const AnalysisObjectVector &objects);
 
         //
+        // VME Module Properties
+        //
+        QVariantList getModulePropertyList() const
+        {
+            return property("ModuleProperties").toList();
+        }
+
+        void setModulePropertyList(const QVariantList &props)
+        {
+            setProperty("ModuleProperties", props);
+        }
+
+        //
         // Pre and post run work
         //
 

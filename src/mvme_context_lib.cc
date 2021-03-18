@@ -94,7 +94,7 @@ QPair<bool, QString> gui_save_analysis_config(
     QString fileFilter,
     MVMEContext *context)
 {
-    vme_analysis_common::set_vme_properties_on_analysis(context->getVMEConfig(), analysis);
+    vme_analysis_common::update_analysis_vme_properties(context->getVMEConfig(), analysis);
 
     if (fileName.isEmpty())
         return gui_save_analysis_config_as(analysis, startPath, fileFilter, context);
@@ -111,7 +111,7 @@ QPair<bool, QString> gui_save_analysis_config_as(
     QString fileFilter,
     MVMEContext *context)
 {
-    vme_analysis_common::set_vme_properties_on_analysis(context->getVMEConfig(), analysis);
+    vme_analysis_common::update_analysis_vme_properties(context->getVMEConfig(), analysis);
 
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);

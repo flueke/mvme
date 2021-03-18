@@ -40,11 +40,28 @@ using namespace analysis;
 namespace vme_analysis_common
 {
 
-void set_vme_properties_on_analysis(const VMEConfig *vmeConfig, analysis::Analysis *analysis)
+void update_analysis_vme_properties(const VMEConfig *vmeConfig, analysis::Analysis *analysis)
 {
+    const auto allModules = vmeConfig->getAllModuleConfigs();
+    QSet<QUuid> moduleIdsInVMEConfig;
+
+    for (auto module: allModules)
+        moduleIdsInVMEConfig.insert(module->getId());
+
     QVariantList modulePropertyList;
 
-    for (auto module: vmeConfig->getAllModuleConfigs())
+    // Keep properties for modules that do not exist in the vme config.
+    for (const auto &var: analysis->getModulePropertyList())
+    {
+        auto props = var.toMap();
+        auto moduleId = props["moduleId"].toUuid();
+
+        if (!moduleIdsInVMEConfig.contains(moduleId))
+            modulePropertyList.push_back(props);
+    }
+
+    // Add properties for modules in the vme config
+    for (auto module: allModules)
     {
         QVariantMap moduleProperties;
         moduleProperties["moduleId"] = module->getId().toString();
@@ -53,7 +70,21 @@ void set_vme_properties_on_analysis(const VMEConfig *vmeConfig, analysis::Analys
         modulePropertyList.push_back(moduleProperties);
     }
 
-    analysis->setProperty("ModuleProperties", modulePropertyList);
+    analysis->setModulePropertyList(modulePropertyList);
+}
+
+void remove_analysis_module_properties(const QUuid &moduleId, analysis::Analysis *analysis)
+{
+    auto propList = analysis->property("ModuleProperties").toList();
+
+    auto pos = std::find_if(std::begin(propList), std::end(propList), [&moduleId] (const QVariant &vp) {
+        return vp.toMap().value("moduleId").toUuid() == moduleId;
+    });
+
+    if (pos != std::end(propList))
+        propList.erase(pos);
+
+    analysis->setProperty("ModuleProperties", propList);
 }
 
 QDebug &operator<<(QDebug &out, const ModuleInfo &mi)

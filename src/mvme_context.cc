@@ -117,13 +117,9 @@ class VMEConfigSerializer
 
         QByteArray operator()()
         {
-            QJsonObject contents;
-            m_context->getVMEConfig()->write(contents);
+            auto doc = mvme::vme_config::serialize_vme_config_to_json_document(
+                *m_context->getVMEConfig());
 
-            QJsonObject container;
-            container["DAQConfig"] = contents;
-
-            QJsonDocument doc(container);
             return doc.toJson();
         }
 
@@ -143,15 +139,10 @@ class AnalysisSerializer
             auto vmeConfig = m_context->getVMEConfig();
             auto analysis = m_context->getAnalysis();
 
-            vme_analysis_common::set_vme_properties_on_analysis(vmeConfig, analysis);
+            vme_analysis_common::update_analysis_vme_properties(vmeConfig, analysis);
 
-            QJsonObject contents;
-            analysis->write(contents);
+            auto doc = analysis::serialize_analysis_to_json_document(*analysis);
 
-            QJsonObject container;
-            container["AnalysisNG"] = contents;
-
-            QJsonDocument doc(container);
             return doc.toJson();
         }
 
