@@ -448,7 +448,7 @@ Operator make_scaler_overflow_idx(
     memory::Arena *arena,
     const PipeVectors &input,
     s32 inputParamIndex,
-    unsigned scalerBits,
+    double maxValue,
     double outputUpperLimit);
 
 /* ===============================================

@@ -625,7 +625,7 @@ DEF_OP_MAGIC(scaler_overflow_magic)
         arena,
         a2_input,
         inputSlots[0]->paramIndex,
-        a1_op->getScalerBits(),
+        a1_op->getMaxValue(),
         a1_op->getOutputUpperLimit());
 
     return result;

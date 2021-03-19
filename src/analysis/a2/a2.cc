@@ -2433,8 +2433,8 @@ void expression_operator_step(Operator *op, A2 *)
 //
 struct ScalerOverflowData
 {
+    double maxValue;
     double previousValue;
-    double scalerMaxValue;
     unsigned overflowCount;
 };
 
@@ -2442,15 +2442,15 @@ Operator make_scaler_overflow_idx(
     memory::Arena *arena,
     const PipeVectors &input,
     s32 inputParamIndex,
-    unsigned scalerBits,
+    double maxValue,
     double outputUpperLimit)
 {
     auto result = make_operator(arena, Operator_ScalerOverflow, 1, 2);
     auto d = arena->push<ScalerOverflowData>({});
     result.d = d;
 
+    d->maxValue = maxValue;
     d->previousValue = 0.0;
-    d->scalerMaxValue = 1u << scalerBits;
     d->overflowCount = 0;
 
     assign_input(&result, input, 0);
@@ -2488,7 +2488,7 @@ void scaler_overflow_step_idx(Operator *op, A2 *)
         if (diff < 0.0)
             ++d->overflowCount;
 
-        double result = inputValue + d->overflowCount * d->scalerMaxValue;
+        double result = inputValue + d->overflowCount * d->maxValue;
         valueOutput[0] = result;
         d->previousValue = inputValue;
     }

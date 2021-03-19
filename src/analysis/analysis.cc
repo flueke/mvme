@@ -2657,7 +2657,7 @@ ScalerOverflow::ScalerOverflow(QObject *parent)
     , m_input(this, 0, QSL("scalerIn"))
     , m_valueOutput(this, 0)
     , m_overflowCountOutput(this, 1)
-    , m_scalerBits(0)
+    , m_maxValue(0.0)
     , m_outputUpperLimit(0.0)
 {
     m_input.acceptedInputTypes = InputType::Value;
@@ -2698,13 +2698,13 @@ void ScalerOverflow::beginRun(const RunInfo &, Logger)
 
 void ScalerOverflow::write(QJsonObject &json) const
 {
-    json["scalerBits"] = static_cast<qint64>(m_scalerBits);
+    json["maxValue"] = m_maxValue;
     json["outputUpperLimit"] = m_outputUpperLimit;
 }
 
 void ScalerOverflow::read(const QJsonObject &json)
 {
-    m_scalerBits = static_cast<unsigned>(json["scalerBits"].toInt());
+    m_maxValue = json["maxValue"].toDouble();
     m_outputUpperLimit = json["outputUpperLimit"].toDouble();
 }
 
