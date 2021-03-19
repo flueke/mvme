@@ -32,6 +32,8 @@ namespace mvme_mvlc
 namespace trigger_io
 {
 
+const u16 LUT::StrobeGGDefaultWidth;
+
 LUT::LUT()
 {
     lutContents.fill({});
