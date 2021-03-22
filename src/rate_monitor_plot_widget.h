@@ -38,6 +38,12 @@ class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
     Q_OBJECT
 
     public:
+        enum class XScaleType
+        {
+            Time,   // x axis scale shows time values (QwtDateScaleEngine)
+            Samples // x axis scale shows sample numbers
+        };
+
         explicit RateMonitorPlotWidget(QWidget *parent = nullptr);
         ~RateMonitorPlotWidget();
 
@@ -53,6 +59,9 @@ class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
         /* Log or lin scaling for the Y-Axis. */
         AxisScale getYAxisScale() const;
         void setYAxisScale(AxisScale scaling);
+
+        XScaleType getXScaleType() const;
+        void setXScaleType(const XScaleType &axisType);
 
         bool isInternalLegendVisible() const;
         void setInternalLegendVisible(bool b);
@@ -74,7 +83,7 @@ class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
         void mouseCursorLeftPlot();
 
     private:
-        std::unique_ptr<RateMonitorPlotWidgetPrivate> m_d;
+        std::unique_ptr<RateMonitorPlotWidgetPrivate> d;
 };
 
 /* Returns a bounding rect for the use with qwt components.
