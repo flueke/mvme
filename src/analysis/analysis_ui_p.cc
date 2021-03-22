@@ -1782,35 +1782,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         combo_exportCompression->setCurrentIndex(
             combo_exportCompression->findData(ex->getCompressionLevel()));
     }
-    else if (auto so = qobject_cast<ScalerOverflow *>(op))
-    {
-        spin_maxValue = new QDoubleSpinBox;
-        spin_maxValue->setDecimals(8);
-        spin_maxValue->setMinimum(0.0);
-        spin_maxValue->setMaximum(std::numeric_limits<double>::max());
-
-        spin_outputUpperLimit = new QDoubleSpinBox;
-        spin_outputUpperLimit->setMinimum(0.0);
-        spin_outputUpperLimit->setMaximum(std::numeric_limits<double>::max());
-        spin_outputUpperLimit->setValue(spin_outputUpperLimit->maximum());
-
-        // populate
-        {
-            double maxValue = so->getMaxValue();
-
-            if (maxValue > 0)
-                spin_maxValue->setValue(maxValue);
-
-            double outputUpperLimit = so->getOutputUpperLimit();
-
-            if (outputUpperLimit > 0)
-                spin_outputUpperLimit->setValue(outputUpperLimit);
-
-        }
-
-        formLayout->addRow("Scaler/Counter Input Max Value", spin_maxValue);
-        formLayout->addRow("Output Upper Limit", spin_outputUpperLimit);
-    }
 }
 
 // NOTE: This will be called after construction for each slot by AddEditOperatorDialog::repopulateSlotGrid()!
@@ -2114,17 +2085,6 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             }
         }
     }
-    else if (qobject_cast<ScalerOverflow *>(op))
-    {
-        Q_ASSERT(slot);
-
-        if (slot == op->getSlot(0) && slot->isConnected())
-        {
-            Q_ASSERT(slot->isParamIndexInRange());
-
-            spin_maxValue->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
-        }
-    }
 }
 
 bool OperatorConfigurationWidget::isValid() const
@@ -2342,11 +2302,6 @@ void OperatorConfigurationWidget::configureOperator()
         ex->setCompressionLevel(combo_exportCompression->currentData().toInt());
         ex->setFormat(static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt()));
         ex->setOutputPrefixPath(le_exportPrefixPath->text());
-    }
-    else if (auto so = qobject_cast<ScalerOverflow *>(op))
-    {
-        so->setMaxValue(spin_maxValue->value());
-        so->setOutputUpperLimit(spin_outputUpperLimit->value());
     }
 }
 

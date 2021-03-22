@@ -621,12 +621,14 @@ DEF_OP_MAGIC(scaler_overflow_magic)
 
     a2::Operator result = {};
 
-    result = a2::make_scaler_overflow_idx(
-        arena,
-        a2_input,
-        inputSlots[0]->paramIndex,
-        a1_op->getMaxValue(),
-        a1_op->getOutputUpperLimit());
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_scaler_overflow(arena, a2_input);
+    }
+    else
+    {
+        result = a2::make_scaler_overflow_idx(arena, a2_input, inputSlots[0]->paramIndex);
+    }
 
     return result;
 }

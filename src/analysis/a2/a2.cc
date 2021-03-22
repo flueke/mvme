@@ -2433,7 +2433,38 @@ void expression_operator_step(Operator *op, A2 *)
 //
 struct ScalerOverflowData
 {
-    double maxValue;
+    TypedBlock<double, s32> previousValues;
+    TypedBlock<unsigned, s32> overflowCounts;
+};
+
+Operator make_scaler_overflow(
+    memory::Arena *arena,
+    const PipeVectors &input)
+{
+    auto result = make_operator(arena, Operator_ScalerOverflow, 1, 2);
+
+    // data
+    auto d = arena->push<ScalerOverflowData>({});
+    result.d = d;
+
+    d->previousValues = push_typed_block<double, s32>(arena, input.size());
+    std::fill(std::begin(d->previousValues), std::end(d->previousValues), 0.0);
+
+    d->overflowCounts = push_typed_block<unsigned, s32>(arena, input.size());
+    std::fill(std::begin(d->overflowCounts), std::end(d->overflowCounts), 0u);
+
+    // input/outputs
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, input.size(), 0.0, std::numeric_limits<double>::max()); // value out
+    push_output_vectors(arena, &result, 1, input.size(), 0.0, std::numeric_limits<double>::max()); // overflow count out
+
+    return result;
+}
+
+struct ScalerOverflowData_idx
+{
+    s32 inputIndex;
     double previousValue;
     unsigned overflowCount;
 };
@@ -2441,45 +2472,73 @@ struct ScalerOverflowData
 Operator make_scaler_overflow_idx(
     memory::Arena *arena,
     const PipeVectors &input,
-    s32 inputParamIndex,
-    double maxValue,
-    double outputUpperLimit)
+    s32 inputIndex)
 {
-    auto result = make_operator(arena, Operator_ScalerOverflow, 1, 2);
-    auto d = arena->push<ScalerOverflowData>({});
+    assert(0 <= inputIndex && inputIndex < input.size());
+
+    auto result = make_operator(arena, Operator_ScalerOverflow_idx, 1, 2);
+
+    // data
+    auto d = arena->push<ScalerOverflowData_idx>({});
     result.d = d;
 
-    d->maxValue = maxValue;
+    d->inputIndex = inputIndex;
     d->previousValue = 0.0;
     d->overflowCount = 0;
 
+    // input/outputs
     assign_input(&result, input, 0);
 
-    push_output_vectors(arena, &result, 0, 1);
-    push_output_vectors(arena, &result, 1, 1);
-
-    // value
-    result.outputLowerLimits[0][0] = input.lowerLimits[inputParamIndex];
-    result.outputUpperLimits[0][0] = outputUpperLimit;
-
-    // overflow count
-    result.outputLowerLimits[1][0] = 0.0;
-    result.outputUpperLimits[1][0] = std::numeric_limits<double>::max();
+    push_output_vectors(arena, &result, 0, 1, 0.0, std::numeric_limits<double>::max()); // value out
+    push_output_vectors(arena, &result, 1, 1, 0.0, std::numeric_limits<double>::max()); // overflow count out
 
     return result;
 }
 
-void scaler_overflow_step_idx(Operator *op, A2 *)
+void scaler_overflow_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->type == Operator_ScalerOverflow);
 
     auto input = op->inputs[0];
+    auto inputUpperLimits = op->inputUpperLimits[0];
     auto valueOutput = op->outputs[0];
     auto overflowCountOutput = op->outputs[1];
     auto d = reinterpret_cast<ScalerOverflowData *>(op->d);
 
-    double inputValue = input[0];
+    for (s32 i=0; i<input.size; ++i)
+    {
+        double inputValue = input[i];
+
+        if (is_param_valid(inputValue))
+        {
+            double diff = inputValue - d->previousValues[i];
+
+            if (diff < 0.0)
+                ++d->overflowCounts[i];
+
+            d->previousValues[i] = inputValue;
+
+            double maxValue = inputUpperLimits[i];
+            double result = inputValue + d->overflowCounts[i] * maxValue;
+            valueOutput[i] = result;
+            overflowCountOutput[i] = d->overflowCounts[i];
+        }
+    }
+}
+
+void scaler_overflow_step_idx(Operator *op, A2 *)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ScalerOverflow_idx);
+
+    auto input = op->inputs[0];
+    auto inputUpperLimits = op->inputUpperLimits[0];
+    auto valueOutput = op->outputs[0];
+    auto overflowCountOutput = op->outputs[1];
+    auto d = reinterpret_cast<ScalerOverflowData_idx *>(op->d);
+
+    double inputValue = input[d->inputIndex];
 
     if (is_param_valid(inputValue))
     {
@@ -2488,16 +2547,13 @@ void scaler_overflow_step_idx(Operator *op, A2 *)
         if (diff < 0.0)
             ++d->overflowCount;
 
-        double result = inputValue + d->overflowCount * d->maxValue;
-        valueOutput[0] = result;
         d->previousValue = inputValue;
-    }
-    else
-    {
-        valueOutput[0] = invalid_param();
-    }
 
-    overflowCountOutput[0] = d->overflowCount;
+        double maxValue = inputUpperLimits[d->inputIndex];
+        double result = inputValue + d->overflowCount * maxValue;
+        valueOutput[0] = result;
+        overflowCountOutput[0] = d->overflowCount;
+    }
 }
 
 /* ===============================================
@@ -3720,7 +3776,8 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_Aggregate_SigmaX] = { aggregate_sigmax_step };
 
     result[Operator_Expression] = { expression_operator_step };
-    result[Operator_ScalerOverflow] = { scaler_overflow_step_idx };
+    result[Operator_ScalerOverflow] = { scaler_overflow_step };
+    result[Operator_ScalerOverflow_idx] = { scaler_overflow_step_idx };
 
     result[Operator_ConditionInterval] = { condition_interval_step };
     result[Operator_ConditionRectangle] = { condition_rectangle_step };

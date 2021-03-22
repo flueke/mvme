@@ -2657,12 +2657,8 @@ ScalerOverflow::ScalerOverflow(QObject *parent)
     , m_input(this, 0, QSL("scalerIn"))
     , m_valueOutput(this, 0)
     , m_overflowCountOutput(this, 1)
-    , m_maxValue(0.0)
-    , m_outputUpperLimit(0.0)
 {
-    m_input.acceptedInputTypes = InputType::Value;
-    m_valueOutput.parameters.resize(1);
-    m_overflowCountOutput.parameters.resize(1);
+    m_input.acceptedInputTypes = InputType::Both;
 }
 
 void ScalerOverflow::beginRun(const RunInfo &, Logger)
@@ -2674,38 +2670,43 @@ void ScalerOverflow::beginRun(const RunInfo &, Logger)
         return;
     }
 
-    m_valueOutput.parameters.resize(1);
-    m_overflowCountOutput.parameters.resize(1);
-
-    // value output
+    // resize outputs to input size
+    if (m_input.paramIndex != Slot::NoParamIndex)
     {
-        auto &out = m_valueOutput.parameters;
-        auto &in = m_input.inputPipe->getParameters();
-
-        out.unit = in.unit;
-        out[0].lowerLimit = 0.0;
-        out[0].upperLimit = m_outputUpperLimit;
+        m_valueOutput.parameters.resize(m_input.inputPipe->getSize());
+        m_overflowCountOutput.parameters.resize(m_input.inputPipe->getSize());
+    }
+    else
+    {
+        m_valueOutput.parameters.resize(1);
+        m_overflowCountOutput.parameters.resize(1);
     }
 
-    // overflow count output
-    {
-        auto &out = m_overflowCountOutput.parameters;
+    auto &valueOutParams = m_valueOutput.parameters;
+    auto &countOutParams = m_overflowCountOutput.parameters;
+    auto &inParams = m_input.inputPipe->getParameters();
 
-        out[0].lowerLimit = 0.0;
-        out[0].upperLimit = std::numeric_limits<double>::max();
+    valueOutParams.unit = inParams.unit;
+
+    for (s32 outIdx = 0; outIdx < valueOutParams.size(); ++outIdx)
+    {
+        valueOutParams[outIdx].lowerLimit = 0.0;
+        valueOutParams[outIdx].upperLimit = std::numeric_limits<double>::max();
+
+        countOutParams[outIdx].lowerLimit = 0.0;
+        countOutParams[outIdx].upperLimit = std::numeric_limits<double>::max();
     }
 }
 
+
 void ScalerOverflow::write(QJsonObject &json) const
 {
-    json["maxValue"] = m_maxValue;
-    json["outputUpperLimit"] = m_outputUpperLimit;
+    Q_UNUSED(json);
 }
 
 void ScalerOverflow::read(const QJsonObject &json)
 {
-    m_maxValue = json["maxValue"].toDouble();
-    m_outputUpperLimit = json["outputUpperLimit"].toDouble();
+    Q_UNUSED(json);
 }
 
 //

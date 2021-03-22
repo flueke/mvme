@@ -444,12 +444,14 @@ void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 /* ===============================================
  * ScalerOverflow
  * =============================================== */
+Operator make_scaler_overflow(
+    memory::Arena *arena,
+    const PipeVectors &input);
+
 Operator make_scaler_overflow_idx(
     memory::Arena *arena,
     const PipeVectors &input,
-    s32 inputParamIndex,
-    double maxValue,
-    double outputUpperLimit);
+    s32 inputParamIndex);
 
 /* ===============================================
  * Conditions

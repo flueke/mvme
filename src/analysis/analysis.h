@@ -1394,18 +1394,10 @@ class LIBMVME_EXPORT ScalerOverflow: public OperatorInterface
         virtual QString getDisplayName() const override { return QSL("Scaler Overflow"); }
         virtual QString getShortName() const override { return QSL("ScalerOverflow"); }
 
-        // ScalerOverflow specific
-        void setMaxValue(double v) { m_maxValue = v; }
-        double getMaxValue() const { return m_maxValue; }
-        void setOutputUpperLimit(double limit) { m_outputUpperLimit = limit; }
-        double getOutputUpperLimit() const { return m_outputUpperLimit; }
-
     private:
         Slot m_input;
         Pipe m_valueOutput;
         Pipe m_overflowCountOutput;
-        double m_maxValue;;
-        double m_outputUpperLimit;
 };
 
 //
