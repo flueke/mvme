@@ -270,6 +270,7 @@ static void discard_module(Analysis *analysis, const QUuid &moduleId)
     }
 }
 
+#ifndef QT_NO_DEBUG
 static QString to_string(const ModuleInfo &info)
 {
     return QString("(%1, %2, %3)")
@@ -278,6 +279,7 @@ static QString to_string(const ModuleInfo &info)
         .arg(info.name)
         ;
 }
+#endif
 
 static void apply_changes(Analysis *analysis, const QVector<ChangeInfo> &changes)
 {
@@ -389,10 +391,12 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
             info.toEventId      = targetModInfo.eventId;
             moduleChangeInfos.push_back(info);
 
-            //auto eventId = moduleAndEventId.second;
-            //qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite: modules:"
-            //    << to_string(modInfo) << "->" << to_string(targetModInfo)
-            //    << ", event ids =" << eventId << "->" << info.toEventId;
+#ifndef QT_NO_DEBUG
+            auto eventId = moduleAndEventId.second;
+            qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite: modules:"
+                << to_string(modInfo) << "->" << to_string(targetModInfo)
+                << ", event ids =" << eventId << "->" << info.toEventId;
+#endif
         }
     }
 
