@@ -2506,12 +2506,12 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
     spin_offset = make_calibration_spinbox(QString());
     spin_offset->setValue(m_rms->getCalibrationOffset());
 
-    spin_interval = new QDoubleSpinBox;
-    spin_interval->setDecimals(4);
-    spin_interval->setMinimum(1e-20);
-    spin_interval->setMaximum(1e+20);
-    spin_interval->setSuffix(QSL(" s"));
-    spin_interval->setValue(m_rms->getSamplingInterval());
+    spin_dtSample = new QDoubleSpinBox;
+    spin_dtSample->setDecimals(4);
+    spin_dtSample->setMinimum(1e-20);
+    spin_dtSample->setMaximum(1e+20);
+    spin_dtSample->setSuffix(QSL(" s"));
+    spin_dtSample->setValue(m_rms->getSamplingInterval());
 
     auto gb_calibration = new QGroupBox(QSL("Rate Value Scaling (y-axis)"));
     {
@@ -2529,7 +2529,7 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
     {
         auto l = new QFormLayout(gb_samplingInterval);
         l->setContentsMargins(2, 2, 2, 2);
-        l->addRow(QSL("Interval"), spin_interval);
+        l->addRow(QSL("Interval"), spin_dtSample);
         auto label = new QLabel(QSL(
                 "Note: Does not affect the systems sampling frequency, only"
                 " the x-axis time scale.\n"
@@ -2570,7 +2570,7 @@ void RateMonitorConfigWidget::configureOperator()
     m_rms->setUnitLabel(le_unit->text());
     m_rms->setCalibrationFactor(spin_factor->value());
     m_rms->setCalibrationOffset(spin_offset->value());
-    m_rms->setSamplingInterval(spin_interval->value());
+    m_rms->setSamplingInterval(spin_dtSample->value());
 }
 
 void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
