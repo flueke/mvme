@@ -38,11 +38,7 @@ class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
     Q_OBJECT
 
     public:
-        enum class XScaleType
-        {
-            Time,   // x axis scale shows time values (QwtDateScaleEngine)
-            Samples // x axis scale shows sample numbers
-        };
+        using XScaleType = RateMonitorXScaleType;
 
         explicit RateMonitorPlotWidget(QWidget *parent = nullptr);
         ~RateMonitorPlotWidget();

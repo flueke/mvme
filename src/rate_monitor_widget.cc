@@ -683,6 +683,7 @@ void RateMonitorWidget::setSink(const SinkPtr &sink, SinkModifiedCallback sinkMo
     m_d->m_sink = sink;
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
     m_d->m_samplers = sink->getRateSamplers();
+    m_d->m_plotWidget->setXScaleType(sink->getXScaleType());
 
     m_d->m_spin_plotIndex->setMinimum(0);
     m_d->m_spin_plotIndex->setMaximum(std::max(m_d->m_samplers.size() - 1, 0));

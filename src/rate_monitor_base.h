@@ -32,6 +32,7 @@
 #include "typedefs.h"
 #include "util/counters.h"
 #include "util/cpp17_algo.h"
+#include "util/qt_str.h"
 #include "util/strings.h"
 #include "util/tree.h"
 
@@ -39,6 +40,37 @@
 using a2::RateHistoryBuffer;
 using a2::RateSampler;
 using a2::RateSamplerPtr;
+
+enum class RateMonitorXScaleType
+{
+    Time,   // x axis scale shows time values (QwtDateScaleEngine)
+    Samples // x axis scale shows sample numbers
+};
+
+inline QString to_string(RateMonitorXScaleType scaleType)
+{
+    switch (scaleType)
+    {
+        case RateMonitorXScaleType::Time:
+            return QSL("Time");
+        case RateMonitorXScaleType::Samples:
+            return QSL("Samples");
+    }
+    return {};
+}
+
+inline RateMonitorXScaleType rate_monitor_xscale_type_from_string(const QString &str)
+{
+    RateMonitorXScaleType result = RateMonitorXScaleType::Time;
+
+    if (str.compare(QSL("Time"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorXScaleType::Time;
+
+    if (str.compare(QSL("Samples"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorXScaleType::Samples;
+
+    return result;
+}
 
 struct not_nan_filter
 {

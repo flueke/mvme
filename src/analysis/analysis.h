@@ -1689,6 +1689,9 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
         double getSamplingInterval() const { return m_samplingInterval; }
         void setSamplingInterval(double d) { m_samplingInterval = d; }
 
+        RateMonitorXScaleType getXScaleType() const { return m_xScaleType; }
+        void setXScaleType(RateMonitorXScaleType scaleType) { m_xScaleType = scaleType; }
+
         // If true the plot widget should show all rates in a single plot.
         // Saved in the analysis to persist across sessions.
         void setUseCombinedView(bool b) { m_useCombinedView = b; }
@@ -1718,6 +1721,7 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
         double m_calibrationOffset = 0.0;
         double m_samplingInterval  = 1.0;
         bool m_useCombinedView = false;
+        RateMonitorXScaleType m_xScaleType;
 };
 
 class LIBMVME_EXPORT ExportSink: public SinkInterface

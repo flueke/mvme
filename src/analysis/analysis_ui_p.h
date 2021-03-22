@@ -337,6 +337,7 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         QDoubleSpinBox *spin_factor;
         QDoubleSpinBox *spin_offset;
         QDoubleSpinBox *spin_dtSample;
+        QComboBox *combo_xScaleType;
 };
 
 class PipeDisplay: public QWidget

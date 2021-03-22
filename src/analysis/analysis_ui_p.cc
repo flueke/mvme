@@ -63,6 +63,7 @@
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "qt_util.h"
+#include "rate_monitor_plot_widget.h"
 #include "util/qt_font.h"
 #include "util/qt_layouts.h"
 #include "util/variablify.h"
@@ -2513,7 +2514,7 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
     spin_dtSample->setSuffix(QSL(" s"));
     spin_dtSample->setValue(m_rms->getSamplingInterval());
 
-    auto gb_calibration = new QGroupBox(QSL("Rate Value Scaling (y-axis)"));
+    auto gb_calibration = new QGroupBox(QSL("Y-Axis (Rate Value Scaling)"));
     {
         auto l = new QFormLayout(gb_calibration);
         l->setContentsMargins(2, 2, 2, 2);
@@ -2525,22 +2526,42 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
         l->addRow(label);
     }
 
-    auto gb_samplingInterval = new QGroupBox(QSL("Sampling Interval (x-axis scaling)"));
+    // x-axis setup
+    combo_xScaleType = new QComboBox;
+    combo_xScaleType->addItem("Time", static_cast<int>(RateMonitorXScaleType::Time));
+    combo_xScaleType->addItem("Samples", static_cast<int>(RateMonitorXScaleType::Samples));
+
+    auto gb_xAxis = new QGroupBox(QSL("X-Axis")); // Sampling Interval (x-axis scaling)"));
     {
-        auto l = new QFormLayout(gb_samplingInterval);
-        l->setContentsMargins(2, 2, 2, 2);
-        l->addRow(QSL("Interval"), spin_dtSample);
-        auto label = new QLabel(QSL(
-                "Note: Does not affect the systems sampling frequency, only"
+        auto label_dtSample = new QLabel(QSL(
+                "Note: The interval does not affect the systems sampling frequency, only"
                 " the x-axis time scale.\n"
                 "For CounterDifference and PrecalculatedRate type samplers"
                 " the sampling frequency is determined by the trigger rate"
                 " of the corresponding VME event.\n"
-                "FlowRate sampling is based on (replay) timeticks."
+                "FlowRate sampling is based on timeticks contained in the readout data stream."
                 ));
-        label->setWordWrap(true);
-        l->addRow(label);
+        label_dtSample->setWordWrap(true);
+
+        auto l = new QFormLayout(gb_xAxis);
+        l->setContentsMargins(2, 2, 2, 2);
+        l->addRow(QSL("X-Axis Type"), combo_xScaleType);
+        l->addRow(QSL("Interval"), spin_dtSample);
+        l->addRow(label_dtSample);
+
+        connect(combo_xScaleType, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this, label_dtSample] ()
+                {
+                    auto scaleType = static_cast<RateMonitorXScaleType>(combo_xScaleType->currentData().toInt());
+                    spin_dtSample->setEnabled(scaleType == RateMonitorXScaleType::Time);
+                    label_dtSample->setEnabled(scaleType == RateMonitorXScaleType::Time);
+                    // Sample based x-axis needs a "sampling interval" of 1.0
+                    if (scaleType == RateMonitorXScaleType::Samples)
+                        spin_dtSample->setValue(1.0);
+                });
     }
+
+    combo_xScaleType->setCurrentIndex(combo_xScaleType->findData(static_cast<s32>(m_rms->getXScaleType())));
 
     // populate the layouts
 
@@ -2552,7 +2573,7 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
     formLayout->addRow(QSL("Max samples"), spin_capacity);
     formLayout->addRow(QSL("Y-Axis Label"), le_unit);
     formLayout->addRow(gb_calibration);
-    formLayout->addRow(gb_samplingInterval);
+    formLayout->addRow(gb_xAxis);
 
     auto widgetLayout = new QVBoxLayout(this);
     widgetLayout->setContentsMargins(0, 0, 0, 0);
@@ -2571,6 +2592,7 @@ void RateMonitorConfigWidget::configureOperator()
     m_rms->setCalibrationFactor(spin_factor->value());
     m_rms->setCalibrationOffset(spin_offset->value());
     m_rms->setSamplingInterval(spin_dtSample->value());
+    m_rms->setXScaleType(static_cast<RateMonitorXScaleType>(combo_xScaleType->currentData().toInt()));
 }
 
 void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
