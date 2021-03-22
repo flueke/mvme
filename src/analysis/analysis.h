@@ -1373,7 +1373,7 @@ class LIBMVME_EXPORT ScalerOverflow: public OperatorInterface
             if (outputIndex == 0)
                 return QSL("value");
             if (outputIndex == 1)
-                return QSL("overflow count");
+                return QSL("overflows");
             return {};
         }
 

@@ -2673,13 +2673,13 @@ void ScalerOverflow::beginRun(const RunInfo &, Logger)
     // resize outputs to input size
     if (m_input.paramIndex != Slot::NoParamIndex)
     {
-        m_valueOutput.parameters.resize(m_input.inputPipe->getSize());
-        m_overflowCountOutput.parameters.resize(m_input.inputPipe->getSize());
+        m_valueOutput.parameters.resize(1);
+        m_overflowCountOutput.parameters.resize(1);
     }
     else
     {
-        m_valueOutput.parameters.resize(1);
-        m_overflowCountOutput.parameters.resize(1);
+        m_valueOutput.parameters.resize(m_input.inputPipe->getSize());
+        m_overflowCountOutput.parameters.resize(m_input.inputPipe->getSize());
     }
 
     auto &valueOutParams = m_valueOutput.parameters;
