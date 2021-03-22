@@ -146,7 +146,6 @@ const QVector<QColor> make_plot_colors()
         "#808000",
         "#ffd8b1",
         "#000080",
-        "#FFFFFF",
     };
 
     return result;
