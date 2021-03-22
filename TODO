@@ -2,30 +2,19 @@
 TODO list
 ==================================================
 
+* Rate Monitor:
+  - mouse hover sample index is often negative
+  - stats display needs updating for Sample based x-scale
+  - avg. Rate in the stats display is incorrectly 0 most of the times. why?
+  - it's so messy :(
+
 * update mvlc/vmeconfig_from_crateconfig (needs mcstDaqStart & mcstDaqStop)
-
-* NIM Sim: GG nur simulieren wenn NIM als Input konfiguriert!
-* L0 Sim: copy util input pin traces to util output pin sim traces
-* MVLC soft trigger vme script snippet needs to be updated!
-
-* DSOPlotWidget
-  - Maybe extend traces from post trigger time to sim max time with Unknown.
-  - x-axis max sim time scaling: make x-axis scale user-settable
-
-* DSO+SIM
-
 
 * DSO gui:
   - histogramming: could switch between osciolloscope and histogram view.
     draw rising and falling edge times in different colors.
   - When modifying the trigIO the trace select tree gets collapsed :(
 
-* mvlc: modul machen, dass den timestamp counter0 buffer vom mvlc ausliest. Wo
-  liegt der?
-* trigger_io_scope:
-  - close widget on mvlc change or update mvlc instance (the widget currently
-    retains the old instance)
-  - maybe store fifoOverflow in Snapshot
 * write mvlc stack errors to the mvme log file (right now they're completely
   lost after the daq ends)
 * trigger_io: when changing a vme event from periodic to irq the trigger_io
