@@ -14,6 +14,7 @@ TODO list
   - histogramming: could switch between osciolloscope and histogram view.
     draw rising and falling edge times in different colors.
   - When modifying the trigIO the trace select tree gets collapsed :(
+  - Sim: 36ns difference between simulated and sampled routed trace. why? subtract it?
 
 * write mvlc stack errors to the mvme log file (right now they're completely
   lost after the daq ends)
