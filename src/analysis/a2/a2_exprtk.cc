@@ -21,7 +21,7 @@
 #include "a2_exprtk.h"
 
 #ifndef NDEBUG
-#define exprtk_enable_debugging
+//#define exprtk_enable_debugging             // verbose exprtk debug output
 #define exprtk_disable_enhanced_features    // reduces compilation time at cost of runtime performance
 #endif
 #define exprtk_disable_rtl_io_file          // we do not ever want to use the fileio package
