@@ -33,7 +33,8 @@ void apply_delay(Trace &trace, SampleTime delay)
     std::for_each(
         std::begin(trace), std::end(trace),
         [delay] (Sample &sample) {
-            sample.time += delay;
+            if (sample.time != 0ns)
+                sample.time += delay;
         });
 }
 
@@ -138,6 +139,8 @@ void simulate_single_lut_output(
         assert(usedInputs.any());
 
         SampleTime t0(0);
+
+        outputTrace->push_back({ t0, Edge::Falling });
 
         while (true)
         {
@@ -536,7 +539,11 @@ Trace *lookup_trace(Sim &sim, const PinAddress &pa)
     else if (pa.unit[0] == 1)
     {
         auto con =  Level1::StaticConnections[pa.unit[1]][pa.unit[2]];
-        return lookup_output_trace(sim, con.address);
+        if (!con.isDynamic)
+            return lookup_output_trace(sim, con.address);
+        // Dynamic input (L1.LUT2)
+        auto srcAddr = get_connection_unit_address(sim.trigIO, pa.unit);
+        return lookup_output_trace(sim, srcAddr);
     }
     else if (pa.unit[0] == 2)
     {

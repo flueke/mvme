@@ -85,7 +85,7 @@ struct LIBMVME_EXPORT LUT
     static const u16 StrobeGGInput = InputBits;
     // Same as above but for the strobe output which is only used in the simulation
     // code.
-    static const u16 StrobeGGOutput = StrobeGGInput + 1u;
+    static const u16 StrobeGGOutput = OutputBits;
 
     // Holds the output state for all 64 input combinations. One of the logic LUTs
     // is made up for three of these mappings, one for each output bit.
