@@ -2216,6 +2216,47 @@ while(0)
     return result;
 }
 
+template<typename M, typename K>
+bool map_contains(const M &theMap, const K &theKey)
+{
+    return theMap.find(theKey) != std::end(theMap);
+}
+
+struct FuncMakeStatic: public a2_exprtk::GenericFunction
+{
+    using VarDef = a2_exprtk::TypeStore;
+
+    FuncMakeStatic()
+        : GenericFunction("ST|SV|STT")
+    {}
+
+    double operator()(const ParameterList &params, size_t paramSeqIndex) override
+    {
+        std::string varname = params[0].string;
+
+        if (map_contains(vardefs, varname))
+            throw SemanticError("Duplicate static variable definition");
+
+        if (paramSeqIndex == 0 || paramSeqIndex == 1)
+        {
+            vardefs[varname] = params[1];
+        }
+        else
+        {
+            VarDef vardef = {};
+            vardef.type = VarDef::Vector;
+            vardef.vector.resize(params[1].scalar);
+            std::fill(std::begin(vardef.vector), std::end(vardef.vector), params[2].scalar);
+            vardefs[varname] = vardef;
+        }
+
+
+        return {};
+    }
+
+    std::map<std::string, VarDef> vardefs;
+};
+
 } // end anon namspace
 
 Operator make_expression_operator(
@@ -2266,6 +2307,10 @@ Operator make_expression_operator(
                             input.upperLimits.data[pi]);
         }
     }
+
+    // Add the make_static() function to the symbol table.
+    FuncMakeStatic makeStatic;
+    d->symtab_begin.addFunction("make_static", makeStatic);
 
     /* Setup and evaluate the begin expression. */
     d->expr_begin.registerSymbolTable(make_expression_operator_runtime_library());
@@ -2391,6 +2436,23 @@ Operator make_expression_operator(
 
         register_symbol(d->symtab_step, createString, outSpec.name + ".unit",
                         outSpec.unit);
+    }
+
+    // Create permanent storage for the static variables and register them with
+    // the symbol table. The memory locations of the static var store may not
+    // change after this because the symbol table directly references them!
+    d->static_vars = makeStatic.vardefs;
+
+    for (auto &kv: d->static_vars)
+    {
+        auto &varname = kv.first;
+        auto &varstore = kv.second;
+
+        if (varstore.type == a2_exprtk::TypeStore::Scalar)
+            register_symbol(d->symtab_step, addScalar, varname, varstore.scalar);
+        else if (varstore.type == a2_exprtk::TypeStore::Vector)
+            register_symbol(d->symtab_step, addVector, varname,
+                            varstore.vector.data(), varstore.vector.size());
     }
 
     d->expr_step.registerSymbolTable(make_expression_operator_runtime_library());

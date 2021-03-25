@@ -408,6 +408,7 @@ struct ExpressionOperatorData
 
     std::vector<std::string> output_names;
     std::vector<std::string> output_units;
+    std::map<std::string, a2_exprtk::TypeStore> static_vars;
 };
 
 enum class ExpressionOperatorBuildOptions: u8
