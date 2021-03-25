@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
         });
 
         QObject::connect(combo_curveStyle, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                         plotWidget, [=](int index) {
+                         plotWidget, [=](int) {
             for (auto curve: plotWidget->getPlotCurves())
             {
                 auto style = static_cast<QwtPlotCurve::CurveStyle>(combo_curveStyle->currentData().toInt());
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
          });
 
         QObject::connect(combo_legendPosition, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                         plotWidget, [=](int index) {
+                         plotWidget, [=](int) {
             int data = combo_legendPosition->currentData().toInt();
             if (data < 0)
             {
