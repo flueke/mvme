@@ -4884,7 +4884,7 @@ void Analysis::beginRun(const RunInfo &runInfo,
         || m_vmeMap != vmeMap
         || getObjectFlags() & ObjectFlags::NeedsRebuild);
 
-#if ENABLE_ANALYSIS_DEBUG
+#if 1 // ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__
         << "fullBuild =" << fullBuild
         << ", keepAnalysisState =" << runInfo.keepAnalysisState
@@ -4956,6 +4956,11 @@ void Analysis::beginRun(const RunInfo &runInfo,
         }
     }
 
+#if 0
+    // ExpressionOperator hack
+    QMap<OperatorInterface *, a2::ExpressionOperatorData::StaticVarMap> exprOpStaticVars;
+#endif
+
     u32 operatorsBuilt = 0;
 
     for (auto &op: m_operators)
@@ -4990,6 +4995,18 @@ void Analysis::beginRun(const RunInfo &runInfo,
         {
             op->clearState();
         }
+#if 0
+        // Hack to keep the values of static variables of ExpressionOperator
+        // instances.
+        else if (auto expr = qobject_cast<ExpressionOperator *>(op.get()))
+        {
+            if (auto a2_op = m_a2State->operatorMap.value(expr, nullptr))
+            {
+                auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
+                exprOpStaticVars[expr] = data->static_vars;
+            }
+        }
+#endif
     }
 
     clearObjectFlags(ObjectFlags::NeedsRebuild);
@@ -5024,6 +5041,27 @@ void Analysis::beginRun(const RunInfo &runInfo,
         if (logger)
             logger(QString::fromStdString(str));
     });
+
+#if 0
+    // Hack: restore ExpressionOperator static variable values
+    for (auto &op: m_operators)
+    {
+        if (exprOpStaticVars.contains(op.get()))
+        {
+            assert(qobject_cast<ExpressionOperator *>(op.get()));
+            auto &staticVars = exprOpStaticVars[op.get()];
+
+            if (auto a2_op = m_a2State->operatorMap.value(op.get(), nullptr))
+            {
+                auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
+                assert(staticVars.size() == data->static_vars.size());
+                // FIXME: I think I cannot do this: the references in the symbol
+                // table will become invalid!
+                data->static_vars = staticVars;
+            }
+        }
+    }
+#endif
 
     auto tEnd = ClockType::now();
     std::chrono::duration<float> elapsed = tEnd - tStart;
