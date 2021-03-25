@@ -42,13 +42,12 @@ LIBMVME_EXPORT void simulate(
 using LutInputTraces = std::array<const Trace *, LUT::InputBits>;
 using LutOutputTraces = std::array<Trace *, LUT::OutputBits>;
 
-// Full LUT simulation with strobe input
+// Full LUT simulation with strobe trace
 LIBMVME_EXPORT void simulate_lut(
     const LUT &lut,
     const LutInputTraces &inputs,
-    const Trace *strobeInput,
     LutOutputTraces outputs,
-    Trace *strobeOutput,
+    const Trace *strobeTrace,
     const SampleTime &maxtime);
 
 // LUT simulation without the strobe
@@ -58,11 +57,7 @@ inline void simulate_lut(
     LutOutputTraces outputs,
     const SampleTime &maxtime)
 {
-    simulate_lut(
-        lut,
-        inputs, nullptr,
-        outputs, nullptr,
-        maxtime);
+    simulate_lut(lut, inputs, outputs, nullptr, maxtime);
 }
 
 struct LIBMVME_EXPORT Sim
@@ -109,7 +104,7 @@ LIBMVME_EXPORT Trace *lookup_output_trace(Sim &sim, const UnitAddress &addr);
 
 LIBMVME_EXPORT Trace *lookup_trace(Sim &sim, const PinAddress &pa);
 
-inline Trace *lookup_input_trace(Sim &sim, const UnitAddress &addr)
+inline const Trace *lookup_input_trace(Sim &sim, const UnitAddress &addr)
 {
     return lookup_trace(sim, PinAddress(addr, PinPosition::Input));
 }
