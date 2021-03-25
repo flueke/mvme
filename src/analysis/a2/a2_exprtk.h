@@ -76,6 +76,43 @@ struct SymbolError: public std::runtime_error
     Reason reason = Reason::Unspecified;
 };
 
+struct TypeStore
+{
+    enum Type
+    {
+        Scalar,
+        String,
+        Vector
+    };
+
+    Type type;
+
+    double scalar;
+    std::string string;
+    std::vector<double> vector;
+};
+
+class GenericFunction
+{
+    public:
+        using ParameterList = std::vector<TypeStore>;
+
+        // paramSeq is a string specifying the sets of parameters the function accepts.
+        // This is described in the exprtk readme in [SECTION 15 - USER DEFINED FUNCTIONS]
+        GenericFunction(const std::string &paramSeq = {})
+            : paramSeq_(paramSeq)
+            { }
+
+        virtual ~GenericFunction() {}
+
+        virtual double operator()(const ParameterList &parameters, size_t paramSeqIndex) = 0;
+
+        std::string getParameterSequence() const { return paramSeq_; }
+
+    private:
+        std::string paramSeq_;
+};
+
 class SymbolTable
 {
     public:
@@ -102,8 +139,9 @@ class SymbolTable
 
         bool addConstants(); // pi, epsilon, inf
 
-        /* NOTE: There's currently no way to get back to the original std::vector
-         * registered via addVector(), only the pointer and size can be queried. */
+        /* NOTE: There's currently no way to get back to the original
+         * std::vector registered via addVector(), only the data pointer and
+         * size can be queried. */
 
         std::vector<std::string> getSymbolNames() const;
         bool symbolExists(const std::string &name) const;
@@ -121,6 +159,7 @@ class SymbolTable
         bool addFunction(const std::string &name, Function01 f);
         bool addFunction(const std::string &name, Function02 f);
         bool addFunction(const std::string &name, Function03 f);
+        bool addFunction(const std::string &name, GenericFunction &f);
 
         static bool isReservedSymbol(const std::string &name);
 
@@ -134,21 +173,7 @@ class SymbolTable
 class Expression
 {
     public:
-        struct Result
-        {
-            enum Type
-            {
-                Scalar,
-                String,
-                Vector
-            };
-
-            Type type;
-
-            double scalar;
-            std::string string;
-            std::vector<double> vector;
-        };
+        using Result = TypeStore;
 
         Expression();
         explicit Expression(const std::string &expr_str);

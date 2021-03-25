@@ -21,6 +21,7 @@
 #include "a2_exprtk.h"
 
 #ifndef NDEBUG
+#define exprtk_enable_debugging
 #define exprtk_disable_enhanced_features    // reduces compilation time at cost of runtime performance
 #endif
 #define exprtk_disable_rtl_io_file          // we do not ever want to use the fileio package
@@ -84,6 +85,91 @@ static const size_t CompileOptions = ParserSettings::e_replacer          +
  * being more "C-like".
  */
 
+template<typename T>
+TypeStore to_typestore(const typename exprtk::igeneric_function<T>::generic_type &gt)
+{
+    using generic_type = typename exprtk::igeneric_function<T>::generic_type;
+    typedef typename generic_type::scalar_view scalar_t;
+    typedef typename generic_type::vector_view vector_t;
+    typedef typename generic_type::string_view string_t;
+
+    TypeStore result = {};
+
+    switch (gt.type)
+    {
+        case generic_type::e_scalar:
+            {
+                result.type   = TypeStore::Scalar;
+                result.scalar = scalar_t(gt)();
+            } break;
+
+        case generic_type::e_string:
+            {
+                result.type   = TypeStore::String;
+                result.string = to_str(string_t(gt));
+            } break;
+
+        case generic_type::e_vector:
+            {
+                auto vv = vector_t(gt);
+                result.type   = TypeStore::Vector;
+                result.vector = std::vector<double>(vv.begin(), vv.end());
+            } break;
+
+        case generic_type::e_unknown:
+        default:
+            InvalidCodePath;
+    }
+
+    return result;
+}
+
+template<typename T>
+struct GenericFunctionAdapter: public exprtk::igeneric_function<T>
+{
+    using parameter_list_t = typename exprtk::igeneric_function<T>::parameter_list_t;
+    using generic_type = typename exprtk::igeneric_function<T>::generic_type;
+
+    GenericFunctionAdapter(GenericFunction &f)
+        : exprtk::igeneric_function<T>(f.getParameterSequence())
+        , f_(f)
+    {
+    }
+
+    // This is the overload called by exprtk when the parameter sequence string
+    // is empty.
+    inline T operator() (parameter_list_t params)
+    {
+        //std::cout << __PRETTY_FUNCTION__ << " " << params.size() << std::endl;
+
+        GenericFunction::ParameterList adaptedParams;
+
+        for (std::size_t i = 0; i < params.size(); ++i)
+            adaptedParams.emplace_back(to_typestore<double>(params[i]));
+
+        return f_(adaptedParams, 0);
+    }
+
+    // This is the overload called by exprtk when a parameter sequence string
+    // is given.
+    // f(psi,i_0,i_1,....,i_N) --> Scalar
+    // psi is the 'param seq index' which is the index of the parameter
+    // sequence alternative parsed by exprtk.
+    inline T operator() (const std::size_t& psi, parameter_list_t params)
+    {
+        //std::cout << __PRETTY_FUNCTION__ << params.size() << std::endl;
+        //std::cout << __PRETTY_FUNCTION__ << "psi=" << psi << std::endl;
+
+        GenericFunction::ParameterList adaptedParams;
+
+        for (std::size_t i = 0; i < params.size(); ++i)
+            adaptedParams.emplace_back(to_typestore<double>(params[i]));
+
+        return f_(adaptedParams, psi);
+    }
+
+    GenericFunction &f_;
+};
 
 } // namespace detail
 
@@ -91,6 +177,7 @@ struct SymbolTable::Private
 {
     bool enableExceptions;
     detail::SymbolTable symtab_impl;
+    std::vector<detail::GenericFunctionAdapter<double>> functionAdapters_;
 };
 
 SymbolTable::SymbolTable(bool enableExceptions)
@@ -310,6 +397,12 @@ bool SymbolTable::addFunction(const std::string &name, Function03 f)
     return m_d->symtab_impl.add_function(name, f);
 }
 
+bool SymbolTable::addFunction(const std::string &name, GenericFunction &f)
+{
+    m_d->functionAdapters_.emplace_back(detail::GenericFunctionAdapter<double>(f));
+    return m_d->symtab_impl.add_function(name, m_d->functionAdapters_.back());
+}
+
 bool SymbolTable::isReservedSymbol(const std::string &name)
 {
     return exprtk::details::is_reserved_symbol(name);
@@ -426,36 +519,7 @@ std::vector<Expression::Result> Expression::results()
     const auto &results = m_d->expression.results();
 
     for (size_t i = 0; i < results.count(); i++)
-    {
-        Result result = {};
-
-        switch (results[i].type)
-        {
-            case detail::ResultsContext::type_store_t::e_scalar:
-                {
-                    result.type   = Result::Scalar;
-                    result.scalar = detail::ResultsContext::type_store_t::scalar_view(results[i])();
-                } break;
-
-            case detail::ResultsContext::type_store_t::e_string:
-                {
-                    result.type   = Result::String;
-                    result.string = to_str(detail::ResultsContext::type_store_t::string_view(results[i]));
-                } break;
-
-            case detail::ResultsContext::type_store_t::e_vector:
-                {
-                    auto vv = detail::ResultsContext::type_store_t::vector_view(results[i]);
-                    result.type   = Result::Vector;
-                    result.vector = std::vector<double>(vv.begin(), vv.end());
-                } break;
-
-            case detail::ResultsContext::type_store_t::e_unknown:
-                InvalidCodePath;
-        }
-
-        ret.push_back(result);
-    }
+        ret.push_back(detail::to_typestore<double>(results[i]));
 
     return ret;
 }
