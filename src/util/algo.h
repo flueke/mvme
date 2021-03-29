@@ -23,6 +23,8 @@
 
 #include <cstddef>
 #include <iterator>
+#include <map>
+#include <vector>
 
 template<typename BS>
 void copy_bitset(const BS &in, BS &dest)
@@ -35,6 +37,17 @@ template<typename M, typename K>
 bool map_contains(const M &theMap, const K &theKey)
 {
     return theMap.find(theKey) != std::end(theMap);
+}
+
+template<typename K, typename V>
+std::vector<K> map_keys(const std::map<K, V> &theMap)
+{
+    std::vector<K> result;
+
+    for (const auto &kv: theMap)
+        result.push_back(kv.first);
+
+    return result;
 }
 
 #endif /* __MVME_UTIL_ALGO_H__ */

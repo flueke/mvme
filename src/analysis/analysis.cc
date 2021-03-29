@@ -34,6 +34,7 @@
 #include "analysis/analysis_util.h"
 #include "analysis/exportsink_codegen.h"
 #include "analysis/object_visitor.h"
+#include "util/algo.h"
 #include "util/qt_metaobject.h"
 #include "vme_config.h"
 
@@ -4956,10 +4957,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
         }
     }
 
-#if 0
-    // ExpressionOperator hack
-    QMap<OperatorInterface *, a2::ExpressionOperatorData::StaticVarMap> exprOpStaticVars;
-#endif
+    // HACK: Store  values of static variables of ExpressionOperators
+    QMap<OperatorInterface *, a2::ExpressionOperatorData::StaticVarMap> exprSavedStaticVars;
 
     u32 operatorsBuilt = 0;
 
@@ -4995,18 +4994,16 @@ void Analysis::beginRun(const RunInfo &runInfo,
         {
             op->clearState();
         }
-#if 0
-        // Hack to keep the values of static variables of ExpressionOperator
-        // instances.
+        // HACK to keep the values of static variables of ExpressionOperator
+        // instances but only if the operator was not rebuilt.
         else if (auto expr = qobject_cast<ExpressionOperator *>(op.get()))
         {
             if (auto a2_op = m_a2State->operatorMap.value(expr, nullptr))
             {
                 auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
-                exprOpStaticVars[expr] = data->static_vars;
+                exprSavedStaticVars[expr] = data->static_vars;
             }
         }
-#endif
     }
 
     clearObjectFlags(ObjectFlags::NeedsRebuild);
@@ -5042,26 +5039,70 @@ void Analysis::beginRun(const RunInfo &runInfo,
             logger(QString::fromStdString(str));
     });
 
-#if 0
-    // Hack: restore ExpressionOperator static variable values
+    // HACK: restore ExpressionOperator static variable values
     for (auto &op: m_operators)
     {
-        if (exprOpStaticVars.contains(op.get()))
+        if (exprSavedStaticVars.contains(op.get()))
         {
             assert(qobject_cast<ExpressionOperator *>(op.get()));
-            auto &staticVars = exprOpStaticVars[op.get()];
+            auto &savedStaticVars = exprSavedStaticVars[op.get()];
 
             if (auto a2_op = m_a2State->operatorMap.value(op.get(), nullptr))
             {
                 auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
-                assert(staticVars.size() == data->static_vars.size());
-                // FIXME: I think I cannot do this: the references in the symbol
-                // table will become invalid!
-                data->static_vars = staticVars;
+                assert(savedStaticVars.size() == data->static_vars.size());
+                assert(map_keys(savedStaticVars) == map_keys(data->static_vars));
+
+                using StaticVar = a2::ExpressionOperatorData::StaticVar;
+
+#ifndef NDEBUG
+                // Return the address of the actual data stored in the StaticVar.
+                auto get_var_address = [] (const StaticVar &staticVar) -> const void *
+                {
+                    switch (staticVar.type)
+                    {
+                        case StaticVar::String:
+                            return staticVar.string.data();
+
+                        case StaticVar::Scalar:
+                            return &staticVar.scalar;
+
+                        case StaticVar::Vector:
+                            return staticVar.vector.data();
+
+                    };
+
+                    return nullptr;
+                };
+
+
+                // Remember static var addresses pre assigning the stored values.
+                std::map<std::string, const void *> staticsPreAssign;
+
+                for (const auto &kv: data->static_vars)
+                    staticsPreAssign[kv.first] = get_var_address(kv.second);
+#endif
+
+                // Note: direct assignments of the maps does change memory
+                // locations which would invalidate the references stored in
+                // the symbol table of the operator. Instead manually iterate
+                // and assign.
+                for (const auto &kv: savedStaticVars)
+                    data->static_vars[kv.first] = kv.second;
+
+#ifndef NDEBUG
+                // Collect addresses after assigning
+                std::map<std::string, const void *> staticsPostAssign;
+
+                for (const auto &kv: data->static_vars)
+                    staticsPostAssign[kv.first] = get_var_address(kv.second);
+
+                // Compare the addresses
+                assert(staticsPreAssign == staticsPostAssign);
+#endif
             }
         }
     }
-#endif
 
     auto tEnd = ClockType::now();
     std::chrono::duration<float> elapsed = tEnd - tStart;
