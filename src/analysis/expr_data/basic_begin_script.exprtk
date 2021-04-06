@@ -2,8 +2,7 @@
 # ==============================================================================
 # The purpose of this script is to define the number and properties of the
 # output arrays the expression operator should have. This Output Defintion
-# Script is only executed once at analysis startup time! Its output is used to
-# fully construct the expression operators outputs.
+# Script is only executed once at analysis startup time.
 #
 # The operators inputs need to be connected and properly named before this
 # script will work.
@@ -46,6 +45,24 @@
 #     'output0', input0.unit, input0.size, input0.lower_limits, input0.upper_limits,
 #     'output1', 'MeV',       8,           0.0,                 100.0
 # ];
+
+# Static variables
+# ----------------
+# Static variables may also be defined and initialized in this script using the
+# make_static() function. These variables are available in the "Step
+# Expression" and will keep their values throughout a DAQ run/replay.
+# make_static() comes in three variants:
+#
+# make_static(name, value)              Creates a static scalar and assigns the given value.
+# make_static(name, size, init_value)   Creates a static array of the given size and sets
+#                                       each element to the initial value.
+# make_static(name, array)              Creates a static array from a locally defined array.
+#
+# Examples:
+# make_static('my_static_var', 3.14);
+# make_static('my_static_array0', 4, 42);       # 4 element array, each element set to 42
+# var local_array[4] := { 4, 3, 2, 1};
+# make_static('my_static_array1', local_array); # static array initialized from a local variable
 
 return [
     'output0', input0.unit, input0.size, input0.lower_limits, input0.upper_limits
