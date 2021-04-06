@@ -469,6 +469,9 @@ void MVMEContextPrivate::updateMVMEState()
     auto daqState = m_q->getDAQState();
     auto analysisState = m_q->getMVMEStreamWorkerState();
 
+    // FIXME: this can transition from Running to Starting by first hitting the
+    // last 'else' case (the analysis side is running) then hitting the
+    // 'Starting' case by the replay side starting up.
     if (daqState == DAQState::Idle && analysisState == AnalysisWorkerState::Idle)
         newState = MVMEState::Idle;
     else if (daqState == DAQState::Starting)

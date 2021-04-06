@@ -253,7 +253,7 @@ void EventServer::Private::cleanupClients()
             {
                 qDebug() << __PRETTY_FUNCTION__ << "removing client " << client.socket->peerAddress();
                 client.socket->deleteLater();
-                client.socket.release();
+                (void) client.socket.release();
             }
         }
     }
