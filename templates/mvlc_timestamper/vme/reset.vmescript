@@ -1,3 +1,5 @@
 ## Get Module ids for log file
+print "Hardware ID:"
 read a32 d16 0x6008	# hardware ID
+print "Firmware Revision:"
 read a32 d16 0x600E # firmware revision
