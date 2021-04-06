@@ -231,6 +231,20 @@ Example
 
 Writes the 32-bit float value *3.14* to the two 16-bit registers 0x14 and 0x16.
 
+print
+^^^^^
+
+Prints its arguments to the log output on a separate line. Arguments are
+separated by a space by default which means string quoting is not
+strictly required.
+
+Example
+^^^^^^^
+::
+
+  print "Hello World!"
+  print Hello World!
+
 VMUSB specific
 ~~~~~~~~~~~~~~
 .. _vme_command-vmusb-write-reg:
