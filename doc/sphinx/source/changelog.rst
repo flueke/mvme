@@ -4,6 +4,32 @@
 Changelog
 ##################################################
 
+Version 1.4.3
+-------------
+* [mvlc] Add support for the oscilloscope built into the MVLC since firmware FW0018.
+
+* [analysis]
+
+  - Remove the vme module assignment dialog. Instead show data sources
+    belonging to unassigned modules in a hierarchy in the top left tree of the
+    analysis window. Data sources can be dragged from there onto known modules
+    to assign them.
+
+  - Add static variables to the Expression Operator. These variables exist per
+    operator instance and persist their values throughout a DAQ or replay run.
+
+  - Add a ScalerOverflow operator which outputs a contiguous increasing value
+    given an input value that overflows. This can be used to handle data like
+    module timestamps which wrap after a certain time.
+
+  - The RateMonitor can now display a plain value on the x axis instead of time
+    values. Useful when plotting timestamp or counter values.
+
+* Better handling of vme/analysis config files when opening listfiles to reduce
+  the number of instances where the vme and analysis configs diverge.
+
+* Add print statements to the module reset vme template scripts.
+
 Version 1.4.2
 -------------
 

@@ -700,6 +700,16 @@ Details about the syntax and semantics are provided in the online help in the
 Expression Operator user interface.
 
 
+.. _analysis-ScalerOverflow:
+
+ScalerOverflow
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ScalerOverflow operator outputs a contiguous value given an input value
+that overflows. This can be used to handle data like module timestamps which
+wrap after a certain time.
+
+
 .. _analysis-sinks:
 
 Data Sinks
@@ -795,22 +805,10 @@ name. This information is stored in both the VME and analysis configs.
 
 When opening (or importing from) a "foreign" analysis file, module UUIDs and
 types may not match. In this case auto-assignment of analysis objects to VME
-modules is tried first. If auto-assignment is not possible the "Module
-assignment" dialog will be shown.
-
-.. figure:: images/analysis_import_ui.png
-
-    Module assignment dialog
-
-Each row contains one module present in the analysis that's being
-opened/imported. The columns contain the modules present in the local VME
-configuration.
-
-Use the radio buttons to assign analysis objects to VME modules. Select
-*discard* to completely remove the corresponding module from the analysis.
-
-If the dialog is accepted the source objects UUIDs will be rewritten to match
-the VME object ids. This will modify the in-memory analysis.
+modules is tried first. If auto-assignment is not possible the unassigned
+objects are collected under a special node in the top left tree of the analysis
+window. Data sources from these unassigned modules can be dragged onto modules
+existing in current DAQ setup to assign them.
 
 
 More UI structuring and interactions

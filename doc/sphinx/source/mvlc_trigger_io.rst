@@ -52,7 +52,7 @@ Level 3 consists of signal-consuming units like NIM outputs, counters and
 units for executing command stacks.
 
 The delay introduced by the logic module for a signal travelling from a NIM
-input to a NIM output is 160 ns.
+input to a NIM output is ~160 ns.
 
 
 User Interface and integration into mvme
@@ -205,7 +205,8 @@ of the gate generator is available for further processing in a LUT on level 1.
 
 Timers
 ~~~~~~
-Fixed frequency logic pulse generation.
+Fixed frequency logic pulse generation. The generated output pulses have a
+fixed width of 8 ns. The minimum period between rising edges is 24 ns.
 
 Settings
 ^^^^^^^^
@@ -217,7 +218,7 @@ Settings
 
   The period in units specified by Range.
 
-  Minimum: 8 ns, maximum: 65535 s.
+  Minimum: 24 ns, maximum: 65535 s.
 
 * Delay
 
@@ -295,14 +296,13 @@ Lookup Tables (Levels 1 and 2)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The MVLC contains a set of lookup tables used to create logic functions and for
 signal routing. Each lookup table (LUT) maps 6 input bits to 3 output bits.
-This allows to implement 3 functions each mapping 6 input bits to one output
-bit or a single 6 to 3 bit function.
+This allows to e.g. implement 3 functions each mapping 6 input bits to one
+output bit or a single 6 to 3 bit function.
 
-The first three LUTs on Level1 are hardwired to the NIM inputs. There is some
-overlap as 14 NIM inputs are connected to the 3*6=18 inputs of the first three
-LUTs.
+Most of the LUT inputs are hardwired while some LUTs have up to three variable
+inputs. Specifically level1.LUT2 can be connected to either NIM8-10 or IRQ1-3.
 
-The LUTs on level2 connect back to the level1 LUTs and each has 3 variable
+The LUTs on level2 connect back to the level1 LUTs and each has three variable
 inputs which can be connected to the level1 utility units or certain level1 LUT
 outputs. Additionally the level2 LUTs each have a strobe input which is used to
 synchronize the switching of the LUT outputs.
@@ -432,11 +432,73 @@ Event where you want to read out the counter, edit the readout script (under
 ``Readout Loop`` in the user interface) and comment out all the counter blocks
 except for the one that should be read out.
 
-Examples
---------
+Digital Storage Oscilloscope
+----------------------------
+Since Firmware FW0018 the MVLC contains a digital storage oscilloscope (DSO)
+allowing to acquire traces of the signals on the NIM, IRQ and Level1 utility
+units. Additionally parts of the internal logic of the Trigger IO module are
+simulated based on the sampled data.
 
-Sysclk timestamp readout
-~~~~~~~~~~~~~~~~~~~~~~~~
+.. figure:: images/mvlc_trigger_io_dso_gui.png
+
+   DSO user interface
+
+The user interface for the oscilloscope can be accessed using the ``DSO``
+button in the Trigger IO editor. The left side of the window is used for
+controlling the DSO while the right side plots selected traces.
+
+Steps needed to acquire traces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Press the start DSO button to activate the DSO. No data will arrive yet as
+   no triggers are active.
+
+2. In the trace selection tree open the ``Samples+Triggers`` node and use the
+   checkboxes to select at least one of the signals as triggers for the DSO.
+
+3. Drag traces from the tree to the right side list to make them visible in
+   the plot view.
+
+4. Optionally adjust the pre- and post trigger times and the read interval
+   using the inputs in the top left. These parameters can be adjusted while the
+   DSO is active.
+
+Notes
+~~~~~
+
+* The read interval is the software side polling interval. It implicitly
+  affects the update frequency of the plot view. Setting the spinbox to the
+  lowest value allows taking a single snapshot from the DSO by pressing the
+  ``Start DSO`` button.
+
+* The PreTrigger, PostTrigger and Trigger times are highlighted in the plot
+  using vertical lines.
+
+* Traces that are in the set of triggers are shown in *italics* in the plot
+  view legend.
+
+* Traces can be reordered via drag & drop in the trace list.
+
+* Except for the traces under ``Samples+Triggers`` all other traces in the
+  system are simulated based off the sampled data.
+
+* The maximum number of samples per channel the MVLC can provide is limitedk
+  This means high frequency signals may be cut off before the PostTrigger time.
+  The missing part of these traces is drawn using a red line signifying an
+  *unknown* state. Simulation code also produces an *unknown* state if one of
+  the inputs is *unknown*.
+
+* The DSO does not have a noticable impact on DAQ readout performance. But the
+  current version of the mvme GUI will become sluggish in the case where the
+  DSO is active but no triggers fire. Trying to execute VME scripts or start
+  the DAQ in this state will be slow. The workaround is to disable the DSO,
+  start the DAQ and reenable the DSO. This will be fixed in a future mvme
+  release.
+
+
+Trigger IO Usage Example: Sysclk timestamp readout
+--------------------------------------------------
+
 This example shows how to create a counter that increments with the VME system
 clock frequency and to read out the counter values by creating a periodically
 triggered readout event.
