@@ -123,29 +123,49 @@ T parseValue(const QString &str)
 {
     static_assert(std::is_unsigned<T>::value, "parseValue works for unsigned types only");
 
+    // Parse the value as binary hex or decimal. If that fails and there is a
+    // '.' in the string attempt to interpret it as a floating point value and
+    // round the result.
+    //
+    // Note: To avoid confusion we do not accept octal values prefixed by 0
+    // anymore. Octal will be used very rarely and users expect numbers not
+    // starting with 0x to be interpreted as decimal.
+
     if (str.toLower().startsWith(QSL("0b")))
-    {
         return parseBinaryLiteral<T>(str);
-    }
 
-    // Accepts dec, hex and octal values. Leaves 'ok' set to false when
-    // encountering a negative or a float value.
     bool ok = false;
-    qulonglong val = str.toULongLong(&ok, 0);
+    qulonglong val = 0;
 
-    // Try parsing as a floating point value.
-    if (!ok)
+    if (str.toLower().startsWith(QSL("0x")))
     {
+        val = str.toULongLong(&ok, 0);
+
+        if (!ok)
+            throw QSL("invalid hex value");
+    }
+    else if (!str.contains('.'))
+    {
+        val = str.toULongLong(&ok, 10);
+
+        if (!ok)
+            throw QSL("invalid decimal value");
+    }
+    else
+    {
+        // Try parsing as a floating point value.
         auto fval = std::round(str.toFloat(&ok));
 
         if (!ok)
-            throw QSL("invalid numeric value");
+            throw QSL("invalid floating point value");
 
         if (fval < 0.0)
             throw QSL("given numeric value is negative");
 
         val = fval;
     }
+
+    assert(ok);
 
     constexpr auto maxValue = std::numeric_limits<T>::max();
 
@@ -965,12 +985,12 @@ static Command handle_single_line_command(const PreparsedLine &line)
         catch (const QString &message)
         {
             throw ParseError(QString(QSL("Invalid short-form address \"%1\" (%2)"))
-                             .arg(parts[1], message), line.lineNumber);
+                             .arg(parts[0], message), line.lineNumber);
         }
         catch (const char *message)
         {
             throw ParseError(QString(QSL("Invalid short-form address \"%1\" (%2)"))
-                             .arg(parts[1], message), line.lineNumber);
+                             .arg(parts[0], message), line.lineNumber);
         }
 
         // value
