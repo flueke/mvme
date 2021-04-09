@@ -25,6 +25,8 @@ Version 1.4.3
   - The RateMonitor can now display a plain value on the x axis instead of time
     values. Useful when plotting timestamp or counter values.
 
+  - Added division to the binary equation operator.
+
 * Better handling of vme/analysis config files when opening listfiles to reduce
   the number of instances where the vme and analysis configs diverge.
 
