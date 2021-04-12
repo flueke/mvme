@@ -36,7 +36,7 @@
 
 using namespace vmusb_constants;
 
-//#define BPDEBUG
+#define BPDEBUG
 //#define WRITE_BUFFER_LOG
 
 /* +=========================================================================+
@@ -291,15 +291,13 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
         u32 header1 = iter.extractU16();
 
-#if 0
+        u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
+
+#ifdef BPDEBUG
         bool lastBuffer     = header1 & Buffer::LastBufferMask;
         bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
         bool continuousMode = header1 & Buffer::ContinuationMask;
         bool multiBuffer    = header1 & Buffer::MultiBufferMask;
-#endif
-        u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
-
-#ifdef BPDEBUG
         qDebug("%s buffer #%lu, buffer_size=%lu, header1: 0x%08x, lastBuffer=%d"
                ", scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
                __PRETTY_FUNCTION__,
