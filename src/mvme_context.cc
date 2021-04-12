@@ -82,9 +82,6 @@ static const int PeriodicLoggingInterval_ms = 5000;
 
 static const int DefaultListFileCompression = 1;
 
-static const QString DefaultVMEConfigFileName = QSL("vme.vme");
-static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
-
 static const QString RunNotesFilename = QSL("mvme_run_notes.txt");
 
 static const QString VMEConfigAutoSaveFilename = QSL(".vme_autosave.vme");
@@ -2102,8 +2099,6 @@ void MVMEContext::newWorkspace(const QString &dirName)
     cleanupWorkspaceAutoSaveFiles();
 
     auto workspaceSettings(makeWorkspaceSettings(dirName));
-    workspaceSettings->setValue(QSL("LastVMEConfig"), DefaultVMEConfigFileName);
-    workspaceSettings->setValue(QSL("LastAnalysisConfig"), DefaultAnalysisConfigFileName);
     workspaceSettings->setValue(QSL("WriteListFile"), true);
 
     workspaceSettings->setValue(QSL("Experiment/Name"), "Experiment");
@@ -2125,34 +2120,6 @@ void MVMEContext::newWorkspace(const QString &dirName)
     {
         throw QString("Error writing workspace settings to %1")
             .arg(workspaceSettings->fileName());
-    }
-
-    if (!destDir.exists(DefaultVMEConfigFileName))
-    {
-        try
-        {
-            make_empty_file(QDir(dirName).filePath(DefaultVMEConfigFileName));
-        }
-        catch (const QString &e)
-        {
-            throw QString("Error creating VME config file %1: %2")
-                .arg(DefaultVMEConfigFileName)
-                .arg(e);
-        }
-    }
-
-    if (!destDir.exists(DefaultAnalysisConfigFileName))
-    {
-        try
-        {
-            make_empty_file(QDir(dirName).filePath(DefaultAnalysisConfigFileName));
-        }
-        catch (const QString &e)
-        {
-            throw QString("Error creating Analysis config file %1: %2")
-                .arg(DefaultAnalysisConfigFileName)
-                .arg(e);
-        }
     }
 
     if (!destDir.exists(RunNotesFilename))
@@ -2371,27 +2338,23 @@ void MVMEContext::openWorkspace(const QString &dirName)
             if (!lastVMEConfig.isEmpty())
             {
                 qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig
-                    << " (INI)";
+                    << " (filename from mvmeworkspace.ini)";
 
                 loadVMEConfig(dir.filePath(lastVMEConfig));
+
+                // If it's the special temporary name for configs from the
+                // listfile set the filename to an empty string. This way the
+                // user has to pick a new filename when saving.
                 if (lastVMEConfig == ListfileTempVMEConfigFilename)
                     setVMEConfigFilename({}, false);
             }
-            // Check if a file with the default name exists and if so load it.
-            else if (QFile::exists(dir.filePath(DefaultVMEConfigFileName)))
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig
-                    << " (DefaultName)";
-
-                loadVMEConfig(dir.filePath(DefaultVMEConfigFileName));
-            }
-            // Neither last nor default files exist => create empty default
             else
             {
-                qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
-                // No previous filename is known so use a default name without updating
-                // the workspace settings.
-                setVMEConfigFilename(DefaultVMEConfigFileName, false);
+                // No VME config to load in the newly opened workspace. Create
+                // a new one and set an empty filename.
+                setVMEConfig(new VMEConfig(this));
+                setVMEConfigFilename({}, false);
+                getVMEConfig()->setModified(false);
             }
         }
 
@@ -2443,30 +2406,17 @@ void MVMEContext::openWorkspace(const QString &dirName)
             if (!lastAnalysisConfig.isEmpty())
             {
                 qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" <<
-                    lastAnalysisConfig << " (INI)";
+                    lastAnalysisConfig << " (filename from mvmeworkspace.ini)";
 
                 bool couldLoad = loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
 
-                if (!couldLoad)
-                {
-                    setAnalysisConfigFilename(DefaultAnalysisConfigFileName);
-                    getAnalysis()->setModified();
-                }
-                else
-                {
-                    if (lastAnalysisConfig == ListfileTempAnalysisConfigFilename)
-                        setAnalysisConfigFilename({}, false);
-                }
-            }
-            else if (QFile::exists(dir.filePath(DefaultAnalysisConfigFileName)))
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" <<
-                    lastAnalysisConfig << " (DefaultName)";
+                if (!couldLoad || lastAnalysisConfig == ListfileTempAnalysisConfigFilename)
+                    setAnalysisConfigFilename({}, false);
             }
             else
             {
-                qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
-                setAnalysisConfigFilename(DefaultAnalysisConfigFileName, false);
+                // No analysis config to load in the newly opened workspace.
+                setAnalysisConfigFilename({}, false);
             }
 
             // No exceptions thrown -> store workspace directory in global settings
