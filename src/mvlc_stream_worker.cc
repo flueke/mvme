@@ -305,8 +305,11 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     mi, moduleData.suffix.data, moduleData.suffix.size);
             }
 
-            UniqueLock guard(m_countersMutex);
-            m_counters.moduleCounters[ei][mi]++;
+            if (moduleData.suffix.size || moduleData.dynamic.size || moduleData.suffix.size)
+            {
+                UniqueLock guard(m_countersMutex);
+                m_counters.moduleCounters[ei][mi]++;
+            }
         }
 
         // endEvent
