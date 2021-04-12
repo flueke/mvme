@@ -4,6 +4,31 @@
 Changelog
 ##################################################
 
+Version 1.4.4
+-------------
+* [vme_script] Behavior changes:
+
+  - Do not accept octal values anymore. '010' was parsed as 8 decimal while
+    '080' - which is an invalid octal literal - was parsed as a floating point
+    value and interepreted as 8 decimal.
+
+  - Floating point parsing is now only applied if the literal contains a '.'.
+
+* [analysis] Module hit counts in the top left tree now display the count and
+  rate of non-empty readout data from the module. Previously they showed all
+  hits and where thus equal to parent event rate unless multi-event splitting
+  was in effect.
+
+* [vmusb] Fix readout being broken.
+
+* Do not auto create non-existing workspace directories on startup. Instead aks
+  the user to open an existing workspace or create a new one.
+
+* Do not set default vme and analysis config file names when creating a
+  workspace or no previously loaded files exist in the current workspace. This
+  makes the user have to pick a name when saving each of the files and should
+  make it less likely to accidentially overwrite existing configs.
+
 Version 1.4.3
 -------------
 * [mvlc] Add support for the oscilloscope built into the MVLC since firmware FW0018.
