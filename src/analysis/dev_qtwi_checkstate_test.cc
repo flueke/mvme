@@ -78,7 +78,7 @@ struct TestObserver: public CheckStateObserver
     }
 };
 
-int main(int argc, char *argv[])
+int main()
 {
     TestObserver observer;
     auto node = std::make_unique<Node>();
