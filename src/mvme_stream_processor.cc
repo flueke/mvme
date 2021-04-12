@@ -512,7 +512,28 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
 
                 u32 moduleDataSize = lf.getModuleDataSize(*mi.moduleDataHeader);
 
-                if (moduleDataSize > 1) // Empty events do contain a single 'EndMarker' word
+                // Check if we should count the module hit or if the readout
+                // yielded empty data.
+
+                bool countModuleHit = true;
+
+                // For the SIS3153: empty frames contain an EndMarker added to
+                // the mvmelst format.
+                if (moduleDataSize == 1 && *mi.moduleHeader == EndMarker)
+                {
+                    countModuleHit = false;
+                }
+                // VMUSB: The VME blockread yield two BerrMarkers and the
+                // mvmelst format adds an EndMarker
+                else if (moduleDataSize == 3
+                         && mi.moduleHeader[0] == BerrMarker
+                         && mi.moduleHeader[1] == BerrMarker
+                         && mi.moduleHeader[2] == EndMarker)
+                {
+                    countModuleHit = false;
+                }
+
+                if (countModuleHit)
                 {
                     this->counters.moduleCounters[eventIndex][moduleIndex]++;
                     eventCountsByModule[moduleIndex]++;
