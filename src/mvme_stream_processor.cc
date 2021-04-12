@@ -510,10 +510,14 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
                        __PRETTY_FUNCTION__, eventIndex, moduleIndex);
 #endif
 
-                this->counters.moduleCounters[eventIndex][moduleIndex]++;
-                eventCountsByModule[moduleIndex]++;
-
                 u32 moduleDataSize = lf.getModuleDataSize(*mi.moduleDataHeader);
+
+                if (moduleDataSize > 1) // Empty events do contain a single 'EndMarker' word
+                {
+                    this->counters.moduleCounters[eventIndex][moduleIndex]++;
+                    eventCountsByModule[moduleIndex]++;
+                }
+
 
                 if (this->analysis)
                 {
