@@ -5170,6 +5170,11 @@ void Analysis::processModulePrefix(int eventIndex, int moduleIndex, const u32 *d
 
 void Analysis::processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size)
 {
+    //qDebug() << __PRETTY_FUNCTION__ << "ei=" << eventIndex << "mi=" << moduleIndex << "size=" << size;
+    //if (size == 1)
+    //{
+    //    logBuffer(BufferIterator{const_cast<u32 *>(data), size}, [] (const QString &str) { qDebug() << str; });
+    //}
     a2_process_module_data(m_a2State->a2, eventIndex, moduleIndex, data, size);
 }
 
