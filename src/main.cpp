@@ -71,9 +71,7 @@ int main(int argc, char *argv[])
         {
             try
             {
-                // Call 'newWorkspace' which will create missing files and open
-                // the workspace.
-                w.getContext()->newWorkspace(
+                w.getContext()->openWorkspace(
                     settings.value(QSL("LastWorkspaceDirectory")).toString());
 
             } catch (const QString &e)
