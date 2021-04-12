@@ -36,7 +36,7 @@
 
 using namespace vmusb_constants;
 
-#define BPDEBUG
+//#define BPDEBUG
 //#define WRITE_BUFFER_LOG
 
 /* +=========================================================================+
@@ -694,7 +694,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             {
                 if (state->streamWriter.hasOpenModuleSection())
                 {
-                    //u32 moduleSectionBytes = state->streamWriter.closeModuleSection().sectionBytes;
+                    state->streamWriter.closeModuleSection();
                 }
 
                 break;
