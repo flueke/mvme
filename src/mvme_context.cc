@@ -2416,6 +2416,11 @@ void MVMEContext::openWorkspace(const QString &dirName)
             else
             {
                 // No analysis config to load in the newly opened workspace.
+                // Create an new one and set a empty filename.
+                auto tmpAnaJson = serialize_analysis_to_json_document(analysis::Analysis());
+                bool couldLoad = loadAnalysisConfig(tmpAnaJson, "<temp_mem>");
+                (void) couldLoad;
+                assert(couldLoad);
                 setAnalysisConfigFilename({}, false);
             }
 
