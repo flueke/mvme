@@ -4,6 +4,14 @@
 Changelog
 ##################################################
 
+Version 1.4.5
+-------------
+
+* Create an empty analysis when opening a workspace and no existing analysis
+  could be loaded from the workspace. This fixes an issue where analysis
+  objects from the previously opened workspace still existed after changing the
+  workspace.
+
 Version 1.4.4
 -------------
 * [vme_script] Behavior changes:
@@ -21,7 +29,7 @@ Version 1.4.4
 
 * [vmusb] Fix readout being broken.
 
-* Do not auto create non-existing workspace directories on startup. Instead aks
+* Do not auto create non-existing workspace directories on startup. Instead ask
   the user to open an existing workspace or create a new one.
 
 * Do not set default vme and analysis config file names when creating a
