@@ -29,7 +29,7 @@ bool is_fatal(const std::error_code &ec)
             || ec == mvlc::ErrorType::ProtocolError);
 }
 
-void self_write_throw(mvlc::MVLCDialog &mvlc, u32 addr, u16 value)
+void self_write_throw(mvlc::MVLC &mvlc, u32 addr, u16 value)
 {
     if (auto ec = mvlc.vmeWrite(
             mvlc::SelfVMEAddress + addr, value,
@@ -37,7 +37,7 @@ void self_write_throw(mvlc::MVLCDialog &mvlc, u32 addr, u16 value)
         throw ec;
 }
 
-std::error_code start_dso(mvlc::MVLCDialog &mvlc, DSOSetup setup)
+std::error_code start_dso(mvlc::MVLC &mvlc, DSOSetup setup)
 {
     try
     {
@@ -57,7 +57,7 @@ std::error_code start_dso(mvlc::MVLCDialog &mvlc, DSOSetup setup)
     return {};
 }
 
-std::error_code stop_dso(mvlc::MVLCDialog &mvlc)
+std::error_code stop_dso(mvlc::MVLC &mvlc)
 {
     try
     {
@@ -72,7 +72,7 @@ std::error_code stop_dso(mvlc::MVLCDialog &mvlc)
     return {};
 }
 
-std::error_code read_dso(mvlc::MVLCDialog &mvlc, std::vector<u32> &dest)
+std::error_code read_dso(mvlc::MVLC &mvlc, std::vector<u32> &dest)
 {
     // block read
     return mvlc.vmeBlockRead(
@@ -136,25 +136,9 @@ std::error_code acquire_dso_sample(
 {
     auto tStart = std::chrono::steady_clock::now();
 
-    // Stop the stack error poller so that it doesn't read our samples off the
-    // command pipe.
-    auto errPollerLock = mvlc.suspendStackErrorPolling();
-
-    // To enforce that no other communication takes places on the command pipe
-    // while the DSO is active we lock the command pipe here, then create a
-    // local MVLCDialog instance which works directly on the underlying
-    // low-level MVLCBasicInterface and thus doesn't do any locking itself.
-    //
-    // Note: any stack errors accumulated in the local MVLCDialog instance are
-    // discarded. For total correctness the stack error counters would have to
-    // be updated with the locally accumulated error counts.
-
-    auto cmdLock = mvlc.getLocks().lockCmd();
-    mvlc::MVLCDialog dlg(mvlc.getImpl());
-
     // start, then read until we get a sample, stop
 
-    if (auto ec = start_dso(dlg, setup))
+    if (auto ec = start_dso(mvlc, setup))
         return ec;
 
     dest.clear();
@@ -163,7 +147,7 @@ std::error_code acquire_dso_sample(
     while (!cancel && dest.size() <= 2 && !timed_out)
     {
         dest.clear();
-        auto ec = read_dso(dlg, dest);
+        auto ec = read_dso(mvlc, dest);
 
         if (is_fatal(ec))
             return ec;
@@ -174,9 +158,12 @@ std::error_code acquire_dso_sample(
             timed_out = true;
     }
 
-    if (auto ec = stop_dso(dlg))
+    if (auto ec = stop_dso(mvlc))
         return ec;
 
+#if 0
+
+    // FIXME: this is not needed. The DSO has its own buffer now.
     // Read and throw away any additional samples (needed to clear the command
     // pipe). Do this even if we got canceled as a sample might have become
     // available in the meantime.
@@ -186,12 +173,13 @@ std::error_code acquire_dso_sample(
     {
         tmpBuffer.clear();
 
-        auto ec = read_dso(dlg, tmpBuffer);
+        auto ec = read_dso(mvlc, tmpBuffer);
 
         if (is_fatal(ec))
             return ec;
 
     } while (tmpBuffer.size() > 2);
+#endif
 
     if (timed_out && dest.size() <= 2)
         return make_error_code(std::errc::timed_out);

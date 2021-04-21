@@ -29,6 +29,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "libmvme_mvlc_export.h"
+#include "sis3153.h"
 #include "typedefs.h"
 #include "util.h"
 
@@ -37,7 +38,7 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInterface
+class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
 {
     Q_OBJECT
     public:
@@ -71,7 +72,7 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         // MVLCBasicInterface
         //
     public slots:
-        std::error_code connect() override
+        std::error_code connect()
         {
             if (!isConnected())
             {
@@ -82,61 +83,27 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
             return {};
         }
 
-        std::error_code disconnect() override
+        std::error_code disconnect()
         {
             return updateState(m_mvlc.disconnect());
         }
 
     public:
-        bool isConnected() const override { return m_mvlc.isConnected(); }
-        mvlc::ConnectionType connectionType() const override { return m_mvlc.connectionType(); }
-        std::string connectionInfo() const override { return m_mvlc.connectionInfo(); }
+        bool isConnected() const { return m_mvlc.isConnected(); }
+        mvlc::ConnectionType connectionType() const { return m_mvlc.connectionType(); }
+        std::string connectionInfo() const { return m_mvlc.connectionInfo(); }
 
-        std::error_code write(mvlc::Pipe pipe, const u8 *buffer, size_t size,
-                              size_t &bytesTransferred) override
-        {
-            return updateState(m_mvlc.write(pipe, buffer, size, bytesTransferred));
-        }
-
-        std::error_code read(mvlc::Pipe pipe, u8 *buffer, size_t size,
-                             size_t &bytesTransferred) override
-        {
-            return updateState(m_mvlc.read(pipe, buffer, size, bytesTransferred));
-        }
-
-        std::error_code setWriteTimeout(mvlc::Pipe pipe, unsigned ms) override
-        {
-            return updateState(m_mvlc.setWriteTimeout(pipe, ms));
-        }
-
-        std::error_code setReadTimeout(mvlc::Pipe pipe, unsigned ms) override
-        {
-            return updateState(m_mvlc.setReadTimeout(pipe, ms));
-        }
-
-        unsigned writeTimeout(mvlc::Pipe pipe) const override
-        {
-            return m_mvlc.writeTimeout(pipe);
-        }
-
-        unsigned readTimeout(mvlc::Pipe pipe) const override
-        {
-            return m_mvlc.readTimeout(pipe);
-        }
-
-        void setDisableTriggersOnConnect(bool b) override
+        void setDisableTriggersOnConnect(bool b)
         {
             m_mvlc.setDisableTriggersOnConnect(b);
         }
 
-        bool disableTriggersOnConnect() const override
+        bool disableTriggersOnConnect() const
         {
             return m_mvlc.disableTriggersOnConnect();
         }
 
-        //
-        // Dialog layer
-        //
+        // register and vme api
         std::error_code readRegister(u16 address, u32 &value)
         {
             return updateState(m_mvlc.readRegister(address, value));
@@ -150,59 +117,38 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         std::error_code vmeRead(
             u32 address, u32 &value, u8 amod, mvlc::VMEDataWidth dataWidth)
         {
-            return updateState(m_mvlc.vmeRead(
-                    address, value, amod, dataWidth));
+            return updateState(m_mvlc.vmeRead(address, value, amod, dataWidth));
         }
 
         std::error_code vmeWrite(
             u32 address, u32 value, u8 amod, mvlc::VMEDataWidth dataWidth)
         {
-            return updateState(m_mvlc.vmeWrite(
-                    address, value, amod, dataWidth));
+            return updateState(m_mvlc.vmeWrite(address, value, amod, dataWidth));
         }
 
         std::error_code vmeBlockRead(
             u32 address, u8 amod, u16 maxTransfers, std::vector<u32> &dest)
         {
-            return updateState(m_mvlc.vmeBlockRead(
-                    address, amod, maxTransfers, dest));
+            return updateState(m_mvlc.vmeBlockRead(address, amod, maxTransfers, dest));
         }
 
         std::error_code vmeMBLTSwapped(
             u32 address, u16 maxTransfers, std::vector<u32> &dest)
         {
-            return updateState(m_mvlc.vmeMBLTSwapped(
-                    address, maxTransfers, dest));
+            return updateState(m_mvlc.vmeMBLTSwapped(address, maxTransfers, dest));
         }
 
-        std::error_code readResponse(mvlc::BufferHeaderValidator bhv, std::vector<u32> &dest)
+        // stack uploading
+        std::error_code uploadStack(
+            u8 stackOutputPipe, u16 stackMemoryOffset, const std::vector<mvlc::StackCommand> &commands)
         {
-            return updateState(m_mvlc.readResponse(
-                    bhv, dest));
+            return updateState(m_mvlc.uploadStack(stackOutputPipe, stackMemoryOffset, commands));
         }
 
-        std::error_code mirrorTransaction(
-            const std::vector<u32> &cmdBuffer, std::vector<u32> &responseDest)
+        inline std::error_code uploadStack(
+            u8 stackOutputPipe, u16 stackMemoryOffset, const mvlc::StackCommandBuilder &stack)
         {
-            return updateState(m_mvlc.mirrorTransaction(
-                    cmdBuffer, responseDest));
-        }
-
-        std::error_code stackTransaction(const std::vector<u32> &stackUploadData,
-                                         std::vector<u32> &responseDest)
-        {
-            return updateState(m_mvlc.stackTransaction(
-                    stackUploadData, responseDest));
-        }
-
-        std::error_code readKnownBuffer(std::vector<u32> &dest)
-        {
-            return updateState(m_mvlc.readKnownBuffer(dest));
-        }
-
-        std::vector<u32> getResponseBuffer() const
-        {
-            return m_mvlc.getResponseBuffer();
+            return uploadStack(stackOutputPipe, stackMemoryOffset, stack.getCommands());
         }
 
         //
@@ -214,14 +160,9 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
             return m_mvlc.getStackErrorCounters();
         }
 
-        mvlc::Protected<mvlc::StackErrorCounters> &getProtectedStackErrorCounters()
+        void resetStackErrorCounters()
         {
-            return m_mvlc.getProtectedStackErrorCounters();
-        }
-
-        void clearStackErrorCounters()
-        {
-            m_mvlc.clearStackErrorCounters();
+            m_mvlc.resetStackErrorCounters();
         }
 
         //
@@ -231,6 +172,16 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject, public mvlc::MVLCBasicInte
         mvlc::MVLC getMVLC() { return m_mvlc; }
         mvlc::MVLCBasicInterface *getImpl() { return m_mvlc.getImpl(); }
         inline mvlc::Locks &getLocks() { return m_mvlc.getLocks(); }
+
+        std::error_code superTransaction(const mvlc::SuperCommandBuilder &superBuilder, std::vector<u32> &dest)
+        {
+            return m_mvlc.superTransaction(superBuilder, dest);
+        }
+
+        std::error_code stackTransaction(const mvlc::StackCommandBuilder &stackBuilder, std::vector<u32> &dest)
+        {
+            return m_mvlc.stackTransaction(stackBuilder, dest);
+        }
 
     private:
         void setState(const State &newState);

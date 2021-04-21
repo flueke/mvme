@@ -462,11 +462,15 @@ vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
     auto uploadData = mvme_mvlc::build_upload_command_buffer(
         { cmd }, mvlc::CommandPipe, mvlc::stacks::StackMemoryBegin);
 
+    // FIXME: hacky workaround (change build_stack() to return a
+    // StackCommandBuilder instead of the raw command buffer).
+    auto stackBuilder = mvlc::stack_builder_from_buffer(uploadData);
+
     mvlc::util::log_buffer(std::cout, uploadData, "run_command upload data");
 
     std::vector<u32> tmpBuffer;
 
-    if (auto ec = mvlc->stackTransaction(uploadData, tmpBuffer))
+    if (auto ec = mvlc->stackTransaction(stackBuilder, tmpBuffer))
     {
         qDebug() << __PRETTY_FUNCTION__ << "error from MVLCDialog::stackTransaction: "
             << ec.message().c_str();

@@ -1310,9 +1310,6 @@ struct DSOSimWidget::Private
         if (this->resultWatcher.isRunning())
             return;
 
-        // Stop the stack error poller so that it doesn't read any DSO
-        // samples off the command pipe.
-        mvlc.stopStackErrorPolling();
         this->cancelDSO = false;
         this->dsoControlWidget->setDSOActive(true);
         this->stats = {};
@@ -1372,7 +1369,6 @@ struct DSOSimWidget::Private
         else
         {
             this->cancelDSO = true;
-            mvlc.startStackErrorPolling();
             this->dsoControlWidget->setDSOActive(false);
         }
 
@@ -1580,7 +1576,6 @@ DSOSimWidget::~DSOSimWidget()
 {
     d->cancelDSO = true;
     d->resultWatcher.waitForFinished();
-    d->mvlc.startStackErrorPolling();
     d->saveGUIState();
 }
 
@@ -1591,7 +1586,6 @@ void DSOSimWidget::setMVLC(mvlc::MVLC mvlc)
     if (d->resultWatcher.isRunning())
         d->resultWatcher.waitForFinished();
 
-    d->mvlc.startStackErrorPolling();
     d->mvlc = mvlc;
 }
 

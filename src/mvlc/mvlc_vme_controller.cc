@@ -35,8 +35,9 @@ using namespace mesytec::mvlc;
 // Checks for certain MVLCErrorCode values and returns a VMEError containing
 // additional information if applicable. Otherwise a VMEError object
 // constructed from the given error_code is returned.
-VMEError error_wrap(const mvme_mvlc::MVLCObject &mvlc, const std::error_code &ec)
+VMEError error_wrap(const mvme_mvlc::MVLCObject &/*mvlc*/, const std::error_code &ec)
 {
+#if 0
     if (ec == MVLCErrorCode::InvalidBufferHeader ||
         ec == MVLCErrorCode::UnexpectedBufferHeader)
     {
@@ -57,6 +58,9 @@ VMEError error_wrap(const mvme_mvlc::MVLCObject &mvlc, const std::error_code &ec
     }
 
     return VMEError(ec);
+#else
+    return VMEError(ec);
+#endif
 }
 
 } // end anon namespace

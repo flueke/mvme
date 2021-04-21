@@ -339,6 +339,9 @@
              <property name="text">
               <string>Read Cmd Pipe</string>
              </property>
+             <property name="enabled">
+                 <bool>false</bool>
+             </property>
             </widget>
            </item>
            <item row="0" column="1">
@@ -355,6 +358,9 @@
             <widget class="QPushButton" name="pb_readDataPipe">
              <property name="text">
               <string>Read Data Pipe</string>
+             </property>
+             <property name="enabled">
+                 <bool>false</bool>
              </property>
             </widget>
            </item>

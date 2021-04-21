@@ -54,13 +54,14 @@ std::error_code reset_stack_offsets(MVLCObject &mvlc)
 
 // Builds, uploads and sets up the readout stack for each event in the vme
 // config.
+// FIXME: multiple stack conversions. Pretty hacky now
 std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger)
 {
     // Stack0 is reserved for immediate exec
     u8 stackId = mvlc::stacks::ImmediateStackID + 1;
 
     // 1 word gap between immediate stack and first readout stack
-    u16 uploadOffset = mvlc::stacks::ImmediateStackReservedWords + 1;
+    u16 uploadWordOffset = mvlc::stacks::ImmediateStackStartOffsetWords + mvlc::stacks::ImmediateStackReservedWords + 1;
 
     std::vector<u32> responseBuffer;
 
@@ -74,15 +75,16 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 
         auto stackContents = build_stack(readoutScript, mvlc::DataPipe);
 
-        u16 uploadAddress = mvlc::stacks::StackMemoryBegin + uploadOffset * 4;
-        u16 endAddress    = uploadAddress + stackContents.size() * 4;
+        u16 uploadAddress = uploadWordOffset * mvlc::AddressIncrement;
+        u16 endAddress    = uploadAddress + stackContents.size() * mvlc::AddressIncrement;
 
         if (endAddress >= mvlc::stacks::StackMemoryEnd)
             return make_error_code(mvlc::MVLCErrorCode::StackMemoryExceeded);
 
-        auto uploadCommands = build_upload_command_buffer(stackContents, uploadAddress);
+        auto stackBuilder = mvlc::stack_builder_from_buffer(stackContents);
+        auto stackBuffer = make_stack_buffer(stackBuilder);
 
-        if (auto ec = mvlc.mirrorTransaction(uploadCommands, responseBuffer))
+        if (auto ec = mvlc.uploadStack(mvlc::DataPipe, uploadAddress, stackBuilder))
             return ec;
 
         u16 offsetRegister = mvlc::stacks::get_offset_register(stackId);
@@ -92,8 +94,9 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
             return ec;
 
         stackId++;
+
         // again leave a 1 word gap between stacks
-        uploadOffset += stackContents.size() + 1;
+        uploadWordOffset += stackBuffer.size() + 1;
     }
 
     return {};

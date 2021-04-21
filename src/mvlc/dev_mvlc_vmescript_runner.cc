@@ -109,13 +109,6 @@ int main(int argc, char *argv[])
         cout << msg.toStdString() << endl;
     };
 
-    mvlcObj.setReadTimeout(mvlc::Pipe::Command, 250);
-    mvlcObj.setWriteTimeout(mvlc::Pipe::Command, 250);
-
-    cout << "Command pipe timeouts: read=" << mvlcObj.readTimeout(mvlc::Pipe::Command)
-        << ", write=" << mvlcObj.writeTimeout(mvlc::Pipe::Command)
-        << endl;
-
     //mvlcCtrl.disableNotificationPolling();
 
     const int commandCount = vmeScript.size();

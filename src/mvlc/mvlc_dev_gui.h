@@ -212,7 +212,6 @@ class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
 
     private slots:
         void handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const QString &reason);
-        void handleStackErrorNotification(const std::vector<u32> &notification);
 
     private:
         struct Private;

@@ -317,8 +317,6 @@ void MVLCDataReader::readoutLoop()
 
     qDebug() << __PRETTY_FUNCTION__ << "entering readout loop";
     qDebug() << __PRETTY_FUNCTION__ << "executing in" << QThread::currentThread();
-    qDebug() << __PRETTY_FUNCTION__ << "read timeout is"
-        << m_mvlc->readTimeout(mvlc::Pipe::Data) << "ms";
 
     mvlc::eth::Impl *mvlc_eth = nullptr;
     mvlc::usb::Impl *mvlc_usb = nullptr;
@@ -340,7 +338,7 @@ void MVLCDataReader::readoutLoop()
                     0xF2000000
                 };
 
-                if (auto ec = m_mvlc->write(
+                if (auto ec = mvlc_eth->write(
                         mvlc::Pipe::Data,
                         reinterpret_cast<const u8 *>(EmptyRequest.data()),
                         EmptyRequest.size() * sizeof(u32),
@@ -954,6 +952,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         }
 
         ui->pb_runScript->setEnabled(newState == MVLCObject::Connected);
+        ui->pb_runScript->setEnabled(false); // FIXME
         ui->pb_reconnect->setEnabled(newState != MVLCObject::Connecting);
     };
 
@@ -966,6 +965,8 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     connect(ui->pb_runScript, &QPushButton::clicked,
             this, [this] ()
     {
+        // FIXME
+#if 0
         try
         {
             bool logRequest = ui->cb_scriptLogRequest->isChecked();
@@ -1075,6 +1076,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         {
             logMessage("Embedded VME Script parse error: " + e.toString());
         }
+#endif
     });
 
     connect(ui->pb_loadScript, &QPushButton::clicked,
@@ -1174,9 +1176,11 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
     });
 
 
+    // FIXME
     connect(ui->pb_readCmdPipe, &QPushButton::clicked,
             this, [this] ()
     {
+#if 0
         static const int ManualCmdRead_WordCount = 1024;
         std::vector<u32> readBuffer;
         readBuffer.resize(ManualCmdRead_WordCount);
@@ -1196,12 +1200,15 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         if (ec)
             logMessage(QString("Read error: %1").arg(ec.message().c_str()));
+#endif
     });
 
 
+    // FIXME
     connect(ui->pb_readDataPipe, &QPushButton::clicked,
             this, [this] ()
     {
+#if 0
         static const int ManualDataRead_WordCount = 8192;
         std::vector<u32> readBuffer;
         readBuffer.resize(ManualDataRead_WordCount);
@@ -1221,6 +1228,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
 
         if (ec)
             logMessage(QString("Read error: %1").arg(ec.message().c_str()));
+#endif
     });
 
     //
@@ -1932,12 +1940,6 @@ void MVLCDevGUI::handleEthDebugSignal(const EthDebugBuffer &debugBuffer, const Q
     }
 
     logMessage(QString("<<< End Ethernet Header Debug (%1 packets)").arg(debugBuffer.size()));
-}
-
-void MVLCDevGUI::handleStackErrorNotification(const std::vector<u32> &buffer)
-{
-    mvlc::update_stack_error_counters(
-        m_d->mvlc->getProtectedStackErrorCounters().access().ref(), buffer);
 }
 
 //
