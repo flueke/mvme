@@ -887,6 +887,7 @@ struct DSO_Sim_Result
     std::exception_ptr ex;
     std::vector<u32> dsoBuffer;
     Sim sim;
+    bool wasTriggered = false;
 };
 
 // XXX: this is so ulgy and sim.sampledTraces can diverge from what was last
@@ -925,6 +926,7 @@ DSO_Sim_Result run_dso_and_sim(
         pre_process_dso_snapshot(sampledTraces, dsoSetup);
 
         result.sim.sampledTraces = sampledTraces;
+        result.wasTriggered = true;
     }
     catch (const std::system_error &e)
     {
@@ -1352,7 +1354,7 @@ struct DSOSimWidget::Private
             }
         }
 
-        if (!this->cancelDSO && !result.ec && result.dsoBuffer.size() > 2)
+        if (!this->cancelDSO && result.wasTriggered)
         {
             this->lastResult = result;
             ++stats.sampleCount;

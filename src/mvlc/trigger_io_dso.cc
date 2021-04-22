@@ -191,38 +191,27 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
 {
     using namespace std::chrono_literals;
 
-    if (buffer.size() < 2 + 2)
+    if (buffer.size() < 2 + 2 + 1)
     {
         //qDebug() << __PRETTY_FUNCTION__ << "got a short buffer";
         return {};
     }
 
-    if ((mvlc::get_frame_type(buffer[0]) != mvlc::frame_headers::StackFrame)
-         || (mvlc::get_frame_type(buffer[1]) != mvlc::frame_headers::BlockRead))
-    {
-        //qDebug() << __PRETTY_FUNCTION__ << "invalid frame and block headers";
-        return {};
-    }
+    auto dsoHeader = std::find_if(
+        std::begin(buffer), std::end(buffer), [] (u32 word) { return word == data_format::Header; });
 
-    if (buffer[2] != data_format::Header)
-    {
-        //qDebug() << __PRETTY_FUNCTION__ << "invalid Header";
-        return {};
-    }
+    auto dsoEnd = std::find_if(
+        dsoHeader, std::end(buffer), [] (u32 word) { return word == data_format::EoE; });
 
-    if (buffer[buffer.size()-1] != data_format::EoE)
-    {
-        //qDebug() << __PRETTY_FUNCTION__ << "invalid EoE";
+    if (dsoHeader == std::end(buffer) || dsoEnd == std::end(buffer))
         return {};
-    }
 
     Snapshot result;
     result.reserve(DSOExpectedSampledTraces);
 
-    for (size_t i=3; i<buffer.size()-1; ++i)
+    for (auto it = dsoHeader+1; it < dsoEnd; ++it)
     {
-        const u32 word = buffer[i];
-
+        const u32 word = *it;
         auto ft = mvlc::get_frame_type(word);
 
         // Skipper over embedded stack and block frames
@@ -243,18 +232,6 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
 
         auto &timeline = result[entry.address];
         timeline.push_back({std::chrono::nanoseconds(entry.time), entry.edge});
-
-        // This is the FIFO overflow marker: the first sample of each channel
-        // will have the time set to 1 (the first samples time is by definition
-        // 0 so no information is lost). The code replaces the 1 with a 0 to
-        // make plotting work just like for the non-overflow case.
-        // TODO: use the overflow information somewhere? Keep the 1 and handle
-        // it in some upper layer?
-        /*
-        if (timeline.size() == 1)
-            if (timeline[0].time == 1ns)
-                timeline[0].time = 0ns;
-        */
     }
 
     return result;
