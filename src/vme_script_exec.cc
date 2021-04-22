@@ -39,19 +39,19 @@ ResultList run_script(
 
             auto tStart = QDateTime::currentDateTime();
 
-            qDebug() << __FUNCTION__
-                << tStart << "begin run_command" << cmdNumber << "of" << script.size();
+            //qDebug() << __FUNCTION__
+            //    << tStart << "begin run_command" << cmdNumber << "of" << script.size();
 
             auto result = run_command(controller, cmd, logger);
 
             auto tEnd = QDateTime::currentDateTime();
             results.push_back(result);
 
-            qDebug() << __FUNCTION__
-                << tEnd
-                << "  " << cmdNumber << "of" << script.size() << ":"
-                << format_result(result)
-                << "duration:" << tStart.msecsTo(tEnd) << "ms";
+            //qDebug() << __FUNCTION__
+            //    << tEnd
+            //    << "  " << cmdNumber << "of" << script.size() << ":"
+            //    << format_result(result)
+            //    << "duration:" << tStart.msecsTo(tEnd) << "ms";
 
             if (options & run_script_options::LogEachResult)
             {
