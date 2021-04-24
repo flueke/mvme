@@ -2,6 +2,9 @@
 TODO list
 ==================================================
 
+* The run script button of the VMEScriptEditor inside the Trigger IO GUI does
+  not work. The runScript() signal is not connected to anything.
+
 * Rate Monitor:
   - mouse hover sample index is often negative
   - stats display needs updating for Sample based x-scale

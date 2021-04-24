@@ -1964,9 +1964,10 @@ void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
 }
 
 vme_script::ResultList
-MVMEContext::runScript(const vme_script::VMEScript &script,
-                       vme_script::LoggerFun logger,
-                       bool logEachResult)
+MVMEContext::runScript(
+    const vme_script::VMEScript &script,
+    vme_script::LoggerFun logger,
+    bool logEachResult)
 {
     vme_script::ResultList results;
 

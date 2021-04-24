@@ -196,6 +196,13 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
         QIcon(QSL(":/help.png")), QSL("VME Script Help"),
         this, mesytec::mvme::make_help_keyword_handler("VMEScript"));
 
+    action = m_d->m_toolBar->addAction(
+        QIcon(":/script-run.png"), QSL("(Dev) Run Writes Batched"),
+        this,  &VMEScriptEditor::runScriptWritesBatched_);
+
+    action->setStatusTip(QSL("Run the VME script"));
+    action->setShortcut(QSL("Ctrl+R"));
+
     m_d->m_toolBar->addSeparator();
 
     // Search input field and button
@@ -295,6 +302,33 @@ void VMEScriptEditor::runScript_()
 
         emit logMessage(QString("Running script \"%1\":").arg(m_d->m_script->getVerboseTitle()));
         emit runScript(script);
+    }
+    catch (const vme_script::ParseError &e)
+    {
+        emit logMessage(QSL("Parse error: ") + e.toString());
+    }
+}
+
+void VMEScriptEditor::runScriptWritesBatched_()
+{
+    try
+    {
+        // We want to execute the text that's currently in the editor window
+        // using the variables visible to the underlying (unmodified)
+        // VMEScriptConfig object. So first collect the symbol tables, then get
+        // the script text and finally parse the text, passing in the list of
+        // symbol tables.
+
+        auto symtabs = mesytec::mvme::collect_symbol_tables(m_d->m_script);
+
+        auto moduleConfig = qobject_cast<ModuleConfig *>(m_d->m_script->parent());
+        u32 baseAddress = moduleConfig ? moduleConfig->getBaseAddress() : 0u;
+        auto scriptText = m_d->m_editor->toPlainText();
+
+        auto script = vme_script::parse(scriptText, symtabs, baseAddress);
+
+        emit logMessage(QString("Running script writes batched \"%1\":").arg(m_d->m_script->getVerboseTitle()));
+        emit runScriptWritesBatched(script);
     }
     catch (const vme_script::ParseError &e)
     {

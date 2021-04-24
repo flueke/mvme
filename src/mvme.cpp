@@ -1819,6 +1819,103 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
             }
         });
 
+        // FIXME: extreme level of hackery in here. This has to go after Robert has done his tests.
+        connect(widget, &VMEScriptEditor::runScriptWritesBatched,
+                this, [this] (const vme_script::VMEScript &script)
+        {
+            auto logger = [this](const QString &str)
+            {
+                m_d->m_context->logMessage("  " + str);
+            };
+
+            auto error_logger = [this](const QString &str)
+            {
+                m_d->m_context->logError("  " + str);
+            };
+
+            auto ctrl = m_d->m_context->getVMEController();
+            auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(ctrl);
+
+            if (!mvlc)
+            {
+
+                auto results = m_d->m_context->runScript(script, logger);
+
+                for (auto result: results)
+                {
+                    auto msg = format_result(result);
+
+                    if (!result.error.isError())
+                        logger(msg);
+                    else
+                        error_logger(msg);
+                }
+            }
+            else
+            {
+                using namespace mesytec::mvlc;
+
+                std::list<StackCommand> mvlcStackCommands;
+
+                for (const auto &scriptCommand: script)
+                {
+                    if (scriptCommand.type == vme_script::CommandType::Write ||
+                        scriptCommand.type == vme_script::CommandType::WriteAbs)
+                    {
+                        StackCommand cmd;
+
+                        cmd.type = StackCommand::CommandType::VMEWrite;
+                        cmd.address = scriptCommand.address;
+                        cmd.value = scriptCommand.value;
+                        cmd.amod = scriptCommand.addressMode;
+                        cmd.dataWidth = scriptCommand.dataWidth == vme_script::DataWidth::D16 ? VMEDataWidth::D16 : VMEDataWidth::D32;
+
+                        mvlcStackCommands.push_back(cmd);
+                    }
+                }
+
+                int batchNumber = 0;
+
+                while (!mvlcStackCommands.empty())
+                {
+                    StackCommandBuilder stack;
+                    stack.addWriteMarker(0xdeadbeef);
+
+                    while (!mvlcStackCommands.empty())
+                    {
+                        auto nextCommandSize = get_encoded_size(mvlcStackCommands.front());
+                        if (get_encoded_stack_size(stack) + nextCommandSize > stacks::ImmediateStackReservedWords)
+                            break;
+
+                        stack.addCommand(mvlcStackCommands.front());
+                        mvlcStackCommands.pop_front();
+                    }
+
+                    std::vector<u32> destBuffer;
+
+                    if (auto ec = mvlc->getMVLC().stackTransaction(stack, destBuffer))
+                    {
+                        error_logger(QSL("Error executing write command batch %1: %2")
+                                     .arg(batchNumber)
+                                     .arg(ec.message().c_str()));
+                    }
+                    else
+                    {
+                        logger(QSL("Write command batch %1 done (batch size = %2)")
+                               .arg(batchNumber)
+                               .arg(stack.getCommands().size() - 1)
+                               );
+                    }
+
+                    QVector<u32> tmp = QVector<u32>::fromStdVector(destBuffer);
+                    logBuffer(tmp, logger);
+
+                    batchNumber++;
+                }
+            }
+
+        });
+
         connect(widget, &VMEScriptEditor::addApplicationWidget,
                 [this] (QWidget *widget)
         {
