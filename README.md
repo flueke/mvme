@@ -16,6 +16,7 @@
 
 ### Linux
 `cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ../mvme`
+`git submodule update --init`
 `make -j4`
 `make install`
 
@@ -33,6 +34,7 @@ enviroment selected during installation time.
                     zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build
     git clone https://github.com/flueke/mvme
     cd mvme
+    git submodule update --init
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme
     ninja
 
