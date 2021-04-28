@@ -16,8 +16,12 @@
 
 ### Linux
 
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ../mvme
+    git clone https://github.com/flueke/mvme
+    cd mvme
     git submodule update --init
+    mkdir build
+    cd build
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ..
     make -j4
     make install
 
@@ -36,7 +40,9 @@ enviroment selected during installation time.
     git clone https://github.com/flueke/mvme
     cd mvme
     git submodule update --init
-    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme
+    mkdir build
+    cd build
+    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ..
     ninja
 
 ### Windows MSYS2
