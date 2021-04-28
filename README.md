@@ -15,10 +15,11 @@
 * Optional: NSIS for the windows installer
 
 ### Linux
-`cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ../mvme`
-`git submodule update --init`
-`make -j4`
-`make install`
+
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ../mvme
+    git submodule update --init
+    make -j4
+    make install
 
 The install step is optional, mvme does run directly from the build directory.
 
