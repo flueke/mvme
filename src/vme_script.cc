@@ -46,15 +46,27 @@ namespace vme_script
 
 u8 parseAddressMode(const QString &str)
 {
-    if (str.compare(QSL("a16"), Qt::CaseInsensitive) == 0)
-        return vme_address_modes::A16;
+    // lower case: privileged modes
+    if (str.compare(QSL("a16"), Qt::CaseSensitive) == 0)
+        return vme_address_modes::a16Priv;
 
-    if (str.compare(QSL("a24"), Qt::CaseInsensitive) == 0)
-        return vme_address_modes::A24;
+    if (str.compare(QSL("a24"), Qt::CaseSensitive) == 0)
+        return vme_address_modes::a24PrivData;
 
-    if (str.compare(QSL("a32"), Qt::CaseInsensitive) == 0)
-        return vme_address_modes::A32;
+    if (str.compare(QSL("a32"), Qt::CaseSensitive) == 0)
+        return vme_address_modes::a32PrivData;
 
+    // upper case: user modes
+    if (str.compare(QSL("A16"), Qt::CaseSensitive) == 0)
+        return vme_address_modes::a16User;
+
+    if (str.compare(QSL("A24"), Qt::CaseSensitive) == 0)
+        return vme_address_modes::a24UserData;
+
+    if (str.compare(QSL("A32"), Qt::CaseSensitive) == 0)
+        return vme_address_modes::a32UserData;
+
+    // CR/CSR address space
     if (str.compare(QSL("cr"), Qt::CaseInsensitive) == 0)
         return vme_address_modes::cr;
 
