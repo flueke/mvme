@@ -1,0 +1,4 @@
+## Parameters
+# START TGV 
+#CTRL = 1 0x58
+write A24 d32 0x58 1

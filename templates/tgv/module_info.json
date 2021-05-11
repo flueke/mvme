@@ -1,0 +1,7 @@
+{
+    "typeId"        : 170,
+    "typeName"      : "tgv",
+    "displayName"   : "TGV",
+    "vendorName"    : "LPC Caen",
+    "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
+}

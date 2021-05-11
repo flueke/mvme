@@ -1,0 +1,374 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": [
+        ],
+        "connections": [
+            {
+                "dstId": "{bfa8478c-2d11-4936-881d-6be9fc6937b9}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{f3f4577b-154b-44c9-9a74-1386109131ef}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{981e2f85-5789-41d0-a8fd-aa6b6b5995f9}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{bfa8478c-2d11-4936-881d-6be9fc6937b9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{8d581aaa-be00-4470-837a-19cea84d879d}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{1d05cec3-fbe4-42f8-a447-c62721c22ed0}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{8d9ebdfc-2c66-4aa8-8818-d0c32d1eb9bf}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{53fa3f20-d7bc-4cb7-9dd9-7037ceac6f7e}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{92e64d62-903b-40ab-b893-5760586e6502}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{7ee7a593-2244-47e6-be85-a2f587930e9e}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{c8c20d61-8a97-4996-a91e-3744a0cc3965}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{53fa3f20-d7bc-4cb7-9dd9-7037ceac6f7e}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{ef55df01-9313-45ca-9280-568ffe4a5fbe}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{d7b6281b-b278-42bf-bbd2-64f59a34116d}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{ea46fa72-1107-4f5e-a4a5-f6a1345d8f83}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{e472d898-b295-48bb-8ec9-418616650ae4}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{1d05cec3-fbe4-42f8-a447-c62721c22ed0}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{e472d898-b295-48bb-8ec9-418616650ae4}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{f38d674a-f074-4e05-b5d4-c495a1a35842}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{8d9ebdfc-2c66-4aa8-8818-d0c32d1eb9bf}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{50a8871c-84c6-48a1-aa5d-610095857da5}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{f3f4577b-154b-44c9-9a74-1386109131ef}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{d7b6281b-b278-42bf-bbd2-64f59a34116d}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{7ee7a593-2244-47e6-be85-a2f587930e9e}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+        ],
+        "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{ea46fa72-1107-4f5e-a4a5-f6a1345d8f83}",
+                "name": "timestamp1_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{1d05cec3-fbe4-42f8-a447-c62721c22ed0}",
+                "name": "timestamp1",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{50a8871c-84c6-48a1-aa5d-610095857da5}",
+                "name": "timestamp2_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{bfa8478c-2d11-4936-881d-6be9fc6937b9}",
+                "name": "timestamp2",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{c8c20d61-8a97-4996-a91e-3744a0cc3965}",
+                "name": "timestamp3_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{8d9ebdfc-2c66-4aa8-8818-d0c32d1eb9bf}",
+                "name": "timestamp3",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{92e64d62-903b-40ab-b893-5760586e6502}",
+                "name": "got_new_data_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{d7b6281b-b278-42bf-bbd2-64f59a34116d}",
+                "name": "got_new_data",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{8d581aaa-be00-4470-837a-19cea84d879d}",
+                "name": "timestamp1",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{981e2f85-5789-41d0-a8fd-aa6b6b5995f9}",
+                "name": "timestamp2",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{f38d674a-f074-4e05-b5d4-c495a1a35842}",
+                "name": "timestamp3",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{ef55df01-9313-45ca-9280-568ffe4a5fbe}",
+                "name": "got_new_data",
+                "userLevel": 1
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{d183b615-599a-42f1-ab87-46e1518d73b8}",
+                    "moduleName": "tgv",
+                    "moduleTypeName": "tgv"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "4fc05e586dddc15a",
+                    "subFilters": [
+                        {
+                            "filterString": "0000000000000000DDDDDDDDDDDDDDDD",
+                            "wordIndex": 1
+                        }
+                    ]
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{e472d898-b295-48bb-8ec9-418616650ae4}",
+                "moduleId": "{d183b615-599a-42f1-ab87-46e1518d73b8}",
+                "name": "timestamp1"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "6b930a04710cb840",
+                    "subFilters": [
+                        {
+                            "filterString": "0000000000000000DDDDDDDDDDDDDDDD",
+                            "wordIndex": 2
+                        }
+                    ]
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{f3f4577b-154b-44c9-9a74-1386109131ef}",
+                "moduleId": "{d183b615-599a-42f1-ab87-46e1518d73b8}",
+                "name": "timestamp2"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "7b301cea32694194",
+                    "subFilters": [
+                        {
+                            "filterString": "0000000000000000DDDDDDDDDDDDDDDD",
+                            "wordIndex": 3
+                        }
+                    ]
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{53fa3f20-d7bc-4cb7-9dd9-7037ceac6f7e}",
+                "moduleId": "{d183b615-599a-42f1-ab87-46e1518d73b8}",
+                "name": "timestamp3"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "5de9147b9353d416",
+                    "subFilters": [
+                        {
+                            "filterString": "0000000000000000DDDDDDDDDDDDDDDD",
+                            "wordIndex": 0
+                        }
+                    ]
+                },
+                "eventId": "{3d48a125-24bc-4b7f-9f97-4638e05f9e76}",
+                "id": "{7ee7a593-2244-47e6-be85-a2f587930e9e}",
+                "moduleId": "{d183b615-599a-42f1-ab87-46e1518d73b8}",
+                "name": "got_new_data"
+            }
+        ]
+    }
+}

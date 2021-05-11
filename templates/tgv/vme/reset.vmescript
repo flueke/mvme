@@ -1,0 +1,11 @@
+# Reset the module to a clean default state here. This is executed before
+# initializing the modules at DAQ start time.
+## INIT TGV
+## CTRL = 0 adress 0X58
+write A24 d32 0x58 0
+## MASQ= 1 0X54
+write A24 d32 0x54 1
+#MIS4 = 3 0XC0
+write A24 d32 0xC0 3
+#MEM[1] = 3 0X04
+write A24 d32 0x04 3

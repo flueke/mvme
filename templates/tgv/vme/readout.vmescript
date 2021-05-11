@@ -1,0 +1,21 @@
+# HEADER word: module_id = 0xff 5 words = 4 data + 1 EOE
+marker 0x40ff0005
+
+# get status of TGV
+read A24 d32 0xF8
+
+# read timestamp in STATUS2 (least sig 16 bits), STATUS3, STATUS4
+read A24 d32 0xE0
+read A24 d32 0xE4
+read A24 d32 0xE8
+
+# EOE word
+marker 0xc0000000
+
+# after receiving timestamp, write 7 in MIS4
+write A24 d32 0xC0 7
+
+# RAZEVT
+write A24 d32 0x60 1
+
+
