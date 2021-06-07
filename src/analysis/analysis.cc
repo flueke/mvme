@@ -3406,6 +3406,12 @@ void ExportSink::beginRun(const RunInfo &, Logger logger)
 
 void ExportSink::generateCode(Logger logger)
 {
+    if (getFormat() == Format::CSV)
+    {
+        assert(!"code generation not implemented for CSV exports");
+        return;
+    }
+
     try
     {
         if (!QDir().mkpath(getOutputPrefixPath()))
@@ -3481,7 +3487,7 @@ QString ExportSink::getDataFilePath(const RunInfo &runInfo) const
 
 QString ExportSink::getDataFileExtension() const
 {
-    QString result = ".bin";
+    QString result = (getFormat() == Format::CSV ? ".csv" : ".bin");
 
     if (m_compressionLevel != 0)
     {

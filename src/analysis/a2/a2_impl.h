@@ -70,6 +70,7 @@ enum OperatorType
 
     Operator_ExportSinkFull,
     Operator_ExportSinkSparse,
+    Operator_ExportSinkCsv,
 
     Operator_RangeFilter,
     Operator_RangeFilter_idx,

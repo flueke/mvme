@@ -1640,11 +1640,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             });
         }
 
-        // format (sparse, dense)
+        // format (sparse, dense, csv)
         {
             combo_exportFormat = new QComboBox;
             combo_exportFormat->addItem("Indexed / Sparse", static_cast<int>(ExportSink::Format::Sparse));
             combo_exportFormat->addItem("Plain / Full",     static_cast<int>(ExportSink::Format::Full));
+            combo_exportFormat->addItem("CSV",              static_cast<int>(ExportSink::Format::CSV));
 
             formLayout->addRow("Format", combo_exportFormat);
 
@@ -1667,6 +1668,11 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                         " exported data file is critical.\n"
                         "Warning: this format can produce large files quickly!"
                         ));
+            stack->addWidget(label);
+
+            label = make_framed_description_label(QSL(
+                    "CSV text output format. No code generation."
+                    ));
             stack->addWidget(label);
 
             connect(combo_exportFormat, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
@@ -1693,14 +1699,15 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         }
 
         // codegen and open output directory
+
         {
             pb_generateCode  = new QPushButton(QSL("C++ && Python code"));
 
             pb_openOutputDir = new QPushButton(QIcon(":/folder_orange.png"),
                                                QSL("Open output directory"));
 
-            auto gb    = new QGroupBox("Code generation");
-            auto l     = new QGridLayout(gb);
+            gb_codeGen = new QGroupBox("Code generation");
+            auto l     = new QGridLayout(gb_codeGen);
             l->setContentsMargins(2, 2, 2, 2);
             auto label = make_framed_description_label(QSL(
                     "Important: Code generation will overwrite existing files!\n"
@@ -1715,7 +1722,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             l->addWidget(pb_openOutputDir,     1, 1);
             l->addWidget(make_spacer_widget(), 1, 2);
 
-            formLayout->addRow(gb);
+            formLayout->addRow(gb_codeGen);
 
             auto logger = [context, ex] (const QString &msg)
             {
@@ -1765,6 +1772,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                 }
             });
         }
+
+        connect(combo_exportFormat, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this] (int) {
+                    auto fmt = static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt());
+                    gb_codeGen->setEnabled(fmt != ExportSink::Format::CSV);
+                });
 
         //
         // populate

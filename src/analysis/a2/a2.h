@@ -631,6 +631,8 @@ enum class ExportSinkFormat
      * Use this if only a couple of channels respond per event. In this case it
      * will produce much smaller data than the Full format. */
     Sparse,
+
+    CSV,
 };
 
 struct ExportSinkData
@@ -660,6 +662,8 @@ struct ExportSinkData
     u64 bytesWritten  = 0;
     std::string lastError;
 
+    std::vector<std::string> csvColumns;
+
     mutable NonRecursiveRWLock lastErrorLock;
     using WriteGuard = WriteLockGuard<NonRecursiveRWLock>;
     using ReadGuard  = ReadLockGuard<NonRecursiveRWLock>;
@@ -675,6 +679,14 @@ struct ExportSinkData
         WriteGuard guard(lastErrorLock);
         lastError = msg;
     }
+
+    std::ostream *getOstream()
+    {
+        std::ostream *result = (compressionLevel != 0
+                                ? z_ostream.get()
+                                : ostream.get());
+        return result;
+    }
 };
 
 // No condition input. All data will be written to the output file.
@@ -683,7 +695,8 @@ Operator make_export_sink(
     const std::string &output_filename,
     int compressionLevel,
     ExportSinkFormat format,
-    TypedBlock<PipeVectors, s32> dataInputs
+    TypedBlock<PipeVectors, s32> dataInputs,
+    std::vector<std::string> csvColumns = {}
     );
 
 // With condition input. This can dramatically reduce the output data size.
@@ -694,7 +707,8 @@ Operator make_export_sink(
     ExportSinkFormat format,
     TypedBlock<PipeVectors, s32> dataInputs,
     PipeVectors condInput,
-    s32 condIndex
+    s32 condIndex = -1,
+    std::vector<std::string> csvColumns = {}
     );
 
 //

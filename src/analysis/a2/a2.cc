@@ -3495,7 +3495,8 @@ Operator make_export_sink(
     const std::string &output_filename,
     int compressionLevel,
     ExportSinkFormat format,
-    TypedBlock<PipeVectors, s32> dataInputs
+    TypedBlock<PipeVectors, s32> dataInputs,
+    std::vector<std::string> csvColumns
     )
 {
     return make_export_sink(
@@ -3505,7 +3506,8 @@ Operator make_export_sink(
         format,
         dataInputs,
         PipeVectors(),
-        -1);
+        -1,
+        csvColumns);
 }
 
 Operator make_export_sink(
@@ -3515,7 +3517,8 @@ Operator make_export_sink(
     ExportSinkFormat format,
     TypedBlock<PipeVectors, s32> dataInputs,
     PipeVectors condInput,
-    s32 condIndex
+    s32 condIndex,
+    std::vector<std::string> csvColumns
     )
 {
     Operator result = {};
@@ -3533,6 +3536,9 @@ Operator make_export_sink(
         case ExportSinkFormat::Sparse:
             result = make_operator(arena, Operator_ExportSinkSparse, inputCount, 0);
             break;
+        case ExportSinkFormat::CSV:
+            result = make_operator(arena, Operator_ExportSinkCsv, inputCount, 0);
+            break;
     }
 
     auto d = arena->pushObject<ExportSinkData>();
@@ -3541,6 +3547,7 @@ Operator make_export_sink(
     d->filename         = output_filename;
     d->compressionLevel = compressionLevel;
     d->condIndex        = condIndex;
+    d->csvColumns       = csvColumns;
 
     // Assign data inputs.
     for (s32 ii = 0; ii < dataInputs.size; ii++)
@@ -3557,8 +3564,6 @@ Operator make_export_sink(
 
     return result;
 }
-
-static const size_t CompressionBufferSize = 1u << 20;
 
 /* NOTE: About error handling in the ExportSink:
  * - std::ofstream by default has exceptions disabled. The method rdstate() can
@@ -3580,11 +3585,16 @@ void export_sink_begin_run(Operator *op, Logger logger)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkFull
-           || op->type == Operator_ExportSinkSparse);
+           || op->type == Operator_ExportSinkSparse
+           || op->type == Operator_ExportSinkCsv
+           );
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
-    d->ostream.reset(new std::ofstream(d->filename, std::ios::binary | std::ios::trunc));
+    if (op->type == Operator_ExportSinkCsv)
+        d->ostream.reset(new std::ofstream(d->filename, std::ios::trunc));
+    else
+        d->ostream.reset(new std::ofstream(d->filename, std::ios::binary | std::ios::trunc));
 
     // Enable ios exceptions for the lowest level output stream. This operation can throw.
     try
@@ -3599,6 +3609,14 @@ void export_sink_begin_run(Operator *op, Logger logger)
         std::ostringstream ss;
         ss << "File Export: Opened output file " << d->filename;
         logger(ss.str());
+
+        if (op->type == Operator_ExportSinkCsv)
+        {
+            auto outp = d->getOstream();
+            for (const auto &col: d->csvColumns)
+                *outp << col << ",";
+            *outp << "\n";
+        }
     }
     catch (const std::exception &e)
     {
@@ -3616,9 +3634,7 @@ void export_sink_full_step(Operator *op, A2 *)
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
-    std::ostream *outp = (d->compressionLevel != 0
-                          ? d->z_ostream.get()
-                          : d->ostream.get());
+    auto outp = d->getOstream();
 
     if (!outp) return;
 
@@ -3714,9 +3730,7 @@ void export_sink_sparse_step(Operator *op, A2 *)
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
-    std::ostream *outp = (d->compressionLevel != 0
-                          ? d->z_ostream.get()
-                          : d->ostream.get());
+    auto outp = d->getOstream();
 
     if (!outp) return;
 
@@ -3759,11 +3773,71 @@ void export_sink_sparse_step(Operator *op, A2 *)
     }
 }
 
+void export_sink_csv_step(Operator *op, A2 *)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkCsv);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    auto outp = d->getOstream();
+
+    if (!outp) return;
+
+    s32 dataInputCount = op->inputCount;
+
+    // Test the condition input if it's used
+    if (d->condIndex >= 0)
+    {
+        assert(d->condIndex < op->inputs[op->inputCount - 1].size);
+
+        if (!is_param_valid(op->inputs[op->inputCount - 1][d->condIndex]))
+            return;
+
+        dataInputCount = op->inputCount - 1;
+    }
+
+    try
+    {
+        if (outp->good())
+        {
+            for (s32 inputIndex = 0;
+                 inputIndex < dataInputCount && outp->good();
+                 inputIndex++)
+            {
+                auto input = op->inputs[inputIndex];
+                assert(input.size <= std::numeric_limits<u16>::max());
+
+                for (s32 i=0; i<input.size; ++i)
+                {
+                    if (is_param_valid(input[i]))
+                        *outp << input[i];
+                    *outp << ",";
+                }
+
+                //d->bytesWritten += bytes; // FIXME
+            }
+
+            *outp << "\n";
+
+            d->eventsWritten++;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        std::ostringstream ss;
+        ss << "Error writing to output file " << d->filename << ": " << e.what();
+        d->setLastError(ss.str());
+    }
+}
+
 void export_sink_end_run(Operator *op)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkFull
-           || op->type == Operator_ExportSinkSparse);
+           || op->type == Operator_ExportSinkSparse
+           || op->type == Operator_ExportSinkCsv
+           );
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
@@ -3818,6 +3892,7 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
 
     result[Operator_ExportSinkFull]   = { export_sink_full_step,   export_sink_begin_run, export_sink_end_run };
     result[Operator_ExportSinkSparse] = { export_sink_sparse_step, export_sink_begin_run, export_sink_end_run };
+    result[Operator_ExportSinkCsv] = { export_sink_csv_step, export_sink_begin_run, export_sink_end_run };
 
     result[Operator_RangeFilter] = { range_filter_step };
     result[Operator_RangeFilter_idx] = { range_filter_step_idx };

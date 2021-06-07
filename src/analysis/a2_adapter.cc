@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <sstream>
+
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
@@ -818,10 +820,24 @@ DEF_OP_MAGIC(export_sink_magic)
     }
 
     QVector<a2::PipeVectors> a2_dataInputs(inputSlots.size() - 1);
+    std::vector<std::string> csvColumns;
 
     for (s32 si = 0; si < inputSlots.size() - 1; si++)
     {
         a2_dataInputs[si] = find_output_pipe(adapterState, inputSlots[si + 1]).first;
+        auto pipe = inputSlots[si+1]->inputPipe;
+
+        for (s32 pi = 0; pi<pipe->getSize(); ++pi)
+        {
+
+            auto pipeSource = pipe->getSource();
+            auto pathParts = analysis::make_parent_path_list(pipeSource->shared_from_this());
+            pathParts.push_back(pipeSource->objectName());
+            pathParts.push_back(QString::number(pi));
+            auto colName = pathParts.join(".");
+            colName.replace(" ", "_");
+            csvColumns.emplace_back(colName.toStdString());
+        }
     }
 
     QString outputFilename = sink->getDataFilePath(runInfo);
@@ -833,7 +849,8 @@ DEF_OP_MAGIC(export_sink_magic)
         sink->getFormat(),
         { a2_dataInputs.data(), a2_dataInputs.size() },
         a2_condInput,
-        condIndex
+        condIndex,
+        csvColumns
         );
 
     return result;

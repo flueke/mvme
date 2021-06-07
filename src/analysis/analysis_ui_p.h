@@ -313,6 +313,7 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
 
         QComboBox *combo_exportFormat;
         QComboBox *combo_exportCompression;
+        QGroupBox *gb_codeGen;
 };
 
 class RateMonitorConfigWidget: public AbstractOpConfigWidget
