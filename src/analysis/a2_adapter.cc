@@ -966,6 +966,10 @@ a2::Operator a2_adapter_magic(
     {
         inputSlots[slotIndex] = op->getSlot(slotIndex);
 
+        if (inputSlots[slotIndex]->isOptional
+                && !inputSlots[slotIndex]->isConnected())
+            continue;
+
         // Check if the a2 pipe connected to the current inputSlot exists in
         // the A2AdapterState. If it doesn't it means that the DataSource or
         // Operator owning the pipe was not build for some reason (e.g.
