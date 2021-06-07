@@ -2,6 +2,10 @@
 TODO list
 ==================================================
 
+* Crash when opening workspace directory which does not contain a mvmeworkspace.ini
+* Test opening the same workspace directory that's currently open again.
+  mvme.log and last_mvme.log seem to cause trouble in that case.
+
 * Rate Monitor:
   - mouse hover sample index is often negative
   - stats display needs updating for Sample based x-scale
