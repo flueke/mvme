@@ -4,6 +4,9 @@ TODO list
 
 * The run script button of the VMEScriptEditor inside the Trigger IO GUI does
   not work. The runScript() signal is not connected to anything.
+* Crash when opening workspace directory which does not contain a mvmeworkspace.ini
+* Test opening the same workspace directory that's currently open again.
+  mvme.log and last_mvme.log seem to cause trouble in that case.
 
 * Rate Monitor:
   - mouse hover sample index is often negative

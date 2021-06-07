@@ -15,9 +15,15 @@
 * Optional: NSIS for the windows installer
 
 ### Linux
-`cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ../mvme`
-`make -j4`
-`make install`
+
+    git clone https://github.com/flueke/mvme
+    cd mvme
+    git submodule update --init
+    mkdir build
+    cd build
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mvme ..
+    make -j4
+    make install
 
 The install step is optional, mvme does run directly from the build directory.
 
@@ -33,7 +39,10 @@ enviroment selected during installation time.
                     zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build
     git clone https://github.com/flueke/mvme
     cd mvme
-    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ../mvme
+    git submodule update --init
+    mkdir build
+    cd build
+    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ..
     ninja
 
 ### Windows MSYS2

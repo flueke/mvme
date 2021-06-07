@@ -2479,10 +2479,12 @@ void MVMEContext::openWorkspace(const QString &dirName)
         m_d->m_vmeConfigAutoSaver->setObjectName(QSL("VmeConfigAutoSaver"));
         m_d->m_vmeConfigAutoSaver->start();
 
+#if 0
         connect(m_d->m_vmeConfigAutoSaver.get(), &FileAutoSaver::writeError,
                 this, [this] (const QString &/*filename*/, const QString &errorMessage) {
             logMessage(errorMessage);
         });
+#endif
 
         // analysis
         m_d->m_analysisAutoSaver = std::make_unique<FileAutoSaver>(
@@ -2493,10 +2495,12 @@ void MVMEContext::openWorkspace(const QString &dirName)
         m_d->m_analysisAutoSaver->setObjectName(QSL("AnalysisAutoSaver"));
         m_d->m_analysisAutoSaver->start();
 
+#if 0
         connect(m_d->m_analysisAutoSaver.get(), &FileAutoSaver::writeError,
                 this, [this] (const QString &/*filename*/, const QString &errorMessage) {
             logMessage(errorMessage);
         });
+#endif
 
         // Create a new LogfileCountLimiter instance for the DAQ run logs in this
         // workspace.
