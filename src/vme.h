@@ -51,11 +51,11 @@ namespace vme_address_modes
     static const u8 a24PrivBlock   = 0x3F;
 
     // defaults using the privileged modes
-    static const u8 A16         = a16Priv;
-    static const u8 A24         = a24PrivData;
-    static const u8 A32         = a32PrivData;
-    static const u8 BLT32       = a32PrivBlock;
-    static const u8 MBLT64      = a32PrivBlock64;
+    static const u8 A16         = a16User;
+    static const u8 A24         = a24UserData;
+    static const u8 A32         = a32UserData;
+    static const u8 BLT32       = a32UserBlock;
+    static const u8 MBLT64      = a32UserBlock64;
     static const u8 Blk2eSST64  = 0x21;
 
     inline bool is_block_amod(u8 amod)
