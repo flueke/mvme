@@ -3552,9 +3552,12 @@ LUTOutputEditor::LUTOutputEditor(
         m_outputTable->setHorizontalHeaderLabels({"State"});
         m_outputTable->horizontalHeader()->setStretchLastSection(true);
 
+        //auto explanation = new QLabel(QSL(
+        //        "The bit values on the left side are ordered from <b>right to left</b>"
+        //        ", the first selected input bit is in the rightmost position."));
         auto explanation = new QLabel(QSL(
-                "The bit values on the left side are ordered from <b>right to left</b>"
-                ", the first selected input bit is in the rightmost position."));
+                "Top selection table: <b>MSB top</b>, <b>LSB bottom</b>.<br/>"
+                " Bits lower table left side: <b>MSB left</b>, <b>LSB right</b>"));
         explanation->setWordWrap(true);
 
         auto container = new QWidget;
@@ -4058,4 +4061,3 @@ std::bitset<trigger_io::LUT::OutputBits> LUTEditor::getStrobedOutputMask()
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 } // end namespace trigger_io_config
-
