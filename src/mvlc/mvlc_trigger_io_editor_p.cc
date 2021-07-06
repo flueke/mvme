@@ -2978,7 +2978,7 @@ Level0UtilsDialog::Level0UtilsDialog(
 
             // IRQ
             auto spin_irqIndex = new QSpinBox;
-            spin_irqIndex->setRange(1, 10);
+            spin_irqIndex->setRange(1, 16);
             spin_irqIndex->setValue(tr.irqUtil.irqIndex + 1);
 
             // SlaveTrigger
