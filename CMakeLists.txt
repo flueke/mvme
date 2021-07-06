@@ -144,10 +144,16 @@ find_library(QWT_LIBRARY_RELEASE NAMES qwt qwt-qt5 qwt6)
 find_library(QWT_LIBRARY_DEBUG   NAMES qwtd qwt-qt5d qwt6d)
 
 if (WIN32 OR QWT_LIBRARY_DEBUG)
-    set(QWT_LIBRARY
-        optimized ${QWT_LIBRARY_RELEASE}
-        debug ${QWT_LIBRARY_DEBUG}
-        )
+    if (QWT_LIBRARY_DEBUG)
+        set(QWT_LIBRARY
+            optimized ${QWT_LIBRARY_RELEASE}
+            debug ${QWT_LIBRARY_DEBUG}
+            )
+    else()
+        set(QWT_LIBRARY
+            optimized ${QWT_LIBRARY_RELEASE}
+            )
+    endif()
 else()
     set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
 endif()

@@ -2,6 +2,7 @@
 TODO list
 ==================================================
 
+* Do not allow (or warn about) relative writes in the Readout Loop -> Cycle Start/End scripts.
 * The run script button of the VMEScriptEditor inside the Trigger IO GUI does
   not work. The runScript() signal is not connected to anything.
 * Crash when opening workspace directory which does not contain a mvmeworkspace.ini
