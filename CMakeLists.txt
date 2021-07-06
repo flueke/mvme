@@ -149,10 +149,13 @@ if (WIN32 OR QWT_LIBRARY_DEBUG)
             optimized ${QWT_LIBRARY_RELEASE}
             debug ${QWT_LIBRARY_DEBUG}
             )
+        #set(QWT_LIBRARY ${QWT_LIBRARY_DEBUG})
     else()
         set(QWT_LIBRARY
             optimized ${QWT_LIBRARY_RELEASE}
+            debug ${QWT_LIBRARY_RELEASE}
             )
+        #set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
     endif()
 else()
     set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
