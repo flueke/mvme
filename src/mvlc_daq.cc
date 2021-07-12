@@ -249,7 +249,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 }
 
 std::error_code setup_trigger_io(
-    MVLCObject &mvlc, VMEConfig &vmeConfig, Logger /*logger*/)
+    MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
 {
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(
         vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
@@ -338,11 +338,14 @@ std::error_code setup_trigger_io(
 
     // Parse the trigger io script and run the writes contained within.
     auto commands = vme_script::parse(ioCfgText);
+    size_t cmdIndex = 0;
 
     for (auto &cmd: commands)
     {
         if (cmd.type != vme_script::CommandType::Write)
             continue;
+
+        logger(QSL("  setup_trigger_io(): running VME Write %1").arg(cmdIndex));
 
         if (auto ec = mvlc.vmeWrite(
                 cmd.address, cmd.value,
@@ -351,6 +354,7 @@ std::error_code setup_trigger_io(
             return ec;
         }
 
+        ++cmdIndex;
     }
 
     return {};
