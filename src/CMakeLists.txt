@@ -24,7 +24,11 @@ if (WIN32)
         PATHS "C:/libusb-win32-bin-1.2.6.0/include")
 
     if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-        find_library(LIBUSB_LIBRARY usb0
+        message("CMAKE_FIND_LIBRARY_PREFIXES=${CMAKE_FIND_LIBRARY_PREFIXES}")
+        message("CMAKE_FIND_LIBRARY_SUFFIXES=${CMAKE_FIND_LIBRARY_SUFFIXES}")
+        set(CMAKE_FIND_LIBRARY_SUFFIXES "${CMAKE_FIND_LIBRARY_SUFFIXES};.dll")
+        find_library(LIBUSB_LIBRARY
+            NAMES usb0 libusb0
             PATHS "C:/libusb-win32-bin-1.2.6.0/bin/amd64")
         message("Using 64 bit libusb: ${LIBUSB_LIBRARY}")
     else()
