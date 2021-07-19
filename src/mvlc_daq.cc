@@ -345,7 +345,7 @@ std::error_code setup_trigger_io(
         if (cmd.type != vme_script::CommandType::Write)
             continue;
 
-        logger(QSL("  setup_trigger_io(): running VME Write %1").arg(cmdIndex));
+        //logger(QSL("  setup_trigger_io(): running VME Write %1").arg(cmdIndex));
 
         if (auto ec = mvlc.vmeWrite(
                 cmd.address, cmd.value,
