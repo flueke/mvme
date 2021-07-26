@@ -4,9 +4,22 @@
 Changelog
 ##################################################
 
+Version 1.4.6
+-------------
+* [mvlc]
+  - Improve immediate MVLC/VME command latency when using the DSO.
+  - Trigger/IO updates
+
+* [analysis]
+  - Fix crash in the ExportSink ("File Export") operator.
+  - Add CSV output option to the ExportSink.
+
+* [vme] Change default vme amods from the privileged to the user variants.
+
+
+
 Version 1.4.5
 -------------
-
 * Create an empty analysis when opening a workspace and no existing analysis
   could be loaded from the workspace. This fixes an issue where analysis
   objects from the previously opened workspace still existed after changing the
