@@ -4,6 +4,22 @@
 Changelog
 ##################################################
 
+Version 1.4.6
+-------------
+
+* [analysis]
+  - Fix crash with unconnected operators
+
+  - Add CSV output option to ExportSink ("File Export")
+
+* [mvlc]
+  - Use the new mesytec-mvlc APIv2 for lower direct command latency and
+    improved DSO performance.
+
+  - Trigger IO DSO parsing fixes
+
+  - Trigger IO updates and fixes
+
 Version 1.4.5
 -------------
 
