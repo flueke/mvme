@@ -2269,6 +2269,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // Do this before attempting to open vme and analysis files inside the
         // newly entered workspace so that messages end up in the correct log
         // file.
+        m_d->lastLogfileHelper = nullptr; // Destroy the old instance to close the log file.
         m_d->lastLogfileHelper = std::make_unique<LastlogHelper>(
             QDir(getWorkspaceDirectory()).filePath(LogsWorkspaceDirectory),
             QSL("mvme.log"), QSL("last_mvme.log"));

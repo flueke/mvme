@@ -195,7 +195,7 @@ bool LastlogHelper::logMessage(const QString &msg)
 
 bool LastlogHelper::flush()
 {
-    // If no file is open the windows QFile::flush() implementation always
+    // If no file is open the Windows QFile::flush() implementation always
     // returns true. This method should return false in this case.
     if (d->currentFile.isOpen())
         return d->currentFile.flush();
