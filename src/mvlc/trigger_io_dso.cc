@@ -4,10 +4,6 @@
 #include "util/math.h"
 #include <chrono>
 
-#ifndef __WIN32
-#include <sys/prctl.h>
-#endif
-
 #include <QDebug>
 
 namespace mesytec
