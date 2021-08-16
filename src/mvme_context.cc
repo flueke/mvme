@@ -66,15 +66,8 @@
 namespace
 {
 
-/* Buffers to pass between DAQ/replay and the analysis. The buffer size should
- * be at least twice as big as the max VMUSB buffer size (2 * 64k).
- *
- * Note that increasing the size will make stopping a replay/daq session
- * mid-run take longer. This is because in the current implementation the
- * analysis system has to fully process the last buffer it pulled from the
- * shared queue.
- */
-static const size_t ReadoutBufferCount = 20;
+/* Buffers to pass between DAQ/replay and the analysis. */
+static const size_t ReadoutBufferCount = 4;
 static const size_t ReadoutBufferSize = Megabytes(1);
 
 static const int TryOpenControllerInterval_ms = 1000;
