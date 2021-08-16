@@ -4666,7 +4666,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             if (indices.eventIndex < 0
                 || indices.eventIndex >= MaxVMEEvents
                 || indices.moduleIndex < 0
-                || indices.moduleIndex >= MaxVMEEvents)
+                || indices.moduleIndex >= MaxVMEModules)
                 continue;
 
             auto rate = calc_delta0(
