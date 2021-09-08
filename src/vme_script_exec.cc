@@ -209,6 +209,14 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             }
             break;
 
+        case CommandType::MVLC_Custom:
+            {
+                auto msg = QSL("mvlc_custom_blocks are not supported by vme_script::run_command().");
+                result.error = VMEError(VMEError::UnsupportedCommand, msg);
+                if (logger) logger(msg);
+            }
+            break;
+
         case CommandType::MetaBlock:
         case CommandType::Blk2eSST64:
         case CommandType::Print:
@@ -251,6 +259,7 @@ QString format_result(const Result &result)
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
+        case CommandType::MVLC_Custom:
             break;
 
         case CommandType::Write:

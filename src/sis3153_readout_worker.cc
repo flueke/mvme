@@ -146,6 +146,7 @@ namespace
                 case CommandType::MetaBlock:
                 case CommandType::SetVariable:
                 case CommandType::Print:
+                case CommandType::MVLC_Custom:
                     break;
 
                 case  CommandType::Invalid:
@@ -397,6 +398,7 @@ namespace
                 case  CommandType::MetaBlock:
                 case  CommandType::SetVariable:
                 case  CommandType::Print:
+                case  CommandType::MVLC_Custom:
                     break;
 
                 case  CommandType::Invalid:

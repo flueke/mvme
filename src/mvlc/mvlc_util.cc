@@ -166,6 +166,13 @@ std::vector<u32> build_stack(const vme_script::VMEScript &script, u8 outPipe)
                 qDebug() << __FUNCTION__ << " unsupported VME Script command:"
                     << to_string(cmd.type);
                 break;
+
+            case CommandType::MVLC_Custom:
+                {
+                    for (u32 value: cmd.mvlcCustomStack)
+                        result.push_back(value);
+                }
+                break;
         }
     }
 

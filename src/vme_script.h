@@ -53,6 +53,9 @@ struct PreparsedLine
 static const QString MetaBlockBegin = "meta_block_begin";
 static const QString MetaBlockEnd = "meta_block_end";
 
+static const QString MVLC_CustomBegin = "mvlc_custom_begin";
+static const QString MVLC_CustomEnd = "mvlc_custom_end";
+
 struct MetaBlock
 {
     // The line containing the MetaBlockBegin instruction. May be used to parse
@@ -128,6 +131,8 @@ enum class CommandType
     // separated by a space by default which means string quoting is not
     // strictly required.
     Print,
+
+    MVLC_Custom,
 };
 
 enum class DataWidth
@@ -168,6 +173,7 @@ struct Command
 
     MetaBlock metaBlock = {};
     QStringList printArgs;
+    std::vector<u32> mvlcCustomStack;
 };
 
 inline bool is_valid(const Command &cmd)

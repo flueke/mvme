@@ -249,7 +249,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 }
 
 std::error_code setup_trigger_io(
-    MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
+    MVLCObject &mvlc, VMEConfig &vmeConfig, Logger /*logger*/)
 {
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(
         vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));

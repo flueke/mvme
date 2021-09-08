@@ -69,19 +69,19 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.transfers = srcCmd.transfers;
             break;
 
-#if 0 // TODO: This is not currently neither implemented in vme_script nor the MVLC
-        case CommandType::Blk2eSST64:
-            dstCmd.type = mvlcCT::VMERead;
-            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
-            dstCmd.address = srcCmd.address;
-            dstCmd.transfers = srcCmd.transfers;
-            break;
-#endif
-
         case CommandType::MVLC_WriteSpecial:
             dstCmd.type = mvlcCT::WriteSpecial;
             dstCmd.value = srcCmd.value;
             break;
+
+        case CommandType::MVLC_Custom:
+            dstCmd.type = mvlcCT::Custom;
+            dstCmd.transfers = srcCmd.transfers;
+            for (u32 value: srcCmd.mvlcCustomStack)
+                dstCmd.customValues.push_back(value);
+
+            break;
+
 
         case CommandType::SetBase:
         case CommandType::ResetBase:

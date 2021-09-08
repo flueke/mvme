@@ -1067,6 +1067,58 @@ static Command handle_meta_block_command(
     return result;
 }
 
+static Command handle_mvlc_custom_command(
+    const QVector<PreparsedLine> &lines,
+    int blockStartIndex, int blockEndIndex)
+{
+    // mvlc_custom_begin [output_words=0]
+    //   u32 value 0
+    //   u32 value 1
+    //   ...
+    // mvlc_custom_end
+
+    assert(lines.size() > 1);
+
+    Command result;
+    result.type = CommandType::MVLC_Custom;
+
+    // parse first line arguments
+    PreparsedLine cmdLine = lines.at(blockStartIndex);
+
+    assert(cmdLine.parts.at(0) == MVLC_CustomBegin);
+
+    for (auto it = cmdLine.parts.begin() + 1; it != cmdLine.parts.end(); it++)
+    {
+        QStringList argParts = (*it).split('=', QString::SkipEmptyParts);
+
+        if (argParts.size() != 2)
+            throw QString("invalid argument to '%1': %2").arg(MVLC_CustomBegin).arg(*it);
+
+        const QString &keyword = argParts.at(0);
+        const QString &value   = argParts.at(1);
+
+        if (keyword == "output_words")
+        {
+            result.transfers = parseValue<u32>(value);
+        }
+        else
+        {
+            throw QString("unknown argument to '%1': %2").arg(MVLC_CustomBegin).arg(*it);
+        }
+    }
+
+    // read the custom stack contents (one u32 value per line)
+    for (auto ppl = lines.begin() + blockStartIndex + 1;
+         ppl < lines.begin() + blockEndIndex;
+         ++ppl)
+    {
+        if (!ppl->parts.empty())
+            result.mvlcCustomStack.push_back(parseValue<u32>(ppl->parts[0]));
+    }
+
+    return result;
+}
+
 QString evaluate_expressions(const QString &qstrPart, s32 lineNumber)
 {
     QString result;
@@ -1219,73 +1271,101 @@ VMEScript parse(
     SymbolTables &symtabs,
     uint32_t baseAddress)
 {
-    if (symtabs.isEmpty())
-        symtabs.push_back(SymbolTable{});
-
-    VMEScript result;
-
-    QVector<PreparsedLine> splitLines = pre_parse(input);
-
-    const u32 originalBaseAddress = baseAddress;
     int lineIndex = 0;
 
-    while (lineIndex < splitLines.size())
+    try
     {
-        auto &preparsed = splitLines[lineIndex];
 
-        assert(!preparsed.parts.isEmpty());
+        if (symtabs.isEmpty())
+            symtabs.push_back(SymbolTable{});
 
-        // Handling of special meta blocks enclosed in MetaBlockBegin and
-        // MetaBlockEnd. These can span multiple lines.
-        // Variable references are not replaced within meta blocks.
-        if (preparsed.parts[0] == MetaBlockBegin)
+        VMEScript result;
+
+        QVector<PreparsedLine> splitLines = pre_parse(input);
+
+        const u32 originalBaseAddress = baseAddress;
+
+        while (lineIndex < splitLines.size())
         {
-            int blockStartIndex = lineIndex;
-            int blockEndIndex   = find_index_of_next_command(
-                MetaBlockEnd, splitLines, blockStartIndex);
+            auto &preparsed = splitLines[lineIndex];
 
-            if (blockEndIndex < 0)
+            assert(!preparsed.parts.isEmpty());
+
+            // Handling of special meta blocks enclosed in MetaBlockBegin and
+            // MetaBlockEnd. These can span multiple lines.
+            // Variable references are not replaced within meta blocks.
+            if (preparsed.parts[0] == MetaBlockBegin)
             {
-                throw ParseError(
-                    QString("No matching \"%1\" found.").arg(MetaBlockEnd),
-                    preparsed.lineNumber);
-            }
+                int blockStartIndex = lineIndex;
+                int blockEndIndex = find_index_of_next_command(
+                    MetaBlockEnd, splitLines, blockStartIndex);
 
-            assert(blockEndIndex > blockStartIndex);
-            assert(blockEndIndex < splitLines.size());
-
-            auto metaBlockCommand = handle_meta_block_command(
-                splitLines, blockStartIndex, blockEndIndex);
-
-            result.push_back(metaBlockCommand);
-
-            lineIndex = blockEndIndex + 1;
-        }
-        else // Not a meta block
-        {
-            expand_variables(preparsed, symtabs);
-            evaluate_expressions(preparsed);
-
-            if (preparsed.parts[0] == "set")
-            {
-                if (preparsed.parts.size() != 3)
+                if (blockEndIndex < 0)
                 {
                     throw ParseError(
-                        QString("Invalid arguments to 'set' command. Usage: set <var> <value>."),
+                        QString("No matching \"%1\" found.").arg(MetaBlockEnd),
                         preparsed.lineNumber);
                 }
 
-                const auto &varName  = preparsed.parts[1];
-                const auto &varValue = preparsed.parts[2];
+                assert(blockEndIndex > blockStartIndex);
+                assert(blockEndIndex < splitLines.size());
 
-                // Set the variable in the first/innermost symbol table.
-                symtabs[0][varName] = Variable{ varValue, preparsed.lineNumber };
+                auto metaBlockCommand = handle_meta_block_command(
+                    splitLines, blockStartIndex, blockEndIndex);
+
+                result.push_back(metaBlockCommand);
+
+                lineIndex = blockEndIndex + 1;
             }
-            else
+            // Special blocks for inserting custom data into MVLC readout stacks.
+            else if (preparsed.parts[0] == MVLC_CustomBegin)
             {
-                auto cmd = handle_single_line_command(preparsed);
+                int blockStartIndex = lineIndex;
+                int blockEndIndex = find_index_of_next_command(
+                    MVLC_CustomEnd, splitLines, blockStartIndex);
 
-                /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
+                if (blockEndIndex < 0)
+                {
+                    throw ParseError(
+                        QString("No matching \"%1\" found.").arg(MVLC_CustomEnd),
+                        preparsed.lineNumber);
+                }
+
+                assert(blockEndIndex > blockStartIndex);
+                assert(blockEndIndex < splitLines.size());
+
+                auto customCommand = handle_mvlc_custom_command(
+                    splitLines, blockStartIndex, blockEndIndex);
+
+                result.push_back(customCommand);
+
+                lineIndex = blockEndIndex + 1;
+            }
+            else // Not a block
+            {
+                expand_variables(preparsed, symtabs);
+                evaluate_expressions(preparsed);
+
+                if (preparsed.parts[0] == "set")
+                {
+                    if (preparsed.parts.size() != 3)
+                    {
+                        throw ParseError(
+                            QString("Invalid arguments to 'set' command. Usage: set <var> <value>."),
+                            preparsed.lineNumber);
+                    }
+
+                    const auto &varName = preparsed.parts[1];
+                    const auto &varValue = preparsed.parts[2];
+
+                    // Set the variable in the first/innermost symbol table.
+                    symtabs[0][varName] = Variable{varValue, preparsed.lineNumber};
+                }
+                else
+                {
+                    auto cmd = handle_single_line_command(preparsed);
+
+                    /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
                  * here by modifying other commands before they are pushed onto result.
                  * To make warnings generated when parsing any of SetBase/ResetBase
                  * available to the outside I needed to return them in the result
@@ -1296,36 +1376,44 @@ VMEScript parse(
                  * VMEScript and implement SetBase/ResetBase in run_script().
                  */
 
-                switch (cmd.type)
-                {
+                    switch (cmd.type)
+                    {
                     case CommandType::Invalid:
                         break;
 
                     case CommandType::SetBase:
-                        {
-                            baseAddress = cmd.address;
-                            result.push_back(cmd);
-                        } break;
+                    {
+                        baseAddress = cmd.address;
+                        result.push_back(cmd);
+                    }
+                    break;
 
                     case CommandType::ResetBase:
-                        {
-                            baseAddress = originalBaseAddress;
-                            result.push_back(cmd);
-                        } break;
+                    {
+                        baseAddress = originalBaseAddress;
+                        result.push_back(cmd);
+                    }
+                    break;
 
                     default:
-                        {
-                            cmd = add_base_address(cmd, baseAddress);
-                            result.push_back(cmd);
-                        } break;
+                    {
+                        cmd = add_base_address(cmd, baseAddress);
+                        result.push_back(cmd);
+                    }
+                    break;
+                    }
                 }
+
+                lineIndex++;
             }
-
-            lineIndex++;
         }
-    }
 
-    return result;
+        return result;
+    }
+    catch (const QString &err)
+    {
+        throw ParseError(err, lineIndex);
+    }
 }
 
 static const QMap<CommandType, QString> commandTypeToString =
@@ -1533,6 +1621,12 @@ QString to_string(const Command &cmd)
             {
                 return cmdStr + cmd.printArgs.join(" ");
             } break;
+
+        case CommandType::MVLC_Custom:
+            buffer = QString(QSL("%1 with %2 lines"))
+                .arg(MVLC_CustomBegin)
+                .arg(cmd.mvlcCustomStack.size());
+            break;
     }
 
     return buffer;
@@ -1560,6 +1654,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
         case CommandType::Print:
+        case CommandType::MVLC_Custom:
             break;
 
         case CommandType::Read:
