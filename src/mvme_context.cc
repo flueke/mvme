@@ -2803,7 +2803,8 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         json = json["AnalysisNG"].toObject();
     }
 
-    auto analysis_ng = std::make_unique<Analysis>();
+    auto analysis_ng = std::shared_ptr<Analysis>(new Analysis(),
+        [] (auto a) { a->deleteLater(); });
 
     if (auto ec = analysis_ng->read(json, getVMEConfig()))
     {
@@ -2826,9 +2827,6 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         {
             stopAnalysis();
         }
-
-        auto oldAnalysis = m_analysis.release();
-        oldAnalysis->deleteLater();
 
         m_analysis = std::move(analysis_ng);
 

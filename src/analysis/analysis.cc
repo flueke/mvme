@@ -3900,7 +3900,7 @@ void Analysis::addSource(const SourcePtr &source)
     assert(!source->getModuleId().isNull());
     m_sources.push_back(source);
     source->setObjectFlags(ObjectFlags::NeedsRebuild);
-    source->setAnalysis(this);
+    source->setAnalysis(this->shared_from_this());
     setModified();
     emit dataSourceAdded(source);
 }
@@ -4144,7 +4144,7 @@ void Analysis::addOperator(const QUuid &eventId, s32 userLevel, const OperatorPt
 void Analysis::addOperator(const OperatorPtr &op)
 {
     op->setObjectFlags(ObjectFlags::NeedsRebuild);
-    op->setAnalysis(this);
+    op->setAnalysis(this->shared_from_this());
     m_operators.push_back(op);
     setModified();
     emit operatorAdded(op);
@@ -4460,7 +4460,7 @@ void Analysis::addDirectory(const DirectoryPtr &dir)
 {
     qDebug() << __PRETTY_FUNCTION__;
     assert(dir);
-    dir->setAnalysis(this);
+    dir->setAnalysis(this->shared_from_this());
     m_directories.push_back(dir);
     setModified();
     emit directoryAdded(dir);
@@ -5225,7 +5225,7 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
         for (const auto &obj: objectStore.sources)
         {
             m_sources.append(obj);
-            obj->setAnalysis(this);
+            obj->setAnalysis(this->shared_from_this());
         }
 
         for (const auto &obj: objectStore.operators)
@@ -5238,13 +5238,13 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
                 obj->setUserLevel(1);
             }
             m_operators.append(obj);
-            obj->setAnalysis(this);
+            obj->setAnalysis(this->shared_from_this());
         }
 
         for (const auto &obj: objectStore.directories)
         {
             m_directories.append(obj);
-            obj->setAnalysis(this);
+            obj->setAnalysis(this->shared_from_this());
         }
 
         m_vmeObjectSettings = objectStore.objectSettingsById;

@@ -999,7 +999,7 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
     {
         auto name = source->objectName();
 
-        qDebug() << __PRETTY_FUNCTION__ << source.get() << source->getAnalysis();
+        qDebug() << __PRETTY_FUNCTION__ << source.get() << source->getAnalysis().get();
 
         if (auto analysis = source->getAnalysis())
         {

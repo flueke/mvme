@@ -404,7 +404,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         DAQState m_daqState;
         QElapsedTimer m_replayTime;
 
-        std::unique_ptr<analysis::Analysis> m_analysis;
+        std::shared_ptr<analysis::Analysis> m_analysis;
 
         ThreadSafeDataBufferQueue m_freeBuffers;
         ThreadSafeDataBufferQueue m_fullBuffers;

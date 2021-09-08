@@ -167,9 +167,9 @@ class LIBMVME_EXPORT AnalysisObject:
         /* Visitor support */
         virtual void accept(ObjectVisitor &visitor) = 0;
 
-        void setAnalysis(Analysis *analysis) { m_analysis = analysis; }
-        Analysis *getAnalysis() { return m_analysis; }
-        const Analysis *getAnalysis() const { return m_analysis; }
+        void setAnalysis(std::shared_ptr<Analysis> analysis) { m_analysis = analysis; }
+        std::shared_ptr<Analysis> getAnalysis() { return m_analysis.lock(); }
+        std::shared_ptr<Analysis> getAnalysis() const { return m_analysis.lock(); }
 
     protected:
         /* Invoked by the clone() method on the cloned object. The source of the clone is
@@ -184,7 +184,7 @@ class LIBMVME_EXPORT AnalysisObject:
         QUuid m_id;
         s32 m_userLevel;
         QUuid m_eventId;
-        Analysis *m_analysis = nullptr;
+        mutable std::weak_ptr<Analysis> m_analysis;
 };
 
 /* Interface to indicate that something can the be source of a Pipe.
@@ -1827,7 +1827,9 @@ namespace std
 namespace analysis
 {
 
-class LIBMVME_EXPORT Analysis: public QObject
+class LIBMVME_EXPORT Analysis:
+    public QObject,
+    public std::enable_shared_from_this<Analysis>
 {
     Q_OBJECT
     signals:
