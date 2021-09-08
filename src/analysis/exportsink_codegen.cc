@@ -276,6 +276,10 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render,
         case ExportSink::Format::Sparse:
             fmtString = QSL("sparse");
             break;
+
+        case ExportSink::Format::CSV:
+            assert(false);
+            break;
     }
 
     const QString headerFilePath = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".h";
