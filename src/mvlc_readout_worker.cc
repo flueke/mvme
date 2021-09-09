@@ -20,6 +20,7 @@
  */
 #include "mvlc_readout_worker.h"
 
+#include <boost/range/adaptor/indexed.hpp>
 #include <cassert>
 #include <chrono>
 #include <QCoreApplication>
@@ -41,6 +42,8 @@
 #include "util/strings.h"
 #include "util_zip.h"
 #include "vme_analysis_common.h"
+
+using boost::adaptors::indexed;
 
 // =========================
 //    MVLC readout outline
@@ -594,6 +597,30 @@ void MVLCReadoutWorker::start(quint32 cycles)
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
 
         set_daq_state(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
+
+        auto stackErrors = d->mvlcCtrl->getMVLC().getStackErrorCounters();
+
+        for (const auto &kv: stackErrors.stackErrors | indexed(0))
+        {
+            unsigned stackId = kv.index();
+            const auto &counts = kv.value();
+
+            if (counts.empty())
+                continue;
+
+            for (auto it = counts.begin(); it != counts.end(); ++it)
+            {
+                const auto &errorInfo = it->first;
+                const auto &count = it->second;
+
+
+                logError(QSL("MVLC stack errors: stackId=%1, stackLine=%2, flags=%3, count=%4")
+                         .arg(stackId)
+                         .arg(errorInfo.line)
+                         .arg(format_frame_flags(errorInfo.flags).c_str())
+                         .arg(count));
+            }
+        }
 
         // Rethrow any exception recorded by the mvlc::ReadoutWorker.
         if (auto eptr = d->mvlcReadoutWorker->counters().eptr)
