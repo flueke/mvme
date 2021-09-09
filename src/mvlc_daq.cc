@@ -73,30 +73,29 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
         auto readoutScript = build_event_readout_script(
             event, EventReadoutBuildFlags::NoModuleEndMarker);
 
-        auto stackContents = build_stack(readoutScript, mvlc::DataPipe);
-
-        u16 uploadAddress = uploadWordOffset * mvlc::AddressIncrement;
-        u16 endAddress    = uploadAddress + stackContents.size() * mvlc::AddressIncrement;
-
-        if (endAddress >= mvlc::stacks::StackMemoryEnd)
-            return make_error_code(mvlc::MVLCErrorCode::StackMemoryExceeded);
-
-        auto stackBuilder = mvlc::stack_builder_from_buffer(stackContents);
+        auto stackBuilder = build_mvlc_stack(readoutScript);
         auto stackBuffer = make_stack_buffer(stackBuilder);
 
-        if (auto ec = mvlc.uploadStack(mvlc::DataPipe, uploadAddress, stackBuilder))
+        u16 uploadAddress = uploadWordOffset * mvlc::AddressIncrement;
+        u16 endAddress    = uploadAddress + stackBuffer.size() * mvlc::AddressIncrement;
+
+        if (mvlc::stacks::StackMemoryBegin + endAddress >= mvlc::stacks::StackMemoryEnd)
+            return make_error_code(mvlc::MVLCErrorCode::StackMemoryExceeded);
+
+        if (auto ec = mvlc.uploadStack(mvlc::DataPipe, uploadAddress, stackBuffer))
             return ec;
 
         u16 offsetRegister = mvlc::stacks::get_offset_register(stackId);
 
-        if (auto ec = mvlc.writeRegister(
-                offsetRegister, uploadAddress & mvlc::stacks::StackOffsetBitMaskBytes))
+        uploadAddress = uploadAddress & mvlc::stacks::StackOffsetBitMaskBytes;
+
+        if (auto ec = mvlc.writeRegister(offsetRegister, uploadAddress))
             return ec;
 
         stackId++;
 
-        // again leave a 1 word gap between stacks
-        uploadWordOffset += stackBuffer.size() + 1;
+        // again leave a 1 word gap between stacks and account for the F3/F4 stack begin/end words
+        uploadWordOffset += stackBuffer.size() + 1 + 2;
     }
 
     return {};
