@@ -44,13 +44,13 @@ QVector<std::shared_ptr<SourceInterface>> get_default_data_extractors(const QStr
     if (filtersFile.open(QIODevice::ReadOnly))
     {
         auto doc = QJsonDocument::fromJson(filtersFile.readAll());
-        Analysis filterAnalysis;
+        auto filterAnalysis = std::make_shared<Analysis>();
         /* Note: This does not do proper config conversion as no VMEConfig is
          * passed to Analysis::read().  It is assumed that the default filters
          * shipped with mvme are in the latest format (or a format that does
          * not need a VMEConfig to be upconverted). */
 
-        if (auto ec = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject()))
+        if (auto ec = filterAnalysis->read(doc.object()[QSL("AnalysisNG")].toObject()))
         {
             QMessageBox::critical(nullptr,
                                   QSL("Error loading default filters"),
@@ -58,7 +58,7 @@ QVector<std::shared_ptr<SourceInterface>> get_default_data_extractors(const QStr
         }
         else
         {
-            for (auto source: filterAnalysis.getSources())
+            for (auto source: filterAnalysis->getSources())
             {
                 if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
                     result.push_back(extractor);
@@ -540,4 +540,3 @@ QJsonDocument analysis_to_json_doc(const Analysis &analysis)
 }
 
 } // namespace analysis
-
