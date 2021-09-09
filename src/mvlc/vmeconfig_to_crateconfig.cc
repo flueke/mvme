@@ -79,7 +79,6 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.transfers = srcCmd.transfers;
             for (u32 value: srcCmd.mvlcCustomStack)
                 dstCmd.customValues.push_back(value);
-
             break;
 
 
