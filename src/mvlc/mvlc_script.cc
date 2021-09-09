@@ -662,15 +662,20 @@ std::vector<u32> to_mvlc_buffer(const Command &cmd)
 
         case CommandType::Stack:
             {
-                auto uploadStack = build_upload_commands(
-                    cmd.stack.contents,
+                auto stackBuilder = build_mvlc_stack(cmd.stack.contents);
+
+
+                auto uploadSuperCommands = mvlc::make_stack_upload_commands(
                     cmd.stack.outputPipe,
-                    mvlc::stacks::StackMemoryBegin + cmd.stack.offset);
+                    cmd.stack.offset,
+                    stackBuilder);
+
+                auto uploadBuffer = mvlc::make_command_buffer(uploadSuperCommands);
 
                 std::vector<u32> result;
-                result.reserve(uploadStack.size());
+                result.reserve(uploadBuffer.size());
 
-                for (u32 word: uploadStack)
+                for (u32 word: uploadBuffer)
                     result.push_back(word);
 
                 return result;

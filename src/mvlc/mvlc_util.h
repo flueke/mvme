@@ -23,7 +23,7 @@
 
 #include <iomanip>
 #include "libmvme_mvlc_export.h"
-#include <mesytec-mvlc/mvlc_constants.h>
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "vme_script.h"
 
 namespace mesytec
@@ -38,33 +38,8 @@ LIBMVME_MVLC_EXPORT u8 convert_data_width_untyped(vme_script::DataWidth width);
 // mvlc constant -> vme_script
 LIBMVME_MVLC_EXPORT vme_script::DataWidth convert_data_width(mvlc::VMEDataWidth dataWidth);
 
-// Returns the raw stack without any interleaved super (upload) commands.
-// The stack result will be written to the given output pipe.
-LIBMVME_MVLC_EXPORT std::vector<u32> build_stack(
-    const vme_script::VMEScript &script, u8 outPipe);
-
-// Returns a Command Buffer List which writes the contents of the given stack
-// or VMEScript to the MVLC stack memory area.
-LIBMVME_MVLC_EXPORT std::vector<u32> build_upload_commands(
-    const vme_script::VMEScript &script,
-    u8 outPipe,
-    u16 startAddress);
-
-LIBMVME_MVLC_EXPORT std::vector<u32> build_upload_commands(
-    const std::vector<u32> &stack,
-    u16 startAddress);
-
-// Same as build_upload_commands but the returned list will be enclosed in
-// CmdBufferStart and CmdBufferEnd. This is a form that can be parsed by the MVLC.
-LIBMVME_MVLC_EXPORT std::vector<u32> build_upload_command_buffer(
-    const vme_script::VMEScript &script, u8 outPipe,
-    u16 startAddress);
-
-// Same as build_upload_command_buffer but instead of taking a VMEScript to
-// build the stack data from this overload takes in raw (stack) data to be
-// uploaded.
-LIBMVME_MVLC_EXPORT std::vector<u32> build_upload_command_buffer(
-    const std::vector<u32> &stack, u16 startAddress);
+LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
+    build_mvlc_stack(const vme_script::VMEScript &script);
 
 LIBMVME_MVLC_EXPORT void log_buffer(const QVector<u32> &buffer, const QString &info = {});
 

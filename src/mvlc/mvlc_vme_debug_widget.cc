@@ -459,14 +459,9 @@ vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
     Result result;
     result.command = cmd;
 
-    auto uploadData = mvme_mvlc::build_upload_command_buffer(
-        { cmd }, mvlc::CommandPipe, mvlc::stacks::StackMemoryBegin);
+    auto stackBuilder = mvme_mvlc::build_mvlc_stack({ cmd });
 
-    // FIXME: hacky workaround (change build_stack() to return a
-    // StackCommandBuilder instead of the raw command buffer).
-    auto stackBuilder = mvlc::stack_builder_from_buffer(uploadData);
-
-    mvlc::util::log_buffer(std::cout, uploadData, "run_command upload data");
+    //mvlc::util::log_buffer(std::cout, uploadData, "run_command upload data");
 
     std::vector<u32> tmpBuffer;
 

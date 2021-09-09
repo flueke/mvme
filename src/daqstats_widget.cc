@@ -202,6 +202,7 @@ struct DAQStatsWidgetPrivate
             .arg(counters.maxDelay));
     }
 
+    // FIXME: this is broken and displays a pile of garbage
     void updateMVLCStackErrors(const mesytec::mvlc::StackErrorCounters &counters)
     {
         QString text;

@@ -151,6 +151,12 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
             return uploadStack(stackOutputPipe, stackMemoryOffset, stack.getCommands());
         }
 
+        std::error_code uploadStack(
+            u8 stackOutputPipe, u16 stackMemoryOffset, const std::vector<u32> &stackContents)
+        {
+            return updateState(m_mvlc.uploadStack(stackOutputPipe, stackMemoryOffset, stackContents));
+        }
+
         //
         // Stack Error Notifications (Command Pipe)
         //
