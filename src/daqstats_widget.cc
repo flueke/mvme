@@ -208,6 +208,7 @@ struct DAQStatsWidgetPrivate
         QString text;
         bool needNewline = false;
 
+#if 0
         for (const auto &kv: counters.stackErrors | indexed(0))
         {
             unsigned stackId = kv.index();
@@ -246,7 +247,7 @@ struct DAQStatsWidgetPrivate
 
                 if (errorAccu[frame_flags::shifts::Timeout])
                 {
-                    text += QSL("timeouts=%1").arg(errorAccu[frame_flags::Timeout]);
+                    text += QSL("timeouts=%1").arg(errorAccu[frame_flags::shifts::Timeout]);
                     needComma = true;
                 }
 
@@ -254,7 +255,7 @@ struct DAQStatsWidgetPrivate
                 {
                     if (needComma)
                         text += QSL(", ");
-                    text += QSL("busErrors=%1").arg(errorAccu[frame_flags::BusError]);
+                    text += QSL("busErrors=%1").arg(errorAccu[frame_flags::shifts::BusError]);
                     needComma = true;
                 }
 
@@ -268,6 +269,29 @@ struct DAQStatsWidgetPrivate
                 needNewline = true;
             }
         }
+#else
+        for (const auto &kv: counters.stackErrors | indexed(0))
+        {
+            unsigned stackId = kv.index();
+            const auto &counts = kv.value();
+
+            if (counts.empty())
+                continue;
+
+            for (auto it = counts.begin(); it != counts.end(); ++it)
+            {
+                const auto &errorInfo = it->first;
+                const auto &count = it->second;
+
+
+                text += (QSL("MVLC stack errors: stackId=%1, stackLine=%2, flags=%3, count=%4\n")
+                         .arg(stackId)
+                         .arg(errorInfo.line)
+                         .arg(mesytec::mvlc::format_frame_flags(errorInfo.flags).c_str())
+                         .arg(count));
+            }
+        }
+#endif
 
         if (counters.nonErrorFrames)
         {
