@@ -1302,6 +1302,9 @@ void MVMEMainWindow::onActionLog_Window_triggered()
         m_d->m_geometrySaver->addAndRestore(m_d->m_logView, QSL("WindowGeometries/LogView"));
 
         assert(m_d->m_logView);
+
+        for (auto logline: m_d->m_context->getLogBuffer())
+            m_d->m_logView->appendPlainText(logline);
     }
 
     show_and_activate(m_d->m_logView);
