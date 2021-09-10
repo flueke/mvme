@@ -9,14 +9,6 @@ TODO list
   => The start button still show's "Start Replay", the listfile from the old workspace
      is still open.
 
-begin_custom_stack_data response_words=2
-    0x12345678
-    0b0000'1111'0000'1111...
-end_custom_stack_data
-
-Pay attention to vme_config_to_crate_config()! mesytec-mvlc layer needs to know
-how to handle these stacks to correctly steer the readout parser.
-
 * Allow auto splitting of listfiles based on duration and size.
 
 * could analysis.analysis and vme.vme, by default, be named after the working
