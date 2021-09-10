@@ -598,7 +598,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 const auto &count = it->second;
 
 
-                logError(QSL("MVLC stack errors: stackId=%1, stackLine=%2, flags=%3, count=%4")
+                logMessage(QSL("MVLC stack errors: stackId=%1, stackLine=%2, flags=%3, count=%4")
                          .arg(stackId)
                          .arg(errorInfo.line)
                          .arg(format_frame_flags(errorInfo.flags).c_str())
