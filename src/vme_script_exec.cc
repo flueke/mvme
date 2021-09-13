@@ -4,6 +4,7 @@
 #include <QThread>
 
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/mvlc_util.h"
 #include "vmusb.h"
 
 namespace vme_script
@@ -210,12 +211,34 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             break;
 
         case CommandType::MVLC_Custom:
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
-                auto msg = QSL("mvlc_custom_blocks are not supported by vme_script::run_command().");
-                result.error = VMEError(VMEError::UnsupportedCommand, msg);
-                if (logger) logger(msg);
+                // Build the custom stack (it needs to start with a marker
+                // command for the logic to be able to correctly identify the
+                // resulting data).
+                vme_script::Command marker;
+                marker.type = vme_script::CommandType::Marker;
+                marker.value = 0xabcdef00u;
+
+                VMEScript stackScript =
+                {
+                    marker,
+                    cmd,
+                };
+
+                auto stack = mesytec::mvme_mvlc::build_mvlc_stack(stackScript);
+                // execute it
+                std::vector<u32> destBuffer;
+                auto ec = mvlc->getMVLC().stackTransaction(stack, destBuffer);
+                std::cout << "destBuffer.size()" << destBuffer.size() << std::endl;
+                result.error = VMEError(ec);
+                std::copy(destBuffer.begin(), destBuffer.end(), std::back_inserter(result.valueVector));
             }
-            break;
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType,
+                                        QSL("MVLC controller required"));
+            } break;
 
         case CommandType::MetaBlock:
         case CommandType::Blk2eSST64:
@@ -259,7 +282,6 @@ QString format_result(const Result &result)
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
-        case CommandType::MVLC_Custom:
             break;
 
         case CommandType::Write:
@@ -284,6 +306,7 @@ QString format_result(const Result &result)
         case CommandType::MBLTFifo:
         case CommandType::MBLTSwapped:
         case CommandType::Blk2eSST64:
+        case CommandType::MVLC_Custom:
             {
                 ret += "\n";
                 for (int i=0; i<result.valueVector.size(); ++i)
