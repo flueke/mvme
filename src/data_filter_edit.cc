@@ -121,6 +121,11 @@ void DataFilterEdit::updateMaskAndWidth()
 
     setInputMask(mask);
 
+    if (mask.isEmpty())
+        setMaxLength(0);
+    else
+        setMaxLength(32768);
+
     //qDebug() << "  text after mask change: " << text();
 
     tmpText.replace(" ", "");
