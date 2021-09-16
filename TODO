@@ -2,6 +2,15 @@
 TODO list
 ==================================================
 
+* analysis operator event affinity:
+  See file 1_mdpp16.analysis:
+  - amplitudes are extracted but the histo is never filled.
+  - editing the histo shows that the event context is set to 'unspecified'
+  - changing it to the correct event immediately fixes the problem.
+  How to fix? Auto assign to the parent module? Also before being able to
+  explicitly specify the event affinity there must have been some way this was
+  stored or determined.
+
 * wrong state after creating a new workspace:
   - in the old workspace open a listfile
   - select File -> New Workspace
