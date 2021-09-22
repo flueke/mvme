@@ -214,6 +214,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     m_parserCallbacks = mesytec::mvlc::readout_parser::ReadoutParserCallbacks();
 
     m_parserCallbacks.eventData = [this, analysis] (
+        void *,
         int ei,
         const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
         unsigned moduleCount)
@@ -335,7 +336,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
     };
 
-    m_parserCallbacks.systemEvent = [this, runInfo, analysis](const u32 *header, u32 /*size*/)
+    m_parserCallbacks.systemEvent = [this, runInfo, analysis](
+        void *, const u32 *header, u32 /*size*/)
     {
         u8 subtype = mvlc::system_event::extract_subtype(*header);
 
@@ -385,6 +387,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // Note: the systemEvent callback is not overwritten as there is no
         // special handling for it in the multi event splitting logic.
         m_parserCallbacks.eventData = [this] (
+            void *, 
             int ei,
             const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
             unsigned moduleCount)

@@ -265,7 +265,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei, unsigned m
             };
         }
 
-        callbacks.eventData(ei, moduleDataList.data(), moduleCount);
+        callbacks.eventData(nullptr, ei, moduleDataList.data(), moduleCount);
 
         return {};
     }
@@ -447,7 +447,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei, unsigned m
             }
         }
 
-        callbacks.eventData(ei, moduleDataList.data(), moduleCount);
+        callbacks.eventData(nullptr, ei, moduleDataList.data(), moduleCount);
 
         staticPartsYielded = true;
 
