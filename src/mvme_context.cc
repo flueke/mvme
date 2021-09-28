@@ -1421,8 +1421,12 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
     // Write the vme config loaded from the listfile to disk and update the
     // LastVMEConfig entry in the workspace ini. This way we'll be able to keep
     // the same vme config on listfile close.
-    if (write_vme_config_to_file(ListfileTempVMEConfigFilename, getVMEConfig()))
-        makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), ListfileTempVMEConfigFilename);
+    // Update 210928: When running a DAQ but replaying from listfiles in between
+    // to test things this behavior is bad: instead of going back to the
+    // previous config used for your DAQ run you now have to reopen that VME
+    // config file.
+    //if (write_vme_config_to_file(ListfileTempVMEConfigFilename, getVMEConfig()))
+    //    makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), ListfileTempVMEConfigFilename);
 
     // optionally load the analysis from the listfile
     if (options.loadAnalysis && !m_d->listfileReplayHandle.analysisBlob.isEmpty())
