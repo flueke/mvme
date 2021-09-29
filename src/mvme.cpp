@@ -1025,7 +1025,7 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 
 bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 {
-    QString path = QFileInfo(m_d->m_context->getVMEConfigFilename()).absolutePath();
+    auto path = QFileInfo(m_d->m_context->getVMEConfigFilename()).absolutePath();
 
     if (path.isEmpty())
         path = m_d->m_context->getWorkspaceDirectory();
@@ -1035,8 +1035,18 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 
     if (m_d->m_context->getMode() == GlobalMode::ListFile)
     {
+        // Use the listfile basename to suggest a filename.
         const auto &replayHandle = m_d->m_context->getReplayFileHandle();
         path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".vme";
+    }
+    else
+    {
+        // Use the last part of the workspace path to suggest a filename.
+        auto filename = QFileInfo(m_d->m_context->getVMEConfigFilename()).fileName();
+        if (filename.isEmpty())
+            filename = QFileInfo(m_d->m_context->getWorkspaceDirectory()).baseName() + ".vme";
+
+        path += "/" + filename;
     }
 
     QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path, VMEConfigFileFilter);
