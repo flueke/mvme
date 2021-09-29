@@ -149,6 +149,7 @@ using mesytec::mvme::LastlogHelper;
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
+    MVMEOptions m_options;
     QStringList m_logBuffer;
     QMutex m_logBufferMutex;
     ListFileOutputInfo m_listfileOutputInfo = {};
@@ -174,8 +175,9 @@ struct MVMEContextPrivate
 
     mesytec::mvlc::WaitableProtected<MVMEState> m_mvmeState;
 
-    MVMEContextPrivate(MVMEContext *q)
+    MVMEContextPrivate(MVMEContext *q, const MVMEOptions &options)
         : m_q(q)
+        , m_options(options)
         , mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
         , runNotes({})
         , m_mvmeState(MVMEState::Idle)
@@ -523,9 +525,9 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
     return result;
 }
 
-MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
+MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOptions &options)
     : QObject(parent)
-    , m_d(new MVMEContextPrivate(this))
+    , m_d(new MVMEContextPrivate(this, options))
     , m_listFileFormat(ListFileFormat::ZIP)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_logTimer(new QTimer(this))
@@ -1106,10 +1108,8 @@ void MVMEContext::onControllerOpenFinished()
 
 void MVMEContext::reconnectVMEController()
 {
-    if (!m_controller)
-    {
+    if (!m_controller || m_d->m_options.offlineMode)
         return;
-    }
 
     /* VMEController::close() should lock the controllers mutex just as
      * VMEController::open() should. This means if a long lasting open()
@@ -1193,7 +1193,8 @@ void MVMEContext::tryOpenController()
     // times.
     std::unique_lock<mesytec::mvme::TicketMutex> guard(m_d->tryOpenControllerMutex);
 
-    if (m_controller
+    if (!m_d->m_options.offlineMode
+        && m_controller
         && !m_ctrlOpenFuture.isRunning()
         && m_d->m_ctrlOpenRetryCount < VMECtrlConnectMaxRetryCount)
     {

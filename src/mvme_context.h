@@ -28,6 +28,7 @@
 #include "globals.h"
 #include "databuffer.h"
 #include "listfile_replay.h"
+#include "mvme_options.h"
 #include "mvme_stream_worker.h"
 #include "vme_config.h"
 #include "vme_controller.h"
@@ -122,8 +123,13 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void sniffedReadoutBufferReady(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
 
     public:
-        explicit MVMEContext(QObject *parent = 0) : MVMEContext(nullptr, parent) { }
-        explicit MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
+        explicit MVMEContext(QObject *parent = nullptr, const MVMEOptions &options = {}):
+            MVMEContext(nullptr, parent, options)
+        { }
+
+        explicit MVMEContext(MVMEMainWindow *mainwin, QObject *parent = nullptr,
+                             const MVMEOptions &options = {});
+
         ~MVMEContext();
 
         bool setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());

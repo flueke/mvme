@@ -135,14 +135,18 @@ struct MVMEWindowPrivate
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
 };
 
-MVMEMainWindow::MVMEMainWindow(QWidget *parent)
+MVMEMainWindow::MVMEMainWindow(const MVMEOptions &options)
+    : MVMEMainWindow(nullptr, options)
+{ }
+
+MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     : QMainWindow(parent)
     , m_d(new MVMEWindowPrivate)
 {
     setObjectName(QSL("mvme"));
     setWindowTitle(QSL("mvme"));
 
-    m_d->m_context = new MVMEContext(this, this);
+    m_d->m_context              = new MVMEContext(this, this, options);
     m_d->centralWidget          = new QWidget(this);
     m_d->centralLayout          = new QVBoxLayout(m_d->centralWidget);
     m_d->statusBar              = new QStatusBar(this);
