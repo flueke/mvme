@@ -1865,7 +1865,7 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
                     if (scriptCommand.type == vme_script::CommandType::Write ||
                         scriptCommand.type == vme_script::CommandType::WriteAbs)
                     {
-                        StackCommand cmd;
+                        StackCommand cmd = {};
 
                         cmd.type = StackCommand::CommandType::VMEWrite;
                         cmd.address = scriptCommand.address;
