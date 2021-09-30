@@ -4,20 +4,10 @@ TODO list
 
 Wanpeng
 -------
-  Now it seems to be working fine, no crash any more. However, there is one
-  feature missing. After I replay a listfile (open and close), the system does
-  not revert to the previous setting file (*.vme). Instead, the setting file
-  associated with the listfile stays. This can be really bad if one pauses to
-  replay a file with different settings and then start online readout again
-  without explicitly reloading the correct setting file. This feature probably
-  missed since version of 1.4.5. I think, it is critical to revert to the last
-  online setting whenever a replay is done.
 
   In addition to the reversion issue of the VME settings, I'd like to comment more on the MVME software (v1.4.6), in particular for some desired online features:
 
   * Rate monitor is very useful. But right now it either displays the full range or can be zoomed in for a fixed range. It'll be more useful if one can make it visible for the last hour or some designated period of time while keep incrementing.
-
-  * If one starts two instances of MVME, both will try to connect online. Is it possible to make only the first one connect online while the others only for replay? It is ideal if so. Otherwise, is there a way to start another instance for replay only?
 
   * There is some confusion in defining L1 input parameters. In the definition window, these input parameters are not prefixed with their module names. It can be very confusing, especially when different modules of the same type have the same parameter names.
 
@@ -25,7 +15,7 @@ Wanpeng
 
   * A dynamic count rate ratio would be good for online monitoring. Right now, I am using three steps to construct it (prev, diff, and division). It'd be great if you can implement one operation like (rate1 - rate1_previous_value) / (rate2 - rate2_previous_value) for a simple definition.
 
-  * things I suggested earlier: doc/, extras/, include/, share/ directories and files should be readable by normal users; a default mvme.sh script in bin/; a standalone config editor.
+  * a standalone config editor.
 
 
 * analysis operator event affinity:
@@ -46,10 +36,6 @@ Wanpeng
 
 * Allow auto splitting of listfiles based on duration and size.
 
-* could analysis.analysis and vme.vme, by default, be named after the working
-  directory. With the same default names, it is very easy, at least for me, to
-  accidentally override other setting files. (Wanpeng)
-
 * Workspace switching under windows: sometimes mvme.log cannot be moved to
   last_mvme.log. mvme still has an open handle to the log file at this point
   (renaming using the explorer also does not work).
@@ -65,8 +51,6 @@ Wanpeng
   - stats display needs updating for Sample based x-scale
   - avg. Rate in the stats display is incorrectly 0 most of the times. why?
   - it's so messy :(
-
-* update mvlc/vmeconfig_from_crateconfig (needs mcstDaqStart & mcstDaqStop)
 
 * DSO gui:
   - histogramming: could switch between osciolloscope and histogram view.
