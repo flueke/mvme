@@ -319,6 +319,18 @@ std::unique_ptr<VMEConfig> vmeconfig_from_crateconfig(
         }
     }
 
+    // If we do have at least one readout event, then add the contents of the
+    // CrateConfigs mcst_daq_start and mcst_daq_stop to the 'DAQ Start' and
+    // 'DAQ Stops' scripts respectively.
+
+    if (auto eventConfig = result->getEventConfig(0))
+    {
+        auto daqStart = eventConfig->vmeScripts["daq_start"];
+        daqStart->setScriptContents(command_builder_to_vmescript_string(crateConfig.mcstDaqStart));
+        auto daqStop = eventConfig->vmeScripts["daq_stop"];
+        daqStop->setScriptContents(command_builder_to_vmescript_string(crateConfig.mcstDaqStop));
+    }
+
     return result;
 }
 
