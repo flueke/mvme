@@ -14,16 +14,20 @@ Version 1.4.7
 * Add a ``--offline`` option to mvme which disables any connection attempts to
   the VME controller. Useful for replay-only sessions.
 
-* Improve MVLC stack error reporting
+* Improve MVLC stack error reporting.
 
-* Add support for MVLC stacks containing custom data (mvlc_custom_begin)
+* Add support for MVLC stacks containing custom data (mvlc_custom_begin).
 
-* Fix analysis stats display when using more than 12 modules in an event
+* Fix analysis stats display when using more than 12 modules in an event.
 
 * Decrease number of readout buffers in-flight to reduce latency when stopping
   a run/replay.
 
 * Various bug and crash fixes.
+
+* Packaging
+  - make installed files and directories group and world readable.
+  - re-add the mvme.sh startup shell script to the bin/ directory.
 
 
 Version 1.4.6
