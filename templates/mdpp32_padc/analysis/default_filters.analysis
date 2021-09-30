@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{94666245-8ab6-4bb5-a5b8-07adba12f703}",
@@ -151,7 +149,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{8e856b4a-7464-4433-93d6-fe5749ae04ab}",
-                "name": "amplitude_raw",
+                "name": "mdpp32_padc.amplitude_raw",
                 "userLevel": 0
             },
             {
@@ -291,7 +289,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{0575e37a-66a4-489a-afcc-4439a2bae00f}",
-                "name": "amplitude",
+                "name": "mdpp32_padc.amplitude",
                 "userLevel": 1
             },
             {
@@ -306,7 +304,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{e19dea6b-d5f0-4962-8cf8-b510bf333135}",
-                "name": "time_raw",
+                "name": "mdpp32_padc.time_raw",
                 "userLevel": 0
             },
             {
@@ -446,7 +444,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a7149ced-12f7-45ad-bd8b-d8b872e2f57a}",
-                "name": "channel_time",
+                "name": "mdpp32_padc.channel_time",
                 "userLevel": 1
             },
             {
@@ -461,7 +459,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d64c1c27-5c80-46e5-8889-5fd3196b0bee}",
-                "name": "module_timestamp_raw",
+                "name": "mdpp32_padc.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -477,7 +475,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{09c8d317-9c8b-4429-9f54-9cfa811935a2}",
-                "name": "module_timestamp",
+                "name": "mdpp32_padc.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -492,7 +490,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{94666245-8ab6-4bb5-a5b8-07adba12f703}",
-                "name": "trigger_time_raw",
+                "name": "mdpp32_padc.trigger_time_raw",
                 "userLevel": 0
             },
             {
@@ -512,7 +510,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{3bd9fe27-cf6b-48a3-9893-1ab62c94ab54}",
-                "name": "trigger_time",
+                "name": "mdpp32_padc.trigger_time",
                 "userLevel": 1
             },
             {
@@ -527,7 +525,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{95cfb179-18a7-4f7f-ae53-dbbadd8eece8}",
-                "name": "amplitude",
+                "name": "mdpp32_padc.amplitude",
                 "userLevel": 1
             },
             {
@@ -542,7 +540,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{16432767-4ed6-4184-ac43-5bebdc78ecb9}",
-                "name": "channel_time",
+                "name": "mdpp32_padc.channel_time",
                 "userLevel": 1
             },
             {
@@ -557,7 +555,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{aca4dbb4-9ae0-4d66-a883-c2b64e303ba8}",
-                "name": "module_timestamp",
+                "name": "mdpp32_padc.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -572,7 +570,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{da6f63ad-9ff5-4cda-873c-29ff8d48720d}",
-                "name": "trigger_time",
+                "name": "mdpp32_padc.trigger_time",
                 "userLevel": 1
             }
         ],
@@ -581,8 +579,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "362881a84bc65543",
                     "subFilters": [
@@ -595,14 +592,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{6d7a4177-07e9-463d-891e-80239237aff3}",
                 "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
-                "name": "amplitude"
+                "name": "mdpp32_padc.amplitude"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "c2a94badf6b2c1db",
                     "subFilters": [
@@ -615,14 +611,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{8cea77a3-c3f0-489b-a918-bf099032c573}",
                 "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
-                "name": "channel_time"
+                "name": "mdpp32_padc.channel_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "e81287806fb26c18",
                     "subFilters": [
@@ -635,14 +630,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d5ccaa93-f9db-49a1-859b-1a413b84f596}",
                 "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
-                "name": "module_timestamp"
+                "name": "mdpp32_padc.module_timestamp"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "4484fbcb61179f5f",
                     "subFilters": [
@@ -655,7 +649,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{14abae1b-51d2-41e0-9116-bb3d4163ba68}",
                 "moduleId": "{ca355384-e373-4034-8677-662a20fdf969}",
-                "name": "trigger_time"
+                "name": "mdpp32_padc.trigger_time"
             }
         ]
     }

@@ -151,7 +151,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{93d09ae0-a1cd-4854-8e5a-02b6dcf16b75}",
-                "name": "amplitude_raw",
+                "name": "mdpp16_rcp.amplitude_raw",
                 "userLevel": 0
             },
             {
@@ -227,7 +227,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{cee9021b-30cf-4172-8c43-1ffda9d7f388}",
-                "name": "amplitude",
+                "name": "mdpp16_rcp.amplitude",
                 "userLevel": 1
             },
             {
@@ -242,7 +242,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{304bf8af-86e0-4fd6-8d04-ae941aeecc6e}",
-                "name": "time_raw",
+                "name": "mdpp16_rcp.time_raw",
                 "userLevel": 0
             },
             {
@@ -318,7 +318,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{509e5ea2-9aa6-4e65-b9bc-a4216160a18b}",
-                "name": "channel_time",
+                "name": "mdpp16_rcp.channel_time",
                 "userLevel": 1
             },
             {
@@ -333,7 +333,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{debffab7-c67f-49de-bd5c-09d75c6dcb33}",
-                "name": "trigger_time_raw",
+                "name": "mdpp16_rcp.trigger_time_raw",
                 "userLevel": 0
             },
             {
@@ -353,7 +353,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{126fecd2-4c63-4eff-9738-d1e93b46bbc3}",
-                "name": "trigger_time",
+                "name": "mdpp16_rcp.trigger_time",
                 "userLevel": 1
             },
             {
@@ -368,7 +368,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{6fb4c8eb-5b31-4b3d-ac2c-4e4a9b4f1d4e}",
-                "name": "module_timestamp_raw",
+                "name": "mdpp16_rcp.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -384,7 +384,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{5885f706-4cf5-4bc2-b807-ebeeecc76e62}",
-                "name": "module_timestamp",
+                "name": "mdpp16_rcp.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -399,7 +399,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{0f6a2be9-ea96-4bfe-bb04-c3c5c05e1cdc}",
-                "name": "amplitude",
+                "name": "mdpp16_rcp.amplitude",
                 "userLevel": 1
             },
             {
@@ -414,7 +414,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{2c87cd4a-67ab-440e-b2c2-8b4955769c84}",
-                "name": "channel_time",
+                "name": "mdpp16_rcp.channel_time",
                 "userLevel": 1
             },
             {
@@ -429,7 +429,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{2591f0fe-01d6-4bed-a4f6-10375d813a48}",
-                "name": "trigger_time",
+                "name": "mdpp16_rcp.trigger_time",
                 "userLevel": 1
             },
             {
@@ -444,7 +444,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d97a6a4b-e533-4425-9acb-3c159c70879e}",
-                "name": "module_timestamp",
+                "name": "mdpp16_rcp.module_timestamp",
                 "userLevel": 1
             }
         ],
@@ -467,7 +467,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{cd838c1f-e945-42e2-896f-49317a566a2b}",
                 "moduleId": "{e956c59f-e3c1-430e-8327-5782348c4558}",
-                "name": "amplitude"
+                "name": "mdpp16_rcp.amplitude"
             },
             {
                 "class": "analysis::Extractor",
@@ -487,7 +487,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{9116e417-8497-43f0-8c6f-7104e581e6f8}",
                 "moduleId": "{e956c59f-e3c1-430e-8327-5782348c4558}",
-                "name": "channel_time"
+                "name": "mdpp16_rcp.channel_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -507,7 +507,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{9fe725b2-555b-4ed9-96ba-82391f8a42e7}",
                 "moduleId": "{e956c59f-e3c1-430e-8327-5782348c4558}",
-                "name": "trigger_time"
+                "name": "mdpp16_rcp.trigger_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -527,7 +527,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{550f4e54-73fe-4aea-b690-d5f2816b8e15}",
                 "moduleId": "{e956c59f-e3c1-430e-8327-5782348c4558}",
-                "name": "module_timestamp"
+                "name": "mdpp16_rcp.module_timestamp"
             }
         ]
     }

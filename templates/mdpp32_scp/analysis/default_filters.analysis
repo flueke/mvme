@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{2d2bc2b4-0eb1-4f08-b755-ca04c2bba4db}",
@@ -151,7 +149,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{3cfec00a-7f0d-4bc8-adf8-92592702645f}",
-                "name": "amplitude_raw",
+                "name": "mdpp32_scp.amplitude_raw",
                 "userLevel": 0
             },
             {
@@ -291,7 +289,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{509a125a-1e92-4b4b-a341-6a21a4cd65ff}",
-                "name": "amplitude",
+                "name": "mdpp32_scp.amplitude",
                 "userLevel": 1
             },
             {
@@ -306,7 +304,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{8fbd174d-1546-47c0-9ee2-d8db3c3fa29b}",
-                "name": "time_raw",
+                "name": "mdpp32_scp.time_raw",
                 "userLevel": 0
             },
             {
@@ -446,7 +444,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{2d2bc2b4-0eb1-4f08-b755-ca04c2bba4db}",
-                "name": "channel_time",
+                "name": "mdpp32_scp.channel_time",
                 "userLevel": 1
             },
             {
@@ -461,7 +459,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{48076bd2-dba5-4160-8661-f238499d91a3}",
-                "name": "trigger_time_raw",
+                "name": "mdpp32_scp.trigger_time_raw",
                 "userLevel": 0
             },
             {
@@ -481,7 +479,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{27e4f624-3979-4e51-837b-e68c7d7e1ec9}",
-                "name": "trigger_time",
+                "name": "mdpp32_scp.trigger_time",
                 "userLevel": 1
             },
             {
@@ -496,7 +494,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d6ca727f-3a49-4547-88d7-086a536c2f9b}",
-                "name": "module_timestamp_raw",
+                "name": "mdpp32_scp.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -512,7 +510,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{380e29e4-4993-45d8-8dca-cbfd1cbc7a4e}",
-                "name": "module_timestamp",
+                "name": "mdpp32_scp.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -527,7 +525,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{4e21b93b-f485-4764-acc9-bd1a3c635bf6}",
-                "name": "amplitude",
+                "name": "mdpp32_scp.amplitude",
                 "userLevel": 1
             },
             {
@@ -542,7 +540,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{2f7ffdd8-11e4-4e74-8fdb-fbedce17a04c}",
-                "name": "channel_time",
+                "name": "mdpp32_scp.channel_time",
                 "userLevel": 1
             },
             {
@@ -557,7 +555,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{eb2f5064-ac98-467e-a190-3c4e7261dce3}",
-                "name": "trigger_time",
+                "name": "mdpp32_scp.trigger_time",
                 "userLevel": 1
             },
             {
@@ -572,7 +570,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a089ba47-a2d7-4894-8e93-942a3324ed72}",
-                "name": "module_timestamp",
+                "name": "mdpp32_scp.module_timestamp",
                 "userLevel": 1
             }
         ],
@@ -581,8 +579,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "907ce3edaa0c85c1",
                     "subFilters": [
@@ -595,14 +592,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d9611f59-aa29-4b91-9366-920cd6b169e6}",
                 "moduleId": "{b928385b-ed55-42ca-aac4-7dfd32fe04fd}",
-                "name": "amplitude"
+                "name": "mdpp32_scp.amplitude"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "5d39946a8bbf601d",
                     "subFilters": [
@@ -615,14 +611,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{e3132abd-64ac-4b3e-9d9e-1d449ca3f352}",
                 "moduleId": "{b928385b-ed55-42ca-aac4-7dfd32fe04fd}",
-                "name": "channel_time"
+                "name": "mdpp32_scp.channel_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "9cbae6de1e6e1db9",
                     "subFilters": [
@@ -635,14 +630,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{7a140460-5b79-4ecc-ac2a-095c4ed8a4b9}",
                 "moduleId": "{b928385b-ed55-42ca-aac4-7dfd32fe04fd}",
-                "name": "trigger_time"
+                "name": "mdpp32_scp.trigger_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "cc9cfcbec41425f6",
                     "subFilters": [
@@ -655,7 +649,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{7f74a9d9-9377-4fe8-9896-06fa8471024f}",
                 "moduleId": "{b928385b-ed55-42ca-aac4-7dfd32fe04fd}",
-                "name": "module_timestamp"
+                "name": "mdpp32_scp.module_timestamp"
             }
         ]
     }

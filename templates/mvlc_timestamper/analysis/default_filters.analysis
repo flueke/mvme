@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{f6e6b4a0-817e-4cb1-9031-92589c8e3b16}",
@@ -21,8 +19,7 @@
                 "srcIndex": 0
             }
         ],
-        "directories": [
-        ],
+        "directories": [],
         "operators": [
             {
                 "class": "analysis::RateMonitorSink",
@@ -39,7 +36,7 @@
                 "enabled": true,
                 "eventId": "{f210b9ac-35b9-4f7c-8326-125dac03ab7f}",
                 "id": "{f6e6b4a0-817e-4cb1-9031-92589c8e3b16}",
-                "name": "trigger_rates",
+                "name": "mvlc_timestamper.trigger_rates",
                 "userLevel": 0
             }
         ],
@@ -89,7 +86,7 @@
                 "eventId": "{f210b9ac-35b9-4f7c-8326-125dac03ab7f}",
                 "id": "{836257ce-b9fe-4736-88de-4f93ac50e0dd}",
                 "moduleId": "{6971ec37-5996-45e0-bd43-53b48a262f6c}",
-                "name": "gated_triggers"
+                "name": "mvlc_timestamper.gated_triggers"
             },
             {
                 "class": "analysis::ListFilterExtractor",
@@ -117,7 +114,7 @@
                 "eventId": "{f210b9ac-35b9-4f7c-8326-125dac03ab7f}",
                 "id": "{432fe028-a9de-439f-88a9-fd5c85863fe4}",
                 "moduleId": "{6971ec37-5996-45e0-bd43-53b48a262f6c}",
-                "name": "free_triggers"
+                "name": "mvlc_timestamper.free_triggers"
             }
         ]
     }

@@ -212,7 +212,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{0afc3bee-ca44-4ceb-b838-11dc3ba66714}",
-                "name": "amplitude",
+                "name": "mdpp16_scp.amplitude",
                 "userLevel": 1
             },
             {
@@ -227,7 +227,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{df2f8327-9edb-4604-b406-d829e342de44}",
-                "name": "time_raw",
+                "name": "mdpp16_scp.time_raw",
                 "userLevel": 0
             },
             {
@@ -242,7 +242,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{8cec7c6e-72ba-43de-b1a8-0b30ab8daad7}",
-                "name": "amplitude_raw",
+                "name": "mdpp16_scp.amplitude_raw",
                 "userLevel": 0
             },
             {
@@ -257,7 +257,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{4ad104c4-cae3-4406-8e3b-e6cae9490d8b}",
-                "name": "trigger_time_raw",
+                "name": "mdpp16_scp.trigger_time_raw",
                 "userLevel": 0
             },
             {
@@ -272,7 +272,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{8081b554-605d-4b80-a19c-4ac9305c53bf}",
-                "name": "module_timestamp_raw",
+                "name": "mdpp16_scp.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -348,7 +348,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{db4b0960-0fe1-4c92-9b6e-26e0c8ddcbdb}",
-                "name": "channel_time",
+                "name": "mdpp16_scp.channel_time",
                 "userLevel": 1
             },
             {
@@ -368,7 +368,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{ac0d930e-8404-4166-b0a7-f17325e14853}",
-                "name": "trigger_time",
+                "name": "mdpp16_scp.trigger_time",
                 "userLevel": 1
             },
             {
@@ -384,7 +384,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{99f4d03c-6f13-43d2-95e1-3d72cc4a4eb7}",
-                "name": "module_timestamp",
+                "name": "mdpp16_scp.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -399,7 +399,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{cf6c83b3-b34a-4246-a482-b9b49dac3e34}",
-                "name": "module_timestamp",
+                "name": "mdpp16_scp.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -414,7 +414,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{dc70f96e-ecfe-4fc0-a0c5-0796d3045fd3}",
-                "name": "trigger_time",
+                "name": "mdpp16_scp.trigger_time",
                 "userLevel": 1
             },
             {
@@ -429,7 +429,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{68743194-e0f6-4452-a04c-e47a0b225918}",
-                "name": "channel_time",
+                "name": "mdpp16_scp.channel_time",
                 "userLevel": 1
             },
             {
@@ -444,7 +444,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{82fb2a1f-80cb-45e9-9636-0fb7c33323b8}",
-                "name": "amplitude",
+                "name": "mdpp16_scp.amplitude",
                 "userLevel": 1
             }
         ],
@@ -491,7 +491,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{24c78def-d0e3-4190-b210-ed62a8e287be}",
                 "moduleId": "{ec62ad2c-bc58-4a19-b80e-1a0765785808}",
-                "name": "amplitude"
+                "name": "mdpp16_scp.amplitude"
             },
             {
                 "class": "analysis::Extractor",
@@ -511,7 +511,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{2f5e535b-5997-4ba4-932b-aabd29f47f90}",
                 "moduleId": "{ec62ad2c-bc58-4a19-b80e-1a0765785808}",
-                "name": "channel_time"
+                "name": "mdpp16_scp.channel_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -531,7 +531,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{63a870ec-7d2e-45ff-9c23-d4a3f29a693f}",
                 "moduleId": "{ec62ad2c-bc58-4a19-b80e-1a0765785808}",
-                "name": "trigger_time"
+                "name": "mdpp16_scp.trigger_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -551,7 +551,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{9f92e038-6dea-46b4-b5fa-3e96f3450a56}",
                 "moduleId": "{ec62ad2c-bc58-4a19-b80e-1a0765785808}",
-                "name": "module_timestamp"
+                "name": "mdpp16_scp.module_timestamp"
             }
         ]
     }

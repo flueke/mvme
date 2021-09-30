@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{8ae927fd-4862-4290-bd07-5ad6e35f2335}",
@@ -127,7 +125,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{f215674d-b4d6-4fc2-9f7c-f6c1fe4fb149}",
-                "name": "module_timestamp_raw",
+                "name": "mdi2.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -143,7 +141,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d45f5a03-e474-4491-ae3a-5cb48b32e806}",
-                "name": "module_timestamp",
+                "name": "mdi2.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -158,7 +156,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{f20cb231-dd50-43b4-8e2c-b5030a286ca1}",
-                "name": "bus0_amplitudes_raw",
+                "name": "mdi2.bus0_amplitudes_raw",
                 "userLevel": 0
             },
             {
@@ -1194,7 +1192,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{4618d7a2-6d3a-4004-8ca9-f4d68962dabb}",
-                "name": "bus0_amplitudes",
+                "name": "mdi2.bus0_amplitudes",
                 "userLevel": 1
             },
             {
@@ -1209,7 +1207,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a99d0a3a-d7cc-4d49-aadb-bbb0336ce29c}",
-                "name": "bus1_amplitudes_raw",
+                "name": "mdi2.bus1_amplitudes_raw",
                 "userLevel": 0
             },
             {
@@ -2245,7 +2243,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{8ae927fd-4862-4290-bd07-5ad6e35f2335}",
-                "name": "bus1_amplitudes",
+                "name": "mdi2.bus1_amplitudes",
                 "userLevel": 1
             },
             {
@@ -2260,7 +2258,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a835cf2f-4d80-4827-81d9-748cfe1093a4}",
-                "name": "module_timestamp",
+                "name": "mdi2.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -2275,7 +2273,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{61f67e7b-0c10-472c-bcba-39608a3396b0}",
-                "name": "bus0_amplitudes",
+                "name": "mdi2.bus0_amplitudes",
                 "userLevel": 1
             },
             {
@@ -2290,7 +2288,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a867fef7-2e5f-4bf2-a27c-a314d3eab667}",
-                "name": "bus1_amplitudes",
+                "name": "mdi2.bus1_amplitudes",
                 "userLevel": 1
             }
         ],
@@ -2299,8 +2297,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "f7ad9acebdc76d0d",
                     "subFilters": [
@@ -2313,14 +2310,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{84a270c7-cc8d-4e18-8944-32ef2a8687f7}",
                 "moduleId": "{18d60a87-fe91-4da9-ac45-2ea7f13748a2}",
-                "name": "module_timestamp"
+                "name": "mdi2.module_timestamp"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "73c45840abd2ac3a",
                     "subFilters": [
@@ -2333,14 +2329,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a3b5d92a-3c00-4c23-b115-df8c63ccc845}",
                 "moduleId": "{18d60a87-fe91-4da9-ac45-2ea7f13748a2}",
-                "name": "bus0_amplitudes"
+                "name": "mdi2.bus0_amplitudes"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "ad3f79ece9739179",
                     "subFilters": [
@@ -2353,7 +2348,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{644f0edf-72d5-41ef-ac6c-4ba46508b8f1}",
                 "moduleId": "{18d60a87-fe91-4da9-ac45-2ea7f13748a2}",
-                "name": "bus1_amplitudes"
+                "name": "mdi2.bus1_amplitudes"
             }
         ]
     }

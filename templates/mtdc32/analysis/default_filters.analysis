@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{948cf568-3f1a-425d-918a-57a9e0c1867a}",
@@ -127,7 +125,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{f53b3232-3e51-48e5-814b-4d85cc8b4fe2}",
-                "name": "time_raw",
+                "name": "mtdc32.time_raw",
                 "userLevel": 0
             },
             {
@@ -267,7 +265,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{79774f18-3175-439f-aad7-72dc8fa61412}",
-                "name": "channel_time",
+                "name": "mtdc32.channel_time",
                 "userLevel": 1
             },
             {
@@ -282,7 +280,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{2ba86a76-2f9b-4e36-ab58-d621e0ebd999}",
-                "name": "trigger_time_raw",
+                "name": "mtdc32.trigger_time_raw",
                 "userLevel": 0
             },
             {
@@ -302,7 +300,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{948cf568-3f1a-425d-918a-57a9e0c1867a}",
-                "name": "trigger_time",
+                "name": "mtdc32.trigger_time",
                 "userLevel": 1
             },
             {
@@ -317,7 +315,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{18a5a409-329c-40a2-8878-52bc5c47feb4}",
-                "name": "module_timestamp_raw",
+                "name": "mtdc32.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -333,7 +331,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{5b6e1073-ab8d-40db-ba74-f74291f6973e}",
-                "name": "module_timestamp",
+                "name": "mtdc32.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -348,7 +346,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{3f133974-1887-4ff1-baff-a43da2b7c4d7}",
-                "name": "channel_time",
+                "name": "mtdc32.channel_time",
                 "userLevel": 1
             },
             {
@@ -363,7 +361,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{e96a69a3-9fe6-4302-9d94-810439a18180}",
-                "name": "trigger_time",
+                "name": "mtdc32.trigger_time",
                 "userLevel": 1
             },
             {
@@ -378,7 +376,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{df07569d-d182-42d1-8b02-ebb4cbb5b670}",
-                "name": "module_timestamp",
+                "name": "mtdc32.module_timestamp",
                 "userLevel": 1
             }
         ],
@@ -387,8 +385,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "97c0f30e8a7f8d5b",
                     "subFilters": [
@@ -401,14 +398,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{22e07c8a-6ca6-4dc4-9537-0c1e8ca50019}",
                 "moduleId": "{1b20ac4a-8af3-4c37-9832-baa175d0e387}",
-                "name": "channel_time"
+                "name": "mtdc32.channel_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "cdf44e89420af6da",
                     "subFilters": [
@@ -421,14 +417,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{2759b11e-3687-45db-ab21-c516368e24fe}",
                 "moduleId": "{1b20ac4a-8af3-4c37-9832-baa175d0e387}",
-                "name": "trigger_time"
+                "name": "mtdc32.trigger_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "a94200e9197bdfe5",
                     "subFilters": [
@@ -441,7 +436,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{d997b702-729d-4e3e-8a8d-a737513585af}",
                 "moduleId": "{1b20ac4a-8af3-4c37-9832-baa175d0e387}",
-                "name": "module_timestamp"
+                "name": "mtdc32.module_timestamp"
             }
         ]
     }
