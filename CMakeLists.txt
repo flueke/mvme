@@ -103,9 +103,6 @@ SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 #    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
 #endif(WIN32)
 
-#option(MVME_ENABLE_MVLC "Enable support for the mesytec MVLC controller" ON)
-set(MVME_ENABLE_MVLC ON)
-
 set(not-msvc $<NOT:$<CXX_COMPILER_ID:MSVC>>)
 
 # externals

@@ -150,95 +150,93 @@ install(TARGETS libmvme_core
 #
 # libmvme_mvlc - MVLC support
 #
-if(MVME_ENABLE_MVLC)
-    #set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-    #    "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+#set(MVLC_USB_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+#    "mvlc_usb layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    #set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-    #    "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+#set(MVLC_ETH_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+#    "mvlc_eth layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    #set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-    #    "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+#set(MVLC_DIALOG_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+#    "mvlc_dialog layer log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    #set(MVLC_READOUT_PARSER_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
-    #    "mvlc readout parser log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
+#set(MVLC_READOUT_PARSER_LOG_LEVEL "LOG_LEVEL_OFF" CACHE STRING
+#    "mvlc readout parser log level: LOG_LEVEL_(WARN|INFO|DEBUG|TRACE|OFF)")
 
-    qt5_wrap_ui(MVLC_DEV_GUI_UIC
-        vme_debug_widget.ui
-        mvlc/mvlc_dev_ui.ui
-        )
+qt5_wrap_ui(MVLC_DEV_GUI_UIC
+    vme_debug_widget.ui
+    mvlc/mvlc_dev_ui.ui
+    )
 
-    add_library(libmvme_mvlc STATIC
-        ${MVLC_DEV_GUI_UIC}
-        mvlc/mvlc_dev_gui.cc
-        mvlc/mvlc_qt_object.cc
-        mvlc/mvlc_register_names.cc
-        mvlc/mvlc_script.cc
-        mvlc/mvlc_util.cc
-        mvlc/mvlc_vme_controller.cc
-        mvlc/mvlc_vme_debug_widget.cc
-        mvlc/readout_parser_support.cc
-        )
+add_library(libmvme_mvlc STATIC
+    ${MVLC_DEV_GUI_UIC}
+    mvlc/mvlc_dev_gui.cc
+    mvlc/mvlc_qt_object.cc
+    mvlc/mvlc_register_names.cc
+    mvlc/mvlc_script.cc
+    mvlc/mvlc_util.cc
+    mvlc/mvlc_vme_controller.cc
+    mvlc/mvlc_vme_debug_widget.cc
+    mvlc/readout_parser_support.cc
+    )
 
-    set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
-    generate_export_header(libmvme_mvlc)
+set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
+generate_export_header(libmvme_mvlc)
 
-    # FIXME: somehow break up the circular dependency between libmvme_core and
-    # libmvme_mvlc. It is caused by vme_script::run_command() directly using
-    # MVLC_VMEController and libmvme_mvlc making use of vme_script in
-    # mvlc/mvlc_script.h
-    target_link_libraries(libmvme_mvlc PUBLIC mesytec-mvlc PUBLIC libmvme_core)
-    target_link_libraries(libmvme_core PUBLIC libmvme_mvlc)
+# FIXME: somehow break up the circular dependency between libmvme_core and
+# libmvme_mvlc. It is caused by vme_script::run_command() directly using
+# MVLC_VMEController and libmvme_mvlc making use of vme_script in
+# mvlc/mvlc_script.h
+target_link_libraries(libmvme_mvlc PUBLIC mesytec-mvlc PUBLIC libmvme_core)
+target_link_libraries(libmvme_core PUBLIC libmvme_mvlc)
 
-    if (WIN32)
-        target_link_libraries(libmvme_mvlc PRIVATE ws2_32)
-        target_compile_options(libmvme_mvlc PRIVATE -Wno-format)
-    endif(WIN32)
+if (WIN32)
+    target_link_libraries(libmvme_mvlc PRIVATE ws2_32)
+    target_compile_options(libmvme_mvlc PRIVATE -Wno-format)
+endif(WIN32)
 
-    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
-    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
-    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
-    #target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
-    target_compile_options(libmvme_mvlc
-        PRIVATE $<${not-msvc}:-Wall -Wextra>
-        PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
-        )
+#target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_USB_LOG_LEVEL=${MVLC_USB_LOG_LEVEL})
+#target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_ETH_LOG_LEVEL=${MVLC_ETH_LOG_LEVEL})
+#target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_DIALOG_LOG_LEVEL=${MVLC_DIALOG_LOG_LEVEL})
+#target_compile_definitions(libmvme_mvlc PRIVATE -DMVLC_READOUT_PARSER_LOG_LEVEL=${MVLC_READOUT_PARSER_LOG_LEVEL})
+target_compile_options(libmvme_mvlc
+    PRIVATE $<${not-msvc}:-Wall -Wextra>
+    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    )
 
-    install(TARGETS libmvme_mvlc
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
+install(TARGETS libmvme_mvlc
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib)
 
-    # mvlc_dev_gui
-    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
-    target_link_libraries(mvlc_dev_gui PRIVATE libmvme_mvlc)
-    install(TARGETS mvlc_dev_gui
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib)
+# mvlc_dev_gui
+add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
+target_link_libraries(mvlc_dev_gui PRIVATE libmvme_mvlc)
+install(TARGETS mvlc_dev_gui
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
-    # mvlc_dev_win_usb_debug
-    #if (WIN32)
-    #    add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
-    #    target_link_libraries(mvlc_dev_win_usb_debug
-    #        PRIVATE libmvme_mvlc
-    #        )
-    #endif (WIN32)
+# mvlc_dev_win_usb_debug
+#if (WIN32)
+#    add_executable(mvlc_dev_win_usb_debug mvlc/mvlc_dev_win_usb_debug.cc)
+#    target_link_libraries(mvlc_dev_win_usb_debug
+#        PRIVATE libmvme_mvlc
+#        )
+#endif (WIN32)
 
-    add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
-    target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
+add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
+target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
 
-    if(MVME_BUILD_TESTS)
-        function(add_mvlc_gtest exe_name exe_source)
-            add_executable(${exe_name} ${exe_source})
-            add_dependencies(${exe_name} libmvme_mvlc)
-            target_link_libraries(${exe_name} libmvme_mvlc gtest gtest_main)
-            add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
-            target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
-        endfunction(add_mvlc_gtest)
-        add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
-        add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
-    endif(MVME_BUILD_TESTS)
-endif(MVME_ENABLE_MVLC)
+if(MVME_BUILD_TESTS)
+    function(add_mvlc_gtest exe_name exe_source)
+        add_executable(${exe_name} ${exe_source})
+        add_dependencies(${exe_name} libmvme_mvlc)
+        target_link_libraries(${exe_name} libmvme_mvlc gtest gtest_main)
+        add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+        target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
+    endfunction(add_mvlc_gtest)
+    add_mvlc_gtest(test_mvlc_script mvlc/test/test_mvlc_script.cc)
+    add_mvlc_gtest(test_mvlc_calc_packet_loss mvlc/test/test_mvlc_calc_packet_loss.cc)
+endif(MVME_BUILD_TESTS)
 
 #
 # libmvme
@@ -389,65 +387,63 @@ target_include_directories(libmvme
     SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/"
     )
 
-if (MVME_ENABLE_MVLC)
-    target_sources(libmvme PRIVATE
-        mvlc_daq.cc
-        mvlc_listfile_worker.cc
-        mvlc/mvlc_trigger_io.cc
-        mvlc/mvlc_trigger_io_editor.cc
-        mvlc/mvlc_trigger_io_editor_p.cc
-        mvlc/mvlc_trigger_io_script.cc
-        mvlc/mvlc_trigger_io_util.cc
-        mvlc_readout_worker.cc
-        mvlc_stream_worker.cc
-        mvlc/trigger_io_dso.cc
-        mvlc/trigger_io_dso_plot_widget.cc
-        mvlc/trigger_io_dso_sim_ui.cc
-        mvlc/trigger_io_sim.cc
-        mvlc/trigger_io_sim_pinaddress.cc
-        mvlc/vmeconfig_from_crateconfig.cc
-        mvlc/vmeconfig_to_crateconfig.cc
-        mvme_mvlc_listfile.cc
+target_sources(libmvme PRIVATE
+    mvlc_daq.cc
+    mvlc_listfile_worker.cc
+    mvlc/mvlc_trigger_io.cc
+    mvlc/mvlc_trigger_io_editor.cc
+    mvlc/mvlc_trigger_io_editor_p.cc
+    mvlc/mvlc_trigger_io_script.cc
+    mvlc/mvlc_trigger_io_util.cc
+    mvlc_readout_worker.cc
+    mvlc_stream_worker.cc
+    mvlc/trigger_io_dso.cc
+    mvlc/trigger_io_dso_plot_widget.cc
+    mvlc/trigger_io_dso_sim_ui.cc
+    mvlc/trigger_io_sim.cc
+    mvlc/trigger_io_sim_pinaddress.cc
+    mvlc/vmeconfig_from_crateconfig.cc
+    mvlc/vmeconfig_to_crateconfig.cc
+    mvme_mvlc_listfile.cc
+)
+
+target_link_libraries(libmvme
+    PUBLIC libmvme_mvlc
+    PUBLIC yaml-cpp
     )
 
-    target_link_libraries(libmvme
-        PUBLIC libmvme_mvlc
-        PUBLIC yaml-cpp
-        )
+# Note: the BUILD_INTERFACE line does not work on older CMake versions
+# (tested with 3.7.2).
+target_include_directories(libmvme
+    PRIVATE ${MVME_YAML_DIR}/include
+    PRIVATE ${CMAKE_SOURCE_DIR}/external/minbool
+    #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>
+    )
 
-    # Note: the BUILD_INTERFACE line does not work on older CMake versions
-    # (tested with 3.7.2).
-    target_include_directories(libmvme
-        PRIVATE ${MVME_YAML_DIR}/include
-        PRIVATE ${CMAKE_SOURCE_DIR}/external/minbool
-        #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>
-        )
+# The above still did not work under debian9. So the next line add
+# yaml-cpp to the global include paths.
+#include_directories(${MVME_YAML_DIR}/include)
 
-    # The above still did not work under debian9. So the next line add
-    # yaml-cpp to the global include paths.
-    #include_directories(${MVME_YAML_DIR}/include)
+# FIXME: revive this tool
+#add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
+#target_link_libraries(dev_mvlc_daq_init libmvme)
 
-    # FIXME: revive this tool
-    #add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
-    #target_link_libraries(dev_mvlc_daq_init libmvme)
+add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
+target_link_libraries(dev_mvlc_trigger_gui libmvme)
 
-    add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
-    target_link_libraries(dev_mvlc_trigger_gui libmvme)
+add_executable(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
+target_link_libraries(dev_import_mvlc_crateconfig PRIVATE libmvme)
 
-    add_executable(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
-    target_link_libraries(dev_import_mvlc_crateconfig PRIVATE libmvme)
+if (NOT WIN32)
+    add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
+    target_link_libraries(dev_mvlc_dump_eth_file PRIVATE libmvme)
+endif(NOT WIN32)
 
-    if (NOT WIN32)
-        add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
-        target_link_libraries(dev_mvlc_dump_eth_file PRIVATE libmvme)
-    endif(NOT WIN32)
-
-    add_executable(mvlc_listfile_updater mvlc_listfile_updater.cc)
-    target_link_libraries(mvlc_listfile_updater PRIVATE libmvme)
-    install(TARGETS mvlc_listfile_updater
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib)
-endif()
+add_executable(mvlc_listfile_updater mvlc_listfile_updater.cc)
+target_link_libraries(mvlc_listfile_updater PRIVATE libmvme)
+install(TARGETS mvlc_listfile_updater
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
 
 install(TARGETS libmvme
     RUNTIME DESTINATION bin
@@ -525,12 +521,10 @@ if (WIN32)
 endif(WIN32)
 
 
-if(MVME_ENABLE_MVLC)
-    add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
-    add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
-    add_mvme_executable(dev_mvlc_dso dev_mvlc_dso.cc)
-    add_mvme_executable(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
-endif(MVME_ENABLE_MVLC)
+add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
+add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
+add_mvme_executable(dev_mvlc_dso dev_mvlc_dso.cc)
+add_mvme_executable(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?

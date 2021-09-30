@@ -29,9 +29,7 @@ add_library(cpp11-on-multicore INTERFACE)
 target_include_directories(cpp11-on-multicore INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cpp11-on-multicore)
 
 # libmesytec-mvlc
-if (MVME_ENABLE_MVLC)
-    add_subdirectory(mesytec-mvlc)
-endif(MVME_ENABLE_MVLC)
+add_subdirectory(mesytec-mvlc)
 
 # install pybind11 to include/
 INSTALL(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pybind11 DESTINATION include)
