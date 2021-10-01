@@ -9,8 +9,6 @@ Wanpeng
 
   * Rate monitor is very useful. But right now it either displays the full range or can be zoomed in for a fixed range. It'll be more useful if one can make it visible for the last hour or some designated period of time while keep incrementing.
 
-  * There is some confusion in defining L1 input parameters. In the definition window, these input parameters are not prefixed with their module names. It can be very confusing, especially when different modules of the same type have the same parameter names.
-
   * Right now, 1-d histograms can only be displayed one by one. Is it possible to overlap two or three plots in the same window for comparison? That would be a great feature to have.
 
   * A dynamic count rate ratio would be good for online monitoring. Right now, I am using three steps to construct it (prev, diff, and division). It'd be great if you can implement one operation like (rate1 - rate1_previous_value) / (rate2 - rate2_previous_value) for a simple definition.
@@ -58,8 +56,6 @@ Wanpeng
   - When modifying the trigIO the trace select tree gets collapsed :(
   - Sim: 36ns difference between simulated and sampled routed trace. why? subtract it?
 
-* write mvlc stack errors to the mvme log file (right now they're completely
-  lost after the daq ends)
 * trigger_io: when changing a vme event from periodic to irq the trigger_io
   timer -> stack_start connection is not disabled. Could find out which timer
   was used to trigger the event and remove the connection from the timer to the
@@ -158,9 +154,6 @@ Wanpeng
   a replay is running. Robert ran into this while editing an expression and
   lost all of his edits... Cannot reproduce
 
-* cmake: get rid of MVME_ENABLE_MVLC, do some sanity checks on the libraries
-  being built and make sure files are only part of a single library
-* general: use mvlc::Protected to guard all the counters and similar objects in the system. (WIP)
 * event_server: test with the mvlc. measure performance
 * mvme_root_client: runId is incorrect for live DAQ runs. it seems correct for replays.
 * test m2r. get rid of duplicate files. clean up the env file. write some docs
@@ -244,20 +237,8 @@ http://www.sympnp.org/proceedings/57/G29.pdf
 * Help overlay for the analysis. Big fat arrows indicating data flow and arrows
   pointing at histograms.
 
-* Fix the mvlc_daq setup_trigger_io reset stuff
-  Without doing a reset the stack will still be executed after having removed
-  the corresponding event from the vme config.  What happens is that the daq
-  init code resets all stack offsets which means stack number two points to the
-  same data as the direct exec stack0. This then means that everytime the
-  trigger for the now removed event is activated, for example via a manually
-  setup timer, the current command stack will be executed.  What's weird is
-  that I do not see any errors or stat counts confirming this in the GUI at
-  all. Probably the data is polled and maybe even counted somewhere but not
-  shown.
-
 * LUT editor minimize might not be correct. Test this more. Mostly I confuse
-  myself when creating functions. Input bit order also is not documented (LSBit
-  is the rightmost).
+  myself when creating functions.
 
 * add readout side buffer sniffing similar to what's done on the analysis side.
 * after finishing a run/replay with pause enabled the next run will always
@@ -290,25 +271,6 @@ TODO: vary max_xfer for the above test
 * After a boot the firmware and hardware registers yield 0. Only after starting
   and stopping a DAQ those registers are populated. Try to narrow this down.
   -> Test this again with the latest MVLC firmware
-* Running a VMEScript should completely disable any polling being done on the
-  cmd pipe. Failing to do so will slow down script execution dramatically due
-  to the time spent waiting for the lock whenever the polling code is waiting
-  for a read to finish.
-  -> RAII polling inhibitor
-
-* ETH under windows: when running a vme script while a high data rate readout
-  is in progress some of the vmeSingleWrite calls will return a timeout error.
-  Figure out if this happens when reading or writing to the socket or in both
-  cases. This could just be "natural" UDP packet loss and would have to be
-  handled by retrying the operation.
-
-* ETH under windows: after an error like the one above mvme is in an odd state.
-  The controller lost the connection and reconnects, no data is received
-  anymore but the DAQ still has to be stopped via the GUI.
-  Also at least one time stopping the DAQ did not work.
-
--> When using the ETH MVLC retry (VME) register writes a couple of times if
-they result in a timeout error. Do not immediately disconnect the MVLC.
 
 * Trigger I/O Editor:
   - Add ability to reserve units. Used for Timer and StackStart units when

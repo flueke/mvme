@@ -6,6 +6,8 @@ Changelog
 
 Version 1.4.7
 -------------
+* Prepend the module name to analysis objects generated when adding the default filters.
+
 * Reopen to the last used VME config when closing a listfile.
 
 * When saving VME/analysis config files suggest a filename based on the
