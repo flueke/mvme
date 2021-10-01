@@ -138,11 +138,39 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
                     result.addCommand(stackCmd);
                 }
                 break;
+
+            case CommandType::MVLC_SetAddressIncMode:
+                result.addSetAddressIncMode(static_cast<mvlc::AddressIncrementMode>(cmd.value));
+                break;
+
+            case CommandType::MVLC_Wait:
+                result.addWait(cmd.value);
+                break;
+
+            case CommandType::MVLC_SignalAccu:
+                result.addSignalAccu();
+                break;
+
+            case CommandType::MVLC_MaskShiftAccu:
+                result.addMaskShiftAccu(cmd.address, cmd.value);
+                break;
+
+            case CommandType::MVLC_SetAccu:
+                result.addSetAccu(cmd.value);
+                break;
+
+            case CommandType::MVLC_ReadToAccu:
+                result.addReadToAccu(cmd.address, cmd.addressMode,
+                                     convert_data_width(cmd.dataWidth));
+                break;
+
+            case CommandType::MVLC_CompareLoopAccu:
+                result.addCompareLoopAccu(static_cast<mvlc::AccuComparator>(cmd.value), cmd.address);
+                break;
         }
     }
 
     return result;
-
 }
 
 void log_buffer(const QVector<u32> &buffer, const QString &info)

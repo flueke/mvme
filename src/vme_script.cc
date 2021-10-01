@@ -38,6 +38,8 @@
 // the a2 structure as a standalone project is useless.
 #include "analysis/a2/a2_exprtk.h"
 
+using namespace mesytec;
+
 
 namespace vme_script
 {
@@ -195,7 +197,6 @@ Command parseRead(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
-
     result.lineNumber = lineNumber;
 
     return result;
@@ -215,6 +216,7 @@ Command parseWrite(const QStringList &args, int lineNumber)
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
     result.value = parseValue<u32>(args[4]);
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -249,6 +251,8 @@ Command parseWait(const QStringList &args, int lineNumber)
     else if (!unitString.isEmpty() && unitString != QSL("ms"))
         throw "Invalid delay";
 
+    result.lineNumber = lineNumber;
+
     return result;
 }
 
@@ -262,6 +266,7 @@ Command parseMarker(const QStringList &args, int lineNumber)
     Command result;
     result.type = CommandType::Marker;
     result.value = parseValue<u32>(args[1]);
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -281,6 +286,7 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.address = parseAddress(args[2]);
     result.transfers = parseValue<u32>(args[3]);
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -296,6 +302,7 @@ Command parseSetBase(const QStringList &args, int lineNumber)
 
     result.type = commandType_from_string(args[0]);
     result.address = parseAddress(args[1]);
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -310,6 +317,7 @@ Command parseResetBase(const QStringList &args, int lineNumber)
     Command result;
 
     result.type = commandType_from_string(args[0]);
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -354,6 +362,7 @@ Command parse_VMUSB_write_reg(const QStringList &args, int lineNumber)
 
     result.address = regAddress;
     result.value   = parseValue<u32>(args[2]);
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -388,6 +397,7 @@ Command parse_VMUSB_read_reg(const QStringList &args, int lineNumber)
     }
 
     result.address = regAddress;
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -423,6 +433,8 @@ Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
                              lineNumber);
         }
     }
+
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -477,10 +489,12 @@ Command parse_write_float_word(const QStringList &args, int lineNumber)
 
     result.value = regValue;
 
+    result.lineNumber = lineNumber;
+
     return result;
 }
 
-Command parse_print(const QStringList &args, int /*lineNumber*/)
+Command parse_print(const QStringList &args, int lineNumber)
 {
     Command result = {};
     result.type = CommandType::Print;
@@ -495,6 +509,112 @@ Command parse_print(const QStringList &args, int /*lineNumber*/)
 #endif
     }
 
+    result.lineNumber = lineNumber;
+
+    return result;
+}
+
+Command parse_mvlc_set_address_inc_mode(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("mvlc_set_address_inc_mode ('fifo'|'mem')");
+
+    if (args.size() != 2)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+    result.value = static_cast<u32>(mvlc::address_inc_mode_from_string(args[1].toStdString()));
+    result.lineNumber = lineNumber;
+    return result;
+}
+
+Command parse_mvlc_wait(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("mvlc_wait <clocks>");
+
+    if (args.size() != 2)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+    result.value = parseValue<u32>(args[1]);
+    result.lineNumber = lineNumber;
+    return result;
+}
+
+Command parse_mvlc_signal_accu(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("mvlc_signal_accu");
+
+    if (args.size() != 1)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+    result.lineNumber = lineNumber;
+    return result;
+}
+
+Command parse_mvlc_mask_shift_accu(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("mvlc_mask_shift_accu <mask> <shift>");
+
+    if (args.size() != 3)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+    result.address = parseValue<u32>(args[1]);
+    result.value = parseValue<u32>(args[2]);
+    result.lineNumber = lineNumber;
+    return result;
+}
+
+Command parse_mvlc_set_accu(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("mvlc_set_accu <value>");
+
+    if (args.size() != 2)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+    result.value = parseValue<u32>(args[1]);
+    result.lineNumber = lineNumber;
+    return result;
+}
+
+Command parse_mvlc_read_to_accu(const QStringList &args, int lineNumber)
+{
+    // same as parseRead()
+    auto usage = QSL("mvlc_read_to_accu <address_mode> <data_width> <address>");
+
+    if (args.size() != 4)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+
+    result.type = commandType_from_string(args[0]);
+    result.addressMode = parseAddressMode(args[1]);
+    result.dataWidth = parseDataWidth(args[2]);
+    result.address = parseAddress(args[3]);
+    result.lineNumber = lineNumber;
+    return result;
+}
+
+Command parse_mvlc_compare_loop_accu(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("mvlc_compare_loop_accu ('eq'|'lt'|'gt') <value>");
+
+    if (args.size() != 3)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+
+    result.type = commandType_from_string(args[0]);
+    result.value = static_cast<u32>(mvlc::accu_comparator_from_string(args[1].toStdString()));
+    result.address = parseValue<u32>(args[2]);
+    result.lineNumber = lineNumber;
     return result;
 }
 
@@ -526,6 +646,14 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("write_float_word"),      parse_write_float_word },
 
     { QSL("print"),                 parse_print },
+
+    { QSL("mvlc_set_address_inc_mode"), parse_mvlc_set_address_inc_mode },
+    { QSL("mvlc_wait"),                 parse_mvlc_wait },
+    { QSL("mvlc_signal_accu"),          parse_mvlc_signal_accu },
+    { QSL("mvlc_mask_shift_accu"),      parse_mvlc_mask_shift_accu},
+    { QSL("mvlc_set_accu"),             parse_mvlc_set_accu },
+    { QSL("mvlc_read_to_accu"),         parse_mvlc_read_to_accu },
+    { QSL("mvlc_compare_loop_accu"),    parse_mvlc_compare_loop_accu },
 };
 
 static QString handle_multiline_comment(QString line, bool &in_multiline_comment)
@@ -1365,7 +1493,7 @@ VMEScript parse(
                 {
                     auto cmd = handle_single_line_command(preparsed);
 
-                    /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
+                /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
                  * here by modifying other commands before they are pushed onto result.
                  * To make warnings generated when parsing any of SetBase/ResetBase
                  * available to the outside I needed to return them in the result
@@ -1416,6 +1544,7 @@ VMEScript parse(
     }
 }
 
+// TODO: maybe merge commandTypeToString and commandParser
 static const QMap<CommandType, QString> commandTypeToString =
 {
     { CommandType::Read,                QSL("read") },
@@ -1437,6 +1566,13 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MetaBlock,           QSL("meta_block") },
     { CommandType::SetVariable,         QSL("set_variable") },
     { CommandType::Print,               QSL("print") },
+    { CommandType::MVLC_SetAddressIncMode,  QSL("mvlc_set_address_inc_mode") },
+    { CommandType::MVLC_Wait,               QSL("mvlc_wait") },
+    { CommandType::MVLC_SignalAccu,         QSL("mvlc_signal_accu") },
+    { CommandType::MVLC_MaskShiftAccu,      QSL("mvlc_mask_shift_accu") },
+    { CommandType::MVLC_SetAccu,            QSL("mvlc_set_accu") },
+    { CommandType::MVLC_ReadToAccu,         QSL("mvlc_read_to_accu") },
+    { CommandType::MVLC_CompareLoopAccu,    QSL("mvlc_compare_loop_accu") },
 };
 
 QString to_string(CommandType commandType)

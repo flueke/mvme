@@ -202,15 +202,9 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                                         QSL("VMUSB controller required"));
             } break;
 
-        case CommandType::MVLC_WriteSpecial:
-            {
-                auto msg = QSL("mvlc_writespecial is not supported by vme_script::run_command().");
-                result.error = VMEError(VMEError::UnsupportedCommand, msg);
-                if (logger) logger(msg);
-            }
-            break;
-
         case CommandType::MVLC_Custom:
+            /* Custom blocks can be directly executed: an MVLC stack is built,
+             * uploaded and executed vis MVLC::stackTransaction(). */
             if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
                 // Build the custom stack (it needs to start with a marker
@@ -240,9 +234,27 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                                         QSL("MVLC controller required"));
             } break;
 
+        case CommandType::MVLC_WriteSpecial:
+        case CommandType::MVLC_SetAddressIncMode:
+        case CommandType::MVLC_Wait:
+        case CommandType::MVLC_SignalAccu:
+        case CommandType::MVLC_MaskShiftAccu:
+        case CommandType::MVLC_SetAccu:
+        case CommandType::MVLC_ReadToAccu:
+        case CommandType::MVLC_CompareLoopAccu:
+            {
+                auto msg = QSL("%1 is not supported by vme_script::run_command().")
+                    .arg(to_string(cmd.type));
+                result.error = VMEError(VMEError::UnsupportedCommand, msg);
+                if (logger) logger(msg);
+            }
+            break;
+
+
         case CommandType::MetaBlock:
         case CommandType::Blk2eSST64:
         case CommandType::Print:
+            // These just don't do anything.
             break;
     }
 
@@ -279,9 +291,16 @@ QString format_result(const Result &result)
         case CommandType::Marker:
         case CommandType::SetBase:
         case CommandType::ResetBase:
-        case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
+        case CommandType::MVLC_WriteSpecial:
+        case CommandType::MVLC_SetAddressIncMode:
+        case CommandType::MVLC_Wait:
+        case CommandType::MVLC_SignalAccu:
+        case CommandType::MVLC_MaskShiftAccu:
+        case CommandType::MVLC_SetAccu:
+        case CommandType::MVLC_ReadToAccu:
+        case CommandType::MVLC_CompareLoopAccu:
             break;
 
         case CommandType::Write:
