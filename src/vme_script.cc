@@ -521,11 +521,17 @@ Command parse_mvlc_set_address_inc_mode(const QStringList &args, int lineNumber)
     if (args.size() != 2)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
-    Command result;
-    result.type = commandType_from_string(args[0]);
-    result.value = static_cast<u32>(mvlc::address_inc_mode_from_string(args[1].toStdString()));
-    result.lineNumber = lineNumber;
-    return result;
+    try
+    {
+        Command result;
+        result.type = commandType_from_string(args[0]);
+        result.value = static_cast<u32>(mvlc::address_inc_mode_from_string(args[1].toStdString()));
+        result.lineNumber = lineNumber;
+        return result;
+    } catch (const std::runtime_error &e)
+    {
+        throw ParseError(e.what(), lineNumber);
+    }
 }
 
 Command parse_mvlc_wait(const QStringList &args, int lineNumber)
@@ -593,7 +599,6 @@ Command parse_mvlc_read_to_accu(const QStringList &args, int lineNumber)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
-
     result.type = commandType_from_string(args[0]);
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
@@ -609,13 +614,18 @@ Command parse_mvlc_compare_loop_accu(const QStringList &args, int lineNumber)
     if (args.size() != 3)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
-    Command result;
-
-    result.type = commandType_from_string(args[0]);
-    result.value = static_cast<u32>(mvlc::accu_comparator_from_string(args[1].toStdString()));
-    result.address = parseValue<u32>(args[2]);
-    result.lineNumber = lineNumber;
-    return result;
+    try
+    {
+        Command result;
+        result.type = commandType_from_string(args[0]);
+        result.value = static_cast<u32>(mvlc::accu_comparator_from_string(args[1].toStdString()));
+        result.address = parseValue<u32>(args[2]);
+        result.lineNumber = lineNumber;
+        return result;
+    } catch (const std::runtime_error &e)
+    {
+        throw ParseError(e.what(), lineNumber);
+    }
 }
 
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
