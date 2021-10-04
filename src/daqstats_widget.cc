@@ -284,7 +284,7 @@ struct DAQStatsWidgetPrivate
                 const auto &count = it->second;
 
 
-                text += (QSL("MVLC stack errors: stackId=%1, stackLine=%2, flags=%3, count=%4\n")
+                text += (QSL("stackId=%1, stackLine=%2, flags=%3, count=%4\n")
                          .arg(stackId)
                          .arg(errorInfo.line)
                          .arg(mesytec::mvlc::format_frame_flags(errorInfo.flags).c_str())
