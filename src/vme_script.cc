@@ -1654,6 +1654,7 @@ QString to_string(const Command &cmd)
 {
     QString buffer;
     QString cmdStr = to_string(cmd.type);
+
     switch (cmd.type)
     {
         case CommandType::Invalid:
@@ -1662,6 +1663,7 @@ QString to_string(const Command &cmd)
 
         case CommandType::Read:
         case CommandType::ReadAbs:
+        case CommandType::MVLC_ReadToAccu:
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
@@ -1750,18 +1752,54 @@ QString to_string(const Command &cmd)
             } break;
 
         case CommandType::SetVariable:
-            {
-            } break;
+            break;
 
         case CommandType::Print:
-            {
-                return cmdStr + cmd.printArgs.join(" ");
-            } break;
+            buffer = cmdStr + cmd.printArgs.join(" ");
+            break;
 
         case CommandType::MVLC_Custom:
             buffer = QString(QSL("%1 with %2 lines"))
-                .arg(MVLC_CustomBegin)
+                .arg(cmdStr)
                 .arg(cmd.mvlcCustomStack.size());
+            break;
+
+        case CommandType::MVLC_SetAddressIncMode:
+            buffer = QSL("%1 %2")
+                .arg(cmdStr)
+                .arg(address_inc_mode_to_string(
+                        static_cast<mvlc::AddressIncrementMode>(cmd.value)).c_str());
+            break;
+
+        case CommandType::MVLC_Wait:
+            buffer = QSL("%1 %2")
+                .arg(cmdStr)
+                .arg(cmd.value);
+            break;
+
+        case CommandType::MVLC_SignalAccu:
+            buffer = QSL("%1").arg(cmdStr);
+            break;
+
+        case CommandType::MVLC_MaskShiftAccu:
+            buffer = QSL("%1 %2 %3")
+                .arg(cmdStr)
+                .arg(format_hex(cmd.address)) // mask
+                .arg(cmd.value); // shift
+            break;
+
+        case CommandType::MVLC_SetAccu:
+            buffer = QSL("%1 %2")
+                .arg(cmdStr)
+                .arg(cmd.value);
+            break;
+
+        case CommandType::MVLC_CompareLoopAccu:
+            buffer = QSL("%1 %2 %3")
+                .arg(cmdStr)
+                .arg(mvlc::accu_comparator_to_string(
+                        static_cast<mvlc::AccuComparator>(cmd.value)).c_str())
+                .arg(cmd.address);
             break;
     }
 
@@ -1791,6 +1829,12 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::SetVariable:
         case CommandType::Print:
         case CommandType::MVLC_Custom:
+        case CommandType::MVLC_SetAddressIncMode:
+        case CommandType::MVLC_Wait:
+        case CommandType::MVLC_SignalAccu:
+        case CommandType::MVLC_MaskShiftAccu:
+        case CommandType::MVLC_SetAccu:
+        case CommandType::MVLC_CompareLoopAccu:
             break;
 
         case CommandType::Read:
@@ -1801,7 +1845,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::MBLTFifo:
         case CommandType::MBLTSwapped:
         case CommandType::Blk2eSST64:
-
+        case CommandType::MVLC_ReadToAccu:
             cmd.address += baseAddress;
             break;
     }
