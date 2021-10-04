@@ -525,7 +525,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
         // Use the last part of the workspace path to suggest a filename.
         auto filename = m_context->getAnalysisConfigFilename();
         if (filename.isEmpty())
-            filename = QFileInfo(m_context->getWorkspaceDirectory()).baseName() + ".analysis";
+            filename = QFileInfo(m_context->getWorkspaceDirectory()).fileName() + ".analysis";
         path += "/" + filename;
     }
 

@@ -1048,7 +1048,7 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
         // Use the last part of the workspace path to suggest a filename.
         auto filename = QFileInfo(m_d->m_context->getVMEConfigFilename()).fileName();
         if (filename.isEmpty())
-            filename = QFileInfo(m_d->m_context->getWorkspaceDirectory()).baseName() + ".vme";
+            filename = QFileInfo(m_d->m_context->getWorkspaceDirectory()).fileName() + ".vme";
 
         path += "/" + filename;
     }
