@@ -147,6 +147,13 @@ namespace
                 case CommandType::SetVariable:
                 case CommandType::Print:
                 case CommandType::MVLC_Custom:
+                case CommandType::MVLC_SetAddressIncMode:
+                case CommandType::MVLC_Wait:
+                case CommandType::MVLC_SignalAccu:
+                case CommandType::MVLC_MaskShiftAccu:
+                case CommandType::MVLC_SetAccu:
+                case CommandType::MVLC_ReadToAccu:
+                case CommandType::MVLC_CompareLoopAccu:
                     break;
 
                 case  CommandType::Invalid:
@@ -389,16 +396,23 @@ namespace
                     InvalidCodePath;
                     break;
 
-                case  CommandType::SetBase:
-                case  CommandType::ResetBase:
-                case  CommandType::VMUSB_ReadRegister:
-                case  CommandType::VMUSB_WriteRegister:
-                case  CommandType::Blk2eSST64:
-                case  CommandType::MVLC_WriteSpecial:
-                case  CommandType::MetaBlock:
-                case  CommandType::SetVariable:
-                case  CommandType::Print:
-                case  CommandType::MVLC_Custom:
+                case CommandType::SetBase:
+                case CommandType::ResetBase:
+                case CommandType::VMUSB_ReadRegister:
+                case CommandType::VMUSB_WriteRegister:
+                case CommandType::Blk2eSST64:
+                case CommandType::MVLC_WriteSpecial:
+                case CommandType::MetaBlock:
+                case CommandType::SetVariable:
+                case CommandType::Print:
+                case CommandType::MVLC_Custom:
+                case CommandType::MVLC_SetAddressIncMode:
+                case CommandType::MVLC_Wait:
+                case CommandType::MVLC_SignalAccu:
+                case CommandType::MVLC_MaskShiftAccu:
+                case CommandType::MVLC_SetAccu:
+                case CommandType::MVLC_ReadToAccu:
+                case CommandType::MVLC_CompareLoopAccu:
                     break;
 
                 case  CommandType::Invalid:
