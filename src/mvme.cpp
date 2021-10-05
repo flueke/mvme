@@ -135,14 +135,18 @@ struct MVMEWindowPrivate
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
 };
 
-MVMEMainWindow::MVMEMainWindow(QWidget *parent)
+MVMEMainWindow::MVMEMainWindow(const MVMEOptions &options)
+    : MVMEMainWindow(nullptr, options)
+{ }
+
+MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     : QMainWindow(parent)
     , m_d(new MVMEWindowPrivate)
 {
     setObjectName(QSL("mvme"));
     setWindowTitle(QSL("mvme"));
 
-    m_d->m_context = new MVMEContext(this, this);
+    m_d->m_context              = new MVMEContext(this, this, options);
     m_d->centralWidget          = new QWidget(this);
     m_d->centralLayout          = new QVBoxLayout(m_d->centralWidget);
     m_d->statusBar              = new QStatusBar(this);
@@ -1025,7 +1029,7 @@ bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 
 bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 {
-    QString path = QFileInfo(m_d->m_context->getVMEConfigFilename()).absolutePath();
+    auto path = QFileInfo(m_d->m_context->getVMEConfigFilename()).absolutePath();
 
     if (path.isEmpty())
         path = m_d->m_context->getWorkspaceDirectory();
@@ -1035,8 +1039,18 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 
     if (m_d->m_context->getMode() == GlobalMode::ListFile)
     {
+        // Use the listfile basename to suggest a filename.
         const auto &replayHandle = m_d->m_context->getReplayFileHandle();
         path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".vme";
+    }
+    else
+    {
+        // Use the last part of the workspace path to suggest a filename.
+        auto filename = QFileInfo(m_d->m_context->getVMEConfigFilename()).fileName();
+        if (filename.isEmpty())
+            filename = QFileInfo(m_d->m_context->getWorkspaceDirectory()).fileName() + ".vme";
+
+        path += "/" + filename;
     }
 
     QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path, VMEConfigFileFilter);
@@ -1865,7 +1879,7 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
                     if (scriptCommand.type == vme_script::CommandType::Write ||
                         scriptCommand.type == vme_script::CommandType::WriteAbs)
                     {
-                        StackCommand cmd;
+                        StackCommand cmd = {};
 
                         cmd.type = StackCommand::CommandType::VMEWrite;
                         cmd.address = scriptCommand.address;

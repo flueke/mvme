@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{4f7a7502-be30-4b76-bf97-bc854626a0ab}",
@@ -79,7 +77,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{b4c0176c-b41d-4615-a4c4-ca67dc4f24f6}",
-                "name": "Register_Data_raw",
+                "name": "vmmr_monitor.Register_Data_raw",
                 "userLevel": 0
             },
             {
@@ -123,7 +121,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{299a668e-d8fa-4882-ba46-28909383770d}",
-                "name": "Register_Data",
+                "name": "vmmr_monitor.Register_Data",
                 "userLevel": 1
             },
             {
@@ -138,7 +136,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{4f7a7502-be30-4b76-bf97-bc854626a0ab}",
-                "name": "Register_Data",
+                "name": "vmmr_monitor.Register_Data",
                 "userLevel": 1
             }
         ],
@@ -169,7 +167,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{4b22b341-f240-48e0-ae76-64b3c29bc033}",
                 "moduleId": "{1a5d1228-8f1c-4ead-8810-2f7f69435a5f}",
-                "name": "Register_Data"
+                "name": "vmmr_monitor.Register_Data"
             }
         ]
     }

@@ -25,8 +25,6 @@
 #include <QLibraryInfo>
 #include <QLocale>
 
-#include <mesytec-mvlc/mesytec-mvlc.h>
-
 #include "analysis/analysis_session.h"
 #include "build_info.h"
 #include "git_sha1.h"
@@ -82,8 +80,6 @@ void mvme_init(const QString &appName)
     qDebug() << "GIT_VERSION =" << GIT_VERSION;
     qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
     qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
-
-    mesytec::mvlc::setup_loggers();
 }
 
 void mvme_shutdown()

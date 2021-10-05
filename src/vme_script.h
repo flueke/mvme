@@ -133,6 +133,13 @@ enum class CommandType
     Print,
 
     MVLC_Custom,
+    MVLC_SetAddressIncMode,
+    MVLC_Wait,
+    MVLC_SignalAccu,
+    MVLC_MaskShiftAccu,
+    MVLC_SetAccu,
+    MVLC_ReadToAccu,
+    MVLC_CompareLoopAccu,
 };
 
 enum class DataWidth

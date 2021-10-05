@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{87303608-1781-4ddd-90c5-8df268905f25}",
@@ -79,7 +77,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{dac49f5e-5403-47c2-b971-6aa6816fa8d2}",
-                "name": "event_counter_raw",
+                "name": "mesytec_counter.event_counter_raw",
                 "userLevel": 0
             },
             {
@@ -95,7 +93,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{87303608-1781-4ddd-90c5-8df268905f25}",
-                "name": "event_counter",
+                "name": "mesytec_counter.event_counter",
                 "userLevel": 1
             },
             {
@@ -110,7 +108,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{3b7418db-bda9-464e-8c7b-90a669d691cb}",
-                "name": "event_counter",
+                "name": "mesytec_counter.event_counter",
                 "userLevel": 1
             }
         ],
@@ -119,8 +117,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "35a7f463097a4673",
                     "subFilters": [
@@ -137,7 +134,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{e03ba488-3a4c-4966-955b-8e32f5820a5a}",
                 "moduleId": "{e7fb8d6f-df29-4a00-8926-1df8ea199fd1}",
-                "name": "event_counter"
+                "name": "mesytec_counter.event_counter"
             }
         ]
     }

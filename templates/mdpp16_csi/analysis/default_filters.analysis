@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{88603015-e934-4a15-8404-bfab043813a5}",
@@ -175,7 +173,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a3f1d02a-fe03-452c-986d-01f41162a672}",
-                "name": "integration_long_raw",
+                "name": "mdpp16_csi.integration_long_raw",
                 "userLevel": 0
             },
             {
@@ -251,7 +249,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{29480e41-c24f-4848-b6e9-72cfc5263f3b}",
-                "name": "integration_long",
+                "name": "mdpp16_csi.integration_long",
                 "userLevel": 1
             },
             {
@@ -266,7 +264,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{8a192777-a7ce-4dcd-a2ed-947beff4f81e}",
-                "name": "time_raw",
+                "name": "mdpp16_csi.time_raw",
                 "userLevel": 0
             },
             {
@@ -342,7 +340,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{ecc6db7e-e6c4-402d-aa71-d47bca79c436}",
-                "name": "channel_time",
+                "name": "mdpp16_csi.channel_time",
                 "userLevel": 1
             },
             {
@@ -357,7 +355,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{ef163f51-dcc8-4b78-9f72-080b2897b3c3}",
-                "name": "module_timestamp_raw",
+                "name": "mdpp16_csi.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -373,7 +371,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{5b1c526b-1179-436f-a3d2-5d953775dfc4}",
-                "name": "module_timestamp",
+                "name": "mdpp16_csi.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -388,7 +386,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{ddc2d021-cbf0-44b7-aba8-2af58abf8be7}",
-                "name": "trigger_time_raw",
+                "name": "mdpp16_csi.trigger_time_raw",
                 "userLevel": 0
             },
             {
@@ -408,7 +406,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{9c5c4c8c-0116-499c-8edb-d582a1d31768}",
-                "name": "trigger_time",
+                "name": "mdpp16_csi.trigger_time",
                 "userLevel": 1
             },
             {
@@ -423,7 +421,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{ae70c090-1cbb-4c93-bf90-b6561cf53df1}",
-                "name": "integration_short_raw",
+                "name": "mdpp16_csi.integration_short_raw",
                 "userLevel": 0
             },
             {
@@ -499,7 +497,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{9ed3637a-75c4-420b-990e-00077a9afbb3}",
-                "name": "integration_short",
+                "name": "mdpp16_csi.integration_short",
                 "userLevel": 1
             },
             {
@@ -514,7 +512,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{12120301-443b-49c2-86cb-b0a3dd3ed562}",
-                "name": "integration_long",
+                "name": "mdpp16_csi.integration_long",
                 "userLevel": 1
             },
             {
@@ -529,7 +527,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{5b132988-9b37-4ea8-a8ef-98f965635fd2}",
-                "name": "channel_time",
+                "name": "mdpp16_csi.channel_time",
                 "userLevel": 1
             },
             {
@@ -544,7 +542,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{88603015-e934-4a15-8404-bfab043813a5}",
-                "name": "module_timestamp",
+                "name": "mdpp16_csi.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -559,7 +557,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{6ff53ec3-f19e-42af-97cb-e307fc440048}",
-                "name": "trigger_time",
+                "name": "mdpp16_csi.trigger_time",
                 "userLevel": 1
             },
             {
@@ -574,7 +572,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{a86a58b0-f511-467f-b396-98ca90b9130b}",
-                "name": "integration_short",
+                "name": "mdpp16_csi.integration_short",
                 "userLevel": 1
             }
         ],
@@ -583,8 +581,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "9a6a523af22de0aa",
                     "subFilters": [
@@ -597,14 +594,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{67c6125c-34cc-47fe-9b3e-3e07ef7a883d}",
                 "moduleId": "{d4de3f3b-f077-4213-b919-7a06aa65e3c3}",
-                "name": "integration_long"
+                "name": "mdpp16_csi.integration_long"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "9e9793e90f8757da",
                     "subFilters": [
@@ -617,14 +613,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{edd5264c-9ac7-484f-9a21-0e651fab6ad4}",
                 "moduleId": "{d4de3f3b-f077-4213-b919-7a06aa65e3c3}",
-                "name": "channel_time"
+                "name": "mdpp16_csi.channel_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "6f8ccb834dfbd0bf",
                     "subFilters": [
@@ -637,14 +632,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{96db707f-052a-47ad-b283-c9071b573524}",
                 "moduleId": "{d4de3f3b-f077-4213-b919-7a06aa65e3c3}",
-                "name": "module_timestamp"
+                "name": "mdpp16_csi.module_timestamp"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "7d4b692b391527b1",
                     "subFilters": [
@@ -657,14 +651,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{17b201f5-47f9-4221-8a31-950c0d85bd11}",
                 "moduleId": "{d4de3f3b-f077-4213-b919-7a06aa65e3c3}",
-                "name": "trigger_time"
+                "name": "mdpp16_csi.trigger_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "fdcf03e8e650d16d",
                     "subFilters": [
@@ -677,7 +670,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{7c1b2f3b-4018-4a2a-adc0-ac3a3c3d4b32}",
                 "moduleId": "{d4de3f3b-f077-4213-b919-7a06aa65e3c3}",
-                "name": "integration_short"
+                "name": "mdpp16_csi.integration_short"
             }
         ]
     }

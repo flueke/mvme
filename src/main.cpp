@@ -19,17 +19,34 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme.h"
+#include "mvme_options.h"
 #include "mvme_session.h"
 
 #include <QApplication>
 #include <QMessageBox>
 #include <QSplashScreen>
 #include <QTimer>
+#include <iostream>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/window_icon.png"));
+
+    auto args = app.arguments();
+    MVMEOptions options = {};
+
+    if (args.contains("--help"))
+    {
+        std::cout << "mvme command line options:" << std::endl;
+        std::cout << "  --offline       Start in offline mode. Connecting to a" << std::endl
+                  << "                  VME controller will not be possible. Useful for replays."
+                  << std::endl;
+        return 0;
+    }
+
+    if (args.contains("--offline"))
+        options.offlineMode = true;
 
     mvme_init();
 
@@ -53,7 +70,7 @@ int main(int argc, char *argv[])
     QObject::connect(&splashTimer, &QTimer::timeout, &splash, &QWidget::close);
 #endif
 
-    MVMEMainWindow w;
+    MVMEMainWindow w(options);
     w.show();
     w.restoreSettings();
 

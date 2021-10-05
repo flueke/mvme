@@ -175,7 +175,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{f5321a8f-f2af-4011-b22a-05b24866a82a}",
-                "name": "module_timestamp_raw",
+                "name": "mdpp16_qdc.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -190,7 +190,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{b2e3c627-4cc1-4fee-92b5-1d4284ad0bcc}",
-                "name": "integration_long_raw",
+                "name": "mdpp16_qdc.integration_long_raw",
                 "userLevel": 0
             },
             {
@@ -266,7 +266,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{7d88dd24-7ae0-4dcd-bbad-d92385d1baea}",
-                "name": "channel_time",
+                "name": "mdpp16_qdc.channel_time",
                 "userLevel": 1
             },
             {
@@ -281,7 +281,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{245ce538-3a32-43d4-a9e6-bdc824054e11}",
-                "name": "trigger_time_raw",
+                "name": "mdpp16_qdc.trigger_time_raw",
                 "userLevel": 0
             },
             {
@@ -296,7 +296,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{1badeafd-5f5f-4485-a54d-c846e84e5802}",
-                "name": "integration_short_raw",
+                "name": "mdpp16_qdc.integration_short_raw",
                 "userLevel": 0
             },
             {
@@ -372,7 +372,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{28ba4517-da5f-42be-b309-351f516f776a}",
-                "name": "integration_short",
+                "name": "mdpp16_qdc.integration_short",
                 "userLevel": 1
             },
             {
@@ -387,7 +387,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{d99a4cab-ccb3-4258-9126-896731bd8a93}",
-                "name": "channel_time_raw",
+                "name": "mdpp16_qdc.channel_time_raw",
                 "userLevel": 0
             },
             {
@@ -463,7 +463,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{d1244a88-988f-47eb-9d1c-5e2295f0880e}",
-                "name": "integration_long",
+                "name": "mdpp16_qdc.integration_long",
                 "userLevel": 1
             },
             {
@@ -483,7 +483,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{1543d8ca-6956-4d24-b4bd-9879f0b2fe0a}",
-                "name": "trigger_time",
+                "name": "mdpp16_qdc.trigger_time",
                 "userLevel": 1
             },
             {
@@ -499,7 +499,7 @@
                 },
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{6006b082-e0ff-4cb4-8439-5f39533c4cc7}",
-                "name": "module_timestamp",
+                "name": "mdpp16_qdc.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -514,7 +514,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{e964335a-5cf4-4f15-9aae-909daf748932}",
-                "name": "channel_time",
+                "name": "mdpp16_qdc.channel_time",
                 "userLevel": 1
             },
             {
@@ -529,7 +529,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{a2fb1cbf-e3de-4148-87f3-3a10febb9ebb}",
-                "name": "integration_long",
+                "name": "mdpp16_qdc.integration_long",
                 "userLevel": 1
             },
             {
@@ -544,7 +544,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{66f724a3-726c-4c36-a5ce-3c190d83de20}",
-                "name": "integration_short",
+                "name": "mdpp16_qdc.integration_short",
                 "userLevel": 1
             },
             {
@@ -559,7 +559,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{bc2f29dd-cb57-428a-b3ed-8329befadda5}",
-                "name": "trigger_time",
+                "name": "mdpp16_qdc.trigger_time",
                 "userLevel": 1
             },
             {
@@ -574,7 +574,7 @@
                 "enabled": true,
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{d18136d2-53f7-4854-984f-647e6f713a34}",
-                "name": "module_timestamp",
+                "name": "mdpp16_qdc.module_timestamp",
                 "userLevel": 1
             }
         ],
@@ -621,7 +621,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{cf3cb213-ab31-4f85-8ae9-bfb01d729dd0}",
                 "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
-                "name": "channel_time"
+                "name": "mdpp16_qdc.channel_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -641,7 +641,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{39a629dd-5308-4c5a-b115-157010ce168d}",
                 "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
-                "name": "integration_long"
+                "name": "mdpp16_qdc.integration_long"
             },
             {
                 "class": "analysis::Extractor",
@@ -661,7 +661,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{bce3d292-1bc1-4b18-920c-77c69ed11b79}",
                 "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
-                "name": "integration_short"
+                "name": "mdpp16_qdc.integration_short"
             },
             {
                 "class": "analysis::Extractor",
@@ -681,7 +681,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{a9ce8a5b-9508-4a41-8870-9a291b0ba9c1}",
                 "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
-                "name": "trigger_time"
+                "name": "mdpp16_qdc.trigger_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -701,7 +701,7 @@
                 "eventId": "{f27d2b53-308c-4a4e-9b93-b09eabbca285}",
                 "id": "{a4f0dbd8-b0ca-4286-8fd6-28cad6937c53}",
                 "moduleId": "{462f8fd4-cdbc-4f9c-856e-42dd96937a03}",
-                "name": "module_timestamp"
+                "name": "mdpp16_qdc.module_timestamp"
             }
         ]
     }

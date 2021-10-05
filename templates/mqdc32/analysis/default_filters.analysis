@@ -1,10 +1,8 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {
-        },
-        "conditionLinks": [
-        ],
+        "VMEObjectSettings": {},
+        "conditionLinks": [],
         "connections": [
             {
                 "dstId": "{8967a2c7-6361-4542-bc5e-63ead54bd8a5}",
@@ -103,7 +101,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{8967a2c7-6361-4542-bc5e-63ead54bd8a5}",
-                "name": "amplitude_raw",
+                "name": "mqdc32.amplitude_raw",
                 "userLevel": 0
             },
             {
@@ -243,7 +241,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{6d921929-6c7d-40d1-83ef-26ce414be011}",
-                "name": "amplitude",
+                "name": "mqdc32.amplitude",
                 "userLevel": 1
             },
             {
@@ -258,7 +256,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{0f0bc21b-b485-4805-a799-e1d2a155c6ea}",
-                "name": "module_timestamp_raw",
+                "name": "mqdc32.module_timestamp_raw",
                 "userLevel": 0
             },
             {
@@ -274,7 +272,7 @@
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{036aca1b-67eb-4248-a722-f5849ec15b17}",
-                "name": "module_timestamp",
+                "name": "mqdc32.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -289,7 +287,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{58ff0a03-0771-449d-970e-ae5913b87a0c}",
-                "name": "amplitude",
+                "name": "mqdc32.amplitude",
                 "userLevel": 1
             },
             {
@@ -304,7 +302,7 @@
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{4172c6ed-aa3d-4ff5-a1bd-6da33410a19b}",
-                "name": "module_timestamp",
+                "name": "mqdc32.module_timestamp",
                 "userLevel": 1
             }
         ],
@@ -313,8 +311,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "4afaac7330c9a5b6",
                     "subFilters": [
@@ -327,14 +324,13 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{f9fa6948-1677-45cc-beb1-ff38f8887782}",
                 "moduleId": "{9e840ee3-4f76-40f7-85e4-ca7f57cab5f2}",
-                "name": "amplitude"
+                "name": "mqdc32.amplitude"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [
-                    ],
+                    "parameterNames": [],
                     "requiredCompletionCount": 1,
                     "rngSeed": "c71d10417b88837f",
                     "subFilters": [
@@ -347,7 +343,7 @@
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{dc53b556-fbba-4f1a-bccc-4da4d673b0df}",
                 "moduleId": "{9e840ee3-4f76-40f7-85e4-ca7f57cab5f2}",
-                "name": "module_timestamp"
+                "name": "mqdc32.module_timestamp"
             }
         ]
     }

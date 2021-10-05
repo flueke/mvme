@@ -26,6 +26,7 @@
 
 #include "libmvme_export.h"
 #include "mvme_context.h"
+#include "mvme_options.h"
 
 class ConfigObject;
 class VMEConfig;
@@ -62,8 +63,8 @@ class LIBMVME_EXPORT MVMEMainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    //explicit MVMEMainWindow(MVMEContext *context, QWidget *parent = 0);
-    explicit MVMEMainWindow(QWidget *parent = 0);
+    explicit MVMEMainWindow(QWidget *parent = nullptr, const MVMEOptions &options = {});
+    explicit MVMEMainWindow(const MVMEOptions &options = {});
     ~MVMEMainWindow();
 
     virtual void closeEvent(QCloseEvent *event) override;
