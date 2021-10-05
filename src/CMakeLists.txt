@@ -534,6 +534,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
 add_subdirectory(listfile_reader)
+add_subdirectory(event_building)
 
 #
 # listfile recovery tool
