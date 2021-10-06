@@ -221,7 +221,7 @@ inline size_t words_in_span(const State::DataSpan &span)
     return 0u;
 }
 
-std::error_code end_event(State &state, Callbacks &callbacks, int ei, unsigned moduleCount)
+std::error_code end_event(State &state, Callbacks &callbacks, void *userContext, int ei, unsigned moduleCount)
 {
     // This is called after prefix, suffix and the dynamic part of all modules for
     // the given event have been recorded in the ModuleDataSpans. Now walk the data
@@ -265,7 +265,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei, unsigned m
             };
         }
 
-        callbacks.eventData(nullptr, ei, moduleDataList.data(), moduleCount);
+        callbacks.eventData(userContext, ei, moduleDataList.data(), moduleCount);
 
         return {};
     }
@@ -462,7 +462,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, int ei, unsigned m
 
 std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
-    int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+    void *userContext, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
 {
     begin_event(state, ei);
 
@@ -475,7 +475,7 @@ std::error_code LIBMVME_EXPORT event_data(
         module_suffix(state, ei, mi, moduleData.suffix.data, moduleData.suffix.size);
     }
 
-    return end_event(state, callbacks, ei, moduleCount);
+    return end_event(state, callbacks, userContext, ei, moduleCount);
 }
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)

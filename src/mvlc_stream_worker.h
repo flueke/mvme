@@ -28,6 +28,7 @@
 
 #include "libmvme_export.h"
 #include "data_buffer_queue.h"
+#include "event_builder/event_builder.h"
 #include "multi_event_splitter.h"
 #include "mesytec_diagnostics.h"
 #include "mvlc/readout_parser_support.h"
@@ -223,6 +224,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
         std::atomic<DebugInfoRequest> m_debugInfoRequest;
         mvme::multi_event_splitter::State m_multiEventSplitter;
         mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
+        mvme::event_builder::EventBuilder m_eventBuilder;
+        mvme::event_builder::Callbacks m_eventBuilderCallbacks;
 
         EventRecord m_singleStepEventRecord = {};
 

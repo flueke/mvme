@@ -35,6 +35,7 @@
 #include "vme_script.h"
 
 using namespace vme_analysis_common;
+using namespace mvme;
 using namespace mesytec;
 using namespace mesytec::mvme_mvlc;
 
@@ -214,7 +215,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     m_parserCallbacks = mesytec::mvlc::readout_parser::ReadoutParserCallbacks();
 
     m_parserCallbacks.eventData = [this, analysis] (
-        void *,
+        void * /*userContext*/,
         int ei,
         const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
         unsigned moduleCount)
@@ -367,7 +368,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
     const auto eventConfigs = vmeConfig->getEventConfigs();
 
-    // Setup multi event splitting if needed
+    // Setup multi event splitting if needed. The processing chain then looks
+    // like this: readout_parser -> multi_event_splitter -> call into the analysis
     if (uses_multi_event_splitting(*vmeConfig, *analysis))
     {
         namespace multi_event_splitter = ::mvme::multi_event_splitter;
@@ -389,14 +391,65 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // Note: the systemEvent callback is not overwritten as there is no
         // special handling for it in the multi event splitting logic.
         m_parserCallbacks.eventData = [this] (
-            void *,
+            void *userContext,
             int ei,
             const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
             unsigned moduleCount)
         {
             multi_event_splitter::event_data(
                 m_multiEventSplitter, m_multiEventSplitterCallbacks,
-                ei, moduleDataList, moduleCount);
+                userContext, ei, moduleDataList, moduleCount);
+        };
+    }
+
+    // Event builder setup would go here. The processing chain then looks like this:
+    // readout_parser -> [multi_event_splitter ->] event_builder -> call into the analysis
+
+    auto is_event_builder_enabled = [] (const auto &vmeConfig, const auto &analysis)
+    {
+        return true;
+    };
+
+    if (is_event_builder_enabled(*vmeConfig, *analysis))
+    {
+        static const int crateIndex = 0;
+
+        if (uses_multi_event_splitting(*vmeConfig, *analysis))
+        {
+            m_eventBuilderCallbacks.eventData = m_multiEventSplitterCallbacks.eventData;
+
+            m_multiEventSplitterCallbacks.eventData = [this] (
+                void *userContext,
+                int eventIndex,
+                const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
+                unsigned moduleCount)
+            {
+                m_eventBuilder.pushEventData(userContext, crateIndex, eventIndex, moduleDataList, moduleCount);
+            };
+        }
+        else
+        {
+            m_eventBuilderCallbacks.eventData = m_parserCallbacks.eventData;
+
+            m_parserCallbacks.eventData = [this] (
+                void *userContext,
+                int eventIndex,
+                const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
+                unsigned moduleCount)
+            {
+                m_eventBuilder.pushEventData(userContext, crateIndex, eventIndex, moduleDataList, moduleCount);
+                m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
+            };
+        }
+
+        m_eventBuilderCallbacks.systemEvent = m_parserCallbacks.systemEvent;
+
+        m_parserCallbacks.systemEvent = [this] (
+            void *userContext,
+            const u32 *data,
+            u32 size)
+        {
+            m_eventBuilder.pushSystemEvent(userContext, crateIndex, data, size);
         };
     }
 }
@@ -429,8 +482,6 @@ void MVLC_StreamWorker::logParserInfo(
 
 void MVLC_StreamWorker::start()
 {
-    namespace readout_parser = mesytec::mvlc::readout_parser;
-
     {
         std::unique_lock<std::mutex> guard(m_stateMutex);
 

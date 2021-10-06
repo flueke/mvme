@@ -3402,7 +3402,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
             {
                 multi_event_splitter::event_data(
                     multiEventSplitter, splitterCallbacks,
-                    ei, moduleDataList, moduleCount);
+                    nullptr, ei, moduleDataList, moduleCount);
                 splitterOut << "========================================" << endl;
             }
         };

@@ -360,6 +360,7 @@ generate_export_header(libmvme)
 target_link_libraries(libmvme
     PUBLIC mesytec-mvlc
     PUBLIC libmvme_core
+    PUBLIC libmvme_eventbuilder
     PUBLIC ${QWT_LIBRARY}
     PUBLIC cpp11-on-multicore
     PRIVATE nlohmann-json

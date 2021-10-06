@@ -2,6 +2,8 @@
 
 #include <boost/circular_buffer.hpp>
 
+namespace mvme
+{
 namespace event_builder
 {
 
@@ -18,9 +20,9 @@ u32 IndexedTimestampFilterExtractor::operator()(const u32 *data, size_t size)
 {
     if (index_ < 0)
     {
-        s32 abs = size - index_;
+        ssize_t abs = size + index_;
 
-        if (0 <= abs && abs < size && matches(filter_, data[abs]))
+        if (0 <= abs && static_cast<size_t>(abs) < size && matches(filter_, data[abs]))
             return extract(filterCache_, data[abs]);
     }
     else if (index_ < size && matches(filter_, data[index_]))
@@ -48,9 +50,18 @@ u32 TimestampFilterExtractor::operator()(const u32 *data, size_t size)
     return 0u;
 }
 
-void EventBuilder::buildEvent(Callbacks &callbacks)
+void EventBuilder::pushEventData(void *userContext, int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
+{
+}
+
+void EventBuilder::pushSystemEvent(void *userContext, int crateIndex, const u32 *header, u32 size)
+{
+}
+
+void EventBuilder::buildEvents(Callbacks &callbacks)
 {
 }
 
 
 } // end namespace event_builder
+} // end namespace mvme

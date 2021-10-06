@@ -6,6 +6,8 @@
 
 #include "analysis/a2/a2_data_filter.h"
 
+namespace mvme
+{
 namespace event_builder
 {
 
@@ -57,12 +59,12 @@ struct EventBuilder
     public:
 
         // Push data into the eventbuilder (called after parsing and multi event splitting)
-        void pushEventData(int crateIndex, /*int eventIndex,*/ const ModuleData *moduleDataList, unsigned moduleCount);
-        void pushSystemEvent(int crateIndex, const u32 *header, u32 size);
+        void pushEventData(void *userContext, int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
+        void pushSystemEvent(void *userContext, int crateIndex, const u32 *header, u32 size);
 
         // Attempt to build the next full event. If successful invoke the callbacks
         // to further process the assembled event.
-        void buildEvent(Callbacks &callbacks);
+        void buildEvents(Callbacks &callbacks);
 
     private:
         ModuleAddress mainModule_;
@@ -71,5 +73,6 @@ struct EventBuilder
 };
 
 } // end namespace event_builder
+} // end namespace mvme
 
 #endif /* __MVME_EVENT_BUILDER_H__ */

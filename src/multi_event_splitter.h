@@ -170,7 +170,7 @@ enum class ErrorCode: u8
 
 std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
-    int ei, const ModuleData *moduleDataList, unsigned moduleCount);
+    void *userContext, int ei, const ModuleData *moduleDataList, unsigned moduleCount);
 
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
