@@ -412,6 +412,10 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
     if (is_event_builder_enabled(*vmeConfig, *analysis))
     {
+        // TODO: create and setup the event builder. It needs the reference
+        // module and a timestamp interval relative to the reference module for
+        // each of the other modules in the same event.
+
         static const int crateIndex = 0;
 
         if (uses_multi_event_splitting(*vmeConfig, *analysis))
