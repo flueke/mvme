@@ -110,7 +110,7 @@ using ModuleData = mesytec::mvlc::readout_parser::ModuleData;
 
 struct Callbacks
 {
-    std::function<void (void *, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)>
+    std::function<void (void *userContext, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)>
         eventData = [] (void *, int, const ModuleData *, unsigned) {};
 };
 
