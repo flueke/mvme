@@ -275,16 +275,18 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
             // dynamic
             if (moduleParts.hasDynamic)
+            {
                 analysis->processModuleData(
                     ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
 
-            for (auto c: m_moduleConsumers)
-                c->processModuleData(
-                    ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+                for (auto c: m_moduleConsumers)
+                    c->processModuleData(
+                        ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
 
-            if (m_diag)
-                m_diag->processModuleData(
-                    ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+                if (m_diag)
+                    m_diag->processModuleData(
+                        ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+            }
 
             // suffix
             if (moduleData.suffix.size)
