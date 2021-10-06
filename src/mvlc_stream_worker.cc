@@ -357,11 +357,11 @@ void MVLC_StreamWorker::setupParserCallbacks(
         if (runInfo.isReplay && subtype == mvlc::system_event::subtype::UnixTimetick)
         {
             analysis->processTimetick();
-        }
 
-        for (auto c: m_moduleConsumers)
-        {
-            c->processTimetick();
+            for (auto c: m_moduleConsumers)
+            {
+                c->processTimetick();
+            }
         }
     };
 
