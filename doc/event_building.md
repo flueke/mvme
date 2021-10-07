@@ -68,3 +68,18 @@ falls withing the acceptable time range. Possible cases:
 
   - event stamp falls in acceptable range:
     This event is part of the full output event. Remove it from the buffer.
+
+Unknowns
+---------
+* Use dynamic data only? What about prefix and suffix? Same behaviour as analysis
+  code to use the prefix if there's no dynamic part?
+
+* Passing the usercontext is weird.
+
+* SystemEvents are unclear.
+
+* Non-event-building-events are unclear.
+
+* How should the enabled flag work?
+
+* Timestamp overflow: need to know the exact number of bits in the timestamp.

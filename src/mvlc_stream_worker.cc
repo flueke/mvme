@@ -126,6 +126,7 @@ MVLC_StreamWorker::MVLC_StreamWorker(
 , m_startPaused(false)
 , m_stopFlag(StopWhenQueueEmpty)
 , m_debugInfoRequest(DebugInfoRequest::None)
+, m_eventBuilder({})
 {
     qRegisterMetaType<mesytec::mvlc::readout_parser::ReadoutParserState>(
         "mesytec::mvlc::readout_parser::ReadoutParserState");
@@ -415,46 +416,48 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // TODO: create and setup the event builder. It needs the reference
         // module and a timestamp interval relative to the reference module for
         // each of the other modules in the same event.
+        // -> Modules accross events should have a unique moduleIndex.
 
         static const int crateIndex = 0;
 
-        if (uses_multi_event_splitting(*vmeConfig, *analysis))
+        // Create new callbacks which call into the EventBuilder.
+
+        auto eventData = [this] (
+            void * /*userContext*/,
+            int eventIndex,
+            const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
+            unsigned moduleCount)
         {
-            m_eventBuilderCallbacks.eventData = m_multiEventSplitterCallbacks.eventData;
+            m_eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
+            m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
+        };
 
-            m_multiEventSplitterCallbacks.eventData = [this] (
-                void *userContext,
-                int eventIndex,
-                const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
-                unsigned moduleCount)
-            {
-                m_eventBuilder.pushEventData(userContext, crateIndex, eventIndex, moduleDataList, moduleCount);
-            };
-        }
-        else
-        {
-            m_eventBuilderCallbacks.eventData = m_parserCallbacks.eventData;
-
-            m_parserCallbacks.eventData = [this] (
-                void *userContext,
-                int eventIndex,
-                const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
-                unsigned moduleCount)
-            {
-                m_eventBuilder.pushEventData(userContext, crateIndex, eventIndex, moduleDataList, moduleCount);
-                m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
-            };
-        }
-
-        m_eventBuilderCallbacks.systemEvent = m_parserCallbacks.systemEvent;
-
-        m_parserCallbacks.systemEvent = [this] (
-            void *userContext,
+        auto systemEvent = [this] (
+            void * /*userContext*/,
             const u32 *data,
             u32 size)
         {
-            m_eventBuilder.pushSystemEvent(userContext, crateIndex, data, size);
+            m_eventBuilder.pushSystemEvent(crateIndex, data, size);
+            m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
         };
+
+        if (uses_multi_event_splitting(*vmeConfig, *analysis))
+        {
+            // readout_parser -> multi_event_splitter -> event_builder -> analysis
+            m_eventBuilderCallbacks.eventData = m_multiEventSplitterCallbacks.eventData;
+            m_multiEventSplitterCallbacks.eventData = eventData;
+        }
+        else
+        {
+            // readout_parser -> event_builder -> analysis
+            m_eventBuilderCallbacks.eventData = m_parserCallbacks.eventData;
+            m_parserCallbacks.eventData = eventData;
+        }
+
+        // System events are not passed to the multi_event_splitter. The chain
+        // is readout_parser -> event_builder -> analysis.
+        m_eventBuilderCallbacks.systemEvent = m_parserCallbacks.systemEvent;
+        m_parserCallbacks.systemEvent = systemEvent;
     }
 }
 

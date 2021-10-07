@@ -41,6 +41,24 @@ struct TimestampFilterExtractor
         a2::data_filter::CacheEntry filterCache_;
 };
 
+struct EventSetup
+{
+    struct CrateSetup
+    {
+        // per crate module timestamp extractors in crate-relative module order
+        std::vector<timestamp_extractor> moduleTimestampExtractors;
+
+        // per crate module timestamp match windows in crate-relative module order
+        std::vector<std::pair<s32, s32>> moduleMatchWindows;
+    };
+
+    bool enabled; // FIXME: how should this work?
+    // Crate setups in crate index order => no holes in crate numbering allowed!
+    std::vector<CrateSetup> crateSetups;
+    // crate and crate-relative indexes of the main module which provides the reference timestamp
+    std::pair<int, int> mainModule; 
+};
+
 struct ModuleAddress
 {
     u8 crate;
@@ -54,23 +72,38 @@ struct TimestampInterval
     s32 upper;
 };
 
-struct EventBuilder
+class EventBuilder
 {
     public:
+        explicit EventBuilder(const std::vector<EventSetup> &setup, void *userContext = nullptr);
+        ~EventBuilder();
 
-        // Push data into the eventbuilder (called after parsing and multi event splitting)
-        void pushEventData(void *userContext, int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
-        void pushSystemEvent(void *userContext, int crateIndex, const u32 *header, u32 size);
+        // Push data into the eventbuilder (called after parsing and multi event splitting).
+        void pushEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
+        void pushSystemEvent(int crateIndex, const u32 *header, u32 size);
 
-        // Attempt to build the next full event. If successful invoke the callbacks
-        // to further process the assembled event.
-        void buildEvents(Callbacks &callbacks);
+        // Attempt to build the next full events. If successful invoke the
+        // callbacks to further process the assembled events. Maybe be called
+        // from a different thread than the push*() methods.
+
+        // Note: right now doesn't do any age checking or similar. This means
+        // it tries to yield one assembled output event for each input event
+        // from the main module.
+        size_t buildEvents(Callbacks callbacks);
 
     private:
-        ModuleAddress mainModule_;
-        std::vector<std::vector<u32>> eventBuffer_;
-
+        struct Private;
+        std::unique_ptr<Private> d;
 };
+
+enum class WindowMatchResult
+{
+    too_old,
+    in_window,
+    too_new
+};
+
+WindowMatchResult timestamp_match(u32 tsMain, u32 tsModule, const std::pair<s32, s32> &matchWindow);
 
 } // end namespace event_builder
 } // end namespace mvme
