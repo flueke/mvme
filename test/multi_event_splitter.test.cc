@@ -64,7 +64,7 @@ TEST(MultiEventSplitter, WithSizeSameCount)
     moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
-            splitter, callbacks,
+            splitter, callbacks, nullptr,
             eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
@@ -142,7 +142,7 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
     moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
-            splitter, callbacks,
+            splitter, callbacks, nullptr,
             eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
@@ -221,7 +221,7 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
-            splitter, callbacks,
+            splitter, callbacks, nullptr,
             eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
@@ -300,7 +300,7 @@ TEST(MultiEventSplitter, NoSizeSameCount)
     moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
-            splitter, callbacks,
+            splitter, callbacks, nullptr,
             eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
@@ -378,7 +378,7 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
-            splitter, callbacks,
+            splitter, callbacks, nullptr,
             eventIndex, moduleDataList.data(), moduleDataList.size()));
 
     //qDebug() << __PRETTY_FUNCTION__ << splitEvents;
