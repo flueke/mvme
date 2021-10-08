@@ -56,7 +56,9 @@ struct EventSetup
     // Crate setups in crate index order => no holes in crate numbering allowed!
     std::vector<CrateSetup> crateSetups;
     // crate and crate-relative indexes of the main module which provides the reference timestamp
-    std::pair<int, int> mainModule; 
+    std::pair<int, int> mainModule;
+
+    size_t maxBufferedMainModuleEvents = 1000;
 };
 
 struct ModuleAddress
@@ -78,6 +80,9 @@ class EventBuilder
         explicit EventBuilder(const std::vector<EventSetup> &setup, void *userContext = nullptr);
         ~EventBuilder();
 
+        EventBuilder(EventBuilder &&);
+        EventBuilder &operator=(EventBuilder &&);
+
         // Push data into the eventbuilder (called after parsing and multi event splitting).
         void pushEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
         void pushSystemEvent(int crateIndex, const u32 *header, u32 size);
@@ -90,6 +95,8 @@ class EventBuilder
         // it tries to yield one assembled output event for each input event
         // from the main module.
         size_t buildEvents(Callbacks callbacks);
+
+        bool waitForData(const std::chrono::milliseconds &maxWait);
 
     private:
         struct Private;

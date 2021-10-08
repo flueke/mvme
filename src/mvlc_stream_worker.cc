@@ -24,6 +24,7 @@
 #include <mutex>
 #include <QThread>
 
+#include "analysis/a2/a2_data_filter.h"
 #include "analysis/analysis_util.h"
 #include "analysis/analysis_session.h"
 #include "databuffer.h"
@@ -419,6 +420,28 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // -> Modules accross events should have a unique moduleIndex.
 
         static const int crateIndex = 0;
+        int eventIndex = 0;
+        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+
+        event_builder::EventSetup::CrateSetup crateSetup;
+
+        // FIXME: do something for all events otherwise event data won't pass through
+        // Also: how to handle non-synced events? when building always pass all
+        // directly built events through.
+        for (int moduleIndex = 0; moduleIndex < eventConfig->getModuleConfigs().size(); ++moduleIndex)
+        {
+            crateSetup.moduleTimestampExtractors.push_back(
+                event_builder::IndexedTimestampFilterExtractor(
+                    a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
+            crateSetup.moduleMatchWindows.push_back(std::make_pair(-8, 8));
+        }
+
+        event_builder::EventSetup eventSetup;
+        eventSetup.enabled = true;
+        eventSetup.mainModule = std::make_pair(0, 0); // crate0, module0
+        eventSetup.crateSetups = { crateSetup };
+
+        m_eventBuilder = event_builder::EventBuilder({ eventSetup });
 
         // Create new callbacks which call into the EventBuilder.
 
