@@ -30,18 +30,12 @@ TEST(event_builder, ConstructDescruct)
     EventBuilder eventbuilder(setup);
 }
 
-TEST(event_builder, OneCrateOneEvent)
+namespace
 {
-    auto test_timestamp_extractor = [] (const u32 *moduleData, size_t size) -> u32
-    {
-        if (size > 0)
-            return moduleData[0];
-        return 0u;
-    };
-
     // Returns a Callback compatible vector of ModuleData structures pointing
     // into the moduleTestData storage.
-    auto module_data_list_from_test_data = [] (const auto &moduleTestData)
+    template<typename T>
+    std::vector<ModuleData> module_data_list_from_test_data(const T &moduleTestData)
     {
         std::vector<ModuleData> result(moduleTestData.size());
 
@@ -53,29 +47,43 @@ TEST(event_builder, OneCrateOneEvent)
         }
 
         return result;
-    };
+    }
 
-    EventSetup eventSetup;
-    eventSetup.enabled = true;
-    eventSetup.mainModule = { 0, 1 }; // crate0, module1
-    eventSetup.crateSetups.resize(1);
-    eventSetup.crateSetups[0].moduleTimestampExtractors = {
-        test_timestamp_extractor, // crate0, module0
-        test_timestamp_extractor, // crate0, module1 (**)
-        test_timestamp_extractor, // crate0, module2
-    };
-    eventSetup.crateSetups[0].moduleMatchWindows = {
-        {  -50,  75 }, // crate0, module0
-        {    0,   0 }, // crate0, module1 (**)
-        {    0, 150 }, // crate0, module2
-    };
+    EventSetup make_one_crate_one_event_test_setup()
+    {
+        auto test_timestamp_extractor = [] (const u32 *moduleData, size_t size) -> u32
+        {
+            if (size > 0)
+                return moduleData[0];
+            return 0u;
+        };
 
-    const size_t moduleCount = 3;
-    int crateIndex = 0;
-    int eventIndex = 0;
+        EventSetup eventSetup;
+        eventSetup.enabled = true;
+        eventSetup.mainModule = { 0, 1 }; // crate0, module1
+        eventSetup.crateSetups.resize(1);
+        eventSetup.crateSetups[0].moduleTimestampExtractors = {
+            test_timestamp_extractor, // crate0, module0
+            test_timestamp_extractor, // crate0, module1 (**)
+            test_timestamp_extractor, // crate0, module2
+        };
+        eventSetup.crateSetups[0].moduleMatchWindows = {
+            {  -50,  75 }, // crate0, module0
+            {    0,   0 }, // crate0, module1 (**)
+            {    0, 150 }, // crate0, module2
+        };
 
+        return eventSetup;
+    }
+
+    const size_t TestSetupModuleCount = 3;
+}
+
+
+TEST(event_builder, SingleCrateWindowMatching)
+{
     // Storage for the module data
-    std::vector<std::array<std::vector<u32>, moduleCount>> moduleTestData =
+    std::vector<std::array<std::vector<u32>, TestSetupModuleCount>> moduleTestData =
     {
         {
             {
@@ -100,9 +108,9 @@ TEST(event_builder, OneCrateOneEvent)
         },
     };
 
-
-
-    std::vector<EventSetup> setup = { eventSetup };
+    int crateIndex = 0;
+    int eventIndex = 0;
+    auto setup = std::vector<EventSetup>{ make_one_crate_one_event_test_setup() };
 
     {
         EventBuilder eventBuilder(setup);
@@ -131,7 +139,7 @@ TEST(event_builder, OneCrateOneEvent)
             ++systemCallbackCount;
         };
 
-        eventBuilder.buildEvents({ eventDataCallback, systemEventCallback });
+        ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, true), 1);
 
         ASSERT_EQ(dataCallbackCount, 1);
         ASSERT_EQ(systemCallbackCount, 0);
@@ -183,7 +191,7 @@ TEST(event_builder, OneCrateOneEvent)
             ++systemCallbackCount;
         };
 
-        eventBuilder.buildEvents({ eventDataCallback, systemEventCallback });
+        ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, true), 2);
 
         ASSERT_EQ(dataCallbackCount, 2);
         ASSERT_EQ(systemCallbackCount, 0);
@@ -249,11 +257,100 @@ TEST(event_builder, OneCrateOneEvent)
             ++systemCallbackCount;
         };
 
-        eventBuilder.buildEvents({ eventDataCallback, systemEventCallback });
+        ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, true), 3);
 
         ASSERT_EQ(dataCallbackCount, 3);
         ASSERT_EQ(systemCallbackCount, 0);
         dataCallbackCount = 0;
         systemCallbackCount = 0;
     }
+}
+
+TEST(event_builder, SingleCratePerfectMatches)
+{
+    int crateIndex = 0;
+    int eventIndex = 0;
+    auto setup = make_one_crate_one_event_test_setup();
+    setup.minMainModuleEvents = 1000;
+    EventBuilder eventBuilder({ setup });
+
+    // Storage for a single event (3 modules)
+    std::array<std::array<u32, 1>, TestSetupModuleCount> eventStorage = {};
+
+    // Callback compatible ModuleData array pointing into the eventStorage storage.
+    std::array<ModuleData, TestSetupModuleCount> eventData =
+    {
+        ModuleData { .dynamic = { eventStorage[0].data(), 1 } },
+        ModuleData { .dynamic = { eventStorage[1].data(), 1 } },
+        ModuleData { .dynamic = { eventStorage[2].data(), 1 } },
+    };
+
+    u32 ts = 0;
+
+    // Push 999 events using the event number as the timestamp value for all modules.
+    for (ts = 0; ts < 999; ++ts)
+    {
+        for (auto &moduleData: eventStorage)
+            moduleData[0] = ts;
+
+        eventBuilder.recordEventData(crateIndex, eventIndex, eventData.data(), eventData.size());
+    }
+
+    size_t dataCallbackCount = 0;
+    size_t systemCallbackCount = 0;
+
+    auto eventDataCallback = [&] (void *, int eventIndex, const ModuleData *eventData, unsigned moduleCount)
+    {
+        ++dataCallbackCount;
+    };
+
+    auto systemEventCallback = [&] (void *, const u32 *header, u32 size)
+    {
+        ++systemCallbackCount;
+    };
+
+    ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, false), 0);;
+    ASSERT_EQ(dataCallbackCount, 0);
+    ASSERT_EQ(systemCallbackCount, 0);
+
+    // Push one more event to reach 1000 buffered
+    {
+        for (auto &moduleData: eventStorage)
+            moduleData[0] = ts;
+
+        eventBuilder.recordEventData(crateIndex, eventIndex, eventData.data(), eventData.size());
+    }
+
+    // Can build one event to fall below the 1000 minMainModuleEvents limit
+    ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, false), 1);;
+    ASSERT_EQ(dataCallbackCount, 1);
+    ASSERT_EQ(systemCallbackCount, 0);
+
+    // No change, cannot build
+    ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, false), 0);;
+    ASSERT_EQ(dataCallbackCount, 1);
+    ASSERT_EQ(systemCallbackCount, 0);
+
+    // Flush
+    ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, true), 999);;
+    ASSERT_EQ(dataCallbackCount, 1000);
+    ASSERT_EQ(systemCallbackCount, 0);
+
+    // Push one more event to reach 1 buffered
+    {
+        for (auto &moduleData: eventStorage)
+            moduleData[0] = ts;
+
+        eventBuilder.recordEventData(crateIndex, eventIndex, eventData.data(), eventData.size());
+    }
+
+    // Cannot build, only one event buffered
+    ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, false), 0);;
+    ASSERT_EQ(dataCallbackCount, 1000);
+    ASSERT_EQ(systemCallbackCount, 0);
+
+    // Flush
+    ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, true), 1);;
+    ASSERT_EQ(dataCallbackCount, 1001);
+    ASSERT_EQ(systemCallbackCount, 0);
 }

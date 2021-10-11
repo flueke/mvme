@@ -71,12 +71,23 @@ using mesytec::mvlc::TicketMutex;
 using mesytec::mvlc::UniqueLock;
 using mesytec::mvlc::readout_parser::PairHash;
 
+ModuleData module_data_from_event_storage(const ModuleEventStorage &input)
+{
+    auto result = ModuleData
+    {
+        { input.prefix.data(), static_cast<u32>(input.prefix.size()) },
+        { input.dynamic.data(), static_cast<u32>(input.dynamic.size()) },
+        { input.suffix.data(), static_cast<u32>(input.suffix.size()) },
+    };
+
+    return result;
+}
 
 struct EventBuilder::Private
 {
     void *userContext_ = nullptr;
 
-    std::vector<EventSetup> setup_;
+    std::vector<EventSetup> setups_;
 
     TicketMutex mutex_;
     std::condition_variable_any cv_;
@@ -91,8 +102,9 @@ struct EventBuilder::Private
     std::vector<std::vector<timestamp_extractor>> moduleTimestampExtractors_;
     // indexes: event, linear module
     std::vector<std::vector<std::pair<s32, s32>>> moduleMatchWindows_;
-    // indexes: event, pair(crateIndex, moduleIndex)
+    // indexes: event, pair(crateIndex, moduleIndex) -> linear module index
     std::vector<std::unordered_map<std::pair<int, unsigned>, size_t, PairHash>> linearModuleIndexTable_;
+    // Linear module index of the main module for each event
     // indexes: event, linear module
     std::vector<size_t> mainModuleLinearIndexes_;
 
@@ -106,15 +118,95 @@ struct EventBuilder::Private
         assert(eventTable.find(key) != eventTable.end());
         return eventTable.at(key);
     }
+
+    size_t buildEvents(int eventIndex, Callbacks &callbacks, bool flush)
+    {
+        auto &eventBuffers = moduleEventBuffers_.at(eventIndex);
+        auto &matchWindows = moduleMatchWindows_.at(eventIndex);
+        assert(eventBuffers.size() == matchWindows.size());
+        const size_t moduleCount = eventBuffers.size();
+        auto mainModuleIndex = mainModuleLinearIndexes_.at(eventIndex);
+        assert(mainModuleIndex < moduleCount);
+        auto &mainBuffer = eventBuffers.at(mainModuleIndex);
+
+        // Check if there is at least one event from the main module
+        if (mainBuffer.empty())
+            return 0u;
+
+        eventAssembly_.resize(moduleCount);
+
+        size_t result = 0u;
+        auto &setup = setups_.at(eventIndex);
+
+        while (!mainBuffer.empty()
+               && (flush || mainBuffer.size() >= setup.minMainModuleEvents))
+        {
+            auto mainModuleTimestamp = eventBuffers[mainModuleIndex].front().timestamp;
+            std::fill(eventAssembly_.begin(), eventAssembly_.end(), ModuleData{});
+            u32 eventInvScore = 0u;
+
+            for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
+            {
+                if (eventBuffers[moduleIndex].empty())
+                    continue;
+
+                auto &matchWindow = matchWindows[moduleIndex];
+                bool done = false;
+
+                while (!done && !eventBuffers[moduleIndex].empty())
+                {
+                    auto &moduleEvent = eventBuffers[moduleIndex].front();
+                    auto matchResult = timestamp_match(mainModuleTimestamp, moduleEvent.timestamp, matchWindow);
+
+                    switch (matchResult.match)
+                    {
+                        case WindowMatch::too_old:
+                            eventBuffers[moduleIndex].pop_front();
+                            break;
+
+                        case WindowMatch::in_window:
+                            eventAssembly_[moduleIndex] = module_data_from_event_storage(moduleEvent);
+                            eventInvScore += matchResult.invscore;
+                            done = true;
+                            break;
+
+                        case WindowMatch::too_new:
+                            done = true;
+                            break;
+                    }
+                }
+            }
+
+            // TODO: pass eventInvScore as a quality measure to the analysis
+            // could either add an EventMeta object and udpate all the callbacks in the chain
+            // or could create more virtual events and modules and pass the data in via separate calls
+            // to eventData() using the indexes of the virtual objects.
+            callbacks.eventData(userContext_, eventIndex, eventAssembly_.data(), moduleCount);
+            ++result;
+
+            for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
+            {
+                auto &moduleData = eventAssembly_[moduleIndex];
+
+                if (moduleData.prefix.data || moduleData.dynamic.data || moduleData.suffix.data)
+                {
+                    assert(!eventBuffers[moduleIndex].empty());
+                    eventBuffers[moduleIndex].pop_front();
+                }
+            }
+        }
+
+        return result;
+    }
 };
 
-EventBuilder::EventBuilder(const std::vector<EventSetup> &setup, void *userContext)
+EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userContext)
     : d(std::make_unique<Private>())
 {
     d->userContext_ = userContext;
-    d->setup_ = setup;
+    d->setups_ = setups;
 
-    const size_t eventCount = d->setup_.size();
+    const size_t eventCount = d->setups_.size();
 
     d->moduleEventBuffers_.resize(eventCount);
     d->moduleTimestampExtractors_.resize(eventCount);
@@ -124,7 +216,7 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setup, void *userConte
 
     for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex)
     {
-        const auto &eventSetup = d->setup_.at(eventIndex);
+        const auto &eventSetup = d->setups_.at(eventIndex);
         auto &eventTable = d->linearModuleIndexTable_.at(eventIndex);
         auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
         auto &matchWindows = d->moduleMatchWindows_.at(eventIndex);
@@ -178,6 +270,8 @@ void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleD
     // lock, then copy the data to an internal buffer
     UniqueLock guard(d->mutex_);
 
+    assert(0 <= eventIndex);
+    assert(eventIndex < d->moduleEventBuffers_.size());
     auto &moduleEventBuffers = d->moduleEventBuffers_.at(eventIndex);
     auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
 
@@ -256,18 +350,6 @@ bool EventBuilder::waitForData(const std::chrono::milliseconds &maxWait)
     return d->cv_.wait_for(guard, maxWait, predicate);
 }
 
-ModuleData module_data_from_event_storage(const ModuleEventStorage &input)
-{
-    auto result = ModuleData
-    {
-        { input.prefix.data(), static_cast<u32>(input.prefix.size()) },
-        { input.dynamic.data(), static_cast<u32>(input.dynamic.size()) },
-        { input.suffix.data(), static_cast<u32>(input.suffix.size()) },
-    };
-
-    return result;
-}
-
 WindowMatchResult timestamp_match(u32 tsMain, u32 tsModule, const std::pair<s32, s32> &matchWindow)
 {
     // FIXME: proper overflow handling
@@ -291,7 +373,7 @@ WindowMatchResult timestamp_match(u32 tsMain, u32 tsModule, const std::pair<s32,
     return { WindowMatch::in_window, static_cast<u32>(std::abs(diff)) };
 }
 
-size_t EventBuilder::buildEvents(Callbacks callbacks)
+size_t EventBuilder::buildEvents(Callbacks callbacks, bool flush)
 {
     UniqueLock guard(d->mutex_);
 
@@ -308,108 +390,12 @@ size_t EventBuilder::buildEvents(Callbacks callbacks)
 
     // readout event building
     const size_t eventCount = d->moduleEventBuffers_.size();
+    size_t result = 0u;
 
-    // TODO: split this into a function taking the event index.
     for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex)
-    {
-        auto &eventBuffers = d->moduleEventBuffers_.at(eventIndex);
-        auto &matchWindows = d->moduleMatchWindows_.at(eventIndex);
-        assert(eventBuffers.size() == matchWindows.size());
-        const size_t moduleCount = eventBuffers.size();
-        auto mainModuleIndex = d->mainModuleLinearIndexes_.at(eventIndex);
-        assert(mainModuleIndex < moduleCount);
+        result += d->buildEvents(eventIndex, callbacks, flush);
 
-        // Check if there is at least one event from the main module
-        if (eventBuffers[mainModuleIndex].empty())
-            continue;
-
-        d->eventAssembly_.resize(moduleCount);
-
-        while (!eventBuffers[mainModuleIndex].empty())
-        {
-            auto mainModuleTimestamp = eventBuffers[mainModuleIndex].front().timestamp;
-            std::fill(d->eventAssembly_.begin(), d->eventAssembly_.end(), ModuleData{});
-            bool skipToNextEventIndex = false;
-
-            for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
-            {
-                // TODO: leave the loop here and try again later unless there are >= N main module events buffered.
-                // In this case assume that the missing modules data won't
-                // arrive anymore so we yield an event with missing modules.
-
-                // Check if there is data for the current module.
-                if (eventBuffers[moduleIndex].empty())
-                {
-                // FIXME: do use the max buffered check
-                #if 1
-                    d->eventAssembly_[moduleIndex] = {};
-                    continue; // to next module
-                #else
-                    // No data for this module. We could now either yield the
-                    // event with this module set to a null event or wait for
-                    // more data and later on attempt to match this event
-                    // again. Decide based on the number of buffered main
-                    // module events.
-                    if (eventBuffers[mainModuleIndex].size() > d->setup_[eventIndex].maxBufferedMainModuleEvents)
-                    {
-                        d->eventAssembly_[moduleIndex] = {};
-                        continue; // to next module
-                    }
-                    else
-                    {
-                        // break out of the module loop
-                        skipToNextEventIndex = true;
-                        break;
-                    }
-                #endif
-                }
-
-                auto &matchWindow = matchWindows[moduleIndex];
-                bool done = false;
-
-                while (!done && !eventBuffers[moduleIndex].empty())
-                {
-                    auto &moduleEvent = eventBuffers[moduleIndex].front();
-
-                    switch (timestamp_match(mainModuleTimestamp, moduleEvent.timestamp, matchWindow).match)
-                    {
-                        case WindowMatch::too_old:
-                            eventBuffers[moduleIndex].pop_front();
-                            break;
-
-                        case WindowMatch::in_window:
-                            d->eventAssembly_[moduleIndex] = module_data_from_event_storage(moduleEvent);
-                            done = true;
-                            break;
-
-                        case WindowMatch::too_new:
-                            d->eventAssembly_[moduleIndex] = {};
-                            done = true;
-                            break;
-                    }
-                }
-            }
-
-            // skip to the next event index
-            if (skipToNextEventIndex)
-                break;
-
-            callbacks.eventData(d->userContext_, eventIndex, d->eventAssembly_.data(), moduleCount);
-
-            for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
-            {
-                auto &moduleData = d->eventAssembly_[moduleIndex];
-
-                if (moduleData.prefix.data || moduleData.dynamic.data || moduleData.suffix.data)
-                {
-                    assert(!eventBuffers[moduleIndex].empty());
-                    eventBuffers[moduleIndex].pop_front();
-                }
-            }
-        }
-    }
-
-    return 0u;
+    return result;
 }
 
 } // end namespace event_builder

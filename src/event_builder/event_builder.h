@@ -45,20 +45,26 @@ struct EventSetup
 {
     struct CrateSetup
     {
-        // per crate module timestamp extractors in crate-relative module order
+        // module timestamp extractors in crate-relative module order
         std::vector<timestamp_extractor> moduleTimestampExtractors;
 
-        // per crate module timestamp match windows in crate-relative module order
+        // module timestamp match windows in crate-relative module order
         std::vector<std::pair<s32, s32>> moduleMatchWindows;
     };
 
-    bool enabled; // FIXME: how should this work?
-    // Crate setups in crate index order => no holes in crate numbering allowed!
+    // Enable event building across crates for this event.
+    bool enabled;
+
+    // Crate setups in crate index order.
     std::vector<CrateSetup> crateSetups;
+
     // crate and crate-relative indexes of the main module which provides the reference timestamp
     std::pair<int, int> mainModule;
 
-    size_t maxBufferedMainModuleEvents = 1000;
+    // Minimum number of main module events that need to be buffered before
+    // event building proceeds. Ignored if flush is set in the call to
+    // buildEvents().
+    size_t minMainModuleEvents = 1000;
 };
 
 struct ModuleAddress
@@ -83,6 +89,9 @@ class EventBuilder
         EventBuilder(EventBuilder &&);
         EventBuilder &operator=(EventBuilder &&);
 
+        EventBuilder(const EventBuilder &) = delete;
+        EventBuilder &operator=(const EventBuilder &) = delete;
+
         // Push data into the eventbuilder (called after parsing and multi event splitting).
         void recordEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
         void recordSystemEvent(int crateIndex, const u32 *header, u32 size);
@@ -94,7 +103,7 @@ class EventBuilder
         // Note: right now doesn't do any age checking or similar. This means
         // it tries to yield one assembled output event for each input event
         // from the main module.
-        size_t buildEvents(Callbacks callbacks);
+        size_t buildEvents(Callbacks callbacks, bool flush = false);
 
         bool waitForData(const std::chrono::milliseconds &maxWait);
 
