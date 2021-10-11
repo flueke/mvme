@@ -5,10 +5,23 @@ using namespace mvme::event_builder;
 
 TEST(event_builder, TimestampMatch)
 {
-    ASSERT_EQ(timestamp_match(150,  99, { -50, 50 }), WindowMatchResult::too_old);
-    ASSERT_EQ(timestamp_match(150, 100, { -50, 50 }), WindowMatchResult::in_window);
-    ASSERT_EQ(timestamp_match(150, 200, { -50, 50 }), WindowMatchResult::in_window);
-    ASSERT_EQ(timestamp_match(150, 201, { -50, 50 }), WindowMatchResult::too_new);
+    WindowMatchResult mr = {};
+
+    mr = timestamp_match(150,  99, { -50, 50 });
+    ASSERT_EQ(mr.match, WindowMatch::too_old);
+    ASSERT_EQ(mr.invscore, 51u);
+
+    mr = timestamp_match(150, 100, { -50, 50 });
+    ASSERT_EQ(mr.match, WindowMatch::in_window);
+    ASSERT_EQ(mr.invscore, 50u);
+
+    mr = timestamp_match(150, 200, { -50, 50 });
+    ASSERT_EQ(mr.match, WindowMatch::in_window);
+    ASSERT_EQ(mr.invscore, 50u);
+
+    mr = timestamp_match(150, 201, { -50, 50 });
+    ASSERT_EQ(mr.match, WindowMatch::too_new);
+    ASSERT_EQ(mr.invscore, 51u);
 }
 
 TEST(event_builder, ConstructDescruct)
@@ -95,7 +108,7 @@ TEST(event_builder, OneCrateOneEvent)
         EventBuilder eventBuilder(setup);
 
         auto moduleDataList = module_data_list_from_test_data(moduleTestData[0]);
-        eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
 
         size_t dataCallbackCount = 0;
         size_t systemCallbackCount = 0;
@@ -130,10 +143,10 @@ TEST(event_builder, OneCrateOneEvent)
         EventBuilder eventBuilder(setup);
 
         auto moduleDataList = module_data_list_from_test_data(moduleTestData[0]);
-        eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
 
         moduleDataList = module_data_list_from_test_data(moduleTestData[1]);
-        eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
 
         size_t dataCallbackCount = 0;
         size_t systemCallbackCount = 0;
@@ -182,13 +195,13 @@ TEST(event_builder, OneCrateOneEvent)
         EventBuilder eventBuilder(setup);
 
         auto moduleDataList = module_data_list_from_test_data(moduleTestData[0]);
-        eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
 
         moduleDataList = module_data_list_from_test_data(moduleTestData[1]);
-        eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
 
         moduleDataList = module_data_list_from_test_data(moduleTestData[2]);
-        eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
 
         size_t dataCallbackCount = 0;
         size_t systemCallbackCount = 0;

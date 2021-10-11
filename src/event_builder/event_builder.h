@@ -84,8 +84,8 @@ class EventBuilder
         EventBuilder &operator=(EventBuilder &&);
 
         // Push data into the eventbuilder (called after parsing and multi event splitting).
-        void pushEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
-        void pushSystemEvent(int crateIndex, const u32 *header, u32 size);
+        void recordEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
+        void recordSystemEvent(int crateIndex, const u32 *header, u32 size);
 
         // Attempt to build the next full events. If successful invoke the
         // callbacks to further process the assembled events. Maybe be called
@@ -103,11 +103,19 @@ class EventBuilder
         std::unique_ptr<Private> d;
 };
 
-enum class WindowMatchResult
+enum class WindowMatch
 {
     too_old,
     in_window,
     too_new
+};
+
+struct WindowMatchResult
+{
+    WindowMatch match;
+    // The asbsolute distance to the reference timestamp tsMain.
+    // 0 -> perfect match, else the higher the worse the match.
+    u32 invscore;
 };
 
 WindowMatchResult timestamp_match(u32 tsMain, u32 tsModule, const std::pair<s32, s32> &matchWindow);

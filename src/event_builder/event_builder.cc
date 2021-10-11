@@ -173,7 +173,7 @@ EventBuilder &EventBuilder::operator=(EventBuilder &&o)
     return *this;
 }
 
-void EventBuilder::pushEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
+void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
 {
     // lock, then copy the data to an internal buffer
     UniqueLock guard(d->mutex_);
@@ -207,7 +207,7 @@ void EventBuilder::pushEventData(int crateIndex, int eventIndex, const ModuleDat
     d->cv_.notify_one();
 }
 
-void EventBuilder::pushSystemEvent(int crateIndex, const u32 *header, u32 size)
+void EventBuilder::recordSystemEvent(int crateIndex, const u32 *header, u32 size)
 {
     // lock, then copy the data to an internal buffer
     SystemEventStorage ses = { crateIndex, { header, header + size } };
@@ -233,9 +233,9 @@ bool EventBuilder::waitForData(const std::chrono::milliseconds &maxWait)
             {
                 return std::any_of(
                     moduleBuffers.begin(), moduleBuffers.end(),
-                    [] (const auto &moduleQueue)
+                    [] (const auto &moduleBuffer)
                     {
-                        return !moduleQueue.empty();
+                        return !moduleBuffer.empty();
                     });
             });
 #else
@@ -279,16 +279,16 @@ WindowMatchResult timestamp_match(u32 tsMain, u32 tsModule, const std::pair<s32,
     {
         // tsModule is before tsMain
         if (diff > -matchWindow.first)
-            return WindowMatchResult::too_old;
+            return { WindowMatch::too_old, static_cast<u32>(std::abs(diff)) };
     }
     else
     {
         // tsModule is after tsMain
         if (-diff > matchWindow.second)
-            return WindowMatchResult::too_new;
+            return { WindowMatch::too_new, static_cast<u32>(std::abs(diff)) };
     }
 
-    return WindowMatchResult::in_window;
+    return { WindowMatch::in_window, static_cast<u32>(std::abs(diff)) };
 }
 
 size_t EventBuilder::buildEvents(Callbacks callbacks)
@@ -371,18 +371,18 @@ size_t EventBuilder::buildEvents(Callbacks callbacks)
                 {
                     auto &moduleEvent = eventBuffers[moduleIndex].front();
 
-                    switch (timestamp_match(mainModuleTimestamp, moduleEvent.timestamp, matchWindow))
+                    switch (timestamp_match(mainModuleTimestamp, moduleEvent.timestamp, matchWindow).match)
                     {
-                        case WindowMatchResult::too_old:
+                        case WindowMatch::too_old:
                             eventBuffers[moduleIndex].pop_front();
                             break;
 
-                        case WindowMatchResult::in_window:
+                        case WindowMatch::in_window:
                             d->eventAssembly_[moduleIndex] = module_data_from_event_storage(moduleEvent);
                             done = true;
                             break;
 
-                        case WindowMatchResult::too_new:
+                        case WindowMatch::too_new:
                             d->eventAssembly_[moduleIndex] = {};
                             done = true;
                             break;

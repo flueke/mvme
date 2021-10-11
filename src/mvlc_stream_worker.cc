@@ -451,7 +451,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
             const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
             unsigned moduleCount)
         {
-            m_eventBuilder.pushEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
+            m_eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
             m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
         };
 
@@ -460,7 +460,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
             const u32 *data,
             u32 size)
         {
-            m_eventBuilder.pushSystemEvent(crateIndex, data, size);
+            m_eventBuilder.recordSystemEvent(crateIndex, data, size);
             m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
         };
 
