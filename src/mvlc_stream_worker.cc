@@ -495,7 +495,7 @@ void MVLC_StreamWorker::logParserInfo(
 
         for (size_t moduleIndex=0; moduleIndex<modules.size(); moduleIndex++)
         {
-#if 1
+#if 0
             const auto &moduleParts = modules[moduleIndex];
 
             logInfo(QString("mvlc readout parser info: eventIndex=%1"
@@ -567,7 +567,7 @@ void MVLC_StreamWorker::start()
         // Reset the parser counters and the snapshot copy
         m_parserCounters = {};
         m_parserCountersSnapshot.access().ref() = m_parserCounters;
-        //logParserInfo(m_parser);
+        logParserInfo(m_parser);
     }
     catch (const vme_script::ParseError &e)
     {
@@ -805,6 +805,7 @@ void MVLC_StreamWorker::processBuffer(
     bool exceptionSeen = false;
 
     auto bufferView = buffer->viewU32();
+    const bool useLogThrottle = true;
 
     try
     {
@@ -831,7 +832,7 @@ void MVLC_StreamWorker::processBuffer(
         logWarn(QSL("end_of_buffer (%1) when parsing buffer #%2")
                 .arg(e.what())
                 .arg(buffer->bufferNumber()),
-                true);
+                useLogThrottle);
         exceptionSeen = true;
     }
     catch (const std::exception &e)
@@ -839,14 +840,14 @@ void MVLC_StreamWorker::processBuffer(
         logWarn(QSL("exception (%1) when parsing buffer #%2")
                 .arg(e.what())
                 .arg(buffer->bufferNumber()),
-                true);
+                useLogThrottle);
         exceptionSeen = true;
     }
     catch (...)
     {
         logWarn(QSL("unknown exception when parsing buffer #%1")
                 .arg(buffer->bufferNumber()),
-                true);
+                useLogThrottle);
         exceptionSeen = true;
     }
 

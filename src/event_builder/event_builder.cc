@@ -270,8 +270,8 @@ void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleD
     // lock, then copy the data to an internal buffer
     UniqueLock guard(d->mutex_);
 
+    assert(0 <= crateIndex);
     assert(0 <= eventIndex);
-    assert(eventIndex < d->moduleEventBuffers_.size());
     auto &moduleEventBuffers = d->moduleEventBuffers_.at(eventIndex);
     auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
 
