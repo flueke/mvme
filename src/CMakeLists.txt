@@ -578,4 +578,6 @@ if(MVME_BUILD_TESTS)
 
 endif(MVME_BUILD_TESTS)
 
+add_mvme_executable(cpp_vector_at_test "cpp_vector_at_test.cc")
+
 # vim:tw=0
