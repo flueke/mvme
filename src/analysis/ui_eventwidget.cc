@@ -1345,7 +1345,7 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
     connect(actionEventSettings, &QAction::triggered, this, [this] {
         auto vmeConfig = m_d->m_context->getVMEConfig();
         auto analysis = m_d->m_context->getAnalysis();
-        EventSettingsDialog dialog(vmeConfig, analysis, this);
+        EventSettingsDialog dialog(vmeConfig, analysis->getVMEObjectSettings(), this);
 
         if (dialog.exec() == QDialog::Accepted)
         {

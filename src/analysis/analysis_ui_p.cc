@@ -2878,34 +2878,128 @@ void ExportSinkStatusMonitor::update()
 // EventSettingsDialog
 //
 
+struct EventSettingsDialog::Private
+{
+    const VMEConfig *vmeConfig_;
+    Analysis::VMEObjectSettings settings_;
+    QVector<QCheckBox *> check_multiEvent_;
+    QVector<QCheckBox *> checks_eventBuilder;
+};
+
 EventSettingsDialog::EventSettingsDialog(
     const VMEConfig *vmeConfig,
-    const Analysis *analysis,
+    const Analysis::VMEObjectSettings &settings,
     QWidget *parent)
     : QDialog(parent)
-    , m_vmeConfig(vmeConfig)
-    , m_analysis(analysis)
+    , d(std::make_unique<Private>())
 {
+    d->vmeConfig_ = vmeConfig;
+    d->settings_ = settings;
+
     setWindowTitle(QSL("Analysis Event Settings"));
 
-    auto eventConfigs = m_vmeConfig->getEventConfigs();
+    auto eventConfigs = d->vmeConfig_->getEventConfigs();
 
-    auto table = new QTableWidget(eventConfigs.size(), 1);
-    table->setHorizontalHeaderLabels({ QSL("Multi Event Processing") });
+    const QStringList headers =
+    {
+        QSL("Multi Event Processing"),
+        QSL("Event Builder"),
+        QSL("Event Builder Settings"),
+    };
+    auto table = new QTableWidget(eventConfigs.size(), headers.size());
+    table->setHorizontalHeaderLabels(headers);
 
     for (int ei=0; ei<eventConfigs.size(); ei++)
     {
         auto eventConfig = eventConfigs[ei];
+        auto eventSettings = d->settings_.value(eventConfig->getId());
         auto cb_multiEvent = new QCheckBox;
+        auto cb_eventBuilder = new QCheckBox;
+        auto pb_eventBuilderSettings = new QPushButton;
+        pb_eventBuilderSettings->setIcon(QIcon(QSL(":/gear.png")));
 
-        cb_multiEvent->setChecked(
-            m_analysis->getVMEObjectSettings(eventConfig->getId())
-            .value("MultiEventProcessing", false).toBool());
+        cb_multiEvent->setChecked(eventSettings.value("MultiEventProcessing", false).toBool());
+        cb_eventBuilder->setChecked(eventSettings.value("EventBuilderEnabled", false).toBool());
 
         table->setVerticalHeaderItem(ei, new QTableWidgetItem(eventConfig->objectName()));
         table->setCellWidget(ei, 0, make_centered(cb_multiEvent));
+        table->setCellWidget(ei, 1, make_centered(cb_eventBuilder));
+        table->setCellWidget(ei, 2, make_centered(pb_eventBuilderSettings));
 
-        m_checks_multiEvent.push_back(cb_multiEvent);
+        d->check_multiEvent_.push_back(cb_multiEvent);
+        d->checks_eventBuilder.push_back(cb_eventBuilder);
+
+        auto run_event_builder_settings_dialog = [this, ei, eventConfig] ()
+        {
+            // main module
+            // timestamp window for each module
+
+            auto moduleConfigs = eventConfig->getModuleConfigs();
+            auto combo_mainModule = new QComboBox();
+
+            for (auto moduleConfig: moduleConfigs)
+                combo_mainModule->addItem(moduleConfig->objectName(), moduleConfig->getId());
+
+            QVector<QSpinBox *> lowerLimits;
+            QVector<QSpinBox *> upperLimits;
+            auto tableMatchWindows = new QTableWidget(moduleConfigs.size(), 2);
+            tableMatchWindows->setHorizontalHeaderLabels({"Lower", "Upper"});
+
+            for (int mi=0; mi<moduleConfigs.size(); ++mi)
+            {
+                auto moduleConfig = moduleConfigs.at(mi);
+                auto spin_lower = new QSpinBox();
+                auto spin_upper = new QSpinBox();
+                for (auto spin: { spin_lower, spin_upper })
+                {
+                    spin->setMinimum(std::numeric_limits<s32>::lowest());
+                    spin->setMaximum(std::numeric_limits<s32>::max());
+                }
+                spin_lower->setValue(-8);
+                spin_upper->setValue(8);
+
+                lowerLimits.push_back(spin_lower);
+                upperLimits.push_back(spin_upper);
+
+                tableMatchWindows->setVerticalHeaderItem(mi, new QTableWidgetItem(moduleConfig->objectName()));
+                tableMatchWindows->setCellWidget(mi, 0, spin_lower);
+                tableMatchWindows->setCellWidget(mi, 1, spin_upper);
+            }
+
+            auto gbMatchWindows = new QGroupBox("Timestamp Match Windows");
+            auto gbl = make_hbox(gbMatchWindows);
+            gbl->addWidget(tableMatchWindows);
+
+            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+            auto bbl = make_hbox();
+            bbl->addStretch(1);
+            bbl->addWidget(bb);
+
+            auto fl = new QFormLayout;
+            fl->addRow("Main Module", combo_mainModule);
+            fl->addRow(gbMatchWindows);
+
+            auto dl = make_vbox();
+            dl->addLayout(fl);
+            dl->addLayout(bbl);
+            dl->setStretch(0, 1);
+
+            QDialog d;
+            d.setLayout(dl);
+            d.resize(500, 300);
+            d.setWindowTitle(QSL("Event Builder Settings for %1").arg(eventConfig->objectName()));
+
+            QObject::connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+            QObject::connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+
+            if (d.exec() == QDialog::Accepted)
+            {
+                // XXX: leftoff here
+            }
+        };
+
+        connect(pb_eventBuilderSettings, &QPushButton::clicked,
+                this, run_event_builder_settings_dialog);
     }
 
     auto gbSettings = new QGroupBox(QSL("Event settings"));
@@ -2913,7 +3007,7 @@ EventSettingsDialog::EventSettingsDialog(
     settingsLayout->setContentsMargins(0, 0, 0, 0);
     settingsLayout->addWidget(table);
 
-    auto label = new QLabel(QSL("Becomes active on the next DAQ/Replay start."));
+    auto label = new QLabel(QSL("Changes become active on the next DAQ/Replay start."));
     set_widget_font_pointsize_relative(label, -1);
     settingsLayout->addWidget(label);
 
@@ -2933,19 +3027,25 @@ EventSettingsDialog::EventSettingsDialog(
 
     QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    resize(600, 300);
+}
+
+EventSettingsDialog::~EventSettingsDialog()
+{
 }
 
 Analysis::VMEObjectSettings EventSettingsDialog::getSettings() const
 {
-    auto eventConfigs = m_vmeConfig->getEventConfigs();
-    auto settings = m_analysis->getVMEObjectSettings();
+    auto eventConfigs = d->vmeConfig_->getEventConfigs();
+    auto settings = d->settings_;
 
     for (int ei=0; ei<eventConfigs.size(); ei++)
     {
-        if (auto checkbox = m_checks_multiEvent.value(ei))
-        {
+        if (auto checkbox = d->check_multiEvent_.value(ei))
             settings[eventConfigs[ei]->getId()][QSL("MultiEventProcessing")] = checkbox->isChecked();
-        }
+
+        if (auto checkbox = d->checks_eventBuilder.value(ei))
+            settings[eventConfigs[ei]->getId()][QSL("EventBuilderEnabled")] = checkbox->isChecked();
     }
 
     return settings;

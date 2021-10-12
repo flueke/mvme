@@ -407,15 +407,16 @@ class EventSettingsDialog: public QDialog
     public:
         EventSettingsDialog(
             const VMEConfig *vmeConfig,
-            const Analysis *analysis,
+            const Analysis::VMEObjectSettings &settings,
             QWidget *parent = nullptr);
+
+        ~EventSettingsDialog();
 
         Analysis::VMEObjectSettings getSettings() const;
 
     private:
-        const VMEConfig *m_vmeConfig;
-        const Analysis *m_analysis;
-        QVector<QCheckBox *> m_checks_multiEvent;
+        struct Private;
+        std::unique_ptr<Private> d;
 };
 
 class ModuleSettingsDialog: public QDialog
