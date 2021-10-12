@@ -247,12 +247,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void setAnalysisConfigFilename(QString name, bool updateWorkspace = true);
         QString getAnalysisConfigFilename() const { return m_analysisConfigFileName; }
 
-        // Logs the given msg as-is.
-        void logMessageRaw(const QString &msg);
-        // Prepends the current time to the given msg.
-        void logMessage(const QString &msg);
-        void logError(const QString &errMsg);
-
         QStringList getLogBuffer() const;
 
         friend class MVMEMainWindow;
@@ -334,6 +328,12 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QString getRunNotes() const;
 
     public slots:
+        // Logs the given msg as-is.
+        void logMessageRaw(const QString &msg);
+        // Prepends the current time to the given msg.
+        void logMessage(const QString &msg);
+        void logError(const QString &errMsg);
+
         void startDAQReadout(u32 nCycles = 0, bool keepHistoContents = false);
         void startDAQReplay(u32 nEvents = 0, bool keepHistoContents = false);
 

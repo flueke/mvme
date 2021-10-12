@@ -87,6 +87,10 @@
 #include <QFormLayout>
 #include <stdexcept>
 
+#include <spdlog/sinks/dup_filter_sink.h>
+#include <spdlog/sinks/qt_sinks.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 using namespace mesytec::mvme;
 using namespace vats;
 
@@ -147,6 +151,20 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     setWindowTitle(QSL("mvme"));
 
     m_d->m_context              = new MVMEContext(this, this, options);
+
+#if 1
+    auto consolesink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    auto qtsink = std::make_shared<spdlog::sinks::qt_sink_mt>(m_d->m_context, "logMessageRaw");
+    auto dupfilter = std::make_shared<spdlog::sinks::dup_filter_sink_mt>(std::chrono::seconds(2));
+    dupfilter->add_sink(consolesink);
+    dupfilter->add_sink(qtsink);
+
+    auto loggerNames = { "listfile", "readout", "replay", "readout_parser" };
+
+    for (const auto &loggerName: loggerNames)
+        mesytec::mvlc::create_logger(loggerName, { dupfilter });
+#endif
+
     m_d->centralWidget          = new QWidget(this);
     m_d->centralLayout          = new QVBoxLayout(m_d->centralWidget);
     m_d->statusBar              = new QStatusBar(this);

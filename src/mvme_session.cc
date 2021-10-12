@@ -80,6 +80,8 @@ void mvme_init(const QString &appName)
     qDebug() << "GIT_VERSION =" << GIT_VERSION;
     qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
     qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
+
+    spdlog::set_level(spdlog::level::trace);
 }
 
 void mvme_shutdown()
