@@ -3,6 +3,31 @@
 
 using namespace mvme::event_builder;
 
+TEST(event_builder, VectorAtIsWeird)
+{
+    {
+        std::vector<int> v1 = {0, 1, 2};
+        ASSERT_EQ(v1.size(), 3);
+        ASSERT_EQ(v1.at(0), 0);
+        ASSERT_EQ(v1.at(1), 1);
+        ASSERT_EQ(v1.at(2), 2);
+        ASSERT_THROW(v1.at(3), std::out_of_range);
+    }
+    {
+        std::vector<std::vector<int>> vv1 =
+        {
+            { 0, 1},
+            { 1, 2},
+            { 3, 4},
+        };
+
+        ASSERT_EQ(vv1.size(), 3);
+        ASSERT_EQ(vv1.at(0).size(), 2);
+        ASSERT_EQ(vv1.at(1).size(), 2);
+        ASSERT_EQ(vv1.at(2).size(), 2);
+    }
+}
+
 TEST(event_builder, TimestampMatch)
 {
     WindowMatchResult mr = {};
@@ -79,6 +104,33 @@ namespace
     const size_t TestSetupModuleCount = 3;
 }
 
+TEST(event_builder, EventIndexOutOfRange)
+{
+    // Storage for the module data
+    std::vector<std::array<std::vector<u32>, TestSetupModuleCount>> moduleTestData =
+    {
+        {
+            {
+                { 100 }, // crate0, module0
+                { 150 }, // crate0, module1
+                { 200 }, // crate0, module2
+            }
+        },
+    };
+
+    auto setup = std::vector<EventSetup>{ make_one_crate_one_event_test_setup() };
+
+    {
+        EventBuilder eventBuilder(setup);
+
+        int crateIndex = 0;
+        int eventIndex = 1; // out of range
+        auto moduleDataList = module_data_list_from_test_data(moduleTestData[0]);
+
+        ASSERT_THROW(eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size()),
+                     std::out_of_range);
+    }
+}
 
 TEST(event_builder, SingleCrateWindowMatching)
 {
