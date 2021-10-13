@@ -1,6 +1,7 @@
 #include "event_builder/event_builder.h"
 
 #include <boost/circular_buffer.hpp>
+#include <boost/dynamic_bitset.hpp>
 #include <iostream>
 
 namespace mvme
@@ -97,6 +98,11 @@ struct EventBuilder::Private
     // copies of systemEvents
     std::deque<SystemEventStorage> systemEvents_;
 
+    // indexes: event, pair(crateIndex, moduleIndex) -> linear module index
+    std::vector<std::unordered_map<std::pair<int, unsigned>, size_t, PairHash>> linearModuleIndexTable_;
+    // Linear module index of the main module for each event
+    // indexes: event, linear module
+    std::vector<size_t> mainModuleLinearIndexes_;
     // Holds copies of module event data and the extracted event timestamp.
     // indexes: event, linear module, buffered event
     std::vector<std::vector<std::deque<ModuleEventStorage>>> moduleEventBuffers_;
@@ -104,11 +110,8 @@ struct EventBuilder::Private
     std::vector<std::vector<timestamp_extractor>> moduleTimestampExtractors_;
     // indexes: event, linear module
     std::vector<std::vector<std::pair<s32, s32>>> moduleMatchWindows_;
-    // indexes: event, pair(crateIndex, moduleIndex) -> linear module index
-    std::vector<std::unordered_map<std::pair<int, unsigned>, size_t, PairHash>> linearModuleIndexTable_;
-    // Linear module index of the main module for each event
     // indexes: event, linear module
-    std::vector<size_t> mainModuleLinearIndexes_;
+    std::vector<std::vector<u32>> prevModuleTimestamps_;
 
     std::vector<ModuleData> eventAssembly_;
 
@@ -130,6 +133,7 @@ struct EventBuilder::Private
         auto mainModuleIndex = mainModuleLinearIndexes_.at(eventIndex);
         assert(mainModuleIndex < moduleCount);
         const auto &mainBuffer = eventBuffers.at(mainModuleIndex);
+        auto &prevTimestamps = prevModuleTimestamps_.at(eventIndex);
 
         // Check if there is at least one event from the main module
         if (mainBuffer.empty())
@@ -139,11 +143,15 @@ struct EventBuilder::Private
 
         size_t result = 0u;
         const auto &setup = setups_.at(eventIndex);
+        boost::dynamic_bitset<> overflows;
+        overflows.resize(moduleCount);
+        static const u32 TimestampMax = 0x3fffffffu;
+        // XXX: leftoff here
 
         while (!mainBuffer.empty()
                && (flush || mainBuffer.size() >= setup.minMainModuleEvents))
         {
-            auto mainModuleTimestamp = eventBuffers.at(mainModuleIndex).front().timestamp;
+            u32 mainModuleTimestamp = eventBuffers.at(mainModuleIndex).front().timestamp;
             std::fill(eventAssembly_.begin(), eventAssembly_.end(), ModuleData{});
             u32 eventInvScore = 0u;
 
@@ -163,6 +171,7 @@ struct EventBuilder::Private
                     switch (matchResult.match)
                     {
                         case WindowMatch::too_old:
+                            prevTimestamps[moduleIndex] = moduleEvent.timestamp;
                             eventBuffers.at(moduleIndex).pop_front();
                             break;
 
@@ -212,11 +221,12 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
 
     const size_t eventCount = d->setups_.size();
 
+    d->linearModuleIndexTable_.resize(eventCount);
+    d->mainModuleLinearIndexes_.resize(eventCount);
     d->moduleEventBuffers_.resize(eventCount);
     d->moduleTimestampExtractors_.resize(eventCount);
     d->moduleMatchWindows_.resize(eventCount);
-    d->linearModuleIndexTable_.resize(eventCount);
-    d->mainModuleLinearIndexes_.resize(eventCount);
+    d->prevModuleTimestamps_.resize(eventCount);
 
     for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex)
     {
@@ -229,6 +239,7 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
         auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
         auto &matchWindows = d->moduleMatchWindows_.at(eventIndex);
         auto &eventBuffers = d->moduleEventBuffers_.at(eventIndex);
+        auto &prevTimestamps = d->prevModuleTimestamps_.at(eventIndex);
         unsigned linearModuleIndex = 0;
 
         for (size_t crateIndex = 0; crateIndex < eventSetup.crateSetups.size(); ++crateIndex)
@@ -237,7 +248,9 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
 
             assert(crateSetup.moduleTimestampExtractors.size() == crateSetup.moduleMatchWindows.size());
 
-            for (size_t moduleIndex = 0; moduleIndex < crateSetup.moduleTimestampExtractors.size(); ++moduleIndex)
+            const size_t moduleCount = crateSetup.moduleTimestampExtractors.size();
+
+            for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
             {
                 auto key = std::make_pair(crateIndex, moduleIndex);
                 eventTable[key] = linearModuleIndex++;
@@ -245,6 +258,8 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
                 matchWindows.push_back(crateSetup.moduleMatchWindows[moduleIndex]);
                 eventBuffers.push_back({});
             }
+
+            prevTimestamps.resize(moduleCount);
         }
 
         size_t mainModuleLinearIndex = d->getLinearModuleIndex(
