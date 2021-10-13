@@ -59,6 +59,8 @@ struct SystemEventStorage
     std::vector<u32> data;
 };
 
+// FIXME: This way of buffering module data is not ideal at all: 3 potential
+// allocations per event and module is a lot.
 struct ModuleEventStorage
 {
     u32 timestamp;
@@ -122,12 +124,12 @@ struct EventBuilder::Private
     size_t buildEvents(int eventIndex, Callbacks &callbacks, bool flush)
     {
         auto &eventBuffers = moduleEventBuffers_.at(eventIndex);
-        auto &matchWindows = moduleMatchWindows_.at(eventIndex);
+        const auto &matchWindows = moduleMatchWindows_.at(eventIndex);
         assert(eventBuffers.size() == matchWindows.size());
         const size_t moduleCount = eventBuffers.size();
         auto mainModuleIndex = mainModuleLinearIndexes_.at(eventIndex);
         assert(mainModuleIndex < moduleCount);
-        auto &mainBuffer = eventBuffers.at(mainModuleIndex);
+        const auto &mainBuffer = eventBuffers.at(mainModuleIndex);
 
         // Check if there is at least one event from the main module
         if (mainBuffer.empty())
@@ -136,32 +138,32 @@ struct EventBuilder::Private
         eventAssembly_.resize(moduleCount);
 
         size_t result = 0u;
-        auto &setup = setups_.at(eventIndex);
+        const auto &setup = setups_.at(eventIndex);
 
         while (!mainBuffer.empty()
                && (flush || mainBuffer.size() >= setup.minMainModuleEvents))
         {
-            auto mainModuleTimestamp = eventBuffers[mainModuleIndex].front().timestamp;
+            auto mainModuleTimestamp = eventBuffers.at(mainModuleIndex).front().timestamp;
             std::fill(eventAssembly_.begin(), eventAssembly_.end(), ModuleData{});
             u32 eventInvScore = 0u;
 
             for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
             {
-                if (eventBuffers[moduleIndex].empty())
+                if (eventBuffers.at(moduleIndex).empty())
                     continue;
 
                 auto &matchWindow = matchWindows[moduleIndex];
                 bool done = false;
 
-                while (!done && !eventBuffers[moduleIndex].empty())
+                while (!done && !eventBuffers.at(moduleIndex).empty())
                 {
-                    auto &moduleEvent = eventBuffers[moduleIndex].front();
+                    auto &moduleEvent = eventBuffers.at(moduleIndex).front();
                     auto matchResult = timestamp_match(mainModuleTimestamp, moduleEvent.timestamp, matchWindow);
 
                     switch (matchResult.match)
                     {
                         case WindowMatch::too_old:
-                            eventBuffers[moduleIndex].pop_front();
+                            eventBuffers.at(moduleIndex).pop_front();
                             break;
 
                         case WindowMatch::in_window:
@@ -190,11 +192,13 @@ struct EventBuilder::Private
 
                 if (moduleData.prefix.data || moduleData.dynamic.data || moduleData.suffix.data)
                 {
-                    assert(!eventBuffers[moduleIndex].empty());
-                    eventBuffers[moduleIndex].pop_front();
+                    assert(!eventBuffers.at(moduleIndex).empty());
+                    eventBuffers.at(moduleIndex).pop_front();
                 }
             }
         }
+
+        assert(mainBuffer.size() < setup.minMainModuleEvents);
 
         return result;
     }
@@ -217,6 +221,10 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
     for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex)
     {
         const auto &eventSetup = d->setups_.at(eventIndex);
+
+        if (!eventSetup.enabled)
+            continue;
+
         auto &eventTable = d->linearModuleIndexTable_.at(eventIndex);
         auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
         auto &matchWindows = d->moduleMatchWindows_.at(eventIndex);
@@ -265,6 +273,19 @@ EventBuilder &EventBuilder::operator=(EventBuilder &&o)
     return *this;
 }
 
+bool EventBuilder::isEnabledFor(int eventIndex) const
+{
+    if (0 <= eventIndex && static_cast<size_t>(eventIndex) < d->setups_.size())
+        return d->setups_[eventIndex].enabled;
+    return false;
+}
+
+bool EventBuilder::isEnabledForAnyEvent() const
+{
+    return std::any_of(d->setups_.begin(), d->setups_.end(),
+                       [] (const EventSetup &setup) { return setup.enabled; });
+}
+
 void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
 {
     // lock, then copy the data to an internal buffer
@@ -278,11 +299,15 @@ void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleD
     for (unsigned moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
     {
         auto moduleData = moduleDataList[moduleIndex];
-        auto linearModuleIndex = d->getLinearModuleIndex(crateIndex, eventIndex, moduleIndex);
 
         auto &prefix = moduleData.prefix;
         auto &dynamic = moduleData.dynamic;
         auto &suffix = moduleData.suffix;
+
+        if (dynamic.size == 0) // FIXME: why do we get 0 sized data from the readout parser?
+            continue;
+
+        auto linearModuleIndex = d->getLinearModuleIndex(crateIndex, eventIndex, moduleIndex);
 
         u32 timestamp = timestampExtractors.at(linearModuleIndex)(dynamic.data, dynamic.size);
 
@@ -383,17 +408,20 @@ size_t EventBuilder::buildEvents(Callbacks callbacks, bool flush)
         auto &ses = d->systemEvents_.back();
         // FIXME: crateIndex (analysis needs to know)
         callbacks.systemEvent(d->userContext_, ses.data.data(), ses.data.size());
-        d->systemEvents_.pop_back();
+        d->systemEvents_.pop_front();
     }
 
     assert(d->systemEvents_.empty());
 
     // readout event building
-    const size_t eventCount = d->moduleEventBuffers_.size();
+    const size_t eventCount = d->setups_.size();
     size_t result = 0u;
 
     for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex)
-        result += d->buildEvents(eventIndex, callbacks, flush);
+    {
+        if (d->setups_[eventIndex].enabled)
+            result += d->buildEvents(eventIndex, callbacks, flush);
+    }
 
     return result;
 }

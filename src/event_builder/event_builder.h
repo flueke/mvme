@@ -92,6 +92,9 @@ class EventBuilder
         EventBuilder(const EventBuilder &) = delete;
         EventBuilder &operator=(const EventBuilder &) = delete;
 
+        bool isEnabledFor(int eventIndex) const;
+        bool isEnabledForAnyEvent() const;
+
         // Push data into the eventbuilder (called after parsing and multi event splitting).
         void recordEventData(int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount);
         void recordSystemEvent(int crateIndex, const u32 *header, u32 size);
