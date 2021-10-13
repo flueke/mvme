@@ -68,8 +68,10 @@
 #include "util/qt_layouts.h"
 #include "util/variablify.h"
 #include "vme_config.h"
+#include "../event_builder/event_builder.h"
 
 using boost::adaptors::indexed;
+using namespace mvme;
 
 namespace
 {
@@ -2966,8 +2968,8 @@ EventSettingsDialog::EventSettingsDialog(
                 }
                 auto moduleConfig = moduleConfigs.at(mi);
                 auto matchWindow = matchWindows.value(moduleConfig->getId().toString()).toMap();
-                spin_lower->setValue(matchWindow.value("lower", -8).toInt());
-                spin_upper->setValue(matchWindow.value("upper", +8).toInt());
+                spin_lower->setValue(matchWindow.value("lower", event_builder::DefaultMatchWindow.first).toInt());
+                spin_upper->setValue(matchWindow.value("upper", event_builder::DefaultMatchWindow.second).toInt());
 
                 lowerLimits.push_back(spin_lower);
                 upperLimits.push_back(spin_upper);
@@ -2981,14 +2983,21 @@ EventSettingsDialog::EventSettingsDialog(
             auto gbl = make_hbox(gbMatchWindows);
             gbl->addWidget(tableMatchWindows);
 
-            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-            auto bbl = make_hbox();
-            bbl->addStretch(1);
-            bbl->addWidget(bb);
+            auto spin_minMainModuleEvents = new QSpinBox;
+            spin_minMainModuleEvents->setMinimum(0);
+            spin_minMainModuleEvents->setMaximum(std::numeric_limits<s32>::max());
+            spin_minMainModuleEvents->setValue(ebSettings.value(
+                    "MinMainModuleEvents", event_builder::DefaultMinMainModuleEvents).toInt());
 
             auto fl = new QFormLayout;
             fl->addRow("Main Module", combo_mainModule);
             fl->addRow(gbMatchWindows);
+            fl->addRow("Min Main Module Events", spin_minMainModuleEvents);
+
+            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+            auto bbl = make_hbox();
+            bbl->addStretch(1);
+            bbl->addWidget(bb);
 
             auto dl = make_vbox();
             dl->addLayout(fl);
@@ -3023,6 +3032,7 @@ EventSettingsDialog::EventSettingsDialog(
                 // Stores the uuid of the main module
                 ebSettings["MainModule"] = combo_mainModule->currentData();
                 ebSettings["MatchWindows"] = matchWindows;
+                ebSettings["MinMainModuleEvents"] = spin_minMainModuleEvents->value();
 
                 this->d->settings_[eventConfig->getId()]["EventBuilderSettings"] = ebSettings;
             }

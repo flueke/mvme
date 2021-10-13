@@ -459,6 +459,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
             event_builder::EventSetup eventSetup = {};
             eventSetup.enabled = enabledForEvent;
+            eventSetup.minMainModuleEvents = ebSettings.value(
+                "MinMainModuleEvents", event_builder::DefaultMinMainModuleEvents).toInt();
 
             if (eventSetup.enabled)
             {
@@ -477,8 +479,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     auto windowSettings = matchWindows[moduleConfig->getId().toString()].toMap();
 
                     auto matchWindow = std::make_pair<s32, s32>(
-                        windowSettings.value("lower", -8).toInt(),
-                        windowSettings.value("upper", +8).toInt());
+                        windowSettings.value("lower", event_builder::DefaultMatchWindow.first).toInt(),
+                        windowSettings.value("upper", event_builder::DefaultMatchWindow.second).toInt());
 
                     crateSetup.moduleMatchWindows.push_back(matchWindow);
 

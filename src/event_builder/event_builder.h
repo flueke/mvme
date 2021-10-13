@@ -41,6 +41,9 @@ struct TimestampFilterExtractor
         a2::data_filter::CacheEntry filterCache_;
 };
 
+static const auto DefaultMatchWindow = std::make_pair(-8, 8);
+static const int DefaultMinMainModuleEvents = 1000;
+
 struct EventSetup
 {
     struct CrateSetup
@@ -64,7 +67,7 @@ struct EventSetup
     // Minimum number of main module events that need to be buffered before
     // event building proceeds. Ignored if flush is set in the call to
     // buildEvents().
-    size_t minMainModuleEvents = 1000;
+    size_t minMainModuleEvents = DefaultMinMainModuleEvents;
 };
 
 struct ModuleAddress
