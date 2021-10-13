@@ -189,6 +189,7 @@ SinkVector LIBMVME_EXPORT get_sinks_for_conditionlink(const ConditionLink &cl, c
 size_t LIBMVME_EXPORT disconnect_outputs(PipeSourceInterface *pipeSource);
 
 bool LIBMVME_EXPORT uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &analysis);
+bool LIBMVME_EXPORT uses_event_builder(const VMEConfig &vmeConfig, const Analysis &analysis);
 
 std::vector<std::vector<std::string>> LIBMVME_EXPORT
 collect_multi_event_splitter_filter_strings(

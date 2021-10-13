@@ -134,6 +134,9 @@ MVLC_StreamWorker::MVLC_StreamWorker(
 
     qRegisterMetaType<mesytec::mvlc::readout_parser::ReadoutParserCounters>(
         "mesytec::mvlc::readout_parser::ReadoutParserCounters");
+
+    auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
+    logger->set_level(spdlog::level::info);
 }
 
 MVLC_StreamWorker::~MVLC_StreamWorker()
@@ -213,15 +216,19 @@ void MVLC_StreamWorker::setupParserCallbacks(
     const VMEConfig *vmeConfig,
     analysis::Analysis *analysis)
 {
+    auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
 
-    m_parserCallbacks = mesytec::mvlc::readout_parser::ReadoutParserCallbacks();
-
-    m_parserCallbacks.eventData = [this, analysis] (
+    // Last part of the eventData callback chain, calling into the analysis.
+    auto eventData_analysis = [this, analysis, logger] (
         void * /*userContext*/,
         int ei,
         const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
         unsigned moduleCount)
     {
+        static const char *lambdaName = "eventData_analysis"; (void) lambdaName;
+        logger->trace("f={}, ei={}, moduleData={}, moduleCount={}", lambdaName, ei,
+                      reinterpret_cast<const void *>(moduleDataList), moduleCount);
+
         // beginEvent
         {
             this->blockIfPaused();
@@ -341,9 +348,17 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
     };
 
-    m_parserCallbacks.systemEvent = [this, runInfo, analysis](
-        void *, const u32 *header, u32 /*size*/)
+    // Last part of the systemEvent callback chain, calling into the analysis.
+    auto systemEvent_analysis = [this, runInfo, analysis, logger](
+        void *, const u32 *header, u32 size)
     {
+        static const char *lambdaName = "systemEvent_analysis"; (void) lambdaName;
+        logger->trace("f={}, header={}, size={}", lambdaName,
+                      reinterpret_cast<const void *>(header), size);
+
+        if (!size)
+            return;
+
         u8 subtype = mvlc::system_event::extract_subtype(*header);
 
         // IMPORTANT: This assumes that a timestamp is added to the listfile
@@ -368,10 +383,124 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
     };
 
-    const auto eventConfigs = vmeConfig->getEventConfigs();
+    // Potential middle part of the eventData chain. Calls into to multi event splitter.
+    auto eventData_splitter = [this, logger] (
+        void *userContext,
+        int ei,
+        const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
+        unsigned moduleCount)
+    {
+        static const char *lambdaName = "systemEvent_splitter"; (void) lambdaName;
+        logger->trace("f={}, ei={}, moduleData={}, moduleCount={}", lambdaName, ei,
+                      reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
-    // Setup multi event splitting if needed. The processing chain then looks
-    // like this: readout_parser -> multi_event_splitter -> call into the analysis
+        multi_event_splitter::event_data(
+            m_multiEventSplitter, m_multiEventSplitterCallbacks,
+            userContext, ei, moduleDataList, moduleCount);
+    };
+
+    static const int crateIndex = 0;
+
+    // Potential middle part of the eventData chain. Calls into to event builder.
+    auto eventData_builder = [this, logger] (
+        void * /*userContext*/,
+        int ei,
+        const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
+        unsigned moduleCount)
+    {
+        static const char *lambdaName = "eventData_builder"; (void) lambdaName;
+        logger->trace("f={}, ei={}, moduleData={}, moduleCount={}", lambdaName, ei,
+                      reinterpret_cast<const void *>(moduleDataList), moduleCount);
+
+        if (m_eventBuilder.isEnabledFor(ei))
+        {
+            m_eventBuilder.recordEventData(crateIndex, ei, moduleDataList, moduleCount);
+            m_eventBuilder.buildEvents(m_eventBuilderCallbacks, true);
+        }
+        else
+        {
+            m_eventBuilderCallbacks.eventData(nullptr, ei, moduleDataList, moduleCount);
+        }
+    };
+
+    // Potential middle part of the systemEvent chain. Calls into to event builder.
+    auto systemEvent_builder = [this, logger] (
+        void * /*userContext*/,
+        const u32 *header,
+        u32 size)
+    {
+        static const char *lambdaName = "systemEvent_builder"; (void) lambdaName;
+        logger->trace("f={}, header={}, size={}", lambdaName,
+                      reinterpret_cast<const void *>(header), size);
+
+        // Note: we could directory call systemEvent_analysis here as we are in
+        // the same thread as the analysis. Otherwise the analysis would live
+        // in the builder/analysis thread and buildEvents() would be called in
+        // that thread.
+        m_eventBuilder.recordSystemEvent(crateIndex, header, size);
+        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, true);
+    };
+
+    // event builder setup
+    // if used the chain is event_builder -> analysis
+    if (uses_event_builder(*vmeConfig, *analysis))
+    {
+        auto eventConfigs = vmeConfig->getEventConfigs();
+        std::vector<event_builder::EventSetup> eventBuilderSetup;
+
+        for (auto eventIndex = 0; eventIndex < eventConfigs.size(); ++eventIndex)
+        {
+            auto eventConfig = eventConfigs.at(eventIndex);
+            auto eventSettings = analysis->getVMEObjectSettings(eventConfig->getId());
+            bool enabledForEvent = eventSettings["EventBuilderEnabled"].toBool();
+
+            auto ebSettings = eventSettings["EventBuilderSettings"].toMap();
+            auto mainModuleId = ebSettings["MainModule"].toUuid();
+
+            event_builder::EventSetup eventSetup = {};
+            eventSetup.enabled = enabledForEvent;
+
+            if (eventSetup.enabled)
+            {
+                auto moduleConfigs = eventConfig->getModuleConfigs();
+                auto matchWindows = ebSettings["MatchWindows"].toMap();
+
+                event_builder::EventSetup::CrateSetup crateSetup;
+
+                for (int moduleIndex = 0; moduleIndex < moduleConfigs.size(); ++moduleIndex)
+                {
+                    auto moduleConfig = moduleConfigs.at(moduleIndex);
+
+                    if (moduleConfig->getId() == mainModuleId)
+                        eventSetup.mainModule = std::make_pair(crateIndex, moduleIndex);
+
+                    auto windowSettings = matchWindows[moduleConfig->getId().toString()].toMap();
+
+                    auto matchWindow = std::make_pair<s32, s32>(
+                        windowSettings.value("lower", -8).toInt(),
+                        windowSettings.value("upper", +8).toInt());
+
+                    crateSetup.moduleMatchWindows.push_back(matchWindow);
+
+                    crateSetup.moduleTimestampExtractors.push_back(
+                        event_builder::IndexedTimestampFilterExtractor(
+                            a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
+                }
+
+                eventSetup.crateSetups = { crateSetup };
+            }
+
+            eventBuilderSetup.push_back(eventSetup);
+        }
+
+        m_eventBuilder = event_builder::EventBuilder(eventBuilderSetup);
+        // event builder -> analysis
+        m_eventBuilderCallbacks.eventData = eventData_analysis;
+        m_eventBuilderCallbacks.systemEvent = systemEvent_analysis;
+    }
+
+    // multi event splitter setup
+    // if used the chain is splitter [-> event_builder] -> analysis
     if (uses_multi_event_splitting(*vmeConfig, *analysis))
     {
         namespace multi_event_splitter = ::mvme::multi_event_splitter;
@@ -383,104 +512,36 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
         m_multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
 
-        // Copy our callback, which is driving the analysis, to the callback
-        // for the multi event splitter.
-        auto &splitterCallbacks = m_multiEventSplitterCallbacks;
-        splitterCallbacks.eventData = m_parserCallbacks.eventData;
-
-        // Now overwrite our own callbacks to drive the splitter instead of the
-        // analysis.
-        // Note: the systemEvent callback is not overwritten as there is no
-        // special handling for it in the multi event splitting logic.
-        m_parserCallbacks.eventData = [this] (
-            void *userContext,
-            int ei,
-            const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
-            unsigned moduleCount)
+        if (uses_event_builder(*vmeConfig, *analysis))
         {
-            multi_event_splitter::event_data(
-                m_multiEventSplitter, m_multiEventSplitterCallbacks,
-                userContext, ei, moduleDataList, moduleCount);
-        };
-    }
-
-    // Event builder setup would go here. The processing chain then looks like this:
-    // readout_parser -> [multi_event_splitter ->] event_builder -> call into the analysis
-
-    auto is_event_builder_enabled = [] (const auto &vmeConfig, const auto &analysis)
-    {
-        return true;
-    };
-
-    if (is_event_builder_enabled(*vmeConfig, *analysis))
-    {
-        // TODO: create and setup the event builder. It needs the reference
-        // module and a timestamp interval relative to the reference module for
-        // each of the other modules in the same event.
-        // -> Modules accross events should have a unique moduleIndex.
-
-        static const int crateIndex = 0;
-        int eventIndex = 0;
-        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
-
-        event_builder::EventSetup::CrateSetup crateSetup;
-
-        // FIXME: do something for all events otherwise event data won't pass through
-        // Also: how to handle non-synced events? when building always pass all
-        // directly built events through.
-        for (int moduleIndex = 0; moduleIndex < eventConfig->getModuleConfigs().size(); ++moduleIndex)
-        {
-            crateSetup.moduleTimestampExtractors.push_back(
-                event_builder::IndexedTimestampFilterExtractor(
-                    a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
-            crateSetup.moduleMatchWindows.push_back(std::make_pair(-8, 8));
-        }
-
-        event_builder::EventSetup eventSetup;
-        eventSetup.enabled = true;
-        eventSetup.mainModule = std::make_pair(0, 0); // crate0, module0
-        eventSetup.crateSetups = { crateSetup };
-
-        m_eventBuilder = event_builder::EventBuilder({ eventSetup });
-
-        // Create new callbacks which call into the EventBuilder.
-
-        auto eventData = [this] (
-            void * /*userContext*/,
-            int eventIndex,
-            const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
-            unsigned moduleCount)
-        {
-            m_eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
-            m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
-        };
-
-        auto systemEvent = [this] (
-            void * /*userContext*/,
-            const u32 *data,
-            u32 size)
-        {
-            m_eventBuilder.recordSystemEvent(crateIndex, data, size);
-            m_eventBuilder.buildEvents(m_eventBuilderCallbacks);
-        };
-
-        if (uses_multi_event_splitting(*vmeConfig, *analysis))
-        {
-            // readout_parser -> multi_event_splitter -> event_builder -> analysis
-            m_eventBuilderCallbacks.eventData = m_multiEventSplitterCallbacks.eventData;
-            m_multiEventSplitterCallbacks.eventData = eventData;
+            // splitter -> event builder
+            m_multiEventSplitterCallbacks.eventData = eventData_builder;
         }
         else
         {
-            // readout_parser -> event_builder -> analysis
-            m_eventBuilderCallbacks.eventData = m_parserCallbacks.eventData;
-            m_parserCallbacks.eventData = eventData;
+            // splitter -> analysis
+            m_multiEventSplitterCallbacks.eventData = eventData_analysis;
         }
+    }
 
-        // System events are not passed to the multi_event_splitter. The chain
-        // is readout_parser -> event_builder -> analysis.
-        m_eventBuilderCallbacks.systemEvent = m_parserCallbacks.systemEvent;
-        m_parserCallbacks.systemEvent = systemEvent;
+    // readout parser callback setup
+    if (uses_event_builder(*vmeConfig, *analysis))
+    {
+        // parser -> event builder
+        m_parserCallbacks.eventData = eventData_builder;
+        m_parserCallbacks.systemEvent = systemEvent_builder;
+    }
+    else
+    {
+        // parser -> analysis
+        m_parserCallbacks.eventData = eventData_analysis;
+        m_parserCallbacks.systemEvent = systemEvent_analysis;
+    }
+
+    if (uses_multi_event_splitting(*vmeConfig, *analysis))
+    {
+        // parser -> splitter
+        m_parserCallbacks.eventData = eventData_splitter;
     }
 }
 
@@ -639,6 +700,17 @@ void MVLC_StreamWorker::start()
         // stopping
         else if (desiredState == WorkerState::Idle)
         {
+            auto maybe_flush_event_builder = [this] ()
+            {
+                // Flush the event builder if it is used
+                if (m_eventBuilder.isEnabledForAnyEvent())
+                {
+                    auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
+                    logger->info("flushing event builder");
+                    m_eventBuilder.buildEvents(m_eventBuilderCallbacks, true);
+                }
+            };
+
             if (m_stopFlag == StopImmediately)
             {
                 qDebug() << __PRETTY_FUNCTION__ << "immediate stop, buffers left in queue:" <<
@@ -647,6 +719,8 @@ void MVLC_StreamWorker::start()
                 // Move the remaining buffers to the empty queue.
                 while (auto buffer = filled.dequeue())
                     empty.enqueue(buffer);
+
+                maybe_flush_event_builder();
 
                 break;
             }
@@ -667,7 +741,10 @@ void MVLC_StreamWorker::start()
                 }
             }
             else
+            {
+                maybe_flush_event_builder();
                 break;
+            }
         }
         else
         {

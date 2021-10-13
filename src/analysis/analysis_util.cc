@@ -453,6 +453,23 @@ bool uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &anal
     return useMultiEventSplitting;
 }
 
+bool LIBMVME_EXPORT uses_event_builder(const VMEConfig &vmeConfig, const Analysis &analysis)
+{
+    const auto &eventConfigs = vmeConfig.getEventConfigs();
+
+    bool usesEventBuilder = std::any_of(
+        eventConfigs.begin(), eventConfigs.end(),
+        [&analysis] (const EventConfig *eventConfig)
+        {
+            auto analysisEventSettings = analysis.getVMEObjectSettings(
+                eventConfig->getId());
+
+            return analysisEventSettings["EventBuilderEnabled"].toBool();
+        });
+
+    return usesEventBuilder;
+}
+
 std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_strings(
     const VMEConfig &vmeConfig, const Analysis &analysis)
 {
