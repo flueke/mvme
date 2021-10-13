@@ -2929,16 +2929,26 @@ EventSettingsDialog::EventSettingsDialog(
         d->check_multiEvent_.push_back(cb_multiEvent);
         d->checks_eventBuilder.push_back(cb_eventBuilder);
 
-        auto run_event_builder_settings_dialog = [this, ei, eventConfig] ()
+        auto run_event_builder_settings_dialog = [this, eventConfig] ()
         {
-            // main module
-            // timestamp window for each module
+            // GUI to set the main module and the timestamp window for each
+            // module in the current event.
 
             auto moduleConfigs = eventConfig->getModuleConfigs();
             auto combo_mainModule = new QComboBox();
 
             for (auto moduleConfig: moduleConfigs)
                 combo_mainModule->addItem(moduleConfig->objectName(), moduleConfig->getId());
+
+            auto ebSettings = (this->d->settings_.value(eventConfig->getId())
+                               .value("EventBuilderSettings").toMap());
+
+            auto mainModuleId = ebSettings.value("MainModule").toUuid();
+
+            if (!mainModuleId.isNull())
+                combo_mainModule->setCurrentIndex(combo_mainModule->findData(mainModuleId));
+
+            auto matchWindows = ebSettings.value("MatchWindows").toMap();
 
             QVector<QSpinBox *> lowerLimits;
             QVector<QSpinBox *> upperLimits;
@@ -2947,7 +2957,6 @@ EventSettingsDialog::EventSettingsDialog(
 
             for (int mi=0; mi<moduleConfigs.size(); ++mi)
             {
-                auto moduleConfig = moduleConfigs.at(mi);
                 auto spin_lower = new QSpinBox();
                 auto spin_upper = new QSpinBox();
                 for (auto spin: { spin_lower, spin_upper })
@@ -2955,8 +2964,10 @@ EventSettingsDialog::EventSettingsDialog(
                     spin->setMinimum(std::numeric_limits<s32>::lowest());
                     spin->setMaximum(std::numeric_limits<s32>::max());
                 }
-                spin_lower->setValue(-8);
-                spin_upper->setValue(8);
+                auto moduleConfig = moduleConfigs.at(mi);
+                auto matchWindow = matchWindows.value(moduleConfig->getId().toString()).toMap();
+                spin_lower->setValue(matchWindow.value("lower", -8).toInt());
+                spin_upper->setValue(matchWindow.value("upper", +8).toInt());
 
                 lowerLimits.push_back(spin_lower);
                 upperLimits.push_back(spin_upper);
@@ -2984,17 +2995,36 @@ EventSettingsDialog::EventSettingsDialog(
             dl->addLayout(bbl);
             dl->setStretch(0, 1);
 
-            QDialog d;
-            d.setLayout(dl);
-            d.resize(500, 300);
-            d.setWindowTitle(QSL("Event Builder Settings for %1").arg(eventConfig->objectName()));
+            QDialog dia;
+            dia.setLayout(dl);
+            dia.resize(500, 300);
+            dia.setWindowTitle(QSL("Event Builder Settings for %1").arg(eventConfig->objectName()));
 
-            QObject::connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
-            QObject::connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+            QObject::connect(bb, &QDialogButtonBox::accepted, &dia, &QDialog::accept);
+            QObject::connect(bb, &QDialogButtonBox::rejected, &dia, &QDialog::reject);
 
-            if (d.exec() == QDialog::Accepted)
+            if (dia.exec() == QDialog::Accepted)
             {
-                // XXX: leftoff here
+                // On dialog accept apply the modifications to the local copy
+                // of the VMEObjectSettings.
+
+                QVariantMap matchWindows;
+                for (int mi=0; mi<moduleConfigs.size(); ++mi)
+                {
+                    auto id = moduleConfigs[mi]->getId();
+                    QVariantMap matchWindow;
+                    matchWindow["lower"] = lowerLimits[mi]->value();
+                    matchWindow["upper"] = upperLimits[mi]->value();
+                    matchWindows[id.toString()] = matchWindow;
+                }
+
+                QVariantMap ebSettings;
+
+                // Stores the uuid of the main module
+                ebSettings["MainModule"] = combo_mainModule->currentData();
+                ebSettings["MatchWindows"] = matchWindows;
+
+                this->d->settings_[eventConfig->getId()]["EventBuilderSettings"] = ebSettings;
             }
         };
 
