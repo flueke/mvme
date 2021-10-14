@@ -1,8 +1,6 @@
 #include "event_builder/event_builder.h"
 
 #include <boost/circular_buffer.hpp>
-#include <boost/dynamic_bitset.hpp>
-#include <iostream>
 
 namespace mvme
 {
@@ -10,8 +8,6 @@ namespace event_builder
 {
 
 using namespace a2::data_filter;
-using std::cerr;
-using std::endl;
 
 IndexedTimestampFilterExtractor::IndexedTimestampFilterExtractor(const DataFilter &filter, s32 wordIndex, char matchChar)
     : filter_(filter)
@@ -86,6 +82,37 @@ ModuleData module_data_from_event_storage(const ModuleEventStorage &input)
     return result;
 }
 
+static const u32 TimestampMax = 0x3fffffffu; // 30 bits
+static const u32 TimestampHalf = TimestampMax >> 1;
+
+WindowMatchResult timestamp_match(u32 tsMain, u32 tsModule, const std::pair<s32, s32> &matchWindow)
+{
+    s64 diff = static_cast<s64>(tsMain) - static_cast<s64>(tsModule);
+
+    if (std::abs(diff) > TimestampHalf)
+    {
+        if (diff < 0)
+            diff += TimestampMax;
+        else
+            diff -= TimestampMax;
+    }
+
+    if (diff >= 0)
+    {
+        // tsModule is before tsMain
+        if (diff > -matchWindow.first)
+            return { WindowMatch::too_old, static_cast<u32>(std::abs(diff)) };
+    }
+    else
+    {
+        // tsModule is after tsMain
+        if (-diff > matchWindow.second)
+            return { WindowMatch::too_new, static_cast<u32>(std::abs(diff)) };
+    }
+
+    return { WindowMatch::in_window, static_cast<u32>(std::abs(diff)) };
+}
+
 struct EventBuilder::Private
 {
     void *userContext_ = nullptr;
@@ -111,7 +138,9 @@ struct EventBuilder::Private
     // indexes: event, linear module
     std::vector<std::vector<std::pair<s32, s32>>> moduleMatchWindows_;
     // indexes: event, linear module
-    std::vector<std::vector<u32>> prevModuleTimestamps_;
+    std::vector<std::vector<size_t>> moduleDiscardedEvents_;
+    // indexes: event, linear module
+    std::vector<std::vector<size_t>> moduleEmptyEvents_;
 
     std::vector<ModuleData> eventAssembly_;
 
@@ -133,7 +162,7 @@ struct EventBuilder::Private
         auto mainModuleIndex = mainModuleLinearIndexes_.at(eventIndex);
         assert(mainModuleIndex < moduleCount);
         const auto &mainBuffer = eventBuffers.at(mainModuleIndex);
-        auto &prevTimestamps = prevModuleTimestamps_.at(eventIndex);
+        auto &discardedEvents = moduleDiscardedEvents_.at(eventIndex);
 
         // Check if there is at least one event from the main module
         if (mainBuffer.empty())
@@ -143,15 +172,12 @@ struct EventBuilder::Private
 
         size_t result = 0u;
         const auto &setup = setups_.at(eventIndex);
-        boost::dynamic_bitset<> overflows;
-        overflows.resize(moduleCount);
-        static const u32 TimestampMax = 0x3fffffffu;
-        // XXX: leftoff here
 
         while (!mainBuffer.empty()
                && (flush || mainBuffer.size() >= setup.minMainModuleEvents))
         {
             u32 mainModuleTimestamp = eventBuffers.at(mainModuleIndex).front().timestamp;
+
             std::fill(eventAssembly_.begin(), eventAssembly_.end(), ModuleData{});
             u32 eventInvScore = 0u;
 
@@ -171,8 +197,8 @@ struct EventBuilder::Private
                     switch (matchResult.match)
                     {
                         case WindowMatch::too_old:
-                            prevTimestamps[moduleIndex] = moduleEvent.timestamp;
                             eventBuffers.at(moduleIndex).pop_front();
+                            ++discardedEvents.at(moduleIndex);
                             break;
 
                         case WindowMatch::in_window:
@@ -195,6 +221,7 @@ struct EventBuilder::Private
             callbacks.eventData(userContext_, eventIndex, eventAssembly_.data(), moduleCount);
             ++result;
 
+            // Now, after, the callback, pop the consumed module events off the deques.
             for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
             {
                 auto &moduleData = eventAssembly_[moduleIndex];
@@ -226,7 +253,8 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
     d->moduleEventBuffers_.resize(eventCount);
     d->moduleTimestampExtractors_.resize(eventCount);
     d->moduleMatchWindows_.resize(eventCount);
-    d->prevModuleTimestamps_.resize(eventCount);
+    d->moduleDiscardedEvents_.resize(eventCount);
+    d->moduleEmptyEvents_.resize(eventCount);
 
     for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex)
     {
@@ -239,7 +267,8 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
         auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
         auto &matchWindows = d->moduleMatchWindows_.at(eventIndex);
         auto &eventBuffers = d->moduleEventBuffers_.at(eventIndex);
-        auto &prevTimestamps = d->prevModuleTimestamps_.at(eventIndex);
+        auto &discardedEvents = d->moduleDiscardedEvents_.at(eventIndex);
+        auto &emptyEvents = d->moduleEmptyEvents_.at(eventIndex);
         unsigned linearModuleIndex = 0;
 
         for (size_t crateIndex = 0; crateIndex < eventSetup.crateSetups.size(); ++crateIndex)
@@ -254,12 +283,14 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
             {
                 auto key = std::make_pair(crateIndex, moduleIndex);
                 eventTable[key] = linearModuleIndex++;
+
                 timestampExtractors.push_back(crateSetup.moduleTimestampExtractors[moduleIndex]);
                 matchWindows.push_back(crateSetup.moduleMatchWindows[moduleIndex]);
-                eventBuffers.push_back({});
             }
 
-            prevTimestamps.resize(moduleCount);
+            eventBuffers.resize(moduleCount);
+            discardedEvents.resize(moduleCount);
+            emptyEvents.resize(moduleCount);
         }
 
         size_t mainModuleLinearIndex = d->getLinearModuleIndex(
@@ -268,8 +299,6 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
             eventSetup.mainModule.second); // moduleIndex
 
         d->mainModuleLinearIndexes_[eventIndex] = mainModuleLinearIndex;
-
-        //cerr << "event=" << eventIndex << ", mainModuleLinearIndex=" << mainModuleLinearIndex << endl;
     }
 }
 
@@ -310,6 +339,7 @@ void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleD
     assert(0 <= eventIndex);
     auto &moduleEventBuffers = d->moduleEventBuffers_.at(eventIndex);
     auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
+    auto &emptyEvents = d->moduleEmptyEvents_.at(eventIndex);
 
     for (unsigned moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
     {
@@ -319,12 +349,26 @@ void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleD
         auto &dynamic = moduleData.dynamic;
         auto &suffix = moduleData.suffix;
 
-        if (dynamic.size == 0) // FIXME: why do we get 0 sized data from the readout parser?
+        // The readout parser can yield zero length data if a module is read
+        // out using a block transfer but the module has not converted any
+        // events at all. In this case it will immediately raise BERR on the
+        // VME bus. This is different than the case where the module got a
+        // trigger but no channel was within the thresholds. Then we do get an
+        // event consisting of only the header and footer (containing the
+        // timestamp).
+        // The zero length events need to be skipped as there is no timestamp
+        // information contained within and the builder code assumes non-zero
+        // data for module events.
+        if (dynamic.size == 0)
+        {
+            ++emptyEvents.at(moduleIndex);
             continue;
+        }
 
-        auto linearModuleIndex = d->getLinearModuleIndex(crateIndex, eventIndex, moduleIndex);
-
+        const auto linearModuleIndex = d->getLinearModuleIndex(crateIndex, eventIndex, moduleIndex);
         u32 timestamp = timestampExtractors.at(linearModuleIndex)(dynamic.data, dynamic.size);
+
+        assert(timestamp <= TimestampMax);
 
         ModuleEventStorage eventStorage =
         {
@@ -360,19 +404,6 @@ bool EventBuilder::waitForData(const std::chrono::milliseconds &maxWait)
         if (!d->systemEvents_.empty())
             return true;
 
-#if 0
-        return std::any_of(
-            d->moduleEventBuffers_.begin(), d->moduleEventBuffers_.end(),
-            [] (const auto &moduleBuffers)
-            {
-                return std::any_of(
-                    moduleBuffers.begin(), moduleBuffers.end(),
-                    [] (const auto &moduleBuffer)
-                    {
-                        return !moduleBuffer.empty();
-                    });
-            });
-#else
         for (const auto &moduleBuffers: d->moduleEventBuffers_)
         {
             for (const auto &moduleBuffer: moduleBuffers)
@@ -381,36 +412,12 @@ bool EventBuilder::waitForData(const std::chrono::milliseconds &maxWait)
                     return true;
             }
         }
-#endif
 
         return false;
     };
 
     UniqueLock guard(d->mutex_);
     return d->cv_.wait_for(guard, maxWait, predicate);
-}
-
-WindowMatchResult timestamp_match(u32 tsMain, u32 tsModule, const std::pair<s32, s32> &matchWindow)
-{
-    // FIXME: proper overflow handling
-    //static const s64 TimestampMax = 0xFFFFFFFF;
-
-    s64 diff = static_cast<s64>(tsMain) - static_cast<s64>(tsModule);
-
-    if (diff >= 0)
-    {
-        // tsModule is before tsMain
-        if (diff > -matchWindow.first)
-            return { WindowMatch::too_old, static_cast<u32>(std::abs(diff)) };
-    }
-    else
-    {
-        // tsModule is after tsMain
-        if (-diff > matchWindow.second)
-            return { WindowMatch::too_new, static_cast<u32>(std::abs(diff)) };
-    }
-
-    return { WindowMatch::in_window, static_cast<u32>(std::abs(diff)) };
 }
 
 size_t EventBuilder::buildEvents(Callbacks callbacks, bool flush)

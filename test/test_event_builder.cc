@@ -11,7 +11,7 @@ TEST(event_builder, VectorAtIsWeird)
         ASSERT_EQ(v1.at(0), 0);
         ASSERT_EQ(v1.at(1), 1);
         ASSERT_EQ(v1.at(2), 2);
-        ASSERT_THROW(v1.at(3), std::out_of_range);
+        ASSERT_THROW(static_cast<void>(v1.at(3)), std::out_of_range);
     }
     {
         std::vector<std::vector<int>> vv1 =
@@ -95,7 +95,7 @@ namespace
         eventSetup.crateSetups[0].moduleMatchWindows = {
             {  -50,  75 }, // crate0, module0
             {    0,   0 }, // crate0, module1 (**)
-            {    0, 150 }, // crate0, module2
+            {  -20, 150 }, // crate0, module2
         };
 
         return eventSetup;
@@ -132,21 +132,21 @@ TEST(event_builder, EventIndexOutOfRange)
     }
 }
 
-TEST(event_builder, SingleCrateWindowMatching)
+TEST(event_builder, SingleCrateWindowMatchingNoOverflow)
 {
     // Storage for the module data
     std::vector<std::array<std::vector<u32>, TestSetupModuleCount>> moduleTestData =
     {
         {
             {
-                { 100 }, // crate0, module0         in window
+                {  25 }, // crate0, module0         too old
                 { 150 }, // crate0, module1 (**)
                 { 200 }, // crate0, module2         in window
             }
         },
         {
             {
-                {  25 }, // crate0, module0         too old
+                { 101 }, // crate0, module0         in window but yielded in event#1
                 { 151 }, // crate0, module1 (**)
                 { 350 }, // crate0, module2         too new
             }
@@ -164,6 +164,7 @@ TEST(event_builder, SingleCrateWindowMatching)
     int eventIndex = 0;
     auto setup = std::vector<EventSetup>{ make_one_crate_one_event_test_setup() };
 
+    // push one event, then flush
     {
         EventBuilder eventBuilder(setup);
 
@@ -176,8 +177,7 @@ TEST(event_builder, SingleCrateWindowMatching)
         auto eventDataCallback = [&] (void *, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
         {
             ++dataCallbackCount;
-            ASSERT_EQ(moduleDataList[0].dynamic.size, 1);
-            ASSERT_EQ(moduleDataList[0].dynamic.data[0], 100);
+            ASSERT_EQ(moduleDataList[0].dynamic.size, 0);
 
             ASSERT_EQ(moduleDataList[1].dynamic.size, 1);
             ASSERT_EQ(moduleDataList[1].dynamic.data[0], 150);
@@ -199,6 +199,7 @@ TEST(event_builder, SingleCrateWindowMatching)
         systemCallbackCount = 0;
     }
 
+    // push two events, then flush
     {
         EventBuilder eventBuilder(setup);
 
@@ -218,7 +219,7 @@ TEST(event_builder, SingleCrateWindowMatching)
                 case 0:
                     {
                         ASSERT_EQ(moduleDataList[0].dynamic.size, 1);
-                        ASSERT_EQ(moduleDataList[0].dynamic.data[0], 100);
+                        ASSERT_EQ(moduleDataList[0].dynamic.data[0], 101);
 
                         ASSERT_EQ(moduleDataList[1].dynamic.size, 1);
                         ASSERT_EQ(moduleDataList[1].dynamic.data[0], 150);
@@ -251,6 +252,7 @@ TEST(event_builder, SingleCrateWindowMatching)
         systemCallbackCount = 0;
     }
 
+    // push three events, then flush
     {
         EventBuilder eventBuilder(setup);
 
@@ -273,7 +275,7 @@ TEST(event_builder, SingleCrateWindowMatching)
                 case 0:
                     {
                         ASSERT_EQ(moduleDataList[0].dynamic.size, 1);
-                        ASSERT_EQ(moduleDataList[0].dynamic.data[0], 100);
+                        ASSERT_EQ(moduleDataList[0].dynamic.data[0], 101);
 
                         ASSERT_EQ(moduleDataList[1].dynamic.size, 1);
                         ASSERT_EQ(moduleDataList[1].dynamic.data[0], 150);
@@ -312,6 +314,127 @@ TEST(event_builder, SingleCrateWindowMatching)
         ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, true), 3);
 
         ASSERT_EQ(dataCallbackCount, 3);
+        ASSERT_EQ(systemCallbackCount, 0);
+        dataCallbackCount = 0;
+        systemCallbackCount = 0;
+    }
+}
+
+TEST(event_builder, SingleCrateWindowMatchingOverflow)
+{
+    // Storage for the module data
+    std::vector<std::array<std::vector<u32>, TestSetupModuleCount>> moduleTestData =
+    {
+        {
+            {
+                { 100 }, // crate0, module0         in window
+                { 150 }, // crate0, module1 (**)
+                { 200 }, // crate0, module2         in window
+            }
+        },
+        {
+            {
+                { 0x3fffffff -  5 },    // crate0, module0         in window, not yet overflowed
+                {  10 },                // crate0, module1 (**)    overflow from 150 to 10
+                { 0x3fffffff -  10 },   // crate0, module2         in window, not yet overflowed
+            }
+        },
+        {
+            {
+                {  50 },                // crate0, module0         in window, overflow
+                { 0x3fffffff - 15 },    // crate0, module1 (**)    no overflow this time
+                { 100 },                // crate0, module2         in window, overflow
+            }
+        },
+        {
+            {
+                { 2000 },                // crate0, module0         not in window
+                { 0x3fffffff - 17 },    // crate0, module1 (**)
+                { 3000 },                // crate0, module2         not in window
+            }
+        },
+    };
+
+    int crateIndex = 0;
+    int eventIndex = 0;
+    auto setup = std::vector<EventSetup>{ make_one_crate_one_event_test_setup() };
+
+    // push three events, then flush
+    {
+        EventBuilder eventBuilder(setup);
+
+        auto moduleDataList = module_data_list_from_test_data(moduleTestData[0]);
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+
+        moduleDataList = module_data_list_from_test_data(moduleTestData[1]);
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+
+        moduleDataList = module_data_list_from_test_data(moduleTestData[2]);
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+
+        moduleDataList = module_data_list_from_test_data(moduleTestData[3]);
+        eventBuilder.recordEventData(crateIndex, eventIndex, moduleDataList.data(), moduleDataList.size());
+
+        size_t dataCallbackCount = 0;
+        size_t systemCallbackCount = 0;
+
+        auto eventDataCallback = [&] (void *, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
+        {
+            switch (dataCallbackCount++)
+            {
+                case 0:
+                    {
+                        ASSERT_EQ(moduleDataList[0].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[0].dynamic.data[0], 100);
+
+                        ASSERT_EQ(moduleDataList[1].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[1].dynamic.data[0], 150);
+
+                        ASSERT_EQ(moduleDataList[2].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[2].dynamic.data[0], 200);
+                    } break;
+                case 1:
+                    {
+                        ASSERT_EQ(moduleDataList[0].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[0].dynamic.data[0], 0x3fffffff - 5);
+
+                        ASSERT_EQ(moduleDataList[1].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[1].dynamic.data[0], 10);
+
+                        ASSERT_EQ(moduleDataList[2].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[2].dynamic.data[0], 0x3fffffff - 10);
+                    } break;
+                case 2:
+                    {
+                        ASSERT_EQ(moduleDataList[0].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[0].dynamic.data[0], 50);
+
+                        ASSERT_EQ(moduleDataList[1].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[1].dynamic.data[0], 0x3fffffff - 15);
+
+                        ASSERT_EQ(moduleDataList[2].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[2].dynamic.data[0], 100);
+                    } break;
+                case 3:
+                    {
+                        ASSERT_EQ(moduleDataList[0].dynamic.size, 0);
+
+                        ASSERT_EQ(moduleDataList[1].dynamic.size, 1);
+                        ASSERT_EQ(moduleDataList[1].dynamic.data[0], 0x3fffffff - 17);
+
+                        ASSERT_EQ(moduleDataList[2].dynamic.size, 0);
+                    } break;
+            }
+        };
+
+        auto systemEventCallback = [&] (void *, const u32 *header, u32 size)
+        {
+            ++systemCallbackCount;
+        };
+
+        ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, true), 4);
+
+        ASSERT_EQ(dataCallbackCount, 4);
         ASSERT_EQ(systemCallbackCount, 0);
         dataCallbackCount = 0;
         systemCallbackCount = 0;
@@ -361,6 +484,7 @@ TEST(event_builder, SingleCratePerfectMatches)
         ++systemCallbackCount;
     };
 
+    // Empty event builder, nothing should happen.
     ASSERT_EQ(eventBuilder.buildEvents({ eventDataCallback, systemEventCallback }, false), 0);;
     ASSERT_EQ(dataCallbackCount, 0);
     ASSERT_EQ(systemCallbackCount, 0);
