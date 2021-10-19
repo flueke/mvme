@@ -7,17 +7,17 @@
         ],
         "connections": [
             {
+                "dstId": "{9a8ca0c7-3794-458a-915f-f60fc1295e2b}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{648915c6-ebb3-4417-be8b-25f34c28744a}",
+                "srcIndex": 0
+            },
+            {
                 "dstId": "{230201dc-8409-4bc1-ad3e-b8f97e577080}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
                 "srcId": "{c3ae6e43-ba4a-4899-8def-0f2d7b7475c9}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{fcf9b595-6f01-492a-8365-fbcf44488ba9}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{2e6c7275-8dfb-48b9-83ef-5efbf869c310}",
                 "srcIndex": 0
             },
             {
@@ -28,6 +28,20 @@
                 "srcIndex": 0
             },
             {
+                "dstId": "{4e9d6159-e815-48df-ac21-a38e84b4958f}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{715c672a-007a-41e3-a1c5-ee74a1631edb}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{ae27de0a-5578-4b53-a5b8-03b6abbef641}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{4e9d6159-e815-48df-ac21-a38e84b4958f}",
+                "srcIndex": 0
+            },
+            {
                 "dstId": "{498b9fee-1d8a-4ea5-b3d9-91f45291db22}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
@@ -35,24 +49,10 @@
                 "srcIndex": 0
             },
             {
-                "dstId": "{9a8ca0c7-3794-458a-915f-f60fc1295e2b}",
+                "dstId": "{fcf9b595-6f01-492a-8365-fbcf44488ba9}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{648915c6-ebb3-4417-be8b-25f34c28744a}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{53acee9b-0b71-41b8-9717-b645f759dd0f}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{9a8ca0c7-3794-458a-915f-f60fc1295e2b}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{6e9c5254-375e-4125-873b-26df20536326}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{c3ae6e43-ba4a-4899-8def-0f2d7b7475c9}",
+                "srcId": "{2e6c7275-8dfb-48b9-83ef-5efbf869c310}",
                 "srcIndex": 0
             },
             {
@@ -68,6 +68,27 @@
                 "dstParamIndex": -1,
                 "srcId": "{2e6c7275-8dfb-48b9-83ef-5efbf869c310}",
                 "srcIndex": 0
+            },
+            {
+                "dstId": "{6e9c5254-375e-4125-873b-26df20536326}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{c3ae6e43-ba4a-4899-8def-0f2d7b7475c9}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{84e4b02a-7011-4ab8-801f-e60ffb518ccb}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{715c672a-007a-41e3-a1c5-ee74a1631edb}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{53acee9b-0b71-41b8-9717-b645f759dd0f}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{9a8ca0c7-3794-458a-915f-f60fc1295e2b}",
+                "srcIndex": 0
             }
         ],
         "directories": [
@@ -77,7 +98,8 @@
                     "members": [
                         "{498b9fee-1d8a-4ea5-b3d9-91f45291db22}",
                         "{fcf9b595-6f01-492a-8365-fbcf44488ba9}",
-                        "{6e9c5254-375e-4125-873b-26df20536326}"
+                        "{6e9c5254-375e-4125-873b-26df20536326}",
+                        "{84e4b02a-7011-4ab8-801f-e60ffb518ccb}"
                     ]
                 },
                 "eventId": "{24d71413-75f3-4055-981d-629836c19276}",
@@ -91,7 +113,8 @@
                     "members": [
                         "{9a8ca0c7-3794-458a-915f-f60fc1295e2b}",
                         "{976e1591-b756-440f-a193-e483abe9dce3}",
-                        "{230201dc-8409-4bc1-ad3e-b8f97e577080}"
+                        "{230201dc-8409-4bc1-ad3e-b8f97e577080}",
+                        "{4e9d6159-e815-48df-ac21-a38e84b4958f}"
                     ]
                 },
                 "eventId": "{24d71413-75f3-4055-981d-629836c19276}",
@@ -105,7 +128,8 @@
                     "members": [
                         "{53acee9b-0b71-41b8-9717-b645f759dd0f}",
                         "{1cc87f9a-ee68-43bc-8fb7-4bd015730a90}",
-                        "{1b17c9ac-83a9-40ff-8153-a66a6bca6d31}"
+                        "{1b17c9ac-83a9-40ff-8153-a66a6bca6d31}",
+                        "{ae27de0a-5578-4b53-a5b8-03b6abbef641}"
                     ]
                 },
                 "eventId": "{24d71413-75f3-4055-981d-629836c19276}",
@@ -781,6 +805,41 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{28110000-c82d-492d-9dcf-65918ca0f2cf}",
+                "id": "{84e4b02a-7011-4ab8-801f-e60ffb518ccb}",
+                "name": "VMMR_1ns.trigger_time_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{28110000-c82d-492d-9dcf-65918ca0f2cf}",
+                "id": "{4e9d6159-e815-48df-ac21-a38e84b4958f}",
+                "name": "VMMR_1ns.trigger_time",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
                     "xAxisTitle": "module_timestamp",
                     "xLimitMax": null,
                     "xLimitMin": null
@@ -820,6 +879,21 @@
                 "id": "{53acee9b-0b71-41b8-9717-b645f759dd0f}",
                 "name": "VMMR_1ns.bus_time",
                 "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{28110000-c82d-492d-9dcf-65918ca0f2cf}",
+                "id": "{ae27de0a-5578-4b53-a5b8-03b6abbef641}",
+                "name": "VMMR_1ns.trigger_time",
+                "userLevel": 1
             }
         ],
         "properties": {
@@ -837,6 +911,11 @@
                 {
                     "moduleId": "{793d8641-55f8-4221-a650-51319f69e081}",
                     "moduleName": "VMMR_1ns",
+                    "moduleTypeName": "vmmr_1ns"
+                },
+                {
+                    "moduleId": "{48e133f3-4e83-4a6f-ae8b-7b6e6e541b0b}",
+                    "moduleName": "vmmr_1ns",
                     "moduleTypeName": "vmmr_1ns"
                 }
             ]
@@ -857,9 +936,9 @@
                         }
                     ]
                 },
-                "eventId": "{24d71413-75f3-4055-981d-629836c19276}",
+                "eventId": "{28110000-c82d-492d-9dcf-65918ca0f2cf}",
                 "id": "{648915c6-ebb3-4417-be8b-25f34c28744a}",
-                "moduleId": "{793d8641-55f8-4221-a650-51319f69e081}",
+                "moduleId": "{48e133f3-4e83-4a6f-ae8b-7b6e6e541b0b}",
                 "name": "VMMR_1ns.bus_time"
             },
             {
@@ -877,9 +956,9 @@
                         }
                     ]
                 },
-                "eventId": "{24d71413-75f3-4055-981d-629836c19276}",
+                "eventId": "{28110000-c82d-492d-9dcf-65918ca0f2cf}",
                 "id": "{2e6c7275-8dfb-48b9-83ef-5efbf869c310}",
-                "moduleId": "{793d8641-55f8-4221-a650-51319f69e081}",
+                "moduleId": "{48e133f3-4e83-4a6f-ae8b-7b6e6e541b0b}",
                 "name": "VMMR_1ns.amplitude_bus0"
             },
             {
@@ -897,10 +976,30 @@
                         }
                     ]
                 },
-                "eventId": "{24d71413-75f3-4055-981d-629836c19276}",
+                "eventId": "{28110000-c82d-492d-9dcf-65918ca0f2cf}",
                 "id": "{c3ae6e43-ba4a-4899-8def-0f2d7b7475c9}",
-                "moduleId": "{793d8641-55f8-4221-a650-51319f69e081}",
+                "moduleId": "{48e133f3-4e83-4a6f-ae8b-7b6e6e541b0b}",
                 "name": "VMMR_1ns.module_timestamp"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "b6e0708a8e4e3b0e",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{28110000-c82d-492d-9dcf-65918ca0f2cf}",
+                "id": "{715c672a-007a-41e3-a1c5-ee74a1631edb}",
+                "moduleId": "{48e133f3-4e83-4a6f-ae8b-7b6e6e541b0b}",
+                "name": "VMMR_1ns.trigger_time"
             }
         ]
     }

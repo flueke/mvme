@@ -1,9 +1,25 @@
 {
     "AnalysisNG": {
         "MVMEAnalysisVersion": 4,
-        "VMEObjectSettings": {},
-        "conditionLinks": [],
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": [
+        ],
         "connections": [
+            {
+                "dstId": "{49a7de93-c52b-4295-accb-63d2ddbf38fc}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{23a69a1f-909f-4946-a321-acc984442944}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{95563d26-e7d8-461d-8851-c5872bf84f3f}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{0ede2246-2bc7-48c4-a64d-19e0b8649ff9}",
+                "srcIndex": 0
+            },
             {
                 "dstId": "{41e48bf0-0b4e-4a37-9cfb-a40d9f739cf2}",
                 "dstIndex": 0,
@@ -19,17 +35,10 @@
                 "srcIndex": 0
             },
             {
-                "dstId": "{49a7de93-c52b-4295-accb-63d2ddbf38fc}",
+                "dstId": "{cec442d6-242a-4dad-9b7f-cddeeb2f4d20}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{23a69a1f-909f-4946-a321-acc984442944}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{bd756e30-0b5c-4aa7-89e9-1728a339c241}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{d15eb821-8f6e-458c-b57c-6b14478c9f15}",
+                "srcId": "{41e48bf0-0b4e-4a37-9cfb-a40d9f739cf2}",
                 "srcIndex": 0
             },
             {
@@ -40,10 +49,10 @@
                 "srcIndex": 0
             },
             {
-                "dstId": "{cec442d6-242a-4dad-9b7f-cddeeb2f4d20}",
+                "dstId": "{bd756e30-0b5c-4aa7-89e9-1728a339c241}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{41e48bf0-0b4e-4a37-9cfb-a40d9f739cf2}",
+                "srcId": "{d15eb821-8f6e-458c-b57c-6b14478c9f15}",
                 "srcIndex": 0
             },
             {
@@ -51,13 +60,6 @@
                 "dstIndex": 0,
                 "dstParamIndex": -1,
                 "srcId": "{bd756e30-0b5c-4aa7-89e9-1728a339c241}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{95563d26-e7d8-461d-8851-c5872bf84f3f}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{0ede2246-2bc7-48c4-a64d-19e0b8649ff9}",
                 "srcIndex": 0
             },
             {
@@ -116,16 +118,16 @@
             {
                 "class": "analysis::Histo1DSink",
                 "data": {
-                    "nBins": 65536,
+                    "nBins": 4096,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "bus_time",
+                    "xAxisTitle": "amplitude_bus0",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{ba5ec8ef-443a-4aaf-8d89-715e2f145c84}",
-                "name": "vmmr.bus_time_raw",
+                "id": "{95563d26-e7d8-461d-8851-c5872bf84f3f}",
+                "name": "vmmr.amplitude_bus0_raw",
                 "userLevel": 0
             },
             {
@@ -207,16 +209,16 @@
             {
                 "class": "analysis::Histo1DSink",
                 "data": {
-                    "nBins": 4096,
+                    "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "amplitude_bus0",
+                    "xAxisTitle": "bus_time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{95563d26-e7d8-461d-8851-c5872bf84f3f}",
-                "name": "vmmr.amplitude_bus0_raw",
+                "id": "{ba5ec8ef-443a-4aaf-8d89-715e2f145c84}",
+                "name": "vmmr.bus_time_raw",
                 "userLevel": 0
             },
             {
@@ -779,14 +781,14 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "bus_time",
+                    "xAxisTitle": "module_timestamp",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{cec442d6-242a-4dad-9b7f-cddeeb2f4d20}",
-                "name": "vmmr.bus_time",
+                "id": "{4be72be7-a24d-45f5-80c7-500222759538}",
+                "name": "vmmr.module_timestamp",
                 "userLevel": 1
             },
             {
@@ -809,23 +811,38 @@
                 "data": {
                     "nBins": 65536,
                     "resolutionReductionFactor": 0,
-                    "xAxisTitle": "module_timestamp",
+                    "xAxisTitle": "bus_time",
                     "xLimitMax": null,
                     "xLimitMin": null
                 },
                 "enabled": true,
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{4be72be7-a24d-45f5-80c7-500222759538}",
-                "name": "vmmr.module_timestamp",
+                "id": "{cec442d6-242a-4dad-9b7f-cddeeb2f4d20}",
+                "name": "vmmr.bus_time",
                 "userLevel": 1
             }
         ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{b642e0f3-7dcc-4a1a-8738-0d436fa2f451}",
+                    "moduleName": "mdpp16_scp",
+                    "moduleTypeName": "mdpp16_scp"
+                },
+                {
+                    "moduleId": "{c131d14e-d347-45dc-bffd-b8bc47ff3e11}",
+                    "moduleName": "vmmr",
+                    "moduleTypeName": "vmmr"
+                }
+            ]
+        },
         "sources": [
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [],
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
                     "rngSeed": "23f973fa9cd137f8",
                     "subFilters": [
@@ -835,16 +852,17 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "eventId": "{a11a4ed3-0e4e-4086-9852-f5bf5b1ffcac}",
                 "id": "{45b742ed-4507-4dc1-9573-f1475e02e81f}",
-                "moduleId": "{5bd71658-77b5-4643-94a0-afe49f6b7c11}",
+                "moduleId": "{c131d14e-d347-45dc-bffd-b8bc47ff3e11}",
                 "name": "vmmr.bus_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [],
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
                     "rngSeed": "b85c254a35f63d20",
                     "subFilters": [
@@ -854,16 +872,17 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "eventId": "{a11a4ed3-0e4e-4086-9852-f5bf5b1ffcac}",
                 "id": "{0ede2246-2bc7-48c4-a64d-19e0b8649ff9}",
-                "moduleId": "{5bd71658-77b5-4643-94a0-afe49f6b7c11}",
+                "moduleId": "{c131d14e-d347-45dc-bffd-b8bc47ff3e11}",
                 "name": "vmmr.amplitude_bus0"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "options": 0,
-                    "parameterNames": [],
+                    "parameterNames": [
+                    ],
                     "requiredCompletionCount": 1,
                     "rngSeed": "819a4dff2de79a4a",
                     "subFilters": [
@@ -873,10 +892,30 @@
                         }
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "eventId": "{a11a4ed3-0e4e-4086-9852-f5bf5b1ffcac}",
                 "id": "{d15eb821-8f6e-458c-b57c-6b14478c9f15}",
-                "moduleId": "{5bd71658-77b5-4643-94a0-afe49f6b7c11}",
+                "moduleId": "{c131d14e-d347-45dc-bffd-b8bc47ff3e11}",
                 "name": "vmmr.module_timestamp"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "aa1c1f22a6966a11",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{a11a4ed3-0e4e-4086-9852-f5bf5b1ffcac}",
+                "id": "{65b9af40-f3bd-4c88-8db1-a193dd29acb8}",
+                "moduleId": "{c131d14e-d347-45dc-bffd-b8bc47ff3e11}",
+                "name": "vmmr.trigger_time"
             }
         ]
     }
