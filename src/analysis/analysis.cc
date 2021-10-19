@@ -5857,9 +5857,10 @@ make_parent_path_list(const AnalysisObjectPtr &obj)
 
 QJsonDocument serialize_analysis_to_json_document(const Analysis &analysis)
 {
+    QJsonObject inner;
+    analysis.write(inner);
     QJsonObject json;
-    analysis.write(json);
-    json[QSL("AnalysisNG")] = json;
+    json[QSL("AnalysisNG")] = inner;
     return QJsonDocument(json);
 }
 
