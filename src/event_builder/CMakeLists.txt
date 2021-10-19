@@ -10,3 +10,6 @@ target_link_libraries(libmvme_eventbuilder
     PUBLIC libmvme_core
     PUBLIC mesytec-mvlc
     )
+install(TARGETS libmvme_eventbuilder
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib)
