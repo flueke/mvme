@@ -10,7 +10,7 @@
                     # 4 -> 391 ps = 25 ns / 64
                     # 5 -> 781 ps = 25 ns / 32
 # ADC resolution
-0x6046	0			# 0 = 16 bit ... 4 = 12Bit
+0x6046	0			# 0 = 16 bit ... 4 = 12Bit (starting from FW3020, before alway 12Bit)
 
 # output_format
 0x6044  3           # 0 -> time and long integral
@@ -134,7 +134,7 @@
 # Timestamp/Event Counters: CTRA, CTRB
 # ############################################################################
 # ts_sources
-0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+0x6096  0b00        # bit 0: frequency source (0 -> VME-Sysclock, 1 -> external)
                     # bit 1: external reset enable
 
 # ts_divisor (16 bit value)
