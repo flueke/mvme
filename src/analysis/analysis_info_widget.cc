@@ -24,6 +24,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QTimer>
 
 #include "util/counters.h"
@@ -72,11 +73,23 @@ struct AnalysisInfoWidgetPrivate
     QPushButton *mvlcRequestBufferOnError;
     QPushButton *mvlcRequestNextBuffer;
 
+    // Holds mvlcInfoWidget and eventBuilderWidget
+    QTabWidget *tabbedWidget;
+
     QWidget *mvlcInfoWidget;
     QVector<QLabel *> mvlcLabels;
     mesytec::mvlc::readout_parser::ReadoutParserCounters prevMVLCCounters;
 
-    void updateMVLCWidget(const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters, double dt);
+    QWidget *eventBuilderWidget;
+    QVector<QLabel *> eventBuilderLabels;
+    std::vector<mvme::event_builder::EventBuilder::EventCounters> prevEventBuilderCounters;
+
+    void updateMVLCWidget(
+        const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters,
+        double dt);
+    void updateEventBuilderWidget(
+        const std::vector<mvme::event_builder::EventBuilder::EventCounters> &counters,
+        double dt);
 };
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
@@ -104,7 +117,8 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     }
 
     // MVLC specific widgets
-    m_d->mvlcInfoWidget = new QGroupBox("MVLC Readout Parser Counters:");
+    //m_d->mvlcInfoWidget = new QGroupBox("MVLC Readout Parser Counters:");
+    m_d->mvlcInfoWidget = new QWidget;
     {
         auto mvlcLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcInfoWidget);
 
@@ -161,10 +175,46 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
         mvlcLayout->addRow(noteLabel);
     }
 
+    //m_d->eventBuilderWidget = new QGroupBox("Event Builder");
+    m_d->eventBuilderWidget = new QWidget;
+    {
+        auto make_label = [] ()
+        {
+            auto label = std::make_unique<QLabel>();
+            label->setSizePolicy({QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding});
+            return label;
+        };
+
+        auto fl = make_layout<QFormLayout, 0, 2>();
+
+        auto label = make_label();
+        fl->addRow("Empty Module Data", label.get());
+        m_d->eventBuilderLabels.push_back(label.release());
+
+        label = make_label();
+        fl->addRow("Discarded Events", label.get());
+        m_d->eventBuilderLabels.push_back(label.release());
+
+        label = make_label();
+        fl->addRow("Inverse Match Scores", label.get());
+        m_d->eventBuilderLabels.push_back(label.release());
+
+        auto l = make_vbox(m_d->eventBuilderWidget);
+        l->addLayout(fl);
+        l->addStretch(1);
+    }
+
+    // tabwidget for mvlc and event builder counters
+    m_d->tabbedWidget = new QTabWidget;
+    auto tabWidget = m_d->tabbedWidget;
+    tabWidget->addTab(m_d->mvlcInfoWidget, "MVLC Readout Parser Counters");
+    tabWidget->addTab(m_d->eventBuilderWidget, "Event Builder Counters");
+
     // outer widget layout
     auto outerLayout = new QVBoxLayout(this);
     outerLayout->addLayout(layout);
-    outerLayout->addWidget(m_d->mvlcInfoWidget);
+    //outerLayout->addWidget(m_d->mvlcInfoWidget);
+    outerLayout->addWidget(tabWidget);
     outerLayout->addStretch(1);
 
     update();
@@ -200,8 +250,6 @@ void AnalysisInfoWidget::update()
         qDebug() << __PRETTY_FUNCTION__ << "early return because streamWorker is nullptr";
         return;
     }
-
-    auto mvlcWorker = qobject_cast<MVLC_StreamWorker *>(streamWorker);
 
     AnalysisWorkerState state = streamWorker->getState();
     const auto counters = streamWorker->getCounters();
@@ -342,6 +390,8 @@ void AnalysisInfoWidget::update()
     m_d->labels[ii++]->setText(t);
 
     // buffersProcessed
+    auto mvlcWorker = qobject_cast<MVLC_StreamWorker *>(streamWorker);
+
     if (mvlcWorker)
     {
         auto pc = mvlcWorker->getReadoutParserCounters();
@@ -390,14 +440,23 @@ void AnalysisInfoWidget::update()
 
     if (mvlcWorker)
     {
-        m_d->mvlcInfoWidget->setVisible(true);
-        auto counters = mvlcWorker->getReadoutParserCounters();
-        m_d->updateMVLCWidget(counters, dt);
-        m_d->prevMVLCCounters = counters;
+        m_d->tabbedWidget->setVisible(true);
+
+        {
+            auto counters = mvlcWorker->getReadoutParserCounters();
+            m_d->updateMVLCWidget(counters, dt);
+            m_d->prevMVLCCounters = counters;
+        }
+
+        {
+            auto counters = mvlcWorker->getEventBuilderCounters();
+            m_d->updateEventBuilderWidget(counters, dt);
+            m_d->prevEventBuilderCounters = counters;
+        }
     }
     else
     {
-        m_d->mvlcInfoWidget->setVisible(false);
+        m_d->tabbedWidget->setVisible(false);
     }
 
     m_d->prevCounters = counters;
@@ -510,4 +569,62 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     {
         mvlcLabels[i]->setText(texts[i]);
     }
+}
+
+void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
+    const std::vector<mvme::event_builder::EventBuilder::EventCounters> &counters,
+    double /*dt*/)
+{
+    //auto &prevCounters = prevEventBuilderCounters;
+
+    int ii=0;
+    QStringList lines;
+
+    // empty events
+    for (size_t ei=0; ei<counters.size(); ++ei)
+    {
+        for (size_t mi=0; mi<counters[ei].emptyEvents.size(); ++mi)
+        {
+            auto line = QSL("event=%1, module=%2, count=%3")
+                .arg(ei)
+                .arg(mi)
+                .arg(counters[ei].emptyEvents[mi]);
+            lines.push_back(line);
+        }
+    }
+
+    eventBuilderLabels[ii++]->setText(lines.join("\n"));
+    lines.clear();
+
+    // discarded events
+    for (size_t ei=0; ei<counters.size(); ++ei)
+    {
+        for (size_t mi=0; mi<counters[ei].discardedEvents.size(); ++mi)
+        {
+            auto line = QSL("event=%1, module=%2, count=%3")
+                .arg(ei)
+                .arg(mi)
+                .arg(counters[ei].discardedEvents[mi]);
+            lines.push_back(line);
+        }
+    }
+
+    eventBuilderLabels[ii++]->setText(lines.join("\n"));
+    lines.clear();
+
+    // module inv score sums
+    for (size_t ei=0; ei<counters.size(); ++ei)
+    {
+        for (size_t mi=0; mi<counters[ei].invScoreSums.size(); ++mi)
+        {
+            auto line = QSL("event=%1, module=%2, count=%3")
+                .arg(ei)
+                .arg(mi)
+                .arg(counters[ei].invScoreSums[mi]);
+            lines.push_back(line);
+        }
+    }
+
+    eventBuilderLabels[ii++]->setText(lines.join("\n"));
+    lines.clear();
 }

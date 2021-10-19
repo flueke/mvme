@@ -122,6 +122,11 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_parserCountersSnapshot.copy();
         }
 
+        std::vector<mvme::event_builder::EventBuilder::EventCounters> getEventBuilderCounters() const
+        {
+            return m_eventBuilder.getCounters();
+        }
+
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag) { m_diag = diag; }
         bool hasDiagnostics() const { return m_diag != nullptr; }
 

@@ -127,6 +127,9 @@ struct EventBuilder::Private
 
     // indexes: event, pair(crateIndex, moduleIndex) -> linear module index
     std::vector<std::unordered_map<std::pair<int, unsigned>, size_t, PairHash>> linearModuleIndexTable_;
+    // Reverse mapping back from calculated linear modules indexes to (crateIndex, moduleIndex)
+    // indexes: event, linear module index -> pair(crateIndex, moduleIndex)
+    //std::vector<std::unordered_map<size_t, std::pair<int, unsigned>>> reverseModuleIndexTable_;
     // Linear module index of the main module for each event
     // indexes: event, linear module
     std::vector<size_t> mainModuleLinearIndexes_;
@@ -141,6 +144,8 @@ struct EventBuilder::Private
     std::vector<std::vector<size_t>> moduleDiscardedEvents_;
     // indexes: event, linear module
     std::vector<std::vector<size_t>> moduleEmptyEvents_;
+    // indexes: event, linear module
+    std::vector<std::vector<size_t>> moduleInvScoreSums_;
 
     std::vector<ModuleData> eventAssembly_;
 
@@ -163,6 +168,7 @@ struct EventBuilder::Private
         assert(mainModuleIndex < moduleCount);
         const auto &mainBuffer = eventBuffers.at(mainModuleIndex);
         auto &discardedEvents = moduleDiscardedEvents_.at(eventIndex);
+        auto &invScores = moduleInvScoreSums_.at(eventIndex);
 
         // Check if there is at least one event from the main module
         if (mainBuffer.empty())
@@ -204,6 +210,7 @@ struct EventBuilder::Private
                         case WindowMatch::in_window:
                             eventAssembly_[moduleIndex] = module_data_from_event_storage(moduleEvent);
                             eventInvScore += matchResult.invscore;
+                            invScores.at(moduleIndex) += matchResult.invscore;
                             done = true;
                             break;
 
@@ -238,6 +245,15 @@ struct EventBuilder::Private
 
         return result;
     }
+
+    EventBuilder::EventCounters getCounters(int eventIndex) const
+    {
+        EventCounters ret = {};
+        ret.discardedEvents = moduleDiscardedEvents_.at(eventIndex);
+        ret.emptyEvents = moduleEmptyEvents_.at(eventIndex);
+        ret.invScoreSums = moduleInvScoreSums_.at(eventIndex);
+        return ret;
+    }
 };
 
 EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userContext)
@@ -255,6 +271,7 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
     d->moduleMatchWindows_.resize(eventCount);
     d->moduleDiscardedEvents_.resize(eventCount);
     d->moduleEmptyEvents_.resize(eventCount);
+    d->moduleInvScoreSums_.resize(eventCount);
 
     for (size_t eventIndex = 0; eventIndex < eventCount; ++eventIndex)
     {
@@ -269,6 +286,7 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
         auto &eventBuffers = d->moduleEventBuffers_.at(eventIndex);
         auto &discardedEvents = d->moduleDiscardedEvents_.at(eventIndex);
         auto &emptyEvents = d->moduleEmptyEvents_.at(eventIndex);
+        auto &invScores = d->moduleInvScoreSums_.at(eventIndex);
         unsigned linearModuleIndex = 0;
 
         for (size_t crateIndex = 0; crateIndex < eventSetup.crateSetups.size(); ++crateIndex)
@@ -282,7 +300,8 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
             for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
             {
                 auto key = std::make_pair(crateIndex, moduleIndex);
-                eventTable[key] = linearModuleIndex++;
+                eventTable[key] = linearModuleIndex;
+                ++linearModuleIndex;
 
                 timestampExtractors.push_back(crateSetup.moduleTimestampExtractors[moduleIndex]);
                 matchWindows.push_back(crateSetup.moduleMatchWindows[moduleIndex]);
@@ -291,6 +310,7 @@ EventBuilder::EventBuilder(const std::vector<EventSetup> &setups, void *userCont
             eventBuffers.resize(moduleCount);
             discardedEvents.resize(moduleCount);
             emptyEvents.resize(moduleCount);
+            invScores.resize(moduleCount);
         }
 
         size_t mainModuleLinearIndex = d->getLinearModuleIndex(
@@ -337,6 +357,7 @@ void EventBuilder::recordEventData(int crateIndex, int eventIndex, const ModuleD
 
     assert(0 <= crateIndex);
     assert(0 <= eventIndex);
+
     auto &moduleEventBuffers = d->moduleEventBuffers_.at(eventIndex);
     auto &timestampExtractors = d->moduleTimestampExtractors_.at(eventIndex);
     auto &emptyEvents = d->moduleEmptyEvents_.at(eventIndex);
@@ -446,6 +467,25 @@ size_t EventBuilder::buildEvents(Callbacks callbacks, bool flush)
     }
 
     return result;
+}
+
+EventBuilder::EventCounters EventBuilder::getCounters(int eventIndex) const
+{
+    UniqueLock guard(d->mutex_);
+    return d->getCounters(eventIndex);
+}
+
+std::vector<EventBuilder::EventCounters> EventBuilder::getCounters() const
+{
+    UniqueLock guard(d->mutex_);
+
+    std::vector<EventCounters> ret;
+    ret.reserve(d->moduleDiscardedEvents_.size());
+
+    for (size_t ei=0; ei<d->moduleDiscardedEvents_.size(); ++ei)
+        ret.emplace_back(d->getCounters(ei));
+
+    return ret;
 }
 
 } // end namespace event_builder

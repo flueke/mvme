@@ -28,6 +28,7 @@
 #include "analysis/analysis_util.h"
 #include "analysis/analysis_session.h"
 #include "databuffer.h"
+#include "event_builder/event_builder.h"
 #include "mesytec-mvlc/mvlc_command_builders.h"
 #include "mvme_context.h"
 #include "vme_config_scripts.h"
@@ -499,6 +500,10 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // event builder -> analysis
         m_eventBuilderCallbacks.eventData = eventData_analysis;
         m_eventBuilderCallbacks.systemEvent = systemEvent_analysis;
+    }
+    else
+    {
+        m_eventBuilder = event_builder::EventBuilder({});
     }
 
     // multi event splitter setup

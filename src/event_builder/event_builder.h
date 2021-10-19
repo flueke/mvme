@@ -70,19 +70,6 @@ struct EventSetup
     size_t minMainModuleEvents = DefaultMinMainModuleEvents;
 };
 
-struct ModuleAddress
-{
-    u8 crate;
-    u8 event;
-    u8 mod;
-};
-
-struct TimestampInterval
-{
-    s32 lower;
-    s32 upper;
-};
-
 class EventBuilder
 {
     public:
@@ -112,6 +99,16 @@ class EventBuilder
         size_t buildEvents(Callbacks callbacks, bool flush = false);
 
         bool waitForData(const std::chrono::milliseconds &maxWait);
+
+        struct EventCounters
+        {
+            std::vector<size_t> discardedEvents;
+            std::vector<size_t> emptyEvents;
+            std::vector<size_t> invScoreSums;
+        };
+
+        EventCounters getCounters(int eventIndex) const;
+        std::vector<EventCounters> getCounters() const;
 
     private:
         struct Private;
