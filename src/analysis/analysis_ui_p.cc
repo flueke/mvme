@@ -312,6 +312,10 @@ void AddEditExtractorDialog::runLoadTemplateDialog()
  *
  * The index is an index into a vector of Extractor instances obtained from
  * get_default_data_extractors() cached in m_defaultExtractors.
+ *
+ * Assumes that the filter name loaded from the templates does consists of
+ * sections split by '.' The last section is assumed to be the filter name,
+ * while the prior sections are replaced by the concrete modules intance name.
  */
 void AddEditExtractorDialog::applyTemplate(int index)
 {
@@ -319,7 +323,7 @@ void AddEditExtractorDialog::applyTemplate(int index)
     {
         auto tmpl = m_defaultExtractors[index];
         m_filterEditor->setSubFilters(tmpl->getFilter().getSubFilters());
-        QString name = m_module->objectName() + QSL(".") + tmpl->objectName().section('.', 0, -1);
+        QString name = m_module->objectName() + QSL(".") + tmpl->objectName().section('.', -1);
         le_name->setText(name);
         m_spinCompletionCount->setValue(tmpl->getRequiredCompletionCount());
     }
