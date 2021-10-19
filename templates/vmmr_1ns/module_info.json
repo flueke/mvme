@@ -1,0 +1,7 @@
+{
+    "typeId"        : 21,
+    "typeName"      : "vmmr_1ns",
+    "displayName"   : "VMMR_1ns",
+    "vendorName"    : "mesytec",
+    "eventHeaderFilter" : "0100 XXXX MMMM MMMM XXXX SSSS SSSS SSSS"
+}
