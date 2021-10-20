@@ -225,6 +225,11 @@ struct EventBuilder::Private
             // could either add an EventMeta object and udpate all the callbacks in the chain
             // or could create more virtual events and modules and pass the data in via separate calls
             // to eventData() using the indexes of the virtual objects.
+            // Unless virtual events are created the solution with multiple
+            // calls to eventData() won't work.  The drawback of having extra
+            // events is that they introduce another analysis context operators
+            // can run in which is separate from the oirignal event we want to
+            // report stats for.
             callbacks.eventData(userContext_, eventIndex, eventAssembly_.data(), moduleCount);
             ++result;
 
