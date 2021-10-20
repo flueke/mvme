@@ -4011,16 +4011,33 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
             if (auto moduleConfig = get_pointer<ModuleConfig>(node, DataRole_RawPointer))
             {
                 auto idMap = vme_analysis_common::build_id_to_index_mapping(m_q->getVMEConfig());
-                auto indices = idMap.value(moduleConfig->getEventId());
+                auto indices = idMap.value(moduleConfig->getId());
 
                 qDebug() << __PRETTY_FUNCTION__
                     << "click on Module" << node << moduleConfig
                     << ", eventId=" << moduleConfig->getEventId()
                     << ", eventIndex=" << indices.eventIndex
+                    << ", moduleIndex=" << indices.moduleIndex
                     ;
                 objectInfoWidget->setVMEConfigObject(moduleConfig);
             }
             break;
+
+#if 1
+        case NodeType_Event:
+            if (auto eventConfig = get_pointer<EventConfig>(node, DataRole_RawPointer))
+            {
+                auto idMap = vme_analysis_common::build_id_to_index_mapping(m_q->getVMEConfig());
+                auto indices = idMap.value(eventConfig->getId());
+
+                qDebug() << __PRETTY_FUNCTION__
+                    << "click on Event" << node << eventConfig
+                    << ", eventId=" << eventConfig->getId()
+                    << ", eventIndex=" << indices.eventIndex
+                    ;
+                objectInfoWidget->setVMEConfigObject(eventConfig);
+            }
+#endif
     }
 
     switch (m_mode)
