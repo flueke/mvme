@@ -186,6 +186,9 @@ size_t get_address_count(DataSource *ds)
                 auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
                 return get_address_count(ex);
             } break;
+
+        case DataSource_Copy:
+            return ds->output.size();
     }
 
     return 0u;
@@ -439,6 +442,51 @@ const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *d
     }
 
     return curPtr;
+}
+
+// DataSource_Copy
+
+void datasource_copy_begin_event(DataSource *ds)
+{
+    assert(ds->type == DataSource_Copy);
+    invalidate_all(ds->output.data);
+}
+
+void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 size)
+{
+    assert(memory::is_aligned(data, ModuleDataAlignment));
+    assert(ds->type == DataSource_Copy);
+
+    auto dsc = reinterpret_cast<DataSourceCopy *>(ds->d);
+
+    const u32 *begin = data + dsc->startIndex;
+    const u32 *dataEnd = data + size;
+    const u32 *end = std::min(begin + ds->output.size(), dataEnd);
+    double *dest = ds->output.data.data;
+
+    for (const u32 *cur = begin; cur < end; ++cur, ++dest)
+        *dest = *cur;
+}
+
+DataSource make_datasource_copy(
+    memory::Arena *arena,
+    u32 outputSize,
+    double outputLowerLimit,
+    double outputUpperLimit,
+    u32 dataStartIndex)
+{
+    auto dsc = arena->pushObject<DataSourceCopy>();
+    dsc->startIndex = dataStartIndex;
+
+    DataSource result = {};
+    result.type = DataSource_Copy;
+    result.d = dsc;
+    result.output.data = push_param_vector(arena, outputSize, invalid_param());
+    result.output.lowerLimits = push_param_vector(arena, outputSize, outputLowerLimit);
+    result.output.upperLimits = push_param_vector(arena, outputSize, outputUpperLimit);
+    result.hitCounts = push_param_vector(arena, outputSize, 0.0);
+
+    return result;
 }
 
 /* ===============================================
@@ -3991,6 +4039,10 @@ void a2_begin_event(A2 *a2, int eventIndex)
             case DataSource_ListFilterExtractor:
                 listfilter_extractor_begin_event(ds);
                 break;
+
+            case DataSource_Copy:
+                datasource_copy_begin_event(ds);
+                break;
         }
     }
 }
@@ -4041,6 +4093,9 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
                         curPtr = listfilter_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
                     }
                 } break;
+            case DataSource_Copy:
+                datasource_copy_process_module_data(ds, data, dataSize);
+                break;
         }
 #ifndef NDEBUG
         nprocessed++;

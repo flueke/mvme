@@ -88,6 +88,7 @@ enum DataSourceType
 {
     DataSource_Extractor,
     DataSource_ListFilterExtractor,
+    DataSource_Copy,
 };
 
 struct DataSourceOptions
@@ -163,6 +164,22 @@ void extractor_process_module_data(DataSource *ex, const u32 *data, u32 size);
 void listfilter_extractor_begin_event(DataSource *ex);
 const u32 *listfilter_extractor_process_module_data(DataSource *ex, const u32 *data, u32 dataSize);
 
+// DataSourceCopy
+
+struct DataSourceCopy
+{
+    u32 startIndex = 0u;
+};
+
+DataSource make_datasource_copy(
+    memory::Arena *arena,
+    u32 outputSize,
+    double outputLowerLimit,
+    double outputUpperLimit,
+    u32 dataStartIndex = 0);
+
+void datasource_copy_begin_event(DataSource *ds);
+void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
 
 /* ===============================================
  * Operators
