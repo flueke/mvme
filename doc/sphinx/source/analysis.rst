@@ -20,7 +20,8 @@ The Analysis system in mvme is designed to allow
 * accumulation and visualization of processed data.
 
 The user interface follows the structure of data flow in the system: the
-modules for the selected *Event* are shown in the top-left tree.
+*Events* and *Modules* defined in the VME configuration are shown in the
+top-left tree.
 
 The bottom-left tree contains the *raw histograms* used to accumulate the
 unmodified data extracted from the modules.
@@ -83,10 +84,15 @@ highlighted.
     Adding a :ref:`analysis-RangeFilter1D` to Level 2. Valid inputs are
     highlighted in green.
 
-Click an input node to use it for the new operator. If required fill in any
-additional operator specific data and accept the dialog. The operator will be
-added to the system and will immediately start processing data if a DAQ run or
-replay is active.
+Click an input node to use it for the new operator. The *Parent Event*
+specifies the event context in which the operator will be executed. The system
+tries to pick the correct event based on the input selected. Manually setting
+the parent event might be needed when doing cross-event analysis, e.g.
+creating an operator which takes inputs from two unrelated events.
+
+If required fill in any additional operator specific data and accept the
+dialog. The operator will be added to the system and will immediately start
+processing data if a DAQ run or replay is active.
 
 For details about data extraction refer to :ref:`analysis-sources`.
 Descriptions of available operators can be found in :ref:`analysis-operators`.
@@ -809,6 +815,105 @@ modules is tried first. If auto-assignment is not possible the unassigned
 objects are collected under a special node in the top left tree of the analysis
 window. Data sources from these unassigned modules can be dragged onto modules
 existing in current DAQ setup to assign them.
+
+.. _analysis-processing-chain:
+
+Readout Data Preprocessing
+--------------------------
+
+The standard data path into the analysis is straighforward: a readout parser
+component interprets the data stream and produces reassembled module data
+buffers which are then handed to the analysis system: ::
+
+   raw readout data -> readout_parser -> analysis
+
+Via the **Event Settings** dialog in the Analysis UI, the following additional
+processing steps can be enabled.
+
+.. _analysis-multi-event-processing:
+
+Multi Event Processing
+~~~~~~~~~~~~~~~~~~~~~~
+
+The purpose of Multi Event Processing module is to split multievent data
+obtained from VME block reads into separate, individual events.
+
+Multievent data can be read out from mesytec modules if ``multi event mode
+(0x6036=0xb)`` is enabled and ``max transfer data (0x601A)`` is set to a value
+greater than 1. With this setup each VME block read from the module will yield
+up to the number of events specified in ``max transfer data`` provided the
+module has enough events buffered up. This way of reading out modules can
+dramatically improve performance as the modules can make full use of their
+internal buffers and less individual VME transfers are used to read out the
+same number of events. The drawbacks are that non-perfect trigger handling can
+lead to unsynchronized events across modules and that data processing becomes
+more complicated.
+
+The supported readout structure is the same as that supported by the mvlc
+readout parser: one fixed size prefix, a dynamic block read part and a fixed
+size suffix per module. Splitting is performed on the dynamic part as shown
+in the diagram below. m0 and m1 are the modules, the dynamically sized event
+data for each module is obtained via a single block read. ::
+
+     multievent
+    +-----------+
+    | m0_prefix |                 split0          split1           split2
+    | m0_event0 |              +------------+   +-----------+   +-----------+
+    | m0_event1 |              | m0_prefix  |   |           |   |           |
+    | m0_event2 |              | m1_prefix  |   |           |   |           |
+    | m0_suffix |              | m0_event0  |   | m0_event1 |   | m0_event2 |
+    |           | == split ==> | m1_event0  |   | m1_event1 |   | m1_event2 |
+    | m1_prefix |              | m0_suffix  |   |           |   |           |
+    | m1_event0 |              | m1_suffix  |   |           |   |           |
+    | m1_event1 |              |            |   |           |   |           |
+    | m1_event2 |              +------------+   +-----------+   +-----------+
+    | m1_suffix |
+    +-----------+
+
+In the example the input multievent data obtained from a single event readout
+cycle is split into three separate events. Prefix and suffix data of the
+modules are only yielded for the first event.
+
+Data splitting is performed by using analysis DataFilters to look for module
+header words. If the filter contains the matching character ``S`` it is used to
+extract the size in words of the following event. Otherwise each of the
+following input data words is tried until the header filter matches again and
+the data in-between the two header words is assumed to be the single event
+data. ::
+
+    +-----------+
+    |m0_header  | <- Filter matches here. Extract event size if 'S' character in filter,
+    |m0_e0_word0|    otherwise try the following words until another match is found or
+    |m0_e0_word1|    there is no more input data left.
+    |m0_e0_word2|
+    |m0_header1 | <- Filter matches again
+    |m0_e1_word0|
+    |m0_e1_word1|
+    |m0_e1_word2|
+    +-----------+
+
+When using mesytec modules the correct header filters for the modules are setup
+by default and just enabling **Multi Event Processing** in the **Event
+settings** dialog is enough to make the splitter system work. For non-mesytec
+modules the header filter bitmask can be specified in the **Module Settings**
+dialog found in the context menu of each module in the analysis UI.
+
+.. note::
+   When using the MVLC VME Controller a info/debug system for the readout_parser
+   and the multi_event_splitter is available via ``Debug & Stats -> Debug next
+   buffer``.
+
+.. _analysis-event-builder:
+
+Event Builder
+~~~~~~~~~~~~~
+
+Since version 1.4.7 mvme contains a timestamp based EventBuilder module which
+can be enabled when using the MVLC VME Controller.
+
+.. figure:: images/analysis_event_builder_settings.png
+
+    Event Builder Settings
 
 
 More UI structuring and interactions

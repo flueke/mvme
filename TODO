@@ -2,6 +2,16 @@
 TODO list
 ==================================================
 
+event0
+  mdpp32_qdc \
+  mdpp16_qdc  |-> User defined data sources attached to the real modules.
+  vmmr       /
+  EventBuilder
+    event_score[1]
+    module_scores[N]
+    module_discards[N]
+    module_empties[N]
+
 * Document the new vme_script mvlc accu commands
 
 Wanpeng
