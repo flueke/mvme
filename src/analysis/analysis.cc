@@ -781,6 +781,18 @@ bool ListFilterExtractor::setParameterName(int paramIndex, const QString &name)
 }
 
 //
+// DataSourceCopy
+//
+DataSourceCopy::DataSourceCopy(QObject *parent)
+    : SourceInterface(parent)
+{
+}
+
+void DataSourceCopy::beginRun(const RunInfo &, Logger)
+{
+}
+
+//
 // BasicOperator
 //
 BasicOperator::BasicOperator(QObject *parent)

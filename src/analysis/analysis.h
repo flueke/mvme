@@ -747,6 +747,28 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
 using ListFilterExtractorVector = QVector<ListFilterExtractorPtr>;
 
+class LIBMVME_EXPORT DataSourceCopy: public SourceInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SourceInterface)
+
+    public:
+        Q_INVOKABLE DataSourceCopy(QObject *parent = nullptr);
+
+        virtual s32 getNumberOfOutputs() const override { return 1; }
+        virtual QString getOutputName(s32 index) const override
+        { assert(index == 0); return QSL("Output"); }
+        virtual Pipe *getOutput(s32 index) override { assert(index == 0); return &m_output; }
+        virtual QString getDisplayName() const override { return QSL("DataSourceCopy"); }
+        virtual QString getShortName() const override { return QSL("DSC"); }
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        virtual void read(const QJsonObject &/*json*/) override {};
+        virtual void write(QJsonObject &/*json*/) const override {};
+
+    private:
+        Pipe m_output;
+};
+
 //
 // Operators
 //
