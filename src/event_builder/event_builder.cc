@@ -1,7 +1,5 @@
 #include "event_builder/event_builder.h"
 
-#include <boost/circular_buffer.hpp>
-
 namespace mvme
 {
 namespace event_builder
