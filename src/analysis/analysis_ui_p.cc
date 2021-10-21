@@ -2904,6 +2904,7 @@ EventSettingsDialog::EventSettingsDialog(
 
     setWindowTitle(QSL("Analysis Event Settings"));
 
+    bool hasEventBuilder = is_mvlc_controller(d->vmeConfig_->getControllerType());
     auto eventConfigs = d->vmeConfig_->getEventConfigs();
 
     const QStringList headers =
@@ -2912,6 +2913,7 @@ EventSettingsDialog::EventSettingsDialog(
         QSL("Event Builder"),
         QSL("Event Builder Settings"),
     };
+
     auto table = new QTableWidget(eventConfigs.size(), headers.size());
     table->setHorizontalHeaderLabels(headers);
 
@@ -2931,6 +2933,12 @@ EventSettingsDialog::EventSettingsDialog(
         table->setCellWidget(ei, 0, make_centered(cb_multiEvent));
         table->setCellWidget(ei, 1, make_centered(cb_eventBuilder));
         table->setCellWidget(ei, 2, make_centered(pb_eventBuilderSettings));
+
+        if (!hasEventBuilder)
+        {
+            table->cellWidget(ei, 1)->setEnabled(false);
+            table->cellWidget(ei, 2)->setEnabled(false);
+        }
 
         d->check_multiEvent_.push_back(cb_multiEvent);
         d->checks_eventBuilder.push_back(cb_eventBuilder);
