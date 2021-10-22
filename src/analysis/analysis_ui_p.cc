@@ -55,6 +55,7 @@
 #include "data_extraction_widget.h"
 #include "data_filter_edit.h"
 #include "data_filter.h"
+#include "../event_builder/event_builder.h"
 #include "exportsink_codegen.h"
 #include "globals.h"
 #include "gui_util.h"
@@ -62,13 +63,13 @@
 #include "mesytec-mvlc/mvlc_constants.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "../mvme_qthelp.h"
 #include "qt_util.h"
 #include "rate_monitor_plot_widget.h"
 #include "util/qt_font.h"
 #include "util/qt_layouts.h"
 #include "util/variablify.h"
 #include "vme_config.h"
-#include "../event_builder/event_builder.h"
 
 using boost::adaptors::indexed;
 using namespace mvme;
@@ -3002,11 +3003,11 @@ EventSettingsDialog::EventSettingsDialog(
                     "MinMainModuleEvents", event_builder::DefaultMinMainModuleEvents).toInt());
 
             auto fl = new QFormLayout;
-            fl->addRow("Main Module", combo_mainModule);
+            fl->addRow("Main/Reference Module", combo_mainModule);
             fl->addRow(gbMatchWindows);
-            fl->addRow("Min Main Module Events", spin_minMainModuleEvents);
+            fl->addRow("Min Buffered Events", spin_minMainModuleEvents);
 
-            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
             auto bbl = make_hbox();
             bbl->addStretch(1);
             bbl->addWidget(bb);
@@ -3023,6 +3024,8 @@ EventSettingsDialog::EventSettingsDialog(
 
             QObject::connect(bb, &QDialogButtonBox::accepted, &dia, &QDialog::accept);
             QObject::connect(bb, &QDialogButtonBox::rejected, &dia, &QDialog::reject);
+            QObject::connect(bb, &QDialogButtonBox::helpRequested,
+                             &dia, mesytec::mvme::make_help_keyword_handler("EventBuilder"));
 
             if (dia.exec() == QDialog::Accepted)
             {
@@ -3065,7 +3068,7 @@ EventSettingsDialog::EventSettingsDialog(
 
     auto dialogLayout = new QVBoxLayout(this);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
     auto bbLayout = new QHBoxLayout;
     bbLayout->addStretch(1);
     bbLayout->addWidget(bb);
@@ -3079,6 +3082,8 @@ EventSettingsDialog::EventSettingsDialog(
 
     QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    QObject::connect(bb, &QDialogButtonBox::helpRequested,
+                     this, mesytec::mvme::make_help_keyword_handler("Analysis Processing Chain"));
     resize(600, 300);
 }
 
