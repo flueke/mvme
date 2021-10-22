@@ -55,6 +55,7 @@
 #include "data_extraction_widget.h"
 #include "data_filter_edit.h"
 #include "data_filter.h"
+#include "../event_builder/event_builder.h"
 #include "exportsink_codegen.h"
 #include "globals.h"
 #include "gui_util.h"
@@ -62,13 +63,13 @@
 #include "mesytec-mvlc/mvlc_constants.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "../mvme_qthelp.h"
 #include "qt_util.h"
 #include "rate_monitor_plot_widget.h"
 #include "util/qt_font.h"
 #include "util/qt_layouts.h"
 #include "util/variablify.h"
 #include "vme_config.h"
-#include "../event_builder/event_builder.h"
 
 using boost::adaptors::indexed;
 using namespace mvme;
@@ -2904,6 +2905,7 @@ EventSettingsDialog::EventSettingsDialog(
 
     setWindowTitle(QSL("Analysis Event Settings"));
 
+    bool hasEventBuilder = is_mvlc_controller(d->vmeConfig_->getControllerType());
     auto eventConfigs = d->vmeConfig_->getEventConfigs();
 
     const QStringList headers =
@@ -2912,6 +2914,7 @@ EventSettingsDialog::EventSettingsDialog(
         QSL("Event Builder"),
         QSL("Event Builder Settings"),
     };
+
     auto table = new QTableWidget(eventConfigs.size(), headers.size());
     table->setHorizontalHeaderLabels(headers);
 
@@ -2931,6 +2934,12 @@ EventSettingsDialog::EventSettingsDialog(
         table->setCellWidget(ei, 0, make_centered(cb_multiEvent));
         table->setCellWidget(ei, 1, make_centered(cb_eventBuilder));
         table->setCellWidget(ei, 2, make_centered(pb_eventBuilderSettings));
+
+        if (!hasEventBuilder)
+        {
+            table->cellWidget(ei, 1)->setEnabled(false);
+            table->cellWidget(ei, 2)->setEnabled(false);
+        }
 
         d->check_multiEvent_.push_back(cb_multiEvent);
         d->checks_eventBuilder.push_back(cb_eventBuilder);
@@ -2994,11 +3003,11 @@ EventSettingsDialog::EventSettingsDialog(
                     "MinMainModuleEvents", event_builder::DefaultMinMainModuleEvents).toInt());
 
             auto fl = new QFormLayout;
-            fl->addRow("Main Module", combo_mainModule);
+            fl->addRow("Main/Reference Module", combo_mainModule);
             fl->addRow(gbMatchWindows);
-            fl->addRow("Min Main Module Events", spin_minMainModuleEvents);
+            fl->addRow("Min Buffered Events", spin_minMainModuleEvents);
 
-            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
             auto bbl = make_hbox();
             bbl->addStretch(1);
             bbl->addWidget(bb);
@@ -3015,6 +3024,8 @@ EventSettingsDialog::EventSettingsDialog(
 
             QObject::connect(bb, &QDialogButtonBox::accepted, &dia, &QDialog::accept);
             QObject::connect(bb, &QDialogButtonBox::rejected, &dia, &QDialog::reject);
+            QObject::connect(bb, &QDialogButtonBox::helpRequested,
+                             &dia, mesytec::mvme::make_help_keyword_handler("EventBuilder"));
 
             if (dia.exec() == QDialog::Accepted)
             {
@@ -3057,7 +3068,7 @@ EventSettingsDialog::EventSettingsDialog(
 
     auto dialogLayout = new QVBoxLayout(this);
 
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
     auto bbLayout = new QHBoxLayout;
     bbLayout->addStretch(1);
     bbLayout->addWidget(bb);
@@ -3071,6 +3082,8 @@ EventSettingsDialog::EventSettingsDialog(
 
     QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    QObject::connect(bb, &QDialogButtonBox::helpRequested,
+                     this, mesytec::mvme::make_help_keyword_handler("Analysis Processing Chain"));
     resize(600, 300);
 }
 

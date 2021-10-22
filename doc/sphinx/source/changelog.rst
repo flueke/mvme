@@ -6,7 +6,6 @@ Changelog
 
 Version 1.4.7
 -------------
-* Prepend the module name to analysis objects generated when adding the default filters.
 
 * Reopen to the last used VME config when closing a listfile.
 
@@ -18,16 +17,27 @@ Version 1.4.7
 
 * Improve MVLC stack error reporting.
 
-* Add support for MVLC stacks containing custom data (mvlc_custom_begin).
-
-* Fix analysis stats display when using more than 12 modules in an event.
-
 * Decrease number of readout buffers in-flight to reduce latency when stopping
   a run/replay.
 
 * Various bug and crash fixes.
 
-* Packaging
+* [analysis]
+
+  - Add an EventBuilder module to the analysis processing chain.
+
+  - Fix analysis stats display when using more than 12 modules in an event.
+
+  - Prepend the module name to analysis objects generated when adding the default filters.
+
+* [vme_script]
+
+  - Add support for MVLC stacks containing custom data (mvlc_custom_begin).
+
+  - Add support for new MVLC commands in Firmware 0x0020.
+
+* [packaging]
+
   - make installed files and directories group and world readable.
   - re-add the mvme.sh startup shell script to the bin/ directory.
 
@@ -35,10 +45,12 @@ Version 1.4.7
 Version 1.4.6
 -------------
 * [mvlc]
+
   - Improve immediate MVLC/VME command latency when using the DSO.
   - Trigger/IO updates
 
 * [analysis]
+
   - Fix crash in the ExportSink ("File Export") operator.
   - Add CSV output option to the ExportSink.
 

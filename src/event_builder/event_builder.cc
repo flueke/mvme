@@ -1,7 +1,5 @@
 #include "event_builder/event_builder.h"
 
-#include <boost/circular_buffer.hpp>
-
 namespace mvme
 {
 namespace event_builder
@@ -247,6 +245,16 @@ struct EventBuilder::Private
         }
 
         assert(mainBuffer.size() < setup.minMainModuleEvents);
+
+        // Clear all module event buffers if flush was requested.
+        if (flush)
+        {
+            std::for_each(std::begin(eventBuffers), std::end(eventBuffers),
+                          [] (auto &eb) { eb.clear(); });
+
+            assert(std::all_of(std::begin(eventBuffers), std::end(eventBuffers),
+                               [] (const auto &eb) { return eb.empty(); }));
+        }
 
         return result;
     }

@@ -6,6 +6,15 @@ TODO list
  [2021-10-19 15:04:38.684] [readout_parser] [warning] end parsing ETH buffer 1, size=1048320 bytes, exception=vector::_M_range_check: __n (which is 0) >= this->size() (which is 0)
  [2021-10-19 15:04:38.689] [readout_parser] [warning] exception from parse_eth_packet(): vector::_M_range_check: __n (which is 0) >= this->size() (which is 0), skipping packet
 
+event0
+  mdpp32_qdc \
+  mdpp16_qdc  |-> User defined data sources attached to the real modules.
+  vmmr       /
+  EventBuilder
+    event_score[1]
+    module_scores[N]
+    module_discards[N]
+    module_empties[N]
 
 * Document the new vme_script mvlc accu commands
 

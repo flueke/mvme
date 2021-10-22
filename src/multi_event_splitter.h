@@ -72,7 +72,7 @@ namespace multi_event_splitter
  * module_suffix and end_event functions. Output data is made available via the
  * functions in the Callback structure passed to end_event().
  *
- * Data splitting is performed by using analayis DataFilters to look for module
+ * Data splitting is performed by using analysis DataFilters to look for module
  * header words. If the filter contains the matching character 'S' it is used
  * to extract the size in words of the following event. Otherwise each of the
  * following input data words is tried until the header filter matches again
