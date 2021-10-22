@@ -816,6 +816,7 @@ objects are collected under a special node in the top left tree of the analysis
 window. Data sources from these unassigned modules can be dragged onto modules
 existing in current DAQ setup to assign them.
 
+.. index:: Analysis Processing Chain, Readout Data Processing
 .. _analysis-processing-chain:
 
 Readout Data Preprocessing
@@ -827,9 +828,10 @@ buffers which are then handed to the analysis system: ::
 
    raw readout data -> readout_parser -> analysis
 
-Via the **Event Settings** dialog in the Analysis UI, the following additional
+Using the **Event Settings** dialog in the Analysis UI, the following additional
 processing steps can be enabled.
 
+.. index:: Multi Event, Multi Event Splitter, MultiEventSplitter
 .. _analysis-multi-event-processing:
 
 Multi Event Processing
@@ -893,9 +895,9 @@ data. ::
     +-----------+
 
 When using mesytec modules the correct header filters for the modules are setup
-by default and just enabling **Multi Event Processing** in the **Event
-settings** dialog is enough to make the splitter system work. For non-mesytec
-modules the header filter bitmask can be specified in the **Module Settings**
+by default and just enabling ``Multi Event Processing`` in the ``Event
+settings`` dialog is enough to make the splitter system work. For non-mesytec
+modules the header filter bitmask can be specified in the ``Module Settings``
 dialog found in the context menu of each module in the analysis UI.
 
 .. note::
@@ -903,13 +905,72 @@ dialog found in the context menu of each module in the analysis UI.
    and the multi_event_splitter is available via ``Debug & Stats -> Debug next
    buffer``.
 
+.. index:: Event Builder, EventBuilder
 .. _analysis-event-builder:
 
 Event Builder
 ~~~~~~~~~~~~~
 
+.. todo:: improve the event builder description
+
 Since version 1.4.7 mvme contains a timestamp based EventBuilder module which
-can be enabled when using the MVLC VME Controller.
+can be enabled if using the MVLC VME Controller. The purpose of the
+EventBuilder is to create optimally matched events across modules while
+tolerating non-perfect trigger setups.
+
+The system works by buffering up readout data from modules belonging to the
+same event. Once a certain buffer threshold for the reference module (a user
+chosen module that is guaranteed to have produced readout data for events we
+are interested in) is reached the event building starts:
+
+   For each module-event the module timestamp is extracted and compared to the
+   timestamp of the reference module. A user defined time window specifies the
+   maximum timestamp delta relative to the reference timestamp that is acceptable
+   for the module-event to be included in the fully assembled output event.
+
+Example: ::
+
+         Buffered input events. (*) Marks the reference module.
+
+             mod0          mod1(*)        mod2
+          +--------+     +--------+    +--------+
+          |  ev00  |     |  ev10  |    |  ev20  |
+          |  ev01  |     |  ev11  |    |  ev21  |
+          |  ev02  |     |  ev12  |    |  ev22  |
+          |  ev03  |     |  ev13  |    |  ev23  |
+          |        |     |  ev14  |    |  ev24  |
+          +--------+     +--------+    +--------+
+
+         A possible sequence of output events could look like this:
+
+             mod0          mod1(*)        mod2
+          +--------+     +--------+    +--------+
+    out0  |  ev01  |     |  ev10  |    |  ev21  |
+    out1  |  ev02  |     |  ev11  |    |  ev22  |
+    out2  |  ev03  |     |  ev12  |    |  ev23  |
+    out3  |  null  |     |  ev13  |    |  ev24  |
+    out4  |  null  |     |  ev14  |    |  null  |
+          +--------+     +--------+    +--------+
+
+Given the above output ``ev00`` and ``ev20`` where outside the lower end of
+their respective timestamp window, i.e. both events where too old to be
+included in the output event ``out0``.
+
+The following output events include data from all modules, until we run out of
+buffered events for ``mod0`` and then ``mod2``. As we still do have main module
+events to yield the missing modules will be set to null in the remaining output
+events.
+
+.. note::
+   Timestamp extraction is currently hard-coded to work with the non-extended
+   30 bit timestamps of mesytec modules.
+
+   Event building is only implemented for the mesytec MVLC controller.
+
+Event Building can be enabled in the ``Event Settings`` dialog. The reference
+module, timestamp windows and minimum number of buffered events can set in
+``Event Settings -> Event Builder Settings``. Changes are applied when
+restarting the DAQ/replay.
 
 .. figure:: images/analysis_event_builder_settings.png
 
