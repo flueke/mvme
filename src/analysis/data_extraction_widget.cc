@@ -48,7 +48,7 @@ DataExtractionEditor::DataExtractionEditor(const QVector<DataFilter> &subFilters
     {
         // Ensure we have at least one filter, otherwise the display would be
         // empty.
-        m_subFilters.push_back(DataFilter(defaultNewFilter));
+        m_subFilters.push_back(make_filter(defaultNewFilter));
     }
 
 
@@ -131,7 +131,7 @@ void DataExtractionEditor::updateDisplay()
         filterEdit->setFilter(filter);
 
         auto indexSpin = makeWordIndexSpin();
-        indexSpin->setValue(filter.getWordIndex());
+        indexSpin->setValue(filter.matchWordIndex);
 
         m_filterGrid->addWidget(filterLabel, row, 0);
         m_filterGrid->addWidget(filterEdit, row, 1);
@@ -154,7 +154,7 @@ void DataExtractionEditor::updateDisplay()
             m_filterGrid->addWidget(pb_addFilter, row, 4);
             connect(pb_addFilter, &QPushButton::clicked, this, [this]() {
                 apply();
-                DataFilter newFilter(defaultNewFilter);
+                auto newFilter = make_filter(defaultNewFilter);
                 m_subFilters.push_back(newFilter);
                 updateDisplay();
             });

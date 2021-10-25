@@ -86,14 +86,14 @@ int main(int argc, char *argv[])
 
             // single filter
 
-            if (singleFilter.matches(dataWord))
+            if (matches(singleFilter, dataWord))
             {
-                u64 value   = singleFilter.extractData(dataWord, 'D');
-                u64 address = singleFilter.extractData(dataWord, 'A');
+                u64 value   = extract(singleFilter, dataWord, 'D');
+                u64 address = extract(singleFilter, dataWord, 'A');
 
-                u32 extractMaskA  = singleFilter.getExtractMask('A');
-                u32 extractShiftA = singleFilter.getExtractShift('A');
-                u32 extractBitsA  = singleFilter.getExtractBits('A');
+                u32 extractMaskA  = get_extract_mask(singleFilter, 'A');
+                u32 extractShiftA = get_extract_shift(singleFilter, 'A');
+                u32 extractBitsA  = get_extract_bits(singleFilter, 'A');
 
                 out << "  singleFilter matches: "
                     << "address=" << address

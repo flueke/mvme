@@ -75,7 +75,7 @@ namespace data_filter
         return result;
     }
 
-    CacheEntry make_cache_entry(DataFilter filter, char marker)
+    CacheEntry make_cache_entry(const DataFilter &filter, char marker)
     {
         marker = std::tolower(marker);
 
@@ -119,7 +119,7 @@ namespace data_filter
         return result;
     }
 
-    std::string to_string(DataFilter filter)
+    std::string to_string(const DataFilter &filter)
     {
         std::string result(filter.filter.size(), 'X');
 

@@ -568,8 +568,8 @@ void Extractor::beginRun(const RunInfo &, Logger)
     m_fastFilter = {};
     for (auto slowFilter: m_filter.getSubFilters())
     {
-        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(),
-                                                      slowFilter.getWordIndex());
+        auto subfilter = a2::data_filter::make_filter(to_string(slowFilter),
+                                                      slowFilter.matchWordIndex);
         add_subfilter(&m_fastFilter, subfilter);
     }
 
@@ -664,8 +664,8 @@ void Extractor::write(QJsonObject &json) const
     for (const auto &dataFilter: subFilters)
     {
         QJsonObject filterJson;
-        filterJson["filterString"] = QString::fromLocal8Bit(dataFilter.getFilter());
-        filterJson["wordIndex"] = dataFilter.getWordIndex();
+        filterJson["filterString"] = QString::fromStdString(to_string(dataFilter));
+        filterJson["wordIndex"] = dataFilter.matchWordIndex;
         filterArray.append(filterJson);
     }
 

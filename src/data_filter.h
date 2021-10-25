@@ -27,7 +27,7 @@
 #include <QVector>
 #include "libmvme_export.h"
 #include "typedefs.h"
-#include "analysis/a2/util/bits.h"
+#include "analysis/a2/a2_data_filter.h"
 
 /*
  * Identifying:
@@ -46,51 +46,7 @@
  *
  */
 
-#if 0
-class LIBMVME_EXPORT DataFilter
-{
-    public:
-        DataFilter(const QByteArray &filter = QByteArray(), s32 wordIndex = -1);
-
-        QByteArray getFilter() const { return m_filter; }
-
-        inline u32 getMatchMask() const { return m_matchMask; }
-        inline u32 getMatchValue() const { return m_matchValue; }
-
-        inline bool matches(u32 value, s32 wordIndex = -1) const
-        {
-            return ((m_matchWordIndex < 0) || (m_matchWordIndex == wordIndex))
-                && ((value & getMatchMask()) == getMatchValue());
-        }
-
-        u32 getExtractMask(char marker) const;
-        u32 getExtractShift(char marker) const;
-        u32 getExtractBits(char marker) const;
-        bool needGather(char marker) const;
-        u32 extractData(u32 value, char marker) const;
-        s32 getWordIndex() const { return m_matchWordIndex; }
-
-        bool operator==(const DataFilter &other) const;
-        inline bool operator!=(const DataFilter &other) { return !(*this == other); }
-
-        QString toString() const;
-
-    private:
-        void compile();
-
-        QByteArray m_filter;
-        struct CacheEntry
-        {
-            u32 mask = 0;
-            bool needGather = false;
-        };
-
-        mutable QHash<char, CacheEntry> m_extractCache;
-
-        u32 m_matchMask  = 0;
-        u32 m_matchValue = 0;
-        s32 m_matchWordIndex = -1;
-};
+using namespace a2::data_filter;
 
 /* Combines multiple DataFilters to form a result value.
  *
@@ -123,7 +79,7 @@ class LIBMVME_EXPORT MultiWordDataFilter
                 DataFilter &filter(m_filters[i]);
                 ResultPart &part(m_results[i]);
 
-                if (!part.matched && filter.matches(dataWord, wordIndex))
+                if (!part.matched && matches(filter, dataWord, wordIndex))
                 {
                     part.matched = true;
                     part.matchedWord = dataWord;
@@ -169,8 +125,8 @@ class LIBMVME_EXPORT MultiWordDataFilter
             for (int i=0; i<nFilters; ++i)
             {
 #if 1
-                result |= (static_cast<u64>(m_filters[i].extractData(m_results[i].matchedWord, marker)) << shift);
-                shift += m_filters[i].getExtractBits(marker);
+                result |= (static_cast<u64>(extract(m_filters[i], m_results[i].matchedWord, marker)) << shift);
+                shift += get_extract_bits(m_filters[i], marker);
 #else
                 u64 filterValue = m_filters[i].extractData(m_results[i].matchedWord, marker);
                 u64 filterValueShifted = filterValue << shift;
@@ -223,7 +179,7 @@ class LIBMVME_EXPORT MultiWordDataFilter
 
             for (const auto &filter: m_filters)
             {
-                result += filter.getExtractBits(marker);
+                result += get_extract_bits(filter, marker);
             }
 
             return result;
@@ -260,7 +216,5 @@ LIBMVME_EXPORT QString generate_pretty_filter_string(u8 bits = 32, char c = 'N')
 
 // Groups of 4 chars separated by a space, padded on the left with spaces if dataBits < totalBits.
 LIBMVME_EXPORT QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c = 'N');
-
-#endif
 
 #endif /* __DATA_FILTER_H__ */

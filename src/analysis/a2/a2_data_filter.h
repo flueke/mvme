@@ -44,29 +44,39 @@ struct DataFilter
     u32 matchMask  = 0;
     u32 matchValue = 0;
     s32 matchWordIndex = -1;
+
+    // bool operator==(const DataFilter &o) const = default; // c++20
+    inline bool operator==(const DataFilter &o) const
+    {
+        return (filter == o.filter
+                && matchMask == o.matchMask
+                && matchValue == o.matchValue
+                && matchWordIndex == o.matchWordIndex);
+    }
 };
 
 struct CacheEntry
 {
     u32 extractMask = 0;
+    u8 extractBits  = 0;
 #ifndef A2_DATA_FILTER_ALWAYS_GATHER
     bool needGather = false;
     u8 extractShift = 0;
 #endif
-    u8 extractBits  = 0;
 };
 
 DataFilter make_filter(const std::string &filter, s32 wordIndex = -1);
 
-inline bool matches(DataFilter filter, u32 value, s32 wordIndex = -1)
+inline bool matches(const DataFilter &filter, u32 value, s32 wordIndex = -1)
 {
     return ((filter.matchWordIndex < 0) || (filter.matchWordIndex == wordIndex))
         && ((value & filter.matchMask) == filter.matchValue);
 }
 
-CacheEntry make_cache_entry(DataFilter filter, char marker);
+CacheEntry make_cache_entry(const DataFilter &filter, char marker);
 
-inline u32 extract(CacheEntry cache, u32 value)
+// Note: a match is assumed.
+inline u32 extract(const CacheEntry &cache, u32 value)
 {
 #ifdef A2_DATA_FILTER_ALWAYS_GATHER
     u32 result = bit_gather(value, cache.extractMask);
@@ -81,7 +91,29 @@ inline u32 extract(CacheEntry cache, u32 value)
     return result;
 }
 
-std::string to_string(DataFilter filter);
+// Note: a match is assumed.
+inline u32 extract(const DataFilter &filter, u32 value, char marker)
+{
+    auto cache = make_cache_entry(filter, marker);
+    return extract(cache, value);
+}
+
+inline u8 get_extract_bits(const DataFilter &filter, char marker)
+{
+    return make_cache_entry(filter, marker).extractBits;
+}
+
+inline u32 get_extract_mask(const DataFilter &filter, char marker)
+{
+    return make_cache_entry(filter, marker).extractMask;
+}
+
+inline u8 get_extract_shift(const DataFilter &filter, char marker)
+{
+    return make_cache_entry(filter, marker).extractShift;
+}
+
+std::string to_string(const DataFilter &filter);
 
 } // namespace data_filter
 } // namespace a2
