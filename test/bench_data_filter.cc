@@ -9,7 +9,7 @@ static void BM_DataFilter_gather(benchmark::State &state)
 
     while (state.KeepRunning())
     {
-        u32 result = filter.extractData(dataWord, 'a');
+        u32 result = extract(filter, dataWord, 'a');
         benchmark::DoNotOptimize(result);
     }
 }
@@ -22,7 +22,7 @@ static void BM_DataFilter_no_gather(benchmark::State &state)
 
     while (state.KeepRunning())
     {
-        u32 result = filter.extractData(dataWord, 'a');
+        u32 result = extract(filter, dataWord, 'a');
         benchmark::DoNotOptimize(result);
     }
 }

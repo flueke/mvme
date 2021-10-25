@@ -80,7 +80,7 @@ DataFilter DataFilterEdit::getFilter() const
 void DataFilterEdit::setFilter(const DataFilter &filter)
 {
     //qDebug() << __PRETTY_FUNCTION__;
-    auto tmpText = filter.getFilter();
+    auto tmpText = QString::fromStdString(to_string(filter));
 
     //qDebug() << "  umodified filter text: " << tmpText;
     //qDebug() << "  this bitCount: " << getBitCount();

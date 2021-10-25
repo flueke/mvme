@@ -1145,8 +1145,8 @@ void a2_adapter_build_datasources(
                     a2::data_filter::add_subfilter(
                         &filter,
                         a2::data_filter::make_filter(
-                            slowFilter.getFilter().toStdString(),
-                            slowFilter.getWordIndex()));
+                            to_string(slowFilter),
+                            slowFilter.matchWordIndex));
                 }
 
                 ds = a2::make_datasource_extractor(
