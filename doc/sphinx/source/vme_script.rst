@@ -256,34 +256,72 @@ MVLC special commands
 mvlc_set_address_inc_mode
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* **mvlc_set_address_inc_mode** *('fifo'|'mem')*
+
+Sets the address increment mode for subsequent VME block reads. If *fifo* is
+selected the read address will not be incremented.
+
 .. _vme_command-mvlc_wait:
 
 mvlc_wait
 ^^^^^^^^^
+
+* **mvlc_wait** *<clocks>*
+
+Delay execution of the following stack commands by the given number of clock
+cycles. The maximum value of the *clocks* argument is ``(2**24) - 1``.
+
 .. _vme_command-mvlc_signal_accu:
 
 mvlc_signal_accu
 ^^^^^^^^^^^^^^^^
+
+* **mvlc_signal_accu**
+
+Signal the internal accumulator of the current command stack.
+
 .. _vme_command-mvlc_mask_shift_accu:
 
 mvlc_mask_shift_accu
 ^^^^^^^^^^^^^^^^^^^^
+
+* **mvlc_mask_shift_accu** *<mask>* *<shift>*
+
+Set the stack accumulator *mask* and *shift* values. When the accumulator value
+is used for a VME block read first the mask is applied, then the result is
+rotated left by the *shift* argument. The resulting value is the number of
+block read cycles to perform.
+
+
 .. _vme_command-mvlc_set_accu:
 
 mvlc_set_accu
 ^^^^^^^^^^^^^
+
+* **mvlc_set_accu** *<value>*
+
+Set the stack accumulator to the given 32-bit value.
+
+
 .. _vme_command-mvlc_read_to_accu:
 
 mvlc_read_to_accu
 ^^^^^^^^^^^^^^^^^
+* **mvlc_read_to_accu** *<amode> <dwidth> <address>*
+
+Same as :ref:`read <vme-command-read>` but reads into the stack accumulator instead of
+outputting to the data stream.
+
 .. _vme_command-mvlc_compare_loop_accu:
 
 mvlc_compare_loop_accu
 ^^^^^^^^^^^^^^^^^^^^^^
 
+* **mvlc_compare_loop_accu** *('eq'|'lt'|'gt')* *<value>*
 
-
-
+Repeatedly compares the value stored in the accumulator to the given *value*
+using the specified comparison operator. If the comparison fails jumps to the
+previous stack command, otherwise proceeds to the next command.
 
 
 VMUSB specific
