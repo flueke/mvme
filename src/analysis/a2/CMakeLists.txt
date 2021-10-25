@@ -53,7 +53,6 @@ message("-- Found zlib for liba2 in ${ZLIB_INCLUDE_DIRS}")
 set(liba2_SOURCES
     a2.cc
     a2_exprtk.cc
-    a2_data_filter.cc
     listfilter.cc)
 
 # Pass -mbig-obj to mingw gas on Win64. This works around the "too many
@@ -100,6 +99,7 @@ if (A2_BUILD_STATIC)
     target_link_libraries(liba2_static
         PRIVATE exprtk
         PRIVATE ${ZLIB_LIBRARIES}
+        PUBLIC mesytec-mvlc
         PUBLIC pcg
         PUBLIC cpp11-on-multicore
         PUBLIC zstr)
