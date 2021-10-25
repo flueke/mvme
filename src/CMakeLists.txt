@@ -360,7 +360,6 @@ generate_export_header(libmvme)
 target_link_libraries(libmvme
     PUBLIC mesytec-mvlc
     PUBLIC libmvme_core
-    PUBLIC libmvme_eventbuilder
     PUBLIC ${QWT_LIBRARY}
     PUBLIC cpp11-on-multicore
     PRIVATE nlohmann-json
@@ -535,7 +534,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
 add_subdirectory(listfile_reader)
-add_subdirectory(event_builder)
 
 #
 # listfile recovery tool
