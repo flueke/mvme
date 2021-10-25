@@ -272,7 +272,7 @@ add_library(libmvme SHARED
     daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
-    data_filter.cc
+    #data_filter.cc
     data_filter_edit.cc
     file_autosaver.cc
     globals.cc

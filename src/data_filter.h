@@ -46,6 +46,7 @@
  *
  */
 
+#if 0
 class LIBMVME_EXPORT DataFilter
 {
     public:
@@ -259,5 +260,7 @@ LIBMVME_EXPORT QString generate_pretty_filter_string(u8 bits = 32, char c = 'N')
 
 // Groups of 4 chars separated by a space, padded on the left with spaces if dataBits < totalBits.
 LIBMVME_EXPORT QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c = 'N');
+
+#endif
 
 #endif /* __DATA_FILTER_H__ */
