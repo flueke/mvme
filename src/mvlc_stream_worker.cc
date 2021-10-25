@@ -28,7 +28,6 @@
 #include "analysis/analysis_util.h"
 #include "analysis/analysis_session.h"
 #include "databuffer.h"
-#include "event_builder/event_builder.h"
 #include "mesytec-mvlc/mvlc_command_builders.h"
 #include "mvme_context.h"
 #include "vme_config_scripts.h"
@@ -447,7 +446,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     if (uses_event_builder(*vmeConfig, *analysis))
     {
         auto eventConfigs = vmeConfig->getEventConfigs();
-        std::vector<event_builder::EventSetup> eventBuilderSetup;
+        std::vector<mesytec::mvlc::EventSetup> eventBuilderSetup;
 
         for (auto eventIndex = 0; eventIndex < eventConfigs.size(); ++eventIndex)
         {
@@ -458,17 +457,17 @@ void MVLC_StreamWorker::setupParserCallbacks(
             auto ebSettings = eventSettings["EventBuilderSettings"].toMap();
             auto mainModuleId = ebSettings["MainModule"].toUuid();
 
-            event_builder::EventSetup eventSetup = {};
+            mesytec::mvlc::EventSetup eventSetup = {};
             eventSetup.enabled = enabledForEvent;
             eventSetup.minMainModuleEvents = ebSettings.value(
-                "MinMainModuleEvents", event_builder::DefaultMinMainModuleEvents).toInt();
+                "MinMainModuleEvents", mesytec::mvlc::DefaultMinMainModuleEvents).toInt();
 
             if (eventSetup.enabled)
             {
                 auto moduleConfigs = eventConfig->getModuleConfigs();
                 auto matchWindows = ebSettings["MatchWindows"].toMap();
 
-                event_builder::EventSetup::CrateSetup crateSetup;
+                mesytec::mvlc::EventSetup::CrateSetup crateSetup;
 
                 for (int moduleIndex = 0; moduleIndex < moduleConfigs.size(); ++moduleIndex)
                 {
@@ -480,13 +479,13 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     auto windowSettings = matchWindows[moduleConfig->getId().toString()].toMap();
 
                     auto matchWindow = std::make_pair<s32, s32>(
-                        windowSettings.value("lower", event_builder::DefaultMatchWindow.first).toInt(),
-                        windowSettings.value("upper", event_builder::DefaultMatchWindow.second).toInt());
+                        windowSettings.value("lower", mesytec::mvlc::DefaultMatchWindow.first).toInt(),
+                        windowSettings.value("upper", mesytec::mvlc::DefaultMatchWindow.second).toInt());
 
                     crateSetup.moduleMatchWindows.push_back(matchWindow);
 
                     crateSetup.moduleTimestampExtractors.push_back(
-                        event_builder::IndexedTimestampFilterExtractor(
+                        mesytec::mvlc::IndexedTimestampFilterExtractor(
                             a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
                 }
 
@@ -496,14 +495,14 @@ void MVLC_StreamWorker::setupParserCallbacks(
             eventBuilderSetup.push_back(eventSetup);
         }
 
-        m_eventBuilder = event_builder::EventBuilder(eventBuilderSetup);
+        m_eventBuilder = mesytec::mvlc::EventBuilder(eventBuilderSetup);
         // event builder -> analysis
         m_eventBuilderCallbacks.eventData = eventData_analysis;
         m_eventBuilderCallbacks.systemEvent = systemEvent_analysis;
     }
     else
     {
-        m_eventBuilder = event_builder::EventBuilder({});
+        m_eventBuilder = mesytec::mvlc::EventBuilder({});
     }
 
     // multi event splitter setup

@@ -82,13 +82,13 @@ struct AnalysisInfoWidgetPrivate
 
     QWidget *eventBuilderWidget;
     QVector<QLabel *> eventBuilderLabels;
-    std::vector<mvme::event_builder::EventBuilder::EventCounters> prevEventBuilderCounters;
+    std::vector<mesytec::mvlc::EventBuilder::EventCounters> prevEventBuilderCounters;
 
     void updateMVLCWidget(
         const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters,
         double dt);
     void updateEventBuilderWidget(
-        const std::vector<mvme::event_builder::EventBuilder::EventCounters> &counters,
+        const std::vector<mesytec::mvlc::EventBuilder::EventCounters> &counters,
         double dt);
 };
 
@@ -279,7 +279,7 @@ void AnalysisInfoWidget::update()
                                           m_d->prevCounters.bytesProcessed);
 
     double bytesPerSecond   = deltaBytesProcessed / dt;
-    double mbPerSecond      = bytesPerSecond / Megabytes(1);
+    double mbPerSecond      = bytesPerSecond / ::Megabytes(1);
     if (std::isnan(mbPerSecond)) mbPerSecond = 0.0;
 
     QString stateString = state == AnalysisWorkerState::Idle ? QSL("Idle") : QSL("Running");
@@ -572,7 +572,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 }
 
 void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
-    const std::vector<mvme::event_builder::EventBuilder::EventCounters> &counters,
+    const std::vector<EventBuilder::EventCounters> &counters,
     double /*dt*/)
 {
     //auto &prevCounters = prevEventBuilderCounters;

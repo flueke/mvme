@@ -110,7 +110,7 @@ using namespace mesytec;
 using namespace mesytec::mvlc;
 using namespace mesytec::mvme_mvlc;
 
-static const size_t ReadBufferSize = Megabytes(1);
+static const size_t ReadBufferSize = ::Megabytes(1);
 
 namespace
 {

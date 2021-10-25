@@ -55,12 +55,11 @@
 #include "data_extraction_widget.h"
 #include "data_filter_edit.h"
 #include "data_filter.h"
-#include "../event_builder/event_builder.h"
 #include "exportsink_codegen.h"
 #include "globals.h"
 #include "gui_util.h"
 #include "histo_util.h"
-#include "mesytec-mvlc/mvlc_constants.h"
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "../mvme_qthelp.h"
@@ -2981,8 +2980,8 @@ EventSettingsDialog::EventSettingsDialog(
                 }
                 auto moduleConfig = moduleConfigs.at(mi);
                 auto matchWindow = matchWindows.value(moduleConfig->getId().toString()).toMap();
-                spin_lower->setValue(matchWindow.value("lower", event_builder::DefaultMatchWindow.first).toInt());
-                spin_upper->setValue(matchWindow.value("upper", event_builder::DefaultMatchWindow.second).toInt());
+                spin_lower->setValue(matchWindow.value("lower", mesytec::mvlc::DefaultMatchWindow.first).toInt());
+                spin_upper->setValue(matchWindow.value("upper", mesytec::mvlc::DefaultMatchWindow.second).toInt());
 
                 lowerLimits.push_back(spin_lower);
                 upperLimits.push_back(spin_upper);
@@ -3000,7 +2999,7 @@ EventSettingsDialog::EventSettingsDialog(
             spin_minMainModuleEvents->setMinimum(0);
             spin_minMainModuleEvents->setMaximum(std::numeric_limits<s32>::max());
             spin_minMainModuleEvents->setValue(ebSettings.value(
-                    "MinMainModuleEvents", event_builder::DefaultMinMainModuleEvents).toInt());
+                    "MinMainModuleEvents", mesytec::mvlc::DefaultMinMainModuleEvents).toInt());
 
             auto fl = new QFormLayout;
             fl->addRow("Main/Reference Module", combo_mainModule);
