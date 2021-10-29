@@ -1809,8 +1809,10 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
 
     QString buffer;
     QTextStream stream(&buffer);
+    mvme::HistolistStatsOptions statOpts = {};
+    statOpts.printGaussStats = m_actionGaussFit->isChecked();
     mvme::print_histolist_stats(
-        stream, m_histos, lowerBound, upperBound, m_rrf, title);
+        stream, m_histos, lowerBound, upperBound, m_rrf, title, statOpts);
 
     auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
     te->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));

@@ -34,10 +34,11 @@ QTextStream &print_histolist_stats(
     QTextStream &out,
     const QVector<std::shared_ptr<Histo1D>> &histos,
     u32 rrf,
-    const QString &title)
+    const QString &title,
+    const HistolistStatsOptions &opts)
 {
     return print_histolist_stats(
-        out, histos, make_quiet_nan(), make_quiet_nan(), rrf, title);
+        out, histos, make_quiet_nan(), make_quiet_nan(), rrf, title, opts);
 }
 
 QTextStream &print_histolist_stats(
@@ -45,7 +46,8 @@ QTextStream &print_histolist_stats(
     const QVector<std::shared_ptr<Histo1D>> &histos,
     double xMin, double xMax,
     u32 rrf,
-    const QString &title)
+    const QString &title,
+    const HistolistStatsOptions &opts)
 {
     if (histos.isEmpty())
         return out;
@@ -64,10 +66,11 @@ QTextStream &print_histolist_stats(
     out.setFieldWidth(0);
 
     const auto &first = histos.at(0);
+    const s64 reducedBinCount = first->getAxisBinning(Qt::XAxis).getBinCount(rrf);
 
     out << "# Stats for histogram array '" << title << "'" << endl;
     out << "# Number of histos: " << histos.size()
-        << ", bins: " << first->getAxisBinning(Qt::XAxis).getBinCount(rrf)
+        << ", bins: " << reducedBinCount
         << endl;
 
     out << endl;
@@ -76,19 +79,21 @@ QTextStream &print_histolist_stats(
     out.setFieldAlignment(QTextStream::AlignLeft);
 
     out << qSetFieldWidth(0) << "# " << qSetFieldWidth(FieldWidth)
-        << "HistoIndex" << "EntryCount" << "Max" << "Mean"
-        << "RMS" << "Gauss Mean" << "FWHM"
-        << "Histo_x1" << "Histo_x2" << "Bin Width"
-        << qSetFieldWidth(0) << endl;
+        << "HistoIndex" << "EntryCount" << "Mean" << "RMS";
 
-    using ValueAndIndex = std::pair<double, size_t>;
+    if (opts.printGaussStats)
+        out << "Gauss Mean" << "FWHM";
 
-    ValueAndIndex minMean = { std::numeric_limits<double>::max(), 0 };
-    ValueAndIndex maxMean = { std::numeric_limits<double>::lowest(), 0 };
-    ValueAndIndex minFWHM = { std::numeric_limits<double>::max(), 0 };
-    ValueAndIndex maxFWHM = { std::numeric_limits<double>::lowest(), 0 };
-    ValueAndIndex minRMS  = { std::numeric_limits<double>::max(), 0 };
-    ValueAndIndex maxRMS  = { std::numeric_limits<double>::lowest(), 0 };
+    out << qSetFieldWidth(0) << endl;
+
+    using ValueAndIndex = std::pair<double, int>;
+
+    ValueAndIndex minValue = { make_quiet_nan(), -1 };
+    ValueAndIndex maxValue = { make_quiet_nan(), -1 };
+
+    double sumWeightedRms = 0.0;
+    double sumWeightedMean = 0.0;
+    double sumEntryCounts = 0.0;
 
     for (const auto &is: stats | indexed(0))
     {
@@ -96,44 +101,54 @@ QTextStream &print_histolist_stats(
         const auto &stats = is.value();
         const auto &histo = histos[index];
 
-        if (stats.mean < minMean.first)
-            minMean = { stats.mean, index };
+        if (stats.entryCount > 0)
+        {
+            for (s64 bin=0; bin<reducedBinCount; ++bin)
+            {
+                if (histo->getBinContent(bin, rrf) > 0.0)
+                {
+                    if (std::isnan(minValue.first) || histo->getBinLowEdge(bin, rrf) < minValue.first)
+                        minValue = { histo->getBinLowEdge(bin, rrf), index };
+                    break;
+                }
+            }
 
-        if (stats.mean > maxMean.first)
-            maxMean = { stats.mean, index };
+            for (s64 bin=reducedBinCount-1; bin >= 0; --bin)
+            {
+                if (histo->getBinContent(bin, rrf) > 0.0)
+                {
+                    if (std::isnan(maxValue.first) || histo->getBinLowEdge(bin, rrf) > maxValue.first)
+                        maxValue = { histo->getBinLowEdge(bin, rrf), index };
+                    break;
+                }
+            }
+        }
 
-        if (stats.fwhm < minFWHM.first)
-            minFWHM = { stats.fwhm, index };
-
-        if (stats.fwhm > maxFWHM.first)
-            maxFWHM = { stats.fwhm, index };
-
-        if (stats.sigma < minRMS.first)
-            minRMS = { stats.sigma, index };
-
-        if (stats.sigma > maxRMS.first)
-            maxRMS = { stats.sigma, index };
+        sumWeightedRms  += stats.sigma * stats.entryCount;
+        sumWeightedMean += stats.mean * stats.entryCount;
+        sumEntryCounts += stats.entryCount;
 
         out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
-            << index << stats.entryCount << stats.maxValue << stats.mean
-            << stats.sigma << stats.fwhmCenter << stats.fwhm
-            << stats.statsRange.first << stats.statsRange.second << histo->getBinWidth(rrf)
-            //<< histo->getXMin() << histo->getXMax() << histo->getBinWidth(rrf)
-            << qSetFieldWidth(0) << endl;
+            << index << stats.entryCount << stats.mean << stats.sigma;
+
+        if (opts.printGaussStats)
+            out << stats.fwhmCenter << stats.fwhm;
+
+        out << qSetFieldWidth(0) << endl;
     }
 
     out << qSetFieldWidth(0) << endl;
-    out << "Mean min: " << minMean.first << " in histo " << minMean.second << endl;
-    out << "Mean max: " << maxMean.first << " in histo " << maxMean.second << endl;
+
+    out << "min: " << minValue.first << " in histo " << minValue.second << endl;
+    out << "max: " << maxValue.first << " in histo " << maxValue.second << endl;
 
     out << endl;
-    out << "RMS min: " << minRMS.first << " in histo " << minRMS.second << endl;
-    out << "RMS max: " << maxRMS.first << " in histo " << maxRMS.second << endl;
 
-    out << endl;
-    out << "FWHM min: " << minFWHM.first << " in histo " << minFWHM.second << endl;
-    out << "FWHM max: " << maxFWHM.first << " in histo " << maxFWHM.second << endl;
+    double weightedMean = sumWeightedMean / sumEntryCounts;
+    double weightedRms = sumWeightedRms / sumEntryCounts;
 
+    out << "mean: " << weightedMean << endl;
+    out << "rms: " << weightedRms << endl;
 
     return out;
 }

@@ -29,6 +29,11 @@
 namespace mvme
 {
 
+struct HistolistStatsOptions
+{
+    bool printGaussStats = false;
+};
+
 // Outputs a formatted table containing statistics of all the histograms in the
 // given histos vector.
 // This overload uses the full histograms x-axis range for stat calculations.
@@ -36,7 +41,8 @@ LIBMVME_EXPORT QTextStream &print_histolist_stats(
     QTextStream &out,
     const QVector<std::shared_ptr<Histo1D>> &histos,
     u32 resolutionReductionFactor = AxisBinning::NoResolutionReduction,
-    const QString &title = {});
+    const QString &title = {},
+    const HistolistStatsOptions &opts = {});
 
 // Outputs a formatted table containing statistics of all the histograms in the
 // given histos vector.
@@ -48,7 +54,8 @@ LIBMVME_EXPORT QTextStream &print_histolist_stats(
     const QVector<std::shared_ptr<Histo1D>> &histos,
     double xMin, double xMax,
     u32 resolutionReductionFactor = AxisBinning::NoResolutionReduction,
-    const QString &title = {});
+    const QString &title = {},
+    const HistolistStatsOptions &opts = {});
 
 }
 

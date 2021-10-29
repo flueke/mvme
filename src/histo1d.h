@@ -233,6 +233,10 @@ class LIBMVME_EXPORT Histo1D: public QObject
             u32 bin;
         };
 
+        ValueAndBin getMinValueAndBin(u32 rrf = NoRR) const;
+        double getMinValue(u32 rrf = NoRR) const { return getMinValueAndBin(rrf).value; }
+        u32 getMinBin(u32 rrf = NoRR) const { return getMinValueAndBin(rrf).bin; }
+
         ValueAndBin getMaxValueAndBin(u32 rrf = NoRR) const;
         double getMaxValue(u32 rrf = NoRR) const { return getMaxValueAndBin(rrf).value; }
         u32 getMaxBin(u32 rrf = NoRR) const { return getMaxValueAndBin(rrf).bin; }
