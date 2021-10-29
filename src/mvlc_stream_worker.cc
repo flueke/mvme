@@ -864,6 +864,31 @@ void MVLC_StreamWorker::publishStateIfSingleStepping()
     }
 }
 
+namespace
+{
+    bool is_timetick_only_buffer(const nonstd::basic_string_view<const u32> &buffer)
+    {
+        using namespace mesytec::mvlc;
+
+        if (buffer.empty())
+            return false;
+
+        u32 frameHeader = buffer.at(0);
+        auto frameInfo =  extract_frame_info(frameHeader);
+
+        if (frameInfo.type != frame_headers::SystemEvent)
+            return false;
+
+        u8 subtype = system_event::extract_subtype(frameHeader);
+
+        if (subtype != system_event::subtype::UnixTimetick)
+            return false;
+
+        // Test if this is the only frame in the buffer
+        return buffer.size() == frameInfo.len + 1u;
+    }
+}
+
 void MVLC_StreamWorker::processBuffer(
     const mesytec::mvlc::ReadoutBuffer *buffer,
     const VMEConfig *vmeConfig,
@@ -938,7 +963,10 @@ void MVLC_StreamWorker::processBuffer(
         qDebug() << __PRETTY_FUNCTION__ << "exception seen";
 
     if (debugRequest == DebugInfoRequest::OnNextBuffer
-        || (debugRequest == DebugInfoRequest::OnNextError && !processingOk))
+        || (debugRequest == DebugInfoRequest::OnNextBufferIgnoreTimeticks
+            && !is_timetick_only_buffer(bufferView))
+        || (debugRequest == DebugInfoRequest::OnNextError
+            && !processingOk))
     {
         m_debugInfoRequest = DebugInfoRequest::None;
 

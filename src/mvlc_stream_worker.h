@@ -140,9 +140,12 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void resume() override;
         void singleStep() override;
 
-        void requestDebugInfoOnNextBuffer()
+        void requestDebugInfoOnNextBuffer(bool ignoreTimeticks = true)
         {
-            m_debugInfoRequest = DebugInfoRequest::OnNextBuffer;
+            m_debugInfoRequest =
+                (ignoreTimeticks
+                 ? DebugInfoRequest::OnNextBufferIgnoreTimeticks
+                 : DebugInfoRequest::OnNextBuffer);
         }
 
         void requestDebugInfoOnNextError()
@@ -174,6 +177,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         {
             None,
             OnNextBuffer,
+            OnNextBufferIgnoreTimeticks,
             OnNextError,
         };
 

@@ -72,6 +72,7 @@ struct AnalysisInfoWidgetPrivate
     bool updateInProgress;
     QPushButton *mvlcRequestBufferOnError;
     QPushButton *mvlcRequestNextBuffer;
+    QPushButton *mvlcRequestNextNonTimetickBuffer;
 
     // Holds mvlcInfoWidget and eventBuilderWidget
     QTabWidget *tabbedWidget;
@@ -148,9 +149,11 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
 
         m_d->mvlcRequestBufferOnError = new QPushButton("Debug on parse error");
         m_d->mvlcRequestNextBuffer = new QPushButton("Debug next buffer");
+        m_d->mvlcRequestNextNonTimetickBuffer = new QPushButton("Debug next buffer (ignore timeticks)");
 
         mvlcLayout->addRow(m_d->mvlcRequestBufferOnError);
         mvlcLayout->addRow(m_d->mvlcRequestNextBuffer);
+        mvlcLayout->addRow(m_d->mvlcRequestNextNonTimetickBuffer);
 
         connect(m_d->mvlcRequestBufferOnError, &QPushButton::clicked,
                 this, [this] ()
@@ -168,7 +171,17 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
             if (auto worker = qobject_cast<MVLC_StreamWorker *>(
                     m_d->context->getMVMEStreamWorker()))
             {
-                worker->requestDebugInfoOnNextBuffer();
+                worker->requestDebugInfoOnNextBuffer(false);
+            }
+        });
+
+        connect(m_d->mvlcRequestNextNonTimetickBuffer, &QPushButton::clicked,
+                this, [this] ()
+        {
+            if (auto worker = qobject_cast<MVLC_StreamWorker *>(
+                    m_d->context->getMVMEStreamWorker()))
+            {
+                worker->requestDebugInfoOnNextBuffer(true);
             }
         });
 
