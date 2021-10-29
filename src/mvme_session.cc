@@ -82,7 +82,7 @@ void mvme_init(const QString &appName)
     qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
 
 #ifndef NDEBUG
-    spdlog::set_level(spdlog::level::trace);
+    spdlog::set_level(spdlog::level::debug);
 #else
     spdlog::set_level(spdlog::level::warn);
 #endif
