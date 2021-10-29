@@ -10,6 +10,7 @@ find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5PrintSupport REQUIRED)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -362,6 +363,7 @@ target_link_libraries(libmvme
     PUBLIC libmvme_core
     PUBLIC ${QWT_LIBRARY}
     PUBLIC cpp11-on-multicore
+    PUBLIC Qt5::PrintSupport
     PRIVATE nlohmann-json
     PRIVATE liba2_static
     PRIVATE Threads::Threads

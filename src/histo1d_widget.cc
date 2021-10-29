@@ -58,6 +58,8 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QToolBar>
+#include <QPrinter>
+#include <QPrintDialog>
 
 #include "analysis/analysis.h"
 #include "histo1d_util.h"
@@ -1814,17 +1816,70 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     mvme::print_histolist_stats(
         stream, m_histos, lowerBound, upperBound, m_rrf, title, statOpts);
 
-    auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
-    te->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
-    te->setAttribute(Qt::WA_DeleteOnClose);
-    te->resize(1100, 600);
-    te->setPlainText(buffer);
-    te->show();
-    te->raise();
+    // actions
+    auto action_save = [buffer] ()
+    {
+        // FIXME: default filename based on histo name
+        auto dest = QFileDialog::getSaveFileName(
+            nullptr, // widget
+            "Save Histo Stats", // caption
+            QString(), // dir
+            "*.txt" // filter
+            );
 
-    add_widget_close_action(te);
-    auto geometrySaver = new WidgetGeometrySaver(te);
-    geometrySaver->addAndRestore(te, QSL("WindowGeometries/HistoListStats"));
+        // TODO: error handling
+        if (!dest.isEmpty())
+        {
+            QFile outFile(dest);
+            if (outFile.open(QIODevice::WriteOnly))
+            {
+                outFile.write(buffer.toUtf8());
+            }
+        }
+    };
+
+    auto action_print = [buffer] ()
+    {
+#if 1
+        QPrinter printer;
+        QPrintDialog printDialog(&printer);
+
+        if (printDialog.exec() == QDialog::Accepted)
+        {
+            // FIXME: set monospace font!
+            // FIXME: default filename based on histo name
+            QTextDocument doc;
+            doc.setPlainText(buffer);
+            doc.print(&printer);
+        }
+#endif
+    };
+
+    // toolbar
+    auto tb = new QToolBar;
+    tb->addAction(QIcon(":/document-save.png"), "Save", action_save);
+    tb->addAction(QIcon(":/printer.png"), "Print", action_print);
+
+    // textedit
+    auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
+    te->setPlainText(buffer);
+
+    // parent widget
+    auto pw = new QWidget;
+    auto l = make_vbox(pw);
+    l->addWidget(tb);
+    l->addWidget(te);
+    l->setStretch(1, 1);
+
+    pw->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
+    pw->setAttribute(Qt::WA_DeleteOnClose);
+    pw->resize(1100, 600);
+    pw->show();
+    pw->raise();
+
+    add_widget_close_action(pw);
+    auto geometrySaver = new WidgetGeometrySaver(pw);
+    geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
 }
 
 void Histo1DWidgetPrivate::onEditCutAccept()
