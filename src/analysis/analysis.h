@@ -2072,9 +2072,7 @@ class LIBMVME_EXPORT Analysis:
         // Processing
         //
         void beginEvent(int eventIndex);
-        void processModulePrefix(int eventIndex, int moduleIndex, const u32 *data, u32 size);
         void processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size);
-        void processModuleSuffix(int eventIndex, int moduleIndex, const u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
         void processTimetick();

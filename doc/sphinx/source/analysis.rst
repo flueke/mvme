@@ -851,30 +851,21 @@ same number of events. The drawbacks are that non-perfect trigger handling can
 lead to unsynchronized events across modules and that data processing becomes
 more complicated.
 
-The supported readout structure is the same as that supported by the mvlc
-readout parser: one fixed size prefix, a dynamic block read part and a fixed
-size suffix per module. Splitting is performed on the dynamic part as shown
-in the diagram below. m0 and m1 are the modules, the dynamically sized event
-data for each module is obtained via a single block read. ::
+Splitting is performed on the module data as shown in the diagram below:::
 
      multievent
-    +-----------+
-    | m0_prefix |                 split0          split1           split2
+    +-----------+                 split0           split1          split2
     | m0_event0 |              +------------+   +-----------+   +-----------+
-    | m0_event1 |              | m0_prefix  |   |           |   |           |
-    | m0_event2 |              | m1_prefix  |   |           |   |           |
-    | m0_suffix |              | m0_event0  |   | m0_event1 |   | m0_event2 |
+    | m0_event1 |              |            |   |           |   |           |
+    | m0_event2 |              | m0_event0  |   | m0_event1 |   | m0_event2 |
     |           | == split ==> | m1_event0  |   | m1_event1 |   | m1_event2 |
-    | m1_prefix |              | m0_suffix  |   |           |   |           |
-    | m1_event0 |              | m1_suffix  |   |           |   |           |
+    | m1_event0 |              |            |   |           |   |           |
     | m1_event1 |              |            |   |           |   |           |
     | m1_event2 |              +------------+   +-----------+   +-----------+
-    | m1_suffix |
     +-----------+
 
 In the example the input multievent data obtained from a single event readout
-cycle is split into three separate events. Prefix and suffix data of the
-modules are only yielded for the first event.
+cycle is split into three separate events.
 
 Data splitting is performed by using analysis DataFilters to look for module
 header words. If the filter contains the matching character ``S`` it is used to
