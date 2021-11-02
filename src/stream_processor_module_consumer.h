@@ -30,13 +30,7 @@ class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 
         virtual void beginEvent(s32 eventIndex) = 0;
         virtual void endEvent(s32 eventIndex) = 0;
-        virtual void processModulePrefix(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) = 0;
         virtual void processModuleData(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) = 0;
-        virtual void processModuleSuffix(s32 eventIndex,
                                        s32 moduleIndex,
                                        const u32 *data, u32 size) = 0;
         virtual void processTimetick() = 0;

@@ -153,11 +153,9 @@ inline std::error_code begin_event(State &state, int ei)
     return {};
 }
 
-// The module_(prefix|dynamic|suffix) functions record the data pointer and
-// size in the splitters state structure for later use in the end_event
-// function.
-
-inline std::error_code module_prefix(State &state, int ei, int mi, const u32 *data, u32 size)
+// The module_data() function records the data pointer and size in the
+// splitters state structure for later use in the end_event function.
+inline std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -167,43 +165,7 @@ inline std::error_code module_prefix(State &state, int ei, int mi, const u32 *da
     if (mi >= static_cast<int>(spans.size()))
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
 
-    spans[mi].prefixSpan = { data, data + size };
-
-    LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
-              &state, ei, mi, data, size);
-
-    return {};
-}
-
-inline std::error_code module_dynamic(State &state, int ei, int mi, const u32 *data, u32 size)
-{
-    if (ei >= static_cast<int>(state.splitFilters.size()))
-        return make_error_code(ErrorCode::EventIndexOutOfRange);
-
-    auto &spans = state.dataSpans;
-
-    if (mi >= static_cast<int>(spans.size()))
-        return make_error_code(ErrorCode::ModuleIndexOutOfRange);
-
-    spans[mi].dynamicSpan = { data, data + size };
-
-    LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
-              &state, ei, mi, data, size);
-
-    return {};
-}
-
-inline std::error_code module_suffix(State &state, int ei, int mi, const u32 *data, u32 size)
-{
-    if (ei >= static_cast<int>(state.splitFilters.size()))
-        return make_error_code(ErrorCode::EventIndexOutOfRange);
-
-    auto &spans = state.dataSpans;
-
-    if (mi >= static_cast<int>(spans.size()))
-        return make_error_code(ErrorCode::ModuleIndexOutOfRange);
-
-    spans[mi].suffixSpan = { data, data + size };
+    spans[mi].dataSpan = { data, data + size };
 
     LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
               &state, ei, mi, data, size);
@@ -252,16 +214,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
             auto &spans = moduleSpans[mi];
             auto &moduleData = moduleDataList[mi];
 
-            moduleData.prefix = {
-                spans.prefixSpan.begin, static_cast<u32>(words_in_span(spans.prefixSpan))
-            };
-
-            moduleData.dynamic = {
-                spans.dynamicSpan.begin, static_cast<u32>(words_in_span(spans.dynamicSpan))
-            };
-
-            moduleData.suffix = {
-                spans.suffixSpan.begin, static_cast<u32>(words_in_span(spans.suffixSpan))
+            moduleData.data = {
+                spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan))
             };
         }
 
@@ -272,7 +226,6 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
     assert(moduleFilters.size() == moduleSpans.size());
 
-    bool staticPartsYielded = false;
     std::array<s64, MaxVMEModules> moduleSubeventSizes;
 
     // Space to record filter matches per module during the splitting phase.
@@ -295,7 +248,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         // Check for header matches and determine subevent sizes.
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
-            const auto &dynamicSpan = moduleSpans[mi].dynamicSpan;
+            const auto &dynamicSpan = moduleSpans[mi].dataSpan;
 
             if (words_in_span(dynamicSpan))
             {
@@ -351,48 +304,11 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         //LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
         //callbacks.beginEvent(ei);
 
-        // Yield the prefixes of all the modules
-        for (size_t mi = 0; mi < moduleCount; ++mi)
-        {
-            auto &spans = moduleSpans[mi];
-            auto &moduleData = moduleDataList[mi];
-
-            if (!staticPartsYielded)
-            {
-                moduleData.prefix = {
-                    spans.prefixSpan.begin, static_cast<u32>(words_in_span(spans.prefixSpan))
-                };
-
-                moduleData.suffix = {
-                    spans.suffixSpan.begin, static_cast<u32>(words_in_span(spans.suffixSpan))
-                };
-            }
-            else
-            {
-                moduleData.prefix = {};
-                moduleData.suffix = {};
-            }
-
-            //if (auto size = words_in_span(moduleSpans[mi].prefixSpan))
-            //{
-            //    LOG_TRACE("state=%p, callbacks.modulePrefx(ei=%d, mi=%lu, data=%p, size=%lu",
-            //              &state, ei, mi, moduleSpans[mi].prefixSpan.begin, size);
-            //    callbacks.modulePrefix(ei, mi, moduleSpans[mi].prefixSpan.begin, size);
-            //}
-
-            //if (auto size = words_in_span(moduleSpans[mi].suffixSpan))
-            //{
-            //    LOG_TRACE("state=%p, callbacks.moduleSuffix(ei=%d, mi=%lu, data=%p, size=%lu",
-            //              &state, ei, mi, moduleSpans[mi].suffixSpan.begin, size);
-            //    callbacks.moduleSuffix(ei, mi, moduleSpans[mi].suffixSpan.begin, size);
-            //}
-        }
-
         // Yield one split subevent for each of the modules.
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
             auto &moduleData = moduleDataList[mi];
-            moduleData.dynamic = {};
+            moduleData.data = {};
 
             if (moduleFilterMatches[mi])
             {
@@ -400,57 +316,51 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
                 // If there are no more words in the span then the bit
                 // indicating a match should not have been set.
-                assert(words_in_span(spans.dynamicSpan));
+                assert(words_in_span(spans.dataSpan));
 
                 // Add one to the extracted module event size to account for
                 // the header word itself (the extracted size is the number of
                 // words following the header word).
                 u32 moduleEventSize = moduleSubeventSizes[mi];
 
-                LOG_TRACE("state=%p, ei=%d, mi=%lu, words in dynamicSpan=%lu, moduleEventSize=%u",
-                          &state, ei, mi, words_in_span(spans.dynamicSpan), moduleEventSize);
+                LOG_TRACE("state=%p, ei=%d, mi=%lu, words in dataSpan=%lu, moduleEventSize=%u",
+                          &state, ei, mi, words_in_span(spans.dataSpan), moduleEventSize);
 
 
-                if (moduleEventSize > words_in_span(spans.dynamicSpan))
+                if (moduleEventSize > words_in_span(spans.dataSpan))
                 {
                     // The extracted event size exceeds the amount of data left
                     // in the dynamic span. Move the span begin pointer forward
                     // so that the span has size 0 and the module filter test
                     // above will fail on the next iteration.
-                    spans.dynamicSpan.begin = spans.dynamicSpan.end;
-                    moduleData.dynamic = {};
+                    spans.dataSpan.begin = spans.dataSpan.end;
+                    moduleData.data = {};
                 }
                 else
                 {
-
                     // Invoke the dynamic data callback with the current dynamic
                     // spans begin pointer and the extracted event size.
-                    LOG_TRACE("state=%p, callbacks.moduleDynamic(ei=%d, mi=%lu, data=%p, size=%u",
-                              &state, ei, mi, spans.dynamicSpan.begin, moduleEventSize)
+                    LOG_TRACE("state=%p, callbacks.moduleData(ei=%d, mi=%lu, data=%p, size=%u",
+                              &state, ei, mi, spans.dataSpan.begin, moduleEventSize)
 
                         //callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, moduleEventSize);
-
-
-                        moduleData.dynamic = {
-                            spans.dynamicSpan.begin, moduleEventSize
+                        moduleData.data = {
+                            spans.dataSpan.begin, moduleEventSize
                         };
 
                     // Move the spans begin pointer forward by the amount of data used.
-                    spans.dynamicSpan.begin += moduleEventSize;
+                    spans.dataSpan.begin += moduleEventSize;
 
-                    if (words_in_span(spans.dynamicSpan))
+                    if (words_in_span(spans.dataSpan))
                     {
                         LOG_TRACE("state=%p, next dynamicSpan.begin=0x%08x",
-                                  &state, *spans.dynamicSpan.begin);
+                                  &state, *spans.dataSpan.begin);
                     }
                 }
             }
         }
 
         callbacks.eventData(nullptr, ei, moduleDataList.data(), moduleCount);
-
-        staticPartsYielded = true;
-
 
         LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
         //callbacks.endEvent(ei);
@@ -470,9 +380,7 @@ std::error_code LIBMVME_EXPORT event_data(
     {
         auto &moduleData = moduleDataList[mi];
 
-        module_prefix(state, ei, mi, moduleData.prefix.data, moduleData.prefix.size);
-        module_dynamic(state, ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
-        module_suffix(state, ei, mi, moduleData.suffix.data, moduleData.suffix.size);
+        module_data(state, ei, mi, moduleData.data.data, moduleData.data.size);
     }
 
     return end_event(state, callbacks, userContext, ei, moduleCount);

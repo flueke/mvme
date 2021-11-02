@@ -51,8 +51,8 @@ TEST(MultiEventSplitter, WithSizeSameCount)
         {
             const auto &moduleData = moduleDataList[mi];
             std::vector<u32> subEvent(
-                moduleData.dynamic.data,
-                moduleData.dynamic.data + moduleData.dynamic.size);
+                moduleData.data.data,
+                moduleData.data.data + moduleData.data.size);
             splitEvents[mi].emplace_back(subEvent);
         }
     };
@@ -60,8 +60,8 @@ TEST(MultiEventSplitter, WithSizeSameCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
-    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
-    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -125,11 +125,11 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
         for (unsigned mi=0; mi<moduleCount; ++mi)
         {
             const auto &moduleData = moduleDataList[mi];
-            if (moduleData.dynamic.data)
+            if (moduleData.data.data)
             {
                 std::vector<u32> subEvent(
-                    moduleData.dynamic.data,
-                    moduleData.dynamic.data + moduleData.dynamic.size);
+                    moduleData.data.data,
+                    moduleData.data.data + moduleData.data.size);
                 splitEvents[mi].emplace_back(subEvent);
             }
         }
@@ -138,8 +138,8 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList;
-    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
-    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -204,11 +204,11 @@ TEST(MultiEventSplitter, WithSizeExceeded)
         for (unsigned mi=0; mi<moduleCount; ++mi)
         {
             const auto &moduleData = moduleDataList[mi];
-            if (moduleData.dynamic.data)
+            if (moduleData.data.data)
             {
                 std::vector<u32> subEvent(
-                    moduleData.dynamic.data,
-                    moduleData.dynamic.data + moduleData.dynamic.size);
+                    moduleData.data.data,
+                    moduleData.data.data + moduleData.data.size);
                 splitEvents[mi].emplace_back(subEvent);
             }
         }
@@ -217,8 +217,8 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
-    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
-    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -283,11 +283,11 @@ TEST(MultiEventSplitter, NoSizeSameCount)
         for (unsigned mi=0; mi<moduleCount; ++mi)
         {
             const auto &moduleData = moduleDataList[mi];
-            if (moduleData.dynamic.data)
+            if (moduleData.data.data)
             {
                 std::vector<u32> subEvent(
-                    moduleData.dynamic.data,
-                    moduleData.dynamic.data + moduleData.dynamic.size);
+                    moduleData.data.data,
+                    moduleData.data.data + moduleData.data.size);
                 splitEvents[mi].emplace_back(subEvent);
             }
         }
@@ -296,8 +296,8 @@ TEST(MultiEventSplitter, NoSizeSameCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
-    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
-    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -361,11 +361,11 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
         for (unsigned mi=0; mi<moduleCount; ++mi)
         {
             const auto &moduleData = moduleDataList[mi];
-            if (moduleData.dynamic.data)
+            if (moduleData.data.data)
             {
                 std::vector<u32> subEvent(
-                    moduleData.dynamic.data,
-                    moduleData.dynamic.data + moduleData.dynamic.size);
+                    moduleData.data.data,
+                    moduleData.data.data + moduleData.data.size);
                 splitEvents[mi].emplace_back(subEvent);
             }
         }
@@ -374,8 +374,8 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
-    moduleDataList[0].dynamic = { data[0].data(), static_cast<u32>(data[0].size()) };
-    moduleDataList[1].dynamic = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,

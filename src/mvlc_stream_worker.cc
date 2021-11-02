@@ -75,28 +75,14 @@ void begin_event_record(
 }
 
 void record_module_part(
-    EventRecord &record, EventRecord::RecordModulePart part,
-    int moduleIndex, const u32 *data, u32 size)
+    EventRecord &record, int moduleIndex, const u32 *data, u32 size)
 {
     if (record.modulesData.size() <= moduleIndex)
         record.modulesData.resize(moduleIndex + 1);
 
     QVector<u32> *dest = nullptr;
 
-    switch (part)
-    {
-        case EventRecord::Prefix:
-            dest = &record.modulesData[moduleIndex].prefix;
-            break;
-
-        case EventRecord::Dynamic:
-            dest = &record.modulesData[moduleIndex].dynamic;
-            break;
-
-        case EventRecord::Suffix:
-            dest = &record.modulesData[moduleIndex].suffix;
-            break;
-    }
+    dest = &record.modulesData[moduleIndex].data;
 
     assert(dest);
 
@@ -105,9 +91,7 @@ void record_module_part(
 
 bool is_empty(const EventRecord::ModuleData &moduleData)
 {
-    return moduleData.prefix.isEmpty()
-        && moduleData.dynamic.isEmpty()
-        && moduleData.suffix.isEmpty();
+    return moduleData.data.isEmpty();
 }
 
 //
@@ -248,78 +232,22 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // eventData
         for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
         {
-            auto moduleParts = m_parser.readoutStructure[ei][parserModuleIndex];
             auto &moduleData = moduleDataList[parserModuleIndex];
             int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
 
-            // prefix
-            if (moduleData.prefix.size)
-            {
-                // FIXME: Hack checking if the module does not have a dynamic part. In
-                // this case the readout data is handed to the analysis via
-                // processModuleData(). This workaround makes the MVLC readout
-                // compatible to readouts with the older controllers.
-                // Once the analysis is updated and proper filter templates for
-                // prefix/suffix have been added this change should be removed!
-                // Note: this works for scripts containing only register reads, e.g.
-                // the standard MesytecCounter script.
-                if (!moduleParts.hasDynamic)
-                {
-                    analysis->processModuleData(
-                        ei, mi, moduleData.prefix.data, moduleData.prefix.size);
-
-                    for (auto c: m_moduleConsumers)
-                        c->processModuleData(
-                            ei, mi, moduleData.prefix.data, moduleData.prefix.size);
-
-                    if (m_diag)
-                        m_diag->processModuleData(
-                            ei, mi, moduleData.prefix.data, moduleData.prefix.size);
-                }
-                else
-                {
-                    analysis->processModulePrefix(
-                        ei, mi, moduleData.prefix.data, moduleData.prefix.size);
-                }
-            }
-
-            // dynamic
-            if (moduleParts.hasDynamic)
+            if (moduleData.data.size)
             {
                 analysis->processModuleData(
-                    ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+                    ei, mi, moduleData.data.data, moduleData.data.size);
 
                 for (auto c: m_moduleConsumers)
                     c->processModuleData(
-                        ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
+                        ei, mi, moduleData.data.data, moduleData.data.size);
 
                 if (m_diag)
                     m_diag->processModuleData(
-                        ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
-            }
+                        ei, mi, moduleData.data.data, moduleData.data.size);
 
-            // suffix
-            if (moduleData.suffix.size)
-                analysis->processModuleSuffix(
-                    ei, mi, moduleData.suffix.data, moduleData.suffix.size);
-
-            if (m_state == WorkerState::SingleStepping)
-            {
-                record_module_part(
-                    m_singleStepEventRecord, EventRecord::Prefix,
-                    mi, moduleData.prefix.data, moduleData.prefix.size);
-
-                record_module_part(
-                    m_singleStepEventRecord, EventRecord::Dynamic,
-                    mi, moduleData.dynamic.data, moduleData.dynamic.size);
-
-                record_module_part(
-                    m_singleStepEventRecord, EventRecord::Suffix,
-                    mi, moduleData.suffix.data, moduleData.suffix.size);
-            }
-
-            if (moduleData.prefix.size || moduleData.dynamic.size || moduleData.suffix.size)
-            {
                 UniqueLock guard(m_countersMutex);
                 m_counters.moduleCounters[ei][mi]++;
             }

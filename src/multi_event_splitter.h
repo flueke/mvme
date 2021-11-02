@@ -132,9 +132,7 @@ struct State
 
     struct ModuleDataSpans
     {
-        DataSpan prefixSpan;
-        DataSpan dynamicSpan;
-        DataSpan suffixSpan;
+        DataSpan dataSpan;
     };
 
     // DataFilters used for module header matching and size extraction grouped

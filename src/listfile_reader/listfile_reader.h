@@ -30,9 +30,7 @@ struct ModuleReadoutDescription
 {
     const char *name;
     const char *type;
-    unsigned prefixLen;
-    unsigned suffixLen;
-    bool hasDynamic;
+    int len;
 };
 
 struct EventReadoutDescription
@@ -57,9 +55,7 @@ struct DataBlock
 
 struct ModuleData
 {
-    DataBlock prefix;
-    DataBlock dynamic;
-    DataBlock suffix;
+    DataBlock data;
 };
 
 typedef void (*PluginInfo) (char **pluginName, char **pluginDescription);

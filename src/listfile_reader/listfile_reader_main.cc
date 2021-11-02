@@ -184,9 +184,7 @@ RunDescription * make_run_description(
             auto moduleReadoutParts = mesytec::mvme_mvlc::parse_module_readout_script(
                 mesytec::mvme::parse(moduleConfig->getReadoutScript()));
 
-            module.prefixLen = moduleReadoutParts.prefixLen;
-            module.suffixLen = moduleReadoutParts.suffixLen;
-            module.hasDynamic = moduleReadoutParts.hasDynamic;
+            module.len = moduleReadoutParts.len;
         }
     }
 
@@ -220,25 +218,11 @@ class ModuleDataConsumer: public IMVMEStreamModuleConsumer
             std::fill(m_moduleDataList.begin(), m_moduleDataList.end(), ModuleData{});
         }
 
-        void processModulePrefix(
-            s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
-        {
-            if (moduleIndex < static_cast<s32>(m_moduleDataList.size()))
-                m_moduleDataList[moduleIndex].prefix = { data, size };
-        }
-
         void processModuleData(
             s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
         {
             if (moduleIndex < static_cast<s32>(m_moduleDataList.size()))
-                m_moduleDataList[moduleIndex].dynamic = { data, size };
-        }
-
-        void processModuleSuffix(
-            s32 /*eventIndex*/, s32 moduleIndex, const u32 *data, u32 size) override
-        {
-            if (moduleIndex < static_cast<s32>(m_moduleDataList.size()))
-                m_moduleDataList[moduleIndex].suffix = { data, size };
+                m_moduleDataList[moduleIndex].data = { data, size };
         }
 
         void endEvent(s32 ei) override

@@ -9,8 +9,8 @@ namespace mvme_mvlc
 ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &readoutScript)
 {
     using namespace vme_script;
-    enum State { Prefix, Dynamic, Suffix };
-    State state = Prefix;
+    enum State { Initial, Fixed, Dynamic };
+    State state = Initial;
     ModuleReadoutParts modParts = {};
 
     for (auto &cmd: readoutScript)
@@ -20,32 +20,33 @@ ModuleReadoutParts parse_module_readout_script(const vme_script::VMEScript &read
         {
             switch (state)
             {
-                case Prefix:
-                    modParts.prefixLen++;
+                case Initial:
+                    state = Fixed;
+                    ++modParts.len;
+                    break;
+                case Fixed:
+                    ++modParts.len;
                     break;
                 case Dynamic:
-                    modParts.suffixLen++;
-                    state = Suffix;
-                    break;
-                case Suffix:
-                    modParts.suffixLen++;
-                    break;
+                    throw std::runtime_error("block read after fixed reads in module reaodut");
             }
         }
         else if (is_block_read_command(cmd.type))
         {
             switch (state)
             {
-                case Prefix:
-                    modParts.hasDynamic = true;
+                case Initial:
                     state = Dynamic;
+                    assert(modParts.len == 0);
+                    modParts.len = -1;
                     break;
+                case Fixed:
+                    throw std::runtime_error("fixed read after block read in module readout");
                 case Dynamic:
                     throw std::runtime_error("multiple block reads in module readout");
-                case Suffix:
-                    throw std::runtime_error("block read after suffix in module readout");
             }
         }
+        // FIXME: handle mvlc_custom commands
     }
 
     return modParts;

@@ -3182,12 +3182,12 @@ inline const char *to_string(const readout_parser::ReadoutParserState::GroupPars
 {
     switch (mps)
     {
-        case readout_parser::ReadoutParserState::Prefix:
-            return "Prefix";
+        case readout_parser::ReadoutParserState::Initial:
+            return "Initial";
         case readout_parser::ReadoutParserState::Dynamic:
             return "Dynamic";
-        case readout_parser::ReadoutParserState::Suffix:
-            return "Suffix";
+        case readout_parser::ReadoutParserState::Fixed:
+            return "Fixed";
     }
 
     return "unknown ModuleParseState";
@@ -3419,12 +3419,17 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 int moduleIndex = moduleIter.index();
                 const auto &moduleParts = moduleIter.value();
 
+                bool isDynamic = moduleParts.len < 0;
+
                 out << "  ei=" << eventIndex
-                    << ", mi=" << moduleIndex
-                    << ": prefixLen=" << static_cast<unsigned>(moduleParts.prefixLen)
-                    << ", hasDynamic=" << moduleParts.hasDynamic
-                    << ", suffixLen=" << static_cast<unsigned>(moduleParts.suffixLen)
-                    << endl;
+                    << ", mi=" << moduleIndex;
+
+                if (isDynamic)
+                    out << ", dynamic size";
+                else
+                    out << ", size=" << moduleParts.len;
+
+                out << endl;
             }
         }
 
@@ -3504,12 +3509,8 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 {
                     auto &moduleData = moduleDataList[mi];
 
-                    make_module_callback("Prefix")(
-                        ei, mi, moduleData.prefix.data, moduleData.prefix.size);
-                    make_module_callback("Dynamic")(
-                        ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
-                    make_module_callback("Suffix")(
-                        ei, mi, moduleData.suffix.data, moduleData.suffix.size);
+                    make_module_callback("Data")(
+                        ei, mi, moduleData.data.data, moduleData.data.size);
                 }
 
                 splitterOut << "endEvent(ei=" << ei << ")" << endl;
@@ -3546,10 +3547,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
             {
                 auto &moduleData = moduleDataList[mi];
 
-                log_module_part("Prefix", ei, mi, moduleData.prefix.data, moduleData.prefix.size);
-                log_module_part("Dynamic", ei, mi, moduleData.dynamic.data, moduleData.dynamic.size);
-                log_module_part("Suffix", ei, mi, moduleData.suffix.data, moduleData.suffix.size);
-
+                log_module_part("Data", ei, mi, moduleData.data.data, moduleData.data.size);
             }
 
             parserOut << "endEvent(ei=" << ei << ")" << endl;
@@ -3705,14 +3703,8 @@ void MVLCSingleStepHandler::handleSingleStepResult(
             ::logBuffer(data, bufferLogger);
         };
 
-        if (moduleData.prefix.size() > 0)
-            handle_part(moduleData.prefix, "modulePrefix");
-
-        if (moduleData.dynamic.size() > 0)
-            handle_part(moduleData.dynamic, "moduleDynamic");
-
-        if (moduleData.suffix.size() > 0)
-            handle_part(moduleData.suffix, "moduleSuffix");
+        if (moduleData.data.size() > 0)
+            handle_part(moduleData.data, "moduleData");
     }
 
     m_logger("---");

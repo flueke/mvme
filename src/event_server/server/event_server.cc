@@ -615,15 +615,6 @@ void EventServer::beginEvent(s32 eventIndex)
     assert(m_d->m_runInProgress);
 }
 
-void EventServer::processModulePrefix(s32 eventIndex, s32 moduleIndex,
-                       const u32 *data, u32 size)
-{
-    Q_UNUSED(eventIndex);
-    Q_UNUSED(moduleIndex);
-    Q_UNUSED(data);
-    Q_UNUSED(size);
-}
-
 void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
                        const u32 *data, u32 size)
 {
@@ -638,15 +629,6 @@ void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
     // analysis system and is available at the output pipes of the data
     // sources.
     assert(m_d->m_runInProgress);
-}
-
-void EventServer::processModuleSuffix(s32 eventIndex, s32 moduleIndex,
-                       const u32 *data, u32 size)
-{
-    Q_UNUSED(eventIndex);
-    Q_UNUSED(moduleIndex);
-    Q_UNUSED(data);
-    Q_UNUSED(size);
 }
 
 void EventServer::processTimetick()

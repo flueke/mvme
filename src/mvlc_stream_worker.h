@@ -36,18 +36,9 @@ class MVMEContext;
 
 struct EventRecord
 {
-    enum RecordModulePart
-    {
-        Prefix,
-        Dynamic,
-        Suffix,
-    };
-
     struct ModuleData
     {
-        QVector<u32> prefix;
-        QVector<u32> dynamic;
-        QVector<u32> suffix;
+        QVector<u32> data;
     };
 
     int eventIndex;
@@ -58,8 +49,7 @@ void begin_event_record(
     EventRecord &record, int eventIndex);
 
 void record_module_part(
-    EventRecord &record, EventRecord::RecordModulePart part,
-    int moduleIndex, const u32 *data, u32 size);
+    EventRecord &record, int moduleIndex, const u32 *data, u32 size);
 
 bool is_empty(const EventRecord::ModuleData &moduleData);
 
