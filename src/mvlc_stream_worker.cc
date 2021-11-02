@@ -387,8 +387,6 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
             mesytec::mvlc::EventSetup eventSetup = {};
             eventSetup.enabled = enabledForEvent;
-            eventSetup.minMainModuleEvents = ebSettings.value(
-                "MinMainModuleEvents", mesytec::mvlc::DefaultMinMainModuleEvents).toInt();
 
             if (eventSetup.enabled)
             {

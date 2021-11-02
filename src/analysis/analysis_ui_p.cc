@@ -2995,16 +2995,9 @@ EventSettingsDialog::EventSettingsDialog(
             auto gbl = make_hbox(gbMatchWindows);
             gbl->addWidget(tableMatchWindows);
 
-            auto spin_minMainModuleEvents = new QSpinBox;
-            spin_minMainModuleEvents->setMinimum(0);
-            spin_minMainModuleEvents->setMaximum(std::numeric_limits<s32>::max());
-            spin_minMainModuleEvents->setValue(ebSettings.value(
-                    "MinMainModuleEvents", mesytec::mvlc::DefaultMinMainModuleEvents).toInt());
-
             auto fl = new QFormLayout;
             fl->addRow("Main/Reference Module", combo_mainModule);
             fl->addRow(gbMatchWindows);
-            fl->addRow("Min Buffered Events", spin_minMainModuleEvents);
 
             auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
             auto bbl = make_hbox();
@@ -3046,7 +3039,6 @@ EventSettingsDialog::EventSettingsDialog(
                 // Stores the uuid of the main module
                 ebSettings["MainModule"] = combo_mainModule->currentData();
                 ebSettings["MatchWindows"] = matchWindows;
-                ebSettings["MinMainModuleEvents"] = spin_minMainModuleEvents->value();
 
                 this->d->settings_[eventConfig->getId()]["EventBuilderSettings"] = ebSettings;
             }
