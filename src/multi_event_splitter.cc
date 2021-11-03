@@ -219,7 +219,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
             };
         }
 
-        callbacks.eventData(userContext, ei, moduleDataList.data(), moduleCount);
+        const int crateIndex = 0;
+        callbacks.eventData(userContext, crateIndex, ei, moduleDataList.data(), moduleCount);
 
         return {};
     }
@@ -360,7 +361,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
             }
         }
 
-        callbacks.eventData(nullptr, ei, moduleDataList.data(), moduleCount);
+        int crateIndex = 0;
+        callbacks.eventData(nullptr, crateIndex, ei, moduleDataList.data(), moduleCount);
 
         LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
         //callbacks.endEvent(ei);

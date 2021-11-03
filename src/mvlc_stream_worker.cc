@@ -205,6 +205,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     // Last part of the eventData callback chain, calling into the analysis.
     auto eventData_analysis = [this, analysis, logger] (
         void * /*userContext*/,
+        int /*crateIndex*/,
         int ei,
         const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
         unsigned moduleCount)
@@ -278,7 +279,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
     // Last part of the systemEvent callback chain, calling into the analysis.
     auto systemEvent_analysis = [this, runInfo, analysis, logger](
-        void *, const u32 *header, u32 size)
+        void *, int /*crateIndex*/, const u32 *header, u32 size)
     {
         static const char *lambdaName = "systemEvent_analysis"; (void) lambdaName;
         logger->trace("f={}, header={}, size={}", lambdaName,
@@ -314,6 +315,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     // Potential middle part of the eventData chain. Calls into to multi event splitter.
     auto eventData_splitter = [this, logger] (
         void *userContext,
+        int /*crateIndex*/,
         int ei,
         const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
         unsigned moduleCount)
@@ -332,6 +334,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     // Potential middle part of the eventData chain. Calls into to event builder.
     auto eventData_builder = [this, logger] (
         void * /*userContext*/,
+        int /*crateIndex*/,
         int ei,
         const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
         unsigned moduleCount)
@@ -347,13 +350,14 @@ void MVLC_StreamWorker::setupParserCallbacks(
         }
         else
         {
-            m_eventBuilderCallbacks.eventData(nullptr, ei, moduleDataList, moduleCount);
+            m_eventBuilderCallbacks.eventData(nullptr, crateIndex, ei, moduleDataList, moduleCount);
         }
     };
 
     // Potential middle part of the systemEvent chain. Calls into to event builder.
     auto systemEvent_builder = [this, logger] (
         void * /*userContext*/,
+        int /*crateIndex*/,
         const u32 *header,
         u32 size)
     {

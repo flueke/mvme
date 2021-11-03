@@ -3493,7 +3493,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
             };
 
             splitterCallbacks.eventData = [&splitterOut, make_module_callback] (
-                void *, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+                void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
             {
                 splitterOut << "beginEvent(ei=" << ei << ")" << endl;
 
@@ -3531,7 +3531,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         };
 
         parserCallbacks.eventData = [&] (
-            void *, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+            void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
         {
             parserOut << "beginEvent(ei=" << ei << ")" << endl;
 

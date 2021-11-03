@@ -42,7 +42,7 @@ TEST(MultiEventSplitter, WithSizeSameCount)
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
     callbacks.eventData = [&splitEvents] (
-        void *, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+        void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
         ASSERT_TRUE(moduleCount == 2);
@@ -117,7 +117,7 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
     callbacks.eventData = [&splitEvents] (
-        void *, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+        void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
         ASSERT_TRUE(moduleCount == 2);
@@ -196,7 +196,7 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
     callbacks.eventData = [&splitEvents] (
-        void *, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+        void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
         ASSERT_TRUE(moduleCount == 2);
@@ -275,7 +275,7 @@ TEST(MultiEventSplitter, NoSizeSameCount)
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
     callbacks.eventData = [&splitEvents] (
-        void *, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+        void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
         ASSERT_TRUE(moduleCount == 2);
@@ -353,7 +353,7 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     std::vector<std::vector<std::vector<u32>>> splitEvents(data.size());
 
     callbacks.eventData = [&splitEvents] (
-        void *, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+        void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
     {
         ASSERT_EQ(ei, 0);
         ASSERT_TRUE(moduleCount == 2);
