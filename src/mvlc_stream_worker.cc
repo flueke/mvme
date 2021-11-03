@@ -343,15 +343,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         logger->trace("f={}, ei={}, moduleData={}, moduleCount={}", lambdaName, ei,
                       reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
-        if (m_eventBuilder.isEnabledFor(ei))
-        {
-            m_eventBuilder.recordEventData(crateIndex, ei, moduleDataList, moduleCount);
-            m_eventBuilder.buildEvents(m_eventBuilderCallbacks, true);
-        }
-        else
-        {
-            m_eventBuilderCallbacks.eventData(nullptr, crateIndex, ei, moduleDataList, moduleCount);
-        }
+        m_eventBuilder.recordEventData(crateIndex, ei, moduleDataList, moduleCount);
+        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, false);
     };
 
     // Potential middle part of the systemEvent chain. Calls into to event builder.
@@ -370,7 +363,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // in the builder/analysis thread and buildEvents() would be called in
         // that thread.
         m_eventBuilder.recordSystemEvent(crateIndex, header, size);
-        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, true);
+        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, false);
     };
 
     // event builder setup
@@ -378,7 +371,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     if (uses_event_builder(*vmeConfig, *analysis))
     {
         auto eventConfigs = vmeConfig->getEventConfigs();
-        std::vector<mesytec::mvlc::EventSetup> eventBuilderSetup;
+        std::vector<mesytec::mvlc::EventSetup> eventSetups;
 
         for (auto eventIndex = 0; eventIndex < eventConfigs.size(); ++eventIndex)
         {
@@ -409,8 +402,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     auto windowSettings = matchWindows[moduleConfig->getId().toString()].toMap();
 
                     auto matchWindow = std::make_pair<s32, s32>(
-                        windowSettings.value("lower", mesytec::mvlc::DefaultMatchWindow.first).toInt(),
-                        windowSettings.value("upper", mesytec::mvlc::DefaultMatchWindow.second).toInt());
+                        windowSettings.value("lower", mesytec::mvlc::event_builder::DefaultMatchWindow.first).toInt(),
+                        windowSettings.value("upper", mesytec::mvlc::event_builder::DefaultMatchWindow.second).toInt());
 
                     crateSetup.moduleMatchWindows.push_back(matchWindow);
 
@@ -422,10 +415,12 @@ void MVLC_StreamWorker::setupParserCallbacks(
                 eventSetup.crateSetups = { crateSetup };
             }
 
-            eventBuilderSetup.push_back(eventSetup);
+            eventSetups.push_back(eventSetup);
         }
 
-        m_eventBuilder = mesytec::mvlc::EventBuilder(eventBuilderSetup);
+        mesytec::mvlc::EventBuilderConfig cfg;
+        cfg.setups = eventSetups;
+        m_eventBuilder = mesytec::mvlc::EventBuilder(cfg);
         // event builder -> analysis
         m_eventBuilderCallbacks.eventData = eventData_analysis;
         m_eventBuilderCallbacks.systemEvent = systemEvent_analysis;

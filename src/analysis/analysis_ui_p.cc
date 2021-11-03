@@ -2980,8 +2980,8 @@ EventSettingsDialog::EventSettingsDialog(
                 }
                 auto moduleConfig = moduleConfigs.at(mi);
                 auto matchWindow = matchWindows.value(moduleConfig->getId().toString()).toMap();
-                spin_lower->setValue(matchWindow.value("lower", mesytec::mvlc::DefaultMatchWindow.first).toInt());
-                spin_upper->setValue(matchWindow.value("upper", mesytec::mvlc::DefaultMatchWindow.second).toInt());
+                spin_lower->setValue(matchWindow.value("lower", mesytec::mvlc::event_builder::DefaultMatchWindow.first).toInt());
+                spin_upper->setValue(matchWindow.value("upper", mesytec::mvlc::event_builder::DefaultMatchWindow.second).toInt());
 
                 lowerLimits.push_back(spin_lower);
                 upperLimits.push_back(spin_upper);
@@ -2995,9 +2995,20 @@ EventSettingsDialog::EventSettingsDialog(
             auto gbl = make_hbox(gbMatchWindows);
             gbl->addWidget(tableMatchWindows);
 
+            // FIXME: memory limit is global to the event builder, not specific to an event...
+            //auto spin_memoryLimit = new QDoubleSpinBox;
+            //spin_memoryLimit->setMinimum(0.0);
+            //spin_memoryLimit->setMaximum(1000.0);
+            //spin_memoryLimit->setDecimals(1);
+            //spin_memoryLimit->setSingleStep(1.0);
+            //spin_memoryLimit->setSuffix(" GB");
+            //spin_memoryLimit->setValue(ebSettings.value(
+            //        "MemoryLimit", static_cast<qulonglong>(mesytec::mvlc::DefaultMemoryLimit)).toDouble() / Gigabytes(1));
+
             auto fl = new QFormLayout;
             fl->addRow("Main/Reference Module", combo_mainModule);
             fl->addRow(gbMatchWindows);
+            //fl->addRow("Memory Limit", spin_memoryLimit);
 
             auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
             auto bbl = make_hbox();
@@ -3039,6 +3050,7 @@ EventSettingsDialog::EventSettingsDialog(
                 // Stores the uuid of the main module
                 ebSettings["MainModule"] = combo_mainModule->currentData();
                 ebSettings["MatchWindows"] = matchWindows;
+                //ebSettings["MemoryLimit"] = spin_memoryLimit->value() * Gigabytes(1);
 
                 this->d->settings_[eventConfig->getId()]["EventBuilderSettings"] = ebSettings;
             }
