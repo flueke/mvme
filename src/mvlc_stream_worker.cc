@@ -330,6 +330,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
     };
 
     static const int crateIndex = 0;
+    static const bool alwaysFlushEventBuilder = false;
 
     // Potential middle part of the eventData chain. Calls into to event builder.
     auto eventData_builder = [this, logger] (
@@ -344,7 +345,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
                       reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
         m_eventBuilder.recordEventData(crateIndex, ei, moduleDataList, moduleCount);
-        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, false);
+        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, alwaysFlushEventBuilder);
     };
 
     // Potential middle part of the systemEvent chain. Calls into to event builder.
@@ -363,7 +364,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // in the builder/analysis thread and buildEvents() would be called in
         // that thread.
         m_eventBuilder.recordSystemEvent(crateIndex, header, size);
-        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, false);
+        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, alwaysFlushEventBuilder);
     };
 
     // event builder setup
