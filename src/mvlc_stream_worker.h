@@ -111,7 +111,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_parserCountersSnapshot.copy();
         }
 
-        std::vector<mesytec::mvlc::EventBuilder::EventCounters> getEventBuilderCounters() const
+        mesytec::mvlc::EventBuilder::EventBuilderCounters getEventBuilderCounters() const
         {
             return m_eventBuilder.getCounters();
         }

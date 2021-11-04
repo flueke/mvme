@@ -83,13 +83,13 @@ struct AnalysisInfoWidgetPrivate
 
     QWidget *eventBuilderWidget;
     QVector<QLabel *> eventBuilderLabels;
-    std::vector<mesytec::mvlc::EventBuilder::EventCounters> prevEventBuilderCounters;
+    mesytec::mvlc::EventBuilder::EventBuilderCounters prevEventBuilderCounters;
 
     void updateMVLCWidget(
         const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters,
         double dt);
     void updateEventBuilderWidget(
-        const std::vector<mesytec::mvlc::EventBuilder::EventCounters> &counters,
+        const EventBuilder::EventBuilderCounters &counters,
         double dt);
 };
 
@@ -210,6 +210,14 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
 
         label = make_label();
         fl->addRow("Inverse Match Scores", label.get());
+        m_d->eventBuilderLabels.push_back(label.release());
+
+        label = make_label();
+        fl->addRow("Module Hits", label.get());
+        m_d->eventBuilderLabels.push_back(label.release());
+
+        label = make_label();
+        fl->addRow("Max Mem Usage", label.get());
         m_d->eventBuilderLabels.push_back(label.release());
 
         auto l = make_vbox(m_d->eventBuilderWidget);
@@ -585,7 +593,7 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 }
 
 void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
-    const std::vector<EventBuilder::EventCounters> &counters,
+    const EventBuilder::EventBuilderCounters &counters,
     double /*dt*/)
 {
     //auto &prevCounters = prevEventBuilderCounters;
@@ -594,14 +602,14 @@ void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
     QStringList lines;
 
     // empty events
-    for (size_t ei=0; ei<counters.size(); ++ei)
+    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
     {
-        for (size_t mi=0; mi<counters[ei].emptyEvents.size(); ++mi)
+        for (size_t mi=0; mi<counters.eventCounters[ei].emptyEvents.size(); ++mi)
         {
             auto line = QSL("event=%1, module=%2, count=%3")
                 .arg(ei)
                 .arg(mi)
-                .arg(counters[ei].emptyEvents[mi]);
+                .arg(counters.eventCounters[ei].emptyEvents[mi]);
             lines.push_back(line);
         }
     }
@@ -610,14 +618,14 @@ void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
     lines.clear();
 
     // discarded events
-    for (size_t ei=0; ei<counters.size(); ++ei)
+    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
     {
-        for (size_t mi=0; mi<counters[ei].discardedEvents.size(); ++mi)
+        for (size_t mi=0; mi<counters.eventCounters[ei].discardedEvents.size(); ++mi)
         {
             auto line = QSL("event=%1, module=%2, count=%3")
                 .arg(ei)
                 .arg(mi)
-                .arg(counters[ei].discardedEvents[mi]);
+                .arg(counters.eventCounters[ei].discardedEvents[mi]);
             lines.push_back(line);
         }
     }
@@ -626,18 +634,42 @@ void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
     lines.clear();
 
     // module inv score sums
-    for (size_t ei=0; ei<counters.size(); ++ei)
+    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
     {
-        for (size_t mi=0; mi<counters[ei].invScoreSums.size(); ++mi)
+        for (size_t mi=0; mi<counters.eventCounters[ei].invScoreSums.size(); ++mi)
         {
             auto line = QSL("event=%1, module=%2, count=%3")
                 .arg(ei)
                 .arg(mi)
-                .arg(counters[ei].invScoreSums[mi]);
+                .arg(counters.eventCounters[ei].invScoreSums[mi]);
             lines.push_back(line);
         }
     }
 
     eventBuilderLabels[ii++]->setText(lines.join("\n"));
     lines.clear();
+
+    // module total hits
+    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
+    {
+        for (size_t mi=0; mi<counters.eventCounters[ei].totalHits.size(); ++mi)
+        {
+            auto line = QSL("event=%1, module=%2, count=%3")
+                .arg(ei)
+                .arg(mi)
+                .arg(counters.eventCounters[ei].totalHits[mi]);
+            lines.push_back(line);
+        }
+    }
+
+    eventBuilderLabels[ii++]->setText(lines.join("\n"));
+    lines.clear();
+
+    // max memory usage
+    {
+        auto line = QSL("%1").arg(
+            format_number(counters.maxMemoryUsage, "B", UnitScaling::Binary, 0, 'f', 2));
+        eventBuilderLabels[ii++]->setText(line);
+    }
+
 }
