@@ -55,6 +55,9 @@ u8 parseAddressMode(const QString &str)
     if (str.compare(QSL("a32"), Qt::CaseInsensitive) == 0)
         return vme_address_modes::A32;
 
+    if (str.compare(QSL("cr"), Qt::CaseInsensitive) == 0)
+        return vme_address_modes::cr;
+
     throw "invalid address mode";
 }
 
@@ -1633,6 +1636,8 @@ QString to_string(u8 addressMode)
         { vme_address_modes::a32PrivProgram , QSL("a32") },
         { vme_address_modes::a32PrivBlock   , QSL("a32") },
         { vme_address_modes::a32PrivBlock64 , QSL("a32") },
+
+        { vme_address_modes::cr             , QSL("cr") },
     };
 
     return addressModeToString.value(addressMode, QSL("unknown"));

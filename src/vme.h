@@ -50,6 +50,8 @@ namespace vme_address_modes
     static const u8 a24PrivProgram = 0x3E;
     static const u8 a24PrivBlock   = 0x3F;
 
+    static const u8 cr             = 0x2F;
+
     // defaults using the privileged modes
     static const u8 A16         = a16User;
     static const u8 A24         = a24UserData;
