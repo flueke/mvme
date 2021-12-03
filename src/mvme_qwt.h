@@ -22,6 +22,8 @@
 #define __MVME_PLOT_UTIL_H__
 
 #include <memory>
+#include <QPainter>
+#include <QPaintEngine>
 #include <qwt_painter.h>
 #include <qwt_plot_curve.h>
 #include <qwt_plot_grid.h>

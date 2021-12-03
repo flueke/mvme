@@ -19,12 +19,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include <qevent.h>
+#include <QPen>
 #include <qwt_plot_canvas.h>
 #include <qwt_plot_layout.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
 #include <qwt_picker_machine.h>
-#include <qwt_compat.h>
 #include "scrollbar.h"
 #include "scrollzoomer.h"
 

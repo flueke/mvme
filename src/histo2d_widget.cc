@@ -29,7 +29,7 @@
 #include <qwt_plot_shapeitem.h>
 #include <qwt_plot_spectrogram.h>
 #include <qwt_plot_textlabel.h>
-#include <qwt_raster_data.h>
+#include <qwt_matrix_raster_data.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
 
@@ -41,6 +41,7 @@
 #include <QDir>
 #include <QFormLayout>
 #include <QMenu>
+#include <QStack>
 #include <QStatusBar>
 #include <QStatusTipEvent>
 #include <QTimer>
@@ -62,7 +63,7 @@ static const s32 ReplotPeriod_ms = 1000;
 
 using Intervals = Histo2DStatistics::Intervals;
 
-struct RasterDataBase: public QwtRasterData
+struct RasterDataBase: public QwtMatrixRasterData
 {
     ResolutionReductionFactors m_rrf;
 

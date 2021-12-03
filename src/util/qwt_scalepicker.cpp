@@ -6,6 +6,7 @@
 #include "qwt_scalepicker.h"
 #include <qwt_plot.h>
 #include <qwt_scale_widget.h>
+#include <qwt_scale_map.h>
 #include <qevent.h>
 #include <qmath.h>
 

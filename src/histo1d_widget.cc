@@ -21,6 +21,7 @@
 #include "histo1d_widget.h"
 #include "histo1d_widget_p.h"
 
+#include <qwt_interval.h>
 #include <qwt_painter.h>
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
@@ -53,6 +54,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
+#include <QStack>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTextStream>

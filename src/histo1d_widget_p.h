@@ -25,6 +25,7 @@
 
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <qwt_interval.h>
 #include <qwt_plot_marker.h>
 #include <qwt_plot_zoneitem.h>
 

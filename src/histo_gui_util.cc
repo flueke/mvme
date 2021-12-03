@@ -19,6 +19,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo_gui_util.h"
+
+#include <QPen>
+
 #include "typedefs.h"
 
 static const u32 RRFMin = 2;
