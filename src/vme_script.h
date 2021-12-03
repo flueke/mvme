@@ -158,7 +158,7 @@ enum Blk2eSSTRate: u8
 enum class MVLCSpecialWord: u8
 {
     Timestamp     = 0x0,
-    StackTriggers = 0x1,
+    Accu          = 0x1,
 };
 
 struct Command

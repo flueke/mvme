@@ -407,7 +407,7 @@ Command parse_VMUSB_read_reg(const QStringList &args, int lineNumber)
 
 Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
 {
-    auto usage = QSL("mvlc_writespecial ('timestamp'|'stack_triggers'|<numeric_special_value>)");
+    auto usage = QSL("mvlc_writespecial ('timestamp'|'accu'|<numeric_special_value>)");
 
     if (args.size() != 2)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
@@ -419,9 +419,9 @@ Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
     {
         result.value = static_cast<u32>(MVLCSpecialWord::Timestamp);
     }
-    else if (args[1] == "stack_triggers")
+    else if (args[1] == "accu")
     {
-        result.value = static_cast<u32>(MVLCSpecialWord::StackTriggers);
+        result.value = static_cast<u32>(MVLCSpecialWord::Accu);
     }
     else
     {
@@ -1659,7 +1659,7 @@ QString to_string(MVLCSpecialWord sw)
     switch (sw)
     {
         case MVLCSpecialWord::Timestamp: return "Timestamp";
-        case MVLCSpecialWord::StackTriggers: return "StackTriggers";
+        case MVLCSpecialWord::Accu: return "Accu";
     }
 
     return "Unrecognized MVLC special word";
