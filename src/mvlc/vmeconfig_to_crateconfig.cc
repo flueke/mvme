@@ -81,6 +81,34 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
                 dstCmd.customValues.push_back(value);
             break;
 
+        case CommandType::MVLC_SignalAccu:
+            dstCmd.type = mvlcCT::SignalAccu;
+            break;
+
+        case CommandType::MVLC_MaskShiftAccu:
+            dstCmd.type = mvlcCT::MaskShiftAccu;
+            dstCmd.address = srcCmd.address; // mask
+            dstCmd.value = srcCmd.value; // shift
+            break;
+
+        case CommandType::MVLC_SetAccu:
+            dstCmd.type = mvlcCT::SetAccu;
+            dstCmd.value = srcCmd.value;
+            break;
+
+        case CommandType::MVLC_ReadToAccu:
+            dstCmd.type = mvlcCT::ReadToAccu;
+            dstCmd.address = srcCmd.address;
+            dstCmd.amod = srcCmd.addressMode;
+            dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+                                ? mesytec::mvlc::VMEDataWidth::D16
+                                : mesytec::mvlc::VMEDataWidth::D32);
+            break;
+        case CommandType::MVLC_CompareLoopAccu:
+            dstCmd.type = mvlcCT::CompareLoopAccu;
+            dstCmd.value = srcCmd.value; // AccuComparator
+            dstCmd.address = srcCmd.address; // compare value
+            break;
 
         case CommandType::SetBase:
         case CommandType::ResetBase:
@@ -94,6 +122,10 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
                 << to_string(srcCmd.type)
                 << static_cast<int>(srcCmd.type);
             assert(!"unhandled command type");
+            throw std::runtime_error(fmt::format(
+                "Unhandled MVLC stack command type: {} {}",
+                 to_string(srcCmd.type).toStdString(),
+                 static_cast<int>(srcCmd.type)));
             break;
     }
 
