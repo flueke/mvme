@@ -121,7 +121,7 @@ EventConfigDialog::EventConfigDialog(
 
     m_d->spin_irqLevel = new QSpinBox(this);
     m_d->spin_irqLevel->setMinimum(1);
-    m_d->spin_irqLevel->setMaximum(20);
+    m_d->spin_irqLevel->setMaximum(16);
 
     m_d->spin_irqVector = new QSpinBox(this);
     m_d->spin_irqVector->setMaximum(255);
