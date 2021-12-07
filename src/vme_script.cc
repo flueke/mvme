@@ -1283,7 +1283,7 @@ static Command handle_mvlc_inline_stack(
 
     auto inlineScript = parse(inlineScriptText, symtabs, baseAddress);
 
-    result.mvlcInlineStack = inlineScript.toStdVector();
+    result.mvlcInlineStack = inlineScript;
 
     return result;
 }
