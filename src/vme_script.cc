@@ -1281,7 +1281,9 @@ static Command handle_mvlc_inline_stack(
 
     auto inlineScriptText = plainLineBuffer.join("\n");
 
-    result.mvlcInlineStack = parse(inlineScriptText, symtabs, baseAddress);
+    auto inlineScript = parse(inlineScriptText, symtabs, baseAddress);
+
+    result.mvlcInlineStack = inlineScript.toStdVector();
 
     return result;
 }

@@ -41,6 +41,9 @@ LIBMVME_MVLC_EXPORT vme_script::DataWidth convert_data_width(mvlc::VMEDataWidth 
 LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
     build_mvlc_stack(const vme_script::VMEScript &script);
 
+LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
+    build_mvlc_stack(const std::vector<vme_script::Command> &script);
+
 LIBMVME_MVLC_EXPORT void log_buffer(const QVector<u32> &buffer, const QString &info = {});
 
 } // end namespace mvme_mvlc

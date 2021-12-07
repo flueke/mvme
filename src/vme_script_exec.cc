@@ -208,8 +208,8 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
                 // Build the custom stack (it needs to start with a marker
-                // command for the logic to be able to correctly identify the
-                // resulting data).
+                // command for the request/response logic to be able to
+                // correctly identify the resulting data).
                 vme_script::Command marker;
                 marker.type = vme_script::CommandType::Marker;
                 marker.value = 0xabcdef00u;

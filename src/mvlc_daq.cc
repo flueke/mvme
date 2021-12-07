@@ -61,7 +61,8 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
     u8 stackId = mvlc::stacks::ImmediateStackID + 1;
 
     // 1 word gap between immediate stack and first readout stack
-    u16 uploadWordOffset = mvlc::stacks::ImmediateStackStartOffsetWords + mvlc::stacks::ImmediateStackReservedWords + 1;
+    u16 uploadWordOffset = mvlc::stacks::ImmediateStackStartOffsetWords +
+        mvlc::stacks::ImmediateStackReservedWords + 1;
 
     std::vector<u32> responseBuffer;
 

@@ -247,11 +247,10 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
             auto moduleName = moduleConfig->objectName().toStdString();
 
-            add_stack_group(
-                readoutStack,
-                moduleName,
-                mesytec::mvme::parse(
-                    moduleConfig->getReadoutScript(), moduleConfig->getBaseAddress()));
+            auto moduleReadoutScript = mesytec::mvme::parse(
+                    moduleConfig->getReadoutScript(), moduleConfig->getBaseAddress());
+
+            add_stack_group(readoutStack, moduleName, moduleReadoutScript);
         }
 
         add_stack_group(

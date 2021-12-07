@@ -459,7 +459,7 @@ vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
     Result result;
     result.command = cmd;
 
-    auto stackBuilder = mvme_mvlc::build_mvlc_stack({ cmd });
+    auto stackBuilder = mvme_mvlc::build_mvlc_stack(QVector<vme_script::Command>{ cmd });
 
     //mvlc::util::log_buffer(std::cout, uploadData, "run_command upload data");
 

@@ -52,7 +52,7 @@ namespace vme_address_modes
 
     static const u8 cr             = 0x2F;
 
-    // defaults using the privileged modes
+    // default modes
     static const u8 A16         = a16User;
     static const u8 A24         = a24UserData;
     static const u8 A32         = a32UserData;

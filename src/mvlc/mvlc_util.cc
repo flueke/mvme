@@ -23,8 +23,11 @@
 #include <cassert>
 #include <iostream>
 #include <QDebug>
+#include <QVector>
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
+
+#include "vmeconfig_to_crateconfig.h"
 
 using namespace mesytec::mvme_mvlc;
 
@@ -80,7 +83,6 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::MetaBlock:
             case CommandType::SetVariable:
             case CommandType::Print:
-            case CommandType::MVLC_InlineStack:
                 break;
 
             case CommandType::Write:
@@ -173,10 +175,26 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::MVLC_WriteSpecial:
                 result.addWriteSpecial(cmd.value);
                 break;
+
+            case CommandType::MVLC_InlineStack:
+                {
+                    // This "flattens" the mvlc inline stack defined in a mvlc_stack_begin/end block
+                    auto inlineStack = build_mvlc_stack(cmd.mvlcInlineStack);
+
+                    for (auto &inlineCommand: inlineStack.getCommands())
+                        result.addCommand(inlineCommand);
+
+                } break;
         }
     }
 
     return result;
+}
+
+LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
+    build_mvlc_stack(const std::vector<vme_script::Command> &script)
+{
+    return build_mvlc_stack(QVector<vme_script::Command>::fromStdVector(script));
 }
 
 void log_buffer(const QVector<u32> &buffer, const QString &info)
