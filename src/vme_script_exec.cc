@@ -224,7 +224,6 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 // execute it
                 std::vector<u32> destBuffer;
                 auto ec = mvlc->getMVLC().stackTransaction(stack, destBuffer);
-                std::cout << "destBuffer.size()" << destBuffer.size() << std::endl;
                 result.error = VMEError(ec);
                 std::copy(destBuffer.begin(), destBuffer.end(), std::back_inserter(result.valueVector));
             }
@@ -256,6 +255,32 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
         case CommandType::Print:
             // These just don't do anything.
             break;
+
+        case CommandType::MVLC_InlineStack:
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
+            {
+                // Build the inline stack (it needs to start with a marker
+                // command for the logic to be able to correctly identify the
+                // resulting data).
+                vme_script::Command marker;
+                marker.type = vme_script::CommandType::Marker;
+                marker.value = 0xabcdef01u;
+                VMEScript stackScript = { marker };
+
+                std::copy(std::begin(cmd.mvlcInlineStack), std::end(cmd.mvlcInlineStack),
+                          std::back_inserter(stackScript));
+
+                auto stack = mesytec::mvme_mvlc::build_mvlc_stack(stackScript);
+                std::vector<u32> destBuffer;
+                auto ec = mvlc->getMVLC().stackTransaction(stack, destBuffer);
+                result.error = VMEError(ec);
+                std::copy(destBuffer.begin(), destBuffer.end(), std::back_inserter(result.valueVector));
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType,
+                                        QSL("MVLC controller required"));
+            } break;
     }
 
     return result;
@@ -326,6 +351,7 @@ QString format_result(const Result &result)
         case CommandType::MBLTSwapped:
         case CommandType::Blk2eSST64:
         case CommandType::MVLC_Custom:
+        case CommandType::MVLC_InlineStack:
             {
                 ret += "\n";
                 for (int i=0; i<result.valueVector.size(); ++i)

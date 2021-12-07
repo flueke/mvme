@@ -56,6 +56,9 @@ static const QString MetaBlockEnd = "meta_block_end";
 static const QString MVLC_CustomBegin = "mvlc_custom_begin";
 static const QString MVLC_CustomEnd = "mvlc_custom_end";
 
+static const QString MVLC_StackBegin = "mvlc_stack_begin";
+static const QString MVLC_StackEnd = "mvlc_stack_end";
+
 struct MetaBlock
 {
     // The line containing the MetaBlockBegin instruction. May be used to parse
@@ -133,6 +136,7 @@ enum class CommandType
     Print,
 
     MVLC_Custom,
+    MVLC_InlineStack,
     MVLC_SetAddressIncMode,
     MVLC_Wait,
     MVLC_SignalAccu,
@@ -181,6 +185,7 @@ struct Command
     MetaBlock metaBlock = {};
     QStringList printArgs;
     std::vector<u32> mvlcCustomStack;
+    QVector<Command> mvlcInlineStack;
 };
 
 inline bool is_valid(const Command &cmd)

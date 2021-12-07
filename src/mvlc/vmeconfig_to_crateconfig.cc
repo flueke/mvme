@@ -11,7 +11,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
     using namespace vme_script;
     using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
 
-    mesytec::mvlc::StackCommand dstCmd;
+    mesytec::mvlc::StackCommand dstCmd = {};
 
     switch (srcCmd.type)
     {
@@ -86,6 +86,8 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         case CommandType::MVLC_MaskShiftAccu:
+            //dstCmd.type = mvlcCT::MaskShiftAccu;
+            //dstCmd.type = mesytec::mvlc::StackCommand::CommandType::MaskShiftAccu;
             dstCmd.type = mvlcCT::MaskShiftAccu;
             dstCmd.address = srcCmd.address; // mask
             dstCmd.value = srcCmd.value; // shift
@@ -104,10 +106,16 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
                                 ? mesytec::mvlc::VMEDataWidth::D16
                                 : mesytec::mvlc::VMEDataWidth::D32);
             break;
+
         case CommandType::MVLC_CompareLoopAccu:
             dstCmd.type = mvlcCT::CompareLoopAccu;
             dstCmd.value = srcCmd.value; // AccuComparator
             dstCmd.address = srcCmd.address; // compare value
+            break;
+
+        case CommandType::MVLC_SetAddressIncMode:
+            dstCmd.type = mvlcCT::SetAddressIncMode;
+            dstCmd.value = srcCmd.value; // increment mode (fifo / mem)
             break;
 
         case CommandType::SetBase:
@@ -121,12 +129,12 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             qDebug() << __PRETTY_FUNCTION__ << "unhandled command type"
                 << to_string(srcCmd.type)
                 << static_cast<int>(srcCmd.type);
-            assert(!"unhandled command type");
+            //assert(!"unhandled command type");
             throw std::runtime_error(fmt::format(
                 "Unhandled MVLC stack command type: {} {}",
                  to_string(srcCmd.type).toStdString(),
                  static_cast<int>(srcCmd.type)));
-            break;
+            //break;
     }
 
     return dstCmd;
@@ -134,10 +142,22 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
 
 std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &contents)
 {
+    // Create a copy of the input VMEScript flattening any contained
+    // MVLC_InlineStack commands.
+    vme_script::VMEScript flattened;
+    for (const auto &outerCommand: contents)
+    {
+        if (outerCommand.type == vme_script::CommandType::MVLC_InlineStack)
+            for (const auto &innerCommand: outerCommand.mvlcInlineStack)
+                flattened.push_back(innerCommand);
+        else
+            flattened.push_back(outerCommand);
+    }
+
     std::vector<mvlc::StackCommand> ret;
 
     std::transform(
-        std::begin(contents), std::end(contents),
+        std::begin(flattened), std::end(flattened),
         std::back_inserter(ret),
         convert_command);
 
@@ -154,8 +174,9 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
     using namespace vme_script;
 
     auto add_stack_group = [](
-        mesytec::mvlc::StackCommandBuilder &stack, const std::string &groupName,
-        const vme_script::VMEScript &contents)
+        mesytec::mvlc::StackCommandBuilder &stack,
+        const std::string &groupName,
+        const vme_script::VMEScript &contents) -> mesytec::mvlc::StackCommandBuilder&
     {
         if (!contents.isEmpty())
         {
@@ -163,7 +184,13 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
             for (const auto &srcCmd: contents)
             {
-                if (auto dstCmd = convert_command(srcCmd))
+                if (srcCmd.type == CommandType::MVLC_InlineStack)
+                {
+                    for (const auto &innerCommand: srcCmd.mvlcInlineStack)
+                        if (auto dstCmd = convert_command(innerCommand))
+                            stack.addCommand(dstCmd);
+                }
+                else if (auto dstCmd = convert_command(srcCmd))
                     stack.addCommand(dstCmd);
             }
         }

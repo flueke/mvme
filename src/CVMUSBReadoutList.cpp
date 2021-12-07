@@ -210,6 +210,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
         case CommandType::MVLC_SetAccu:
         case CommandType::MVLC_ReadToAccu:
         case CommandType::MVLC_CompareLoopAccu:
+        case CommandType::MVLC_InlineStack:
             break;
 
         case CommandType::Blk2eSST64:

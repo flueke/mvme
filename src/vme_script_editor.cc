@@ -161,7 +161,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     // Toolbar actions
     m_d->m_toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
-    QAction *action;
+    QAction *action = {};
 
     action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript_);
     action->setStatusTip(QSL("Run the VME script"));

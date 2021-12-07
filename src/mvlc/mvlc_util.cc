@@ -80,6 +80,7 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::MetaBlock:
             case CommandType::SetVariable:
             case CommandType::Print:
+            case CommandType::MVLC_InlineStack:
                 break;
 
             case CommandType::Write:
@@ -122,9 +123,10 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::VMUSB_ReadRegister:
             case CommandType::VMUSB_WriteRegister:
             case CommandType::Blk2eSST64:
-            case CommandType::MVLC_WriteSpecial:
                 qDebug() << __FUNCTION__ << " unsupported VME Script command:"
                     << to_string(cmd.type);
+                throw std::runtime_error(fmt::format("build_mvlc_stack: unsupported VME Script command {}",
+                                                     to_string(cmd.type).toStdString()));
                 break;
 
             case CommandType::MVLC_Custom:
@@ -166,6 +168,10 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
 
             case CommandType::MVLC_CompareLoopAccu:
                 result.addCompareLoopAccu(static_cast<mvlc::AccuComparator>(cmd.value), cmd.address);
+                break;
+
+            case CommandType::MVLC_WriteSpecial:
+                result.addWriteSpecial(cmd.value);
                 break;
         }
     }

@@ -1260,6 +1260,32 @@ static Command handle_mvlc_custom_command(
     return result;
 }
 
+static Command handle_mvlc_inline_stack(
+    const QVector<PreparsedLine> &lines,
+    int blockStartIndex, int blockEndIndex,
+    SymbolTables &symtabs, u32 baseAddress
+    )
+{
+    assert(lines.size() > 1);
+
+    Command result;
+    result.type = CommandType::MVLC_InlineStack;
+
+    QStringList plainLineBuffer;
+
+    std::transform(
+        lines.begin() + blockStartIndex + 1,
+        lines.begin() + blockEndIndex,
+        std::back_inserter(plainLineBuffer),
+        [] (const auto &preparsedLine) { return preparsedLine.line; });
+
+    auto inlineScriptText = plainLineBuffer.join("\n");
+
+    result.mvlcInlineStack = parse(inlineScriptText, symtabs, baseAddress);
+
+    return result;
+}
+
 QString evaluate_expressions(const QString &qstrPart, s32 lineNumber)
 {
     QString result;
@@ -1416,7 +1442,6 @@ VMEScript parse(
 
     try
     {
-
         if (symtabs.isEmpty())
             symtabs.push_back(SymbolTable{});
 
@@ -1482,6 +1507,31 @@ VMEScript parse(
 
                 lineIndex = blockEndIndex + 1;
             }
+            // MVLC inline stack blocks. This is mostly for debugging purposes.
+            else if (preparsed.parts[0] == MVLC_StackBegin)
+            {
+                int blockStartIndex = lineIndex;
+                int blockEndIndex = find_index_of_next_command(
+                    MVLC_StackEnd, splitLines, blockStartIndex);
+
+                if (blockEndIndex < 0)
+                {
+                    throw ParseError(
+                        QString("No matching \"%1\" found.").arg(MVLC_StackEnd),
+                        preparsed.lineNumber);
+                }
+
+                assert(blockEndIndex > blockStartIndex);
+                assert(blockEndIndex < splitLines.size());
+
+                auto inlineStack = handle_mvlc_inline_stack(
+                    splitLines, blockStartIndex, blockEndIndex,
+                    symtabs, baseAddress);
+
+                result.push_back(inlineStack);
+
+                lineIndex = blockEndIndex + 1;
+            }
             else // Not a block
             {
                 expand_variables(preparsed, symtabs);
@@ -1519,29 +1569,26 @@ VMEScript parse(
 
                     switch (cmd.type)
                     {
-                    case CommandType::Invalid:
-                        break;
+                        case CommandType::Invalid:
+                            break;
 
-                    case CommandType::SetBase:
-                    {
-                        baseAddress = cmd.address;
-                        result.push_back(cmd);
-                    }
-                    break;
+                        case CommandType::SetBase:
+                        {
+                            baseAddress = cmd.address;
+                            result.push_back(cmd);
+                        } break;
 
-                    case CommandType::ResetBase:
-                    {
-                        baseAddress = originalBaseAddress;
-                        result.push_back(cmd);
-                    }
-                    break;
+                        case CommandType::ResetBase:
+                        {
+                            baseAddress = originalBaseAddress;
+                            result.push_back(cmd);
+                        } break;
 
-                    default:
-                    {
-                        cmd = add_base_address(cmd, baseAddress);
-                        result.push_back(cmd);
-                    }
-                    break;
+                        default:
+                        {
+                            cmd = add_base_address(cmd, baseAddress);
+                            result.push_back(cmd);
+                        } break;
                     }
                 }
 
@@ -1586,6 +1633,8 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MVLC_SetAccu,            QSL("mvlc_set_accu") },
     { CommandType::MVLC_ReadToAccu,         QSL("mvlc_read_to_accu") },
     { CommandType::MVLC_CompareLoopAccu,    QSL("mvlc_compare_loop_accu") },
+    { CommandType::MVLC_Custom,             QSL("mvlc_custom") },
+    { CommandType::MVLC_InlineStack,        QSL("mvlc_stack") },
 };
 
 QString to_string(CommandType commandType)
@@ -1816,6 +1865,12 @@ QString to_string(const Command &cmd)
                         static_cast<mvlc::AccuComparator>(cmd.value)).c_str())
                 .arg(cmd.address);
             break;
+
+        case CommandType::MVLC_InlineStack:
+            buffer = QString(QSL("%1 with %2 commands"))
+                .arg(cmdStr)
+                .arg(cmd.mvlcInlineStack.size());
+            break;
     }
 
     return buffer;
@@ -1850,6 +1905,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::MVLC_MaskShiftAccu:
         case CommandType::MVLC_SetAccu:
         case CommandType::MVLC_CompareLoopAccu:
+        case CommandType::MVLC_InlineStack:
             break;
 
         case CommandType::Read:
