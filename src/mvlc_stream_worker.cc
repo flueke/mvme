@@ -36,15 +36,13 @@
 #include "vme_script.h"
 
 using namespace vme_analysis_common;
-using namespace mvme;
 using namespace mesytec;
-using namespace mesytec::mvme_mvlc;
 
 using WorkerState = AnalysisWorkerState;
 
-VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig)
+mvme_mvlc::VMEConfReadoutScripts collect_readout_scripts(const VMEConfig &vmeConfig)
 {
-    VMEConfReadoutScripts readoutScripts;
+    mvme_mvlc::VMEConfReadoutScripts readoutScripts;
 
     for (const auto &eventConfig: vmeConfig.getEventConfigs())
     {
@@ -120,7 +118,6 @@ MVLC_StreamWorker::MVLC_StreamWorker(
         "mesytec::mvlc::readout_parser::ReadoutParserCounters");
 
     auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
-    logger->set_level(spdlog::level::info);
 }
 
 MVLC_StreamWorker::~MVLC_StreamWorker()
@@ -324,7 +321,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         logger->trace("f={}, ei={}, moduleData={}, moduleCount={}", lambdaName, ei,
                       reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
-        multi_event_splitter::event_data(
+        mvme::multi_event_splitter::event_data(
             m_multiEventSplitter, m_multiEventSplitterCallbacks,
             userContext, ei, moduleDataList, moduleCount);
     };
@@ -532,6 +529,10 @@ void MVLC_StreamWorker::start()
     {
         auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
 
+        auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
+
+        logger->trace("VmeConfig -> CrateConfig result:\n{}", to_yaml(mvlcCrateConfig));
+
         // Removes non-output-producing command groups from each of the readout
         // stacks. This is done because the converted CrateConfig contains
         // groups for the "Cycle Start" and "Cycle End" event scripts which do
@@ -545,17 +546,40 @@ void MVLC_StreamWorker::start()
         {
             mvlc::StackCommandBuilder dstStack;
 
-            for (auto &srcGroup: srcStack.getGroups())
+            for (const auto &srcGroup: srcStack.getGroups())
             {
                 if (mvlc::produces_output(srcGroup))
                     dstStack.addGroup(srcGroup);
             }
+
+            logger->trace("produces output: originalStack: {}, sanitizedStack: {}",
+                          produces_output(srcStack), produces_output(dstStack));
 
             sanitizedReadoutStacks.emplace_back(dstStack);
         }
 
         m_parser = mesytec::mvlc::readout_parser::make_readout_parser(
             sanitizedReadoutStacks);
+
+        if (logger->level() == spdlog::level::trace)
+        {
+            logger->trace("begin parser readout structure:");
+
+            for (size_t ei=0; ei<m_parser.readoutStructure.size(); ++ei)
+            {
+                const auto &eventStructure = m_parser.readoutStructure[ei];
+
+                for (size_t mi=0; mi<eventStructure.size(); ++mi)
+                {
+                    const auto &moduleStructure = eventStructure[mi];
+
+                    logger->trace("  ei={}, mi={}: len={}",
+                                  ei, mi, moduleStructure.len);
+                }
+            }
+
+            logger->trace("end parser readout structure:");
+        }
 
         // Reset the parser counters and the snapshot copy
         m_parserCounters = {};
