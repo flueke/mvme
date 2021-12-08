@@ -34,6 +34,8 @@
 #include "analysis/a2/a2_data_filter.h"
 #include "vme_config_limits.h"
 
+namespace mesytec
+{
 namespace mvme
 {
 namespace multi_event_splitter
@@ -175,10 +177,11 @@ std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 
 } // end namespace multi_event_splitter
 } // end namespace mvme
+} // end namespace mesytec
 
 namespace std
 {
-    template<> struct is_error_code_enum<mvme::multi_event_splitter::ErrorCode>: true_type {};
+    template<> struct is_error_code_enum<mesytec::mvme::multi_event_splitter::ErrorCode>: true_type {};
 } // end namespace std
 
 #endif /* __MVME_MULTI_EVENT_SPLITTER_H__ */

@@ -110,7 +110,7 @@ CVMUSBReadoutList::CVMUSBReadoutList(const QVector<uint32_t> &list)
 
 CVMUSBReadoutList::CVMUSBReadoutList(const vme_script::VMEScript &script)
 {
-    for (auto cmd: script)
+    for (const auto &cmd: script)
     {
         addScriptCommand(cmd);
     }

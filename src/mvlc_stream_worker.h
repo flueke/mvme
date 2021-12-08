@@ -220,8 +220,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
         std::atomic<StopFlag> m_stopFlag;
 
         std::atomic<DebugInfoRequest> m_debugInfoRequest;
-        mvme::multi_event_splitter::State m_multiEventSplitter;
-        mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
+        mesytec::mvme::multi_event_splitter::State m_multiEventSplitter;
+        mesytec::mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
         mesytec::mvlc::EventBuilder m_eventBuilder;
         mesytec::mvlc::Callbacks m_eventBuilderCallbacks;
 

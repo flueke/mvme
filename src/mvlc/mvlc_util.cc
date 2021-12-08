@@ -178,8 +178,14 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
 
             case CommandType::MVLC_InlineStack:
                 {
-                    // This "flattens" the mvlc inline stack defined in a mvlc_stack_begin/end block
-                    auto inlineStack = build_mvlc_stack(cmd.mvlcInlineStack);
+                    // This "flattens" the mvlc inline stack defined in a
+
+                    vme_script::VMEScript stackScript;
+
+                    for (const auto &cmdPtr: cmd.mvlcInlineStack)
+                        stackScript.push_back(*cmdPtr);
+
+                    auto inlineStack = build_mvlc_stack(stackScript);
 
                     for (auto &inlineCommand: inlineStack.getCommands())
                         result.addCommand(inlineCommand);

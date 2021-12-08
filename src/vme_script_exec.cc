@@ -25,7 +25,7 @@ ResultList run_script(
     int cmdNumber = 1;
     ResultList results;
 
-    for (auto cmd: script)
+    for (const auto &cmd: script)
     {
         if (cmd.type != CommandType::Invalid)
         {
@@ -267,8 +267,10 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 marker.value = 0xabcdef01u;
                 VMEScript stackScript = { marker };
 
-                std::copy(std::begin(cmd.mvlcInlineStack), std::end(cmd.mvlcInlineStack),
-                          std::back_inserter(stackScript));
+                for (const auto &cmd: cmd.mvlcInlineStack)
+                {
+                    stackScript.push_back(*cmd);
+                }
 
                 auto stack = mesytec::mvme_mvlc::build_mvlc_stack(stackScript);
                 std::vector<u32> destBuffer;

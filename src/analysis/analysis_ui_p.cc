@@ -71,7 +71,6 @@
 #include "vme_config.h"
 
 using boost::adaptors::indexed;
-using namespace mvme;
 
 namespace
 {
@@ -3458,8 +3457,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         out << "</pre></body></html>";
     }
 
-    using namespace mvme;
-    using ModuleData = multi_event_splitter::ModuleData;
+    using ModuleData = mesytec::mvme::multi_event_splitter::ModuleData;
     const bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
     QString parserText;
     QString splitterText;
@@ -3470,8 +3468,8 @@ void MVLCParserDebugHandler::handleDebugInfo(
         QTextStream parserOut(&parserText);
         QTextStream splitterOut(&splitterText);
 
-        multi_event_splitter::State multiEventSplitter;
-        multi_event_splitter::Callbacks splitterCallbacks;
+        mesytec::mvme::multi_event_splitter::State multiEventSplitter;
+        mesytec::mvme::multi_event_splitter::Callbacks splitterCallbacks;
         readout_parser::ReadoutParserCallbacks parserCallbacks;
 
         // Setup parser callbacks and run the parser on the input buffer. This will
@@ -3483,7 +3481,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
             auto filterStrings = collect_multi_event_splitter_filter_strings(
                 *vmeConfig, *analysis);
 
-            multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
+            multiEventSplitter = mesytec::mvme::multi_event_splitter::make_splitter(filterStrings);
 
             // Factory function for module callbacks which log their input data.
             auto make_module_callback = [&splitterOut] (const QString &typeString)
@@ -3558,7 +3556,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
             if (usesMultiEventSplitting)
             {
-                multi_event_splitter::event_data(
+                mesytec::mvme::multi_event_splitter::event_data(
                     multiEventSplitter, splitterCallbacks,
                     nullptr, ei, moduleDataList, moduleCount);
                 splitterOut << "========================================" << endl;

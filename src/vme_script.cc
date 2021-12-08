@@ -1281,9 +1281,12 @@ static Command handle_mvlc_inline_stack(
 
     auto inlineScriptText = plainLineBuffer.join("\n");
 
-    auto inlineScript = parse(inlineScriptText, symtabs, baseAddress);
+    auto inlineCommands = parse(inlineScriptText, symtabs, baseAddress);
 
-    result.mvlcInlineStack = inlineScript;
+    for (const auto &cmd: inlineCommands)
+    {
+        result.mvlcInlineStack.emplace_back(std::make_shared<Command>(cmd));
+    }
 
     return result;
 }
@@ -1481,7 +1484,7 @@ VMEScript parse(
                 auto metaBlockCommand = handle_meta_block_command(
                     splitLines, blockStartIndex, blockEndIndex);
 
-                result.push_back(metaBlockCommand);
+                result.push_back(std::move(metaBlockCommand));
 
                 lineIndex = blockEndIndex + 1;
             }
@@ -1505,7 +1508,7 @@ VMEScript parse(
                 auto customCommand = handle_mvlc_custom_command(
                     splitLines, blockStartIndex, blockEndIndex);
 
-                result.push_back(customCommand);
+                result.push_back(std::move(customCommand));
 
                 lineIndex = blockEndIndex + 1;
             }
@@ -1530,7 +1533,7 @@ VMEScript parse(
                     splitLines, blockStartIndex, blockEndIndex,
                     symtabs, baseAddress);
 
-                result.push_back(inlineStack);
+                result.push_back(std::move(inlineStack));
 
                 lineIndex = blockEndIndex + 1;
             }
@@ -1577,19 +1580,19 @@ VMEScript parse(
                         case CommandType::SetBase:
                         {
                             baseAddress = cmd.address;
-                            result.push_back(cmd);
+                            result.push_back(std::move(cmd));
                         } break;
 
                         case CommandType::ResetBase:
                         {
                             baseAddress = originalBaseAddress;
-                            result.push_back(cmd);
+                            result.push_back(std::move(cmd));
                         } break;
 
                         default:
                         {
                             cmd = add_base_address(cmd, baseAddress);
-                            result.push_back(cmd);
+                            result.push_back(std::move(cmd));
                         } break;
                     }
                 }

@@ -533,7 +533,7 @@ void MVLCCommandListBuilder::addStack(u8 outputPipe, u16 offset,
     cmd.stack.offset = offset;
     cmd.stack.contents = contents;
 
-    m_commands.push_back(cmd);
+    m_commands.push_back(std::move(cmd));
 }
 
 static const u8 DefaultOutputPipe = mesytec::mvlc::CommandPipe;

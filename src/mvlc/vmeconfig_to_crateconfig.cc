@@ -8,7 +8,7 @@ namespace mvme
 
 mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
 {
-    using namespace vme_script;
+    using CommandType = vme_script::CommandType;
     using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
 
     mesytec::mvlc::StackCommand dstCmd = {};
@@ -20,7 +20,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.type = mvlcCT::VMERead;
             dstCmd.address = srcCmd.address;
             dstCmd.amod = srcCmd.addressMode;
-            dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+            dstCmd.dataWidth = (srcCmd.dataWidth == vme_script::DataWidth::D16
                                 ? mesytec::mvlc::VMEDataWidth::D16
                                 : mesytec::mvlc::VMEDataWidth::D32);
             break;
@@ -31,7 +31,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.address = srcCmd.address;
             dstCmd.value = srcCmd.value;
             dstCmd.amod = srcCmd.addressMode;
-            dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+            dstCmd.dataWidth = (srcCmd.dataWidth == vme_script::DataWidth::D16
                                 ? mesytec::mvlc::VMEDataWidth::D16
                                 : mesytec::mvlc::VMEDataWidth::D32);
             break;
@@ -86,8 +86,6 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         case CommandType::MVLC_MaskShiftAccu:
-            //dstCmd.type = mvlcCT::MaskShiftAccu;
-            //dstCmd.type = mesytec::mvlc::StackCommand::CommandType::MaskShiftAccu;
             dstCmd.type = mvlcCT::MaskShiftAccu;
             dstCmd.address = srcCmd.address; // mask
             dstCmd.value = srcCmd.value; // shift
@@ -102,7 +100,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.type = mvlcCT::ReadToAccu;
             dstCmd.address = srcCmd.address;
             dstCmd.amod = srcCmd.addressMode;
-            dstCmd.dataWidth = (srcCmd.dataWidth == DataWidth::D16
+            dstCmd.dataWidth = (srcCmd.dataWidth == vme_script::DataWidth::D16
                                 ? mesytec::mvlc::VMEDataWidth::D16
                                 : mesytec::mvlc::VMEDataWidth::D32);
             break;
@@ -126,10 +124,11 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         default:
-            qDebug() << __PRETTY_FUNCTION__ << "unhandled command type"
-                << to_string(srcCmd.type)
-                << static_cast<int>(srcCmd.type);
-            //assert(!"unhandled command type");
+            spdlog::warn("{}: unhandled source command type {} ({})",
+                         __PRETTY_FUNCTION__,
+                         to_string(srcCmd.type).toStdString(),
+                         srcCmd.type);
+            assert(!"unhandled command type");
             throw std::runtime_error(fmt::format(
                 "Unhandled MVLC stack command type: {} {}",
                  to_string(srcCmd.type).toStdString(),
@@ -149,7 +148,7 @@ std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &cont
     {
         if (outerCommand.type == vme_script::CommandType::MVLC_InlineStack)
             for (const auto &innerCommand: outerCommand.mvlcInlineStack)
-                flattened.push_back(innerCommand);
+                flattened.push_back(*innerCommand);
         else
             flattened.push_back(outerCommand);
     }
@@ -169,14 +168,41 @@ std::vector<mvlc::StackCommand> convert_script(const VMEScriptConfig *script, u3
     return convert_script(parse(script, baseAddress));
 }
 
+#if 0
+void add_stack_group(
+    mesytec::mvlc::StackCommandBuilder &stack,
+    const std::string &groupName,
+    const vme_script::VMEScript &contents)
+{
+    if (!contents.isEmpty())
+    {
+        stack.beginGroup(groupName);
+
+        for (auto srcCmd: contents)
+        {
+            if (srcCmd.type == vme_script::CommandType::MVLC_InlineStack)
+            {
+                auto inlineStack = srcCmd.mvlcInlineStack;
+                for (const auto &innerCommand: inlineStack)
+                {
+                    if (auto dstCmd = convert_command(*innerCommand))
+                        stack.addCommand(dstCmd);
+                }
+            }
+            else if (auto dstCmd = convert_command(srcCmd))
+                stack.addCommand(dstCmd);
+        }
+    }
+}
+#endif
+
 mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 {
-    using namespace vme_script;
-
+#if 1
     auto add_stack_group = [](
         mesytec::mvlc::StackCommandBuilder &stack,
         const std::string &groupName,
-        const vme_script::VMEScript &contents) -> mesytec::mvlc::StackCommandBuilder&
+        const vme_script::VMEScript &contents)
     {
         if (!contents.isEmpty())
         {
@@ -184,19 +210,18 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
             for (const auto &srcCmd: contents)
             {
-                if (srcCmd.type == CommandType::MVLC_InlineStack)
+                if (srcCmd.type == vme_script::CommandType::MVLC_InlineStack)
                 {
                     for (const auto &innerCommand: srcCmd.mvlcInlineStack)
-                        if (auto dstCmd = convert_command(innerCommand))
+                        if (auto dstCmd = convert_command(*innerCommand))
                             stack.addCommand(dstCmd);
                 }
                 else if (auto dstCmd = convert_command(srcCmd))
                     stack.addCommand(dstCmd);
             }
         }
-
-        return stack;
     };
+#endif
 
     mesytec::mvlc::CrateConfig dstConfig;
 

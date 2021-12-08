@@ -1011,7 +1011,7 @@ int VMUSB::setScalerTiming(unsigned int frequency, unsigned char period, unsigne
 {
     // redundant function to setDaqSettings - allows separate setting of all three components
   u32 val = 0x10000 * frequency + 0x100 * period + delay;
-    u32 retval;
+    u32 retval = {};
 
   if(!writeRegister(8, val).isError()){
     readRegister(8, &retval);

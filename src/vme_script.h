@@ -165,6 +165,8 @@ enum class MVLCSpecialWord: u8
     Accu          = 0x1,
 };
 
+struct Command;
+
 struct Command
 {
     CommandType type = CommandType::Invalid;
@@ -186,7 +188,7 @@ struct Command
     QStringList printArgs;
     std::vector<u32> mvlcCustomStack;
     // vme script parsed from a mvlc_stack_begin block
-    QVector<Command> mvlcInlineStack;
+    std::vector<std::shared_ptr<Command>> mvlcInlineStack;
 };
 
 inline bool is_valid(const Command &cmd)

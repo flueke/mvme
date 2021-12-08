@@ -61,7 +61,7 @@ class TheMultiEventSplitterErrorCategory: public std::error_category
 
     std::string message(int ev) const override
     {
-        using mvme::multi_event_splitter::ErrorCode;
+        using mesytec::mvme::multi_event_splitter::ErrorCode;
 
         switch (static_cast<ErrorCode>(ev))
         {
@@ -83,6 +83,8 @@ const TheMultiEventSplitterErrorCategory theMultiEventSplitterErrorCategory {};
 
 } // end anon namespace
 
+namespace mesytec
+{
 namespace mvme
 {
 namespace multi_event_splitter
@@ -395,3 +397,4 @@ std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)
 
 } // end namespace multi_event_splitter
 } // end namespace mvme
+} // end namespace mesytec

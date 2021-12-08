@@ -3,7 +3,7 @@
 #include "multi_event_splitter.h"
 #include "typedefs.h"
 
-using namespace mvme::multi_event_splitter;
+using namespace mesytec::mvme::multi_event_splitter;
 
 TEST(MultiEventSplitter, WithSizeSameCount)
 {
