@@ -32,12 +32,13 @@
 #include <QDebug>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QPen>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSpinBox>
 #include <QTimer>
 #include <qwt_legend.h>
-#include <qwt_curve_fitter.h>
+#include <qwt_spline_curve_fitter.h>
 #include <qwt_plot_curve.h>
 #include <qwt_plot.h>
 #include <random>
