@@ -50,6 +50,12 @@ int main(int argc, char *argv[])
 
     mvme_init();
 
+    if (args.contains("--debug"))
+        spdlog::set_level(spdlog::level::debug);
+
+    if (args.contains("--trace"))
+        spdlog::set_level(spdlog::level::trace);
+
 #ifdef QT_NO_DEBUG
     QSplashScreen splash(QPixmap(":/splash-screen.png"),
                          Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
