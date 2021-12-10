@@ -323,6 +323,46 @@ Repeatedly compares the value stored in the accumulator to the given *value*
 using the specified comparison operator. If the comparison fails jumps to the
 previous stack command, otherwise proceeds to the next command.
 
+mvlc_writespecial
+^^^^^^^^^^^^^^^^^
+
+* **mvlc_writespecial** *('timestamp'|'accu'|<numeric_value>)*
+
+Writes the value of the specified internal MVLC variable to the current output.
+
+mvlc_stack_begin/end
+^^^^^^^^^^^^^^^^^^^^
+
+Allows to specify that a group of VME Script commands should be executed as a
+single MVLC command stack instead of running each command individually. This
+allows making use of features that require a stack context, e.g. the MVLC stack
+accumulator logic.
+
+mvlc_stack_begin/end only has an effect when manually executing the VME Script,
+e.g. via *Run* in the VME Script Editor. During the DAQ initialization phase,
+if a script that is part of a MVCL readout stack (e.g. module readout) is
+processed, the mvlc_stack_begin/end lines do not have any effect (the commands
+inside the block still do!).
+
+mvlc_custom_begin/end
+^^^^^^^^^^^^^^^^^^^^^
+
+This is an advanced block command allowing to specify arbitrary stack data to
+upload and run on the MVLC. Example:
+
+::
+
+   mvlc_custom_begin output_words=2
+     0x140D0001	  # read 16 bit word to accu
+     0x00006030	  #  from address 6030
+     0xC5000000	  # shift mask: no rotation
+     0x0000FFFF	  # mask lower 16 bits
+     0xC1000001	  # write_special_word = 1 (Accu)
+   mvlc_custom_end
+
+The *output_words* argument specifies the expected, fixed number of output
+words the execution of the custom stack will produce.
+
 
 VMUSB specific
 ~~~~~~~~~~~~~~

@@ -1,15 +1,16 @@
 ==================================================
 TODO list
 ==================================================
-#ifdef NDEBUG
-#define ASSERT(x) do { (void)sizeof(x);} while (0)
-#else
-#include <assert.h>
-#define ASSERT(x) assert(x)
-#endif
+* add an assert macro to get rid of the unused var warnings when compiling in
+  release mode
+    #ifdef NDEBUG
+    #define ASSERT(x) do { (void)sizeof(x);} while (0)
+    #else
+    #include <assert.h>
+    #define ASSERT(x) assert(x)
+    #endif
 
-
-
+* Add undo/redo buttons to the vme_script editor.
 
 * Errors from the mvlc analysis callback chain could be reported in a better way:
  [2021-10-19 15:04:38.684] [readout_parser] [warning] end parsing ETH buffer 1, size=1048320 bytes, exception=vector::_M_range_check: __n (which is 0) >= this->size() (which is 0)
@@ -24,8 +25,6 @@ event0
     module_scores[N]
     module_discards[N]
     module_empties[N]
-
-* Document the new vme_script mvlc accu commands
 
 Wanpeng
 -------
