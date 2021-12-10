@@ -35,6 +35,8 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
+#include <mesytec-mvlc/util/logging.h>
+
 #include "gui_util.h"
 #include "mvme.h"
 #include "mvme_qthelp.h"
@@ -135,7 +137,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     m_d->m_editor->setFont(font);
     set_tabstop_width(m_d->m_editor, TabStop);
 
-    qDebug() << __PRETTY_FUNCTION__ << "editor font key is:" << m_d->m_editor->font().key();
+    //qDebug() << __PRETTY_FUNCTION__ << "editor font key is:" << m_d->m_editor->font().key();
 
     connect(script, &VMEScriptConfig::modified, this, &VMEScriptEditor::onScriptModified);
 
@@ -183,12 +185,15 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     loadAction->setMenu(loadMenu);
 
     auto loadButton = qobject_cast<QToolButton *>(m_d->m_toolBar->widgetForAction(loadAction));
+
     if (loadButton)
         loadButton->setPopupMode(QToolButton::InstantPopup);
 
     m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
+
     m_d->m_toolBar->addSeparator();
-    m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
+    action = m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
+    action->setStatusTip(QSL("Reload the VME Script from the current VME configuration"));
 
     m_d->m_toolBar->addSeparator();
 
@@ -265,14 +270,22 @@ void VMEScriptEditor::updateWindowTitle()
 
 void VMEScriptEditor::onScriptModified(bool isModified)
 {
+    mesytec::mvlc::get_logger("vme_script_editor")->debug(
+        "onScriptModified(isModified={})", isModified);
+
     if (!isModified)
         return;
 
-    // Store the current vertical scrollbar position, update the textedit with
-    // the new text and restore the scrollbar position.
-    auto pos = m_d->m_editor->verticalScrollBar()->sliderPosition();
-    m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
-    m_d->m_editor->verticalScrollBar()->setSliderPosition(pos);
+    if (m_d->m_editor->toPlainText() != m_d->m_script->getScriptContents())
+    {
+        mesytec::mvlc::get_logger("vme_script_editor")->debug(
+            "editor text != script text -> calling editor->setPlaintText()");
+        // Store the current vertical scrollbar position, update the textedit with
+        // the new text and restore the scrollbar position.
+        auto pos = m_d->m_editor->verticalScrollBar()->sliderPosition();
+        m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
+        m_d->m_editor->verticalScrollBar()->setSliderPosition(pos);
+    }
 
     updateWindowTitle();
 }
