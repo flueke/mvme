@@ -24,6 +24,7 @@
 #include "histo_util.h"
 
 #include <QObject>
+#include <QDebugStateSaver>
 #include <array>
 
 #include "libmvme_export.h"
