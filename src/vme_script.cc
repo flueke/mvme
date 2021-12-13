@@ -195,7 +195,6 @@ Command parseRead(const QStringList &args, int lineNumber)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
-
     result.type = commandType_from_string(args[0]);
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
@@ -611,9 +610,9 @@ Command parse_mvlc_set_accu(const QStringList &args, int lineNumber)
 Command parse_mvlc_read_to_accu(const QStringList &args, int lineNumber)
 {
     // same as parseRead()
-    auto usage = QSL("mvlc_read_to_accu <address_mode> <data_width> <address>");
+    auto usage = QSL("mvlc_read_to_accu <address_mode> <data_width> <address> ['slow']");
 
-    if (args.size() != 4)
+    if (args.size() < 4 || args.size() > 5)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
@@ -621,7 +620,20 @@ Command parse_mvlc_read_to_accu(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
+
+    if (args.size() == 5)
+    {
+        if (args[4].toLower() != "slow")
+        {
+            throw ParseError(QSL("Unknown argument '%1', expected 'slow' or no argument")
+                             .arg(args[4]));
+        }
+
+        result.mvlcSlowRead = true;
+    }
+
     result.lineNumber = lineNumber;
+
     return result;
 }
 
