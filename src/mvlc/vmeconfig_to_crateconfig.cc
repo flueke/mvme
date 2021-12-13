@@ -119,6 +119,11 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.value = srcCmd.value; // increment mode (fifo / mem)
             break;
 
+        case CommandType::MVLC_Wait:
+            dstCmd.type = mvlcCT::Wait;
+            dstCmd.value = srcCmd.value; // clocks
+            break;
+
         case CommandType::SetBase:
         case CommandType::ResetBase:
         case CommandType::MetaBlock:
