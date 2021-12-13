@@ -6,7 +6,6 @@
 #include "mvme_session.h"
 #include "vme_config.h"
 
-
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
