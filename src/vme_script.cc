@@ -189,9 +189,9 @@ QString parseValue(const QString &str)
 
 Command parseRead(const QStringList &args, int lineNumber)
 {
-    auto usage = QSL("read <address_mode> <data_width> <address>");
+    auto usage = QSL("read <address_mode> <data_width> <address> ['slow']");
 
-    if (args.size() != 4)
+    if (args.size() < 4 || args.size() > 5)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
@@ -200,6 +200,18 @@ Command parseRead(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
+
+    if (args.size() == 5)
+    {
+        if (args[4].toLower() != "slow")
+        {
+            throw ParseError(QSL("Unknown argument '%1', expected 'slow' or no argument")
+                             .arg(args[4]));
+        }
+
+        result.mvlcSlowRead = true;
+    }
+
     result.lineNumber = lineNumber;
 
     return result;
@@ -415,11 +427,13 @@ Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
     Command result;
     result.type = commandType_from_string(args[0]);
 
-    if (args[1] == "timestamp")
+    auto special = args[1].toLower();
+
+    if (special == "timestamp")
     {
         result.value = static_cast<u32>(MVLCSpecialWord::Timestamp);
     }
-    else if (args[1] == "accu")
+    else if (special == "accu")
     {
         result.value = static_cast<u32>(MVLCSpecialWord::Accu);
     }
@@ -428,12 +442,13 @@ Command parse_mvlc_writespecial(const QStringList &args, int lineNumber)
         // try reading a numeric value and assign it directly
         try
         {
-            result.value = parseValue<u32>(args[1]);
+            result.value = parseValue<u32>(special);
         }
         catch (...)
         {
-            throw ParseError(QString("Could not parse type argument to mvlc_writespecial"),
-                             lineNumber);
+            throw ParseError(
+                QSL("Could not parse type argument '%' to mvlc_writespecial").arg(special),
+                lineNumber);
         }
     }
 

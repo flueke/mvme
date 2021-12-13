@@ -96,7 +96,8 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::ReadAbs:
                 {
                     result.addVMERead(cmd.address, cmd.addressMode,
-                                      convert_data_width(cmd.dataWidth));
+                                      convert_data_width(cmd.dataWidth),
+                                      cmd.mvlcSlowRead);
                 } break;
 
             case CommandType::BLT:
@@ -165,7 +166,8 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
 
             case CommandType::MVLC_ReadToAccu:
                 result.addReadToAccu(cmd.address, cmd.addressMode,
-                                     convert_data_width(cmd.dataWidth));
+                                     convert_data_width(cmd.dataWidth),
+                                     cmd.mvlcSlowRead);
                 break;
 
             case CommandType::MVLC_CompareLoopAccu:

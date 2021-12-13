@@ -23,6 +23,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.dataWidth = (srcCmd.dataWidth == vme_script::DataWidth::D16
                                 ? mesytec::mvlc::VMEDataWidth::D16
                                 : mesytec::mvlc::VMEDataWidth::D32);
+            dstCmd.slowRead = srcCmd.mvlcSlowRead;
             break;
 
         case CommandType::Write:
@@ -97,12 +98,14 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         case CommandType::MVLC_ReadToAccu:
+            // same args a Read/ReadAbs
             dstCmd.type = mvlcCT::ReadToAccu;
             dstCmd.address = srcCmd.address;
             dstCmd.amod = srcCmd.addressMode;
             dstCmd.dataWidth = (srcCmd.dataWidth == vme_script::DataWidth::D16
                                 ? mesytec::mvlc::VMEDataWidth::D16
                                 : mesytec::mvlc::VMEDataWidth::D32);
+            dstCmd.slowRead = srcCmd.mvlcSlowRead;
             break;
 
         case CommandType::MVLC_CompareLoopAccu:

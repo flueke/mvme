@@ -189,6 +189,7 @@ struct Command
     std::vector<u32> mvlcCustomStack;
     // vme script parsed from a mvlc_stack_begin block
     std::vector<std::shared_ptr<Command>> mvlcInlineStack;
+    bool mvlcSlowRead = false;
 };
 
 inline bool is_valid(const Command &cmd)
