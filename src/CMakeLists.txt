@@ -9,8 +9,10 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
-find_package(Qt5Widgets REQUIRED)
+find_package(Qt5OpenGL REQUIRED)
 find_package(Qt5PrintSupport REQUIRED)
+find_package(Qt5Svg REQUIRED)
+find_package(Qt5Widgets REQUIRED)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -128,6 +130,8 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::Concurrent
     PUBLIC Qt5::Gui
     PUBLIC Qt5::Network
+    PUBLIC Qt5::OpenGL
+    PUBLIC Qt5::Svg
     PUBLIC Qt5::Widgets
     PUBLIC libmvme_resources
     )
