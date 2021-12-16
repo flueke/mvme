@@ -104,12 +104,17 @@ Example: ``0x6070 3`` is the same as ``write a32 d16 0x6070 3``
 
 Reading
 ~~~~~~~
-* **read** *<amode> <dwidth> <address>*
-* **readabs** *<amode> <dwidth> <address>*
+* **read** *<amode> <dwidth> <address> ['slow']*
+* **readabs** *<amode> <dwidth> <address> ['slow']*
 
 Reads a single value from the given *<address>*.
 
 **readabs** uses the given *<address>* unmodified, meaning the module base address will not be added.
+
+The optional last argument 'slow' is implemented for the MVLC only. It causes
+the VME bus read to be carried out on the falling edge of the modules DTACK
+signal instead of at the rising edge. This is a workaround for certain VME
+modules which to signal DTACK but do not yet have the correct data ready.
 
 .. _vme-command-blt:
 .. _vme-command-bltfifo:
@@ -307,7 +312,7 @@ Set the stack accumulator to the given 32-bit value.
 
 mvlc_read_to_accu
 ^^^^^^^^^^^^^^^^^
-* **mvlc_read_to_accu** *<amode> <dwidth> <address>*
+* **mvlc_read_to_accu** *<amode> <dwidth> <address> ['slow']*
 
 Same as :ref:`read <vme-command-read>` but reads into the stack accumulator instead of
 outputting to the data stream.
