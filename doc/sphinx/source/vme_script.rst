@@ -69,6 +69,8 @@ Internally these non-privileged (aka user) address modifiers will be used:
   +-----------+------------+---------+----------+
   | A32       | 0x09       | 0x0b    | 0x08     |
   +-----------+------------+---------+----------+
+  | CR        | 0x2f       |         |          |
+  +-----------+------------+---------+----------+
 
 Numbers in the script (addresses, transfer counts, masks) may be specified in
 decimal, octal, hex or floating point notation using the standard C prefixes
@@ -77,6 +79,10 @@ in binary starting with a prefix of ``0b`` followed by ``0``\ s and ``1``\ s,
 optionally separated by ``'`` characters.
 
 Example: ``0b1010'0101'1100'0011`` is equal to ``0xa5c3``
+
+CR/CSR addressing is implemented for the MVLC VME controller and recognized by
+all commands dealing with address modes, e.g. **read**, **write** and
+**mvlc_read_to_accu**.
 
 .. _vme-script-commands:
 
