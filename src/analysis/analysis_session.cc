@@ -88,6 +88,13 @@ void load(QDataStream &in, Histo1DSink *obj)
         auto histo = obj->m_histos[hi];
         assert(histo);
 
+        if (!histo)
+        {
+            // The case where no histogram was allocated is when the sink operator
+            // is not fully connected (or is in an error state for some other reason).
+            throw std::runtime_error("1d histosink does not have an allocated histogram");
+        }
+
         u32 binCount = 0;
         in >> binCount;
 
@@ -125,6 +132,13 @@ void load(QDataStream &in, Histo2DSink *obj)
     assert(obj);
 
     auto histo = obj->getHisto();
+
+    if (!histo)
+    {
+        // The case where no histogram was allocated is when the sink operator
+        // is not fully connected (or is in an error state for some other reason).
+        throw std::runtime_error("2d histosink does not have an allocated histogram");
+    }
 
     u32 xBins = 0, yBins = 0;
 
