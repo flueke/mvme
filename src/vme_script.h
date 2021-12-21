@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <QVector>
 
 #include "libmvme_core_export.h"

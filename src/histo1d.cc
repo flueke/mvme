@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo1d.h"
+#include <QDebug>
 
 Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
     : QObject(parent)
