@@ -4,6 +4,49 @@
 Changelog
 ##################################################
 
+Version 1.4.8-rc
+----------------
+
+* [mvlc]
+
+  - Simplify the readout parser: modules readout data may now consist of either
+    a dynamic or a fixed part instead of prefix, dynamic and suffix parts. This
+    allows for a simpler callback interface for the parser.
+
+    The previous, more complex structure can be recrated by adding multiple
+    modules to the VME config, each performing either fixed size reads or a
+    block transfer.
+
+  - Add support for new features in firmware FW0021:
+
+    * New vme_script commands to work with the MVLC stack accumulator.
+
+    * Add ability to define custom and inline MVLC stacks in VME scripts.
+
+    * The readout parser now knows about the accumulator and emulated
+      accumulator block reads.
+
+    * Support CR/CSR addressing modes.
+
+* [analysis]
+
+  - Improvements to the EventBuilder module. This version does work with
+    non-mesytec modules being present in an event.
+
+  - Improve Histo1D 'Print Stats' output
+
+  - Crash fix when loading a session file with unconnected histograms.
+
+
+* [vme_templates]
+
+  Add module templates for the GSI Triva 7 trigger module.
+
+* [build]
+
+  - Upgrade to Qt 5.15.2 and Qwt 6.2.0
+
+
 Version 1.4.7
 -------------
 
