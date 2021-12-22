@@ -133,7 +133,10 @@ struct Histo2DRasterData: public RasterDataBase
     explicit Histo2DRasterData(Histo2D *histo)
         : RasterDataBase()
         , m_histo(histo)
-    {}
+    {
+        // New in qwt-6.2.0
+        //setAttribute(QwtRasterData::Attribute::WithoutGaps, false);
+    }
 
     virtual double value(double x, double y) const override
     {
