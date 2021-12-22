@@ -1,0 +1,2 @@
+# Reset the module to a clean default state here. This is executed before
+# initializing the modules at DAQ start time.

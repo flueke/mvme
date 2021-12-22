@@ -1,0 +1,19 @@
+#TRIVA-IRQ 4 received: get trigger number and time stamp;
+
+
+mvlc_stack_begin  	# only for debugging: put following instruction into same execution stack,
+					# has no effect in normal execution
+
+# evaluate trigger type
+mvlc_read_to_accu A32 D32 0x0000 slow	# copy TRIVA status register to Accu, slow cycle
+#mvlc_read_to_accu A32 D32 0x0000 slow
+#mvlc_set_accu 0x0000000E
+mvlc_mask_shift_accu 0x0000000F 0		# mask lower 4 bits, no shift
+mvlc_signal_accu						# signal 4 low bits of accu; Are translated to an IRQ
+#Stat_reg: clear IRQ 4
+write A32 D32 0x0000  0x00009000 #(EV_IRQ_CLEAR | IRQ_CLEAR)
+read A32 D32 0x000C slow  		# slow read time stamp register -> second word in event
+
+
+mvlc_stack_end # only for debugging, has no effect in normal execution
+

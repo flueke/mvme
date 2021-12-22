@@ -1,0 +1,3 @@
+# TRIVA 7, reset Trigger
+
+write A32 D32 0x0000 0x00008020 #= EV_IRQ_CLEAR | FC_PULSE | (DT_CLEAR 0x00000020); # Clear Trigger

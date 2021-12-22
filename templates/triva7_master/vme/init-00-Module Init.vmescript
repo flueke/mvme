@@ -1,0 +1,45 @@
+# Triva module initialisation as MASTER
+#Start initialisation:
+#Write Control Register (0x02000004)
+write A32 D32 0x0004 0x00000004  # MASTER; # has to come first !!!
+write A32 D32 0x0004 0x00001000  # disable trigger bus
+write A32 D32 0x0004 0x00000010  # HALT;
+write A32 D32 0x0004 0x00000040  # CLEAR;#
+write A32 D32 0x0008 $(65535 - 10)  # Fast Clear
+write A32 D32 0x000C $(65535 - 20)  # Ctime
+
+
+#Start_acq
+write A32 D32 0x0004 0x00000010 	# HALT;
+write A32 D32 0x0004 0x00000040 	# CLEAR;
+write A32 D32 0x0000 14  		# Master sets Trigger 14
+write A32 D32 0x0004  0x00000003 # (EN_IRQ | GO); Enable IRQ and send Trigger 14
+
+
+# now ready to accept triggers → after deadtime emits IRQ
+
+######## MVLC stup for TRIVA triggering #################
+# MVLC Signal aliases: assign Triva soft Trigger values to MVLC IRQs 1...15
+# Here IRQ 11 is used to start Event 1
+
+writeabs A32 D16 0xFFFF7000 14  # signal, TRIVA Trigger 14 mapped to MVLC-IRQ 11  ## NOT used
+writeabs A32 D16 0xFFFF7002 11  # resulting MVLC IRQ. Here start event stack -> dummy event with trigger ID
+
+writeabs A32 D16 0xFFFF7004 15
+writeabs A32 D16 0xFFFF7006 11  # resulting MVLC IRQ. Here start event stack -> dummy event with trigger ID
+
+writeabs A32 D16 0xFFFF7008 1   # Signal, TRIVA trigger 0 mapped to MVLC IRQ11  ## Readout stack started with IRQ7
+writeabs A32 D16 0xFFFF700A 11  # Start event stack
+
+writeabs A32 D16 0xFFFF700C 0 	# not used
+writeabs A32 D16 0xFFFF700E 0
+
+/* TRIVA:
+- Status Register 	02000000 (hex)
+- Control Register 	02000004
+- FCATIME 			02000008
+- CTIME 			0200000C
+*/
+
+
+# now ready to accept triggers → after deadtime emits IRQ
