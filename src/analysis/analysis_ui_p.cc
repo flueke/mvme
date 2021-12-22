@@ -2888,7 +2888,6 @@ struct EventSettingsDialog::Private
     const VMEConfig *vmeConfig_;
     Analysis::VMEObjectSettings settings_;
     QVector<QCheckBox *> check_multiEvent_;
-    QVector<QCheckBox *> checks_eventBuilder;
 };
 
 EventSettingsDialog::EventSettingsDialog(
@@ -2909,7 +2908,6 @@ EventSettingsDialog::EventSettingsDialog(
     const QStringList headers =
     {
         QSL("Multi Event Processing"),
-        QSL("Event Builder"),
         QSL("Event Builder Settings"),
     };
 
@@ -2921,17 +2919,14 @@ EventSettingsDialog::EventSettingsDialog(
         auto eventConfig = eventConfigs[ei];
         auto eventSettings = d->settings_.value(eventConfig->getId());
         auto cb_multiEvent = new QCheckBox;
-        auto cb_eventBuilder = new QCheckBox;
         auto pb_eventBuilderSettings = new QPushButton;
         pb_eventBuilderSettings->setIcon(QIcon(QSL(":/gear.png")));
 
         cb_multiEvent->setChecked(eventSettings.value("MultiEventProcessing", false).toBool());
-        cb_eventBuilder->setChecked(eventSettings.value("EventBuilderEnabled", false).toBool());
 
         table->setVerticalHeaderItem(ei, new QTableWidgetItem(eventConfig->objectName()));
         table->setCellWidget(ei, 0, make_centered(cb_multiEvent));
-        table->setCellWidget(ei, 1, make_centered(cb_eventBuilder));
-        table->setCellWidget(ei, 2, make_centered(pb_eventBuilderSettings));
+        table->setCellWidget(ei, 1, make_centered(pb_eventBuilderSettings));
 
         if (!hasEventBuilder)
         {
@@ -2940,7 +2935,6 @@ EventSettingsDialog::EventSettingsDialog(
         }
 
         d->check_multiEvent_.push_back(cb_multiEvent);
-        d->checks_eventBuilder.push_back(cb_eventBuilder);
 
         auto run_event_builder_settings_dialog = [this, eventConfig] ()
         {
@@ -2960,13 +2954,22 @@ EventSettingsDialog::EventSettingsDialog(
 
             if (!mainModuleId.isNull())
                 combo_mainModule->setCurrentIndex(combo_mainModule->findData(mainModuleId));
+            else
+                combo_mainModule->setCurrentIndex(combo_mainModule->count() - 1);
+
+            auto eventSettings = d->settings_.value(eventConfig->getId());
+
+            auto cb_enableEventBuilder = new QCheckBox;
+            cb_enableEventBuilder->setChecked(eventSettings.value("EventBuilderEnabled", false).toBool());
 
             auto matchWindows = ebSettings.value("MatchWindows").toMap();
 
-            QVector<QSpinBox *> lowerLimits;
-            QVector<QSpinBox *> upperLimits;
-            auto tableMatchWindows = new QTableWidget(moduleConfigs.size(), 2);
-            tableMatchWindows->setHorizontalHeaderLabels({"Lower", "Upper"});
+            QVector<QSpinBox *> spins_lowerLimits;
+            QVector<QSpinBox *> spins_upperLimits;
+            QVector<QCheckBox *> checks_ignoredModules;
+            // TODO: add a column for the module type name, e.g. mdpp16_scp
+            auto tableMatchWindows = new QTableWidget(moduleConfigs.size(), 3);
+            tableMatchWindows->setHorizontalHeaderLabels({"Lower", "Upper", "Ignore Module"});
 
             for (int mi=0; mi<moduleConfigs.size(); ++mi)
             {
@@ -2982,15 +2985,21 @@ EventSettingsDialog::EventSettingsDialog(
                 spin_lower->setValue(matchWindow.value("lower", mesytec::mvlc::event_builder::DefaultMatchWindow.first).toInt());
                 spin_upper->setValue(matchWindow.value("upper", mesytec::mvlc::event_builder::DefaultMatchWindow.second).toInt());
 
-                lowerLimits.push_back(spin_lower);
-                upperLimits.push_back(spin_upper);
+                spins_lowerLimits.push_back(spin_lower);
+                spins_upperLimits.push_back(spin_upper);
+
+                auto cb_ignoreModule = new QCheckBox;
+                cb_ignoreModule->setChecked(matchWindow.value("ignoreModule", false).toBool());
+
+                checks_ignoredModules.push_back(cb_ignoreModule);
 
                 tableMatchWindows->setVerticalHeaderItem(mi, new QTableWidgetItem(moduleConfig->objectName()));
                 tableMatchWindows->setCellWidget(mi, 0, spin_lower);
                 tableMatchWindows->setCellWidget(mi, 1, spin_upper);
+                tableMatchWindows->setCellWidget(mi, 2, make_centered(cb_ignoreModule));
             }
 
-            auto gbMatchWindows = new QGroupBox("Timestamp Match Windows");
+            auto gbMatchWindows = new QGroupBox("Module timestamp match settings");
             auto gbl = make_hbox(gbMatchWindows);
             gbl->addWidget(tableMatchWindows);
 
@@ -3005,6 +3014,7 @@ EventSettingsDialog::EventSettingsDialog(
             //        "MemoryLimit", static_cast<qulonglong>(mesytec::mvlc::DefaultMemoryLimit)).toDouble() / Gigabytes(1));
 
             auto fl = new QFormLayout;
+            fl->addRow("Enable Event Builder", cb_enableEventBuilder);
             fl->addRow("Main/Reference Module", combo_mainModule);
             fl->addRow(gbMatchWindows);
             //fl->addRow("Memory Limit", spin_memoryLimit);
@@ -3014,7 +3024,7 @@ EventSettingsDialog::EventSettingsDialog(
             bbl->addStretch(1);
             bbl->addWidget(bb);
 
-            auto dl = make_vbox();
+            auto dl = make_vbox<4, 4>();
             dl->addLayout(fl);
             dl->addLayout(bbl);
             dl->setStretch(0, 1);
@@ -3039,8 +3049,9 @@ EventSettingsDialog::EventSettingsDialog(
                 {
                     auto id = moduleConfigs[mi]->getId();
                     QVariantMap matchWindow;
-                    matchWindow["lower"] = lowerLimits[mi]->value();
-                    matchWindow["upper"] = upperLimits[mi]->value();
+                    matchWindow["lower"] = spins_lowerLimits[mi]->value();
+                    matchWindow["upper"] = spins_upperLimits[mi]->value();
+                    matchWindow["ignoreModule"] = checks_ignoredModules[mi]->isChecked();
                     matchWindows[id.toString()] = matchWindow;
                 }
 
@@ -3052,6 +3063,7 @@ EventSettingsDialog::EventSettingsDialog(
                 //ebSettings["MemoryLimit"] = spin_memoryLimit->value() * Gigabytes(1);
 
                 this->d->settings_[eventConfig->getId()]["EventBuilderSettings"] = ebSettings;
+                this->d->settings_[eventConfig->getId()]["EventBuilderEnabled"] = cb_enableEventBuilder->isChecked();
             }
         };
 
@@ -3103,8 +3115,9 @@ Analysis::VMEObjectSettings EventSettingsDialog::getSettings() const
         if (auto checkbox = d->check_multiEvent_.value(ei))
             settings[eventConfigs[ei]->getId()][QSL("MultiEventProcessing")] = checkbox->isChecked();
 
-        if (auto checkbox = d->checks_eventBuilder.value(ei))
-            settings[eventConfigs[ei]->getId()][QSL("EventBuilderEnabled")] = checkbox->isChecked();
+        // TODO: maybe do display the 'eb enabled' checkbox again here in the outer overview table
+        //if (auto checkbox = d->checks_eventBuilder.value(ei))
+        //    settings[eventConfigs[ei]->getId()][QSL("EventBuilderEnabled")] = checkbox->isChecked();
     }
 
     return settings;

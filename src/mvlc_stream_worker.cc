@@ -405,9 +405,21 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
                     crateSetup.moduleMatchWindows.push_back(matchWindow);
 
-                    crateSetup.moduleTimestampExtractors.push_back(
-                        mesytec::mvlc::IndexedTimestampFilterExtractor(
-                            a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
+                    bool moduleIgnored = windowSettings.value("ignoreModule", false).toBool();
+
+                    if (!moduleIgnored)
+                    {
+                        crateSetup.moduleTimestampExtractors.push_back(
+                            mesytec::mvlc::IndexedTimestampFilterExtractor(
+                                a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
+                    }
+                    else
+                    {
+                        // This extractor always produces an invalid timestamp
+                        // no matter the input data.
+                        crateSetup.moduleTimestampExtractors.push_back(
+                            mesytec::mvlc::InvalidTimestampExtractor());
+                    }
                 }
 
                 eventSetup.crateSetups = { crateSetup };
