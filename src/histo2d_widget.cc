@@ -81,19 +81,6 @@ struct RasterDataBase: public QwtMatrixRasterData
 #endif
     {}
 
-    void setIntervals(const Intervals &intervals)
-    {
-        for (size_t axis = 0; axis < intervals.size(); axis++)
-        {
-            setInterval(static_cast<Qt::Axis>(axis),
-                        { intervals[axis].minValue, intervals[axis].maxValue });
-
-            //qDebug() << __PRETTY_FUNCTION__ << "axis =" << axis
-            //    << ", min =" << intervals[axis].minValue
-            //    << ", max =" << intervals[axis].maxValue;
-        }
-    }
-
     void setResolutionReductionFactors(u32 rrfX, u32 rrfY) { m_rrf = { rrfX, rrfY }; }
     void setResolutionReductionFactors(const ResolutionReductionFactors &rrf) { m_rrf = rrf; }
 
@@ -134,8 +121,6 @@ struct Histo2DRasterData: public RasterDataBase
         : RasterDataBase()
         , m_histo(histo)
     {
-        // New in qwt-6.2.0
-        //setAttribute(QwtRasterData::Attribute::WithoutGaps, false);
     }
 
     virtual double value(double x, double y) const override
@@ -850,15 +835,45 @@ void Histo2DWidget::replot()
             rrf.y);
     }
 
-    auto rasterData = reinterpret_cast<RasterDataBase *>(m_d->m_plotItem->data());
-    rasterData->setIntervals(stats.intervals);
-    // Important: Has to happen before updateCursorInfoLabel() as that calls
-    // Histo1DListRasterData::value() internally  which uses the rrf.
-    rasterData->setResolutionReductionFactors(rrf);
 
-    auto zInterval = rasterData->interval(Qt::ZAxis);
+    // Since qwt-6.2.0 having a zero-width z-scale leads to visual corruption
+    // when replotting. This is not an issue with the histogram implementation
+    // as qwt in this case does not even request values from the histogram.
+    // The code below ensures that the z-axis always has a non-zero width to
+    // work around this issue.
+
+    // Convert the histo stats intervals to QwtIntervals.
+    std::array<QwtInterval, 3> intervals;
+    for (size_t axis = 0; axis < stats.intervals.size(); ++axis)
+        intervals[axis] = { stats.intervals[axis].minValue, stats.intervals[axis].maxValue };
+
+    auto &zInterval = intervals[Qt::ZAxis];
+
+    qDebug("%s stats zInterval: %lf, %lf, valid=%d, width=%lf",
+           __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
+
+    // Z axis handling for log scales: start from 1.0
     double zBase = zAxisIsLog() ? 1.0 : 0.0;
-    zInterval = zInterval.limited(zBase, zInterval.maxValue());
+    zInterval.setMinValue(zBase);
+
+    // Make sure it's non-zero width
+    if (zInterval.width() <= 0.0)
+        zInterval.setMaxValue(zAxisIsLog() ? 2.0 : 1.0);
+
+    assert(zInterval.width() > 0.0);
+
+    qDebug("%s adjusted zInterval: %lf, %lf, valid=%d, width=%lf",
+           __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
+
+    // Set the intervals on the interal raster data object.
+    auto rasterData = reinterpret_cast<RasterDataBase *>(m_d->m_plotItem->data());
+    for (size_t axis = 0; axis < intervals.size(); ++axis)
+        rasterData->setInterval(static_cast<Qt::Axis>(axis), intervals[axis]);
+
+    // Important: Setting the rrf has to happen before updateCursorInfoLabel()
+    // as that calls Histo1DListRasterData::value() internally  which uses the
+    // rrf.
+    rasterData->setResolutionReductionFactors(rrf);
 
     m_d->m_plot->setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
 
