@@ -443,12 +443,23 @@ ModuleConfigDialog::ModuleConfigDialog(
     m_moduleMetas = templates.moduleMetas;
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
-     * the highest priority. */
+     * the highest priority. Moduls without a vendor name always have to the
+     * lowest prio. */
     std::sort(m_moduleMetas.begin(), m_moduleMetas.end(),
           [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+
+        // Prio if vendorName is present in only one of the metas.
+        if (a.vendorName.isEmpty() && !b.vendorName.isEmpty())
+            return false;
+
+        if (!a.vendorName.isEmpty() && b.vendorName.isEmpty())
+            return true;
+
+        // Sort by displayname
         if (a.vendorName == b.vendorName)
             return a.displayName < b.displayName;
 
+        // Prio to mesytec modules.
         if (a.vendorName == QSL("mesytec"))
             return true;
 
