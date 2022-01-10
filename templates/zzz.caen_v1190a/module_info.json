@@ -2,5 +2,6 @@
     "typeId"        : 142,
     "typeName"      : "caen_v1190a",
     "displayName"   : "CAEN V1190A",
+    "vendorName"    : "CAEN",
     "eventHeaderFilter" : "1000 0LOE XXXS SSSS SSSS SSSS SSSG GGGG"
 }

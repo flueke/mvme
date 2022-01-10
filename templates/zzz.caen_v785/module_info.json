@@ -2,5 +2,6 @@
     "typeId"        : 140,
     "typeName"      : "caen_v785",
     "displayName"   : "CAEN V785",
+    "vendorName"    : "CAEN",
     "eventHeaderFilter" : "XXXX X010 XXXX XXXX 00XX XXXX XXXX XXXX"
 }
