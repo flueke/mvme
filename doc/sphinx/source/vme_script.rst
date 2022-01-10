@@ -334,12 +334,16 @@ Repeatedly compares the value stored in the accumulator to the given *value*
 using the specified comparison operator. If the comparison fails jumps to the
 previous stack command, otherwise proceeds to the next command.
 
+.. _vme_command-mvlc_writespecial:
+
 mvlc_writespecial
 ^^^^^^^^^^^^^^^^^
 
 * **mvlc_writespecial** *('timestamp'|'accu'|<numeric_value>)*
 
 Writes the value of the specified internal MVLC variable to the current output.
+
+.. _vme_command-mvlc_stack_begin:
 
 mvlc_stack_begin/end
 ^^^^^^^^^^^^^^^^^^^^
@@ -354,6 +358,8 @@ e.g. via *Run* in the VME Script Editor. During the DAQ initialization phase,
 if a script that is part of a MVCL readout stack (e.g. module readout) is
 processed, the mvlc_stack_begin/end lines do not have any effect (the commands
 inside the block still do!).
+
+.. _vme_command-mvlc_custom_begin:
 
 mvlc_custom_begin/end
 ^^^^^^^^^^^^^^^^^^^^^

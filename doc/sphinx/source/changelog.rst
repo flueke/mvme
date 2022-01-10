@@ -4,8 +4,8 @@
 Changelog
 ##################################################
 
-Version 1.4.8-rc
-----------------
+Version 1.4.8
+-------------
 
 * [mvlc]
 
@@ -21,7 +21,14 @@ Version 1.4.8-rc
 
     * New vme_script commands to work with the MVLC stack accumulator.
 
+      See :ref:`vme_command-mvlc_signal_accu` and the commands following it.
+
     * Add ability to define custom and inline MVLC stacks in VME scripts.
+
+      See :ref:`vme_command-mvlc_stack_begin` and :ref:`vme_command-mvlc_custom_begin`.
+
+
+* New: :ref:`Analysis Expression Operator<analysis-ExpressionOperator>`
 
     * The readout parser now knows about the accumulator and emulated
       accumulator block reads.
@@ -31,7 +38,8 @@ Version 1.4.8-rc
 * [analysis]
 
   - Improvements to the EventBuilder module. This version does work with
-    non-mesytec modules being present in an event.
+    non-mesytec modules being present in an event and allows to exclude modules
+    from the timestamp matching algorithm.
 
   - Improve Histo1D 'Print Stats' output
 
