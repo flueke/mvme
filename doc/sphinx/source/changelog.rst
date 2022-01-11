@@ -27,9 +27,6 @@ Version 1.4.8
 
       See :ref:`vme_command-mvlc_stack_begin` and :ref:`vme_command-mvlc_custom_begin`.
 
-
-* New: :ref:`Analysis Expression Operator<analysis-ExpressionOperator>`
-
     * The readout parser now knows about the accumulator and emulated
       accumulator block reads.
 
