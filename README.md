@@ -4,8 +4,8 @@
 ### Dependencies
 * gcc/clang with c++14 support
 * cmake
-* Qt >= 5.13
-* qwt
+* Qt >= 5.15
+* qwt >= 6.2.0
 * quazip
 * libusb-0.1
 * zlib
@@ -26,8 +26,6 @@
     make install
 
 The install step is optional, mvme does run directly from the build directory.
-
-See doc/mvme-build-notes-ubuntu.txt for details on building under Ubuntu-18.04.
 
 #### Build commands on a fresh installation of Debian 10 (Buster)
 
