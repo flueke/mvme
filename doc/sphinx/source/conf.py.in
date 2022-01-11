@@ -48,7 +48,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'mvme'
-copyright = u'2016-2020, mesytec GmbH & Co. KG'
+copyright = u'2016-2022, mesytec GmbH & Co. KG'
 #author = u'Florian Lüke <f.lueke@mesytec.com>'
 author = u'mesytec GmbH & Co. KG <info@mesytec.com>'
 
