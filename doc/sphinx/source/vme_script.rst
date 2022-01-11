@@ -118,9 +118,9 @@ Reads a single value from the given *<address>*.
 **readabs** uses the given *<address>* unmodified, meaning the module base address will not be added.
 
 The optional last argument 'slow' is implemented for the MVLC only. It causes
-the VME bus read to be carried out on the falling edge of the modules DTACK
-signal instead of at the rising edge. This is a workaround for certain VME
-modules which to signal DTACK but do not yet have the correct data ready.
+the VME read to be carried out on the trailing edge of the modules DTACK signal
+instead of at the leading edge. This is a workaround for VME modules which do
+signal DTACK while not having the actual data ready yet.
 
 .. _vme-command-blt:
 .. _vme-command-bltfifo:
