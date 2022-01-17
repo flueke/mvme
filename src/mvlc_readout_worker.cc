@@ -563,29 +563,31 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // add the log buffer and the analysis configs to the listfile archive
         if (d->mvlcZipCreator && d->mvlcZipCreator->isOpen())
         {
-            if (d->mvlcZipCreator->hasOpenEntry())
-                d->mvlcZipCreator->closeCurrentEntry();
+            mesytec::mvlc::listfile::ZipCreator *zipCreator = d->mvlcZipCreator.get();
 
-            if (auto writeHandle = d->mvlcZipCreator->createZIPEntry("messages.log", 0))
+            if (zipCreator->hasOpenEntry())
+                zipCreator->closeCurrentEntry();
+
+            if (auto writeHandle = zipCreator->createZIPEntry("messages.log", 0))
             {
                 auto messages = m_workerContext.getLogBuffer().join('\n');
                 auto bytes = messages.toUtf8();
                 writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
-                d->mvlcZipCreator->closeCurrentEntry();
+                zipCreator->closeCurrentEntry();
             }
 
-            if (auto writeHandle = d->mvlcZipCreator->createZIPEntry("analysis.analysis", 0))
+            if (auto writeHandle = zipCreator->createZIPEntry("analysis.analysis", 0))
             {
                 auto bytes = m_workerContext.getAnalysisJson().toJson();
                 writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
-                d->mvlcZipCreator->closeCurrentEntry();
+                zipCreator->closeCurrentEntry();
             }
 
-            if (auto writeHandle = d->mvlcZipCreator->createZIPEntry("mvme_run_notes.txt", 0))
+            if (auto writeHandle = zipCreator->createZIPEntry("mvme_run_notes.txt", 0))
             {
                 auto bytes = m_workerContext.getRunNotes().toLocal8Bit();
                 writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
-                d->mvlcZipCreator->closeCurrentEntry();
+                zipCreator->closeCurrentEntry();
             }
         }
 
