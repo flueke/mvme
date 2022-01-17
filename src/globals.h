@@ -26,6 +26,8 @@
 #include <QString>
 #include <QDateTime>
 
+#include <chrono>
+
 #include "util.h"
 #include "run_info.h"
 #include "vme_config_limits.h"
@@ -174,6 +176,8 @@ struct ListFileOutputInfo
     // Flags available for the flags member below.
     static const u32 UseRunNumber = 1u << 0;
     static const u32 UseTimestamp = 1u << 1;
+    static const u32 SplitBySize  = 1u << 2;
+    static const u32 SplitByTime  = 1u << 3;
 
     // TODO: move enabled into flags
     bool enabled = true;        // true if a listfile should be written
@@ -193,6 +197,9 @@ struct ListFileOutputInfo
     u32 runNumber = 1;          // Incremented on endRun and if output filename already exists.
 
     u32 flags = UseTimestamp;
+
+    size_t splitSize = 0u;
+    std::chrono::seconds splitInterval;
 };
 
 // without extensions

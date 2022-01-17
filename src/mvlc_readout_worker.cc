@@ -151,6 +151,7 @@ struct MVLCReadoutWorker::Private
 
     std::unique_ptr<mesytec::mvlc::ReadoutWorker> mvlcReadoutWorker;
     std::unique_ptr<mesytec::mvlc::listfile::ZipCreator> mvlcZipCreator;
+    std::unique_ptr<mesytec::mvlc::listfile::SplitZipCreator> splitZipCreator;
     mvlc::ReadoutBufferQueues *snoopQueues = nullptr;
 
     // lots of mvlc api layers
@@ -472,18 +473,28 @@ void MVLCReadoutWorker::start(quint32 cycles)
             logger(QString("Writing listfile into %1").arg(listfileArchiveName));
             logMessage("");
 
-            d->mvlcZipCreator = std::make_unique<mvlc::listfile::ZipCreator>();
-            d->mvlcZipCreator->createArchive(listfileArchiveName.toStdString());
-
-            if (outInfo->format == ListFileFormat::ZIP)
+            if (outInfo->flags & ListFileOutputInfo::SplitBySize
+                || outInfo->flags & ListFileOutputInfo::SplitByTime)
             {
-                listfileWriteHandle = d->mvlcZipCreator->createZIPEntry(
-                    memberName.toStdString(), outInfo->compressionLevel);
+                // Split the listfile data over multiple archives
+                d->splitZipCreator = std::make_unique<mvlc::listfile::SplitZipCreator>();
             }
-            else if (outInfo->format == ListFileFormat::LZ4)
+            else
             {
-                listfileWriteHandle = d->mvlcZipCreator->createLZ4Entry(
-                    memberName.toStdString(), outInfo->compressionLevel);
+                // Single archive listfile
+                d->mvlcZipCreator = std::make_unique<mvlc::listfile::ZipCreator>();
+                d->mvlcZipCreator->createArchive(listfileArchiveName.toStdString());
+
+                if (outInfo->format == ListFileFormat::ZIP)
+                {
+                    listfileWriteHandle = d->mvlcZipCreator->createZIPEntry(
+                        memberName.toStdString(), outInfo->compressionLevel);
+                }
+                else if (outInfo->format == ListFileFormat::LZ4)
+                {
+                    listfileWriteHandle = d->mvlcZipCreator->createLZ4Entry(
+                        memberName.toStdString(), outInfo->compressionLevel);
+                }
             }
 
             assert(listfileWriteHandle);
