@@ -67,7 +67,7 @@ if (SPHINX_EXECUTABLE)
 
     install(DIRECTORY "${SPHINX_HTML_DIR}" DESTINATION doc)
 
-    # latex
+    # latex + pdf
     # ==================================================
     if (LATEXMK)
         configure_file(
@@ -100,15 +100,9 @@ if (SPHINX_EXECUTABLE)
         #    COMMENT "Generating PDF from Sphinx latex output"
         #    )
 
-        if (WIN32)
-            add_custom_target(mvme_doc_latex_pdf
-                    make -C ${SPHINX_LATEX_DIR}
-                    COMMENT "Generating PDF from Sphinx latex output")
-        else(WIN32)
-            add_custom_target(mvme_doc_latex_pdf
-                    make -C ${SPHINX_LATEX_DIR}
-                    COMMENT "Generating PDF from Sphinx latex output")
-        endif(WIN32)
+        add_custom_target(mvme_doc_latex_pdf
+                make -C ${SPHINX_LATEX_DIR}
+                COMMENT "Generating PDF from Sphinx latex output")
 
         add_dependencies(mvme_doc_latex_pdf mvme_doc_latex)
         add_dependencies(mvme_doc mvme_doc_latex_pdf)
@@ -167,7 +161,7 @@ if (SPHINX_EXECUTABLE)
             DEPENDS "${SPHINX_QHC_OUT}"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SPHINX_QHC_OUT}" "${SPHINX_QCH_OUT}" "${CMAKE_BINARY_DIR}/doc")
     endif(QCOLLECTIONGENERATOR)
-else(SPHINX_EXECUTABLE)
+else()
     message("-- sphinx-build was not found on your system. Will not generate documentation.")
 endif()
 
