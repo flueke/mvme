@@ -10,11 +10,20 @@ where NNN is an incrementing 3-digit decimal.
 Split based on size or duration.
 
 Make each part a valid listfile, e.g. start with the standard preamble. This
-requires the CrateConfig and the mvme VMEConfig data. Could store the full
-preamble in a std::string using std::stringstream or some other buffer.
+requires the CrateConfig and the mvme VMEConfig data. Could generate the full
+preamble once at the start of the DAQ run, store the preamble in a std::string
+or std::vector and reuse it for each individual part.
 
 Also need an archive member name for each part. In MVLCReadoutWorker this is
 the basename of the listfileArchiveName (make_new_listfile_name()).
+
+Additionally the current analysis config, messages.log and run_notes.txt files
+need to be stored in each zip archive upon closing the specific part. This is
+annoying as the listfile writer runs in its own thread and does need
+thread-safe access to the mentioned data. To handle this introduce a callback
+invoked prior to closing a specific listfile part. Note: no archive splitting
+must occur when writing these files! The only archive member that should cause
+splitting is the listfile itself.
 
 - SplitBySize:
 
@@ -46,11 +55,7 @@ size_t SplitZipWriteHandle::write(const u8 *data, size_t size) override
     {
         if (partTotalBytes + size > splitSize_)
         {
-            close_current_entry();
-            close_current_zip_creator();
-            open_new_zip_creator();
-            open_new_entry();
-            write_stored_preamble()
+            startNextPart();
         }
 
     }
@@ -60,13 +65,29 @@ size_t SplitZipWriteHandle::write(const u8 *data, size_t size) override
 
         if (elapsed >= splitTime_)
         {
-            close_current_entry();
-            close_current_zip_creator();
-            open_new_zip_creator();
-            open_new_entry();
-            write_stored_preamble()
+            startNextPart();
         }
     }
 
     return zipCreator_->writeToCurrentEntry(data, size);
+}
+
+void SplitZipWriteHandle::startNextPart()
+{
+   // invoke additional data callback(s). Each must return an archive member name
+   // and a buffer containing the member data.
+
+   close_current_entry();
+
+   for (auto &callback: additionalDataCallbacks)
+   {
+      memberName, data = callback();
+      write_to_new_entry_nosplit(memberName, data);
+   }
+
+   close_current_zip_creator();
+
+   open_new_zip_creator();
+   open_new_entry();
+   write_stored_preamble()
 }
