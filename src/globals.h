@@ -199,7 +199,7 @@ struct ListFileOutputInfo
     u32 flags = UseTimestamp;
 
     size_t splitSize = 0u;
-    std::chrono::seconds splitInterval;
+    std::chrono::seconds splitTime;
 };
 
 // without extensions

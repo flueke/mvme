@@ -150,8 +150,7 @@ struct MVLCReadoutWorker::Private
     MVLCReadoutWorker *q = nullptr;;
 
     std::unique_ptr<mesytec::mvlc::ReadoutWorker> mvlcReadoutWorker;
-    std::unique_ptr<mesytec::mvlc::listfile::ZipCreator> mvlcZipCreator;
-    std::unique_ptr<mesytec::mvlc::listfile::SplitZipCreator> splitZipCreator;
+    std::unique_ptr<mesytec::mvlc::listfile::SplitZipCreator> mvlcZipCreator;
     mvlc::ReadoutBufferQueues *snoopQueues = nullptr;
 
     // lots of mvlc api layers
@@ -459,58 +458,84 @@ void MVLCReadoutWorker::start(quint32 cycles)
             if (outInfo->fullDirectory.isEmpty())
                 throw std::runtime_error("Error: listfile output directory is not set");
 
-            listfileArchiveName = make_new_listfile_name(outInfo);
-            auto memberName = QFileInfo(listfileArchiveName).completeBaseName();
-            memberName += QSL(".mvlclst");
-
             if (outInfo->format != ListFileFormat::ZIP
                 && outInfo->format != ListFileFormat::LZ4)
             {
                 throw std::runtime_error("Unsupported listfile format");
             }
 
-            logMessage("");
-            logger(QString("Writing listfile into %1").arg(listfileArchiveName));
-            logMessage("");
+            listfile::SplitListfileSetup lfSetup;
+            lfSetup.entryType = (outInfo->format == ListFileFormat::ZIP
+                                 ? listfile::ZipEntryInfo::ZIP
+                                 : listfile::ZipEntryInfo::LZ4);
+            lfSetup.compressLevel = outInfo->compressionLevel;
 
-            if (outInfo->flags & ListFileOutputInfo::SplitBySize
-                || outInfo->flags & ListFileOutputInfo::SplitByTime)
+            if (outInfo->flags & ListFileOutputInfo::SplitBySize)
+                lfSetup.splitMode = listfile::ZipSplitMode::SplitBySize;
+            else if (outInfo->flags & ListFileOutputInfo::SplitByTime)
+                lfSetup.splitMode = listfile::ZipSplitMode::SplitByTime;
+
+            lfSetup.splitSize = outInfo->splitSize;
+            lfSetup.splitTime = outInfo->splitTime;
+
+            lfSetup.filenamePrefix = (QFileInfo(make_new_listfile_name(outInfo))
+                                      .completeBaseName().toStdString());
+
+            // Create the listfile preamble in a buffer and store it for later
+            // use by the SplitZipCreator.
             {
-                // Split the listfile data over multiple archives
-                d->splitZipCreator = std::make_unique<mvlc::listfile::SplitZipCreator>();
+                listfile::BufferedWriteHandle bwh;
+
+                // Standard listfile preamble including a mesytec-mvlc CrateConfig
+                // generated from our VMEConfig.
+                listfile::listfile_write_preamble(bwh, crateConfig);
+
+                // Write our VMEConfig to the listfile aswell (the CrateConfig from
+                // the library does not have all the meta information stored in the
+                // VMEConfig).
+                mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
+
+                lfSetup.preamble = bwh.getBuffer();
             }
-            else
-            {
-                // Single archive listfile
-                d->mvlcZipCreator = std::make_unique<mvlc::listfile::ZipCreator>();
-                d->mvlcZipCreator->createArchive(listfileArchiveName.toStdString());
 
-                if (outInfo->format == ListFileFormat::ZIP)
+            // Set the openArchiveCallback
+            lfSetup.openArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
+            {
+                // FIXME: thread safety!
+                m_workerContext.daqStats.listfileFilename =
+                    QString::fromStdString(zipCreator->archiveName());
+            };
+
+            // Set the closeArchiveCallback
+            lfSetup.closeArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
+            {
+                assert(zipCreator->isOpen());
+                assert(!zipCreator->hasOpenEntry());
+
+                // Add the log buffer, analysis config and other files to the
+                // archive.
+
+                auto do_write = [zipCreator] (const std::string &filename, const QByteArray &data)
                 {
-                    listfileWriteHandle = d->mvlcZipCreator->createZIPEntry(
-                        memberName.toStdString(), outInfo->compressionLevel);
-                }
-                else if (outInfo->format == ListFileFormat::LZ4)
-                {
-                    listfileWriteHandle = d->mvlcZipCreator->createLZ4Entry(
-                        memberName.toStdString(), outInfo->compressionLevel);
-                }
-            }
+                    auto writeHandle = zipCreator->createZIPEntry(filename, 0); // uncompressed zip entry
+                    writeHandle->write(reinterpret_cast<const u8 *>(data.data()), data.size());
+                    zipCreator->closeCurrentEntry();
+                };
 
-            assert(listfileWriteHandle);
+                do_write("messages.log", m_workerContext.getLogBuffer().join('\n').toUtf8());
+                // FIXME: thread safety for m_workerContext.getAnalysisJson()!
+                do_write("analysis.analysis", m_workerContext.getAnalysisJson().toJson());
+                do_write("mvme_run_notes.txt", m_workerContext.getRunNotes().toLocal8Bit());
+            };
 
-            if (listfileWriteHandle)
-            {
-                // Standard listfile preamble including a mesytec-mvlc
-                // CrateConfig generated from our VMEConfig.
-                mvlc::listfile::listfile_write_preamble(*listfileWriteHandle, crateConfig);
+            d->mvlcZipCreator = std::make_unique<mvlc::listfile::SplitZipCreator>();
+            d->mvlcZipCreator->createArchive(lfSetup);
 
-                // Write our VMEConfig to the listfile aswell (the CrateConfig
-                // from the library does not have all the meta information
-                // stored in the VMEConfig).
-                mvme_mvlc_listfile::listfile_write_mvme_config(
-                    *listfileWriteHandle, *vmeConfig);
-            }
+            logMessage("");
+            logger(QString("Writing listfile into %1").arg(m_workerContext.daqStats.listfileFilename));
+            logMessage("");
+
+            listfileWriteHandle = d->mvlcZipCreator->createListfileEntry();
         }
 
         // mesytec-mvlc readout worker
@@ -559,37 +584,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         mvlc_daq_shutdown(vmeConfig, d->mvlcCtrl, logger, errorLogger);
         m_workerContext.daqStats.stop();
-
-        // add the log buffer and the analysis configs to the listfile archive
-        if (d->mvlcZipCreator && d->mvlcZipCreator->isOpen())
-        {
-            mesytec::mvlc::listfile::ZipCreator *zipCreator = d->mvlcZipCreator.get();
-
-            if (zipCreator->hasOpenEntry())
-                zipCreator->closeCurrentEntry();
-
-            if (auto writeHandle = zipCreator->createZIPEntry("messages.log", 0))
-            {
-                auto messages = m_workerContext.getLogBuffer().join('\n');
-                auto bytes = messages.toUtf8();
-                writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
-                zipCreator->closeCurrentEntry();
-            }
-
-            if (auto writeHandle = zipCreator->createZIPEntry("analysis.analysis", 0))
-            {
-                auto bytes = m_workerContext.getAnalysisJson().toJson();
-                writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
-                zipCreator->closeCurrentEntry();
-            }
-
-            if (auto writeHandle = zipCreator->createZIPEntry("mvme_run_notes.txt", 0))
-            {
-                auto bytes = m_workerContext.getRunNotes().toLocal8Bit();
-                writeHandle->write(reinterpret_cast<const u8 *>(bytes.data()), bytes.size());
-                zipCreator->closeCurrentEntry();
-            }
-        }
 
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
 
