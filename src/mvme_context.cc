@@ -820,9 +820,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     readoutWorkerContext.logger             = [this](const QString &msg) { logMessage(msg); };
     readoutWorkerContext.errorLogger        = [this](const QString &msg) { logError(msg); };
-    readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); };
-    readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); };
-    readoutWorkerContext.getRunNotes        = [this]() { return getRunNotes(); };
+    readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); }; // this is thread-safe
+    readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); }; // this is NOT thread-safe
+    readoutWorkerContext.getRunNotes        = [this]() { return getRunNotes(); }; // this is thread-safe
 
     m_readoutWorker->setContext(readoutWorkerContext);
 
