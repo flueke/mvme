@@ -455,33 +455,39 @@ DAQReadoutListfileHelper::~DAQReadoutListfileHelper()
 
 QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 {
-    auto testFlags = (ListFileOutputInfo::UseRunNumber | ListFileOutputInfo::UseTimestamp);
-    const bool canModifyName = (outInfo->flags & testFlags);
+    const bool canModifyName = (outInfo->flags & (ListFileOutputInfo::UseRunNumber | ListFileOutputInfo::UseTimestamp));
+    const bool usesSplitting = (outInfo->flags & (ListFileOutputInfo::SplitBySize | ListFileOutputInfo::SplitByTime));
     QFileInfo fi;
-    QString result;
 
     do
     {
-        result = outInfo->fullDirectory + '/' + generate_output_filename(*outInfo);
+        QString nameToTest;
 
-        fi.setFile(result);
+        if (usesSplitting)
+        {
+            auto filename = generate_output_filename(*outInfo);
+            auto basename = QFileInfo(filename).completeBaseName();
+            auto suffix = QFileInfo(filename).completeSuffix();
+            nameToTest = outInfo->fullDirectory + '/' + basename + "_part001." + suffix;
+        }
+        else
+            nameToTest = outInfo->fullDirectory + '/' + generate_output_filename(*outInfo);
+
+        fi.setFile(nameToTest);
 
         if (fi.exists())
         {
             if (!canModifyName)
-            {
-                throw (QString("Listfile output file '%1' exists.")
-                       .arg(result));
-            }
+                throw QString("Listfile output file '%1' exists.").arg(nameToTest);
 
             if (outInfo->flags & ListFileOutputInfo::UseRunNumber)
-            {
                 outInfo->runNumber++;
-            }
-            // otherwise the timestamp will change once one second has passed
+            // In the case of UseTimestamp the timestamp value will change once
+            // one second has passed.
         }
     } while (fi.exists());
 
+    auto result = outInfo->fullDirectory + '/' + generate_output_filename(*outInfo);
     return result;
 }
 
