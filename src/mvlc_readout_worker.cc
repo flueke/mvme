@@ -449,7 +449,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         // listfile handling
         mvlc::listfile::WriteHandle *listfileWriteHandle = nullptr;
-        QString listfileArchiveName;
 
         if (m_workerContext.listfileOutputInfo->enabled)
         {
@@ -563,7 +562,6 @@ void MVLCReadoutWorker::start(quint32 cycles)
         set_daq_state(DAQState::Running);
 
         m_workerContext.daqStats.start();
-        m_workerContext.daqStats.listfileFilename = listfileArchiveName;
 
         // wait until readout done while periodically updating the DAQ stats
         while (d->mvlcReadoutWorker->state() != ReadoutWorker::State::Idle)

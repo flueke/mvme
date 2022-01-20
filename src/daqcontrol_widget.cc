@@ -609,7 +609,7 @@ void DAQControlWidget::updateWidget()
 
     auto filename = stats.listfileFilename;
 
-    //qDebug() << __PRETTY_FUNCTION__ << "filename=" << filename;
+    //qDebug() << __PRETTY_FUNCTION__ << "listfileFilename=" << filename;
 
     if (auto settings = make_workspace_settings(m_workspaceDirectory))
     {
