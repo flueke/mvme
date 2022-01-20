@@ -22,12 +22,12 @@
 # elements - can be used if individual limits for each parameter are needed.
 #
 # The script has access to all currently defined and connected inputs. For each
-# input if the input is connected to an array the following variables are
-# defined:
+# input the following variables are defined:
 #
 #   input_name.unit, input_name.size, input_name.lower_limits, input_name.upper_limits
 #
-# If the input is connected to a single parameter the variables are:
+# If the input is connected to a single parameter these additional scalar
+# variables are defined:
 #
 #   input_name.unit, input_name.lower_limit, input_name.upper_limit
 #
