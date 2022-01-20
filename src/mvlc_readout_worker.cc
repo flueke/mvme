@@ -591,6 +591,14 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
 
+        // In case we recorded a listfile and the run number was used increment
+        // the run number here so that it represents the _next_ run number.
+        if (m_workerContext.listfileOutputInfo->enabled
+            && (m_workerContext.listfileOutputInfo->flags & ListFileOutputInfo::UseRunNumber))
+        {
+            ++m_workerContext.listfileOutputInfo->runNumber;
+        }
+
         set_daq_state(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));
 
         auto stackErrors = d->mvlcCtrl->getMVLC().getStackErrorCounters();
