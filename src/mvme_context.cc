@@ -507,6 +507,8 @@ static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
     settings.setValue(QSL("ListFilePrefix"),            info.prefix);
     settings.setValue(QSL("ListFileRunNumber"),         info.runNumber);
     settings.setValue(QSL("ListFileOutputFlags"),       info.flags);
+    settings.setValue(QSL("ListFileSplitSize"), static_cast<quint64>(info.splitSize));
+    settings.setValue(QSL("ListFileSplitTime"), static_cast<quint64>(info.splitTime.count()));
 }
 
 static ListFileOutputInfo readFromSettings(QSettings &settings)
@@ -521,6 +523,9 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
     result.prefix           = settings.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();
     result.runNumber        = settings.value(QSL("ListFileRunNumber"), 1u).toUInt();
     result.flags            = settings.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseRunNumber).toUInt();
+    result.splitSize        = settings.value(QSL("ListFileSplitSize"), static_cast<quint64>(result.splitSize)).toUInt();
+    result.splitTime        = std::chrono::seconds(
+        settings.value(QSL("ListFileSplitTime"), static_cast<quint64>(result.splitTime.count())).toUInt());
 
     return result;
 }
