@@ -124,6 +124,7 @@ class DAQRunSettingsDialog: public QDialog
     Q_OBJECT
     public:
         DAQRunSettingsDialog(const ListFileOutputInfo &settings, QWidget *parent = 0);
+        virtual ~DAQRunSettingsDialog();
 
         ListFileOutputInfo getSettings() const { return m_settings; }
 
@@ -136,6 +137,14 @@ class DAQRunSettingsDialog: public QDialog
         QCheckBox *cb_useRunNumber;
         QCheckBox *cb_useTimestamp;
         QLineEdit *le_exampleName;
+
+        QRadioButton *rb_dontSplit,
+                     *rb_splitBySize,
+                     *rb_splitByTime;
+
+        QSpinBox *spin_splitSize,
+                 *spin_splitTime;
+
         QDialogButtonBox *m_bb;
 };
 
