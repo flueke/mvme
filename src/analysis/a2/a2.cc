@@ -2337,6 +2337,8 @@ Operator make_expression_operator(
 
         if (pi == NoParamIndex)
         {
+            // The input variable is an array.
+
             register_symbol(d->symtab_begin, addVector, prefix + ".lower_limits",
                             input.lowerLimits.data, input.lowerLimits.size);
 
@@ -2348,11 +2350,34 @@ Operator make_expression_operator(
         }
         else
         {
+            // The input variable is a single value.
+
             register_symbol(d->symtab_begin, addScalar, prefix + ".lower_limit",
                             input.lowerLimits.data[pi]);
 
             register_symbol(d->symtab_begin, addScalar, prefix + ".upper_limit",
                             input.upperLimits.data[pi]);
+
+            // For compatibility with array inputs these additional variables
+            // are also defined for single value inputs.
+            // Note that SymbolTable::addVector() works on a reference to the
+            // underlying data which means creating a std::vector<double> on
+            // the stack and passing that to addVector() does not work! Instead
+            // memory from the arena is used to store the vector data.
+
+            auto lowerLimits = arena->pushArray<double>(1);
+            auto upperLimits = arena->pushArray<double>(1);
+
+            lowerLimits[0] = input.lowerLimits[pi];
+            upperLimits[0] = input.upperLimits[pi];
+
+            register_symbol(d->symtab_begin, addVector, prefix + ".lower_limits",
+                            lowerLimits, 1);
+
+            register_symbol(d->symtab_begin, addVector, prefix + ".upper_limits",
+                            upperLimits, 1);
+
+            register_symbol(d->symtab_begin, addConstant, prefix + ".size", 1);
         }
     }
 
@@ -2416,6 +2441,8 @@ Operator make_expression_operator(
 
         if (pi == NoParamIndex)
         {
+            // The input variable is an array.
+
             register_symbol(d->symtab_step, addVector, prefix,
                             input.data.data, input.data.size);
 
@@ -2430,6 +2457,8 @@ Operator make_expression_operator(
         }
         else
         {
+            // The input variable is a single value.
+
             register_symbol(d->symtab_step, addScalar, prefix,
                             input.data.data[pi]);
 
@@ -2438,6 +2467,27 @@ Operator make_expression_operator(
 
             register_symbol(d->symtab_step, addScalar, prefix + ".upper_limit",
                             input.upperLimits.data[pi]);
+
+            // For compatibility with array inputs these additional variables
+            // are also defined for single value inputs.
+            // Note that SymbolTable::addVector() works on a reference to the
+            // underlying data which means creating a std::vector<double> on
+            // the stack and passing that to addVector() does not work! Instead
+            // memory from the arena is used to store the vector data.
+
+            auto lowerLimits = arena->pushArray<double>(1);
+            auto upperLimits = arena->pushArray<double>(1);
+
+            lowerLimits[0] = input.lowerLimits[pi];
+            upperLimits[0] = input.upperLimits[pi];
+
+            register_symbol(d->symtab_step, addVector, prefix + ".lower_limits",
+                            lowerLimits, 1);
+
+            register_symbol(d->symtab_step, addVector, prefix + ".upper_limits",
+                            upperLimits, 1);
+
+            register_symbol(d->symtab_step, addConstant, prefix + ".size", 1);
         }
     }
 
