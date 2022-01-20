@@ -3445,6 +3445,9 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 else
                     out << ", size=" << moduleParts.len;
 
+                if (auto moduleConfig = vmeConfig->getModuleConfig(eventIndex, moduleIndex))
+                    out << ", name=" << moduleConfig->objectName();
+
                 out << endl;
             }
         }
@@ -3501,8 +3504,6 @@ void MVLCParserDebugHandler::handleDebugInfo(
             {
                 return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
                 {
-                    if (!size) return;
-
                     splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
                         .arg(typeString).arg(ei).arg(mi).arg(size)
                         << endl;
@@ -3540,8 +3541,6 @@ void MVLCParserDebugHandler::handleDebugInfo(
         auto log_module_part = [&parserOut] (
             const QString &partName, int ei, int mi, const u32 *data, u32 size)
         {
-            if (!size) return;
-
             parserOut << QString("  module%4, ei=%1, mi=%2, size=%3:")
                 .arg(ei).arg(mi).arg(size).arg(partName)
                 << endl;
