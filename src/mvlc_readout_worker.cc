@@ -478,8 +478,12 @@ void MVLCReadoutWorker::start(quint32 cycles)
             lfSetup.splitSize = outInfo->splitSize;
             lfSetup.splitTime = outInfo->splitTime;
 
-            lfSetup.filenamePrefix = (QFileInfo(make_new_listfile_name(outInfo))
-                                      .completeBaseName().toStdString());
+            QFileInfo lfInfo(make_new_listfile_name(outInfo));
+            auto lfDir = lfInfo.path();
+            auto lfBase = lfInfo.completeBaseName();
+            auto lfPrefix = lfDir + "/" + lfBase;
+
+            lfSetup.filenamePrefix = lfPrefix.toStdString();
 
             // Create the listfile preamble in a buffer and store it for later
             // use by the SplitZipCreator.

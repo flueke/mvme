@@ -198,8 +198,8 @@ struct ListFileOutputInfo
 
     u32 flags = UseTimestamp;
 
-    size_t splitSize = 0u;
-    std::chrono::seconds splitTime;
+    size_t splitSize = Gigabytes(1);
+    std::chrono::seconds splitTime = std::chrono::seconds(3600);
 };
 
 // without extensions
