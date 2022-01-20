@@ -1,6 +1,10 @@
 ==================================================
 TODO list
 ==================================================
+
+* when stopping a run do wait for the analysis to finish. right now the code
+  only waits for the readout/replay side to finish.
+
 * add an assert macro to get rid of the unused var warnings when compiling in
   release mode
     #ifdef NDEBUG

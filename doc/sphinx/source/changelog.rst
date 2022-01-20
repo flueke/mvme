@@ -4,6 +4,22 @@
 Changelog
 ##################################################
 
+Version 1.4.9-rc
+----------------
+* New feature: listfile splitting
+
+  When recording readout data the output listfile can now be split either based
+  on file size or elapsed time. Each partial listfile ZIP archive is in itself
+  a complete, valid mvme listfile and includes the VME config, analysis config
+  and logged messages.
+
+  Replaying from split listfiles currently has to be done manually for each
+  part. Using the 'keep histo contents' in mvme allows to accumulate data from
+  multiple (partial) listfiles into the same analysis.
+
+* DAQ run number is now increment on MVLC readout stop to represent the *next*
+  run number.
+
 Version 1.4.8
 -------------
 
