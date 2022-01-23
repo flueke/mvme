@@ -46,7 +46,7 @@ static const unsigned Win32TimePeriod = 1;
 
 QVector<ScriptWithResults>
 vme_daq_run_global_daq_start_scripts(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,

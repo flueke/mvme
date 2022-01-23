@@ -62,7 +62,7 @@ struct ScriptWithResults
 
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_run_global_daq_start_scripts(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,

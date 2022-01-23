@@ -310,6 +310,8 @@ add_library(libmvme SHARED
     mvme_stream_processor.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
+    multi_crate_mainwindow.cc
+    multi_crate.cc
     qt_assistant_remote_control.cc
     rate_monitor_base.cc
     rate_monitor_gui.cc
@@ -530,6 +532,8 @@ add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
 add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
 add_mvme_executable(dev_mvlc_dso dev_mvlc_dso.cc)
 add_mvme_executable(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
+add_mvme_executable(mvme_multi_crate_gui multi_crate_gui_main.cc)
+add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?

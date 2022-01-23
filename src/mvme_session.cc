@@ -52,7 +52,6 @@ void mvme_init(const QString &appName)
     qRegisterMetaType<ModuleConfig *>();
     qRegisterMetaType<EventConfig *>();
     qRegisterMetaType<VMEConfig *>();
-    qRegisterMetaType<VMEConfig *>();
 
 #define REG_META_VEC(T) \
     qRegisterMetaType<QVector<T>>("QVector<"#T">")
