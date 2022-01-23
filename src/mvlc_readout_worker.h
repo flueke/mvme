@@ -24,6 +24,7 @@
 #include <mesytec-mvlc/mvlc_readout.h>
 
 #include "libmvme_export.h"
+#include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "vme_daq.h"
 #include "vme_readout_worker.h"
@@ -64,5 +65,14 @@ class LIBMVME_EXPORT MVLCReadoutWorker: public VMEReadoutWorker
         void setMVLCObjects();
         void logError(const QString &msg);
 };
+
+bool run_daq_start_sequence(
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> error_logger,
+    const RunInfo *runInfo,
+    mesytec::mvme_mvlc::MVLC_VMEController *mvlcCtrl,
+    VMEConfig &vmeConfig // FIXME: constness
+                           );
+
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */

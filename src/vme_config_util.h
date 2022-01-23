@@ -22,6 +22,7 @@
 #define __MVME_VME_CONFIG_UTIL_H__
 
 #include <memory>
+#include <QJsonDocument>
 #include <QMimeData>
 
 #include "libmvme_export.h"
