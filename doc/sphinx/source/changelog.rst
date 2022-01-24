@@ -6,7 +6,7 @@ Changelog
 
 Version 1.4.9-rc
 ----------------
-* New feature: listfile splitting
+* New feature: listfile splitting (MVLC only!)
 
   When recording readout data the output listfile can now be split either based
   on file size or elapsed time. Each partial listfile ZIP archive is in itself
