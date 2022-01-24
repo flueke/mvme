@@ -103,7 +103,7 @@ MVLC_StreamWorker::MVLC_StreamWorker(
 , m_context(context)
 , m_snoopQueues(snoopQueues)
 , m_parserCounters({})
-, m_parserCountersSnapshot({})
+, m_parserCountersSnapshot()
 , m_state(AnalysisWorkerState::Idle)
 , m_desiredState(AnalysisWorkerState::Idle)
 , m_startPaused(false)
