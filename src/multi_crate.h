@@ -4,42 +4,83 @@
 #include <memory>
 #include <set>
 
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QString>
+
 #include "vme_config.h"
 
 namespace multi_crate
 {
 
-// input:
-// * list of crate vme configs with the first being the main crate
-// * list of event indexes which are part of a cross-crate event
 //
-// output:
-// a new merged vme config containing both merged cross-crate events and
-// non-merged single-crate events. The latter events are in linear (crate,
-// event) order.
+// VME config merging
 //
-// TODO: also output mapping information to be able to map objects between the
-// input configs and the merged output config.
 
 struct MultiCrateModuleMappings
 {
     QMap<QUuid, QUuid> cratesToMerged;
     QMap<QUuid, QUuid> mergedToCrates;
+
+    void insertMapping(const ModuleConfig *crateModule, const ModuleConfig *mergedModule)
+    {
+        insertMapping(crateModule->getId(), mergedModule->getId());
+    }
+
+    void insertMapping(const QUuid &crateModuleId, const QUuid &mergedModuleId)
+    {
+        cratesToMerged.insert(crateModuleId, mergedModuleId);
+        mergedToCrates.insert(mergedModuleId, crateModuleId);
+    }
 };
 
-inline void insert_module_mapping(
-    MultiCrateModuleMappings &mappings,
-    ModuleConfig *crateModule,
-    ModuleConfig *mergedModule)
-{
-    mappings.cratesToMerged.insert(crateModule->getId(), mergedModule->getId());
-    mappings.mergedToCrates.insert(mergedModule->getId(), crateModule->getId());
-}
-
+// inputs:
+// * list of crate vme configs with the first being the main crate
+// * list of event indexes which are part of a cross-crate event
+//
+// outputs:
+// * a new merged vme config containing both merged cross-crate events and
+//   non-merged single-crate events. The latter events are in linear (crate,
+//   event) order.
+// * bi-directional module mappings
 std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_config(
     const std::vector<VMEConfig *> &crateConfigs,
     const std::set<int> &crossCrateEvents
     );
+
+//
+// MultiCrateConfig
+//
+
+struct MultiCrateConfig
+{
+    // Filename of the VMEConfig for the main crate.
+    QString mainConfig;
+    // Filenames of VMEconfigs of the secondary crates.
+    QStringList secondaryConfigs;
+    // Event ids from mainConfig which form cross crate events.
+    std::set<QUuid> crossCrateEventIds;
+};
+
+inline bool operator==(const MultiCrateConfig &a, const MultiCrateConfig &b)
+{
+    return (a.mainConfig == b.mainConfig
+            && a.secondaryConfigs == b.secondaryConfigs
+            && a.crossCrateEventIds == b.crossCrateEventIds
+           );
+}
+
+inline bool operator!=(const MultiCrateConfig &a, const MultiCrateConfig &b)
+{
+    return !(a == b);
+}
+
+MultiCrateConfig load_multi_crate_config(const QJsonDocument &doc);
+MultiCrateConfig load_multi_crate_config(const QJsonObject &json);
+MultiCrateConfig load_multi_crate_config(const QString &filename);
+
+QJsonObject to_json_object(const MultiCrateConfig &mcfg);
+QJsonDocument to_json_document(const MultiCrateConfig &mcfg);
 
 }
 
