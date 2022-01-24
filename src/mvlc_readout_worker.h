@@ -67,12 +67,11 @@ class LIBMVME_EXPORT MVLCReadoutWorker: public VMEReadoutWorker
 };
 
 bool run_daq_start_sequence(
-    std::function<void (const QString &)> logger,
-    std::function<void (const QString &)> error_logger,
-    const RunInfo *runInfo,
     mesytec::mvme_mvlc::MVLC_VMEController *mvlcCtrl,
-    VMEConfig &vmeConfig // FIXME: constness
-                           );
+    VMEConfig &vmeConfig,
+    bool ignoreStartupErrors,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> error_logger);
 
 
 #endif /* __MVME_MVLC_READOUT_WORKER_H__ */
