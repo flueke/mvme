@@ -2,6 +2,10 @@
 TODO list
 ==================================================
 
+* analysis auto assignment does not assign event ids for operators connected to
+  modules which have a null eventId in the analysis config. Can test this with
+  mdpp16_random_pulser_data.vme and 1_mdpp.analysis
+
 * when stopping a run do wait for the analysis to finish. right now the code
   only waits for the readout/replay side to finish.
 
