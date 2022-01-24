@@ -346,6 +346,7 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
     analysisModuleAndEventIds.subtract(vmeModuleAndEventIds);
 
     // Remove entries where the module ids are equal and the analysis side event id is null.
+    // FIXME: operators connected to this module do not get their event id updated.
     for (const auto &vModIds: vmeModuleAndEventIds)
     {
         auto vmeModuleIdAndNullEventId = std::make_pair(vModIds.first, QUuid());
