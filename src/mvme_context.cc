@@ -179,7 +179,6 @@ struct MVMEContextPrivate
         : m_q(q)
         , m_options(options)
         , mvlcSnoopQueues(ReadoutBufferSize, ReadoutBufferCount)
-        , runNotes({})
         , m_mvmeState(MVMEState::Idle)
     {}
 

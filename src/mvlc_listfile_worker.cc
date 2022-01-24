@@ -78,7 +78,7 @@ struct MVLCListfileWorker::Private
 
     explicit Private(MVLCListfileWorker *q_)
         : q(q_)
-        , stats({})
+        , stats()
         , state(DAQState::Idle)
         , desiredState(DAQState::Idle)
     {}
