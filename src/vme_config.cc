@@ -326,7 +326,7 @@ std::error_code ContainerObject::read_impl(const QJsonObject &json)
 
             child->read(jobj["data"].toObject());
             addChild(child);
-            memGuard.release();
+            (void) memGuard.release();
         }
         // maybe TODO: implement the case for non-qobject metatypes using mt.create()
     }
