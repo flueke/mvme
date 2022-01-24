@@ -4,6 +4,9 @@
 
 //using namespace mesytec;
 
+// FIXME: actually add some real vmeconfig_to_crateconfig tests
+
+
 TEST(vmeconfig_to_crateconfig, ConvertCommand_Types)
 {
 
