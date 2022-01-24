@@ -581,6 +581,7 @@ if(MVME_BUILD_TESTS)
     #add_mvme_gtest(test_analysis_session analysis/test_analysis_session.cc)
     add_mvme_gtest(test_trigger_io_sim mvlc/test/test_trigger_io_sim.cc)
     add_mvme_gtest(test_vmeconfig_to_crateconfig mvlc/vmeconfig_to_crateconfig.test.cc)
+    add_mvme_gtest(test_multi_crate multi_crate.test.cc)
 
     add_mvme_executable(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
