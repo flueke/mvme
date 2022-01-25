@@ -880,7 +880,7 @@ void MVLC_StreamWorker::processBuffer(
     try
     {
         ParseResult pr = readout_parser::parse_readout_buffer(
-            buffer->type(),
+            static_cast<ConnectionType>(buffer->type()),
             m_parser,
             m_parserCallbacks,
             m_parserCounters,
@@ -938,7 +938,7 @@ void MVLC_StreamWorker::processBuffer(
                   bufferCopy.asU32());
 
         bufferCopy.used = bufferView.size() * sizeof(u32);
-        bufferCopy.tag = static_cast<int>(buffer->type() == ConnectionType::ETH
+        bufferCopy.tag = static_cast<int>(static_cast<ConnectionType>(buffer->type()) == ConnectionType::ETH
                                           ? ListfileBufferFormat::MVLC_ETH
                                           : ListfileBufferFormat::MVLC_USB);
         bufferCopy.id = buffer->bufferNumber();
