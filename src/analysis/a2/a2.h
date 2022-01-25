@@ -20,6 +20,7 @@
 
 namespace a2
 {
+
 using ParamVec = TypedBlock<double, s32>;
 
 void print_param_vector(ParamVec pv);
