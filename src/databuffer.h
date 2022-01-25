@@ -35,7 +35,7 @@ struct DataBuffer
         : DataBuffer(0, 0, 0)
     {}
 
-    DataBuffer(size_t sz, int tag = 0, u32 id = 0u)
+    DataBuffer(size_t sz, s32 tag = 0, u32 id = 0u)
         : data(nullptr)
         , size(0)
         , used(0)
@@ -213,7 +213,7 @@ struct DataBuffer
     size_t size; // size in bytes
     size_t used; // bytes used
     u32 id = 0u; // id value for external use
-    int tag = 0; // tag allowing to distinguish buffer types
+    s32 tag = 0; // tag allowing to distinguish buffer types
 };
 
 typedef QQueue<DataBuffer *> DataBufferQueue;
