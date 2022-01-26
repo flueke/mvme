@@ -107,9 +107,25 @@ class LIBMVME_EXPORT ConfigObject: public QObject
             return findChildByPredicate<T>(pred, recurse);
         }
 
-        ConfigObject * findChildByName(const QString &name, bool recurse = true) const
+        ConfigObject *findChildByName(const QString &name, bool recurse = true) const
         {
             return findChildByName<ConfigObject *>(name, recurse);
+        }
+
+        template<typename T>
+        T findChildById(const QUuid &id, bool recurse = true) const
+        {
+            auto pred = [&id] (const ConfigObject *obj)
+            {
+                return obj->getId() == id;
+            };
+
+            return findChildByPredicate<T>(pred, recurse);
+        }
+
+        ConfigObject *findChildById(const QUuid &id, bool recurse = true) const
+        {
+            return findChildById<ConfigObject *>(id, recurse);
         }
 
     public slots:
