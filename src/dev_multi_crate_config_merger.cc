@@ -19,10 +19,7 @@ int main(int argc, char *argv[])
     if (args.size() < 3)
         return 1;
 
-    args.pop_front();
-
-    //auto outputFilename = args.back();
-    //args.pop_back();
+    args.pop_front(); // pop off the exe name
 
     std::vector<std::unique_ptr<VMEConfig>> crateConfigs;
 
@@ -36,7 +33,7 @@ int main(int argc, char *argv[])
                             filename.toStdString(),
                             readResult.second.toStdString()));
         }
-        crateConfigs.emplace_back(readResult.first.release());
+        crateConfigs.emplace_back(std::move(readResult.first));
     }
 
     std::vector<VMEConfig *> rawCrateConfigs;

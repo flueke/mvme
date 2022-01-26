@@ -56,10 +56,18 @@ struct MultiCrateConfig
 {
     // Filename of the VMEConfig for the main crate.
     QString mainConfig;
+
     // Filenames of VMEconfigs of the secondary crates.
     QStringList secondaryConfigs;
+
     // Event ids from mainConfig which form cross crate events.
     std::set<QUuid> crossCrateEventIds;
+
+    // Ids of the "main" module for each cross crate event. The moduleId may
+    // come from any of the individual VMEConfigs. The representation of this
+    // module in the merged VMEConfig will be used as the EventBuilders main
+    // module.
+    std::set<QUuid> mainModuleIds;
 };
 
 inline bool operator==(const MultiCrateConfig &a, const MultiCrateConfig &b)
