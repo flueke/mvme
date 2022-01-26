@@ -8,6 +8,18 @@
 namespace multi_crate
 {
 
+// Generates new QUuids for a hierarchy of ConfigObjects
+void generate_new_ids(ConfigObject *parentObject)
+{
+    parentObject->generateNewId();
+
+    for (auto child: parentObject->children())
+        if (auto childObject = qobject_cast<ConfigObject *>(child))
+            generate_new_ids(childObject);
+}
+
+// Copies a ConfigObject by first serializing to json, then creating the copy
+// via deserialization. The copied object and its children are assigned new ids.
 template<typename T>
 std::unique_ptr<T> copy_config_object(const T *obj)
 {
@@ -18,7 +30,8 @@ std::unique_ptr<T> copy_config_object(const T *obj)
 
     auto ret = std::make_unique<T>();
     ret->read(json);
-    ret->generateNewId();
+
+    generate_new_ids(ret.get());
 
     return ret;
 }
@@ -197,7 +210,6 @@ using namespace mesytec;
 // thread.
 
 // Threads, ReadoutWorker, ReadoutParser, EventBuilder, Analysis
-
 
 struct CrateReadout
 {
