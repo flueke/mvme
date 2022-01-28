@@ -14,6 +14,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "vme_config.h"
+#include "mvlc/mvlc_vme_controller.h"
 
 namespace multi_crate
 {
@@ -113,58 +114,6 @@ QJsonDocument to_json_document(const MultiCrateConfig &mcfg);
 
 using namespace mesytec;
 
-// Chain to build:
-// mvlc::ReadoutWorker -> listfile::WriteHandle
-//   -> [write  single crate listfile to disk]
-//   -> Queue -> ReadoutParser [-> MultiEventSplitter ] -> EventBuilder::recordEventData()
-//   -> EventBuilder -> MergedQueue
-//   -> MergedQueue -> Analysis
-//                  -> MergedListfile
-//
-// Can leave out the merged queue in the fist iteration and directly call into
-// the analysis but this makes EventBuilder and analysis run in the same
-// thread.
-
-// Threads, ReadoutWorker, ReadoutParser, EventBuilder, Analysis
-
-struct CrateReadout
-{
-    using ProtectedParserCounters = mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters>;
-
-    mvlc::MVLC mvlc;
-    //std::unique_ptr<mvlc::ReadoutBufferQueues> readoutSnoopQueues; // unused but required for mvlc::ReadoutWorker
-    std::unique_ptr<mvlc::ReadoutWorker> readoutWorker;
-
-    // Buffer queues between the readout worker and the readout parser. Filled
-    // by an instance of BufferQueuesWriteHandle, emptied by the readout
-    // parser.
-    std::unique_ptr<mvlc::ReadoutBufferQueues> listfileBufferQueues;
-
-    mvlc::readout_parser::ReadoutParserState parserState;
-    std::unique_ptr<ProtectedParserCounters> parserCounters;
-    mvlc::readout_parser::ReadoutParserCallbacks parserCallbacks;
-    std::unique_ptr<std::atomic<bool>> parserQuit;
-    std::thread parserThread;
-
-    //CrateReadout() {}
-    //CrateReadout(CrateReadout &&) = default;
-    //CrateReadout(const CrateReadout &) = delete;
-};
-
-struct MultiCrateReadout
-{
-    std::unique_ptr<mvlc::ReadoutBufferQueues> readoutSnoopQueues; // unused but required for mvlc::ReadoutWorker
-
-    std::vector<CrateReadout> crateReadouts;
-
-    mvlc::EventBuilder eventBuilder;
-    mvlc::readout_parser::ReadoutParserCallbacks eventBuilderCallbacks;
-    std::thread eventBuilderThread;
-
-    std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedSnoopQueues;
-    std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedListfileQueues;
-};
-
 // listfile::WriteHandle implementation which enqueues the data onto the given
 // ReadoutBufferQueues. The queues are used in a blocking fashion which means
 // write() will block if the consuming side is too slow.
@@ -172,10 +121,10 @@ struct MultiCrateReadout
 // FIXME (maybe): using the WriteHandle interface leads to having to create
 // another copy of the readout buffer (the first copy is done in
 // mvlc::ReadoutWorker::Private::flushCurrentOutputBuffer()).
-class BufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
+class BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
 {
     public:
-        BufferQueuesWriteHandle(
+        BlockingBufferQueuesWriteHandle(
             mvlc::ReadoutBufferQueues &destQueues,
             mvlc::ConnectionType connectionType
             )
@@ -202,6 +151,62 @@ class BufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
         mvlc::ReadoutBufferQueues &destQueues_;
         mvlc::ConnectionType connectionType_;
         u32 nextBufferNumber_ = 1u;
+};
+
+
+// Chain to build:
+// mvlc::ReadoutWorker -> listfile::WriteHandle
+//   -> [write  single crate listfile to disk]
+//   -> Queue -> ReadoutParser [-> MultiEventSplitter ] -> EventBuilder::recordEventData()
+//   -> EventBuilder -> MergedQueue
+//   -> MergedQueue -> Analysis
+//                  -> MergedListfile
+//
+// Can leave out the merged queue in the fist iteration and directly call into
+// the analysis but this makes EventBuilder and analysis run in the same
+// thread.
+
+// Threads, ReadoutWorker, ReadoutParser, EventBuilder, Analysis
+
+struct CrateReadout
+{
+    using ProtectedParserCounters = mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters>;
+
+    std::unique_ptr<mvme_mvlc::MVLC_VMEController> mvlcController;
+    mvlc::MVLC mvlc;
+    // unused but required for mvlc::ReadoutWorker instances.
+    std::unique_ptr<mvlc::ReadoutBufferQueues> readoutSnoopQueues;
+    std::unique_ptr<mvlc::ReadoutWorker> readoutWorker;
+
+    // Buffer queues between the readout worker and the readout parser. Filled
+    // by an instance of BlockingBufferQueuesWriteHandle, emptied by the
+    // readout parser.
+    std::unique_ptr<mvlc::ReadoutBufferQueues> readoutBufferQueues;
+    std::unique_ptr<BlockingBufferQueuesWriteHandle> readoutWriteHandle;
+
+    mvlc::readout_parser::ReadoutParserState parserState;
+    std::unique_ptr<ProtectedParserCounters> parserCounters;
+    mvlc::readout_parser::ReadoutParserCallbacks parserCallbacks;
+    std::unique_ptr<std::atomic<bool>> parserQuit;
+    std::thread parserThread;
+
+    //CrateReadout() {}
+    //CrateReadout(CrateReadout &&) = default;
+    //CrateReadout(const CrateReadout &) = delete;
+};
+
+struct MultiCrateReadout
+{
+
+    std::vector<CrateReadout> crateReadouts;
+
+    std::unique_ptr<mvlc::EventBuilder> eventBuilder;
+    mvlc::readout_parser::ReadoutParserCallbacks eventBuilderCallbacks;
+    std::unique_ptr<std::atomic<bool>> eventBuilderQuit;
+    std::thread eventBuilderThread;
+
+    std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedSnoopQueues;
+    std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedListfileQueues;
 };
 
 } // end namespace multi_crate
