@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 
     // EventBuilder setup
     mvlc::EventBuilderConfig ebSetup;
+
     {
         int maxCrossCrateEventIndex = *std::max_element(
             std::begin(crossCrateEvents), std::end(crossCrateEvents));
@@ -152,15 +153,36 @@ int main(int argc, char *argv[])
         mvlc::readout_parser::ReadoutParserCallbacks &callbacks,
         std::atomic<bool> &quit)
     {
+        spdlog::info("run_event_builder thread starting");
+
         while (!quit)
             eventBuilder.buildEvents(callbacks);
 
         // flush
         eventBuilder.buildEvents(callbacks, true);
+
+        spdlog::info("run_event_builder thread done");
     };
 
     mcrdo.eventBuilder = std::make_unique<mvlc::EventBuilder>(ebSetup);
     mcrdo.eventBuilderQuit = std::make_unique<std::atomic<bool>>(false);
+    mcrdo.eventBuilderCallbacks.eventData = [] (
+        void *userContext, int ci, int ei,
+        const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+    {
+        (void) userContext;
+        spdlog::info("eb.eventData: ci={}, ei={}, moduleCount={}",
+                     ci, ei, moduleCount);
+    };
+
+    mcrdo.eventBuilderCallbacks.systemEvent = [] (
+        void *userContext, int ci, const u32 *header, u32 size)
+    {
+        (void) userContext;
+        spdlog::info("eb.systemEvent: ci={}, size={}",
+                     ci, size);
+    };
+
     mcrdo.eventBuilderThread = std::thread(
         run_event_builder,
         std::ref(*mcrdo.eventBuilder),
@@ -169,8 +191,9 @@ int main(int argc, char *argv[])
 
     // Build a CrateReadout structure for each crate
 
-    for (const auto &conf: crateVMEConfigs)
+    for (size_t ci=0; ci<crateVMEConfigs.size(); ++ci)
     {
+        const auto &conf = crateVMEConfigs[ci];
         mcrdo.crateReadouts.emplace_back(CrateReadout());
         auto &crdo = mcrdo.crateReadouts.back();
 
@@ -192,7 +215,7 @@ int main(int argc, char *argv[])
         // ReadoutWorker -> ReadoutParser
         crdo.readoutBufferQueues = std::make_unique<mvlc::ReadoutBufferQueues>();
         crdo.readoutWriteHandle = std::make_unique<BlockingBufferQueuesWriteHandle>(
-            *crdo.readoutSnoopQueues, crdo.mvlc.connectionType());
+            *crdo.readoutBufferQueues, crdo.mvlc.connectionType());
 
         // mvlc::CrateConfig
         auto crateConfig = mvme::vmeconfig_to_crateconfig(conf.get());
@@ -207,10 +230,31 @@ int main(int argc, char *argv[])
         crdo.readoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
         crdo.readoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);
 
-        // ReadoutParser (TODO: setup the callbacks calling into the event builder)
+        // ReadoutParser pushing data into the EventBuilder
         crdo.parserState = mvlc::readout_parser::make_readout_parser(
-            mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks));
+            mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks), ci);
         crdo.parserCounters = std::make_unique<CrateReadout::ProtectedParserCounters>();
+
+        crdo.parserCallbacks.eventData = [&mcrdo] (
+            void *userContext, int ci, int ei,
+            const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+        {
+            (void) userContext;
+            spdlog::info("parser.eventData: ci={}, ei={}, moduleCount={}",
+                         ci, ei, moduleCount);
+            mcrdo.eventBuilder->recordEventData(ci, ei, moduleDataList, moduleCount);
+        };
+
+        crdo.parserCallbacks.systemEvent = [&mcrdo] (
+            void *userContext, int ci, const u32 *header, u32 size)
+        {
+            // XXX: leftoff here. It's crashing and I don't know why
+            (void) userContext;
+            spdlog::info("parser.systemEvent: ci={}, size={}",
+                         ci, size);
+            //mcrdo.eventBuilder->recordSystemEvent(ci, header, size);
+        };
+
         crdo.parserQuit = std::make_unique<std::atomic<bool>>(false);
         crdo.parserThread = std::thread(
             mvlc::readout_parser::run_readout_parser,
@@ -242,6 +286,7 @@ int main(int argc, char *argv[])
             spdlog::error("crate{}: {}", ci, msg.toStdString());
         };
 
+        crdo.mvlcController->getMVLCObject()->setDisableTriggersOnConnect(true);
         auto err = crdo.mvlcController->open();
 
         if (err.isError())
@@ -262,6 +307,27 @@ int main(int argc, char *argv[])
                 fmt::format("crate{}: error running daq start sequence", ci));
         }
     }
+
+    // Start each readoutWorker. Do this in reverse crate order so that the
+    // main crate is started last.
+
+    for (auto it=mcrdo.crateReadouts.rbegin(); it!=mcrdo.crateReadouts.rend(); ++it)
+    {
+        auto ci = it - mcrdo.crateReadouts.rbegin();
+        spdlog::info("Starting readout for crate {}", ci);
+
+        auto f = it->readoutWorker->start();
+        auto ec = f.get();
+
+        if (ec)
+        {
+            throw std::runtime_error(
+                fmt::format("Error starting readout for crate {}: {}",
+                            ci, ec.message()));
+        }
+    }
+
+    std::this_thread::sleep_for(std::chrono::seconds(10));
 
     return 0;
 }
