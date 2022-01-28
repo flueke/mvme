@@ -547,5 +547,26 @@ mvlc::StackCommandBuilder make_module_init_stack(const VMEConfig &config)
     return stack;
 }
 
+std::vector<mvlc::StackCommandBuilder> sanitize_readout_stacks(
+    const std::vector<mvlc::StackCommandBuilder> &inputStacks)
+{
+    std::vector<mvlc::StackCommandBuilder> sanitizedReadoutStacks;
+
+    for (auto &srcStack: inputStacks)
+    {
+        mvlc::StackCommandBuilder dstStack;
+
+        for (const auto &srcGroup: srcStack.getGroups())
+        {
+            if (mvlc::produces_output(srcGroup))
+                dstStack.addGroup(srcGroup);
+        }
+
+        sanitizedReadoutStacks.emplace_back(dstStack);
+    }
+
+    return sanitizedReadoutStacks;
+}
+
 } // end namespace mvme_mvlc
 } // end namespace mesytec

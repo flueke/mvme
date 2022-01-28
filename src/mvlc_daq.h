@@ -22,6 +22,7 @@
 #define __MVME_MVLC_DAQ_H__
 
 #include "libmvme_export.h"
+#include <mesytec-mvlc/mvlc_command_builders.h>
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_trigger_io.h"
 #include "vme_config.h"
@@ -81,6 +82,16 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO LIBMVME_EXPORT
 void LIBMVME_EXPORT update_trigger_io_inplace(const VMEConfig &vmeConfig);
 
 mvlc::StackCommandBuilder make_module_init_stack(const VMEConfig &vmeConfig);
+
+// Removes non-output-producing command groups from each of the readout
+// stacks. This is done because the converted CrateConfig contains
+// groups for the "Cycle Start" and "Cycle End" event scripts which do
+// not produce any output. Having a Cycle Start script (called
+// "readout_start" in the CrateConfig) will confuse the readout parser
+// because the readout stack group indexes and the mvme module indexes
+// won't match up.
+std::vector<mvlc::StackCommandBuilder> sanitize_readout_stacks(
+    const std::vector<mvlc::StackCommandBuilder> &inputStacks);
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec
