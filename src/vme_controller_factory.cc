@@ -51,7 +51,7 @@ VMEController *VMEControllerFactory::makeController(const QVariantMap &settings)
     auto make_mvlc_ctrl = [](mvlc::MVLC &mvlc)
     {
         // Dependencies of the MVLC_VMEController object:
-        // MVLC_VMEController -> MVLCObject -> (eth|usb)::Impl
+        // MVLC_VMEController -> MVLCObject -> mvme:MVLC -> (eth|usb)::Impl
         //
         // Note that the ownership transfer is not required by the API itself.
         // It's only done to have a valid parent for MVLCObject and not leak anything.
