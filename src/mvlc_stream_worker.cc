@@ -29,6 +29,7 @@
 #include "analysis/analysis_session.h"
 #include "databuffer.h"
 #include "mesytec-mvlc/mvlc_command_builders.h"
+#include "mvlc_daq.h"
 #include "mvme_context.h"
 #include "vme_config_scripts.h"
 #include "vme_analysis_common.h"
@@ -552,23 +553,9 @@ void MVLC_StreamWorker::start()
         // "readout_start" in the CrateConfig) will confuse the readout parser
         // because the readout stack group indexes and the mvme module indexes
         // won't match up.
-        std::vector<mvlc::StackCommandBuilder> sanitizedReadoutStacks;
 
-        for (auto &srcStack: mvlcCrateConfig.stacks)
-        {
-            mvlc::StackCommandBuilder dstStack;
-
-            for (const auto &srcGroup: srcStack.getGroups())
-            {
-                if (mvlc::produces_output(srcGroup))
-                    dstStack.addGroup(srcGroup);
-            }
-
-            logger->trace("produces output: originalStack: {}, sanitizedStack: {}",
-                          produces_output(srcStack), produces_output(dstStack));
-
-            sanitizedReadoutStacks.emplace_back(dstStack);
-        }
+        auto sanitizedReadoutStacks = mvme_mvlc::sanitize_readout_stacks(
+            mvlcCrateConfig.stacks);
 
         m_parser = mesytec::mvlc::readout_parser::make_readout_parser(
             sanitizedReadoutStacks);
