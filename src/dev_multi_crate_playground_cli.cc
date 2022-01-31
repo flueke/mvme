@@ -191,6 +191,11 @@ int main(int argc, char *argv[])
 
     // Build a CrateReadout structure for each crate
 
+    // FIXME: to avoid reallocations during the loop so that the refs passed to
+    // the run_readout_parser thread stay valid. Find a better to deal with
+    // this (if it event works).
+    mcrdo.crateReadouts.reserve(crateVMEConfigs.size());
+
     for (size_t ci=0; ci<crateVMEConfigs.size(); ++ci)
     {
         const auto &conf = crateVMEConfigs[ci];
