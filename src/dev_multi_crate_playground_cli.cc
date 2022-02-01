@@ -181,12 +181,20 @@ int main(int argc, char *argv[])
     spdlog::info("Linear module index for module (ci=0, ei=0, mi=0): {}", mcrdo.eventBuilder->getLinearModuleIndex(0, 0, 0));
     spdlog::info("Linear module index for module (ci=1, ei=0, mi=0): {}", mcrdo.eventBuilder->getLinearModuleIndex(1, 0, 0));
 
+    std::map<int, std::map<int, std::map<int, size_t>>> ebOutputCounts;
+
     mcrdo.eventBuilderQuit = std::make_unique<std::atomic<bool>>(false);
-    mcrdo.eventBuilderCallbacks.eventData = [] (
+    mcrdo.eventBuilderCallbacks.eventData = [&ebOutputCounts] (
         void *userContext, int ci, int ei,
         const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
     {
         (void) userContext;
+
+        for (unsigned mi=0; mi<moduleCount;++mi)
+        {
+            if (moduleDataList[mi].data.size)
+                ++ebOutputCounts[ci][ei][mi];
+        }
         //spdlog::info("eb.eventData: ci={}, ei={}, moduleCount={}",
         //             ci, ei, moduleCount);
     };
@@ -290,6 +298,8 @@ int main(int argc, char *argv[])
     assert(crateVMEConfigs.size() == mcrdo.crateReadouts.size());
 
     // Run the mvme daq start sequence for each crate. Abort if one fails.
+    // This can be done in crate order as no triggers should be enabled after
+    // the start sequence.
 
     for (size_t ci=0; ci<crateVMEConfigs.size(); ++ci)
     {
@@ -347,7 +357,21 @@ int main(int argc, char *argv[])
         }
     }
 
-    auto timeToRun = std::chrono::seconds(10);
+    // XXX: Debugging why the master does not receive its own SlaveTrigger
+    // during the mcst daq start sequence. It does work when manually running
+    // the same script in mvme while the DAQ is ready and running.
+#if 0
+    {
+        spdlog::warn("Manually running main crate mcst DAQ start sequence");
+        auto crateConfig = mvme::vmeconfig_to_crateconfig(crateVMEConfigs[0].get());
+        auto results = mvlc::run_commands(mcrdo.crateReadouts[0].mvlc, crateConfig.mcstDaqStart);
+        for (const auto &r: results)
+            spdlog::warn("  cmd={}, ec={}", to_string(r.cmd), r.ec.message());
+        spdlog::warn("Done with main crate mcst DAQ start sequence");
+    }
+#endif
+
+    const auto timeToRun = std::chrono::seconds(10);
 
     spdlog::info("Running DAQ for {} seconds", timeToRun.count());
 
@@ -355,9 +379,13 @@ int main(int argc, char *argv[])
 
     spdlog::info("Stopping DAQ");
 
-    for (auto it=mcrdo.crateReadouts.rbegin(); it!=mcrdo.crateReadouts.rend(); ++it)
+    // Stop the crate readouts in ascending crate order so that the master
+    // event DAQ stops scripts are run before the slave readouts are stopped.
+    // Otherwise the slaves will not execute their stacks in response to slave
+    // triggers.
+    for (auto it=mcrdo.crateReadouts.begin(); it!=mcrdo.crateReadouts.end(); ++it)
     {
-        auto ci = mcrdo.crateReadouts.rend() - it - 1;
+        auto ci = it - mcrdo.crateReadouts.begin();
         spdlog::info("Stopping readout for crate{}", ci);
 
         if (auto ec = it->readoutWorker->stop())
