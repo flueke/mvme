@@ -1,4 +1,5 @@
 #include <array>
+#include <chrono>
 #include <fmt/format.h>
 #include <memory>
 #include <spdlog/spdlog.h>
@@ -46,9 +47,14 @@ int main(int argc, char *argv[])
 }
 #endif
 
-void logger(const QString &msg)
+void global_logger(const QString &msg)
 {
     spdlog::info(msg.toStdString());
+}
+
+void global_error_logger(const QString &msg)
+{
+    spdlog::error(msg.toStdString());
 }
 
 int main(int argc, char *argv[])
@@ -132,12 +138,15 @@ int main(int argc, char *argv[])
                     for (int mi=0; mi<eventConfig->getModuleConfigs().size(); ++mi)
                     {
                         // FIXME: these values must be configurable
-                        // TODO: check if the module should be ignored from event builder timestamp matching
+                        // TODO: check if the module should be ignored from
+                        // event builder timestamp matching and use the
+                        // InvalidTimestampExtractor in that case.
                         crateSetup.moduleTimestampExtractors.emplace_back(
                             mvlc::IndexedTimestampFilterExtractor(
                                 a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
-                        crateSetup.moduleMatchWindows.push_back(
-                            mvlc::event_builder::DefaultMatchWindow);
+                        //auto matchWindow = std::make_pair(-1000, 1000);
+                        auto matchWindow = mvlc::event_builder::DefaultMatchWindow;
+                        crateSetup.moduleMatchWindows.push_back(matchWindow);
                     }
 
                     eventSetup.crateSetups.emplace_back(crateSetup);
@@ -165,22 +174,29 @@ int main(int argc, char *argv[])
     };
 
     mcrdo.eventBuilder = std::make_unique<mvlc::EventBuilder>(ebSetup);
+
+    for (auto ei: crossCrateEvents)
+        assert(mcrdo.eventBuilder->isEnabledFor(ei));
+
+    spdlog::info("Linear module index for module (ci=0, ei=0, mi=0): {}", mcrdo.eventBuilder->getLinearModuleIndex(0, 0, 0));
+    spdlog::info("Linear module index for module (ci=1, ei=0, mi=0): {}", mcrdo.eventBuilder->getLinearModuleIndex(1, 0, 0));
+
     mcrdo.eventBuilderQuit = std::make_unique<std::atomic<bool>>(false);
     mcrdo.eventBuilderCallbacks.eventData = [] (
         void *userContext, int ci, int ei,
         const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
     {
         (void) userContext;
-        spdlog::info("eb.eventData: ci={}, ei={}, moduleCount={}",
-                     ci, ei, moduleCount);
+        //spdlog::info("eb.eventData: ci={}, ei={}, moduleCount={}",
+        //             ci, ei, moduleCount);
     };
 
     mcrdo.eventBuilderCallbacks.systemEvent = [] (
         void *userContext, int ci, const u32 *header, u32 size)
     {
         (void) userContext;
-        spdlog::info("eb.systemEvent: ci={}, size={}",
-                     ci, size);
+        //spdlog::info("eb.systemEvent: ci={}, size={}",
+        //             ci, size);
     };
 
     mcrdo.eventBuilderThread = std::thread(
@@ -191,9 +207,9 @@ int main(int argc, char *argv[])
 
     // Build a CrateReadout structure for each crate
 
-    // FIXME: to avoid reallocations during the loop so that the refs passed to
-    // the run_readout_parser thread stay valid. Find a better to deal with
-    // this (if it event works).
+    // FIXME: reserving to avoid reallocations during the loop so that the refs
+    // passed to the run_readout_parser thread stay valid. Find a better to
+    // deal with this.
     mcrdo.crateReadouts.reserve(crateVMEConfigs.size());
 
     for (size_t ci=0; ci<crateVMEConfigs.size(); ++ci)
@@ -215,7 +231,7 @@ int main(int argc, char *argv[])
         // StackTriggers
         std::vector<u32> stackTriggers;
         std::error_code ec;
-        std::tie(stackTriggers, ec) = mvme_mvlc::get_trigger_values(*conf, logger);
+        std::tie(stackTriggers, ec) = mvme_mvlc::get_trigger_values(*conf, global_logger);
 
         // ReadoutWorker -> ReadoutParser
         crdo.readoutBufferQueues = std::make_unique<mvlc::ReadoutBufferQueues>();
@@ -245,19 +261,18 @@ int main(int argc, char *argv[])
             const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
         {
             (void) userContext;
-            spdlog::info("parser.eventData: ci={}, ei={}, moduleCount={}",
-                         ci, ei, moduleCount);
+            //spdlog::info("parser.eventData: ci={}, ei={}, moduleCount={}",
+            //             ci, ei, moduleCount);
             mcrdo.eventBuilder->recordEventData(ci, ei, moduleDataList, moduleCount);
         };
 
         crdo.parserCallbacks.systemEvent = [&mcrdo] (
             void *userContext, int ci, const u32 *header, u32 size)
         {
-            // XXX: leftoff here. It's crashing and I don't know why
             (void) userContext;
-            spdlog::info("parser.systemEvent: ci={}, size={}",
-                         ci, size);
-            //mcrdo.eventBuilder->recordSystemEvent(ci, header, size);
+            //spdlog::info("parser.systemEvent: ci={}, size={}",
+            //             ci, size);
+            mcrdo.eventBuilder->recordSystemEvent(ci, header, size);
         };
 
         crdo.parserQuit = std::make_unique<std::atomic<bool>>(false);
@@ -318,7 +333,7 @@ int main(int argc, char *argv[])
 
     for (auto it=mcrdo.crateReadouts.rbegin(); it!=mcrdo.crateReadouts.rend(); ++it)
     {
-        auto ci = it - mcrdo.crateReadouts.rbegin();
+        auto ci = mcrdo.crateReadouts.rend() - it - 1;
         spdlog::info("Starting readout for crate {}", ci);
 
         auto f = it->readoutWorker->start();
@@ -327,12 +342,97 @@ int main(int argc, char *argv[])
         if (ec)
         {
             throw std::runtime_error(
-                fmt::format("Error starting readout for crate {}: {}",
+                fmt::format("Error starting readout for crate{}: {}",
                             ci, ec.message()));
         }
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    auto timeToRun = std::chrono::seconds(10);
+
+    spdlog::info("Running DAQ for {} seconds", timeToRun.count());
+
+    std::this_thread::sleep_for(timeToRun);
+
+    spdlog::info("Stopping DAQ");
+
+    for (auto it=mcrdo.crateReadouts.rbegin(); it!=mcrdo.crateReadouts.rend(); ++it)
+    {
+        auto ci = mcrdo.crateReadouts.rend() - it - 1;
+        spdlog::info("Stopping readout for crate{}", ci);
+
+        if (auto ec = it->readoutWorker->stop())
+        {
+            spdlog::warn("Error stopping readout for crate{}: {}",
+                         ci, ec.message());
+        }
+        else
+        {
+            while (it->readoutWorker->state() != mvlc::ReadoutWorker::State::Idle)
+            {
+                it->readoutWorker->waitableState().wait_for(
+                    std::chrono::milliseconds(100),
+                    [] (const mvlc::ReadoutWorker::State &state)
+                    {
+                        return state == mvlc::ReadoutWorker::State::Idle;
+                    });
+            }
+
+            spdlog::info("Stopped readout for crate{}", ci);
+        }
+
+        spdlog::info("Running DAQ stop sequence for crate{}", ci);
+
+        auto logger = [ci] (const QString &msg)
+        {
+            spdlog::info("crate{}: {}", ci, msg.toStdString());
+        };
+
+        auto error_logger = [ci] (const QString &msg)
+        {
+            spdlog::error("crate{}: {}", ci, msg.toStdString());
+        };
+
+        auto stopResults = mvlc_daq_shutdown(
+            crateVMEConfigs[ci].get(),
+            it->mvlcController.get(),
+            logger, error_logger);
+
+        spdlog::info("Stopping readout parser for crate{}", ci);
+        *it->parserQuit = true;
+
+        if (it->parserThread.joinable())
+            it->parserThread.join();
+
+        spdlog::info("Stopped readout parser for crate{}", ci);
+    }
+
+    spdlog::info("Stopping EventBuilder");
+
+    *mcrdo.eventBuilderQuit = true;
+    if (mcrdo.eventBuilderThread.joinable())
+        mcrdo.eventBuilderThread.join();
+
+    spdlog::info("Stopped EventBuilder");
+
+    auto ebCounters = mcrdo.eventBuilder->getCounters();
+
+    spdlog::info("EventBuilder max mem usage: {}", ebCounters.maxMemoryUsage);
+
+    for (size_t ei=0; ei<ebCounters.eventCounters.size(); ++ei)
+    {
+        auto &modCounters = ebCounters.eventCounters.at(ei);
+        for (size_t mi=0; mi<modCounters.discardedEvents.size(); ++mi)
+        {
+            spdlog::info(
+                "  ei={}, mi={}, totalHits={}, discarded={}, empties={}, invScoreSum={}",
+                ei, mi,
+                modCounters.totalHits.at(mi),
+                modCounters.discardedEvents.at(mi),
+                modCounters.emptyEvents.at(mi),
+                modCounters.invScoreSums.at(mi)
+                );
+        }
+    }
 
     return 0;
 }
