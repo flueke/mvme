@@ -139,7 +139,7 @@ vme_daq_shutdown(
     std::function<void (const QString &)> errorLogger,
     vme_script::run_script_options::Flag opts = 0);
 
-// Since 1.4.0-beta the mvlc runs the mcast event daq start scripts in the
+// Since 1.4.0-beta the mvlc runs the mcast event daq stop scripts in the
 // readout worker. This version of the shutdown function only runs the global
 // daq stop scripts.
 QVector<ScriptWithResults>
