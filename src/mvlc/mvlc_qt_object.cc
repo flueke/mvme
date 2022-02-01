@@ -44,7 +44,7 @@ MVLCObject::MVLCObject(mvlc::MVLC mvlc, QObject *parent)
 
 MVLCObject::~MVLCObject()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << this->getConnectionInfo();
+    //qDebug() << __PRETTY_FUNCTION__ << this << this->getConnectionInfo();
 }
 
 void MVLCObject::setState(const State &newState)
