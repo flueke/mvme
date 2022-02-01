@@ -10,5 +10,5 @@ set trigger_index 0                         # valid values: 0-7 (trigger_resourc
 
 set trigger_unit $(4 + ${trigger_index})    # Level0 Units 4-11
 0x0200 ${trigger_unit}                      # select the unit
-0x0302 0                                    # write to the soft_trigger output activation register
-                                            # 0: generate a 8ns pulse, 1: set the output to permanently 1
+0x0302 1                                    # write to the soft_trigger output activation register
+                                            # to generate an 8 ns pulse.
