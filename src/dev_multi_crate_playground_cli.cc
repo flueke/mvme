@@ -284,9 +284,9 @@ int main(int argc, char *argv[])
         };
 
         crdo.parserQuit = std::make_unique<std::atomic<bool>>(false);
+        // XXX: careful with the refs (see above)!
         crdo.parserThread = std::thread(
             mvlc::readout_parser::run_readout_parser,
-            // FIXME: does the ref stay valid when moving crdo? use a unique_ptr here too?
             std::ref(crdo.parserState),
             std::ref(*crdo.parserCounters),
             std::ref(*crdo.readoutBufferQueues),
@@ -357,20 +357,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    // XXX: Debugging why the master does not receive its own SlaveTrigger
-    // during the mcst daq start sequence. It does work when manually running
-    // the same script in mvme while the DAQ is ready and running.
-#if 0
-    {
-        spdlog::warn("Manually running main crate mcst DAQ start sequence");
-        auto crateConfig = mvme::vmeconfig_to_crateconfig(crateVMEConfigs[0].get());
-        auto results = mvlc::run_commands(mcrdo.crateReadouts[0].mvlc, crateConfig.mcstDaqStart);
-        for (const auto &r: results)
-            spdlog::warn("  cmd={}, ec={}", to_string(r.cmd), r.ec.message());
-        spdlog::warn("Done with main crate mcst DAQ start sequence");
-    }
-#endif
-
     const auto timeToRun = std::chrono::seconds(10);
 
     spdlog::info("Running DAQ for {} seconds", timeToRun.count());
@@ -380,7 +366,7 @@ int main(int argc, char *argv[])
     spdlog::info("Stopping DAQ");
 
     // Stop the crate readouts in ascending crate order so that the master
-    // event DAQ stops scripts are run before the slave readouts are stopped.
+    // event DAQ stop scripts are run before the slave readouts are stopped.
     // Otherwise the slaves will not execute their stacks in response to slave
     // triggers.
     for (auto it=mcrdo.crateReadouts.begin(); it!=mcrdo.crateReadouts.end(); ++it)

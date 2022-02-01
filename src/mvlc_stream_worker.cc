@@ -357,7 +357,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         logger->trace("f={}, header={}, size={}", lambdaName,
                       reinterpret_cast<const void *>(header), size);
 
-        // Note: we could directory call systemEvent_analysis here as we are in
+        // Note: we could directly call systemEvent_analysis here as we are in
         // the same thread as the analysis. Otherwise the analysis would live
         // in the builder/analysis thread and buildEvents() would be called in
         // that thread.
