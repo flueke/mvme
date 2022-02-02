@@ -153,6 +153,101 @@ class BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
         u32 nextBufferNumber_ = 1u;
 };
 
+struct EventBuilderOutputBufferWriter
+{
+    /* TODO:
+     *
+     * - find a better name for the struct
+     * - if writing a listfile using the output of the EventBuilder
+     *   vmeconfig and beginrun/endrun sections are needed.
+     * - forced flush due to timeout and at the end of a run
+     */
+
+
+    using ModuleData = mvlc::readout_parser::ModuleData;
+
+    EventBuilderOutputBufferWriter(mvlc::ReadoutBufferQueues &snoopQueues)
+        : snoopQueues_(snoopQueues)
+    {
+    }
+
+    ~EventBuilderOutputBufferWriter()
+    {
+        flushCurrentOutputBuffer();
+
+        if (outputBuffer_)
+        {
+            snoopQueues_.emptyBufferQueue().enqueue(outputBuffer_);
+            outputBuffer_ = nullptr;
+        }
+    }
+
+    void eventData(int ci, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+    {
+        if (auto dest = getOutputBuffer())
+        {
+            mvlc::listfile::write_module_data(
+                *dest, ci, ei, moduleDataList, moduleCount);
+            maybeFlushOutputBuffer();
+        }
+        // else: data is dropped
+    }
+
+    void systemEvent(int ci, const u32 *header, u32 size)
+    {
+        if (auto dest = getOutputBuffer())
+        {
+            mvlc::listfile::write_system_event(
+                *dest, ci, header, size);
+            maybeFlushOutputBuffer();
+        }
+        // else: data is dropped
+    }
+
+    mvlc::ReadoutBuffer *getOutputBuffer()
+    {
+        if (!outputBuffer_)
+        {
+            outputBuffer_ = snoopQueues_.emptyBufferQueue().dequeue();
+
+            if (outputBuffer_)
+            {
+                outputBuffer_->clear();
+                outputBuffer_->setBufferNumber(nextOutputBufferNumber_++);
+                outputBuffer_->setType(mvlc::ConnectionType::USB);
+            }
+        }
+
+        return outputBuffer_;
+    }
+
+    void flushCurrentOutputBuffer()
+    {
+        if (outputBuffer_ && outputBuffer_->used() > 0)
+        {
+            snoopQueues_.filledBufferQueue().enqueue(outputBuffer_);
+            outputBuffer_ = nullptr;
+            lastFlushTime_ = std::chrono::steady_clock::now();
+        }
+    }
+
+    void maybeFlushOutputBuffer()
+    {
+        if (!outputBuffer_ || outputBuffer_->empty())
+            return;
+
+        if (std::chrono::steady_clock::now() - lastFlushTime_ >= FlushBufferInterval)
+            flushCurrentOutputBuffer();
+    }
+
+    mvlc::ReadoutBufferQueues &snoopQueues_;
+    mvlc::ReadoutBuffer *outputBuffer_ = nullptr;
+    u32 nextOutputBufferNumber_ = 1u;
+    std::chrono::steady_clock::time_point lastFlushTime_ = std::chrono::steady_clock::now();;
+    const std::chrono::milliseconds FlushBufferInterval = std::chrono::milliseconds(500);
+};
+
+
 
 // Chain to build:
 // mvlc::ReadoutWorker -> listfile::WriteHandle
@@ -205,8 +300,8 @@ struct MultiCrateReadout
     std::unique_ptr<std::atomic<bool>> eventBuilderQuit;
     std::thread eventBuilderThread;
 
-    std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedSnoopQueues;
-    std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedListfileQueues;
+    std::unique_ptr<mvlc::ReadoutBufferQueues> eventBuilderSnoopOutputQueues;
+    //std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedListfileQueues;
 };
 
 } // end namespace multi_crate

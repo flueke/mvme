@@ -2061,11 +2061,11 @@ class LIBMVME_EXPORT Analysis:
             KeepState,
         };
 
-        void beginRun(BeginRunOption option, const VMEConfig *vmeConfig, Logger logger = {});
-
         // This overload of beginRun() reuses information that was previously
         // passed in one of the other beginRun() overloads. Bad design
         // everywhere.
+        void beginRun(BeginRunOption option, const VMEConfig *vmeConfig, Logger logger = {});
+
         void endRun();
 
         //
