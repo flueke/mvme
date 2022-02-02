@@ -6,12 +6,15 @@
 
 #include <QApplication>
 
+#include <mesytec-mvlc/event_builder.h>
+#include <mesytec-mvlc/mvlc_constants.h>
+#include <mesytec-mvlc/mvlc_readout_parser.h>
+#include <mesytec-mvlc/mvlc_readout_parser_util.h>
+#include <mesytec-mvlc/mvlc_readout_worker.h>
+#include <mesytec-mvlc/readout_buffer_queues.h>
+
 #include "analysis/a2/a2_data_filter.h"
-#include "mesytec-mvlc/event_builder.h"
-#include "mesytec-mvlc/mvlc_readout_parser.h"
-#include "mesytec-mvlc/mvlc_readout_parser_util.h"
-#include "mesytec-mvlc/mvlc_readout_worker.h"
-#include "mesytec-mvlc/readout_buffer_queues.h"
+#include "analysis/analysis.h"
 #include "multi_crate.h"
 #include "mvlc_daq.h"
 #include "mvlc/mvlc_vme_controller.h"
@@ -59,6 +62,10 @@ void global_error_logger(const QString &msg)
 
 int main(int argc, char *argv[])
 {
+    mvlc::ReadoutBuffer buffer;
+
+    mvlc::listfile::write_module_data(buffer, 0, 0, nullptr, 0);
+
     QApplication app(argc, argv);
     mvme_init("dev_multi_crate_playground_cli");
 
@@ -114,6 +121,19 @@ int main(int argc, char *argv[])
     // MultiCrate readout instance
     MultiCrateReadout mcrdo;
 
+    // Create an empty analysis. For a first test it's going to run in the
+    // EventBuilder thread.
+
+    auto analysis_logger = [] (const QString &msg)
+    {
+        spdlog::info("analysis: {}", msg.toStdString());
+    };
+
+    RunInfo runInfo;
+    runInfo.runId = "foobar";
+    auto analysis = std::make_unique<analysis::Analysis>();
+    analysis->beginRun(runInfo, mergedVMEConfig.get(), analysis_logger);
+
     // EventBuilder setup
     mvlc::EventBuilderConfig ebSetup;
 
@@ -157,6 +177,55 @@ int main(int argc, char *argv[])
         ebSetup.setups = std::move(eventSetups);
     }
 
+    mcrdo.eventBuilder = std::make_unique<mvlc::EventBuilder>(ebSetup);
+
+    for (auto ei: crossCrateEvents)
+        assert(mcrdo.eventBuilder->isEnabledFor(ei));
+
+    spdlog::info("Linear module index for module (ci=0, ei=0, mi=0): {}",
+                 mcrdo.eventBuilder->getLinearModuleIndex(0, 0, 0));
+    spdlog::info("Linear module index for module (ci=1, ei=0, mi=0): {}",
+                 mcrdo.eventBuilder->getLinearModuleIndex(1, 0, 0));
+
+    std::map<int, std::map<int, std::map<int, size_t>>> ebOutputCounts;
+
+    mcrdo.eventBuilderQuit = std::make_unique<std::atomic<bool>>(false);
+    mcrdo.eventBuilderSnoopOutputQueues = std::make_unique<mvlc::ReadoutBufferQueues>();
+
+    mcrdo.eventBuilderCallbacks.eventData = [&ebOutputCounts, &analysis] (
+        void *userContext, int ci, int ei,
+        const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+    {
+        (void) userContext;
+
+        analysis->beginEvent(ei);
+        for (unsigned mi=0; mi<moduleCount;++mi)
+        {
+            auto &moduleData = moduleDataList[mi].data;
+
+            if (moduleData.size)
+            {
+                ++ebOutputCounts[ci][ei][mi];
+                analysis->processModuleData(ei, mi, moduleData.data, moduleData.size);
+            }
+        }
+        analysis->endEvent(ei);
+
+        //spdlog::info("eb.eventData: ci={}, ei={}, moduleCount={}",
+        //             ci, ei, moduleCount);
+    };
+
+    mcrdo.eventBuilderCallbacks.systemEvent = [&analysis] (
+        void *userContext, int ci, const u32 *header, u32 size)
+    {
+        // TODO: need to generate analysis timeticks. If it's a replay use the
+        // timeticks from the main crate (ci=0).
+        // If it's a live run use a TimetickGenerator.
+        (void) userContext;
+        //spdlog::info("eb.systemEvent: ci={}, size={}",
+        //             ci, size);
+    };
+
     auto run_event_builder = [] (
         mvlc::EventBuilder &eventBuilder,
         mvlc::readout_parser::ReadoutParserCallbacks &callbacks,
@@ -171,40 +240,6 @@ int main(int argc, char *argv[])
         eventBuilder.buildEvents(callbacks, true);
 
         spdlog::info("run_event_builder thread done");
-    };
-
-    mcrdo.eventBuilder = std::make_unique<mvlc::EventBuilder>(ebSetup);
-
-    for (auto ei: crossCrateEvents)
-        assert(mcrdo.eventBuilder->isEnabledFor(ei));
-
-    spdlog::info("Linear module index for module (ci=0, ei=0, mi=0): {}", mcrdo.eventBuilder->getLinearModuleIndex(0, 0, 0));
-    spdlog::info("Linear module index for module (ci=1, ei=0, mi=0): {}", mcrdo.eventBuilder->getLinearModuleIndex(1, 0, 0));
-
-    std::map<int, std::map<int, std::map<int, size_t>>> ebOutputCounts;
-
-    mcrdo.eventBuilderQuit = std::make_unique<std::atomic<bool>>(false);
-    mcrdo.eventBuilderCallbacks.eventData = [&ebOutputCounts] (
-        void *userContext, int ci, int ei,
-        const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
-    {
-        (void) userContext;
-
-        for (unsigned mi=0; mi<moduleCount;++mi)
-        {
-            if (moduleDataList[mi].data.size)
-                ++ebOutputCounts[ci][ei][mi];
-        }
-        //spdlog::info("eb.eventData: ci={}, ei={}, moduleCount={}",
-        //             ci, ei, moduleCount);
-    };
-
-    mcrdo.eventBuilderCallbacks.systemEvent = [] (
-        void *userContext, int ci, const u32 *header, u32 size)
-    {
-        (void) userContext;
-        //spdlog::info("eb.systemEvent: ci={}, size={}",
-        //             ci, size);
     };
 
     mcrdo.eventBuilderThread = std::thread(
@@ -447,6 +482,8 @@ int main(int argc, char *argv[])
                 );
         }
     }
+
+    analysis->endRun();
 
     return 0;
 }
