@@ -62,7 +62,7 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         std::error_code read(const QJsonObject &json);
         std::error_code write(QJsonObject &json) const;
 
-        vme_script::SymbolTable getVariables() const { return m_variables; }
+        const vme_script::SymbolTable &getVariables() const { return m_variables; }
 
         // Replaces the objects symboltable.
         void setVariables(const vme_script::SymbolTable &variables);
@@ -367,6 +367,11 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
             }
 
             return ret;
+        }
+
+        int moduleCount() const
+        {
+            return modules.size();
         }
 
         QList<ModuleConfig *> getModuleConfigs() const { return modules; }
