@@ -20,6 +20,7 @@
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_readout_worker.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
+#include "mvme_mvlc_listfile.h"
 #include "mvme_session.h"
 #include "vme_controller_factory.h"
 
@@ -62,10 +63,6 @@ void global_error_logger(const QString &msg)
 
 int main(int argc, char *argv[])
 {
-    mvlc::ReadoutBuffer buffer;
-
-    mvlc::listfile::write_module_data(buffer, 0, 0, nullptr, 0);
-
     QApplication app(argc, argv);
     mvme_init("dev_multi_crate_playground_cli");
 
@@ -163,7 +160,8 @@ int main(int argc, char *argv[])
                         // InvalidTimestampExtractor in that case.
                         crateSetup.moduleTimestampExtractors.emplace_back(
                             mvlc::IndexedTimestampFilterExtractor(
-                                a2::data_filter::make_filter("11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
+                                a2::data_filter::make_filter(
+                                    "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"), -1, 'D'));
                         //auto matchWindow = std::make_pair(-1000, 1000);
                         auto matchWindow = mvlc::event_builder::DefaultMatchWindow;
                         crateSetup.moduleMatchWindows.push_back(matchWindow);
@@ -192,7 +190,32 @@ int main(int argc, char *argv[])
     mcrdo.eventBuilderQuit = std::make_unique<std::atomic<bool>>(false);
     mcrdo.eventBuilderSnoopOutputQueues = std::make_unique<mvlc::ReadoutBufferQueues>();
 
-    mcrdo.eventBuilderCallbacks.eventData = [&ebOutputCounts, &analysis] (
+    mvlc::ReadoutBuffer ebOutputBuffer(Megabytes(1));
+
+    struct IOStreamWriteHandle: public mvlc::listfile::WriteHandle
+    {
+        IOStreamWriteHandle(std::ostream &out_)
+            : out(out_)
+        { }
+
+        size_t write(const u8 *data, size_t size) override
+        {
+            out.write(reinterpret_cast<const char *>(data), size);
+            return size;
+        }
+
+        std::ostream &out;
+    };
+
+    std::ofstream lfOut;
+    lfOut.open("multicrate_listfile.mvlcusb");
+
+    if (!lfOut.is_open())
+        throw std::runtime_error("Error opening output listfile for writing");
+
+    IOStreamWriteHandle lfwh(lfOut);
+
+    mcrdo.eventBuilderCallbacks.eventData = [&ebOutputCounts, &analysis, &ebOutputBuffer, &lfwh] (
         void *userContext, int ci, int ei,
         const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
     {
@@ -211,11 +234,20 @@ int main(int argc, char *argv[])
         }
         analysis->endEvent(ei);
 
+
+        mvlc::listfile::write_module_data(ebOutputBuffer, ci, ei, moduleDataList, moduleCount);
+
+        if (ebOutputBuffer.used() >= Megabytes(1))
+        {
+            listfile_write_raw(lfwh, ebOutputBuffer.data(), ebOutputBuffer.used());
+            ebOutputBuffer.clear();
+        }
+
         //spdlog::info("eb.eventData: ci={}, ei={}, moduleCount={}",
         //             ci, ei, moduleCount);
     };
 
-    mcrdo.eventBuilderCallbacks.systemEvent = [&analysis] (
+    mcrdo.eventBuilderCallbacks.systemEvent = [&analysis, &ebOutputBuffer, &lfwh] (
         void *userContext, int ci, const u32 *header, u32 size)
     {
         // TODO: need to generate analysis timeticks. If it's a replay use the
@@ -224,6 +256,14 @@ int main(int argc, char *argv[])
         (void) userContext;
         //spdlog::info("eb.systemEvent: ci={}, size={}",
         //             ci, size);
+
+        mvlc::listfile::write_system_event(ebOutputBuffer, ci, header, size);
+
+        if (ebOutputBuffer.used() >= Megabytes(1))
+        {
+            listfile_write_raw(lfwh, ebOutputBuffer.data(), ebOutputBuffer.used());
+            ebOutputBuffer.clear();
+        }
     };
 
     auto run_event_builder = [] (
@@ -250,9 +290,9 @@ int main(int argc, char *argv[])
 
     // Build a CrateReadout structure for each crate
 
-    // FIXME: reserving to avoid reallocations during the loop so that the refs
-    // passed to the run_readout_parser thread stay valid. Find a better to
-    // deal with this.
+    // FIXME: reserving here to avoid reallocations during the loop so that the
+    // refs passed to the run_readout_parser thread stay valid. Find a better
+    // to deal with this.
     mcrdo.crateReadouts.reserve(crateVMEConfigs.size());
 
     for (size_t ci=0; ci<crateVMEConfigs.size(); ++ci)
@@ -373,6 +413,20 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Write out the listfile preamble containing the merged CrateConfig and VMEConfig
+    //try
+    //{
+        auto mergedCrateConfig = mvme::vmeconfig_to_crateconfig(mergedVMEConfig.get());
+        mvlc::listfile::listfile_write_preamble(lfwh, mergedCrateConfig);
+        mvme_mvlc_listfile::listfile_write_mvme_config(lfwh, *mergedVMEConfig);
+    //}
+    //catch (const vme_script::ParseError &e)
+    //{
+    //    spdlog::error("Could not create MVLC CrateConfig from merged VMEConfig: {}",
+    //                  e.toString().toStdString());
+    //    throw;
+    //}
+
     // Start each readoutWorker. Do this in reverse crate order so that the
     // main crate is started last.
 
@@ -460,6 +514,13 @@ int main(int argc, char *argv[])
     *mcrdo.eventBuilderQuit = true;
     if (mcrdo.eventBuilderThread.joinable())
         mcrdo.eventBuilderThread.join();
+
+    // Flush out any leftover data to disk
+    if (ebOutputBuffer.used() > 0)
+    {
+        listfile_write_raw(lfwh, ebOutputBuffer.data(), ebOutputBuffer.used());
+        ebOutputBuffer.clear();
+    }
 
     spdlog::info("Stopped EventBuilder");
 
