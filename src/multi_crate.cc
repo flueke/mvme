@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <fmt/format.h>
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include "vme_config_scripts.h"
 
 namespace multi_crate
 {
@@ -43,13 +44,15 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_
 {
     MultiCrateModuleMappings mappings;
     size_t mergedEventCount = crossCrateEvents.size();
-
     std::vector<std::unique_ptr<EventConfig>> mergedEvents;
+
+    // Create the cross crate merged events.
 
     for (auto outEi=0u; outEi<mergedEventCount; ++outEi)
     {
         auto outEv = std::make_unique<EventConfig>();
         outEv->setObjectName(QSL("event%1").arg(outEi));
+        outEv->triggerCondition = TriggerCondition::TriggerIO;
 
         for (auto crateConf: crateConfigs)
         {
@@ -64,6 +67,23 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_
                     for (auto moduleConf: moduleConfigs)
                     {
                         auto moduleCopy = copy_config_object(moduleConf);
+
+                        // Symbol tables from innermost scope to outermost scope. Traverse them in
+                        // reverse order setting symbols on the moduleCopy object. This way the
+                        // symbols that had precendence due to scoping will overwrite symbols
+                        // defined in an outer scope.
+                        auto symtabs = mesytec::mvme::collect_symbol_tables(moduleConf);
+
+                        for (auto tabIter=symtabs.rbegin(); tabIter!=symtabs.rend(); ++tabIter)
+                        {
+                            auto &symbols = tabIter->symbols;
+
+                            for (auto varIter=symbols.begin(); varIter!=symbols.end(); ++varIter)
+                            {
+                                moduleCopy->setVariable(varIter.key(), varIter.value());
+                            }
+                        }
+
                         mappings.insertMapping(moduleConf, moduleCopy.get());
                         outEv->addModuleConfig(moduleCopy.release());
                     }
@@ -73,6 +93,8 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_
 
         mergedEvents.emplace_back(std::move(outEv));
     }
+
+    // Copy over the non-merged events from each of the crate configs.
 
     std::vector<std::unique_ptr<EventConfig>> singleCrateEvents;
 
@@ -87,12 +109,29 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_
 
             if (!crossCrateEvents.count(ei))
             {
-                auto outEv = std::make_unique<EventConfig>();
+#if 1
+                // Create a recursive copy of the event, then update the mappings table by
+                // iterating over the modules.
+                auto outEv = copy_config_object(eventConf);
                 outEv->setObjectName(QSL("crate%1_%2")
                                      .arg(ci)
                                      .arg(eventConf->objectName())
                                      );
 
+                assert(eventConf->getModuleConfigs().size() == outEv->getModuleConfigs().size());
+
+                for (int mi=0; mi<eventConf->moduleCount(); ++mi)
+                {
+                    auto inMod = eventConf->getModuleConfigs().at(mi);
+                    auto outMod = outEv->getModuleConfigs().at(mi);
+                    mappings.insertMapping(inMod, outMod);
+                }
+#else
+                // Alternative version: create a new EventConfig, then copy each module
+                // individually while updating the mappings.
+
+                //auto outEv = std::make_unique<EventConfig>();
+                //outEv->triggerCondition = TriggerCondition::TriggerIO;
                 auto moduleConfigs = crateEvents[ei]->getModuleConfigs();
 
                 for (auto moduleConf: moduleConfigs)
@@ -101,6 +140,7 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_
                     mappings.insertMapping(moduleConf, moduleCopy.get());
                     outEv->addModuleConfig(moduleCopy.release());
                 }
+#endif
 
                 singleCrateEvents.emplace_back(std::move(outEv));
             }
