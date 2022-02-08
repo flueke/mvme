@@ -611,6 +611,9 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 set_daq_state(daqState);
         }
 
+        if (listfileWriteHandle)
+            listfile_write_system_event(*listfileWriteHandle, system_event::subtype::EndOfFile);
+
         logMessage("Leaving readout loop");
         logMessage("");
 
