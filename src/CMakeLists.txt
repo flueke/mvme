@@ -358,6 +358,7 @@ add_library(libmvme SHARED
     vmusb_skipHeader.cpp
     vmusb_stack.cc
     vmusb_util.cc
+    widget_registry.cc
     )
 
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)

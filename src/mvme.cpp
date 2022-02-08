@@ -62,6 +62,7 @@
 #include "vme_script.h"
 #include "vme_script_editor.h"
 #include "vmusb_firmware_loader.h"
+#include "widget_registry.h"
 
 #include "git_sha1.h"
 #include "build_info.h"
@@ -107,8 +108,10 @@ struct MVMEWindowPrivate
     VMEConfigTreeWidget *m_vmeConfigTreeWidget = nullptr;
     DAQStatsWidget *m_daqStatsWidget = nullptr;
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
-    QMap<QObject *, QList<QWidget *>> m_objectWindows;
+
     WidgetGeometrySaver *m_geometrySaver;
+    WidgetRegistry widgetRegistry;
+
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
     QPlainTextEdit *runNotesWidget = nullptr;
@@ -913,62 +916,32 @@ void MVMEMainWindow::restoreSettings()
 
 void MVMEMainWindow::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
 {
-    connect(widget, &QObject::destroyed, this, [this, object, widget] (QObject *) {
-        m_d->m_objectWindows[object].removeAll(widget);
-    });
-
-    widget->setAttribute(Qt::WA_DeleteOnClose);
-    m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
-    add_widget_close_action(widget);
-
-    m_d->m_objectWindows[object].push_back(widget);
-    widget->show();
+    m_d->widgetRegistry.addObjectWidget(widget, object, stateKey);
 }
 
 bool MVMEMainWindow::hasObjectWidget(QObject *object) const
 {
-    return !m_d->m_objectWindows[object].isEmpty();
+    return m_d->widgetRegistry.hasObjectWidget(object);
 }
 
 QWidget *MVMEMainWindow::getObjectWidget(QObject *object) const
 {
-    QWidget *result = nullptr;
-    const auto &l(m_d->m_objectWindows[object]);
-
-    if (!l.isEmpty())
-    {
-        result = l.last();
-    }
-
-    return result;
+    return m_d->widgetRegistry.getObjectWidget(object);
 }
 
 QList<QWidget *> MVMEMainWindow::getObjectWidgets(QObject *object) const
 {
-    return m_d->m_objectWindows[object];
+    return m_d->widgetRegistry.getObjectWidgets(object);
 }
 
 void MVMEMainWindow::activateObjectWidget(QObject *object)
 {
-    if (auto widget = getObjectWidget(object))
-    {
-        show_and_activate(widget);
-    }
+    m_d->widgetRegistry.activateObjectWidget(object);
 }
 
 QMultiMap<QObject *, QWidget *> MVMEMainWindow::getAllObjectWidgets() const
 {
-    QMultiMap<QObject *, QWidget *> result;
-
-    for (auto obj: m_d->m_objectWindows.keys())
-    {
-        for (auto widget: m_d->m_objectWindows.value(obj))
-        {
-            result.insertMulti(obj, widget);
-        }
-    }
-
-    return result;
+    return m_d->widgetRegistry.getAllObjectWidgets();
 }
 
 void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
@@ -1430,14 +1403,10 @@ void MVMEMainWindow::onActionTemplate_Info_triggered()
 
 void MVMEMainWindow::onObjectAboutToBeRemoved(QObject *object)
 {
-    auto &windowList = m_d->m_objectWindows[object];
+    auto widgets = m_d->widgetRegistry.getObjectWidgets(object);
 
-    //qDebug() << __PRETTY_FUNCTION__ << object << windowList;
-
-    for (auto subwin: windowList)
-        subwin->close();
-
-    m_d->m_objectWindows.remove(object);
+    for (auto widget: widgets)
+        widget->close();
 }
 
 void MVMEMainWindow::appendToLogNoDebugOut(const QString &str)
@@ -1537,16 +1506,13 @@ void MVMEMainWindow::onDAQAboutToStart()
 {
     QList<VMEScriptEditor *> scriptEditors;
 
-    for (auto widgetList: m_d->m_objectWindows.values())
+    for (auto widget: m_d->widgetRegistry.getAllWidgets())
     {
-        for (auto widget: widgetList)
+        if (auto scriptEditor = qobject_cast<VMEScriptEditor *>(widget))
         {
-            if (auto scriptEditor = qobject_cast<VMEScriptEditor *>(widget))
+            if (scriptEditor->isModified())
             {
-                if (scriptEditor->isModified())
-                {
-                    scriptEditors.push_back(scriptEditor);
-                }
+                scriptEditors.push_back(scriptEditor);
             }
         }
     }
