@@ -286,20 +286,22 @@ void MVLC_StreamWorker::setupParserCallbacks(
         if (!size)
             return;
 
-        u8 subtype = mvlc::system_event::extract_subtype(*header);
+        auto frameInfo = mvlc::extract_frame_info(*header);
 
-        // IMPORTANT: This assumes that a timestamp is added to the listfile
-        // every 1 second. Jitter is not taken into account and the actual
-        // timestamp value is not used at the moment.
+        // The code assumes that a timestamp is added to the listfile every 1
+        // second. Jitter is not taken into account and the actual timestamp
+        // value is not used at the moment.
 
         // For replays the timeticks are contained in the incoming data
         // buffers.  For live daq runs timeticks are generated in start() using
-        // a TimetickGenerator. This has to happen on the analysis side  due to
+        // a TimetickGenerator. This has to happen on the analysis side due to
         // the possibility of having internal buffer loss and thus potentially
         // missing timeticks.
         // TODO extract timestamp from the UnixTimetick event, calculate a
         // delta time and pass it to the analysis.
-        if (runInfo.isReplay && subtype == mvlc::system_event::subtype::UnixTimetick)
+        if (runInfo.isReplay
+            && frameInfo.sysEventSubType == mvlc::system_event::subtype::UnixTimetick
+            && frameInfo.ctrl == 0) // only use timeticks from the primary crate
         {
             analysis->processTimetick();
 
