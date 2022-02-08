@@ -11,6 +11,7 @@ namespace mesytec
 namespace mvme
 {
 
+// Allows storing and querying QObject -> QWidget mappings.
 class WidgetRegistry: public QObject
 {
     Q_OBJECT
