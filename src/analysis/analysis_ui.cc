@@ -258,6 +258,7 @@ void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const 
 
 void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl)
 {
+#if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
     if (!cl) return;
 
@@ -322,6 +323,7 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
     }
 
     //InvalidCodePath;
+#endif
 }
 
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)

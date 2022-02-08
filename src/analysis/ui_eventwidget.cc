@@ -2435,7 +2435,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
                          {
                              (void) current;
                              (void) previous;
-                             qDebug() << "currentItemChanged on" << tree;
+                             //qDebug() << "currentItemChanged on" << tree;
                              // TODO: show the object info instead of clearing the widget
                              m_analysisWidget->getObjectInfoWidget()->clear();
                          });
