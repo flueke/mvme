@@ -4,6 +4,10 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
+
 #include <QApplication>
 
 #include <mesytec-mvlc/event_builder.h>
@@ -65,6 +69,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     mvme_init("dev_multi_crate_playground_cli");
+    spdlog::set_level(spdlog::level::info);
 
     auto vmeConfigFiles =
     {
@@ -190,30 +195,13 @@ int main(int argc, char *argv[])
     mcrdo.eventBuilderQuit = std::make_unique<std::atomic<bool>>(false);
     mcrdo.eventBuilderSnoopOutputQueues = std::make_unique<mvlc::ReadoutBufferQueues>();
 
+    mvlc::listfile::ZipCreator zipCreator;
+    zipCreator.createArchive("multicrate_listfile.zip", mvlc::listfile::OverwriteMode::Overwrite);
+    auto lfwhptr = zipCreator.createLZ4Entry("multicrate_listfile.mvlclst");
+
+    mvlc::listfile::WriteHandle &lfwh = *lfwhptr;
+
     mvlc::ReadoutBuffer ebOutputBuffer(Megabytes(1));
-
-    struct IOStreamWriteHandle: public mvlc::listfile::WriteHandle
-    {
-        IOStreamWriteHandle(std::ostream &out_)
-            : out(out_)
-        { }
-
-        size_t write(const u8 *data, size_t size) override
-        {
-            out.write(reinterpret_cast<const char *>(data), size);
-            return size;
-        }
-
-        std::ostream &out;
-    };
-
-    std::ofstream lfOut;
-    lfOut.open("multicrate_listfile.mvlcusb");
-
-    if (!lfOut.is_open())
-        throw std::runtime_error("Error opening output listfile for writing");
-
-    IOStreamWriteHandle lfwh(lfOut);
 
     mcrdo.eventBuilderCallbacks.eventData = [&ebOutputCounts, &analysis, &ebOutputBuffer, &lfwh] (
         void *userContext, int ci, int ei,
@@ -221,6 +209,7 @@ int main(int argc, char *argv[])
     {
         (void) userContext;
 
+#if 1
         analysis->beginEvent(ei);
         for (unsigned mi=0; mi<moduleCount;++mi)
         {
@@ -233,12 +222,14 @@ int main(int argc, char *argv[])
             }
         }
         analysis->endEvent(ei);
+#endif
 
 
         mvlc::listfile::write_module_data(ebOutputBuffer, ci, ei, moduleDataList, moduleCount);
 
         if (ebOutputBuffer.used() >= Megabytes(1))
         {
+            spdlog::info("eb.eventData: flushing output buffer");
             listfile_write_raw(lfwh, ebOutputBuffer.data(), ebOutputBuffer.used());
             ebOutputBuffer.clear();
         }
@@ -271,15 +262,21 @@ int main(int argc, char *argv[])
         mvlc::readout_parser::ReadoutParserCallbacks &callbacks,
         std::atomic<bool> &quit)
     {
-        spdlog::info("run_event_builder thread starting");
+#ifdef __linux__
+    prctl(PR_SET_NAME,"event_builder",0,0,0);
+#endif
+        spdlog::info("event_builder thread starting");
 
         while (!quit)
-            eventBuilder.buildEvents(callbacks);
+        {
+            if (eventBuilder.waitForData(std::chrono::milliseconds(100)))
+                eventBuilder.buildEvents(callbacks);
+        }
 
         // flush
         eventBuilder.buildEvents(callbacks, true);
 
-        spdlog::info("run_event_builder thread done");
+        spdlog::info("event_builder thread done");
     };
 
     mcrdo.eventBuilderThread = std::thread(
@@ -414,18 +411,18 @@ int main(int argc, char *argv[])
     }
 
     // Write out the listfile preamble containing the merged CrateConfig and VMEConfig
-    //try
-    //{
+    try
+    {
         auto mergedCrateConfig = mvme::vmeconfig_to_crateconfig(mergedVMEConfig.get());
         mvlc::listfile::listfile_write_preamble(lfwh, mergedCrateConfig);
         mvme_mvlc_listfile::listfile_write_mvme_config(lfwh, *mergedVMEConfig);
-    //}
-    //catch (const vme_script::ParseError &e)
-    //{
-    //    spdlog::error("Could not create MVLC CrateConfig from merged VMEConfig: {}",
-    //                  e.toString().toStdString());
-    //    throw;
-    //}
+    }
+    catch (const vme_script::ParseError &e)
+    {
+        spdlog::error("Could not create MVLC CrateConfig from merged VMEConfig: {}",
+                      e.toString().toStdString());
+        throw;
+    }
 
     // Start each readoutWorker. Do this in reverse crate order so that the
     // main crate is started last.
@@ -446,7 +443,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    const auto timeToRun = std::chrono::seconds(10);
+    const auto timeToRun = std::chrono::seconds(60);
 
     spdlog::info("Running DAQ for {} seconds", timeToRun.count());
 
@@ -515,14 +512,18 @@ int main(int argc, char *argv[])
     if (mcrdo.eventBuilderThread.joinable())
         mcrdo.eventBuilderThread.join();
 
+    spdlog::info("Stopped EventBuilder");
+
     // Flush out any leftover data to disk
     if (ebOutputBuffer.used() > 0)
     {
+        spdlog::info("Flushing final output buffer of size {}", ebOutputBuffer.used());
         listfile_write_raw(lfwh, ebOutputBuffer.data(), ebOutputBuffer.used());
         ebOutputBuffer.clear();
     }
 
-    spdlog::info("Stopped EventBuilder");
+    // Finalize the listfile
+    mvlc::listfile::listfile_write_system_event(lfwh, mvlc::system_event::subtype::EndOfFile);
 
     auto ebCounters = mcrdo.eventBuilder->getCounters();
 
