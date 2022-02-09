@@ -52,7 +52,6 @@
 #include "mvlc_stream_worker.h"
 #include "qt_util.h"
 
-class MVMEContext;
 class ModuleConfig;
 
 namespace analysis
@@ -199,7 +198,9 @@ class AbstractOpConfigWidget: public QWidget
         void validityMayHaveChanged();
 
     public:
-        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, MVMEContext *context,
+        AbstractOpConfigWidget(OperatorInterface *op,
+                               s32 userLevel,
+                               AnalysisServiceProvider *serviceProvider,
                                QWidget *parent = nullptr);
 
         void setNameEdited(bool b) { m_wasNameEdited = b; }
@@ -213,7 +214,7 @@ class AbstractOpConfigWidget: public QWidget
         OperatorInterface *m_op;
         s32 m_userLevel;
         bool m_wasNameEdited;
-        MVMEContext *m_context;
+        AnalysisServiceProvider *m_serviceProvider;
 
         QLineEdit *le_name = nullptr;
 };
@@ -228,7 +229,7 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
     public:
         OperatorConfigurationWidget(OperatorInterface *op,
                                     s32 userLevel,
-                                    MVMEContext *context,
+                                    AnalysisServiceProvider *serviceProvider,
                                     QWidget *parent = nullptr);
 
         //bool validateInputs();
@@ -322,7 +323,7 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
     public:
         RateMonitorConfigWidget(RateMonitorSink *op,
                                 s32 userLevel,
-                                MVMEContext *context,
+                                AnalysisServiceProvider *asp,
                                 QWidget *parent = nullptr);
 
         void configureOperator() override;
@@ -381,7 +382,7 @@ class ExportSinkStatusMonitor: public QWidget
     Q_OBJECT
     public:
         ExportSinkStatusMonitor(const std::shared_ptr<ExportSink> &sink,
-                                MVMEContext *context,
+                                AnalysisServiceProvider *serviceProvider,
                                 QWidget *parent = nullptr);
 
     private slots:
@@ -389,7 +390,7 @@ class ExportSinkStatusMonitor: public QWidget
 
     private:
         std::shared_ptr<ExportSink> m_sink;
-        MVMEContext *m_context;
+        AnalysisServiceProvider *m_serviceProvider;
 
         QLabel *label_outputDirectory,
                *label_fileName,

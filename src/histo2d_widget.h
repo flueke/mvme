@@ -22,12 +22,12 @@
 #define __HISTO2D_WIDGET_H__
 
 #include "analysis/condition_editor_interface.h"
+#include "analysis_service_provider.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
 
 #include <QWidget>
 
-class MVMEContext;
 class QwtPlot;
 class QwtLinearColorMap;
 
@@ -52,10 +52,10 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEd
 
         Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent = 0);
         Histo2DWidget(Histo2D *histo, QWidget *parent = 0);
-        Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *context, QWidget *parent = 0);
+        Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceProvider *asp, QWidget *parent = 0);
         ~Histo2DWidget();
 
-        void setContext(MVMEContext *context);
+        void setServiceProvider(AnalysisServiceProvider *asp);
         void setSink(const SinkPtr &sink,
                      HistoSinkCallback addSinkCallback,
                      HistoSinkCallback sinkModifiedCallback,

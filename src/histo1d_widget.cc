@@ -66,7 +66,6 @@
 #include "analysis/analysis.h"
 #include "histo1d_util.h"
 #include "histo_gui_util.h"
-#include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_qwt.h"
 #include "scrollzoomer.h"
@@ -362,7 +361,7 @@ struct Histo1DWidgetPrivate
     QPointF m_cursorPosition;
 
     std::shared_ptr<analysis::CalibrationMinMax> m_calib;
-    MVMEContext *m_context = nullptr;
+    AnalysisServiceProvider *m_serviceProvider = nullptr;
 
     Histo1DWidget::SinkPtr m_sink;
     Histo1DWidget::HistoSinkCallback m_sinkModifiedCallback;
@@ -396,10 +395,10 @@ struct Histo1DWidgetPrivate
         {
             if (m_sink->m_bins != combo_xBins->currentData().toInt())
             {
-                AnalysisPauser pauser(m_context);
+                AnalysisPauser pauser(m_serviceProvider);
                 m_sink->m_bins = combo_xBins->currentData().toInt();
                 m_sink->setResolutionReductionFactor(Histo1D::NoRR);
-                m_context->analysisOperatorEdited(m_sink);
+                m_serviceProvider->analysisOperatorEdited(m_sink);
 
                 qDebug() << __PRETTY_FUNCTION__ << "setting rrSlider to max";
                 m_rrSlider->setMaximum(std::log2(getCurrentHisto()->getNumberOfBins()));
@@ -1321,11 +1320,11 @@ void Histo1DWidgetPrivate::exportPlot()
     fileName.replace("\\", "_");
     fileName += QSL(".pdf");
 
-    assert(m_context);
+    assert(m_serviceProvider);
 
-    if (m_context)
+    if (m_serviceProvider)
     {
-        fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
+        fileName = QDir(m_serviceProvider->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
     }
 
     m_plot->setTitle(getCurrentHisto()->getTitle());
@@ -1485,20 +1484,20 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
     }
 }
 
-void Histo1DWidget::setContext(MVMEContext *context)
+void Histo1DWidget::setServiceProvider(AnalysisServiceProvider *serviceProvider)
 {
-    m_d->m_context = context;
+    m_d->m_serviceProvider = serviceProvider;
 }
 
-MVMEContext *Histo1DWidget::getContext() const
+AnalysisServiceProvider *Histo1DWidget::getServiceProvider() const
 {
-    return m_d->m_context;
+    return m_d->m_serviceProvider;
 }
 
 void Histo1DWidgetPrivate::calibApply()
 {
     Q_ASSERT(m_calib);
-    Q_ASSERT(m_context);
+    Q_ASSERT(m_serviceProvider);
 
     using namespace analysis;
 
@@ -1531,10 +1530,10 @@ void Histo1DWidgetPrivate::calibApply()
     m_calibUi.actual1->setValue(m_calibUi.target1->value());
     m_calibUi.actual2->setValue(m_calibUi.target2->value());
 
-    AnalysisPauser pauser(m_context);
+    AnalysisPauser pauser(m_serviceProvider);
 
     m_calib->setCalibration(address, targetMin, targetMax);
-    m_context->getAnalysis()->setOperatorEdited(m_calib);
+    m_serviceProvider->getAnalysis()->setOperatorEdited(m_calib);
 
     m_q->on_tb_rate_toggled(m_rateEstimationData.visible);
 }
@@ -1542,7 +1541,7 @@ void Histo1DWidgetPrivate::calibApply()
 void Histo1DWidgetPrivate::calibResetToFilter()
 {
     Q_ASSERT(m_calib);
-    Q_ASSERT(m_context);
+    Q_ASSERT(m_serviceProvider);
 
     using namespace analysis;
 
@@ -1554,7 +1553,7 @@ void Histo1DWidgetPrivate::calibResetToFilter()
         {
             double minValue = inputParam->lowerLimit;
             double maxValue = inputParam->upperLimit;
-            AnalysisPauser pauser(m_context);
+            AnalysisPauser pauser(m_serviceProvider);
             m_calib->setCalibration(m_histoIndex, minValue, maxValue);
             analysis::do_beginRun_forward(m_calib.get());
         }
@@ -1937,7 +1936,7 @@ void Histo1DWidget::beginEditCondition()
 
 void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interval)
 {
-    assert(m_context);
+    assert(m_serviceProvider);
     assert(m_sink);
 
     // TODO: make unique name
@@ -1984,13 +1983,13 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
         auto xInput = m_sink->getSlot(0)->inputPipe;
         auto xIndex = m_sink->getSlot(0)->paramIndex;
 
-        AnalysisPauser pauser(m_context);
+        AnalysisPauser pauser(m_serviceProvider);
         cond->connectInputSlot(0, xInput, xIndex);
 
         // FIXME: remove this once conditions do not show up in the event trees anymore
         const int userLevel = 3;
 
-        m_context->getAnalysis()->addOperator(
+        m_serviceProvider->getAnalysis()->addOperator(
             m_sink->getEventId(),
             userLevel,
             cond);

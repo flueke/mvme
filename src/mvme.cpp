@@ -62,7 +62,6 @@
 #include "vme_script.h"
 #include "vme_script_editor.h"
 #include "vmusb_firmware_loader.h"
-#include "widget_registry.h"
 
 #include "git_sha1.h"
 #include "build_info.h"
@@ -623,11 +622,11 @@ void MVMEMainWindow::onActionNewWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
     // analysis config
-    if (!gui_analysis_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
    /* Use the parent directory of last opened workspace as the start directory
@@ -671,11 +670,11 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
     // only the VMEScriptEditor needs checking).
 
     // vme config
-    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
     // analysis config
-    if (!gui_analysis_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
    /* Use the parent directory of last opened workspace as the start directory
@@ -878,14 +877,14 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
     }
 
     // Handle modified DAQConfig
-    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
     {
         event->ignore();
         return;
     }
 
     // Handle modified AnalysisConfig
-    if (!gui_analysis_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
     {
         event->ignore();
         return;
@@ -946,16 +945,17 @@ QMultiMap<QObject *, QWidget *> MVMEMainWindow::getAllObjectWidgets() const
 
 void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
 {
-    widget->setAttribute(Qt::WA_DeleteOnClose);
-    if (!stateKey.isEmpty())
-        m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
-    add_widget_close_action(widget);
-    widget->show();
+    m_d->widgetRegistry.addWidget(widget, stateKey);
+}
+
+WidgetRegistry *MVMEMainWindow::getWidgetRegistry() const
+{
+    return &m_d->widgetRegistry;
 }
 
 void MVMEMainWindow::onActionNewVMEConfig_triggered()
 {
-    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
     new_vme_config(m_d->m_context);
@@ -966,7 +966,7 @@ static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);;
 
 void MVMEMainWindow::onActionOpenVMEConfig_triggered()
 {
-    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
     auto path = m_d->m_context->getWorkspaceDirectory();
@@ -1135,7 +1135,7 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
 
 void MVMEMainWindow::onActionImportFromMVLC_triggered()
 {
-    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -1184,7 +1184,7 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
 
 void MVMEMainWindow::onActionOpenListfile_triggered()
 {
-    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
     QString path = m_d->m_context->getListFileOutputInfo().fullDirectory;
@@ -1258,7 +1258,7 @@ void MVMEMainWindow::onActionAnalysis_UI_triggered()
 
     if (!analysisUi)
     {
-        analysisUi = new analysis::ui::AnalysisWidget(m_d->m_context);
+        analysisUi = new analysis::ui::AnalysisWidget(m_d->m_context->getAnalysisServiceProvider());
         m_d->m_context->setAnalysisUi(analysisUi);
 
         connect(analysisUi, &QObject::destroyed, this, [this] (QObject *) {

@@ -21,8 +21,8 @@
 #ifndef __ANALYSIS_INFO_WIDGET_H__
 #define __ANALYSIS_INFO_WIDGET_H__
 
-#include "mvme_context.h"
 #include "libmvme_export.h"
+#include "analysis_service_provider.h"
 
 struct AnalysisInfoWidgetPrivate;
 
@@ -30,7 +30,7 @@ class LIBMVME_EXPORT AnalysisInfoWidget: public QWidget
 {
     Q_OBJECT
     public:
-        AnalysisInfoWidget(MVMEContext *context, QWidget *parent = 0);
+        AnalysisInfoWidget(AnalysisServiceProvider *asp, QWidget *parent = 0);
         ~AnalysisInfoWidget();
 
     private:

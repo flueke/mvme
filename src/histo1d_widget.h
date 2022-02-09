@@ -22,6 +22,7 @@
 #define __HISTO1D_WIDGET_H__
 
 #include "analysis/condition_editor_interface.h"
+#include "analysis_service_provider.h"
 #include "histo1d.h"
 #include "libmvme_export.h"
 
@@ -31,7 +32,6 @@
 #include <qwt_plot_picker.h>
 
 class QwtPlotPicker;
-class MVMEContext;
 
 namespace analysis
 {
@@ -73,8 +73,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
 
         friend class Histo1DListWidget;
 
-        void setContext(MVMEContext *context);
-        MVMEContext *getContext() const;
+        void setServiceProvider(AnalysisServiceProvider *asp);
+        AnalysisServiceProvider *getServiceProvider() const;
         void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
         SinkPtr getSink() const;

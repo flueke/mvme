@@ -653,13 +653,13 @@ IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
 
         // FIXME: this should not be here. instead a function like
         // create_interval_cut_from_histowidget() should be called here.
-        auto context = m_histoWidget->getContext();
+        auto serviceProvider = m_histoWidget->getServiceProvider();
         auto sink = m_histoWidget->getSink();
 
-        assert(context);
+        assert(serviceProvider);
         assert(sink);
 
-        if (!context || !sink)
+        if (!serviceProvider || !sink)
         {
             InvalidCodePath;
             // TODO: display an error
@@ -678,10 +678,10 @@ IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
         auto xInput = sink->getSlot(0)->inputPipe;
         auto xIndex = sink->getSlot(0)->paramIndex;
 
-        AnalysisPauser pauser(context);
+        AnalysisPauser pauser(serviceProvider);
         cond->connectInputSlot(0, xInput, xIndex);
 
-        context->getAnalysis()->addOperator(sink->getEventId(), 0, cond);
+        serviceProvider->getAnalysis()->addOperator(sink->getEventId(), 0, cond);
     };
 
     connect(m_bb, &QDialogButtonBox::clicked,

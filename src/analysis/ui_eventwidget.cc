@@ -227,16 +227,16 @@ ObjectTree::~ObjectTree()
     //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
-MVMEContext *ObjectTree::getContext() const
+AnalysisServiceProvider *ObjectTree::getServiceProvider() const
 {
     assert(getEventWidget());
-    return getEventWidget()->getContext();
+    return getEventWidget()->getServiceProvider();
 }
 
 Analysis *ObjectTree::getAnalysis() const
 {
-    assert(getContext());
-    return getContext()->getAnalysis();
+    assert(getServiceProvider());
+    return getServiceProvider()->getAnalysis();
 }
 
 void ObjectTree::dropEvent(QDropEvent *event)
@@ -353,7 +353,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         return false;
 
     bool didModify = false;
-    auto analysis = getEventWidget()->getContext()->getAnalysis();
+    auto analysis = getEventWidget()->getServiceProvider()->getAnalysis();
 
     check_directory_consistency(analysis->getDirectories(), analysis);
 
@@ -364,7 +364,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
     {
         // move from module to unassigned
 
-        AnalysisPauser pauser(getContext());
+        AnalysisPauser pauser(getServiceProvider());
 
         for (auto &id: ids)
         {
@@ -389,7 +389,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         auto module = qobject_cast<ModuleConfig *>(get_qobject(parentItem, DataRole_RawPointer));
         assert(module);
 
-        AnalysisPauser pauser(getContext());
+        AnalysisPauser pauser(getServiceProvider());
 
         for (auto &id: ids)
         {
@@ -413,7 +413,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
         // doesn't know that the structure changed.
         // This is a systematic problem: the rebuild in the streamworker thread can cause
         // changes which means the GUI should be updated, but the GUI will never know.
-        analysis->beginRun(Analysis::KeepState, getContext()->getVMEConfig());
+        analysis->beginRun(Analysis::KeepState, getServiceProvider()->getVMEConfig());
     }
 
     check_directory_consistency(analysis->getDirectories(), analysis);
@@ -518,7 +518,7 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
             get_pointer<Directory>(parentItem, DataRole_AnalysisObject)->shared_from_this());
     }
 
-    auto analysis = getEventWidget()->getContext()->getAnalysis();
+    auto analysis = getEventWidget()->getServiceProvider()->getAnalysis();
 
     check_directory_consistency(analysis->getDirectories(), analysis);
 
@@ -713,7 +713,7 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
     }
 
     bool didModify = false;
-    auto analysis = getEventWidget()->getContext()->getAnalysis();
+    auto analysis = getEventWidget()->getServiceProvider()->getAnalysis();
 
     check_directory_consistency(analysis->getDirectories(), analysis);
 
@@ -1039,10 +1039,10 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     }
     else if (auto ex = std::dynamic_pointer_cast<ListFilterExtractor>(src))
     {
-        auto context = eventWidget->getContext();
-        auto analysis = context->getAnalysis();
+        auto serviceProvider = eventWidget->getServiceProvider();
+        auto analysis = serviceProvider->getAnalysis();
 
-        auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, context, eventWidget);
+        auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, serviceProvider, eventWidget);
         result = lfe_dialog;
     }
 
@@ -1223,13 +1223,13 @@ static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 
 } // end anon namespace
 
-EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidget *parent)
+EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<EventWidgetPrivate>())
 {
     *m_d = {};
     m_d->m_q = this;
-    m_d->m_context = ctx;
+    m_d->m_serviceProvider = serviceProvider;
     m_d->m_analysisWidget = analysisWidget;
     m_d->m_displayRefreshTimer = new QTimer(this);
     m_d->m_displayRefreshTimer->start(PeriodicUpdateTimerInterval_ms);
@@ -1311,7 +1311,7 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
                 m_d->m_levelTrees[idx].sinkTree->setVisible(!m_d->m_hiddenUserLevels[idx]);
             }
 
-            auto analysis = m_d->m_context->getAnalysis();
+            auto analysis = m_d->m_serviceProvider->getAnalysis();
             analysis->setUserLevelsHidden(m_d->m_hiddenUserLevels);
         }
     });
@@ -1343,8 +1343,8 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
         QIcon(QSL(":/gear.png")), QSL("Event settings"), this);
 
     connect(actionEventSettings, &QAction::triggered, this, [this] {
-        auto vmeConfig = m_d->m_context->getVMEConfig();
-        auto analysis = m_d->m_context->getAnalysis();
+        auto vmeConfig = m_d->m_serviceProvider->getVMEConfig();
+        auto analysis = m_d->m_serviceProvider->getAnalysis();
         EventSettingsDialog dialog(vmeConfig, analysis->getVMEObjectSettings(), this);
 
         if (dialog.exec() == QDialog::Accepted)
@@ -1353,7 +1353,7 @@ EventWidget::EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidg
 
             if (analysis->isModified())
             {
-                AnalysisPauser pauser(getContext());
+                AnalysisPauser pauser(getServiceProvider());
                 analysis->beginRun(Analysis::KeepState, getVMEConfig());
             }
         }
@@ -1633,7 +1633,7 @@ void EventWidget::applyConditionAccept()
         }
     }
 
-    AnalysisPauser pauser(getContext());
+    AnalysisPauser pauser(getServiceProvider());
     analysis->beginRun(Analysis::KeepState, getVMEConfig());
 }
 
@@ -1663,24 +1663,24 @@ void EventWidget::applyConditionReject()
 
 void EventWidget::removeOperator(OperatorInterface *op)
 {
-    AnalysisPauser pauser(m_d->m_context);
-    m_d->m_context->getAnalysis()->removeOperator(op);
+    AnalysisPauser pauser(m_d->m_serviceProvider);
+    m_d->m_serviceProvider->getAnalysis()->removeOperator(op);
     m_d->repopulate();
     m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
 }
 
 void EventWidget::toggleSinkEnabled(SinkInterface *sink)
 {
-    AnalysisPauser pauser(m_d->m_context);
+    AnalysisPauser pauser(m_d->m_serviceProvider);
     sink->setEnabled(!sink->isEnabled());
-    m_d->m_context->getAnalysis()->setModified(true);
+    m_d->m_serviceProvider->getAnalysis()->setModified(true);
     m_d->repopulate();
 }
 
 void EventWidget::removeSource(SourceInterface *src)
 {
-    AnalysisPauser pauser(m_d->m_context);
-    m_d->m_context->getAnalysis()->removeSource(src);
+    AnalysisPauser pauser(m_d->m_serviceProvider);
+    m_d->m_serviceProvider->getAnalysis()->removeSource(src);
     m_d->repopulate();
 }
 
@@ -1714,9 +1714,9 @@ QToolBar *EventWidget::getEventSelectAreaToolBar()
     return m_d->m_eventSelectAreaToolBar;
 }
 
-MVMEContext *EventWidget::getContext() const
+AnalysisServiceProvider *EventWidget::getServiceProvider() const
 {
-    return m_d->m_context;
+    return m_d->m_serviceProvider;
 }
 
 AnalysisWidget *EventWidget::getAnalysisWidget() const
@@ -1726,17 +1726,17 @@ AnalysisWidget *EventWidget::getAnalysisWidget() const
 
 Analysis *EventWidget::getAnalysis() const
 {
-    return m_d->m_context->getAnalysis();
+    return m_d->m_serviceProvider->getAnalysis();
 }
 
 RunInfo EventWidget::getRunInfo() const
 {
-    return getContext()->getRunInfo();
+    return getServiceProvider()->getRunInfo();
 }
 
 VMEConfig *EventWidget::getVMEConfig() const
 {
-    return getContext()->getVMEConfig();
+    return getServiceProvider()->getVMEConfig();
 }
 
 QTreeWidgetItem *EventWidget::findNode(const AnalysisObjectPtr &obj)
@@ -1806,7 +1806,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     const auto mimeType = ObjectIdListMIMEType;
     auto clipboardData = QGuiApplication::clipboard()->mimeData();
     auto ids = decode_id_list(clipboardData->data(mimeType));
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
 
     check_directory_consistency(analysis->getDirectories(), analysis);
 
@@ -1952,7 +1952,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
     establish_connections(dstConnections);
 
     {
-        AnalysisPauser pauser(m_context);
+        AnalysisPauser pauser(m_serviceProvider);
         analysis->addObjects(cloneVector);
         check_directory_consistency(analysis->getDirectories(), analysis);
     }
@@ -1963,7 +1963,7 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
 void EventWidgetPrivate::createView()
 {
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
     s32 maxUserLevel = 0;
 
     for (const auto &op: analysis->getOperators())
@@ -2092,8 +2092,8 @@ static const s32 minTreeHeight = 150;
 void EventWidgetPrivate::populateDataSourceTree(
     DataSourceTree *tree)
 {
-    auto analysis = m_context->getAnalysis();
-    auto vmeConfig = m_context->getVMEConfig();
+    auto analysis = m_serviceProvider->getAnalysis();
+    auto vmeConfig = m_serviceProvider->getVMEConfig();
 
     for (auto eventConfig: vmeConfig->getEventConfigs())
     {
@@ -2281,7 +2281,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
     if (level == 0)
         populateDataSourceTree(qobject_cast<DataSourceTree *>(result.operatorTree));
 
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
 
     // create directory entries for both trees
     auto opDirs = analysis->getDirectories(level, DisplayLocation::Operator);
@@ -2574,7 +2574,7 @@ void EventWidgetPrivate::repopulate()
     clearAllToDefaultNodeHighlights();
     updateActions();
 
-    m_analysisWidget->getConditionWidget()->repopulate();
+    //m_analysisWidget->getConditionWidget()->repopulate();
 
 #ifndef NDEBUG
     qDebug() << __PRETTY_FUNCTION__ << this << "_-_-_-_-_-"
@@ -2683,7 +2683,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 });
             };
 
-        auto objectFactory = m_context->getAnalysis()->getObjectFactory();
+        auto objectFactory = m_serviceProvider->getAnalysis()->getObjectFactory();
         OperatorVector operators;
 
         for (auto operatorName: objectFactory.getOperatorNames())
@@ -2711,7 +2711,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 newDir->setObjectName("New Directory");
                 newDir->setUserLevel(userLevel);
                 newDir->setDisplayLocation(DisplayLocation::Operator);
-                m_context->getAnalysis()->addDirectory(newDir);
+                m_serviceProvider->getAnalysis()->addDirectory(newDir);
                 if (destDir)
                 {
                     destDir->push_back(newDir);
@@ -2888,7 +2888,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                 };
 
             // new data sources / filters
-            auto objectFactory = m_context->getAnalysis()->getObjectFactory();
+            auto objectFactory = m_serviceProvider->getAnalysis()->getObjectFactory();
             QVector<SourcePtr> sources;
 
             for (auto sourceName: objectFactory.getSourceNames())
@@ -2942,7 +2942,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                 QIcon(QSL(":/gear.png")), QSL("Module Settings"),
                 &menu, [this, moduleConfig]() {
 
-                    auto analysis = m_context->getAnalysis();
+                    auto analysis = m_serviceProvider->getAnalysis();
                     auto moduleSettings = analysis->getVMEObjectSettings(
                         moduleConfig->getId());
 
@@ -3114,7 +3114,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 });
             };
 
-        auto objectFactory = m_context->getAnalysis()->getObjectFactory();
+        auto objectFactory = m_serviceProvider->getAnalysis()->getObjectFactory();
         OperatorVector operators;
 
         for (auto operatorName: objectFactory.getSinkNames())
@@ -3142,7 +3142,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 newDir->setObjectName("New Directory");
                 newDir->setUserLevel(userLevel);
                 newDir->setDisplayLocation(DisplayLocation::Sink);
-                m_context->getAnalysis()->addDirectory(newDir);
+                m_serviceProvider->getAnalysis()->addDirectory(newDir);
                 if (destDir)
                 {
                     destDir->push_back(newDir);
@@ -3176,11 +3176,11 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             {
                 menu.addAction(QSL("Open Histogram"), m_q, [this, widgetInfo]() {
 
-                    if (!m_context->hasObjectWidget(widgetInfo.sink.get())
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
                         auto widget = new Histo1DWidget(widgetInfo.histos);
-                        widget->setContext(m_context);
+                        widget->setServiceProvider(m_serviceProvider);
 
                         if (widgetInfo.calib)
                         {
@@ -3188,20 +3188,20 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         }
 
                         {
-                            auto context = m_context;
-                            widget->setSink(widgetInfo.sink, [context]
+                            auto serviceProvider = m_serviceProvider;
+                            widget->setSink(widgetInfo.sink, [serviceProvider]
                                             (const std::shared_ptr<Histo1DSink> &sink) {
-                                                context->analysisOperatorEdited(sink);
+                                                serviceProvider->analysisOperatorEdited(sink);
                                             });
                         }
 
                         widget->selectHistogram(widgetInfo.histoAddress);
 
-                        m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
                                                    widgetInfo.sink->getId().toString());
                     }
                     else if (auto widget = qobject_cast<Histo1DWidget *>(
-                            m_context->getObjectWidget(widgetInfo.sink.get())))
+                            m_serviceProvider->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
                     {
                         widget->selectHistogram(widgetInfo.histoAddress);
                         show_and_activate(widget);
@@ -3212,7 +3212,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     QSL("Open Histogram in new window"), m_q, [this, widgetInfo]() {
 
                         auto widget = new Histo1DWidget(widgetInfo.histos);
-                        widget->setContext(m_context);
+                        widget->setServiceProvider(m_serviceProvider);
 
                         if (widgetInfo.calib)
                         {
@@ -3220,16 +3220,16 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         }
 
                         {
-                            auto context = m_context;
-                            widget->setSink(widgetInfo.sink, [context]
+                            auto serviceProvider = m_serviceProvider;
+                            widget->setSink(widgetInfo.sink, [serviceProvider]
                                             (const std::shared_ptr<Histo1DSink> &sink) {
-                                                context->analysisOperatorEdited(sink);
+                                                serviceProvider->analysisOperatorEdited(sink);
                                             });
                         }
 
                         widget->selectHistogram(widgetInfo.histoAddress);
 
-                        m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
                                                    widgetInfo.sink->getId().toString());
                     });
             }
@@ -3246,7 +3246,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
                     // always creates a new window
                     auto widget = new Histo1DWidget(widgetInfo.histos);
-                    widget->setContext(m_context);
+                    widget->setServiceProvider(m_serviceProvider);
 
                     if (widgetInfo.calib)
                     {
@@ -3254,14 +3254,14 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     }
 
                     {
-                        auto context = m_context;
+                        auto context = m_serviceProvider;
                         widget->setSink(widgetInfo.sink, [context]
                                         (const std::shared_ptr<Histo1DSink> &sink) {
                             context->analysisOperatorEdited(sink);
                         });
                     }
 
-                    m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                    m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
                                                widgetInfo.sink->getId().toString());
 
                 });
@@ -3270,9 +3270,9 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             if (widgetInfo.histos.size())
             {
                 menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
-                    auto widget = new Histo2DWidget(widgetInfo.sink, m_context);
-                    widget->setContext(m_context);
-                    m_context->addWidget(widget,
+                    auto widget = new Histo2DWidget(widgetInfo.sink, m_serviceProvider);
+                    widget->setServiceProvider(m_serviceProvider);
+                    m_serviceProvider->getWidgetRegistry()->addWidget(widget,
                                          widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
                 });
             }
@@ -3291,13 +3291,13 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                     menu.addAction(QSL("Open Histogram"), m_q, [this, histo, sinkPtr, userLevel]() {
 
-                        if (!m_context->hasObjectWidget(sinkPtr.get())
+                        if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                             || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
                             auto histoPtr = sinkPtr->m_histo;
                             auto widget = new Histo2DWidget(histoPtr);
 
-                            auto context = m_context;
+                            auto context = m_serviceProvider;
                             auto eventId = sinkPtr->getEventId();
 
                             widget->setSink(
@@ -3315,13 +3315,13 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                     return make_unique_operator_name(context->getAnalysis(), name);
                                 });
 
-                            widget->setContext(m_context);
+                            widget->setServiceProvider(m_serviceProvider);
 
-                            m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                            m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                         }
                         else
                         {
-                            m_context->activateObjectWidget(sinkPtr.get());
+                            m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
                         }
                     });
 
@@ -3332,7 +3332,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                             auto histoPtr = sinkPtr->m_histo;
                             auto widget = new Histo2DWidget(histoPtr);
 
-                            auto context = m_context;
+                            auto context = m_serviceProvider;
                             auto eventId = sinkPtr->getEventId();
 
                             widget->setSink(
@@ -3350,9 +3350,9 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                     return make_unique_operator_name(context->getAnalysis(), name);
                                 });
 
-                            widget->setContext(m_context);
+                            widget->setServiceProvider(m_serviceProvider);
 
-                            m_context->addObjectWidget(widget, sinkPtr.get(),
+                            m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(),
                                                        sinkPtr->getId().toString());
                         });
                 }
@@ -3363,15 +3363,15 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                                                   DataRole_AnalysisObject))
         {
             menu.addAction("Open Status Monitor", m_q, [this, sinkPtr]() {
-                if (!m_context->hasObjectWidget(sinkPtr.get())
+                if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                     || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                 {
-                    auto widget = new ExportSinkStatusMonitor(sinkPtr, m_context);
-                    m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                    auto widget = new ExportSinkStatusMonitor(sinkPtr, m_serviceProvider);
+                    m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                 }
                 else
                 {
-                    m_context->activateObjectWidget(sinkPtr.get());
+                    m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
                 }
             });
         }
@@ -3543,7 +3543,7 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
 
 Analysis *EventWidgetPrivate::getAnalysis() const
 {
-    return m_context->getAnalysis();
+    return m_serviceProvider->getAnalysis();
 }
 
 static bool forward_path_exists(PipeSourceInterface *from, PipeSourceInterface *to)
@@ -4208,11 +4208,11 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!widgetInfo.histos[widgetInfo.histoAddress])
                         break;
 
-                    if (!m_context->hasObjectWidget(widgetInfo.sink.get())
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
                         auto widget = new Histo1DWidget(widgetInfo.histos);
-                        widget->setContext(m_context);
+                        widget->setServiceProvider(m_serviceProvider);
 
                         if (widgetInfo.calib)
                         {
@@ -4220,7 +4220,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         }
 
                         {
-                            auto context = m_context;
+                            auto context = m_serviceProvider;
                             widget->setSink(widgetInfo.sink, [context] (
                                     const std::shared_ptr<Histo1DSink> &sink) {
                                 context->analysisOperatorEdited(sink);
@@ -4229,12 +4229,12 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                         widget->selectHistogram(widgetInfo.histoAddress);
 
-                        m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
                                                    widgetInfo.sink->getId().toString());
                         widget->replot();
                     }
                     else if (auto widget = qobject_cast<Histo1DWidget *>(
-                            m_context->getObjectWidget(widgetInfo.sink.get())))
+                            m_serviceProvider->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
                     {
                         widget->selectHistogram(widgetInfo.histoAddress);
                         show_and_activate(widget);
@@ -4248,11 +4248,11 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                     if (widgetInfo.histos.size())
                     {
-                        if (!m_context->hasObjectWidget(widgetInfo.sink.get())
+                        if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
                             || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
                             auto widget = new Histo1DWidget(widgetInfo.histos);
-                            widget->setContext(m_context);
+                            widget->setServiceProvider(m_serviceProvider);
 
                             if (widgetInfo.calib)
                             {
@@ -4260,20 +4260,20 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                             }
 
                             {
-                                auto context = m_context;
+                                auto context = m_serviceProvider;
                                 widget->setSink(widgetInfo.sink,
                                                 [context] (const std::shared_ptr<Histo1DSink> &sink) {
                                     context->analysisOperatorEdited(sink);
                                 });
                             }
 
-                            m_context->addObjectWidget(widget, widgetInfo.sink.get(),
+                            m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
                                                        widgetInfo.sink->getId().toString());
                             widget->replot();
                         }
                         else
                         {
-                            m_context->activateObjectWidget(widgetInfo.sink.get());
+                            m_serviceProvider->getWidgetRegistry()->activateObjectWidget(widgetInfo.sink.get());
                         }
                     }
                 } break;
@@ -4286,39 +4286,39 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!sinkPtr->m_histo)
                         break;
 
-                    if (!m_context->hasObjectWidget(sinkPtr.get())
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
                         auto histoPtr = sinkPtr->m_histo;
                         auto widget = new Histo2DWidget(histoPtr);
 
-                        auto context = m_context;
+                        auto serviceProvider = m_serviceProvider;
                         auto eventId = sinkPtr->getEventId();
 
                         widget->setSink(
                             sinkPtr,
                             // addSinkCallback
-                            [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
-                                context->addAnalysisOperator(eventId, sink, userLevel);
+                            [serviceProvider, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
+                                serviceProvider->addAnalysisOperator(eventId, sink, userLevel);
                             },
                             // sinkModifiedCallback
-                            [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                                context->analysisOperatorEdited(sink);
+                            [serviceProvider] (const std::shared_ptr<Histo2DSink> &sink) {
+                                serviceProvider->analysisOperatorEdited(sink);
                             },
                             // makeUniqueOperatorNameFunction
-                            [context] (const QString &name) {
-                                return make_unique_operator_name(context->getAnalysis(), name);
+                            [serviceProvider] (const QString &name) {
+                                return make_unique_operator_name(serviceProvider->getAnalysis(), name);
                         });
 
-                        widget->setContext(m_context);
+                        widget->setServiceProvider(m_serviceProvider);
 
-                        m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
 
                         widget->replot();
                     }
                     else
                     {
-                        m_context->activateObjectWidget(sinkPtr.get());
+                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
                     }
                 } break;
 
@@ -4326,27 +4326,27 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 if (auto rms = get_shared_analysis_object<RateMonitorSink>(
                         node, DataRole_AnalysisObject))
                 {
-                    if (!m_context->hasObjectWidget(rms.get())
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(rms.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto context = m_context;
+                        auto serviceProvider = m_serviceProvider;
 
-                        auto sinkModifiedCallback = [context] (const std::shared_ptr<RateMonitorSink> &sink)
+                        auto sinkModifiedCallback = [serviceProvider] (const std::shared_ptr<RateMonitorSink> &sink)
                         {
-                            context->analysisOperatorEdited(sink);
+                            serviceProvider->analysisOperatorEdited(sink);
                         };
 
                         auto widget = new RateMonitorWidget(rms, sinkModifiedCallback);
 
                         widget->setPlotExportDirectory(
-                            m_context->getWorkspacePath(QSL("PlotsDirectory")));
+                            m_serviceProvider->getWorkspacePath(QSL("PlotsDirectory")));
 
                         // Note: using a QueuedConnection here is a hack to
                         // make the UI refresh _after_ the analysis has been
                         // rebuilt.
                         // The call sequence is
                         //   sinkModifiedCallback
-                        //   -> context->analysisOperatorEdited
+                        //   -> serviceProvider->analysisOperatorEdited
                         //     -> analysis->setOperatorEdited
                         //     -> emit operatorEdited
                         //   -> analysis->beginRun.
@@ -4354,7 +4354,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         // is called before the analysis has been rebuilt in
                         // beginRun.
                         QObject::connect(
-                            context->getAnalysis(), &Analysis::operatorEdited,
+                            serviceProvider->getAnalysis(), &Analysis::operatorEdited,
                             widget, [rms, widget] (const OperatorPtr &op)
                             {
                                 if (op == rms)
@@ -4362,25 +4362,25 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                             }, Qt::QueuedConnection);
 
 
-                        context->addObjectWidget(widget, rms.get(), rms->getId().toString());
+                        serviceProvider->getWidgetRegistry()->addObjectWidget(widget, rms.get(), rms->getId().toString());
                     }
                     else
                     {
-                        m_context->activateObjectWidget(rms.get());
+                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(rms.get());
                     }
                 }
                 else if (auto ex = get_shared_analysis_object<ExportSink>(node,
                                                                           DataRole_AnalysisObject))
                 {
-                    if (!m_context->hasObjectWidget(ex.get())
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(ex.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto widget = new ExportSinkStatusMonitor(ex, m_context);
-                        m_context->addObjectWidget(widget, ex.get(), ex->getId().toString());
+                        auto widget = new ExportSinkStatusMonitor(ex, m_serviceProvider);
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, ex.get(), ex->getId().toString());
                     }
                     else
                     {
-                        m_context->activateObjectWidget(ex.get());
+                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(ex.get());
                     }
                 } break;
 
@@ -4544,8 +4544,8 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     repopEnabled = false;
 
     {
-        AnalysisPauser pauser(m_context);
-        auto analysis = m_context->getAnalysis();
+        AnalysisPauser pauser(m_serviceProvider);
+        auto analysis = m_serviceProvider->getAnalysis();
         add_default_filters(analysis, module);
     }
 
@@ -4578,7 +4578,7 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
     //if (pipe && qobject_cast<SourceInterface *>(pipe->getSource()))
     //    showDecimals = false;
 
-    auto widget = new PipeDisplay(m_context->getAnalysis(), pipe, showDecimals, m_q);
+    auto widget = new PipeDisplay(m_serviceProvider->getAnalysis(), pipe, showDecimals, m_q);
 
     QObject::connect(m_displayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
     QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
@@ -4598,7 +4598,7 @@ void EventWidgetPrivate::doPeriodicUpdate()
      * sometimes ticks will be lost, at other times they'll appear.
      */
 
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
     bool isReplay = analysis->getRunInfo().isReplay;
     double dt_s = 0.0;
     double currentAnalysisTimeticks = analysis->getTimetickCount();
@@ -4620,16 +4620,16 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
 void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
 {
-    assert(m_context);
+    assert(m_serviceProvider);
 
-    if (!m_context->getMVMEStreamWorker()) return;
+    if (!m_serviceProvider->getMVMEStreamWorker()) return;
 
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
 
     auto vmeMap = analysis->getVMEIdToIndexMapping();
 
-    auto counters = m_context->getMVMEStreamWorker()->getCounters();
+    auto counters = m_serviceProvider->getMVMEStreamWorker()->getCounters();
     auto &prevCounters = m_prevStreamProcessorCounters;
 
     //
@@ -4788,7 +4788,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
 
 void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 {
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
 
     //
@@ -5109,7 +5109,7 @@ void EventWidgetPrivate::actionExport()
     assert(canExport());
 
     // Step 0) Let the user pick a file
-    auto path = m_context->getWorkspaceDirectory();
+    auto path = m_serviceProvider->getWorkspaceDirectory();
 
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -5126,7 +5126,7 @@ void EventWidgetPrivate::actionExport()
         fileName += AnalysisLibraryFileExtension;
 
     // Step 1) Collect all objects that have to be written out
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
     auto selectedObjects = getAllSelectedObjects();
     auto allObjects = order_objects(expand_objects(selectedObjects, analysis), analysis);
 
@@ -5166,7 +5166,7 @@ void EventWidgetPrivate::actionImport()
      */
     qDebug() << __PRETTY_FUNCTION__;
 
-    QString startPath = m_context->getWorkspaceDirectory();
+    QString startPath = m_serviceProvider->getWorkspaceDirectory();
 
     QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"),
                                                     startPath, AnalysisLibraryFileFilter);
@@ -5187,11 +5187,11 @@ void EventWidgetPrivate::actionImport()
 
     try
     {
-        auto analysis = m_context->getAnalysis();
+        auto analysis = m_serviceProvider->getAnalysis();
 
         check_directory_consistency(analysis->getDirectories(), analysis);
 
-        importData = convert_to_current_version(importData, m_context->getVMEConfig());
+        importData = convert_to_current_version(importData, m_serviceProvider->getVMEConfig());
         auto objectStore = deserialize_objects(
             importData,
             analysis->getObjectFactory());
@@ -5224,7 +5224,7 @@ void EventWidgetPrivate::actionImport()
 
         check_directory_consistency(objectStore.directories);
 
-        AnalysisPauser pauser(m_context);
+        AnalysisPauser pauser(m_serviceProvider);
         analysis->addObjects(objectStore);
 
         check_directory_consistency(analysis->getDirectories(), analysis);
@@ -5243,14 +5243,14 @@ void EventWidgetPrivate::setSinksEnabled(const SinkVector &sinks, bool enabled)
     if (sinks.isEmpty())
         return;
 
-    AnalysisPauser pauser(m_context);
+    AnalysisPauser pauser(m_serviceProvider);
 
     for (auto sink: sinks)
     {
         sink->setEnabled(enabled);
     }
 
-    m_context->getAnalysis()->setModified(true);
+    m_serviceProvider->getAnalysis()->setModified(true);
     repopulate();
 }
 
@@ -5259,11 +5259,11 @@ void EventWidgetPrivate::removeSinks(const QVector<SinkInterface *> sinks)
     if (sinks.isEmpty())
         return;
 
-    AnalysisPauser pauser(m_context);
+    AnalysisPauser pauser(m_serviceProvider);
 
     for (auto sink: sinks)
     {
-        m_context->getAnalysis()->removeOperator(sink);
+        m_serviceProvider->getAnalysis()->removeOperator(sink);
     }
 
     repopulate();
@@ -5272,12 +5272,12 @@ void EventWidgetPrivate::removeSinks(const QVector<SinkInterface *> sinks)
 
 void EventWidgetPrivate::removeDirectoryRecursively(const DirectoryPtr &dir)
 {
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
     auto objects = analysis->getDirectoryContents(dir);
 
     if (!objects.isEmpty())
     {
-        AnalysisPauser pauser(m_context);
+        AnalysisPauser pauser(m_serviceProvider);
         analysis->removeDirectoryRecursively(dir);
     }
     else

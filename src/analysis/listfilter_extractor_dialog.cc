@@ -22,7 +22,7 @@
 
 #include "analysis/analysis_ui_p.h"
 #include "data_filter_edit.h"
-#include "../mvme_context_lib.h"
+#include "../mvme_context_lib.h" // AnalysisPauser
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -416,7 +416,7 @@ struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
 {
     ModuleConfig *m_module;
     analysis::Analysis *m_analysis;
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_serviceProvider;
     QVector<ListFilterExtractorPtr> m_extractors;
     QVector<ListFilterEditor> m_filterEditors;
 
@@ -427,13 +427,13 @@ struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
 };
 
 ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
-                                                     MVMEContext *context, QWidget *parent)
+                                                     AnalysisServiceProvider *asp, QWidget *parent)
     : ObjectEditorDialog(parent)
     , m_d(std::make_unique<ListFilterExtractorDialogPrivate>())
 {
     m_d->m_module = mod;
     m_d->m_analysis = analysis;
-    m_d->m_context = context;
+    m_d->m_serviceProvider = asp;
     m_d->listWidgetUi = make_listfilter_list_ui();
     m_d->m_editorStack = new QStackedWidget;
 
@@ -688,7 +688,7 @@ void ListFilterExtractorDialog::apply()
     }
 
     {
-        AnalysisPauser pauser(m_d->m_context);
+        AnalysisPauser pauser(m_d->m_serviceProvider);
         m_d->m_analysis->setListFilterExtractors(m_d->m_module->getEventId(),
                                                  m_d->m_module->getId(),
                                                  m_d->m_extractors);

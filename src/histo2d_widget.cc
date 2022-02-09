@@ -52,7 +52,6 @@
 #include "git_sha1.h"
 #include "histo1d_widget.h"
 #include "histo_gui_util.h"
-#include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme_qwt.h"
 #include "qt_util.h"
@@ -339,7 +338,7 @@ struct Histo2DWidgetPrivate
     Histo1DWidget *m_yProjWidget = nullptr;
 
     WidgetGeometrySaver *m_geometrySaver;
-    MVMEContext *m_context = nullptr;
+    AnalysisServiceProvider *m_serviceProvider = nullptr;
 
     mvme_qwt::TextLabelItem *m_statsTextItem;
     std::unique_ptr<QwtText> m_statsText;
@@ -374,12 +373,12 @@ struct Histo2DWidgetPrivate
 
             if (modified)
             {
-                AnalysisPauser pauser(m_context);
+                AnalysisPauser pauser(m_serviceProvider);
 
                 sink->m_xBins = xBins;
                 sink->m_yBins = yBins;
                 sink->setResolutionReductionFactors({});
-                m_context->analysisOperatorEdited(sink);
+                m_serviceProvider->analysisOperatorEdited(sink);
 
                 m_rrSliderX->setMaximum(std::log2(xBins));
                 m_rrSliderX->setValue(m_rrSliderX->maximum());
@@ -695,13 +694,13 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     displayChanged();
 }
 
-Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *context, QWidget *parent)
+Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceProvider *serviceProvider, QWidget *parent)
     : Histo2DWidget(parent)
 {
     Q_ASSERT(histo1DSink);
-    Q_ASSERT(context);
+    Q_ASSERT(serviceProvider);
 
-    m_d->m_context = context;
+    m_d->m_serviceProvider = serviceProvider;
     m_d->m_histo1DSink = histo1DSink;
     auto histData = new Histo1DListRasterData(m_d->m_histo1DSink->m_histos);
     m_d->m_plotItem->setData(histData);
@@ -743,9 +742,9 @@ Histo2DWidget::~Histo2DWidget()
 {
 }
 
-void Histo2DWidget::setContext(MVMEContext *context)
+void Histo2DWidget::setServiceProvider(AnalysisServiceProvider *asp)
 {
-    m_d->m_context = context;
+    m_d->m_serviceProvider = asp;
 #if 0
     m_d->m_actionCreateCut->setEnabled(context != nullptr);
 #endif
@@ -831,7 +830,7 @@ void Histo2DWidget::replot()
             m_d->m_histo1DSink,
             { visibleXInterval.minValue(), visibleXInterval.maxValue() },
             { visibleYInterval.minValue(), visibleYInterval.maxValue() },
-            m_d->m_context->getAnalysis()->getA2AdapterState(),
+            m_d->m_serviceProvider->getAnalysis()->getA2AdapterState(),
             rrf.y);
     }
 
@@ -1012,9 +1011,9 @@ void Histo2DWidget::exportPlot()
     fileName.replace("\\", "_");
     fileName += QSL(".pdf");
 
-    if (m_d->m_context)
+    if (m_d->m_serviceProvider)
     {
-        fileName = QDir(m_d->m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
+        fileName = QDir(m_d->m_serviceProvider->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
     }
 
     m_d->m_plot->setTitle(title);
@@ -1406,7 +1405,7 @@ void Histo2DWidget::doXProjection()
     if (!m_d->m_xProjWidget)
     {
         m_d->m_xProjWidget = new Histo1DWidget(histo);
-        m_d->m_xProjWidget->setContext(m_d->m_context);
+        m_d->m_xProjWidget->setServiceProvider(m_d->m_serviceProvider);
         m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
         m_d->m_xProjWidget->setResolutionReductionSliderEnabled(false);
         m_d->m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
@@ -1474,7 +1473,7 @@ void Histo2DWidget::doYProjection()
         m_d->m_yProjWidget = new Histo1DWidget(histo);
         m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
         m_d->m_yProjWidget->setResolutionReductionSliderEnabled(false);
-        m_d->m_yProjWidget->setContext(m_d->m_context);
+        m_d->m_yProjWidget->setServiceProvider(m_d->m_serviceProvider);
         m_d->m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_d->m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_d->m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
@@ -1608,7 +1607,7 @@ void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
 
 void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 {
-    assert(m_context);
+    assert(m_serviceProvider);
     assert(m_sink);
 
     // We're only interested in the deactivate, i.e. completion event
@@ -1708,14 +1707,14 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
         auto yInput = m_sink->getSlot(1)->inputPipe;
         auto yIndex = m_sink->getSlot(1)->paramIndex;
 
-        AnalysisPauser pauser(m_context);
+        AnalysisPauser pauser(m_serviceProvider);
         cond->connectInputSlot(0, xInput, xIndex);
         cond->connectInputSlot(1, yInput, yIndex);
 
         // FIXME: remove this once conditions do not show up in the event trees anymore
         const int userLevel = 3;
 
-        m_context->getAnalysis()->addOperator(
+        m_serviceProvider->getAnalysis()->addOperator(
             m_sink->getEventId(),
             userLevel,
             cond);

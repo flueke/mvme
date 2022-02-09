@@ -1,4 +1,4 @@
-/* mvme - Mesytec VME Data Acquisition
+/* nvme - Mesytec VME Data Acquisition
  *
  * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
  *
@@ -104,7 +104,7 @@ static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 struct AnalysisWidgetPrivate
 {
     AnalysisWidget *m_q;
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_serviceProvider;
     EventWidget *m_eventWidget = nullptr;
     AnalysisSignalWrapper m_analysisSignalWrapper;
 
@@ -113,7 +113,7 @@ struct AnalysisWidgetPrivate
     QScrollArea *m_eventWidgetScrollArea = nullptr;
     QStackedWidget *m_eventWidgetToolBarStack;
     QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
-    ConditionWidget *m_conditionWidget = nullptr;
+    //ConditionWidget *m_conditionWidget = nullptr;
     ObjectInfoWidget *m_objectInfoWidget;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
@@ -169,8 +169,8 @@ struct AnalysisWidgetPrivate
     void onConditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
     void editConditionLinkGraphically(const ConditionLink &cl);
 
-    MVMEContext *getContext() const { return m_context; }
-    Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
+    AnalysisServiceProvider *getServiceProvider() const { return m_serviceProvider; }
+    Analysis *getAnalysis() const { return getServiceProvider()->getAnalysis(); }
 };
 
 void AnalysisWidgetPrivate::onAnalysisChanged(Analysis *analysis)
@@ -258,6 +258,7 @@ void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const 
 
 void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl)
 {
+    (void) cl;
 #if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
     if (!cl) return;
@@ -330,7 +331,7 @@ void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << eventId;
     m_eventWidget->repopulate();
-    m_conditionWidget->repopulate(eventId);
+    //m_conditionWidget->repopulate(eventId);
 }
 
 void AnalysisWidgetPrivate::repopulate()
@@ -342,8 +343,9 @@ void AnalysisWidgetPrivate::repopulate()
 
     m_eventWidget->deleteLater();
     m_eventWidget = nullptr;
-    auto eventWidget = new EventWidget(m_context, m_q);
+    auto eventWidget = new EventWidget(getServiceProvider(), m_q);
 
+#if 0
     auto condWidget = m_conditionWidget;
 
     QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
@@ -382,6 +384,7 @@ void AnalysisWidgetPrivate::repopulate()
 
     QObject::connect(eventWidget, &EventWidget::conditionLinksModified,
                      m_conditionWidget, &ConditionWidget::setModificationButtonsVisible);
+#endif
 
     m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
     m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
@@ -396,7 +399,7 @@ void AnalysisWidgetPrivate::repopulate()
 
     m_eventWidgetScrollArea->setWidget(m_eventWidget);
 
-    m_conditionWidget->repopulate();
+    //m_conditionWidget->repopulate();
     updateWindowTitle();
     updateAddRemoveUserLevelButtons();
 }
@@ -405,7 +408,7 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
 {
     m_eventWidget->m_d->doPeriodicUpdate();
 
-    m_conditionWidget->doPeriodicUpdate();
+    //m_conditionWidget->doPeriodicUpdate();
     m_objectInfoWidget->refresh();
 }
 
@@ -428,27 +431,29 @@ void AnalysisWidgetPrivate::closeAllSinkWidgets()
             widget->close();
     };
 
-    for (const auto &op: m_context->getAnalysis()->getOperators())
+    auto widgetRegistry = m_serviceProvider->getWidgetRegistry();
+
+    for (const auto &op: m_serviceProvider->getAnalysis()->getOperators())
     {
         if (auto sink = qobject_cast<Histo1DSink *>(op.get()))
         {
-            close_if_not_null(m_context->getObjectWidget(sink));
+            close_if_not_null(widgetRegistry->getObjectWidget(sink));
 
             for (const auto &histoPtr: sink->m_histos)
             {
-                close_if_not_null(m_context->getObjectWidget(histoPtr.get()));
+                close_if_not_null(widgetRegistry->getObjectWidget(histoPtr.get()));
             }
         }
         else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
         {
-            close_if_not_null(m_context->getObjectWidget(sink));
+            close_if_not_null(widgetRegistry->getObjectWidget(sink));
         }
     }
 }
 
 void AnalysisWidgetPrivate::actionNew()
 {
-    if (!gui_analysis_maybe_save_if_modified(m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_serviceProvider).first)
         return;
 
     /* Close any active unique widgets _before_ replacing the analysis as the
@@ -457,17 +462,17 @@ void AnalysisWidgetPrivate::actionNew()
     closeAllUniqueWidgets();
     closeAllSinkWidgets();
 
-    AnalysisPauser pauser(m_context);
-    m_context->getAnalysis()->clear();
-    m_context->getAnalysis()->setModified(false);
-    m_context->setAnalysisConfigFilename(QString());
-    m_context->analysisWasCleared();
+    AnalysisPauser pauser(m_serviceProvider);
+    m_serviceProvider->getAnalysis()->clear();
+    m_serviceProvider->getAnalysis()->setModified(false);
+    m_serviceProvider->setAnalysisConfigFilename(QString());
+    m_serviceProvider->analysisWasCleared();
     repopulate();
 }
 
 void AnalysisWidgetPrivate::actionOpen()
 {
-    auto path = m_context->getWorkspaceDirectory();
+    auto path = m_serviceProvider->getWorkspaceDirectory();
 
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -478,18 +483,18 @@ void AnalysisWidgetPrivate::actionOpen()
     if (fileName.isEmpty())
         return;
 
-    if (!gui_analysis_maybe_save_if_modified(m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_serviceProvider).first)
         return;
 
     closeAllUniqueWidgets();
     closeAllSinkWidgets();
 
-    m_context->loadAnalysisConfig(fileName);
+    m_serviceProvider->loadAnalysisConfig(fileName);
 }
 
 QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 {
-    QString fileName = m_context->getAnalysisConfigFilename();
+    QString fileName = m_serviceProvider->getAnalysisConfigFilename();
 
     if (fileName.isEmpty())
     {
@@ -497,15 +502,15 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
     }
     else
     {
-        auto result = gui_save_analysis_config(m_context->getAnalysis(), fileName,
-                                         m_context->getWorkspaceDirectory(),
+        auto result = gui_save_analysis_config(m_serviceProvider->getAnalysis(), fileName,
+                                         m_serviceProvider->getWorkspaceDirectory(),
                                          AnalysisFileFilter,
-                                         m_context);
+                                         m_serviceProvider);
         if (result.first)
         {
-            m_context->setAnalysisConfigFilename(result.second);
-            m_context->getAnalysis()->setModified(false);
-            m_context->analysisWasSaved();
+            m_serviceProvider->setAnalysisConfigFilename(result.second);
+            m_serviceProvider->getAnalysis()->setModified(false);
+            m_serviceProvider->analysisWasSaved();
         }
 
         return result;
@@ -514,32 +519,32 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 
 QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
-    auto path = m_context->getWorkspaceDirectory();
+    auto path = m_serviceProvider->getWorkspaceDirectory();
 
-    if (m_context->getMode() == GlobalMode::ListFile)
+    if (m_serviceProvider->getGlobalMode() == GlobalMode::ListFile)
     {
         // Use the listfile basename to suggest a filename.
-        const auto &replayHandle = m_context->getReplayFileHandle();
+        const auto &replayHandle = m_serviceProvider->getReplayFileHandle();
         path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
     }
     else
     {
         // Use the last part of the workspace path to suggest a filename.
-        auto filename = m_context->getAnalysisConfigFilename();
+        auto filename = m_serviceProvider->getAnalysisConfigFilename();
         if (filename.isEmpty())
-            filename = QFileInfo(m_context->getWorkspaceDirectory()).fileName() + ".analysis";
+            filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
         path += "/" + filename;
     }
 
-    auto result = gui_save_analysis_config_as(m_context->getAnalysis(),
+    auto result = gui_save_analysis_config_as(m_serviceProvider->getAnalysis(),
                                        path,
                                        AnalysisFileFilter,
-                                       m_context);
+                                       m_serviceProvider);
 
     if (result.first)
     {
-        m_context->setAnalysisConfigFilename(result.second);
-        m_context->getAnalysis()->setModified(false);
+        m_serviceProvider->setAnalysisConfigFilename(result.second);
+        m_serviceProvider->getAnalysis()->setModified(false);
     }
 
     return result;
@@ -547,9 +552,9 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 
 void AnalysisWidgetPrivate::actionClearHistograms()
 {
-    AnalysisPauser pauser(m_context);
+    AnalysisPauser pauser(m_serviceProvider);
 
-    for (auto &op: m_context->getAnalysis()->getOperators())
+    for (auto &op: m_serviceProvider->getAnalysis()->getOperators())
     {
         if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
         {
@@ -573,8 +578,8 @@ void handle_session_error(const QString &title, const QString &message)
     SessionErrorDialog dialog(title, message);
     dialog.exec();
 
-    //m_context->logMessage(QString("Error saving session:"));
-    //m_context->logMessageRaw(result.second);
+    //m_serviceProvider->logMessage(QString("Error saving session:"));
+    //m_serviceProvider->logMessageRaw(result.second);
 }
 
 void AnalysisWidgetPrivate::actionSaveSession()
@@ -585,7 +590,7 @@ void AnalysisWidgetPrivate::actionSaveSession()
 
     ResultType result;
 
-    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+    auto sessionPath = m_serviceProvider->getWorkspacePath(QSL("SessionDirectory"));
 
     if (sessionPath.isEmpty())
     {
@@ -605,7 +610,7 @@ void AnalysisWidgetPrivate::actionSaveSession()
         filename += SessionFileExtension;
     }
 
-    AnalysisPauser pauser(m_context);
+    AnalysisPauser pauser(m_serviceProvider);
 
 #if 1 // The QtConcurrent path
     QProgressDialog progressDialog;
@@ -618,14 +623,14 @@ void AnalysisWidgetPrivate::actionSaveSession()
                      &progressDialog, &QDialog::close);
 
     QFuture<ResultType> future = QtConcurrent::run(save_analysis_session, filename,
-                                                   m_context->getAnalysis());
+                                                   m_serviceProvider->getAnalysis());
     watcher.setFuture(future);
 
     progressDialog.exec();
 
     result = future.result();
 #else // The blocking path
-    result = save_analysis_session(filename, m_context->getAnalysis());
+    result = save_analysis_session(filename, m_serviceProvider->getAnalysis());
 #endif
 
     if (!result.first)
@@ -636,7 +641,7 @@ void AnalysisWidgetPrivate::actionSaveSession()
 
 void AnalysisWidgetPrivate::actionLoadSession()
 {
-    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+    auto sessionPath = m_serviceProvider->getWorkspacePath(QSL("SessionDirectory"));
 
     if (sessionPath.isEmpty())
     {
@@ -649,7 +654,7 @@ void AnalysisWidgetPrivate::actionLoadSession()
     if (filename.isEmpty())
         return;
 
-    AnalysisPauser pauser(m_context);
+    AnalysisPauser pauser(m_serviceProvider);
 
     QProgressDialog progressDialog;
     progressDialog.setLabelText(QSL("Loading session config..."));
@@ -685,24 +690,24 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
             handle_session_error(result.second, "Error loading session config");
 
-            //m_context->logMessage(QString("Error loading session:"));
-            //m_context->logMessageRaw(result.second);
+            //m_serviceProvider->logMessage(QString("Error loading session:"));
+            //m_serviceProvider->logMessageRaw(result.second);
             return;
         }
 
         analysisJson = QJsonDocument(result.first);
     }
 
-    if (!gui_analysis_maybe_save_if_modified(m_context).first)
+    if (!gui_analysis_maybe_save_if_modified(m_serviceProvider).first)
         return;
 
     // This is the standard procedure when loading an analysis config
     closeAllUniqueWidgets();
     closeAllSinkWidgets();
 
-    if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
+    if (m_serviceProvider->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
     {
-        m_context->setAnalysisConfigFilename(QString());
+        m_serviceProvider->setAnalysisConfigFilename(QString());
         progressDialog.setLabelText(QSL("Loading session data..."));
 
 
@@ -713,14 +718,14 @@ void AnalysisWidgetPrivate::actionLoadSession()
         QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &loop, &QEventLoop::quit);
 
         QFuture<ResultType> future = QtConcurrent::run(load_analysis_session, filename,
-                                                       m_context->getAnalysis());
+                                                       m_serviceProvider->getAnalysis());
         watcher.setFuture(future);
 
         loop.exec();
 
         auto result = future.result();
 #else // The blocking path
-        auto result = load_analysis_session(filename, m_context->getAnalysis());
+        auto result = load_analysis_session(filename, m_serviceProvider->getAnalysis());
 #endif
 
         if (!result.first)
@@ -733,7 +738,7 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
 void AnalysisWidgetPrivate::updateActions()
 {
-    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto streamWorker = m_serviceProvider->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
 
     qDebug() << __PRETTY_FUNCTION__ << to_string(workerState);
@@ -773,14 +778,14 @@ void AnalysisWidgetPrivate::updateActions()
 
 void AnalysisWidgetPrivate::actionExploreWorkspace()
 {
-    QString path = m_context->getWorkspaceDirectory();
+    QString path = m_serviceProvider->getWorkspaceDirectory();
 
     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
 void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 {
-    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto streamWorker = m_serviceProvider->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
 
     switch (workerState)
@@ -806,7 +811,7 @@ void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 
 void AnalysisWidgetPrivate::actionStepNextEvent()
 {
-    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto streamWorker = m_serviceProvider->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
 
     switch (workerState)
@@ -825,19 +830,19 @@ void AnalysisWidgetPrivate::actionStepNextEvent()
 
 void AnalysisWidgetPrivate::updateWindowTitle()
 {
-    QString fileName = m_context->getAnalysisConfigFilename();
+    QString fileName = m_serviceProvider->getAnalysisConfigFilename();
 
     if (fileName.isEmpty())
         fileName = QSL("<not saved>");
 
-    auto wsDir = m_context->getWorkspaceDirectory() + '/';
+    auto wsDir = m_serviceProvider->getWorkspaceDirectory() + '/';
 
     if (fileName.startsWith(wsDir))
         fileName.remove(wsDir);
 
     auto title = QString(QSL("%1 - [Analysis UI]")).arg(fileName);
 
-    if (m_context->getAnalysis()->isModified())
+    if (m_serviceProvider->getAnalysis()->isModified())
     {
         title += " *";
     }
@@ -849,7 +854,7 @@ void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_serviceProvider->getAnalysis();
     s32 maxUserLevel = 0;
 
     for (const auto &op: analysis->getOperators())
@@ -862,12 +867,12 @@ void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
     m_removeUserLevelButton->setEnabled(visibleUserLevels > 1 && visibleUserLevels > numUserLevels);
 }
 
-AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
+AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QWidget(parent)
     , m_d(new AnalysisWidgetPrivate)
 {
     m_d->m_q = this;
-    m_d->m_context = ctx;
+    m_d->m_serviceProvider = asp;
 
     m_d->m_periodicUpdateTimer = new QTimer(this);
     m_d->m_periodicUpdateTimer->start(PeriodicUpdateTimerInterval_ms);
@@ -882,13 +887,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
      * signal. When this signal arrives we suspend repopulating until the final
      * emission of the vmeConfigChanged() signal. */
 
-    connect(m_d->m_context, &MVMEContext::vmeConfigAboutToBeSet,
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::vmeConfigAboutToBeSet,
             this, [this] (VMEConfig *, VMEConfig *) {
                 qDebug() << __PRETTY_FUNCTION__ << "disabling repops";
                 m_d->m_repopEnabled = false;
             });
 
-    connect(m_d->m_context, &MVMEContext::vmeConfigChanged,
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::vmeConfigChanged,
             this, [this] (VMEConfig *) {
                 qDebug() << __PRETTY_FUNCTION__ << "reenabling repops";
                 m_d->m_repopEnabled = true;
@@ -898,18 +903,18 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     auto do_repopulate_lambda = [this]() { m_d->repopulate(); };
 
     // Individual VME config changes
-    connect(m_d->m_context, &MVMEContext::eventAdded, this, do_repopulate_lambda);
-    connect(m_d->m_context, &MVMEContext::eventAboutToBeRemoved, this, do_repopulate_lambda);
-    connect(m_d->m_context, &MVMEContext::moduleAdded, this, do_repopulate_lambda);
-    connect(m_d->m_context, &MVMEContext::moduleAboutToBeRemoved, this, do_repopulate_lambda);
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::eventAdded, this, do_repopulate_lambda);
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::eventAboutToBeRemoved, this, do_repopulate_lambda);
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::moduleAdded, this, do_repopulate_lambda);
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::moduleAboutToBeRemoved, this, do_repopulate_lambda);
 
     // Analysis changes
-    connect(m_d->m_context, &MVMEContext::analysisChanged,
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::analysisChanged,
             this, [this] (Analysis *analysis) {
                 m_d->onAnalysisChanged(analysis);
     });
 
-    connect(m_d->m_context, &MVMEContext::analysisConfigFileNameChanged,
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::analysisConfigFileNameChanged,
             this, [this](const QString &) {
                 m_d->updateWindowTitle();
     });
@@ -927,12 +932,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // object info widget
     {
-        m_d->m_objectInfoWidget = new ObjectInfoWidget(m_d->m_context);
+        m_d->m_objectInfoWidget = new ObjectInfoWidget(m_d->m_serviceProvider);
     }
 
+#if 0
     // condition/cut displays
     {
-        m_d->m_conditionWidget = new ConditionWidget(m_d->m_context);
+        m_d->m_conditionWidget = new ConditionWidget(m_d->m_serviceProvider);
         auto condWidget = m_d->m_conditionWidget;
 
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
@@ -949,6 +955,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
                          m_d->m_objectInfoWidget, &ObjectInfoWidget::setAnalysisObject);
     }
+#endif
 
     // toolbar
     {
@@ -984,7 +991,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             }
             else
             {
-                widget = new AnalysisInfoWidget(m_d->m_context);
+                widget = new AnalysisInfoWidget(m_d->m_serviceProvider);
                 widget->setAttribute(Qt::WA_DeleteOnClose);
                 add_widget_close_action(widget);
                 m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
@@ -1002,19 +1009,19 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         // pause, resume, step actions and MVLC parser debugging
         m_d->mvlcParserDebugHandler = new MVLCParserDebugHandler(this);
 
-        auto logger = [this] (const QString &msg) { m_d->m_context->logMessage(msg); };
+        auto logger = [this] (const QString &msg) { m_d->m_serviceProvider->logMessage(msg); };
         m_d->mvlcSingleStepHandler = new MVLCSingleStepHandler(logger, this);
 
         auto setup_parser_debug = [this] ()
         {
-            connect(m_d->m_context->getMVMEStreamWorker(), &StreamWorkerBase::stateChanged,
+            connect(m_d->m_serviceProvider->getMVMEStreamWorker(), &StreamWorkerBase::stateChanged,
                     this, [this](AnalysisWorkerState) {
                         m_d->updateActions();
                     });
 
             // MVLC specific
             if (auto worker = qobject_cast<MVLC_StreamWorker *>(
-                    m_d->m_context->getMVMEStreamWorker()))
+                    m_d->m_serviceProvider->getMVMEStreamWorker()))
             {
                 connect(worker, &MVLC_StreamWorker::debugInfoReady,
                         m_d->mvlcParserDebugHandler, &MVLCParserDebugHandler::handleDebugInfo);
@@ -1028,7 +1035,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         // StreamWorkerBase instance used in MVMEContext. Thus the connection
         // to stateChanged() has to be remade and the test for an
         // MVLC_StreamWorker instance has to be done again.
-        connect(m_d->m_context, &MVMEContext::vmeControllerSet,
+        connect(m_d->m_serviceProvider, &AnalysisServiceProvider::vmeControllerSet,
                 this, setup_parser_debug);
 
         setup_parser_debug();
@@ -1126,9 +1133,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     centralLayout->setStretch(1, 1);
 
     auto conditionsTabWidget = new QTabWidget;
+#if 0
     conditionsTabWidget->addTab(m_d->m_conditionWidget,
                                 QIcon(QSL(":/scissors.png")),
                                 QSL("Cuts/Conditions"));
+#endif
 
     // Object info inside a scrollarea in the bottom right corner
     auto objectInfoTabWidget = new QTabWidget;
@@ -1204,7 +1213,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // Update the histo storage size in the statusbar
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
-        double storageSize = m_d->m_context->getAnalysis()->getTotalSinkStorageSize();
+        double storageSize = m_d->m_serviceProvider->getAnalysis()->getTotalSinkStorageSize();
         QString unit("B");
 
         if (storageSize > Gigabytes(1))
@@ -1230,16 +1239,16 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // Update statusbar timeticks label
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
 
-        double tickCount = m_d->m_context->getAnalysis()->getTimetickCount();
+        double tickCount = m_d->m_serviceProvider->getAnalysis()->getTimetickCount();
 
         m_d->m_labelTimetickCount->setText(QString("Timeticks: %1 s")
                                            .arg(tickCount));
 
 
-        if (!m_d->m_context->getAnalysis()->getRunInfo().isReplay)
+        if (!m_d->m_serviceProvider->getAnalysis()->getRunInfo().isReplay)
         {
 
-            auto daqStats = m_d->m_context->getDAQStats();
+            auto daqStats = m_d->m_serviceProvider->getDAQStats();
             double efficiency = daqStats.getAnalysisEfficiency();
             efficiency = std::isnan(efficiency) ? 0.0 : efficiency;
 
@@ -1268,9 +1277,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             this, [this]() { m_d->doPeriodicUpdate(); });
 
     // Build the analysis to make sure everything is setup properly
-    auto analysis = ctx->getAnalysis();
+    auto analysis = m_d->m_serviceProvider->getAnalysis();
 
-    analysis->beginRun(ctx->getRunInfo(), ctx->getVMEConfig());
+    analysis->beginRun(m_d->m_serviceProvider->getRunInfo(), m_d->m_serviceProvider->getVMEConfig());
 
     // React to changes to the analysis but using the local signal wrapper
     // instead of the analysis directly.
@@ -1343,13 +1352,13 @@ AnalysisWidget::~AnalysisWidget()
 void AnalysisWidget::operatorAddedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-    m_d->m_conditionWidget->repopulate();
+    //m_d->m_conditionWidget->repopulate();
 }
 
 void AnalysisWidget::operatorEditedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-    m_d->m_conditionWidget->repopulate();
+    //m_d->m_conditionWidget->repopulate();
 }
 
 void AnalysisWidget::updateAddRemoveUserLevelButtons()
@@ -1357,10 +1366,12 @@ void AnalysisWidget::updateAddRemoveUserLevelButtons()
     m_d->updateAddRemoveUserLevelButtons();
 }
 
+#if 0
 ConditionWidget *AnalysisWidget::getConditionWidget() const
 {
     return m_d->m_conditionWidget;
 }
+#endif
 
 ObjectInfoWidget *AnalysisWidget::getObjectInfoWidget() const
 {
@@ -1388,7 +1399,7 @@ int AnalysisWidget::removeObjects(const AnalysisObjectVector &objects)
 
     if (objects.isEmpty()) return 0;
 
-    AnalysisPauser pauser(m_d->getContext());
+    AnalysisPauser pauser(m_d->m_serviceProvider);
     QSignalBlocker blocker(m_d->m_analysisSignalWrapper);
     auto analysis = m_d->getAnalysis();
     int result = analysis->removeObjectsRecursively(objects);

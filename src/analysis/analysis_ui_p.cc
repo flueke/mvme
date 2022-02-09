@@ -343,7 +343,7 @@ void AddEditExtractorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    AnalysisPauser pauser(m_eventWidget->getContext());
+    AnalysisPauser pauser(m_eventWidget->getServiceProvider());
 
     m_ex->setObjectName(le_name->text());
     m_ex->setEventId(m_module->getEventId());
@@ -356,7 +356,7 @@ void AddEditExtractorDialog::accept()
                      ? Extractor::Options::NoAddedRandom
                      : Extractor::Options::NoOption);
 
-    auto analysis = m_eventWidget->getContext()->getAnalysis();
+    auto analysis = m_eventWidget->getServiceProvider()->getAnalysis();
 
     switch (m_mode)
     {
@@ -476,12 +476,12 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     if (auto rms = qobject_cast<RateMonitorSink *>(op.get()))
     {
         m_opConfigWidget = new RateMonitorConfigWidget(
-            rms, userLevel, eventWidget->getContext(), this);
+            rms, userLevel, eventWidget->getServiceProvider(), this);
     }
     else
     {
         m_opConfigWidget = new OperatorConfigurationWidget(
-            op.get(), userLevel, eventWidget->getContext(), this);
+            op.get(), userLevel, eventWidget->getServiceProvider(), this);
     }
 
     switch (mode)
@@ -804,10 +804,10 @@ void AddEditOperatorDialog::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    AnalysisPauser pauser(m_eventWidget->getContext());
+    AnalysisPauser pauser(m_eventWidget->getServiceProvider());
     m_opConfigWidget->configureOperator();
 
-    auto analysis = m_eventWidget->getContext()->getAnalysis();
+    auto analysis = m_eventWidget->getServiceProvider()->getAnalysis();
 
     m_op->setEventId(m_eventSelectionCombo->currentData().toUuid());
 
@@ -856,7 +856,7 @@ void AddEditOperatorDialog::reject()
 
         case ObjectEditorMode::Edit:
             {
-                AnalysisPauser pauser(m_eventWidget->getContext());
+                AnalysisPauser pauser(m_eventWidget->getServiceProvider());
 
                 // Restore previous slot connections.
 
@@ -1074,21 +1074,21 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
 
 AbstractOpConfigWidget::AbstractOpConfigWidget(OperatorInterface *op,
                                                s32 userLevel,
-                                               MVMEContext *context,
+                                               AnalysisServiceProvider *asp,
                                                QWidget *parent)
     : QWidget(parent)
     , m_op(op)
     , m_userLevel(userLevel)
     , m_wasNameEdited(false)
-    , m_context(context)
+    , m_serviceProvider(asp)
 {
 }
 
 OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                                                          s32 userLevel,
-                                                         MVMEContext *context,
+                                                         AnalysisServiceProvider *serviceProvider,
                                                          QWidget *parent)
-    : AbstractOpConfigWidget(op, userLevel, context, parent)
+    : AbstractOpConfigWidget(op, userLevel, serviceProvider, parent)
 {
     auto widgetLayout = new QVBoxLayout(this);
     widgetLayout->setContentsMargins(0, 0, 0, 0);
@@ -1634,7 +1634,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
                 if (!dirName.isEmpty())
                 {
-                    auto wsDir = m_context->getWorkspaceDirectory();
+                    auto wsDir = m_serviceProvider->getWorkspaceDirectory();
                     if (!wsDir.endsWith("/")) wsDir += "/";
 
                     if (dirName.startsWith(wsDir))
@@ -1729,12 +1729,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             formLayout->addRow(gb_codeGen);
 
-            auto logger = [context, ex] (const QString &msg)
+            auto logger = [serviceProvider, ex] (const QString &msg)
             {
                 auto s = QSL("File Export %1: %2")
                     .arg(ex->objectName())
                     .arg(msg);
-                context->logMessage(s);
+                serviceProvider->logMessage(s);
             };
 
             connect(pb_generateCode, &QPushButton::clicked, this, [this, ex, logger] () {
@@ -1762,7 +1762,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
                 {
                     this->configureOperator();
 
-                    QString path = m_context->getWorkspaceDirectory() + "/" +
+                    QString path = m_serviceProvider->getWorkspaceDirectory() + "/" +
                         ex->getOutputPrefixPath();
 
                     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
@@ -2477,9 +2477,9 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
 //
 RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
                                                  s32 userLevel,
-                                                 MVMEContext *context,
+                                                 AnalysisServiceProvider *asp,
                                                  QWidget *parent)
-    : AbstractOpConfigWidget(rms, userLevel, context, parent)
+    : AbstractOpConfigWidget(rms, userLevel, asp, parent)
     , m_rms(rms)
 {
     le_name = new QLineEdit;
@@ -2797,11 +2797,11 @@ SessionErrorDialog::SessionErrorDialog(const QString &message, const QString &ti
 }
 
 ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSink> &sink,
-                                                 MVMEContext *context,
+                                                 AnalysisServiceProvider *serviceProvider,
                                                  QWidget *parent)
     : QWidget(parent)
     , m_sink(sink)
-    , m_context(context)
+    , m_serviceProvider(serviceProvider)
     , label_outputDirectory(new QLabel)
     , label_fileName(new QLabel)
     , label_fileSize(new QLabel)
@@ -2832,7 +2832,7 @@ ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSin
     }
 
     connect(pb_openDirectory, &QPushButton::clicked, this, [this]() {
-        QString path = m_context->getWorkspaceDirectory() + "/"
+        QString path = m_serviceProvider->getWorkspaceDirectory() + "/"
             + m_sink->getOutputPrefixPath();
 
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
@@ -2850,12 +2850,12 @@ void ExportSinkStatusMonitor::update()
 {
     setWindowTitle(QSL("File Export %1").arg(m_sink->objectName()));
 
-    auto a2_state = m_context->getAnalysis()->getA2AdapterState();
+    auto a2_state = m_serviceProvider->getAnalysis()->getA2AdapterState();
 
     if (auto a2_sink = a2_state->operatorMap.value(m_sink.get(), nullptr))
     {
         auto d = reinterpret_cast<a2::ExportSinkData *>(a2_sink->d);
-        auto runInfo = m_context->getAnalysis()->getRunInfo();
+        auto runInfo = m_serviceProvider->getAnalysis()->getRunInfo();
 
         auto fileName = !runInfo.runId.isEmpty() ? QString::fromStdString(d->filename) : QSL("-");
         auto fileSize = QFileInfo(fileName).size();

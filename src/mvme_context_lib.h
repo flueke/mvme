@@ -23,6 +23,7 @@
 
 #include "mvme_listfile_utils.h"
 #include "mvme_context.h"
+#include "analysis_service_provider.h"
 
 // Config to file writing. No error reporting, just a boolean success/fail
 // return value.
@@ -43,12 +44,12 @@ QPair<bool, QString> gui_save_analysis_config(analysis::Analysis *analysis,
                                         const QString &fileName,
                                         QString startPath,
                                         QString fileFilter,
-                                        MVMEContext *context);
+                                        AnalysisServiceProvider *serviceProvider);
 
 QPair<bool, QString> gui_save_analysis_config_as(analysis::Analysis *analysis,
                                            QString startPath,
                                            QString fileFilter,
-                                           MVMEContext *context);
+                                           AnalysisServiceProvider *serviceProvider);
 
 QPair<bool, QString> gui_save_vme_config(VMEConfig *vmeConfig, const QString &filename, QString startPath);
 QPair<bool, QString> gui_save_vme_config_as(VMEConfig *vmeConfig, QString startPath);
@@ -56,8 +57,8 @@ QPair<bool, QString> gui_save_vme_config_as(VMEConfig *vmeConfig, QString startP
 // These get the VMEConfig/Analysis object from the context. If the object is
 // modified the save -> saveas sequence is run. They also set the new filename
 // on the context object and restart the file autosaver.
-QPair<bool, QString> gui_analysis_maybe_save_if_modified(MVMEContext *context);
-QPair<bool, QString> gui_vmeconfig_maybe_save_if_modified(MVMEContext *context);
+QPair<bool, QString> gui_analysis_maybe_save_if_modified(AnalysisServiceProvider *serviceProvider);
+QPair<bool, QString> gui_vmeconfig_maybe_save_if_modified(AnalysisServiceProvider *serviceProvider);
 
 
 /* IMPORTANT: Does not check if the current analysis is modified before loading
@@ -69,10 +70,10 @@ LIBMVME_EXPORT const ListfileReplayHandle &context_open_listfile(
 
 struct AnalysisPauser
 {
-    explicit AnalysisPauser(MVMEContext *context);
+    explicit AnalysisPauser(AnalysisServiceProvider *context);
     ~AnalysisPauser();
 
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_serviceProvider;
     AnalysisWorkerState m_prevState;
 };
 

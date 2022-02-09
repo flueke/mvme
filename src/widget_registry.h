@@ -40,6 +40,10 @@ class WidgetRegistry: public QObject
         QMultiMap<QObject *, QWidget *> getAllObjectWidgets() const;
         QList<QWidget *> getAllWidgets() const;
 
+        // TODO: addWidget() does not really belong here as there's no object
+        // involved and there's no way to query the widget
+        void addWidget(QWidget *widget, const QString &stateKey);
+
     private:
         WidgetGeometrySaver *geoSaver_;
         QMap<QObject *, QList<QWidget *>> objectWidgets_;

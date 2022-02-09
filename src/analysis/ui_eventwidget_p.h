@@ -118,7 +118,7 @@ class ObjectTree: public QTreeWidget, public CheckStateObserver
 
         EventWidget *getEventWidget() const { return m_eventWidget; }
         void setEventWidget(EventWidget *widget) { m_eventWidget = widget; }
-        MVMEContext *getContext() const;
+        AnalysisServiceProvider *getServiceProvider() const;
         Analysis *getAnalysis() const;
         s32 getUserLevel() const { return m_userLevel; }
         void setUserLevel(s32 userLevel) { m_userLevel = userLevel; }
@@ -233,7 +233,7 @@ struct EventWidgetPrivate
     };
 
     EventWidget *m_q;
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_serviceProvider;
     AnalysisWidget *m_analysisWidget;
 
     QVector<UserLevelTrees> m_levelTrees;

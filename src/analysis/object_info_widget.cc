@@ -30,20 +30,20 @@ namespace analysis
 
 struct ObjectInfoWidget::Private
 {
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_serviceProvider;
     AnalysisObjectPtr m_analysisObject;
     const ConfigObject *m_configObject;
 
     QLabel *m_infoLabel;
 };
 
-ObjectInfoWidget::ObjectInfoWidget(MVMEContext *ctx, QWidget *parent)
+ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QFrame(parent)
     , m_d(std::make_unique<Private>())
 {
     setFrameStyle(QFrame::NoFrame);
 
-    m_d->m_context = ctx;
+    m_d->m_serviceProvider = asp;
     m_d->m_infoLabel = new QLabel;
     m_d->m_infoLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     m_d->m_infoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -54,7 +54,7 @@ ObjectInfoWidget::ObjectInfoWidget(MVMEContext *ctx, QWidget *parent)
     layout->setSpacing(2);
     layout->addWidget(m_d->m_infoLabel);
 
-    connect(ctx, &MVMEContext::vmeConfigAboutToBeSet,
+    connect(asp, &AnalysisServiceProvider::vmeConfigAboutToBeSet,
             this, &ObjectInfoWidget::clear);
 }
 
@@ -116,7 +116,7 @@ void ObjectInfoWidget::refresh()
             .arg(to_string(obj->getObjectFlags()))
             ;
 
-        auto analysis = m_d->m_context->getAnalysis();
+        auto analysis = m_d->m_serviceProvider->getAnalysis();
 
         if (auto op = qobject_cast<OperatorInterface *>(obj.get()))
         {

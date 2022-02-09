@@ -28,7 +28,7 @@
 namespace analysis
 {
 
-QWidget *sink_widget_factory(const SinkPtr &sink, MVMEContext *context, QWidget *parent)
+QWidget *sink_widget_factory(const SinkPtr &sink, AnalysisServiceProvider *serviceProvider, QWidget *parent)
 {
     QWidget *result = nullptr;
 
@@ -37,10 +37,10 @@ QWidget *sink_widget_factory(const SinkPtr &sink, MVMEContext *context, QWidget 
         auto w = new Histo1DWidget(h1dSink->getHistos(), parent);
         result = w;
 
-        w->setContext(context);
+        w->setServiceProvider(serviceProvider);
 
-        w->setSink(h1dSink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-            context->analysisOperatorEdited(sink);
+        w->setSink(h1dSink, [serviceProvider] (const std::shared_ptr<Histo1DSink> &sink) {
+            serviceProvider->analysisOperatorEdited(sink);
         });
 
         // Check if the histosinks input is a CalibrationMinMax and if so set
@@ -62,21 +62,21 @@ QWidget *sink_widget_factory(const SinkPtr &sink, MVMEContext *context, QWidget 
         auto eventId   = h2dSink->getEventId();
         auto userLevel = h2dSink->getUserLevel();
 
-        w->setContext(context);
+        w->setServiceProvider(serviceProvider);
 
         w->setSink(
             h2dSink,
             // addSinkCallback
-            [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
-                context->addAnalysisOperator(eventId, sink, userLevel);
+            [serviceProvider, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
+                serviceProvider->addAnalysisOperator(eventId, sink, userLevel);
             },
             // sinkModifiedCallback
-            [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                context->analysisOperatorEdited(sink);
+            [serviceProvider] (const std::shared_ptr<Histo2DSink> &sink) {
+                serviceProvider->analysisOperatorEdited(sink);
             },
             // makeUniqueOperatorNameFunction
-            [context] (const QString &name) {
-                return make_unique_operator_name(context->getAnalysis(), name);
+            [serviceProvider] (const QString &name) {
+                return make_unique_operator_name(serviceProvider->getAnalysis(), name);
         });
     }
     else
@@ -86,7 +86,7 @@ QWidget *sink_widget_factory(const SinkPtr &sink, MVMEContext *context, QWidget 
 
     if (result)
     {
-        context->addObjectWidget(result, sink.get(), sink->getId().toString());
+        serviceProvider->getWidgetRegistry()->addObjectWidget(result, sink.get(), sink->getId().toString());
     }
 
     return result;

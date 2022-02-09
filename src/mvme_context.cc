@@ -37,6 +37,7 @@
 #include "mvlc_readout_worker.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_context_lib.h"
+#include "mvmecontext_analysis_service_provider.h"
 #include "mvme.h"
 #include "mvme_listfile_worker.h"
 #include "mvme_stream_worker.h"
@@ -174,6 +175,8 @@ struct MVMEContextPrivate
     std::unique_ptr<LastlogHelper> lastLogfileHelper;
 
     mesytec::mvlc::WaitableProtected<MVMEState> m_mvmeState;
+
+    AnalysisServiceProvider *analysisServiceProvider = nullptr;
 
     MVMEContextPrivate(MVMEContext *q, const MVMEOptions &options)
         : m_q(q)
@@ -544,6 +547,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     , m_analysis(std::make_unique<analysis::Analysis>())
 {
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
+    m_d->analysisServiceProvider = new MVMEContextServiceProvider(this, this);
 
     for (size_t i=0; i<ReadoutBufferCount; ++i)
     {
@@ -2966,7 +2970,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId,
     if (auto eventConfig = m_vmeConfig->getEventConfig(eventId))
     {
         (void) eventConfig;
-        AnalysisPauser pauser(this);
+        AnalysisPauser pauser(getAnalysisServiceProvider());
         getAnalysis()->addOperator(eventId, userLevel, op);
         getAnalysis()->beginRun(analysis::Analysis::KeepState, getVMEConfig());
 
@@ -2979,7 +2983,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId,
 
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
-    AnalysisPauser pauser(this);
+    AnalysisPauser pauser(getAnalysisServiceProvider());
     getAnalysis()->setOperatorEdited(op);
     getAnalysis()->beginRun(analysis::Analysis::KeepState, getVMEConfig());
 
@@ -3002,6 +3006,11 @@ void MVMEContext::setRunNotes(const QString &notes)
 QString MVMEContext::getRunNotes() const
 {
     return m_d->runNotes.copy();
+}
+
+AnalysisServiceProvider *MVMEContext::getAnalysisServiceProvider() const
+{
+    return m_d->analysisServiceProvider;
 }
 
 // DAQPauser

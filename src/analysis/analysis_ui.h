@@ -25,6 +25,7 @@
 #include <QWidget>
 
 #include "analysis_fwd.h"
+#include "analysis_service_provider.h"
 
 class MVMEContext;
 
@@ -43,14 +44,14 @@ class AnalysisWidget: public QWidget
 {
     Q_OBJECT
     public:
-        AnalysisWidget(MVMEContext *ctx, QWidget *parent = 0);
+        AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent = 0);
         ~AnalysisWidget();
 
         void operatorAddedExternally(const OperatorPtr &op);
         void operatorEditedExternally(const OperatorPtr &op);
 
         void updateAddRemoveUserLevelButtons();
-        ConditionWidget *getConditionWidget() const;
+        //ConditionWidget *getConditionWidget() const;
         ObjectInfoWidget *getObjectInfoWidget() const;
 
         virtual bool event(QEvent *event) override;

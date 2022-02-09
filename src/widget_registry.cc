@@ -71,5 +71,14 @@ QList<QWidget *> WidgetRegistry::getAllWidgets() const
     return result;
 }
 
+void WidgetRegistry::addWidget(QWidget *widget, const QString &stateKey)
+{
+    widget->setAttribute(Qt::WA_DeleteOnClose);
+    if (!stateKey.isEmpty())
+        geoSaver_->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
+    add_widget_close_action(widget);
+    widget->show();
+}
+
 }
 }

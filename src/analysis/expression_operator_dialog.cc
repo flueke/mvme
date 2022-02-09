@@ -2153,7 +2153,7 @@ ExpressionOperatorDialog::~ExpressionOperatorDialog()
 
 void ExpressionOperatorDialog::apply()
 {
-    AnalysisPauser pauser(m_d->m_eventWidget->getContext());
+    AnalysisPauser pauser(m_d->m_eventWidget->getServiceProvider());
 
     m_d->updateModelFromGUI();
     save_to_operator(*m_d->m_model, *m_d->m_op);
