@@ -8,6 +8,36 @@ MVMEContextServiceProvider::MVMEContextServiceProvider(MVMEContext *ctx, QObject
     : AnalysisServiceProvider(parent)
     , ctx_(ctx)
 {
+    connect(ctx, &MVMEContext::vmeConfigAboutToBeSet,
+            this, &MVMEContextServiceProvider::vmeConfigAboutToBeSet);
+    connect(ctx, &MVMEContext::vmeConfigChanged,
+            this, &MVMEContextServiceProvider::vmeConfigChanged);
+    connect(ctx, &MVMEContext::vmeConfigFilenameChanged,
+            this, &MVMEContextServiceProvider::vmeConfigFilenameChanged);
+    connect(ctx, &MVMEContext::eventAdded,
+            this, &MVMEContextServiceProvider::eventAdded);
+    connect(ctx, &MVMEContext::eventAboutToBeRemoved,
+            this, &MVMEContextServiceProvider::eventAboutToBeRemoved);
+    connect(ctx, &MVMEContext::moduleAdded,
+            this, &MVMEContextServiceProvider::moduleAdded);
+    connect(ctx, &MVMEContext::moduleAboutToBeRemoved,
+            this, &MVMEContextServiceProvider::moduleAboutToBeRemoved);
+    connect(ctx, &MVMEContext::analysisChanged,
+            this, &MVMEContextServiceProvider::analysisChanged);
+    connect(ctx, &MVMEContext::analysisConfigFileNameChanged,
+            this, &MVMEContextServiceProvider::analysisConfigFileNameChanged);
+    connect(ctx, &MVMEContext::mvmeStreamWorkerStateChanged,
+            this, &MVMEContextServiceProvider::mvmeStreamWorkerStateChanged);
+    connect(ctx, &MVMEContext::daqStateChanged,
+            this, &MVMEContextServiceProvider::daqStateChanged);
+    connect(ctx, &MVMEContext::modeChanged,
+            this, &MVMEContextServiceProvider::modeChanged);
+    connect(ctx, &MVMEContext::vmeControllerAboutToBeChanged,
+            this, &MVMEContextServiceProvider::vmeControllerAboutToBeChanged);
+    connect(ctx, &MVMEContext::vmeControllerSet,
+            this, &MVMEContextServiceProvider::vmeControllerSet);
+    connect(ctx, &MVMEContext::workspaceDirectoryChanged,
+            this, &MVMEContextServiceProvider::workspaceDirectoryChanged);
 }
 
 QString MVMEContextServiceProvider::getWorkspaceDirectory()
