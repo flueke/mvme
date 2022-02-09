@@ -156,7 +156,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
         return;
     }
 
-    if (!gui_vmeconfig_maybe_save_if_modified(m_context).first)
+    if (!gui_vmeconfig_maybe_save_if_modified(m_context->getAnalysisServiceProvider()).first)
         return;
 
     OpenListfileOptions opts = {};
@@ -165,7 +165,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
 
     if (opts.loadAnalysis && m_context->getAnalysis()->isModified())
     {
-        if (!gui_analysis_maybe_save_if_modified(m_context).first)
+        if (!gui_analysis_maybe_save_if_modified(m_context->getAnalysisServiceProvider()).first)
             return;
     }
 

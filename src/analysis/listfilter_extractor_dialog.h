@@ -24,6 +24,7 @@
 #include <QDialog>
 #include "analysis.h"
 #include "object_editor_dialog.h"
+#include "analysis_service_provider.h"
 
 class MVMEContext;
 
@@ -35,7 +36,7 @@ class ListFilterExtractorDialog: public ObjectEditorDialog
     Q_OBJECT
     public:
         ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
-                                  MVMEContext *context, QWidget *parent = nullptr);
+                                  AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         virtual ~ListFilterExtractorDialog();
 
         void editListFilterExtractor(const std::shared_ptr<ListFilterExtractor> &lfe);

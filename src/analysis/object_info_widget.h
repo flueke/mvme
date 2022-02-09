@@ -25,6 +25,7 @@
 
 #include "analysis_fwd.h"
 #include "vme_config.h"
+#include "analysis_service_provider.h"
 
 class MVMEContext;
 
@@ -35,7 +36,7 @@ class ObjectInfoWidget: public QFrame
 {
     Q_OBJECT
     public:
-        ObjectInfoWidget(MVMEContext *ctx, QWidget *parent = nullptr);
+        ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~ObjectInfoWidget();
 
     public slots:

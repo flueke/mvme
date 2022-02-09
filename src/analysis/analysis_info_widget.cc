@@ -64,7 +64,7 @@ static const QVector<const char *> MVLC_LabelTexts =
 
 struct AnalysisInfoWidgetPrivate
 {
-    MVMEContext *context;
+    AnalysisServiceProvider *serviceProvider;
     MVMEStreamProcessorCounters prevCounters;
     QDateTime lastUpdateTime;
     QVector<QLabel *> labels;
@@ -99,12 +99,12 @@ static const std::chrono::milliseconds WidgetUpdatePeriod(1000);
 static const int WidgetUpdatePeriod = 1000;
 #endif
 
-AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
+AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider, QWidget *parent)
     : QWidget(parent)
     , m_d(new AnalysisInfoWidgetPrivate)
 {
     setFocusPolicy(Qt::StrongFocus);
-    m_d->context = context;
+    m_d->serviceProvider = serviceProvider;
 
     setWindowTitle(QSL("Analysis Info"));
 
@@ -159,7 +159,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
                 this, [this] ()
         {
             if (auto worker = qobject_cast<MVLC_StreamWorker *>(
-                    m_d->context->getMVMEStreamWorker()))
+                    m_d->serviceProvider->getMVMEStreamWorker()))
             {
                 worker->requestDebugInfoOnNextError();
             }
@@ -169,7 +169,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
                 this, [this] ()
         {
             if (auto worker = qobject_cast<MVLC_StreamWorker *>(
-                    m_d->context->getMVMEStreamWorker()))
+                    m_d->serviceProvider->getMVMEStreamWorker()))
             {
                 worker->requestDebugInfoOnNextBuffer(false);
             }
@@ -179,7 +179,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
                 this, [this] ()
         {
             if (auto worker = qobject_cast<MVLC_StreamWorker *>(
-                    m_d->context->getMVMEStreamWorker()))
+                    m_d->serviceProvider->getMVMEStreamWorker()))
             {
                 worker->requestDebugInfoOnNextBuffer(true);
             }
@@ -245,7 +245,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
 
     connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
 
-    connect(context, &MVMEContext::mvmeStreamWorkerStateChanged,
+    connect(serviceProvider, &AnalysisServiceProvider::mvmeStreamWorkerStateChanged,
             this, [this](AnalysisWorkerState state) {
 
         if (state == AnalysisWorkerState::Running)
@@ -264,7 +264,7 @@ AnalysisInfoWidget::~AnalysisInfoWidget()
 
 void AnalysisInfoWidget::update()
 {
-    auto streamWorker = m_d->context->getMVMEStreamWorker();
+    auto streamWorker = m_d->serviceProvider->getMVMEStreamWorker();
 
     if (!streamWorker)
     {

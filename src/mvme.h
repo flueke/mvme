@@ -27,6 +27,7 @@
 #include "libmvme_export.h"
 #include "mvme_context.h"
 #include "mvme_options.h"
+#include "widget_registry.h"
 
 class ConfigObject;
 class VMEConfig;
@@ -87,6 +88,8 @@ public:
         static const opt_t Defaults = 0u;
         static const opt_t AggregateResults = 1u << 0;
     };
+
+    mesytec::mvme::WidgetRegistry *getWidgetRegistry() const;
 
 public slots:
     void displayAbout();

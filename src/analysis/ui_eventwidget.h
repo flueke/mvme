@@ -25,11 +25,10 @@
 #include "run_info.h"
 #include "typedefs.h"
 #include "vme_config_fwd.h"
+#include "analysis_service_provider.h"
 
 #include <functional>
 #include <QWidget>
-
-class MVMEContext;
 
 class QToolBar;
 class QTreeWidget;
@@ -59,7 +58,7 @@ class EventWidget: public QWidget
                                                         Pipe *sourcePipe,
                                                         s32 sourceParamIndex)>;
 
-        EventWidget(MVMEContext *ctx, AnalysisWidget *analysisWidget, QWidget *parent = 0);
+        EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent = 0);
         virtual ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
@@ -82,7 +81,8 @@ class EventWidget: public QWidget
         QToolBar *getToolBar();
         QToolBar *getEventSelectAreaToolBar();
 
-        MVMEContext *getContext() const;
+        AnalysisServiceProvider *getServiceProvider() const;
+
         AnalysisWidget *getAnalysisWidget() const;
         Analysis *getAnalysis() const;
         RunInfo getRunInfo() const;

@@ -260,8 +260,8 @@ add_library(libmvme SHARED
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/code_editor.cc
-    analysis/condition_ui.cc
-    analysis/condition_ui_p.cc
+    #analysis/condition_ui.cc
+    #analysis/condition_ui_p.cc
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
@@ -273,6 +273,7 @@ add_library(libmvme SHARED
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
     analysis_bench.cc
+    analysis_service_provider.cc
     daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -296,6 +297,7 @@ add_library(libmvme SHARED
     logfile_helper.cc
     mesytec_diagnostics.cc
     multi_event_splitter.cc
+    mvmecontext_analysis_service_provider.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp

@@ -92,12 +92,12 @@ QPair<bool, QString> gui_save_analysis_config(
     const QString &fileName,
     QString startPath,
     QString fileFilter,
-    MVMEContext *context)
+    AnalysisServiceProvider *serviceProvider)
 {
-    vme_analysis_common::update_analysis_vme_properties(context->getVMEConfig(), analysis);
+    vme_analysis_common::update_analysis_vme_properties(serviceProvider->getVMEConfig(), analysis);
 
     if (fileName.isEmpty())
-        return gui_save_analysis_config_as(analysis, startPath, fileFilter, context);
+        return gui_save_analysis_config_as(analysis, startPath, fileFilter, serviceProvider);
 
     if (gui_save_analysis_impl(analysis, fileName))
         return qMakePair(true, fileName);
@@ -109,9 +109,9 @@ QPair<bool, QString> gui_save_analysis_config_as(
     analysis::Analysis *analysis,
     QString path,
     QString fileFilter,
-    MVMEContext *context)
+    AnalysisServiceProvider *serviceProvider)
 {
-    vme_analysis_common::update_analysis_vme_properties(context->getVMEConfig(), analysis);
+    vme_analysis_common::update_analysis_vme_properties(serviceProvider->getVMEConfig(), analysis);
 
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -133,11 +133,11 @@ QPair<bool, QString> gui_save_analysis_config_as(
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> gui_analysis_maybe_save_if_modified(MVMEContext *context)
+QPair<bool, QString> gui_analysis_maybe_save_if_modified(AnalysisServiceProvider *serviceProvider)
 {
     auto result = qMakePair(true, QString());
 
-    auto analysis = context->getAnalysis();
+    auto analysis = serviceProvider->getAnalysis();
 
     if (analysis->isModified())
     {
@@ -153,16 +153,16 @@ QPair<bool, QString> gui_analysis_maybe_save_if_modified(MVMEContext *context)
         {
             result = gui_save_analysis_config(
                 analysis,
-                context->getAnalysisConfigFilename(),
-                context->getWorkspaceDirectory(),
+                serviceProvider->getAnalysisConfigFilename(),
+                serviceProvider->getWorkspaceDirectory(),
                 AnalysisFileFilter,
-                context);
+                serviceProvider);
 
             if (result.first)
             {
                 analysis->setModified(false);
-                context->setAnalysisConfigFilename(result.second);
-                context->analysisWasSaved();
+                serviceProvider->setAnalysisConfigFilename(result.second);
+                serviceProvider->analysisWasSaved();
             }
         }
         else if (choice == QMessageBox::Cancel)
@@ -221,11 +221,11 @@ QPair<bool, QString> gui_save_vme_config_as(
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> gui_vmeconfig_maybe_save_if_modified(MVMEContext *context)
+QPair<bool, QString> gui_vmeconfig_maybe_save_if_modified(AnalysisServiceProvider *serviceProvider)
 {
     auto result = qMakePair(true, QString());
 
-    auto vmeConfig = context->getVMEConfig();
+    auto vmeConfig = serviceProvider->getVMEConfig();
 
     if (vmeConfig->isModified())
     {
@@ -241,14 +241,14 @@ QPair<bool, QString> gui_vmeconfig_maybe_save_if_modified(MVMEContext *context)
         {
             result = gui_save_vme_config(
                 vmeConfig,
-                context->getVMEConfigFilename(),
-                context->getWorkspaceDirectory());
+                serviceProvider->getVMEConfigFilename(),
+                serviceProvider->getWorkspaceDirectory());
 
             if (result.first)
             {
                 vmeConfig->setModified(false);
-                context->setVMEConfigFilename(result.second);
-                context->vmeConfigWasSaved();
+                serviceProvider->setVMEConfigFilename(result.second);
+                serviceProvider->vmeConfigWasSaved();
             }
         }
         else if (choice == QMessageBox::Cancel)
@@ -289,16 +289,16 @@ const ListfileReplayHandle &context_open_listfile(
 //
 // AnalysisPauser
 //
-AnalysisPauser::AnalysisPauser(MVMEContext *context)
-    : m_context(context)
-    , m_prevState(m_context->getMVMEStreamWorkerState())
+AnalysisPauser::AnalysisPauser(AnalysisServiceProvider *serviceProvider)
+    : m_serviceProvider(serviceProvider)
+    , m_prevState(m_serviceProvider->getAnalysisWorkerState())
 {
     qDebug() << __PRETTY_FUNCTION__ << "prevState =" << to_string(m_prevState);
 
     switch (m_prevState)
     {
         case AnalysisWorkerState::Running:
-            m_context->stopAnalysis();
+            m_serviceProvider->stopAnalysis();
             break;
 
         case AnalysisWorkerState::Idle:
@@ -315,23 +315,22 @@ AnalysisPauser::~AnalysisPauser()
     switch (m_prevState)
     {
         case AnalysisWorkerState::Running:
-            m_context->resumeAnalysis(analysis::Analysis::KeepState);
+            m_serviceProvider->resumeAnalysis(analysis::Analysis::KeepState);
             break;
 
         case AnalysisWorkerState::Idle:
         case AnalysisWorkerState::Paused:
         case AnalysisWorkerState::SingleStepping:
             {
-                auto analysis = m_context->getAnalysis();
+                auto analysis = m_serviceProvider->getAnalysis();
 
                 if (analysis->anyObjectNeedsRebuild())
                 {
                     qDebug() << __PRETTY_FUNCTION__
                         << "rebuilding analysis because at least one object needs a rebuild";
                     analysis->beginRun(
-                        analysis::Analysis::KeepState, m_context->getVMEConfig(),
-                        [this] (const QString &msg) { m_context->logMessage(msg); });
-
+                        analysis::Analysis::KeepState, m_serviceProvider->getVMEConfig(),
+                        [this] (const QString &msg) { m_serviceProvider->logMessage(msg); });
                 }
             }
             break;

@@ -25,6 +25,7 @@
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "analysis/analysis.h"
+#include "analysis_service_provider.h"
 #include "globals.h"
 #include "databuffer.h"
 #include "listfile_replay.h"
@@ -267,7 +268,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QString getWorkspaceDirectory() const { return m_workspaceDir; }
         // Returns an empty shared_Ptr if getWorkspaceDirectory() returns an empty string
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
-        // Returns an empty string if not workspace is open
+        // Returns an empty string if no workspace is open
         QString getWorkspacePath(const QString &settingsKey,
                                  const QString &defaultValue = QString(),
                                  bool setIfDefaulted = true) const;
@@ -279,10 +280,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void loadVMEConfig(const QString &fileName);
         void vmeConfigWasSaved();
 
-        struct AnalysisLoadFlags
-        {
-            bool NoAutoResume: 1;
-        };
 
         bool loadAnalysisConfig(const QString &fileName);
         bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
@@ -326,6 +323,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         RunInfo getRunInfo() const;
         QString getRunNotes() const;
+
+        AnalysisServiceProvider *getAnalysisServiceProvider() const;
 
     public slots:
         // Logs the given msg as-is.
