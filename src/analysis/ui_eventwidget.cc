@@ -400,6 +400,16 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
                 source->setEventId(module->getEventId());
                 source->setModuleId(module->getId());
+
+                // Also assign all objects that are dependents of the selected
+                // source to the same event id.
+                auto deps = collect_dependent_objects(source);
+
+                for (auto dep: deps)
+                    dep->setEventId(module->getEventId());
+
+                // Tell the analysis that the source was modified. It will set
+                // the NeedRebuild flag on the source and on dependent objects.
                 analysis->setSourceEdited(source);
                 droppedObjects.append(source);
             }
