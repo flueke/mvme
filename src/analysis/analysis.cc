@@ -5334,6 +5334,7 @@ void Analysis::clear()
     m_sources.clear();
     m_operators.clear();
     m_directories.clear();
+    setProperty("ModuleProperties", {});
     setModified();
 }
 
