@@ -49,6 +49,7 @@ enum NodeType
 {
     NodeType_Event = QTreeWidgetItem::UserType,
     NodeType_Module,
+    NodeType_UnassignedModule,
     NodeType_Source,
     NodeType_Operator,
     NodeType_OutputPipe,
