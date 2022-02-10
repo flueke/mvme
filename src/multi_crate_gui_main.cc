@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QSplashScreen>
 #include <QTimer>
 #include <spdlog/spdlog.h>
 
