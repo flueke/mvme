@@ -1170,6 +1170,8 @@ void recursively_set_objects_enabled(ConfigObject *root, bool enabled)
 
 void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 {
+    if (!m_config) return;
+
     auto node = m_tree->itemAt(pos);
     auto obj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
     auto vmeScript = qobject_cast<VMEScriptConfig *>(obj);
