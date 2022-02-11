@@ -24,20 +24,25 @@ class MulticrateVMEConfig: public ConfigObject
 {
     Q_OBJECT
     signals:
-        void vmeConfigAdded(VMEConfig *cfg);
-        void vmeConfigAboutToBeRemoved(VMEConfig *cfg);
+        void crateConfigAdded(VMEConfig *cfg);
+        void crateConfigAboutToBeRemoved(VMEConfig *cfg);
 
     public:
         Q_INVOKABLE explicit MulticrateVMEConfig(QObject *parent = nullptr);
+        ~MulticrateVMEConfig() override;
 
-        void addVMEConfig(VMEConfig *cfg);
-        bool removeVMEConfig(const VMEConfig *cfg);
-        bool contains(const VMEConfig *cfg) const;
+        void addCrateConfig(VMEConfig *cfg);
+        void removeCrateConfig(const VMEConfig *cfg);
+        bool containsCrateConfig(const VMEConfig *cfg);
+
+    protected:
+        std::error_code read_impl(const QJsonObject &json) override;
+        std::error_code write_impl(QJsonObject &json) const override;
 
     private:
         std::vector<VMEConfig *> m_crateConfigs;
         std::set<int> m_crossCrateEventIndexes;
-        std::vector<QUuid> m_eventMainModuleIds;
+        std::map<int, QUuid> m_crossCrateEventMainModules;
         VMEConfig *m_mergedConfig;
 };
 
@@ -88,8 +93,9 @@ inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merg
     return make_merged_vme_config(rawConfigs, crossCrateEvents);
 }
 
+#if 0
 //
-// MultiCrateConfig
+// MultiCrateConfig - test code. Contains filenames to the individual configs plus meta data.
 //
 
 struct MultiCrateConfig
@@ -129,6 +135,7 @@ MultiCrateConfig load_multi_crate_config(const QString &filename);
 
 QJsonObject to_json_object(const MultiCrateConfig &mcfg);
 QJsonDocument to_json_document(const MultiCrateConfig &mcfg);
+#endif
 
 //
 // Playground (XXX: moved from the implementation file)
@@ -166,6 +173,42 @@ class BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
             std::memcpy(destBuffer->data(), data, size);
             destBuffer->use(size);
             destQueues_.filledBufferQueue().enqueue(destBuffer);
+            return size;
+        }
+
+    private:
+        mvlc::ReadoutBufferQueues &destQueues_;
+        mvlc::ConnectionType connectionType_;
+        u32 nextBufferNumber_ = 1u;
+};
+
+class DroppingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
+{
+    public:
+        DroppingBufferQueuesWriteHandle(
+            mvlc::ReadoutBufferQueues &destQueues,
+            mvlc::ConnectionType connectionType
+            )
+            : destQueues_(destQueues)
+            , connectionType_(connectionType)
+        {
+        }
+
+        size_t write(const u8 *data, size_t size) override
+        {
+            if (auto destBuffer = destQueues_.emptyBufferQueue().dequeue())
+            {
+                destBuffer->clear();
+                destBuffer->setBufferNumber(nextBufferNumber_);
+                destBuffer->setType(connectionType_);
+                destBuffer->ensureFreeSpace(size);
+                assert(destBuffer->used() == 0);
+                std::memcpy(destBuffer->data(), data, size);
+                destBuffer->use(size);
+                destQueues_.filledBufferQueue().enqueue(destBuffer);
+            }
+
+            ++nextBufferNumber_;
             return size;
         }
 

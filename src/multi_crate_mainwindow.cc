@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <QStatusBar>
 #include <QWindow>
+#include <QScrollArea>
 
 #include "qt_util.h"
 #include "vme_config_tree.h"
@@ -51,15 +52,25 @@ MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
     action->setShortcut(QSL("Ctrl+Q"));
     action->setShortcutContext(Qt::ApplicationShortcut);
 
+    auto containerWidget = new QWidget;
+    auto containerLayout = new QHBoxLayout(containerWidget);
+
     for (int i=0; i<3; ++i)
     {
         auto w = new VMEConfigTreeWidget();
-        d->centralLayout->addWidget(w);
+        containerLayout->addWidget(w);
+        //d->centralLayout->addWidget(w);
         d->crateConfigWidgets.push_back(w);
         auto crateConfig = std::make_shared<VMEConfig>();
         d->crateConfigs.push_back(crateConfig);
         w->setConfig(crateConfig.get());
     }
+
+    auto scrollArea = new QScrollArea;
+    //scrollArea->setBackgroundRole(QPalette::Dark);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setWidget(containerWidget);
+    d->centralLayout->addWidget(scrollArea);
 }
 
 MultiCrateMainWindow::~MultiCrateMainWindow()
