@@ -250,6 +250,13 @@ void MVLC_StreamWorker::setupParserCallbacks(
                 UniqueLock guard(m_countersMutex);
                 m_counters.moduleCounters[ei][mi]++;
             }
+
+            if (m_state == WorkerState::SingleStepping)
+            {
+                record_module_part(
+                    m_singleStepEventRecord, mi,
+                    moduleData.data.data, moduleData.data.size);
+            }
         }
 
         // endEvent
