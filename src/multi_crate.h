@@ -69,14 +69,16 @@ class MulticrateVMEConfig: public ConfigObject
 // VME config merging
 //
 
+// Holds bi-directional mappings between ConfigObjects in crate and merged vme
+// configs.
 struct MultiCrateObjectMappings
 {
     QMap<QUuid, QUuid> cratesToMerged;
     QMap<QUuid, QUuid> mergedToCrates;
 
-    void insertMapping(const ModuleConfig *crateModule, const ModuleConfig *mergedModule)
+    void insertMapping(const ConfigObject *crateObject, const ConfigObject *mergedObject)
     {
-        insertMapping(crateModule->getId(), mergedModule->getId());
+        insertMapping(crateObject->getId(), mergedObject->getId());
     }
 
     void insertMapping(const QUuid &crateModuleId, const QUuid &mergedModuleId)

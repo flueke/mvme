@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
     // Create the merged config and module id mappings.
 
     std::unique_ptr<VMEConfig> mergedVMEConfig;
-    MultiCrateModuleMappings moduleIdMappings;
+    MultiCrateObjectMappings moduleIdMappings;
 
     std::tie(mergedVMEConfig, moduleIdMappings) = make_merged_vme_config(
         crateVMEConfigs, crossCrateEvents);
