@@ -312,6 +312,18 @@ QMimeData *DataSourceTree::mimeData(const QList<QTreeWidgetItem *> items) const
                 }
                 break;
 
+            case NodeType_UnassignedModule:
+                {
+                    for (int ci=0; ci<item->childCount(); ++ci)
+                    {
+                        auto child = item->child(ci);
+                        if (auto source = get_pointer<SourceInterface>(child, DataRole_AnalysisObject))
+                        {
+                            idData.push_back(source->getId().toByteArray());
+                        }
+                    }
+                }
+
             default:
                 break;
         }
