@@ -38,6 +38,35 @@ void mvme_init(const QString &appName)
 {
     Q_INIT_RESOURCE(resources);
 
+    register_mvme_qt_metatypes();
+
+    QCoreApplication::setOrganizationDomain("www.mesytec.com");
+    QCoreApplication::setOrganizationName("mesytec");
+    QCoreApplication::setApplicationName(appName);
+    QCoreApplication::setApplicationVersion(GIT_VERSION);
+
+    QLocale::setDefault(QLocale::c());
+
+    qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
+    qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
+    qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
+    qDebug() << "GIT_VERSION =" << GIT_VERSION;
+    qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
+    qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
+
+#ifndef NDEBUG
+    spdlog::set_level(spdlog::level::debug);
+#else
+    spdlog::set_level(spdlog::level::warn);
+#endif
+}
+
+void mvme_shutdown()
+{
+}
+
+void register_mvme_qt_metatypes()
+{
     qRegisterMetaType<DAQState>("DAQState");
     qRegisterMetaType<GlobalMode>("GlobalMode");
     qRegisterMetaType<AnalysisWorkerState>("AnalysisWorkerState");
@@ -65,28 +94,4 @@ void mvme_init(const QString &appName)
     REG_META_VEC(s32);
 
 #undef REG_META_VEC
-
-    QCoreApplication::setOrganizationDomain("www.mesytec.com");
-    QCoreApplication::setOrganizationName("mesytec");
-    QCoreApplication::setApplicationName(appName);
-    QCoreApplication::setApplicationVersion(GIT_VERSION);
-
-    QLocale::setDefault(QLocale::c());
-
-    qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
-    qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
-    qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
-    qDebug() << "GIT_VERSION =" << GIT_VERSION;
-    qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
-    qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
-
-#ifndef NDEBUG
-    spdlog::set_level(spdlog::level::debug);
-#else
-    spdlog::set_level(spdlog::level::warn);
-#endif
-}
-
-void mvme_shutdown()
-{
 }
