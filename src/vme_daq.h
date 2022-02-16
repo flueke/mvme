@@ -124,14 +124,14 @@ vme_daq_init(
  *     - event DAQ stop script
  * - global DAQ stop scripts
  */
-QVector<ScriptWithResults>
+QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts = 0);
 
-QVector<ScriptWithResults>
+QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
@@ -142,7 +142,7 @@ vme_daq_shutdown(
 // Since 1.4.0-beta the mvlc runs the mcast event daq stop scripts in the
 // readout worker. This version of the shutdown function only runs the global
 // daq stop scripts.
-QVector<ScriptWithResults>
+QVector<ScriptWithResults> LIBMVME_EXPORT
 mvlc_daq_shutdown(
     VMEConfig *vmeConfig,
     VMEController *controller,
@@ -150,13 +150,13 @@ mvlc_daq_shutdown(
     std::function<void (const QString &)> errorLogger,
     vme_script::run_script_options::Flag opts = 0);
 
-bool has_errors(const QVector<ScriptWithResults> &results);
+bool LIBMVME_EXPORT has_errors(const QVector<ScriptWithResults> &results);
 
-void log_errors(const QVector<ScriptWithResults> &results,
-                std::function<void (const QString &)> logger);
+void LIBMVME_EXPORT log_errors(const QVector<ScriptWithResults> &results,
+                               std::function<void (const QString &)> logger);
 
 
-struct EventReadoutBuildFlags
+struct LIBMVME_EXPORT EventReadoutBuildFlags
 {
     static const u8 None = 0u;
     static const u8 NoModuleEndMarker = 1u;
@@ -169,13 +169,13 @@ struct EventReadoutBuildFlags
  *     - EndMarker command
  * - event readout end ("cycle end" in the GUI)
  */
-vme_script::VMEScript build_event_readout_script(
+vme_script::VMEScript LIBMVME_EXPORT build_event_readout_script(
     EventConfig *eventConfig,
     u8 flags = EventReadoutBuildFlags::None);
 
 struct DAQReadoutListfileHelperPrivate;
 
-class DAQReadoutListfileHelper
+class LIBMVME_EXPORT DAQReadoutListfileHelper
 {
     public:
         explicit DAQReadoutListfileHelper(VMEReadoutWorkerContext &readoutContext);
@@ -205,9 +205,9 @@ class DAQReadoutListfileHelper
  * Note: Increments the runNumber of outInfo if UseRunNumber is set in the
  * output flags.
  */
-QString make_new_listfile_name(ListFileOutputInfo *outInfo);
+QString LIBMVME_EXPORT make_new_listfile_name(ListFileOutputInfo *outInfo);
 
-QVector<VMEScriptConfig *> collect_event_mcst_daq_start_scripts(const VMEConfig *vmeConfig);
-QVector<VMEScriptConfig *> collect_event_mcst_daq_stop_scripts(const VMEConfig *vmeConfig);
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_event_mcst_daq_start_scripts(const VMEConfig *vmeConfig);
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_event_mcst_daq_stop_scripts(const VMEConfig *vmeConfig);
 
 #endif /* __VME_DAQ_H__ */

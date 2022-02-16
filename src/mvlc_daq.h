@@ -81,7 +81,7 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO LIBMVME_EXPORT
 // recreates the script and stores it back in the VMEConfig.
 void LIBMVME_EXPORT update_trigger_io_inplace(const VMEConfig &vmeConfig);
 
-mvlc::StackCommandBuilder make_module_init_stack(const VMEConfig &vmeConfig);
+mvlc::StackCommandBuilder LIBMVME_EXPORT make_module_init_stack(const VMEConfig &vmeConfig);
 
 // Removes non-output-producing command groups from each of the readout
 // stacks. This is done because the converted CrateConfig contains
@@ -90,7 +90,7 @@ mvlc::StackCommandBuilder make_module_init_stack(const VMEConfig &vmeConfig);
 // "readout_start" in the CrateConfig) will confuse the readout parser
 // because the readout stack group indexes and the mvme module indexes
 // won't match up.
-std::vector<mvlc::StackCommandBuilder> sanitize_readout_stacks(
+std::vector<mvlc::StackCommandBuilder> LIBMVME_EXPORT sanitize_readout_stacks(
     const std::vector<mvlc::StackCommandBuilder> &inputStacks);
 
 } // end namespace mvme_mvlc
