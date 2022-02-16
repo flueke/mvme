@@ -19,6 +19,26 @@
 namespace multi_crate
 {
 
+// Holds bi-directional mappings between ConfigObjects in crate and merged vme
+// configs.
+struct MultiCrateObjectMappings
+{
+    QMap<QUuid, QUuid> cratesToMerged;
+    QMap<QUuid, QUuid> mergedToCrates;
+
+    void insertMapping(const ConfigObject *crateObject, const ConfigObject *mergedObject)
+    {
+        insertMapping(crateObject->getId(), mergedObject->getId());
+    }
+
+    void insertMapping(const QUuid &crateModuleId, const QUuid &mergedModuleId)
+    {
+        cratesToMerged.insert(crateModuleId, mergedModuleId);
+        mergedToCrates.insert(mergedModuleId, crateModuleId);
+    }
+};
+
+
 class MulticrateVMEConfig: public ConfigObject
 {
     Q_OBJECT
@@ -35,14 +55,21 @@ class MulticrateVMEConfig: public ConfigObject
         bool containsCrateConfig(const VMEConfig *cfg) const;
         const std::vector<VMEConfig *> &getCrateConfigs() const { return m_crateConfigs; }
 
-        VMEConfig *getMergedConfig() const { return m_mergedConfig; }
-
         void setIsCrossCrateEvent(int eventIndex, bool isCrossCrate);
         bool isCrossCrateEvent(int eventIndex) const;
 
         void setCrossCrateEventMainModuleId(int eventIndex, const QUuid &moduleId);
         QUuid getCrossCrateEventMainModuleId(int eventIndex) const;
 
+        // FIXME: how to handle the merged config? Reuse the existing object or
+        // create a new one each time? Who's triggering the update, where does
+        // the code reside? Also the current make_merged_vme_config() always
+        // creates a new instance.
+        VMEConfig *getMergedConfig() const { return m_mergedConfig; }
+        void setMergedConfig(VMEConfig *merged) { m_mergedConfig = merged; }
+
+        const MultiCrateObjectMappings &getMergedObjectMappings() { return m_objectMappings; }
+        void setMergedObjectMappings(const MultiCrateObjectMappings &mappings) { m_objectMappings = mappings; }
 
     protected:
         std::error_code read_impl(const QJsonObject &json) override;
@@ -63,30 +90,16 @@ class MulticrateVMEConfig: public ConfigObject
         // VME Config containing all cross-crate events and their modules.
         // Not updated by this class. Needs to be updated externally.
         VMEConfig *m_mergedConfig = nullptr;
+
+        // Object mappings result from creating the merged VME config. Stored
+        // for reuse when having to recreate the merged config. Needs to be
+        // updated externally.
+        MultiCrateObjectMappings m_objectMappings;
 };
 
 //
 // VME config merging
 //
-
-// Holds bi-directional mappings between ConfigObjects in crate and merged vme
-// configs.
-struct MultiCrateObjectMappings
-{
-    QMap<QUuid, QUuid> cratesToMerged;
-    QMap<QUuid, QUuid> mergedToCrates;
-
-    void insertMapping(const ConfigObject *crateObject, const ConfigObject *mergedObject)
-    {
-        insertMapping(crateObject->getId(), mergedObject->getId());
-    }
-
-    void insertMapping(const QUuid &crateModuleId, const QUuid &mergedModuleId)
-    {
-        cratesToMerged.insert(crateModuleId, mergedModuleId);
-        mergedToCrates.insert(mergedModuleId, crateModuleId);
-    }
-};
 
 // inputs:
 // * list of crate vme configs with the first being the main crate

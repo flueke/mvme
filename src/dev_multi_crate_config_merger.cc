@@ -1,8 +1,6 @@
 #include <QApplication>
 #include <iostream>
 #include <fmt/format.h>
-//#include <set>
-//#include <vector>
 
 #include "mvme_session.h"
 #include "multi_crate.h"
