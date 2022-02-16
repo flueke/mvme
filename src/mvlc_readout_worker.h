@@ -66,7 +66,7 @@ class LIBMVME_EXPORT MVLCReadoutWorker: public VMEReadoutWorker
         void logError(const QString &msg);
 };
 
-bool run_daq_start_sequence(
+bool LIBMVME_EXPORT run_daq_start_sequence(
     mesytec::mvme_mvlc::MVLC_VMEController *mvlcCtrl,
     VMEConfig &vmeConfig,
     bool ignoreStartupErrors,

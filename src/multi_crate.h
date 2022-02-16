@@ -13,6 +13,7 @@
 #include <fmt/format.h>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
+#include "libmvme_export.h"
 #include "vme_config.h"
 #include "mvlc/mvlc_vme_controller.h"
 
@@ -23,7 +24,7 @@ namespace multi_crate
 // VME config merging
 //
 
-struct MultiCrateModuleMappings
+struct LIBMVME_EXPORT MultiCrateModuleMappings
 {
     QMap<QUuid, QUuid> cratesToMerged;
     QMap<QUuid, QUuid> mergedToCrates;
@@ -49,12 +50,12 @@ struct MultiCrateModuleMappings
 //   non-merged single-crate events. The latter events are in linear (crate,
 //   event) order.
 // * bi-directional module mappings
-std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_config(
+std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> LIBMVME_EXPORT make_merged_vme_config(
     const std::vector<VMEConfig *> &crateConfigs,
     const std::set<int> &crossCrateEvents
     );
 
-inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_config(
+inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> LIBMVME_EXPORT make_merged_vme_config(
     const std::vector<std::unique_ptr<VMEConfig>> &crateConfigs,
     const std::set<int> &crossCrateEvents
     )
@@ -70,7 +71,7 @@ inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merg
 // MultiCrateConfig
 //
 
-struct MultiCrateConfig
+struct LIBMVME_EXPORT MultiCrateConfig
 {
     // Filename of the VMEConfig for the main crate.
     QString mainConfig;
@@ -101,12 +102,12 @@ inline bool operator!=(const MultiCrateConfig &a, const MultiCrateConfig &b)
     return !(a == b);
 }
 
-MultiCrateConfig load_multi_crate_config(const QJsonDocument &doc);
-MultiCrateConfig load_multi_crate_config(const QJsonObject &json);
-MultiCrateConfig load_multi_crate_config(const QString &filename);
+MultiCrateConfig LIBMVME_EXPORT load_multi_crate_config(const QJsonDocument &doc);
+MultiCrateConfig LIBMVME_EXPORT load_multi_crate_config(const QJsonObject &json);
+MultiCrateConfig LIBMVME_EXPORT load_multi_crate_config(const QString &filename);
 
-QJsonObject to_json_object(const MultiCrateConfig &mcfg);
-QJsonDocument to_json_document(const MultiCrateConfig &mcfg);
+QJsonObject LIBMVME_EXPORT to_json_object(const MultiCrateConfig &mcfg);
+QJsonDocument LIBMVME_EXPORT to_json_document(const MultiCrateConfig &mcfg);
 
 //
 // Playground (XXX: moved from the implementation file)
@@ -121,7 +122,7 @@ using namespace mesytec;
 // FIXME (maybe): using the WriteHandle interface leads to having to create
 // another copy of the readout buffer (the first copy is done in
 // mvlc::ReadoutWorker::Private::flushCurrentOutputBuffer()).
-class BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
+class LIBMVME_EXPORT BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
 {
     public:
         BlockingBufferQueuesWriteHandle(
@@ -153,7 +154,7 @@ class BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
         u32 nextBufferNumber_ = 1u;
 };
 
-struct EventBuilderOutputBufferWriter
+struct LIBMVME_EXPORT EventBuilderOutputBufferWriter
 {
     /* TODO:
      *
@@ -263,7 +264,7 @@ struct EventBuilderOutputBufferWriter
 
 // Threads, ReadoutWorker, ReadoutParser, EventBuilder, Analysis
 
-struct CrateReadout
+struct LIBMVME_EXPORT CrateReadout
 {
     using ProtectedParserCounters = mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters>;
 
@@ -290,7 +291,7 @@ struct CrateReadout
     //CrateReadout(const CrateReadout &) = delete;
 };
 
-struct MultiCrateReadout
+struct LIBMVME_EXPORT MultiCrateReadout
 {
 
     std::vector<CrateReadout> crateReadouts;
