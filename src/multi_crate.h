@@ -117,52 +117,8 @@ inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merg
     return make_merged_vme_config(rawConfigs, crossCrateEvents, prevMappings);
 }
 
-#if 0
 //
-// MultiCrateConfig - test code. Contains filenames to the individual configs plus meta data.
-//
-
-struct MultiCrateConfig
-{
-    // Filename of the VMEConfig for the main crate.
-    QString mainConfig;
-
-    // Filenames of VMEconfigs of the secondary crates.
-    QStringList secondaryConfigs;
-
-    // Event ids from mainConfig which form cross crate events.
-    std::set<QUuid> crossCrateEventIds;
-
-    // Ids of the "main" module for each cross crate event. The moduleId may
-    // come from any of the individual VMEConfigs. The representation of this
-    // module in the merged VMEConfig will be used as the EventBuilders main
-    // module.
-    std::set<QUuid> mainModuleIds;
-};
-
-inline bool operator==(const MultiCrateConfig &a, const MultiCrateConfig &b)
-{
-    return (a.mainConfig == b.mainConfig
-            && a.secondaryConfigs == b.secondaryConfigs
-            && a.crossCrateEventIds == b.crossCrateEventIds
-           );
-}
-
-inline bool operator!=(const MultiCrateConfig &a, const MultiCrateConfig &b)
-{
-    return !(a == b);
-}
-
-MultiCrateConfig load_multi_crate_config(const QJsonDocument &doc);
-MultiCrateConfig load_multi_crate_config(const QJsonObject &json);
-MultiCrateConfig load_multi_crate_config(const QString &filename);
-
-QJsonObject to_json_object(const MultiCrateConfig &mcfg);
-QJsonDocument to_json_document(const MultiCrateConfig &mcfg);
-#endif
-
-//
-// Playground (XXX: moved from the implementation file)
+// Playground
 //
 
 using namespace mesytec;
@@ -382,7 +338,7 @@ struct CrateReadout
 struct MultiCrateReadout
 {
 
-    std::vector<CrateReadout> crateReadouts;
+    std::vector<std::unique_ptr<CrateReadout>> crateReadouts;
 
     std::unique_ptr<mvlc::EventBuilder> eventBuilder;
     mvlc::readout_parser::ReadoutParserCallbacks eventBuilderCallbacks;
