@@ -160,6 +160,9 @@ std::error_code MulticrateVMEConfig::read_impl(const QJsonObject &json)
     return {};
 }
 
+namespace
+{
+
 // Generates new QUuids for a hierarchy of ConfigObjects
 void generate_new_ids(ConfigObject *parentObject)
 {
@@ -188,19 +191,51 @@ std::unique_ptr<T> copy_config_object(const T *obj)
     return ret;
 }
 
+std::unique_ptr<ModuleConfig> copy_module_config(const ModuleConfig *src)
+{
+    auto moduleCopy = copy_config_object(src);
+
+    // Symbol tables from innermost scope to outermost scope. Traverse them in
+    // reverse order setting symbols on the moduleCopy object. This way the
+    // symbols that had precendence due to scoping will overwrite symbols
+    // defined in an outer scope.
+    auto symtabs = mesytec::mvme::collect_symbol_tables(src);
+
+    for (auto tabIter=symtabs.rbegin(); tabIter!=symtabs.rend(); ++tabIter)
+    {
+        auto &symbols = tabIter->symbols;
+
+        for (auto varIter=symbols.begin(); varIter!=symbols.end(); ++varIter)
+        {
+            moduleCopy->setVariable(varIter.key(), varIter.value());
+        }
+    }
+
+    return moduleCopy;
+}
+
+} // end anon namespace
+
 std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_config(
     const std::vector<VMEConfig *> &crateConfigs,
-    const std::set<int> &crossCrateEvents
+    const std::set<int> &crossCrateEvents,
+    const MultiCrateObjectMappings &prevMappings
     )
 {
-    MultiCrateObjectMappings mappings;
+    assert(!crateConfigs.empty());
+
+    //const auto &mainCrateConf = crateConfigs[0];
     size_t mergedEventCount = crossCrateEvents.size();
+    MultiCrateObjectMappings mappings;
     std::vector<std::unique_ptr<EventConfig>> mergedEvents;
 
     // Create the cross crate merged events.
 
     for (auto outEi=0u; outEi<mergedEventCount; ++outEi)
     {
+        // TODO: Mapping from crate events to merged events should use the main
+        // crates event id as the source of the mapping.
+
         auto outEv = std::make_unique<EventConfig>();
         outEv->setObjectName(QSL("event%1").arg(outEi));
         outEv->triggerCondition = TriggerCondition::TriggerIO;
@@ -217,23 +252,11 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
 
                     for (auto moduleConf: moduleConfigs)
                     {
-                        auto moduleCopy = copy_config_object(moduleConf);
+                        auto moduleCopy = copy_module_config(moduleConf);
 
-                        // Symbol tables from innermost scope to outermost scope. Traverse them in
-                        // reverse order setting symbols on the moduleCopy object. This way the
-                        // symbols that had precendence due to scoping will overwrite symbols
-                        // defined in an outer scope.
-                        auto symtabs = mesytec::mvme::collect_symbol_tables(moduleConf);
-
-                        for (auto tabIter=symtabs.rbegin(); tabIter!=symtabs.rend(); ++tabIter)
-                        {
-                            auto &symbols = tabIter->symbols;
-
-                            for (auto varIter=symbols.begin(); varIter!=symbols.end(); ++varIter)
-                            {
-                                moduleCopy->setVariable(varIter.key(), varIter.value());
-                            }
-                        }
+                        // Reuse the previously mapped module id.
+                        if (prevMappings.cratesToMerged.contains(moduleConf->getId()))
+                            moduleCopy->setId(prevMappings.cratesToMerged[moduleConf->getId()]);
 
                         mappings.insertMapping(moduleConf, moduleCopy.get());
                         outEv->addModuleConfig(moduleCopy.release());

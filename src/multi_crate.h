@@ -97,21 +97,24 @@ struct MultiCrateObjectMappings
 //   non-merged single-crate events. The latter events are in linear (crate,
 //   event) order.
 // * bi-directional module id mappings
+// TODO: store eventIds in mappings and resue them like for modules
 std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_config(
     const std::vector<VMEConfig *> &crateConfigs,
-    const std::set<int> &crossCrateEvents
+    const std::set<int> &crossCrateEvents,
+    const MultiCrateObjectMappings &prevMappings = {}
     );
 
 inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_config(
     const std::vector<std::unique_ptr<VMEConfig>> &crateConfigs,
-    const std::set<int> &crossCrateEvents
+    const std::set<int> &crossCrateEvents,
+    const MultiCrateObjectMappings &prevMappings = {}
     )
 {
     std::vector<VMEConfig *> rawConfigs;
     for (auto &ptr: crateConfigs)
         rawConfigs.emplace_back(ptr.get());
 
-    return make_merged_vme_config(rawConfigs, crossCrateEvents);
+    return make_merged_vme_config(rawConfigs, crossCrateEvents, prevMappings);
 }
 
 #if 0
