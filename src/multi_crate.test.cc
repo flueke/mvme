@@ -200,7 +200,7 @@ TEST(multi_crate, MakeMergedVMEConfig)
     // both events0 and 1 are cross crate
     {
         auto mergeResult1 = make_merged_vme_config(
-            std::vector<VMEConfig *>{ conf0, conf1},
+            std::vector<VMEConfig *>{ conf0, conf1 },
             std::set<int>{ 1, 0 });
 
         // 2 cross crate events merged from a total of 4 input events
@@ -209,15 +209,15 @@ TEST(multi_crate, MakeMergedVMEConfig)
         ASSERT_EQ(mergeResult1.first->getEventConfig(0)->getModuleConfigs().size(), 2);
         ASSERT_EQ(mergeResult1.first->getEventConfig(1)->getModuleConfigs().size(), 2);
 
-        // 1 merged event, 2 unmerged events, 4 modules
-        ASSERT_EQ(mergeResult1.second.cratesToMerged.size(), 7);
+        // 2 merged events, 4 modules
+        ASSERT_EQ(mergeResult1.second.cratesToMerged.size(), 6);
 
         auto mergeResult2 = make_merged_vme_config(
             std::vector<VMEConfig *>{ conf0, conf1},
             std::set<int>{ 1, 0 },
             mergeResult1.second);
 
-        for (int ei=0; ei<3; ++ei)
+        for (int ei=0; ei<2; ++ei)
         {
             ASSERT_EQ(mergeResult1.first->getEventConfig(ei)->getId(),
                       mergeResult2.first->getEventConfig(ei)->getId());
