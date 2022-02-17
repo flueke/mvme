@@ -18,6 +18,8 @@ using ModuleReadoutParts = mvlc::readout_parser::ModuleReadoutStructure;
 // VME module readout scripts indexed by event and module
 using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
 
+#if 0
+
 // ModuleReadoutParts indexed by event and module
 using VMEConfReadoutInfo    = std::vector<std::vector<ModuleReadoutParts>>;
 
@@ -26,6 +28,7 @@ LIBMVME_MVLC_EXPORT ModuleReadoutParts parse_module_readout_script(
 
 LIBMVME_MVLC_EXPORT VMEConfReadoutInfo parse_vme_readout_info(
     const VMEConfReadoutScripts &rdoScripts);
+#endif
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec

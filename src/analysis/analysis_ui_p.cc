@@ -3198,12 +3198,12 @@ inline const char *to_string(const readout_parser::ReadoutParserState::GroupPars
 {
     switch (mps)
     {
-        case readout_parser::ReadoutParserState::Initial:
-            return "Initial";
+        case readout_parser::ReadoutParserState::Prefix:
+            return "Prefix";
         case readout_parser::ReadoutParserState::Dynamic:
             return "Dynamic";
-        case readout_parser::ReadoutParserState::Fixed:
-            return "Fixed";
+        case readout_parser::ReadoutParserState::Suffix:
+            return "Suffix";
     }
 
     return "unknown ModuleParseState";
@@ -3432,6 +3432,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
             int eventIndex = eventIter.index();
             for (const auto &moduleIter: eventIter.value() | indexed(0))
             {
+#if 0
                 int moduleIndex = moduleIter.index();
                 const auto &moduleParts = moduleIter.value();
 
@@ -3449,6 +3450,17 @@ void MVLCParserDebugHandler::handleDebugInfo(
                     out << ", name=" << moduleConfig->objectName();
 
                 out << endl;
+#else
+                int moduleIndex = moduleIter.index();
+                const auto &moduleParts = moduleIter.value();
+
+                out << "  ei=" << eventIndex
+                    << ", mi=" << moduleIndex
+                    << ": prefixLen=" << static_cast<unsigned>(moduleParts.prefixLen)
+                    << ", hasDynamic=" << moduleParts.hasDynamic
+                    << ", suffixLen=" << static_cast<unsigned>(moduleParts.suffixLen)
+                    << endl;
+#endif
             }
         }
 
