@@ -581,8 +581,9 @@ void MVLC_StreamWorker::start()
                 {
                     const auto &moduleStructure = eventStructure[mi];
 
-                    logger->trace("  ei={}, mi={}: len={}",
-                                  ei, mi, moduleStructure.len);
+                    logger->trace("  ei={}, mi={}: prefixLen={}, hasDynamic={}, suffixLen={}",
+                                  ei, mi, moduleStructure.prefixLen,
+                                  moduleStructure.hasDynamic, moduleStructure.suffixLen);
                 }
             }
 

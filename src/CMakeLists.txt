@@ -180,7 +180,7 @@ add_library(libmvme_mvlc STATIC
     mvlc/mvlc_util.cc
     mvlc/mvlc_vme_controller.cc
     mvlc/mvlc_vme_debug_widget.cc
-    mvlc/readout_parser_support.cc
+    #mvlc/readout_parser_support.cc
     )
 
 set_target_properties(libmvme_mvlc PROPERTIES OUTPUT_NAME mvme_mvlc)
@@ -546,7 +546,7 @@ add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
-add_subdirectory(listfile_reader)
+#add_subdirectory(listfile_reader)
 
 #
 # listfile recovery tool
