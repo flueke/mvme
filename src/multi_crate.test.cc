@@ -21,23 +21,24 @@ int main(int argc, char *argv[])
     return app.exec();
 }
 
-#if 0
-TEST(multi_crate, MultiCrateConfigJson)
+TEST(multi_crate, ObjectMappingsJson)
 {
     using namespace multi_crate;
 
-    MultiCrateConfig mcfg;
-    mcfg.mainConfig = "crate0.vme";
-    mcfg.secondaryConfigs = QStringList{ "crate1.vme", "crate2.vme", };
-    mcfg.crossCrateEventIds = std::set<QUuid>{ QUuid::createUuid(), QUuid::createUuid() };
+    MultiCrateObjectMappings srcMappings;
 
-    auto jdoc = to_json_document(mcfg);
-    auto mcfg2 = load_multi_crate_config(jdoc);
+    for (int i=0; i<10; ++i)
+    {
+        srcMappings.insertMapping(QUuid(), QUuid());
+    }
 
-    ASSERT_EQ(mcfg, mcfg2);
+    auto json = to_json(srcMappings);
+    auto dstMappings = object_mappings_from_json(json);
+
+    ASSERT_EQ(srcMappings, dstMappings);
 }
-#endif
 
+// TODO: check merged vme config and object mappings here too
 TEST(multi_crate, MulticrateVMEConfigJson)
 {
     using namespace multi_crate;
@@ -67,6 +68,15 @@ TEST(multi_crate, MulticrateVMEConfigJson)
     ASSERT_EQ(srcCfg.getCrossCrateEventMainModuleId(0), m00->getId());
     ASSERT_TRUE(srcCfg.getCrossCrateEventMainModuleId(1).isNull());
 
+    auto mergeResult = make_merged_vme_config(
+        srcCfg.getCrateConfigs(),
+        srcCfg.getCrossCrateEventIndexes(),
+        srcCfg.getMergedObjectMappings());
+
+    srcCfg.setMergedConfig(mergeResult.first.release());
+    srcCfg.setMergedObjectMappings(mergeResult.second);
+
+    // serialize
     QJsonObject json;
     srcCfg.write(json);
 
@@ -85,6 +95,9 @@ TEST(multi_crate, MulticrateVMEConfigJson)
     ASSERT_FALSE(dstCfg.isCrossCrateEvent(1));
     ASSERT_EQ(dstCfg.getCrossCrateEventMainModuleId(0), m00->getId());
     ASSERT_TRUE(dstCfg.getCrossCrateEventMainModuleId(1).isNull());
+
+    ASSERT_EQ(srcCfg.getMergedObjectMappings(), dstCfg.getMergedObjectMappings());
+    ASSERT_EQ(srcCfg.getMergedConfig()->getId(), dstCfg.getMergedConfig()->getId());
 }
 
 TEST(multi_crate, MakeMergedVMEConfig)

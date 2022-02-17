@@ -49,6 +49,18 @@ bool MulticrateVMEConfig::containsCrateConfig(const VMEConfig *cfg) const
             != std::end(m_crateConfigs));
 }
 
+VMEConfig *MulticrateVMEConfig::getCrateConfig(int crateIndex) const
+{
+    try
+    {
+        return m_crateConfigs.at(crateIndex);
+    }
+    catch (const std::out_of_range &)
+    { }
+
+    return nullptr;
+}
+
 void MulticrateVMEConfig::setIsCrossCrateEvent(int eventIndex, bool isCrossCrate)
 {
     if (isCrossCrate)
@@ -85,9 +97,40 @@ QUuid MulticrateVMEConfig::getCrossCrateEventMainModuleId(int eventIndex) const
     }
 }
 
+QJsonObject to_json(const MultiCrateObjectMappings &mappings)
+{
+    QJsonObject dstJson;
+
+    for (auto it=mappings.cratesToMerged.begin();
+         it != mappings.cratesToMerged.end();
+         ++it)
+    {
+        dstJson[it.key().toString()] = it.value().toString();
+    }
+
+    return dstJson;
+}
+
+MultiCrateObjectMappings object_mappings_from_json(const QJsonObject &json)
+{
+    MultiCrateObjectMappings ret;
+
+    for (auto it=json.begin();
+         it != json.end();
+         ++it)
+    {
+        auto crateId = QUuid::fromString(it.key());
+        auto mergedId = QUuid::fromString(it.value().toString());
+
+        ret.insertMapping(crateId, mergedId);
+    }
+
+    return ret;
+}
+
 std::error_code MulticrateVMEConfig::write_impl(QJsonObject &json) const
 {
-    // Serialize crate configs and hold them in an array.
+    // Serialize crate configs and to a json array.
     QJsonArray cratesArray;
     for (auto crateConfig: getCrateConfigs())
     {
@@ -125,6 +168,9 @@ std::error_code MulticrateVMEConfig::write_impl(QJsonObject &json) const
         json["mergedVMEConfig"] = dst;
     }
 
+    // object mappings
+    json["objectMappings"] = to_json(m_objectMappings);
+
     return {};
 }
 
@@ -156,6 +202,8 @@ std::error_code MulticrateVMEConfig::read_impl(const QJsonObject &json)
     }
 
     m_mergedConfig->read(json["mergedVMEConfig"].toObject());
+
+    m_objectMappings = object_mappings_from_json(json["objectMappings"].toObject());
 
     return {};
 }

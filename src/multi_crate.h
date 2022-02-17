@@ -31,14 +31,33 @@ struct MultiCrateObjectMappings
         insertMapping(crateObject->getId(), mergedObject->getId());
     }
 
-    void insertMapping(const QUuid &crateModuleId, const QUuid &mergedModuleId)
+    void insertMapping(const QUuid &crateId, const QUuid &mergedId)
     {
-        cratesToMerged.insert(crateModuleId, mergedModuleId);
-        mergedToCrates.insert(mergedModuleId, crateModuleId);
+        cratesToMerged.insert(crateId, mergedId);
+        mergedToCrates.insert(mergedId, crateId);
+    }
+
+    bool operator==(const MultiCrateObjectMappings &o) const
+    {
+        return cratesToMerged == o.cratesToMerged
+            && mergedToCrates == o.mergedToCrates;
+    }
+
+    bool operator!=(const MultiCrateObjectMappings &o) const
+    {
+        return !(*this == o);
     }
 };
 
+QJsonObject to_json(const MultiCrateObjectMappings &mappings);
+MultiCrateObjectMappings object_mappings_from_json(const QJsonObject &json);
 
+
+// A ConfigObject holding the individual crate configs, meta information and
+// the merged vme config for a multicrate readout.
+// Note: this class does not handle the logic of updating the merged vme config
+// when meta info changes. This has to be handled externally by some controller
+// object/code.
 class MulticrateVMEConfig: public ConfigObject
 {
     Q_OBJECT
@@ -53,18 +72,16 @@ class MulticrateVMEConfig: public ConfigObject
         void addCrateConfig(VMEConfig *cfg);
         void removeCrateConfig(VMEConfig *cfg);
         bool containsCrateConfig(const VMEConfig *cfg) const;
+        VMEConfig *getCrateConfig(int crateIndex) const;
         const std::vector<VMEConfig *> &getCrateConfigs() const { return m_crateConfigs; }
 
+        std::set<int> getCrossCrateEventIndexes() const { return m_crossCrateEventIndexes; }
         void setIsCrossCrateEvent(int eventIndex, bool isCrossCrate);
         bool isCrossCrateEvent(int eventIndex) const;
 
         void setCrossCrateEventMainModuleId(int eventIndex, const QUuid &moduleId);
         QUuid getCrossCrateEventMainModuleId(int eventIndex) const;
 
-        // FIXME: how to handle the merged config? Reuse the existing object or
-        // create a new one each time? Who's triggering the update, where does
-        // the code reside? Also the current make_merged_vme_config() always
-        // creates a new instance.
         VMEConfig *getMergedConfig() const { return m_mergedConfig; }
         void setMergedConfig(VMEConfig *merged) { m_mergedConfig = merged; }
 
