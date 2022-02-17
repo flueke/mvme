@@ -420,6 +420,7 @@ target_sources(libmvme PRIVATE
 target_link_libraries(libmvme
     PUBLIC libmvme_mvlc
     PUBLIC yaml-cpp
+    PUBLIC BFG::Lyra
     )
 
 # Note: the BUILD_INTERFACE line does not work on older CMake versions
