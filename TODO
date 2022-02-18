@@ -2,6 +2,20 @@
 TODO list
 ==================================================
 
+* calculate original incoming data rate in analysis. use bytes processed between timeticks when
+  replaying.
+
+* FIXME: crateIndex handling is unclear. Should it be specified in
+  make_readout_parser()? This works for the current readout code as it's
+  purely handled on the software side and doesn't care about the any CtrlId
+  set for the MVLC.
+  On the other hand the listfile_generation code and the merged multicrate
+  listfiles to need the crateIndex present in the data stream. It's already
+  used in mvlc_stream_worker.cc to check for UnixTimetick events coming from
+  the main crate. Also the same code ignores the crateIndex completely! Weird
+  state right now!
+
+
 * analysis auto assignment does not assign event ids for operators connected to
   modules which have a null eventId in the analysis config. Can test this with
   mdpp16_random_pulser_data.vme and 1_mdpp.analysis
