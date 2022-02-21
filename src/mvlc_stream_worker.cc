@@ -162,6 +162,8 @@ void MVLC_StreamWorker::setState(AnalysisWorkerState newState)
 
 void MVLC_StreamWorker::fillModuleIndexMaps(const VMEConfig *vmeConfig)
 {
+    // Clear, then update the mapping of readout_parser module indexes to analysis module indexes.
+    // This is done to handle VME modules that are disabled in the configuration.
     m_eventModuleIndexMaps.fill({});
 
     auto events = vmeConfig->getEventConfigs();
@@ -300,7 +302,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // value is not used at the moment.
 
         // For replays the timeticks are contained in the incoming data
-        // buffers.  For live daq runs timeticks are generated in start() using
+        // buffers.  For live DAQ runs timeticks are generated in start() using
         // a TimetickGenerator. This has to happen on the analysis side due to
         // the possibility of having internal buffer loss and thus potentially
         // missing timeticks.
