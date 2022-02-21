@@ -6,6 +6,8 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "vme_config_scripts.h"
 
+namespace mesytec
+{
 namespace multi_crate
 {
 
@@ -49,6 +51,18 @@ bool MulticrateVMEConfig::containsCrateConfig(const VMEConfig *cfg) const
             != std::end(m_crateConfigs));
 }
 
+VMEConfig *MulticrateVMEConfig::getCrateConfig(int crateIndex) const
+{
+    try
+    {
+        return m_crateConfigs.at(crateIndex);
+    }
+    catch (const std::out_of_range &)
+    { }
+
+    return nullptr;
+}
+
 void MulticrateVMEConfig::setIsCrossCrateEvent(int eventIndex, bool isCrossCrate)
 {
     if (isCrossCrate)
@@ -85,9 +99,58 @@ QUuid MulticrateVMEConfig::getCrossCrateEventMainModuleId(int eventIndex) const
     }
 }
 
+void MulticrateVMEConfig::setObjectSettings(const QUuid &objectId, const QVariantMap &settings)
+{
+    bool modifies = (settings != getObjectSettings(objectId));
+    m_objectSettings[objectId] = settings;
+    if (modifies) setModified();
+}
+
+QVariantMap MulticrateVMEConfig::getObjectSettings(const QUuid &objectId) const
+{
+    return m_objectSettings.value(objectId);
+}
+
+void MulticrateVMEConfig::clearObjectSettings(const QUuid &objectId)
+{
+    m_objectSettings.remove(objectId);
+    setModified();
+}
+
+QJsonObject to_json(const MultiCrateObjectMappings &mappings)
+{
+    QJsonObject dstJson;
+
+    for (auto it=mappings.cratesToMerged.begin();
+         it != mappings.cratesToMerged.end();
+         ++it)
+    {
+        dstJson[it.key().toString()] = it.value().toString();
+    }
+
+    return dstJson;
+}
+
+MultiCrateObjectMappings object_mappings_from_json(const QJsonObject &json)
+{
+    MultiCrateObjectMappings ret;
+
+    for (auto it=json.begin();
+         it != json.end();
+         ++it)
+    {
+        auto crateId = QUuid::fromString(it.key());
+        auto mergedId = QUuid::fromString(it.value().toString());
+
+        ret.insertMapping(crateId, mergedId);
+    }
+
+    return ret;
+}
+
 std::error_code MulticrateVMEConfig::write_impl(QJsonObject &json) const
 {
-    // Serialize crate configs and hold them in an array.
+    // Serialize crate configs and to a json array.
     QJsonArray cratesArray;
     for (auto crateConfig: getCrateConfigs())
     {
@@ -125,6 +188,21 @@ std::error_code MulticrateVMEConfig::write_impl(QJsonObject &json) const
         json["mergedVMEConfig"] = dst;
     }
 
+    // object mappings
+    json["objectMappings"] = to_json(m_objectMappings);
+
+    // object settings
+    QJsonObject objectSettingsJson;
+
+    for (auto it=m_objectSettings.begin();
+         it!=m_objectSettings.end();
+         ++it)
+    {
+        objectSettingsJson[it.key().toString()] = QJsonObject::fromVariantMap(it.value());
+    }
+
+    json["objectSettings"] = objectSettingsJson;
+
     return {};
 }
 
@@ -156,6 +234,20 @@ std::error_code MulticrateVMEConfig::read_impl(const QJsonObject &json)
     }
 
     m_mergedConfig->read(json["mergedVMEConfig"].toObject());
+
+    m_objectMappings = object_mappings_from_json(json["objectMappings"].toObject());
+
+    auto objectSettingsJson = json["objectSettings"].toObject();
+
+    for (auto it=objectSettingsJson.begin();
+         it!=objectSettingsJson.end();
+         ++it)
+    {
+        auto id = QUuid::fromString(it.key());
+        auto settings = it.value().toObject().toVariantMap();
+
+        m_objectSettings[id] = settings;
+    }
 
     return {};
 }
@@ -224,44 +316,49 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
 {
     assert(!crateConfigs.empty());
 
-    //const auto &mainCrateConf = crateConfigs[0];
-    size_t mergedEventCount = crossCrateEvents.size();
     MultiCrateObjectMappings mappings;
     std::vector<std::unique_ptr<EventConfig>> mergedEvents;
 
     // Create the cross crate merged events.
+    // Mapping from crate events to merged events uses the main crates event id
+    // as the source of the mapping.
 
-    for (auto outEi=0u; outEi<mergedEventCount; ++outEi)
+    for (auto crossEventIndex: crossCrateEvents)
     {
-        // TODO: Mapping from crate events to merged events should use the main
-        // crates event id as the source of the mapping.
-
         auto outEv = std::make_unique<EventConfig>();
-        outEv->setObjectName(QSL("event%1").arg(outEi));
+        //outEv->setObjectName(QSL("event%1").arg(crossEventIndex));
         outEv->triggerCondition = TriggerCondition::TriggerIO;
 
-        for (auto crateConf: crateConfigs)
+        for (size_t ci=0; ci<crateConfigs.size(); ++ci)
         {
-            auto crateEvents = crateConf->getEventConfigs();
+            auto crateEvent = crateConfigs[ci]->getEventConfig(crossEventIndex);
 
-            for (int ei=0; ei<crateEvents.size(); ++ei)
+            if (!crateEvent)
+                throw std::runtime_error(fmt::format(
+                        "cross crate event {} not present in crate config {}",
+                        crossEventIndex, ci));
+
+            // Use the event name from the main crate for the cross event name
+            // and for the mappings.
+            if (ci == 0)
             {
-                if (crossCrateEvents.count(ei))
-                {
-                    auto moduleConfigs = crateEvents[ei]->getModuleConfigs();
+                outEv->setObjectName(crateEvent->objectName());
+                if (prevMappings.cratesToMerged.contains(crateEvent->getId()))
+                    outEv->setId(prevMappings.cratesToMerged[crateEvent->getId()]);
+                mappings.insertMapping(crateEvent, outEv.get());
+            }
 
-                    for (auto moduleConf: moduleConfigs)
-                    {
-                        auto moduleCopy = copy_module_config(moduleConf);
+            auto moduleConfigs = crateEvent->getModuleConfigs();
 
-                        // Reuse the previously mapped module id.
-                        if (prevMappings.cratesToMerged.contains(moduleConf->getId()))
-                            moduleCopy->setId(prevMappings.cratesToMerged[moduleConf->getId()]);
+            for (auto moduleConf: moduleConfigs)
+            {
+                auto moduleCopy = copy_module_config(moduleConf);
 
-                        mappings.insertMapping(moduleConf, moduleCopy.get());
-                        outEv->addModuleConfig(moduleCopy.release());
-                    }
-                }
+                // Reuse the previously mapped module id.
+                if (prevMappings.cratesToMerged.contains(moduleConf->getId()))
+                    moduleCopy->setId(prevMappings.cratesToMerged[moduleConf->getId()]);
+                mappings.insertMapping(moduleConf, moduleCopy.get());
+                outEv->addModuleConfig(moduleCopy.release());
             }
         }
 
@@ -283,7 +380,6 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
 
             if (!crossCrateEvents.count(ei))
             {
-#if 1
                 // Create a recursive copy of the event, then update the mappings table by
                 // iterating over the modules.
                 auto outEv = copy_config_object(eventConf);
@@ -292,29 +388,23 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
                                      .arg(eventConf->objectName())
                                      );
 
+                if (prevMappings.cratesToMerged.contains(eventConf->getId()))
+                    outEv->setId(prevMappings.cratesToMerged[eventConf->getId()]);
+
+                mappings.insertMapping(eventConf, outEv.get());
+
                 assert(eventConf->getModuleConfigs().size() == outEv->getModuleConfigs().size());
 
                 for (int mi=0; mi<eventConf->moduleCount(); ++mi)
                 {
                     auto inMod = eventConf->getModuleConfigs().at(mi);
                     auto outMod = outEv->getModuleConfigs().at(mi);
+
+                    if (prevMappings.cratesToMerged.contains(inMod->getId()))
+                        outMod->setId(prevMappings.cratesToMerged[inMod->getId()]);
+
                     mappings.insertMapping(inMod, outMod);
                 }
-#else
-                // Alternative version: create a new EventConfig, then copy each module
-                // individually while updating the mappings.
-
-                //auto outEv = std::make_unique<EventConfig>();
-                //outEv->triggerCondition = TriggerCondition::TriggerIO;
-                auto moduleConfigs = crateEvents[ei]->getModuleConfigs();
-
-                for (auto moduleConf: moduleConfigs)
-                {
-                    auto moduleCopy = copy_config_object(moduleConf);
-                    mappings.insertMapping(moduleConf, moduleCopy.get());
-                    outEv->addModuleConfig(moduleCopy.release());
-                }
-#endif
 
                 singleCrateEvents.emplace_back(std::move(outEv));
             }
@@ -322,6 +412,8 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
     }
 
     auto merged = std::make_unique<VMEConfig>();
+
+    // Add the merged events first, then the non-merged ones.
 
     for (auto &eventConf: mergedEvents)
         merged->addEventConfig(eventConf.release());
@@ -339,4 +431,5 @@ void multi_crate_playground()
     CrateReadout crateReadout2(std::move(crateReadout));
 }
 
+}
 }

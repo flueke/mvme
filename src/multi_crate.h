@@ -20,7 +20,7 @@
 namespace multi_crate
 {
 
-class MulticrateVMEConfig: public ConfigObject
+class LIBMVME_EXPORT MulticrateVMEConfig: public ConfigObject
 {
     Q_OBJECT
     signals:

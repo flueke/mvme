@@ -118,10 +118,14 @@ struct AnalysisWidgetPrivate
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
     QStatusBar *m_statusBar;
+
+    // Statusbar labels.
     QLabel *m_labelSinkStorageSize;
     QLabel *m_labelTimetickCount;
     QLabel *m_statusLabelA2;
     QLabel *m_labelEfficiency;
+    QLabel *m_labelOriginalDataRate;
+
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
     AnalysisInfoWidget *m_analysisInfoWidget = nullptr;
@@ -1108,15 +1112,23 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
     // statusbar
     m_d->m_statusBar = make_statusbar();
+
     // efficiency
     m_d->m_labelEfficiency = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelEfficiency);
+
+    // original data rate
+    m_d->m_labelOriginalDataRate = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelOriginalDataRate);
+
     // timeticks label
     m_d->m_labelTimetickCount = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelTimetickCount);
+
     // histo storage label
     m_d->m_labelSinkStorageSize = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);
+
     // a2 label
     m_d->m_statusLabelA2 = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_statusLabelA2);
@@ -1269,6 +1281,28 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         {
             m_d->m_labelEfficiency->setText(QSL("Replay  |"));
             m_d->m_labelEfficiency->setToolTip(QSL(""));
+        }
+    });
+
+    // Update the "DAQ Data Rate" label
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
+
+        if (m_d->m_serviceProvider->getAnalysis()->getRunInfo().isReplay)
+        {
+            auto streamWorker = m_d->m_serviceProvider->getMVMEStreamWorker();
+            auto streamCounters = streamWorker->getCounters();
+            double timetickCount = m_d->m_serviceProvider->getAnalysis()->getTimetickCount();
+            timetickCount = std::max(timetickCount, 1.0);
+            auto bytesProcessed = streamCounters.bytesProcessed;
+            double rate = bytesProcessed / timetickCount;
+            auto str = (QSL("DAQ Data Rate: %1")
+                        .arg(format_number(rate, "B/s", UnitScaling::Binary, 0, 'g', 4))
+                        );
+            m_d->m_labelOriginalDataRate->setText(str);
+        }
+        else
+        {
+            m_d->m_labelOriginalDataRate->clear();
         }
     });
 

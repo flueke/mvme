@@ -46,7 +46,6 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         explicit ConfigObject(QObject *parent = 0);
         ~ConfigObject()
         {
-            //qDebug() << __PRETTY_FUNCTION__ << this;
         }
 
         QUuid getId() const { return m_id; }
@@ -353,7 +352,6 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         {
             index = std::min(modules.size(), index);
             config->setParent(this);
-            qDebug() << __PRETTY_FUNCTION__ << "insert with index=" << index;
             modules.insert(index, config);
             emit moduleAdded(config, index);
             setModified();
@@ -377,6 +375,9 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         }
 
         QList<ModuleConfig *> getModuleConfigs() const { return modules; }
+
+        ModuleConfig *getModuleConfig(int moduleIndex) const { return modules.value(moduleIndex); }
+
         TriggerCondition triggerCondition = TriggerCondition::Interrupt;
         QVariantMap triggerOptions = QVariantMap();
 

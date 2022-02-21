@@ -27,3 +27,17 @@
   the Triva7 trigger via a VME write.
 
 - The cycle starts at the beginning with the next Triva7 LVDS trigger input.
+
+- If no trigger -> irq mappings are assigned in the MVLC trigger alias table then the triggers are
+  translated directly to irq numbers.
+
+- Start event nicht wirklich noetig glaube ich. Triva reset koennte auch in der MCST daq start
+  sequenz erfolgen. Uebergang von "start" zu "go" zustand.
+
+- Alternatives setup bauen: triva-master event direkt auf IRQ4 setzten. Keine aliases in then MVLC
+  table eintragen. Andere events auch direkt auf die IRQs setzen => Triva signalisiert irq 4, mvlc
+  liest trigger nummer aus triva aus und signalisiert den accu damit. Trigger nummer wird direkt
+  auf IRQ uebersetzt => event stack wird ausgefuehrt.
+
+  Dazu ein scaler-event bauen. trigger-io timer -> ECL output -> triva trigger setup -> irq ->
+  scaler readout.
