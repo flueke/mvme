@@ -327,7 +327,7 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
         analysisModuleAndEventIds.insert(std::make_pair(modInfo.id, modInfo.eventId));
     }
 
-#if 0
+#if 1
     qDebug() << __PRETTY_FUNCTION__ << "vModInfos:";
     for (const auto &mi: vModInfos)
         qDebug() << __PRETTY_FUNCTION__ << "  " << mi;
@@ -338,8 +338,8 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
 #endif
 
 
-    //qDebug() << __PRETTY_FUNCTION__ << "analysisModuleAndEventIds:" << analysisModuleAndEventIds;
-    //qDebug() << __PRETTY_FUNCTION__ << "vmeModuleAndEventIds:" << vmeModuleAndEventIds;
+    qDebug() << __PRETTY_FUNCTION__ << "analysisModuleAndEventIds:" << analysisModuleAndEventIds;
+    qDebug() << __PRETTY_FUNCTION__ << "vmeModuleAndEventIds:" << vmeModuleAndEventIds;
 
 
     // Remove entries that are equal in both module id and event id

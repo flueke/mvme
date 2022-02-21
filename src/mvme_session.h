@@ -27,5 +27,7 @@
 void LIBMVME_EXPORT mvme_init(const QString &appName = QSL("mvme"));
 void LIBMVME_EXPORT mvme_shutdown();
 
+void LIBMVME_EXPORT register_mvme_qt_metatypes();
+
 
 #endif /* __MVME_SESSION_H__ */

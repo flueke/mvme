@@ -71,6 +71,11 @@ int main(int argc, char *argv[])
     mvme_init("dev_multi_crate_playground_cli");
     spdlog::set_level(spdlog::level::info);
 
+    int secondsToRun = 10;
+
+    if (app.arguments().size() > 1)
+        secondsToRun = app.arguments().at(1).toInt();
+
     auto vmeConfigFiles =
     {
         "main.vme",
@@ -115,7 +120,7 @@ int main(int argc, char *argv[])
     // Create the merged config and module id mappings.
 
     std::unique_ptr<VMEConfig> mergedVMEConfig;
-    MultiCrateModuleMappings moduleIdMappings;
+    MultiCrateObjectMappings moduleIdMappings;
 
     std::tie(mergedVMEConfig, moduleIdMappings) = make_merged_vme_config(
         crateVMEConfigs, crossCrateEvents);
@@ -289,24 +294,25 @@ int main(int argc, char *argv[])
 
     // FIXME: reserving here to avoid reallocations during the loop so that the
     // refs passed to the run_readout_parser thread stay valid. Find a better
-    // to deal with this.
+    // to deal with this. -> use std::unique_ptr<CrateReadout>
     mcrdo.crateReadouts.reserve(crateVMEConfigs.size());
 
     for (size_t ci=0; ci<crateVMEConfigs.size(); ++ci)
     {
         const auto &conf = crateVMEConfigs[ci];
-        mcrdo.crateReadouts.emplace_back(CrateReadout());
-        auto &crdo = mcrdo.crateReadouts.back();
+        auto crdo = std::make_unique<CrateReadout>();
+        //mcrdo.crateReadouts.emplace_back(CrateReadout());
+        //auto &crdo = mcrdo->crateReadouts.back();
 
         VMEControllerFactory cf(conf->getControllerType());
 
         // ugly as can be
-        crdo.mvlcController = std::unique_ptr<mvme_mvlc::MVLC_VMEController>(
+        crdo->mvlcController = std::unique_ptr<mvme_mvlc::MVLC_VMEController>(
             qobject_cast<mvme_mvlc::MVLC_VMEController *>(
                 cf.makeController(conf->getControllerSettings())));
-        crdo.mvlc = crdo.mvlcController->getMVLC();
+        crdo->mvlc = crdo->mvlcController->getMVLC();
         // unused but required for the ReadoutWorker. 0 buffers of size 0..
-        crdo.readoutSnoopQueues = std::make_unique<mvlc::ReadoutBufferQueues>(0, 0);
+        crdo->readoutSnoopQueues = std::make_unique<mvlc::ReadoutBufferQueues>(0, 0);
 
         // StackTriggers
         std::vector<u32> stackTriggers;
@@ -314,29 +320,29 @@ int main(int argc, char *argv[])
         std::tie(stackTriggers, ec) = mvme_mvlc::get_trigger_values(*conf, global_logger);
 
         // ReadoutWorker -> ReadoutParser
-        crdo.readoutBufferQueues = std::make_unique<mvlc::ReadoutBufferQueues>();
-        crdo.readoutWriteHandle = std::make_unique<BlockingBufferQueuesWriteHandle>(
-            *crdo.readoutBufferQueues, crdo.mvlc.connectionType());
+        crdo->readoutBufferQueues = std::make_unique<mvlc::ReadoutBufferQueues>();
+        crdo->readoutWriteHandle = std::make_unique<BlockingBufferQueuesWriteHandle>(
+            *crdo->readoutBufferQueues, crdo->mvlc.connectionType());
 
         // mvlc::CrateConfig
         auto crateConfig = mvme::vmeconfig_to_crateconfig(conf.get());
 
         // mvlc::ReadoutWorker
-        crdo.readoutWorker = std::make_unique<mvlc::ReadoutWorker>(
-            crdo.mvlc,
+        crdo->readoutWorker = std::make_unique<mvlc::ReadoutWorker>(
+            crdo->mvlc,
             stackTriggers,
-            *crdo.readoutSnoopQueues,
-            crdo.readoutWriteHandle.get());
+            *crdo->readoutSnoopQueues,
+            crdo->readoutWriteHandle.get());
 
-        crdo.readoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
-        crdo.readoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);
+        crdo->readoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
+        crdo->readoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);
 
         // ReadoutParser pushing data into the EventBuilder
-        crdo.parserState = mvlc::readout_parser::make_readout_parser(
+        crdo->parserState = mvlc::readout_parser::make_readout_parser(
             mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks), ci);
-        crdo.parserCounters = std::make_unique<CrateReadout::ProtectedParserCounters>();
+        crdo->parserCounters = std::make_unique<CrateReadout::ProtectedParserCounters>();
 
-        crdo.parserCallbacks.eventData = [&mcrdo] (
+        crdo->parserCallbacks.eventData = [&mcrdo] (
             void *userContext, int ci, int ei,
             const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
         {
@@ -346,7 +352,7 @@ int main(int argc, char *argv[])
             mcrdo.eventBuilder->recordEventData(ci, ei, moduleDataList, moduleCount);
         };
 
-        crdo.parserCallbacks.systemEvent = [&mcrdo] (
+        crdo->parserCallbacks.systemEvent = [&mcrdo] (
             void *userContext, int ci, const u32 *header, u32 size)
         {
             (void) userContext;
@@ -355,16 +361,18 @@ int main(int argc, char *argv[])
             mcrdo.eventBuilder->recordSystemEvent(ci, header, size);
         };
 
-        crdo.parserQuit = std::make_unique<std::atomic<bool>>(false);
+        crdo->parserQuit = std::make_unique<std::atomic<bool>>(false);
         // XXX: careful with the refs (see above)!
-        crdo.parserThread = std::thread(
+        crdo->parserThread = std::thread(
             mvlc::readout_parser::run_readout_parser,
-            std::ref(crdo.parserState),
-            std::ref(*crdo.parserCounters),
-            std::ref(*crdo.readoutBufferQueues),
-            std::ref(crdo.parserCallbacks),
-            std::ref(*crdo.parserQuit)
+            std::ref(crdo->parserState),
+            std::ref(*crdo->parserCounters),
+            std::ref(*crdo->readoutBufferQueues),
+            std::ref(crdo->parserCallbacks),
+            std::ref(*crdo->parserQuit)
             );
+
+        mcrdo.crateReadouts.emplace_back(std::move(crdo));
     }
 
     assert(crateVMEConfigs.size() == mcrdo.crateReadouts.size());
@@ -388,8 +396,8 @@ int main(int argc, char *argv[])
             spdlog::error("crate{}: {}", ci, msg.toStdString());
         };
 
-        crdo.mvlcController->getMVLCObject()->setDisableTriggersOnConnect(true);
-        auto err = crdo.mvlcController->open();
+        crdo->mvlcController->getMVLCObject()->setDisableTriggersOnConnect(true);
+        auto err = crdo->mvlcController->open();
 
         if (err.isError())
         {
@@ -399,7 +407,7 @@ int main(int argc, char *argv[])
         }
 
         if (!run_daq_start_sequence(
-            crdo.mvlcController.get(),
+            crdo->mvlcController.get(),
             conf,
             false, // ignoreStartupErrors
             logger,
@@ -431,8 +439,9 @@ int main(int argc, char *argv[])
     {
         auto ci = mcrdo.crateReadouts.rend() - it - 1;
         spdlog::info("Starting readout for crate {}", ci);
+        auto &crdo = *it;
 
-        auto f = it->readoutWorker->start();
+        auto f = crdo->readoutWorker->start();
         auto ec = f.get();
 
         if (ec)
@@ -443,7 +452,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    const auto timeToRun = std::chrono::seconds(60);
+    const auto timeToRun = std::chrono::seconds(secondsToRun);
 
     spdlog::info("Running DAQ for {} seconds", timeToRun.count());
 
@@ -459,17 +468,18 @@ int main(int argc, char *argv[])
     {
         auto ci = it - mcrdo.crateReadouts.begin();
         spdlog::info("Stopping readout for crate{}", ci);
+        auto &crdo = *it;
 
-        if (auto ec = it->readoutWorker->stop())
+        if (auto ec = crdo->readoutWorker->stop())
         {
             spdlog::warn("Error stopping readout for crate{}: {}",
                          ci, ec.message());
         }
         else
         {
-            while (it->readoutWorker->state() != mvlc::ReadoutWorker::State::Idle)
+            while (crdo->readoutWorker->state() != mvlc::ReadoutWorker::State::Idle)
             {
-                it->readoutWorker->waitableState().wait_for(
+                crdo->readoutWorker->waitableState().wait_for(
                     std::chrono::milliseconds(100),
                     [] (const mvlc::ReadoutWorker::State &state)
                     {
@@ -494,14 +504,14 @@ int main(int argc, char *argv[])
 
         auto stopResults = mvlc_daq_shutdown(
             crateVMEConfigs[ci].get(),
-            it->mvlcController.get(),
+            crdo->mvlcController.get(),
             logger, error_logger);
 
         spdlog::info("Stopping readout parser for crate{}", ci);
-        *it->parserQuit = true;
+        *crdo->parserQuit = true;
 
-        if (it->parserThread.joinable())
-            it->parserThread.join();
+        if (crdo->parserThread.joinable())
+            crdo->parserThread.join();
 
         spdlog::info("Stopped readout parser for crate{}", ci);
     }

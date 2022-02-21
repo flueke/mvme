@@ -312,6 +312,18 @@ QMimeData *DataSourceTree::mimeData(const QList<QTreeWidgetItem *> items) const
                 }
                 break;
 
+            case NodeType_UnassignedModule:
+                {
+                    for (int ci=0; ci<item->childCount(); ++ci)
+                    {
+                        auto child = item->child(ci);
+                        if (auto source = get_pointer<SourceInterface>(child, DataRole_AnalysisObject))
+                        {
+                            idData.push_back(source->getId().toByteArray());
+                        }
+                    }
+                }
+
             default:
                 break;
         }
@@ -400,6 +412,16 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
                 source->setEventId(module->getEventId());
                 source->setModuleId(module->getId());
+
+                // Also assign all objects that are dependents of the selected
+                // source to the same event id.
+                auto deps = collect_dependent_objects(source);
+
+                for (auto dep: deps)
+                    dep->setEventId(module->getEventId());
+
+                // Tell the analysis that the source was modified. It will set
+                // the NeedRebuild flag on the source and on dependent objects.
                 analysis->setSourceEdited(source);
                 droppedObjects.append(source);
             }
@@ -2199,7 +2221,7 @@ void EventWidgetPrivate::populateDataSourceTree(
         {
 
             // create the module node
-            auto node = new TreeNode;
+            auto node = new TreeNode(NodeType_UnassignedModule);
             node->setIcon(0, QIcon(":/vme_module.png"));
 
             if (map_contains(modPropsByModId, modId))
@@ -2618,7 +2640,7 @@ s32 EventWidgetPrivate::getUserLevelForTree(QTreeWidget *tree)
 }
 
 template<typename T, typename C>
-QVector<std::shared_ptr<T>> objects_from_nodes(const C &nodes)
+QVector<std::shared_ptr<T>> objects_from_nodes(const C &nodes, bool recurse=false)
 {
     QVector<std::shared_ptr<T>> result;
 
@@ -2626,15 +2648,24 @@ QVector<std::shared_ptr<T>> objects_from_nodes(const C &nodes)
     {
         if (auto obj = get_shared_analysis_object<T>(node, DataRole_AnalysisObject))
             result.push_back(obj);
+
+        if (recurse)
+        {
+            for (auto ci=0; ci<node->childCount(); ++ci)
+            {
+                auto childObjects = objects_from_nodes<T>(QList<QTreeWidgetItem *>{ node->child(ci) }, recurse);
+                result.append(childObjects);
+            }
+        }
     }
 
     return result;
 }
 
 template<typename C>
-AnalysisObjectVector objects_from_nodes(const C &nodes)
+AnalysisObjectVector objects_from_nodes(const C &nodes, bool recurse=false)
 {
-    return objects_from_nodes<AnalysisObject>(nodes);
+    return objects_from_nodes<AnalysisObject>(nodes, recurse);
 }
 
 /* Context menu for the operator tree views (top). */
@@ -3054,7 +3085,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             for (int i=0; i<activeNode->childCount(); i++)
                 children.push_back(activeNode->child(i));
 
-            auto unassigned = objects_from_nodes(children);
+            auto unassigned = objects_from_nodes(children, true);
 
             auto remove_unassigned_objects = [this, unassigned] ()
             {
@@ -4037,6 +4068,12 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     ;
                 objectInfoWidget->setVMEConfigObject(eventConfig);
             }
+            break;
+
+        default:
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "click on node, type=" << node->type();
+            };
 #endif
     }
 
