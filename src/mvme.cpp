@@ -20,6 +20,7 @@
  */
 #include <chrono>
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include "analysis/analysis_util.h"
 #include "mvme.h"
 
 #include "analysis/analysis.h"
@@ -473,6 +474,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
 
         connect(cw, &VMEConfigTreeWidget::editEventVariables,
                 this, &MVMEMainWindow::runEditVMEEventVariables);
+
+        connect(cw, &VMEConfigTreeWidget::moduleMoved,
+                this, &MVMEMainWindow::onVMEModuleMoved);
 
         cw->setConfig(m_d->m_context->getVMEConfig());
     }
@@ -2001,6 +2005,42 @@ void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
     m_d->m_geometrySaver->addAndRestore(editor , QSL("WindowGeometries/EventVariableEditor"));
 
     editor->show();
+}
+
+void MVMEMainWindow::onVMEModuleMoved(ModuleConfig *mod, EventConfig *sourceEvent, EventConfig *destEvent)
+{
+    // TODO: move this code into some controller object or into MVMEContext. It
+    // doesn't belong in the GUI.
+    // - get the data sources directly attached to this module. collect all
+    //   dependent objects of this data source.
+    // - for all objects if the execution context was the old event set the
+    //   context to the new event.
+
+    auto asp = m_d->m_context->getAnalysisServiceProvider();
+    assert(asp);
+
+    AnalysisPauser ap(asp);
+
+    auto analysis = asp->getAnalysis();
+
+    QSet<analysis::PipeSourceInterface *> allObjects;
+
+    auto moduleDataSources = analysis->getSourcesByModule(mod->getId());
+
+    for (const auto &dataSource: moduleDataSources)
+    {
+        allObjects.insert(dataSource.get());
+        allObjects.unite(analysis::collect_dependent_objects(dataSource.get()));
+    }
+
+    for (auto obj: allObjects)
+    {
+        if (obj->getEventId() == sourceEvent->getId())
+        {
+            obj->setEventId(destEvent->getId());
+            obj->setObjectFlags(analysis::ObjectFlags::NeedsRebuild);
+        }
+    }
 }
 
 void MVMEMainWindow::runVMEControllerSettingsDialog()

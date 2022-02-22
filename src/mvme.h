@@ -159,6 +159,8 @@ private slots:
     void runDAQRunSettingsDialog();
     void runWorkspaceSettingsDialog();
 
+    void onVMEModuleMoved(ModuleConfig *mod, EventConfig *sourceEvent, EventConfig *destEvent);
+
     void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
                             RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
 
