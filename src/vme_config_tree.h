@@ -23,6 +23,8 @@
 
 #include <QWidget>
 #include <QMap>
+
+#include "libmvme_export.h"
 #include "globals.h"
 #include "vme_config.h"
 #include "vme_controller.h"
@@ -36,7 +38,7 @@ class TreeNode;
 class EventNode;
 class VMEConfigTree; // declaration in vme_config_tree_p.h
 
-class VMEConfigTreeWidget: public QWidget
+class LIBMVME_EXPORT VMEConfigTreeWidget: public QWidget
 {
     Q_OBJECT
     signals:
