@@ -150,7 +150,7 @@ LIBMVME_EXPORT make_merged_vme_config(
     );
 
 inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings>
-LIBMVME_EXPORT make_merged_vme_config(
+make_merged_vme_config(
     const std::vector<std::unique_ptr<VMEConfig>> &crateConfigs,
     const std::set<int> &crossCrateEvents,
     const MultiCrateObjectMappings &prevMappings = {}

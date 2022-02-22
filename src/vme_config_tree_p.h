@@ -3,9 +3,11 @@
 
 #include <QTreeWidget>
 
+#include "libmvme_export.h"
+
 class VMEConfigTreeWidget;
 
-class VMEConfigTree: public QTreeWidget
+class LIBMVME_EXPORT VMEConfigTree: public QTreeWidget
 {
     Q_OBJECT
     public:
