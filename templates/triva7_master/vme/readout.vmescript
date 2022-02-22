@@ -1,19 +1,17 @@
-#TRIVA-IRQ 4 received: get trigger number and time stamp;
+# Readout script for the Triva 7 master; activated via VME IRQ 4.
+# Reads the trigger number from Triva and turns it into a MVLC IRQ signal.
 
-
-mvlc_stack_begin  	# only for debugging: put following instruction into same execution stack,
-					# has no effect in normal execution
+mvlc_stack_begin                        # For debugging only: puts following instructions into same execution stack
+                                        # when interactively running the script. Has no effect when running the DAQ
+                                        # normally.
 
 # evaluate trigger type
-mvlc_read_to_accu A32 D32 0x0000 slow	# copy TRIVA status register to Accu, slow cycle
-#mvlc_read_to_accu A32 D32 0x0000 slow
-#mvlc_set_accu 0x0000000E
-mvlc_mask_shift_accu 0x0000000F 0		# mask lower 4 bits, no shift
-mvlc_signal_accu						# signal 4 low bits of accu; Are translated to an IRQ
-#Stat_reg: clear IRQ 4
-write A32 D32 0x0000  0x00009000 #(EV_IRQ_CLEAR | IRQ_CLEAR)
-read A32 D32 0x000C slow  		# slow read time stamp register -> second word in event
+mvlc_read_to_accu A32 D32 0x0000 slow   # Copy TRIVA status register to MVLC accumulator, slow cycle.
+mvlc_mask_shift_accu 0x0000000F 0       # Mask lower 4 bits of the accu, no shift.
+mvlc_signal_accu                        # Signal the accumulator creating a MVLC internal IRQ signal.
+write A32 D32 0x0000  0x00009000        # Triva Status Register: clear IRQ4 (EV_IRQ_CLEAR | IRQ_CLEAR)
 
+#marker 0x11111111						# Debug: write a marker value identifying this event
+mvlc_writespecial accu					# Debug: write the accumulator value into the data stream
 
-mvlc_stack_end # only for debugging, has no effect in normal execution
-
+mvlc_stack_end                          # For debugging only; has no effect in normal execution.
