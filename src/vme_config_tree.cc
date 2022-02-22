@@ -340,6 +340,11 @@ QMimeData *VMEConfigTree::mimeData(const QList<QTreeWidgetItem *> items) const
                     idData.push_back(source->getId().toByteArray());
                 break;
 
+            case NodeType_Event:
+                if (auto source = get_pointer<EventConfig>(item, DataRole_Pointer))
+                    idData.push_back(source->getId().toByteArray());
+                break;
+
             default:
                 break;
         }
@@ -489,14 +494,18 @@ bool VMEConfigTree::dropMimeDataOnModulesInit(
     if (!moduleConfig)
         return false;
 
+#if 0
     // XXX: Limit drag and drop for module to the same VME Event. The only
     // reason for this is that the analysis operators attached to a module
     // being moved between events will be run in the wrong event context after
     // the move.
     if (moduleConfig->getEventConfig() != destEvent)
         return false;
-
+#endif
+    // Move the event and emit a signal notifying observers about the change.
+    auto sourceEvent = moduleConfig->getEventConfig();
     move_module(moduleConfig, destEvent, parentIndex);
+    emit m_configWidget->moduleMoved(moduleConfig, sourceEvent, destEvent);
 
 #ifndef QT_NO_DEBUG
     // Consistency check: module, module readout and the actual module order in
@@ -872,7 +881,7 @@ TreeNode *VMEConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     eventNode->setData(0, DataRole_Pointer, Ptr2Var(event));
     eventNode->setText(0, event->objectName());
     //eventNode->setCheckState(0, Qt::Checked);
-    eventNode->setFlags(eventNode->flags() | Qt::ItemIsEditable);
+    eventNode->setFlags(eventNode->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
     m_treeMap[event] = eventNode;
     parent->addChild(eventNode);
     eventNode->setExpanded(true);

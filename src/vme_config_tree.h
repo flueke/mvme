@@ -51,6 +51,7 @@ class LIBMVME_EXPORT VMEConfigTreeWidget: public QWidget
         void logMessage(const QString &msg);
         void dumpVMEControllerRegisters();
         void editEventVariables(EventConfig *eventConfig);
+        void moduleMoved(ModuleConfig *mod, EventConfig *sourceEvent, EventConfig *destEvent);
 
     public:
         explicit VMEConfigTreeWidget(QWidget *parent = 0);
