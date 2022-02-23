@@ -455,11 +455,18 @@ void VMEDebugWidget::slt_loadScript()
 // TODO: move into mvlc_util or mvlc_vme_script_bridge or something like that
 vme_script::Result run_command(MVLCObject *mvlc, const vme_script::Command &cmd)
 {
-    using namespace vme_script;
-    Result result;
+    // Direct MVLC stack transactions required a marker as the first command in
+    // the stack. This is a requirement of the asynchronous mvlc_apiv2.
+
+
+    vme_script::Command markerCommand;
+    markerCommand.type = vme_script::CommandType::Marker;
+    markerCommand.value = 0x13333337u;
+
+    vme_script::Result result;
     result.command = cmd;
 
-    auto stackBuilder = mvme_mvlc::build_mvlc_stack(QVector<vme_script::Command>{ cmd });
+    auto stackBuilder = mvme_mvlc::build_mvlc_stack(QVector<vme_script::Command>{ markerCommand, cmd });
 
     //mvlc::util::log_buffer(std::cout, uploadData, "run_command upload data");
 
