@@ -16,10 +16,17 @@ class MVMEContextServiceProvider: public AnalysisServiceProvider
 
         // Workspace
         QString getWorkspaceDirectory() override;
-        // Returns an empty string if no workspace is open. Otherwise returns the 
-        QString getWorkspacePath(const QString &settingsKey,
-                                         const QString &defaultValue = QString(),
-                                         bool setIfDefaulted = true) const override;
+
+        // Retrieve the workspace path stored under the specified settingsKey.
+        // Returns an empty string if no workspace is open. If no value is
+        // stored under settingsKey then the optional defaultValue is returned.
+        // If setIfDefaulted is true the defaultValue will be stored in the
+        // workspace settings.
+        QString getWorkspacePath(
+            const QString &settingsKey,
+            const QString &defaultValue = QString(),
+            bool setIfDefaulted = true) const override;
+
         std::shared_ptr<QSettings> makeWorkspaceSettings() const override;
 
 
