@@ -53,12 +53,18 @@ class AnalysisServiceProvider: public QObject
 
         // Workspace
         virtual QString getWorkspaceDirectory() = 0;
-        // Returns an empty string if no workspace is open. Otherwise returns the 
-        virtual QString getWorkspacePath(const QString &settingsKey,
-                                         const QString &defaultValue = QString(),
-                                         bool setIfDefaulted = true) const = 0;
-        virtual std::shared_ptr<QSettings> makeWorkspaceSettings() const = 0;
 
+        // Retrieve the workspace path stored under the specified settingsKey.
+        // Returns an empty string if no workspace is open. If no value is
+        // stored under settingsKey then the optional defaultValue is returned.
+        // If setIfDefaulted is true the defaultValue will be stored in the
+        // workspace settings.
+        virtual QString getWorkspacePath(
+            const QString &settingsKey,
+            const QString &defaultValue = QString(),
+            bool setIfDefaulted = true) const = 0;
+
+        virtual std::shared_ptr<QSettings> makeWorkspaceSettings() const = 0;
 
         // VMEConfig
         virtual VMEConfig *getVMEConfig() = 0;

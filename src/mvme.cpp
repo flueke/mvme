@@ -2011,8 +2011,9 @@ void MVMEMainWindow::onVMEModuleMoved(ModuleConfig *mod, EventConfig *sourceEven
 {
     // TODO: move this code into some controller object or into MVMEContext. It
     // doesn't belong in the GUI.
-    // - get the data sources directly attached to this module. collect all
-    //   dependent objects of this data source.
+    //
+    // - get the data sources directly attached to the module. collect all
+    //   dependent objects of the data sources
     // - for all objects if the execution context was the old event set the
     //   context to the new event.
 
