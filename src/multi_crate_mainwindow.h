@@ -2,6 +2,7 @@
 #define __MVME_MULTI_CRATE_MAINWINDOW_H__
 
 #include <QMainWindow>
+#include <memory>
 #include "libmvme_export.h"
 
 class LIBMVME_EXPORT MultiCrateMainWindow: public QMainWindow
