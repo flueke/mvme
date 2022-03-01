@@ -38,7 +38,10 @@
 #include <QSpinBox>
 #include <QTimer>
 #include <qwt_legend.h>
+#include <qwt_curve_fitter.h>
+#if QWT_VERSION >= 0x060200
 #include <qwt_spline_curve_fitter.h>
+#endif
 #include <qwt_plot_curve.h>
 #include <qwt_plot.h>
 #include <random>
