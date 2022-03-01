@@ -2,9 +2,6 @@
 TODO list
 ==================================================
 
-* Fix MVLC DAQ stop sequence if there are VME errors. Triggers and DAQ mode
-  should still be disabled!
-
 * Verify that api_v2 command timeouts work correctly. When using USB2 with an
   MTDC and executing a VME script "command timeouts" appear altough not enough
   real time has elapsed for the timeouts to actually happen. Raising the
@@ -21,7 +18,7 @@ TODO list
 
 * FIXME: crateIndex handling is unclear. Should it be specified in
   make_readout_parser()? This works for the current readout code as it's
-  purely handled on the software side and doesn't care about the any CtrlId
+  purely handled on the software side and doesn't care about the CtrlId
   set for the MVLC.
   On the other hand the listfile_generation code and the merged multicrate
   listfiles to need the crateIndex present in the data stream. It's already
