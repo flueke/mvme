@@ -4,6 +4,10 @@
 Changelog
 ##################################################
 
+Version 1.4.8.1
+---------------
+Make mvme build against qwt version older than 6.2.0 again.
+
 Version 1.4.8
 -------------
 
