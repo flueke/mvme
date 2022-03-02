@@ -5,7 +5,7 @@
 * gcc/clang with c++14 support
 * cmake
 * Qt >= 5.15
-* qwt >= 6.2.0
+* qwt >= 6.1.0
 * quazip
 * libusb-0.1
 * zlib
