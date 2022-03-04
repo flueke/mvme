@@ -119,7 +119,7 @@ inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> LIBMVME_E
 }
 
 //
-// Playground (XXX: moved from the implementation file)
+// Playground
 //
 
 using namespace mesytec;
@@ -339,7 +339,7 @@ struct LIBMVME_EXPORT CrateReadout
 struct LIBMVME_EXPORT MultiCrateReadout
 {
 
-    std::vector<CrateReadout> crateReadouts;
+    std::vector<std::unique_ptr<CrateReadout>> crateReadouts;
 
     std::unique_ptr<mvlc::EventBuilder> eventBuilder;
     mvlc::readout_parser::ReadoutParserCallbacks eventBuilderCallbacks;
