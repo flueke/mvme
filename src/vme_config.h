@@ -53,6 +53,8 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         // Generates a new Uuid for the object.
         // Note: this method does not set the objects modified flag!
         void generateNewId();
+        // Allows to manually set a new id. Also does not set the modified flag.
+        void setId(const QUuid &newId) { m_id = newId; }
 
         bool isModified() const { return m_modified; }
         bool isEnabled() const { return m_enabled; }
