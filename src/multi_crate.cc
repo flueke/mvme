@@ -14,6 +14,41 @@ MulticrateVMEConfig::MulticrateVMEConfig(QObject *parent)
 {
 }
 
+MulticrateVMEConfig::~MulticrateVMEConfig()
+{
+}
+
+void MulticrateVMEConfig::addCrateConfig(VMEConfig *cfg)
+{
+    cfg->setParent(this);
+    m_crateConfigs.push_back(cfg);
+    emit crateConfigAdded(cfg);
+    setModified();
+}
+
+void MulticrateVMEConfig::removeCrateConfig(const VMEConfig *cfg)
+{
+    m_crateConfigs.erase(
+        std::remove_if(std::begin(m_crateConfigs), std::end(m_crateConfigs),
+                       [cfg] (const VMEConfig *c) { return cfg == c; }),
+        std::end(m_crateConfigs));
+}
+
+bool MulticrateVMEConfig::containsCrateConfig(const VMEConfig *cfg)
+{
+    return (std::find_if(std::begin(m_crateConfigs), std::end(m_crateConfigs),
+                         [cfg] (const VMEConfig *c) { return cfg == c; })
+            != std::end(m_crateConfigs));
+}
+
+std::error_code MulticrateVMEConfig::read_impl(const QJsonObject &json)
+{
+}
+
+std::error_code MulticrateVMEConfig::write_impl(QJsonObject &json) const
+{
+}
+
 // Generates new QUuids for a hierarchy of ConfigObjects
 void generate_new_ids(ConfigObject *parentObject)
 {
@@ -163,6 +198,7 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_
     return std::make_pair(std::move(merged), mappings);
 }
 
+#if 0
 QJsonObject to_json_object(const MultiCrateConfig &mcfg)
 {
     QJsonObject j;
@@ -235,6 +271,7 @@ MultiCrateConfig load_multi_crate_config(const QString &filename)
 
     return load_multi_crate_config(doc);
 }
+#endif
 
 
 // run_readout_parser()

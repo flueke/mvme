@@ -3,6 +3,7 @@
 
 #include "multi_crate.h"
 
+#if 0
 TEST(multi_crate, MultiCrateConfigJson)
 {
     using namespace multi_crate;
@@ -17,3 +18,4 @@ TEST(multi_crate, MultiCrateConfigJson)
 
     ASSERT_EQ(mcfg, mcfg2);
 }
+#endif
