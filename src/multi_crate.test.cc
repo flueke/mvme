@@ -4,6 +4,8 @@
 #include "multi_crate.h"
 #include "mvme_session.h"
 
+using namespace mesytec::multi_crate;
+
 // Providing a main() so that a QCoreApplication can be crated before any tests
 // run. Needed to silence warnings from the vme template system which is used
 // by the vme config code.
@@ -23,8 +25,6 @@ int main(int argc, char *argv[])
 
 TEST(multi_crate, ObjectMappingsJson)
 {
-    using namespace multi_crate;
-
     MultiCrateObjectMappings srcMappings;
 
     for (int i=0; i<10; ++i)
@@ -38,11 +38,8 @@ TEST(multi_crate, ObjectMappingsJson)
     ASSERT_EQ(srcMappings, dstMappings);
 }
 
-// TODO: check merged vme config and object mappings here too
 TEST(multi_crate, MulticrateVMEConfigJson)
 {
-    using namespace multi_crate;
-
     register_mvme_qt_metatypes();
 
     auto conf0 = new VMEConfig;
@@ -62,7 +59,7 @@ TEST(multi_crate, MulticrateVMEConfigJson)
     srcCfg.addCrateConfig(conf1);
     srcCfg.setIsCrossCrateEvent(0, true);
     srcCfg.setCrossCrateEventMainModuleId(0, m00->getId());
-
+    srcCfg.setObjectSettings(m00->getId(), { { "foo", 42u }, { "bar", "asdf" } });
     ASSERT_TRUE(srcCfg.isCrossCrateEvent(0));
     ASSERT_FALSE(srcCfg.isCrossCrateEvent(1));
     ASSERT_EQ(srcCfg.getCrossCrateEventMainModuleId(0), m00->getId());
@@ -98,12 +95,13 @@ TEST(multi_crate, MulticrateVMEConfigJson)
 
     ASSERT_EQ(srcCfg.getMergedObjectMappings(), dstCfg.getMergedObjectMappings());
     ASSERT_EQ(srcCfg.getMergedConfig()->getId(), dstCfg.getMergedConfig()->getId());
+    ASSERT_EQ(srcCfg.getObjectSettings(m00->getId()), dstCfg.getObjectSettings(m00->getId()));
+
+    qDebug() << dstCfg.getObjectSettings(m00->getId());
 }
 
 TEST(multi_crate, MakeMergedVMEConfig)
 {
-    using namespace multi_crate;
-
     QObject parent;
 
     // main crate

@@ -17,12 +17,14 @@
 #include "vme_config.h"
 #include "mvlc/mvlc_vme_controller.h"
 
+namespace mesytec
+{
 namespace multi_crate
 {
 
 // Holds bi-directional mappings between ConfigObjects in crate and merged vme
 // configs.
-struct MultiCrateObjectMappings
+struct LIBMVME_EXPORT MultiCrateObjectMappings
 {
     QMap<QUuid, QUuid> cratesToMerged;
     QMap<QUuid, QUuid> mergedToCrates;
@@ -50,8 +52,8 @@ struct MultiCrateObjectMappings
     }
 };
 
-QJsonObject to_json(const MultiCrateObjectMappings &mappings);
-MultiCrateObjectMappings object_mappings_from_json(const QJsonObject &json);
+QJsonObject LIBMVME_EXPORT to_json(const MultiCrateObjectMappings &mappings);
+MultiCrateObjectMappings LIBMVME_EXPORT object_mappings_from_json(const QJsonObject &json);
 
 
 // A ConfigObject holding the individual crate configs, meta information and
@@ -59,7 +61,7 @@ MultiCrateObjectMappings object_mappings_from_json(const QJsonObject &json);
 // Note: this class does not handle the logic of updating the merged vme config
 // when meta info changes. This has to be handled externally by some controller
 // object/code.
-class MulticrateVMEConfig: public ConfigObject
+class LIBMVME_EXPORT MulticrateVMEConfig: public ConfigObject
 {
     Q_OBJECT
     signals:
@@ -89,6 +91,11 @@ class MulticrateVMEConfig: public ConfigObject
         const MultiCrateObjectMappings &getMergedObjectMappings() { return m_objectMappings; }
         void setMergedObjectMappings(const MultiCrateObjectMappings &mappings) { m_objectMappings = mappings; }
 
+        void setObjectSettings(const QUuid &objectId, const QVariantMap &settings);
+        QVariantMap getObjectSettings(const QUuid &objectId) const;
+        QMap<QUuid, QVariantMap> getObjectSettings() const { return m_objectSettings; }
+        void clearObjectSettings(const QUuid &objectId);
+
     protected:
         std::error_code read_impl(const QJsonObject &json) override;
         std::error_code write_impl(QJsonObject &json) const override;
@@ -113,42 +120,31 @@ class MulticrateVMEConfig: public ConfigObject
         // for reuse when having to recreate the merged config. Needs to be
         // updated externally.
         MultiCrateObjectMappings m_objectMappings;
+
+        // Per object settings. Holds e.g. multi_event_splitter and
+        // event_builder settings for events and modules.
+        QMap<QUuid, QVariantMap> m_objectSettings;
 };
 
 //
 // VME config merging
 //
 
-// Holds bi-directional mappings between ConfigObjects in crate and merged vme
-// configs.
-struct LIBMVME_EXPORT MultiCrateObjectMappings
-{
-    QMap<QUuid, QUuid> cratesToMerged;
-    QMap<QUuid, QUuid> mergedToCrates;
-
-    void insertMapping(const ConfigObject *crateObject, const ConfigObject *mergedObject)
-    {
-        insertMapping(crateObject->getId(), mergedObject->getId());
-    }
-
-    void insertMapping(const QUuid &crateModuleId, const QUuid &mergedModuleId)
-    {
-        cratesToMerged.insert(crateModuleId, mergedModuleId);
-        mergedToCrates.insert(mergedModuleId, crateModuleId);
-    }
-};
-
 // inputs:
 // * list of crate vme configs with the first being the main crate
 // * list of event indexes which are part of a cross-crate event
+// * optional: id mappings returned from a previous merge operation.
+//   If specified the objects in the merged config will have the ids contained
+//   in the mappings.
 //
 // outputs:
 // * a new merged vme config containing both merged cross-crate events and
 //   non-merged single-crate events. The latter events are in linear (crate,
 //   event) order.
 // * bi-directional module id mappings
-// TODO: store eventIds in mappings and resue them like for modules
-std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> LIBMVME_EXPORT make_merged_vme_config(
+// * bi-directional object id mappings (crates <-> merged)
+std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings>
+LIBMVME_EXPORT make_merged_vme_config(
     const std::vector<VMEConfig *> &crateConfigs,
     const std::set<int> &crossCrateEvents,
     const MultiCrateObjectMappings &prevMappings = {}
@@ -170,8 +166,6 @@ inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> LIBMVME_E
 //
 // Playground
 //
-
-using namespace mesytec;
 
 // listfile::WriteHandle implementation which enqueues the data onto the given
 // ReadoutBufferQueues. The queues are used in a blocking fashion which means
@@ -400,7 +394,8 @@ struct LIBMVME_EXPORT MultiCrateReadout
 };
 
 } // end namespace multi_crate
+} // end namespace mesytec
 
-Q_DECLARE_METATYPE(multi_crate::MulticrateVMEConfig *);
+Q_DECLARE_METATYPE(mesytec::multi_crate::MulticrateVMEConfig *);
 
 #endif /* __MVME_MULTI_CRATE_H__ */

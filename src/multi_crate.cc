@@ -6,6 +6,8 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "vme_config_scripts.h"
 
+namespace mesytec
+{
 namespace multi_crate
 {
 
@@ -97,6 +99,24 @@ QUuid MulticrateVMEConfig::getCrossCrateEventMainModuleId(int eventIndex) const
     }
 }
 
+void MulticrateVMEConfig::setObjectSettings(const QUuid &objectId, const QVariantMap &settings)
+{
+    bool modifies = (settings != getObjectSettings(objectId));
+    m_objectSettings[objectId] = settings;
+    if (modifies) setModified();
+}
+
+QVariantMap MulticrateVMEConfig::getObjectSettings(const QUuid &objectId) const
+{
+    return m_objectSettings.value(objectId);
+}
+
+void MulticrateVMEConfig::clearObjectSettings(const QUuid &objectId)
+{
+    m_objectSettings.remove(objectId);
+    setModified();
+}
+
 QJsonObject to_json(const MultiCrateObjectMappings &mappings)
 {
     QJsonObject dstJson;
@@ -171,6 +191,18 @@ std::error_code MulticrateVMEConfig::write_impl(QJsonObject &json) const
     // object mappings
     json["objectMappings"] = to_json(m_objectMappings);
 
+    // object settings
+    QJsonObject objectSettingsJson;
+
+    for (auto it=m_objectSettings.begin();
+         it!=m_objectSettings.end();
+         ++it)
+    {
+        objectSettingsJson[it.key().toString()] = QJsonObject::fromVariantMap(it.value());
+    }
+
+    json["objectSettings"] = objectSettingsJson;
+
     return {};
 }
 
@@ -204,6 +236,18 @@ std::error_code MulticrateVMEConfig::read_impl(const QJsonObject &json)
     m_mergedConfig->read(json["mergedVMEConfig"].toObject());
 
     m_objectMappings = object_mappings_from_json(json["objectMappings"].toObject());
+
+    auto objectSettingsJson = json["objectSettings"].toObject();
+
+    for (auto it=objectSettingsJson.begin();
+         it!=objectSettingsJson.end();
+         ++it)
+    {
+        auto id = QUuid::fromString(it.key());
+        auto settings = it.value().toObject().toVariantMap();
+
+        m_objectSettings[id] = settings;
+    }
 
     return {};
 }
@@ -387,4 +431,5 @@ void multi_crate_playground()
     CrateReadout crateReadout2(std::move(crateReadout));
 }
 
+}
 }
