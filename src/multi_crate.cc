@@ -11,6 +11,7 @@ namespace multi_crate
 
 MulticrateVMEConfig::MulticrateVMEConfig(QObject *parent)
     : ConfigObject(parent)
+    , m_mergedConfig(new VMEConfig(this))
 {
 }
 
@@ -26,27 +27,137 @@ void MulticrateVMEConfig::addCrateConfig(VMEConfig *cfg)
     setModified();
 }
 
-void MulticrateVMEConfig::removeCrateConfig(const VMEConfig *cfg)
+void MulticrateVMEConfig::removeCrateConfig(VMEConfig *cfg)
 {
-    m_crateConfigs.erase(
-        std::remove_if(std::begin(m_crateConfigs), std::end(m_crateConfigs),
-                       [cfg] (const VMEConfig *c) { return cfg == c; }),
-        std::end(m_crateConfigs));
+    if (containsCrateConfig(cfg))
+    {
+        emit crateConfigAboutToBeRemoved(cfg);
+
+        m_crateConfigs.erase(
+            std::remove_if(std::begin(m_crateConfigs), std::end(m_crateConfigs),
+                           [cfg] (const VMEConfig *c) { return cfg == c; }),
+            std::end(m_crateConfigs));
+
+        setModified();
+    }
 }
 
-bool MulticrateVMEConfig::containsCrateConfig(const VMEConfig *cfg)
+bool MulticrateVMEConfig::containsCrateConfig(const VMEConfig *cfg) const
 {
     return (std::find_if(std::begin(m_crateConfigs), std::end(m_crateConfigs),
                          [cfg] (const VMEConfig *c) { return cfg == c; })
             != std::end(m_crateConfigs));
 }
 
-std::error_code MulticrateVMEConfig::read_impl(const QJsonObject &json)
+void MulticrateVMEConfig::setIsCrossCrateEvent(int eventIndex, bool isCrossCrate)
 {
+    if (isCrossCrate)
+    {
+        m_crossCrateEventIndexes.insert(eventIndex);
+    }
+    else
+    {
+        auto pos = m_crossCrateEventIndexes.find(eventIndex);
+        if (pos != std::end(m_crossCrateEventIndexes))
+            m_crossCrateEventIndexes.erase(pos);
+    }
+}
+
+bool MulticrateVMEConfig::isCrossCrateEvent(int eventIndex) const
+{
+    return m_crossCrateEventIndexes.find(eventIndex) != std::end(m_crossCrateEventIndexes);
+}
+
+void MulticrateVMEConfig::setCrossCrateEventMainModuleId(int eventIndex, const QUuid &moduleId)
+{
+    m_crossCrateEventMainModules[eventIndex] = moduleId;
+}
+
+QUuid MulticrateVMEConfig::getCrossCrateEventMainModuleId(int eventIndex) const
+{
+    try
+    {
+        return m_crossCrateEventMainModules.at(eventIndex);
+    }
+    catch (const std::out_of_range &)
+    {
+        return {};
+    }
 }
 
 std::error_code MulticrateVMEConfig::write_impl(QJsonObject &json) const
 {
+    // Serialize crate configs and hold them in an array.
+    QJsonArray cratesArray;
+    for (auto crateConfig: getCrateConfigs())
+    {
+        QJsonObject dst;
+        crateConfig->write(dst);
+        cratesArray.append(dst);
+    }
+
+    json["crateConfigs"] = cratesArray;
+
+    // cross crate event indexes
+    QJsonArray crossEventsArray;
+    for (auto it=std::begin(m_crossCrateEventIndexes); it!=std::end(m_crossCrateEventIndexes); ++it)
+        crossEventsArray.append(static_cast<qint64>(*it));
+
+    json["crossCrateEvents"] = crossEventsArray;
+
+    // per event main/reference modules
+    QJsonArray mainModulesArray;
+    for (auto it=std::begin(m_crossCrateEventMainModules); it!=std::end(m_crossCrateEventMainModules); ++it)
+    {
+        QJsonObject dst;
+        dst["eventIndex"] = static_cast<qint64>(it->first);
+        dst["moduleId"] = it->second.toString();
+        mainModulesArray.append(dst);
+    }
+
+    json["mainModules"] = mainModulesArray;
+
+    // write out the merged vme config
+    if (m_mergedConfig)
+    {
+        QJsonObject dst;
+        m_mergedConfig->write(dst);
+        json["mergedVMEConfig"] = dst;
+    }
+
+    return {};
+}
+
+std::error_code MulticrateVMEConfig::read_impl(const QJsonObject &json)
+{
+    auto cratesArray = json["crateConfigs"].toArray();
+
+    for (int ci=0; ci<cratesArray.size(); ++ci)
+    {
+        auto jobj = cratesArray[ci].toObject();
+        auto crateConfig = new VMEConfig(this);
+        crateConfig->read(jobj);
+        m_crateConfigs.push_back(crateConfig);
+    }
+
+    auto crossEventsArray = json["crossCrateEvents"].toArray();
+
+    for (int i=0; i<crossEventsArray.size(); ++i)
+        m_crossCrateEventIndexes.insert(crossEventsArray[i].toInt());
+
+    auto mainModulesArray = json["mainModules"].toArray();
+
+    for (int i=0; i<mainModulesArray.size(); ++i)
+    {
+        auto jobj = mainModulesArray[i].toObject();
+        int eventIndex = jobj["eventIndex"].toInt();
+        auto moduleId = QUuid::fromString(jobj["moduleId"].toString());
+        m_crossCrateEventMainModules[eventIndex] = moduleId;
+    }
+
+    m_mergedConfig->read(json["mergedVMEConfig"].toObject());
+
+    return {};
 }
 
 // Generates new QUuids for a hierarchy of ConfigObjects
@@ -77,12 +188,12 @@ std::unique_ptr<T> copy_config_object(const T *obj)
     return ret;
 }
 
-std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> make_merged_vme_config(
+std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_config(
     const std::vector<VMEConfig *> &crateConfigs,
     const std::set<int> &crossCrateEvents
     )
 {
-    MultiCrateModuleMappings mappings;
+    MultiCrateObjectMappings mappings;
     size_t mergedEventCount = crossCrateEvents.size();
     std::vector<std::unique_ptr<EventConfig>> mergedEvents;
 
