@@ -141,7 +141,6 @@ class LIBMVME_EXPORT MulticrateVMEConfig: public ConfigObject
 // * a new merged vme config containing both merged cross-crate events and
 //   non-merged single-crate events. The latter events are in linear (crate,
 //   event) order.
-// * bi-directional module id mappings
 // * bi-directional object id mappings (crates <-> merged)
 std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings>
 LIBMVME_EXPORT make_merged_vme_config(
@@ -150,7 +149,8 @@ LIBMVME_EXPORT make_merged_vme_config(
     const MultiCrateObjectMappings &prevMappings = {}
     );
 
-inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> LIBMVME_EXPORT make_merged_vme_config(
+inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings>
+LIBMVME_EXPORT make_merged_vme_config(
     const std::vector<std::unique_ptr<VMEConfig>> &crateConfigs,
     const std::set<int> &crossCrateEvents,
     const MultiCrateObjectMappings &prevMappings = {}
@@ -174,7 +174,7 @@ inline std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> LIBMVME_E
 // FIXME (maybe): using the WriteHandle interface leads to having to create
 // another copy of the readout buffer (the first copy is done in
 // mvlc::ReadoutWorker::Private::flushCurrentOutputBuffer()).
-class LIBMVME_EXPORT BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
+class BlockingBufferQueuesWriteHandle: public mvlc::listfile::WriteHandle
 {
     public:
         BlockingBufferQueuesWriteHandle(
@@ -352,7 +352,7 @@ struct LIBMVME_EXPORT EventBuilderOutputBufferWriter
 
 // Threads, ReadoutWorker, ReadoutParser, EventBuilder, Analysis
 
-struct LIBMVME_EXPORT CrateReadout
+struct CrateReadout
 {
     using ProtectedParserCounters = mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters>;
 
@@ -379,7 +379,7 @@ struct LIBMVME_EXPORT CrateReadout
     //CrateReadout(const CrateReadout &) = delete;
 };
 
-struct LIBMVME_EXPORT MultiCrateReadout
+struct MultiCrateReadout
 {
 
     std::vector<std::unique_ptr<CrateReadout>> crateReadouts;
