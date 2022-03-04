@@ -224,30 +224,45 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
 {
     assert(!crateConfigs.empty());
 
-    //const auto &mainCrateConf = crateConfigs[0];
     size_t mergedEventCount = crossCrateEvents.size();
     MultiCrateObjectMappings mappings;
     std::vector<std::unique_ptr<EventConfig>> mergedEvents;
 
-    // Create the cross crate merged events.
+    // Create the cross crate merged events. These start at output eventIndex=0.
+    // Mapping from crate events to merged events usee the main crates event id
+    // as the source of the mapping.
 
     for (auto outEi=0u; outEi<mergedEventCount; ++outEi)
     {
-        // TODO: Mapping from crate events to merged events should use the main
-        // crates event id as the source of the mapping.
-
         auto outEv = std::make_unique<EventConfig>();
         outEv->setObjectName(QSL("event%1").arg(outEi));
         outEv->triggerCondition = TriggerCondition::TriggerIO;
 
-        for (auto crateConf: crateConfigs)
+        for (size_t ci=0; ci<crateConfigs.size(); ++ci)
         {
+            auto crateConf = crateConfigs[ci];
             auto crateEvents = crateConf->getEventConfigs();
 
+            // FIXME: this is bogus. it adds the modules from all events from
+            // this crate to the merged config. very sad :<
             for (int ei=0; ei<crateEvents.size(); ++ei)
             {
-                if (crossCrateEvents.count(ei))
+                if (crossCrateEvents.count(ei)) // This is a cross-crate event
                 {
+                    // Use the event Id from the main crate for the object
+                    // mappings.
+                    if (ci == 0)
+                    {
+                        auto mainCrateEvent = crateEvents[ei];
+
+                        outEv->setObjectName(mainCrateEvent->objectName());
+
+                        if (prevMappings.cratesToMerged.contains(mainCrateEvent->getId()))
+                            outEv->setId(prevMappings.cratesToMerged[mainCrateEvent->getId()]);
+
+                        mappings.insertMapping(mainCrateEvent, outEv.get());
+                    }
+
                     auto moduleConfigs = crateEvents[ei]->getModuleConfigs();
 
                     for (auto moduleConf: moduleConfigs)
@@ -292,12 +307,21 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
                                      .arg(eventConf->objectName())
                                      );
 
+                if (prevMappings.cratesToMerged.contains(eventConf->getId()))
+                    outEv->setId(prevMappings.cratesToMerged[eventConf->getId()]);
+
+                mappings.insertMapping(eventConf, outEv.get());
+
                 assert(eventConf->getModuleConfigs().size() == outEv->getModuleConfigs().size());
 
                 for (int mi=0; mi<eventConf->moduleCount(); ++mi)
                 {
                     auto inMod = eventConf->getModuleConfigs().at(mi);
                     auto outMod = outEv->getModuleConfigs().at(mi);
+
+                    if (prevMappings.cratesToMerged.contains(inMod->getId()))
+                        outMod->setId(prevMappings.cratesToMerged[inMod->getId()]);
+
                     mappings.insertMapping(inMod, outMod);
                 }
 #else
@@ -322,6 +346,8 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
     }
 
     auto merged = std::make_unique<VMEConfig>();
+
+    // Add the merged events first, then the non-merged ones.
 
     for (auto &eventConf: mergedEvents)
         merged->addEventConfig(eventConf.release());

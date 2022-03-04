@@ -64,8 +64,6 @@ Wanpeng
   => The start button still show's "Start Replay", the listfile from the old workspace
      is still open.
 
-* Allow auto splitting of listfiles based on duration and size.
-
 * Workspace switching under windows: sometimes mvme.log cannot be moved to
   last_mvme.log. mvme still has an open handle to the log file at this point
   (renaming using the explorer also does not work).
