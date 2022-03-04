@@ -9,6 +9,11 @@
 namespace multi_crate
 {
 
+MulticrateVMEConfig::MulticrateVMEConfig(QObject *parent)
+    : ConfigObject(parent)
+{
+}
+
 // Generates new QUuids for a hierarchy of ConfigObjects
 void generate_new_ids(ConfigObject *parentObject)
 {

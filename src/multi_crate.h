@@ -20,6 +20,27 @@
 namespace multi_crate
 {
 
+class MulticrateVMEConfig: public ConfigObject
+{
+    Q_OBJECT
+    signals:
+        void vmeConfigAdded(VMEConfig *cfg);
+        void vmeConfigAboutToBeRemoved(VMEConfig *cfg);
+
+    public:
+        Q_INVOKABLE explicit MulticrateVMEConfig(QObject *parent = nullptr);
+
+        void addVMEConfig(VMEConfig *cfg);
+        bool removeVMEConfig(const VMEConfig *cfg);
+        bool contains(const VMEConfig *cfg) const;
+
+    private:
+        std::vector<VMEConfig *> m_crateConfigs;
+        std::set<int> m_crossCrateEventIndexes;
+        std::vector<QUuid> m_eventMainModuleIds;
+        VMEConfig *m_mergedConfig;
+};
+
 //
 // VME config merging
 //
@@ -49,7 +70,7 @@ struct LIBMVME_EXPORT MultiCrateModuleMappings
 // * a new merged vme config containing both merged cross-crate events and
 //   non-merged single-crate events. The latter events are in linear (crate,
 //   event) order.
-// * bi-directional module mappings
+// * bi-directional module id mappings
 std::pair<std::unique_ptr<VMEConfig>, MultiCrateModuleMappings> LIBMVME_EXPORT make_merged_vme_config(
     const std::vector<VMEConfig *> &crateConfigs,
     const std::set<int> &crossCrateEvents
