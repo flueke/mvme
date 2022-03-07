@@ -70,8 +70,12 @@ struct LIBMVME_EXPORT VMEModuleMeta
 {
     static const u8 InvalidTypeId = 0;
 
+    // Note: typeId is only used in the old mvmelst listfile format. Not used
+    // in mvlc listfiles.
     u8 typeId = InvalidTypeId;
+    // Unique module type name
     QString typeName;
+    // Module type name shown in the GUI.
     QString displayName;
     QString vendorName;
     VMEModuleTemplates templates;

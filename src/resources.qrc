@@ -44,6 +44,7 @@
     <file alias="histo_subrange.png">resources/selection-resize.png</file>
     <file alias="info.png">resources/dialog-information.png</file>
     <file alias="list_add.png">resources/list-add.png</file>
+    <file alias="list-add.png">resources/list-add.png</file>
     <file alias="listfilter.png">resources/document-list.png</file>
     <file alias="list_remove.png">resources/list-remove.png</file>
     <file alias="pencil.png">resources/pencil.png</file>

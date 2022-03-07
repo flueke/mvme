@@ -24,6 +24,7 @@
 
 #include <QClipboard>
 #include <QDebug>
+#include <QFileDialog>
 #include <QDesktopServices>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -53,6 +54,8 @@
 using namespace std::placeholders;
 using namespace vats;
 using namespace mvme::vme_config;
+
+static const QString VMEModuleConfigFileFilter = QSL("MVME Module Configs (*.mvmemodule *.json);; All Files (*.*)");
 
 enum NodeType
 {
@@ -1239,8 +1242,12 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                        this, &VMEConfigTreeWidget::editName);
         menu.addSeparator();
 
-        action = menu.addAction(QIcon(QSL(":/list-add.png")), QSL("Add Module"),
+        action = menu.addAction(QIcon(QSL(":/vme_module.png")), QSL("Add Module"),
                                 this, &VMEConfigTreeWidget::addModule);
+        action->setEnabled(isIdle);
+
+        action = menu.addAction(QIcon(QSL(":/vme_module.png")), QSL("Add Module from file"),
+                                this, &VMEConfigTreeWidget::addModuleFromFile);
         action->setEnabled(isIdle);
 
     }
@@ -1249,7 +1256,12 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (node && node->type() == NodeType_EventModulesInit)
     {
         if (isIdle)
-            menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
+        {
+            menu.addAction(QIcon(QSL(":/vme_module.png")), QSL("Add Module"),
+                           this, &VMEConfigTreeWidget::addModule);
+            menu.addAction(QIcon(QSL(":/vme_module.png")), QSL("Add Module from file"),
+                           this, &VMEConfigTreeWidget::addModuleFromFile);
+        }
     }
 
     // Module Node
@@ -1415,6 +1427,22 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             QKeySequence::Paste);
 
         action->setEnabled(canPaste());
+    }
+
+    if (node && node->type() == NodeType_Module)
+    {
+        auto moduleConfig = dynamic_cast<ModuleConfig *>(obj);
+        assert(moduleConfig);
+
+        if (moduleConfig)
+        {
+            menu.addSeparator();
+
+            menu.addAction(
+                QIcon(QSL(":/document-save.png")),
+                "Save Module to file",
+                [this, moduleConfig] { saveModuleToFile(moduleConfig); });
+        }
     }
 
     // remove selected object
@@ -1684,7 +1712,8 @@ void VMEConfigTreeWidget::addModule()
             }
 
             // FIXME: This should be done in the ModuleConfigDialog so that
-            // default module variables.
+            // default module variables are visible when selecting the module
+            // type.
             for (int i=0; i<moduleMeta.variables.size(); ++i)
             {
                 auto json = moduleMeta.variables.at(i).toObject();
@@ -1741,6 +1770,168 @@ void VMEConfigTreeWidget::editModule()
         dialog.setWindowTitle(QSL("Edit Module"));
         dialog.exec();
     }
+}
+
+void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
+{
+    auto path = QSettings().value("LastModuleSaveDirectory").toString();
+
+    if (path.isEmpty())
+    {
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    path += "/" + mod->objectName() + ".mvmemodule";
+
+    auto filename = QFileDialog::getSaveFileName(this, "Save Module As", path, VMEModuleConfigFileFilter);
+
+    if (filename.isEmpty())
+        return;
+
+    QFileInfo fi(filename);
+    if (fi.completeSuffix().isEmpty())
+        filename += ".mvmemodule";
+
+    // Serialze the module config to json
+    QJsonObject modJ;
+    mod->write(modJ);
+
+    // TODO: show a dialog to input custom values for vendorName, typeName, etc.
+    // Then use these values for the meta data.
+    auto meta = mod->getModuleMeta();
+
+    {
+        // XXX: leftoff here
+        auto le_typeName = new QLineEdit;
+        auto le_displayName = new QLineEdit;
+        auto le_vendorName = new QLineEdit;
+
+        QDialog d;
+        auto l = new QFormLayout(&d);
+        l->addRow("Type Name", le_typeName);
+        l->addRow("Display Name", le_displayName);
+        l->addRow("Vendor Name", le_vendorName);
+        l->addRow("MultiEvent Header Filter", le_multiEventFilter);
+    }
+
+    // Store parts of the VMEModuleMeta in a json object
+    QJsonObject metaJ;
+    metaJ["typeId"] = static_cast<int>(meta.typeId);
+    metaJ["typeName"] = meta.typeName;
+    metaJ["displayName"] = meta.displayName;
+    metaJ["vendorName"] = meta.vendorName;
+    metaJ["eventHeaderFilter"] = QString::fromLocal8Bit(meta.eventHeaderFilter);
+    metaJ["vmeAddress"] = static_cast<qint64>(meta.vmeAddress);
+    metaJ["variables"] = meta.variables;
+
+    // Outer container for both the module and the meta
+    QJsonObject containerJ;
+    containerJ["ModuleConfig"] = modJ;
+    containerJ["ModuleMeta"] = metaJ;
+
+    QJsonDocument doc(containerJ);
+
+    QFile out(filename);
+
+    if (!out.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QSL("Error opening %1 for writing").arg(filename));
+        return;
+    }
+
+    if (out.write(doc.toJson()) < 0)
+    {
+        QMessageBox::critical(0, "Error", QSL("Error writing to %1: %2")
+                              .arg(filename).arg(out.errorString()));
+    }
+}
+
+// TODO: merge with VMEConfigTreeWidget::addModule()
+void VMEConfigTreeWidget::addModuleFromFile()
+{
+    // Get the parent EventConfig
+    auto node = m_tree->currentItem();
+
+    while (node && node->type() != NodeType_Event)
+        node = node->parent();
+
+    if (!node)
+        return;
+
+    auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
+
+    if (!event)
+        return;
+
+    bool doExpand = (event->getModuleConfigs().size() == 0);
+
+    // Load the module from JSON file
+    auto path = QSettings().value("LastModuleSaveDirectory").toString();
+
+    if (path.isEmpty())
+    {
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    auto filename = QFileDialog::getOpenFileName(this, "Load Module from file", path, VMEModuleConfigFileFilter);
+
+    if (filename.isEmpty())
+        return;
+
+    QFile input(filename);
+    if (!input.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(0, "Error", QSL("Error opening %1 for reading").arg(filename));
+        return;
+    }
+
+    auto data = input.readAll();
+
+    QJsonParseError parseError;
+    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
+
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        QMessageBox::critical(0, "Error", QSL("Error parsing JSON data: file=%1, error=%2, offset=%3")
+                              .arg(filename)
+                              .arg(parseError.errorString())
+                              .arg(parseError.offset));
+        return;
+    }
+
+    auto containerJ = doc.object();
+
+    auto mod = std::make_unique<ModuleConfig>();
+    mod->read(containerJ["ModuleConfig"].toObject());
+
+    mvme::vme_config::generate_new_object_ids(mod.get());
+
+    // Restore parts of the module meta, then set it on the ModuleConfig instance.
+    VMEModuleMeta meta{};
+    auto metaJ = containerJ["ModuleMeta"].toObject();
+    meta.typeId = metaJ["typeId"].toInt();
+    meta.typeName = metaJ["typeName"].toString();
+    meta.displayName = metaJ["displayName"].toString();
+    meta.vendorName = metaJ["vendorName"].toString();
+    meta.eventHeaderFilter = metaJ["eventHeaderFilter"].toString().toLocal8Bit();
+    // toDouble() is a hack to get the full 32 address bits back
+    meta.vmeAddress = static_cast<u32>(metaJ["vmeAddress"].toDouble());
+    meta.variables = metaJ["variables"].toArray();
+
+    mod->setModuleMeta(meta);
+
+    // Now run the module config dialog on the newly loaded module
+    ModuleConfigDialog dialog(mod.get(), event, m_config, this);
+    dialog.setWindowTitle(QSL("Add Module"));
+    int result = dialog.exec();
+
+    if (result != QDialog::Accepted)
+        return;
+
+    event->addModuleConfig(mod.release());
+
+    if (doExpand)
+        static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
 }
 
 void VMEConfigTreeWidget::addGlobalScript()

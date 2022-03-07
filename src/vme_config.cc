@@ -472,6 +472,7 @@ std::error_code ModuleConfig::read_impl(const QJsonObject &json)
 
     QString typeName = json["type"].toString();
 
+    // Use the typeName to load module meta info from the template system.
     const auto moduleMetas = read_templates().moduleMetas;
     auto it = std::find_if(moduleMetas.begin(), moduleMetas.end(), [typeName](const VMEModuleMeta &mm) {
         return mm.typeName == typeName;
