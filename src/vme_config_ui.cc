@@ -486,26 +486,35 @@ ModuleConfigDialog::ModuleConfigDialog(
 
         typeCombo->addItem(mm.displayName, mm.typeId);
 
+#if 0 // typeId based comparison
         if (mm.typeId == module->getModuleMeta().typeId)
         {
             typeComboIndex = typeCombo->count() - 1;
         }
+#else // typeName based comparsion
+        if (mm.typeName == module->getModuleMeta().typeName)
+            typeComboIndex = typeCombo->count() - 1;
+#endif
     }
 
+#if 0
     if (typeComboIndex < 0 && !m_moduleMetas.isEmpty())
     {
         typeComboIndex = 0;
     }
+#else
+    if (typeComboIndex < 0)
+    {
+        typeCombo->insertSeparator(typeCombo->count());
+        typeCombo->addItem(module->getModuleMeta().displayName);
+        typeComboIndex = typeCombo->count() - 1;
+    }
+#endif
+
 
     nameEdit = new QLineEdit;
 
-    addressEdit = new QLineEdit;
-    QFont font;
-    font.setFamily(QSL("Monospace"));
-    font.setStyleHint(QFont::Monospace);
-    addressEdit->setFont(font);
-    addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
-    addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
+    addressEdit = make_vme_address_edit(module->getBaseAddress());
 
     const bool isNewModule = (module->getModuleMeta().typeId
                               == vats::VMEModuleMeta::InvalidTypeId);
@@ -539,7 +548,7 @@ ModuleConfigDialog::ModuleConfigDialog(
     layout->addRow(gb_variables);
     layout->addRow(bb);
 
-    auto onTypeComboIndexChanged = [this](int /*index*/)
+    auto onTypeComboIndexChanged = [this, module](int /*index*/)
     {
         u8 typeId = typeCombo->currentData().toUInt();
 
@@ -547,9 +556,13 @@ ModuleConfigDialog::ModuleConfigDialog(
             m_moduleMetas.begin(), m_moduleMetas.end(),
             [typeId] (const auto &mm) { return mm.typeId == typeId; });
 
-        assert(it != m_moduleMetas.end());
-
-        if (it == m_moduleMetas.end()) return;
+        if (it == m_moduleMetas.end())
+        {
+            nameEdit->setText(module->objectName());
+            addressEdit->setText(QString("0x%1")
+                                 .arg(module->getBaseAddress(), 8, 16, QChar('0')));
+            return;
+        }
 
         const auto &mm(*it);
         QString name = m_module->objectName();
@@ -593,24 +606,37 @@ ModuleConfigDialog::~ModuleConfigDialog()
 
 void ModuleConfigDialog::accept()
 {
-    bool ok;
     u8 typeId = typeCombo->currentData().toUInt();
+
+    m_module->setObjectName(nameEdit->text());
+    m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
+    m_module->setVariables(m_d->variableEditor->getVariables());
 
     auto it = std::find_if(
         m_moduleMetas.begin(), m_moduleMetas.end(),
         [typeId] (const auto &mm) { return mm.typeId == typeId; });
 
-    assert(it != m_moduleMetas.end());
-
-    if (it == m_moduleMetas.end()) return;
-
-    const auto &mm(*it);
-    m_module->setModuleMeta(mm);
-    m_module->setObjectName(nameEdit->text());
-    m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
-    m_module->setVariables(m_d->variableEditor->getVariables());
+    if (it != m_moduleMetas.end())
+    {
+        const auto &mm(*it);
+        m_module->setModuleMeta(mm);
+    }
 
     QDialog::accept();
+}
+
+QLineEdit *make_vme_address_edit(u32 address, QWidget *parent)
+{
+    auto addressEdit = new QLineEdit(parent);
+
+    QFont font;
+    font.setFamily(QSL("Monospace"));
+    font.setStyleHint(QFont::Monospace);
+    addressEdit->setFont(font);
+    addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
+    addressEdit->setText(QString("0x%1").arg(address, 8, 16, QChar('0')));
+
+    return addressEdit;
 }
 
 #if 0

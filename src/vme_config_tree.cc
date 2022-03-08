@@ -24,6 +24,7 @@
 
 #include <QClipboard>
 #include <QDebug>
+#include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QDesktopServices>
 #include <QGuiApplication>
@@ -40,6 +41,7 @@
 #include <QUrl>
 #include <qnamespace.h>
 
+#include "data_filter_edit.h"
 #include "mvme.h"
 #include "mvme_stream_worker.h"
 #include "template_system.h"
@@ -1774,6 +1776,63 @@ void VMEConfigTreeWidget::editModule()
 
 void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
 {
+    // Show a dialog to input custom values for vendorName, typeName, etc.
+    // Then use these values for the meta data.
+    auto meta = mod->getModuleMeta();
+
+    // Get the module variables and build a JSON structure as used in the
+    // vmmr_monitor/module_info.json file.
+    auto vars = mod->getVariables();
+
+    QJsonArray varsArray;
+
+    for (const auto &varName: vars.symbols.keys())
+    {
+        QJsonObject varJ;
+        varJ["name"] = varName;
+        varJ["value"] = vars.symbols[varName].value;
+        varJ["comment"] = vars.symbols[varName].comment;
+        varsArray.append(varJ);
+    }
+
+    {
+        auto le_typeName = new QLineEdit;
+        auto le_displayName = new QLineEdit;
+        auto le_vendorName = new QLineEdit;
+        auto le_headerFilter = new DataFilterEdit();
+        // Use the modules current VME address as a suggestion for the new default address.
+        auto le_vmeAddress = make_vme_address_edit(mod->getBaseAddress());
+        auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+        le_typeName->setText(meta.typeName);
+        le_displayName->setText(meta.displayName);
+        le_vendorName->setText(meta.vendorName);
+        le_headerFilter->setFilterString(QString::fromLocal8Bit(meta.eventHeaderFilter));
+
+        QDialog d;
+        d.setWindowTitle("Save VME module to file");
+        auto l = new QFormLayout(&d);
+        l->addRow("Type Name", le_typeName);
+        l->addRow("Display Name", le_displayName);
+        l->addRow("Vendor Name", le_vendorName);
+        l->addRow("Default VME Address", le_vmeAddress);
+        l->addRow("MultiEvent Header Filter", le_headerFilter);
+        l->addRow(bb);
+
+        QObject::connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+        QObject::connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+
+        if (d.exec() != QDialog::Accepted)
+            return;
+
+        meta.typeName = le_typeName->text();
+        meta.displayName = le_displayName->text();
+        meta.vendorName = le_vendorName->text();
+        meta.eventHeaderFilter = le_headerFilter->getFilterString().toLocal8Bit();
+        meta.vmeAddress = le_vmeAddress->text().toUInt(nullptr, 16);
+    }
+
+    // Run a file save dialog
     auto path = QSettings().value("LastModuleSaveDirectory").toString();
 
     if (path.isEmpty())
@@ -1781,9 +1840,10 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     }
 
-    path += "/" + mod->objectName() + ".mvmemodule";
+    path += "/" + meta.typeName + ".mvmemodule";
 
-    auto filename = QFileDialog::getSaveFileName(this, "Save Module As", path, VMEModuleConfigFileFilter);
+    auto filename = QFileDialog::getSaveFileName(
+        this, "Save Module As", path, VMEModuleConfigFileFilter);
 
     if (filename.isEmpty())
         return;
@@ -1792,37 +1852,19 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
     if (fi.completeSuffix().isEmpty())
         filename += ".mvmemodule";
 
-    // Serialze the module config to json
+    // Serialize the module config to json
     QJsonObject modJ;
     mod->write(modJ);
 
-    // TODO: show a dialog to input custom values for vendorName, typeName, etc.
-    // Then use these values for the meta data.
-    auto meta = mod->getModuleMeta();
-
-    {
-        // XXX: leftoff here
-        auto le_typeName = new QLineEdit;
-        auto le_displayName = new QLineEdit;
-        auto le_vendorName = new QLineEdit;
-
-        QDialog d;
-        auto l = new QFormLayout(&d);
-        l->addRow("Type Name", le_typeName);
-        l->addRow("Display Name", le_displayName);
-        l->addRow("Vendor Name", le_vendorName);
-        l->addRow("MultiEvent Header Filter", le_multiEventFilter);
-    }
-
     // Store parts of the VMEModuleMeta in a json object
     QJsonObject metaJ;
-    metaJ["typeId"] = static_cast<int>(meta.typeId);
+    //metaJ["typeId"] = static_cast<int>(meta.typeId);
     metaJ["typeName"] = meta.typeName;
     metaJ["displayName"] = meta.displayName;
     metaJ["vendorName"] = meta.vendorName;
     metaJ["eventHeaderFilter"] = QString::fromLocal8Bit(meta.eventHeaderFilter);
     metaJ["vmeAddress"] = static_cast<qint64>(meta.vmeAddress);
-    metaJ["variables"] = meta.variables;
+    metaJ["variables"] = varsArray;
 
     // Outer container for both the module and the meta
     QJsonObject containerJ;
@@ -1873,7 +1915,8 @@ void VMEConfigTreeWidget::addModuleFromFile()
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     }
 
-    auto filename = QFileDialog::getOpenFileName(this, "Load Module from file", path, VMEModuleConfigFileFilter);
+    auto filename = QFileDialog::getOpenFileName(
+        this, "Load Module from file", path, VMEModuleConfigFileFilter);
 
     if (filename.isEmpty())
         return;
@@ -1909,7 +1952,7 @@ void VMEConfigTreeWidget::addModuleFromFile()
     // Restore parts of the module meta, then set it on the ModuleConfig instance.
     VMEModuleMeta meta{};
     auto metaJ = containerJ["ModuleMeta"].toObject();
-    meta.typeId = metaJ["typeId"].toInt();
+    //meta.typeId = metaJ["typeId"].toInt();
     meta.typeName = metaJ["typeName"].toString();
     meta.displayName = metaJ["displayName"].toString();
     meta.vendorName = metaJ["vendorName"].toString();
@@ -1919,6 +1962,18 @@ void VMEConfigTreeWidget::addModuleFromFile()
     meta.variables = metaJ["variables"].toArray();
 
     mod->setModuleMeta(meta);
+    mod->setObjectName(meta.typeName);
+
+    // Restore the variables on the module instance.
+    for (auto it=meta.variables.begin(); it!=meta.variables.end(); ++it)
+    {
+        auto varJ = it->toObject();
+        auto varName = varJ["name"].toString();
+        vme_script::Variable var;
+        var.value = varJ["value"].toString();
+        var.comment = varJ["comment"].toString();
+        mod->setVariable(varName, var);
+    }
 
     // Now run the module config dialog on the newly loaded module
     ModuleConfigDialog dialog(mod.get(), event, m_config, this);

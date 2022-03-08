@@ -73,7 +73,7 @@ class EventConfigDialog: public QDialog
 class QComboBox;
 class QLineEdit;
 
-// TODO: make members private and mode them into the Private struct
+// TODO: make members private and move them into the Private struct
 class ModuleConfigDialog: public QDialog
 {
     Q_OBJECT
@@ -101,5 +101,7 @@ class ModuleConfigDialog: public QDialog
         struct Private;
         std::unique_ptr<Private> m_d;
 };
+
+QLineEdit *make_vme_address_edit(u32 address = 0u, QWidget *parent = nullptr);
 
 #endif /* __CONFIG_WIDGETS_H__ */
