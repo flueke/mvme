@@ -32,6 +32,8 @@ QString toString(const ListFileFormat &fmt)
             return QSL("ZIP");
         case ListFileFormat::LZ4:
             return QSL("LZ4");
+        case ListFileFormat::ZMQ:
+            return QSL("ZMQ");
     }
 
     return QString();

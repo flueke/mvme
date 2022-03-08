@@ -68,6 +68,7 @@ enum CompressionPreset
     NoCompression = 0,  // ZIP, level 0 aka store
     Fast_LZ4 = 1,       // LZ4, level 0 (faster than ZIP level 1)
     Fast_ZIP = 2,       // ZIP, level 1 aka "super fast"
+    ZmqServer = 3,            // Hack to be able to choose ZMQ pub via the compression combo. TODO: redesign the GUI!
 };
 
 static void fill_compression_combo(QComboBox *combo, bool isMVLC)
@@ -81,6 +82,11 @@ static void fill_compression_combo(QComboBox *combo, bool isMVLC)
         combo->addItem(QSL("LZ4 fast"), CompressionPreset::Fast_LZ4);
 
     combo->addItem(QSL("ZIP fast"), CompressionPreset::Fast_ZIP);
+
+#ifdef MVLC_HAVE_ZMQ
+    if (isMVLC)
+        combo->addItem(QSL("ZMQ Server"), CompressionPreset::ZmqServer);
+#endif
 }
 #endif
 
@@ -201,6 +207,10 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             case CompressionPreset::Fast_LZ4:
                 m_listFileOutputInfo.format = ListFileFormat::LZ4;
                 m_listFileOutputInfo.compressionLevel = 0;
+                break;
+
+            case CompressionPreset::ZmqServer:
+                m_listFileOutputInfo.format = ListFileFormat::ZMQ;
                 break;
 
             default:
