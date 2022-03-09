@@ -472,6 +472,23 @@ class MVLCSingleStepHandler: public QObject
         Logger m_logger;
 };
 
+class AddMultihitExtractorsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        AddMultihitExtractorsDialog(
+            AnalysisServiceProvider *asp,
+            ModuleConfig *mod,
+            QWidget *parent = nullptr);
+        ~AddMultihitExtractorsDialog() override;
+
+        void accept() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 } // ns ui
 } // ns analysis
 

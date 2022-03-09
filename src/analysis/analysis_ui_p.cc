@@ -3736,5 +3736,53 @@ void MVLCSingleStepHandler::handleSingleStepResult(
     m_logger("---");
 }
 
+struct AddMultihitExtractorsDialog::Private
+{
+    AnalysisServiceProvider *asp;
+    ModuleConfig *mod;
+
+    QLineEdit *le_namePrefix;
+    DataFilterEdit *le_filterEdit;
+    QSpinBox *spin_maxHits;
+};
+
+AddMultihitExtractorsDialog::AddMultihitExtractorsDialog(
+    AnalysisServiceProvider *asp, ModuleConfig *mod, QWidget *parent)
+    : QDialog(parent)
+    , d(std::make_unique<Private>())
+{
+    d->asp = asp;
+    d->mod = mod;
+    d->le_namePrefix = new QLineEdit;
+
+    d->le_filterEdit = new DataFilterEdit;
+    d->le_filterEdit->setFilterString("0001 XXXX X00A AAAA 0000 DDDD DDDD DDDD");
+
+    d->spin_maxHits = new QSpinBox;
+    d->spin_maxHits->setMinimum(1);
+    d->spin_maxHits->setMaximum(100);
+    d->spin_maxHits->setValue(2);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+    auto l = new QFormLayout(this);
+    l->addRow("Name Prefix", d->le_namePrefix);
+    l->addRow("Extraction Filter", d->le_filterEdit);
+    l->addRow("Max hits per address", d->spin_maxHits);
+    l->addRow(bb);
+
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+}
+
+AddMultihitExtractorsDialog::~AddMultihitExtractorsDialog()
+{
+}
+
+void AddMultihitExtractorsDialog::accept()
+{
+    // one output array per address
+}
+
 } // end namespace ui
 } // end namespace analysis

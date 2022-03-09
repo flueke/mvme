@@ -781,6 +781,98 @@ bool ListFilterExtractor::setParameterName(int paramIndex, const QString &name)
 }
 
 //
+// MultihitExtractor
+//
+MultihitExtractor::MultihitExtractor(QObject *parent)
+    : SourceInterface(parent)
+{
+}
+
+QString MultihitExtractor::getDisplayName() const
+{
+    return "MultihitExtractor";
+}
+
+QString MultihitExtractor::getShortName() const
+{
+    return "Multihit";
+}
+
+s32 MultihitExtractor::getNumberOfOutputs() const
+{
+    return static_cast<s32>(m_outputs.size());
+}
+
+QString MultihitExtractor::getOutputName(s32 index) const
+{
+    switch (m_shape)
+    {
+        case Shape::ArrayPerHit:
+            return QSL("%1_hit%2").arg(objectName()).arg(index);
+        case Shape::ArrayPerAddress:
+            return QSL("%1_hits%2").arg(objectName()).arg(index);
+    }
+    return nullptr;
+}
+
+Pipe *MultihitExtractor::getOutput(s32 index)
+{
+    try
+    {
+        return &m_outputs.at(index);
+    }
+    catch (const std::out_of_range &)
+    {}
+
+    return nullptr;
+}
+
+void MultihitExtractor::beginRun(const RunInfo &runInfo, Logger logger)
+{
+    size_t addressBits = get_extract_bits(getFilter(), 'A');
+    size_t addressCount = 1u << addressBits;
+    size_t dataBits = get_extract_bits(getFilter(), 'D');
+    double upperLimit = std::pow(2.0, dataBits);
+    unsigned maxHits = getMaxHits();
+
+    Parameter outputParam = { false, 0.0, 0.0, upperLimit };
+
+    m_outputs.clear();
+
+    switch (m_shape)
+    {
+        case Shape::ArrayPerHit:
+            {
+                for (unsigned hit=0; hit<maxHits; ++hit)
+                {
+                    Pipe pipe = {};
+                    pipe.parameters = ParameterVector(addressCount, outputParam);
+                    m_outputs.emplace_back(pipe);
+                }
+            } break;
+
+        case Shape::ArrayPerAddress:
+            {
+                for (size_t addr=0; addr<addressCount; ++addr)
+                {
+                    Pipe pipe = {};
+                    pipe.parameters = ParameterVector(maxHits, outputParam);
+                    m_outputs.emplace_back(pipe);
+                }
+            } break;
+    }
+}
+
+void MultihitExtractor::read(const QJsonObject &json)
+{
+}
+
+void MultihitExtractor::write(QJsonObject &json) const
+{
+}
+
+
+//
 // DataSourceCopy
 //
 DataSourceCopy::DataSourceCopy(QObject *parent)
@@ -3811,6 +3903,7 @@ Analysis::Analysis(QObject *parent)
 {
     m_objectFactory.registerSource<ListFilterExtractor>();
     m_objectFactory.registerSource<Extractor>();
+    m_objectFactory.registerSource<MultihitExtractor>();
 
     m_objectFactory.registerOperator<CalibrationMinMax>();
     m_objectFactory.registerOperator<PreviousValue>();

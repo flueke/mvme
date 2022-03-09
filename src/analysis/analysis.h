@@ -92,6 +92,8 @@ inline QString to_string(const Parameter &p)
 
 struct LIBMVME_EXPORT ParameterVector: public QVector<Parameter>
 {
+    using QVector<Parameter>::QVector;
+
     void invalidateAll()
     {
         for (auto &param: *this)
@@ -742,6 +744,49 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         a2::ListFilterExtractor m_a2Extractor;
         u64 m_rngSeed;
         QStringList m_parameterNames;
+};
+
+class LIBMVME_EXPORT MultihitExtractor: public SourceInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SourceInterface)
+
+    public:
+        enum Shape
+        {
+            ArrayPerHit,
+            ArrayPerAddress
+        };
+
+        Q_INVOKABLE MultihitExtractor(QObject *parent = nullptr);
+
+        QString getDisplayName() const override;
+        QString getShortName() const override;
+
+        s32 getNumberOfOutputs() const override;
+        QString getOutputName(s32 index) const override;
+        Pipe *getOutput(s32 index) override;
+        void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+
+        void setFilter(const DataFilter &f) { m_filter = f; }
+        DataFilter getFilter() const { return m_filter; }
+
+        void setMaxHits(unsigned maxHits) { m_maxHits = maxHits; }
+        unsigned getMaxHits() const { return m_maxHits; }
+
+        using Options = a2::DataSourceOptions;
+        Options::opt_t getOptions() const { return m_options; }
+        void setOptions(Options::opt_t options) { m_options = options; }
+
+    private:
+        std::vector<Pipe> m_outputs;
+        Shape m_shape = Shape::ArrayPerHit;
+        DataFilter m_filter = {};
+        unsigned m_maxHits = 1u;
+        Options::opt_t m_options = {}; // TODO: use the options
+        u64 m_rngSeed; // TODO: use the rngSeed
 };
 
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;

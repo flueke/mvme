@@ -1067,6 +1067,10 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
         auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, serviceProvider, eventWidget);
         result = lfe_dialog;
     }
+    else if (auto ex = std::dynamic_pointer_cast<MultihitExtractor>(src))
+    {
+        return new ObjectEditorDialog(); // FIXME: MultihitExtractor
+    }
 
     QObject::connect(result, &ObjectEditorDialog::applied,
                      eventWidget, &EventWidget::objectEditorDialogApplied);
@@ -2897,12 +2901,12 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             auto menuNew = new QMenu(&menu);
             auto moduleConfig = get_pointer<ModuleConfig>(activeNode, DataRole_RawPointer);
 
-            auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig, userLevel]
+            auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig]
                 (const QString &title, auto srcPtr) {
                     auto icon = make_datasource_icon(srcPtr.get());
 
                     menuNew->addAction(icon, title, &menu,
-                                       [this, moduleConfig, srcPtr, userLevel]() {
+                                       [this, moduleConfig, srcPtr]() {
 
                                            auto dialog = datasource_editor_factory(
                                                srcPtr, ObjectEditorMode::New, moduleConfig, m_q);
@@ -2951,7 +2955,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                     QMessageBox box(
                         QMessageBox::Question,
                         QSL("Generate default filters"),
-                        QSL("This action will generate extraction filters,"
+                        QSL("This action will generate extraction filters"
                             ", calibrations and histograms for the selected module."
                             " Do you want to continue?"),
                         QMessageBox::Ok | QMessageBox::No,
@@ -2965,6 +2969,12 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                     }
                 });
             }
+
+            menu.addAction(QSL("Add multi-hit extractors"), [this, moduleConfig] ()
+                           {
+                               AddMultihitExtractorsDialog d(m_serviceProvider, moduleConfig, m_q);
+                               d.exec();
+                           });
 
             // Module Settings
             // TODO: move Module Settings into a separate dialog that contains
