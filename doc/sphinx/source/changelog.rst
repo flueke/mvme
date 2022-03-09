@@ -17,8 +17,21 @@ Version 1.4.9-rc
   part. Using the 'keep histo contents' in mvme allows to accumulate data from
   multiple (partial) listfiles into the same analysis.
 
+* New feature: VME modules can now be saved to and loaded from JSON files. This
+  can be used to create custom VME modules without having to use the mvme VME
+  template system.
+
 * DAQ run number is now increment on MVLC readout stop to represent the *next*
   run number.
+
+* Show the original incoming data rate in the analysis window when replaying
+  from listfile.
+
+* Improve Triva7 VME module templates.
+
+* VME Config: allow moving modules between VME Events via drag&drop.
+
+* Fix 'VME Script -> Run' in the MVLC Debug GUI
 
 Version 1.4.8.1
 ---------------
