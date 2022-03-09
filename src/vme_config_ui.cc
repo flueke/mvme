@@ -505,9 +505,14 @@ ModuleConfigDialog::ModuleConfigDialog(
 #else
     if (typeComboIndex < 0)
     {
-        typeCombo->insertSeparator(typeCombo->count());
-        typeCombo->addItem(module->getModuleMeta().displayName);
-        typeComboIndex = typeCombo->count() - 1;
+        if (!module->getModuleMeta().displayName.isEmpty())
+        {
+            typeCombo->insertSeparator(typeCombo->count());
+            typeCombo->addItem(module->getModuleMeta().displayName);
+            typeComboIndex = typeCombo->count() - 1;
+        }
+        else
+            typeComboIndex = 0;
     }
 #endif
 
