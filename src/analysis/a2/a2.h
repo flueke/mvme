@@ -92,7 +92,8 @@ enum DataSourceType
 {
     DataSource_Extractor,
     DataSource_ListFilterExtractor,
-    DataSource_MultHitExtractor,
+    DataSource_MultiHitExtractor_ArrayPerHit,
+    DataSource_MultiHitExtractor_ArrayPerAddress,
     //DataSource_Copy,
 };
 
@@ -169,8 +170,47 @@ void extractor_process_module_data(DataSource *ex, const u32 *data, u32 size);
 void listfilter_extractor_begin_event(DataSource *ex);
 const u32 *listfilter_extractor_process_module_data(DataSource *ex, const u32 *data, u32 dataSize);
 
-// DataSourceCopy
+// MultiHitExtractor
+struct MultiHitExtractor
+{
+    enum Shape
+    {
+        ArrayPerHit,
+        ArrayPerAddress
+    };
 
+    Shape shape;
+    data_filter::DataFilter filter;
+    data_filter::CacheEntry cacheA;
+    data_filter::CacheEntry cacheD;
+    u16 maxHits;
+    pcg32_fast rng;
+    DataSourceOptions::opt_t options;
+};
+
+MultiHitExtractor make_multihit_extractor(
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options);
+
+inline size_t get_address_count(MultiHitExtractor *ex)
+{
+    return 1u << get_extract_bits(ex->filter, 'A');
+}
+
+DataSource make_datasource_multihit_extractor(
+    memory::Arena *arena,
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    int moduleIndex,
+    DataSourceOptions::opt_t options);
+
+#if 0
+// DataSourceCopy
 struct DataSourceCopy
 {
     u32 startIndex = 0u;
@@ -185,6 +225,7 @@ DataSource make_datasource_copy(
 
 void datasource_copy_begin_event(DataSource *ds);
 void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
+#endif
 
 /* ===============================================
  * Operators

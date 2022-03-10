@@ -210,6 +210,13 @@ size_t get_address_count(DataSource *ds)
                 return get_address_count(ex);
             } break;
 
+        case DataSource_MultiHitExtractor_ArrayPerHit:
+        case DataSource_MultiHitExtractor_ArrayPerAddress:
+            {
+                auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
+                return get_address_count(ex);
+            } break;
+
 #if 0
         case DataSource_Copy:
             return ds->outputs[0].size;
@@ -459,29 +466,183 @@ const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *d
     return curPtr;
 }
 
-// DataSource_Copy
-
-void datasource_copy_begin_event(DataSource *ds)
+// MultiHitExtractor
+MultiHitExtractor make_multihit_extractor(
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options)
 {
-    assert(ds->type == DataSource_Copy);
-    invalidate_all(ds->output.data);
+    MultiHitExtractor mex = {};
+
+    mex.shape = shape;
+    mex.filter = filter;
+    mex.cacheA = make_cache_entry(filter, 'A');
+    mex.cacheD = make_cache_entry(filter, 'D');
+    mex.maxHits = maxHits;
+    mex.rng.seed(rngSeed);
+    mex.options = options;
+
+    return mex;
 }
 
-void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 size)
+DataSource make_datasource_multihit_extractor(
+    memory::Arena *arena,
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    int moduleIndex,
+    DataSourceOptions::opt_t options)
 {
+    auto ex = make_multihit_extractor(shape, filter, maxHits, rngSeed, options);
+    size_t addressCount = get_address_count(&ex);
+    size_t dataBits = get_extract_bits(filter, 'D');
+    double upperLimit = std::pow(2.0, dataBits);
+
+    DataSource result = {};
+
+    switch (shape)
+    {
+        case MultiHitExtractor::ArrayPerHit:
+            {
+                result = make_datasource(
+                    arena, DataSource_MultiHitExtractor_ArrayPerHit,
+                    moduleIndex, maxHits);
+
+                for (u16 hit=0; hit<maxHits; ++hit)
+                    push_output_vectors(arena, &result, hit, addressCount, 0.0, upperLimit);
+
+            } break;
+
+        case MultiHitExtractor::ArrayPerAddress:
+            {
+                result = make_datasource(
+                    arena, DataSource_MultiHitExtractor_ArrayPerAddress,
+                    moduleIndex, addressCount);
+
+                for (size_t addr=0; addr<addressCount; ++addr)
+                    push_output_vectors(arena, &result, addr, maxHits, 0.0, upperLimit);
+
+            } break;
+        default:
+            throw std::runtime_error("Unknown MultiHitExtractor::Shape");
+    }
+
+    return result;
+}
+
+void multihit_extractor_begin_event(DataSource *ds)
+{
+    assert(ds);
+    assert(ds->type == DataSource_MultiHitExtractor_ArrayPerHit
+           || ds->type == DataSource_MultiHitExtractor_ArrayPerAddress);
+
+    for (u8 outIndex=0; outIndex<ds->outputCount; ++outIndex)
+    {
+        invalidate_all(ds->outputs[outIndex]);
+    }
+}
+
+namespace
+{
+
+inline void multihit_extractor_process_module_data_array_per_hit(
+    DataSource *ds, const u32 *data, u32 dataSize)
+{
+    auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
+    assert(ex->shape == MultiHitExtractor::Shape::ArrayPerHit);
+
+    for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
+    {
+        u32 dataWord = data[wordIndex];
+
+        if (matches(ex->filter, dataWord, wordIndex))
+        {
+            u32 address = extract(ex->cacheA, dataWord);
+
+            // Save the value in the first output array that does not
+            // contain a valid value yet.
+            for (u8 outIndex = 0; outIndex < ds->outputCount; ++outIndex)
+            {
+                if (!is_param_valid(ds->outputs[outIndex][address]))
+                {
+                    double value = extract(ex->cacheD, dataWord);
+
+                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                        value += RealDist01(ex->rng);
+
+                    ds->outputs[outIndex][address] = value;
+                    ++ds->hitCounts[outIndex][address];
+                    break;
+                }
+            }
+
+            // TODO: count the address hit in the last output of the data source
+        }
+    }
+}
+
+inline void multihit_extractor_process_module_data_array_per_address(
+    DataSource *ds, const u32 *data, u32 dataSize)
+{
+    auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
+    assert(ex->shape == MultiHitExtractor::Shape::ArrayPerAddress);
+
+    for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
+    {
+        u32 dataWord = data[wordIndex];
+
+        if (matches(ex->filter, dataWord, wordIndex))
+        {
+            // The extracted address specifies the output number to store the
+            // value in.
+            u32 address = extract(ex->cacheA, dataWord);
+            auto &output = ds->outputs[address];
+
+            // Store the value in the first non-valid entry of the output
+            // array.
+            for (s32 paramIndex=0; paramIndex<output.size; ++paramIndex)
+            {
+                if (!is_param_valid(output[paramIndex]))
+                {
+                    double value = extract(ex->cacheD, dataWord);
+
+                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                        value += RealDist01(ex->rng);
+
+                    output[paramIndex] = value;
+                    ++ds->hitCounts[address][paramIndex];
+                }
+            }
+
+            // TODO: count the address hit in the last output of the data source
+        }
+    }
+}
+
+} // end anon namespace
+
+void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
+{
+    assert(ds);
+    assert(ds->type == DataSource_MultiHitExtractor_ArrayPerHit
+           || ds->type == DataSource_MultiHitExtractor_ArrayPerAddress);
     assert(memory::is_aligned(data, ModuleDataAlignment));
-    assert(ds->type == DataSource_Copy);
 
-    auto dsc = reinterpret_cast<DataSourceCopy *>(ds->d);
+    switch (ds->type)
+    {
+        case MultiHitExtractor::ArrayPerHit:
+            multihit_extractor_process_module_data_array_per_hit(ds, data, dataSize);
+            break;
 
-    const u32 *begin = data + dsc->startIndex;
-    const u32 *dataEnd = data + size;
-    const u32 *end = std::min(begin + ds->output.size(), dataEnd);
-    double *dest = ds->output.data.data;
-
-    for (const u32 *cur = begin; cur < end; ++cur, ++dest)
-        *dest = *cur;
+        case MultiHitExtractor::ArrayPerAddress:
+            multihit_extractor_process_module_data_array_per_address(ds, data, dataSize);
+            break;
+    }
 }
+
 // DataSource_Copy
 
 #if 0
@@ -4130,6 +4291,11 @@ void a2_begin_event(A2 *a2, int eventIndex)
                 listfilter_extractor_begin_event(ds);
                 break;
 
+            case DataSource_MultiHitExtractor_ArrayPerHit:
+            case DataSource_MultiHitExtractor_ArrayPerAddress:
+                multihit_extractor_begin_event(ds);
+                break;
+
 #if 0
             case DataSource_Copy:
                 datasource_copy_begin_event(ds);
@@ -4138,16 +4304,6 @@ void a2_begin_event(A2 *a2, int eventIndex)
         }
     }
 }
-
-#if 0
-void a2_process_module_prefix(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
-{
-}
-
-void a2_process_module_suffix(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
-{
-}
-#endif
 
 // hand module data to all sources for eventIndex and moduleIndex
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
@@ -4185,6 +4341,11 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
                         curPtr = listfilter_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
                     }
                 } break;
+
+            case DataSource_MultiHitExtractor_ArrayPerHit:
+            case DataSource_MultiHitExtractor_ArrayPerAddress:
+                multihit_extractor_process_module_data(ds, data, dataSize);
+                break;
 #if 0
             case DataSource_Copy:
                 datasource_copy_process_module_data(ds, data, dataSize);
