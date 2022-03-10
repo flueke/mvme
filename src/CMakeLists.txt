@@ -581,6 +581,7 @@ if(MVME_BUILD_TESTS)
 
     add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
     add_mvme_gtest(test_analysis_util analysis/test_analysis_util.cc)
+    add_mvme_gtest(test_analysis_operators analysis/analysis_operators.test.cc)
     add_mvme_gtest(test_listfile_constants test_listfile_constants.cc)
     #add_mvme_gtest(test_analysis_session analysis/test_analysis_session.cc)
     add_mvme_gtest(test_trigger_io_sim mvlc/test/test_trigger_io_sim.cc)
