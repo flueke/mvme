@@ -844,10 +844,6 @@ inline TreeNode *make_datasource_node(SourceInterface *source)
     sourceNode->setFlags(sourceNode->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
     sourceNode->setIcon(0, make_datasource_icon(source));
 
-    Q_ASSERT_X(source->getNumberOfOutputs() == 1,
-               "make_datasource_node",
-               "data sources with multiple output pipes are not supported by the UI");
-
     if (source->getNumberOfOutputs() == 1)
     {
         Pipe *outputPipe = source->getOutput(0);
@@ -859,6 +855,33 @@ inline TreeNode *make_datasource_node(SourceInterface *source)
             addressNode->setData(0, DataRole_ParameterIndex, address);
             addressNode->setText(0, QString::number(address));
             sourceNode->addChild(addressNode);
+        }
+    }
+    else
+    {
+        for (s32 outputIndex = 0;
+             outputIndex < source->getNumberOfOutputs();
+             ++outputIndex)
+        {
+            Pipe *outputPipe = source->getOutput(outputIndex);
+            s32 outputParamSize = outputPipe->parameters.size();
+
+            auto pipeNode = make_node(outputPipe, NodeType_OutputPipe, DataRole_RawPointer);
+            pipeNode->setText(0, QString("#%1 \"%2\" (%3 elements)")
+                              .arg(outputIndex)
+                              .arg(source->getOutputName(outputIndex))
+                              .arg(outputParamSize)
+                             );
+            sourceNode->addChild(pipeNode);
+
+            for (s32 paramIndex = 0; paramIndex < outputParamSize; ++paramIndex)
+            {
+                auto paramNode = make_node(outputPipe, NodeType_OutputPipeParameter, DataRole_RawPointer);
+                paramNode->setData(0, DataRole_ParameterIndex, paramIndex);
+                paramNode->setText(0, QString("[%1]").arg(paramIndex));
+
+                pipeNode->addChild(paramNode);
+            }
         }
     }
 
@@ -1067,9 +1090,15 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
         auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, serviceProvider, eventWidget);
         result = lfe_dialog;
     }
-    else if (auto ex = std::dynamic_pointer_cast<MultihitExtractor>(src))
+    else if (auto ex = std::dynamic_pointer_cast<MultiHitExtractor>(src))
     {
-        return new ObjectEditorDialog(); // FIXME: MultihitExtractor
+        // FIXME: hack to get prefilled values while testing
+
+        ex->setObjectName("amp");
+        ex->setFilter(make_filter("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD"));
+        ex->setMaxHits(3);
+
+        result = new MultiHitExtractorDialog(ex, moduleConfig, mode, eventWidget);
     }
 
     QObject::connect(result, &ObjectEditorDialog::applied,
@@ -2970,12 +2999,6 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                 });
             }
 
-            menu.addAction(QSL("Add multi-hit extractors"), [this, moduleConfig] ()
-                           {
-                               AddMultihitExtractorsDialog d(m_serviceProvider, moduleConfig, m_q);
-                               d.exec();
-                           });
-
             // Module Settings
             // TODO: move Module Settings into a separate dialog that contains
             // all the multievent settings combined
@@ -3007,10 +3030,6 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             if (auto srcPtr = get_shared_analysis_object<SourceInterface>(activeNode,
                                                                           DataRole_AnalysisObject))
             {
-                Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
-                           "doOperatorTreeContextMenu",
-                           "data sources with multiple outputs are not supported");
-
                 auto moduleNode = activeNode->parent();
                 ModuleConfig *moduleConfig = nullptr;
 
@@ -3019,10 +3038,10 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
 
                 const bool isAttachedToModule = moduleConfig != nullptr;
 
-                auto pipe = srcPtr->getOutput(0);
-
-                if (isAttachedToModule)
+                if (srcPtr->getNumberOfOutputs() == 1 && isAttachedToModule)
                 {
+                    auto pipe = srcPtr->getOutput(0);
+
                     menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
                         makeAndShowPipeDisplay(pipe);
                     });
@@ -3032,7 +3051,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                 {
                     menu.addAction(
                         QIcon(":/pencil.png"), QSL("Edit"),
-                        [this, srcPtr, moduleConfig, userLevel]() {
+                        [this, srcPtr, moduleConfig]() {
 
                             auto dialog = datasource_editor_factory(
                                 srcPtr, ObjectEditorMode::Edit, moduleConfig, m_q);
@@ -3048,6 +3067,16 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                         });
                 }
             }
+        }
+
+        // Output pipes for multi output data sources.
+        if (activeNode->type() == NodeType_OutputPipe)
+        {
+            auto pipe = get_pointer<Pipe>(activeNode, DataRole_RawPointer);
+
+            menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                makeAndShowPipeDisplay(pipe);
+            });
         }
     }
 
@@ -4763,6 +4792,9 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             auto ds_a2 = a2State->sourceMap.value(source, nullptr);
 
             if (!ds_a2)
+                continue;
+
+            if (ds_a2->outputCount == 0)
                 continue;
 
             // TODO: change to support multi output data sources
