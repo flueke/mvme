@@ -74,7 +74,7 @@ TEST(MultiHitExtractorTest, ArrayPerAddress)
             ASSERT_EQ(param.upperLimit, 32.0);
         }
 
-        ASSERT_EQ(mex.getOutputName(i), QSL("channel_time%1_hits").arg(i));
+        ASSERT_EQ(mex.getOutputName(i), QSL("channel_time_%1_hits").arg(i));
     }
 
     {

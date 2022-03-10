@@ -766,8 +766,11 @@ class LIBMVME_EXPORT MultiHitExtractor: public SourceInterface
         Shape getShape() const { return m_ex.shape; }
 
         using Options = a2::DataSourceOptions;
-        Options::opt_t getOptions() const { return m_ex.options; }
         void setOptions(Options::opt_t options) { m_ex.options = options; }
+        Options::opt_t getOptions() const { return m_ex.options; }
+
+        void setRngSeed(u64 seed) { m_rngSeed = seed; }
+        u64 getRngSeed() const { return m_rngSeed; }
 
         QString getDisplayName() const override;
         QString getShortName() const override;

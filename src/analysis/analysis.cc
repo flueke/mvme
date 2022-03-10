@@ -824,7 +824,7 @@ QString MultiHitExtractor::getOutputName(s32 index) const
             return QSL("%1_hit%2").arg(objectName()).arg(index);
 
         case Shape::ArrayPerAddress:
-            return QSL("%1%2_hits").arg(objectName()).arg(index);
+            return QSL("%1_%2_hits").arg(objectName()).arg(index);
     }
     return {};
 }
@@ -861,6 +861,7 @@ void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
     {
         auto &outPipe = m_outputs[outIdx];
 
+        outPipe.setSource(this);
         outPipe.parameters.resize(a2_ds.outputs[outIdx].size);
         outPipe.parameters.invalidateAll();
 
