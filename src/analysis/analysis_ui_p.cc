@@ -396,7 +396,7 @@ void AddEditExtractorDialog::accept()
 void AddEditExtractorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    m_eventWidget->uniqueWidgetCloses();
+    //m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
 
@@ -435,6 +435,126 @@ QComboBox *make_event_selection_combo(
         combo->setCurrentIndex(0);
 
     return combo;
+}
+
+//
+// MultiHitExtractorDialog
+//
+
+struct MultiHitExtractorDialog::Private
+{
+    std::shared_ptr<MultiHitExtractor> ex;
+    ModuleConfig *mod;
+    ObjectEditorMode mode;
+    EventWidget *eventWidget;
+
+    QComboBox *combo_shape;
+    QLineEdit *le_namePrefix;
+    DataFilterEdit *le_filterEdit;
+    QSpinBox *spin_maxHits;
+    QCheckBox *cb_noAddedRandom;
+};
+
+MultiHitExtractorDialog::MultiHitExtractorDialog(
+    const std::shared_ptr<MultiHitExtractor> &ex,
+    ModuleConfig *mod,
+    ObjectEditorMode mode,
+    EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
+    , d(std::make_unique<Private>())
+{
+    *d = {};
+
+    d->ex = ex;
+    d->mod = mod;
+    d->mode = mode;
+    d->eventWidget = eventWidget;
+
+    d->combo_shape = new QComboBox;
+    d->combo_shape->addItem("Array per hit", MultiHitExtractor::Shape::ArrayPerHit);
+    d->combo_shape->addItem("Array per address", MultiHitExtractor::Shape::ArrayPerAddress);
+    d->combo_shape->setCurrentIndex(d->combo_shape->findData(d->ex->getShape()));
+
+    d->le_namePrefix = new QLineEdit;
+    d->le_namePrefix->setText(d->ex->objectName());
+
+    d->le_filterEdit = new DataFilterEdit;
+    d->le_filterEdit->setFilter(d->ex->getFilter());
+
+    d->spin_maxHits = new QSpinBox;
+    d->spin_maxHits->setMinimum(1);
+    d->spin_maxHits->setMaximum(16);
+    d->spin_maxHits->setValue(d->ex->getMaxHits());
+
+    d->cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
+    d->cb_noAddedRandom->setChecked(d->ex->getOptions() & Extractor::Options::NoAddedRandom);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+    auto l = new QFormLayout(this);
+    l->addRow("Output Shape", d->combo_shape);
+    l->addRow("Name Prefix", d->le_namePrefix);
+    l->addRow("Extraction Filter", d->le_filterEdit);
+    l->addRow("Max hits per address", d->spin_maxHits);
+    l->addRow("No Added Random", d->cb_noAddedRandom);
+    l->addRow(bb);
+
+    connect(bb, &QDialogButtonBox::accepted, this, &MultiHitExtractorDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &MultiHitExtractorDialog::reject);
+
+    switch (d->mode)
+    {
+        case ObjectEditorMode::New:
+            setWindowTitle(QString("New  %1").arg(d->ex->getDisplayName()));
+            break;
+
+        case ObjectEditorMode::Edit:
+            setWindowTitle(QString("Edit %1").arg(d->ex->getDisplayName()));
+            break;
+    }
+}
+
+MultiHitExtractorDialog::~MultiHitExtractorDialog()
+{
+}
+
+void MultiHitExtractorDialog::accept()
+{
+    AnalysisPauser pauser(d->eventWidget->getServiceProvider());
+
+    d->ex->setEventId(d->mod->getEventId());
+    d->ex->setModuleId(d->mod->getId());
+
+    d->ex->setObjectName(d->le_namePrefix->text());
+    d->ex->setShape(static_cast<MultiHitExtractor::Shape>(d->combo_shape->currentData().toInt()));
+    d->ex->setFilter(d->le_filterEdit->getFilter());
+    d->ex->setMaxHits(d->spin_maxHits->value());
+    d->ex->setOptions(d->cb_noAddedRandom->isChecked()
+                      ? MultiHitExtractor::Options::NoAddedRandom
+                      : MultiHitExtractor::Options::NoOption);
+
+    auto analysis = d->eventWidget->getServiceProvider()->getAnalysis();
+
+    switch (d->mode)
+    {
+        case ObjectEditorMode::New:
+            analysis->addSource(d->ex);
+            break;
+
+        case ObjectEditorMode::Edit:
+            analysis->setSourceEdited(d->ex);
+            break;
+    }
+
+    analysis->beginRun(Analysis::KeepState, d->eventWidget->getVMEConfig());
+
+    QDialog::accept();
+}
+
+void MultiHitExtractorDialog::reject()
+{
+    d->eventWidget->uniqueWidgetCloses();
+    QDialog::reject();
 }
 
 //
@@ -3734,54 +3854,6 @@ void MVLCSingleStepHandler::handleSingleStepResult(
     }
 
     m_logger("---");
-}
-
-struct AddMultihitExtractorsDialog::Private
-{
-    AnalysisServiceProvider *asp;
-    ModuleConfig *mod;
-
-    QLineEdit *le_namePrefix;
-    DataFilterEdit *le_filterEdit;
-    QSpinBox *spin_maxHits;
-};
-
-AddMultihitExtractorsDialog::AddMultihitExtractorsDialog(
-    AnalysisServiceProvider *asp, ModuleConfig *mod, QWidget *parent)
-    : QDialog(parent)
-    , d(std::make_unique<Private>())
-{
-    d->asp = asp;
-    d->mod = mod;
-    d->le_namePrefix = new QLineEdit;
-
-    d->le_filterEdit = new DataFilterEdit;
-    d->le_filterEdit->setFilterString("0001 XXXX X00A AAAA 0000 DDDD DDDD DDDD");
-
-    d->spin_maxHits = new QSpinBox;
-    d->spin_maxHits->setMinimum(1);
-    d->spin_maxHits->setMaximum(100);
-    d->spin_maxHits->setValue(2);
-
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-
-    auto l = new QFormLayout(this);
-    l->addRow("Name Prefix", d->le_namePrefix);
-    l->addRow("Extraction Filter", d->le_filterEdit);
-    l->addRow("Max hits per address", d->spin_maxHits);
-    l->addRow(bb);
-
-    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-}
-
-AddMultihitExtractorsDialog::~AddMultihitExtractorsDialog()
-{
-}
-
-void AddMultihitExtractorsDialog::accept()
-{
-    // one output array per address
 }
 
 } // end namespace ui

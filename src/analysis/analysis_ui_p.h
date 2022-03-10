@@ -118,6 +118,26 @@ class AddEditExtractorDialog: public ObjectEditorDialog
         void editNameList();
 };
 
+class MultiHitExtractorDialog: public ObjectEditorDialog
+{
+    Q_OBJECT
+    public:
+        MultiHitExtractorDialog(
+            const std::shared_ptr<MultiHitExtractor> &ex,
+            ModuleConfig *mod,
+            ObjectEditorMode mode,
+            EventWidget *eventWidget = nullptr);
+        ~MultiHitExtractorDialog() override;
+
+        void accept() override;
+        void reject() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+
 QComboBox *make_event_selection_combo(
     const QList<EventConfig *> &eventConfigs,
     const OperatorPtr &op,
@@ -470,23 +490,6 @@ class MVLCSingleStepHandler: public QObject
 
     private:
         Logger m_logger;
-};
-
-class AddMultihitExtractorsDialog: public QDialog
-{
-    Q_OBJECT
-    public:
-        AddMultihitExtractorsDialog(
-            AnalysisServiceProvider *asp,
-            ModuleConfig *mod,
-            QWidget *parent = nullptr);
-        ~AddMultihitExtractorsDialog() override;
-
-        void accept() override;
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
 };
 
 } // ns ui
