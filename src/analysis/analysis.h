@@ -746,19 +746,28 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         QStringList m_parameterNames;
 };
 
-class LIBMVME_EXPORT MultihitExtractor: public SourceInterface
+class LIBMVME_EXPORT MultiHitExtractor: public SourceInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::SourceInterface)
 
     public:
-        enum Shape
-        {
-            ArrayPerHit,
-            ArrayPerAddress
-        };
+        using Shape = a2::MultiHitExtractor::Shape;
 
-        Q_INVOKABLE MultihitExtractor(QObject *parent = nullptr);
+        Q_INVOKABLE MultiHitExtractor(QObject *parent = nullptr);
+
+        void setFilter(const DataFilter &f) { m_ex.filter = f; }
+        DataFilter getFilter() const { return m_ex.filter; }
+
+        void setMaxHits(u16 maxHits) { m_ex.maxHits = maxHits; }
+        u16 getMaxHits() const { return m_ex.maxHits; }
+
+        void setShape(Shape shape) { m_ex.shape = shape; }
+        Shape getShape() const { return m_ex.shape; }
+
+        using Options = a2::DataSourceOptions;
+        Options::opt_t getOptions() const { return m_ex.options; }
+        void setOptions(Options::opt_t options) { m_ex.options = options; }
 
         QString getDisplayName() const override;
         QString getShortName() const override;
@@ -770,23 +779,24 @@ class LIBMVME_EXPORT MultihitExtractor: public SourceInterface
         void read(const QJsonObject &json) override;
         void write(QJsonObject &json) const override;
 
-        void setFilter(const DataFilter &f) { m_filter = f; }
-        DataFilter getFilter() const { return m_filter; }
-
-        void setMaxHits(unsigned maxHits) { m_maxHits = maxHits; }
-        unsigned getMaxHits() const { return m_maxHits; }
-
-        using Options = a2::DataSourceOptions;
-        Options::opt_t getOptions() const { return m_options; }
-        void setOptions(Options::opt_t options) { m_options = options; }
+    protected:
+        virtual void postClone(const AnalysisObject *cloneSource) override;
 
     private:
+        // a1 layer output pipes
         std::vector<Pipe> m_outputs;
+
+        // a2 MultiHitExtractor struct for data storage.
+        a2::MultiHitExtractor m_ex;
+
+        u64 m_rngSeed;
+
+#if 0
         Shape m_shape = Shape::ArrayPerHit;
         DataFilter m_filter = {};
-        unsigned m_maxHits = 1u;
+        u16 m_maxHits = 1u;
         Options::opt_t m_options = {}; // TODO: use the options
-        u64 m_rngSeed; // TODO: use the rngSeed
+#endif
 };
 
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;

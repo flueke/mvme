@@ -79,11 +79,19 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     return result;
 }
 
-a2::data_filter::DataFilter a2_dataFilter_from_json(const QJsonObject &json)
+a2::data_filter::DataFilter a2_datafilter_from_json(const QJsonObject &json)
 {
     return a2::data_filter::make_filter(
         json["filterString"].toString().toStdString(),
         json["wordIndex"].toInt());
+}
+
+QJsonObject to_json(const a2::data_filter::DataFilter &filter)
+{
+    QJsonObject result;
+    result["filterString"] = QString::fromStdString(to_string(filter));
+    result["wordIndex"] = filter.matchWordIndex;
+    return result;
 }
 
 QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
@@ -95,9 +103,7 @@ QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
     for (s32 i = 0; i < filter.filterCount; i++)
     {
         const auto &subfilter = filter.filters[i];
-        QJsonObject filterJson;
-        filterJson["filterString"] = QString::fromStdString(to_string(subfilter));
-        filterJson["wordIndex"] = subfilter.matchWordIndex;
+        auto filterJson = to_json(subfilter);
         subFilterArray.append(filterJson);
     }
 
@@ -107,7 +113,7 @@ QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
     return result;
 }
 
-a2::data_filter::MultiWordFilter a2_multiWordFilter_from_json(const QJsonObject &json)
+a2::data_filter::MultiWordFilter a2_multiwordfilter_from_json(const QJsonObject &json)
 {
     a2::data_filter::MultiWordFilter result = {};
 
@@ -117,7 +123,7 @@ a2::data_filter::MultiWordFilter a2_multiWordFilter_from_json(const QJsonObject 
          it != subFilterArray.end();
          it++)
     {
-        add_subfilter(&result, a2_dataFilter_from_json(it->toObject()));
+        add_subfilter(&result, a2_datafilter_from_json(it->toObject()));
     }
 
     return result;
@@ -140,7 +146,7 @@ a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
 
     ListFilter result = {};
 
-    result.extractionFilter = a2_multiWordFilter_from_json(json["extractionFilter"].toObject());
+    result.extractionFilter = a2_multiwordfilter_from_json(json["extractionFilter"].toObject());
     result.flags = static_cast<ListFilter::Flag>(json["flags"].toInt());
     result.wordCount = static_cast<u8>(json["wordCount"].toInt());
 
@@ -781,41 +787,49 @@ bool ListFilterExtractor::setParameterName(int paramIndex, const QString &name)
 }
 
 //
-// MultihitExtractor
+// MultiHitExtractor
 //
-MultihitExtractor::MultihitExtractor(QObject *parent)
+MultiHitExtractor::MultiHitExtractor(QObject *parent)
     : SourceInterface(parent)
+    , m_ex({})
 {
+    m_ex.maxHits = 2;
+
+    // Generate a random seed for the rng. This seed will be written out in
+    // write() and restored in read().
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
 }
 
-QString MultihitExtractor::getDisplayName() const
+QString MultiHitExtractor::getDisplayName() const
 {
-    return "MultihitExtractor";
+    return "MultiHitExtractor";
 }
 
-QString MultihitExtractor::getShortName() const
+QString MultiHitExtractor::getShortName() const
 {
-    return "Multihit";
+    return "MultiHit";
 }
 
-s32 MultihitExtractor::getNumberOfOutputs() const
+s32 MultiHitExtractor::getNumberOfOutputs() const
 {
     return static_cast<s32>(m_outputs.size());
 }
 
-QString MultihitExtractor::getOutputName(s32 index) const
+QString MultiHitExtractor::getOutputName(s32 index) const
 {
-    switch (m_shape)
+    switch (m_ex.shape)
     {
         case Shape::ArrayPerHit:
             return QSL("%1_hit%2").arg(objectName()).arg(index);
+
         case Shape::ArrayPerAddress:
-            return QSL("%1_hits%2").arg(objectName()).arg(index);
+            return QSL("%1%2_hits").arg(objectName()).arg(index);
     }
-    return nullptr;
+    return {};
 }
 
-Pipe *MultihitExtractor::getOutput(s32 index)
+Pipe *MultiHitExtractor::getOutput(s32 index)
 {
     try
     {
@@ -827,50 +841,62 @@ Pipe *MultihitExtractor::getOutput(s32 index)
     return nullptr;
 }
 
-void MultihitExtractor::beginRun(const RunInfo &runInfo, Logger logger)
+// TODO: very similar to ExpressionOperator::beginRun(). Maybe those can be merged.
+void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
 {
-    size_t addressBits = get_extract_bits(getFilter(), 'A');
-    size_t addressCount = 1u << addressBits;
-    size_t dataBits = get_extract_bits(getFilter(), 'D');
-    double upperLimit = std::pow(2.0, dataBits);
-    unsigned maxHits = getMaxHits();
-
-    Parameter outputParam = { false, 0.0, 0.0, upperLimit };
+    for (auto &outPipe: m_outputs)
+    {
+        outPipe.disconnectAllDestinationSlots();
+    }
 
     m_outputs.clear();
 
-    switch (m_shape)
-    {
-        case Shape::ArrayPerHit:
-            {
-                for (unsigned hit=0; hit<maxHits; ++hit)
-                {
-                    Pipe pipe = {};
-                    pipe.parameters = ParameterVector(addressCount, outputParam);
-                    m_outputs.emplace_back(pipe);
-                }
-            } break;
+    memory::Arena arena(Kilobytes(256));
+    auto a2_ds = make_datasource_multihit_extractor(
+        &arena, m_ex.shape, m_ex.filter, m_ex.maxHits, m_rngSeed, 0, m_ex.options);
 
-        case Shape::ArrayPerAddress:
-            {
-                for (size_t addr=0; addr<addressCount; ++addr)
-                {
-                    Pipe pipe = {};
-                    pipe.parameters = ParameterVector(maxHits, outputParam);
-                    m_outputs.emplace_back(pipe);
-                }
-            } break;
+    m_outputs.resize(a2_ds.outputCount);
+
+    for (u8 outIdx=0; outIdx<a2_ds.outputCount; ++outIdx)
+    {
+        auto &outPipe = m_outputs[outIdx];
+
+        outPipe.parameters.resize(a2_ds.outputs[outIdx].size);
+        outPipe.parameters.invalidateAll();
+
+        for (s32 paramIndex = 0; paramIndex < outPipe.parameters.size(); paramIndex++)
+        {
+            outPipe.parameters[paramIndex].lowerLimit = a2_ds.outputLowerLimits[outIdx][paramIndex];
+            outPipe.parameters[paramIndex].upperLimit = a2_ds.outputUpperLimits[outIdx][paramIndex];
+        }
     }
 }
 
-void MultihitExtractor::read(const QJsonObject &json)
+void MultiHitExtractor::write(QJsonObject &json) const
 {
+    json["filter"] = to_json(getFilter());
+    json["maxHits"] = static_cast<qint64>(getMaxHits());
+    json["shape"] = getShape();
+    json["rngSeed"] = QString::number(m_rngSeed, 16);
+    json["options"] = static_cast<s32>(getOptions());
 }
 
-void MultihitExtractor::write(QJsonObject &json) const
+void MultiHitExtractor::read(const QJsonObject &json)
 {
+    setFilter(a2_datafilter_from_json(json["filter"].toObject()));
+    setMaxHits(json["maxHits"].toInt());
+    setShape(static_cast<Shape>(json["shape"].toInt()));
+    m_rngSeed = json["rngSeed"].toString().toULongLong(nullptr, 16);
+    setOptions(static_cast<Options::opt_t>(json["options"].toInt()));
 }
 
+void MultiHitExtractor::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+    SourceInterface::postClone(cloneSource);
+}
 
 //
 // DataSourceCopy
@@ -3903,7 +3929,7 @@ Analysis::Analysis(QObject *parent)
 {
     m_objectFactory.registerSource<ListFilterExtractor>();
     m_objectFactory.registerSource<Extractor>();
-    m_objectFactory.registerSource<MultihitExtractor>();
+    m_objectFactory.registerSource<MultiHitExtractor>();
 
     m_objectFactory.registerOperator<CalibrationMinMax>();
     m_objectFactory.registerOperator<PreviousValue>();
