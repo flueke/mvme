@@ -1172,6 +1172,18 @@ void a2_adapter_build_datasources(
                     src.moduleIndex,
                     ex->getOptions());
             }
+            // analysis::MultiHitExtractor
+            else if (auto ex = qobject_cast<analysis::MultiHitExtractor *>(src.source.get()))
+            {
+                ds = a2::make_datasource_multihit_extractor(
+                    arena,
+                    ex->getShape(),
+                    ex->getFilter(),
+                    ex->getMaxHits(),
+                    ex->getRngSeed(),
+                    src.moduleIndex,
+                    ex->getOptions());
+            }
 
             u8 &ds_cnt = state->a2->dataSourceCounts[ei];
             state->a2->dataSources[ei][ds_cnt] = ds;
