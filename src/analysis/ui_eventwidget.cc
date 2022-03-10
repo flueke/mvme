@@ -4765,7 +4765,8 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             if (!ds_a2)
                 continue;
 
-            auto hitCounts = to_qvector(ds_a2->hitCounts);
+            // TODO: change to support multi output data sources
+            auto hitCounts = to_qvector(ds_a2->hitCounts[0]);
 
             if (hitCounts.size() != node->childCount())
                 continue;
