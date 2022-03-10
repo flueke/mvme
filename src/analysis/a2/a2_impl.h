@@ -40,6 +40,19 @@ inline void push_output_vectors(
     op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
 }
 
+inline void push_output_vectors(
+    memory::Arena *arena,
+    DataSource *ds,
+    s32 outputIndex,
+    s32 size,
+    double lowerLimit,
+    double upperLimit)
+{
+    ds->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
+    ds->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
+    ds->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
+    ds->hitCounts[outputIndex] = push_param_vector(arena, size, 0.0);
+}
 
 /* ===============================================
  * Operators

@@ -63,8 +63,12 @@ find_output_pipe(
             qobject_cast<analysis::SourceInterface *>(pipeSource),
             nullptr))
     {
-        assert(outputIndex == 0);
-        return std::make_pair(ds_a2->output, true);
+        assert(outputIndex < ds_a2->outputCount);
+        a2::PipeVectors result = {};
+        result.data = ds_a2->outputs[outputIndex];
+        result.lowerLimits = ds_a2->outputLowerLimits[outputIndex];
+        result.upperLimits = ds_a2->outputUpperLimits[outputIndex];
+        return std::make_pair(result, true);
     }
     else if (a2::Operator *op_a2 = state->operatorMap.value(
             qobject_cast<analysis::OperatorInterface *>(pipeSource),

@@ -167,9 +167,32 @@ void invalidate_outputs(Operator *op)
 }
 
 /* ===============================================
- * Extractors
+ * Extractors / DataSources
  * =============================================== */
 static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
+
+/** Creates a DataSource with the specified type, moduleIndex and outputCount.
+ *
+ * To make the DataSource functional output parameter vectors have to be
+ * created and setup using push_output_vectors().
+ */
+DataSource make_datasource(Arena *arena, u8 type, u8 moduleIndex, u8 outputCount)
+{
+    DataSource result = {};
+
+    result.outputs = arena->pushArray<ParamVec>(outputCount);
+    result.outputLowerLimits = arena->pushArray<ParamVec>(outputCount);
+    result.outputUpperLimits = arena->pushArray<ParamVec>(outputCount);
+    result.hitCounts = arena->pushArray<ParamVec>(outputCount);
+
+    result.type = type;
+    result.moduleIndex = moduleIndex;
+    result.outputCount = outputCount;
+    result.d = nullptr;
+
+    return result;
+}
+
 
 size_t get_address_count(DataSource *ds)
 {
@@ -187,8 +210,10 @@ size_t get_address_count(DataSource *ds)
                 return get_address_count(ex);
             } break;
 
+#if 0
         case DataSource_Copy:
-            return ds->output.size();
+            return ds->outputs[0].size;
+#endif
     }
 
     return 0u;
@@ -252,8 +277,7 @@ DataSource make_datasource_extractor(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    DataSource result = {};
-    result.type = DataSource_Extractor;
+    auto result = make_datasource(arena, DataSource_Extractor, moduleIndex, 1);
 
     auto ex = arena->pushObject<Extractor>();
     *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
@@ -268,11 +292,7 @@ DataSource make_datasource_extractor(
     // (2^bits).
     double upperLimit = std::pow(2.0, get_extract_bits(&ex->filter, MultiWordFilter::CacheD));
 
-    result.output.data = push_param_vector(arena, addrCount, invalid_param());
-    result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
-    result.output.upperLimits = push_param_vector(arena, addrCount, upperLimit);
-
-    result.hitCounts = push_param_vector(arena, addrCount, 0.0);
+    push_output_vectors(arena, &result, 0, addrCount, 0.0, upperLimit);
 
     return  result;
 }
@@ -283,7 +303,7 @@ void extractor_begin_event(DataSource *ds)
     auto ex = reinterpret_cast<Extractor *>(ds->d);
     clear_completion(&ex->filter);
     ex->currentCompletions = 0;
-    invalidate_all(ds->output.data);
+    invalidate_all(ds->outputs[0]);
 }
 
 void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
@@ -309,15 +329,15 @@ void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
                 u64  address = extract(&ex->filter, MultiWordFilter::CacheA);
                 double value = static_cast<double>(extract(&ex->filter, MultiWordFilter::CacheD));
 
-                assert(address < static_cast<u64>(ds->output.data.size));
+                assert(address < static_cast<u64>(ds->outputs[0].size));
 
-                if (!is_param_valid(ds->output.data[address]))
+                if (!is_param_valid(ds->outputs[0][address]))
                 {
                     if (!(ex->options & DataSourceOptions::NoAddedRandom))
                         value += RealDist01(ex->rng);
 
-                    ds->output.data[address] = value;
-                    ds->hitCounts[address]++;
+                    ds->outputs[0][address] = value;
+                    ds->hitCounts[0][address]++;
                 }
             }
 
@@ -351,8 +371,7 @@ DataSource make_datasource_listfilter_extractor(
     u8 moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    DataSource result = {};
-    result.type = DataSource_ListFilterExtractor;
+    auto result = make_datasource(arena, DataSource_ListFilterExtractor, moduleIndex, 1);
 
     auto ex = arena->pushObject<ListFilterExtractor>();
     *ex = make_listfilter_extractor(listFilter, repetitions, rngSeed, options);
@@ -369,11 +388,7 @@ DataSource make_datasource_listfilter_extractor(
 
     double upperLimit = std::pow(2.0, databits);
 
-    result.output.data = push_param_vector(arena, addressCount, invalid_param());
-    result.output.lowerLimits = push_param_vector(arena, addressCount, 0.0);
-    result.output.upperLimits = push_param_vector(arena, addressCount, upperLimit);
-
-    result.hitCounts = push_param_vector(arena, addressCount, 0.0);
+    push_output_vectors(arena, &result, 0, addressCount, 0.0, upperLimit);
 
     return result;
 }
@@ -381,7 +396,7 @@ DataSource make_datasource_listfilter_extractor(
 void listfilter_extractor_begin_event(DataSource *ds)
 {
     assert(ds->type == DataSource_ListFilterExtractor);
-    invalidate_all(ds->output.data);
+    invalidate_all(ds->outputs[0]);
 }
 
 const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
@@ -426,15 +441,15 @@ const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *d
             address |= (rep << baseAddressBits);
         }
 
-        assert(address < static_cast<u64>(ds->output.data.size));
+        assert(address < static_cast<u64>(ds->outputs[0].size));
 
-        if (!is_param_valid(ds->output.data[address]))
+        if (!is_param_valid(ds->outputs[0][address]))
         {
             if (!(ex->options & DataSourceOptions::NoAddedRandom))
                 value += RealDist01(ex->rng);
 
-            ds->output.data[address] = value;
-            ds->hitCounts[address]++;
+            ds->outputs[0][address] = value;
+            ds->hitCounts[0][address]++;
         }
 
         if (curPtr >= data + dataSize)
@@ -467,7 +482,9 @@ void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 si
     for (const u32 *cur = begin; cur < end; ++cur, ++dest)
         *dest = *cur;
 }
+// DataSource_Copy
 
+#if 0
 DataSource make_datasource_copy(
     memory::Arena *arena,
     u32 outputSize,
@@ -488,6 +505,29 @@ DataSource make_datasource_copy(
 
     return result;
 }
+
+void datasource_copy_begin_event(DataSource *ds)
+{
+    assert(ds->type == DataSource_Copy);
+    invalidate_all(ds->output.data);
+}
+
+void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 size)
+{
+    assert(memory::is_aligned(data, ModuleDataAlignment));
+    assert(ds->type == DataSource_Copy);
+
+    auto dsc = reinterpret_cast<DataSourceCopy *>(ds->d);
+
+    const u32 *begin = data + dsc->startIndex;
+    const u32 *dataEnd = data + size;
+    const u32 *end = std::min(begin + ds->output.size(), dataEnd);
+    double *dest = ds->output.data.data;
+
+    for (const u32 *cur = begin; cur < end; ++cur, ++dest)
+        *dest = *cur;
+}
+#endif
 
 /* ===============================================
  * Operators
@@ -4090,9 +4130,11 @@ void a2_begin_event(A2 *a2, int eventIndex)
                 listfilter_extractor_begin_event(ds);
                 break;
 
+#if 0
             case DataSource_Copy:
                 datasource_copy_begin_event(ds);
                 break;
+#endif
         }
     }
 }
@@ -4143,9 +4185,11 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
                         curPtr = listfilter_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
                     }
                 } break;
+#if 0
             case DataSource_Copy:
                 datasource_copy_process_module_data(ds, data, dataSize);
                 break;
+#endif
         }
 #ifndef NDEBUG
         nprocessed++;

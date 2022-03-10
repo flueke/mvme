@@ -78,18 +78,22 @@ struct PipeVectors
  * =============================================== */
 struct DataSource
 {
-    PipeVectors output;
-    ParamVec hitCounts;
+    ParamVec *outputs;
+    ParamVec *outputLowerLimits;
+    ParamVec *outputUpperLimits;
+    ParamVec *hitCounts;
     void *d;
-    u8 moduleIndex;
     u8 type;
+    u8 moduleIndex;
+    u8 outputCount;
 };
 
 enum DataSourceType
 {
     DataSource_Extractor,
     DataSource_ListFilterExtractor,
-    DataSource_Copy,
+    DataSource_MultHitExtractor,
+    //DataSource_Copy,
 };
 
 struct DataSourceOptions
