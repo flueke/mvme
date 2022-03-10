@@ -80,7 +80,11 @@ static void BM_a2(benchmark::State &state)
 
     auto calib = make_calibration(
         &arena,
-        ex.output,
+        {
+            ex.outputs[0],
+            ex.outputLowerLimits[0],
+            ex.outputUpperLimits[0]
+        },
         0.0,
         100.0);
     calib.type = Operator_Calibration;
