@@ -1080,7 +1080,6 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     if (auto ex = std::dynamic_pointer_cast<Extractor>(src))
     {
         result = new AddEditExtractorDialog(ex, moduleConfig, mode, eventWidget);
-
     }
     else if (auto ex = std::dynamic_pointer_cast<ListFilterExtractor>(src))
     {
@@ -1092,12 +1091,6 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     }
     else if (auto ex = std::dynamic_pointer_cast<MultiHitExtractor>(src))
     {
-        // FIXME: hack to get prefilled values while testing
-
-        ex->setObjectName("amp");
-        ex->setFilter(make_filter("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD"));
-        ex->setMaxHits(3);
-
         result = new MultiHitExtractorDialog(ex, moduleConfig, mode, eventWidget);
     }
 

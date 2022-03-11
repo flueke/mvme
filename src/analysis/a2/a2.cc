@@ -290,8 +290,6 @@ DataSource make_datasource_extractor(
     *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
     result.d = ex;
 
-    result.moduleIndex = moduleIndex;
-
     size_t addrCount = get_address_count(&result);
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
@@ -383,8 +381,6 @@ DataSource make_datasource_listfilter_extractor(
     auto ex = arena->pushObject<ListFilterExtractor>();
     *ex = make_listfilter_extractor(listFilter, repetitions, rngSeed, options);
     result.d = ex;
-
-    result.moduleIndex = moduleIndex;
 
     // This call works because listFilter and repetitionAddressCache have been
     // initialzed at this point.
@@ -496,8 +492,9 @@ DataSource make_datasource_multihit_extractor(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    auto ex = make_multihit_extractor(shape, filter, maxHits, rngSeed, options);
-    size_t addressCount = get_address_count(&ex);
+    auto ex = arena->pushObject<MultiHitExtractor>();
+    *ex = make_multihit_extractor(shape, filter, maxHits, rngSeed, options);
+    size_t addressCount = get_address_count(ex);
     size_t dataBits = get_extract_bits(filter, 'D');
     double upperLimit = std::pow(2.0, dataBits);
 
@@ -529,6 +526,8 @@ DataSource make_datasource_multihit_extractor(
         default:
             throw std::runtime_error("Unknown MultiHitExtractor::Shape");
     }
+
+    result.d = ex;
 
     return result;
 }
@@ -614,6 +613,7 @@ inline void multihit_extractor_process_module_data_array_per_address(
 
                     output[paramIndex] = value;
                     ++ds->hitCounts[address][paramIndex];
+                    break;
                 }
             }
 
@@ -633,11 +633,11 @@ void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32
 
     switch (ds->type)
     {
-        case MultiHitExtractor::ArrayPerHit:
+        case DataSourceType::DataSource_MultiHitExtractor_ArrayPerHit:
             multihit_extractor_process_module_data_array_per_hit(ds, data, dataSize);
             break;
 
-        case MultiHitExtractor::ArrayPerAddress:
+        case DataSourceType::DataSource_MultiHitExtractor_ArrayPerAddress:
             multihit_extractor_process_module_data_array_per_address(ds, data, dataSize);
             break;
     }

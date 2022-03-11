@@ -41,9 +41,7 @@ using benchmark::Counter;
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
 #ifndef NDEBUG
-// Comparator taking into account that extractors add a random in [0.0, 1.0).
-// To catch a bug where the random value is lost we assume that the random is
-// in (0.0, 1.0) and compare accordingly.
+// Comparator taking into account that extractors can add a random in [0.0, 1.0).
 inline bool dcmp(double d, double expected)
 {
     return expected < d && d <= expected + 1.0;
@@ -369,6 +367,169 @@ static void BM_listfilter_extractor(benchmark::State &state)
 }
 BENCHMARK(BM_listfilter_extractor);
 
+static void BM_multihit_extractor_array_per_hit(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    const u16 maxHits = 3;
+    const u64 rngSeed = 1234;
+    const u8  moduleIndex = 0;
+
+    static const u32 inputData[] =
+    {
+        // [0] = 1, hit0
+        0x01,
+        // [0] = 2, hit1
+        0x02,
+        // [0] = 3, hit2
+        0x03,
+        // [0] = 4, hit3, exceeds maxHits
+        0x04,
+
+        // [9] = 9, hit0
+        0x99,
+        // [9] = 10, hit1
+        0x9a,
+        // [9] = 11, hit2
+        0x9b,
+        // [9] = 12, hit3, exceeds maxHits
+        0x9c,
+    };
+
+    static const u32 inputSize = ArrayCount(inputData);
+
+    auto ex = make_datasource_multihit_extractor(
+        &arena,
+        MultiHitExtractor::Shape::ArrayPerHit,
+        make_filter("XXXX XXXX XXXX XXXX XXXX XXXX AAAA DDDD"),
+        maxHits,
+        rngSeed,
+        moduleIndex,
+        DataSourceOptions::NoAddedRandom);
+
+    assert(ex.outputCount == maxHits);
+
+    size_t bytesProcessed = 0;
+    size_t moduleCounter = 0;
+
+    while (state.KeepRunning())
+    {
+        multihit_extractor_begin_event(&ex);
+
+        for (u16 hit = 0; hit < maxHits; ++hit)
+        {
+            assert(ex.outputs[hit].size == 16);
+            assert(ex.outputLowerLimits[hit].size == 16);
+            assert(ex.outputUpperLimits[hit].size == 16);
+
+            for (s32 pIdx=0; pIdx<ex.outputs[hit].size; ++pIdx)
+            {
+                assert(std::isnan(ex.outputs[hit][pIdx]));
+                assert(ex.outputLowerLimits[hit][pIdx] == 0.0);
+                assert(ex.outputUpperLimits[hit][pIdx] == 16.0);
+            }
+        }
+
+        multihit_extractor_process_module_data(&ex, inputData, inputSize);
+        bytesProcessed += inputSize;
+        moduleCounter++;
+
+        assert(ex.outputs[0][0] == 1.0);
+        assert(ex.outputs[1][0] == 2.0);
+        assert(ex.outputs[2][0] == 3.0);
+
+        assert(ex.outputs[0][9] == 9.0);
+        assert(ex.outputs[1][9] == 10.0);
+        assert(ex.outputs[2][9] == 11.0);
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(BM_multihit_extractor_array_per_hit);
+
+static void BM_multihit_extractor_array_per_channel(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    const u16 maxHits = 3;
+    const u64 rngSeed = 1234;
+    const u8  moduleIndex = 0;
+
+    static const u32 inputData[] =
+    {
+        // [0] = 1, hit0
+        0x01,
+        // [0] = 2, hit1
+        0x02,
+        // [0] = 3, hit2
+        0x03,
+        // [0] = 4, hit3, exceeds maxHits
+        0x04,
+
+        // [9] = 9, hit0
+        0x99,
+        // [9] = 10, hit1
+        0x9a,
+        // [9] = 11, hit2
+        0x9b,
+        // [9] = 12, hit3, exceeds maxHits
+        0x9c,
+    };
+
+    static const u32 inputSize = ArrayCount(inputData);
+
+    auto ex = make_datasource_multihit_extractor(
+        &arena,
+        MultiHitExtractor::Shape::ArrayPerAddress,
+        make_filter("XXXX XXXX XXXX XXXX XXXX XXXX AAAA DDDD"),
+        maxHits,
+        rngSeed,
+        moduleIndex,
+        DataSourceOptions::NoAddedRandom);
+
+    assert(ex.outputCount == 16);
+
+    size_t bytesProcessed = 0;
+    size_t moduleCounter = 0;
+
+    while (state.KeepRunning())
+    {
+        multihit_extractor_begin_event(&ex);
+
+        for (unsigned outIdx=0; outIdx<ex.outputCount; ++outIdx)
+        {
+            assert(ex.outputs[outIdx].size == maxHits);
+            assert(ex.outputLowerLimits[outIdx].size == maxHits);
+            assert(ex.outputUpperLimits[outIdx].size == maxHits);
+
+            for (unsigned pIdx=0; pIdx < maxHits; ++pIdx)
+            {
+                assert(std::isnan(ex.outputs[outIdx][pIdx]));
+                assert(ex.outputLowerLimits[outIdx][pIdx] == 0.0);
+                assert(ex.outputUpperLimits[outIdx][pIdx] == 16.0);
+            }
+        }
+
+        multihit_extractor_process_module_data(&ex, inputData, inputSize);
+        bytesProcessed += inputSize;
+        moduleCounter++;
+
+        assert(ex.outputs[0][0] == 1.0);
+        assert(ex.outputs[0][1] == 2.0);
+        assert(ex.outputs[0][2] == 3.0);
+
+        assert(ex.outputs[9][0] == 9.0);
+        assert(ex.outputs[9][1] == 10.0);
+        assert(ex.outputs[9][2] == 11.0);
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(BM_multihit_extractor_array_per_channel);
 
 static void BM_calibration_step(benchmark::State &state)
 {

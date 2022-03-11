@@ -209,6 +209,9 @@ DataSource make_datasource_multihit_extractor(
     int moduleIndex,
     DataSourceOptions::opt_t options);
 
+void multihit_extractor_begin_event(DataSource *ds);
+void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
+
 #if 0
 // DataSourceCopy
 struct DataSourceCopy
