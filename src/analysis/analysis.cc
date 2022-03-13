@@ -38,7 +38,7 @@
 #include "util/qt_metaobject.h"
 #include "vme_config.h"
 
-#define ENABLE_ANALYSIS_DEBUG 0
+#define ENABLE_ANALYSIS_DEBUG 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -292,6 +292,10 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         inputPipe->addDestination(this);
         Q_ASSERT(parentOperator);
     }
+    else
+    {
+        qDebug() << "connectPipe: newInput is null";
+    }
 }
 
 void Slot::disconnectPipe()
@@ -346,6 +350,10 @@ void OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 par
     if (slot)
     {
         slot->connectPipe(inputPipe, paramIndex);
+    }
+    else
+    {
+        qDebug() << this << "slot not found";
     }
 }
 
@@ -833,7 +841,7 @@ Pipe *MultiHitExtractor::getOutput(s32 index)
 {
     try
     {
-        return &m_outputs.at(index);
+        return m_outputs.at(index).get();
     }
     catch (const std::out_of_range &)
     {}
@@ -844,31 +852,39 @@ Pipe *MultiHitExtractor::getOutput(s32 index)
 // TODO: very similar to ExpressionOperator::beginRun(). Maybe those can be merged.
 void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
 {
-    for (auto &outPipe: m_outputs)
-    {
-        outPipe.disconnectAllDestinationSlots();
-    }
-
-    m_outputs.clear();
-
     memory::Arena arena(Kilobytes(256));
     auto a2_ds = make_datasource_multihit_extractor(
         &arena, m_ex.shape, m_ex.filter, m_ex.maxHits, m_rngSeed, 0, m_ex.options);
 
+    assert(a2_ds.outputCount > 0); // XXX: leftoff here while debugging
+
+    //for (auto &outPipe: m_outputs)
+    //{
+    //    outPipe->disconnectAllDestinationSlots();
+    //}
+
+    /* Resize to the new output count. This keeps existing pipes which
+     * means existing slot connections will remain valid. */
     m_outputs.resize(a2_ds.outputCount);
 
     for (u8 outIdx=0; outIdx<a2_ds.outputCount; ++outIdx)
     {
-        auto &outPipe = m_outputs[outIdx];
+        // Reuse pipes to not invalidate existing connections
+        auto outPipe = m_outputs[outIdx];
 
-        outPipe.setSource(this);
-        outPipe.parameters.resize(a2_ds.outputs[outIdx].size);
-        outPipe.parameters.invalidateAll();
-
-        for (s32 paramIndex = 0; paramIndex < outPipe.parameters.size(); paramIndex++)
+        if (!outPipe)
         {
-            outPipe.parameters[paramIndex].lowerLimit = a2_ds.outputLowerLimits[outIdx][paramIndex];
-            outPipe.parameters[paramIndex].upperLimit = a2_ds.outputUpperLimits[outIdx][paramIndex];
+            outPipe = std::make_shared<Pipe>(this, outIdx);
+            m_outputs[outIdx] = outPipe;
+        }
+
+        outPipe->parameters.resize(a2_ds.outputs[outIdx].size);
+        outPipe->parameters.invalidateAll();
+
+        for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+        {
+            outPipe->parameters[paramIndex].lowerLimit = a2_ds.outputLowerLimits[outIdx][paramIndex];
+            outPipe->parameters[paramIndex].upperLimit = a2_ds.outputUpperLimits[outIdx][paramIndex];
         }
     }
 }
@@ -880,6 +896,10 @@ void MultiHitExtractor::write(QJsonObject &json) const
     json["shape"] = getShape();
     json["rngSeed"] = QString::number(m_rngSeed, 16);
     json["options"] = static_cast<s32>(getOptions());
+
+    // Same workaround as in ExpressionOperator: store lastOutputCount to
+    // create the pipe in Analysis::read().
+    json["lastOutputCount"] = getNumberOfOutputs();
 }
 
 void MultiHitExtractor::read(const QJsonObject &json)
@@ -889,6 +909,26 @@ void MultiHitExtractor::read(const QJsonObject &json)
     setShape(static_cast<Shape>(json["shape"].toInt()));
     m_rngSeed = json["rngSeed"].toString().toULongLong(nullptr, 16);
     setOptions(static_cast<Options::opt_t>(json["options"].toInt()));
+
+    s32 lastOutputCount = json["lastOutputCount"].toInt(0);
+
+    for (size_t outIdx = lastOutputCount; outIdx < m_outputs.size(); outIdx++)
+    {
+        m_outputs[outIdx]->disconnectAllDestinationSlots();
+    }
+
+    m_outputs.resize(lastOutputCount);
+
+    for (s32 outIdx = 0; outIdx < lastOutputCount; outIdx++)
+    {
+        auto outPipe = m_outputs.at(outIdx);
+
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx, getOutputName(outIdx));
+            m_outputs[outIdx] = outPipe;
+        }
+    }
 }
 
 void MultiHitExtractor::postClone(const AnalysisObject *cloneSource)
@@ -4889,7 +4929,8 @@ void Analysis::updateRanks()
     {
 #if ENABLE_ANALYSIS_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
-            << getClassName(src.get()) << src->objectName() << "to 0";
+            << getClassName(src.get()) << src->objectName() << "to 0"
+            << ", output count is " << src->getNumberOfOutputs();
 #endif
 
         for (s32 oi = 0; oi < src->getNumberOfOutputs(); oi++)
@@ -5069,6 +5110,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
         << m_sources.size() << " data sources and"
         << m_operators.size() << " operators";
 
+    establish_connections(m_objectStore);
+
     u32 sourcesBuilt = 0;
 
     for (auto &source: m_sources)
@@ -5088,6 +5131,12 @@ void Analysis::beginRun(const RunInfo &runInfo,
             source->beginRun(runInfo, logger);
             source->clearObjectFlags(ObjectFlags::NeedsRebuild);
             sourcesBuilt++;
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "beginRun() on"
+                << " class =" << source->metaObject()->className()
+                << ", name =" << source->objectName()
+                << ", outputCount =" << source->getNumberOfOutputs();
         }
         else if (!runInfo.keepAnalysisState)
         {
@@ -5123,6 +5172,10 @@ void Analysis::beginRun(const RunInfo &runInfo,
                 << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
                 ;
 #endif
+            if (!required_inputs_connected_and_valid(op.get()))
+            {
+                qDebug() << "bug";
+            }
 
             op->beginRun(runInfo, logger);
             op->clearObjectFlags(ObjectFlags::NeedsRebuild);
@@ -5338,7 +5391,7 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
 
         for (const auto &obj: objectStore.sources)
         {
-            m_sources.append(obj);
+            m_sources.push_back(obj);
             obj->setAnalysis(this->shared_from_this());
         }
 
@@ -5351,7 +5404,7 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
             {
                 obj->setUserLevel(1);
             }
-            m_operators.append(obj);
+            m_operators.push_back(obj);
             obj->setAnalysis(this->shared_from_this());
         }
 
@@ -5361,6 +5414,7 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
             obj->setAnalysis(this->shared_from_this());
         }
 
+        m_objectStore = objectStore;
         m_vmeObjectSettings = objectStore.objectSettingsById;
         m_conditionLinks = objectStore.conditionLinks;
         loadDynamicProperties(objectStore.dynamicQObjectProperties, this);
@@ -5460,8 +5514,8 @@ void Analysis::clear()
 
 bool Analysis::isEmpty() const
 {
-    return (m_sources.isEmpty()
-            && m_operators.isEmpty()
+    return (m_sources.empty()
+            && m_operators.empty()
             && m_directories.isEmpty()
             );
 }

@@ -25,6 +25,7 @@
 #include "analysis/a2/memory.h"
 #include "analysis/a2/multiword_datafilter.h"
 #include "analysis/analysis_fwd.h"
+#include "analysis/analysis_serialization.h"
 #include "analysis/condition_link.h"
 #include "data_filter.h"
 #include "histo1d.h"
@@ -787,7 +788,7 @@ class LIBMVME_EXPORT MultiHitExtractor: public SourceInterface
 
     private:
         // a1 layer output pipes
-        std::vector<Pipe> m_outputs;
+        std::vector<std::shared_ptr<Pipe>> m_outputs;
 
         // a2 MultiHitExtractor struct for data storage.
         a2::MultiHitExtractor m_ex;
@@ -2209,6 +2210,7 @@ class LIBMVME_EXPORT Analysis:
         SourceVector m_sources;
         OperatorVector m_operators;
         DirectoryVector m_directories;
+        AnalysisObjectStore m_objectStore;
         VMEObjectSettings m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
         ConditionLinks m_conditionLinks;

@@ -722,6 +722,8 @@ AnalysisObjectStore deserialize_objects(
 
 void establish_connections(const QSet<Connection> &connections)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "#connetions=" << connections.size();
+
     for (const auto &con: connections)
     {
         if (con.srcObject && con.dstObject)
@@ -729,6 +731,10 @@ void establish_connections(const QSet<Connection> &connections)
             if (Pipe *srcPipe = con.srcObject->getOutput(con.srcIndex))
             {
                 con.dstObject->connectInputSlot(con.dstIndex, srcPipe, con.dstParamIndex);
+            }
+            else
+            {
+                qDebug() << "establish_connections: no srcPipe for" << con.srcObject->objectName();
             }
         }
     }
