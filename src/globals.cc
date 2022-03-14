@@ -50,6 +50,10 @@ ListFileFormat listFileFormat_fromString(const QString &str)
     if (str == "LZ4")
         return ListFileFormat::LZ4;
 
+    if (str == "ZMQ")
+        return ListFileFormat::ZMQ;
+
+    assert(!"unknown ListFileFormat");
     return ListFileFormat::Invalid;
 }
 

@@ -603,6 +603,8 @@ void DAQControlWidget::updateWidget()
         }
         else if (outputInfo.format == ListFileFormat::LZ4)
             comboData = 1;
+        else if (outputInfo.format == ListFileFormat::ZMQ)
+            comboData = CompressionPreset::ZmqServer;
 
         for (int i=0; i<combo_compression->count(); ++i)
         {
