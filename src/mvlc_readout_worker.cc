@@ -483,6 +483,25 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         if (m_workerContext.listfileOutputInfo->enabled)
         {
+            // Create the listfile preamble in a buffer and store it for later
+            // use.
+            std::vector<u8> preamble;
+
+            {
+                listfile::BufferedWriteHandle bwh;
+
+                // Standard listfile preamble including a mesytec-mvlc CrateConfig
+                // generated from our VMEConfig.
+                listfile::listfile_write_preamble(bwh, crateConfig);
+
+                // Write our VMEConfig to the listfile aswell (the CrateConfig from
+                // the library does not have all the meta information stored in the
+                // VMEConfig).
+                mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
+
+                preamble = bwh.getBuffer();
+            }
+
             auto outInfo = m_workerContext.listfileOutputInfo;
 
             if (outInfo->format == ListFileFormat::ZIP
@@ -511,27 +530,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 auto lfPrefix = lfDir + "/" + lfBase;
 
                 lfSetup.filenamePrefix = lfPrefix.toStdString();
+                lfSetup.preamble = preamble;
 
-                // Create the listfile preamble in a buffer and store it for later
-                // use by the SplitZipCreator.
-                {
-                    listfile::BufferedWriteHandle bwh;
-
-                    // Standard listfile preamble including a mesytec-mvlc CrateConfig
-                    // generated from our VMEConfig.
-                    listfile::listfile_write_preamble(bwh, crateConfig);
-
-                    // Write our VMEConfig to the listfile aswell (the CrateConfig from
-                    // the library does not have all the meta information stored in the
-                    // VMEConfig).
-                    mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
-
-                    lfSetup.preamble = bwh.getBuffer();
-                }
 
                 // Set the openArchiveCallback
                 lfSetup.openArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
                 {
+                    // Update daqStats so that the GUI displays the current filename.
                     // FIXME: thread safety!
                     m_workerContext.daqStats.listfileFilename =
                         QString::fromStdString(zipCreator->archiveName());
@@ -566,12 +571,17 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 logger(QString("Writing listfile into %1").arg(m_workerContext.daqStats.listfileFilename));
                 logMessage("");
 
-                d->listfileWriteHandle = std::unique_ptr<mvlc::listfile::WriteHandle>(d->mvlcZipCreator->createListfileEntry());
+                // This call writes out the preamble. The same happens if listfile splitting is
+                // enabled and a new archive is started by the SplitZipCreator.
+                d->listfileWriteHandle = std::unique_ptr<mvlc::listfile::WriteHandle>(
+                    d->mvlcZipCreator->createListfileEntry());
             }
 #ifdef MVLC_HAVE_ZMQ
             else if (outInfo->format == ListFileFormat::ZMQ)
             {
                 d->listfileWriteHandle = std::make_unique<mvlc::listfile::ZmqWriteHandle>();
+                // Manually write the preamble data.
+                d->listfileWriteHandle->write(preamble.data(), preamble.size());
             }
 #endif
             else
