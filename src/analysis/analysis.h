@@ -776,6 +776,7 @@ class LIBMVME_EXPORT MultiHitExtractor: public SourceInterface
         QString getDisplayName() const override;
         QString getShortName() const override;
 
+        bool hasVariableNumberOfOutputs() const override { return true; }
         s32 getNumberOfOutputs() const override;
         QString getOutputName(s32 index) const override;
         Pipe *getOutput(s32 index) override;
