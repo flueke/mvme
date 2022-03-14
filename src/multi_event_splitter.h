@@ -156,7 +156,7 @@ struct State
 // { { "0101 SSSS", "1010 XXXX" }, { "1111 SSSS", "0001 SSSS" } }
 //
 // Creates a splitter for two events, with two modules each. The second module
-// of the first events doesn't have the 'S' match character so repeated
+// of the first event doesn't have the 'S' match character so repeated
 // matching will be performed to find the next header. For the other modules
 // the event size can be directly extracted using the filter.
 State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
