@@ -410,21 +410,20 @@ static void BM_multihit_extractor_array_per_hit_exceeds(benchmark::State &state)
     // One array per hit and one additional array to keep the hit counts.
     assert(ex.outputCount == maxHits + 1);
 
-    // Check the totalHits array
-    {
-        auto &totalHits = ex.outputs[ex.outputCount-1];
-        assert(totalHits.size == 16);
-        assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
-                           [] (double d) { return d == 0.0; }));
-    }
-
     size_t bytesProcessed = 0;
     size_t moduleCounter = 0;
-    size_t loopCount = 0;
 
     while (state.KeepRunning())
     {
         multihit_extractor_begin_event(&ex);
+
+        // Check the totalHits array
+        {
+            auto &totalHits = ex.outputs[ex.outputCount-1];
+            assert(totalHits.size == 16);
+            assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                               [] (double d) { return d == 0.0; }));
+        }
 
         for (u16 hit = 0; hit < maxHits; ++hit)
         {
@@ -451,7 +450,6 @@ static void BM_multihit_extractor_array_per_hit_exceeds(benchmark::State &state)
 
         bytesProcessed += inputSize;
         ++moduleCounter;
-        ++loopCount;
 
         assert(ex.outputs[0][0] == 1.0);
         assert(ex.outputs[1][0] == 2.0);
@@ -462,8 +460,8 @@ static void BM_multihit_extractor_array_per_hit_exceeds(benchmark::State &state)
         assert(ex.outputs[2][9] == 11.0);
 
         // 4 hits per loop
-        assert(ex.outputs[ex.outputCount-1][0] == 4 * loopCount);
-        assert(ex.outputs[ex.outputCount-1][9] == 4 * loopCount);
+        assert(ex.outputs[ex.outputCount-1][0] == 4);
+        assert(ex.outputs[ex.outputCount-1][9] == 4);
     }
 
     state.counters["mem"] = Counter(arena.used());
@@ -507,21 +505,20 @@ static void BM_multihit_extractor_array_per_hit(benchmark::State &state)
     // One array per hit and one additional array to keep the hit counts.
     assert(ex.outputCount == maxHits + 1);
 
-    // Check the totalHits array
-    {
-        auto &totalHits = ex.outputs[ex.outputCount-1];
-        assert(totalHits.size == 16);
-        assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
-                           [] (double d) { return d == 0.0; }));
-    }
-
     size_t bytesProcessed = 0;
     size_t moduleCounter = 0;
-    size_t loopCount = 0;
 
     while (state.KeepRunning())
     {
         multihit_extractor_begin_event(&ex);
+
+        // Check the totalHits array
+        {
+            auto &totalHits = ex.outputs[ex.outputCount-1];
+            assert(totalHits.size == 16);
+            assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                               [] (double d) { return d == 0.0; }));
+        }
 
         for (u16 hit = 0; hit < maxHits; ++hit)
         {
@@ -547,7 +544,6 @@ static void BM_multihit_extractor_array_per_hit(benchmark::State &state)
         multihit_extractor_process_module_data(&ex, inputData, inputSize);
         bytesProcessed += inputSize;
         ++moduleCounter;
-        ++loopCount;
 
         assert(ex.outputs[0][0] == 1.0);
         assert(ex.outputs[1][0] == 2.0);
@@ -558,8 +554,8 @@ static void BM_multihit_extractor_array_per_hit(benchmark::State &state)
         assert(std::isnan(ex.outputs[2][9]));
 
         // 2 hits per loop
-        assert(ex.outputs[ex.outputCount-1][0] == 2 * loopCount);
-        assert(ex.outputs[ex.outputCount-1][9] == 2 * loopCount);
+        assert(ex.outputs[ex.outputCount-1][0] == 2);
+        assert(ex.outputs[ex.outputCount-1][9] == 2);
     }
 
     state.counters["mem"] = Counter(arena.used());
@@ -611,21 +607,21 @@ static void BM_multihit_extractor_array_per_address_exceeds(benchmark::State &st
     // One array per address and one additional array to keep the hit counts.
     assert(ex.outputCount == 16 + 1);
 
-    // Check the totalHits array
-    {
-        auto &totalHits = ex.outputs[ex.outputCount-1];
-        assert(totalHits.size == 16);
-        assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
-                           [] (double d) { return d == 0.0; }));
-    }
 
     size_t bytesProcessed = 0;
     size_t moduleCounter = 0;
-    size_t loopCount = 0;
 
     while (state.KeepRunning())
     {
         multihit_extractor_begin_event(&ex);
+
+        // Check the totalHits array
+        {
+            auto &totalHits = ex.outputs[ex.outputCount-1];
+            assert(totalHits.size == 16);
+            assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                               [] (double d) { return d == 0.0; }));
+        }
 
         // Check the output arrays.
         for (unsigned outIdx=0; outIdx<ex.outputCount-1u; ++outIdx)
@@ -653,7 +649,6 @@ static void BM_multihit_extractor_array_per_address_exceeds(benchmark::State &st
 
         bytesProcessed += inputSize;
         ++moduleCounter;
-        ++loopCount;
 
         assert(ex.outputs[0][0] == 1.0);
         assert(ex.outputs[0][1] == 2.0);
@@ -664,8 +659,8 @@ static void BM_multihit_extractor_array_per_address_exceeds(benchmark::State &st
         assert(ex.outputs[9][2] == 11.0);
 
         // 4 hits per loop
-        assert(ex.outputs[ex.outputCount-1][0] == 4 * loopCount);
-        assert(ex.outputs[ex.outputCount-1][9] == 4 * loopCount);
+        assert(ex.outputs[ex.outputCount-1][0] == 4);
+        assert(ex.outputs[ex.outputCount-1][9] == 4);
     }
 
     state.counters["mem"] = Counter(arena.used());
@@ -709,21 +704,20 @@ static void BM_multihit_extractor_array_per_address(benchmark::State &state)
     // One array per address and one additional array to keep the hit counts.
     assert(ex.outputCount == 16 + 1);
 
-    // Check the totalHits array
-    {
-        auto &totalHits = ex.outputs[ex.outputCount-1];
-        assert(totalHits.size == 16);
-        assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
-                           [] (double d) { return d == 0.0; }));
-    }
-
     size_t bytesProcessed = 0;
     size_t moduleCounter = 0;
-    size_t loopCount = 0;
 
     while (state.KeepRunning())
     {
         multihit_extractor_begin_event(&ex);
+
+        // Check the totalHits array
+        {
+            auto &totalHits = ex.outputs[ex.outputCount-1];
+            assert(totalHits.size == 16);
+            assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                               [] (double d) { return d == 0.0; }));
+        }
 
         // Check the output arrays.
         for (unsigned outIdx=0; outIdx<ex.outputCount-1u; ++outIdx)
@@ -751,7 +745,6 @@ static void BM_multihit_extractor_array_per_address(benchmark::State &state)
 
         bytesProcessed += inputSize;
         ++moduleCounter;
-        ++loopCount;
 
         assert(ex.outputs[0][0] == 1.0);
         assert(ex.outputs[0][1] == 2.0);
@@ -762,8 +755,8 @@ static void BM_multihit_extractor_array_per_address(benchmark::State &state)
         assert(std::isnan(ex.outputs[9][2]));
 
         // 2 hits per loop
-        assert(ex.outputs[ex.outputCount-1][0] == 2 * loopCount);
-        assert(ex.outputs[ex.outputCount-1][9] == 2 * loopCount);
+        assert(ex.outputs[ex.outputCount-1][0] == 2);
+        assert(ex.outputs[ex.outputCount-1][9] == 2);
     }
 
     state.counters["mem"] = Counter(arena.used());

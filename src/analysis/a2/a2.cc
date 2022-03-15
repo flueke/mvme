@@ -558,6 +558,10 @@ void multihit_extractor_begin_event(DataSource *ds)
     {
         invalidate_all(ds->outputs[outIndex]);
     }
+
+    // Set totalHits to 0.0
+    auto &totalHits = ds->outputs[ds->outputCount-1];
+    fill(totalHits, 0.0);
 }
 
 namespace
