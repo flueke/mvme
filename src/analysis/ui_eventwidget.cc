@@ -830,8 +830,11 @@ static QIcon make_datasource_icon(SourceInterface *source)
     if (qobject_cast<ListFilterExtractor *>(source))
         icon = QIcon(":/listfilter.png");
 
-    if (qobject_cast<Extractor *>(source))
+    else if (qobject_cast<Extractor *>(source))
         icon = QIcon(":/data_filter.png");
+
+    else if (qobject_cast<MultiHitExtractor *>(source))
+        icon = QIcon(":/multi_hit_filter.png");
 
     return icon;
 }
@@ -4481,10 +4484,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (auto srcPtr = get_shared_analysis_object<SourceInterface>(
                             node, DataRole_AnalysisObject))
                     {
-                        Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
-                                   "doOperatorTreeContextMenu",
-                                   "data sources with multiple outputs are not supported");
-
                         auto moduleNode = node->parent();
                         ModuleConfig *moduleConfig = nullptr;
 
