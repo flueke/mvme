@@ -453,6 +453,27 @@ struct MultiHitExtractorDialog::Private
     DataFilterEdit *le_filterEdit;
     QSpinBox *spin_maxHits;
     QCheckBox *cb_noAddedRandom;
+
+    std::vector<std::shared_ptr<Extractor>> getTemplateExtractors()
+    {
+        assert(mod);
+
+        // Get the list of Extractors which do have a single subFilter.
+        std::vector<std::shared_ptr<Extractor>> extractors;
+
+        for (auto source: get_default_data_extractors(mod->getModuleMeta().typeName))
+        {
+            if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
+            {
+                if (extractor->getFilter().getSubFilterCount() == 1)
+                {
+                    extractors.emplace_back(extractor);
+                }
+            }
+        }
+
+        return extractors;
+    }
 };
 
 MultiHitExtractorDialog::MultiHitExtractorDialog(
@@ -515,8 +536,12 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     switch (d->mode)
     {
         case ObjectEditorMode::New:
-            setWindowTitle(QString("New  %1").arg(d->ex->getDisplayName()));
-            break;
+            {
+                setWindowTitle(QString("New  %1").arg(d->ex->getDisplayName()));
+                auto templates = d->getTemplateExtractors();
+                if (!templates.empty())
+                    applyTemplate(templates[0]);
+            } break;
 
         case ObjectEditorMode::Edit:
             setWindowTitle(QString("Edit %1").arg(d->ex->getDisplayName()));
@@ -569,21 +594,7 @@ void MultiHitExtractorDialog::reject()
 
 void MultiHitExtractorDialog::runLoadTemplateDialog()
 {
-    assert(d->mod);
-
-    // Get the list of Extractors which do have a single subFilter.
-    std::vector<std::shared_ptr<Extractor>> extractors;
-
-    for (auto source: get_default_data_extractors(d->mod->getModuleMeta().typeName))
-    {
-        if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
-        {
-            if (extractor->getFilter().getSubFilterCount() == 1)
-            {
-                extractors.emplace_back(extractor);
-            }
-        }
-    }
+    auto extractors = d->getTemplateExtractors();
 
     auto templateList = new QListWidget;
 
