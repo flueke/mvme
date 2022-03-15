@@ -132,6 +132,11 @@ class MultiHitExtractorDialog: public ObjectEditorDialog
         void accept() override;
         void reject() override;
 
+    private slots:
+        void runLoadTemplateDialog();
+        void applyTemplate(const std::shared_ptr<Extractor> &tmpl);
+        //void editNameList();
+
     private:
         struct Private;
         std::unique_ptr<Private> d;

@@ -449,7 +449,7 @@ struct MultiHitExtractorDialog::Private
     EventWidget *eventWidget;
 
     QComboBox *combo_shape;
-    QLineEdit *le_namePrefix;
+    QLineEdit *le_name;
     DataFilterEdit *le_filterEdit;
     QSpinBox *spin_maxHits;
     QCheckBox *cb_noAddedRandom;
@@ -475,11 +475,21 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     d->combo_shape->addItem("Array per address", MultiHitExtractor::Shape::ArrayPerAddress);
     d->combo_shape->setCurrentIndex(d->combo_shape->findData(d->ex->getShape()));
 
-    d->le_namePrefix = new QLineEdit;
-    d->le_namePrefix->setText(d->ex->objectName());
+    d->le_name = new QLineEdit;
+    d->le_name->setText(d->ex->objectName());
 
     d->le_filterEdit = new DataFilterEdit;
     d->le_filterEdit->setFilter(d->ex->getFilter());
+
+    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")),
+                                              QSL("Load Template"));
+
+    connect(loadTemplateButton, &QPushButton::clicked,
+            this, &MultiHitExtractorDialog::runLoadTemplateDialog);
+
+    auto l_filter = make_hbox<2>();
+    l_filter->addWidget(d->le_filterEdit);
+    l_filter->addWidget(loadTemplateButton);
 
     d->spin_maxHits = new QSpinBox;
     d->spin_maxHits->setMinimum(1);
@@ -492,9 +502,9 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
     auto l = new QFormLayout(this);
+    l->addRow("Name", d->le_name);
+    l->addRow("Extraction Filter", l_filter);
     l->addRow("Output Shape", d->combo_shape);
-    l->addRow("Name Prefix", d->le_namePrefix);
-    l->addRow("Extraction Filter", d->le_filterEdit);
     l->addRow("Max hits per address", d->spin_maxHits);
     l->addRow("No Added Random", d->cb_noAddedRandom);
     l->addRow(bb);
@@ -525,7 +535,7 @@ void MultiHitExtractorDialog::accept()
     d->ex->setEventId(d->mod->getEventId());
     d->ex->setModuleId(d->mod->getId());
 
-    d->ex->setObjectName(d->le_namePrefix->text());
+    d->ex->setObjectName(d->le_name->text());
     d->ex->setShape(static_cast<MultiHitExtractor::Shape>(d->combo_shape->currentData().toInt()));
     d->ex->setFilter(d->le_filterEdit->getFilter());
     d->ex->setMaxHits(d->spin_maxHits->value());
@@ -556,6 +566,69 @@ void MultiHitExtractorDialog::reject()
     d->eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
+
+void MultiHitExtractorDialog::runLoadTemplateDialog()
+{
+    assert(d->mod);
+
+    // Get the list of Extractors which do have a single subFilter.
+    std::vector<std::shared_ptr<Extractor>> extractors;
+
+    for (auto source: get_default_data_extractors(d->mod->getModuleMeta().typeName))
+    {
+        if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
+        {
+            if (extractor->getFilter().getSubFilterCount() == 1)
+            {
+                extractors.emplace_back(extractor);
+            }
+        }
+    }
+
+    auto templateList = new QListWidget;
+
+    for (auto &ex: extractors)
+    {
+        templateList->addItem(ex->objectName());
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(QSL("Load Extraction Filter Template"));
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    bb->button(QDialogButtonBox::Ok)->setDefault(true);
+    bb->button(QDialogButtonBox::Ok)->setText(QSL("Load"));
+    connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    connect(templateList, &QListWidget::itemDoubleClicked, &dialog, &QDialog::accept);
+
+    auto layout = new QVBoxLayout(&dialog);
+    layout->addWidget(templateList);
+    layout->addWidget(bb);
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        if (templateList->currentRow() < static_cast<s32>(extractors.size()))
+        {
+            auto ex = extractors[templateList->currentRow()];
+            applyTemplate(ex);
+        }
+    }
+}
+
+void MultiHitExtractorDialog::applyTemplate(const std::shared_ptr<Extractor> &tmpl)
+{
+    assert(tmpl->getFilter().getSubFilterCount() == 1);
+    d->le_filterEdit->setFilter(tmpl->getFilter().getSubFilters().at(0));
+    QString name = d->mod->objectName() + QSL(".") + tmpl->objectName().section('.', -1);
+    d->le_name->setText(name);
+}
+
+#if 0
+void MultiHitExtractorDialog::editNameList()
+{
+}
+#endif
 
 //
 // AddEditOperatorDialog
