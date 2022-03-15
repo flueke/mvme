@@ -18,12 +18,13 @@ TEST(MultiHitExtractorTest, ArrayPerHitShape)
 
     mex.beginRun({});
 
-    ASSERT_EQ(mex.getNumberOfOutputs(), 3);
+    ASSERT_EQ(mex.getNumberOfOutputs(), 3+1);
     ASSERT_EQ(mex.getOutputName(0), "channel_time_hit0");
     ASSERT_EQ(mex.getOutputName(1), "channel_time_hit1");
     ASSERT_EQ(mex.getOutputName(2), "channel_time_hit2");
+    ASSERT_EQ(mex.getOutputName(4), "hitCounts");
 
-    for (int i=0; i<mex.getNumberOfOutputs(); ++i)
+    for (int i=0; i<mex.getNumberOfOutputs()-1; ++i)
     {
         auto output = mex.getOutput(i);
         ASSERT_EQ(output->getSize(), 16);
@@ -60,9 +61,9 @@ TEST(MultiHitExtractorTest, ArrayPerAddress)
 
     mex.beginRun({});
 
-    ASSERT_EQ(mex.getNumberOfOutputs(), 16);
+    ASSERT_EQ(mex.getNumberOfOutputs(), 16+1);
 
-    for (int i=0; i<mex.getNumberOfOutputs(); ++i)
+    for (int i=0; i<mex.getNumberOfOutputs()-1; ++i)
     {
         auto output = mex.getOutput(i);
 
@@ -76,6 +77,8 @@ TEST(MultiHitExtractorTest, ArrayPerAddress)
 
         ASSERT_EQ(mex.getOutputName(i), QSL("channel_time_%1_hits").arg(i));
     }
+
+    ASSERT_EQ(mex.getOutputName(16), "hitCounts");
 
     {
         auto clone = mex.clone();

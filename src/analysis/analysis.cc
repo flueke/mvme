@@ -826,15 +826,19 @@ s32 MultiHitExtractor::getNumberOfOutputs() const
 
 QString MultiHitExtractor::getOutputName(s32 index) const
 {
-    switch (m_ex.shape)
+    if (index < getNumberOfOutputs() - 1)
     {
-        case Shape::ArrayPerHit:
-            return QSL("%1_hit%2").arg(objectName()).arg(index);
+        switch (m_ex.shape)
+        {
+            case Shape::ArrayPerHit:
+                return QSL("%1_hit%2").arg(objectName()).arg(index);
 
-        case Shape::ArrayPerAddress:
-            return QSL("%1_%2_hits").arg(objectName()).arg(index);
+            case Shape::ArrayPerAddress:
+                return QSL("%1_%2_hits").arg(objectName()).arg(index);
+        }
     }
-    return {};
+
+    return "hitCounts";
 }
 
 Pipe *MultiHitExtractor::getOutput(s32 index)
@@ -879,10 +883,10 @@ void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
 
         outPipe->parameters.name = getOutputName(outIdx);
         outPipe->parameters.resize(a2_ds.outputs[outIdx].size);
-        outPipe->parameters.invalidateAll();
 
         for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
         {
+            outPipe->parameters[paramIndex].value = a2_ds.outputs[outIdx][paramIndex];
             outPipe->parameters[paramIndex].lowerLimit = a2_ds.outputLowerLimits[outIdx][paramIndex];
             outPipe->parameters[paramIndex].upperLimit = a2_ds.outputUpperLimits[outIdx][paramIndex];
         }
