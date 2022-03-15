@@ -877,6 +877,7 @@ void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
             m_outputs[outIdx] = outPipe;
         }
 
+        outPipe->parameters.name = getOutputName(outIdx);
         outPipe->parameters.resize(a2_ds.outputs[outIdx].size);
         outPipe->parameters.invalidateAll();
 
