@@ -38,7 +38,7 @@
 #include "util/qt_metaobject.h"
 #include "vme_config.h"
 
-#define ENABLE_ANALYSIS_DEBUG 1
+#define ENABLE_ANALYSIS_DEBUG 0
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -856,12 +856,11 @@ void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
     auto a2_ds = make_datasource_multihit_extractor(
         &arena, m_ex.shape, m_ex.filter, m_ex.maxHits, m_rngSeed, 0, m_ex.options);
 
-    assert(a2_ds.outputCount > 0); // XXX: leftoff here while debugging
-
-    //for (auto &outPipe: m_outputs)
-    //{
-    //    outPipe->disconnectAllDestinationSlots();
-    //}
+    /* Disconnect Pipes that will be removed. */
+    for (size_t outIdx = a2_ds.outputCount; outIdx < m_outputs.size(); outIdx++)
+    {
+        m_outputs[outIdx]->disconnectAllDestinationSlots();
+    }
 
     /* Resize to the new output count. This keeps existing pipes which
      * means existing slot connections will remain valid. */

@@ -794,14 +794,8 @@ class LIBMVME_EXPORT MultiHitExtractor: public SourceInterface
         // a2 MultiHitExtractor struct for data storage.
         a2::MultiHitExtractor m_ex;
 
+        // Seed for the random number generator
         u64 m_rngSeed;
-
-#if 0
-        Shape m_shape = Shape::ArrayPerHit;
-        DataFilter m_filter = {};
-        u16 m_maxHits = 1u;
-        Options::opt_t m_options = {}; // TODO: use the options
-#endif
 };
 
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
