@@ -223,6 +223,8 @@ size_t get_address_count(DataSource *ds)
 #endif
     }
 
+    assert(false);
+
     return 0u;
 }
 
@@ -506,10 +508,16 @@ DataSource make_datasource_multihit_extractor(
             {
                 result = make_datasource(
                     arena, DataSource_MultiHitExtractor_ArrayPerHit,
-                    moduleIndex, maxHits);
+                    moduleIndex, maxHits + 1);
 
+                // Output arrays
                 for (u16 hit=0; hit<maxHits; ++hit)
                     push_output_vectors(arena, &result, hit, addressCount, 0.0, upperLimit);
+
+                // TotalHits output
+                push_output_vectors(arena, &result, maxHits, addressCount, 0.0, std::numeric_limits<double>::max());
+                auto &totalHits = result.outputs[result.outputCount-1];
+                std::fill(totalHits.data, totalHits.data + totalHits.size, 0.0);
 
             } break;
 
@@ -517,12 +525,19 @@ DataSource make_datasource_multihit_extractor(
             {
                 result = make_datasource(
                     arena, DataSource_MultiHitExtractor_ArrayPerAddress,
-                    moduleIndex, addressCount);
+                    moduleIndex, addressCount + 1);
 
+                // Output arrays
                 for (size_t addr=0; addr<addressCount; ++addr)
                     push_output_vectors(arena, &result, addr, maxHits, 0.0, upperLimit);
 
+                // TotalHits output
+                push_output_vectors(arena, &result, addressCount, addressCount, 0.0, std::numeric_limits<double>::max());
+                auto &totalHits = result.outputs[result.outputCount-1];
+                std::fill(totalHits.data, totalHits.data + totalHits.size, 0.0);
+
             } break;
+
         default:
             throw std::runtime_error("Unknown MultiHitExtractor::Shape");
     }
@@ -538,7 +553,8 @@ void multihit_extractor_begin_event(DataSource *ds)
     assert(ds->type == DataSource_MultiHitExtractor_ArrayPerHit
            || ds->type == DataSource_MultiHitExtractor_ArrayPerAddress);
 
-    for (u8 outIndex=0; outIndex<ds->outputCount; ++outIndex)
+    // Invalidate all output arrays except for the totalHits array.
+    for (u8 outIndex=0; outIndex<ds->outputCount-1; ++outIndex)
     {
         invalidate_all(ds->outputs[outIndex]);
     }
@@ -553,6 +569,10 @@ inline void multihit_extractor_process_module_data_array_per_hit(
     auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
     assert(ex->shape == MultiHitExtractor::Shape::ArrayPerHit);
 
+    auto &totalHits = ds->outputs[ds->outputCount-1];
+    assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                       [] (double d) { return !std::isnan(d); }));
+
     for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
     {
         u32 dataWord = data[wordIndex];
@@ -563,7 +583,7 @@ inline void multihit_extractor_process_module_data_array_per_hit(
 
             // Save the value in the first output array that does not
             // contain a valid value yet.
-            for (u8 outIndex = 0; outIndex < ds->outputCount; ++outIndex)
+            for (u8 outIndex = 0; outIndex < ds->outputCount-1; ++outIndex)
             {
                 if (!is_param_valid(ds->outputs[outIndex][address]))
                 {
@@ -578,7 +598,7 @@ inline void multihit_extractor_process_module_data_array_per_hit(
                 }
             }
 
-            // TODO: count the address hit in the last output of the data source
+            ++totalHits[address];
         }
     }
 }
@@ -588,6 +608,10 @@ inline void multihit_extractor_process_module_data_array_per_address(
 {
     auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
     assert(ex->shape == MultiHitExtractor::Shape::ArrayPerAddress);
+
+    auto &totalHits = ds->outputs[ds->outputCount-1];
+    assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                       [] (double d) { return !std::isnan(d); }));
 
     for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
     {
@@ -617,7 +641,7 @@ inline void multihit_extractor_process_module_data_array_per_address(
                 }
             }
 
-            // TODO: count the address hit in the last output of the data source
+            ++totalHits[address];
         }
     }
 }

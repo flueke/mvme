@@ -35,6 +35,8 @@ inline void push_output_vectors(
     double lowerLimit = 0.0,
     double upperLimit = 0.0)
 {
+    assert(op->outputCount > outputIndex);
+
     op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
     op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
     op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
@@ -48,6 +50,8 @@ inline void push_output_vectors(
     double lowerLimit,
     double upperLimit)
 {
+    assert(ds->outputCount > outputIndex);
+
     ds->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
     ds->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
     ds->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
