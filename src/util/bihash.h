@@ -63,11 +63,12 @@ struct BiHash
         reverse_hash.clear();
     }
 
-    inline s32 size()
+    inline size_t size()
     {
         assert(hash.size() == reverse_hash.size());
+        assert(hash.size() >= 0);
 
-        return hash.size();
+        return static_cast<size_t>(hash.size());
     }
 
     inline bool contains(const T1 &t1)

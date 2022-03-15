@@ -214,7 +214,7 @@ ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
         result.checked.push_back(node && node->data(0, Qt::CheckStateRole) == Qt::Checked);
     }
 
-    assert(result.candidates.size() == static_cast<int>(result.active.size()));
+    assert(result.candidates.size() == result.active.size());
     assert(result.active.size() == result.checked.size());
 
     return result;
