@@ -853,7 +853,6 @@ Pipe *MultiHitExtractor::getOutput(s32 index)
     return nullptr;
 }
 
-// TODO: very similar to ExpressionOperator::beginRun(). Maybe those can be merged.
 void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
 {
     memory::Arena arena(Kilobytes(256));
@@ -900,10 +899,6 @@ void MultiHitExtractor::write(QJsonObject &json) const
     json["shape"] = getShape();
     json["rngSeed"] = QString::number(m_rngSeed, 16);
     json["options"] = static_cast<s32>(getOptions());
-
-    // Same workaround as in ExpressionOperator: store lastOutputCount to
-    // create the pipe in Analysis::read().
-    json["lastOutputCount"] = getNumberOfOutputs();
 }
 
 void MultiHitExtractor::read(const QJsonObject &json)
@@ -914,25 +909,8 @@ void MultiHitExtractor::read(const QJsonObject &json)
     m_rngSeed = json["rngSeed"].toString().toULongLong(nullptr, 16);
     setOptions(static_cast<Options::opt_t>(json["options"].toInt()));
 
-    s32 lastOutputCount = json["lastOutputCount"].toInt(0);
-
-    for (size_t outIdx = lastOutputCount; outIdx < m_outputs.size(); outIdx++)
-    {
-        m_outputs[outIdx]->disconnectAllDestinationSlots();
-    }
-
-    m_outputs.resize(lastOutputCount);
-
-    for (s32 outIdx = 0; outIdx < lastOutputCount; outIdx++)
-    {
-        auto outPipe = m_outputs.at(outIdx);
-
-        if (!outPipe)
-        {
-            outPipe = std::make_shared<Pipe>(this, outIdx, getOutputName(outIdx));
-            m_outputs[outIdx] = outPipe;
-        }
-    }
+    // Call beginRun() here to create the output pipes.
+    beginRun({}, {});
 }
 
 void MultiHitExtractor::postClone(const AnalysisObject *cloneSource)
