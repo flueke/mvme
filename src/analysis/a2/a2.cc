@@ -494,6 +494,8 @@ DataSource make_datasource_multihit_extractor(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
+    static const double TotalHitsUpperLimit = 10.0;
+
     auto ex = arena->pushObject<MultiHitExtractor>();
     *ex = make_multihit_extractor(shape, filter, maxHits, rngSeed, options);
     size_t addressCount = get_address_count(ex);
@@ -515,7 +517,7 @@ DataSource make_datasource_multihit_extractor(
                     push_output_vectors(arena, &result, hit, addressCount, 0.0, upperLimit);
 
                 // TotalHits output
-                push_output_vectors(arena, &result, maxHits, addressCount, 0.0, std::numeric_limits<double>::max());
+                push_output_vectors(arena, &result, maxHits, addressCount, 0.0, TotalHitsUpperLimit);
                 auto &totalHits = result.outputs[result.outputCount-1];
                 std::fill(totalHits.data, totalHits.data + totalHits.size, 0.0);
 
@@ -532,7 +534,7 @@ DataSource make_datasource_multihit_extractor(
                     push_output_vectors(arena, &result, addr, maxHits, 0.0, upperLimit);
 
                 // TotalHits output
-                push_output_vectors(arena, &result, addressCount, addressCount, 0.0, std::numeric_limits<double>::max());
+                push_output_vectors(arena, &result, addressCount, addressCount, 0.0, TotalHitsUpperLimit);
                 auto &totalHits = result.outputs[result.outputCount-1];
                 std::fill(totalHits.data, totalHits.data + totalHits.size, 0.0);
 
