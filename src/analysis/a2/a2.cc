@@ -579,6 +579,8 @@ inline void multihit_extractor_process_module_data_array_per_hit(
     assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                        [] (double d) { return !std::isnan(d); }));
 
+    auto &totalHitsHitCounts = ds->hitCounts[ds->outputCount-1];
+
     for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
     {
         u32 dataWord = data[wordIndex];
@@ -605,6 +607,7 @@ inline void multihit_extractor_process_module_data_array_per_hit(
             }
 
             ++totalHits[address];
+            ++totalHitsHitCounts[address];
         }
     }
 }
@@ -618,6 +621,8 @@ inline void multihit_extractor_process_module_data_array_per_address(
     auto &totalHits = ds->outputs[ds->outputCount-1];
     assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                        [] (double d) { return !std::isnan(d); }));
+
+    auto &totalHitsHitCounts = ds->hitCounts[ds->outputCount-1];
 
     for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
     {
@@ -648,6 +653,7 @@ inline void multihit_extractor_process_module_data_array_per_address(
             }
 
             ++totalHits[address];
+            ++totalHitsHitCounts[address];
         }
     }
 }
