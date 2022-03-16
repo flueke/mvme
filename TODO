@@ -2,10 +2,7 @@
 TODO list
 ==================================================
 
-* Verify that api_v2 command timeouts work correctly. When using USB2 with an
-  MTDC and executing a VME script "command timeouts" appear altough not enough
-  real time has elapsed for the timeouts to actually happen. Raising the
-  timeout value to 10s also doesn't change the behaviour.
+* Update the EventServer and Clients to handle multi-output data sources.
 
 * VME Script execution in the timeout/error case can hang for a long while.
   Instead the execution should be aborted earlier, upong encountering the first
@@ -21,7 +18,7 @@ TODO list
   purely handled on the software side and doesn't care about the CtrlId
   set for the MVLC.
   On the other hand the listfile_generation code and the merged multicrate
-  listfiles to need the crateIndex present in the data stream. It's already
+  listfiles do need the crateIndex present in the data stream. It's already
   used in mvlc_stream_worker.cc to check for UnixTimetick events coming from
   the main crate. Also the same code ignores the crateIndex completely! Weird
   state right now!
@@ -86,7 +83,7 @@ Wanpeng
   - in the old workspace open a listfile
   - select File -> New Workspace
   - create a directory and accept via 'Ok'
-  => The start button still show's "Start Replay", the listfile from the old workspace
+  => The start button still shows "Start Replay", the listfile from the old workspace
      is still open.
 
 * Workspace switching under windows: sometimes mvme.log cannot be moved to
