@@ -295,7 +295,7 @@ struct EventWidgetPrivate
         QVector<double> hitCounts;
     };
 
-    QHash<SourceInterface *, ObjectCounters> m_extractorCounters;
+    QHash<SourceInterface *, QVector<ObjectCounters>> m_dataSourceCounters;
     QHash<Histo1DSink *, ObjectCounters> m_histo1DSinkCounters;
     QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;

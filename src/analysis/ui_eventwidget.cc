@@ -4786,72 +4786,108 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             if (!ds_a2)
                 continue;
 
-            if (ds_a2->outputCount == 0)
-                continue;
-
-            // TODO: change to support multi output data sources
-            auto hitCounts = to_qvector(ds_a2->hitCounts[0]);
-
-            if (hitCounts.size() != node->childCount())
-                continue;
-
-            auto &prevHitCounts = m_extractorCounters[source].hitCounts;
-
-            prevHitCounts.resize(hitCounts.size());
-
-            auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
-            auto hitCountRates = hitCountDeltas;
-            std::for_each(hitCountRates.begin(), hitCountRates.end(),
-                          [dt_s](double &d) { d /= dt_s; });
-
-            Q_ASSERT(hitCounts.size() == node->childCount());
-
-            QStringList paramNames;
-
-            if (auto ex = qobject_cast<Extractor *>(source))
-                paramNames = ex->getParameterNames();
-            else if (auto ex = qobject_cast<ListFilterExtractor *>(source))
-                paramNames = ex->getParameterNames();
-
-            for (s32 addr = 0; addr < node->childCount(); ++addr)
+            auto render_datasource_output = [] (
+                QTreeWidgetItem *parentNode,
+                const QVector<double> &hitCounts,
+                const QVector<double> &prevHitCounts,
+                double dt_s,
+                const QStringList paramNames = {})
             {
-                Q_ASSERT(node->child(addr)->type() == NodeType_OutputPipeParameter);
+                assert(hitCounts.size() == prevHitCounts.size());
 
-                QString addrString = QSL("%1").arg(addr, 2);
+                auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
+                auto hitCountRates = hitCountDeltas;
+                std::for_each(hitCountRates.begin(), hitCountRates.end(),
+                              [dt_s](double &d) { d /= dt_s; });
 
-                if (addr < paramNames.size())
+                const s32 maxAddress = std::min(hitCounts.size(), parentNode->childCount());
+
+                for (s32 addr=0; addr<maxAddress; ++addr)
                 {
-                    addrString += " " + paramNames[addr];
+                    if (!parentNode->child(addr))
+                        continue;
+
+                    assert(parentNode->child(addr)->type() == NodeType_OutputPipeParameter);
+
+                    QString addrString = QSL("[%1]").arg(addr, 2);
+
+                    if (addr < paramNames.size())
+                    {
+                        addrString += " " + paramNames[addr];
+                    }
+
+                    addrString.replace(QSL(" "), QSL("&nbsp;"));
+
+                    double hitCount = hitCounts[addr];
+                    auto childNode = parentNode->child(addr);
+
+                    if (hitCount <= 0.0)
+                    {
+                        childNode->setText(0, addrString);
+                    }
+                    else
+                    {
+                        double rate = hitCountRates[addr];
+
+                        if (!std::isfinite(rate)) rate = 0.0;
+
+                        auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
+                                                        0, 'g', 3);
+
+                        childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
+                                           .arg(addrString)
+                                           .arg(hitCount)
+                                           .arg(rateString)
+                                           .arg(dt_s)
+                                          );
+                    }
                 }
+            };
 
-                addrString.replace(QSL(" "), QSL("&nbsp;"));
+            if (ds_a2->outputCount == 1)
+            {
+                // The data source has one output array -> the array elements are direct child
+                // nodes of the source node.
+                auto hitCounts = to_qvector(ds_a2->hitCounts[0]);
+                m_dataSourceCounters[source].resize(1);
+                auto &prevHitCounts = m_dataSourceCounters[source][0].hitCounts;
+                prevHitCounts.resize(hitCounts.size());
 
-                double hitCount = hitCounts[addr];
-                auto childNode = node->child(addr);
+                QStringList paramNames;
 
-                if (hitCount <= 0.0)
+                if (auto ex = qobject_cast<Extractor *>(source))
+                    paramNames = ex->getParameterNames();
+                else if (auto ex = qobject_cast<ListFilterExtractor *>(source))
+                    paramNames = ex->getParameterNames();
+
+                render_datasource_output(node, hitCounts, prevHitCounts, dt_s, paramNames);
+                prevHitCounts = hitCounts;
+            }
+            else if (ds_a2->outputCount > 1)
+            {
+                // Data source with multiple output arrays -> each array has its own parent node.
+                m_dataSourceCounters[source].resize(ds_a2->outputCount);
+
+                for (unsigned outIdx = 0; outIdx < ds_a2->outputCount; ++outIdx)
                 {
-                    childNode->setText(0, addrString);
-                }
-                else
-                {
-                    double rate = hitCountRates[addr];
+                    auto outputNode = node->child(outIdx);
 
-                    if (!std::isfinite(rate)) rate = 0.0;
+                    if (!outputNode)
+                        continue;
 
-                    auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
-                                                    0, 'g', 3);
-
-                    childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
-                                       .arg(addrString)
-                                       .arg(hitCount)
-                                       .arg(rateString)
-                                       .arg(dt_s)
-                                      );
+                    auto hitCounts = to_qvector(ds_a2->hitCounts[outIdx]);
+                    auto &prevHitCounts = m_dataSourceCounters[source][outIdx].hitCounts;
+                    prevHitCounts.resize(hitCounts.size());
+                    render_datasource_output(outputNode, hitCounts, prevHitCounts, dt_s);
+                    prevHitCounts = hitCounts;
                 }
             }
+            else
+            {
+                assert(ds_a2->outputCount == 0);
+                continue;
+            }
 
-            prevHitCounts = hitCounts;
         }
     }
 
