@@ -33,9 +33,13 @@ Version 1.4.9-rc
 
 * Fix 'VME Script -> Run' in the MVLC Debug GUI
 
+Version 1.4.8.2
+---------------
+Raise MVLC command timeout (request/response) from 500ms to 1000ms.
+
 Version 1.4.8.1
 ---------------
-Make mvme build against qwt version older than 6.2.0 again.
+Make mvme build against qwt versions older than 6.2.0 again.
 
 Version 1.4.8
 -------------
