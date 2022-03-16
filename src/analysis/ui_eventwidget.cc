@@ -4548,17 +4548,7 @@ void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel
         {
             obj->setObjectName(value);
             m_q->getAnalysis()->setModified(true);
-
-            if (auto op = qobject_cast<OperatorInterface *>(obj))
-            {
-                node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
-                        op->getShortName(),
-                        op->objectName()));
-            }
-            else
-            {
-                node->setData(0, Qt::DisplayRole, value);
-            }
+            repopulate();
         }
     }
 }
