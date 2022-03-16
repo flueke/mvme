@@ -2094,7 +2094,7 @@ bool qobj_ptr_natural_compare(const std::shared_ptr<QObject> &a, const std::shar
 
 UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
 {
-    const auto editTriggers = QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed;
+    const auto editTriggers = QAbstractItemView::EditKeyPressed /*| QAbstractItemView::AnyKeyPressed*/;
 
     UserLevelTrees result = {};
     result.operatorTree = (level == 0 ? new DataSourceTree : new OperatorTree);
