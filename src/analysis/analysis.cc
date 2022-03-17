@@ -5092,8 +5092,6 @@ void Analysis::beginRun(const RunInfo &runInfo,
         << m_sources.size() << " data sources and"
         << m_operators.size() << " operators";
 
-    establish_connections(m_objectStore);
-
     u32 sourcesBuilt = 0;
 
     for (auto &source: m_sources)
@@ -5396,7 +5394,6 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
             obj->setAnalysis(this->shared_from_this());
         }
 
-        m_objectStore = objectStore;
         m_vmeObjectSettings = objectStore.objectSettingsById;
         m_conditionLinks = objectStore.conditionLinks;
         loadDynamicProperties(objectStore.dynamicQObjectProperties, this);

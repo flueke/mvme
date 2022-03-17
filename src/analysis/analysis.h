@@ -2205,7 +2205,6 @@ class LIBMVME_EXPORT Analysis:
         SourceVector m_sources;
         OperatorVector m_operators;
         DirectoryVector m_directories;
-        AnalysisObjectStore m_objectStore;
         VMEObjectSettings m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
         ConditionLinks m_conditionLinks;
