@@ -135,7 +135,7 @@ class MultiHitExtractorDialog: public ObjectEditorDialog
     private slots:
         void runLoadTemplateDialog();
         void applyTemplate(const std::shared_ptr<Extractor> &tmpl);
-        //void editNameList();
+        void updateWidget();
 
     private:
         struct Private;

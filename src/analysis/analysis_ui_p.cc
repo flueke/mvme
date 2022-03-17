@@ -453,6 +453,7 @@ struct MultiHitExtractorDialog::Private
     DataFilterEdit *le_filterEdit;
     QSpinBox *spin_maxHits;
     QCheckBox *cb_noAddedRandom;
+    QLabel *l_info;
 
     std::vector<std::shared_ptr<Extractor>> getTemplateExtractors()
     {
@@ -473,6 +474,20 @@ struct MultiHitExtractorDialog::Private
         }
 
         return extractors;
+    }
+
+    void fillExtractorFromGui(MultiHitExtractor &dest)
+    {
+        dest.setEventId(mod->getEventId());
+        dest.setModuleId(mod->getId());
+
+        dest.setObjectName(le_name->text());
+        dest.setShape(static_cast<MultiHitExtractor::Shape>(combo_shape->currentData().toInt()));
+        dest.setFilter(le_filterEdit->getFilter());
+        dest.setMaxHits(spin_maxHits->value());
+        dest.setOptions(cb_noAddedRandom->isChecked()
+                        ? MultiHitExtractor::Options::NoAddedRandom
+                        : MultiHitExtractor::Options::NoOption);
     }
 };
 
@@ -520,6 +535,8 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     d->cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
     d->cb_noAddedRandom->setChecked(d->ex->getOptions() & Extractor::Options::NoAddedRandom);
 
+    d->l_info = new QLabel;
+
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
     auto l = new QFormLayout(this);
@@ -528,10 +545,18 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     l->addRow("Output Shape", d->combo_shape);
     l->addRow("Max hits per address", d->spin_maxHits);
     l->addRow("No Added Random", d->cb_noAddedRandom);
+    l->addRow("Info", d->l_info);
     l->addRow(bb);
 
     connect(bb, &QDialogButtonBox::accepted, this, &MultiHitExtractorDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &MultiHitExtractorDialog::reject);
+
+    connect(d->le_filterEdit, &QLineEdit::textChanged,
+            this, &MultiHitExtractorDialog::updateWidget);
+    connect(d->combo_shape, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, &MultiHitExtractorDialog::updateWidget);
+    connect(d->spin_maxHits, qOverload<int>(&QSpinBox::valueChanged),
+            this, &MultiHitExtractorDialog::updateWidget);
 
     switch (d->mode)
     {
@@ -547,6 +572,8 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
             setWindowTitle(QString("Edit %1").arg(d->ex->getDisplayName()));
             break;
     }
+
+    updateWidget();
 }
 
 MultiHitExtractorDialog::~MultiHitExtractorDialog()
@@ -557,16 +584,7 @@ void MultiHitExtractorDialog::accept()
 {
     AnalysisPauser pauser(d->eventWidget->getServiceProvider());
 
-    d->ex->setEventId(d->mod->getEventId());
-    d->ex->setModuleId(d->mod->getId());
-
-    d->ex->setObjectName(d->le_name->text());
-    d->ex->setShape(static_cast<MultiHitExtractor::Shape>(d->combo_shape->currentData().toInt()));
-    d->ex->setFilter(d->le_filterEdit->getFilter());
-    d->ex->setMaxHits(d->spin_maxHits->value());
-    d->ex->setOptions(d->cb_noAddedRandom->isChecked()
-                      ? MultiHitExtractor::Options::NoAddedRandom
-                      : MultiHitExtractor::Options::NoOption);
+    d->fillExtractorFromGui(*d->ex);
 
     auto analysis = d->eventWidget->getServiceProvider()->getAnalysis();
 
@@ -635,11 +653,26 @@ void MultiHitExtractorDialog::applyTemplate(const std::shared_ptr<Extractor> &tm
     d->le_name->setText(name);
 }
 
-#if 0
-void MultiHitExtractorDialog::editNameList()
+void MultiHitExtractorDialog::updateWidget()
 {
+    MultiHitExtractor mex = {};
+    d->fillExtractorFromGui(mex);
+    mex.beginRun({}, {});
+
+    // subtract one to account for the hitCounts array.
+    s32 arrayCount = mex.getNumberOfOutputs() - 1;
+    s32 arraySize = 0u;
+
+    if (auto outPipe = mex.getOutput(0))
+        arraySize = outPipe->getSize();
+
+    auto arrayText = arrayCount > 1 ? "arrays, each" : "array";
+
+    d->l_info->setText(QSL("Will generate %1 output %2 of size %3.")
+                       .arg(arrayCount)
+                       .arg(arrayText)
+                       .arg(arraySize));
 }
-#endif
 
 //
 // AddEditOperatorDialog
