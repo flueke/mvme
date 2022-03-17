@@ -954,7 +954,8 @@ void AddEditOperatorDialog::inputSelectedForSlot(
     qDebug() << __PRETTY_FUNCTION__
         << "destSlot =" << destSlot
         << "selectedPipe =" << selectedPipe
-        << "selectedParamIndex =" << selectedParamIndex;
+        << "selectedParamIndex =" << selectedParamIndex
+        << "pipeSourceOutputIndex =" << selectedPipe->sourceOutputIndex;
 
     assert(destSlot == m_op->getSlot(destSlot->parentSlotIndex));
 

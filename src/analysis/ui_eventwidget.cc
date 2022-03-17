@@ -1262,7 +1262,7 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
 }
 
 static const QColor ValidInputNodeColor         = QColor("lightgreen");
-static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/3); // lightgreen but with some alpha
+static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/2); // lightgreen but with some alpha
 static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
 
 static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with some alpha
@@ -1506,70 +1506,48 @@ void EventWidget::endSelectInput()
 
 void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
 {
+    auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
+    {
+        if (doHighlight)
+            node->setBackground(0, color);
+        else
+            node->setBackground(0, QColor(0, 0, 0, 0));
+    };
+
     if (!slot || !slot->isParamIndexInRange())
         return;
 
-    QTreeWidgetItem *node = nullptr;
+    auto sourcePipe = slot->inputPipe;
+    auto source = sourcePipe->source;
 
-    if (auto source = qobject_cast<SourceInterface *>(slot->inputPipe->getSource()))
-    {
-        // As the input is a SourceInterface we only need to look in the source tree
-        auto tree = m_d->m_levelTrees[0].operatorTree;
+    if (!source)
+        return;
 
-        node = findFirstNode(tree->invisibleRootItem(), [source](auto nodeToTest) {
-            return (nodeToTest->type() == NodeType_Source
-                    && get_pointer<SourceInterface>(nodeToTest, DataRole_AnalysisObject) == source);
-        });
+    auto sourceNode = m_d->m_objectMap[source->shared_from_this()];
 
-    }
-    else if (qobject_cast<OperatorInterface *>(slot->inputPipe->getSource()))
-    {
-        // The input is another operator
-        for (s32 treeIndex = 1;
-             treeIndex < m_d->m_levelTrees.size() && !node;
-             ++treeIndex)
-        {
-            auto tree = m_d->m_levelTrees[treeIndex].operatorTree;
+    if (!sourceNode)
+        return;
 
-            node = findFirstNode(tree->invisibleRootItem(), [slot](auto nodeToTest) {
-                return (nodeToTest->type() == NodeType_OutputPipe
-                        && get_pointer<Pipe>(nodeToTest, DataRole_RawPointer) == slot->inputPipe);
-            });
-        }
-    }
+    // Find the parent node of the sourcePipes output array.
+    QTreeWidgetItem *outputArrayParent = nullptr;
+
+    if (qobject_cast<SourceInterface *>(source) && source->getNumberOfOutputs() == 1)
+        outputArrayParent = sourceNode;
     else
-    {
-        InvalidCodePath;
-    }
+        outputArrayParent = sourceNode->child(sourcePipe->sourceOutputIndex);;
 
-    if (node && slot->isParameterConnection() && slot->paramIndex < node->childCount())
-    {
-        node = node->child(slot->paramIndex);
-    }
+    if (!outputArrayParent)
+        return;
 
-    if (node)
-    {
-        auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
-        {
-            if (doHighlight)
-            {
-                node->setBackground(0, color);
-            }
-            else
-            {
-                node->setBackground(0, QColor(0, 0, 0, 0));
-            }
-        };
+    auto nodeToHighlight = outputArrayParent;
 
-        highlight_node(node, InputNodeOfColor);
+    if (slot->isParameterConnection() && slot->paramIndex < outputArrayParent->childCount())
+        nodeToHighlight = outputArrayParent->child(slot->paramIndex);
 
-        for (node = node->parent();
-             node;
-             node = node->parent())
-        {
-            highlight_node(node, ChildIsInputNodeOfColor);
-        }
-    }
+    highlight_node(nodeToHighlight, InputNodeOfColor);
+
+    for (auto node = nodeToHighlight->parent(); node != nullptr; node = node->parent())
+        highlight_node(node, ChildIsInputNodeOfColor);
 }
 
 //
@@ -3714,46 +3692,6 @@ void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
     }
 }
 
-static bool isSourceNodeOf(QTreeWidgetItem *node, Slot *slot)
-{
-    PipeSourceInterface *srcObject = nullptr;
-
-    switch (node->type())
-    {
-        case NodeType_Source:
-        case NodeType_Operator:
-            {
-                srcObject = get_pointer<PipeSourceInterface>(node, DataRole_AnalysisObject);
-                Q_ASSERT(srcObject);
-            } break;
-
-        case NodeType_OutputPipe:
-        case NodeType_OutputPipeParameter:
-            {
-                auto pipe = get_pointer<Pipe>(node, DataRole_RawPointer);
-                srcObject = pipe->source;
-                Q_ASSERT(srcObject);
-            } break;
-    }
-
-    bool result = false;
-
-    if (slot->inputPipe->source == srcObject)
-    {
-        if (slot->paramIndex == Slot::NoParamIndex && node->type() != NodeType_OutputPipeParameter)
-        {
-            result = true;
-        }
-        else if (slot->paramIndex != Slot::NoParamIndex && node->type() == NodeType_OutputPipeParameter)
-        {
-            s32 nodeParamAddress = node->data(0, DataRole_ParameterIndex).toInt();
-            result = (nodeParamAddress == slot->paramIndex);
-        }
-    }
-
-    return result;
-}
-
 static bool isOutputNodeOf(QTreeWidgetItem *node, PipeSourceInterface *ps)
 {
     assert(ps);
@@ -3797,40 +3735,6 @@ static bool isOutputNodeOf(QTreeWidgetItem *node, PipeSourceInterface *ps)
     return result;
 }
 
-// Returns true if this node or any of its children represent an input of the
-// given operator.
-static bool highlight_input_nodes(OperatorInterface *op, QTreeWidgetItem *node)
-{
-    assert(op);
-    assert(node);
-
-    bool result = false;
-
-    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
-    {
-        // recurse
-        auto child = node->child(childIndex);
-        result = highlight_input_nodes(op, child) || result;
-    }
-
-    if (result)
-    {
-        node->setBackground(0, ChildIsInputNodeOfColor);
-    }
-
-    for (s32 slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
-    {
-        Slot *slot = op->getSlot(slotIndex);
-        if (slot->inputPipe && isSourceNodeOf(node, slot))
-        {
-            node->setBackground(0, InputNodeOfColor);
-            result = true;
-        }
-    }
-
-    return result;
-}
-
 // Returns true if this node or any of its children are connected to an output of the
 // given pipe source.
 static bool highlight_output_nodes(PipeSourceInterface *ps, QTreeWidgetItem *node)
@@ -3862,9 +3766,12 @@ void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
 {
     assert(op);
 
-    for (auto trees: m_levelTrees)
+    for (s32 slotIdx=0; slotIdx<op->getNumberOfSlots(); ++slotIdx)
     {
-        highlight_input_nodes(op, trees.operatorTree->invisibleRootItem());
+        auto slot = op->getSlot(slotIdx);
+
+        m_q->highlightInputOf(slot, true);
+
     }
 }
 
