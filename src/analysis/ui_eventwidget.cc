@@ -1090,6 +1090,10 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
         auto analysis = serviceProvider->getAnalysis();
 
         auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, serviceProvider, eventWidget);
+        if (mode == ObjectEditorMode::New)
+            lfe_dialog->newFilter();
+        else
+            lfe_dialog->editListFilterExtractor(ex);
         result = lfe_dialog;
     }
     else if (auto ex = std::dynamic_pointer_cast<MultiHitExtractor>(src))

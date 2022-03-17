@@ -201,7 +201,7 @@ void EventServer::Private::handleNewConnection()
 
         // If a run is in progress immediately send out a BeginRun message to
         // the client. This reuses the information built in beginRun() when the
-        // run started.
+        // run was started.
         if (m_runInProgress)
         {
             qDebug() << "DataServer: client connected during an active run. Sending"
