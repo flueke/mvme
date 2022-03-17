@@ -453,7 +453,7 @@ struct MultiHitExtractorDialog::Private
     DataFilterEdit *le_filterEdit;
     QSpinBox *spin_maxHits;
     QCheckBox *cb_noAddedRandom;
-    QLabel *l_info;
+    QLabel *label_info;
 
     std::vector<std::shared_ptr<Extractor>> getTemplateExtractors()
     {
@@ -535,7 +535,11 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     d->cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
     d->cb_noAddedRandom->setChecked(d->ex->getOptions() & Extractor::Options::NoAddedRandom);
 
-    d->l_info = new QLabel;
+    d->label_info = new QLabel;
+
+    auto label_compat = new QLabel(QSL("<b>Note</b>: MultiHit extractors are currently"
+                                       " not compatible with the EventServer for data export!"));
+    label_compat->setWordWrap(true);
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
@@ -545,7 +549,8 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     l->addRow("Output Shape", d->combo_shape);
     l->addRow("Max hits per address", d->spin_maxHits);
     l->addRow("No Added Random", d->cb_noAddedRandom);
-    l->addRow("Info", d->l_info);
+    l->addRow("Info", d->label_info);
+    l->addRow(label_compat);
     l->addRow(bb);
 
     connect(bb, &QDialogButtonBox::accepted, this, &MultiHitExtractorDialog::accept);
@@ -668,7 +673,7 @@ void MultiHitExtractorDialog::updateWidget()
 
     auto arrayText = arrayCount > 1 ? "arrays, each" : "array";
 
-    d->l_info->setText(QSL("Will generate %1 output %2 of size %3.")
+    d->label_info->setText(QSL("Will generate %1 output %2 of size %3.")
                        .arg(arrayCount)
                        .arg(arrayText)
                        .arg(arraySize));
