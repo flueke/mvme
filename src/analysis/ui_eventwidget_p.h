@@ -316,7 +316,7 @@ struct EventWidgetPrivate
     void removeUserLevel();
     s32 getUserLevelForTree(QTreeWidget *tree);
 
-    void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
+    void doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel);
     void doDataSourceOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
@@ -372,6 +372,7 @@ struct EventWidgetPrivate
     void actionExport();
     void actionImport();
 
+    // context menu action implementations
     void setSinksEnabled(const SinkVector &sinks, bool enabled);
 
     void removeSinks(const QVector<SinkInterface *> sinks);
@@ -384,6 +385,8 @@ struct EventWidgetPrivate
     void copyToClipboard(const AnalysisObjectVector &objects);
     bool canPaste();
     void pasteFromClipboard(QTreeWidget *destTree);
+
+    void actionGenerateHistograms(ObjectTree *tree, const std::vector<QTreeWidgetItem *> &nodes);
 
     Analysis *getAnalysis() const;
 };

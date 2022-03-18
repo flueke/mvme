@@ -1596,6 +1596,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
         s32 getNumberOfHistos() const { return m_histos.size(); }
         s32 getHistoBins() const { return m_bins; }
+        void setHistoBins(s32 bins) { m_bins = bins; }
 
         QVector<std::shared_ptr<Histo1D>> getHistos() { return m_histos; }
 

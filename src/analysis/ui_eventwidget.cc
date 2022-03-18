@@ -34,6 +34,7 @@
 #include <QMimeData>
 #include <QStandardPaths>
 #include <QTimer>
+#include <iterator>
 #include <memory>
 
 #include "analysis/a2_adapter.h"
@@ -2680,7 +2681,7 @@ AnalysisObjectVector objects_from_nodes(const C &nodes, bool recurse=false)
 }
 
 /* Context menu for the operator tree views (top). */
-void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
+void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
     //auto localSelectedObjects  = objects_from_nodes(tree->selectedItems());
     //auto activeObject = get_shared_analysis_object<AnalysisObject>(activeNode);
@@ -2836,8 +2837,29 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 }
             });
         }
+
+        // Generate Histograms
+        auto localSelectedItems = tree->getTopLevelSelectedNodes();
+        std::vector<QTreeWidgetItem *> viableHistoGenNodes;
+        std::copy_if(
+            std::begin(localSelectedItems), std::end(localSelectedItems),
+            std::back_inserter(viableHistoGenNodes),
+            [] (const QTreeWidgetItem *item) {
+
+                return (item->type() == NodeType_Source
+                        || item->type() == NodeType_Operator
+                        || item->type() == NodeType_OutputPipe);
+            });
+
+        if (!viableHistoGenNodes.empty())
+        {
+            menu.addAction(QIcon(":/hist1d.png"), QSL("Generate Histograms"),
+                           [this, tree, viableHistoGenNodes] () {
+                               this->actionGenerateHistograms(tree, viableHistoGenNodes);
+                           });
+        }
     }
-    else
+    else // Right-click on the tree background, not on an item.
     {
         auto actionNew = menu.addAction(QSL("New"));
         actionNew->setMenu(make_menu_new(&menu));
@@ -5245,6 +5267,75 @@ void EventWidgetPrivate::actionImport()
     {
         QMessageBox::critical(m_q, "Import error", e.what());
     }
+}
+
+void EventWidgetPrivate::actionGenerateHistograms(
+    ObjectTree *tree, const std::vector<QTreeWidgetItem *> &nodes)
+{
+    assert(tree);
+    assert(!nodes.empty());
+
+    const s32 userLevel = tree->getUserLevel();
+    constexpr size_t bins = 1u << 16;
+    auto analysis = m_serviceProvider->getAnalysis();
+
+    assert(analysis);
+
+    AnalysisPauser pauser(m_serviceProvider);
+
+    auto make_histosink_for_pipe = [userLevel] (Pipe *outPipe)
+    {
+        auto pipeSource = outPipe->source;
+        QString sinkName;
+        if (pipeSource->getNumberOfOutputs() == 1)
+            sinkName = pipeSource->objectName();
+        else
+        {
+            sinkName = QSL("%1.%2")
+                .arg(pipeSource->objectName())
+                .arg(pipeSource->getOutputName(outPipe->sourceOutputIndex));
+        }
+
+        auto sink = std::make_shared<Histo1DSink>();
+        sink->setObjectName(sinkName);
+        sink->setUserLevel(userLevel);
+        sink->setEventId(pipeSource->getEventId());
+        sink->setHistoBins(bins);
+        sink->m_xAxisTitle = sinkName;
+        sink->connectArrayToInputSlot(0, outPipe);
+
+        return sink;
+    };
+
+    for (auto node: nodes)
+    {
+        switch (node->type())
+        {
+            case NodeType_Source:
+            case NodeType_Operator:
+                if (auto pipeSource = get_shared_analysis_object<PipeSourceInterface>(node, DataRole_AnalysisObject))
+                {
+                    for (s32 outIdx = 0; outIdx < pipeSource->getNumberOfOutputs(); ++outIdx)
+                    {
+                        auto outPipe = pipeSource->getOutput(outIdx);
+                        analysis->addOperator(make_histosink_for_pipe(outPipe));
+                    }
+                } break;
+
+            case NodeType_OutputPipe:
+                if (auto outPipe = get_pointer<Pipe>(node, DataRole_RawPointer))
+                {
+                    analysis->addOperator(make_histosink_for_pipe(outPipe));
+                }
+                break;
+
+            default:
+                assert(!"actionGenerateHistograms: unexpected node type in selection");
+        }
+    }
+
+    analysis->beginRun(Analysis::KeepState, m_q->getVMEConfig());
+    repopulate();
 }
 
 void EventWidgetPrivate::setSinksEnabled(const SinkVector &sinks, bool enabled)
