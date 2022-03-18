@@ -152,6 +152,7 @@ bool QtAssistantRemoteControl::sendCommand(const QString &cmd)
 {
     if (d->startAssistant())
     {
+        qDebug() << __PRETTY_FUNCTION__ << "sending cmd" << cmd << "to QtAssistant";
         int res = d->process->write(cmd.toLocal8Bit() + '\n');
 
         if (res != -1)
