@@ -2680,6 +2680,24 @@ AnalysisObjectVector objects_from_nodes(const C &nodes, bool recurse=false)
     return objects_from_nodes<AnalysisObject>(nodes, recurse);
 }
 
+static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
+    const QList<QTreeWidgetItem *> selectedNodes)
+{
+    std::vector<QTreeWidgetItem *> viableHistoGenNodes;
+
+    std::copy_if(
+        std::begin(selectedNodes), std::end(selectedNodes),
+        std::back_inserter(viableHistoGenNodes),
+        [] (const QTreeWidgetItem *item) {
+
+            return (item->type() == NodeType_Source
+                    || item->type() == NodeType_Operator
+                    || item->type() == NodeType_OutputPipe);
+        });
+
+    return viableHistoGenNodes;
+}
+
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
@@ -2840,19 +2858,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
         // Generate Histograms
         auto localSelectedItems = tree->getTopLevelSelectedNodes();
-        std::vector<QTreeWidgetItem *> viableHistoGenNodes;
-        std::copy_if(
-            std::begin(localSelectedItems), std::end(localSelectedItems),
-            std::back_inserter(viableHistoGenNodes),
-            [] (const QTreeWidgetItem *item) {
-
-                return (item->type() == NodeType_Source
-                        || item->type() == NodeType_Operator
-                        || item->type() == NodeType_OutputPipe);
-            });
+        auto viableHistoGenNodes = get_viable_nodes_for_histogram_generation(localSelectedItems);
 
         if (!viableHistoGenNodes.empty())
         {
+            menu.addSeparator();
             menu.addAction(QIcon(":/hist1d.png"), QSL("Generate Histograms"),
                            [this, tree, viableHistoGenNodes] () {
                                this->actionGenerateHistograms(tree, viableHistoGenNodes);
@@ -2907,9 +2917,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
     }
 }
 
-void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
-                                                             QPoint pos,
-                                                             s32 userLevel)
+void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
+    ObjectTree *tree, QPoint pos, s32 userLevel)
 {
     /* Context menu for the top-left tree which contains modules and their
      * datasources. */
@@ -3084,6 +3093,19 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
                 makeAndShowPipeDisplay(pipe);
             });
+        }
+
+        // Generate Histograms
+        auto localSelectedItems = tree->getTopLevelSelectedNodes();
+        auto viableHistoGenNodes = get_viable_nodes_for_histogram_generation(localSelectedItems);
+
+        if (!viableHistoGenNodes.empty())
+        {
+            menu.addSeparator();
+            menu.addAction(QIcon(":/hist1d.png"), QSL("Generate Histograms"),
+                           [this, tree, viableHistoGenNodes] () {
+                               this->actionGenerateHistograms(tree, viableHistoGenNodes);
+                           });
         }
     }
 

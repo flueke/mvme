@@ -317,7 +317,7 @@ struct EventWidgetPrivate
     s32 getUserLevelForTree(QTreeWidget *tree);
 
     void doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel);
-    void doDataSourceOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
+    void doDataSourceOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel);
     void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
     void setMode(Mode mode);
