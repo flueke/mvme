@@ -3065,6 +3065,13 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                             clearAllTreeSelections();
                             clearAllToDefaultNodeHighlights();
                         });
+
+                    menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
+                        if (auto tw = activeNode->treeWidget())
+                        {
+                            tw->editItem(activeNode);
+                        }
+                    });
                 }
             }
         }
