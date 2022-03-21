@@ -826,19 +826,27 @@ s32 MultiHitExtractor::getNumberOfOutputs() const
 
 QString MultiHitExtractor::getOutputName(s32 index) const
 {
+    auto prefix = objectName();
+    int dotIdx = prefix.indexOf('.');
+
+    if (dotIdx >= 0)
+        prefix.remove(0, dotIdx+1);
+
     if (index < getNumberOfOutputs() - 1)
     {
         switch (m_ex.shape)
         {
             case Shape::ArrayPerHit:
-                return QSL("%1_hit%2").arg(objectName()).arg(index);
+                return QSL("%1_hit%2").arg(prefix).arg(index);
 
             case Shape::ArrayPerAddress:
-                return QSL("%1_%2_hits").arg(objectName()).arg(index);
+                return QSL("%1_%2_hits").arg(prefix).arg(index);
         }
     }
+    else if (index == getNumberOfOutputs() - 1)
+        return "hitCounts";
 
-    return "hitCounts";
+    return {};
 }
 
 Pipe *MultiHitExtractor::getOutput(s32 index)
