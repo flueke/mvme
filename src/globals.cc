@@ -32,8 +32,8 @@ QString toString(const ListFileFormat &fmt)
             return QSL("ZIP");
         case ListFileFormat::LZ4:
             return QSL("LZ4");
-        case ListFileFormat::ZMQ:
-            return QSL("ZMQ");
+        case ListFileFormat::ZMQ_Ganil:
+            return QSL("ZMQ_GANIL");
     }
 
     return QString();
@@ -50,10 +50,9 @@ ListFileFormat listFileFormat_fromString(const QString &str)
     if (str == "LZ4")
         return ListFileFormat::LZ4;
 
-    if (str == "ZMQ")
-        return ListFileFormat::ZMQ;
+    if (str == "ZMQ_GANIL")
+        return ListFileFormat::ZMQ_Ganil;
 
-    assert(!"unknown ListFileFormat");
     return ListFileFormat::Invalid;
 }
 

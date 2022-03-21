@@ -577,11 +577,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
                     d->mvlcZipCreator->createListfileEntry());
             }
 #ifdef MVLC_HAVE_ZMQ
-            else if (outInfo->format == ListFileFormat::ZMQ)
+            else if (outInfo->format == ListFileFormat::ZMQ_Ganil)
             {
-                d->listfileWriteHandle = std::make_unique<mvlc::listfile::ZmqWriteHandle>();
-                // Manually write the preamble data.
-                d->listfileWriteHandle->write(preamble.data(), preamble.size());
+                d->listfileWriteHandle = std::make_unique<mvlc::listfile::ZmqGanilWriteHandle>();
+                // Note: intentionally not sending the listfile preamble as the GANIL receiver
+                // code does not expect it.
             }
 #endif
             else

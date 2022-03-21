@@ -65,10 +65,10 @@ static void fill_compression_combo(QComboBox *combo)
 #else
 enum CompressionPreset
 {
-    NoCompression = 0,  // ZIP, level 0 aka store
-    Fast_LZ4 = 1,       // LZ4, level 0 (faster than ZIP level 1)
-    Fast_ZIP = 2,       // ZIP, level 1 aka "super fast"
-    ZmqServer = 3,            // Hack to be able to choose ZMQ pub via the compression combo. TODO: redesign the GUI!
+    NoCompression = 0,      // ZIP, level 0 aka store
+    Fast_LZ4 = 1,           // LZ4, level 0 (faster than ZIP level 1)
+    Fast_ZIP = 2,           // ZIP, level 1 aka "super fast"
+    ZmqServer_Ganil = 3,    // Hack to be able to choose ZMQ pub via the compression combo. TODO: redesign the GUI!
 };
 
 static void fill_compression_combo(QComboBox *combo, bool isMVLC)
@@ -85,7 +85,7 @@ static void fill_compression_combo(QComboBox *combo, bool isMVLC)
 
 #ifdef MVLC_HAVE_ZMQ
     if (isMVLC)
-        combo->addItem(QSL("ZMQ Server"), CompressionPreset::ZmqServer);
+        combo->addItem(QSL("ZMQ Server GANIL"), CompressionPreset::ZmqServer_Ganil);
 #endif
 }
 #endif
@@ -209,8 +209,8 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
                 m_listFileOutputInfo.compressionLevel = 0;
                 break;
 
-            case CompressionPreset::ZmqServer:
-                m_listFileOutputInfo.format = ListFileFormat::ZMQ;
+            case CompressionPreset::ZmqServer_Ganil:
+                m_listFileOutputInfo.format = ListFileFormat::ZMQ_Ganil;
                 break;
 
             default:
@@ -603,8 +603,8 @@ void DAQControlWidget::updateWidget()
         }
         else if (outputInfo.format == ListFileFormat::LZ4)
             comboData = 1;
-        else if (outputInfo.format == ListFileFormat::ZMQ)
-            comboData = CompressionPreset::ZmqServer;
+        else if (outputInfo.format == ListFileFormat::ZMQ_Ganil)
+            comboData = CompressionPreset::ZmqServer_Ganil;
 
         for (int i=0; i<combo_compression->count(); ++i)
         {
