@@ -2,6 +2,8 @@
 TODO list
 ==================================================
 
+* Document ListFilterExtractor and MultiHitExtractor
+
 * Update the EventServer and Clients to handle multi-output data sources.
 
 * VME Script execution in the timeout/error case can hang for a long while.

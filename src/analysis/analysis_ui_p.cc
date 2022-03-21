@@ -546,8 +546,8 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     auto l = new QFormLayout(this);
     l->addRow("Name", d->le_name);
     l->addRow("Extraction Filter", l_filter);
-    l->addRow("Output Shape", d->combo_shape);
     l->addRow("Max hits per address", d->spin_maxHits);
+    l->addRow("Output Shape", d->combo_shape);
     l->addRow("No Added Random", d->cb_noAddedRandom);
     l->addRow("Info", d->label_info);
     l->addRow(label_compat);

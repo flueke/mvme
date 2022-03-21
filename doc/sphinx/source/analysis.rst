@@ -401,8 +401,10 @@ Data Sources
 Analysis Data Sources attach directly to a VME module. On every step of the
 analysis system they're handed all the data words produced by that module in
 the corresponding readout cycle. Their job is to extract data values from the
-raw module data and produce an output parameter array. Currently there's one
-Source implemented: The :ref:`Filter Extractor <analysis-extractor>`
+raw module data and produce an output parameter array.
+
+.. _Currently there's one
+.. Source implemented: The :ref:`Filter Extractor <analysis-extractor>`
 
 .. _analysis-extractor:
 
@@ -503,7 +505,7 @@ During a DAQ run or a replay the Filter Extractor gets passed all the data that
 was produced by a single module readout (*Event Data*). Each data word is
 passed to the internal filter.
 
-Once the filter has completed *Required Completion Count* times address and
+Once the filter has completed *Required Completion Count* times, address and
 data values will be extracted.
 
 The data value is cast to a double and a uniform random value in the range
@@ -534,6 +536,9 @@ Predefined filters can be loaded into the UI using the *Load Filter Template*
 button.
 
 .. TODO: add listfilter extractor documentation and example of when to use this
+.. .. _analysis-listfilter-extractor:
+
+.. .. _analysis-multihit-extractor:
 
 
 .. _analysis-operators:

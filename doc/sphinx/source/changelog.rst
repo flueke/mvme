@@ -6,6 +6,14 @@ Changelog
 
 Version 1.4.9-rc
 ----------------
+* [analysis]
+
+  - Add a new MultiHitExtractor data source allowing to extract multiple hits per
+    address.
+
+  - Add 'Generate Histograms' context menu action to data sources and operators to quickly
+    generate histograms for selected objects.
+
 * New feature: listfile splitting (MVLC only!)
 
   When recording readout data the output listfile can now be split either based
