@@ -1,10 +1,5 @@
 # mvme - mesytec VME data acquisition
 
-# TODO: dependencies
-# * Do not install libqwt-qt5-dev. Instead build qwt-6.2.0 from sources!
-# * Install libqt5svg5-dev
-# * Use CMAKE_PREFIX_PATH to locate qwt (if using the default installation path)
-
 ## Building mvme
 ### Dependencies
 * gcc/clang with c++14 support
