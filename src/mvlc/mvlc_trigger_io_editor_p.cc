@@ -1280,7 +1280,7 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
     {
         // strobe inputs
         for (unsigned i=0; i<Level2::LUTCount; ++i)
-        add_h_busbar(m_level2Items.luts[i]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4/6, L2"));
+            add_h_busbar(m_level2Items.luts[i]->getStrobeConnector(), QSL("L0.Util, L1.LUT3/4/6, L2"));
 
         // l2.lut0
         for (int i=0; i<3; i++)
@@ -1807,16 +1807,20 @@ void TriggerIOGraphicsScene::setTriggerIOConfig(const TriggerIO &ioCfg)
 
         auto dstCon = getInputConnector(addr);
         assert(dstCon);
+
         dstCon->setEnabled(enable);
         dstCon->setBrush(dstCon->isEnabled() ? Connector_Brush : Connector_Brush_Disabled);
 
+        auto conAddr = get_connection_unit_address(m_ioCfg, addr);
+        auto srcCon = getOutputConnector(conAddr);
+
         auto edge = getEdgeByDestConnector(dstCon);
+
+        if (!edge)
+            edge = addEdge(srcCon, dstCon);
+
         assert(edge);
         edge->setVisible(dstCon->isEnabled());
-
-        auto conAddr = get_connection_unit_address(m_ioCfg, addr);
-
-        auto srcCon = getOutputConnector(conAddr);
 
         // In case the connection value changed we have to update our source ->
         // dest mapping and then assign the new source to the edge.
