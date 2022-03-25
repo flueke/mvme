@@ -201,9 +201,11 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
         QIcon(QSL(":/help.png")), QSL("VME Script Help"),
         this, mesytec::mvme::make_help_keyword_handler("VMEScript"));
 
+#if 0
     action = m_d->m_toolBar->addAction(
         QIcon(":/script-run.png"), QSL("(Dev) Run Writes Batched"),
         this,  &VMEScriptEditor::runScriptWritesBatched_);
+#endif
 
     action->setStatusTip(QSL("Run the VME script"));
     action->setShortcut(QSL("Ctrl+R"));
