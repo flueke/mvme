@@ -2143,7 +2143,6 @@ void VMEConfigTreeWidget::editScript()
     }
 }
 
-#ifndef NDEBUG
 void VMEConfigTreeWidget::editScriptInEditor()
 {
     auto node = m_tree->currentItem();
@@ -2153,7 +2152,6 @@ void VMEConfigTreeWidget::editScriptInEditor()
     if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj))
         emit editVMEScript(scriptConfig);
 }
-#endif
 
 void VMEConfigTreeWidget::editName()
 {

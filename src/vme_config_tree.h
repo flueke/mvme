@@ -76,9 +76,7 @@ class LIBMVME_EXPORT VMEConfigTreeWidget: public QWidget
         void onGlobalChildAdded(ConfigObject *globalChild, int parentIndex);
         void onGlobalChildAboutToBeRemoved(ConfigObject *globalChild);
         void editScript();
-#ifndef NDEBUG
         void editScriptInEditor();
-#endif
 
     private:
         friend class VMEConfigTree;
