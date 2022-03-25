@@ -811,7 +811,7 @@ MultiHitExtractor::MultiHitExtractor(QObject *parent)
 
 QString MultiHitExtractor::getDisplayName() const
 {
-    return "MultiHitExtractor";
+    return "MultiHit Extractor";
 }
 
 QString MultiHitExtractor::getShortName() const
