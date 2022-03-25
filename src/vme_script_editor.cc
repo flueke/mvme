@@ -165,14 +165,17 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
 
     QAction *action = {};
 
+    // Run script
     action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript_);
     action->setStatusTip(QSL("Run the VME script"));
     action->setShortcut(QSL("Ctrl+R"));
 
+    // Apply changes
     action = m_d->m_toolBar->addAction(QIcon(":/dialog-ok-apply.png"), QSL("Apply"), this, &VMEScriptEditor::apply);
     action->setStatusTip(QSL("Apply any changes to the active VME configuration"));
     action->setShortcut(QSL("Ctrl+S"));
 
+    // Close window
     action = m_d->m_toolBar->addAction(QIcon(":/dialog-close.png"), QSL("Close"), this, &VMEScriptEditor::close);
     action->setStatusTip(QSL("Close this window"));
 
@@ -196,9 +199,14 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     action->setStatusTip(QSL("Reload the VME Script from the current VME configuration"));
 
     m_d->m_toolBar->addSeparator();
+    // Loop script
+    action = m_d->m_toolBar->addAction(QIcon(":/arrow-circle-double.png"), QSL("Loop"), this, &VMEScriptEditor::loopScript_);
+    action->setCheckable(true);
 
+    m_d->m_toolBar->addSeparator();
+    // Help button
     m_d->m_toolBar->addAction(
-        QIcon(QSL(":/help.png")), QSL("VME Script Help"),
+        QIcon(QSL(":/help.png")), QSL("Help"),
         this, mesytec::mvme::make_help_keyword_handler("VMEScript"));
 
 #if 0
@@ -207,13 +215,11 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
         this,  &VMEScriptEditor::runScriptWritesBatched_);
 #endif
 
-    action->setStatusTip(QSL("Run the VME script"));
-    action->setShortcut(QSL("Ctrl+R"));
-
     m_d->m_toolBar->addSeparator();
 
     // Search input field and button
     m_d->m_toolBar->addWidget(m_d->searchWindow);
+
 
     // Statusbar and info widgets
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelPosition);
@@ -241,6 +247,8 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
 
 VMEScriptEditor::~VMEScriptEditor()
 {
+    // disable script looping on close
+    emit loopScript({}, false);
     delete m_d;
 }
 
@@ -297,6 +305,7 @@ void VMEScriptEditor::onEditorTextChanged()
     updateWindowTitle();
 }
 
+// TODO: factor out common code between runScript()_ and loopScript()_
 void VMEScriptEditor::runScript_()
 {
     try
@@ -317,6 +326,34 @@ void VMEScriptEditor::runScript_()
 
         emit logMessage(QString("Running script \"%1\":").arg(m_d->m_script->getVerboseTitle()));
         emit runScript(script);
+    }
+    catch (const vme_script::ParseError &e)
+    {
+        emit logMessage(QSL("Parse error: ") + e.toString());
+    }
+}
+
+void VMEScriptEditor::loopScript_(bool enableLooping)
+{
+    try
+    {
+        // We want to execute the text that's currently in the editor window
+        // using the variables visible to the underlying (unmodified)
+        // VMEScriptConfig object. So first collect the symbol tables, then get
+        // the script text and finally parse the text, passing in the list of
+        // symbol tables.
+
+        auto symtabs = mesytec::mvme::collect_symbol_tables(m_d->m_script);
+
+        auto moduleConfig = qobject_cast<ModuleConfig *>(m_d->m_script->parent());
+        u32 baseAddress = moduleConfig ? moduleConfig->getBaseAddress() : 0u;
+        auto scriptText = m_d->m_editor->toPlainText();
+
+        auto script = vme_script::parse(scriptText, symtabs, baseAddress);
+
+        if (enableLooping)
+            emit logMessage(QString("Looping script \"%1\"").arg(m_d->m_script->getVerboseTitle()));
+        emit loopScript(script, enableLooping);
     }
     catch (const vme_script::ParseError &e)
     {

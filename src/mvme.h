@@ -116,6 +116,9 @@ public slots:
 
     void closeAllHistogramWidgets();
 
+    void runVMEScript(const vme_script::VMEScript &script);
+    void loopVMEScript(const vme_script::VMEScript &script, bool enableLooping);
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
@@ -166,6 +169,8 @@ private slots:
 
     void handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
     void showRunNotes();
+
+    void loopVMEScript_runOnce();
 
 private:
     MVMEWindowPrivate *m_d;

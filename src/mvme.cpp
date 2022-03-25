@@ -68,6 +68,7 @@
 #include "build_info.h"
 
 #include <QApplication>
+#include <QtConcurrent>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QFont>
@@ -140,6 +141,9 @@ struct MVMEWindowPrivate
             ;
 
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
+
+    vme_script::VMEScript loopScript;
+    QFutureWatcher<vme_script::ResultList> loopScriptWatcher;
 };
 
 MVMEMainWindow::MVMEMainWindow(const MVMEOptions &options)
@@ -568,6 +572,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
             DAQControlWidgetUpdateInterval_ms);
         m_d->m_daqControlWidgetUpdateTimer->start();
     }
+
+    connect(&m_d->loopScriptWatcher, &QFutureWatcher<vme_script::ResultList>::finished,
+            this, &MVMEMainWindow::loopVMEScript_runOnce);
 
     updateWindowTitle();
 
@@ -1798,6 +1805,10 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
 
         connect(widget, &VMEScriptEditor::logMessage, m_d->m_context, &MVMEContext::logMessage);
 
+        connect(widget, &VMEScriptEditor::runScript, this, &MVMEMainWindow::runVMEScript);
+        connect(widget, &VMEScriptEditor::loopScript, this, &MVMEMainWindow::loopVMEScript);
+
+#if 0
         connect(widget, &VMEScriptEditor::runScript,
                 this, [this] (const vme_script::VMEScript &script)
         {
@@ -1823,6 +1834,7 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
                     error_logger(msg);
             }
         });
+#endif
 
         // FIXME: extreme level of hackery in here. This has to go after Robert has done his tests.
         connect(widget, &VMEScriptEditor::runScriptWritesBatched,
@@ -2216,4 +2228,106 @@ void MVMEMainWindow::showRunNotes()
     }
 
     show_and_activate(m_d->runNotesWidget);
+}
+
+void MVMEMainWindow::runVMEScript(const vme_script::VMEScript &script)
+{
+    auto logger = [this](const QString &str)
+    {
+        m_d->m_context->logMessage("  " + str);
+    };
+
+    auto error_logger = [this](const QString &str)
+    {
+        m_d->m_context->logError("  " + str);
+    };
+
+    auto results = m_d->m_context->runScript(script, logger);
+
+    for (auto result: results)
+    {
+        auto msg = format_result(result);
+
+        if (!result.error.isError())
+            logger(msg);
+        else
+            error_logger(msg);
+    }
+}
+
+void MVMEMainWindow::loopVMEScript(const vme_script::VMEScript &script, bool enableLooping)
+{
+    //qDebug() << __PRETTY_FUNCTION__ << "enableLooping = " << enableLooping;
+
+    if (enableLooping)
+    {
+        m_d->loopScriptWatcher.waitForFinished();
+        m_d->loopScript = script;
+        QTimer::singleShot(0, this, &MVMEMainWindow::loopVMEScript_runOnce);
+    }
+    else
+        m_d->loopScript = {};
+}
+
+void MVMEMainWindow::loopVMEScript_runOnce()
+{
+    auto error_logger = [this](const QString &str)
+    {
+        m_d->m_context->logError("  " + str);
+    };
+
+    m_d->loopScriptWatcher.waitForFinished();
+
+    if (!m_d->loopScriptWatcher.isCanceled())
+    {
+        auto results = m_d->loopScriptWatcher.result();
+
+        for (auto result: results)
+        {
+            if (result.error.isError())
+            {
+                auto msg = format_result(result);
+                error_logger(msg);
+                //qDebug() << __PRETTY_FUNCTION__ << "disabling looping due to errors from the last execution";
+                m_d->loopScript = {};
+            }
+        }
+
+        m_d->loopScriptWatcher.setFuture({});
+    }
+
+    if (m_d->loopScript.isEmpty())
+    {
+        //qDebug() << __PRETTY_FUNCTION__ << "looping disabled (script is empty)";
+        return;
+    }
+
+    //qDebug() << __PRETTY_FUNCTION__ << "running script via QtConcurrent::run";
+
+    auto vmeController = m_d->m_context->getVMEController();
+    auto loopScript = m_d->loopScript;
+
+    auto f = QtConcurrent::run(
+        [vmeController, loopScript] () -> vme_script::ResultList {
+            return vme_script::run_script(vmeController, loopScript);
+    });
+
+    m_d->loopScriptWatcher.setFuture(f);
+
+#if 0
+    auto results = m_d->m_context->runScript(m_d->loopScript);
+
+    for (auto result: results)
+    {
+        if (result.error.isError())
+        {
+            auto msg = format_result(result);
+            error_logger(msg);
+            m_d->loopScript = {};
+        }
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "enqueueing next iteration";
+    QTimer::singleShot(0, this, &MVMEMainWindow::loopVMEScript_runOnce);
+#endif
 }
