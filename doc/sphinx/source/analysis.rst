@@ -564,7 +564,7 @@ Properties
 
   - Array per Hit
 
-    Hit0 for all addresses is stored in the first array, hit2 in the second, etc.
+    Hit0 for all addresses is stored in the first array, hit1 in the second, etc.
     A total of ``maxHits`` arrays is created each of length :math:`2^{addrBits}`.
 
   - Array per Address
@@ -625,12 +625,7 @@ selected shape type: ::
            '------len=2^addrBits-------'
 
 
-.. .. _analysis-listfilter-extractor:
-.. 
-.. List
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
+.. TODO: document the listfilter extractor
 
 .. _analysis-operators:
 
