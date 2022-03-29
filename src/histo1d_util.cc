@@ -95,6 +95,24 @@ QTextStream &print_histolist_stats(
     double sumWeightedMean = 0.0;
     double sumEntryCounts = 0.0;
 
+    auto make_min_max = [] ()
+    {
+        return std::make_pair<double, double>(std::numeric_limits<double>::max(), 0);
+    };
+
+    auto update_min_max = [] (auto &minmax, double value)
+    {
+        minmax.first = std::min(minmax.first, value);
+        minmax.second = std::max(minmax.second, value);
+    };
+
+    auto minmaxEntries = make_min_max();
+    auto minmaxMean = make_min_max();
+    auto minmaxRMS = make_min_max();
+    auto minmaxGauss = make_min_max();
+    auto minmaxFWHM = make_min_max();
+
+
     for (const auto &is: stats | indexed(0))
     {
         const auto &index = is.index();
@@ -135,12 +153,36 @@ QTextStream &print_histolist_stats(
             out << stats.fwhmCenter << stats.fwhm;
 
         out << qSetFieldWidth(0) << endl;
+
+        update_min_max(minmaxEntries, stats.entryCount);
+        update_min_max(minmaxMean, stats.mean);
+        update_min_max(minmaxRMS, stats.sigma);
+        update_min_max(minmaxGauss, stats.fwhmCenter);
+        update_min_max(minmaxFWHM, stats.fwhm);
     }
+
+    out << endl;
+
+    // minimum column values
+    out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+        << "min" << minmaxEntries.first << minmaxMean.first <<  minmaxRMS.first;
+
+    if (opts.printGaussStats)
+        out << minmaxGauss.first << minmaxFWHM.first;
 
     out << qSetFieldWidth(0) << endl;
 
-    out << "min: " << minValue.first << " in histo " << minValue.second << endl;
-    out << "max: " << maxValue.first << " in histo " << maxValue.second << endl;
+    // maximum column values
+    out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+        << "max" << minmaxEntries.second << minmaxMean.second <<  minmaxRMS.second;
+
+    if (opts.printGaussStats)
+        out << minmaxGauss.second << minmaxFWHM.second;
+
+    out << qSetFieldWidth(0) << endl;
+
+    //out << "min: " << minValue.first << " in histo " << minValue.second << endl;
+    //out << "max: " << maxValue.first << " in histo " << maxValue.second << endl;
 
     out << endl;
 
