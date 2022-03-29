@@ -2,9 +2,14 @@
 TODO list
 ==================================================
 
-* Document ListFilterExtractor and MultiHitExtractor
+* Load module templates from JSON, then converte existing module templates to
+  JSON format. Also add the updated TRIVA template (it's in an email from R.)
 
-* Update the EventServer and Clients to handle multi-output data sources.
+* Packet loss and error counters for the MVLC command side.
+
+* Document ListFilterExtractor
+
+* Update the EventServer and Clients to handle multi-output data sources (MultiHit Extractor).
 
 * VME Script execution in the timeout/error case can hang for a long while.
   Instead the execution should be aborted earlier, upong encountering the first
@@ -13,7 +18,7 @@ TODO list
 * DAQ init sequence: on error try to link back or highlight the VME script that
   caused the error.
 
-* Configurable colors for the Trigger/IO connection arrows.
+* Configurable colors for the Trigger/IO connection arrows (Nik).
 
 * FIXME: crateIndex handling is unclear. Should it be specified in
   make_readout_parser()? This works for the current readout code as it's
@@ -25,10 +30,6 @@ TODO list
   the main crate. Also the same code ignores the crateIndex completely! Weird
   state right now!
 
-
-* analysis auto assignment does not assign event ids for operators connected to
-  modules which have a null eventId in the analysis config. Can test this with
-  mdpp16_random_pulser_data.vme and 1_mdpp.analysis
 
 * when stopping a run do wait for the analysis to finish. right now the code
   only waits for the readout/replay side to finish.
@@ -48,15 +49,19 @@ TODO list
  [2021-10-19 15:04:38.684] [readout_parser] [warning] end parsing ETH buffer 1, size=1048320 bytes, exception=vector::_M_range_check: __n (which is 0) >= this->size() (which is 0)
  [2021-10-19 15:04:38.689] [readout_parser] [warning] exception from parse_eth_packet(): vector::_M_range_check: __n (which is 0) >= this->size() (which is 0), skipping packet
 
-event0
-  mdpp32_qdc \
-  mdpp16_qdc  |-> User defined data sources attached to the real modules.
-  vmmr       /
-  EventBuilder
-    event_score[1]
-    module_scores[N]
-    module_discards[N]
-    module_empties[N]
+ => No idea where the occured. Horrible to debug. std::function does not make it easier.
+
+
+* EventBuilder integration into analysis?
+  event0
+    mdpp32_qdc \
+    mdpp16_qdc  |-> User defined data sources attached to the real modules.
+    vmmr       /
+    EventBuilder
+      event_score[1]
+      module_scores[N]
+      module_discards[N]
+      module_empties[N]
 
 Wanpeng
 -------
