@@ -1185,7 +1185,7 @@ void a2_adapter_build_datasources(
                     ex->getOptions());
             }
 
-            u8 &ds_cnt = state->a2->dataSourceCounts[ei];
+            a2::A2::OperatorCountType &ds_cnt = state->a2->dataSourceCounts[ei];
             state->a2->dataSources[ei][ds_cnt] = ds;
             state->sourceMap.insert(src.source.get(), state->a2->dataSources[ei] + ds_cnt);
             ds_cnt++;
@@ -1359,7 +1359,7 @@ void a2_adapter_build_single_operator(
             }
 
             opInfo.a2OperatorType = a2_op.type;
-            u8 &opCount = state->a2->operatorCounts[eventIndex];
+            a2::A2::OperatorCountType &opCount = state->a2->operatorCounts[eventIndex];
 
             // Copy the operator struct into the A2 instance
             state->a2->operators[eventIndex][opCount] = a2_op;
@@ -1408,10 +1408,11 @@ void a2_adapter_build_operators(
 {
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        Q_ASSERT(operators[ei].size() <= std::numeric_limits<u8>::max());
+        qDebug() << "got" << operators[ei].size() << "operators for event" << ei;
+        Q_ASSERT(operators[ei].size() <= std::numeric_limits<a2::A2::OperatorCountType>::max());
 
         state->a2->operators[ei] = arena->pushArray<a2::Operator>(operators[ei].size());
-        state->a2->operatorRanks[ei] = arena->pushArray<u8>(operators[ei].size());
+        state->a2->operatorRanks[ei] = arena->pushArray<a2::A2::OperatorCountType>(operators[ei].size());
 
         for (auto &opInfo: operators[ei])
         {

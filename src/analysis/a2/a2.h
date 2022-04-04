@@ -827,12 +827,14 @@ using TheHistoFillStrategy = HistoFillDirect;
 
 struct A2
 {
-    std::array<u8, MaxVMEEvents> dataSourceCounts;
+    using OperatorCountType = u16;
+
+    std::array<OperatorCountType, MaxVMEEvents> dataSourceCounts;
     std::array<DataSource *, MaxVMEEvents> dataSources;
 
-    std::array<u8, MaxVMEEvents> operatorCounts;
+    std::array<OperatorCountType, MaxVMEEvents> operatorCounts;
     std::array<Operator *, MaxVMEEvents> operators;
-    std::array<u8 *, MaxVMEEvents> operatorRanks;
+    std::array<OperatorCountType *, MaxVMEEvents> operatorRanks;
 
     using BlockType = unsigned long;
     using BitsetAllocator = memory::ArenaAllocator<BlockType>;

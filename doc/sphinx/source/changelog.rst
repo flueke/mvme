@@ -14,6 +14,8 @@ Version 1.4.9-rc
   - Add 'Generate Histograms' context menu action to data sources and operators to quickly
     generate histograms for selected objects.
 
+  - Raise maximum number of data sources and operators per VME event context from 256 to 65536.
+
 * New feature: listfile splitting (MVLC only!)
 
   When recording readout data the output listfile can now be split either based

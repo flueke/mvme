@@ -4298,7 +4298,7 @@ A2 *make_a2(
     for (size_t ei = 0; ei < operatorCounts.size(); ++ei)
     {
         result->operators[ei] = arena->pushArray<Operator>(operatorCounts.begin()[ei]);
-        result->operatorRanks[ei] = arena->pushArray<u8>(operatorCounts.begin()[ei]);
+        result->operatorRanks[ei] = arena->pushArray<A2::OperatorCountType>(operatorCounts.begin()[ei]);
     }
 
     return result;
