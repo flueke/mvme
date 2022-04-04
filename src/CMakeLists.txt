@@ -333,6 +333,7 @@ add_library(libmvme SHARED
     treewidget_utils.cc
     util/qt_logview.cc
     util/qt_monospace_textedit.cc
+    util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp
     util/strings.cc
     util/variablify.cc

@@ -20,11 +20,15 @@
  */
 #include "util/qt_logview.h"
 #include "util/qt_monospace_textedit.h"
+#include "util/qt_plaintextedit.h"
 #include <QMenu>
+#include <QDebug>
 
 std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
 {
-    auto result = mesytec::mvme::util::make_monospace_plain_textedit();
+    using namespace mesytec::mvme::util;
+
+    auto result = mesytec::mvme::util::plain_textedit_detail::impl<PlainTextEdit>(0.0);
 
     result->setAttribute(Qt::WA_DeleteOnClose);
     result->setReadOnly(true);
@@ -33,6 +37,7 @@ std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
     result->document()->setMaximumBlockCount(maxBlockCount);
     result->setContextMenuPolicy(Qt::CustomContextMenu);
     result->setStyleSheet("background-color: rgb(225, 225, 225);");
+    result->setTextInteractionFlags(result->textInteractionFlags() | Qt::LinksAccessibleByMouse);
 
     auto raw = result.get();
 
@@ -46,6 +51,13 @@ std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
         menu->exec(raw->mapToGlobal(pos));
         menu->deleteLater();
     });
+
+    QObject::connect(
+        raw, &PlainTextEdit::linkActivated,
+        raw, [] (const QString &link)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "link activated: " << link;
+        });
 
     return result;
 }
