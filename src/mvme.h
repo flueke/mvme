@@ -165,6 +165,8 @@ private slots:
 
     void runScriptConfigs(const std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> &scripts,
                           const mesytec::mvme::ScriptConfigRunner::Options options = {});
+                          //std::function<void (const QString &msg)> logger = {},
+                          //std::function<void (const QString &msg)> error_logger = {});
 
     void handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
     void showRunNotes();
