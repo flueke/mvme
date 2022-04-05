@@ -105,10 +105,24 @@ class LIBMVME_EXPORT ScriptConfigRunner: public QObject
         ~ScriptConfigRunner() override;
 
         void setVMEController(VMEController *ctrl);
-        void setScriptConfig(VMEScriptConfig *scriptConf);
-        void addScriptConfig(VMEScriptConfig *scriptConf);
-        void setScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);
-        void addScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs);
+
+        void setScriptConfig(const VMEScriptConfig *scriptConf);
+        void addScriptConfig(const VMEScriptConfig *scriptConf);
+
+        void setScriptConfigs(const QVector<const VMEScriptConfig *> &scriptConfigs);
+        void addScriptConfigs(const QVector<const VMEScriptConfig *> &scriptConfigs);
+
+        // Allows setting preparsed entries. Useful for example when
+        // editing a script and the edited script text should be executed
+        // instead of the text stored in the config. If 'parsed' is empty this
+        // method is equal to setScriptConfig().
+        void setPreparsedScriptConfig(const VMEScriptConfig *scriptConf, const vme_script::VMEScript &parsed);
+
+        // Allows adding preparsed entries. Useful for example when
+        // editing a script and the edited script text should be executed
+        // instead of the text stored in the config. If 'parsed' is empty this
+        // method is equal to addScriptConfig().
+        void addPreparsedScriptConfig(const VMEScriptConfig *scriptConf, const vme_script::VMEScript &parsed);
 
         void setOptions(const Options &opts);
         Options getOptions() const;

@@ -126,8 +126,12 @@ struct ScriptConfigRunner::Private
 {
     ScriptConfigRunner *q = nullptr;
     VMEController *ctrl = nullptr;
-    QVector<VMEScriptConfig *> scriptConfigs;
-    //vme_script::ResultList results;
+
+    // List of input VMEScriptConfigs to run. If the vme_script::VMEScript
+    // member is set then a preparsed entry was added and the VMEScriptConfig
+    // will not be parsed again.
+    std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> scriptConfigs;
+
     ScriptConfigRunner::Options options = {};
 
     vme_script::ResultList run_impl();
@@ -148,24 +152,36 @@ void ScriptConfigRunner::setVMEController(VMEController *ctrl)
     d->ctrl = ctrl;
 }
 
-void ScriptConfigRunner::setScriptConfig(VMEScriptConfig *scriptConf)
+void ScriptConfigRunner::setScriptConfig(const VMEScriptConfig *scriptConf)
 {
-    d->scriptConfigs = { scriptConf };
+    d->scriptConfigs = { { scriptConf, {} } };
 }
 
-void ScriptConfigRunner::addScriptConfig(VMEScriptConfig *scriptConf)
+void ScriptConfigRunner::addScriptConfig(const VMEScriptConfig *scriptConf)
 {
-    d->scriptConfigs.push_back(scriptConf);
+    d->scriptConfigs.push_back({ scriptConf, {} });
 }
 
-void ScriptConfigRunner::setScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
+void ScriptConfigRunner::setScriptConfigs(const QVector<const VMEScriptConfig *> &scriptConfigs)
 {
-    d->scriptConfigs = scriptConfigs;
+    d->scriptConfigs.clear();
+    addScriptConfigs(scriptConfigs);
 }
 
-void ScriptConfigRunner::addScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
+void ScriptConfigRunner::addScriptConfigs(const QVector<const VMEScriptConfig *> &scriptConfigs)
 {
-    d->scriptConfigs.append(scriptConfigs);
+    for (auto sc: scriptConfigs)
+        addScriptConfig(sc);
+}
+
+void ScriptConfigRunner::setPreparsedScriptConfig(const VMEScriptConfig *scriptConf, const vme_script::VMEScript &parsed)
+{
+    d->scriptConfigs = { { scriptConf, parsed } };
+}
+
+void ScriptConfigRunner::addPreparsedScriptConfig(const VMEScriptConfig *scriptConf, const vme_script::VMEScript &parsed)
+{
+    d->scriptConfigs.push_back({ scriptConf, parsed });
 }
 
 void ScriptConfigRunner::setOptions(const ScriptConfigRunner::Options &opts)
@@ -177,11 +193,6 @@ ScriptConfigRunner::Options ScriptConfigRunner::getOptions() const
 {
     return d->options;
 }
-
-//vme_script::ResultList ScriptConfigRunner::results() const
-//{
-//    return d->results;
-//}
 
 vme_script::ResultList ScriptConfigRunner::run()
 {
@@ -204,24 +215,37 @@ vme_script::ResultList ScriptConfigRunner::Private::run_impl()
         return {};
     }
 
-    // Parse all the script configs
+    // Parse the script configs
 
     std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> parsed;
     int cmdCount = 0;
 
-    for (const auto scriptConf: scriptConfigs)
+    for (const auto &pair: scriptConfigs)
     {
-        try
+        auto scriptConf = pair.first;
+        auto script = pair.second;
+
+        // Preparsed entry - just copy it over
+        if (!script.empty())
         {
-            auto script = parse(scriptConf);
             cmdCount += script.size();
-            parsed.emplace_back(std::make_pair(scriptConf, script));
+            parsed.push_back(pair);
         }
-        catch (const vme_script::ParseError &e)
+        else
         {
-            log_msg(QSL("Parsing script \"%1\"").arg(scriptConf->getVerboseTitle()));
-            log_err(QSL("  Parse error: ") + e.toString());
-            return {};
+            // Parse the script
+            try
+            {
+                auto script = parse(scriptConf);
+                cmdCount += script.size();
+                parsed.emplace_back(std::make_pair(scriptConf, script));
+            }
+            catch (const vme_script::ParseError &e)
+            {
+                log_msg(QSL("Parsing script \"%1\"").arg(scriptConf->getVerboseTitle()));
+                log_err(QSL("  Parse error: ") + e.toString());
+                return {};
+            }
         }
     }
 
