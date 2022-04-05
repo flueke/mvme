@@ -1768,7 +1768,10 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
                     auto ctrl = getContext()->getVMEController();
 
                     if (ctrl && ctrl->isOpen())
-                        this->runScriptConfig(scriptConfig, RunScriptOptions::AggregateResults);
+                    {
+                        this->runScriptConfig(
+                            scriptConfig, { .ContinueOnVMEError = false, .AggregateResults = true });
+                    }
                 });
 
         auto vmeConfig = m_d->m_context->getVMEConfig();
@@ -2089,14 +2092,16 @@ void MVMEMainWindow::runWorkspaceSettingsDialog()
     }
 }
 
-void MVMEMainWindow::runScriptConfig(VMEScriptConfig *scriptConfig, u16 options)
+void MVMEMainWindow::runScriptConfig(
+    VMEScriptConfig *scriptConfig,
+    const mesytec::mvme::ScriptConfigRunner::Options options)
 {
     doRunScriptConfigs({ scriptConfig }, options);
 }
 
 void MVMEMainWindow::doRunScriptConfigs(
     const QVector<VMEScriptConfig *> &scriptConfigs,
-    u16 options)
+    const mesytec::mvme::ScriptConfigRunner::Options options)
 {
     auto vmeCtrl = m_d->m_context->getVMEController();
 
@@ -2120,16 +2125,10 @@ void MVMEMainWindow::doRunScriptConfigs(
 
     connect(&fw, &Watcher::finished, &pd, &QProgressDialog::accept);
 
-    ScriptConfigRunner::Options runnerOpts = {};
-
-    // TODO: unify the options. keep only the ScriptConfigRunner version.
-    if (options & RunScriptOptions::AggregateResults)
-        runnerOpts.AggregateResults = true;
-
     ScriptConfigRunner runner;
     runner.setVMEController(vmeCtrl);
     runner.setScriptConfigs(scriptConfigs);
-    runner.setOptions(runnerOpts);
+    runner.setOptions(options);
 
     connect(&runner, &ScriptConfigRunner::progressChanged,
             &pd, [&pd] (int cur, int max) {
