@@ -475,9 +475,7 @@ void EventVariableEditor::Private::runAffectedScripts()
         auto flatSymbolTables = mesytec::mvme::convert_to_symboltables(symtabsWithObject);
 
         // Determine the module base address
-        u32 moduleBaseAddress = 0u;
-        if (auto moduleConfig = qobject_cast<ModuleConfig *>(c.initScript->parent()))
-            moduleBaseAddress = moduleConfig->getBaseAddress();
+        u32 moduleBaseAddress = mesytec::mvme::get_base_address(c.initScript);
 
         try
         {
@@ -493,7 +491,7 @@ void EventVariableEditor::Private::runAffectedScripts()
             if (results.size() > 0 && results[0].error.error() == VMEError::NotOpen)
                 seenScriptError = true;
 
-            if (results.size() > 1 && results[0].error.error() != VMEError::NotOpen)
+            if (results.size() >= 1 && results[0].error.error() != VMEError::NotOpen)
             {
                 for (auto result: results)
                 {
