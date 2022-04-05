@@ -2018,12 +2018,17 @@ MVMEContext::runScript(
 
         connect(&fw, &Watcher::finished, &pd, &QProgressDialog::accept);
 
-
         auto f = QtConcurrent::run(
             [=] () -> vme_script::ResultList {
+
+                u8 options = vme_script::run_script_options::AbortOnError;
+
+                if (logEachResult)
+                    options |= vme_script::run_script_options::LogEachResult;
+
                 auto result = vme_script::run_script(
-                    m_controller, script, logger,
-                    logEachResult ? vme_script::run_script_options::LogEachResult : 0u);
+                    m_controller, script, logger, options);
+
                 return result;
             });
 
