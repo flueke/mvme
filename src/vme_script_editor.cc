@@ -198,10 +198,12 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     action = m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
     action->setStatusTip(QSL("Reload the VME Script from the current VME configuration"));
 
+#if 0
     m_d->m_toolBar->addSeparator();
     // Loop script
     action = m_d->m_toolBar->addAction(QIcon(":/arrow-circle-double.png"), QSL("Loop"), this, &VMEScriptEditor::loopScript_);
     action->setCheckable(true);
+#endif
 
     m_d->m_toolBar->addSeparator();
     // Help button
@@ -248,7 +250,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
 VMEScriptEditor::~VMEScriptEditor()
 {
     // disable script looping on close
-    emit loopScript({}, false);
+    //emit loopScript({}, false);
     delete m_d;
 }
 
@@ -324,7 +326,6 @@ void VMEScriptEditor::runScript_()
 
         auto script = vme_script::parse(scriptText, symtabs, baseAddress);
 
-        emit logMessage(QString("Running script \"%1\":").arg(m_d->m_script->getVerboseTitle()));
         emit runScript(script);
     }
     catch (const vme_script::ParseError &e)
@@ -333,6 +334,7 @@ void VMEScriptEditor::runScript_()
     }
 }
 
+#if 0
 void VMEScriptEditor::loopScript_(bool enableLooping)
 {
     try
@@ -387,6 +389,7 @@ void VMEScriptEditor::runScriptWritesBatched_()
         emit logMessage(QSL("Parse error: ") + e.toString());
     }
 }
+#endif
 
 void VMEScriptEditor::loadFromFile()
 {
@@ -606,4 +609,9 @@ CodeEditor *VMEScriptEditor::textEdit()
 QString VMEScriptEditor::toPlainText() const
 {
     return m_d->m_editor->toPlainText();
+}
+
+VMEScriptConfig *VMEScriptEditor::getScriptConfig() const
+{
+    return m_d->m_script;
 }
