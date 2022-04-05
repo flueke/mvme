@@ -110,8 +110,7 @@ public slots:
 
     void closeAllHistogramWidgets();
 
-    void runVMEScript(const vme_script::VMEScript &script);
-    void loopVMEScript(const vme_script::VMEScript &script, bool enableLooping);
+    //void loopVMEScript(const vme_script::VMEScript &script, bool enableLooping);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -158,13 +157,19 @@ private slots:
 
     void onVMEModuleMoved(ModuleConfig *mod, EventConfig *sourceEvent, EventConfig *destEvent);
 
-    void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
-                            const mesytec::mvme::ScriptConfigRunner::Options options = {});
+    void runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
+                          const mesytec::mvme::ScriptConfigRunner::Options options = {});
+
+    void runScriptConfigs(const std::vector<VMEScriptConfig *> &scriptConfigs,
+                          const mesytec::mvme::ScriptConfigRunner::Options options = {});
+
+    void runScriptConfigs(const std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> &scripts,
+                          const mesytec::mvme::ScriptConfigRunner::Options options = {});
 
     void handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
     void showRunNotes();
 
-    void loopVMEScript_runOnce();
+    //void loopVMEScript_runOnce();
 
 private:
     MVMEWindowPrivate *m_d;

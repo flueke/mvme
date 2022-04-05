@@ -474,7 +474,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         connect(cw, &VMEConfigTreeWidget::runScriptConfigs,
                 this, [this] (const QVector<VMEScriptConfig *> &scriptConfigs)
                 {
-                    this->doRunScriptConfigs(scriptConfigs);
+                    this->runScriptConfigs(scriptConfigs);
                 });
 
         connect(cw, &VMEConfigTreeWidget::editEventVariables,
@@ -574,8 +574,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         m_d->m_daqControlWidgetUpdateTimer->start();
     }
 
+#if 0
     connect(&m_d->loopScriptWatcher, &QFutureWatcher<vme_script::ResultList>::finished,
             this, &MVMEMainWindow::loopVMEScript_runOnce);
+#endif
 
     updateWindowTitle();
 
@@ -1814,37 +1816,20 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
 
         connect(widget, &VMEScriptEditor::logMessage, m_d->m_context, &MVMEContext::logMessage);
 
-        connect(widget, &VMEScriptEditor::runScript, this, &MVMEMainWindow::runVMEScript);
-        connect(widget, &VMEScriptEditor::loopScript, this, &MVMEMainWindow::loopVMEScript);
+        connect(widget, &VMEScriptEditor::runScript,
+                this, [this, widget] (const vme_script::VMEScript &script)
+        {
+            auto scriptConf = widget->getScriptConfig();
+            runScriptConfigs({ { scriptConf, script }});
+        });
+
+        connect(widget, &VMEScriptEditor::addApplicationWidget,
+                [this] (QWidget *widget)
+        {
+            this->addWidget(widget, widget->objectName());
+        });
 
 #if 0
-        connect(widget, &VMEScriptEditor::runScript,
-                this, [this] (const vme_script::VMEScript &script)
-        {
-            auto logger = [this](const QString &str)
-            {
-                m_d->m_context->logMessage("  " + str);
-            };
-
-            auto error_logger = [this](const QString &str)
-            {
-                m_d->m_context->logError("  " + str);
-            };
-
-            auto results = m_d->m_context->runScript(script, logger);
-
-            for (auto result: results)
-            {
-                auto msg = format_result(result);
-
-                if (!result.error.isError())
-                    logger(msg);
-                else
-                    error_logger(msg);
-            }
-        });
-#endif
-
         // FIXME: extreme level of hackery in here. This has to go after Robert has done his tests.
         connect(widget, &VMEScriptEditor::runScriptWritesBatched,
                 this, [this] (const vme_script::VMEScript &script)
@@ -1941,12 +1926,7 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
             }
 
         });
-
-        connect(widget, &VMEScriptEditor::addApplicationWidget,
-                [this] (QWidget *widget)
-        {
-            this->addWidget(widget, widget->objectName());
-        });
+#endif
     }
 }
 
@@ -2096,11 +2076,30 @@ void MVMEMainWindow::runScriptConfig(
     VMEScriptConfig *scriptConfig,
     const mesytec::mvme::ScriptConfigRunner::Options options)
 {
-    doRunScriptConfigs({ scriptConfig }, options);
+    runScriptConfigs(std::vector<VMEScriptConfig *>{ scriptConfig }, options);
 }
 
-void MVMEMainWindow::doRunScriptConfigs(
+void MVMEMainWindow::runScriptConfigs(
     const QVector<VMEScriptConfig *> &scriptConfigs,
+    const mesytec::mvme::ScriptConfigRunner::Options options)
+{
+    runScriptConfigs(scriptConfigs.toStdVector(), options);
+}
+
+void MVMEMainWindow::runScriptConfigs(
+    const std::vector<VMEScriptConfig *> &scriptConfigs,
+    const mesytec::mvme::ScriptConfigRunner::Options options)
+{
+    std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> scripts;
+
+    for (auto &scriptConf: scriptConfigs)
+        scripts.push_back({ scriptConf, {} });
+
+    runScriptConfigs(scripts, options);
+}
+
+void MVMEMainWindow::runScriptConfigs(
+    const std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> &scripts,
     const mesytec::mvme::ScriptConfigRunner::Options options)
 {
     auto vmeCtrl = m_d->m_context->getVMEController();
@@ -2117,7 +2116,8 @@ void MVMEMainWindow::doRunScriptConfigs(
     using Watcher = QFutureWatcher<vme_script::ResultList>;
 
     QProgressDialog pd;
-    pd.setLabelText("VME Script execution in progress");
+    pd.setWindowTitle("Running VME Script");
+    pd.setLabelText("Running VME Script");
     pd.setMaximum(0);
     pd.setCancelButton(nullptr);
 
@@ -2127,8 +2127,10 @@ void MVMEMainWindow::doRunScriptConfigs(
 
     ScriptConfigRunner runner;
     runner.setVMEController(vmeCtrl);
-    runner.setScriptConfigs(scriptConfigs);
     runner.setOptions(options);
+
+    for (const auto &pair: scripts)
+        runner.addPreparsedScriptConfig(pair.first, pair.second);
 
     connect(&runner, &ScriptConfigRunner::progressChanged,
             &pd, [&pd] (int cur, int max) {
@@ -2177,8 +2179,8 @@ void MVMEMainWindow::doRunScriptConfigs(
             if (result.error.error() == VMEError::NotOpen ||
                 result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError)
             {
-                m_d->m_context->logMessage("ConnectionError during VME script execution,"
-                                           " closing connection to VME Controller");
+                m_d->m_context->logError("ConnectionError during VME script execution,"
+                                         " closing connection to VME Controller");
                 vmeCtrl->close();
                 break;
             }
@@ -2256,31 +2258,7 @@ void MVMEMainWindow::showRunNotes()
     show_and_activate(m_d->runNotesWidget);
 }
 
-void MVMEMainWindow::runVMEScript(const vme_script::VMEScript &script)
-{
-    auto logger = [this](const QString &str)
-    {
-        m_d->m_context->logMessage("  " + str);
-    };
-
-    auto error_logger = [this](const QString &str)
-    {
-        m_d->m_context->logError("  " + str);
-    };
-
-    auto results = m_d->m_context->runScript(script, logger);
-
-    for (auto result: results)
-    {
-        auto msg = format_result(result);
-
-        if (!result.error.isError())
-            logger(msg);
-        else
-            error_logger(msg);
-    }
-}
-
+#if 0
 void MVMEMainWindow::loopVMEScript(const vme_script::VMEScript &script, bool enableLooping)
 {
     //qDebug() << __PRETTY_FUNCTION__ << "enableLooping = " << enableLooping;
@@ -2357,3 +2335,4 @@ void MVMEMainWindow::loopVMEScript_runOnce()
     QTimer::singleShot(0, this, &MVMEMainWindow::loopVMEScript_runOnce);
 #endif
 }
+#endif
