@@ -77,6 +77,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QScrollBar>
 #include <QTextBrowser>
@@ -2097,70 +2098,91 @@ void MVMEMainWindow::doRunScriptConfigs(
     const QVector<VMEScriptConfig *> &scriptConfigs,
     u16 options)
 {
-    for (auto scriptConfig: scriptConfigs)
+    auto vmeCtrl = m_d->m_context->getVMEController();
+
+    if (!vmeCtrl)
+        return;
+
+    std::unique_ptr<DAQPauser> daqPauser;
+
+    // Non-mvlc controllers need the daq to be paused when running commands.
+    if (!is_mvlc_controller(vmeCtrl->getType()))
+        daqPauser = std::make_unique<DAQPauser>(m_d->m_context);
+
+    using Watcher = QFutureWatcher<vme_script::ResultList>;
+
+    QProgressDialog pd;
+    pd.setLabelText("VME Script execution in progress");
+    pd.setMaximum(0);
+    pd.setCancelButton(nullptr);
+
+    Watcher fw;
+
+    connect(&fw, &Watcher::finished, &pd, &QProgressDialog::accept);
+
+    ScriptConfigRunner::Options runnerOpts = {};
+
+    // TODO: unify the options. keep only the ScriptConfigRunner version.
+    if (options & RunScriptOptions::AggregateResults)
+        runnerOpts.AggregateResults = true;
+
+    ScriptConfigRunner runner;
+    runner.setVMEController(vmeCtrl);
+    runner.setScriptConfigs(scriptConfigs);
+    runner.setOptions(runnerOpts);
+
+    connect(&runner, &ScriptConfigRunner::progressChanged,
+            &pd, [&pd] (int cur, int max) {
+                pd.setRange(0, max);
+                pd.setValue(cur);
+            });
+
+    connect(&runner, &ScriptConfigRunner::logMessage,
+            m_d->m_context, &MVMEContext::logMessage);
+
+    connect(&runner, &ScriptConfigRunner::logError,
+            m_d->m_context, &MVMEContext::logError);
+
+    auto f = QtConcurrent::run([&runner] () { return runner.run(); });
+
+    // Note: this call can lead to immediate signal emission from the
+    // watcher.
+    fw.setFuture(f);
+
+    // No qt signal processing can be done between f.isFinished() and
+    // pd.exec() so this should be fine. Either the future is finished and
+    // we never enter the dialog event loop or we do enter the loop and
+    // will get a finished signal from the Watcher.
+    if (!f.isFinished())
+        pd.exec();
+
+    auto results = f.result();
+
+    // Check for errors indicating connection loss and call close() on the VME
+    // controller to update its status.
+    //static const unsigned TimeoutConnectionLossThreshold = 3;
+    //unsigned timeouts = 0;
+
+    for (const auto &result: results)
     {
-        auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
+#if 0
+        qDebug() << __PRETTY_FUNCTION__ << result.error.isError()
+            << result.error.error()
+            << result.error.getStdErrorCode().value()
+            << result.error.getStdErrorCode().category().name()
+            << (result.error.getStdErrorCode() == mesytec::mvme_mvlc::ErrorType::ConnectionError);
+#endif
 
-        m_d->m_context->logMessage(
-            QSL("Running script \"")
-            + scriptConfig->getVerboseTitle() + "\"");
-
-        try
+        if (result.error.isError())
         {
-            auto script = mesytec::mvme::parse(
-                scriptConfig,
-                moduleConfig ? moduleConfig->getBaseAddress() : 0);
-
-            auto logger = [this](const QString &str)
+            if (result.error.error() == VMEError::NotOpen ||
+                result.error.getStdErrorCode() == mesytec::mvlc::ErrorType::ConnectionError)
             {
-                m_d->m_context->logMessage(QSL("  ") + str);
-            };
-
-            auto results = m_d->m_context->runScript(script, logger);
-
-            if (options & RunScriptOptions::AggregateResults)
-            {
-                // TODO: implement some real aggregation somewhere
-
-                size_t errorCount = std::count_if(
-                    results.begin(), results.end(), [] (const auto &r)
-                    {
-                        return r.error.isError();
-                    });
-
-                if (errorCount == 0)
-                {
-                    m_d->m_context->logMessage(
-                        QSL("  Executed %1 commands, no errors").arg(results.size()));
-                }
-                else
-                {
-                    auto it = std::find_if(
-                        results.begin(), results.end(), [] (const auto &r)
-                        {
-                            return r.error.isError();
-                        });
-                    assert(it != results.end());
-
-                    m_d->m_context->logError(
-                        QSL("  Error: %1").arg(it->error.toString()));
-                }
+                m_d->m_context->logMessage("ConnectionError during VME script execution,"
+                                           " closing connection to VME Controller");
+                vmeCtrl->close();
+                break;
             }
-            else
-            {
-                for (auto result: results)
-                {
-                    if (result.error.isError())
-                        m_d->m_context->logError(QSL("  ") + format_result(result));
-                    else
-                        m_d->m_context->logMessage(QSL("  ") + format_result(result));
-                    //logger(format_result(result));
-                }
-            }
-        }
-        catch (const vme_script::ParseError &e)
-        {
-            m_d->m_context->logError(QSL("  Parse error: ") + e.toString());
         }
     }
 }
