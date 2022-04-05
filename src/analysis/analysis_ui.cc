@@ -113,7 +113,7 @@ struct AnalysisWidgetPrivate
     QScrollArea *m_eventWidgetScrollArea = nullptr;
     QStackedWidget *m_eventWidgetToolBarStack;
     QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
-    //ConditionWidget *m_conditionWidget = nullptr;
+    ConditionWidget *m_conditionWidget = nullptr;
     ObjectInfoWidget *m_objectInfoWidget;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
@@ -335,7 +335,7 @@ void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << eventId;
     m_eventWidget->repopulate();
-    //m_conditionWidget->repopulate(eventId);
+    m_conditionWidget->repopulate(eventId);
 }
 
 void AnalysisWidgetPrivate::repopulate()
@@ -349,7 +349,7 @@ void AnalysisWidgetPrivate::repopulate()
     m_eventWidget = nullptr;
     auto eventWidget = new EventWidget(getServiceProvider(), m_q);
 
-#if 0
+#if 1
     auto condWidget = m_conditionWidget;
 
     QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
@@ -403,7 +403,7 @@ void AnalysisWidgetPrivate::repopulate()
 
     m_eventWidgetScrollArea->setWidget(m_eventWidget);
 
-    //m_conditionWidget->repopulate();
+    m_conditionWidget->repopulate();
     updateWindowTitle();
     updateAddRemoveUserLevelButtons();
 }
@@ -412,7 +412,7 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
 {
     m_eventWidget->m_d->doPeriodicUpdate();
 
-    //m_conditionWidget->doPeriodicUpdate();
+    m_conditionWidget->doPeriodicUpdate();
     m_objectInfoWidget->refresh();
 }
 
@@ -939,7 +939,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->m_objectInfoWidget = new ObjectInfoWidget(m_d->m_serviceProvider);
     }
 
-#if 0
+#if 1
     // condition/cut displays
     {
         m_d->m_conditionWidget = new ConditionWidget(m_d->m_serviceProvider);
@@ -1145,7 +1145,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     centralLayout->setStretch(1, 1);
 
     auto conditionsTabWidget = new QTabWidget;
-#if 0
+#if 1
     conditionsTabWidget->addTab(m_d->m_conditionWidget,
                                 QIcon(QSL(":/scissors.png")),
                                 QSL("Cuts/Conditions"));
@@ -1386,13 +1386,13 @@ AnalysisWidget::~AnalysisWidget()
 void AnalysisWidget::operatorAddedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-    //m_d->m_conditionWidget->repopulate();
+    m_d->m_conditionWidget->repopulate();
 }
 
 void AnalysisWidget::operatorEditedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-    //m_d->m_conditionWidget->repopulate();
+    m_d->m_conditionWidget->repopulate();
 }
 
 void AnalysisWidget::updateAddRemoveUserLevelButtons()
@@ -1400,7 +1400,7 @@ void AnalysisWidget::updateAddRemoveUserLevelButtons()
     m_d->updateAddRemoveUserLevelButtons();
 }
 
-#if 0
+#if 1
 ConditionWidget *AnalysisWidget::getConditionWidget() const
 {
     return m_d->m_conditionWidget;

@@ -153,22 +153,22 @@ struct ConditionTreeWidget::Private
     static const int ButtonsColumn = 1;
 
     explicit Private(ConditionTreeWidget *q): m_q(q) {}
-    MVMEContext *getContext() const { return m_context; }
-    Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
+    AnalysisServiceProvider *getAnalysisServiceProvider() const { return m_asp; }
+    Analysis *getAnalysis() const { return getAnalysisServiceProvider()->getAnalysis(); }
     QUuid getEventId() const { return m_eventId; }
     int getEventIndex() const { return m_eventIndex; }
     void doContextMenu(const QPoint &pos);
     void removeObject(const AnalysisObjectPtr &obj);
 
     ConditionTreeWidget *m_q;
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_asp;
     QUuid m_eventId;
     int m_eventIndex;
     QSet<void *> m_expandedObjects;
     ObjectToNode m_objectMap;
 };
 
-ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
+ConditionTreeWidget::ConditionTreeWidget(AnalysisServiceProvider *asp, const QUuid &eventId, int eventIndex,
                                          QWidget *parent)
     : QTreeWidget(parent)
     , m_d(std::make_unique<Private>(this))
@@ -176,7 +176,7 @@ ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId,
     //qDebug() << __PRETTY_FUNCTION__ << this;
 
     // Private setup
-    m_d->m_context = ctx;
+    m_d->m_asp = asp;
     m_d->m_eventId = eventId;
     m_d->m_eventIndex = eventIndex;
 
@@ -464,7 +464,7 @@ void ConditionTreeWidget::Private::removeObject(const AnalysisObjectPtr &obj)
 {
     if (obj)
     {
-        AnalysisPauser pauser(getContext());
+        AnalysisPauser pauser(getAnalysisServiceProvider());
         getAnalysis()->removeObjectsRecursively({ obj });
     }
 }
@@ -477,15 +477,15 @@ struct ConditionWidget::Private
 {
     ConditionWidget *m_q;
 
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_asp;
     QToolBar *m_toolbar;
     QStackedWidget *m_treeStack;
     QHash<QUuid, ConditionTreeWidget *> m_treesByEventId;
     ConditionLink m_conditionLinkWithVisibleButtons;
 
     explicit Private(ConditionWidget *q): m_q(q) {}
-    MVMEContext *getContext() const { return m_context; }
-    Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
+    AnalysisServiceProvider *getAnalysisServiceProvider() const { return m_asp; }
+    Analysis *getAnalysis() const { return getAnalysisServiceProvider()->getAnalysis(); }
 
     void onCurrentNodeChanged(QTreeWidgetItem *node);
     void onNodeChanged(QTreeWidgetItem *node, int column);
@@ -494,11 +494,11 @@ struct ConditionWidget::Private
     void editConditionInEditor(const ConditionLink &cl);
 };
 
-ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
+ConditionWidget::ConditionWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<Private>(this))
 {
-    m_d->m_context = ctx;
+    m_d->m_asp = asp;
     m_d->m_toolbar = make_toolbar();
     m_d->m_treeStack = new QStackedWidget;
 
@@ -533,7 +533,7 @@ void ConditionWidget::repopulate()
     m_d->m_treesByEventId.clear();
     m_d->m_conditionLinkWithVisibleButtons = {};
 
-    auto eventConfigs = m_d->getContext()->getEventConfigs();
+    auto eventConfigs = m_d->getAnalysisServiceProvider()->getVMEConfig()->getEventConfigs();
 
     for (s32 eventIndex = 0;
          eventIndex < eventConfigs.size();
@@ -543,7 +543,7 @@ void ConditionWidget::repopulate()
         auto eventId = eventConfig->getId();
 
         auto conditionTree = new ConditionTreeWidget(
-            m_d->getContext(), eventId, eventIndex);
+            m_d->getAnalysisServiceProvider(), eventId, eventIndex);
 
         m_d->m_treeStack->addWidget(conditionTree);
         m_d->m_treesByEventId[eventId] = conditionTree;
@@ -782,7 +782,7 @@ void ConditionWidget::Private::editConditionInEditor(const ConditionLink &cl)
     qDebug() << __PRETTY_FUNCTION__;
     if (auto cond = dynamic_cast<ConditionInterval *>(cl.condition.get()))
     {
-        ConditionIntervalEditor editor(cond, m_context, m_q);
+        ConditionIntervalEditor editor(cond, m_asp, m_q);
         if (editor.exec() == QDialog::Accepted)
         {
             m_q->repopulate();

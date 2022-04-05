@@ -16,7 +16,7 @@ struct LIBMVME_EXPORT ConditionLink
     /* The condition referenced by this link. */
     ConditionPtr condition;
 
-    /* Subindex into the conditions bits in case the condition has multiple
+    /* Subindex into the condition bits in case the condition has multiple
      * bits. */
     s32 subIndex = 0;
 

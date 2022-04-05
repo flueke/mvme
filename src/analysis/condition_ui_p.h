@@ -30,6 +30,7 @@
 #include <QTreeWidget>
 
 #include "analysis.h"
+#include "analysis_service_provider.h"
 
 class MVMEContext;
 
@@ -48,7 +49,7 @@ class ConditionTreeWidget: public QTreeWidget
         void editConditionInEditor(const ConditionLink &cond);
 
     public:
-        ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
+        ConditionTreeWidget(AnalysisServiceProvider *asp, const QUuid &eventId, int eventIndex,
                             QWidget *parent = nullptr);
         virtual ~ConditionTreeWidget() override;
 
@@ -95,7 +96,7 @@ class ConditionIntervalEditor: public QDialog
         void applied();
 
     public:
-        ConditionIntervalEditor(ConditionInterval *cond, MVMEContext *context,
+        ConditionIntervalEditor(ConditionInterval *cond, AnalysisServiceProvider *asp,
                                 QWidget *parent = nullptr);
         virtual ~ConditionIntervalEditor();
 
@@ -104,7 +105,7 @@ class ConditionIntervalEditor: public QDialog
 
     private:
         ConditionInterval *m_cond;
-        MVMEContext *m_context;
+        AnalysisServiceProvider *m_asp;
 
         QLineEdit *le_name;
         QTableWidget *m_table = nullptr;

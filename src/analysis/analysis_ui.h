@@ -51,7 +51,7 @@ class AnalysisWidget: public QWidget
         void operatorEditedExternally(const OperatorPtr &op);
 
         void updateAddRemoveUserLevelButtons();
-        //ConditionWidget *getConditionWidget() const;
+        ConditionWidget *getConditionWidget() const;
         ObjectInfoWidget *getObjectInfoWidget() const;
 
         virtual bool event(QEvent *event) override;
