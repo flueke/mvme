@@ -3,7 +3,7 @@
 
 #include "analysis_service_provider.h"
 
-// Implementation of the AnalysisServiceProvider using the "classic"
+// Implementation of the AnalysisServiceProvider using the "classic"/old
 // MVMEContext to implement the functionality.
 
 class MVMEContext;

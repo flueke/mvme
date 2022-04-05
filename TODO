@@ -2,6 +2,12 @@
 TODO list
 ==================================================
 
+* vme script execution:
+  - immediately produce log output for each command
+  - abort early in case of errors
+
+* Maybe: remove the VME controller auto (re)connect feature. instead try to connect when needed.
+
 * Load module templates from JSON, then converte existing module templates to
   JSON format. Also add the updated TRIVA template (it's in an email from R.)
 
