@@ -1969,6 +1969,7 @@ void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
     emit moduleAboutToBeRemoved(module);
 }
 
+#if 1
 vme_script::ResultList
 MVMEContext::runScript(
     const vme_script::VMEScript &script,
@@ -2077,6 +2078,7 @@ MVMEContext::runScript(
 
     return results;
 }
+#endif
 
 //
 // Workspace handling
