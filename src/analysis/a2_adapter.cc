@@ -1408,7 +1408,8 @@ void a2_adapter_build_operators(
 {
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        qDebug() << "got" << operators[ei].size() << "operators for event" << ei;
+        if (operators[ei].size())
+            qDebug() << "got" << operators[ei].size() << "operators for event" << ei;
         Q_ASSERT(operators[ei].size() <= std::numeric_limits<a2::A2::OperatorCountType>::max());
 
         state->a2->operators[ei] = arena->pushArray<a2::Operator>(operators[ei].size());

@@ -21,15 +21,14 @@
 #ifndef __MVME_ANALYSIS_SINK_WIDGET_FACTORY_H__
 #define __MVME_ANALYSIS_SINK_WIDGET_FACTORY_H__
 
-#include "analysis/analysis_fwd.h"
+#include "analysis_service_provider.h"
 
 class QWidget;
-class MVMEContext;
 
 namespace analysis
 {
 
-QWidget *sink_widget_factory(const SinkPtr &sink, MVMEContext *context, QWidget *parent = nullptr);
+QWidget *sink_widget_factory(const SinkPtr &sink, AnalysisServiceProvider *asp, QWidget *parent = nullptr);
 
 }
 

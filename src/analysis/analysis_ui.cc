@@ -263,7 +263,7 @@ void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const 
 void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl)
 {
     (void) cl;
-#if 0
+#if 1
     qDebug() << __PRETTY_FUNCTION__ << this;
     if (!cl) return;
 
@@ -274,11 +274,12 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
      * For now error out if no sink accumulating the pipes can be found. */
 
     auto sinks = get_sinks_for_conditionlink(cl, getAnalysis()->getSinkOperators<SinkPtr>());
+    auto widgetRegistry = getServiceProvider()->getWidgetRegistry();
 
     // Try to use an existing window to edit the condition
     for (const auto &sink: sinks)
     {
-        auto widget = getContext()->getObjectWidget(sink.get());
+        auto widget = widgetRegistry->getObjectWidget(sink.get());
 
         if (auto condEditor = qobject_cast<ConditionEditorInterface *>(widget))
         {
@@ -294,12 +295,12 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
     // Create a new window
     for (const auto &sink: sinks)
     {
-        auto widget = std::unique_ptr<QWidget>(sink_widget_factory(sink, getContext()));
+        auto widget = std::unique_ptr<QWidget>(sink_widget_factory(sink, getServiceProvider()));
 
         if (auto condEditor = qobject_cast<ConditionEditorInterface *>(widget.get()))
         {
             auto raw = widget.get();
-            getContext()->addObjectWidget(widget.release(), sink.get(), sink->getId().toString());
+            widgetRegistry->addObjectWidget(widget.release(), sink.get(), sink->getId().toString());
             if (condEditor->setEditCondition(cl))
             {
                 condEditor->beginEditCondition();
@@ -958,6 +959,8 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
                          m_d->m_objectInfoWidget, &ObjectInfoWidget::setAnalysisObject);
+
+        m_d->m_conditionWidget->show();
     }
 #endif
 
@@ -1171,7 +1174,6 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     rightSplitter->addWidget(objectInfoTabWidget);
     rightSplitter->setStretchFactor(0, 2);
     rightSplitter->setStretchFactor(1, 1);
-    rightSplitter->hide();
 
     static const char *rightSplitterStateKey = "AnalysisWidget/RightSplitterState";
 

@@ -45,7 +45,7 @@ class LIBMVME_EXPORT ConditionEditorInterface
          * Note that the returned subindex may be different than the one
          * originally passed in when editCondition() was called. This is
          * because the editor can offer to edit all subindexes in one
-         * graphical widget, e.g. Histo1DListWidget.
+         * graphical widget, e.g. Histo1DWidget.
          */
         virtual ConditionLink getEditCondition() const = 0;
 
