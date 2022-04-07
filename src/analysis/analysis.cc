@@ -3840,7 +3840,7 @@ QwtInterval ConditionInterval::getInterval(s32 address) const
 
 s32 ConditionInterval::getNumberOfBits() const
 {
-    return m_input.isConnected() ? m_input.inputPipe->getSize() : 0u;
+    return 1;
 }
 
 //

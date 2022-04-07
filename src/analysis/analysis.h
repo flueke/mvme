@@ -1480,6 +1480,10 @@ class LIBMVME_EXPORT ScalerOverflow: public OperatorInterface
 // Conditions
 //
 
+// Condition holding an array of 1D intervals. The array size is determined by
+// the input array size.
+// Produces a single output bit which is the OR over the individual interval
+// tests.
 class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
 {
     Q_OBJECT
