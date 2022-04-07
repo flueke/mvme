@@ -341,7 +341,8 @@ struct Histo1DWidgetPrivate
     CalibUi m_calibUi;
 
     // Cut creation / editing
-    IntervalEditor *m_intervalCutEditor;
+    IntervalEditor *m_intervalCutEditor = nullptr;
+    IntervalCutDialog *m_intervalCutDialog = nullptr;
     analysis::ConditionLink m_editingCondition;
     QVector<QwtInterval> m_cutIntervals;
 
@@ -596,16 +597,19 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
                 this, [this] () {
 
             auto cutDialog = new IntervalCutDialog(this);
+            m_d->m_intervalCutDialog = cutDialog;
 
             connect(cutDialog, &QDialog::accepted,
                     m_d->m_actionCuts, [this] () {
                         m_d->m_actionCuts->setEnabled(true);
+                        m_d->m_intervalCutDialog = nullptr;
                         replot();
                     });
 
             connect(cutDialog, &QDialog::rejected,
                     m_d->m_actionCuts, [this] () {
                         m_d->m_actionCuts->setEnabled(true);
+                        m_d->m_intervalCutDialog = nullptr;
                         replot();
                     });
 
@@ -1584,6 +1588,14 @@ bool Histo1DWidget::event(QEvent *e)
     {
         m_d->m_statusBar->showMessage(reinterpret_cast<QStatusTipEvent *>(e)->tip());
         return true;
+    }
+    else if (e->type() == QEvent::Close)
+    {
+        if (m_d->m_intervalCutDialog)
+        {
+            m_d->m_intervalCutDialog->close();
+            m_d->m_intervalCutDialog = nullptr;
+        }
     }
 
     return QWidget::event(e);
