@@ -164,7 +164,7 @@ void ObjectInfoWidget::refresh()
                 buffer += QSL("%1,").arg(condBits.test(bi));
             }
 
-            text += QSL("\nbits=") + buffer;
+            text += QSL("\nconditionBit=") + buffer;
         }
 
         label->setText(text);
