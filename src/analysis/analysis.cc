@@ -4720,7 +4720,8 @@ AnalysisObjectVector Analysis::getDirectoryContents(const Directory *dir) const
     {
         for (auto id: dir->getMembers())
         {
-            result.push_back(getObject(id));
+            if (auto obj = getObject(id))
+                result.push_back(getObject(id));
         }
     }
 
@@ -4739,6 +4740,8 @@ AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const DirectoryPt
 
 AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const Directory *dir) const
 {
+    assert(dir);
+
     AnalysisObjectVector result;
 
     auto objects = getDirectoryContents(dir);
