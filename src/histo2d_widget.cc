@@ -296,8 +296,8 @@ struct Histo2DWidgetPrivate
     QAction *m_actionClear,
             *m_actionSubRange,
             *m_actionChangeRes,
-            *m_actionInfo;
-            //*m_actionCreateCut;
+            *m_actionInfo,
+            *m_actionCreateCut;
 
     QComboBox *m_zScaleCombo;
 
@@ -511,7 +511,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     // XXX: cut test
     {
-#if 0
+#if 1
         QPen pickerPen(Qt::red);
 
 
@@ -531,7 +531,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         }));
 #endif
 
-#if 0
+#if 1
         auto action = tb->addAction("Dev: Create cut");
         action->setCheckable(true);
         action->setEnabled(false); // will be enabled in setContext()
@@ -745,8 +745,8 @@ Histo2DWidget::~Histo2DWidget()
 void Histo2DWidget::setServiceProvider(AnalysisServiceProvider *asp)
 {
     m_d->m_serviceProvider = asp;
-#if 0
-    m_d->m_actionCreateCut->setEnabled(context != nullptr);
+#if 1
+    m_d->m_actionCreateCut->setEnabled(asp != nullptr);
 #endif
 }
 
