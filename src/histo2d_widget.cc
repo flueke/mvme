@@ -1711,8 +1711,7 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
         cond->connectInputSlot(0, xInput, xIndex);
         cond->connectInputSlot(1, yInput, yIndex);
 
-        // FIXME: remove this once conditions do not show up in the event trees anymore
-        const int userLevel = 3;
+        const int userLevel = 1;
 
         m_serviceProvider->getAnalysis()->addOperator(
             m_sink->getEventId(),

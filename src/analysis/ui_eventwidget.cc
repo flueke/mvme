@@ -622,6 +622,7 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
             for (auto &childObject: childObjects)
             {
+                assert(childObject);
                 childObject->setUserLevel(destUserLevel);
                 movedObjects.append(childObject);
             }
@@ -2338,8 +2339,8 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
         if (qobject_cast<SinkInterface *>(op.get()))
             continue;
 
-        if (qobject_cast<ConditionInterface *>(op.get()))
-            continue;
+        //if (qobject_cast<ConditionInterface *>(op.get()))
+        //    continue;
 
         std::unique_ptr<TreeNode> opNode(make_operator_node(op.get()));
 

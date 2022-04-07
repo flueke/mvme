@@ -1985,8 +1985,7 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
         AnalysisPauser pauser(m_serviceProvider);
         cond->connectInputSlot(0, xInput, xIndex);
 
-        // FIXME: remove this once conditions do not show up in the event trees anymore
-        const int userLevel = 3; // TODO: does this have an effect on when the operator is stepped in the analysis?
+        const int userLevel = 1;
 
         m_serviceProvider->getAnalysis()->addOperator(
             m_sink->getEventId(),
