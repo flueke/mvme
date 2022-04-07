@@ -1969,10 +1969,15 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
         cutName = le_cutName->text();
     }
 
-    // Create the ConditionInterval analysis object. The number of intervals will
-    // be the same as the number of histograms in the Histo1DSink belonging to
-    // the histogram currently being displayed. Each interval of the condition
-    // will be set to the current intervals values.
+    // Create the ConditionInterval analysis object. The number of intervals
+    // will be the same as the number of elements in the input array of the
+    // Histo1DSink currently being display.
+    // Note: this means when creating a condition in a Histo1DSink connected to
+    // a particular element of the input array then the resulting
+    // ConditionInterval will still have the same number of elements as the
+    // input array, not just one element!
+
+    // Set all intervals to the same value.
     QVector<QwtInterval> intervals(m_sink->getNumberOfHistos(), interval);
     auto cond = std::make_shared<analysis::ConditionInterval>();
     cond->setIntervals(intervals);
@@ -1980,10 +1985,9 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
 
     {
         auto xInput = m_sink->getSlot(0)->inputPipe;
-        auto xIndex = m_sink->getSlot(0)->paramIndex;
 
         AnalysisPauser pauser(m_serviceProvider);
-        cond->connectInputSlot(0, xInput, xIndex);
+        cond->connectArrayToInputSlot(0, xInput);
 
         const int userLevel = 1;
 
