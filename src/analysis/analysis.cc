@@ -347,6 +347,11 @@ void OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 par
 {
     Slot *slot = getSlot(slotIndex);
 
+    if (paramIndex == Slot::NoParamIndex)
+        assert(slot->acceptedInputTypes & InputType::Array);
+    else
+        assert(slot->acceptedInputTypes & InputType::Value);
+
     if (slot)
     {
         slot->connectPipe(inputPipe, paramIndex);
