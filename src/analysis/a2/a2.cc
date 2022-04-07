@@ -3011,6 +3011,7 @@ bool is_condition_operator(const Operator &op)
     return false;
 }
 
+#if 0
 u32 get_number_of_condition_bits_used(const Operator &op)
 {
     assert(op.inputCount >= 1);
@@ -3030,6 +3031,7 @@ u32 get_number_of_condition_bits_used(const Operator &op)
 
     return 0;
 }
+#endif
 
 Operator make_condition_interval(
     memory::Arena *arena,
@@ -3043,7 +3045,7 @@ Operator make_condition_interval(
     auto d = arena->pushStruct<ConditionIntervalData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->firstBitIndex = ConditionBaseData::InvalidBitIndex;
     d->intervals = push_copy_typed_block<Interval, s32>(arena, intervals);
 
     return result;
@@ -3066,7 +3068,7 @@ Operator make_condition_rectangle(
     auto d = arena->pushStruct<ConditionRectangleData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->firstBitIndex = ConditionBaseData::InvalidBitIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
     d->xInterval = xInterval;
@@ -3092,7 +3094,7 @@ Operator make_condition_polygon(
     auto d = arena->pushObject<ConditionPolygonData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->firstBitIndex = ConditionBaseData::InvalidBitIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
 
@@ -3119,16 +3121,16 @@ void condition_interval_step(Operator *op, A2 *a2)
     assert(op->inputs[0].size == d->intervals.size);
     assert(0 <= d->firstBitIndex);
     assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
-    assert(static_cast<size_t>(d->firstBitIndex) + d->intervals.size <= a2->conditionBits.size());
 
     const s32 maxIdx = op->inputs[0].size;
 
-    for (s32 idx = 0; idx < maxIdx; idx++)
-    {
-        bool condResult = in_range(d->intervals[idx], op->inputs[0][idx]);
+    // Calculate the OR of the individual interval range checks.
+    bool condResult = false;
 
-        a2->conditionBits.set(d->firstBitIndex + idx, condResult);
-    }
+    for (s32 idx = 0; idx < maxIdx && !condResult; idx++)
+        condResult |= in_range(d->intervals[idx], op->inputs[0][idx]);
+
+    a2->conditionBits.set(d->firstBitIndex, condResult);
 }
 
 void condition_rectangle_step(Operator *op, A2 *a2)

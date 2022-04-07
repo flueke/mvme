@@ -531,7 +531,7 @@ Operator make_scaler_overflow_idx(
 /* Base structure used for the Operator::d member of condition operators. */
 struct ConditionBaseData
 {
-    static const s16 InvalidIndex = -1;
+    static const s16 InvalidBitIndex = -1;
 
     /* Index into A2::conditionBits. This is the bit being set/cleared by this
      * condition when it is stepped. For conditions using multiple bits this is
@@ -540,7 +540,15 @@ struct ConditionBaseData
 };
 
 bool is_condition_operator(const Operator &op);
-u32 get_number_of_condition_bits_used(const Operator &op);
+
+// Changed 04/2022 to return a constant 1. The ConditionInterval operator was
+// changed to produce only one output condition bit and thus all current
+// conditions only produce a single output bit.
+constexpr u32 get_number_of_condition_bits_used(const Operator &op)
+{
+    (void) op;
+    return 1;
+}
 
 Operator make_condition_interval(
     memory::Arena *arena,
