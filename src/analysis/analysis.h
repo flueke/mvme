@@ -361,7 +361,13 @@ struct LIBMVME_EXPORT Slot
 
     inline bool isConnected() const
     {
-        return (inputPipe != nullptr);
+        if (inputPipe)
+        {
+            assert(inputPipe->source);
+            return true;
+        }
+        return false;
+        //return (inputPipe != nullptr);
     }
 
     inline bool isParamIndexInRange() const
@@ -388,6 +394,16 @@ struct LIBMVME_EXPORT Slot
     inline bool isParameterConnection() const
     {
         return !isArrayConnection();
+    }
+
+    inline const PipeSourceInterface *getSource() const
+    {
+        return isConnected() ? inputPipe->source : nullptr;
+    }
+
+    inline PipeSourceInterface *getSource()
+    {
+        return isConnected() ? inputPipe->source : nullptr;
     }
 
     u32 acceptedInputTypes = InputType::Both;
@@ -524,6 +540,7 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
     Q_INTERFACES(analysis::OperatorInterface);
     public:
         using OperatorInterface::OperatorInterface;
+        ~ConditionInterface() override;
 
         // PipeSourceInterface
         s32 getNumberOfOutputs() const override { return 0; }
