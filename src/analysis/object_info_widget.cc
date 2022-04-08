@@ -22,6 +22,7 @@
 
 #include "a2_adapter.h"
 #include "analysis.h"
+#include "analysis_util.h"
 #include "mvme_context.h"
 #include "qt_util.h"
 
@@ -137,6 +138,15 @@ void ObjectInfoWidget::refresh()
                     .arg(condLink.condition->objectName())
                     .arg(condLink.subIndex)
                     .arg(condLink.condition->getRank());
+            }
+
+            auto inputSet = collect_input_set(op);
+
+            if (!inputSet.empty())
+            {
+                text += QSL("\ninputSet: ");
+                for (auto obj: inputSet)
+                    text += QSL("%1, ").arg(obj->objectName());
             }
         }
 
