@@ -13,7 +13,7 @@ TODO list
 
 * Maybe: remove the VME controller auto (re)connect feature. instead try to connect when needed.
 
-* Load module templates from JSON, then converte existing module templates to
+* Load module templates from JSON, then convert existing module templates to
   JSON format. Also add the updated TRIVA template (it's in an email from R.)
 
 * Packet loss and error counters for the MVLC command side.

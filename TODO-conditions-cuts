@@ -11,7 +11,7 @@ Creating an interval cut:
 - Click on "New Cut"
   Zooming is disabled, on mouse move a vertical indicator bar and x-coordinate are shown
   at the mouse cursor.
-  The first click selectes the first point. Now the zone between the first
+  The first click selects the first point. Now the zone between the first
   point and mouseX is highlighted. The second click selects the second point.
   -> The interval is fully specificed.
 
@@ -63,9 +63,6 @@ Default mode:
 * Maybe create a system for qwt plot picker handling and related tasks. The
   same might be needed for QwtPlotShapeItems to show and modify cuts
   graphically.
-* Deleting a condition keeps it alive in the condlink. Switch to weak_ptr here?
-  This will involve calls to lock() sometimes on two objects at the same time,
-  e.g. in ConditionLink::operator==()
 
 * Sinks need to be cleared when their condition is applied/removed/modified.
 
@@ -82,7 +79,7 @@ through the cut. Passing means setting the output or condition flag to true.
 
 -> So far:
 * 1d cuts have a single input pipe of size N and N intervals to test against.
-  The output is a bitset of size N.
+  The output is a single bit: the OR over all interval checks.
 
 * 2d cuts have two indexed inputs and a polygon or a rectangle to test against.
   The output is a single bit. More geometric shapes (ellipsis) should be added
@@ -149,8 +146,7 @@ Condition/Cut implementation plan and next steps
   has to be presented otherwise editing can be started from the ConditionWindow.
 
 * Applying cuts to operators:
-  A cut is selected in the cut window. in case of interval cuts a specific
-  index has to be selected.
+  A cut is selected in the cut window.
 
   The user now wants to apply the cut and uses the context menu or a button in
   the condition window. This changes the mode of the eventwidget to
