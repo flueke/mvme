@@ -275,6 +275,7 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
 
     if (newInput)
     {
+#if 0
         // Note(20201209): This was added in 2018 to make handling of arrays
         // of size 1 "more intuitive".
 
@@ -282,10 +283,14 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         // "value" connection using index 0.
         // Basically NoParamIndex is rewritten to 0 in case the input is of size 1
         // and it's ok to use Input::Value.
+
+        // Update (220408): Disabled this special case as it interferes with
+        // condition editing:
         if (newInput->getSize() == 1 && acceptedInputTypes & InputType::Value)
         {
             newParamIndex = 0;
         }
+#endif
 
         inputPipe = newInput;
         paramIndex = newParamIndex;
@@ -417,6 +422,14 @@ void SinkInterface::postClone(const AnalysisObject *cloneSource)
     assert(si);
     this->setEnabled(si->isEnabled());
     OperatorInterface::postClone(cloneSource);
+}
+
+//
+// ConditionInterface
+//
+ConditionInterface::~ConditionInterface()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 //
