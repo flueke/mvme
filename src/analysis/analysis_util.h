@@ -48,6 +48,10 @@ namespace CollectFlags
 //
 // Dependencies returned as OperatorInterface*
 //
+// These functions collect dependent objects of the specified startObject, i.e.
+// all objects where a connection from the startObject to the specific objects
+// exists.
+//
 
 QSet<OperatorInterface *> LIBMVME_EXPORT
 collect_dependent_operators(PipeSourceInterface *startObject,
@@ -80,6 +84,11 @@ QSet<PipeSourceInterface *> LIBMVME_EXPORT
 collect_dependent_objects(const PipeSourcePtr &startObject,
                           CollectFlags::Flag flags = CollectFlags::All);
 
+// Get the set of objects forming the input-chain of the given operator.
+// This is the inverse of collect_dependent_objects(), i.e. it walks the
+// connection chain backwards, adding all traversed objects to the result set.
+QSet<PipeSourceInterface *> LIBMVME_EXPORT
+collect_input_set(OperatorInterface *op);
 
 //
 // object ids

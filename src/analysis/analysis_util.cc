@@ -151,6 +151,36 @@ QSet<PipeSourceInterface *> collect_dependent_objects(const PipeSourcePtr &start
     return collect_dependent_objects(startObject.get(), flags);
 }
 
+namespace
+{
+
+void collect_input_set(OperatorInterface *op, QSet<PipeSourceInterface *> &dest)
+{
+    for (s32 slotIndex=0; slotIndex<op->getNumberOfSlots(); ++slotIndex)
+    {
+        auto slot = op->getSlot(slotIndex);
+
+        if (slot->isConnected())
+        {
+            assert(slot->inputPipe->source);
+            auto source = slot->inputPipe->source;
+            dest.insert(source);
+            if (auto sourceOp = qobject_cast<OperatorInterface *>(source))
+                collect_input_set(sourceOp, dest);
+        }
+    }
+}
+
+}
+
+QSet<PipeSourceInterface *> collect_input_set(OperatorInterface *op)
+{
+    assert(op);
+    QSet<PipeSourceInterface *> result;
+    collect_input_set(op, result);
+    return result;
+}
+
 void generate_new_object_ids(const AnalysisObjectVector &objects)
 {
     QHash<QUuid, QUuid> oldToNewIds;
@@ -305,6 +335,8 @@ void AnalysisSignalWrapper::setAnalysis(Analysis *analysis)
 OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
                                               const OperatorVector &operators)
 {
+    auto inputSet = collect_input_set(cond.get());
+
     OperatorVector result;
 
     result.reserve(operators.size());
@@ -319,6 +351,7 @@ OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
         if (op->getEventId() != cond->getEventId())
             continue;
 
+#if 0
         /* Use input ranks to determine if the condition has been evaluated at
          * the point the operator will be executed. Input ranks are used
          * instead of the calculated ranks (getRank()) because the latter will
@@ -327,6 +360,17 @@ OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
          * operator did not use a condition.  */
         if (cond->getMaximumInputRank() > op->getMaximumInputRank())
             continue;
+#endif
+
+        if (inputSet.contains(op.get()))
+        {
+            qDebug() << "operator" << op->objectName()
+                << "is part of the inpput set of condition" << cond->objectName();
+            continue;
+        }
+
+        //qDebug() << "condition " << cond->objectName()
+        //    << "can be applied to" << op->objectName();
 
         result.push_back(op);
     }
