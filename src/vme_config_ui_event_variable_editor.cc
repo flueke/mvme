@@ -485,7 +485,7 @@ void EventVariableEditor::Private::runAffectedScripts()
 
             logger(QSL("Running script \"%1\"").arg(c.initScript->getObjectPath()));
 
-            auto results = runScriptCallback(parsedScript, indented_logger);
+            auto results = runScriptCallback(std::make_pair(c.initScript, parsedScript));
 
             // Detect controller disconnect and treat it as an error.
             if (results.size() > 0 && results[0].error.error() == VMEError::NotOpen)

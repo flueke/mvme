@@ -1982,16 +1982,60 @@ void MVMEMainWindow::runEditVMEEventVariables(EventConfig *eventConfig)
         return;
     }
 
-    auto runScriptCallback = [this] (
-        const vme_script::VMEScript &script,
-        vme_script::LoggerFun logger)
+    auto runScriptCallback2 = [this] (
+        std::pair<VMEScriptConfig *, vme_script::VMEScript> preparsedScript)
+        -> vme_script::ResultList
     {
-        // TODO: do not call MVMEContext::runScript() here. Instead improve
-        // MVMEMainWindow::runScriptConfigs() so it can be used here.
-        return m_d->m_context->runScript(script, logger, false);
+        // TODO: This code is mostly a copy of
+        // MVMEMainWindow::runScriptConfigs(). Can the functionality be merged
+        // while staying flexible enough?
+        // Differences: custom logging is done by the EventVariableEditor. The
+        // logging signals of the ScriptConfigRunner are not connected. Instead
+        // the editors logging signals are connected to produce output on the
+        // log view via MVMEContext.
+
+        auto vmeCtrl = m_d->m_context->getVMEController();
+
+        if (!vmeCtrl)
+            return {};
+
+        std::unique_ptr<DAQPauser> daqPauser;
+
+        // Non-mvlc controllers need the daq to be paused when running commands.
+        if (!is_mvlc_controller(vmeCtrl->getType()))
+            daqPauser = std::make_unique<DAQPauser>(m_d->m_context);
+
+        using Watcher = QFutureWatcher<vme_script::ResultList>;
+
+        QProgressDialog pd;
+        pd.setWindowTitle("Running VME Script");
+        pd.setLabelText("Running VME Script");
+        pd.setMaximum(0);
+        pd.setCancelButton(nullptr);
+
+        Watcher fw;
+
+        connect(&fw, &Watcher::finished, &pd, &QProgressDialog::accept);
+
+        ScriptConfigRunner runner;
+        runner.setVMEController(vmeCtrl);
+        runner.addPreparsedScriptConfig(preparsedScript.first, preparsedScript.second);
+
+        connect(&runner, &ScriptConfigRunner::progressChanged,
+                &pd, [&pd] (int cur, int max) {
+                    pd.setRange(0, max);
+                    pd.setValue(cur);
+                });
+
+        auto f = QtConcurrent::run([&runner] () { return runner.run(); });
+        fw.setFuture(f);
+        if (!f.isFinished())
+            pd.exec();
+        auto results = f.result();
+        return results;
     };
 
-    auto editor = new EventVariableEditor(eventConfig, runScriptCallback);
+    auto editor = new EventVariableEditor(eventConfig, runScriptCallback2);
     editor->setAttribute(Qt::WA_DeleteOnClose);
 
     connect(editor, &EventVariableEditor::logMessage,
@@ -2103,8 +2147,6 @@ void MVMEMainWindow::runScriptConfigs(
 void MVMEMainWindow::runScriptConfigs(
     const std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> &scripts,
     const mesytec::mvme::ScriptConfigRunner::Options options)
-    //std::function<void (const QString &msg)> logger,
-    //std::function<void (const QString &msg)> error_logger)
 {
     auto vmeCtrl = m_d->m_context->getVMEController();
 
@@ -2142,25 +2184,11 @@ void MVMEMainWindow::runScriptConfigs(
                 pd.setValue(cur);
             });
 
-#if 0
-    if (!logger)
-        logger = [this] (const QString &msg) { m_d->m_context->logMessage(msg); };
-
-    if (!error_logger)
-        error_logger = [this] (const QString &msg) { m_d->m_context->logError(msg); };
-
-    connect(&runner, &ScriptConfigRunner::logMessage,
-            m_d->m_context, logger);
-
-    connect(&runner, &ScriptConfigRunner::logError,
-            m_d->m_context, error_logger);
-#else
     connect(&runner, &ScriptConfigRunner::logMessage,
             m_d->m_context, &MVMEContext::logMessage);
 
     connect(&runner, &ScriptConfigRunner::logError,
             m_d->m_context, &MVMEContext::logError);
-#endif
 
     auto f = QtConcurrent::run([&runner] () { return runner.run(); });
 

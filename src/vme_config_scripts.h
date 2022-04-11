@@ -106,6 +106,8 @@ class LIBMVME_EXPORT ScriptConfigRunner: public QObject
 
         void setVMEController(VMEController *ctrl);
 
+        // Note: setXXX replaces existing scripts, addXXX adds them instead.
+
         void setScriptConfig(const VMEScriptConfig *scriptConf);
         void addScriptConfig(const VMEScriptConfig *scriptConf);
 
