@@ -22,7 +22,7 @@ TEST(MultiHitExtractorTest, ArrayPerHitShape)
     ASSERT_EQ(mex.getOutputName(0), "channel_time_hit0");
     ASSERT_EQ(mex.getOutputName(1), "channel_time_hit1");
     ASSERT_EQ(mex.getOutputName(2), "channel_time_hit2");
-    ASSERT_EQ(mex.getOutputName(4), "hitCounts");
+    ASSERT_EQ(mex.getOutputName(3), "hitCounts");
 
     for (int i=0; i<mex.getNumberOfOutputs()-1; ++i)
     {
