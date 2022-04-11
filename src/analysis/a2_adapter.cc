@@ -860,12 +860,12 @@ DEF_OP_MAGIC(export_sink_magic)
     return result;
 }
 
-DEF_OP_MAGIC(condition_interval_magic)
+DEF_OP_MAGIC(interval_condition_magic)
 {
     OP_MAGIC_NOWARN;
     LOG("");
 
-    auto cond = qobject_cast<analysis::ConditionInterval *>(op.get());
+    auto cond = qobject_cast<analysis::IntervalCondition *>(op.get());
     assert(cond);
     assert(inputSlots.size() == 1);
 
@@ -887,12 +887,12 @@ DEF_OP_MAGIC(condition_interval_magic)
     return result;
 }
 
-DEF_OP_MAGIC(condition_rectangle_magic)
+DEF_OP_MAGIC(rectangle_condition_magic)
 {
     OP_MAGIC_NOWARN;
     LOG("");
 
-    auto cond = qobject_cast<analysis::ConditionRectangle *>(op.get());
+    auto cond = qobject_cast<analysis::RectangleCondition *>(op.get());
     assert(cond);
     assert(inputSlots.size() == 2);
 
@@ -913,12 +913,12 @@ DEF_OP_MAGIC(condition_rectangle_magic)
     return result;
 }
 
-DEF_OP_MAGIC(condition_polygon_magic)
+DEF_OP_MAGIC(polygon_condition_magic)
 {
     OP_MAGIC_NOWARN;
     LOG("");
 
-    auto cond = qobject_cast<analysis::ConditionPolygon *>(op.get());
+    auto cond = qobject_cast<analysis::PolygonCondition *>(op.get());
     assert(cond);
     assert(inputSlots.size() == 2);
 
@@ -958,9 +958,9 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ExpressionOperator::staticMetaObject,      expression_operator_magic },
     { &analysis::ScalerOverflow::staticMetaObject,          scaler_overflow_magic },
 
-    { &analysis::ConditionInterval::staticMetaObject,       condition_interval_magic },
-    { &analysis::ConditionRectangle::staticMetaObject,      condition_rectangle_magic },
-    { &analysis::ConditionPolygon::staticMetaObject,        condition_polygon_magic },
+    { &analysis::IntervalCondition::staticMetaObject,       interval_condition_magic },
+    { &analysis::RectangleCondition::staticMetaObject,      rectangle_condition_magic },
+    { &analysis::PolygonCondition::staticMetaObject,        polygon_condition_magic },
 
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },

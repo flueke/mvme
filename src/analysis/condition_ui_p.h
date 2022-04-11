@@ -89,22 +89,22 @@ class NodeModificationButtons: public QWidget
         QPushButton *pb_reject;
 };
 
-class ConditionIntervalEditor: public QDialog
+class IntervalConditionEditor: public QDialog
 {
     Q_OBJECT
     signals:
         void applied();
 
     public:
-        ConditionIntervalEditor(ConditionInterval *cond, AnalysisServiceProvider *asp,
+        IntervalConditionEditor(IntervalCondition *cond, AnalysisServiceProvider *asp,
                                 QWidget *parent = nullptr);
-        virtual ~ConditionIntervalEditor();
+        virtual ~IntervalConditionEditor();
 
         virtual void accept();
         virtual void reject();
 
     private:
-        ConditionInterval *m_cond;
+        IntervalCondition *m_cond;
         AnalysisServiceProvider *m_asp;
 
         QLineEdit *le_name;

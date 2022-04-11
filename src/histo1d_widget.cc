@@ -1906,13 +1906,13 @@ void Histo1DWidgetPrivate::onEditCutReject()
     m_intervalCutEditor->endEdit();
 }
 
-using analysis::ConditionInterval;
+using analysis::IntervalCondition;
 
 bool Histo1DWidget::setEditCondition(const analysis::ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__ << cl;
 
-    auto cond = std::dynamic_pointer_cast<ConditionInterval>(cl.condition);
+    auto cond = std::dynamic_pointer_cast<IntervalCondition>(cl.condition);
 
     if (!cond || cl.subIndex > m_d->m_histos.size())
     {
@@ -1981,17 +1981,17 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
         cutName = le_cutName->text();
     }
 
-    // Create the ConditionInterval analysis object. The number of intervals
+    // Create the IntervalCondition analysis object. The number of intervals
     // will be the same as the number of elements in the input array of the
     // Histo1DSink currently being display.
     // Note: this means when creating a condition in a Histo1DSink connected to
     // a particular element of the input array then the resulting
-    // ConditionInterval will still have the same number of elements as the
+    // IntervalCondition will still have the same number of elements as the
     // input array, not just one element!
 
     // Set all intervals to the same value.
     QVector<QwtInterval> intervals(m_sink->getNumberOfHistos(), interval);
-    auto cond = std::make_shared<analysis::ConditionInterval>();
+    auto cond = std::make_shared<analysis::IntervalCondition>();
     cond->setIntervals(intervals);
     cond->setObjectName(cutName);
 

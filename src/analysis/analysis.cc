@@ -3775,16 +3775,16 @@ QPolygonF qpolygonf_from_json(const QJsonArray &points)
 }
 
 //
-// ConditionInterval
+// IntervalCondition
 //
 
-ConditionInterval::ConditionInterval(QObject *parent)
+IntervalCondition::IntervalCondition(QObject *parent)
     : ConditionInterface(parent)
     , m_input(this, 0, QSL("Input"), InputType::Array)
 {
 }
 
-void ConditionInterval::beginRun(const RunInfo &, Logger)
+void IntervalCondition::beginRun(const RunInfo &, Logger)
 {
     if (m_input.isConnected())
     {
@@ -3794,7 +3794,7 @@ void ConditionInterval::beginRun(const RunInfo &, Logger)
     }
 }
 
-void ConditionInterval::write(QJsonObject &json) const
+void IntervalCondition::write(QJsonObject &json) const
 {
     QJsonArray jsonIntervals;
 
@@ -3806,7 +3806,7 @@ void ConditionInterval::write(QJsonObject &json) const
     json["intervals"] = jsonIntervals;
 }
 
-void ConditionInterval::read(const QJsonObject &json)
+void IntervalCondition::read(const QJsonObject &json)
 {
     m_intervals.clear();
 
@@ -3818,28 +3818,28 @@ void ConditionInterval::read(const QJsonObject &json)
     }
 }
 
-s32 ConditionInterval::getNumberOfSlots() const
+s32 IntervalCondition::getNumberOfSlots() const
 {
     return 1;
 }
 
-Slot *ConditionInterval::getSlot(s32 slotIndex)
+Slot *IntervalCondition::getSlot(s32 slotIndex)
 {
     return slotIndex == 0 ? &m_input : nullptr;
 }
 
-void ConditionInterval::setIntervals(const QVector<QwtInterval> &intervals)
+void IntervalCondition::setIntervals(const QVector<QwtInterval> &intervals)
 {
     m_intervals = intervals;
     normalize_intervals(m_intervals.begin(), m_intervals.end());
 }
 
-QVector<QwtInterval> ConditionInterval::getIntervals() const
+QVector<QwtInterval> IntervalCondition::getIntervals() const
 {
     return m_intervals;
 }
 
-void ConditionInterval::setInterval(s32 address, const QwtInterval &interval)
+void IntervalCondition::setInterval(s32 address, const QwtInterval &interval)
 {
     if (address >= 0)
     {
@@ -3851,42 +3851,42 @@ void ConditionInterval::setInterval(s32 address, const QwtInterval &interval)
     }
 }
 
-QwtInterval ConditionInterval::getInterval(s32 address) const
+QwtInterval IntervalCondition::getInterval(s32 address) const
 {
     return m_intervals.value(address, { make_quiet_nan(), make_quiet_nan() });
 }
 
-s32 ConditionInterval::getNumberOfBits() const
+s32 IntervalCondition::getNumberOfBits() const
 {
     return 1;
 }
 
 //
-// ConditionRectangle
+// RectangleCondition
 //
-ConditionRectangle::ConditionRectangle(QObject *parent)
+RectangleCondition::RectangleCondition(QObject *parent)
     : ConditionInterface(parent)
     , m_inputX(this, 0, QSL("X Input"), InputType::Value)
     , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
 {
 }
 
-void ConditionRectangle::write(QJsonObject &json) const
+void RectangleCondition::write(QJsonObject &json) const
 {
     json["rectangle"] = to_json(m_rectangle);
 }
 
-void ConditionRectangle::read(const QJsonObject &json)
+void RectangleCondition::read(const QJsonObject &json)
 {
     m_rectangle = qrectf_from_json(json["rectangle"].toObject());
 }
 
-s32 ConditionRectangle::getNumberOfSlots() const
+s32 RectangleCondition::getNumberOfSlots() const
 {
     return 2;
 }
 
-Slot *ConditionRectangle::getSlot(s32 slotIndex)
+Slot *RectangleCondition::getSlot(s32 slotIndex)
 {
     switch (slotIndex)
     {
@@ -3898,46 +3898,46 @@ Slot *ConditionRectangle::getSlot(s32 slotIndex)
     return nullptr;
 }
 
-void ConditionRectangle::beginRun(const RunInfo &, Logger)
+void RectangleCondition::beginRun(const RunInfo &, Logger)
 {
 }
 
-void ConditionRectangle::setRectangle(const QRectF &rect)
+void RectangleCondition::setRectangle(const QRectF &rect)
 {
     m_rectangle = rect;
 }
 
-QRectF ConditionRectangle::getRectangle() const
+QRectF RectangleCondition::getRectangle() const
 {
     return m_rectangle;
 }
 
 //
-// ConditionPolygon
+// PolygonCondition
 //
-ConditionPolygon::ConditionPolygon(QObject *parent)
+PolygonCondition::PolygonCondition(QObject *parent)
     : ConditionInterface(parent)
     , m_inputX(this, 0, QSL("X Input"), InputType::Value)
     , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
 {
 }
 
-void ConditionPolygon::write(QJsonObject &json) const
+void PolygonCondition::write(QJsonObject &json) const
 {
     json["polygon"] = to_json(m_polygon);
 }
 
-void ConditionPolygon::read(const QJsonObject &json)
+void PolygonCondition::read(const QJsonObject &json)
 {
     m_polygon = qpolygonf_from_json(json["polygon"].toArray());
 }
 
-s32 ConditionPolygon::getNumberOfSlots() const
+s32 PolygonCondition::getNumberOfSlots() const
 {
     return 2;
 }
 
-Slot *ConditionPolygon::getSlot(s32 slotIndex)
+Slot *PolygonCondition::getSlot(s32 slotIndex)
 {
     switch (slotIndex)
     {
@@ -3949,16 +3949,16 @@ Slot *ConditionPolygon::getSlot(s32 slotIndex)
     return nullptr;
 }
 
-void ConditionPolygon::beginRun(const RunInfo &, Logger)
+void PolygonCondition::beginRun(const RunInfo &, Logger)
 {
 }
 
-void ConditionPolygon::setPolygon(const QPolygonF &polygon)
+void PolygonCondition::setPolygon(const QPolygonF &polygon)
 {
     m_polygon = polygon;
 }
 
-QPolygonF ConditionPolygon::getPolygon() const
+QPolygonF PolygonCondition::getPolygon() const
 {
     return m_polygon;
 }
@@ -3993,9 +3993,9 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<ExpressionOperator>();
     m_objectFactory.registerOperator<ScalerOverflow>();
 #if 1
-    m_objectFactory.registerOperator<ConditionInterval>();
-    m_objectFactory.registerOperator<ConditionRectangle>();
-    m_objectFactory.registerOperator<ConditionPolygon>();
+    m_objectFactory.registerOperator<IntervalCondition>();
+    m_objectFactory.registerOperator<RectangleCondition>();
+    m_objectFactory.registerOperator<PolygonCondition>();
 #endif
 
     m_objectFactory.registerSink<Histo1DSink>();

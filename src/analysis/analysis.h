@@ -1501,12 +1501,12 @@ class LIBMVME_EXPORT ScalerOverflow: public OperatorInterface
 // the input array size.
 // Produces a single output bit which is the OR over the individual interval
 // tests.
-class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
+class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
     public:
-        Q_INVOKABLE ConditionInterval(QObject *parent = 0);
+        Q_INVOKABLE IntervalCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
         virtual QString getShortName() const override { return QSL("CondInter"); }
@@ -1532,12 +1532,12 @@ class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
         QVector<QwtInterval> m_intervals;
 };
 
-class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
+class LIBMVME_EXPORT RectangleCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
     public:
-        Q_INVOKABLE ConditionRectangle(QObject *parent = 0);
+        Q_INVOKABLE RectangleCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
         virtual QString getShortName() const override { return QSL("CondRect"); }
@@ -1561,12 +1561,12 @@ class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
         QRectF m_rectangle;
 };
 
-class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
+class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
     public:
-        Q_INVOKABLE ConditionPolygon(QObject *parent = 0);
+        Q_INVOKABLE PolygonCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Polygon Condition"); }
         virtual QString getShortName() const override { return QSL("CondPoly"); }
@@ -1589,6 +1589,32 @@ class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
         Slot m_inputY;
         QPolygonF m_polygon;
 };
+
+#if 0
+class LIBMVME_EXPORT CompoundCondition: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+
+    public:
+        Q_INVOKABLE CompoundCondition(QObject *parent = 0);
+
+        virtual QString getDisplayName() const override { return QSL("Compound Condition"); }
+        virtual QString getShortName() const override { return QSL("CompoundCond"); }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        virtual s32 getNumberOfBits() const override { return 1; }
+
+    private:
+};
+#endif
 
 //
 // Sinks

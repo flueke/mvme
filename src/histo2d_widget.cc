@@ -1697,7 +1697,7 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 
     // create a new cut object and add it to the analysis
 
-    auto cond = std::make_shared<analysis::ConditionPolygon>();
+    auto cond = std::make_shared<analysis::PolygonCondition>();
     cond->setPolygon(poly);
     cond->setObjectName(cutName);
 
@@ -1724,7 +1724,7 @@ bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
 
-    auto condPoly = qobject_cast<analysis::ConditionPolygon *>(cl.condition.get());
+    auto condPoly = qobject_cast<analysis::PolygonCondition *>(cl.condition.get());
 
     if (!condPoly)
     {

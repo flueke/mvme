@@ -780,9 +780,9 @@ void ConditionWidget::Private::onModificationsRejected()
 void ConditionWidget::Private::editConditionInEditor(const ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__;
-    if (auto cond = dynamic_cast<ConditionInterval *>(cl.condition.get()))
+    if (auto cond = dynamic_cast<IntervalCondition *>(cl.condition.get()))
     {
-        ConditionIntervalEditor editor(cond, m_asp, m_q);
+        IntervalConditionEditor editor(cond, m_asp, m_q);
         if (editor.exec() == QDialog::Accepted)
         {
             m_q->repopulate();

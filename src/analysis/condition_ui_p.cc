@@ -31,7 +31,7 @@ namespace ui
 {
 
 
-ConditionIntervalEditor::ConditionIntervalEditor(ConditionInterval *cond,
+IntervalConditionEditor::IntervalConditionEditor(IntervalCondition *cond,
                                                  AnalysisServiceProvider *asp,
                                                  QWidget *parent)
     : QDialog(parent)
@@ -56,8 +56,8 @@ ConditionIntervalEditor::ConditionIntervalEditor(ConditionInterval *cond,
     bbLayout->addStretch(1);
     bbLayout->addWidget(m_bb);
 
-    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &ConditionIntervalEditor::accept);
-    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &ConditionIntervalEditor::reject);
+    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &IntervalConditionEditor::accept);
+    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &IntervalConditionEditor::reject);
 
     auto layout = new QVBoxLayout(this);
     layout->addLayout(topLayout);
@@ -100,11 +100,11 @@ ConditionIntervalEditor::ConditionIntervalEditor(ConditionInterval *cond,
     resize(325, 400);
 }
 
-ConditionIntervalEditor::~ConditionIntervalEditor()
+IntervalConditionEditor::~IntervalConditionEditor()
 {
 }
 
-void ConditionIntervalEditor::accept()
+void IntervalConditionEditor::accept()
 {
     if (le_name->text() != m_cond->objectName())
     {
@@ -138,7 +138,7 @@ void ConditionIntervalEditor::accept()
     QDialog::accept();
 }
 
-void ConditionIntervalEditor::reject()
+void IntervalConditionEditor::reject()
 {
     QDialog::reject();
 }
