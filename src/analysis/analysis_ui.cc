@@ -960,7 +960,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         QObject::connect(condWidget, &ConditionWidget::objectSelected,
                          m_d->m_objectInfoWidget, &ObjectInfoWidget::setAnalysisObject);
 
-        m_d->m_conditionWidget->show();
+        m_d->m_conditionWidget->hide();
     }
 #endif
 
