@@ -427,6 +427,16 @@ void SinkInterface::postClone(const AnalysisObject *cloneSource)
 //
 // ConditionInterface
 //
+ConditionInterface::ConditionInterface(QObject *parent)
+    : OperatorInterface(parent)
+{
+    m_resultOutput.setSource(this);
+    m_resultOutput.resize(1);
+    auto params = m_resultOutput.getParameters();
+    params[0].lowerLimit = 0.0;
+    params[0].upperLimit = 2.0;
+}
+
 ConditionInterface::~ConditionInterface()
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
@@ -3964,6 +3974,36 @@ QPolygonF PolygonCondition::getPolygon() const
 }
 
 //
+// LutCompoundCondition
+//
+LutCompoundCondition::LutCompoundCondition(QObject *parent)
+    : ConditionInterface(parent)
+{
+}
+
+void LutCompoundCondition::write(QJsonObject &json) const
+{
+}
+
+void LutCompoundCondition::read(const QJsonObject &json)
+{
+}
+
+s32 LutCompoundCondition::getNumberOfSlots() const
+{
+    return 0;
+}
+
+Slot *LutCompoundCondition::getSlot(s32 slotIndex)
+{
+    return nullptr;
+}
+
+void LutCompoundCondition::beginRun(const RunInfo &, Logger)
+{
+}
+
+//
 // Analysis
 //
 
@@ -3976,10 +4016,12 @@ Analysis::Analysis(QObject *parent)
     , m_a2ArenaIndex(0)
     , m_a2State(std::make_unique<A2AdapterState>())
 {
+    // data sources
     m_objectFactory.registerSource<ListFilterExtractor>();
     m_objectFactory.registerSource<Extractor>();
     m_objectFactory.registerSource<MultiHitExtractor>();
 
+    // operators
     m_objectFactory.registerOperator<CalibrationMinMax>();
     m_objectFactory.registerOperator<PreviousValue>();
     m_objectFactory.registerOperator<Difference>();
@@ -3993,11 +4035,14 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<ExpressionOperator>();
     m_objectFactory.registerOperator<ScalerOverflow>();
 #if 1
+    // conditions
     m_objectFactory.registerOperator<IntervalCondition>();
     m_objectFactory.registerOperator<RectangleCondition>();
     m_objectFactory.registerOperator<PolygonCondition>();
+    m_objectFactory.registerOperator<LutCompoundCondition>();
 #endif
 
+    // sinks
     m_objectFactory.registerSink<Histo1DSink>();
     m_objectFactory.registerSink<Histo2DSink>();
     m_objectFactory.registerSink<RateMonitorSink>();

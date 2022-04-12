@@ -550,12 +550,12 @@ constexpr u32 get_number_of_condition_bits_used(const Operator &op)
     return 1;
 }
 
-Operator make_condition_interval(
+Operator make_interval_condition(
     memory::Arena *arena,
     PipeVectors input,
     const std::vector<Interval> &intervals);
 
-Operator make_condition_rectangle(
+Operator make_rectangle_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
@@ -564,7 +564,7 @@ Operator make_condition_rectangle(
     Interval xInterval,
     Interval yInterval);
 
-Operator make_condition_polygon(
+Operator make_polygon_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,

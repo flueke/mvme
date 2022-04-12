@@ -3033,12 +3033,24 @@ u32 get_number_of_condition_bits_used(const Operator &op)
 }
 #endif
 
-Operator make_condition_interval(
+namespace
+{
+    // Creates an operator with a single output of size 1 and limits [0.0,
+    // 2.0). Intended to create condition-type operators.
+    Operator make_condition_operator(memory::Arena *arena, u8 type, u8 inputCount)
+    {
+        auto result = make_operator(arena, type, inputCount, 1);
+        push_output_vectors(arena, &result, 0, 1, 0.0, 2.0);
+        return result;
+    }
+}
+
+Operator make_interval_condition(
     memory::Arena *arena,
     PipeVectors input,
     const std::vector<Interval> &intervals)
 {
-    auto result = make_operator(arena, Operator_ConditionInterval, 1, 0);
+    auto result = make_condition_operator(arena, Operator_ConditionInterval, 1);
 
     assign_input(&result, input, 0);
 
@@ -3051,7 +3063,7 @@ Operator make_condition_interval(
     return result;
 }
 
-Operator make_condition_rectangle(
+Operator make_rectangle_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
@@ -3060,7 +3072,7 @@ Operator make_condition_rectangle(
     Interval xInterval,
     Interval yInterval)
 {
-    auto result = make_operator(arena, Operator_ConditionRectangle, 2, 0);
+    auto result = make_condition_operator(arena, Operator_ConditionRectangle, 2);
 
     assign_input(&result, xInput, 0);
     assign_input(&result, yInput, 1);
@@ -3077,7 +3089,7 @@ Operator make_condition_rectangle(
     return result;
 }
 
-Operator make_condition_polygon(
+Operator make_polygon_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
@@ -3085,7 +3097,7 @@ Operator make_condition_polygon(
     s32 yIndex,
     const std::vector<std::pair<double, double>> &polygon)
 {
-    auto result = make_operator(arena, Operator_ConditionPolygon, 2, 0);
+    auto result = make_condition_operator(arena, Operator_ConditionPolygon, 2);
 
     assign_input(&result, xInput, 0);
     assign_input(&result, yInput, 1);
@@ -3112,9 +3124,9 @@ Operator make_condition_polygon(
 void condition_interval_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->inputCount == 1);
-    assert(op->outputCount == 0);
     assert(op->type == Operator_ConditionInterval);
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
 
     auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
 
@@ -3125,20 +3137,24 @@ void condition_interval_step(Operator *op, A2 *a2)
     const s32 maxIdx = op->inputs[0].size;
 
     // Calculate the OR of the individual interval range checks.
-    bool condResult = false;
+    bool result = false;
 
-    for (s32 idx = 0; idx < maxIdx && !condResult; idx++)
-        condResult |= in_range(d->intervals[idx], op->inputs[0][idx]);
+    for (s32 idx = 0; idx < maxIdx && !result; idx++)
+        result |= in_range(d->intervals[idx], op->inputs[0][idx]);
 
-    a2->conditionBits.set(d->firstBitIndex, condResult);
+    // Write the result to the central condition bit set
+    a2->conditionBits.set(d->firstBitIndex, result);
+
+    // Also write the result to the output vector.
+    op->outputs[0][0] = result;
 }
 
 void condition_rectangle_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->inputCount == 2);
-    assert(op->outputCount == 0);
     assert(op->type == Operator_ConditionRectangle);
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 1);
 
     auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
 
@@ -3149,16 +3165,18 @@ void condition_rectangle_step(Operator *op, A2 *a2)
 
     bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
     bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
+    bool result = xInside && yInside;
 
-    a2->conditionBits.set(d->firstBitIndex, xInside && yInside);
+    a2->conditionBits.set(d->firstBitIndex, result);
+    op->outputs[0][0] = result;
 }
 
 void condition_polygon_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->inputCount == 2);
-    assert(op->outputCount == 0);
     assert(op->type == Operator_ConditionPolygon);
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 1);
 
     auto d = reinterpret_cast<ConditionPolygonData *>(op->d);
 
@@ -3169,9 +3187,10 @@ void condition_polygon_step(Operator *op, A2 *a2)
 
     Point p = { op->inputs[0][d->xIndex], op->inputs[1][d->yIndex] };
 
-    bool condResult = bg::within(p, d->polygon);
+    bool result = bg::within(p, d->polygon);
 
-    a2->conditionBits.set(d->firstBitIndex, condResult);
+    a2->conditionBits.set(d->firstBitIndex, result);
+    op->outputs[0][0] = result;
 }
 
 /*

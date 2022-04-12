@@ -198,7 +198,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
 {
     Q_OBJECT
     public:
-        explicit PipeSourceInterface(QObject *parent = 0)
+        explicit PipeSourceInterface(QObject *parent = nullptr)
             : AnalysisObject(parent)
         {
             //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
@@ -321,6 +321,11 @@ class LIBMVME_EXPORT Pipe
 
         s32 getRank() const { return rank; }
         void setRank(s32 newRank) { rank = newRank; }
+
+        void resize(size_t newSize)
+        {
+            getParameters().resize(newSize);
+        }
 
         ParameterVector parameters;
         PipeSourceInterface *source = nullptr;
@@ -540,14 +545,30 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
     Q_INTERFACES(analysis::OperatorInterface);
     public:
         using OperatorInterface::OperatorInterface;
+        ConditionInterface(QObject *parent = nullptr);
         ~ConditionInterface() override;
 
-        // PipeSourceInterface
-        s32 getNumberOfOutputs() const override { return 0; }
-        QString getOutputName(s32 outputIndex) const override { (void) outputIndex; return QString(); }
-        Pipe *getOutput(s32 index) override { (void) index; return nullptr; }
+        // Condition have a single output holding the result of the last
+        // evaluation of the condition.
 
+        s32 getNumberOfOutputs() const override { return 1; }
+
+        QString getOutputName(s32 outputIndex) const override
+        {
+            return outputIndex == 0 ? QSL("result") : QString{};
+        }
+
+        Pipe *getOutput(s32 outputIndex) override
+        {
+            return outputIndex == 0 ? &m_resultOutput : nullptr;
+        }
+
+        // Specific to conditions: the number of output bits produced. This
+        // used to be variable but now all conditions must return 1now all conditions must return 1.
         virtual s32 getNumberOfBits() const = 0;
+
+    private:
+        Pipe m_resultOutput;
 };
 
 
@@ -1590,17 +1611,16 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
         QPolygonF m_polygon;
 };
 
-#if 0
-class LIBMVME_EXPORT CompoundCondition: public ConditionInterface
+class LIBMVME_EXPORT LutCompoundCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
 
     public:
-        Q_INVOKABLE CompoundCondition(QObject *parent = 0);
+        Q_INVOKABLE LutCompoundCondition(QObject *parent = 0);
 
-        virtual QString getDisplayName() const override { return QSL("Compound Condition"); }
-        virtual QString getShortName() const override { return QSL("CompoundCond"); }
+        virtual QString getDisplayName() const override { return QSL("LUT Condition"); }
+        virtual QString getShortName() const override { return QSL("LutCond"); }
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1614,7 +1634,6 @@ class LIBMVME_EXPORT CompoundCondition: public ConditionInterface
 
     private:
 };
-#endif
 
 //
 // Sinks

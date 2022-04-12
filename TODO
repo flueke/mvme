@@ -4,12 +4,8 @@ TODO list
 
 * analysis: Directories contain references to ids of deleted objects. Could be
   cleaned up when saving the analysis or right at the time where the objects
-  are deleted. Should be very simialar to the code that moves objects out of a
+  are deleted. Should be similar to the code that moves objects out of a
   directory.
-
-* vme script execution:
-  - immediately produce log output for each command
-  - abort early in case of errors
 
 * Maybe: remove the VME controller auto (re)connect feature. instead try to connect when needed.
 

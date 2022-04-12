@@ -879,7 +879,7 @@ DEF_OP_MAGIC(interval_condition_magic)
 
     auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;
 
-    a2::Operator result = make_condition_interval(
+    a2::Operator result = make_interval_condition(
         arena,
         a2_input,
         a2_intervals);
@@ -901,7 +901,7 @@ DEF_OP_MAGIC(rectangle_condition_magic)
     a2::Interval xInterval = { rect.left(), rect.right() };
     a2::Interval yInterval = { rect.bottom(), rect.top() };
 
-    a2::Operator result = make_condition_rectangle(
+    a2::Operator result = make_rectangle_condition(
         arena,
         find_output_pipe(adapterState, inputSlots[0]).first,
         find_output_pipe(adapterState, inputSlots[1]).first,
@@ -932,7 +932,7 @@ DEF_OP_MAGIC(polygon_condition_magic)
         a2_polygon.push_back({ point.x(), point.y() });
     }
 
-    a2::Operator result = make_condition_polygon(
+    a2::Operator result = make_polygon_condition(
         arena,
         find_output_pipe(adapterState, inputSlots[0]).first,
         find_output_pipe(adapterState, inputSlots[1]).first,
@@ -1086,7 +1086,7 @@ void a2_adapter_build_datasources(
         assert(!source->getEventId().isNull());
         assert(!source->getModuleId().isNull());
 
-        qDebug() << __PRETTY_FUNCTION__ << source->getModuleId();
+        //qDebug() << __PRETTY_FUNCTION__ << source->getModuleId();
 
         auto index = vmeMap.value(source->getModuleId());
 
