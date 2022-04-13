@@ -3985,6 +3985,7 @@ bool LutCompoundCondition::addSlot()
     auto inputType = InputType::Value;
     auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, inputType);
     m_inputs.push_back(slot);
+    m_lut.resize(1u << m_inputs.size());
     return true;
 }
 
@@ -3997,6 +3998,7 @@ bool LutCompoundCondition::removeLastSlot()
     assert(slot);
     slot->disconnectPipe();
     m_inputs.pop_back();
+    m_lut.resize(1u << m_inputs.size());
     return true;
 }
 
@@ -4029,6 +4031,8 @@ void LutCompoundCondition::read(const QJsonObject &json)
         bool outVal = it->toBool();
         m_lut.push_back(outVal);
     }
+
+    m_lut.resize(1u << m_inputs.size());
 }
 
 void LutCompoundCondition::beginRun(const RunInfo &, Logger)

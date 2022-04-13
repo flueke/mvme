@@ -115,7 +115,7 @@ enum OperatorType
     Operator_ConditionInterval,
     Operator_ConditionRectangle,
     Operator_ConditionPolygon,
-    //Operator_ConditionLogic,
+    Operator_LutCompoundCondition,
 
     OperatorTypeCount
 };

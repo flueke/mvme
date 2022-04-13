@@ -25,7 +25,6 @@
 
 using std::cout;
 using std::endl;
-using benchmark::Counter;
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 

@@ -1388,6 +1388,21 @@ static void BM_h2d_sink_step(benchmark::State &state)
 }
 BENCHMARK(BM_h2d_sink_step);
 
+static void TEST_lut_condition(benchmark::State &)
+{
+    Arena arena(Kilobytes(256));
+
+    // - create 3 input pipes of size > 1
+    // - use a specific input index for each input pipe
+    // - create a lut with 2^3 entries. fill the lut with a test pattern
+    // - create the lut condition operator
+    // - fill the input pipes with test values (0.0, 0.5, 1.0, 1.5, nan, -1.0)
+    // - step the operator
+    // - verify the result
+
+}
+BENCHMARK(TEST_lut_condition);
+
 #if 0
 static void BM_binary_equation_step(benchmark::State &state)
 {

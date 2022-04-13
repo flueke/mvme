@@ -1601,6 +1601,21 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
         QPolygonF m_polygon;
 };
 
+/* Compound condition with multiple inputs and a LUT defining the output
+ * function.
+ *
+ * Each input specifies a bit used for lookups into the LUT, with input0
+ * supplying the lowest bit. Input values are considered true if the parameter
+ * value is >= 1.0.
+ *
+ * The idea is to restrict the GUI to only offer other conditions as inputs but
+ * in theory it is possible to connect any output pipe to the inputs.
+ *
+ * Note: the tests on the inputs could be skipped and instead the bit indexes
+ * of the input conditions could be used to form the value for the LUT lookup.
+ * This implementation would then restrict the inputs to only be other
+ * conditions.
+ */
 class LIBMVME_EXPORT LutCompoundCondition: public ConditionInterface
 {
     Q_OBJECT
@@ -1627,9 +1642,12 @@ class LIBMVME_EXPORT LutCompoundCondition: public ConditionInterface
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
+        std::vector<bool> getLUT() const { return m_lut; }
+        void setLUT(const std::vector<bool> &lut) { m_lut = lut; }
+
     private:
         QVector<std::shared_ptr<Slot>> m_inputs;
-        QVector<bool> m_lut;
+        std::vector<bool> m_lut;
 };
 
 //
