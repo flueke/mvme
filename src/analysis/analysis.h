@@ -1607,25 +1607,29 @@ class LIBMVME_EXPORT LutCompoundCondition: public ConditionInterface
     Q_INTERFACES(analysis::ConditionInterface)
 
     public:
+        static const int MaxInputSlots = 8;
+
         Q_INVOKABLE LutCompoundCondition(QObject *parent = 0);
 
-        virtual QString getDisplayName() const override { return QSL("LUT Condition"); }
-        virtual QString getShortName() const override { return QSL("LutCond"); }
+        QString getDisplayName() const override { return QSL("LUT Condition"); }
+        QString getShortName() const override { return QSL("LutCond"); }
 
         // serialization
-        virtual void read(const QJsonObject &json) override;
-        virtual void write(QJsonObject &json) const override;
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
 
         // input slots
-        virtual bool hasVariableNumberOfSlots() const { return false; }
-        virtual bool addSlot() { return false; }
-        virtual bool removeLastSlot() { return false; }
-        virtual s32 getNumberOfSlots() const override;
-        virtual Slot *getSlot(s32 slotIndex) override;
+        bool hasVariableNumberOfSlots() const override { return true; }
+        bool addSlot() override;
+        bool removeLastSlot() override;
+        s32 getNumberOfSlots() const override { return m_inputs.size(); }
+        Slot *getSlot(s32 slotIndex) override { return m_inputs.value(slotIndex).get(); }
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
     private:
+        QVector<std::shared_ptr<Slot>> m_inputs;
+        QVector<bool> m_lut;
 };
 
 //

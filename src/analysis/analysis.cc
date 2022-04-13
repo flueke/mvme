@@ -3976,22 +3976,59 @@ LutCompoundCondition::LutCompoundCondition(QObject *parent)
 {
 }
 
+bool LutCompoundCondition::addSlot()
+{
+    if (getNumberOfSlots() >= MaxInputSlots)
+        return false;
+
+    auto inputName = QSL("input%1").arg(getNumberOfSlots());
+    auto inputType = InputType::Value;
+    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, inputType);
+    m_inputs.push_back(slot);
+    return true;
+}
+
+bool LutCompoundCondition::removeLastSlot()
+{
+    if (getNumberOfSlots() == 0)
+        return false;
+
+    auto slot = m_inputs.back();
+    assert(slot);
+    slot->disconnectPipe();
+    m_inputs.pop_back();
+    return true;
+}
+
 void LutCompoundCondition::write(QJsonObject &json) const
 {
+    json["numberOfInputs"] = getNumberOfSlots();
+    QJsonArray jlut;
+
+    for (bool outVal: m_lut)
+        jlut.append(outVal);
+
+    json["lut"] = jlut;
 }
 
 void LutCompoundCondition::read(const QJsonObject &json)
 {
-}
+    while (removeLastSlot()) {};
 
-s32 LutCompoundCondition::getNumberOfSlots() const
-{
-    return 0;
-}
+    s32 inputCount = json["numberOfInputs"].toInt();
 
-Slot *LutCompoundCondition::getSlot(s32 slotIndex)
-{
-    return nullptr;
+    for (s32 inputIndex = 0; inputIndex < inputCount; ++inputIndex)
+        addSlot();
+
+    m_lut.clear();
+
+    auto jlut = json["lut"].toArray();
+
+    for (auto it = jlut.begin(); it != jlut.end(); ++it)
+    {
+        bool outVal = it->toBool();
+        m_lut.push_back(outVal);
+    }
 }
 
 void LutCompoundCondition::beginRun(const RunInfo &, Logger)
