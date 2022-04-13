@@ -432,7 +432,7 @@ ConditionInterface::ConditionInterface(QObject *parent)
 {
     m_resultOutput.setSource(this);
     m_resultOutput.resize(1);
-    auto params = m_resultOutput.getParameters();
+    auto &params = m_resultOutput.getParameters();
     params[0].lowerLimit = 0.0;
     params[0].upperLimit = 2.0;
 }

@@ -564,7 +564,8 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
         }
 
         // Specific to conditions: the number of output bits produced. This
-        // used to be variable but now all conditions must return 1now all conditions must return 1.
+        // used to be variable but now all conditions must return 1now all
+        // conditions must return 1.
         virtual s32 getNumberOfBits() const = 0;
 
     private:
