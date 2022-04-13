@@ -3866,11 +3866,6 @@ QwtInterval IntervalCondition::getInterval(s32 address) const
     return m_intervals.value(address, { make_quiet_nan(), make_quiet_nan() });
 }
 
-s32 IntervalCondition::getNumberOfBits() const
-{
-    return 1;
-}
-
 //
 // RectangleCondition
 //

@@ -160,21 +160,9 @@ void ObjectInfoWidget::refresh()
             // testing and setting bit-by-bit. maybe alloc, clear and use an
             // overloaded OR operator
             const auto &condBits = a2State->a2->conditionBits;
-            s32 firstBit = a2State->conditionBitIndexes.value(cond);
+            s32 bitIndex = a2State->conditionBitIndexes.value(cond);
 
-            QString buffer;
-
-            // rough estimate to avoid many reallocations
-            buffer.reserve(cond->getNumberOfBits() * 3);
-
-            for (s32 bi = firstBit; bi < firstBit + cond->getNumberOfBits(); bi++)
-            {
-                assert(0 <= bi && static_cast<size_t>(bi) < condBits.size());
-
-                buffer += QSL("%1,").arg(condBits.test(bi));
-            }
-
-            text += QSL("\nconditionBit=") + buffer;
+            text += QSL("\nconditionBit=%1").arg(condBits.test(bitIndex));
         }
 
         label->setText(text);

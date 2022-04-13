@@ -1340,7 +1340,7 @@ void a2_adapter_build_single_operator(
                  * only known during the second pass build phase. */
                 if (state->conditionBitIndexes.contains(a1_cond))
                 {
-                    d->firstBitIndex = state->conditionBitIndexes.value(a1_cond);
+                    d->bitIndex = state->conditionBitIndexes.value(a1_cond);
                 }
             }
 
@@ -1625,8 +1625,7 @@ A2AdapterState a2_adapter_build(
     /* Walk sorted operator arrays assigning increasing condition bit positions
      * for condition operators and filling the conditionBitIndexes bi-hash.
      * This information will be available for the second build pass below. */
-    s32 nextConditionBitIndex = 0;
-    u32 totalConditionBits = 0u;
+    s16 nextConditionBitIndex = 0;
 
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
@@ -1640,13 +1639,14 @@ A2AdapterState a2_adapter_build(
                 assert(!result.conditionBitIndexes.contains(nextConditionBitIndex));
 
                 result.conditionBitIndexes.insert(cond, nextConditionBitIndex);
-                nextConditionBitIndex += cond->getNumberOfBits();
-                totalConditionBits += cond->getNumberOfBits();
+                ++nextConditionBitIndex;
             }
         }
     }
 
-    result.a2->conditionBits.resize(totalConditionBits);
+    // nextConditionBitIndex now holds the total number of condition bits used
+
+    result.a2->conditionBits.resize(nextConditionBitIndex);
     result.a2->conditionBits.reset(); // clear all bits
 
     /* Clear the operator part. */

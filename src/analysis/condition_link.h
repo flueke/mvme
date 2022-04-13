@@ -18,7 +18,7 @@ struct LIBMVME_EXPORT ConditionLink
 
     /* Subindex into the condition bits in case the condition has multiple
      * bits. */
-    s32 subIndex = 0;
+    s32 subIndex = 0; // TODO: remove subindex as conditions now only have a single output bit
 
     explicit operator bool() const { return condition != nullptr; }
 

@@ -99,18 +99,6 @@ TreeNode *make_condition_node(ConditionInterface *cond)
 
     ret->setFlags(ret->flags() | Qt::ItemIsEditable);
 
-    if (cond->getNumberOfBits() > 1)
-    {
-        for (s32 bi = 0; bi < cond->getNumberOfBits(); bi++)
-        {
-            auto child = make_node(cond, NodeType_ConditionBit, DataRole_AnalysisObject);
-            child->setData(0, DataRole_BitIndex, bi);
-            child->setText(0, QString::number(bi));
-
-            ret->addChild(child);
-        }
-    }
-
     return ret;
 }
 
@@ -260,20 +248,7 @@ void ConditionTreeWidget::repopulate()
         auto node = make_condition_node(cond.get());
         addTopLevelItem(node);
         m_d->m_objectMap[cond] = node;
-
-        if (cond->getNumberOfBits() == 1)
-        {
-            make_mod_buttons(node);
-        }
-        else
-        {
-            assert(node->childCount() == cond->getNumberOfBits());
-
-            for (auto ci = 0; ci < node->childCount(); ci++)
-            {
-                make_mod_buttons(node->child(ci));
-            }
-        }
+        make_mod_buttons(node);
     }
 
     resizeColumnToContents(0);
@@ -297,22 +272,7 @@ void ConditionTreeWidget::highlightConditionLink(const ConditionLink &cl)
 
     if (auto condNode = m_d->m_objectMap[cl.condition])
     {
-        if (cl.condition->getNumberOfBits() == 1)
-        {
-            condNode->setBackground(0, InputNodeOfColor);
-        }
-        else if (0 <= cl.subIndex && cl.subIndex < condNode->childCount())
-        {
-            if (auto bitNode = condNode->child(cl.subIndex))
-            {
-                condNode->setBackground(0, ChildIsInputNodeOfColor);
-                bitNode->setBackground(0, InputNodeOfColor);
-            }
-            else
-            {
-                InvalidCodePath;
-            }
-        }
+        condNode->setBackground(0, InputNodeOfColor);
     }
     else
     {
@@ -331,16 +291,7 @@ void ConditionTreeWidget::setModificationButtonsVisible(const ConditionLink &cl,
 {
     //qDebug() << __PRETTY_FUNCTION__ << cl.condition << visible;
 
-    QTreeWidgetItem *node = nullptr;
-
-    if (cl && (node = m_d->m_objectMap[cl.condition]))
-    {
-        if (cl.condition->getNumberOfBits() > 1
-            && 0 <= cl.subIndex && cl.subIndex < node->childCount())
-        {
-            node = node->child(cl.subIndex);
-        }
-    }
+    QTreeWidgetItem *node = cl ? m_d->m_objectMap[cl.condition] : nullptr;
 
     if (node)
     {
@@ -654,14 +605,7 @@ void ConditionWidget::Private::onCurrentNodeChanged(QTreeWidgetItem *node)
                 auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(
                     cond->shared_from_this());
 
-                if (cond->getNumberOfBits() == 1)
-                {
-                    emit m_q->conditionLinkSelected({ condPtr, 0 });
-                }
-                else
-                {
-                    emit m_q->conditionLinkSelected({ condPtr, -1 });
-                }
+                emit m_q->conditionLinkSelected({ condPtr, 0 });
             }
             else
             {

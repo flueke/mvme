@@ -1592,7 +1592,7 @@ void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
 
     const auto &condInfo = cl;
     assert(condInfo.condition);
-    assert(condInfo.subIndex < condInfo.condition->getNumberOfBits());
+    assert(condInfo.subIndex <= 0);
 
     m_d->removeConditionDecorations(m_d->m_applyConditionInfo);
 

@@ -3057,7 +3057,7 @@ Operator make_interval_condition(
     auto d = arena->pushStruct<ConditionIntervalData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidBitIndex;
+    d->bitIndex = ConditionBaseData::InvalidBitIndex;
     d->intervals = push_copy_typed_block<Interval, s32>(arena, intervals);
 
     return result;
@@ -3080,7 +3080,7 @@ Operator make_rectangle_condition(
     auto d = arena->pushStruct<ConditionRectangleData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidBitIndex;
+    d->bitIndex = ConditionBaseData::InvalidBitIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
     d->xInterval = xInterval;
@@ -3106,7 +3106,7 @@ Operator make_polygon_condition(
     auto d = arena->pushObject<ConditionPolygonData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidBitIndex;
+    d->bitIndex = ConditionBaseData::InvalidBitIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
 
@@ -3131,8 +3131,8 @@ void condition_interval_step(Operator *op, A2 *a2)
     auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
 
     assert(op->inputs[0].size == d->intervals.size);
-    assert(0 <= d->firstBitIndex);
-    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
 
     const s32 maxIdx = op->inputs[0].size;
 
@@ -3143,7 +3143,7 @@ void condition_interval_step(Operator *op, A2 *a2)
         result |= in_range(d->intervals[idx], op->inputs[0][idx]);
 
     // Write the result to the central condition bit set
-    a2->conditionBits.set(d->firstBitIndex, result);
+    a2->conditionBits.set(d->bitIndex, result);
 
     // Also write the result to the output vector.
     op->outputs[0][0] = result;
@@ -3158,8 +3158,8 @@ void condition_rectangle_step(Operator *op, A2 *a2)
 
     auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
 
-    assert(0 <= d->firstBitIndex);
-    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
     assert(d->xIndex < op->inputs[0].size);
     assert(d->yIndex < op->inputs[1].size);
 
@@ -3167,7 +3167,7 @@ void condition_rectangle_step(Operator *op, A2 *a2)
     bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
     bool result = xInside && yInside;
 
-    a2->conditionBits.set(d->firstBitIndex, result);
+    a2->conditionBits.set(d->bitIndex, result);
     op->outputs[0][0] = result;
 }
 
@@ -3180,8 +3180,8 @@ void condition_polygon_step(Operator *op, A2 *a2)
 
     auto d = reinterpret_cast<ConditionPolygonData *>(op->d);
 
-    assert(0 <= d->firstBitIndex);
-    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
     assert(d->xIndex < op->inputs[0].size);
     assert(d->yIndex < op->inputs[1].size);
 
@@ -3189,7 +3189,7 @@ void condition_polygon_step(Operator *op, A2 *a2)
 
     bool result = bg::within(p, d->polygon);
 
-    a2->conditionBits.set(d->firstBitIndex, result);
+    a2->conditionBits.set(d->bitIndex, result);
     op->outputs[0][0] = result;
 }
 
@@ -4573,7 +4573,7 @@ void a2_end_event(A2 *a2, int eventIndex)
     a2_trace("ei=%d, operators stepped=%d, condSkipped=%d\n",
              eventIndex, opSteppedCount, opCondSkipped);
 
-    // condition debug output
+    // Condition debug output: print condition info, bit index and bit value
     for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
         Operator *op = operators + opIdx;
@@ -4581,21 +4581,12 @@ void a2_end_event(A2 *a2, int eventIndex)
         if (is_condition_operator(*op))
         {
             auto d = reinterpret_cast<ConditionBaseData *>(op->d);
-            u32 bitCount = get_number_of_condition_bits_used(*op);
 
-            assert(d->firstBitIndex >= 0);
+            assert(d->bitIndex >= 0); // bitIndex must have been assigned when the runtime was built
+            assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
 
-            a2_trace("ei=%d, condOp@%p, condType=%u, firstBit=%d, bitCount=%u:\n  ",
-                     eventIndex, op, op->type, d->firstBitIndex, bitCount);
-
-
-            for (u32 pos = d->firstBitIndex; pos < d->firstBitIndex + bitCount; pos++)
-            {
-                assert(pos < a2->conditionBits.size());
-                a2_trace_np("%d, ", a2->conditionBits.test(pos));
-            }
-
-            a2_trace_np("\n");
+            a2_trace("ei=%d, condOp@%p, condType=%u, bitIndex=%d, bitValue=%d",
+                     eventIndex, op, op->type, d->bitIndex, a2->conditionBits.test(d->bitIndex));
         }
     }
 }

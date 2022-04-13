@@ -563,11 +563,6 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
             return outputIndex == 0 ? &m_resultOutput : nullptr;
         }
 
-        // Specific to conditions: the number of output bits produced. This
-        // used to be variable but now all conditions must return 1now all
-        // conditions must return 1.
-        virtual s32 getNumberOfBits() const = 0;
-
     private:
         Pipe m_resultOutput;
 };
@@ -1547,8 +1542,6 @@ class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
         void setInterval(s32 address, const QwtInterval &interval);
         QwtInterval getInterval(s32 address) const;
 
-        virtual s32 getNumberOfBits() const override;
-
     private:
         Slot m_input;
         QVector<QwtInterval> m_intervals;
@@ -1574,8 +1567,6 @@ class LIBMVME_EXPORT RectangleCondition: public ConditionInterface
 
         void setRectangle(const QRectF &rect);
         QRectF getRectangle() const;
-
-        virtual s32 getNumberOfBits() const override { return 1; }
 
     private:
         Slot m_inputX;
@@ -1604,8 +1595,6 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
         void setPolygon(const QPolygonF &polygon);
         QPolygonF getPolygon() const;
 
-        virtual s32 getNumberOfBits() const override { return 1; }
-
     private:
         Slot m_inputX;
         Slot m_inputY;
@@ -1623,15 +1612,18 @@ class LIBMVME_EXPORT LutCompoundCondition: public ConditionInterface
         virtual QString getDisplayName() const override { return QSL("LUT Condition"); }
         virtual QString getShortName() const override { return QSL("LutCond"); }
 
+        // serialization
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
+        // input slots
+        virtual bool hasVariableNumberOfSlots() const { return false; }
+        virtual bool addSlot() { return false; }
+        virtual bool removeLastSlot() { return false; }
         virtual s32 getNumberOfSlots() const override;
         virtual Slot *getSlot(s32 slotIndex) override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-
-        virtual s32 getNumberOfBits() const override { return 1; }
 
     private:
 };
