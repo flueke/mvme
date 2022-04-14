@@ -86,12 +86,14 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         QwtPlot *getPlot() const;
 
         // ConditionEditorInterface
-        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
-        virtual analysis::ConditionLink getEditCondition() const override;
+        virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
+        virtual analysis::ConditionPtr getEditCondition() const override;
         virtual void beginEditCondition() override;
 
         void activatePlotPicker(QwtPlotPicker *picker);
         QwtPlotPicker *getActivePlotPicker() const;
+
+        s32 currentHistoIndex() const;
 
     public slots:
         void replot();

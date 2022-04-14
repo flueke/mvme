@@ -26,6 +26,8 @@
 
 #include "analysis_service_provider.h"
 
+#if 0
+
 namespace analysis
 {
 namespace ui
@@ -67,5 +69,7 @@ class ConditionWidget: public QWidget
 
 } // ns ui
 } // ns analysis
+
+#endif
 
 #endif /* __MVME_CONDITION_UI_H__ */

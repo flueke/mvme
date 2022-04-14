@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo2d_widget.h"
+#include "analysis/analysis_fwd.h"
 #include "histo2d_widget_p.h"
 
 #include <qwt_color_map.h>
@@ -318,7 +319,7 @@ struct Histo2DWidgetPrivate
     ResolutionReductionFactors m_rrf = {};
 
     // Cuts / Conditions
-    analysis::ConditionLink m_editingCondition;
+    analysis::ConditionPtr m_editingCondition;
     QwtPlotPicker *m_cutPolyPicker;
     std::unique_ptr<QwtPlotShapeItem> m_cutShapeItem;
 
@@ -1720,11 +1721,11 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
     }
 }
 
-bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
+bool Histo2DWidget::setEditCondition(const analysis::ConditionPtr &cond)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
+    qDebug() << __PRETTY_FUNCTION__ << this << cond.get();
 
-    auto condPoly = qobject_cast<analysis::PolygonCondition *>(cl.condition.get());
+    auto condPoly = qobject_cast<analysis::PolygonCondition *>(cond.get());
 
     if (!condPoly)
     {
@@ -1733,7 +1734,7 @@ bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
         return false;
     }
 
-    m_d->m_editingCondition = cl;
+    m_d->m_editingCondition = cond;
 
     if (!m_d->m_cutShapeItem)
     {
@@ -1754,7 +1755,7 @@ bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
     return true;
 }
 
-analysis::ConditionLink Histo2DWidget::getEditCondition() const
+analysis::ConditionPtr Histo2DWidget::getEditCondition() const
 {
     return m_d->m_editingCondition;
 }

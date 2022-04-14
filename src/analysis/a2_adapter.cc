@@ -1375,13 +1375,12 @@ void a2_adapter_build_single_operator(
              * on the operator.
              * This is part of the passive side where a condition has to be
              * checked. */
-            if (auto link = state->a1->getConditionLink(opInfo.op))
+            if (auto cond = state->a1->getCondition(opInfo.op))
             {
                 // Check if the conditions bit index is known
-                if (state->conditionBitIndexes.contains(link.condition.get()))
+                if (state->conditionBitIndexes.contains(cond.get()))
                 {
-                    a2_op.conditionIndex =
-                        state->conditionBitIndexes.value(link.condition.get()) + link.subIndex;
+                    a2_op.conditionIndex = state->conditionBitIndexes.value(cond.get());
                 }
             }
 

@@ -255,7 +255,7 @@ struct EventWidgetPrivate
 
     InputSelectInfo m_inputSelectInfo;
 
-    ConditionLink m_applyConditionInfo;
+    ConditionPtr m_selectedCondition;
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;
@@ -329,9 +329,9 @@ struct EventWidgetPrivate
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
     void updateNodesForApplyConditionMode();
-    void addConditionDecorations(const ConditionLink &cl);
-    void removeConditionDecorations(const ConditionLink &cl);
-    bool hasPendingConditionModifications() const;
+    void addConditionDecorations(const ConditionPtr &cond);
+    void removeConditionDecorations(const ConditionPtr &cond);
+    //bool hasPendingConditionModifications() const;
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);

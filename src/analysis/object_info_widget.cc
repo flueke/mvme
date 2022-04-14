@@ -119,7 +119,7 @@ void ObjectInfoWidget::refresh()
 
         auto analysis = m_d->m_serviceProvider->getAnalysis();
 
-        if (auto op = qobject_cast<OperatorInterface *>(obj.get()))
+        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
             text += QSL("\nrank=%1").arg(op->getRank());
 
@@ -132,15 +132,14 @@ void ObjectInfoWidget::refresh()
                 .arg(op->getMaximumOutputRank());
 
 
-            if (auto condLink = analysis->getConditionLink(op))
+            if (auto cond = analysis->getCondition(op))
             {
-                text += QSL("\ncondLink=%1[%2], condRank=%3")
-                    .arg(condLink.condition->objectName())
-                    .arg(condLink.subIndex)
-                    .arg(condLink.condition->getRank());
+                text += QSL("\ncondLink=%1, condRank=%2")
+                    .arg(cond->objectName())
+                    .arg(cond->getRank());
             }
 
-            auto inputSet = collect_input_set(op);
+            auto inputSet = collect_input_set(op.get());
 
             if (!inputSet.empty())
             {
@@ -162,7 +161,7 @@ void ObjectInfoWidget::refresh()
             const auto &condBits = a2State->a2->conditionBits;
             s32 bitIndex = a2State->conditionBitIndexes.value(cond);
 
-            text += QSL("\nconditionBit=%1").arg(condBits.test(bitIndex));
+            text += QSL("\nconditionBitValue=%1").arg(condBits.test(bitIndex));
         }
 
         label->setText(text);

@@ -21,6 +21,7 @@
 #ifndef __HISTO2D_WIDGET_H__
 #define __HISTO2D_WIDGET_H__
 
+#include "analysis/analysis_fwd.h"
 #include "analysis/condition_editor_interface.h"
 #include "analysis_service_provider.h"
 #include "histo2d.h"
@@ -69,8 +70,8 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEd
         void setLogZ();
 
         // ConditionEditorInterface
-        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
-        virtual analysis::ConditionLink getEditCondition() const override;
+        virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
+        virtual analysis::ConditionPtr getEditCondition() const override;
         virtual void beginEditCondition() override;
 
     public slots:

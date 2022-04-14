@@ -11,6 +11,7 @@
 namespace analysis
 {
 
+#if 0
 struct LIBMVME_EXPORT ConditionLink
 {
     /* The condition referenced by this link. */
@@ -44,6 +45,7 @@ inline QDebug &operator<<(QDebug& dbg, const ConditionLink &cl)
     return dbg;
 }
 
+#endif
 #endif
 
 } // end ns analysis

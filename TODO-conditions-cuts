@@ -1,6 +1,30 @@
---------------------------------------------------
 Analysis Conditions (Histogram Cuts and more)
---------------------------------------------------
+=============================================
+
+TODO
+----
+* Try the checkbox-based method of applying conditions to operators without the
+  extra condition tree being present.
+
+Glossary
+--------
+* Condition:
+
+  Analysis object producing a single output bit. Can be applied to other
+  objects to decide whether to execute or skip stepping of the object.
+
+* IntervalCondition:
+
+  Condition made up of 1d intervals. The output bit is the OR over all
+  individual interval tests.
+
+* Compound Condition:
+
+  Condition using the output of multiple other conditions to calculate its own output.
+
+
+Old/obsolete notes
+==================
 
 1D cut creation and editing
 -------------------------------------------

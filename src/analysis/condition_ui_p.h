@@ -39,6 +39,7 @@ namespace analysis
 namespace ui
 {
 
+#if 0
 class ConditionTreeWidget: public QTreeWidget
 {
     Q_OBJECT
@@ -88,6 +89,7 @@ class NodeModificationButtons: public QWidget
         QPushButton *pb_accept;
         QPushButton *pb_reject;
 };
+#endif
 
 class IntervalConditionEditor: public QDialog
 {

@@ -25,6 +25,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <memory>
 #include <random>
 #include <zstr/src/zstr.hpp>
 
@@ -4457,30 +4458,28 @@ void Analysis::removeOperator(const OperatorPtr &op)
 
             /* Note: cannot call clearConditionLink while iterating the
              * condition link hash because that method will modify the hash. */
-            struct OpAndCl
+            struct OpAndCond
             {
                 OperatorPtr op;
-                ConditionLink cl;
+                ConditionPtr cond;
             };
 
-            QVector<OpAndCl> linksToClear;
+            QVector<OpAndCond> linksToClear;
 
             for (auto it = m_conditionLinks.begin();
                  it != m_conditionLinks.end();
                  it++)
             {
-                const auto &cl = it.value();
                 const auto &op = it.key();
+                const auto &linkedCond = it.value();
 
-                if (cl.condition == cond)
-                {
-                    linksToClear.push_back({ op, cl });
-                }
+                if (linkedCond == cond)
+                    linksToClear.push_back({ op, linkedCond });
             }
 
             for (auto &entry: linksToClear)
             {
-                clearConditionLink(entry.op, entry.cl);
+                clearConditionLink(entry.op, entry.cond);
             }
         }
 
@@ -4540,9 +4539,16 @@ ConditionVector Analysis::getConditions(const QUuid &eventId) const
 
 ConditionPtr Analysis::getCondition(const OperatorPtr &op) const
 {
-    return m_conditionLinks.value(op).condition;
+    return m_conditionLinks.value(op);
 }
 
+ConditionPtr Analysis::getCondition(OperatorInterface *op) const
+{
+    auto shared = op->shared_from_this();
+    return m_conditionLinks.value(std::dynamic_pointer_cast<OperatorInterface>(shared));
+}
+
+#if 0
 ConditionLink Analysis::getConditionLink(const OperatorPtr &op) const
 {
     return m_conditionLinks.value(op);
@@ -4554,6 +4560,7 @@ ConditionLink Analysis::getConditionLink(const OperatorInterface *op) const
 
     return getConditionLink(std::dynamic_pointer_cast<OperatorInterface>(analysisObject));
 }
+#endif
 
 ConditionLinks Analysis::getConditionLinks() const
 {
@@ -4562,20 +4569,20 @@ ConditionLinks Analysis::getConditionLinks() const
 
 bool Analysis::hasActiveCondition(const OperatorPtr &op) const
 {
-    return m_conditionLinks.value(op).condition != nullptr;
+    return m_conditionLinks.value(op) != nullptr;
 }
 
-bool Analysis::setConditionLink(const OperatorPtr &op, const ConditionLink &cl)
+bool Analysis::setConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
 {
-    if (cl != m_conditionLinks.value(op))
+    if (cond != m_conditionLinks.value(op))
     {
-        m_conditionLinks.insert(op, cl);
+        m_conditionLinks.insert(op, cond);
 
         // Set rebuild flag to  clear operator state (e.g. histogram contents)
         // after the condition was set or changed.
         op->setObjectFlags(ObjectFlags::NeedsRebuild);
 
-        emit conditionLinkApplied(op, cl);
+        emit conditionLinkApplied(op, cond);
 
         return true;
     }
@@ -4583,13 +4590,13 @@ bool Analysis::setConditionLink(const OperatorPtr &op, const ConditionLink &cl)
     return true;
 }
 
-bool Analysis::clearConditionLink(const OperatorPtr &op, const ConditionLink &cl)
+bool Analysis::clearConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
 {
-    if (m_conditionLinks.value(op) == cl)
+    if (m_conditionLinks.value(op) == cond)
     {
         m_conditionLinks.remove(op);
         op->setObjectFlags(ObjectFlags::NeedsRebuild);
-        emit conditionLinkCleared(op, cl);
+        emit conditionLinkCleared(op, cond);
         return true;
     }
 
@@ -4598,17 +4605,18 @@ bool Analysis::clearConditionLink(const OperatorPtr &op, const ConditionLink &cl
 
 bool Analysis::clearConditionLink(const OperatorPtr &op)
 {
-    if (auto cl = m_conditionLinks.value(op))
+    if (auto cond = m_conditionLinks.value(op))
     {
         m_conditionLinks.remove(op);
         op->setObjectFlags(ObjectFlags::NeedsRebuild);
-        emit conditionLinkCleared(op, cl);
+        emit conditionLinkCleared(op, cond);
         return true;
     }
 
     return false;
 }
 
+// FIXME: why not pass a ConditionPtr?
 size_t Analysis::clearConditionLinksUsing(const ConditionInterface *cond)
 {
     // Iterater over a copy as the call to clearConditionLink() modifies the
@@ -4618,12 +4626,12 @@ size_t Analysis::clearConditionLinksUsing(const ConditionInterface *cond)
 
     for (auto it = links.begin(); it != links.end(); it++)
     {
-        const auto &cl = it.value();
         const auto &op = it.key();
+        const auto &opCond = it.value();
 
-        if (cl.condition.get() == cond)
+        if (opCond.get() == cond)
         {
-            clearConditionLink(op, cl);
+            clearConditionLink(op, opCond);
             result++;
         }
     }
@@ -5097,16 +5105,16 @@ void Analysis::updateRank(OperatorInterface *op,
 
     // Check if the operator uses a condition and update that. Then adjust this
     // operators input rank.
-    if (auto condLink = getConditionLink(op))
+    if (auto cond = getCondition(op))
     {
-        updateRank(condLink.condition.get(), updated, visited);
+        updateRank(cond.get(), updated, visited);
 
-        const s32 condRank = condLink.condition->getRank();
+        const s32 condRank = cond->getRank();
 
         newRank = std::max(maxInputRank, condRank) + 1;
 
         qDebug() << __PRETTY_FUNCTION__ << "op" << op
-            << " uses conditon" << condLink.condition.get()
+            << " uses conditon" << cond.get()
             << ", this.maxInputRank =" << maxInputRank
             << ", cond.rank =" << condRank
             << ", newRank =" << newRank;

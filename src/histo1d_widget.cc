@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo1d_widget.h"
+#include "analysis/analysis_fwd.h"
 #include "histo1d_widget_p.h"
 
 #include <qwt_interval.h>
@@ -343,7 +344,7 @@ struct Histo1DWidgetPrivate
     // Cut creation / editing
     IntervalEditor *m_intervalCutEditor = nullptr;
     IntervalCutDialog *m_intervalCutDialog = nullptr;
-    analysis::ConditionLink m_editingCondition;
+    analysis::ConditionPtr m_editingCondition;
     QVector<QwtInterval> m_cutIntervals;
 
     // Histo and stats
@@ -351,6 +352,8 @@ struct Histo1DWidgetPrivate
 
     Histo1DWidget::HistoList m_histos;
     s32 m_histoIndex = 0;
+
+    s32 currentHistoIndex() const;
 
     QSpinBox *m_histoSpin;
 
@@ -1908,35 +1911,35 @@ void Histo1DWidgetPrivate::onEditCutReject()
 
 using analysis::IntervalCondition;
 
-bool Histo1DWidget::setEditCondition(const analysis::ConditionLink &cl)
+bool Histo1DWidget::setEditCondition(const analysis::ConditionPtr &condPtr)
 {
-    qDebug() << __PRETTY_FUNCTION__ << cl;
+    qDebug() << __PRETTY_FUNCTION__ << condPtr.get();
 
-    auto cond = std::dynamic_pointer_cast<IntervalCondition>(cl.condition);
+    auto cond = std::dynamic_pointer_cast<IntervalCondition>(condPtr);
 
-    if (!cond || cl.subIndex > m_d->m_histos.size())
+    // TODO: handle the case where cond interval count != histo count
+
+    if (!cond)
     {
         // Error was either the Condition is not an interval cut or it's null.
         m_d->m_editingCondition = {};
         m_d->m_intervalCutEditor->endEdit();
-        qDebug() << __PRETTY_FUNCTION__ << "condlink subindex out of range:"
-            << "histoCount =" << m_d->m_histos.size();
         return false;
     }
 
-    m_d->m_editingCondition = cl;
+    m_d->m_editingCondition = cond;
     // create a copy of the intervals. that's the core data we're editing
     m_d->m_cutIntervals = cond->getIntervals();
 
-    selectHistogram(cl.subIndex);
+    //selectHistogram(cl.subIndex);
 
-    auto interval = m_d->m_cutIntervals.value(cl.subIndex);
+    auto interval = m_d->m_cutIntervals.value(currentHistoIndex());
     m_d->m_intervalCutEditor->setInterval(interval);
     m_d->m_intervalCutEditor->show();
     return true;
 }
 
-analysis::ConditionLink Histo1DWidget::getEditCondition() const
+analysis::ConditionPtr Histo1DWidget::getEditCondition() const
 {
     return m_d->m_editingCondition;
 }
@@ -2008,7 +2011,7 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
             userLevel,
             cond);
 
-        m_q->setEditCondition({ cond, m_histoIndex });
+        m_q->setEditCondition(cond);
     }
 }
 
@@ -2075,6 +2078,7 @@ void Histo1DWidget::selectHistogram(int index)
 
         //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
 
+#if 0
         if (auto cl = getEditCondition())
         {
             if (cl.subIndex != index)
@@ -2083,12 +2087,18 @@ void Histo1DWidget::selectHistogram(int index)
                 setEditCondition(cl);
             }
         }
+#endif
 
         m_d->displayChanged();
 
         QSignalBlocker sb(m_d->m_histoSpin);
         m_d->m_histoSpin->setValue(index);
     }
+}
+
+s32 Histo1DWidget::currentHistoIndex() const
+{
+    return m_d->m_histoIndex;
 }
 
 void Histo1DWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)

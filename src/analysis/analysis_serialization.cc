@@ -96,12 +96,11 @@ QJsonObject serialze_connection(const Connection &con)
     return result;
 }
 
-QJsonObject serialize_conditionlink(const OperatorPtr &op, const ConditionLink &cl)
+QJsonObject serialize_conditionlink(const OperatorPtr &op, const ConditionPtr &cond)
 {
     QJsonObject result;
     result["operatorId"] = op->getId().toString();
-    result["conditionId"] = cl.condition->getId().toString();
-    result["subIndex"] = cl.subIndex;
+    result["conditionId"] = cond->getId().toString();
     return result;
 }
 
@@ -455,7 +454,6 @@ AnalysisObjectStore deserialize_objects(
 
             QUuid opId(objectJson["operatorId"].toString());
             QUuid condId(objectJson["conditionId"].toString());
-            s32 subIndex = objectJson["subIndex"].toInt();
 
             auto op = std::dynamic_pointer_cast<OperatorInterface>(
                 result.objectsById.value(opId));
@@ -465,7 +463,7 @@ AnalysisObjectStore deserialize_objects(
 
             if (op && cond)
             {
-                result.conditionLinks.insert(op, { cond, subIndex });
+                result.conditionLinks.insert(op,  cond);
             }
         }
     }

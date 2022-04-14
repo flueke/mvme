@@ -417,8 +417,8 @@ bool slots_match(const QVector<Slot *> &slotsA, const QVector<Slot *> &slotsB)
 }
 
 /* Filters sinks, returning the ones using all of the inputs that are used by
- * the ConditionLink. */
-SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks)
+ * the Condition. */
+SinkVector get_sinks_for_condition(const ConditionPtr &cond, const SinkVector &sinks)
 {
     /* Get the input slots of the condition and of each sink.
      * Sort each of the slots vectors by input pipe and param index.
@@ -433,7 +433,7 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
         return slotA->inputPipe < slotB->inputPipe;
     };
 
-    auto condInputSlots = cl.condition->getSlots();
+    auto condInputSlots = cond->getSlots();
 
     std::sort(condInputSlots.begin(), condInputSlots.end(), slot_lessThan);
 
@@ -442,7 +442,7 @@ SinkVector get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector
 
     for (const auto &sink: sinks)
     {
-        if (sink->getEventId() != cl.condition->getEventId())
+        if (sink->getEventId() != cond->getEventId())
             continue;
 
         if (sink->getNumberOfSlots() != condInputSlots.size())

@@ -1964,8 +1964,6 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
 struct AnalysisObjectStore;
 
-using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
-
 enum class AnalysisReadResult
 {
     NoError,
@@ -2005,8 +2003,8 @@ class LIBMVME_EXPORT Analysis:
         void directoryAdded(const DirectoryPtr &ptr);
         void directoryRemoved(const DirectoryPtr &ptr);
 
-        void conditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
-        void conditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
+        void conditionLinkApplied(const OperatorPtr &op, const ConditionPtr &cond);
+        void conditionLinkCleared(const OperatorPtr &op, const ConditionPtr &cond);
 
 
     public:
@@ -2085,20 +2083,21 @@ class LIBMVME_EXPORT Analysis:
         ConditionVector getConditions() const;
         ConditionVector getConditions(const QUuid &eventId) const;
         ConditionPtr getCondition(const OperatorPtr &op) const;
-        ConditionLink getConditionLink(const OperatorPtr &op) const;
-        ConditionLink getConditionLink(const OperatorInterface *op) const;
+        ConditionPtr getCondition(OperatorInterface *op) const;
+        //ConditionLink getConditionLink(const OperatorPtr &op) const;
+        //ConditionLink getConditionLink(const OperatorInterface *op) const;
         ConditionLinks getConditionLinks() const;
         bool hasActiveCondition(const OperatorPtr &op) const;
 
         /* Links the given operator to the given condition and subindex. Any
          * existing condition link will be replaced. */
         //bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        bool setConditionLink(const OperatorPtr &op, const ConditionLink &cl);
+        bool setConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
         /* Clears the condition link of the given operator if it was linked to
          * the given condition and subIndex. */
         //bool clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        bool clearConditionLink(const OperatorPtr &op, const ConditionLink &cl);
+        bool clearConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
         /* Clears the condition link of the given operator no matter which
          * condition it is using. */

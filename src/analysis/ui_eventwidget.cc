@@ -181,7 +181,7 @@ QVector<QUuid> decode_id_list(QByteArray data)
  * the candidate is checked. */
 struct ConditionLinkModifications
 {
-    ConditionLink cl;
+    ConditionPtr cl;
     OperatorVector candidates;
     boost::dynamic_bitset<> active;
     boost::dynamic_bitset<> checked;
@@ -189,13 +189,13 @@ struct ConditionLinkModifications
     bool hasModifications() const { return active != checked; }
 };
 
-ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
+ConditionLinkModifications get_condition_modifications(const ConditionPtr &cond,
                                                        Analysis *analysis,
                                                        const ObjectToNode &objectMap)
 {
     ConditionLinkModifications result;
 
-    result.candidates = get_apply_condition_candidates(cl.condition, analysis);
+    result.candidates = get_apply_condition_candidates(cond, analysis);
 
     std::sort(std::begin(result.candidates), std::end(result.candidates));
 
@@ -211,7 +211,7 @@ ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
         } catch (const std::out_of_range &)
         {}
 
-        result.active.push_back(analysis->getConditionLink(candidate) == cl);
+        result.active.push_back(analysis->getCondition(candidate) == cond);
         result.checked.push_back(node && node->data(0, Qt::CheckStateRole) == Qt::Checked);
     }
 
@@ -1583,24 +1583,18 @@ void EventWidget::objectEditorDialogRejected()
     uniqueWidgetCloses();
 }
 
-void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
+void EventWidget::onConditionSelected(const ConditionPtr &cond)
 {
     if (m_d->getMode() != EventWidgetPrivate::Default) return;
-    if (cl == m_d->m_applyConditionInfo) return;
 
-    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get() << cl.subIndex;
+    qDebug() << __PRETTY_FUNCTION__ << this << cond.get();
 
-    const auto &condInfo = cl;
-    assert(condInfo.condition);
-    assert(condInfo.subIndex <= 0);
-
-    m_d->removeConditionDecorations(m_d->m_applyConditionInfo);
-
-    m_d->m_applyConditionInfo = (cl.subIndex >= 0 ? cl : ConditionLink{});
+    m_d->removeConditionDecorations(m_d->m_selectedCondition);
+    m_d->m_selectedCondition = cond;
 
     m_d->clearAllTreeSelections();
     m_d->clearAllToDefaultNodeHighlights();
-    m_d->highlightInputNodes(cl.condition.get());
+    m_d->highlightInputNodes(cond.get());
     m_d->updateNodesForApplyConditionMode();
 }
 
@@ -1643,7 +1637,7 @@ void EventWidget::applyConditionAccept()
         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
             bool modified = m_d->getAnalysis()->setConditionLink(
-                op, m_d->m_applyConditionInfo);
+                op, m_d->m_selectedCondition);
 
             if (modified)
             {
@@ -1658,7 +1652,7 @@ void EventWidget::applyConditionAccept()
         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
             bool modified = m_d->getAnalysis()->clearConditionLink(
-                op, m_d->m_applyConditionInfo);
+                op, m_d->m_selectedCondition);
 
             if (modified)
             {
@@ -1676,12 +1670,12 @@ void EventWidget::applyConditionReject()
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 
-    auto &aci = m_d->m_applyConditionInfo;
+    auto &cond = m_d->m_selectedCondition;
 
-    if (aci)
+    if (cond)
     {
         auto analysis = getAnalysis();
-        auto candidates = get_apply_condition_candidates(aci.condition, analysis);
+        auto candidates = get_apply_condition_candidates(cond, analysis);
 
         for (const auto &op: candidates)
         {
@@ -2708,11 +2702,13 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
     if (m_uniqueWidget) return;
 
+#if 0
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
             return;
     }
+#endif
 
     // Handle the top-left tree containing the modules and data extractors.
     if (userLevel == 0)
@@ -3184,11 +3180,13 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
     if (m_uniqueWidget) return;
 
+#if 0
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
             return;
     }
+#endif
 
     auto make_menu_new = [this, userLevel](QMenu *parentMenu,
                                            const DirectoryPtr &destDir = DirectoryPtr())
@@ -3906,12 +3904,12 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
 }
 
 /* Adds checkboxes to the candidates of the given ConditionkLink. */
-void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
+void EventWidgetPrivate::addConditionDecorations(const ConditionPtr &cond)
 {
-    if (!cl) return;
+    if (!cond) return;
 
     auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(cl.condition, analysis);
+    auto candidates = get_apply_condition_candidates(cond, analysis);
 
     for (const auto &op: candidates)
     {
@@ -3927,11 +3925,9 @@ void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
             assert(it->second);
 
             auto node = it->second;
-            auto opCond  = analysis->getConditionLink(op);
-            auto checked = ((opCond.condition == cl.condition
-                            && opCond.subIndex == cl.subIndex)
-                            ? Qt::Checked
-                            : Qt::Unchecked);
+            auto opCond  = analysis->getCondition(op);
+            auto checked = opCond == cond ? Qt::Checked : Qt::Unchecked;
+
 
             node->setFlags(node->flags() | Qt::ItemIsUserCheckable);
             node->setCheckState(0, checked);
@@ -3940,12 +3936,12 @@ void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
 }
 
 /* Removes checkboxes for the candidates of the given ConditionkLink. */
-void EventWidgetPrivate::removeConditionDecorations(const ConditionLink &cl)
+void EventWidgetPrivate::removeConditionDecorations(const ConditionPtr &cond)
 {
-    if (!cl) return;
+    if (!cond) return;
 
     auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(cl.condition, analysis);
+    auto candidates = get_apply_condition_candidates(cond, analysis);
 
     for (const auto &op: candidates)
     {
@@ -3962,6 +3958,7 @@ void EventWidgetPrivate::removeConditionDecorations(const ConditionLink &cl)
     }
 }
 
+#if 0
 bool EventWidgetPrivate::hasPendingConditionModifications() const
 {
     if (m_applyConditionInfo)
@@ -3975,27 +3972,28 @@ bool EventWidgetPrivate::hasPendingConditionModifications() const
 
     return false;
 }
+#endif
 
 void EventWidgetPrivate::updateNodesForApplyConditionMode()
 {
-    auto &aci = m_applyConditionInfo;
+    auto &cond = m_selectedCondition;
 
-    if (!aci) return;
+    if (!cond) return;
 
     qDebug() << __PRETTY_FUNCTION__ << this
         << endl
-        << "  condition is" << aci.condition.get()
+        << "  condition is" << cond.get()
         << endl
-        << "  , with maxInputRank  =" << aci.condition->getMaximumInputRank()
-        << " , with maxOutputRank =" << aci.condition->getMaximumOutputRank()
-        << " , with rank =" << aci.condition->getRank()
+        << "  , with maxInputRank  =" << cond->getMaximumInputRank()
+        << " , with maxOutputRank =" << cond->getMaximumOutputRank()
+        << " , with rank =" << cond->getRank()
         << endl
-        << "  , objectFlags =" << to_string(aci.condition->getObjectFlags())
+        << "  , objectFlags =" << to_string(cond->getObjectFlags())
         << endl
         << "  candidates:"
         ;
 
-    addConditionDecorations(aci);
+    addConditionDecorations(cond);
 }
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
@@ -4222,11 +4220,13 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
         return;
     }
 
+#if 0
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
             return;
     }
+#endif
 
     if (m_mode == Default)
     {
@@ -4523,15 +4523,15 @@ void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
         << node << ", checkstate =" << node->data(0, Qt::CheckStateRole)
         << ", prev =" << prev;
 
-    assert(m_applyConditionInfo);
+    assert(m_selectedCondition);
 
-    if (m_applyConditionInfo)
+    if (m_selectedCondition)
     {
-        auto &cl  = m_applyConditionInfo;
+        auto &cond = m_selectedCondition;
         auto analysis = getAnalysis();
-        auto clMods = get_condition_modifications(cl, analysis, m_objectMap);
+        auto clMods = get_condition_modifications(cond, analysis, m_objectMap);
 
-        emit m_q->conditionLinksModified(cl, clMods.hasModifications());
+        emit m_q->conditionLinksModified(cond, clMods.hasModifications());
     }
 }
 

@@ -104,6 +104,8 @@ TreeNode *make_condition_node(ConditionInterface *cond)
 
 } // end anon namespace
 
+#if 0
+
 //
 // NodeModificationButtons
 //
@@ -733,6 +735,7 @@ void ConditionWidget::Private::editConditionInEditor(const ConditionLink &cl)
         }
     }
 }
+#endif
 
 } // ns ui
 } // ns analysis
