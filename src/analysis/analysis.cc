@@ -313,6 +313,11 @@ void Slot::disconnectPipe()
     }
 }
 
+const u32 InputType::Invalid;
+const u32 InputType::Array;
+const u32 InputType::Value;
+const u32 InputType::Both;
+
 //
 // SourceInterface
 //
