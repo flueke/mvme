@@ -3013,28 +3013,6 @@ bool is_condition_operator(const Operator &op)
     return false;
 }
 
-#if 0
-u32 get_number_of_condition_bits_used(const Operator &op)
-{
-    assert(op.inputCount >= 1);
-
-    switch (op.type)
-    {
-        case Operator_IntervalCondition:
-            return op.inputs[0].size;
-
-        case Operator_RectangleCondition:
-        case Operator_PolygonCondition:
-            return 1;
-
-        default:
-            break;
-    }
-
-    return 0;
-}
-#endif
-
 namespace
 {
     // Creates an operator with a single output of size 1 and limits [0.0,
@@ -3065,6 +3043,34 @@ Operator make_interval_condition(
     return result;
 }
 
+void interval_condition_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_IntervalCondition);
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+
+    auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
+
+    assert(op->inputs[0].size == d->intervals.size);
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
+
+    const s32 maxIdx = op->inputs[0].size;
+
+    // Calculate the OR of the individual interval range checks.
+    bool result = false;
+
+    for (s32 idx = 0; idx < maxIdx && !result; idx++)
+        result |= in_range(d->intervals[idx], op->inputs[0][idx]);
+
+    // Write the result to the central condition bit set
+    a2->conditionBits.set(d->bitIndex, result);
+
+    // Also write the result to the output vector.
+    op->outputs[0][0] = result;
+}
+
 Operator make_rectangle_condition(
     memory::Arena *arena,
     PipeVectors xInput,
@@ -3089,6 +3095,28 @@ Operator make_rectangle_condition(
     d->yInterval = yInterval;
 
     return result;
+}
+
+void rectangle_condition_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_RectangleCondition);
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 1);
+
+    auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
+
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
+    assert(d->xIndex < op->inputs[0].size);
+    assert(d->yIndex < op->inputs[1].size);
+
+    bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
+    bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
+    bool result = xInside && yInside;
+
+    a2->conditionBits.set(d->bitIndex, result);
+    op->outputs[0][0] = result;
 }
 
 Operator make_polygon_condition(
@@ -3121,56 +3149,6 @@ Operator make_polygon_condition(
 
     return result;
 
-}
-
-void interval_condition_step(Operator *op, A2 *a2)
-{
-    a2_trace("\n");
-    assert(op->type == Operator_IntervalCondition);
-    assert(op->inputCount == 1);
-    assert(op->outputCount == 1);
-
-    auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
-
-    assert(op->inputs[0].size == d->intervals.size);
-    assert(0 <= d->bitIndex);
-    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
-
-    const s32 maxIdx = op->inputs[0].size;
-
-    // Calculate the OR of the individual interval range checks.
-    bool result = false;
-
-    for (s32 idx = 0; idx < maxIdx && !result; idx++)
-        result |= in_range(d->intervals[idx], op->inputs[0][idx]);
-
-    // Write the result to the central condition bit set
-    a2->conditionBits.set(d->bitIndex, result);
-
-    // Also write the result to the output vector.
-    op->outputs[0][0] = result;
-}
-
-void rectangle_condition_step(Operator *op, A2 *a2)
-{
-    a2_trace("\n");
-    assert(op->type == Operator_RectangleCondition);
-    assert(op->inputCount == 2);
-    assert(op->outputCount == 1);
-
-    auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
-
-    assert(0 <= d->bitIndex);
-    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
-    assert(d->xIndex < op->inputs[0].size);
-    assert(d->yIndex < op->inputs[1].size);
-
-    bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
-    bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
-    bool result = xInside && yInside;
-
-    a2->conditionBits.set(d->bitIndex, result);
-    op->outputs[0][0] = result;
 }
 
 void polygon_condition_step(Operator *op, A2 *a2)
