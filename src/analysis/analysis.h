@@ -1616,7 +1616,7 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
  * This implementation would then restrict the inputs to only be other
  * conditions.
  */
-class LIBMVME_EXPORT LutCompoundCondition: public ConditionInterface
+class LIBMVME_EXPORT LutCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
@@ -1624,7 +1624,7 @@ class LIBMVME_EXPORT LutCompoundCondition: public ConditionInterface
     public:
         static const int MaxInputSlots = 8;
 
-        Q_INVOKABLE LutCompoundCondition(QObject *parent = 0);
+        Q_INVOKABLE LutCondition(QObject *parent = 0);
 
         QString getDisplayName() const override { return QSL("LUT Condition"); }
         QString getShortName() const override { return QSL("LutCond"); }

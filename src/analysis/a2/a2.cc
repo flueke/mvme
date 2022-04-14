@@ -3000,10 +3000,10 @@ bool is_condition_operator(const Operator &op)
 {
     switch (op.type)
     {
-        case Operator_ConditionInterval:
-        case Operator_ConditionRectangle:
-        case Operator_ConditionPolygon:
-        case Operator_LutCompoundCondition:
+        case Operator_IntervalCondition:
+        case Operator_RectangleCondition:
+        case Operator_PolygonCondition:
+        case Operator_LutCondition:
             return true;
 
         default:
@@ -3020,11 +3020,11 @@ u32 get_number_of_condition_bits_used(const Operator &op)
 
     switch (op.type)
     {
-        case Operator_ConditionInterval:
+        case Operator_IntervalCondition:
             return op.inputs[0].size;
 
-        case Operator_ConditionRectangle:
-        case Operator_ConditionPolygon:
+        case Operator_RectangleCondition:
+        case Operator_PolygonCondition:
             return 1;
 
         default:
@@ -3052,7 +3052,7 @@ Operator make_interval_condition(
     PipeVectors input,
     const std::vector<Interval> &intervals)
 {
-    auto result = make_condition_operator(arena, Operator_ConditionInterval, 1);
+    auto result = make_condition_operator(arena, Operator_IntervalCondition, 1);
 
     assign_input(&result, input, 0);
 
@@ -3074,7 +3074,7 @@ Operator make_rectangle_condition(
     Interval xInterval,
     Interval yInterval)
 {
-    auto result = make_condition_operator(arena, Operator_ConditionRectangle, 2);
+    auto result = make_condition_operator(arena, Operator_RectangleCondition, 2);
 
     assign_input(&result, xInput, 0);
     assign_input(&result, yInput, 1);
@@ -3099,7 +3099,7 @@ Operator make_polygon_condition(
     s32 yIndex,
     const std::vector<std::pair<double, double>> &polygon)
 {
-    auto result = make_condition_operator(arena, Operator_ConditionPolygon, 2);
+    auto result = make_condition_operator(arena, Operator_PolygonCondition, 2);
 
     assign_input(&result, xInput, 0);
     assign_input(&result, yInput, 1);
@@ -3123,10 +3123,10 @@ Operator make_polygon_condition(
 
 }
 
-void condition_interval_step(Operator *op, A2 *a2)
+void interval_condition_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->type == Operator_ConditionInterval);
+    assert(op->type == Operator_IntervalCondition);
     assert(op->inputCount == 1);
     assert(op->outputCount == 1);
 
@@ -3151,10 +3151,10 @@ void condition_interval_step(Operator *op, A2 *a2)
     op->outputs[0][0] = result;
 }
 
-void condition_rectangle_step(Operator *op, A2 *a2)
+void rectangle_condition_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->type == Operator_ConditionRectangle);
+    assert(op->type == Operator_RectangleCondition);
     assert(op->inputCount == 2);
     assert(op->outputCount == 1);
 
@@ -3173,10 +3173,10 @@ void condition_rectangle_step(Operator *op, A2 *a2)
     op->outputs[0][0] = result;
 }
 
-void condition_polygon_step(Operator *op, A2 *a2)
+void polygon_condition_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->type == Operator_ConditionPolygon);
+    assert(op->type == Operator_PolygonCondition);
     assert(op->inputCount == 2);
     assert(op->outputCount == 1);
 
@@ -3203,7 +3203,7 @@ struct LutConditionData: public ConditionBaseData
     boost::dynamic_bitset<unsigned long> lut;
 };
 
-Operator make_lut_compound_condition(
+Operator make_lut_condition(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
     const std::vector<s32> &inputParamIndexes,
@@ -3212,7 +3212,7 @@ Operator make_lut_compound_condition(
     assert(inputs.size() == inputParamIndexes.size());
     assert(lut.size() == 1u << inputs.size());
 
-    auto result = make_condition_operator(arena, Operator_LutCompoundCondition, inputs.size());
+    auto result = make_condition_operator(arena, Operator_LutCondition, inputs.size());
 
     // assign the inputs
     for (size_t in_idx = 0; in_idx < inputs.size(); ++in_idx)
@@ -3237,10 +3237,10 @@ Operator make_lut_compound_condition(
     return result;
 }
 
-void lut_compound_condition_step(Operator *op, A2 *a2)
+void lut_condition_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->type == Operator_LutCompoundCondition);
+    assert(op->type == Operator_LutCondition);
     assert(op->inputCount > 0);
     assert(op->outputCount == 1);
 
@@ -4346,10 +4346,10 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_ScalerOverflow] = { scaler_overflow_step };
     result[Operator_ScalerOverflow_idx] = { scaler_overflow_step_idx };
 
-    result[Operator_ConditionInterval] = { condition_interval_step };
-    result[Operator_ConditionRectangle] = { condition_rectangle_step };
-    result[Operator_ConditionPolygon] = { condition_polygon_step };
-    result[Operator_LutCompoundCondition] = { lut_compound_condition_step };
+    result[Operator_IntervalCondition] = { interval_condition_step };
+    result[Operator_RectangleCondition] = { rectangle_condition_step };
+    result[Operator_PolygonCondition] = { polygon_condition_step };
+    result[Operator_LutCondition] = { lut_condition_step };
 
     return result;
 }

@@ -112,10 +112,10 @@ enum OperatorType
     Operator_ScalerOverflow,
     Operator_ScalerOverflow_idx,
 
-    Operator_ConditionInterval,
-    Operator_ConditionRectangle,
-    Operator_ConditionPolygon,
-    Operator_LutCompoundCondition,
+    Operator_IntervalCondition,
+    Operator_RectangleCondition,
+    Operator_PolygonCondition,
+    Operator_LutCondition,
 
     OperatorTypeCount
 };

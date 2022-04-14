@@ -943,12 +943,12 @@ DEF_OP_MAGIC(polygon_condition_magic)
     return result;
 }
 
-DEF_OP_MAGIC(lut_compound_condition_magic)
+DEF_OP_MAGIC(lut_condition_magic)
 {
     OP_MAGIC_NOWARN;
     LOG("");
 
-    auto cond = qobject_cast<analysis::LutCompoundCondition *>(op.get());
+    auto cond = qobject_cast<analysis::LutCondition *>(op.get());
     assert(cond);
 
     std::vector<a2::PipeVectors> inputs;
@@ -960,7 +960,7 @@ DEF_OP_MAGIC(lut_compound_condition_magic)
         inputIndexes.emplace_back(inputSlots[si]->paramIndex);
     }
 
-    a2::Operator result = make_lut_compound_condition(
+    a2::Operator result = make_lut_condition(
         arena,
         inputs,
         inputIndexes,
@@ -987,7 +987,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::IntervalCondition::staticMetaObject,       interval_condition_magic },
     { &analysis::RectangleCondition::staticMetaObject,      rectangle_condition_magic },
     { &analysis::PolygonCondition::staticMetaObject,        polygon_condition_magic },
-    { &analysis::LutCompoundCondition::staticMetaObject,    lut_compound_condition_magic },
+    { &analysis::LutCondition::staticMetaObject,            lut_condition_magic },
 
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },

@@ -3969,27 +3969,26 @@ QPolygonF PolygonCondition::getPolygon() const
 }
 
 //
-// LutCompoundCondition
+// LutCondition
 //
-LutCompoundCondition::LutCompoundCondition(QObject *parent)
+LutCondition::LutCondition(QObject *parent)
     : ConditionInterface(parent)
 {
 }
 
-bool LutCompoundCondition::addSlot()
+bool LutCondition::addSlot()
 {
     if (getNumberOfSlots() >= MaxInputSlots)
         return false;
 
     auto inputName = QSL("input%1").arg(getNumberOfSlots());
-    auto inputType = InputType::Value;
-    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, inputType);
+    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, InputType::Value);
     m_inputs.push_back(slot);
     m_lut.resize(1u << m_inputs.size());
     return true;
 }
 
-bool LutCompoundCondition::removeLastSlot()
+bool LutCondition::removeLastSlot()
 {
     if (getNumberOfSlots() == 0)
         return false;
@@ -4002,7 +4001,7 @@ bool LutCompoundCondition::removeLastSlot()
     return true;
 }
 
-void LutCompoundCondition::write(QJsonObject &json) const
+void LutCondition::write(QJsonObject &json) const
 {
     json["numberOfInputs"] = getNumberOfSlots();
     QJsonArray jlut;
@@ -4013,7 +4012,7 @@ void LutCompoundCondition::write(QJsonObject &json) const
     json["lut"] = jlut;
 }
 
-void LutCompoundCondition::read(const QJsonObject &json)
+void LutCondition::read(const QJsonObject &json)
 {
     while (removeLastSlot()) {};
 
@@ -4035,7 +4034,7 @@ void LutCompoundCondition::read(const QJsonObject &json)
     m_lut.resize(1u << m_inputs.size());
 }
 
-void LutCompoundCondition::beginRun(const RunInfo &, Logger)
+void LutCondition::beginRun(const RunInfo &, Logger)
 {
 }
 
@@ -4075,7 +4074,7 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<IntervalCondition>();
     m_objectFactory.registerOperator<RectangleCondition>();
     m_objectFactory.registerOperator<PolygonCondition>();
-    m_objectFactory.registerOperator<LutCompoundCondition>();
+    m_objectFactory.registerOperator<LutCondition>();
 #endif
 
     // sinks

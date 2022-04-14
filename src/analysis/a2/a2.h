@@ -562,7 +562,7 @@ Operator make_polygon_condition(
     s32 yIndex,
     const std::vector<std::pair<double, double>> &polygon);
 
-Operator make_lut_compound_condition(
+Operator make_lut_condition(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
     const std::vector<s32> &inputParamIndexes,
