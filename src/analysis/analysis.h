@@ -1605,8 +1605,8 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
  * function.
  *
  * Each input specifies a bit used for lookups into the LUT, with input0
- * supplying the lowest bit. Input values are considered true if the parameter
- * value is >= 1.0.
+ * supplying the lowest bit. Invalid input parameters produce a 'false' value,
+ * all valid inputs produce a 'true' value.
  *
  * The idea is to restrict the GUI to only offer other conditions as inputs but
  * in theory it is possible to connect any output pipe to the inputs.

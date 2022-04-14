@@ -3023,6 +3023,12 @@ namespace
         push_output_vectors(arena, &result, 0, 1, 0.0, 2.0);
         return result;
     }
+
+    // set output value to 1.0 if condition was met, invalidate otherwise
+    void set_condition_output(Operator *cond, bool condResult)
+    {
+        cond->outputs[0][0] = condResult ? 1.0 : invalid_param();
+    }
 }
 
 Operator make_interval_condition(
@@ -3069,6 +3075,7 @@ void interval_condition_step(Operator *op, A2 *a2)
 
     // Also write the result to the output vector.
     op->outputs[0][0] = result;
+    set_condition_output(op, result);
 }
 
 Operator make_rectangle_condition(
@@ -3116,7 +3123,7 @@ void rectangle_condition_step(Operator *op, A2 *a2)
     bool result = xInside && yInside;
 
     a2->conditionBits.set(d->bitIndex, result);
-    op->outputs[0][0] = result;
+    set_condition_output(op, result);
 }
 
 Operator make_polygon_condition(
@@ -3170,7 +3177,7 @@ void polygon_condition_step(Operator *op, A2 *a2)
     bool result = bg::within(p, d->polygon);
 
     a2->conditionBits.set(d->bitIndex, result);
-    op->outputs[0][0] = result;
+    set_condition_output(op, result);
 }
 
 // LutCondition
@@ -3238,7 +3245,7 @@ void lut_condition_step(Operator *op, A2 *a2)
         const auto &paramIndex = d->inputParamIndexes[inputIndex];
         auto paramValue = input[paramIndex];
 
-        if (paramValue >= 1.0)
+        if (is_param_valid(paramValue))
             lutIndex |= 1u << inputIndex;
     }
 
@@ -3248,7 +3255,7 @@ void lut_condition_step(Operator *op, A2 *a2)
     bool result = d->lut[lutIndex];
 
     a2->conditionBits.set(d->bitIndex, result);
-    op->outputs[0][0] = result;
+    set_condition_output(op, result);
 }
 
 /* ===============================================
