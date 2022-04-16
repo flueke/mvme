@@ -342,6 +342,7 @@ add_library(libmvme SHARED
     vme_analysis_common.cc
     vme_config.cc
     vme_config_json_schema_updates.cc
+    vme_config_model_view.cc
     vme_config_scripts.cc
     vme_config_tree.cc
     vme_config_ui.cc
@@ -540,6 +541,7 @@ add_mvme_executable(mvme_multi_crate_gui multi_crate_gui_main.cc)
 add_mvme_executable(dev_multi_crate_playground_cli dev_multi_crate_playground_cli.cc)
 add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 add_mvme_executable(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
+add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
