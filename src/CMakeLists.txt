@@ -290,6 +290,7 @@ add_library(libmvme SHARED
     histo2d_widget.cc
     histo2d_widget_p.cc
     histo_gui_util.cc
+    histo_ui.cc
     histo_util.cc
     listfile_browser.cc
     listfile_replay.cc
@@ -542,6 +543,7 @@ add_mvme_executable(dev_multi_crate_playground_cli dev_multi_crate_playground_cl
 add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 add_mvme_executable(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
 add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
+add_mvme_executable(dev_histo_ui dev_histo_ui.cc)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
