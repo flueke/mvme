@@ -5,8 +5,13 @@
 #include <QMouseEvent>
 #include <QToolBar>
 #include <QStatusBar>
-#include <QwtScaleMap>
+#include <memory>
+#include <qwt_scale_map.h>
 #include <spdlog/spdlog.h>
+#include <qwt_plot_zoneitem.h>
+#include <qwt_plot_marker.h>
+
+#include "histo_gui_util.h"
 
 namespace histo_ui
 {
@@ -158,5 +163,300 @@ bool PlotWidget::eventFilter(QObject *object, QEvent *event)
     return QWidget::eventFilter(object, event);
 }
 
+namespace
+{
+QwtPlotMarker *make_position_marker()
+{
+    static const double PlotTextLayerZ  = 1000.0;
+
+    auto marker = new QwtPlotMarker;
+    marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
+    marker->setLabelOrientation( Qt::Vertical );
+    marker->setLineStyle( QwtPlotMarker::VLine );
+    marker->setLinePen( Qt::black, 0, Qt::DashDotLine );
+    marker->setZ(PlotTextLayerZ);
+
+    return marker;
+}
+}
+
+struct NewIntervalPicker::Private
+{
+    NewIntervalPicker *q;
+    QwtPlot *plot;
+    // Ownership of the markers and the zone item goes to the QwtPlot instance.
+    std::array<QwtPlotMarker *, 2> markers;
+    QwtPlotZoneItem * zoneItem;
+    QVector<QPointF> selectedPoints;
+
+    QwtInterval getInterval() const
+    {
+        if (selectedPoints.size() != 2)
+            return {};
+
+        return QwtInterval(selectedPoints[0].x(), selectedPoints[1].x()).normalized();
+    }
+
+    void updateMarkersAndZone()
+    {
+        zoneItem->hide();
+        markers[0]->hide();
+        markers[1]->hide();
+
+        if (selectedPoints.size() == 1)
+        {
+            double x = selectedPoints[0].x();
+            markers[0]->setXValue(x);
+            markers[0]->setLabel(QString("    x1=%1").arg(x));
+            markers[0]->show();
+        }
+        else if (selectedPoints.size() > 1)
+        {
+            auto interval = getInterval();
+            double x1 = interval.minValue();
+            double x2 = interval.maxValue();
+
+            markers[0]->setXValue(x1);
+            markers[0]->setLabel(QString("    x1=%1").arg(x1));
+            markers[0]->show();
+
+            markers[1]->setXValue(x2);
+            markers[1]->setLabel(QString("    x2=%1").arg(x2));
+            markers[1]->show();
+
+            zoneItem->setInterval(interval);
+            zoneItem->show();
+        }
+
+        plot->replot(); // force replot to make marker movement smooth
+    }
+};
+
+NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
+    : PlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                 QwtPicker::NoRubberBand,
+                 QwtPicker::AlwaysOff,
+                 plot->canvas())
+    , d(std::make_unique<Private>())
+{
+    d->q = this;
+    d->plot = plot;
+    d->markers[0] = make_position_marker();
+    d->markers[1] = make_position_marker();
+
+    for (auto &marker: d->markers)
+    {
+        marker->attach(d->plot);
+        marker->hide();
+    }
+
+    d->zoneItem = new QwtPlotZoneItem;
+
+    auto zoneBrush = d->zoneItem->brush();
+    zoneBrush.setStyle(Qt::DiagCrossPattern);
+    d->zoneItem->setBrush(zoneBrush);
+
+    d->zoneItem->attach(d->plot);
+    d->zoneItem->hide();
+
+    setStateMachine(new AutoBeginClickPointMachine);
+
+    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::selected),
+            this, &NewIntervalPicker::onPointSelected);
+
+    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+            this, &NewIntervalPicker::onPointMoved);
+
+    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::appended),
+            this, &NewIntervalPicker::onPointAppended);
+}
+
+NewIntervalPicker::~NewIntervalPicker()
+{
+}
+
+void NewIntervalPicker::reset()
+{
+    d->selectedPoints.clear();
+    d->updateMarkersAndZone();
+    PlotPicker::reset();
+}
+
+void NewIntervalPicker::cancel()
+{
+    reset();
+    emit canceled();
+}
+
+void NewIntervalPicker::onPointSelected(const QPointF &p)
+{
+    qDebug() << __PRETTY_FUNCTION__ << "#points=" << d->selectedPoints.size()
+        << "x=" << p.x();
+
+    // Update the latest point with the selection position
+    if (d->selectedPoints.size())
+        d->selectedPoints.back() = p;
+
+    if (d->selectedPoints.size() == 2)
+        emit intervalSelected(d->getInterval());
+
+    d->updateMarkersAndZone();
+}
+
+void NewIntervalPicker::onPointMoved(const QPointF &p)
+{
+    //qDebug() << __PRETTY_FUNCTION__ << "#points=" << d->selectedPoints.size()
+    //    << "x=" << p.x();
+
+    // Update the latest point with the move position
+    if (d->selectedPoints.size())
+        d->selectedPoints.back() = p;
+
+    d->updateMarkersAndZone();
+}
+
+void NewIntervalPicker::onPointAppended(const QPointF &p)
+{
+    qDebug() << __PRETTY_FUNCTION__ << "#points=" << d->selectedPoints.size()
+        << "x=" << p.x();
+
+    // start/restart the interval selection process
+    if (d->selectedPoints.size() >= 2)
+        d->selectedPoints.clear();
+
+    d->selectedPoints.push_back(p);
+    d->updateMarkersAndZone();
+}
+
+void NewIntervalPicker::transition(const QEvent *event)
+{
+    switch (event->type())
+    {
+        case QEvent::MouseButtonRelease:
+            if (mouseMatch(QwtEventPattern::MouseSelect2,
+                           static_cast<const QMouseEvent *>(event)))
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "canceled";
+                cancel();
+            }
+            else
+            {
+                PlotPicker::transition(event);
+            }
+            break;
+
+        default:
+            PlotPicker::transition(event);
+            break;
+    }
+}
+
+struct IntervalEditorPicker::Private
+{
+    IntervalEditorPicker *q;
+    QwtPlot *plot;
+    // Ownership of the markers and the zone item goes to the QwtPlot instance.
+    std::array<QwtPlotMarker *, 2> markers;
+    QwtPlotZoneItem * zoneItem;
+    QwtInterval interval;
+
+    QwtInterval getInterval() const
+    {
+        return interval.normalized();
+    }
+
+    void updateMarkersAndZone()
+    {
+        zoneItem->hide();
+        markers[0]->hide();
+        markers[1]->hide();
+
+        if (getInterval().isValid())
+        {
+            auto interval = getInterval();
+            double x1 = interval.minValue();
+            double x2 = interval.maxValue();
+
+            markers[0]->setXValue(x1);
+            markers[0]->setLabel(QString("    x1=%1").arg(x1));
+            markers[0]->show();
+
+            markers[1]->setXValue(x2);
+            markers[1]->setLabel(QString("    x2=%1").arg(x2));
+            markers[1]->show();
+
+            zoneItem->setInterval(interval);
+            zoneItem->show();
+        }
+
+        plot->replot(); // force replot to make marker movement smooth
+    }
+};
+
+IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
+    : PlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                 QwtPicker::NoRubberBand,
+                 QwtPicker::AlwaysOff,
+                 plot->canvas())
+    , d(std::make_unique<Private>())
+{
+    d->q = this;
+    d->plot = plot;
+    d->markers[0] = make_position_marker();
+    d->markers[1] = make_position_marker();
+
+    for (auto &marker: d->markers)
+    {
+        marker->attach(d->plot);
+        marker->hide();
+    }
+
+    d->zoneItem = new QwtPlotZoneItem;
+
+    auto zoneBrush = d->zoneItem->brush();
+    zoneBrush.setStyle(Qt::DiagCrossPattern);
+    d->zoneItem->setBrush(zoneBrush);
+
+    d->zoneItem->attach(d->plot);
+    d->zoneItem->hide();
+
+    setStateMachine(new AutoBeginClickPointMachine);
+
+    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::selected),
+            this, &IntervalEditorPicker::onPointSelected);
+
+    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+            this, &IntervalEditorPicker::onPointMoved);
+
+    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::appended),
+            this, &IntervalEditorPicker::onPointAppended);
+}
+
+IntervalEditorPicker::~IntervalEditorPicker()
+{
+}
+
+void IntervalEditorPicker::reset()
+{
+    d->updateMarkersAndZone();
+    PlotPicker::reset();
+}
+
+void IntervalEditorPicker::onPointSelected(const QPointF &p)
+{
+}
+
+void IntervalEditorPicker::onPointMoved(const QPointF &p)
+{
+}
+
+void IntervalEditorPicker::onPointAppended(const QPointF &p)
+{
+}
+
+void IntervalEditorPicker::transition(const QEvent *event)
+{
+    PlotPicker::transition(event);
+}
 
 }

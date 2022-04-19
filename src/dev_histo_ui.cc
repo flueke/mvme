@@ -1,18 +1,20 @@
-#include "dev_histo_ui.h"
 #include <QApplication>
+#include <QPushButton>
 #include <QPen>
 #include <QFileDialog>
 #include <QMouseEvent>
 #include <QTimer>
 #include <QPainterPath>
-#include <QwtPainter>
-#include <QwtPickerPolygonMachine>
-#include <QwtPlotPicker>
+#include <qwt_painter.h>
+#include <qwt_picker_machine.h>
+#include <qwt_plot_picker.h>
 #include <spdlog/spdlog.h>
+#include <QComboBox>
 
 #include "mvme_session.h"
 #include "histo_ui.h"
 #include "scrollzoomer.h"
+#include "scrollbar.h"
 
 // old codebase
 #include "histo_gui_util.h"
@@ -98,8 +100,8 @@ QAction *install_checkable_toolbar_action(
 // Ownership of the zoomer goes to the plot.
 QwtPlotZoomer *install_scrollzoomer(PlotWidget *w)
 {
-    //auto zoomer = new ScrollZoomer(w->getPlot()->canvas());
-    auto zoomer = new QwtPlotZoomer(w->getPlot()->canvas());
+    auto zoomer = new ScrollZoomer(w->getPlot()->canvas());
+    //auto zoomer = new QwtPlotZoomer(w->getPlot()->canvas());
     zoomer->setObjectName("zoomer");
     zoomer->setEnabled(false);
 
@@ -109,142 +111,24 @@ QwtPlotZoomer *install_scrollzoomer(PlotWidget *w)
         {
             spdlog::info("zoom action toggled, checked={}", checked);
             zoomer->setEnabled(checked);
+            // Show/hide scrollbars unless fully zoomed out.
+            if (zoomer->zoomRectIndex() != 0)
+            {
+                if (auto sb = zoomer->horizontalScrollBar())
+                    sb->setVisible(checked);
+
+                if (auto sb = zoomer->verticalScrollBar())
+                    sb->setVisible(checked);
+            }
         });
 
 
     return zoomer;
 }
 
-class PlotPicker: public QwtPlotPicker
+NewIntervalPicker *install_new_interval_picker(PlotWidget *w)
 {
-    public:
-        using QwtPlotPicker::QwtPlotPicker;
-
-        // make the protected QwtPlotPicker::reset() public
-        void reset() override
-        {
-            QwtPlotPicker::reset();
-        }
-};
-
-#if 1
-QList<QwtPickerMachine::Command> NewIntervalPickerMachine::transition(
-    const QwtEventPattern &eventPattern, const QEvent *event)
-{
-    QList< QwtPickerMachine::Command > cmdList;
-
-    switch ( event->type() )
-    {
-        case QEvent::Enter:
-            if (state() == 0)
-            {
-                spdlog::info("NewIntervalPickerMachine: Enter, Begin, Append");
-                cmdList += Begin;
-                cmdList += Append;
-                setState(1);
-            } break;
-        case QEvent::MouseButtonPress:
-            {
-                if ( eventPattern.mouseMatch( QwtEventPattern::MouseSelect1,
-                                             static_cast< const QMouseEvent* >( event ) ) )
-                {
-                    if ( state() == 0 )
-                    {
-                        spdlog::info("NewIntervalPickerMachine: MouseButtonPress, Begin, Append");
-                        cmdList += Begin;
-                        cmdList += Append;
-                        setState( 1 );
-                    }
-                    else if (state() == 1)
-                    {
-                        spdlog::info("NewIntervalPickerMachine: state==1, Move, Append");
-                        cmdList += Move;
-                        cmdList += Append;
-                        setState(state() + 1);
-                    }
-                    else if (state() == 2)
-                    {
-                        spdlog::info("NewIntervalPickerMachine: state==2, Move");
-                        cmdList += Move;
-                        setState(state() + 1);
-                    }
-                }
-                else if ( eventPattern.mouseMatch( QwtEventPattern::MouseSelect2,
-                                                  static_cast< const QMouseEvent* >( event ) ) )
-                {
-                    spdlog::info("NewIntervalPickerMachine: End (canceled)");
-                    if (state() != 0)
-                        cmdList += Remove;
-                    cmdList += End;
-                    setState(0);
-                }
-            } break;
-        case QEvent::MouseMove:
-        case QEvent::Wheel:
-            {
-                if ( state() != 0 )
-                    cmdList += Move;
-                break;
-            }
-        case QEvent::MouseButtonRelease:
-            {
-                if ( state() == 3 )
-                {
-                    spdlog::info("NewIntervalPickerMachine: End");
-                    cmdList += End;
-                    setState( 0 );
-                }
-                break;
-            }
-        default:
-            break;
-    }
-
-    return cmdList;
-}
-
-NewIntervalPickerMachine::~NewIntervalPickerMachine()
-{}
-
-class NewIntervalPicker: public PlotPicker
-{
-    public:
-        using PlotPicker::PlotPicker;
-
-    protected:
-        void transition(const QEvent *event) override
-        {
-            switch (event->type())
-            {
-                case QEvent::MouseButtonRelease:
-                    if (mouseMatch(QwtEventPattern::MouseSelect2,
-                                   static_cast<const QMouseEvent *>(event)))
-                    {
-                        end(false);
-                    }
-                    else
-                    {
-                        PlotPicker::transition(event);
-                    }
-                    break;
-
-                default:
-                    PlotPicker::transition(event);
-                    break;
-            }
-        }
-};
-#endif
-
-QwtPlotPicker *install_new_interval_picker(PlotWidget *w)
-{
-    auto picker = new NewIntervalPicker(
-        QwtPlot::xBottom, QwtPlot::yLeft,
-        QwtPicker::VLineRubberBand,
-        QwtPicker::ActiveOnly,
-        w->getPlot()->canvas());
-
-    picker->setStateMachine(new AutoBeginClickPointMachine);
+    auto picker = new NewIntervalPicker(w->getPlot());
 
     picker->setObjectName("NewIntervalPicker");
     picker->setEnabled(false);
@@ -255,6 +139,28 @@ QwtPlotPicker *install_new_interval_picker(PlotWidget *w)
         {
             spdlog::info("newIntervalPickerAction toggled, checked={}", checked);
             picker->setEnabled(checked);
+            picker->reset();
+        });
+
+    QObject::connect(
+        picker, &NewIntervalPicker::intervalSelected,
+        picker, [] (const QwtInterval &interval)
+        {
+            spdlog::info("NewIntervalPicker: intervalSelected: ({}, {})",
+                         interval.minValue(), interval.maxValue());
+        });
+
+    // React to canceled from the picker. TODO: move this to the outside where
+    // actions are managed
+    QObject::connect(
+        picker, &NewIntervalPicker::canceled,
+        w, [w] ()
+        {
+            spdlog::info("NewIntervalPicker: canceled, activating zoomAction");
+            if (auto zoomAction = w->findChild<QAction *>("zoomAction"))
+            {
+                zoomAction->setChecked(true);
+            }
         });
 
     return picker;
@@ -363,27 +269,22 @@ QActionGroup *group_picker_actions(PlotWidget *w)
     group->setObjectName("exclusivePlotActions");
     //group->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
 
-    group->addAction(w->findChild<QAction *>("zoomAction"));
-    group->addAction(w->findChild<QAction *>("polyPickerAction"));
-    group->addAction(w->findChild<QAction *>("trackerPickerAction"));
-    group->addAction(w->findChild<QAction *>("clickPointPickerAction"));
-    group->addAction(w->findChild<QAction *>("dragPointPickerAction"));
-    group->addAction(w->findChild<QAction *>("newIntervalPickerAction"));
+    auto add_if_found = [group, w] (auto actionName)
+    {
+        if (auto action = w->findChild<QAction *>(actionName))
+            group->addAction(action);
+    };
+
+    add_if_found("zoomAction");
+    add_if_found("polyPickerAction");
+    add_if_found("trackerPickerAction");
+    add_if_found("clickPointPickerAction");
+    add_if_found("dragPointPickerAction");
+    add_if_found("newIntervalPickerAction");
 
     if (auto firstAction = group->actions().first())
         firstAction->setChecked(true);
 
-#if 0
-    for (auto action: w->getToolBar()->actions())
-    {
-        QObject::connect(action, &QAction::toggled,
-                         w->getToolBar(), [w] ()
-                         {
-                             //spdlog::info("toolbar update");
-                             //QTimer::singleShot(0, w, [w] () { w->getToolBar()->update(); });
-                         });
-    }
-#endif
     return group;
 }
 
@@ -395,6 +296,37 @@ void watch_mouse_move(PlotWidget *w)
                          spdlog::info("watch_mouse_move: mouse moved to ({}, {})",
                                       f.x(), f.y());
                      });
+}
+
+void install_intervals_combo(PlotWidget *w, NewIntervalPicker *picker)
+{
+    auto combo = new QComboBox;
+    combo->setMinimumWidth(150);
+    combo->addItem("-");
+
+    QObject::connect(picker, &NewIntervalPicker::intervalSelected,
+                     combo, [=] (const QwtInterval &interval)
+                     {
+                         combo->addItem(
+                             "interval",
+                             QVariantList { interval.minValue(), interval.maxValue() });
+                         // FIXME: cancel used to force going back to the zoomer.
+                         // Maybe add something that tracks the last active
+                         // tool and goes back to that?
+                         picker->cancel();
+                     });
+
+    QObject::connect(combo, qOverload<int>(&QComboBox::activated),
+                     w, [=] (int comboIndex)
+                     {
+                         auto varList = combo->itemData(comboIndex).toList();
+                         if (varList.size() == 2)
+                         {
+                             qDebug() << varList[0] << varList[1];
+                         }
+                     });
+
+    w->getToolBar()->addWidget(combo);
 }
 
 int main(int argc, char **argv)
@@ -409,12 +341,41 @@ int main(int argc, char **argv)
     //watch_mouse_move(&plotWidget1);
     install_scrollzoomer(&plotWidget1);
     install_poly_picker(&plotWidget1);
-    install_tracker_picker(&plotWidget1);
-    install_clickpoint_picker(&plotWidget1);
-    install_dragpoint_picker(&plotWidget1);
-    install_new_interval_picker(&plotWidget1);
+    //install_tracker_picker(&plotWidget1);
+    //install_clickpoint_picker(&plotWidget1);
+    //install_dragpoint_picker(&plotWidget1);
+    auto intervalPicker = install_new_interval_picker(&plotWidget1);
+    install_intervals_combo(&plotWidget1, intervalPicker);
+
     debug_watch_plot_pickers(plotWidget1.getPlot());
     auto exclusiveActions = group_picker_actions(&plotWidget1);
+
+
+    {
+        auto w = new QWidget;
+        w->setAttribute(Qt::WA_DeleteOnClose);
+        auto vbox = new QVBoxLayout(w);
+
+        for (auto action: exclusiveActions->actions())
+        {
+            auto l = new QHBoxLayout;
+
+            auto pbEn = new QPushButton("Check");
+            auto pbDis = new QPushButton("Uncheck");
+
+            l->addWidget(new QLabel(action->text()));
+            l->addWidget(pbEn);
+            l->addWidget(pbDis);
+
+            QObject::connect(pbEn, &QPushButton::clicked, [action] () { action->setChecked(true); });
+            QObject::connect(pbDis, &QPushButton::clicked, [action] () { action->setChecked(false); });
+
+            vbox->addLayout(l);
+        }
+
+        vbox->addStretch(1);
+        w->show();
+    }
 
 
     const int ReplotInterval = 100;

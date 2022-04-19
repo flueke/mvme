@@ -3,7 +3,8 @@
 
 #include <memory>
 #include <QWidget>
-#include <QwtPlot>
+#include <qwt_plot.h>
+#include <qwt_plot_picker.h>
 
 class QToolBar;
 class QStatusBar;
@@ -34,6 +35,75 @@ class PlotWidget: public QWidget
 
     protected:
         bool eventFilter(QObject * object, QEvent *event) override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class PlotPicker: public QwtPlotPicker
+{
+    public:
+        using QwtPlotPicker::QwtPlotPicker;
+
+        // make the protected QwtPlotPicker::reset() public
+        void reset() override
+        {
+            QwtPlotPicker::reset();
+        }
+};
+
+class NewIntervalPicker: public PlotPicker
+{
+    Q_OBJECT
+    signals:
+        void intervalSelected(const QwtInterval &interval);
+        void canceled();
+
+    public:
+        NewIntervalPicker(QwtPlot *plot);
+        ~NewIntervalPicker() override;
+
+    public slots:
+        // Reset state, hide markers
+        void reset() override;
+
+        // Calls reset, then emits canceled();
+        void cancel();
+
+    protected:
+        void transition(const QEvent *event) override;
+
+    private slots:
+        void onPointSelected(const QPointF &p);
+        void onPointMoved(const QPointF &p);
+        void onPointAppended(const QPointF &p);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class IntervalEditorPicker: public PlotPicker
+{
+    Q_OBJECT
+    signals:
+        void intervalModified(const QwtInterval &interval);
+
+    public:
+        IntervalEditorPicker(QwtPlot *plot);
+        ~IntervalEditorPicker() override;
+
+        void setInterval(const QwtInterval &interval);
+        void reset() override;
+
+    protected:
+        void transition(const QEvent *event) override;
+
+    private slots:
+        void onPointSelected(const QPointF &p);
+        void onPointMoved(const QPointF &p);
+        void onPointAppended(const QPointF &p);
 
     private:
         struct Private;
