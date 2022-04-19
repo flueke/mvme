@@ -531,19 +531,27 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
     auto path = m_serviceProvider->getWorkspaceDirectory();
+    auto filename = m_serviceProvider->getAnalysisConfigFilename();
 
-    if (m_serviceProvider->getGlobalMode() == GlobalMode::ListFile)
+    if (filename.isEmpty())
     {
-        // Use the listfile basename to suggest a filename.
-        const auto &replayHandle = m_serviceProvider->getReplayFileHandle();
-        path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
+        if (m_serviceProvider->getGlobalMode() == GlobalMode::ListFile)
+        {
+            // Use the listfile basename to suggest a filename.
+            const auto &replayHandle = m_serviceProvider->getReplayFileHandle();
+            path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
+        }
+        else
+        {
+            // Use the last part of the workspace path to suggest a filename.
+            auto filename = m_serviceProvider->getAnalysisConfigFilename();
+            if (filename.isEmpty())
+                filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
+            path += "/" + filename;
+        }
     }
     else
     {
-        // Use the last part of the workspace path to suggest a filename.
-        auto filename = m_serviceProvider->getAnalysisConfigFilename();
-        if (filename.isEmpty())
-            filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
         path += "/" + filename;
     }
 
