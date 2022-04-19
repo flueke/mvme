@@ -436,6 +436,12 @@ IntervalEditorPicker::~IntervalEditorPicker()
 {
 }
 
+void IntervalEditorPicker::setInterval(const QwtInterval &interval)
+{
+    d->interval = interval;
+    d->updateMarkersAndZone();
+}
+
 void IntervalEditorPicker::reset()
 {
     d->updateMarkersAndZone();

@@ -298,9 +298,11 @@ void watch_mouse_move(PlotWidget *w)
                      });
 }
 
-void install_intervals_combo(PlotWidget *w, NewIntervalPicker *picker)
+void install_intervals_editor(PlotWidget *w, NewIntervalPicker *picker)
 {
     auto combo = new QComboBox;
+    combo->setObjectName("intervalsCombo");
+    combo->setEditable(true);
     combo->setMinimumWidth(150);
     combo->addItem("-");
 
@@ -310,20 +312,27 @@ void install_intervals_combo(PlotWidget *w, NewIntervalPicker *picker)
                          combo->addItem(
                              "interval",
                              QVariantList { interval.minValue(), interval.maxValue() });
+                         combo->setCurrentIndex(combo->count() - 1);
                          // FIXME: cancel used to force going back to the zoomer.
                          // Maybe add something that tracks the last active
                          // tool and goes back to that?
                          picker->cancel();
                      });
 
-    QObject::connect(combo, qOverload<int>(&QComboBox::activated),
+    auto intervalEditorPicker = new IntervalEditorPicker(w->getPlot());
+
+    QObject::connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
                      w, [=] (int comboIndex)
                      {
                          auto varList = combo->itemData(comboIndex).toList();
+                         QwtInterval interval;
                          if (varList.size() == 2)
                          {
                              qDebug() << varList[0] << varList[1];
+                             interval = {varList[0].toDouble(),
+                                         varList[1].toDouble()};
                          }
+                         intervalEditorPicker->setInterval(interval);
                      });
 
     w->getToolBar()->addWidget(combo);
@@ -345,7 +354,7 @@ int main(int argc, char **argv)
     //install_clickpoint_picker(&plotWidget1);
     //install_dragpoint_picker(&plotWidget1);
     auto intervalPicker = install_new_interval_picker(&plotWidget1);
-    install_intervals_combo(&plotWidget1, intervalPicker);
+    install_intervals_editor(&plotWidget1, intervalPicker);
 
     debug_watch_plot_pickers(plotWidget1.getPlot());
     auto exclusiveActions = group_picker_actions(&plotWidget1);
