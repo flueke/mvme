@@ -3,25 +3,37 @@
 
 #include "histo_util.h"
 
-class AbstractHisto
+class Histo
 {
     public:
-        virtual ~AbstractHisto() {};
+        virtual ~Histo() {};
 
-        virtual size_t getStorageSize() const = 0;
         virtual size_t getAxisCount() const = 0;
-        virtual size_t getNumberOfBins(Qt::Axis = Qt::XAxis) const = 0;
-        //virtual double getBinContent(size_t bin) const = 0;
-        //virtual void setBinConent(size_t bin, double value);
+        virtual size_t getNumberOfBins(Qt::Axis axis = Qt::XAxis) const = 0;
+        virtual size_t getBinContent(size_t binIndex, Qt::Axis axis = Qt::XAxis) const = 0;
+        virtual bool setBinContent(size_t binIndex, double value,  Qt::Axis = Qt::XAxis) = 0;
+        virtual size_t getStorageSize() const = 0;
+
+        virtual AxisBinning getBinning(Qt::Axis axis = Qt::XAxis) const = 0;
+
 };
 
-class AbstractHisto1D: public AbstractHisto
+class Histo1D: public Histo
 {
     public:
         size_t getAxisCount() const override
         {
             return 1;
         }
+};
+
+class HistoResolutionReducer: public Histo
+{
+    public:
+        HistoResolutionReducer(Histo *base, unsigned rrf = 0);
+
+    private:
+        Histo *m_histo;
 };
 
 #endif /* __MVME_HISTO1D_V2_H__ */
