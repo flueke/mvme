@@ -98,12 +98,12 @@ class IntervalEditorPicker: public PlotPicker
         void reset() override;
 
     protected:
-        void transition(const QEvent *event) override;
+        void widgetMousePressEvent(QMouseEvent *) override;
+        void widgetMouseReleaseEvent(QMouseEvent *) override;
+        void widgetMouseMoveEvent(QMouseEvent *) override;
 
     private slots:
-        void onPointSelected(const QPointF &p);
         void onPointMoved(const QPointF &p);
-        void onPointAppended(const QPointF &p);
 
     private:
         struct Private;

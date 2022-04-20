@@ -38,7 +38,7 @@ void debug_watch_plot_pickers(QWidget *w)
                              picker->objectName().toStdString(), on);
             });
 
-#if 0
+#if 1
         QObject::connect(
             picker, &QwtPlotPicker::moved,
             picker, [picker] (const QPointF &pos)
@@ -152,19 +152,38 @@ NewIntervalPicker *install_new_interval_picker(PlotWidget *w)
 
     // React to canceled from the picker. TODO: move this to the outside where
     // actions are managed
-    QObject::connect(
-        picker, &NewIntervalPicker::canceled,
-        w, [w] ()
+    auto activate_zoomer_action = [w] ()
+    {
+        if (auto zoomAction = w->findChild<QAction *>("zoomAction"))
         {
-            spdlog::info("NewIntervalPicker: canceled, activating zoomAction");
-            if (auto zoomAction = w->findChild<QAction *>("zoomAction"))
-            {
-                zoomAction->setChecked(true);
-            }
-        });
+            spdlog::info("NewIntervalPicker: activating zoomAction");
+            zoomAction->setChecked(true);
+        }
+    };
+
+    QObject::connect(picker, &NewIntervalPicker::canceled,
+                     w, activate_zoomer_action);
+    QObject::connect(picker, &NewIntervalPicker::intervalSelected,
+                     w, activate_zoomer_action);
 
     return picker;
 }
+
+IntervalEditorPicker *install_interval_editor(PlotWidget *w)
+{
+    auto picker = new IntervalEditorPicker(w->getPlot());
+    picker->setObjectName("IntervalEditorPicker");
+    picker->setEnabled(false);
+    install_checkable_toolbar_action(
+        w, "Edit Interval", "editIntervalPickerAction",
+        picker, [picker] (bool checked)
+        {
+            spdlog::info("editIntervalPickerAction toggled, checked={}", checked);
+            picker->setEnabled(checked);
+        });
+    return picker;
+}
+
 
 QwtPlotPicker *install_poly_picker(PlotWidget *w)
 {
@@ -281,6 +300,7 @@ QActionGroup *group_picker_actions(PlotWidget *w)
     add_if_found("clickPointPickerAction");
     add_if_found("dragPointPickerAction");
     add_if_found("newIntervalPickerAction");
+    add_if_found("editIntervalPickerAction");
 
     if (auto firstAction = group->actions().first())
         firstAction->setChecked(true);
@@ -288,17 +308,10 @@ QActionGroup *group_picker_actions(PlotWidget *w)
     return group;
 }
 
-void watch_mouse_move(PlotWidget *w)
-{
-    QObject::connect(w, &PlotWidget::mouseMoveOnPlot,
-                     [] (const QPointF &f)
-                     {
-                         spdlog::info("watch_mouse_move: mouse moved to ({}, {})",
-                                      f.x(), f.y());
-                     });
-}
-
-void install_intervals_editor(PlotWidget *w, NewIntervalPicker *picker)
+void setup_intervals_combo(
+    PlotWidget *w,
+    NewIntervalPicker *newIntervalPicker,
+    IntervalEditorPicker *intervalEditorPicker)
 {
     auto combo = new QComboBox;
     combo->setObjectName("intervalsCombo");
@@ -306,20 +319,15 @@ void install_intervals_editor(PlotWidget *w, NewIntervalPicker *picker)
     combo->setMinimumWidth(150);
     combo->addItem("-");
 
-    QObject::connect(picker, &NewIntervalPicker::intervalSelected,
+    QObject::connect(newIntervalPicker, &NewIntervalPicker::intervalSelected,
                      combo, [=] (const QwtInterval &interval)
                      {
+                         auto name = QSL("interval%1").arg(combo->count()-1);
                          combo->addItem(
-                             "interval",
+                             name,
                              QVariantList { interval.minValue(), interval.maxValue() });
                          combo->setCurrentIndex(combo->count() - 1);
-                         // FIXME: cancel used to force going back to the zoomer.
-                         // Maybe add something that tracks the last active
-                         // tool and goes back to that?
-                         picker->cancel();
                      });
-
-    auto intervalEditorPicker = new IntervalEditorPicker(w->getPlot());
 
     QObject::connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
                      w, [=] (int comboIndex)
@@ -334,8 +342,17 @@ void install_intervals_editor(PlotWidget *w, NewIntervalPicker *picker)
                          }
                          intervalEditorPicker->setInterval(interval);
                      });
-
     w->getToolBar()->addWidget(combo);
+}
+
+void watch_mouse_move(PlotWidget *w)
+{
+    QObject::connect(w, &PlotWidget::mouseMoveOnPlot,
+                     [] (const QPointF &f)
+                     {
+                         spdlog::info("watch_mouse_move: mouse moved to ({}, {})",
+                                      f.x(), f.y());
+                     });
 }
 
 int main(int argc, char **argv)
@@ -350,16 +367,32 @@ int main(int argc, char **argv)
     //watch_mouse_move(&plotWidget1);
     install_scrollzoomer(&plotWidget1);
     install_poly_picker(&plotWidget1);
-    //install_tracker_picker(&plotWidget1);
+    install_tracker_picker(&plotWidget1);
     //install_clickpoint_picker(&plotWidget1);
     //install_dragpoint_picker(&plotWidget1);
-    auto intervalPicker = install_new_interval_picker(&plotWidget1);
-    install_intervals_editor(&plotWidget1, intervalPicker);
+    auto newIntervalPicker = install_new_interval_picker(&plotWidget1);
+    auto intervalEditorPicker = install_interval_editor(&plotWidget1);
+    setup_intervals_combo(&plotWidget1, newIntervalPicker, intervalEditorPicker);
 
     debug_watch_plot_pickers(plotWidget1.getPlot());
     auto exclusiveActions = group_picker_actions(&plotWidget1);
 
+#if 0
+    // log PlotWidget enter/leave events
+    QObject::connect(&plotWidget1, &PlotWidget::mouseEnteredPlot,
+                     &plotWidget1, [] ()
+                     {
+                         spdlog::info("plotWidget1: mouse entered plot");
+                     });
 
+    QObject::connect(&plotWidget1, &PlotWidget::mouseLeftPlot,
+                     &plotWidget1, [] ()
+                     {
+                         spdlog::info("plotWidget1: mouse left plot");
+                     });
+#endif
+
+#if 0
     {
         auto w = new QWidget;
         w->setAttribute(Qt::WA_DeleteOnClose);
@@ -385,9 +418,10 @@ int main(int argc, char **argv)
         vbox->addStretch(1);
         w->show();
     }
+#endif
 
 
-    const int ReplotInterval = 100;
+    const int ReplotInterval = 1000;
     QTimer replotTimer;
     QObject::connect(&replotTimer, &QTimer::timeout,
                      plotWidget1.getPlot(), &QwtPlot::replot);

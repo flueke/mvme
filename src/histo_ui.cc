@@ -57,9 +57,6 @@ PlotWidget::PlotWidget(QWidget *parent)
     d->plot = new QwtPlot;
     d->statusbar = new QStatusBar;
 
-    //setMouseTracking(true);
-    //installEventFilter(this);
-
     d->plot->setMouseTracking(true);
     d->plot->installEventFilter(this);
 
@@ -136,55 +133,39 @@ bool PlotWidget::eventFilter(QObject *object, QEvent *event)
                 break;
         }
     }
-#if 0
-    else if (object && object == this)
-    {
-        switch (event->type())
-        {
-            case QEvent::MouseMove:
-                {
-                    auto me = static_cast<const QMouseEvent *>(event);
-                    auto pos = me->pos();
-                    spdlog::info("mouse move on this");
-                    emit mouseMoveOnPlot(canvas_to_scale(getPlot(), pos));
-                }
-                break;
-
-            default:
-                break;
-        }
-    }
-    else if (object && object == getPlot()->canvas())
-    {
-        int x = 42;
-    }
-#endif
 
     return QWidget::eventFilter(object, event);
 }
 
 namespace
 {
-QwtPlotMarker *make_position_marker()
-{
-    static const double PlotTextLayerZ  = 1000.0;
+    QwtPlotMarker *make_position_marker()
+    {
+        static const double PlotTextLayerZ  = 1000.0;
 
-    auto marker = new QwtPlotMarker;
-    marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
-    marker->setLabelOrientation( Qt::Vertical );
-    marker->setLineStyle( QwtPlotMarker::VLine );
-    marker->setLinePen( Qt::black, 0, Qt::DashDotLine );
-    marker->setZ(PlotTextLayerZ);
+        auto marker = new QwtPlotMarker;
+        marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
+        marker->setLabelOrientation( Qt::Vertical );
+        marker->setLineStyle( QwtPlotMarker::VLine );
+        marker->setLinePen( Qt::black, 0, Qt::DashDotLine );
+        marker->setZ(PlotTextLayerZ);
 
-    return marker;
-}
+        return marker;
+    }
+
+    struct IntervalPlotItems
+    {
+        std::array<QwtPlotMarker *, 2> markers;
+        QwtPlotZoneItem *zone;
+    };
+
+    static const int CanStartDragDistancePixels = 4;
 }
 
 struct NewIntervalPicker::Private
 {
     NewIntervalPicker *q;
     QwtPlot *plot;
-    // Ownership of the markers and the zone item goes to the QwtPlot instance.
     std::array<QwtPlotMarker *, 2> markers;
     QwtPlotZoneItem * zoneItem;
     QVector<QPointF> selectedPoints;
@@ -358,11 +339,15 @@ struct IntervalEditorPicker::Private
     // Ownership of the markers and the zone item goes to the QwtPlot instance.
     std::array<QwtPlotMarker *, 2> markers;
     QwtPlotZoneItem * zoneItem;
-    QwtInterval interval;
+    QVector<QPointF> selectedPoints;
+    int draggingPointIndex = -1;
 
     QwtInterval getInterval() const
     {
-        return interval.normalized();
+        if (selectedPoints.size() != 2)
+            return {};
+
+        return QwtInterval(selectedPoints[0].x(), selectedPoints[1].x()).normalized();
     }
 
     void updateMarkersAndZone()
@@ -373,6 +358,7 @@ struct IntervalEditorPicker::Private
 
         if (getInterval().isValid())
         {
+            qDebug() << __PRETTY_FUNCTION__ << "got valid interval, showing plot items";
             auto interval = getInterval();
             double x1 = interval.minValue();
             double x2 = interval.maxValue();
@@ -390,6 +376,26 @@ struct IntervalEditorPicker::Private
         }
 
         plot->replot(); // force replot to make marker movement smooth
+    }
+
+    // Returns the point index (0 or 1) if pixelX is within
+    // CanStartDragDistancePixels
+    int getClosestPointIndex(int pixelX)
+    {
+        auto interval = getInterval();
+
+        if (interval.isValid())
+        {
+            int iMinPixel = q->transform({ interval.minValue(), 0.0 }).x();
+            int iMaxPixel = q->transform({ interval.maxValue(), 0.0 }).x();
+
+            if (std::abs(pixelX - iMinPixel) < CanStartDragDistancePixels)
+                return 0;
+            else if (std::abs(pixelX - iMaxPixel) < CanStartDragDistancePixels)
+                return 1;
+        }
+
+        return -1;
     }
 };
 
@@ -422,14 +428,8 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::selected),
-            this, &IntervalEditorPicker::onPointSelected);
-
     connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
             this, &IntervalEditorPicker::onPointMoved);
-
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::appended),
-            this, &IntervalEditorPicker::onPointAppended);
 }
 
 IntervalEditorPicker::~IntervalEditorPicker()
@@ -438,31 +438,67 @@ IntervalEditorPicker::~IntervalEditorPicker()
 
 void IntervalEditorPicker::setInterval(const QwtInterval &interval)
 {
-    d->interval = interval;
+    if (interval.isValid())
+        d->selectedPoints = { { interval.minValue(), 0.0 }, { interval.maxValue(), 0.0 } };
+    else
+        d->selectedPoints.clear();
+
     d->updateMarkersAndZone();
 }
 
 void IntervalEditorPicker::reset()
 {
+    d->selectedPoints.clear();
     d->updateMarkersAndZone();
     PlotPicker::reset();
 }
 
-void IntervalEditorPicker::onPointSelected(const QPointF &p)
+void IntervalEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
 {
+    if (mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev))
+        && d->getInterval().isValid())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "draggingPointIndex=" << d->draggingPointIndex;
+        d->draggingPointIndex = d->getClosestPointIndex(ev->pos().x());
+    }
+    else
+        PlotPicker::widgetMousePressEvent(ev);
+}
+
+void IntervalEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
+{
+    if (!mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev)))
+        return;
+
+    if (d->draggingPointIndex < 0)
+        return;
+
+    d->draggingPointIndex = -1;
+    std::sort(d->selectedPoints.begin(), d->selectedPoints.end(),
+              [] (const auto &a, const auto &b) { return a.x() < b.x(); });
+}
+
+void IntervalEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
+{
+    if (d->getInterval().isValid() && d->draggingPointIndex < 0)
+    {
+        if (d->getClosestPointIndex(ev->pos().x()) >= 0)
+            canvas()->setCursor(Qt::SplitHCursor);
+        else
+            canvas()->setCursor(Qt::CrossCursor);
+    }
+    else
+        PlotPicker::widgetMouseMoveEvent(ev);
 }
 
 void IntervalEditorPicker::onPointMoved(const QPointF &p)
 {
-}
-
-void IntervalEditorPicker::onPointAppended(const QPointF &p)
-{
-}
-
-void IntervalEditorPicker::transition(const QEvent *event)
-{
-    PlotPicker::transition(event);
+    qDebug() << __PRETTY_FUNCTION__ << p;
+    if (d->draggingPointIndex >= 0)
+    {
+        d->selectedPoints[d->draggingPointIndex] = p;
+        d->updateMarkersAndZone();
+    }
 }
 
 }
