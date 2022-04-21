@@ -22,6 +22,7 @@ class PlotWidget: public QWidget
         void mouseEnteredPlot();
         void mouseLeftPlot();
         void mouseMoveOnPlot(const QPointF &pos);
+        void aboutToReplot();
 
     public:
         PlotWidget(QWidget *parent = nullptr);
@@ -32,6 +33,9 @@ class PlotWidget: public QWidget
 
         QToolBar *getToolBar();
         QStatusBar *getStatusBar();
+
+    public slots:
+        void replot();
 
     protected:
         bool eventFilter(QObject * object, QEvent *event) override;
@@ -108,6 +112,27 @@ class IntervalEditorPicker: public PlotPicker
     private:
         struct Private;
         std::unique_ptr<Private> d;
+};
+
+bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
+bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
+
+class PlotAxisScaleChanger: public QObject
+{
+    Q_OBJECT
+    public:
+        PlotAxisScaleChanger(QwtPlot *plot, QwtPlot::Axis axis);
+
+        bool isLinear() const;
+        bool isLogarithmic() const;
+
+    public slots:
+        void setLinear();
+        void setLogarithmic();
+
+    private:
+        QwtPlot *m_plot;
+        QwtPlot::Axis m_axis;
 };
 
 }

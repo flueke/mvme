@@ -345,6 +345,25 @@ void setup_intervals_combo(
     w->getToolBar()->addWidget(combo);
 }
 
+void setup_axis_scale_selector(PlotWidget *w, QwtPlot::Axis axis)
+{
+    auto scaleChanger = new PlotAxisScaleChanger(w->getPlot(), axis);
+    auto combo = new QComboBox;
+    combo->addItem("Lin");
+    combo->addItem("Log");
+    w->getToolBar()->addWidget(combo);
+
+    QObject::connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
+                     w, [w, scaleChanger] (int index)
+                     {
+                         if (index == 0)
+                             scaleChanger->setLinear();
+                         else
+                             scaleChanger->setLogarithmic();
+                         w->replot();
+                     });
+}
+
 void watch_mouse_move(PlotWidget *w)
 {
     QObject::connect(w, &PlotWidget::mouseMoveOnPlot,
@@ -365,9 +384,10 @@ int main(int argc, char **argv)
     plotWidget1.show();
 
     //watch_mouse_move(&plotWidget1);
+    setup_axis_scale_selector(&plotWidget1, QwtPlot::yLeft);
     install_scrollzoomer(&plotWidget1);
-    install_poly_picker(&plotWidget1);
-    install_tracker_picker(&plotWidget1);
+    //install_poly_picker(&plotWidget1);
+    //install_tracker_picker(&plotWidget1);
     //install_clickpoint_picker(&plotWidget1);
     //install_dragpoint_picker(&plotWidget1);
     auto newIntervalPicker = install_new_interval_picker(&plotWidget1);

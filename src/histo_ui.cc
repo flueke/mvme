@@ -10,8 +10,10 @@
 #include <spdlog/spdlog.h>
 #include <qwt_plot_zoneitem.h>
 #include <qwt_plot_marker.h>
+#include <qwt_scale_engine.h>
 
 #include "histo_gui_util.h"
+#include "histo_util.h"
 
 namespace histo_ui
 {
@@ -105,6 +107,12 @@ QToolBar *PlotWidget::getToolBar()
 QStatusBar *PlotWidget::getStatusBar()
 {
     return d->statusbar;
+}
+
+void PlotWidget::replot()
+{
+    emit aboutToReplot();
+    getPlot()->replot();
 }
 
 bool PlotWidget::eventFilter(QObject *object, QEvent *event)
@@ -498,6 +506,52 @@ void IntervalEditorPicker::onPointMoved(const QPointF &p)
     {
         d->selectedPoints[d->draggingPointIndex] = p;
         d->updateMarkersAndZone();
+    }
+}
+
+bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis)
+{
+    return dynamic_cast<const QwtLinearScaleEngine *>(plot->axisScaleEngine(axis));
+}
+
+bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis)
+{
+    return dynamic_cast<const QwtLogScaleEngine *>(plot->axisScaleEngine(axis));
+}
+
+PlotAxisScaleChanger::PlotAxisScaleChanger(QwtPlot *plot, QwtPlot::Axis axis)
+    : QObject(plot)
+    , m_plot(plot)
+    , m_axis(axis)
+{
+}
+
+bool PlotAxisScaleChanger::isLinear() const
+{
+    return is_linear_axis_scale(m_plot, m_axis);
+}
+
+bool PlotAxisScaleChanger::isLogarithmic() const
+{
+    return is_logarithmic_axis_scale(m_plot, m_axis);
+}
+
+void PlotAxisScaleChanger::setLinear()
+{
+    if (!isLinear())
+    {
+        m_plot->setAxisScaleEngine(m_axis, new QwtLinearScaleEngine);
+        m_plot->setAxisAutoScale(m_axis, true);
+    }
+}
+
+void PlotAxisScaleChanger::setLogarithmic()
+{
+    if (!isLogarithmic())
+    {
+        auto scaleEngine = new QwtLogScaleEngine;
+        scaleEngine->setTransformation(new MinBoundLogTransform);
+        m_plot->setAxisScaleEngine(m_axis, scaleEngine);
     }
 }
 
