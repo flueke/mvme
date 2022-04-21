@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QToolBar>
 #include <QStatusBar>
+#include <QDebug>
 #include <memory>
 #include <qwt_scale_map.h>
 #include <spdlog/spdlog.h>

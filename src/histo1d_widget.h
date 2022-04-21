@@ -60,8 +60,6 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         // list of histos
         Histo1DWidget(const HistoList &histos, QWidget *parent = nullptr);
 
-        // analysis histo sink
-        Histo1DWidget(const SinkPtr &histoSink, QWidget *parent = nullptr);
         virtual ~Histo1DWidget();
 
         HistoList getHistograms() const;
