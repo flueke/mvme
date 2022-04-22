@@ -105,6 +105,12 @@ void ObjectInfoWidget::refresh()
          * ConditionInterface: getNumberOfBits()
          */
 
+        if (!obj->getAnalysis())
+        {
+            label->clear();
+            return;
+        }
+
         QString text;
 
         text += QSL("cls=%1, n=%2")
@@ -188,6 +194,7 @@ void ObjectInfoWidget::refresh()
     };
 
     if (m_d->m_analysisObject)
+        //&& m_d->m_analysisObject->getAnalysis().get() == m_d->m_serviceProvider->getAnalysis())
     {
         refresh_analysisObject(m_d->m_analysisObject);
     }
