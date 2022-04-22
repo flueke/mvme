@@ -194,11 +194,12 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
  * Note: The resolution is independent of the underlying histograms resolution.
  * Instead NumberOfPoints samples are used at all zoom levels.
  */
+static constexpr double FWHMSigmaFactor = 2.3548;
+
 class Histo1DGaussCurveData: public QwtSyntheticPointData
 {
     public:
         static constexpr size_t NumberOfPoints = 500;
-        static constexpr double FWHMSigmaFactor = 2.3548;
 
         Histo1DGaussCurveData()
             : QwtSyntheticPointData(NumberOfPoints)
