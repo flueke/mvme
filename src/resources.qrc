@@ -66,6 +66,7 @@
     <file alias="application-rename.png">resources/application-rename.png</file>
     <file alias="document-rename.png">resources/document-rename.png</file>
     <file alias="printer.png">resources/printer.png</file>
+    <file>resources/magnifier-zoom.png</file>
 
     <file>resources/layer-visible-off.png</file>
     <file>resources/layer-visible-on.png</file>

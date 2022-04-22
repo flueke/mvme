@@ -202,14 +202,17 @@ struct Histo1DWidgetPrivate
     s32 m_labelCursorInfoMaxWidth  = 0;
     s32 m_labelCursorInfoMaxHeight = 0;
 
-    QAction *m_actionRateEstimation,
+    QAction *m_actionZoom,
+            *m_actionGaussFit,
+            *m_actionRateEstimation,
             *m_actionSubRange,
             *m_actionChangeRes,
-            *m_actionGaussFit,
             *m_actionCalibUi,
             *m_actionInfo,
             *m_actionHistoListStats,
             *m_actionCuts;
+
+    QActionGroup *m_exclusiveActions;
 
     // rate estimation
     RateEstimationData m_rateEstimationData;
@@ -218,12 +221,6 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateEstimationX2Marker;
     QwtPlotMarker *m_rateEstimationFormulaMarker;
     RateEstimationCurveData *m_plotRateEstimationData = nullptr; // owned by qwt
-
-    // active picker
-    QwtPlotPicker *m_activePlotPicker;
-
-    void activatePlotPicker(QwtPlotPicker *picker);
-    QwtPlotPicker *getActivePlotPicker() const;
 
     // text items / stats
     mvme_qwt::TextLabelItem *m_globalStatsTextItem;
@@ -245,12 +242,6 @@ struct Histo1DWidgetPrivate
     u32 m_rrf = Histo1D::NoRR;
 
     CalibUi m_calibUi;
-
-    // Cut creation / editing
-    IntervalEditor *m_intervalCutEditor = nullptr;
-    IntervalCutDialog *m_intervalCutDialog = nullptr;
-    analysis::ConditionPtr m_editingCondition;
-    QVector<QwtInterval> m_cutIntervals;
 
     // Histo and stats
     Histo1DStatistics m_stats;
@@ -330,19 +321,6 @@ struct Histo1DWidgetPrivate
     void saveHistogram();
     void onActionHistoListStats();
 
-    void onActionNewCutTriggered();
-    void onCutIntervalSelected();
-    void onEditCutAccept();
-    void onEditCutReject();
-
-    IntervalEditor *getIntervalCutEditor() const
-    {
-        return m_intervalCutEditor;
-    }
-
-    void onCutEditorIntervalCreated(const QwtInterval &interval);
-    void onCutEditorIntervalModified(const QwtInterval &interval);
-
     Histo1DPtr getCurrentHisto()
     {
         return m_histos.value(m_histoIndex, {});
@@ -377,10 +355,31 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_replotTimer = new QTimer(this);
     m_d->m_cursorPosition = { make_quiet_nan(), make_quiet_nan() };
     m_d->m_plot = new QwtPlot;
-    m_d->m_intervalCutEditor = new IntervalEditor(this);
     m_d->m_histoSpin = new QSpinBox(this);
     m_d->m_histoSpin->setMaximum(histos.size() - 1);
     set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
+
+    m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
+
+    m_d->m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
+    m_d->m_zoomer->setZoomBase();
+
+    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(zoomerZoomed(const QRectF &))));
+    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+                       this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
+    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+                       this, &Histo1DWidget::mouseCursorLeftPlot));
+
+    TRY_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
+                       this, [this] (Qt::Axis) {
+        // Handle axis changes by zooming out fully. This will make sure
+        // possible axis scale changes are immediately visible and the zoomer
+        // is in a clean state.
+        m_d->m_zoomer->setZoomStack(QStack<QRectF>(), -1);
+        m_d->m_zoomer->zoom(0);
+        replot();
+    }));
 
     // Toolbar and actions
     m_d->m_toolBar = new QToolBar();
@@ -408,6 +407,19 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
                       .container.release());
     }
 
+    // Zoom action for easy enabling/disabling of the zoomer.
+    m_d->m_actionZoom = new QAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom", this);
+    m_d->m_actionZoom->setCheckable(true);
+    m_d->m_actionZoom->setChecked(true);
+    connect(m_d->m_actionZoom, &QAction::toggled,
+            m_d->m_zoomer, [this] (bool checked) {
+                m_d->m_zoomer->setEnabled(checked);
+            });
+    // Optional: add the zoomer to the toolbar. Right now the action is not
+    // visible but activated by, e.g. the rate estimation picker after two
+    // points have been picked.
+    //tb->addAction(m_d->m_actionZoom);
+
     m_d->m_actionGaussFit = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
     m_d->m_actionGaussFit->setCheckable(true);
     connect(m_d->m_actionGaussFit, &QAction::toggled, this, &Histo1DWidget::on_tb_gauss_toggled);
@@ -420,8 +432,11 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             this, &Histo1DWidget::on_tb_rate_toggled);
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
-        m_d->getCurrentHisto()->clear();
-        replot();
+        if (auto histo = m_d->getCurrentHisto())
+        {
+            histo->clear();
+            replot();
+        }
     });
 
     // export plot to file / clipboard
@@ -477,6 +492,10 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         }
     });
 
+    m_d->m_exclusiveActions = new QActionGroup(this);
+    //m_d->m_exclusiveActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
+    m_d->m_exclusiveActions->addAction(m_d->m_actionZoom);
+
     // Resolution Reduction
     {
         m_d->m_rrSlider = make_res_reduction_slider();
@@ -491,43 +510,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             m_d->onRRSliderValueChanged(sliderValue);
         });
     }
-
-#if 1
-    //
-    // Cuts
-    //
-    {
-        tb->addSeparator();
-        m_d->m_actionCuts = tb->addAction(QIcon(QSL(":/scissors.png")), QSL("Cuts"));
-        m_d->m_actionCuts->setEnabled(false);
-
-        connect(m_d->m_actionCuts, &QAction::triggered,
-                this, [this] () {
-
-            auto cutDialog = new IntervalCutDialog(this);
-            m_d->m_intervalCutDialog = cutDialog;
-
-            connect(cutDialog, &QDialog::accepted,
-                    m_d->m_actionCuts, [this] () {
-                        m_d->m_actionCuts->setEnabled(true);
-                        m_d->m_intervalCutDialog = nullptr;
-                        replot();
-                    });
-
-            connect(cutDialog, &QDialog::rejected,
-                    m_d->m_actionCuts, [this] () {
-                        m_d->m_actionCuts->setEnabled(true);
-                        m_d->m_intervalCutDialog = nullptr;
-                        replot();
-                    });
-
-            cutDialog->setAttribute(Qt::WA_DeleteOnClose);
-            cutDialog->show();
-            // Enabled in setSink()
-            m_d->m_actionCuts->setEnabled(false);
-        });
-    }
-#endif
 
     m_d->m_actionHistoListStats = tb->addAction(
         QIcon(QSL(":/document-text.png")),
@@ -552,27 +534,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     m_d->m_plot->canvas()->setMouseTracking(true);
 
-    m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
-
-    m_d->m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
-    m_d->m_zoomer->setZoomBase();
-
-    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
-                       this, SLOT(zoomerZoomed(const QRectF &))));
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
-                       this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
-                       this, &Histo1DWidget::mouseCursorLeftPlot));
-
-    TRY_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
-                       this, [this] (Qt::Axis) {
-        // Handle axis changes by zooming out fully. This will make sure
-        // possible axis scale changes are immediately visible and the zoomer
-        // is in a clean state.
-        m_d->m_zoomer->setZoomStack(QStack<QRectF>(), -1);
-        m_d->m_zoomer->zoom(0);
-        replot();
-    }));
 
     //
     // Global stats box
@@ -1499,11 +1460,6 @@ bool Histo1DWidget::event(QEvent *e)
     }
     else if (e->type() == QEvent::Close)
     {
-        if (m_d->m_intervalCutDialog)
-        {
-            m_d->m_intervalCutDialog->close();
-            m_d->m_intervalCutDialog = nullptr;
-        }
     }
 
     return QWidget::event(e);
@@ -1570,9 +1526,6 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
-#if 1
-    m_d->m_actionCuts->setEnabled(true);
-#endif
 
     auto rrf = sink->getResolutionReductionFactor();
 
@@ -1637,7 +1590,11 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
     if (checked)
     {
         m_d->m_rateEstimationData = RateEstimationData();
-        m_d->activatePlotPicker(m_d->m_rateEstimationPointPicker);
+        // uncheck the currently active exclusive action
+        if (auto action = m_d->m_exclusiveActions->checkedAction())
+            action->setChecked(false);
+        // enable the picker
+        m_d->m_rateEstimationPointPicker->setEnabled(true);
     }
     else
     {
@@ -1646,7 +1603,9 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
         m_d->m_rateEstimationX2Marker->hide();
         m_d->m_rateEstimationFormulaMarker->hide();
         m_d->m_rateEstimationCurve->hide();
-        m_d->activatePlotPicker(m_d->m_zoomer);
+
+        // go back to zooming
+        m_d->m_actionZoom->setChecked(true);
     }
 
     replot();
@@ -1695,7 +1654,9 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
         }
 
         m_d->m_rateEstimationData.visible = true;
-        m_d->activatePlotPicker(m_d->m_zoomer);
+        // Disable rate point picking and go back to zooming
+        m_d->m_rateEstimationPointPicker->setEnabled(false);
+        m_d->m_actionZoom->setChecked(true);
 
         double x1 = m_d->getCurrentHisto()->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1,
                                                                   m_d->m_rrf).first;
@@ -1802,20 +1763,7 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
 }
 
-void Histo1DWidgetPrivate::onEditCutAccept()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    m_intervalCutEditor->endEdit();
-}
-
-void Histo1DWidgetPrivate::onEditCutReject()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    m_intervalCutEditor->endEdit();
-}
-
-using analysis::IntervalCondition;
-
+#if 0
 bool Histo1DWidget::setEditCondition(const analysis::ConditionPtr &condPtr)
 {
     qDebug() << __PRETTY_FUNCTION__ << condPtr.get();
@@ -1852,7 +1800,9 @@ analysis::ConditionPtr Histo1DWidget::getEditCondition() const
 void Histo1DWidget::beginEditCondition()
 {
 }
+#endif
 
+#if 0
 void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interval)
 {
     assert(m_serviceProvider);
@@ -1919,34 +1869,7 @@ void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interva
         m_q->setEditCondition(cond);
     }
 }
-
-void Histo1DWidgetPrivate::onCutEditorIntervalModified(const QwtInterval &)
-{
-}
-
-void Histo1DWidget::activatePlotPicker(QwtPlotPicker *picker)
-{
-    m_d->activatePlotPicker(picker);
-}
-
-void Histo1DWidgetPrivate::activatePlotPicker(QwtPlotPicker *picker)
-{
-    if (m_activePlotPicker)
-    {
-        m_activePlotPicker->setEnabled(false);
-    }
-
-    if ((m_activePlotPicker = picker))
-    {
-        m_activePlotPicker->setEnabled(true);
-    }
-
-}
-
-QwtPlotPicker *Histo1DWidget::getActivePlotPicker() const
-{
-    return m_d->getActivePlotPicker();
-}
+#endif
 
 QwtPlot *Histo1DWidget::getPlot() const
 {
@@ -2010,9 +1933,4 @@ void Histo1DWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMi
 {
     m_d->m_calib = calib;
     m_d->m_actionCalibUi->setVisible(m_d->m_calib != nullptr);
-}
-
-QwtPlotPicker *Histo1DWidgetPrivate::getActivePlotPicker() const
-{
-    return m_activePlotPicker;
 }

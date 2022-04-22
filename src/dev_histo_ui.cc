@@ -184,7 +184,6 @@ IntervalEditorPicker *install_interval_editor(PlotWidget *w)
     return picker;
 }
 
-
 QwtPlotPicker *install_poly_picker(PlotWidget *w)
 {
     auto picker = new PlotPicker(
@@ -345,13 +344,15 @@ void setup_intervals_combo(
     w->getToolBar()->addWidget(combo);
 }
 
-void setup_axis_scale_selector(PlotWidget *w, QwtPlot::Axis axis)
+void setup_axis_scale_selector(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText)
 {
     auto scaleChanger = new PlotAxisScaleChanger(w->getPlot(), axis);
     auto combo = new QComboBox;
     combo->addItem("Lin");
     combo->addItem("Log");
-    w->getToolBar()->addWidget(combo);
+
+    auto container = make_vbox_container(axisText, combo, 2, -2).container.release();
+    w->getToolBar()->addWidget(container);
 
     QObject::connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
                      w, [w, scaleChanger] (int index)
@@ -384,7 +385,7 @@ int main(int argc, char **argv)
     plotWidget1.show();
 
     //watch_mouse_move(&plotWidget1);
-    setup_axis_scale_selector(&plotWidget1, QwtPlot::yLeft);
+    setup_axis_scale_selector(&plotWidget1, QwtPlot::yLeft, "Y-Scale");
     install_scrollzoomer(&plotWidget1);
     //install_poly_picker(&plotWidget1);
     //install_tracker_picker(&plotWidget1);
@@ -392,6 +393,7 @@ int main(int argc, char **argv)
     //install_dragpoint_picker(&plotWidget1);
     auto newIntervalPicker = install_new_interval_picker(&plotWidget1);
     auto intervalEditorPicker = install_interval_editor(&plotWidget1);
+    //install_rate_estimation_tool(&plotWidget1);
     setup_intervals_combo(&plotWidget1, newIntervalPicker, intervalEditorPicker);
 
     debug_watch_plot_pickers(plotWidget1.getPlot());

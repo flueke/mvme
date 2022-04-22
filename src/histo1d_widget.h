@@ -41,10 +41,10 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEditorInterface
+class LIBMVME_EXPORT Histo1DWidget: public QWidget
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::ConditionEditorInterface);
+    //Q_INTERFACES(analysis::ConditionEditorInterface);
 
     signals:
         void histogramSelected(int histoIndex);
@@ -84,12 +84,9 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         QwtPlot *getPlot() const;
 
         // ConditionEditorInterface
-        virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
-        virtual analysis::ConditionPtr getEditCondition() const override;
-        virtual void beginEditCondition() override;
-
-        void activatePlotPicker(QwtPlotPicker *picker);
-        QwtPlotPicker *getActivePlotPicker() const;
+        //virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
+        //virtual analysis::ConditionPtr getEditCondition() const override;
+        //virtual void beginEditCondition() override;
 
         s32 currentHistoIndex() const;
 

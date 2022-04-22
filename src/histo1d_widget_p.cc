@@ -105,6 +105,7 @@ void Histo1DSubRangeDialog::accept()
 // CutEditor
 //
 
+#if 0
 namespace
 {
 
@@ -728,3 +729,4 @@ void IntervalCutDialog::reject()
 void IntervalCutDialog::apply()
 {
 }
+#endif

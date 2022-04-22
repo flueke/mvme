@@ -849,8 +849,8 @@ void Histo2DWidget::replot()
 
     auto &zInterval = intervals[Qt::ZAxis];
 
-    qDebug("%s stats zInterval: %lf, %lf, valid=%d, width=%lf",
-           __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
+    //qDebug("%s stats zInterval: %lf, %lf, valid=%d, width=%lf",
+    //       __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
 
     // Z axis handling for log scales: start from 1.0
     double zBase = zAxisIsLog() ? 1.0 : 0.0;
@@ -862,8 +862,8 @@ void Histo2DWidget::replot()
 
     assert(zInterval.width() > 0.0);
 
-    qDebug("%s adjusted zInterval: %lf, %lf, valid=%d, width=%lf",
-           __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
+    //qDebug("%s adjusted zInterval: %lf, %lf, valid=%d, width=%lf",
+    //       __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
 
     // Set the intervals on the interal raster data object.
     auto rasterData = reinterpret_cast<RasterDataBase *>(m_d->m_plotItem->data());
