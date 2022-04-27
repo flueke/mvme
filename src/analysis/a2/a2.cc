@@ -751,7 +751,7 @@ Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
     result.type = type;
     result.inputCount = inputCount;
     result.outputCount = outputCount;
-    result.conditionIndex = Operator::NoCondition;
+    result.conditionBitIndexes = {};
     result.d = nullptr;
 
     return  result;
@@ -4603,13 +4603,15 @@ void a2_end_event(A2 *a2, int eventIndex)
         {
             assert(get_operator_table()[op->type].step);
 
-            if (op->conditionIndex >= 0)
+            bool stepOperator = true;
+
+            for (auto bitIndex: op->conditionBitIndexes)
             {
-                assert(static_cast<size_t>(op->conditionIndex) < a2->conditionBits.size());
+                assert(bitIndex < a2->conditionBits.size());
+                stepOperator = stepOperator && a2->conditionBits.test(bitIndex);
             }
 
-            if (op->conditionIndex < 0
-                || a2->conditionBits.test(op->conditionIndex))
+            if (stepOperator)
             {
                 // no active condition or the condition is true
                 get_operator_table()[op->type].step(op, a2);

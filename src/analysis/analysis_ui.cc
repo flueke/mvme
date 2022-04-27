@@ -169,8 +169,8 @@ struct AnalysisWidgetPrivate
     void onOperatorRemoved(const OperatorPtr &op);
     void onDirectoryAdded(const DirectoryPtr &dir);
     void onDirectoryRemoved(const DirectoryPtr &dir);
-    void onConditionLinkApplied(const OperatorPtr &op, const ConditionPtr &cond);
-    void onConditionLinkCleared(const OperatorPtr &op, const ConditionPtr &cond);
+    void onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
+    void onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
     void editConditionLinkGraphically(const ConditionPtr &cond);
 
     AnalysisServiceProvider *getServiceProvider() const { return m_serviceProvider; }
@@ -234,11 +234,11 @@ void AnalysisWidgetPrivate::onDirectoryRemoved(const DirectoryPtr &dir)
     repopulateEventRelatedWidgets(eventId);
 }
 
-void AnalysisWidgetPrivate::onConditionLinkApplied(const OperatorPtr &op, const ConditionPtr &cond)
+void AnalysisWidgetPrivate::onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond)
 {
 #if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
-    assert(op->getEventId() == cl.condition->getEventId());
+    assert(op->getEventId() == cond->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
 #else
@@ -247,11 +247,11 @@ void AnalysisWidgetPrivate::onConditionLinkApplied(const OperatorPtr &op, const 
 #endif
 }
 
-void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const ConditionPtr &cond)
+void AnalysisWidgetPrivate::onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond)
 {
 #if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
-    assert(op->getEventId() == cl.condition->getEventId());
+    assert(op->getEventId() == cond->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
 #else
@@ -1369,14 +1369,14 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->onDirectoryRemoved(dir);
     });
 
-    QObject::connect(&wrapper, &Wrapper::conditionLinkApplied,
+    QObject::connect(&wrapper, &Wrapper::conditionLinkAdded,
                      this, [this](const OperatorPtr &op, const ConditionPtr &cond) {
-         m_d->onConditionLinkApplied(op, cond);
+         m_d->onConditionLinkAdded(op, cond);
     });
 
-    QObject::connect(&wrapper, &Wrapper::conditionLinkCleared,
+    QObject::connect(&wrapper, &Wrapper::conditionLinkRemoved,
                      this, [this](const OperatorPtr &op, const ConditionPtr &cond) {
-         m_d->onConditionLinkCleared(op, cond);
+         m_d->onConditionLinkRemoved(op, cond);
     });
 
     // Initial update

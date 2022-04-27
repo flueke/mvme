@@ -256,6 +256,8 @@ struct EventWidgetPrivate
     InputSelectInfo m_inputSelectInfo;
 
     ConditionPtr m_selectedCondition;
+    OperatorPtr m_selectedOperator;
+    bool m_ignoreNextNodeClick = false; // hack to ignore the next itemClicked signal
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;

@@ -44,10 +44,11 @@ struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
     virtual void visit(SourceInterface *source) override;
     virtual void visit(OperatorInterface *op) override;
     virtual void visit(SinkInterface *sink) override;
+    virtual void visit(ConditionInterface *cond) override;
     virtual void visit(Directory *dir) override;
 
     QJsonArray serializeConnections() const;
-    QJsonArray serializeConditionLinks(const ConditionLinks &links) const;
+    QJsonObject serializeConditionLinks(const ConditionLinks &links) const;
     QJsonObject finalize(const Analysis *analysis) const;
     int objectCount() const { return visitedObjects.size(); }
 

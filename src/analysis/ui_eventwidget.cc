@@ -36,6 +36,7 @@
 #include <QTimer>
 #include <iterator>
 #include <memory>
+#include <qnamespace.h>
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_serialization.h"
@@ -189,6 +190,7 @@ struct ConditionLinkModifications
     bool hasModifications() const { return active != checked; }
 };
 
+#if 0
 ConditionLinkModifications get_condition_modifications(const ConditionPtr &cond,
                                                        Analysis *analysis,
                                                        const ObjectToNode &objectMap)
@@ -220,6 +222,7 @@ ConditionLinkModifications get_condition_modifications(const ConditionPtr &cond,
 
     return result;
 }
+#endif
 
 } // end anon namespace
 
@@ -1628,6 +1631,7 @@ void EventWidget::applyConditionAccept()
      * be the default way of doing things, even if sometimes a direct update is
      * desired.
      */
+#if 0
     auto analysis         = m_d->getAnalysis();
     auto checkedObjects   = m_d->getCheckedObjects();
     auto uncheckedObjects = m_d->getCheckedObjects(Qt::Unchecked);
@@ -1664,6 +1668,9 @@ void EventWidget::applyConditionAccept()
 
     AnalysisPauser pauser(getServiceProvider());
     analysis->beginRun(Analysis::KeepState, getVMEConfig());
+#else
+    assert(false);
+#endif
 }
 
 void EventWidget::applyConditionReject()
@@ -2447,10 +2454,26 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         tree->setUserLevel(levelIndex);
 
         // mouse interaction
+        // TODO: try to not use itemClicked. Instead use selectionChanged and
+        // use the selection to figure out if a single item is selected.
         QObject::connect(tree, &QTreeWidget::itemClicked,
                          m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
-            onNodeClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
-            updateActions();
+            if (!m_ignoreNextNodeClick)
+            {
+                qDebug() << "### tree itemClicked:" << node << column;
+                onNodeClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
+                updateActions();
+            }
+            else
+            {
+                qDebug() << "### tree itemClicked (ignored!):" << node << column;
+                m_ignoreNextNodeClick = false;
+            }
+        });
+
+        QObject::connect(tree, &QTreeWidget::itemActivated,
+                         m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
+            qDebug() << "### tree itemActivated:" << node << column;
         });
 
         QObject::connect(tree, &QTreeWidget::itemDoubleClicked,
@@ -2510,9 +2533,25 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         });
 
         QObject::connect(tree, &QTreeWidget::itemSelectionChanged,
-                         m_q, [this] () {
-            //qDebug() << "itemSelectionChanged on" << tree
-            //    << ", new selected item count =" << tree->selectedItems().size();
+                         m_q, [this, tree] () {
+            qDebug() << "itemSelectionChanged on" << tree
+                << ", new selected item count =" << tree->selectedItems().size();
+
+            m_selectedOperator = {};
+            auto nodes = tree->selectedItems();
+
+            if (nodes.size() == 1)
+            {
+                if (auto obj = get_analysis_object(nodes.first(), DataRole_AnalysisObject))
+                {
+                    if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+                    {
+                        qDebug() << "setting selected operator to" << op->objectName();
+                        m_selectedOperator = op;
+                    }
+                }
+            }
+
             updateActions();
         });
     }
@@ -3841,8 +3880,8 @@ void EventWidgetPrivate::highlightOutputNodes(PipeSourceInterface *ps)
 void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
 {
     node->setBackground(0, QBrush());
-    //node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-    //node->setData(0, Qt::CheckStateRole, QVariant());
+    node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
+    node->setData(0, Qt::CheckStateRole, QVariant());
 
     for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
     {
@@ -3906,6 +3945,7 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
 /* Adds checkboxes to the candidates of the given ConditionkLink. */
 void EventWidgetPrivate::addConditionDecorations(const ConditionPtr &cond)
 {
+#if 0
     if (!cond) return;
 
     auto analysis = getAnalysis();
@@ -3933,6 +3973,9 @@ void EventWidgetPrivate::addConditionDecorations(const ConditionPtr &cond)
             node->setCheckState(0, checked);
         }
     }
+#else
+    assert(false);
+#endif
 }
 
 /* Removes checkboxes for the candidates of the given ConditionkLink. */
@@ -4016,6 +4059,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
             {
                 auto idMap = vme_analysis_common::build_id_to_index_mapping(m_q->getVMEConfig());
                 auto indices = idMap.value(obj->getEventId());
+                auto eventConfig = m_q->getVMEConfig()->getEventConfig(obj->getEventId());
 
                 qDebug() << __PRETTY_FUNCTION__ << "click on object: id =" << obj->getId()
                     << ", class =" << obj->metaObject()->className()
@@ -4023,6 +4067,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     << ", ulvl  =" << obj->getUserLevel()
                     << ", eventId =" << obj->getEventId()
                     << ", eventIndex=" << indices.eventIndex
+                    << ", eventName=" << (eventConfig ? eventConfig->objectName() : QString())
                     ;
 
                 emit m_q->objectSelected(obj);
@@ -4093,8 +4138,34 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     case NodeType_Histo2DSink:
                     case NodeType_Sink:
                         {
-                            auto op = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject);
-                            highlightInputNodes(op);
+                            auto opRawPtr = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject);
+                            auto op = std::dynamic_pointer_cast<OperatorInterface>(opRawPtr->shared_from_this());
+                            highlightInputNodes(op.get());
+
+                            if (!qobject_cast<ConditionInterface *>(op.get()))
+                            {
+                                auto conditions = getAnalysis()->getConditions(op->getEventId());
+
+                                for (const auto &cond: conditions)
+                                {
+                                    auto inputSet = collect_input_set(cond.get());
+
+                                    if (!inputSet.contains(op.get()))
+                                    {
+                                        // TODO: get node for the condition,
+                                        // make it checkable and check it if
+                                        // the operator uses the cond
+                                        if (auto condNode = m_objectMap[cond])
+                                        {
+                                            condNode->setFlags(condNode->flags() | Qt::ItemIsUserCheckable);
+                                            auto checkState = Qt::Unchecked;
+                                            if (getAnalysis()->getActiveConditions(op).contains(cond))
+                                                checkState = Qt::Checked;
+                                            condNode->setCheckState(0, checkState);
+                                        }
+                                    }
+                                }
+                            }
 
 #if 0
                             qDebug() << "Object Info: id =" << op->getId()
@@ -4522,7 +4593,29 @@ void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
     qDebug() << __PRETTY_FUNCTION__ << this << tree
         << node << ", checkstate =" << node->data(0, Qt::CheckStateRole)
         << ", prev =" << prev;
+    m_ignoreNextNodeClick = true;
 
+    auto checkState = node->data(0, Qt::CheckStateRole).toInt();
+    auto obj = get_analysis_object(node, DataRole_AnalysisObject);
+    auto cond = std::dynamic_pointer_cast<ConditionInterface>(obj);
+
+    if (m_selectedOperator && cond && m_selectedOperator != cond)
+    {
+        if (checkState == Qt::Checked)
+        {
+            qDebug() << "adding condition link: operator" << m_selectedOperator->objectName()
+                << "now uses" << cond->objectName();
+            getAnalysis()->addConditionLink(m_selectedOperator, cond);
+        }
+        else
+        {
+            qDebug() << "removing condition link: operator" << m_selectedOperator->objectName()
+                << "is not using" << cond->objectName() << "anymore";
+            getAnalysis()->removeConditionLink(m_selectedOperator, cond);
+        }
+    }
+
+#if 0
     assert(m_selectedCondition);
 
     if (m_selectedCondition)
@@ -4533,6 +4626,7 @@ void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
 
         emit m_q->conditionLinksModified(cond, clMods.hasModifications());
     }
+#endif
 }
 
 void EventWidgetPrivate::clearAllTreeSelections()

@@ -1003,7 +1003,6 @@ a2::Operator a2_adapter_magic(
 {
     a2::Operator result = {};
     result.type = a2::Invalid_OperatorType;
-    result.conditionIndex = a2::Operator::NoCondition;
 
     assert(op->getNumberOfSlots() <= a2::Operator::MaxInputCount);
     assert(op->getNumberOfOutputs() <= a2::Operator::MaxOutputCount);
@@ -1349,21 +1348,19 @@ void a2_adapter_build_single_operator(
     {
         auto a2_op = a2_adapter_magic(arena, state, opInfo.op, runInfo);
 
-        assert(a2_op.conditionIndex == a2::Operator::NoCondition);
+        assert(a2_op.conditionBitIndexes.size == 0);
 
         if (a2::Invalid_OperatorType != a2_op.type && a2_op.type < a2::OperatorTypeCount)
         {
-            /* If the operator is a condition set the index of the first bit to
-             * write when evaluating the condition.
-             * This is part of the active side where the condition bit is
-             * written to. */
+            /* If the operator is a condition set the index of the bit to write
+             * when evaluating the condition. */
             if (auto a1_cond = qobject_cast<ConditionInterface *>(opInfo.op.get()))
             {
                 assert(is_condition_operator(a2_op));
 
                 auto d = reinterpret_cast<a2::ConditionBaseData *>(a2_op.d);
 
-                /* It's not an error if the bit index is not setup yet as it's
+                /* It's not an error if the bit index is not setup yet as it is
                  * only known during the second pass build phase. */
                 if (state->conditionBitIndexes.contains(a1_cond))
                 {
@@ -1371,17 +1368,25 @@ void a2_adapter_build_single_operator(
                 }
             }
 
-            /* Check for active condition and set the corresponding bit index
-             * on the operator.
-             * This is part of the passive side where a condition has to be
-             * checked. */
-            if (auto cond = state->a1->getCondition(opInfo.op))
+            /* Check for active conditions and set the corresponding bit
+             * indexes on the operator. */
+            auto activeConditions = state->a1->getActiveConditions(opInfo.op);
+            std::vector<u16> conditionBitIndexes;
+
+            for (const auto &cond: activeConditions)
             {
                 // Check if the conditions bit index is known
                 if (state->conditionBitIndexes.contains(cond.get()))
                 {
-                    a2_op.conditionIndex = state->conditionBitIndexes.value(cond.get());
+                    conditionBitIndexes.push_back(state->conditionBitIndexes.value(cond.get()));
                 }
+            }
+
+            if (!conditionBitIndexes.empty())
+            {
+                // Sort by increasing bit index and copy into the operator structure
+                std::sort(std::begin(conditionBitIndexes), std::end(conditionBitIndexes));
+                a2_op.conditionBitIndexes = push_copy_typed_block<u16>(arena, conditionBitIndexes);
             }
 
             opInfo.a2OperatorType = a2_op.type;
@@ -1396,7 +1401,6 @@ void a2_adapter_build_single_operator(
 
             LOG("a2_op.type=%d, .conditionIndex=%d",
                 (s32)(a2_op.type), a2_op.conditionIndex);
-
         }
         else
         {

@@ -548,7 +548,7 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
         ConditionInterface(QObject *parent = nullptr);
         ~ConditionInterface() override;
 
-        // Condition have a single output holding the result of the last
+        // Conditions have a single output holding the result of the last
         // evaluation of the condition.
 
         s32 getNumberOfOutputs() const override { return 1; }
@@ -562,6 +562,8 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
         {
             return outputIndex == 0 ? &m_resultOutput : nullptr;
         }
+
+        void accept(ObjectVisitor &visitor) override;
 
     private:
         Pipe m_resultOutput;
@@ -2003,8 +2005,8 @@ class LIBMVME_EXPORT Analysis:
         void directoryAdded(const DirectoryPtr &ptr);
         void directoryRemoved(const DirectoryPtr &ptr);
 
-        void conditionLinkApplied(const OperatorPtr &op, const ConditionPtr &cond);
-        void conditionLinkCleared(const OperatorPtr &op, const ConditionPtr &cond);
+        void conditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
+        void conditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
 
 
     public:
@@ -2080,33 +2082,49 @@ class LIBMVME_EXPORT Analysis:
         //
         // Conditions
         //
+
+        ConditionLinks getConditionLinks() const;
+
         ConditionVector getConditions() const;
         ConditionVector getConditions(const QUuid &eventId) const;
-        ConditionPtr getCondition(const OperatorPtr &op) const;
-        ConditionPtr getCondition(OperatorInterface *op) const;
+
+        QSet<ConditionPtr> getActiveConditions(const OperatorPtr &op) const;
+
+
+
+        //ConditionPtr getCondition(const OperatorPtr &op) const;
+        //ConditionPtr getCondition(OperatorInterface *op) const;
         //ConditionLink getConditionLink(const OperatorPtr &op) const;
         //ConditionLink getConditionLink(const OperatorInterface *op) const;
-        ConditionLinks getConditionLinks() const;
-        bool hasActiveCondition(const OperatorPtr &op) const;
+
 
         /* Links the given operator to the given condition and subindex. Any
          * existing condition link will be replaced. */
         //bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        bool setConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
+        //bool setConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
+
+        // Adds a condition link from operator to cond. At runtime the operator
+        // will only be evaluated if all its linked conditions are true.
+        // Returns false and does nothing if the same condition link already
+        // exists, true otherwise.
+        bool addConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
+
+        // Removes the condition from the set of
+        bool removeConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
         /* Clears the condition link of the given operator if it was linked to
          * the given condition and subIndex. */
         //bool clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        bool clearConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
+        //bool clearConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
-        /* Clears the condition link of the given operator no matter which
-         * condition it is using. */
-        bool clearConditionLink(const OperatorPtr &op);
+        /* Clears the condition links of the given operator. */
+        void clearConditionsUsedBy(const OperatorPtr &op);
 
-        /* Clears all conditions links of any objects using the given
+        /* Clears all condition links of any objects using the given
          * condition.
          * Returns the number of condition links cleared. */
-        size_t clearConditionLinksUsing(const ConditionInterface *cond);
+        //size_t clearConditionLinksUsing(const ConditionInterface *cond);
+        void clearConditionLinksUsing(const ConditionPtr &cond);
 
         //
         // Directory Objects
@@ -2279,9 +2297,9 @@ class LIBMVME_EXPORT Analysis:
         }
 
     private:
-        void updateRank(OperatorInterface *op,
-                        QSet<OperatorInterface *> &updated,
-                        QSet<OperatorInterface *> &visited);
+        void updateRank(OperatorPtr op,
+                        QSet<OperatorPtr> &updated,
+                        QSet<OperatorPtr> &visited);
 
         SourceVector m_sources;
         OperatorVector m_operators;

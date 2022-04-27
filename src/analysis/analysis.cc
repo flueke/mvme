@@ -448,6 +448,11 @@ ConditionInterface::~ConditionInterface()
     qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
+void ConditionInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
 //
 // Directory
 //
@@ -4452,35 +4457,12 @@ void Analysis::removeOperator(const OperatorPtr &op)
             assert(outPipe->getDestinations().isEmpty());
         }
 
+        clearConditionsUsedBy(op);
+
         // If a condition is being removed clear all links pointing to it.
         if (auto cond = std::dynamic_pointer_cast<ConditionInterface>(op))
         {
-
-            /* Note: cannot call clearConditionLink while iterating the
-             * condition link hash because that method will modify the hash. */
-            struct OpAndCond
-            {
-                OperatorPtr op;
-                ConditionPtr cond;
-            };
-
-            QVector<OpAndCond> linksToClear;
-
-            for (auto it = m_conditionLinks.begin();
-                 it != m_conditionLinks.end();
-                 it++)
-            {
-                const auto &op = it.key();
-                const auto &linkedCond = it.value();
-
-                if (linkedCond == cond)
-                    linksToClear.push_back({ op, linkedCond });
-            }
-
-            for (auto &entry: linksToClear)
-            {
-                clearConditionLink(entry.op, entry.cond);
-            }
+            clearConditionLinksUsing(cond);
         }
 
         m_operators.erase(it);
@@ -4504,6 +4486,11 @@ void Analysis::setOperatorEdited(const OperatorPtr &op)
         obj->setObjectFlags(ObjectFlags::NeedsRebuild);
 
     emit operatorEdited(op);
+}
+
+ConditionLinks Analysis::getConditionLinks() const
+{
+    return m_conditionLinks;
 }
 
 ConditionVector Analysis::getConditions() const
@@ -4537,106 +4524,59 @@ ConditionVector Analysis::getConditions(const QUuid &eventId) const
     return result;
 }
 
-ConditionPtr Analysis::getCondition(const OperatorPtr &op) const
+QSet<ConditionPtr> Analysis::getActiveConditions(const OperatorPtr &op) const
 {
     return m_conditionLinks.value(op);
 }
 
-ConditionPtr Analysis::getCondition(OperatorInterface *op) const
+bool Analysis::addConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
 {
-    auto shared = op->shared_from_this();
-    return m_conditionLinks.value(std::dynamic_pointer_cast<OperatorInterface>(shared));
-}
+    assert(op->getEventId() == cond->getEventId());
 
-#if 0
-ConditionLink Analysis::getConditionLink(const OperatorPtr &op) const
-{
-    return m_conditionLinks.value(op);
-}
+    if (getActiveConditions(op).contains(cond))
+        return false;
 
-ConditionLink Analysis::getConditionLink(const OperatorInterface *op) const
-{
-    auto analysisObject = const_cast<OperatorInterface *>(op)->shared_from_this();
-
-    return getConditionLink(std::dynamic_pointer_cast<OperatorInterface>(analysisObject));
-}
-#endif
-
-ConditionLinks Analysis::getConditionLinks() const
-{
-    return m_conditionLinks;
-}
-
-bool Analysis::hasActiveCondition(const OperatorPtr &op) const
-{
-    return m_conditionLinks.value(op) != nullptr;
-}
-
-bool Analysis::setConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
-{
-    if (cond != m_conditionLinks.value(op))
-    {
-        m_conditionLinks.insert(op, cond);
-
-        // Set rebuild flag to  clear operator state (e.g. histogram contents)
-        // after the condition was set or changed.
-        op->setObjectFlags(ObjectFlags::NeedsRebuild);
-
-        emit conditionLinkApplied(op, cond);
-
-        return true;
-    }
-
+    m_conditionLinks[op].insert(cond);
+    // Set rebuild flag to  clear operator state (e.g. histogram contents)
+    // after the condition was set or changed.
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+    updateRanks();
+    emit conditionLinkAdded(op, cond);
     return true;
 }
 
-bool Analysis::clearConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
+bool Analysis::removeConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
 {
-    if (m_conditionLinks.value(op) == cond)
-    {
-        m_conditionLinks.remove(op);
-        op->setObjectFlags(ObjectFlags::NeedsRebuild);
-        emit conditionLinkCleared(op, cond);
-        return true;
-    }
+    if (!getActiveConditions(op).contains(cond))
+        return false;
 
-    return false;
+    m_conditionLinks[op].remove(cond);
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+    updateRanks();
+    emit conditionLinkRemoved(op, cond);
+    return true;
 }
 
-bool Analysis::clearConditionLink(const OperatorPtr &op)
+void Analysis::clearConditionsUsedBy(const OperatorPtr &op)
 {
-    if (auto cond = m_conditionLinks.value(op))
-    {
-        m_conditionLinks.remove(op);
-        op->setObjectFlags(ObjectFlags::NeedsRebuild);
-        emit conditionLinkCleared(op, cond);
-        return true;
-    }
+    auto conditions = getActiveConditions(op);
 
-    return false;
+    for (const auto &cond: conditions)
+        removeConditionLink(op, cond);
 }
 
-// FIXME: why not pass a ConditionPtr?
-size_t Analysis::clearConditionLinksUsing(const ConditionInterface *cond)
+void Analysis::clearConditionLinksUsing(const ConditionPtr &cond)
 {
-    // Iterater over a copy as the call to clearConditionLink() modifies the
-    // m_conditionLinks hash. */
-    ConditionLinks links = m_conditionLinks;
-    size_t result = 0u;
+    auto links = getConditionLinks();
 
-    for (auto it = links.begin(); it != links.end(); it++)
+    for (auto it=std::begin(links); it!=std::end(links); ++it)
     {
         const auto &op = it.key();
-        const auto &opCond = it.value();
+        const auto &conds = it.value();
 
-        if (opCond.get() == cond)
-        {
-            clearConditionLink(op, opCond);
-            result++;
-        }
+        if (conds.contains(cond))
+            removeConditionLink(op, cond);
     }
-
-    return result;
 }
 
 //
@@ -5043,12 +4983,12 @@ void Analysis::updateRanks()
         }
     }
 
-    QSet<OperatorInterface *> updated;
-    QSet<OperatorInterface *> visited;
+    QSet<OperatorPtr> updated;
+    QSet<OperatorPtr> visited;
 
     for (auto op: m_operators)
     {
-        updateRank(op.get(), updated, visited);
+        updateRank(op, updated, visited);
     }
 
 #if ENABLE_ANALYSIS_DEBUG
@@ -5056,9 +4996,9 @@ void Analysis::updateRanks()
 #endif
 }
 
-void Analysis::updateRank(OperatorInterface *op,
-                          QSet<OperatorInterface *> &updated,
-                          QSet<OperatorInterface *> &visited)
+void Analysis::updateRank(OperatorPtr op,
+                          QSet<OperatorPtr> &updated,
+                          QSet<OperatorPtr> &visited)
 {
     assert(op);
 
@@ -5069,7 +5009,7 @@ void Analysis::updateRank(OperatorInterface *op,
     {
         // TODO: return error information
         qDebug() << __PRETTY_FUNCTION__ << ">>>>> ERROR: previously visited"
-            << getClassName(op)
+            << getClassName(op.get())
             << op->objectName();
         InvalidCodePath;
         return;
@@ -5089,11 +5029,11 @@ void Analysis::updateRank(OperatorInterface *op,
     {
         if (Pipe *inputPipe = op->getSlot(si)->inputPipe)
         {
-            auto *inputObject(inputPipe->getSource());
+            auto inputObject(inputPipe->getSource()->shared_from_this());
 
             // Only operators need to be updated. Data sources will have their
             // output ranks set to 0 already.
-            if (auto inputOperator = qobject_cast<OperatorInterface *>(inputObject))
+            if (auto inputOperator = std::dynamic_pointer_cast<OperatorInterface>(inputObject))
             {
                 updateRank(inputOperator, updated, visited);
             }
@@ -5103,11 +5043,11 @@ void Analysis::updateRank(OperatorInterface *op,
     const s32 maxInputRank = op->getMaximumInputRank();
     s32 newRank = maxInputRank + 1;
 
-    // Check if the operator uses a condition and update that. Then adjust this
-    // operators input rank.
-    if (auto cond = getCondition(op))
+    // For each condition used by the operator: update its rank. Then adjust
+    // the operators input rank.
+    for (auto cond: getActiveConditions(op))
     {
-        updateRank(cond.get(), updated, visited);
+        updateRank(cond, updated, visited);
 
         const s32 condRank = cond->getRank();
 

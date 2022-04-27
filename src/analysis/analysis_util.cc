@@ -325,11 +325,11 @@ void AnalysisSignalWrapper::setAnalysis(Analysis *analysis)
     QObject::connect(analysis, &Analysis::directoryRemoved,
                      this, &AnalysisSignalWrapper::directoryRemoved);
 
-    QObject::connect(analysis, &Analysis::conditionLinkApplied,
-                     this, &AnalysisSignalWrapper::conditionLinkApplied);
+    QObject::connect(analysis, &Analysis::conditionLinkAdded,
+                     this, &AnalysisSignalWrapper::conditionLinkAdded);
 
-    QObject::connect(analysis, &Analysis::conditionLinkCleared,
-                     this, &AnalysisSignalWrapper::conditionLinkCleared);
+    QObject::connect(analysis, &Analysis::conditionLinkRemoved,
+                     this, &AnalysisSignalWrapper::conditionLinkRemoved);
 }
 
 OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
@@ -365,7 +365,7 @@ OperatorVector get_apply_condition_candidates(const ConditionPtr &cond,
         if (inputSet.contains(op.get()))
         {
             qDebug() << "operator" << op->objectName()
-                << "is part of the inpput set of condition" << cond->objectName();
+                << "is part of the input set of condition" << cond->objectName();
             continue;
         }
 

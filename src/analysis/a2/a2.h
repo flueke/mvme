@@ -239,7 +239,6 @@ struct Operator
 
     static const auto MaxInputCount  = std::numeric_limits<count_type>::max();
     static const auto MaxOutputCount = std::numeric_limits<count_type>::max();
-    static const s16  NoCondition    = -1;
 
     ParamVec *inputs;
     ParamVec *inputLowerLimits;
@@ -251,11 +250,9 @@ struct Operator
     /* Operator type specific private data pointer. */
     void *d;
 
-    /* Index into A2::conditionBits. This is the active condition bit for this
-     * operator. It is used to decide whether to step the operator or skip this
-     * event. The special value Operator::NoCondition is used if no condition
-     * is active for the operator. */
-    s16 conditionIndex;
+    /* Array of indexes into A2::conditionBits. The operator is only stepped if
+     * all indexed condition bits are true. */
+    TypedBlock<u16> conditionBitIndexes;
 
     u8 inputCount;
     u8 outputCount;

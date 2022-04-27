@@ -151,8 +151,8 @@ class LIBMVME_EXPORT AnalysisSignalWrapper: public QObject
         void directoryAdded(const DirectoryPtr &ptr);
         void directoryRemoved(const DirectoryPtr &ptr);
 
-        void conditionLinkApplied(const OperatorPtr &op, const ConditionPtr &cond);
-        void conditionLinkCleared(const OperatorPtr &op, const ConditionPtr &cond);
+        void conditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
+        void conditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
 
     public:
         explicit AnalysisSignalWrapper(QObject *parent = nullptr);

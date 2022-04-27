@@ -137,8 +137,7 @@ void ObjectInfoWidget::refresh()
                 .arg(op->getNumberOfOutputs())
                 .arg(op->getMaximumOutputRank());
 
-
-            if (auto cond = analysis->getCondition(op))
+            for (auto cond: analysis->getActiveConditions(op))
             {
                 text += QSL("\ncondLink=%1, condRank=%2")
                     .arg(cond->objectName())

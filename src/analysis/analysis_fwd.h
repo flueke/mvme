@@ -56,7 +56,7 @@ using SinkVector = QVector<SinkPtr>;
 using SourcePtr = std::shared_ptr<SourceInterface>;
 using SourceVector = std::vector<SourcePtr>;
 
-using ConditionLinks = QHash<OperatorPtr, ConditionPtr>;
+using ConditionLinks = QHash<OperatorPtr, QSet<ConditionPtr>>;
 
 } // end namespace analysis
 
