@@ -231,6 +231,8 @@ struct EventWidgetPrivate
         /* An data extractor or operator add/edit dialog is active and waits
          * for input selection by the user. */
         SelectInput,
+
+        SelectCondition,
     };
 
     EventWidget *m_q;
@@ -254,6 +256,14 @@ struct EventWidgetPrivate
     };
 
     InputSelectInfo m_inputSelectInfo;
+
+    struct ConditionSelectInfo
+    {
+        OperatorPtr op;
+        EventWidget::SelectConditionCallback callback;
+    };
+
+    ConditionSelectInfo m_conditionSelectInfo;
 
     ConditionPtr m_selectedCondition;
     OperatorPtr m_selectedOperator;

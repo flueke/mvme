@@ -367,6 +367,25 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         QComboBox *combo_xScaleType;
 };
 
+class SelectConditionsDialog: public ObjectEditorDialog
+{
+    Q_OBJECT
+    public:
+        SelectConditionsDialog(const OperatorPtr &op, EventWidget *eventWidget);
+
+        void accept() override;
+        void reject() override;
+
+    private:
+        void addSelectButtons(const ConditionPtr &cond = {});
+
+        EventWidget *m_eventWidget;
+        OperatorPtr m_op;
+        QGridLayout *m_buttonsGrid;
+        QVector<QPushButton *> m_selectButtons;
+        QVector<ConditionPtr> m_selectedConditions;
+};
+
 class PipeDisplay: public QWidget
 {
     Q_OBJECT

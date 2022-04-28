@@ -1652,6 +1652,47 @@ class LIBMVME_EXPORT LutCondition: public ConditionInterface
         std::vector<bool> m_lut;
 };
 
+class LIBMVME_EXPORT ExpressionCondition: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+
+    public:
+        static const int MaxInputSlots = 8;
+
+        Q_INVOKABLE ExpressionCondition(QObject *parent = 0);
+
+        QString getDisplayName() const override { return QSL("Expression Condition"); }
+        QString getShortName() const override { return QSL("ExprCond"); }
+
+        // serialization
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+
+        // input slots
+        bool hasVariableNumberOfSlots() const override { return true; }
+        bool addSlot() override;
+        bool removeLastSlot() override;
+        s32 getNumberOfSlots() const override { return m_inputs.size(); }
+        Slot *getSlot(s32 slotIndex) override { return m_inputs.value(slotIndex).get(); }
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setExpression(const QString &expr) { m_expr = expr; }
+        QString getExpression() const { return m_expr; }
+
+        /* Variable name prefixes for each of the operators inputs. These
+         * prefixes define the exprtk variable names used in the expression. */
+        QString getInputPrefix(s32 inputIndex) const { return m_inputPrefixes.value(inputIndex); }
+        QStringList getInputPrefixes() const { return m_inputPrefixes; }
+        void setInputPrefixes(const QStringList &prefixes) { m_inputPrefixes = prefixes; }
+
+    private:
+        QVector<std::shared_ptr<Slot>> m_inputs;
+        QString m_expr;
+        QStringList m_inputPrefixes;
+};
+
 //
 // Sinks
 //

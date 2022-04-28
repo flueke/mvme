@@ -1490,25 +1490,32 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
 {
     qDebug() << __PRETTY_FUNCTION__;
 
+    m_d->m_inputSelectInfo.slot = {};
     m_d->m_inputSelectInfo.slot = slot;
     m_d->m_inputSelectInfo.userLevel = userLevel;
     m_d->m_inputSelectInfo.callback = callback;
     m_d->m_inputSelectInfo.additionalInvalidSources = additionalInvalidSources;
-
-    //qDebug() << __PRETTY_FUNCTION__ << "additionalInvalidSources ="
-    //    << additionalInvalidSources;
-
-    m_d->m_mode = EventWidgetPrivate::SelectInput;
     m_d->setMode(EventWidgetPrivate::SelectInput);
+    // The actual input selection is handled in onNodeClicked()
+}
+
+void EventWidget::selectConditionFor(const OperatorPtr &op, SelectConditionCallback callback)
+{
+    m_d->m_conditionSelectInfo = {};
+    m_d->m_conditionSelectInfo.op = op;
+    m_d->m_conditionSelectInfo.callback = callback;
+    m_d->setMode(EventWidgetPrivate::SelectCondition);
     // The actual input selection is handled in onNodeClicked()
 }
 
 void EventWidget::endSelectInput()
 {
-    if (m_d->m_mode == EventWidgetPrivate::SelectInput)
+    if (m_d->m_mode == EventWidgetPrivate::SelectInput
+        || m_d->m_mode == EventWidgetPrivate::SelectCondition)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "switching from SelectInput to Default mode";
+        qDebug() << __PRETTY_FUNCTION__ << "switching from SelectInput/SelectCondition to Default mode";
         m_d->m_inputSelectInfo = {};
+        m_d->m_conditionSelectInfo = {};
         m_d->setMode(EventWidgetPrivate::Default);
     }
 }
@@ -1814,6 +1821,9 @@ QString mode_to_string(EventWidgetPrivate::Mode mode)
 
         case EventWidgetPrivate::SelectInput:
             return QSL("SelectInput");
+
+        case EventWidgetPrivate::SelectCondition:
+            return QSL("SelectCondition");
 
         InvalidDefaultCase;
     }
@@ -2840,10 +2850,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
             });
         }
 
+        auto obj = get_shared_analysis_object<AnalysisObject>(activeNode, DataRole_AnalysisObject);
+
         if (activeNode->type() == NodeType_Operator)
         {
-            if (auto op = get_shared_analysis_object<OperatorInterface>(activeNode,
-                                                                        DataRole_AnalysisObject))
+            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
             {
                 if (op->getNumberOfOutputs() == 1)
                 {
@@ -2873,6 +2884,28 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                         tw->editItem(activeNode);
                     }
                 });
+
+                if (!std::dynamic_pointer_cast<ConditionInterface>(obj))
+                {
+                    menu.addAction("Conditions", [this, op]() {
+                        auto dialog = new SelectConditionsDialog(op, m_q);
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
+                        m_uniqueWidget = dialog;
+
+                        QObject::connect(dialog, &ObjectEditorDialog::applied,
+                                         m_q, &EventWidget::objectEditorDialogApplied);
+
+                        QObject::connect(dialog, &QDialog::accepted,
+                                         m_q, &EventWidget::objectEditorDialogAccepted);
+
+                        QObject::connect(dialog, &QDialog::rejected,
+                                         m_q, &EventWidget::objectEditorDialogRejected);
+
+                        clearAllTreeSelections();
+                        clearAllToDefaultNodeHighlights();
+                    });
+                }
             }
         }
 
@@ -2891,6 +2924,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                 }
             });
         }
+
+
 
         // Generate Histograms
         auto localSelectedItems = tree->getTopLevelSelectedNodes();
@@ -3535,8 +3570,8 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             case NodeType_Histo1DSink:
             case NodeType_Histo2DSink:
             case NodeType_Sink:
-                if (auto op = get_shared_analysis_object<OperatorInterface>(activeNode,
-                                                                            DataRole_AnalysisObject))
+                if (auto op = get_shared_analysis_object<OperatorInterface>(
+                        activeNode, DataRole_AnalysisObject))
                 {
                     menu.addSeparator();
                     // Edit Display Operator
@@ -3559,6 +3594,29 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         tw->editItem(activeNode);
                     }
                 });
+
+                if (auto op = get_shared_analysis_object<OperatorInterface>(
+                        activeNode, DataRole_AnalysisObject))
+                {
+                    menu.addAction("Conditions", [this, op]() {
+                        auto dialog = new SelectConditionsDialog(op, m_q);
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
+                        m_uniqueWidget = dialog;
+
+                        QObject::connect(dialog, &ObjectEditorDialog::applied,
+                                         m_q, &EventWidget::objectEditorDialogApplied);
+
+                        QObject::connect(dialog, &QDialog::accepted,
+                                         m_q, &EventWidget::objectEditorDialogAccepted);
+
+                        QObject::connect(dialog, &QDialog::rejected,
+                                         m_q, &EventWidget::objectEditorDialogRejected);
+
+                        clearAllTreeSelections();
+                        clearAllToDefaultNodeHighlights();
+                    });
+                }
 
                 break;
         }
@@ -3640,6 +3698,15 @@ EventWidgetPrivate::Mode EventWidgetPrivate::getMode() const
     return m_mode;
 }
 
+static bool can_use_condition(const OperatorPtr &op, const ConditionPtr &cond)
+{
+    if (op->getEventId() != cond->getEventId())
+        return false;
+
+    auto inputSet = collect_input_set(cond.get());
+    return !inputSet.contains(op.get());
+}
+
 void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
 {
     qDebug() << __PRETTY_FUNCTION__
@@ -3670,6 +3737,35 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
                         (getUserLevelForTree(trees.operatorTree) <= m_inputSelectInfo.userLevel))
                     {
                         highlightValidInputNodes(trees.operatorTree->invisibleRootItem());
+                    }
+                }
+            } break;
+
+        case SelectCondition:
+            {
+                assert(m_conditionSelectInfo.op);
+
+                auto op = m_conditionSelectInfo.op;
+
+                auto conditions = getAnalysis()->getConditions(op->getEventId());
+
+                for (const auto &cond: conditions)
+                {
+                    if (can_use_condition(op, cond))
+                    {
+                        // get node for the condition,
+                        // make it checkable and check it if
+                        // the operator uses the cond
+                        // TODO: get rid of the checkbox
+                        if (auto condNode = m_objectMap[cond])
+                        {
+                            condNode->setFlags(condNode->flags() | Qt::ItemIsUserCheckable);
+                            auto checkState = Qt::Unchecked;
+                            if (getAnalysis()->getActiveConditions(op).contains(cond))
+                                checkState = Qt::Checked;
+                            condNode->setCheckState(0, checkState);
+                            condNode->setBackground(0, ValidInputNodeColor);
+                        }
                     }
                 }
             } break;
@@ -4142,6 +4238,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                             auto op = std::dynamic_pointer_cast<OperatorInterface>(opRawPtr->shared_from_this());
                             highlightInputNodes(op.get());
 
+#if 0
                             if (!qobject_cast<ConditionInterface *>(op.get()))
                             {
                                 auto conditions = getAnalysis()->getConditions(op->getEventId());
@@ -4166,6 +4263,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                                     }
                                 }
                             }
+#endif
 
 #if 0
                             qDebug() << "Object Info: id =" << op->getId()
@@ -4278,6 +4376,24 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     setMode(Default);
                 }
             } break;
+
+        case SelectCondition:
+            {
+                if (auto cond = get_shared_analysis_object<ConditionInterface>(
+                        node, DataRole_AnalysisObject))
+                {
+                    if (auto op = m_conditionSelectInfo.op)
+                    {
+                        if (can_use_condition(op, cond))
+                        {
+                            m_conditionSelectInfo.callback(cond);
+                            m_conditionSelectInfo = {};
+                            setMode(Default);
+                        }
+                    }
+                }
+            } break;
+
     }
 }
 

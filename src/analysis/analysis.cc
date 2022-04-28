@@ -445,7 +445,6 @@ ConditionInterface::ConditionInterface(QObject *parent)
 
 ConditionInterface::~ConditionInterface()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void ConditionInterface::accept(ObjectVisitor &visitor)
@@ -4050,6 +4049,76 @@ void LutCondition::beginRun(const RunInfo &, Logger)
 }
 
 //
+// ExpressionCondition
+//
+ExpressionCondition::ExpressionCondition(QObject *parent)
+    : ConditionInterface(parent)
+{
+}
+
+bool ExpressionCondition::addSlot()
+{
+    if (getNumberOfSlots() >= MaxInputSlots)
+        return false;
+
+    auto inputName = QSL("input%1").arg(getNumberOfSlots());
+    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, InputType::Value);
+    m_inputs.push_back(slot);
+    return true;
+}
+
+bool ExpressionCondition::removeLastSlot()
+{
+    if (getNumberOfSlots() == 0)
+        return false;
+
+    auto slot = m_inputs.back();
+    assert(slot);
+    slot->disconnectPipe();
+    m_inputs.pop_back();
+    return true;
+}
+
+void ExpressionCondition::write(QJsonObject &json) const
+{
+    json["numberOfInputs"] = getNumberOfSlots();
+    json["expression"] = getExpression();
+
+    QJsonArray inputPrefixesArray;
+
+    for (const auto &inputName: m_inputPrefixes)
+        inputPrefixesArray.append(inputName);
+
+    json["inputPrefixes"] = inputPrefixesArray;
+}
+
+void ExpressionCondition::read(const QJsonObject &json)
+{
+    while (removeLastSlot()) {};
+
+    s32 inputCount = json["numberOfInputs"].toInt();
+
+    for (s32 inputIndex = 0; inputIndex < inputCount; ++inputIndex)
+        addSlot();
+
+
+    m_inputPrefixes.clear();
+
+    auto inputPrefixesArray = json["inputPrefixes"].toArray();
+
+    for (auto it = inputPrefixesArray.begin();
+         it != inputPrefixesArray.end();
+         it++)
+    {
+        m_inputPrefixes.push_back(it->toString());
+    }
+}
+
+void ExpressionCondition::beginRun(const RunInfo &, Logger)
+{
+}
+
+//
 // Analysis
 //
 
@@ -4086,6 +4155,7 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<RectangleCondition>();
     m_objectFactory.registerOperator<PolygonCondition>();
     m_objectFactory.registerOperator<LutCondition>();
+    m_objectFactory.registerOperator<ExpressionCondition>();
 #endif
 
     // sinks

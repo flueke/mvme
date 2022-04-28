@@ -929,7 +929,6 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                     [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
 
                     this->inputSelectedForSlot(destSlot, selectedPipe, selectedParamIndex);
-
                 });
             }
 
@@ -2899,6 +2898,131 @@ bool RateMonitorConfigWidget::isValid() const
 {
     return true;
 }
+
+//
+// SelectConditionsDialog
+//
+SelectConditionsDialog::SelectConditionsDialog(const OperatorPtr &op, EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
+    , m_eventWidget(eventWidget)
+    , m_op(op)
+{
+    setWindowTitle(QSL("Select conditions for '%1'").arg(op->objectName()));
+
+    auto conditionsFrame = new QFrame;
+    m_buttonsGrid = new QGridLayout(conditionsFrame);
+    m_buttonsGrid->setColumnStretch(0, 1);
+    m_buttonsGrid->setColumnStretch(1, 0);
+
+    auto conditionsGroupBox = new QGroupBox("Conditions");
+    auto conditionsGroupBoxLayout = new QGridLayout(conditionsGroupBox);
+    conditionsGroupBoxLayout->setContentsMargins(2, 2, 2, 2);
+    conditionsGroupBoxLayout->addWidget(conditionsFrame, 0, 0, 1, 2);
+
+    auto addConditionButton = new QPushButton(QIcon(QSL(":/list_add.png")), QString());
+    addConditionButton->setToolTip(QSL("Add condition"));
+
+    connect(addConditionButton, &QPushButton::clicked,
+            this, [this] () { addSelectButtons(); });
+
+    auto buttonLayout = new QHBoxLayout;
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(addConditionButton);
+    conditionsGroupBoxLayout->addLayout(buttonLayout, 1, 0, 1, 2);
+
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &SelectConditionsDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &SelectConditionsDialog::reject);
+    auto buttonBoxLayout = new QVBoxLayout;
+    buttonBoxLayout->addStretch();
+    buttonBoxLayout->addWidget(buttonBox);
+
+    auto layout = new QGridLayout(this);
+    s32 row = 0;
+    layout->addWidget(conditionsGroupBox, row++, 0);
+    layout->addLayout(buttonBoxLayout, row++, 0);
+
+    if (auto analysis = op->getAnalysis())
+    {
+        for (auto cond: analysis->getActiveConditions(op))
+            addSelectButtons(cond);
+    }
+
+    if (m_selectButtons.isEmpty())
+        addSelectButtons();
+}
+
+void SelectConditionsDialog::addSelectButtons(const ConditionPtr &cond)
+{
+    auto selectButton = new QPushButton("<select>");
+    if (cond)
+        selectButton->setText(cond->objectName());
+    selectButton->setCheckable(true);
+    m_selectButtons.push_back(selectButton);
+    m_selectedConditions.push_back(cond);
+    int buttonIndex = m_selectButtons.size() - 1;
+
+    auto clearButton  = new QPushButton(QIcon(":/dialog-close.png"), QString());
+
+    int row = m_buttonsGrid->rowCount();
+    m_buttonsGrid->addWidget(selectButton, row, 0);
+    m_buttonsGrid->addWidget(clearButton, row, 1);
+
+    connect(selectButton, &QPushButton::toggled,
+            this, [=] (bool checked)
+            {
+                m_eventWidget->endSelectInput();
+
+                if (checked)
+                {
+                    // uncheck all other buttons
+                    for (auto button: m_selectButtons)
+                        if (button != selectButton)
+                            button->setChecked(false);
+
+                    auto on_condition_selected = [=] (const ConditionPtr &cond)
+                    {
+                        m_selectedConditions[buttonIndex] = cond;
+                        selectButton->setText(cond->objectName());
+                        selectButton->setChecked(false);
+                    };
+
+                    m_eventWidget->selectConditionFor(m_op, on_condition_selected);
+                }
+            });
+
+    connect(clearButton, &QPushButton::clicked,
+            this, [=] ()
+            {
+                m_selectedConditions[buttonIndex] = {};
+                m_selectButtons[buttonIndex]->setText("<select>");
+            });
+}
+
+void SelectConditionsDialog::accept()
+{
+    AnalysisPauser pauser(m_eventWidget->getServiceProvider());
+    auto analysis = m_eventWidget->getServiceProvider()->getAnalysis();
+    analysis->clearConditionsUsedBy(m_op);
+
+    for (auto cond: m_selectedConditions)
+    {
+        if (cond)
+            analysis->addConditionLink(m_op, cond);
+    }
+
+    // clears histogram contents and other state
+    m_op->clearState();
+
+    QDialog::accept();
+}
+
+void SelectConditionsDialog::reject()
+{
+    QDialog::reject();
+}
+
 
 //
 // PipeDisplay

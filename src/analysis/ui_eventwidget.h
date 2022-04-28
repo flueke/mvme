@@ -54,15 +54,18 @@ class EventWidget: public QWidget
 
     public:
 
-        using SelectInputCallback = std::function<void (Slot *destSlot,
-                                                        Pipe *sourcePipe,
-                                                        s32 sourceParamIndex)>;
+        using SelectInputCallback = std::function<
+            void (Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)>;
+
+        using SelectConditionCallback = std::function<
+            void (const ConditionPtr &cond)>;
 
         EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent = 0);
         virtual ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
                             QSet<PipeSourceInterface *> additionalInvalidSources = {});
+        void selectConditionFor(const OperatorPtr &op, SelectConditionCallback callback);
         void endSelectInput();
         void highlightInputOf(Slot *slot, bool doHighlight);
 
