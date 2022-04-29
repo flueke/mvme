@@ -572,6 +572,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_plot->canvas()->setMouseTracking(true);
 
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
+    m_d->m_zoomer->setObjectName("zoomer");
 
     TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));

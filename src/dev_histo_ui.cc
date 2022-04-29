@@ -387,7 +387,7 @@ int main(int argc, char **argv)
     //watch_mouse_move(&plotWidget1);
     setup_axis_scale_selector(&plotWidget1, QwtPlot::yLeft, "Y-Scale");
     install_scrollzoomer(&plotWidget1);
-    //install_poly_picker(&plotWidget1);
+    install_poly_picker(&plotWidget1);
     //install_tracker_picker(&plotWidget1);
     //install_clickpoint_picker(&plotWidget1);
     //install_dragpoint_picker(&plotWidget1);
