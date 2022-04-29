@@ -44,6 +44,15 @@ using Slot = analysis::Slot;
 class AnalysisWidget;
 struct EventWidgetPrivate;
 
+static const QColor ValidInputNodeColor         = QColor("lightgreen");
+static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/2); // lightgreen but with some alpha
+static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
+
+static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with some alpha
+static const QColor ChildIsOutputNodeOfColor    = QColor(0x00, 0x00, 0xCD, 255.0/6);
+
+static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0/3); // firebrick with some alpha
+
 class EventWidget: public QWidget
 {
     Q_OBJECT

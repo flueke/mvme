@@ -1270,18 +1270,11 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
     return result;
 }
 
-static const QColor ValidInputNodeColor         = QColor("lightgreen");
-static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/2); // lightgreen but with some alpha
-static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
-
-static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with some alpha
-static const QColor ChildIsOutputNodeOfColor    = QColor(0x00, 0x00, 0xCD, 255.0/6);
-
-static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0/3); // firebrick with some alpha
-
 static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 
 } // end anon namespace
+
+
 
 EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
@@ -2887,7 +2880,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
                 if (!std::dynamic_pointer_cast<ConditionInterface>(obj))
                 {
-                    menu.addAction("Conditions", [this, op]() {
+                    menu.addAction("Select Conditions", [this, op]() {
                         auto dialog = new SelectConditionsDialog(op, m_q);
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
@@ -3753,18 +3746,17 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
                 {
                     if (can_use_condition(op, cond))
                     {
-                        // get node for the condition,
-                        // make it checkable and check it if
-                        // the operator uses the cond
-                        // TODO: get rid of the checkbox
                         if (auto condNode = m_objectMap[cond])
                         {
-                            condNode->setFlags(condNode->flags() | Qt::ItemIsUserCheckable);
-                            auto checkState = Qt::Unchecked;
-                            if (getAnalysis()->getActiveConditions(op).contains(cond))
-                                checkState = Qt::Checked;
-                            condNode->setCheckState(0, checkState);
+                            // Highlight the condition node and its parent directories.
                             condNode->setBackground(0, ValidInputNodeColor);
+
+                            for (auto node = condNode->parent();
+                                 node && node->type() == NodeType_Directory;
+                                 node = node->parent())
+                            {
+                                node->setBackground(0, ChildIsInputNodeOfColor);
+                            }
                         }
                     }
                 }
@@ -4534,7 +4526,8 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                         widget->setServiceProvider(m_serviceProvider);
 
-                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(
+                            widget, sinkPtr.get(), sinkPtr->getId().toString());
 
                         widget->replot();
                     }

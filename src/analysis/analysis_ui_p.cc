@@ -65,6 +65,7 @@
 #include "../mvme_qthelp.h"
 #include "qt_util.h"
 #include "rate_monitor_plot_widget.h"
+#include "ui_eventwidget_p.h"
 #include "util/qt_font.h"
 #include "util/qt_layouts.h"
 #include "util/variablify.h"
@@ -2945,20 +2946,22 @@ SelectConditionsDialog::SelectConditionsDialog(const OperatorPtr &op, EventWidge
 
     if (auto analysis = op->getAnalysis())
     {
-        for (auto cond: analysis->getActiveConditions(op))
+        auto conds = analysis->getActiveConditions(op).toList();
+        std::sort(std::begin(conds), std::end(conds),
+                  [] (auto &a, auto &b) { return a->objectName() < b->objectName(); });
+        for (auto cond: conds)
             addSelectButtons(cond);
     }
 
-    if (m_selectButtons.isEmpty())
-        addSelectButtons();
+    addSelectButtons();
 }
 
 void SelectConditionsDialog::addSelectButtons(const ConditionPtr &cond)
 {
-    auto selectButton = new QPushButton("<select>");
-    if (cond)
-        selectButton->setText(cond->objectName());
+    auto selectButton = new QPushButton(cond ? cond->objectName() : QSL("<select>"));
     selectButton->setCheckable(true);
+    selectButton->setMouseTracking(true);
+    selectButton->installEventFilter(this);
     m_selectButtons.push_back(selectButton);
     m_selectedConditions.push_back(cond);
     int buttonIndex = m_selectButtons.size() - 1;
@@ -2985,10 +2988,13 @@ void SelectConditionsDialog::addSelectButtons(const ConditionPtr &cond)
                     {
                         m_selectedConditions[buttonIndex] = cond;
                         selectButton->setText(cond->objectName());
+                        QSignalBlocker b(selectButton);
                         selectButton->setChecked(false);
+                        m_inputSelectActive = false;
                     };
 
                     m_eventWidget->selectConditionFor(m_op, on_condition_selected);
+                    m_inputSelectActive = true;
                 }
             });
 
@@ -2998,6 +3004,37 @@ void SelectConditionsDialog::addSelectButtons(const ConditionPtr &cond)
                 m_selectedConditions[buttonIndex] = {};
                 m_selectButtons[buttonIndex]->setText("<select>");
             });
+}
+
+bool SelectConditionsDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (auto button = qobject_cast<QPushButton *>(watched))
+    {
+        auto buttonIndex = m_selectButtons.indexOf(button);
+        auto cond = m_selectedConditions.value(buttonIndex);
+
+        if ((event->type() == QEvent::Enter || event->type() == QEvent::Leave)
+            && !m_inputSelectActive && cond)
+        {
+            if (auto node = m_eventWidget->findNode(cond))
+            {
+                bool doColor = event->type() == QEvent::Enter;
+                auto color = doColor ? InputNodeOfColor : QColor(0, 0, 0, 0);
+                node->setBackground(0, color);
+
+                for (node = node->parent();
+                     node && node->type() == NodeType_Directory;
+                     node = node->parent())
+                {
+                    auto color = doColor ? ChildIsInputNodeOfColor : QColor(0, 0, 0, 0);
+                    node->setBackground(0, color);
+                }
+            }
+        }
+    }
+
+    // Do not filter the event out.
+    return false;
 }
 
 void SelectConditionsDialog::accept()

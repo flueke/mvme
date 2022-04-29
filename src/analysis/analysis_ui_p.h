@@ -376,6 +376,8 @@ class SelectConditionsDialog: public ObjectEditorDialog
         void accept() override;
         void reject() override;
 
+        bool eventFilter(QObject *watched, QEvent *event) override;
+
     private:
         void addSelectButtons(const ConditionPtr &cond = {});
 
@@ -384,6 +386,7 @@ class SelectConditionsDialog: public ObjectEditorDialog
         QGridLayout *m_buttonsGrid;
         QVector<QPushButton *> m_selectButtons;
         QVector<ConditionPtr> m_selectedConditions;
+        bool m_inputSelectActive = false;
 };
 
 class PipeDisplay: public QWidget
