@@ -3085,6 +3085,7 @@ struct ExpressionConditionDialog::Private
     // slotgrid implementation number 3 or so
     std::vector<QPushButton *> m_selectButtons;
     std::vector<QLineEdit *> m_variableNameEdits;
+    std::vector<std::pair<Pipe *, s32>> m_inputs;
 
     bool m_inputSelectActive = false;
 
@@ -3102,12 +3103,13 @@ struct ExpressionConditionDialog::Private
         m_slotGrid->addWidget(clearButton, row, 1);
         m_slotGrid->addWidget(varNameEdit, row, 2);
 
-        m_op->addSlot();
+        //m_op->addSlot();
 
         m_selectButtons.push_back(selectButton);
         m_variableNameEdits.push_back(varNameEdit);
+        m_inputs.push_back({});
 
-        int buttonIndex = m_selectButtons.size() - 1;
+        int slotIndex = m_selectButtons.size() - 1;
 
         QObject::connect(
             selectButton, &QPushButton::toggled,
@@ -3124,12 +3126,13 @@ struct ExpressionConditionDialog::Private
 
                     auto on_input_selected = [=] (Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)
                     {
+                        m_inputs[slotIndex] = std::make_pair(sourcePipe, sourceParamIndex);
                         m_inputSelectActive = false;
                     };
 #if 0
                     auto on_condition_selected = [=] (const ConditionPtr &cond)
                     {
-                        m_selectedConditions[buttonIndex] = cond;
+                        m_selectedConditions[slotIndex] = cond;
                         selectButton->setText(cond->objectName());
                         QSignalBlocker b(selectButton);
                         selectButton->setChecked(false);
@@ -3137,7 +3140,7 @@ struct ExpressionConditionDialog::Private
                     };
 #endif
 
-                    m_eventWidget->selectInputFor(m_op->getSlot(buttonIndex), m_userLevel, on_input_selected);
+                    m_eventWidget->selectInputFor(m_op->getSlot(slotIndex), m_userLevel, on_input_selected);
                     //m_inputSelectActive = true;
                 }
             });
@@ -3146,8 +3149,8 @@ struct ExpressionConditionDialog::Private
             clearButton, &QPushButton::clicked,
             m_q, [=] ()
             {
-                m_selectButtons[buttonIndex]->setText("<select>");
-                m_variableNameEdits[buttonIndex]->clear();
+                m_selectButtons[slotIndex]->setText("<select>");
+                m_variableNameEdits[slotIndex]->clear();
             });
     }
 };
@@ -3262,11 +3265,12 @@ ExpressionConditionDialog::~ExpressionConditionDialog()
 }
 
 void ExpressionConditionDialog::apply()
-{
+{ 
 }
 
 void ExpressionConditionDialog::accept()
 {
+    apply();
     ObjectEditorDialog::accept();
 }
 
