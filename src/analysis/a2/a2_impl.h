@@ -116,6 +116,7 @@ enum OperatorType
     Operator_RectangleCondition,
     Operator_PolygonCondition,
     Operator_LutCondition,
+    Operator_ExpressionCondition,
 
     OperatorTypeCount
 };

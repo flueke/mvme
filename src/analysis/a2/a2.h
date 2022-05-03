@@ -565,6 +565,13 @@ Operator make_lut_condition(
     const std::vector<s32> &inputParamIndexes,
     const std::vector<bool> &lut);
 
+Operator make_expression_condition(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &inputParamIndexes,
+    const std::vector<std::string> &inputNames,
+    const std::string &expression);
+
 /* ===============================================
  * Sinks: Histograms/RateMonitor/ExportSink
  * =============================================== */

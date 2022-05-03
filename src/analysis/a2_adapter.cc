@@ -10,8 +10,8 @@
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
-//#ifndef NDEBUG
-#if 0
+#ifndef NDEBUG
+//#if 0
 
 #define LOG(fmt, ...)\
 do\
@@ -969,6 +969,37 @@ DEF_OP_MAGIC(lut_condition_magic)
     return result;
 }
 
+DEF_OP_MAGIC(expression_condition_magic)
+{
+    OP_MAGIC_NOWARN;
+    LOG("");
+
+    auto cond = qobject_cast<analysis::ExpressionCondition *>(op.get());
+    assert(cond);
+
+    std::vector<a2::PipeVectors> inputs;
+    std::vector<s32> inputIndexes;
+    std::vector<std::string> inputNames;
+
+    for (s32 si = 0; si < inputSlots.size(); si++)
+    {
+        inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]).first);
+        inputIndexes.emplace_back(inputSlots[si]->paramIndex);
+        inputNames.emplace_back(cond->getInputPrefix(si).toStdString());
+    }
+
+    auto expression = cond->getExpression().toStdString();
+
+    a2::Operator result = make_expression_condition(
+        arena,
+        inputs,
+        inputIndexes,
+        inputNames,
+        expression);
+
+    return result;
+}
+
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
     { &analysis::CalibrationMinMax::staticMetaObject,       calibration_magic },
@@ -988,6 +1019,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::RectangleCondition::staticMetaObject,      rectangle_condition_magic },
     { &analysis::PolygonCondition::staticMetaObject,        polygon_condition_magic },
     { &analysis::LutCondition::staticMetaObject,            lut_condition_magic },
+    { &analysis::ExpressionCondition::staticMetaObject,     expression_condition_magic },
 
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },
@@ -1399,8 +1431,11 @@ void a2_adapter_build_single_operator(
                                       state->a2->operators[eventIndex] + opCount);
             opCount++;
 
-            LOG("a2_op.type=%d, .conditionIndex=%d",
-                (s32)(a2_op.type), a2_op.conditionIndex);
+            for (unsigned bitIndex = 0; bitIndex < a2_op.conditionBitIndexes.size; ++bitIndex)
+            {
+                LOG("a2_op.type=%d, .conditionIndex=%d",
+                    (s32)(a2_op.type), a2_op.conditionBitIndexes[bitIndex]);
+            }
         }
         else
         {
@@ -1417,6 +1452,7 @@ void a2_adapter_build_single_operator(
     }
     catch (const std::runtime_error &e)
     {
+        qDebug() << __PRETTY_FUNCTION__ << e.what();
         A2AdapterState::ErrorInfo error
         {
             opInfo.op,
@@ -1762,15 +1798,18 @@ A2AdapterState a2_adapter_build(
                 analysis::OperatorInterface *a1_op = result.operatorMap.value(op, nullptr);
                 (void) a1_op;
 
-                LOG("    [%3d] operator@%p, rank=%2d, type=%2d, condIdx=%d a1_type=%s, a1_name=%s",
-                    opIndex,
-                    op,
-                    rank,
-                    (s32)op->type,
-                    op->conditionIndex,
-                    a1_op ? a1_op->metaObject()->className() : "nullptr",
-                    a1_op ? qcstr(a1_op->objectName()) : "nullptr"
-                    );
+                for (unsigned bitIndex = 0; bitIndex < op->conditionBitIndexes.size; ++bitIndex)
+                {
+                    LOG("    [%3d] operator@%p, rank=%2d, type=%2d, condIdx=%d a1_type=%s, a1_name=%s",
+                        opIndex,
+                        op,
+                        rank,
+                        (s32)op->type,
+                        op->conditionBitIndexes[bitIndex],
+                        a1_op ? a1_op->metaObject()->className() : "nullptr",
+                        a1_op ? qcstr(a1_op->objectName()) : "nullptr"
+                        );
+                }
             }
         }
     }
@@ -1803,17 +1842,16 @@ A2AdapterState a2_adapter_build(
 
         assert(bitIndex < static_cast<s32>(result.a2->conditionBits.size()));
 
-        auto a2_cond = result.operatorMap.value(cond);
-
-        assert(a2_cond);
-
-        LOG("    firstBit=%3d, bitCount=%u, a2_cond=%p, a2_type=%2d, a1_type=%s, a1_name=%s",
-            bitIndex,
-            get_number_of_condition_bits_used(*a2_cond),
-            a2_cond, a2_cond->type,
-            cond->metaObject()->className(),
-            qcstr(cond->objectName())
-           );
+        if (auto a2_cond = result.operatorMap.value(cond))
+        {
+            LOG("    firstBit=%3d, a2_cond=%p, a2_type=%2d, a1_type=%s, a1_name=%s",
+                bitIndex,
+                a2_cond,
+                a2_cond->type,
+                cond->metaObject()->className(),
+                qcstr(cond->objectName())
+            );
+        }
     }
 
 #undef qcstr

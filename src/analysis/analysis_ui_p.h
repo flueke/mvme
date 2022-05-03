@@ -389,11 +389,34 @@ class SelectConditionsDialog: public ObjectEditorDialog
         bool m_inputSelectActive = false;
 };
 
+class ExpressionConditionDialog: public ObjectEditorDialog
+{
+    Q_OBJECT
+    public:
+        ExpressionConditionDialog(const std::shared_ptr<ExpressionCondition> &op,
+                                 int userLevel,
+                                 ObjectEditorMode mode,
+                                 const DirectoryPtr &destDir,
+                                 EventWidget *eventWidget);
+
+        virtual ~ExpressionConditionDialog();
+
+    public slots:
+        void apply();
+        virtual void accept() override;
+        virtual void reject() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
+};
+
 class PipeDisplay: public QWidget
 {
     Q_OBJECT
     public:
-        PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals = true, QWidget *parent = nullptr);
+        PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals = true,
+                    QWidget *parent = nullptr);
 
         void setShowDecimals(bool showDecimals) { m_showDecimals = showDecimals; }
         bool doesShowDecimals() const { return m_showDecimals; }

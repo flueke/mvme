@@ -1130,6 +1130,10 @@ ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op,
     {
         result = new ExpressionOperatorDialog(expr, userLevel, mode, destDir, eventWidget);
     }
+    else if (auto exprCond = std::dynamic_pointer_cast<ExpressionCondition>(op))
+    {
+        result = new ExpressionConditionDialog(exprCond, userLevel, mode, destDir, eventWidget);
+    }
     else
     {
         result = new AddEditOperatorDialog(op, userLevel, mode, destDir, eventWidget);
@@ -1483,7 +1487,7 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    m_d->m_inputSelectInfo.slot = {};
+    m_d->m_inputSelectInfo = {};
     m_d->m_inputSelectInfo.slot = slot;
     m_d->m_inputSelectInfo.userLevel = userLevel;
     m_d->m_inputSelectInfo.callback = callback;

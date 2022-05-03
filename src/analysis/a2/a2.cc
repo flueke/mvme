@@ -18,6 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include "a2_exprtk.h"
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
 #include "util/assert.h"
@@ -2803,8 +2804,6 @@ Operator make_expression_operator(
     return result;
 }
 
-#undef register_symbol
-
 void expression_operator_compile_step_expression(Operator *op)
 {
     assert(op->type == Operator_Expression);
@@ -3004,6 +3003,7 @@ bool is_condition_operator(const Operator &op)
         case Operator_RectangleCondition:
         case Operator_PolygonCondition:
         case Operator_LutCondition:
+        case Operator_ExpressionCondition:
             return true;
 
         default:
@@ -3257,6 +3257,71 @@ void lut_condition_step(Operator *op, A2 *a2)
     a2->conditionBits.set(d->bitIndex, result);
     set_condition_output(op, result);
 }
+
+// ExpressionCondition
+
+struct ExpressionConditionData: ConditionBaseData
+{
+    a2_exprtk::SymbolTable symtab;
+    a2_exprtk::Expression expr;
+    TypedBlock<s32> inputParamIndexes;
+    TypedBlock<double> values; // storage for input values. updated in step()
+};
+
+Operator make_expression_condition(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &inputParamIndexes,
+    const std::vector<std::string> &inputNames,
+    const std::string &expression)
+{
+    assert(inputs.size() == inputParamIndexes.size());
+    assert(inputs.size() == inputNames.size());
+
+    auto result = make_condition_operator(arena, Operator_ExpressionCondition, inputs.size());
+    auto d = arena->pushObject<ExpressionConditionData>();
+    result.d = d;
+    d->values = push_typed_block<double>(arena, inputs.size());
+
+    for (size_t i=0; i<inputs.size(); ++i)
+    {
+        const auto &name = inputNames[i];
+        register_symbol(d->symtab, addScalar, name, d->values[i]);
+    }
+
+    d->expr.setExpressionString(expression);
+    d->expr.compile();
+
+    return result;
+}
+
+void expression_condition_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExpressionCondition);
+    assert(op->inputCount > 0);
+    assert(op->outputCount == 1);
+
+    auto d = reinterpret_cast<ExpressionConditionData *>(op->d);
+    assert(op->inputCount == d->inputParamIndexes.size);
+
+    for (unsigned inputIndex=0; inputIndex<op->inputCount; ++inputIndex)
+    {
+        const auto &input = op->inputs[inputIndex];
+        const auto &pi = d->inputParamIndexes[inputIndex];
+        double paramValue = input[pi];
+        // convert invalid to 0.0, valid to 1.0
+        d->values[inputIndex] = is_param_valid(paramValue) ? 1.0 : 0.0;
+    }
+
+    // Evaluate and interpret result as a boolean
+    bool result = static_cast<bool>(d->expr.eval());
+
+    a2->conditionBits.set(d->bitIndex, result);
+    set_condition_output(op, result);
+}
+
+#undef register_symbol
 
 /* ===============================================
  * Sinks: Histograms/RateMonitor/ExportSink
@@ -4335,6 +4400,7 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_RectangleCondition] = { rectangle_condition_step };
     result[Operator_PolygonCondition] = { polygon_condition_step };
     result[Operator_LutCondition] = { lut_condition_step };
+    result[Operator_ExpressionCondition] = { expression_condition_step };
 
     return result;
 }
