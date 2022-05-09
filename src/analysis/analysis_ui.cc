@@ -1303,16 +1303,18 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
         if (m_d->m_serviceProvider->getAnalysis()->getRunInfo().isReplay)
         {
-            auto streamWorker = m_d->m_serviceProvider->getMVMEStreamWorker();
-            auto streamCounters = streamWorker->getCounters();
-            double timetickCount = m_d->m_serviceProvider->getAnalysis()->getTimetickCount();
-            timetickCount = std::max(timetickCount, 1.0);
-            auto bytesProcessed = streamCounters.bytesProcessed;
-            double rate = bytesProcessed / timetickCount;
-            auto str = (QSL("DAQ Data Rate: %1")
-                        .arg(format_number(rate, "B/s", UnitScaling::Binary, 0, 'g', 4))
-                        );
-            m_d->m_labelOriginalDataRate->setText(str);
+            if (auto streamWorker = m_d->m_serviceProvider->getMVMEStreamWorker())
+            {
+                auto streamCounters = streamWorker->getCounters();
+                double timetickCount = m_d->m_serviceProvider->getAnalysis()->getTimetickCount();
+                timetickCount = std::max(timetickCount, 1.0);
+                auto bytesProcessed = streamCounters.bytesProcessed;
+                double rate = bytesProcessed / timetickCount;
+                auto str = (QSL("DAQ Data Rate: %1")
+                            .arg(format_number(rate, "B/s", UnitScaling::Binary, 0, 'g', 4))
+                            );
+                m_d->m_labelOriginalDataRate->setText(str);
+            }
         }
         else
         {
