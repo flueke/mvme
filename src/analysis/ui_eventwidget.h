@@ -115,10 +115,6 @@ class EventWidget: public QWidget
         void objectEditorDialogAccepted();
         void objectEditorDialogRejected();
 
-        void onConditionSelected(const ConditionPtr &cond);
-        void applyConditionAccept();
-        void applyConditionReject();
-
     private:
         std::unique_ptr<EventWidgetPrivate> m_d;
 };

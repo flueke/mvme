@@ -340,9 +340,6 @@ struct EventWidgetPrivate
     void highlightOutputNodes(PipeSourceInterface *ps);
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
-    void updateNodesForApplyConditionMode();
-    void addConditionDecorations(const ConditionPtr &cond);
-    void removeConditionDecorations(const ConditionPtr &cond);
     //bool hasPendingConditionModifications() const;
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);

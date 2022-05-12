@@ -176,54 +176,6 @@ QVector<QUuid> decode_id_list(QByteArray data)
     return result;
 }
 
-/* In the active set a bit is set to 1 if the candidate at the bit index
- * uses the condition link being edited.
- * The checked set is the same but contains a 1 if the node representing
- * the candidate is checked. */
-struct ConditionLinkModifications
-{
-    ConditionPtr cl;
-    OperatorVector candidates;
-    boost::dynamic_bitset<> active;
-    boost::dynamic_bitset<> checked;
-
-    bool hasModifications() const { return active != checked; }
-};
-
-#if 0
-ConditionLinkModifications get_condition_modifications(const ConditionPtr &cond,
-                                                       Analysis *analysis,
-                                                       const ObjectToNode &objectMap)
-{
-    ConditionLinkModifications result;
-
-    result.candidates = get_apply_condition_candidates(cond, analysis);
-
-    std::sort(std::begin(result.candidates), std::end(result.candidates));
-
-    result.active.reserve(result.candidates.size());
-    result.checked.reserve(result.candidates.size());
-
-    for (const auto &candidate: result.candidates)
-    {
-        QTreeWidgetItem *node = nullptr;
-        try
-        {
-            node = objectMap.at(candidate);
-        } catch (const std::out_of_range &)
-        {}
-
-        result.active.push_back(analysis->getCondition(candidate) == cond);
-        result.checked.push_back(node && node->data(0, Qt::CheckStateRole) == Qt::Checked);
-    }
-
-    assert(result.candidates.size() == result.active.size());
-    assert(result.active.size() == result.checked.size());
-
-    return result;
-}
-#endif
-
 } // end anon namespace
 
 ObjectTree::~ObjectTree()
@@ -1588,117 +1540,6 @@ void EventWidget::objectEditorDialogRejected()
     qDebug() << __PRETTY_FUNCTION__;
     //endSelectInput(); // FIXME: needed?
     uniqueWidgetCloses();
-}
-
-void EventWidget::onConditionSelected(const ConditionPtr &cond)
-{
-    if (m_d->getMode() != EventWidgetPrivate::Default) return;
-
-    qDebug() << __PRETTY_FUNCTION__ << this << cond.get();
-
-    m_d->removeConditionDecorations(m_d->m_selectedCondition);
-    m_d->m_selectedCondition = cond;
-
-    m_d->clearAllTreeSelections();
-    m_d->clearAllToDefaultNodeHighlights();
-    m_d->highlightInputNodes(cond.get());
-    m_d->updateNodesForApplyConditionMode();
-}
-
-void EventWidget::applyConditionAccept()
-{
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    /* Collect checked nodes, get operators from these nodes. Create a
-     * condition link for each operator to the current conditionInfos condition
-     * and index. Then rebuild the analysis.
-     */
-
-    /* XXX: By introducing and using the analysis modification signals the
-     * following changed:
-     * - checked and unchecked objects have to be fetched from the trees
-     *   _before_ any changes are made to the analysis.
-     * - This widget and its trees are recreated for each succesfull call to
-     *   setConditionLink()/clearConditionLink()
-     *
-     * How to avoid excessive rebuilding when using granular signals like this?
-     * Signals emitted by the analysis could be blocked here but then other
-     * observers won't be notified of the changes.
-     *
-     * A notification wrapper instance could be used in-between this widget and
-     * the analysis. Then signals would only be blocked in the local wrapper
-     * instance without affecting other observers.
-     *
-     * Another way would be to implement a delayed repopulate/repaint where
-     * only a flag is set in repopulate() and the actual repop is done elsewhere
-     * at a later time and only once. But of course delayed updates will then
-     * be the default way of doing things, even if sometimes a direct update is
-     * desired.
-     */
-#if 0
-    auto analysis         = m_d->getAnalysis();
-    auto checkedObjects   = m_d->getCheckedObjects();
-    auto uncheckedObjects = m_d->getCheckedObjects(Qt::Unchecked);
-
-    for (auto &obj: checkedObjects)
-    {
-        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-        {
-            bool modified = m_d->getAnalysis()->setConditionLink(
-                op, m_d->m_selectedCondition);
-
-            if (modified)
-            {
-                qDebug() << "set condition link for" << op.get();
-                analysis->setModified(true);
-            }
-        }
-    }
-
-    for (auto &obj: uncheckedObjects)
-    {
-        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-        {
-            bool modified = m_d->getAnalysis()->clearConditionLink(
-                op, m_d->m_selectedCondition);
-
-            if (modified)
-            {
-                qDebug() << "cleared condition link for" << op.get();
-                analysis->setModified(true);
-            }
-        }
-    }
-
-    AnalysisPauser pauser(getServiceProvider());
-    analysis->beginRun(Analysis::KeepState, getVMEConfig());
-#else
-    assert(false);
-#endif
-}
-
-void EventWidget::applyConditionReject()
-{
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    auto &cond = m_d->m_selectedCondition;
-
-    if (cond)
-    {
-        auto analysis = getAnalysis();
-        auto candidates = get_apply_condition_candidates(cond, analysis);
-
-        for (const auto &op: candidates)
-        {
-            if (auto node = m_d->m_objectMap[op])
-            {
-                node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-                node->setData(0, Qt::CheckStateRole, QVariant());
-            }
-        }
-    }
-
-    m_d->updateNodesForApplyConditionMode();
 }
 
 void EventWidget::removeOperator(OperatorInterface *op)
@@ -3725,8 +3566,9 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
 
                 clearAllTreeSelections();
 
-                const bool isSink = qobject_cast<SinkInterface *>(
-                    m_inputSelectInfo.slot->parentOperator);
+                bool isSink = false;
+                if (m_inputSelectInfo.slot)
+                    isSink = qobject_cast<SinkInterface *>(m_inputSelectInfo.slot->parentOperator) != nullptr;
 
                 for (auto &trees: m_levelTrees)
                 {
@@ -4032,103 +3874,6 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
         clearToDefaultNodeHighlights(trees.operatorTree->invisibleRootItem());
         clearToDefaultNodeHighlights(trees.sinkTree->invisibleRootItem());
     }
-}
-
-/* Adds checkboxes to the candidates of the given ConditionkLink. */
-void EventWidgetPrivate::addConditionDecorations(const ConditionPtr &cond)
-{
-#if 0
-    if (!cond) return;
-
-    auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(cond, analysis);
-
-    for (const auto &op: candidates)
-    {
-        auto it = m_objectMap.find(op);
-
-        if (it != m_objectMap.end())
-        {
-            if (!it->second)
-            {
-                qDebug() << __PRETTY_FUNCTION__ << op << "op eventId =" << op->getEventId()
-                    << "op userlevel =" << op->getUserLevel();
-            }
-            assert(it->second);
-
-            auto node = it->second;
-            auto opCond  = analysis->getCondition(op);
-            auto checked = opCond == cond ? Qt::Checked : Qt::Unchecked;
-
-
-            node->setFlags(node->flags() | Qt::ItemIsUserCheckable);
-            node->setCheckState(0, checked);
-        }
-    }
-#else
-    assert(false);
-#endif
-}
-
-/* Removes checkboxes for the candidates of the given ConditionkLink. */
-void EventWidgetPrivate::removeConditionDecorations(const ConditionPtr &cond)
-{
-    if (!cond) return;
-
-    auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(cond, analysis);
-
-    for (const auto &op: candidates)
-    {
-        auto it = m_objectMap.find(op);
-
-        if (it != m_objectMap.end())
-        {
-            assert(it->second);
-
-            auto node = it->second;
-            node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-            node->setData(0, Qt::CheckStateRole, QVariant());
-        }
-    }
-}
-
-#if 0
-bool EventWidgetPrivate::hasPendingConditionModifications() const
-{
-    if (m_applyConditionInfo)
-    {
-        auto &cl  = m_applyConditionInfo;
-        auto analysis = getAnalysis();
-        auto clMods = get_condition_modifications(cl, analysis, m_objectMap);
-
-        return clMods.hasModifications();
-    }
-
-    return false;
-}
-#endif
-
-void EventWidgetPrivate::updateNodesForApplyConditionMode()
-{
-    auto &cond = m_selectedCondition;
-
-    if (!cond) return;
-
-    qDebug() << __PRETTY_FUNCTION__ << this
-        << endl
-        << "  condition is" << cond.get()
-        << endl
-        << "  , with maxInputRank  =" << cond->getMaximumInputRank()
-        << " , with maxOutputRank =" << cond->getMaximumOutputRank()
-        << " , with rank =" << cond->getRank()
-        << endl
-        << "  , objectFlags =" << to_string(cond->getObjectFlags())
-        << endl
-        << "  candidates:"
-        ;
-
-    addConditionDecorations(cond);
 }
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
