@@ -31,7 +31,7 @@ Version 1.4.9-rc
   can be used to create custom VME modules without having to use the mvme VME
   template system.
 
-* DAQ run number is now increment on MVLC readout stop to represent the *next*
+* DAQ run number is now incremented on MVLC readout stop to represent the *next*
   run number.
 
 * Show the original incoming data rate in the analysis window when replaying
@@ -42,6 +42,12 @@ Version 1.4.9-rc
 * VME Config: allow moving modules between VME Events via drag&drop.
 
 * Fix 'VME Script -> Run' in the MVLC Debug GUI
+
+* Revert the MVLC readout parser simplification done in 1.4.8
+
+  The parser now allows prefix, dynamic and suffix parts again. The parser data
+  callback remains unchanged, passing the parsed data as a single pointer +
+  size.
 
 Version 1.4.8.1
 ---------------
