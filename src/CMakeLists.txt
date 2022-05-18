@@ -542,8 +542,10 @@ add_mvme_executable(mvme_multi_crate_gui multi_crate_gui_main.cc)
 add_mvme_executable(dev_multi_crate_playground_cli dev_multi_crate_playground_cli.cc)
 add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 add_mvme_executable(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
+if (NOT WIN32)
 add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_executable(dev_histo_ui dev_histo_ui.cc)
+endif()
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
