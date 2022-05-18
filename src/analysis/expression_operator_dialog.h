@@ -60,6 +60,29 @@ class ExpressionOperatorDialog: public ObjectEditorDialog
         std::unique_ptr<Private> m_d;
 };
 
+class ExpressionConditionDialog: public ObjectEditorDialog
+{
+    Q_OBJECT
+    public:
+        ExpressionConditionDialog(const std::shared_ptr<ExpressionCondition> &op,
+                                 int userLevel,
+                                 ObjectEditorMode mode,
+                                 const DirectoryPtr &destDir,
+                                 EventWidget *eventWidget);
+
+        virtual ~ExpressionConditionDialog();
+
+    public slots:
+        void apply();
+        virtual void accept() override;
+        virtual void reject() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
+};
+
+
 } // end namespace ui
 } // end namespace analysis
 

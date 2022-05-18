@@ -1,6 +1,51 @@
 Analysis Conditions (Histogram Cuts and more)
 =============================================
 
+Expression Condition concept
+----------------------------
+
+- Variable number of inputs. Accepts only single parameters, not arrays.
+- Auto generation of variable names based on last part of the input.
+- Simpler than the expression operator: no output definition needed. Outputs a single boolean value.
+- Input values are either true or false, not numeric. At runtime valid
+  parameters are converted to true, invalid ones to false.
+- Example: cond1 and (cond2 or (cond3 xor cond4))
+- Otherwise similar to the LUT condition.
+
+
+
+Histo interactions
+------------------
+- Histo1D to work on
+- selected x1,x2
+- visibility state
+
+- IntervalPicker oder point picker ohne zone item um zwei punkte zu waehlen
+- zwei markers fuer das interval
+- ein marker fuer die formel und info
+- QwtPlotCurve
+- RateEstimationCurveData
+
+- resultion reduction
+
+states:
+- disabled
+- picking points
+- visible (drawing estimation)
+
+on_action_toggled(bool checked)
+{
+    if (checked)
+    {
+        disable_current_exclusive_tool()
+        start_point_picking();
+    }
+    else
+        enable_zoomer()
+}
+
+
+
 TODO
 ----
 * Try the checkbox-based method of applying conditions to operators without the

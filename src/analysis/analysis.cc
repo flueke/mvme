@@ -4054,13 +4054,11 @@ void LutCondition::beginRun(const RunInfo &, Logger)
 ExpressionCondition::ExpressionCondition(QObject *parent)
     : ConditionInterface(parent)
 {
+    addSlot();
 }
 
 bool ExpressionCondition::addSlot()
 {
-    if (getNumberOfSlots() >= MaxInputSlots)
-        return false;
-
     auto inputName = QSL("input%1").arg(getNumberOfSlots());
     auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, InputType::Value);
     m_inputs.push_back(slot);

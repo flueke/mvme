@@ -1658,8 +1658,6 @@ class LIBMVME_EXPORT ExpressionCondition: public ConditionInterface
     Q_INTERFACES(analysis::ConditionInterface)
 
     public:
-        static const int MaxInputSlots = 8;
-
         Q_INVOKABLE ExpressionCondition(QObject *parent = 0);
 
         QString getDisplayName() const override { return QSL("Expression Condition"); }
