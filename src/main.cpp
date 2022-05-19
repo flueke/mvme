@@ -21,6 +21,7 @@
 #include "mvme.h"
 #include "mvme_options.h"
 #include "mvme_session.h"
+#include <mesytec-mvlc/util/logging.h>
 
 #include <QApplication>
 #include <QMessageBox>
@@ -55,6 +56,9 @@ int main(int argc, char *argv[])
 
     if (args.contains("--trace"))
         spdlog::set_level(spdlog::level::trace);
+
+    //mesytec::mvlc::get_logger("cmd_pipe_reader")->set_level(spdlog::level::trace);
+    //mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::trace);
 
 #ifdef QT_NO_DEBUG
     QSplashScreen splash(QPixmap(":/splash-screen.png"),
