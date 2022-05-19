@@ -331,12 +331,10 @@ std::error_code setup_trigger_io(
 
     // Update the trigger io script stored in the VMEConfig in case we modified
     // it.
-#if 0 // FIXME: only disabled while debugging the USB init bug. reenable!
     if (ioCfgText != scriptConfig->getScriptContents())
     {
         scriptConfig->setScriptContents(ioCfgText);
     }
-#endif
 
     // Parse the trigger io script and run the writes contained within.
     auto commands = vme_script::parse(ioCfgText);
