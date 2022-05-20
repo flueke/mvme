@@ -3433,6 +3433,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     }
                 });
 
+#if 0
                 if (auto op = get_shared_analysis_object<OperatorInterface>(
                         activeNode, DataRole_AnalysisObject))
                 {
@@ -3455,6 +3456,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         clearAllToDefaultNodeHighlights();
                     });
                 }
+#endif
 
                 break;
         }
