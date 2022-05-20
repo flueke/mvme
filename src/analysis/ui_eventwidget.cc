@@ -1204,7 +1204,7 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
         case NodeType_Histo1DSink:
             {
                 sinkNode = node;
-                result.histoAddress = 0;
+                result.histoAddress = -1;
             } break;
 
         InvalidDefaultCase;
@@ -1226,11 +1226,55 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
     return result;
 }
 
+void open_histo1dsink_widget(
+    AnalysisServiceProvider *asp,
+    const Histo1DWidgetInfo &widgetInfo
+    )
+{
+    if (widgetInfo.sink && widgetInfo.histoAddress < widgetInfo.histos.size())
+    {
+        auto widget = new Histo1DWidget(widgetInfo.histos);
+        widget->setServiceProvider(asp);
+
+        if (widgetInfo.calib)
+            widget->setCalibration(widgetInfo.calib);
+
+        widget->setSink(widgetInfo.sink, [asp]
+                        (const std::shared_ptr<Histo1DSink> &sink) {
+                            asp->analysisOperatorEdited(sink);
+                        });
+
+        if (widgetInfo.histoAddress >= 0)
+            widget->selectHistogram(widgetInfo.histoAddress);
+
+        asp->getWidgetRegistry()->addObjectWidget(
+            widget, widgetInfo.sink.get(),
+            widgetInfo.sink->getId().toString());
+    }
+}
+
+void open_or_raise_histo1dsink_widget(
+    AnalysisServiceProvider *asp,
+    const Histo1DWidgetInfo &widgetInfo
+    )
+{
+    if (!asp->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
+        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+    {
+        open_histo1dsink_widget(asp, widgetInfo);
+    }
+    else if (auto widget = qobject_cast<Histo1DWidget *>(
+            asp->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
+    {
+        if (widgetInfo.histoAddress >= 0)
+            widget->selectHistogram(widgetInfo.histoAddress);
+        show_and_activate(widget);
+    }
+}
+
 static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 
 } // end anon namespace
-
-
 
 EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
@@ -1391,16 +1435,6 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
         tb->addAction(m_d->m_actionImport);
 
         tb->addSeparator();
-
-#if 0
-        tb->addAction(QSL("Conditions/Cuts"), this, [this]() {
-            if (auto w = getAnalysisWidget()->getConditionWidget())
-            {
-                w->show();
-                w->raise();
-            }
-        });
-#endif
 
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
@@ -2589,14 +2623,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
     if (m_uniqueWidget) return;
 
-#if 0
-    if (hasPendingConditionModifications())
-    {
-            qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
-            return;
-    }
-#endif
-
     // Handle the top-left tree containing the modules and data extractors.
     if (userLevel == 0)
     {
@@ -3092,14 +3118,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
     if (m_uniqueWidget) return;
 
-#if 0
-    if (hasPendingConditionModifications())
-    {
-            qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
-            return;
-    }
-#endif
-
     auto make_menu_new = [this, userLevel](QMenu *parentMenu,
                                            const DirectoryPtr &destDir = DirectoryPtr())
     {
@@ -3179,113 +3197,42 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
     {
         if (activeNode->type() == NodeType_Histo1D)
         {
-            Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-            Q_ASSERT(widgetInfo.sink);
+            menu.addAction(QSL("Open Histogram"), m_q, [this, activeNode]() {
+                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+                open_or_raise_histo1dsink_widget(m_serviceProvider, widgetInfo);
+            });
 
-            if (widgetInfo.histoAddress < widgetInfo.histos.size())
-            {
-                menu.addAction(QSL("Open Histogram"), m_q, [this, widgetInfo]() {
-
-                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
-                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                    {
-                        auto widget = new Histo1DWidget(widgetInfo.histos);
-                        widget->setServiceProvider(m_serviceProvider);
-
-                        if (widgetInfo.calib)
-                        {
-                            widget->setCalibration(widgetInfo.calib);
-                        }
-
-                        {
-                            auto serviceProvider = m_serviceProvider;
-                            widget->setSink(widgetInfo.sink, [serviceProvider]
-                                            (const std::shared_ptr<Histo1DSink> &sink) {
-                                                serviceProvider->analysisOperatorEdited(sink);
-                                            });
-                        }
-
-                        widget->selectHistogram(widgetInfo.histoAddress);
-
-                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
-                                                   widgetInfo.sink->getId().toString());
-                    }
-                    else if (auto widget = qobject_cast<Histo1DWidget *>(
-                            m_serviceProvider->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
-                    {
-                        widget->selectHistogram(widgetInfo.histoAddress);
-                        show_and_activate(widget);
-                    }
-                });
-
-                menu.addAction(
-                    QSL("Open Histogram in new window"), m_q, [this, widgetInfo]() {
-
-                        auto widget = new Histo1DWidget(widgetInfo.histos);
-                        widget->setServiceProvider(m_serviceProvider);
-
-                        if (widgetInfo.calib)
-                        {
-                            widget->setCalibration(widgetInfo.calib);
-                        }
-
-                        {
-                            auto serviceProvider = m_serviceProvider;
-                            widget->setSink(widgetInfo.sink, [serviceProvider]
-                                            (const std::shared_ptr<Histo1DSink> &sink) {
-                                                serviceProvider->analysisOperatorEdited(sink);
-                                            });
-                        }
-
-                        widget->selectHistogram(widgetInfo.histoAddress);
-
-                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
-                                                   widgetInfo.sink->getId().toString());
-                    });
-            }
+            menu.addAction(QSL("Open Histogram in new window"), m_q, [this, activeNode]() {
+                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+                open_histo1dsink_widget(m_serviceProvider, widgetInfo);
+            });
         }
+
 
         if (activeNode->type() == NodeType_Histo1DSink)
         {
-            Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-            Q_ASSERT(widgetInfo.sink);
+            menu.addAction(QSL("Open Histogram"), m_q, [this, activeNode]() {
+                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+                open_or_raise_histo1dsink_widget(m_serviceProvider, widgetInfo);
+            });
 
-            if (widgetInfo.histoAddress < widgetInfo.histos.size())
-            {
+            menu.addAction(QSL("Open Histogram in new window"), m_q, [this, activeNode]() {
+                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+                open_histo1dsink_widget(m_serviceProvider, widgetInfo);
+            });
 
-                menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
-                    // always creates a new window
-                    auto widget = new Histo1DWidget(widgetInfo.histos);
-                    widget->setServiceProvider(m_serviceProvider);
+            menu.addAction(QSL("Open 1D List View"), m_q, [this, activeNode]() {
+                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
 
-                    if (widgetInfo.calib)
-                    {
-                        widget->setCalibration(widgetInfo.calib);
-                    }
-
-                    {
-                        auto context = m_serviceProvider;
-                        widget->setSink(widgetInfo.sink, [context]
-                                        (const std::shared_ptr<Histo1DSink> &sink) {
-                            context->analysisOperatorEdited(sink);
-                        });
-                    }
-
-                    m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
-                                               widgetInfo.sink->getId().toString());
-
-                });
-            }
-
-            if (widgetInfo.histos.size())
-            {
-                menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
+                if (widgetInfo.histos.size())
+                {
                     auto widget = new Histo2DWidget(widgetInfo.sink, m_serviceProvider);
                     widget->setServiceProvider(m_serviceProvider);
-                    m_serviceProvider->getWidgetRegistry()->addWidget(widget,
-                                         widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
-                });
-            }
+                    m_serviceProvider->getWidgetRegistry()->addWidget(
+                        widget,
+                        widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
+                }
+            });
         }
 
         if (activeNode->type() == NodeType_Histo2DSink)
@@ -3433,7 +3380,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     }
                 });
 
-#if 0
+#if 1
                 if (auto op = get_shared_analysis_object<OperatorInterface>(
                         activeNode, DataRole_AnalysisObject))
                 {
@@ -3982,33 +3929,6 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                             highlightInputNodes(op.get());
 
 #if 0
-                            if (!qobject_cast<ConditionInterface *>(op.get()))
-                            {
-                                auto conditions = getAnalysis()->getConditions(op->getEventId());
-
-                                for (const auto &cond: conditions)
-                                {
-                                    auto inputSet = collect_input_set(cond.get());
-
-                                    if (!inputSet.contains(op.get()))
-                                    {
-                                        // TODO: get node for the condition,
-                                        // make it checkable and check it if
-                                        // the operator uses the cond
-                                        if (auto condNode = m_objectMap[cond])
-                                        {
-                                            condNode->setFlags(condNode->flags() | Qt::ItemIsUserCheckable);
-                                            auto checkState = Qt::Unchecked;
-                                            if (getAnalysis()->getActiveConditions(op).contains(cond))
-                                                checkState = Qt::Checked;
-                                            condNode->setCheckState(0, checkState);
-                                        }
-                                    }
-                                }
-                            }
-#endif
-
-#if 0
                             qDebug() << "Object Info: id =" << op->getId()
                                 << ", class =" << op->metaObject()->className()
                                 << ", #slots =" << op->getNumberOfSlots();
@@ -4150,97 +4070,15 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
         return;
     }
 
-#if 0
-    if (hasPendingConditionModifications())
-    {
-            qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
-            return;
-    }
-#endif
-
     if (m_mode == Default)
     {
         switch (node->type())
         {
             case NodeType_Histo1D:
-                {
-                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
-                    Q_ASSERT(widgetInfo.sink);
-
-                    if (widgetInfo.histoAddress >= widgetInfo.histos.size())
-                        break;
-
-                    if (!widgetInfo.histos[widgetInfo.histoAddress])
-                        break;
-
-                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
-                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                    {
-                        auto widget = new Histo1DWidget(widgetInfo.histos);
-                        widget->setServiceProvider(m_serviceProvider);
-
-                        if (widgetInfo.calib)
-                        {
-                            widget->setCalibration(widgetInfo.calib);
-                        }
-
-                        {
-                            auto context = m_serviceProvider;
-                            widget->setSink(widgetInfo.sink, [context] (
-                                    const std::shared_ptr<Histo1DSink> &sink) {
-                                context->analysisOperatorEdited(sink);
-                            });
-                        }
-
-                        widget->selectHistogram(widgetInfo.histoAddress);
-
-                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
-                                                   widgetInfo.sink->getId().toString());
-                        widget->replot();
-                    }
-                    else if (auto widget = qobject_cast<Histo1DWidget *>(
-                            m_serviceProvider->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
-                    {
-                        widget->selectHistogram(widgetInfo.histoAddress);
-                        show_and_activate(widget);
-                    }
-                } break;
-
             case NodeType_Histo1DSink:
                 {
-                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
-                    Q_ASSERT(widgetInfo.sink);
-
-                    if (widgetInfo.histos.size())
-                    {
-                        if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
-                            || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                        {
-                            auto widget = new Histo1DWidget(widgetInfo.histos);
-                            widget->setServiceProvider(m_serviceProvider);
-
-                            if (widgetInfo.calib)
-                            {
-                                widget->setCalibration(widgetInfo.calib);
-                            }
-
-                            {
-                                auto context = m_serviceProvider;
-                                widget->setSink(widgetInfo.sink,
-                                                [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                    context->analysisOperatorEdited(sink);
-                                });
-                            }
-
-                            m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(),
-                                                       widgetInfo.sink->getId().toString());
-                            widget->replot();
-                        }
-                        else
-                        {
-                            m_serviceProvider->getWidgetRegistry()->activateObjectWidget(widgetInfo.sink.get());
-                        }
-                    }
+                    auto widgetInfo = getHisto1DWidgetInfoFromNode(node);
+                    open_or_raise_histo1dsink_widget(m_serviceProvider, widgetInfo);
                 } break;
 
             case NodeType_Histo2DSink:
@@ -4474,19 +4312,6 @@ void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
             getAnalysis()->removeConditionLink(m_selectedOperator, cond);
         }
     }
-
-#if 0
-    assert(m_selectedCondition);
-
-    if (m_selectedCondition)
-    {
-        auto &cond = m_selectedCondition;
-        auto analysis = getAnalysis();
-        auto clMods = get_condition_modifications(cond, analysis, m_objectMap);
-
-        emit m_q->conditionLinksModified(cond, clMods.hasModifications());
-    }
-#endif
 }
 
 void EventWidgetPrivate::clearAllTreeSelections()
