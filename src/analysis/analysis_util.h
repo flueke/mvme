@@ -48,6 +48,10 @@ namespace CollectFlags
 //
 // Dependencies returned as OperatorInterface*
 //
+// These functions collect dependent objects of the specified startObject, i.e.
+// all objects where a connection from the startObject to the specific objects
+// exists.
+//
 
 QSet<OperatorInterface *> LIBMVME_EXPORT
 collect_dependent_operators(PipeSourceInterface *startObject,
@@ -80,6 +84,11 @@ QSet<PipeSourceInterface *> LIBMVME_EXPORT
 collect_dependent_objects(const PipeSourcePtr &startObject,
                           CollectFlags::Flag flags = CollectFlags::All);
 
+// Get the set of objects forming the input-chain of the given operator.
+// This is the inverse of collect_dependent_objects(), i.e. it walks the
+// connection chain backwards, adding all traversed objects to the result set.
+QSet<PipeSourceInterface *> LIBMVME_EXPORT
+collect_input_set(OperatorInterface *op);
 
 //
 // object ids
@@ -142,8 +151,8 @@ class LIBMVME_EXPORT AnalysisSignalWrapper: public QObject
         void directoryAdded(const DirectoryPtr &ptr);
         void directoryRemoved(const DirectoryPtr &ptr);
 
-        void conditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
-        void conditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
+        void conditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
+        void conditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
 
     public:
         explicit AnalysisSignalWrapper(QObject *parent = nullptr);
@@ -182,7 +191,7 @@ using ObjectToNodes = ObjectMap<NodeSet>;
 
 QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj);
 
-SinkVector LIBMVME_EXPORT get_sinks_for_conditionlink(const ConditionLink &cl, const SinkVector &sinks);
+SinkVector LIBMVME_EXPORT get_sinks_for_condition(const ConditionPtr &cond, const SinkVector &allSinks);
 
 // Disconnects the Slots connected to the outputs of the given
 // PipeSourceInterface. Returns number of Slots that have been disconnected.

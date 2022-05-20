@@ -25,6 +25,7 @@
 #include <QtGlobal>
 
 #include "libmvme_export.h"
+#include "util/qt_font.h"
 
 class QFont;
 class QPlainTextEdit;
@@ -51,6 +52,29 @@ std::unique_ptr<QPlainTextEdit> LIBMVME_EXPORT make_monospace_plain_textedit(con
 std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_monospace_textedit();
 std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_monospace_textedit(qreal pointSizeDelta);
 std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_monospace_textedit(const QFont &font);
+
+namespace plain_textedit_detail
+{
+    template<typename T>
+        std::unique_ptr<T> impl(const QFont &font)
+        {
+            auto result = std::make_unique<T>();
+            result->setFont(font);
+            result->setLineWrapMode(T::NoWrap);
+            set_tabstop_width(result.get(), 4);
+
+            return result;
+        }
+
+    template<typename T>
+        std::unique_ptr<T> impl(qreal pointSizeDelta)
+        {
+            auto font = make_monospace_font();
+            font.setPointSizeF(font.pointSizeF() + pointSizeDelta);
+
+            return impl<T>(font);
+        }
+}
 
 } // end namespace util
 } // end namespace mvme

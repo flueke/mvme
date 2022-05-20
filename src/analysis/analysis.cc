@@ -25,6 +25,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <memory>
 #include <random>
 #include <zstr/src/zstr.hpp>
 
@@ -79,11 +80,19 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     return result;
 }
 
-a2::data_filter::DataFilter a2_dataFilter_from_json(const QJsonObject &json)
+a2::data_filter::DataFilter a2_datafilter_from_json(const QJsonObject &json)
 {
     return a2::data_filter::make_filter(
         json["filterString"].toString().toStdString(),
         json["wordIndex"].toInt());
+}
+
+QJsonObject to_json(const a2::data_filter::DataFilter &filter)
+{
+    QJsonObject result;
+    result["filterString"] = QString::fromStdString(to_string(filter));
+    result["wordIndex"] = filter.matchWordIndex;
+    return result;
 }
 
 QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
@@ -95,9 +104,7 @@ QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
     for (s32 i = 0; i < filter.filterCount; i++)
     {
         const auto &subfilter = filter.filters[i];
-        QJsonObject filterJson;
-        filterJson["filterString"] = QString::fromStdString(to_string(subfilter));
-        filterJson["wordIndex"] = subfilter.matchWordIndex;
+        auto filterJson = to_json(subfilter);
         subFilterArray.append(filterJson);
     }
 
@@ -107,7 +114,7 @@ QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
     return result;
 }
 
-a2::data_filter::MultiWordFilter a2_multiWordFilter_from_json(const QJsonObject &json)
+a2::data_filter::MultiWordFilter a2_multiwordfilter_from_json(const QJsonObject &json)
 {
     a2::data_filter::MultiWordFilter result = {};
 
@@ -117,7 +124,7 @@ a2::data_filter::MultiWordFilter a2_multiWordFilter_from_json(const QJsonObject 
          it != subFilterArray.end();
          it++)
     {
-        add_subfilter(&result, a2_dataFilter_from_json(it->toObject()));
+        add_subfilter(&result, a2_datafilter_from_json(it->toObject()));
     }
 
     return result;
@@ -140,7 +147,7 @@ a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
 
     ListFilter result = {};
 
-    result.extractionFilter = a2_multiWordFilter_from_json(json["extractionFilter"].toObject());
+    result.extractionFilter = a2_multiwordfilter_from_json(json["extractionFilter"].toObject());
     result.flags = static_cast<ListFilter::Flag>(json["flags"].toInt());
     result.wordCount = static_cast<u8>(json["wordCount"].toInt());
 
@@ -269,6 +276,7 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
 
     if (newInput)
     {
+#if 0
         // Note(20201209): This was added in 2018 to make handling of arrays
         // of size 1 "more intuitive".
 
@@ -276,15 +284,23 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         // "value" connection using index 0.
         // Basically NoParamIndex is rewritten to 0 in case the input is of size 1
         // and it's ok to use Input::Value.
+
+        // Update (220408): Disabled this special case as it interferes with
+        // condition editing:
         if (newInput->getSize() == 1 && acceptedInputTypes & InputType::Value)
         {
             newParamIndex = 0;
         }
+#endif
 
         inputPipe = newInput;
         paramIndex = newParamIndex;
         inputPipe->addDestination(this);
         Q_ASSERT(parentOperator);
+    }
+    else
+    {
+        qDebug() << "connectPipe: newInput is null";
     }
 }
 
@@ -297,6 +313,11 @@ void Slot::disconnectPipe()
         paramIndex = Slot::NoParamIndex;
     }
 }
+
+const u32 InputType::Invalid;
+const u32 InputType::Array;
+const u32 InputType::Value;
+const u32 InputType::Both;
 
 //
 // SourceInterface
@@ -337,9 +358,18 @@ void OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 par
 {
     Slot *slot = getSlot(slotIndex);
 
+    if (paramIndex == Slot::NoParamIndex)
+        assert(slot->acceptedInputTypes & InputType::Array);
+    else
+        assert(slot->acceptedInputTypes & InputType::Value);
+
     if (slot)
     {
         slot->connectPipe(inputPipe, paramIndex);
+    }
+    else
+    {
+        qDebug() << this << "slot not found";
     }
 }
 
@@ -398,6 +428,28 @@ void SinkInterface::postClone(const AnalysisObject *cloneSource)
     assert(si);
     this->setEnabled(si->isEnabled());
     OperatorInterface::postClone(cloneSource);
+}
+
+//
+// ConditionInterface
+//
+ConditionInterface::ConditionInterface(QObject *parent)
+    : OperatorInterface(parent)
+{
+    m_resultOutput.setSource(this);
+    m_resultOutput.resize(1);
+    auto &params = m_resultOutput.getParameters();
+    params[0].lowerLimit = 0.0;
+    params[0].upperLimit = 2.0;
+}
+
+ConditionInterface::~ConditionInterface()
+{
+}
+
+void ConditionInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
 }
 
 //
@@ -778,6 +830,141 @@ bool ListFilterExtractor::setParameterName(int paramIndex, const QString &name)
         return true;
     }
     return false;
+}
+
+//
+// MultiHitExtractor
+//
+MultiHitExtractor::MultiHitExtractor(QObject *parent)
+    : SourceInterface(parent)
+    , m_ex({})
+{
+    m_ex.maxHits = 2;
+
+    // Generate a random seed for the rng. This seed will be written out in
+    // write() and restored in read().
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+}
+
+QString MultiHitExtractor::getDisplayName() const
+{
+    return "MultiHit Extractor";
+}
+
+QString MultiHitExtractor::getShortName() const
+{
+    return "MultiHit";
+}
+
+s32 MultiHitExtractor::getNumberOfOutputs() const
+{
+    return static_cast<s32>(m_outputs.size());
+}
+
+QString MultiHitExtractor::getOutputName(s32 index) const
+{
+    auto prefix = objectName();
+    int dotIdx = prefix.indexOf('.');
+
+    if (dotIdx >= 0)
+        prefix.remove(0, dotIdx+1);
+
+    if (index < getNumberOfOutputs() - 1)
+    {
+        switch (m_ex.shape)
+        {
+            case Shape::ArrayPerHit:
+                return QSL("%1_hit%2").arg(prefix).arg(index);
+
+            case Shape::ArrayPerAddress:
+                return QSL("%1_%2_hits").arg(prefix).arg(index);
+        }
+    }
+    else if (index == getNumberOfOutputs() - 1)
+        return "hitCounts";
+
+    return {};
+}
+
+Pipe *MultiHitExtractor::getOutput(s32 index)
+{
+    try
+    {
+        return m_outputs.at(index).get();
+    }
+    catch (const std::out_of_range &)
+    {}
+
+    return nullptr;
+}
+
+void MultiHitExtractor::beginRun(const RunInfo &/*runInfo*/, Logger /*logger*/)
+{
+    memory::Arena arena(Kilobytes(256));
+    auto a2_ds = make_datasource_multihit_extractor(
+        &arena, m_ex.shape, m_ex.filter, m_ex.maxHits, m_rngSeed, 0, m_ex.options);
+
+    /* Disconnect Pipes that will be removed. */
+    for (size_t outIdx = a2_ds.outputCount; outIdx < m_outputs.size(); outIdx++)
+    {
+        m_outputs[outIdx]->disconnectAllDestinationSlots();
+    }
+
+    /* Resize to the new output count. This keeps existing pipes which
+     * means existing slot connections will remain valid. */
+    m_outputs.resize(a2_ds.outputCount);
+
+    for (u8 outIdx=0; outIdx<a2_ds.outputCount; ++outIdx)
+    {
+        // Reuse pipes to not invalidate existing connections
+        auto outPipe = m_outputs[outIdx];
+
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx);
+            m_outputs[outIdx] = outPipe;
+        }
+
+        outPipe->parameters.name = getOutputName(outIdx);
+        outPipe->parameters.resize(a2_ds.outputs[outIdx].size);
+
+        for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+        {
+            outPipe->parameters[paramIndex].value = a2_ds.outputs[outIdx][paramIndex];
+            outPipe->parameters[paramIndex].lowerLimit = a2_ds.outputLowerLimits[outIdx][paramIndex];
+            outPipe->parameters[paramIndex].upperLimit = a2_ds.outputUpperLimits[outIdx][paramIndex];
+        }
+    }
+}
+
+void MultiHitExtractor::write(QJsonObject &json) const
+{
+    json["filter"] = to_json(getFilter());
+    json["maxHits"] = static_cast<qint64>(getMaxHits());
+    json["shape"] = getShape();
+    json["rngSeed"] = QString::number(m_rngSeed, 16);
+    json["options"] = static_cast<s32>(getOptions());
+}
+
+void MultiHitExtractor::read(const QJsonObject &json)
+{
+    setFilter(a2_datafilter_from_json(json["filter"].toObject()));
+    setMaxHits(json["maxHits"].toInt());
+    setShape(static_cast<Shape>(json["shape"].toInt()));
+    m_rngSeed = json["rngSeed"].toString().toULongLong(nullptr, 16);
+    setOptions(static_cast<Options::opt_t>(json["options"].toInt()));
+
+    // Call beginRun() here to create the output pipes.
+    beginRun({}, {});
+}
+
+void MultiHitExtractor::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+    SourceInterface::postClone(cloneSource);
 }
 
 //
@@ -3608,16 +3795,16 @@ QPolygonF qpolygonf_from_json(const QJsonArray &points)
 }
 
 //
-// ConditionInterval
+// IntervalCondition
 //
 
-ConditionInterval::ConditionInterval(QObject *parent)
+IntervalCondition::IntervalCondition(QObject *parent)
     : ConditionInterface(parent)
     , m_input(this, 0, QSL("Input"), InputType::Array)
 {
 }
 
-void ConditionInterval::beginRun(const RunInfo &, Logger)
+void IntervalCondition::beginRun(const RunInfo &, Logger)
 {
     if (m_input.isConnected())
     {
@@ -3627,7 +3814,7 @@ void ConditionInterval::beginRun(const RunInfo &, Logger)
     }
 }
 
-void ConditionInterval::write(QJsonObject &json) const
+void IntervalCondition::write(QJsonObject &json) const
 {
     QJsonArray jsonIntervals;
 
@@ -3639,7 +3826,7 @@ void ConditionInterval::write(QJsonObject &json) const
     json["intervals"] = jsonIntervals;
 }
 
-void ConditionInterval::read(const QJsonObject &json)
+void IntervalCondition::read(const QJsonObject &json)
 {
     m_intervals.clear();
 
@@ -3651,28 +3838,28 @@ void ConditionInterval::read(const QJsonObject &json)
     }
 }
 
-s32 ConditionInterval::getNumberOfSlots() const
+s32 IntervalCondition::getNumberOfSlots() const
 {
     return 1;
 }
 
-Slot *ConditionInterval::getSlot(s32 slotIndex)
+Slot *IntervalCondition::getSlot(s32 slotIndex)
 {
     return slotIndex == 0 ? &m_input : nullptr;
 }
 
-void ConditionInterval::setIntervals(const QVector<QwtInterval> &intervals)
+void IntervalCondition::setIntervals(const QVector<QwtInterval> &intervals)
 {
     m_intervals = intervals;
     normalize_intervals(m_intervals.begin(), m_intervals.end());
 }
 
-QVector<QwtInterval> ConditionInterval::getIntervals() const
+QVector<QwtInterval> IntervalCondition::getIntervals() const
 {
     return m_intervals;
 }
 
-void ConditionInterval::setInterval(s32 address, const QwtInterval &interval)
+void IntervalCondition::setInterval(s32 address, const QwtInterval &interval)
 {
     if (address >= 0)
     {
@@ -3684,42 +3871,37 @@ void ConditionInterval::setInterval(s32 address, const QwtInterval &interval)
     }
 }
 
-QwtInterval ConditionInterval::getInterval(s32 address) const
+QwtInterval IntervalCondition::getInterval(s32 address) const
 {
     return m_intervals.value(address, { make_quiet_nan(), make_quiet_nan() });
 }
 
-s32 ConditionInterval::getNumberOfBits() const
-{
-    return m_input.isConnected() ? m_input.inputPipe->getSize() : 0u;
-}
-
 //
-// ConditionRectangle
+// RectangleCondition
 //
-ConditionRectangle::ConditionRectangle(QObject *parent)
+RectangleCondition::RectangleCondition(QObject *parent)
     : ConditionInterface(parent)
     , m_inputX(this, 0, QSL("X Input"), InputType::Value)
     , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
 {
 }
 
-void ConditionRectangle::write(QJsonObject &json) const
+void RectangleCondition::write(QJsonObject &json) const
 {
     json["rectangle"] = to_json(m_rectangle);
 }
 
-void ConditionRectangle::read(const QJsonObject &json)
+void RectangleCondition::read(const QJsonObject &json)
 {
     m_rectangle = qrectf_from_json(json["rectangle"].toObject());
 }
 
-s32 ConditionRectangle::getNumberOfSlots() const
+s32 RectangleCondition::getNumberOfSlots() const
 {
     return 2;
 }
 
-Slot *ConditionRectangle::getSlot(s32 slotIndex)
+Slot *RectangleCondition::getSlot(s32 slotIndex)
 {
     switch (slotIndex)
     {
@@ -3731,46 +3913,46 @@ Slot *ConditionRectangle::getSlot(s32 slotIndex)
     return nullptr;
 }
 
-void ConditionRectangle::beginRun(const RunInfo &, Logger)
+void RectangleCondition::beginRun(const RunInfo &, Logger)
 {
 }
 
-void ConditionRectangle::setRectangle(const QRectF &rect)
+void RectangleCondition::setRectangle(const QRectF &rect)
 {
     m_rectangle = rect;
 }
 
-QRectF ConditionRectangle::getRectangle() const
+QRectF RectangleCondition::getRectangle() const
 {
     return m_rectangle;
 }
 
 //
-// ConditionPolygon
+// PolygonCondition
 //
-ConditionPolygon::ConditionPolygon(QObject *parent)
+PolygonCondition::PolygonCondition(QObject *parent)
     : ConditionInterface(parent)
     , m_inputX(this, 0, QSL("X Input"), InputType::Value)
     , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
 {
 }
 
-void ConditionPolygon::write(QJsonObject &json) const
+void PolygonCondition::write(QJsonObject &json) const
 {
     json["polygon"] = to_json(m_polygon);
 }
 
-void ConditionPolygon::read(const QJsonObject &json)
+void PolygonCondition::read(const QJsonObject &json)
 {
     m_polygon = qpolygonf_from_json(json["polygon"].toArray());
 }
 
-s32 ConditionPolygon::getNumberOfSlots() const
+s32 PolygonCondition::getNumberOfSlots() const
 {
     return 2;
 }
 
-Slot *ConditionPolygon::getSlot(s32 slotIndex)
+Slot *PolygonCondition::getSlot(s32 slotIndex)
 {
     switch (slotIndex)
     {
@@ -3782,18 +3964,156 @@ Slot *ConditionPolygon::getSlot(s32 slotIndex)
     return nullptr;
 }
 
-void ConditionPolygon::beginRun(const RunInfo &, Logger)
+void PolygonCondition::beginRun(const RunInfo &, Logger)
 {
 }
 
-void ConditionPolygon::setPolygon(const QPolygonF &polygon)
+void PolygonCondition::setPolygon(const QPolygonF &polygon)
 {
     m_polygon = polygon;
 }
 
-QPolygonF ConditionPolygon::getPolygon() const
+QPolygonF PolygonCondition::getPolygon() const
 {
     return m_polygon;
+}
+
+//
+// LutCondition
+//
+LutCondition::LutCondition(QObject *parent)
+    : ConditionInterface(parent)
+{
+}
+
+bool LutCondition::addSlot()
+{
+    if (getNumberOfSlots() >= MaxInputSlots)
+        return false;
+
+    auto inputName = QSL("input%1").arg(getNumberOfSlots());
+    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, InputType::Value);
+    m_inputs.push_back(slot);
+    m_lut.resize(1u << m_inputs.size());
+    return true;
+}
+
+bool LutCondition::removeLastSlot()
+{
+    if (getNumberOfSlots() == 0)
+        return false;
+
+    auto slot = m_inputs.back();
+    assert(slot);
+    slot->disconnectPipe();
+    m_inputs.pop_back();
+    m_lut.resize(1u << m_inputs.size());
+    return true;
+}
+
+void LutCondition::write(QJsonObject &json) const
+{
+    json["numberOfInputs"] = getNumberOfSlots();
+    QJsonArray jlut;
+
+    for (bool outVal: m_lut)
+        jlut.append(outVal);
+
+    json["lut"] = jlut;
+}
+
+void LutCondition::read(const QJsonObject &json)
+{
+    while (removeLastSlot()) {};
+
+    s32 inputCount = json["numberOfInputs"].toInt();
+
+    for (s32 inputIndex = 0; inputIndex < inputCount; ++inputIndex)
+        addSlot();
+
+    m_lut.clear();
+
+    auto jlut = json["lut"].toArray();
+
+    for (auto it = jlut.begin(); it != jlut.end(); ++it)
+    {
+        bool outVal = it->toBool();
+        m_lut.push_back(outVal);
+    }
+
+    m_lut.resize(1u << m_inputs.size());
+}
+
+void LutCondition::beginRun(const RunInfo &, Logger)
+{
+}
+
+//
+// ExpressionCondition
+//
+ExpressionCondition::ExpressionCondition(QObject *parent)
+    : ConditionInterface(parent)
+{
+    addSlot();
+}
+
+bool ExpressionCondition::addSlot()
+{
+    auto inputName = QSL("input%1").arg(getNumberOfSlots());
+    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, InputType::Value);
+    m_inputs.push_back(slot);
+    return true;
+}
+
+bool ExpressionCondition::removeLastSlot()
+{
+    if (getNumberOfSlots() == 0)
+        return false;
+
+    auto slot = m_inputs.back();
+    assert(slot);
+    slot->disconnectPipe();
+    m_inputs.pop_back();
+    return true;
+}
+
+void ExpressionCondition::write(QJsonObject &json) const
+{
+    json["numberOfInputs"] = getNumberOfSlots();
+    json["expression"] = getExpression();
+
+    QJsonArray inputPrefixesArray;
+
+    for (const auto &inputName: m_inputPrefixes)
+        inputPrefixesArray.append(inputName);
+
+    json["inputPrefixes"] = inputPrefixesArray;
+}
+
+void ExpressionCondition::read(const QJsonObject &json)
+{
+    while (removeLastSlot()) {};
+
+    s32 inputCount = json["numberOfInputs"].toInt();
+
+    for (s32 inputIndex = 0; inputIndex < inputCount; ++inputIndex)
+        addSlot();
+
+
+    m_inputPrefixes.clear();
+
+    auto inputPrefixesArray = json["inputPrefixes"].toArray();
+
+    for (auto it = inputPrefixesArray.begin();
+         it != inputPrefixesArray.end();
+         it++)
+    {
+        m_inputPrefixes.push_back(it->toString());
+    }
+}
+
+void ExpressionCondition::beginRun(const RunInfo &, Logger)
+{
 }
 
 //
@@ -3809,9 +4129,12 @@ Analysis::Analysis(QObject *parent)
     , m_a2ArenaIndex(0)
     , m_a2State(std::make_unique<A2AdapterState>())
 {
+    // data sources
     m_objectFactory.registerSource<ListFilterExtractor>();
     m_objectFactory.registerSource<Extractor>();
+    m_objectFactory.registerSource<MultiHitExtractor>();
 
+    // operators
     m_objectFactory.registerOperator<CalibrationMinMax>();
     m_objectFactory.registerOperator<PreviousValue>();
     m_objectFactory.registerOperator<Difference>();
@@ -3825,11 +4148,15 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<ExpressionOperator>();
     m_objectFactory.registerOperator<ScalerOverflow>();
 #if 0
-    m_objectFactory.registerOperator<ConditionInterval>();
-    m_objectFactory.registerOperator<ConditionRectangle>();
-    m_objectFactory.registerOperator<ConditionPolygon>();
+    // conditions
+    m_objectFactory.registerOperator<IntervalCondition>();
+    m_objectFactory.registerOperator<RectangleCondition>();
+    m_objectFactory.registerOperator<PolygonCondition>();
+    m_objectFactory.registerOperator<LutCondition>();
+    m_objectFactory.registerOperator<ExpressionCondition>();
 #endif
 
+    // sinks
     m_objectFactory.registerSink<Histo1DSink>();
     m_objectFactory.registerSink<Histo2DSink>();
     m_objectFactory.registerSink<RateMonitorSink>();
@@ -4198,37 +4525,12 @@ void Analysis::removeOperator(const OperatorPtr &op)
             assert(outPipe->getDestinations().isEmpty());
         }
 
+        clearConditionsUsedBy(op);
+
         // If a condition is being removed clear all links pointing to it.
         if (auto cond = std::dynamic_pointer_cast<ConditionInterface>(op))
         {
-
-            /* Note: cannot call clearConditionLink while iterating the
-             * condition link hash because that method will modify the hash. */
-            struct OpAndCl
-            {
-                OperatorPtr op;
-                ConditionLink cl;
-            };
-
-            QVector<OpAndCl> linksToClear;
-
-            for (auto it = m_conditionLinks.begin();
-                 it != m_conditionLinks.end();
-                 it++)
-            {
-                const auto &cl = it.value();
-                const auto &op = it.key();
-
-                if (cl.condition == cond)
-                {
-                    linksToClear.push_back({ op, cl });
-                }
-            }
-
-            for (auto &entry: linksToClear)
-            {
-                clearConditionLink(entry.op, entry.cl);
-            }
+            clearConditionLinksUsing(cond);
         }
 
         m_operators.erase(it);
@@ -4252,6 +4554,11 @@ void Analysis::setOperatorEdited(const OperatorPtr &op)
         obj->setObjectFlags(ObjectFlags::NeedsRebuild);
 
     emit operatorEdited(op);
+}
+
+ConditionLinks Analysis::getConditionLinks() const
+{
+    return m_conditionLinks;
 }
 
 ConditionVector Analysis::getConditions() const
@@ -4285,97 +4592,59 @@ ConditionVector Analysis::getConditions(const QUuid &eventId) const
     return result;
 }
 
-ConditionPtr Analysis::getCondition(const OperatorPtr &op) const
-{
-    return m_conditionLinks.value(op).condition;
-}
-
-ConditionLink Analysis::getConditionLink(const OperatorPtr &op) const
+QSet<ConditionPtr> Analysis::getActiveConditions(const OperatorPtr &op) const
 {
     return m_conditionLinks.value(op);
 }
 
-ConditionLink Analysis::getConditionLink(const OperatorInterface *op) const
+bool Analysis::addConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
 {
-    auto analysisObject = const_cast<OperatorInterface *>(op)->shared_from_this();
+    assert(op->getEventId() == cond->getEventId());
 
-    return getConditionLink(std::dynamic_pointer_cast<OperatorInterface>(analysisObject));
-}
+    if (getActiveConditions(op).contains(cond))
+        return false;
 
-ConditionLinks Analysis::getConditionLinks() const
-{
-    return m_conditionLinks;
-}
-
-bool Analysis::hasActiveCondition(const OperatorPtr &op) const
-{
-    return m_conditionLinks.value(op).condition != nullptr;
-}
-
-bool Analysis::setConditionLink(const OperatorPtr &op, const ConditionLink &cl)
-{
-    if (cl != m_conditionLinks.value(op))
-    {
-        m_conditionLinks.insert(op, cl);
-
-        // Set rebuild flag to  clear operator state (e.g. histogram contents)
-        // after the condition was set or changed.
-        op->setObjectFlags(ObjectFlags::NeedsRebuild);
-
-        emit conditionLinkApplied(op, cl);
-
-        return true;
-    }
-
+    m_conditionLinks[op].insert(cond);
+    // Set rebuild flag to  clear operator state (e.g. histogram contents)
+    // after the condition was set or changed.
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+    updateRanks();
+    emit conditionLinkAdded(op, cond);
     return true;
 }
 
-bool Analysis::clearConditionLink(const OperatorPtr &op, const ConditionLink &cl)
+bool Analysis::removeConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
 {
-    if (m_conditionLinks.value(op) == cl)
-    {
-        m_conditionLinks.remove(op);
-        op->setObjectFlags(ObjectFlags::NeedsRebuild);
-        emit conditionLinkCleared(op, cl);
-        return true;
-    }
+    if (!getActiveConditions(op).contains(cond))
+        return false;
 
-    return false;
+    m_conditionLinks[op].remove(cond);
+    op->setObjectFlags(ObjectFlags::NeedsRebuild);
+    updateRanks();
+    emit conditionLinkRemoved(op, cond);
+    return true;
 }
 
-bool Analysis::clearConditionLink(const OperatorPtr &op)
+void Analysis::clearConditionsUsedBy(const OperatorPtr &op)
 {
-    if (auto cl = m_conditionLinks.value(op))
-    {
-        m_conditionLinks.remove(op);
-        op->setObjectFlags(ObjectFlags::NeedsRebuild);
-        emit conditionLinkCleared(op, cl);
-        return true;
-    }
+    auto conditions = getActiveConditions(op);
 
-    return false;
+    for (const auto &cond: conditions)
+        removeConditionLink(op, cond);
 }
 
-size_t Analysis::clearConditionLinksUsing(const ConditionInterface *cond)
+void Analysis::clearConditionLinksUsing(const ConditionPtr &cond)
 {
-    // Iterater over a copy as the call to clearConditionLink() modifies the
-    // m_conditionLinks hash. */
-    ConditionLinks links = m_conditionLinks;
-    size_t result = 0u;
+    auto links = getConditionLinks();
 
-    for (auto it = links.begin(); it != links.end(); it++)
+    for (auto it=std::begin(links); it!=std::end(links); ++it)
     {
-        const auto &cl = it.value();
         const auto &op = it.key();
+        const auto &conds = it.value();
 
-        if (cl.condition.get() == cond)
-        {
-            clearConditionLink(op, cl);
-            result++;
-        }
+        if (conds.contains(cond))
+            removeConditionLink(op, cond);
     }
-
-    return result;
 }
 
 //
@@ -4565,7 +4834,8 @@ AnalysisObjectVector Analysis::getDirectoryContents(const Directory *dir) const
     {
         for (auto id: dir->getMembers())
         {
-            result.push_back(getObject(id));
+            if (auto obj = getObject(id))
+                result.push_back(getObject(id));
         }
     }
 
@@ -4584,6 +4854,8 @@ AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const DirectoryPt
 
 AnalysisObjectVector Analysis::getDirectoryContentsRecursively(const Directory *dir) const
 {
+    assert(dir);
+
     AnalysisObjectVector result;
 
     auto objects = getDirectoryContents(dir);
@@ -4769,7 +5041,8 @@ void Analysis::updateRanks()
     {
 #if ENABLE_ANALYSIS_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
-            << getClassName(src.get()) << src->objectName() << "to 0";
+            << getClassName(src.get()) << src->objectName() << "to 0"
+            << ", output count is " << src->getNumberOfOutputs();
 #endif
 
         for (s32 oi = 0; oi < src->getNumberOfOutputs(); oi++)
@@ -4778,12 +5051,12 @@ void Analysis::updateRanks()
         }
     }
 
-    QSet<OperatorInterface *> updated;
-    QSet<OperatorInterface *> visited;
+    QSet<OperatorPtr> updated;
+    QSet<OperatorPtr> visited;
 
     for (auto op: m_operators)
     {
-        updateRank(op.get(), updated, visited);
+        updateRank(op, updated, visited);
     }
 
 #if ENABLE_ANALYSIS_DEBUG
@@ -4791,9 +5064,9 @@ void Analysis::updateRanks()
 #endif
 }
 
-void Analysis::updateRank(OperatorInterface *op,
-                          QSet<OperatorInterface *> &updated,
-                          QSet<OperatorInterface *> &visited)
+void Analysis::updateRank(OperatorPtr op,
+                          QSet<OperatorPtr> &updated,
+                          QSet<OperatorPtr> &visited)
 {
     assert(op);
 
@@ -4804,7 +5077,7 @@ void Analysis::updateRank(OperatorInterface *op,
     {
         // TODO: return error information
         qDebug() << __PRETTY_FUNCTION__ << ">>>>> ERROR: previously visited"
-            << getClassName(op)
+            << getClassName(op.get())
             << op->objectName();
         InvalidCodePath;
         return;
@@ -4824,11 +5097,11 @@ void Analysis::updateRank(OperatorInterface *op,
     {
         if (Pipe *inputPipe = op->getSlot(si)->inputPipe)
         {
-            auto *inputObject(inputPipe->getSource());
+            auto inputObject(inputPipe->getSource()->shared_from_this());
 
             // Only operators need to be updated. Data sources will have their
             // output ranks set to 0 already.
-            if (auto inputOperator = qobject_cast<OperatorInterface *>(inputObject))
+            if (auto inputOperator = std::dynamic_pointer_cast<OperatorInterface>(inputObject))
             {
                 updateRank(inputOperator, updated, visited);
             }
@@ -4838,18 +5111,18 @@ void Analysis::updateRank(OperatorInterface *op,
     const s32 maxInputRank = op->getMaximumInputRank();
     s32 newRank = maxInputRank + 1;
 
-    // Check if the operator uses a condition and update that. Then adjust this
-    // operators input rank.
-    if (auto condLink = getConditionLink(op))
+    // For each condition used by the operator: update its rank. Then adjust
+    // the operators input rank.
+    for (auto cond: getActiveConditions(op))
     {
-        updateRank(condLink.condition.get(), updated, visited);
+        updateRank(cond, updated, visited);
 
-        const s32 condRank = condLink.condition->getRank();
+        const s32 condRank = cond->getRank();
 
         newRank = std::max(maxInputRank, condRank) + 1;
 
         qDebug() << __PRETTY_FUNCTION__ << "op" << op
-            << " uses conditon" << condLink.condition.get()
+            << " uses conditon" << cond.get()
             << ", this.maxInputRank =" << maxInputRank
             << ", cond.rank =" << condRank
             << ", newRank =" << newRank;
@@ -4968,6 +5241,12 @@ void Analysis::beginRun(const RunInfo &runInfo,
             source->beginRun(runInfo, logger);
             source->clearObjectFlags(ObjectFlags::NeedsRebuild);
             sourcesBuilt++;
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "beginRun() on"
+                << " class =" << source->metaObject()->className()
+                << ", name =" << source->objectName()
+                << ", outputCount =" << source->getNumberOfOutputs();
         }
         else if (!runInfo.keepAnalysisState)
         {
@@ -5003,6 +5282,10 @@ void Analysis::beginRun(const RunInfo &runInfo,
                 << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
                 ;
 #endif
+            if (!required_inputs_connected_and_valid(op.get()))
+            {
+                qDebug() << "bug";
+            }
 
             op->beginRun(runInfo, logger);
             op->clearObjectFlags(ObjectFlags::NeedsRebuild);
@@ -5218,7 +5501,7 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
 
         for (const auto &obj: objectStore.sources)
         {
-            m_sources.append(obj);
+            m_sources.push_back(obj);
             obj->setAnalysis(this->shared_from_this());
         }
 
@@ -5231,7 +5514,7 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
             {
                 obj->setUserLevel(1);
             }
-            m_operators.append(obj);
+            m_operators.push_back(obj);
             obj->setAnalysis(this->shared_from_this());
         }
 
@@ -5340,8 +5623,8 @@ void Analysis::clear()
 
 bool Analysis::isEmpty() const
 {
-    return (m_sources.isEmpty()
-            && m_operators.isEmpty()
+    return (m_sources.empty()
+            && m_operators.empty()
             && m_directories.isEmpty()
             );
 }

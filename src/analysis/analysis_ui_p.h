@@ -118,6 +118,31 @@ class AddEditExtractorDialog: public ObjectEditorDialog
         void editNameList();
 };
 
+class MultiHitExtractorDialog: public ObjectEditorDialog
+{
+    Q_OBJECT
+    public:
+        MultiHitExtractorDialog(
+            const std::shared_ptr<MultiHitExtractor> &ex,
+            ModuleConfig *mod,
+            ObjectEditorMode mode,
+            EventWidget *eventWidget = nullptr);
+        ~MultiHitExtractorDialog() override;
+
+        void accept() override;
+        void reject() override;
+
+    private slots:
+        void runLoadTemplateDialog();
+        void applyTemplate(const std::shared_ptr<Extractor> &tmpl);
+        void updateWidget();
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+
 QComboBox *make_event_selection_combo(
     const QList<EventConfig *> &eventConfigs,
     const OperatorPtr &op,
@@ -342,11 +367,34 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         QComboBox *combo_xScaleType;
 };
 
+class SelectConditionsDialog: public ObjectEditorDialog
+{
+    Q_OBJECT
+    public:
+        SelectConditionsDialog(const OperatorPtr &op, EventWidget *eventWidget);
+
+        void accept() override;
+        void reject() override;
+
+        bool eventFilter(QObject *watched, QEvent *event) override;
+
+    private:
+        void addSelectButtons(const ConditionPtr &cond = {});
+
+        EventWidget *m_eventWidget;
+        OperatorPtr m_op;
+        QGridLayout *m_buttonsGrid;
+        QVector<QPushButton *> m_selectButtons;
+        QVector<ConditionPtr> m_selectedConditions;
+        bool m_inputSelectActive = false;
+};
+
 class PipeDisplay: public QWidget
 {
     Q_OBJECT
     public:
-        PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals = true, QWidget *parent = nullptr);
+        PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals = true,
+                    QWidget *parent = nullptr);
 
         void setShowDecimals(bool showDecimals) { m_showDecimals = showDecimals; }
         bool doesShowDecimals() const { return m_showDecimals; }

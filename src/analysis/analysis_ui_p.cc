@@ -65,6 +65,7 @@
 #include "../mvme_qthelp.h"
 #include "qt_util.h"
 #include "rate_monitor_plot_widget.h"
+#include "ui_eventwidget_p.h"
 #include "util/qt_font.h"
 #include "util/qt_layouts.h"
 #include "util/variablify.h"
@@ -396,7 +397,7 @@ void AddEditExtractorDialog::accept()
 void AddEditExtractorDialog::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    m_eventWidget->uniqueWidgetCloses();
+    //m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
 
@@ -435,6 +436,248 @@ QComboBox *make_event_selection_combo(
         combo->setCurrentIndex(0);
 
     return combo;
+}
+
+//
+// MultiHitExtractorDialog
+//
+
+struct MultiHitExtractorDialog::Private
+{
+    std::shared_ptr<MultiHitExtractor> ex;
+    ModuleConfig *mod;
+    ObjectEditorMode mode;
+    EventWidget *eventWidget;
+
+    QComboBox *combo_shape;
+    QLineEdit *le_name;
+    DataFilterEdit *le_filterEdit;
+    QSpinBox *spin_maxHits;
+    QCheckBox *cb_noAddedRandom;
+    QLabel *label_info;
+
+    std::vector<std::shared_ptr<Extractor>> getTemplateExtractors()
+    {
+        assert(mod);
+
+        // Get the list of Extractors which do have a single subFilter.
+        std::vector<std::shared_ptr<Extractor>> extractors;
+
+        for (auto source: get_default_data_extractors(mod->getModuleMeta().typeName))
+        {
+            if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
+            {
+                if (extractor->getFilter().getSubFilterCount() == 1)
+                {
+                    extractors.emplace_back(extractor);
+                }
+            }
+        }
+
+        return extractors;
+    }
+
+    void fillExtractorFromGui(MultiHitExtractor &dest)
+    {
+        dest.setEventId(mod->getEventId());
+        dest.setModuleId(mod->getId());
+
+        dest.setObjectName(le_name->text());
+        dest.setShape(static_cast<MultiHitExtractor::Shape>(combo_shape->currentData().toInt()));
+        dest.setFilter(le_filterEdit->getFilter());
+        dest.setMaxHits(spin_maxHits->value());
+        dest.setOptions(cb_noAddedRandom->isChecked()
+                        ? MultiHitExtractor::Options::NoAddedRandom
+                        : MultiHitExtractor::Options::NoOption);
+    }
+};
+
+MultiHitExtractorDialog::MultiHitExtractorDialog(
+    const std::shared_ptr<MultiHitExtractor> &ex,
+    ModuleConfig *mod,
+    ObjectEditorMode mode,
+    EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
+    , d(std::make_unique<Private>())
+{
+    *d = {};
+
+    d->ex = ex;
+    d->mod = mod;
+    d->mode = mode;
+    d->eventWidget = eventWidget;
+
+    d->combo_shape = new QComboBox;
+    d->combo_shape->addItem("Array per hit", MultiHitExtractor::Shape::ArrayPerHit);
+    d->combo_shape->addItem("Array per address", MultiHitExtractor::Shape::ArrayPerAddress);
+    d->combo_shape->setCurrentIndex(d->combo_shape->findData(d->ex->getShape()));
+
+    d->le_name = new QLineEdit;
+    d->le_name->setText(d->ex->objectName());
+
+    d->le_filterEdit = new DataFilterEdit;
+    d->le_filterEdit->setFilter(d->ex->getFilter());
+
+    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")),
+                                              QSL("Load Template"));
+
+    connect(loadTemplateButton, &QPushButton::clicked,
+            this, &MultiHitExtractorDialog::runLoadTemplateDialog);
+
+    auto l_filter = make_hbox<2>();
+    l_filter->addWidget(d->le_filterEdit);
+    l_filter->addWidget(loadTemplateButton);
+
+    d->spin_maxHits = new QSpinBox;
+    d->spin_maxHits->setMinimum(1);
+    d->spin_maxHits->setMaximum(16);
+    d->spin_maxHits->setValue(d->ex->getMaxHits());
+
+    d->cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
+    d->cb_noAddedRandom->setChecked(d->ex->getOptions() & Extractor::Options::NoAddedRandom);
+
+    d->label_info = new QLabel;
+
+    auto label_compat = new QLabel(QSL("<b>Note</b>: MultiHit extractors are currently"
+                                       " not compatible with the EventServer for data export!"));
+    label_compat->setWordWrap(true);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+    auto l = new QFormLayout(this);
+    l->addRow("Name", d->le_name);
+    l->addRow("Extraction Filter", l_filter);
+    l->addRow("Max hits per address", d->spin_maxHits);
+    l->addRow("Output Shape", d->combo_shape);
+    l->addRow("No Added Random", d->cb_noAddedRandom);
+    l->addRow("Info", d->label_info);
+    l->addRow(label_compat);
+    l->addRow(bb);
+
+    connect(bb, &QDialogButtonBox::accepted, this, &MultiHitExtractorDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &MultiHitExtractorDialog::reject);
+
+    connect(d->le_filterEdit, &QLineEdit::textChanged,
+            this, &MultiHitExtractorDialog::updateWidget);
+    connect(d->combo_shape, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, &MultiHitExtractorDialog::updateWidget);
+    connect(d->spin_maxHits, qOverload<int>(&QSpinBox::valueChanged),
+            this, &MultiHitExtractorDialog::updateWidget);
+
+    switch (d->mode)
+    {
+        case ObjectEditorMode::New:
+            {
+                setWindowTitle(QString("New  %1").arg(d->ex->getDisplayName()));
+                auto templates = d->getTemplateExtractors();
+                if (!templates.empty())
+                    applyTemplate(templates[0]);
+            } break;
+
+        case ObjectEditorMode::Edit:
+            setWindowTitle(QString("Edit %1").arg(d->ex->getDisplayName()));
+            break;
+    }
+
+    updateWidget();
+}
+
+MultiHitExtractorDialog::~MultiHitExtractorDialog()
+{
+}
+
+void MultiHitExtractorDialog::accept()
+{
+    AnalysisPauser pauser(d->eventWidget->getServiceProvider());
+
+    d->fillExtractorFromGui(*d->ex);
+
+    auto analysis = d->eventWidget->getServiceProvider()->getAnalysis();
+
+    switch (d->mode)
+    {
+        case ObjectEditorMode::New:
+            analysis->addSource(d->ex);
+            break;
+
+        case ObjectEditorMode::Edit:
+            analysis->setSourceEdited(d->ex);
+            break;
+    }
+
+    analysis->beginRun(Analysis::KeepState, d->eventWidget->getVMEConfig());
+
+    QDialog::accept();
+}
+
+void MultiHitExtractorDialog::reject()
+{
+    d->eventWidget->uniqueWidgetCloses();
+    QDialog::reject();
+}
+
+void MultiHitExtractorDialog::runLoadTemplateDialog()
+{
+    auto extractors = d->getTemplateExtractors();
+
+    auto templateList = new QListWidget;
+
+    for (auto &ex: extractors)
+    {
+        templateList->addItem(ex->objectName());
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(QSL("Load Extraction Filter Template"));
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    bb->button(QDialogButtonBox::Ok)->setDefault(true);
+    bb->button(QDialogButtonBox::Ok)->setText(QSL("Load"));
+    connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    connect(templateList, &QListWidget::itemDoubleClicked, &dialog, &QDialog::accept);
+
+    auto layout = new QVBoxLayout(&dialog);
+    layout->addWidget(templateList);
+    layout->addWidget(bb);
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        if (templateList->currentRow() < static_cast<s32>(extractors.size()))
+        {
+            auto ex = extractors[templateList->currentRow()];
+            applyTemplate(ex);
+        }
+    }
+}
+
+void MultiHitExtractorDialog::applyTemplate(const std::shared_ptr<Extractor> &tmpl)
+{
+    assert(tmpl->getFilter().getSubFilterCount() == 1);
+    d->le_filterEdit->setFilter(tmpl->getFilter().getSubFilters().at(0));
+    QString name = d->mod->objectName() + QSL(".") + tmpl->objectName().section('.', -1);
+    d->le_name->setText(name);
+}
+
+void MultiHitExtractorDialog::updateWidget()
+{
+    MultiHitExtractor mex = {};
+    d->fillExtractorFromGui(mex);
+    mex.beginRun({}, {});
+
+    // subtract one to account for the hitCounts array.
+    s32 arrayCount = mex.getNumberOfOutputs() - 1;
+    s32 arraySize = 0u;
+
+    if (auto outPipe = mex.getOutput(0))
+        arraySize = outPipe->getSize();
+
+    auto arrayText = arrayCount > 1 ? "arrays, each" : "array";
+
+    d->label_info->setText(QSL("Will generate %1 output %2 of size %3.")
+                       .arg(arrayCount)
+                       .arg(arrayText)
+                       .arg(arraySize));
 }
 
 //
@@ -687,7 +930,6 @@ void AddEditOperatorDialog::repopulateSlotGrid()
                     [this] (Slot *destSlot, Pipe *selectedPipe, s32 selectedParamIndex) {
 
                     this->inputSelectedForSlot(destSlot, selectedPipe, selectedParamIndex);
-
                 });
             }
 
@@ -750,7 +992,8 @@ void AddEditOperatorDialog::inputSelectedForSlot(
     qDebug() << __PRETTY_FUNCTION__
         << "destSlot =" << destSlot
         << "selectedPipe =" << selectedPipe
-        << "selectedParamIndex =" << selectedParamIndex;
+        << "selectedParamIndex =" << selectedParamIndex
+        << "pipeSourceOutputIndex =" << selectedPipe->sourceOutputIndex;
 
     assert(destSlot == m_op->getSlot(destSlot->parentSlotIndex));
 
@@ -765,7 +1008,6 @@ void AddEditOperatorDialog::inputSelectedForSlot(
         selectButton->setChecked(false);
         selectButton->setText(make_input_source_text(destSlot));
     }
-
 
     // If no valid event has been selected yet, use the event of the newly
     // selected input pipe.
@@ -2656,6 +2898,167 @@ bool RateMonitorConfigWidget::isValid() const
 {
     return true;
 }
+
+//
+// SelectConditionsDialog
+//
+SelectConditionsDialog::SelectConditionsDialog(const OperatorPtr &op, EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
+    , m_eventWidget(eventWidget)
+    , m_op(op)
+{
+    setWindowTitle(QSL("Select conditions for '%1'").arg(op->objectName()));
+
+    auto conditionsFrame = new QFrame;
+    m_buttonsGrid = new QGridLayout(conditionsFrame);
+    m_buttonsGrid->setColumnStretch(0, 1);
+    m_buttonsGrid->setColumnStretch(1, 0);
+
+    auto conditionsGroupBox = new QGroupBox("Conditions");
+    auto conditionsGroupBoxLayout = new QGridLayout(conditionsGroupBox);
+    conditionsGroupBoxLayout->setContentsMargins(2, 2, 2, 2);
+    conditionsGroupBoxLayout->addWidget(conditionsFrame, 0, 0, 1, 2);
+
+    auto addConditionButton = new QPushButton(QIcon(QSL(":/list_add.png")), QString());
+    addConditionButton->setToolTip(QSL("Add condition"));
+
+    connect(addConditionButton, &QPushButton::clicked,
+            this, [this] () { addSelectButtons(); });
+
+    auto buttonLayout = new QHBoxLayout;
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(addConditionButton);
+    conditionsGroupBoxLayout->addLayout(buttonLayout, 1, 0, 1, 2);
+
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &SelectConditionsDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &SelectConditionsDialog::reject);
+    auto buttonBoxLayout = new QVBoxLayout;
+    buttonBoxLayout->addStretch();
+    buttonBoxLayout->addWidget(buttonBox);
+
+    auto layout = new QGridLayout(this);
+    s32 row = 0;
+    layout->addWidget(conditionsGroupBox, row++, 0);
+    layout->addLayout(buttonBoxLayout, row++, 0);
+
+    if (auto analysis = op->getAnalysis())
+    {
+        auto conds = analysis->getActiveConditions(op).toList();
+        std::sort(std::begin(conds), std::end(conds),
+                  [] (auto &a, auto &b) { return a->objectName() < b->objectName(); });
+        for (auto cond: conds)
+            addSelectButtons(cond);
+    }
+
+    addSelectButtons();
+}
+
+void SelectConditionsDialog::addSelectButtons(const ConditionPtr &cond)
+{
+    auto selectButton = new QPushButton(cond ? cond->objectName() : QSL("<select>"));
+    selectButton->setCheckable(true);
+    selectButton->setMouseTracking(true);
+    selectButton->installEventFilter(this);
+    m_selectButtons.push_back(selectButton);
+    m_selectedConditions.push_back(cond);
+    int buttonIndex = m_selectButtons.size() - 1;
+
+    auto clearButton  = new QPushButton(QIcon(":/dialog-close.png"), QString());
+
+    int row = m_buttonsGrid->rowCount();
+    m_buttonsGrid->addWidget(selectButton, row, 0);
+    m_buttonsGrid->addWidget(clearButton, row, 1);
+
+    connect(selectButton, &QPushButton::toggled,
+            this, [=] (bool checked)
+            {
+                m_eventWidget->endSelectInput();
+
+                if (checked)
+                {
+                    // uncheck all other buttons
+                    for (auto button: m_selectButtons)
+                        if (button != selectButton)
+                            button->setChecked(false);
+
+                    auto on_condition_selected = [=] (const ConditionPtr &cond)
+                    {
+                        m_selectedConditions[buttonIndex] = cond;
+                        selectButton->setText(cond->objectName());
+                        QSignalBlocker b(selectButton);
+                        selectButton->setChecked(false);
+                        m_inputSelectActive = false;
+                    };
+
+                    m_eventWidget->selectConditionFor(m_op, on_condition_selected);
+                    m_inputSelectActive = true;
+                }
+            });
+
+    connect(clearButton, &QPushButton::clicked,
+            this, [=] ()
+            {
+                m_selectedConditions[buttonIndex] = {};
+                m_selectButtons[buttonIndex]->setText("<select>");
+            });
+}
+
+bool SelectConditionsDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (auto button = qobject_cast<QPushButton *>(watched))
+    {
+        auto buttonIndex = m_selectButtons.indexOf(button);
+        auto cond = m_selectedConditions.value(buttonIndex);
+
+        if ((event->type() == QEvent::Enter || event->type() == QEvent::Leave)
+            && !m_inputSelectActive && cond)
+        {
+            if (auto node = m_eventWidget->findNode(cond))
+            {
+                bool doColor = event->type() == QEvent::Enter;
+                auto color = doColor ? InputNodeOfColor : QColor(0, 0, 0, 0);
+                node->setBackground(0, color);
+
+                for (node = node->parent();
+                     node && node->type() == NodeType_Directory;
+                     node = node->parent())
+                {
+                    auto color = doColor ? ChildIsInputNodeOfColor : QColor(0, 0, 0, 0);
+                    node->setBackground(0, color);
+                }
+            }
+        }
+    }
+
+    // Do not filter the event out.
+    return false;
+}
+
+void SelectConditionsDialog::accept()
+{
+    AnalysisPauser pauser(m_eventWidget->getServiceProvider());
+    auto analysis = m_eventWidget->getServiceProvider()->getAnalysis();
+    analysis->clearConditionsUsedBy(m_op);
+
+    for (auto cond: m_selectedConditions)
+    {
+        if (cond)
+            analysis->addConditionLink(m_op, cond);
+    }
+
+    // clears histogram contents and other state
+    m_op->clearState();
+
+    QDialog::accept();
+}
+
+void SelectConditionsDialog::reject()
+{
+    QDialog::reject();
+}
+
 
 //
 // PipeDisplay

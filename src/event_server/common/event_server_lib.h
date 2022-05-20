@@ -56,7 +56,7 @@ using json = nlohmann::json;
 // mvme::event_server::exception.
 //
 // Additionally std::system_error is thrown by the read_*() functions which
-// operator on a file descriptor.
+// operate on file descriptors.
 
 // Base exception class used in this library.
 struct exception: public std::runtime_error

@@ -52,15 +52,15 @@ QTextStream &print_histolist_stats(
     if (histos.isEmpty())
         return out;
 
-    QVector<Histo1DStatistics> stats;
-    stats.reserve(histos.size());
+    QVector<Histo1DStatistics> allHistoStats;
+    allHistoStats.reserve(histos.size());
 
     for (const auto &histo: histos)
     {
         double hMin = std::isnan(xMin) ? histo->getXMin() : xMin;
         double hMax = std::isnan(xMax) ? histo->getXMax() : xMax;
 
-        stats.push_back(histo->calcStatistics(hMin, hMax, rrf));
+        allHistoStats.push_back(histo->calcStatistics(hMin, hMax, rrf));
     }
 
     out.setFieldWidth(0);
@@ -71,6 +71,10 @@ QTextStream &print_histolist_stats(
     out << "# Stats for histogram array '" << title << "'" << endl;
     out << "# Number of histos: " << histos.size()
         << ", bins: " << reducedBinCount
+        << endl;
+    out << "# Stats calculated over x-axis interval ["
+        << (std::isnan(xMin) ? first->getXMin() : xMin)
+        << ", " << (std::isnan(xMax) ? first->getXMax() : xMax) << ")"
         << endl;
 
     out << endl;
@@ -86,21 +90,38 @@ QTextStream &print_histolist_stats(
 
     out << qSetFieldWidth(0) << endl;
 
-    using ValueAndIndex = std::pair<double, int>;
+    auto make_min_max = [] ()
+    {
+        return std::make_pair<double, double>(std::numeric_limits<double>::max(), 0);
+    };
 
-    ValueAndIndex minValue = { make_quiet_nan(), -1 };
-    ValueAndIndex maxValue = { make_quiet_nan(), -1 };
+    auto update_min_max = [] (auto &minmax, double value)
+    {
+        minmax.first = std::min(minmax.first, value);
+        minmax.second = std::max(minmax.second, value);
+    };
 
-    double sumWeightedRms = 0.0;
-    double sumWeightedMean = 0.0;
-    double sumEntryCounts = 0.0;
+    auto minmaxEntries = make_min_max();
+    auto minmaxMean = make_min_max();
+    auto minmaxRMS = make_min_max();
+    auto minmaxGauss = make_min_max();
+    auto minmaxFWHM = make_min_max();
 
-    for (const auto &is: stats | indexed(0))
+    double sumEntries = 0.0;
+    double sumMean = 0.0;
+    double sumRMS = 0.0;
+    double sumGauss = 0.0;
+    double sumFWHM = 0.0;
+    size_t nonEmptyHistos = 0u;
+
+
+    for (const auto &is: allHistoStats | indexed(0))
     {
         const auto &index = is.index();
         const auto &stats = is.value();
-        const auto &histo = histos[index];
+        //const auto &histo = histos[index];
 
+#if 0
         if (stats.entryCount > 0)
         {
             for (s64 bin=0; bin<reducedBinCount; ++bin)
@@ -123,32 +144,133 @@ QTextStream &print_histolist_stats(
                 }
             }
         }
+#endif
 
+#if 0
         sumWeightedRms  += stats.sigma * stats.entryCount;
         sumWeightedMean += stats.mean * stats.entryCount;
         sumEntryCounts += stats.entryCount;
+#endif
 
-        out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
-            << index << stats.entryCount << stats.mean << stats.sigma;
+        if (stats.entryCount)
+        {
+            out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+                << index << stats.entryCount << stats.mean << stats.sigma;
+        }
+        else
+        {
+            out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+                << index << stats.entryCount << "-" << "-";
+        }
 
         if (opts.printGaussStats)
-            out << stats.fwhmCenter << stats.fwhm;
+        {
+            if (stats.entryCount)
+                out << stats.fwhmCenter << stats.fwhm;
+            else
+                out << "-" << "-";
+        }
 
         out << qSetFieldWidth(0) << endl;
+
+        if (stats.entryCount)
+        {
+            update_min_max(minmaxEntries, stats.entryCount);
+            update_min_max(minmaxMean, stats.mean);
+            update_min_max(minmaxRMS, stats.sigma);
+            update_min_max(minmaxGauss, stats.fwhmCenter);
+            update_min_max(minmaxFWHM, stats.fwhm);
+
+            sumEntries += stats.entryCount;
+            sumMean += stats.mean;
+            sumRMS += stats.sigma;
+            sumGauss += stats.fwhmCenter;
+            sumFWHM += stats.fwhm;
+
+            ++nonEmptyHistos;
+        }
+    }
+
+    out << endl;
+
+    // minimum column values
+    if (nonEmptyHistos)
+    {
+        out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+            << "min" << minmaxEntries.first << minmaxMean.first <<  minmaxRMS.first;
+
+        if (opts.printGaussStats)
+            out << minmaxGauss.first << minmaxFWHM.first;
+    }
+    else
+    {
+        out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+            << "min" << "-" << "-" << "-";
+
+        if (opts.printGaussStats)
+            out << "-" << "-";
     }
 
     out << qSetFieldWidth(0) << endl;
 
-    out << "min: " << minValue.first << " in histo " << minValue.second << endl;
-    out << "max: " << maxValue.first << " in histo " << maxValue.second << endl;
+    // maximum column values
+    if (nonEmptyHistos)
+    {
+        out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+            << "max" << minmaxEntries.second << minmaxMean.second <<  minmaxRMS.second;
+
+        if (opts.printGaussStats)
+            out << minmaxGauss.second << minmaxFWHM.second;
+    }
+    else
+    {
+        out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+            << "max" << "-" << "-" << "-";
+
+        if (opts.printGaussStats)
+            out << "-" << "-";
+    }
+
+    out << qSetFieldWidth(0) << endl;
+
+    // mean column values
+    if (nonEmptyHistos)
+    {
+        double meanEntries = sumEntries / nonEmptyHistos;
+        double meanMean = sumMean / nonEmptyHistos;
+        double meanRMS = sumRMS / nonEmptyHistos;
+        double meanGauss = sumGauss / nonEmptyHistos;
+        double meanFWHM = sumFWHM / nonEmptyHistos;
+
+        out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+            << "mean" << meanEntries << meanMean << meanRMS;
+
+        if (opts.printGaussStats)
+            out << meanGauss << meanFWHM;
+    }
+    else
+    {
+        out << qSetFieldWidth(0) << "  " << qSetFieldWidth(FieldWidth)
+            << "mean" << "-" << "-" << "-";
+
+        if (opts.printGaussStats)
+            out << "-" << "-";
+    }
+
+    out << qSetFieldWidth(0) << endl;
+
+    //out << "min: " << minValue.first << " in histo " << minValue.second << endl;
+    //out << "max: " << maxValue.first << " in histo " << maxValue.second << endl;
 
     out << endl;
 
+#if 0
     double weightedMean = sumWeightedMean / sumEntryCounts;
     double weightedRms = sumWeightedRms / sumEntryCounts;
 
     out << "mean: " << weightedMean << endl;
     out << "rms: " << weightedRms << endl;
+#endif
 
     return out;
 }

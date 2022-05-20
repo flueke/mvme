@@ -18,10 +18,12 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include "a2_exprtk.h"
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
 #include "util/assert.h"
 #include "util/perf.h"
+#include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <cpp11-on-multicore/common/benaphore.h>
 
 #include <algorithm>
@@ -167,9 +169,32 @@ void invalidate_outputs(Operator *op)
 }
 
 /* ===============================================
- * Extractors
+ * Extractors / DataSources
  * =============================================== */
 static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
+
+/** Creates a DataSource with the specified type, moduleIndex and outputCount.
+ *
+ * To make the DataSource functional output parameter vectors have to be
+ * created and setup using push_output_vectors().
+ */
+DataSource make_datasource(Arena *arena, u8 type, u8 moduleIndex, u8 outputCount)
+{
+    DataSource result = {};
+
+    result.outputs = arena->pushArray<ParamVec>(outputCount);
+    result.outputLowerLimits = arena->pushArray<ParamVec>(outputCount);
+    result.outputUpperLimits = arena->pushArray<ParamVec>(outputCount);
+    result.hitCounts = arena->pushArray<ParamVec>(outputCount);
+
+    result.type = type;
+    result.moduleIndex = moduleIndex;
+    result.outputCount = outputCount;
+    result.d = nullptr;
+
+    return result;
+}
+
 
 size_t get_address_count(DataSource *ds)
 {
@@ -187,9 +212,20 @@ size_t get_address_count(DataSource *ds)
                 return get_address_count(ex);
             } break;
 
+        case DataSource_MultiHitExtractor_ArrayPerHit:
+        case DataSource_MultiHitExtractor_ArrayPerAddress:
+            {
+                auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
+                return get_address_count(ex);
+            } break;
+
+#if 0
         case DataSource_Copy:
-            return ds->output.size();
+            return ds->outputs[0].size;
+#endif
     }
+
+    assert(false);
 
     return 0u;
 }
@@ -252,14 +288,11 @@ DataSource make_datasource_extractor(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    DataSource result = {};
-    result.type = DataSource_Extractor;
+    auto result = make_datasource(arena, DataSource_Extractor, moduleIndex, 1);
 
     auto ex = arena->pushObject<Extractor>();
     *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
     result.d = ex;
-
-    result.moduleIndex = moduleIndex;
 
     size_t addrCount = get_address_count(&result);
 
@@ -268,11 +301,7 @@ DataSource make_datasource_extractor(
     // (2^bits).
     double upperLimit = std::pow(2.0, get_extract_bits(&ex->filter, MultiWordFilter::CacheD));
 
-    result.output.data = push_param_vector(arena, addrCount, invalid_param());
-    result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
-    result.output.upperLimits = push_param_vector(arena, addrCount, upperLimit);
-
-    result.hitCounts = push_param_vector(arena, addrCount, 0.0);
+    push_output_vectors(arena, &result, 0, addrCount, 0.0, upperLimit);
 
     return  result;
 }
@@ -283,7 +312,7 @@ void extractor_begin_event(DataSource *ds)
     auto ex = reinterpret_cast<Extractor *>(ds->d);
     clear_completion(&ex->filter);
     ex->currentCompletions = 0;
-    invalidate_all(ds->output.data);
+    invalidate_all(ds->outputs[0]);
 }
 
 void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
@@ -309,15 +338,15 @@ void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
                 u64  address = extract(&ex->filter, MultiWordFilter::CacheA);
                 double value = static_cast<double>(extract(&ex->filter, MultiWordFilter::CacheD));
 
-                assert(address < static_cast<u64>(ds->output.data.size));
+                assert(address < static_cast<u64>(ds->outputs[0].size));
 
-                if (!is_param_valid(ds->output.data[address]))
+                if (!is_param_valid(ds->outputs[0][address]))
                 {
                     if (!(ex->options & DataSourceOptions::NoAddedRandom))
                         value += RealDist01(ex->rng);
 
-                    ds->output.data[address] = value;
-                    ds->hitCounts[address]++;
+                    ds->outputs[0][address] = value;
+                    ds->hitCounts[0][address]++;
                 }
             }
 
@@ -351,14 +380,11 @@ DataSource make_datasource_listfilter_extractor(
     u8 moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    DataSource result = {};
-    result.type = DataSource_ListFilterExtractor;
+    auto result = make_datasource(arena, DataSource_ListFilterExtractor, moduleIndex, 1);
 
     auto ex = arena->pushObject<ListFilterExtractor>();
     *ex = make_listfilter_extractor(listFilter, repetitions, rngSeed, options);
     result.d = ex;
-
-    result.moduleIndex = moduleIndex;
 
     // This call works because listFilter and repetitionAddressCache have been
     // initialzed at this point.
@@ -369,11 +395,7 @@ DataSource make_datasource_listfilter_extractor(
 
     double upperLimit = std::pow(2.0, databits);
 
-    result.output.data = push_param_vector(arena, addressCount, invalid_param());
-    result.output.lowerLimits = push_param_vector(arena, addressCount, 0.0);
-    result.output.upperLimits = push_param_vector(arena, addressCount, upperLimit);
-
-    result.hitCounts = push_param_vector(arena, addressCount, 0.0);
+    push_output_vectors(arena, &result, 0, addressCount, 0.0, upperLimit);
 
     return result;
 }
@@ -381,7 +403,7 @@ DataSource make_datasource_listfilter_extractor(
 void listfilter_extractor_begin_event(DataSource *ds)
 {
     assert(ds->type == DataSource_ListFilterExtractor);
-    invalidate_all(ds->output.data);
+    invalidate_all(ds->outputs[0]);
 }
 
 const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
@@ -426,15 +448,15 @@ const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *d
             address |= (rep << baseAddressBits);
         }
 
-        assert(address < static_cast<u64>(ds->output.data.size));
+        assert(address < static_cast<u64>(ds->outputs[0].size));
 
-        if (!is_param_valid(ds->output.data[address]))
+        if (!is_param_valid(ds->outputs[0][address]))
         {
             if (!(ex->options & DataSourceOptions::NoAddedRandom))
                 value += RealDist01(ex->rng);
 
-            ds->output.data[address] = value;
-            ds->hitCounts[address]++;
+            ds->outputs[0][address] = value;
+            ds->hitCounts[0][address]++;
         }
 
         if (curPtr >= data + dataSize)
@@ -444,7 +466,244 @@ const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *d
     return curPtr;
 }
 
+// MultiHitExtractor
+MultiHitExtractor make_multihit_extractor(
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options)
+{
+    MultiHitExtractor mex = {};
+
+    mex.shape = shape;
+    mex.filter = filter;
+    mex.cacheA = make_cache_entry(filter, 'A');
+    mex.cacheD = make_cache_entry(filter, 'D');
+    mex.maxHits = maxHits;
+    mex.rng.seed(rngSeed);
+    mex.options = options;
+
+    return mex;
+}
+
+DataSource make_datasource_multihit_extractor(
+    memory::Arena *arena,
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    int moduleIndex,
+    DataSourceOptions::opt_t options)
+{
+    static const double TotalHitsUpperLimit = 10.0;
+
+    auto ex = arena->pushObject<MultiHitExtractor>();
+    *ex = make_multihit_extractor(shape, filter, maxHits, rngSeed, options);
+    size_t addressCount = get_address_count(ex);
+    size_t dataBits = get_extract_bits(filter, 'D');
+    double upperLimit = std::pow(2.0, dataBits);
+
+    DataSource result = {};
+
+    switch (shape)
+    {
+        case MultiHitExtractor::ArrayPerHit:
+            {
+                result = make_datasource(
+                    arena, DataSource_MultiHitExtractor_ArrayPerHit,
+                    moduleIndex, maxHits + 1);
+
+                // Output arrays
+                for (u16 hit=0; hit<maxHits; ++hit)
+                    push_output_vectors(arena, &result, hit, addressCount, 0.0, upperLimit);
+
+                // TotalHits output
+                push_output_vectors(arena, &result, maxHits, addressCount, 0.0, TotalHitsUpperLimit);
+                auto &totalHits = result.outputs[result.outputCount-1];
+                std::fill(totalHits.data, totalHits.data + totalHits.size, 0.0);
+
+            } break;
+
+        case MultiHitExtractor::ArrayPerAddress:
+            {
+                result = make_datasource(
+                    arena, DataSource_MultiHitExtractor_ArrayPerAddress,
+                    moduleIndex, addressCount + 1);
+
+                // Output arrays
+                for (size_t addr=0; addr<addressCount; ++addr)
+                    push_output_vectors(arena, &result, addr, maxHits, 0.0, upperLimit);
+
+                // TotalHits output
+                push_output_vectors(arena, &result, addressCount, addressCount, 0.0, TotalHitsUpperLimit);
+                auto &totalHits = result.outputs[result.outputCount-1];
+                std::fill(totalHits.data, totalHits.data + totalHits.size, 0.0);
+
+            } break;
+
+        default:
+            throw std::runtime_error("Unknown MultiHitExtractor::Shape");
+    }
+
+    result.d = ex;
+
+    return result;
+}
+
+void multihit_extractor_begin_event(DataSource *ds)
+{
+    assert(ds);
+    assert(ds->type == DataSource_MultiHitExtractor_ArrayPerHit
+           || ds->type == DataSource_MultiHitExtractor_ArrayPerAddress);
+
+    // Invalidate all output arrays except for the totalHits array.
+    for (u8 outIndex=0; outIndex<ds->outputCount-1; ++outIndex)
+    {
+        invalidate_all(ds->outputs[outIndex]);
+    }
+
+    // Set totalHits to 0.0
+    auto &totalHits = ds->outputs[ds->outputCount-1];
+    fill(totalHits, 0.0);
+}
+
+namespace
+{
+
+inline void multihit_extractor_process_module_data_array_per_hit(
+    DataSource *ds, const u32 *data, u32 dataSize)
+{
+    auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
+    assert(ex->shape == MultiHitExtractor::Shape::ArrayPerHit);
+
+    auto &totalHits = ds->outputs[ds->outputCount-1];
+    assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                       [] (double d) { return !std::isnan(d); }));
+
+    auto &totalHitsHitCounts = ds->hitCounts[ds->outputCount-1];
+
+    for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
+    {
+        u32 dataWord = data[wordIndex];
+
+        if (matches(ex->filter, dataWord, wordIndex))
+        {
+            u32 address = extract(ex->cacheA, dataWord);
+
+            // Save the value in the first output array that does not
+            // contain a valid value yet.
+            for (u8 outIndex = 0; outIndex < ds->outputCount-1; ++outIndex)
+            {
+                if (!is_param_valid(ds->outputs[outIndex][address]))
+                {
+                    double value = extract(ex->cacheD, dataWord);
+
+                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                        value += RealDist01(ex->rng);
+
+                    ds->outputs[outIndex][address] = value;
+                    ++ds->hitCounts[outIndex][address];
+                    break;
+                }
+            }
+
+            ++totalHits[address];
+            ++totalHitsHitCounts[address];
+        }
+    }
+}
+
+inline void multihit_extractor_process_module_data_array_per_address(
+    DataSource *ds, const u32 *data, u32 dataSize)
+{
+    auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
+    assert(ex->shape == MultiHitExtractor::Shape::ArrayPerAddress);
+
+    auto &totalHits = ds->outputs[ds->outputCount-1];
+    assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
+                       [] (double d) { return !std::isnan(d); }));
+
+    auto &totalHitsHitCounts = ds->hitCounts[ds->outputCount-1];
+
+    for (u32 wordIndex = 0; wordIndex < dataSize; wordIndex++)
+    {
+        u32 dataWord = data[wordIndex];
+
+        if (matches(ex->filter, dataWord, wordIndex))
+        {
+            // The extracted address specifies the output number to store the
+            // value in.
+            u32 address = extract(ex->cacheA, dataWord);
+            auto &output = ds->outputs[address];
+
+            // Store the value in the first non-valid entry of the output
+            // array.
+            for (s32 paramIndex=0; paramIndex<output.size; ++paramIndex)
+            {
+                if (!is_param_valid(output[paramIndex]))
+                {
+                    double value = extract(ex->cacheD, dataWord);
+
+                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                        value += RealDist01(ex->rng);
+
+                    output[paramIndex] = value;
+                    ++ds->hitCounts[address][paramIndex];
+                    break;
+                }
+            }
+
+            ++totalHits[address];
+            ++totalHitsHitCounts[address];
+        }
+    }
+}
+
+} // end anon namespace
+
+void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
+{
+    assert(ds);
+    assert(ds->type == DataSource_MultiHitExtractor_ArrayPerHit
+           || ds->type == DataSource_MultiHitExtractor_ArrayPerAddress);
+    assert(memory::is_aligned(data, ModuleDataAlignment));
+
+    switch (ds->type)
+    {
+        case DataSourceType::DataSource_MultiHitExtractor_ArrayPerHit:
+            multihit_extractor_process_module_data_array_per_hit(ds, data, dataSize);
+            break;
+
+        case DataSourceType::DataSource_MultiHitExtractor_ArrayPerAddress:
+            multihit_extractor_process_module_data_array_per_address(ds, data, dataSize);
+            break;
+    }
+}
+
 // DataSource_Copy
+
+#if 0
+DataSource make_datasource_copy(
+    memory::Arena *arena,
+    u32 outputSize,
+    double outputLowerLimit,
+    double outputUpperLimit,
+    u32 dataStartIndex)
+{
+    auto dsc = arena->pushObject<DataSourceCopy>();
+    dsc->startIndex = dataStartIndex;
+
+    DataSource result = {};
+    result.type = DataSource_Copy;
+    result.d = dsc;
+    result.output.data = push_param_vector(arena, outputSize, invalid_param());
+    result.output.lowerLimits = push_param_vector(arena, outputSize, outputLowerLimit);
+    result.output.upperLimits = push_param_vector(arena, outputSize, outputUpperLimit);
+    result.hitCounts = push_param_vector(arena, outputSize, 0.0);
+
+    return result;
+}
 
 void datasource_copy_begin_event(DataSource *ds)
 {
@@ -467,27 +726,7 @@ void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 si
     for (const u32 *cur = begin; cur < end; ++cur, ++dest)
         *dest = *cur;
 }
-
-DataSource make_datasource_copy(
-    memory::Arena *arena,
-    u32 outputSize,
-    double outputLowerLimit,
-    double outputUpperLimit,
-    u32 dataStartIndex)
-{
-    auto dsc = arena->pushObject<DataSourceCopy>();
-    dsc->startIndex = dataStartIndex;
-
-    DataSource result = {};
-    result.type = DataSource_Copy;
-    result.d = dsc;
-    result.output.data = push_param_vector(arena, outputSize, invalid_param());
-    result.output.lowerLimits = push_param_vector(arena, outputSize, outputLowerLimit);
-    result.output.upperLimits = push_param_vector(arena, outputSize, outputUpperLimit);
-    result.hitCounts = push_param_vector(arena, outputSize, 0.0);
-
-    return result;
-}
+#endif
 
 /* ===============================================
  * Operators
@@ -513,7 +752,7 @@ Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
     result.type = type;
     result.inputCount = inputCount;
     result.outputCount = outputCount;
-    result.conditionIndex = Operator::NoCondition;
+    result.conditionBitIndexes = {};
     result.d = nullptr;
 
     return  result;
@@ -2565,8 +2804,6 @@ Operator make_expression_operator(
     return result;
 }
 
-#undef register_symbol
-
 void expression_operator_compile_step_expression(Operator *op)
 {
     assert(op->type == Operator_Expression);
@@ -2762,9 +2999,11 @@ bool is_condition_operator(const Operator &op)
 {
     switch (op.type)
     {
-        case Operator_ConditionInterval:
-        case Operator_ConditionRectangle:
-        case Operator_ConditionPolygon:
+        case Operator_IntervalCondition:
+        case Operator_RectangleCondition:
+        case Operator_PolygonCondition:
+        case Operator_LutCondition:
+        case Operator_ExpressionCondition:
             return true;
 
         default:
@@ -2774,45 +3013,72 @@ bool is_condition_operator(const Operator &op)
     return false;
 }
 
-u32 get_number_of_condition_bits_used(const Operator &op)
+namespace
 {
-    assert(op.inputCount >= 1);
-
-    switch (op.type)
+    // Creates an operator with a single output of size 1 and limits [0.0,
+    // 2.0). Intended to create condition-type operators.
+    Operator make_condition_operator(memory::Arena *arena, u8 type, u8 inputCount)
     {
-        case Operator_ConditionInterval:
-            return op.inputs[0].size;
-
-        case Operator_ConditionRectangle:
-        case Operator_ConditionPolygon:
-            return 1;
-
-        default:
-            break;
+        auto result = make_operator(arena, type, inputCount, 1);
+        push_output_vectors(arena, &result, 0, 1, 0.0, 2.0);
+        return result;
     }
 
-    return 0;
+    // set output value to 1.0 if condition was met, invalidate otherwise
+    void set_condition_output(Operator *cond, bool condResult)
+    {
+        cond->outputs[0][0] = condResult ? 1.0 : invalid_param();
+    }
 }
 
-Operator make_condition_interval(
+Operator make_interval_condition(
     memory::Arena *arena,
     PipeVectors input,
     const std::vector<Interval> &intervals)
 {
-    auto result = make_operator(arena, Operator_ConditionInterval, 1, 0);
+    auto result = make_condition_operator(arena, Operator_IntervalCondition, 1);
 
     assign_input(&result, input, 0);
 
     auto d = arena->pushStruct<ConditionIntervalData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->bitIndex = ConditionBaseData::InvalidBitIndex;
     d->intervals = push_copy_typed_block<Interval, s32>(arena, intervals);
 
     return result;
 }
 
-Operator make_condition_rectangle(
+void interval_condition_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_IntervalCondition);
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+
+    auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
+
+    assert(op->inputs[0].size == d->intervals.size);
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
+
+    const s32 maxIdx = op->inputs[0].size;
+
+    // Calculate the OR of the individual interval range checks.
+    bool result = false;
+
+    for (s32 idx = 0; idx < maxIdx && !result; idx++)
+        result |= in_range(d->intervals[idx], op->inputs[0][idx]);
+
+    // Write the result to the central condition bit set
+    a2->conditionBits.set(d->bitIndex, result);
+
+    // Also write the result to the output vector.
+    op->outputs[0][0] = result;
+    set_condition_output(op, result);
+}
+
+Operator make_rectangle_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
@@ -2821,7 +3087,7 @@ Operator make_condition_rectangle(
     Interval xInterval,
     Interval yInterval)
 {
-    auto result = make_operator(arena, Operator_ConditionRectangle, 2, 0);
+    auto result = make_condition_operator(arena, Operator_RectangleCondition, 2);
 
     assign_input(&result, xInput, 0);
     assign_input(&result, yInput, 1);
@@ -2829,7 +3095,7 @@ Operator make_condition_rectangle(
     auto d = arena->pushStruct<ConditionRectangleData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->bitIndex = ConditionBaseData::InvalidBitIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
     d->xInterval = xInterval;
@@ -2838,7 +3104,29 @@ Operator make_condition_rectangle(
     return result;
 }
 
-Operator make_condition_polygon(
+void rectangle_condition_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_RectangleCondition);
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 1);
+
+    auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
+
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
+    assert(d->xIndex < op->inputs[0].size);
+    assert(d->yIndex < op->inputs[1].size);
+
+    bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
+    bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
+    bool result = xInside && yInside;
+
+    a2->conditionBits.set(d->bitIndex, result);
+    set_condition_output(op, result);
+}
+
+Operator make_polygon_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
@@ -2846,7 +3134,7 @@ Operator make_condition_polygon(
     s32 yIndex,
     const std::vector<std::pair<double, double>> &polygon)
 {
-    auto result = make_operator(arena, Operator_ConditionPolygon, 2, 0);
+    auto result = make_condition_operator(arena, Operator_PolygonCondition, 2);
 
     assign_input(&result, xInput, 0);
     assign_input(&result, yInput, 1);
@@ -2855,7 +3143,7 @@ Operator make_condition_polygon(
     auto d = arena->pushObject<ConditionPolygonData>();
     result.d = d;
 
-    d->firstBitIndex = ConditionBaseData::InvalidIndex;
+    d->bitIndex = ConditionBaseData::InvalidBitIndex;
     d->xIndex = xIndex;
     d->yIndex = yIndex;
 
@@ -2870,76 +3158,170 @@ Operator make_condition_polygon(
 
 }
 
-void condition_interval_step(Operator *op, A2 *a2)
+void polygon_condition_step(Operator *op, A2 *a2)
 {
     a2_trace("\n");
-    assert(op->inputCount == 1);
-    assert(op->outputCount == 0);
-    assert(op->type == Operator_ConditionInterval);
-
-    auto d = reinterpret_cast<ConditionIntervalData *>(op->d);
-
-    assert(op->inputs[0].size == d->intervals.size);
-    assert(0 <= d->firstBitIndex);
-    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
-    assert(static_cast<size_t>(d->firstBitIndex) + d->intervals.size <= a2->conditionBits.size());
-
-    const s32 maxIdx = op->inputs[0].size;
-
-    for (s32 idx = 0; idx < maxIdx; idx++)
-    {
-        bool condResult = in_range(d->intervals[idx], op->inputs[0][idx]);
-
-        a2->conditionBits.set(d->firstBitIndex + idx, condResult);
-    }
-}
-
-void condition_rectangle_step(Operator *op, A2 *a2)
-{
-    a2_trace("\n");
+    assert(op->type == Operator_PolygonCondition);
     assert(op->inputCount == 2);
-    assert(op->outputCount == 0);
-    assert(op->type == Operator_ConditionRectangle);
-
-    auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
-
-    assert(0 <= d->firstBitIndex);
-    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
-    assert(d->xIndex < op->inputs[0].size);
-    assert(d->yIndex < op->inputs[1].size);
-
-    bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
-    bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
-
-    a2->conditionBits.set(d->firstBitIndex, xInside && yInside);
-}
-
-void condition_polygon_step(Operator *op, A2 *a2)
-{
-    a2_trace("\n");
-    assert(op->inputCount == 2);
-    assert(op->outputCount == 0);
-    assert(op->type == Operator_ConditionPolygon);
+    assert(op->outputCount == 1);
 
     auto d = reinterpret_cast<ConditionPolygonData *>(op->d);
 
-    assert(0 <= d->firstBitIndex);
-    assert(static_cast<size_t>(d->firstBitIndex) < a2->conditionBits.size());
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
     assert(d->xIndex < op->inputs[0].size);
     assert(d->yIndex < op->inputs[1].size);
 
     Point p = { op->inputs[0][d->xIndex], op->inputs[1][d->yIndex] };
 
-    bool condResult = bg::within(p, d->polygon);
+    bool result = bg::within(p, d->polygon);
 
-    a2->conditionBits.set(d->firstBitIndex, condResult);
+    a2->conditionBits.set(d->bitIndex, result);
+    set_condition_output(op, result);
 }
 
-/*
-struct ConditionLogicData
+// LutCondition
+
+struct LutConditionData: public ConditionBaseData
 {
+    TypedBlock<s32> inputParamIndexes;
+    boost::dynamic_bitset<unsigned long> lut;
 };
-*/
+
+Operator make_lut_condition(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &inputParamIndexes,
+    const std::vector<bool> &lut)
+{
+    assert(inputs.size() == inputParamIndexes.size());
+    assert(lut.size() == 1u << inputs.size());
+
+    auto result = make_condition_operator(arena, Operator_LutCondition, inputs.size());
+
+    // assign the inputs
+    for (size_t in_idx = 0; in_idx < inputs.size(); ++in_idx)
+    {
+        const auto &input = inputs[in_idx];
+        assign_input(&result, input, in_idx);
+    }
+
+    // prepare the specific data object
+    auto d = arena->pushObject<LutConditionData>();
+    result.d = d;
+
+    d->inputParamIndexes = push_copy_typed_block<s32>(arena, inputParamIndexes);
+    d->lut.resize(lut.size());
+
+    for (size_t lutIndex = 0; lutIndex < lut.size(); ++lutIndex)
+    {
+        bool bitValue = lut[lutIndex];
+        d->lut.set(lutIndex, bitValue);
+    }
+
+    return result;
+}
+
+void lut_condition_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_LutCondition);
+    assert(op->inputCount > 0);
+    assert(op->outputCount == 1);
+
+    auto d = reinterpret_cast<LutConditionData *>(op->d);
+
+    assert(0 <= d->bitIndex);
+    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
+    assert(op->inputCount == d->inputParamIndexes.size);
+
+
+    // calculate the lut index from the input values
+    u32 lutIndex = 0u;
+
+    for (unsigned inputIndex = 0; inputIndex < op->inputCount; ++inputIndex)
+    {
+        const auto &input = op->inputs[inputIndex];
+        const auto &paramIndex = d->inputParamIndexes[inputIndex];
+        auto paramValue = input[paramIndex];
+
+        if (is_param_valid(paramValue))
+            lutIndex |= 1u << inputIndex;
+    }
+
+    assert(lutIndex < d->lut.size());
+
+    // retrieve the result and set it on the central bitset and the output pipe
+    bool result = d->lut[lutIndex];
+
+    a2->conditionBits.set(d->bitIndex, result);
+    set_condition_output(op, result);
+}
+
+// ExpressionCondition
+
+struct ExpressionConditionData: ConditionBaseData
+{
+    a2_exprtk::SymbolTable symtab;
+    a2_exprtk::Expression expr;
+    TypedBlock<s32> inputParamIndexes;
+    TypedBlock<double> values; // storage for input values. updated in step()
+};
+
+Operator make_expression_condition(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &inputParamIndexes,
+    const std::vector<std::string> &inputNames,
+    const std::string &expression)
+{
+    assert(inputs.size() == inputParamIndexes.size());
+    assert(inputs.size() == inputNames.size());
+
+    auto result = make_condition_operator(arena, Operator_ExpressionCondition, inputs.size());
+    auto d = arena->pushObject<ExpressionConditionData>();
+    result.d = d;
+    d->values = push_typed_block<double>(arena, inputs.size());
+
+    for (size_t i=0; i<inputs.size(); ++i)
+    {
+        const auto &name = inputNames[i];
+        register_symbol(d->symtab, addScalar, name, d->values[i]);
+    }
+
+    d->expr.setExpressionString(expression);
+    d->expr.compile();
+
+    return result;
+}
+
+void expression_condition_step(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExpressionCondition);
+    assert(op->inputCount > 0);
+    assert(op->outputCount == 1);
+
+    auto d = reinterpret_cast<ExpressionConditionData *>(op->d);
+    assert(op->inputCount == d->inputParamIndexes.size);
+
+    for (unsigned inputIndex=0; inputIndex<op->inputCount; ++inputIndex)
+    {
+        const auto &input = op->inputs[inputIndex];
+        const auto &pi = d->inputParamIndexes[inputIndex];
+        double paramValue = input[pi];
+        // convert invalid to 0.0, valid to 1.0
+        d->values[inputIndex] = is_param_valid(paramValue) ? 1.0 : 0.0;
+    }
+
+    // Evaluate and interpret result as a boolean
+    bool result = static_cast<bool>(d->expr.eval());
+
+    a2->conditionBits.set(d->bitIndex, result);
+    set_condition_output(op, result);
+}
+
+#undef register_symbol
 
 /* ===============================================
  * Sinks: Histograms/RateMonitor/ExportSink
@@ -4014,9 +4396,11 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_ScalerOverflow] = { scaler_overflow_step };
     result[Operator_ScalerOverflow_idx] = { scaler_overflow_step_idx };
 
-    result[Operator_ConditionInterval] = { condition_interval_step };
-    result[Operator_ConditionRectangle] = { condition_rectangle_step };
-    result[Operator_ConditionPolygon] = { condition_polygon_step };
+    result[Operator_IntervalCondition] = { interval_condition_step };
+    result[Operator_RectangleCondition] = { rectangle_condition_step };
+    result[Operator_PolygonCondition] = { polygon_condition_step };
+    result[Operator_LutCondition] = { lut_condition_step };
+    result[Operator_ExpressionCondition] = { expression_condition_step };
 
     return result;
 }
@@ -4061,7 +4445,7 @@ A2 *make_a2(
     for (size_t ei = 0; ei < operatorCounts.size(); ++ei)
     {
         result->operators[ei] = arena->pushArray<Operator>(operatorCounts.begin()[ei]);
-        result->operatorRanks[ei] = arena->pushArray<u8>(operatorCounts.begin()[ei]);
+        result->operatorRanks[ei] = arena->pushArray<A2::OperatorCountType>(operatorCounts.begin()[ei]);
     }
 
     return result;
@@ -4090,22 +4474,19 @@ void a2_begin_event(A2 *a2, int eventIndex)
                 listfilter_extractor_begin_event(ds);
                 break;
 
+            case DataSource_MultiHitExtractor_ArrayPerHit:
+            case DataSource_MultiHitExtractor_ArrayPerAddress:
+                multihit_extractor_begin_event(ds);
+                break;
+
+#if 0
             case DataSource_Copy:
                 datasource_copy_begin_event(ds);
                 break;
+#endif
         }
     }
 }
-
-#if 0
-void a2_process_module_prefix(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
-{
-}
-
-void a2_process_module_suffix(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
-{
-}
-#endif
 
 // hand module data to all sources for eventIndex and moduleIndex
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
@@ -4143,9 +4524,16 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
                         curPtr = listfilter_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
                     }
                 } break;
+
+            case DataSource_MultiHitExtractor_ArrayPerHit:
+            case DataSource_MultiHitExtractor_ArrayPerAddress:
+                multihit_extractor_process_module_data(ds, data, dataSize);
+                break;
+#if 0
             case DataSource_Copy:
                 datasource_copy_process_module_data(ds, data, dataSize);
                 break;
+#endif
         }
 #ifndef NDEBUG
         nprocessed++;
@@ -4281,13 +4669,15 @@ void a2_end_event(A2 *a2, int eventIndex)
         {
             assert(get_operator_table()[op->type].step);
 
-            if (op->conditionIndex >= 0)
+            bool stepOperator = true;
+
+            for (auto bitIndex: op->conditionBitIndexes)
             {
-                assert(static_cast<size_t>(op->conditionIndex) < a2->conditionBits.size());
+                assert(bitIndex < a2->conditionBits.size());
+                stepOperator = stepOperator && a2->conditionBits.test(bitIndex);
             }
 
-            if (op->conditionIndex < 0
-                || a2->conditionBits.test(op->conditionIndex))
+            if (stepOperator)
             {
                 // no active condition or the condition is true
                 get_operator_table()[op->type].step(op, a2);
@@ -4311,7 +4701,7 @@ void a2_end_event(A2 *a2, int eventIndex)
     a2_trace("ei=%d, operators stepped=%d, condSkipped=%d\n",
              eventIndex, opSteppedCount, opCondSkipped);
 
-    // condition debug output
+    // Condition debug output: print condition info, bit index and bit value
     for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
         Operator *op = operators + opIdx;
@@ -4319,21 +4709,12 @@ void a2_end_event(A2 *a2, int eventIndex)
         if (is_condition_operator(*op))
         {
             auto d = reinterpret_cast<ConditionBaseData *>(op->d);
-            u32 bitCount = get_number_of_condition_bits_used(*op);
 
-            assert(d->firstBitIndex >= 0);
+            assert(d->bitIndex >= 0); // bitIndex must have been assigned when the runtime was built
+            assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
 
-            a2_trace("ei=%d, condOp@%p, condType=%u, firstBit=%d, bitCount=%u:\n  ",
-                     eventIndex, op, op->type, d->firstBitIndex, bitCount);
-
-
-            for (u32 pos = d->firstBitIndex; pos < d->firstBitIndex + bitCount; pos++)
-            {
-                assert(pos < a2->conditionBits.size());
-                a2_trace_np("%d, ", a2->conditionBits.test(pos));
-            }
-
-            a2_trace_np("\n");
+            a2_trace("ei=%d, condOp@%p, condType=%u, bitIndex=%d, bitValue=%d",
+                     eventIndex, op, op->type, d->bitIndex, a2->conditionBits.test(d->bitIndex));
         }
     }
 }

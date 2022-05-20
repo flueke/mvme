@@ -120,7 +120,8 @@ function(add_a2_test exe_name exe_sources)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_a2_test)
 
-if(BUILD_TESTS)
+if(MVME_BUILD_TESTS)
+    enable_testing()
 
     find_library(GOOGLE_BENCHMARK benchmark)
     find_path(GOOGLE_BENCHMARK_INCLUDE_DIR "benchmark/benchmark.h")
@@ -161,7 +162,7 @@ if(BUILD_TESTS)
     target_link_libraries(test_a2_expression_operator ${A2_TEST_LIBRARY} gtest gtest_main)
     add_test(NAME test_a2_expression_operator COMMAND $<TARGET_FILE:test_a2_expression_operator>)
 
-endif(BUILD_TESTS)
+endif(MVME_BUILD_TESTS)
 
 file(COPY env DESTINATION ${CMAKE_BINARY_DIR})
 #file(COPY histoviewer.py DESTINATION .)

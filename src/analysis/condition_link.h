@@ -11,14 +11,15 @@
 namespace analysis
 {
 
+#if 0
 struct LIBMVME_EXPORT ConditionLink
 {
     /* The condition referenced by this link. */
     ConditionPtr condition;
 
-    /* Subindex into the conditions bits in case the condition has multiple
+    /* Subindex into the condition bits in case the condition has multiple
      * bits. */
-    s32 subIndex = 0;
+    s32 subIndex = 0; // TODO: remove subindex as conditions now only have a single output bit
 
     explicit operator bool() const { return condition != nullptr; }
 
@@ -44,6 +45,7 @@ inline QDebug &operator<<(QDebug& dbg, const ConditionLink &cl)
     return dbg;
 }
 
+#endif
 #endif
 
 } // end ns analysis

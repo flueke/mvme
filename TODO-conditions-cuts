@@ -1,6 +1,75 @@
---------------------------------------------------
 Analysis Conditions (Histogram Cuts and more)
---------------------------------------------------
+=============================================
+
+Expression Condition concept
+----------------------------
+
+- Variable number of inputs. Accepts only single parameters, not arrays.
+- Auto generation of variable names based on last part of the input.
+- Simpler than the expression operator: no output definition needed. Outputs a single boolean value.
+- Input values are either true or false, not numeric. At runtime valid
+  parameters are converted to true, invalid ones to false.
+- Example: cond1 and (cond2 or (cond3 xor cond4))
+- Otherwise similar to the LUT condition.
+
+
+
+Histo interactions
+------------------
+- Histo1D to work on
+- selected x1,x2
+- visibility state
+
+- IntervalPicker oder point picker ohne zone item um zwei punkte zu waehlen
+- zwei markers fuer das interval
+- ein marker fuer die formel und info
+- QwtPlotCurve
+- RateEstimationCurveData
+
+- resultion reduction
+
+states:
+- disabled
+- picking points
+- visible (drawing estimation)
+
+on_action_toggled(bool checked)
+{
+    if (checked)
+    {
+        disable_current_exclusive_tool()
+        start_point_picking();
+    }
+    else
+        enable_zoomer()
+}
+
+
+
+TODO
+----
+* Try the checkbox-based method of applying conditions to operators without the
+  extra condition tree being present.
+
+Glossary
+--------
+* Condition:
+
+  Analysis object producing a single output bit. Can be applied to other
+  objects to decide whether to execute or skip stepping of the object.
+
+* IntervalCondition:
+
+  Condition made up of 1d intervals. The output bit is the OR over all
+  individual interval tests.
+
+* Compound Condition:
+
+  Condition using the output of multiple other conditions to calculate its own output.
+
+
+Old/obsolete notes
+==================
 
 1D cut creation and editing
 -------------------------------------------
@@ -11,7 +80,7 @@ Creating an interval cut:
 - Click on "New Cut"
   Zooming is disabled, on mouse move a vertical indicator bar and x-coordinate are shown
   at the mouse cursor.
-  The first click selectes the first point. Now the zone between the first
+  The first click selects the first point. Now the zone between the first
   point and mouseX is highlighted. The second click selects the second point.
   -> The interval is fully specificed.
 
@@ -63,9 +132,6 @@ Default mode:
 * Maybe create a system for qwt plot picker handling and related tasks. The
   same might be needed for QwtPlotShapeItems to show and modify cuts
   graphically.
-* Deleting a condition keeps it alive in the condlink. Switch to weak_ptr here?
-  This will involve calls to lock() sometimes on two objects at the same time,
-  e.g. in ConditionLink::operator==()
 
 * Sinks need to be cleared when their condition is applied/removed/modified.
 
@@ -82,7 +148,7 @@ through the cut. Passing means setting the output or condition flag to true.
 
 -> So far:
 * 1d cuts have a single input pipe of size N and N intervals to test against.
-  The output is a bitset of size N.
+  The output is a single bit: the OR over all interval checks.
 
 * 2d cuts have two indexed inputs and a polygon or a rectangle to test against.
   The output is a single bit. More geometric shapes (ellipsis) should be added
@@ -149,8 +215,7 @@ Condition/Cut implementation plan and next steps
   has to be presented otherwise editing can be started from the ConditionWindow.
 
 * Applying cuts to operators:
-  A cut is selected in the cut window. in case of interval cuts a specific
-  index has to be selected.
+  A cut is selected in the cut window.
 
   The user now wants to apply the cut and uses the context menu or a button in
   the condition window. This changes the mode of the eventwidget to

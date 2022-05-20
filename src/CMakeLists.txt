@@ -260,8 +260,8 @@ add_library(libmvme SHARED
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/code_editor.cc
-    #analysis/condition_ui.cc
-    #analysis/condition_ui_p.cc
+    analysis/condition_ui.cc
+    analysis/condition_ui_p.cc
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
@@ -290,6 +290,7 @@ add_library(libmvme SHARED
     histo2d_widget.cc
     histo2d_widget_p.cc
     histo_gui_util.cc
+    histo_ui.cc
     histo_util.cc
     listfile_browser.cc
     listfile_replay.cc
@@ -333,6 +334,7 @@ add_library(libmvme SHARED
     treewidget_utils.cc
     util/qt_logview.cc
     util/qt_monospace_textedit.cc
+    util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp
     util/strings.cc
     util/variablify.cc
@@ -341,6 +343,7 @@ add_library(libmvme SHARED
     vme_analysis_common.cc
     vme_config.cc
     vme_config_json_schema_updates.cc
+    vme_config_model_view.cc
     vme_config_scripts.cc
     vme_config_tree.cc
     vme_config_ui.cc
@@ -538,6 +541,11 @@ add_mvme_executable(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
 add_mvme_executable(mvme_multi_crate_gui multi_crate_gui_main.cc)
 add_mvme_executable(dev_multi_crate_playground_cli dev_multi_crate_playground_cli.cc)
 add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
+add_mvme_executable(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
+if (NOT WIN32)
+add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
+add_mvme_executable(dev_histo_ui dev_histo_ui.cc)
+endif()
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
@@ -581,6 +589,7 @@ if(MVME_BUILD_TESTS)
 
     add_mvme_gtest(test_object_visitor analysis/test_object_visitor.cc)
     add_mvme_gtest(test_analysis_util analysis/test_analysis_util.cc)
+    add_mvme_gtest(test_analysis_operators analysis/analysis_operators.test.cc)
     add_mvme_gtest(test_listfile_constants test_listfile_constants.cc)
     #add_mvme_gtest(test_analysis_session analysis/test_analysis_session.cc)
     add_mvme_gtest(test_trigger_io_sim mvlc/test/test_trigger_io_sim.cc)

@@ -1208,6 +1208,22 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
         menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit Script"),
                        this, &VMEConfigTreeWidget::editScript);
+
+#ifndef NDEBUG
+        try
+        {
+            // For scripts that have a meta tag and thus probably open up in a unique-widget (e.g.
+            // trigger io gui) add an extra entry to allow editing in the standard script editor
+            // instead.
+            auto metaTag = vme_script::get_first_meta_block_tag(
+                mesytec::mvme::parse(vmeScript));
+
+            if (!metaTag.isEmpty())
+                menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit as VMEScript text"),
+                               this, &VMEConfigTreeWidget::editScriptInEditor);
+        }
+        catch (const vme_script::ParseError &e) { }
+#endif
     }
 
     //
@@ -2125,6 +2141,16 @@ void VMEConfigTreeWidget::editScript()
 
         emit editVMEScript(scriptConfig);
     }
+}
+
+void VMEConfigTreeWidget::editScriptInEditor()
+{
+    auto node = m_tree->currentItem();
+
+    auto obj  = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
+
+    if (auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj))
+        emit editVMEScript(scriptConfig);
 }
 
 void VMEConfigTreeWidget::editName()

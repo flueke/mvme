@@ -25,6 +25,7 @@
 #include "analysis/a2/memory.h"
 #include "analysis/a2/multiword_datafilter.h"
 #include "analysis/analysis_fwd.h"
+#include "analysis/analysis_serialization.h"
 #include "analysis/condition_link.h"
 #include "data_filter.h"
 #include "histo1d.h"
@@ -92,6 +93,8 @@ inline QString to_string(const Parameter &p)
 
 struct LIBMVME_EXPORT ParameterVector: public QVector<Parameter>
 {
+    using QVector<Parameter>::QVector;
+
     void invalidateAll()
     {
         for (auto &param: *this)
@@ -195,7 +198,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
 {
     Q_OBJECT
     public:
-        explicit PipeSourceInterface(QObject *parent = 0)
+        explicit PipeSourceInterface(QObject *parent = nullptr)
             : AnalysisObject(parent)
         {
             //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
@@ -319,6 +322,11 @@ class LIBMVME_EXPORT Pipe
         s32 getRank() const { return rank; }
         void setRank(s32 newRank) { rank = newRank; }
 
+        void resize(size_t newSize)
+        {
+            getParameters().resize(newSize);
+        }
+
         ParameterVector parameters;
         PipeSourceInterface *source = nullptr;
         /* The index of this Pipe in source. If correctly setup the following
@@ -358,7 +366,13 @@ struct LIBMVME_EXPORT Slot
 
     inline bool isConnected() const
     {
-        return (inputPipe != nullptr);
+        if (inputPipe)
+        {
+            assert(inputPipe->source);
+            return true;
+        }
+        return false;
+        //return (inputPipe != nullptr);
     }
 
     inline bool isParamIndexInRange() const
@@ -385,6 +399,16 @@ struct LIBMVME_EXPORT Slot
     inline bool isParameterConnection() const
     {
         return !isArrayConnection();
+    }
+
+    inline const PipeSourceInterface *getSource() const
+    {
+        return isConnected() ? inputPipe->source : nullptr;
+    }
+
+    inline PipeSourceInterface *getSource()
+    {
+        return isConnected() ? inputPipe->source : nullptr;
     }
 
     u32 acceptedInputTypes = InputType::Both;
@@ -521,13 +545,28 @@ class LIBMVME_EXPORT ConditionInterface: public OperatorInterface
     Q_INTERFACES(analysis::OperatorInterface);
     public:
         using OperatorInterface::OperatorInterface;
+        ConditionInterface(QObject *parent = nullptr);
+        ~ConditionInterface() override;
 
-        // PipeSourceInterface
-        s32 getNumberOfOutputs() const override { return 0; }
-        QString getOutputName(s32 outputIndex) const override { (void) outputIndex; return QString(); }
-        Pipe *getOutput(s32 index) override { (void) index; return nullptr; }
+        // Conditions have a single output holding the result of the last
+        // evaluation of the condition.
 
-        virtual s32 getNumberOfBits() const = 0;
+        s32 getNumberOfOutputs() const override { return 1; }
+
+        QString getOutputName(s32 outputIndex) const override
+        {
+            return outputIndex == 0 ? QSL("result") : QString{};
+        }
+
+        Pipe *getOutput(s32 outputIndex) override
+        {
+            return outputIndex == 0 ? &m_resultOutput : nullptr;
+        }
+
+        void accept(ObjectVisitor &visitor) override;
+
+    private:
+        Pipe m_resultOutput;
 };
 
 
@@ -742,6 +781,57 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         a2::ListFilterExtractor m_a2Extractor;
         u64 m_rngSeed;
         QStringList m_parameterNames;
+};
+
+class LIBMVME_EXPORT MultiHitExtractor: public SourceInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SourceInterface)
+
+    public:
+        using Shape = a2::MultiHitExtractor::Shape;
+
+        Q_INVOKABLE MultiHitExtractor(QObject *parent = nullptr);
+
+        void setFilter(const DataFilter &f) { m_ex.filter = f; }
+        DataFilter getFilter() const { return m_ex.filter; }
+
+        void setMaxHits(u16 maxHits) { m_ex.maxHits = maxHits; }
+        u16 getMaxHits() const { return m_ex.maxHits; }
+
+        void setShape(Shape shape) { m_ex.shape = shape; }
+        Shape getShape() const { return m_ex.shape; }
+
+        using Options = a2::DataSourceOptions;
+        void setOptions(Options::opt_t options) { m_ex.options = options; }
+        Options::opt_t getOptions() const { return m_ex.options; }
+
+        void setRngSeed(u64 seed) { m_rngSeed = seed; }
+        u64 getRngSeed() const { return m_rngSeed; }
+
+        QString getDisplayName() const override;
+        QString getShortName() const override;
+
+        bool hasVariableNumberOfOutputs() const override { return true; }
+        s32 getNumberOfOutputs() const override;
+        QString getOutputName(s32 index) const override;
+        Pipe *getOutput(s32 index) override;
+        void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+
+    protected:
+        virtual void postClone(const AnalysisObject *cloneSource) override;
+
+    private:
+        // a1 layer output pipes
+        std::vector<std::shared_ptr<Pipe>> m_outputs;
+
+        // a2 MultiHitExtractor struct for data storage.
+        a2::MultiHitExtractor m_ex;
+
+        // Seed for the random number generator
+        u64 m_rngSeed;
 };
 
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
@@ -1426,12 +1516,16 @@ class LIBMVME_EXPORT ScalerOverflow: public OperatorInterface
 // Conditions
 //
 
-class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
+// Condition holding an array of 1D intervals. The array size is determined by
+// the input array size.
+// Produces a single output bit which is the OR over the individual interval
+// tests.
+class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
     public:
-        Q_INVOKABLE ConditionInterval(QObject *parent = 0);
+        Q_INVOKABLE IntervalCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
         virtual QString getShortName() const override { return QSL("CondInter"); }
@@ -1450,19 +1544,17 @@ class LIBMVME_EXPORT ConditionInterval: public ConditionInterface
         void setInterval(s32 address, const QwtInterval &interval);
         QwtInterval getInterval(s32 address) const;
 
-        virtual s32 getNumberOfBits() const override;
-
     private:
         Slot m_input;
         QVector<QwtInterval> m_intervals;
 };
 
-class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
+class LIBMVME_EXPORT RectangleCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
     public:
-        Q_INVOKABLE ConditionRectangle(QObject *parent = 0);
+        Q_INVOKABLE RectangleCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
         virtual QString getShortName() const override { return QSL("CondRect"); }
@@ -1478,20 +1570,18 @@ class LIBMVME_EXPORT ConditionRectangle: public ConditionInterface
         void setRectangle(const QRectF &rect);
         QRectF getRectangle() const;
 
-        virtual s32 getNumberOfBits() const override { return 1; }
-
     private:
         Slot m_inputX;
         Slot m_inputY;
         QRectF m_rectangle;
 };
 
-class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
+class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
     public:
-        Q_INVOKABLE ConditionPolygon(QObject *parent = 0);
+        Q_INVOKABLE PolygonCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Polygon Condition"); }
         virtual QString getShortName() const override { return QSL("CondPoly"); }
@@ -1507,12 +1597,98 @@ class LIBMVME_EXPORT ConditionPolygon: public ConditionInterface
         void setPolygon(const QPolygonF &polygon);
         QPolygonF getPolygon() const;
 
-        virtual s32 getNumberOfBits() const override { return 1; }
-
     private:
         Slot m_inputX;
         Slot m_inputY;
         QPolygonF m_polygon;
+};
+
+/* Compound condition with multiple inputs and a LUT defining the output
+ * function.
+ *
+ * Each input specifies a bit used for lookups into the LUT, with input0
+ * supplying the lowest bit. Invalid input parameters produce a 'false' value,
+ * all valid inputs produce a 'true' value.
+ *
+ * The idea is to restrict the GUI to only offer other conditions as inputs but
+ * in theory it is possible to connect any output pipe to the inputs.
+ *
+ * Note: the tests on the inputs could be skipped and instead the bit indexes
+ * of the input conditions could be used to form the value for the LUT lookup.
+ * This implementation would then restrict the inputs to only be other
+ * conditions.
+ */
+class LIBMVME_EXPORT LutCondition: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+
+    public:
+        static const int MaxInputSlots = 8;
+
+        Q_INVOKABLE LutCondition(QObject *parent = 0);
+
+        QString getDisplayName() const override { return QSL("LUT Condition"); }
+        QString getShortName() const override { return QSL("LutCond"); }
+
+        // serialization
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+
+        // input slots
+        bool hasVariableNumberOfSlots() const override { return true; }
+        bool addSlot() override;
+        bool removeLastSlot() override;
+        s32 getNumberOfSlots() const override { return m_inputs.size(); }
+        Slot *getSlot(s32 slotIndex) override { return m_inputs.value(slotIndex).get(); }
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        std::vector<bool> getLUT() const { return m_lut; }
+        void setLUT(const std::vector<bool> &lut) { m_lut = lut; }
+
+    private:
+        QVector<std::shared_ptr<Slot>> m_inputs;
+        std::vector<bool> m_lut;
+};
+
+class LIBMVME_EXPORT ExpressionCondition: public ConditionInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::ConditionInterface)
+
+    public:
+        Q_INVOKABLE ExpressionCondition(QObject *parent = 0);
+
+        QString getDisplayName() const override { return QSL("Expression Condition"); }
+        QString getShortName() const override { return QSL("ExprCond"); }
+
+        // serialization
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+
+        // input slots
+        bool hasVariableNumberOfSlots() const override { return true; }
+        bool addSlot() override;
+        bool removeLastSlot() override;
+        s32 getNumberOfSlots() const override { return m_inputs.size(); }
+        Slot *getSlot(s32 slotIndex) override { return m_inputs.value(slotIndex).get(); }
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        void setExpression(const QString &expr) { m_expr = expr; }
+        QString getExpression() const { return m_expr; }
+
+        /* Variable name prefixes for each of the operators inputs. These
+         * prefixes define the exprtk variable names used in the expression. */
+        QString getInputPrefix(s32 inputIndex) const { return m_inputPrefixes.value(inputIndex); }
+        QStringList getInputPrefixes() const { return m_inputPrefixes; }
+        void setInputPrefixes(const QStringList &prefixes) { m_inputPrefixes = prefixes; }
+
+    private:
+        QVector<std::shared_ptr<Slot>> m_inputs;
+        QString m_expr;
+        QStringList m_inputPrefixes;
 };
 
 //
@@ -1542,6 +1718,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
         s32 getNumberOfHistos() const { return m_histos.size(); }
         s32 getHistoBins() const { return m_bins; }
+        void setHistoBins(s32 bins) { m_bins = bins; }
 
         QVector<std::shared_ptr<Histo1D>> getHistos() { return m_histos; }
 
@@ -1828,8 +2005,6 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
 struct AnalysisObjectStore;
 
-using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
-
 enum class AnalysisReadResult
 {
     NoError,
@@ -1869,8 +2044,8 @@ class LIBMVME_EXPORT Analysis:
         void directoryAdded(const DirectoryPtr &ptr);
         void directoryRemoved(const DirectoryPtr &ptr);
 
-        void conditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
-        void conditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
+        void conditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
+        void conditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
 
 
     public:
@@ -1946,32 +2121,49 @@ class LIBMVME_EXPORT Analysis:
         //
         // Conditions
         //
+
+        ConditionLinks getConditionLinks() const;
+
         ConditionVector getConditions() const;
         ConditionVector getConditions(const QUuid &eventId) const;
-        ConditionPtr getCondition(const OperatorPtr &op) const;
-        ConditionLink getConditionLink(const OperatorPtr &op) const;
-        ConditionLink getConditionLink(const OperatorInterface *op) const;
-        ConditionLinks getConditionLinks() const;
-        bool hasActiveCondition(const OperatorPtr &op) const;
+
+        QSet<ConditionPtr> getActiveConditions(const OperatorPtr &op) const;
+
+
+
+        //ConditionPtr getCondition(const OperatorPtr &op) const;
+        //ConditionPtr getCondition(OperatorInterface *op) const;
+        //ConditionLink getConditionLink(const OperatorPtr &op) const;
+        //ConditionLink getConditionLink(const OperatorInterface *op) const;
+
 
         /* Links the given operator to the given condition and subindex. Any
          * existing condition link will be replaced. */
         //bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        bool setConditionLink(const OperatorPtr &op, const ConditionLink &cl);
+        //bool setConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
+
+        // Adds a condition link from operator to cond. At runtime the operator
+        // will only be evaluated if all its linked conditions are true.
+        // Returns false and does nothing if the same condition link already
+        // exists, true otherwise.
+        bool addConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
+
+        // Removes the condition from the set of
+        bool removeConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
         /* Clears the condition link of the given operator if it was linked to
          * the given condition and subIndex. */
         //bool clearConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        bool clearConditionLink(const OperatorPtr &op, const ConditionLink &cl);
+        //bool clearConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
-        /* Clears the condition link of the given operator no matter which
-         * condition it is using. */
-        bool clearConditionLink(const OperatorPtr &op);
+        /* Clears the condition links of the given operator. */
+        void clearConditionsUsedBy(const OperatorPtr &op);
 
-        /* Clears all conditions links of any objects using the given
+        /* Clears all condition links of any objects using the given
          * condition.
          * Returns the number of condition links cleared. */
-        size_t clearConditionLinksUsing(const ConditionInterface *cond);
+        //size_t clearConditionLinksUsing(const ConditionInterface *cond);
+        void clearConditionLinksUsing(const ConditionPtr &cond);
 
         //
         // Directory Objects
@@ -2144,9 +2336,9 @@ class LIBMVME_EXPORT Analysis:
         }
 
     private:
-        void updateRank(OperatorInterface *op,
-                        QSet<OperatorInterface *> &updated,
-                        QSet<OperatorInterface *> &visited);
+        void updateRank(OperatorPtr op,
+                        QSet<OperatorPtr> &updated,
+                        QSet<OperatorPtr> &visited);
 
         SourceVector m_sources;
         OperatorVector m_operators;

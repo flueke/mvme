@@ -570,9 +570,6 @@ void ListFilterExtractorDialog::repopulate()
     m_d->m_extractors = m_d->m_analysis->getListFilterExtractors(
         m_d->m_module->getEventId(), m_d->m_module->getId());
 
-    if (m_d->m_extractors.isEmpty())
-        newFilter();
-
     int oldRow = m_d->listWidgetUi.listWidget->currentRow();
 
     // clear the stacked editor widgets

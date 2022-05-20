@@ -105,6 +105,7 @@ void Histo1DSubRangeDialog::accept()
 // CutEditor
 //
 
+#if 0
 namespace
 {
 
@@ -666,12 +667,12 @@ IntervalCutDialog::IntervalCutDialog(Histo1DWidget *histoWidget)
             return;
         }
 
-        // Create the ConditionInterval analysis object. The number of intervals will
+        // Create the IntervalCondition analysis object. The number of intervals will
         // be the same as the number of histograms in the Histo1DSink belonging to
         // the histogram currently being displayed. Each interval of the condition
         // will be set to the current intervals values.
         QVector<QwtInterval> intervals(sink->getNumberOfHistos(), interval);
-        auto cond = std::make_shared<analysis::ConditionInterval>();
+        auto cond = std::make_shared<analysis::IntervalCondition>();
         cond->setIntervals(intervals);
         cond->setObjectName(cutName);
 
@@ -728,3 +729,4 @@ void IntervalCutDialog::reject()
 void IntervalCutDialog::apply()
 {
 }
+#endif

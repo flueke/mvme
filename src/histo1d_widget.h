@@ -41,10 +41,10 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEditorInterface
+class LIBMVME_EXPORT Histo1DWidget: public QWidget
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::ConditionEditorInterface);
+    //Q_INTERFACES(analysis::ConditionEditorInterface);
 
     signals:
         void histogramSelected(int histoIndex);
@@ -60,8 +60,6 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         // list of histos
         Histo1DWidget(const HistoList &histos, QWidget *parent = nullptr);
 
-        // analysis histo sink
-        Histo1DWidget(const SinkPtr &histoSink, QWidget *parent = nullptr);
         virtual ~Histo1DWidget();
 
         HistoList getHistograms() const;
@@ -86,12 +84,11 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget, public analysis::ConditionEd
         QwtPlot *getPlot() const;
 
         // ConditionEditorInterface
-        virtual bool setEditCondition(const analysis::ConditionLink &cl) override;
-        virtual analysis::ConditionLink getEditCondition() const override;
-        virtual void beginEditCondition() override;
+        //virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
+        //virtual analysis::ConditionPtr getEditCondition() const override;
+        //virtual void beginEditCondition() override;
 
-        void activatePlotPicker(QwtPlotPicker *picker);
-        QwtPlotPicker *getActivePlotPicker() const;
+        s32 currentHistoIndex() const;
 
     public slots:
         void replot();

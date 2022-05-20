@@ -39,10 +39,8 @@ class LIBMVME_EXPORT EventVariableEditor: public QWidget
         void logInternalHtml(const QString &html);
 
     public:
-        using RunScriptCallback = std::function<
-            vme_script::ResultList (
-                const vme_script::VMEScript &,
-                vme_script::LoggerFun)>;
+        using RunScriptCallback = std::function<vme_script::ResultList (
+            std::pair<VMEScriptConfig *, vme_script::VMEScript>)>;
 
         explicit EventVariableEditor(
             EventConfig *eventConfig,

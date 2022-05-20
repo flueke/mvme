@@ -201,7 +201,7 @@ void EventServer::Private::handleNewConnection()
 
         // If a run is in progress immediately send out a BeginRun message to
         // the client. This reuses the information built in beginRun() when the
-        // run started.
+        // run was started.
         if (m_runInProgress)
         {
             qDebug() << "DataServer: client connected during an active run. Sending"
@@ -467,7 +467,11 @@ void EventServer::endEvent(s32 eventIndex)
                 u16 *countPtr = out.push(static_cast<u16>(0u));
 
                 const a2::DataSource *ds = a2->dataSources[eventIndex] + dsIndex;
-                const a2::PipeVectors &dataPipe = ds->output;
+                // TODO: support multi output data sources
+                a2::PipeVectors dataPipe = {};
+                dataPipe.data = ds->outputs[0];
+                dataPipe.lowerLimits = ds->outputLowerLimits[0];
+                dataPipe.upperLimits = ds->outputUpperLimits[0];
                 const auto &dsd = edd.dataSources[dsIndex];
                 u16 count = 0u; // Count of valid values.
 

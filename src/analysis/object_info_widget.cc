@@ -22,6 +22,7 @@
 
 #include "a2_adapter.h"
 #include "analysis.h"
+#include "analysis_util.h"
 #include "mvme_context.h"
 #include "qt_util.h"
 
@@ -104,6 +105,12 @@ void ObjectInfoWidget::refresh()
          * ConditionInterface: getNumberOfBits()
          */
 
+        if (!obj->getAnalysis())
+        {
+            label->clear();
+            return;
+        }
+
         QString text;
 
         text += QSL("cls=%1, n=%2")
@@ -118,7 +125,7 @@ void ObjectInfoWidget::refresh()
 
         auto analysis = m_d->m_serviceProvider->getAnalysis();
 
-        if (auto op = qobject_cast<OperatorInterface *>(obj.get()))
+        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
         {
             text += QSL("\nrank=%1").arg(op->getRank());
 
@@ -130,13 +137,20 @@ void ObjectInfoWidget::refresh()
                 .arg(op->getNumberOfOutputs())
                 .arg(op->getMaximumOutputRank());
 
-
-            if (auto condLink = analysis->getConditionLink(op))
+            for (auto cond: analysis->getActiveConditions(op))
             {
-                text += QSL("\ncondLink=%1[%2], condRank=%3")
-                    .arg(condLink.condition->objectName())
-                    .arg(condLink.subIndex)
-                    .arg(condLink.condition->getRank());
+                text += QSL("\ncondLink=%1, condRank=%2")
+                    .arg(cond->objectName())
+                    .arg(cond->getRank());
+            }
+
+            auto inputSet = collect_input_set(op.get());
+
+            if (!inputSet.empty())
+            {
+                text += QSL("\ninputSet: ");
+                for (auto obj: inputSet)
+                    text += QSL("%1, ").arg(obj->objectName());
             }
         }
 
@@ -150,21 +164,9 @@ void ObjectInfoWidget::refresh()
             // testing and setting bit-by-bit. maybe alloc, clear and use an
             // overloaded OR operator
             const auto &condBits = a2State->a2->conditionBits;
-            s32 firstBit = a2State->conditionBitIndexes.value(cond);
+            s32 bitIndex = a2State->conditionBitIndexes.value(cond);
 
-            QString buffer;
-
-            // rough estimate to avoid many reallocations
-            buffer.reserve(cond->getNumberOfBits() * 3);
-
-            for (s32 bi = firstBit; bi < firstBit + cond->getNumberOfBits(); bi++)
-            {
-                assert(0 <= bi && static_cast<size_t>(bi) < condBits.size());
-
-                buffer += QSL("%1,").arg(condBits.test(bi));
-            }
-
-            text += QSL("\nbits=") + buffer;
+            text += QSL("\nconditionBitValue=%1").arg(condBits.test(bitIndex));
         }
 
         label->setText(text);
@@ -191,6 +193,7 @@ void ObjectInfoWidget::refresh()
     };
 
     if (m_d->m_analysisObject)
+        //&& m_d->m_analysisObject->getAnalysis().get() == m_d->m_serviceProvider->getAnalysis())
     {
         refresh_analysisObject(m_d->m_analysisObject);
     }

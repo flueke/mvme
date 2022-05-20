@@ -169,9 +169,9 @@ struct AnalysisWidgetPrivate
     void onOperatorRemoved(const OperatorPtr &op);
     void onDirectoryAdded(const DirectoryPtr &dir);
     void onDirectoryRemoved(const DirectoryPtr &dir);
-    void onConditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl);
-    void onConditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl);
-    void editConditionLinkGraphically(const ConditionLink &cl);
+    void onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
+    void onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
+    void editConditionLinkGraphically(const ConditionPtr &cond);
 
     AnalysisServiceProvider *getServiceProvider() const { return m_serviceProvider; }
     Analysis *getAnalysis() const { return getServiceProvider()->getAnalysis(); }
@@ -234,38 +234,38 @@ void AnalysisWidgetPrivate::onDirectoryRemoved(const DirectoryPtr &dir)
     repopulateEventRelatedWidgets(eventId);
 }
 
-void AnalysisWidgetPrivate::onConditionLinkApplied(const OperatorPtr &op, const ConditionLink &cl)
+void AnalysisWidgetPrivate::onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond)
 {
 #if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
-    assert(op->getEventId() == cl.condition->getEventId());
+    assert(op->getEventId() == cond->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
 #else
     (void) op;
-    (void) cl;
+    (void) cond;
 #endif
 }
 
-void AnalysisWidgetPrivate::onConditionLinkCleared(const OperatorPtr &op, const ConditionLink &cl)
+void AnalysisWidgetPrivate::onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond)
 {
 #if 0
     qDebug() << __PRETTY_FUNCTION__ << this;
-    assert(op->getEventId() == cl.condition->getEventId());
+    assert(op->getEventId() == cond->getEventId());
     auto eventId = op->getEventId();
     repopulateEventRelatedWidgets(eventId);
 #else
     (void) op;
-    (void) cl;
+    (void) cond;
 #endif
 }
 
-void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl)
+void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionPtr &cond)
 {
-    (void) cl;
-#if 0
+    (void) cond;
+#if 1
     qDebug() << __PRETTY_FUNCTION__ << this;
-    if (!cl) return;
+    if (!cond) return;
 
     /* Get the input pipes of the conditon
      * Find a sink displaying all of the pipes and the cl subindex.
@@ -273,16 +273,17 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
      * Tell the window that we want to edit the condition.
      * For now error out if no sink accumulating the pipes can be found. */
 
-    auto sinks = get_sinks_for_conditionlink(cl, getAnalysis()->getSinkOperators<SinkPtr>());
+    auto sinks = get_sinks_for_condition(cond, getAnalysis()->getSinkOperators<SinkPtr>());
+    auto widgetRegistry = getServiceProvider()->getWidgetRegistry();
 
     // Try to use an existing window to edit the condition
     for (const auto &sink: sinks)
     {
-        auto widget = getContext()->getObjectWidget(sink.get());
+        auto widget = widgetRegistry->getObjectWidget(sink.get());
 
         if (auto condEditor = qobject_cast<ConditionEditorInterface *>(widget))
         {
-            if (condEditor->setEditCondition(cl))
+            if (condEditor->setEditCondition(cond))
             {
                 condEditor->beginEditCondition();
             }
@@ -294,13 +295,13 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionLink &cl
     // Create a new window
     for (const auto &sink: sinks)
     {
-        auto widget = std::unique_ptr<QWidget>(sink_widget_factory(sink, getContext()));
+        auto widget = std::unique_ptr<QWidget>(sink_widget_factory(sink, getServiceProvider()));
 
         if (auto condEditor = qobject_cast<ConditionEditorInterface *>(widget.get()))
         {
             auto raw = widget.get();
-            getContext()->addObjectWidget(widget.release(), sink.get(), sink->getId().toString());
-            if (condEditor->setEditCondition(cl))
+            widgetRegistry->addObjectWidget(widget.release(), sink.get(), sink->getId().toString());
+            if (condEditor->setEditCondition(cond))
             {
                 condEditor->beginEditCondition();
             }
@@ -335,7 +336,9 @@ void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << eventId;
     m_eventWidget->repopulate();
-    //m_conditionWidget->repopulate(eventId);
+#if 0
+    m_conditionWidget->repopulate(eventId);
+#endif
 }
 
 void AnalysisWidgetPrivate::repopulate()
@@ -403,7 +406,9 @@ void AnalysisWidgetPrivate::repopulate()
 
     m_eventWidgetScrollArea->setWidget(m_eventWidget);
 
-    //m_conditionWidget->repopulate();
+#if 0
+    m_conditionWidget->repopulate();
+#endif
     updateWindowTitle();
     updateAddRemoveUserLevelButtons();
 }
@@ -412,7 +417,9 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
 {
     m_eventWidget->m_d->doPeriodicUpdate();
 
-    //m_conditionWidget->doPeriodicUpdate();
+#if 0
+    m_conditionWidget->doPeriodicUpdate();
+#endif
     m_objectInfoWidget->refresh();
 }
 
@@ -524,19 +531,27 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
     auto path = m_serviceProvider->getWorkspaceDirectory();
+    auto filename = m_serviceProvider->getAnalysisConfigFilename();
 
-    if (m_serviceProvider->getGlobalMode() == GlobalMode::ListFile)
+    if (filename.isEmpty())
     {
-        // Use the listfile basename to suggest a filename.
-        const auto &replayHandle = m_serviceProvider->getReplayFileHandle();
-        path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
+        if (m_serviceProvider->getGlobalMode() == GlobalMode::ListFile)
+        {
+            // Use the listfile basename to suggest a filename.
+            const auto &replayHandle = m_serviceProvider->getReplayFileHandle();
+            path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
+        }
+        else
+        {
+            // Use the last part of the workspace path to suggest a filename.
+            auto filename = m_serviceProvider->getAnalysisConfigFilename();
+            if (filename.isEmpty())
+                filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
+            path += "/" + filename;
+        }
     }
     else
     {
-        // Use the last part of the workspace path to suggest a filename.
-        auto filename = m_serviceProvider->getAnalysisConfigFilename();
-        if (filename.isEmpty())
-            filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
         path += "/" + filename;
     }
 
@@ -1144,8 +1159,8 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     centralLayout->addWidget(m_d->m_eventWidgetFrame);
     centralLayout->setStretch(1, 1);
 
-    auto conditionsTabWidget = new QTabWidget;
 #if 0
+    auto conditionsTabWidget = new QTabWidget;
     conditionsTabWidget->addTab(m_d->m_conditionWidget,
                                 QIcon(QSL(":/scissors.png")),
                                 QSL("Cuts/Conditions"));
@@ -1167,11 +1182,10 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // right splitter with condition tree on top and object info window at the
     // bottom
     auto rightSplitter = new QSplitter(Qt::Vertical);
-    rightSplitter->addWidget(conditionsTabWidget);
+    //rightSplitter->addWidget(conditionsTabWidget);
     rightSplitter->addWidget(objectInfoTabWidget);
     rightSplitter->setStretchFactor(0, 2);
     rightSplitter->setStretchFactor(1, 1);
-    rightSplitter->hide();
 
     static const char *rightSplitterStateKey = "AnalysisWidget/RightSplitterState";
 
@@ -1193,7 +1207,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // and object info (right)
     auto mainSplitter = new QSplitter;
     mainSplitter->addWidget(centralWidget);
-    mainSplitter->addWidget(rightSplitter);
+    //mainSplitter->addWidget(rightSplitter);
     mainSplitter->setStretchFactor(0, 3);
     mainSplitter->setStretchFactor(1, 1);
 
@@ -1289,16 +1303,18 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
         if (m_d->m_serviceProvider->getAnalysis()->getRunInfo().isReplay)
         {
-            auto streamWorker = m_d->m_serviceProvider->getMVMEStreamWorker();
-            auto streamCounters = streamWorker->getCounters();
-            double timetickCount = m_d->m_serviceProvider->getAnalysis()->getTimetickCount();
-            timetickCount = std::max(timetickCount, 1.0);
-            auto bytesProcessed = streamCounters.bytesProcessed;
-            double rate = bytesProcessed / timetickCount;
-            auto str = (QSL("DAQ Data Rate: %1")
-                        .arg(format_number(rate, "B/s", UnitScaling::Binary, 0, 'g', 4))
-                        );
-            m_d->m_labelOriginalDataRate->setText(str);
+            if (auto streamWorker = m_d->m_serviceProvider->getMVMEStreamWorker())
+            {
+                auto streamCounters = streamWorker->getCounters();
+                double timetickCount = m_d->m_serviceProvider->getAnalysis()->getTimetickCount();
+                timetickCount = std::max(timetickCount, 1.0);
+                auto bytesProcessed = streamCounters.bytesProcessed;
+                double rate = bytesProcessed / timetickCount;
+                auto str = (QSL("DAQ Data Rate: %1")
+                            .arg(format_number(rate, "B/s", UnitScaling::Binary, 0, 'g', 4))
+                            );
+                m_d->m_labelOriginalDataRate->setText(str);
+            }
         }
         else
         {
@@ -1355,14 +1371,14 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->onDirectoryRemoved(dir);
     });
 
-    QObject::connect(&wrapper, &Wrapper::conditionLinkApplied,
-                     this, [this](const OperatorPtr &op, const ConditionLink &cl) {
-         m_d->onConditionLinkApplied(op, cl);
+    QObject::connect(&wrapper, &Wrapper::conditionLinkAdded,
+                     this, [this](const OperatorPtr &op, const ConditionPtr &cond) {
+         m_d->onConditionLinkAdded(op, cond);
     });
 
-    QObject::connect(&wrapper, &Wrapper::conditionLinkCleared,
-                     this, [this](const OperatorPtr &op, const ConditionLink &cl) {
-         m_d->onConditionLinkCleared(op, cl);
+    QObject::connect(&wrapper, &Wrapper::conditionLinkRemoved,
+                     this, [this](const OperatorPtr &op, const ConditionPtr &cond) {
+         m_d->onConditionLinkRemoved(op, cond);
     });
 
     // Initial update
@@ -1386,13 +1402,17 @@ AnalysisWidget::~AnalysisWidget()
 void AnalysisWidget::operatorAddedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-    //m_d->m_conditionWidget->repopulate();
+#if 0
+    m_d->m_conditionWidget->repopulate();
+#endif
 }
 
 void AnalysisWidget::operatorEditedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-    //m_d->m_conditionWidget->repopulate();
+#if 0
+    m_d->m_conditionWidget->repopulate();
+#endif
 }
 
 void AnalysisWidget::updateAddRemoveUserLevelButtons()

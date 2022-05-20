@@ -355,12 +355,26 @@ QString format_result(const Result &result)
         case CommandType::MVLC_Custom:
         case CommandType::MVLC_InlineStack:
             {
+                // Special handling for the mvlc where a marker command used as
+                // a reference word is put into the data stream when running
+                // single commands.
+                bool secondWordIsReference = false;
+
+                if (result.valueVector.size() >= 2
+                    && mesytec::mvlc::get_frame_type(result.valueVector[0]) == mesytec::mvlc::frame_headers::StackFrame)
+                    secondWordIsReference = true;
+
                 ret += "\n";
                 for (int i=0; i<result.valueVector.size(); ++i)
                 {
-                    ret += QString(QSL("%1: 0x%2\n"))
-                        .arg(i, 2, 10, QChar(' '))
-                        .arg(result.valueVector[i], 8, 16, QChar('0'));
+                    if (i == 1 && secondWordIsReference)
+                        ret += QString(QSL("%1: 0x%2 (reference marker)\n"))
+                            .arg(i, 2, 10, QChar(' '))
+                            .arg(result.valueVector[i], 8, 16, QChar('0'));
+                    else
+                        ret += QString(QSL("%1: 0x%2\n"))
+                            .arg(i, 2, 10, QChar(' '))
+                            .arg(result.valueVector[i], 8, 16, QChar('0'));
                 }
             } break;
 

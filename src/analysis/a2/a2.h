@@ -78,18 +78,23 @@ struct PipeVectors
  * =============================================== */
 struct DataSource
 {
-    PipeVectors output;
-    ParamVec hitCounts;
+    ParamVec *outputs;
+    ParamVec *outputLowerLimits;
+    ParamVec *outputUpperLimits;
+    ParamVec *hitCounts;
     void *d;
-    u8 moduleIndex;
     u8 type;
+    u8 moduleIndex;
+    u8 outputCount;
 };
 
 enum DataSourceType
 {
     DataSource_Extractor,
     DataSource_ListFilterExtractor,
-    DataSource_Copy,
+    DataSource_MultiHitExtractor_ArrayPerHit,
+    DataSource_MultiHitExtractor_ArrayPerAddress,
+    //DataSource_Copy,
 };
 
 struct DataSourceOptions
@@ -165,8 +170,50 @@ void extractor_process_module_data(DataSource *ex, const u32 *data, u32 size);
 void listfilter_extractor_begin_event(DataSource *ex);
 const u32 *listfilter_extractor_process_module_data(DataSource *ex, const u32 *data, u32 dataSize);
 
-// DataSourceCopy
+// MultiHitExtractor
+struct MultiHitExtractor
+{
+    enum Shape
+    {
+        ArrayPerHit,
+        ArrayPerAddress
+    };
 
+    Shape shape;
+    data_filter::DataFilter filter;
+    data_filter::CacheEntry cacheA;
+    data_filter::CacheEntry cacheD;
+    u16 maxHits;
+    pcg32_fast rng;
+    DataSourceOptions::opt_t options;
+};
+
+MultiHitExtractor make_multihit_extractor(
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options);
+
+inline size_t get_address_count(MultiHitExtractor *ex)
+{
+    return 1u << get_extract_bits(ex->filter, 'A');
+}
+
+DataSource make_datasource_multihit_extractor(
+    memory::Arena *arena,
+    MultiHitExtractor::Shape shape,
+    const data_filter::DataFilter &filter,
+    u16 maxHits,
+    u64 rngSeed,
+    int moduleIndex,
+    DataSourceOptions::opt_t options);
+
+void multihit_extractor_begin_event(DataSource *ds);
+void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
+
+#if 0
+// DataSourceCopy
 struct DataSourceCopy
 {
     u32 startIndex = 0u;
@@ -181,6 +228,7 @@ DataSource make_datasource_copy(
 
 void datasource_copy_begin_event(DataSource *ds);
 void datasource_copy_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
+#endif
 
 /* ===============================================
  * Operators
@@ -191,7 +239,6 @@ struct Operator
 
     static const auto MaxInputCount  = std::numeric_limits<count_type>::max();
     static const auto MaxOutputCount = std::numeric_limits<count_type>::max();
-    static const s16  NoCondition    = -1;
 
     ParamVec *inputs;
     ParamVec *inputLowerLimits;
@@ -203,11 +250,9 @@ struct Operator
     /* Operator type specific private data pointer. */
     void *d;
 
-    /* Index into A2::conditionBits. This is the active condition bit for this
-     * operator. It is used to decide whether to step the operator or skip this
-     * event. The special value Operator::NoCondition is used if no condition
-     * is active for the operator. */
-    s16 conditionIndex;
+    /* Array of indexes into A2::conditionBits. The operator is only stepped if
+     * all indexed condition bits are true. */
+    TypedBlock<u16> conditionBitIndexes;
 
     u8 inputCount;
     u8 outputCount;
@@ -483,23 +528,21 @@ Operator make_scaler_overflow_idx(
 /* Base structure used for the Operator::d member of condition operators. */
 struct ConditionBaseData
 {
-    static const s16 InvalidIndex = -1;
+    static const s16 InvalidBitIndex = -1;
 
     /* Index into A2::conditionBits. This is the bit being set/cleared by this
-     * condition when it is stepped. For conditions using multiple bits this is
-     * the index of the first bit. */
-    s16 firstBitIndex;
+     * condition when it is stepped. */
+    s16 bitIndex;
 };
 
 bool is_condition_operator(const Operator &op);
-u32 get_number_of_condition_bits_used(const Operator &op);
 
-Operator make_condition_interval(
+Operator make_interval_condition(
     memory::Arena *arena,
     PipeVectors input,
     const std::vector<Interval> &intervals);
 
-Operator make_condition_rectangle(
+Operator make_rectangle_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
@@ -508,13 +551,26 @@ Operator make_condition_rectangle(
     Interval xInterval,
     Interval yInterval);
 
-Operator make_condition_polygon(
+Operator make_polygon_condition(
     memory::Arena *arena,
     PipeVectors xInput,
     PipeVectors yInput,
     s32 xIndex,
     s32 yIndex,
     const std::vector<std::pair<double, double>> &polygon);
+
+Operator make_lut_condition(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &inputParamIndexes,
+    const std::vector<bool> &lut);
+
+Operator make_expression_condition(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<s32> &inputParamIndexes,
+    const std::vector<std::string> &inputNames,
+    const std::string &expression);
 
 /* ===============================================
  * Sinks: Histograms/RateMonitor/ExportSink
@@ -779,12 +835,14 @@ using TheHistoFillStrategy = HistoFillDirect;
 
 struct A2
 {
-    std::array<u8, MaxVMEEvents> dataSourceCounts;
+    using OperatorCountType = u16;
+
+    std::array<OperatorCountType, MaxVMEEvents> dataSourceCounts;
     std::array<DataSource *, MaxVMEEvents> dataSources;
 
-    std::array<u8, MaxVMEEvents> operatorCounts;
+    std::array<OperatorCountType, MaxVMEEvents> operatorCounts;
     std::array<Operator *, MaxVMEEvents> operators;
-    std::array<u8 *, MaxVMEEvents> operatorRanks;
+    std::array<OperatorCountType *, MaxVMEEvents> operatorRanks;
 
     using BlockType = unsigned long;
     using BitsetAllocator = memory::ArenaAllocator<BlockType>;

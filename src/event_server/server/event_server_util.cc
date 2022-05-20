@@ -95,6 +95,7 @@ VMETree make_vme_tree_description(const VMEConfig *vmeConfig)
     return result;
 }
 
+// TODO: support multi output data sources
 EventDataDescriptions make_event_data_descriptions(
     const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
 {
@@ -128,7 +129,7 @@ EventDataDescriptions make_event_data_descriptions(
             auto a2_dataSource = a2->dataSources[eventIndex] + dsIndex;
             auto a1_dataSource = a2_adapter->sourceMap.value(a2_dataSource);
             s32 moduleIndex = a2_dataSource->moduleIndex;
-            u32 outputSize = a2_dataSource->output.size();
+            u32 outputSize = a2_dataSource->outputs[0].size;
             u32 outputBits = std::ceil(std::log2(outputSize));
 
             QStringList paramNames;
@@ -146,8 +147,8 @@ EventDataDescriptions make_event_data_descriptions(
             dsd.name = variablify(a1_dataSource->objectName()).toStdString();
             dsd.moduleIndex = moduleIndex;
             dsd.size = outputSize;
-            dsd.lowerLimit = a2_dataSource->output.lowerLimits[0];
-            dsd.upperLimit = a2_dataSource->output.upperLimits[0];
+            dsd.lowerLimit = a2_dataSource->outputLowerLimits[0][0];
+            dsd.upperLimit = a2_dataSource->outputUpperLimits[0][0];
             dsd.bits = get_data_storage_bits(a1_dataSource);
             dsd.indexType  = get_storage_type(outputBits);
             dsd.valueType  = get_data_storage_type(a1_dataSource);

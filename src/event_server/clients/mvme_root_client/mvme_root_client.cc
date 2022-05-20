@@ -1021,7 +1021,11 @@ void ClientContext::endRun(const Message &msg, const json &info)
     if (m_analysis.endRun)
         m_analysis.endRun();
 
-    if (m_treeOutFile)
+    // FIXME: TTrees are automatically split across files if they (by default)
+    // exceed 100GB. This means the original output file may no longer be open
+    // for writing. Fix this by somehow getting the currently open file and
+    // writing into that.
+    if (m_treeOutFile && !m_treeOutFile->IsZombie() && m_treeOutFile->IsOpen())
     {
         cout << "  Writing additional info to output file..." << endl;
 

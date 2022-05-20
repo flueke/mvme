@@ -44,25 +44,37 @@ using Slot = analysis::Slot;
 class AnalysisWidget;
 struct EventWidgetPrivate;
 
+static const QColor ValidInputNodeColor         = QColor("lightgreen");
+static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/2); // lightgreen but with some alpha
+static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
+
+static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with some alpha
+static const QColor ChildIsOutputNodeOfColor    = QColor(0x00, 0x00, 0xCD, 255.0/6);
+
+static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0/3); // firebrick with some alpha
+
 class EventWidget: public QWidget
 {
     Q_OBJECT
     signals:
         void objectSelected(const analysis::AnalysisObjectPtr &obj);
         void nonObjectNodeSelected(QTreeWidgetItem *node);
-        void conditionLinksModified(const ConditionLink &cl, bool modified);
+        void conditionLinksModified(const ConditionPtr &cond, bool modified);
 
     public:
 
-        using SelectInputCallback = std::function<void (Slot *destSlot,
-                                                        Pipe *sourcePipe,
-                                                        s32 sourceParamIndex)>;
+        using SelectInputCallback = std::function<
+            void (Slot *destSlot, Pipe *sourcePipe, s32 sourceParamIndex)>;
+
+        using SelectConditionCallback = std::function<
+            void (const ConditionPtr &cond)>;
 
         EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent = 0);
         virtual ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
                             QSet<PipeSourceInterface *> additionalInvalidSources = {});
+        void selectConditionFor(const OperatorPtr &op, SelectConditionCallback callback);
         void endSelectInput();
         void highlightInputOf(Slot *slot, bool doHighlight);
 
@@ -102,10 +114,6 @@ class EventWidget: public QWidget
         void objectEditorDialogApplied();
         void objectEditorDialogAccepted();
         void objectEditorDialogRejected();
-
-        void onConditionLinkSelected(const ConditionLink &cl);
-        void applyConditionAccept();
-        void applyConditionReject();
 
     private:
         std::unique_ptr<EventWidgetPrivate> m_d;

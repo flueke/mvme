@@ -71,11 +71,19 @@ ScrollZoomer::ScrollZoomer( QWidget *canvas ):
 
     // RightButton: zoom out by 1
     // Ctrl+RightButton: zoom out to full size
+    // Ctrl+LeftButton: zoom in by 1
 
+    // QwtPlotZoomer uses MouseSelect2 to zoom out fully
     setMousePattern( QwtEventPattern::MouseSelect2,
         Qt::RightButton, Qt::ControlModifier );
+
+    // QwtPlotZoomer uses MouseSelect3 to zoom out once
     setMousePattern( QwtEventPattern::MouseSelect3,
         Qt::RightButton );
+
+    // QwtPlotZoomer uses MouseSelect6 to zoom in to the next zoom stack level.
+    setMousePattern( QwtEventPattern::MouseSelect6,
+        Qt::LeftButton, Qt::ControlModifier );
 
 }
 

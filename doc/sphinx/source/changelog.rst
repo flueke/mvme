@@ -6,6 +6,16 @@ Changelog
 
 Version 1.4.9-rc
 ----------------
+* [analysis]
+
+  - Add a new MultiHitExtractor data source allowing to extract multiple hits per
+    address.
+
+  - Add 'Generate Histograms' context menu action to data sources and operators to quickly
+    generate histograms for selected objects.
+
+  - Raise maximum number of data sources and operators per VME event context from 256 to 65536.
+
 * New feature: listfile splitting (MVLC only!)
 
   When recording readout data the output listfile can now be split either based
@@ -21,7 +31,7 @@ Version 1.4.9-rc
   can be used to create custom VME modules without having to use the mvme VME
   template system.
 
-* DAQ run number is now increment on MVLC readout stop to represent the *next*
+* DAQ run number is now incremented on MVLC readout stop to represent the *next*
   run number.
 
 * Show the original incoming data rate in the analysis window when replaying
@@ -32,6 +42,12 @@ Version 1.4.9-rc
 * VME Config: allow moving modules between VME Events via drag&drop.
 
 * Fix 'VME Script -> Run' in the MVLC Debug GUI
+
+* Revert the MVLC readout parser simplification done in 1.4.8
+
+  The parser now allows prefix, dynamic and suffix parts again. The parser data
+  callback remains unchanged, passing the parsed data as a single pointer +
+  size.
 
 Version 1.4.8.2
 ---------------

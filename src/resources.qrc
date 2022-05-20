@@ -14,6 +14,7 @@
     <file alias="control_play.png">resources/control.png</file>
     <file alias="control_play_stop.png">resources/control-stop.png</file>
     <file alias="data_filter.png">resources/view-filter.png</file>
+    <file alias="multi_hit_filter.png">resources/multi_hit_filter.png</file>
     <file alias="dialog-close.png">resources/dialog-close.png</file>
     <file alias="dialog-ok-apply.png">resources/dialog-ok-apply.png</file>
     <file alias="document_import.png">resources/document-import.png</file>
@@ -65,6 +66,7 @@
     <file alias="application-rename.png">resources/application-rename.png</file>
     <file alias="document-rename.png">resources/document-rename.png</file>
     <file alias="printer.png">resources/printer.png</file>
+    <file>resources/magnifier-zoom.png</file>
 
     <file>resources/layer-visible-off.png</file>
     <file>resources/layer-visible-on.png</file>

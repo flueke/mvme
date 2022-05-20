@@ -34,7 +34,9 @@
 #include <QMimeData>
 #include <QStandardPaths>
 #include <QTimer>
+#include <iterator>
 #include <memory>
+#include <qnamespace.h>
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_serialization.h"
@@ -170,52 +172,6 @@ QVector<QUuid> decode_id_list(QByteArray data)
     {
         result.push_back(QUuid(idData));
     }
-
-    return result;
-}
-
-/* In the active set a bit is set to 1 if the candidate at the bit index
- * uses the condition link being edited.
- * The checked set is the same but contains a 1 if the node representing
- * the candidate is checked. */
-struct ConditionLinkModifications
-{
-    ConditionLink cl;
-    OperatorVector candidates;
-    boost::dynamic_bitset<> active;
-    boost::dynamic_bitset<> checked;
-
-    bool hasModifications() const { return active != checked; }
-};
-
-ConditionLinkModifications get_condition_modifications(const ConditionLink &cl,
-                                                       Analysis *analysis,
-                                                       const ObjectToNode &objectMap)
-{
-    ConditionLinkModifications result;
-
-    result.candidates = get_apply_condition_candidates(cl.condition, analysis);
-
-    std::sort(std::begin(result.candidates), std::end(result.candidates));
-
-    result.active.reserve(result.candidates.size());
-    result.checked.reserve(result.candidates.size());
-
-    for (const auto &candidate: result.candidates)
-    {
-        QTreeWidgetItem *node = nullptr;
-        try
-        {
-            node = objectMap.at(candidate);
-        } catch (const std::out_of_range &)
-        {}
-
-        result.active.push_back(analysis->getConditionLink(candidate) == cl);
-        result.checked.push_back(node && node->data(0, Qt::CheckStateRole) == Qt::Checked);
-    }
-
-    assert(result.candidates.size() == static_cast<int>(result.active.size()));
-    assert(result.active.size() == result.checked.size());
 
     return result;
 }
@@ -621,6 +577,7 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
             for (auto &childObject: childObjects)
             {
+                assert(childObject);
                 childObject->setUserLevel(destUserLevel);
                 movedObjects.append(childObject);
             }
@@ -830,8 +787,11 @@ static QIcon make_datasource_icon(SourceInterface *source)
     if (qobject_cast<ListFilterExtractor *>(source))
         icon = QIcon(":/listfilter.png");
 
-    if (qobject_cast<Extractor *>(source))
+    else if (qobject_cast<Extractor *>(source))
         icon = QIcon(":/data_filter.png");
+
+    else if (qobject_cast<MultiHitExtractor *>(source))
+        icon = QIcon(":/multi_hit_filter.png");
 
     return icon;
 }
@@ -844,10 +804,6 @@ inline TreeNode *make_datasource_node(SourceInterface *source)
     sourceNode->setFlags(sourceNode->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
     sourceNode->setIcon(0, make_datasource_icon(source));
 
-    Q_ASSERT_X(source->getNumberOfOutputs() == 1,
-               "make_datasource_node",
-               "data sources with multiple output pipes are not supported by the UI");
-
     if (source->getNumberOfOutputs() == 1)
     {
         Pipe *outputPipe = source->getOutput(0);
@@ -859,6 +815,33 @@ inline TreeNode *make_datasource_node(SourceInterface *source)
             addressNode->setData(0, DataRole_ParameterIndex, address);
             addressNode->setText(0, QString::number(address));
             sourceNode->addChild(addressNode);
+        }
+    }
+    else
+    {
+        for (s32 outputIndex = 0;
+             outputIndex < source->getNumberOfOutputs();
+             ++outputIndex)
+        {
+            Pipe *outputPipe = source->getOutput(outputIndex);
+            s32 outputParamSize = outputPipe->parameters.size();
+
+            auto pipeNode = make_node(outputPipe, NodeType_OutputPipe, DataRole_RawPointer);
+            pipeNode->setText(0, QString("#%1 \"%2\" (%3 elements)")
+                              .arg(outputIndex)
+                              .arg(source->getOutputName(outputIndex))
+                              .arg(outputParamSize)
+                             );
+            sourceNode->addChild(pipeNode);
+
+            for (s32 paramIndex = 0; paramIndex < outputParamSize; ++paramIndex)
+            {
+                auto paramNode = make_node(outputPipe, NodeType_OutputPipeParameter, DataRole_RawPointer);
+                paramNode->setData(0, DataRole_ParameterIndex, paramIndex);
+                paramNode->setText(0, QString("[%1]").arg(paramIndex));
+
+                pipeNode->addChild(paramNode);
+            }
         }
     }
 
@@ -1057,7 +1040,6 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     if (auto ex = std::dynamic_pointer_cast<Extractor>(src))
     {
         result = new AddEditExtractorDialog(ex, moduleConfig, mode, eventWidget);
-
     }
     else if (auto ex = std::dynamic_pointer_cast<ListFilterExtractor>(src))
     {
@@ -1065,7 +1047,15 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
         auto analysis = serviceProvider->getAnalysis();
 
         auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, serviceProvider, eventWidget);
+        if (mode == ObjectEditorMode::New)
+            lfe_dialog->newFilter();
+        else
+            lfe_dialog->editListFilterExtractor(ex);
         result = lfe_dialog;
+    }
+    else if (auto ex = std::dynamic_pointer_cast<MultiHitExtractor>(src))
+    {
+        result = new MultiHitExtractorDialog(ex, moduleConfig, mode, eventWidget);
     }
 
     QObject::connect(result, &ObjectEditorDialog::applied,
@@ -1091,6 +1081,10 @@ ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op,
     if (auto expr = std::dynamic_pointer_cast<ExpressionOperator>(op))
     {
         result = new ExpressionOperatorDialog(expr, userLevel, mode, destDir, eventWidget);
+    }
+    else if (auto exprCond = std::dynamic_pointer_cast<ExpressionCondition>(op))
+    {
+        result = new ExpressionConditionDialog(exprCond, userLevel, mode, destDir, eventWidget);
     }
     else
     {
@@ -1232,18 +1226,11 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
     return result;
 }
 
-static const QColor ValidInputNodeColor         = QColor("lightgreen");
-static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/3); // lightgreen but with some alpha
-static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
-
-static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with some alpha
-static const QColor ChildIsOutputNodeOfColor    = QColor(0x00, 0x00, 0xCD, 255.0/6);
-
-static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0/3); // firebrick with some alpha
-
 static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 
 } // end anon namespace
+
+
 
 EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
@@ -1452,95 +1439,80 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
 {
     qDebug() << __PRETTY_FUNCTION__;
 
+    m_d->m_inputSelectInfo = {};
     m_d->m_inputSelectInfo.slot = slot;
     m_d->m_inputSelectInfo.userLevel = userLevel;
     m_d->m_inputSelectInfo.callback = callback;
     m_d->m_inputSelectInfo.additionalInvalidSources = additionalInvalidSources;
-
-    //qDebug() << __PRETTY_FUNCTION__ << "additionalInvalidSources ="
-    //    << additionalInvalidSources;
-
-    m_d->m_mode = EventWidgetPrivate::SelectInput;
     m_d->setMode(EventWidgetPrivate::SelectInput);
+    // The actual input selection is handled in onNodeClicked()
+}
+
+void EventWidget::selectConditionFor(const OperatorPtr &op, SelectConditionCallback callback)
+{
+    m_d->m_conditionSelectInfo = {};
+    m_d->m_conditionSelectInfo.op = op;
+    m_d->m_conditionSelectInfo.callback = callback;
+    m_d->setMode(EventWidgetPrivate::SelectCondition);
     // The actual input selection is handled in onNodeClicked()
 }
 
 void EventWidget::endSelectInput()
 {
-    if (m_d->m_mode == EventWidgetPrivate::SelectInput)
+    if (m_d->m_mode == EventWidgetPrivate::SelectInput
+        || m_d->m_mode == EventWidgetPrivate::SelectCondition)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "switching from SelectInput to Default mode";
+        qDebug() << __PRETTY_FUNCTION__ << "switching from SelectInput/SelectCondition to Default mode";
         m_d->m_inputSelectInfo = {};
+        m_d->m_conditionSelectInfo = {};
         m_d->setMode(EventWidgetPrivate::Default);
     }
 }
 
 void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
 {
+    auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
+    {
+        if (doHighlight)
+            node->setBackground(0, color);
+        else
+            node->setBackground(0, QColor(0, 0, 0, 0));
+    };
+
     if (!slot || !slot->isParamIndexInRange())
         return;
 
-    QTreeWidgetItem *node = nullptr;
+    auto sourcePipe = slot->inputPipe;
+    auto source = sourcePipe->source;
 
-    if (auto source = qobject_cast<SourceInterface *>(slot->inputPipe->getSource()))
-    {
-        // As the input is a SourceInterface we only need to look in the source tree
-        auto tree = m_d->m_levelTrees[0].operatorTree;
+    if (!source)
+        return;
 
-        node = findFirstNode(tree->invisibleRootItem(), [source](auto nodeToTest) {
-            return (nodeToTest->type() == NodeType_Source
-                    && get_pointer<SourceInterface>(nodeToTest, DataRole_AnalysisObject) == source);
-        });
+    auto sourceNode = m_d->m_objectMap[source->shared_from_this()];
 
-    }
-    else if (qobject_cast<OperatorInterface *>(slot->inputPipe->getSource()))
-    {
-        // The input is another operator
-        for (s32 treeIndex = 1;
-             treeIndex < m_d->m_levelTrees.size() && !node;
-             ++treeIndex)
-        {
-            auto tree = m_d->m_levelTrees[treeIndex].operatorTree;
+    if (!sourceNode)
+        return;
 
-            node = findFirstNode(tree->invisibleRootItem(), [slot](auto nodeToTest) {
-                return (nodeToTest->type() == NodeType_OutputPipe
-                        && get_pointer<Pipe>(nodeToTest, DataRole_RawPointer) == slot->inputPipe);
-            });
-        }
-    }
+    // Find the parent node of the sourcePipes output array.
+    QTreeWidgetItem *outputArrayParent = nullptr;
+
+    if (qobject_cast<SourceInterface *>(source) && source->getNumberOfOutputs() == 1)
+        outputArrayParent = sourceNode;
     else
-    {
-        InvalidCodePath;
-    }
+        outputArrayParent = sourceNode->child(sourcePipe->sourceOutputIndex);;
 
-    if (node && slot->isParameterConnection() && slot->paramIndex < node->childCount())
-    {
-        node = node->child(slot->paramIndex);
-    }
+    if (!outputArrayParent)
+        return;
 
-    if (node)
-    {
-        auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
-        {
-            if (doHighlight)
-            {
-                node->setBackground(0, color);
-            }
-            else
-            {
-                node->setBackground(0, QColor(0, 0, 0, 0));
-            }
-        };
+    auto nodeToHighlight = outputArrayParent;
 
-        highlight_node(node, InputNodeOfColor);
+    if (slot->isParameterConnection() && slot->paramIndex < outputArrayParent->childCount())
+        nodeToHighlight = outputArrayParent->child(slot->paramIndex);
 
-        for (node = node->parent();
-             node;
-             node = node->parent())
-        {
-            highlight_node(node, ChildIsInputNodeOfColor);
-        }
-    }
+    highlight_node(nodeToHighlight, InputNodeOfColor);
+
+    for (auto node = nodeToHighlight->parent(); node != nullptr; node = node->parent())
+        highlight_node(node, ChildIsInputNodeOfColor);
 }
 
 //
@@ -1568,119 +1540,6 @@ void EventWidget::objectEditorDialogRejected()
     qDebug() << __PRETTY_FUNCTION__;
     //endSelectInput(); // FIXME: needed?
     uniqueWidgetCloses();
-}
-
-void EventWidget::onConditionLinkSelected(const ConditionLink &cl)
-{
-    if (m_d->getMode() != EventWidgetPrivate::Default) return;
-    if (cl == m_d->m_applyConditionInfo) return;
-
-    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get() << cl.subIndex;
-
-    const auto &condInfo = cl;
-    assert(condInfo.condition);
-    assert(condInfo.subIndex < condInfo.condition->getNumberOfBits());
-
-    m_d->removeConditionDecorations(m_d->m_applyConditionInfo);
-
-    m_d->m_applyConditionInfo = (cl.subIndex >= 0 ? cl : ConditionLink{});
-
-    m_d->clearAllTreeSelections();
-    m_d->clearAllToDefaultNodeHighlights();
-    m_d->highlightInputNodes(cl.condition.get());
-    m_d->updateNodesForApplyConditionMode();
-}
-
-void EventWidget::applyConditionAccept()
-{
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    /* Collect checked nodes, get operators from these nodes. Create a
-     * condition link for each operator to the current conditionInfos condition
-     * and index. Then rebuild the analysis.
-     */
-
-    /* XXX: By introducing and using the analysis modification signals the
-     * following changed:
-     * - checked and unchecked objects have to be fetched from the trees
-     *   _before_ any changes are made to the analysis.
-     * - This widget and its trees are recreated for each succesfull call to
-     *   setConditionLink()/clearConditionLink()
-     *
-     * How to avoid excessive rebuilding when using granular signals like this?
-     * Signals emitted by the analysis could be blocked here but then other
-     * observers won't be notified of the changes.
-     *
-     * A notification wrapper instance could be used in-between this widget and
-     * the analysis. Then signals would only be blocked in the local wrapper
-     * instance without affecting other observers.
-     *
-     * Another way would be to implement a delayed repopulate/repaint where
-     * only a flag is set in repopulate() and the actual repop is done elsewhere
-     * at a later time and only once. But of course delayed updates will then
-     * be the default way of doing things, even if sometimes a direct update is
-     * desired.
-     */
-    auto analysis         = m_d->getAnalysis();
-    auto checkedObjects   = m_d->getCheckedObjects();
-    auto uncheckedObjects = m_d->getCheckedObjects(Qt::Unchecked);
-
-    for (auto &obj: checkedObjects)
-    {
-        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-        {
-            bool modified = m_d->getAnalysis()->setConditionLink(
-                op, m_d->m_applyConditionInfo);
-
-            if (modified)
-            {
-                qDebug() << "set condition link for" << op.get();
-                analysis->setModified(true);
-            }
-        }
-    }
-
-    for (auto &obj: uncheckedObjects)
-    {
-        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-        {
-            bool modified = m_d->getAnalysis()->clearConditionLink(
-                op, m_d->m_applyConditionInfo);
-
-            if (modified)
-            {
-                qDebug() << "cleared condition link for" << op.get();
-                analysis->setModified(true);
-            }
-        }
-    }
-
-    AnalysisPauser pauser(getServiceProvider());
-    analysis->beginRun(Analysis::KeepState, getVMEConfig());
-}
-
-void EventWidget::applyConditionReject()
-{
-    qDebug() << __PRETTY_FUNCTION__ << this;
-
-    auto &aci = m_d->m_applyConditionInfo;
-
-    if (aci)
-    {
-        auto analysis = getAnalysis();
-        auto candidates = get_apply_condition_candidates(aci.condition, analysis);
-
-        for (const auto &op: candidates)
-        {
-            if (auto node = m_d->m_objectMap[op])
-            {
-                node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-                node->setData(0, Qt::CheckStateRole, QVariant());
-            }
-        }
-    }
-
-    m_d->updateNodesForApplyConditionMode();
 }
 
 void EventWidget::removeOperator(OperatorInterface *op)
@@ -1800,6 +1659,9 @@ QString mode_to_string(EventWidgetPrivate::Mode mode)
 
         case EventWidgetPrivate::SelectInput:
             return QSL("SelectInput");
+
+        case EventWidgetPrivate::SelectCondition:
+            return QSL("SelectCondition");
 
         InvalidDefaultCase;
     }
@@ -2065,7 +1927,7 @@ bool qobj_ptr_natural_compare(const std::shared_ptr<QObject> &a, const std::shar
 
 UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
 {
-    const auto editTriggers = QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed;
+    const auto editTriggers = QAbstractItemView::EditKeyPressed /*| QAbstractItemView::AnyKeyPressed*/;
 
     UserLevelTrees result = {};
     result.operatorTree = (level == 0 ? new DataSourceTree : new OperatorTree);
@@ -2326,8 +2188,8 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
         if (qobject_cast<SinkInterface *>(op.get()))
             continue;
 
-        if (qobject_cast<ConditionInterface *>(op.get()))
-            continue;
+        //if (qobject_cast<ConditionInterface *>(op.get()))
+        //    continue;
 
         std::unique_ptr<TreeNode> opNode(make_operator_node(op.get()));
 
@@ -2440,10 +2302,26 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         tree->setUserLevel(levelIndex);
 
         // mouse interaction
+        // TODO: try to not use itemClicked. Instead use selectionChanged and
+        // use the selection to figure out if a single item is selected.
         QObject::connect(tree, &QTreeWidget::itemClicked,
                          m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
-            onNodeClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
-            updateActions();
+            if (!m_ignoreNextNodeClick)
+            {
+                qDebug() << "### tree itemClicked:" << node << column;
+                onNodeClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
+                updateActions();
+            }
+            else
+            {
+                qDebug() << "### tree itemClicked (ignored!):" << node << column;
+                m_ignoreNextNodeClick = false;
+            }
+        });
+
+        QObject::connect(tree, &QTreeWidget::itemActivated,
+                         m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
+            qDebug() << "### tree itemActivated:" << node << column;
         });
 
         QObject::connect(tree, &QTreeWidget::itemDoubleClicked,
@@ -2503,9 +2381,25 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         });
 
         QObject::connect(tree, &QTreeWidget::itemSelectionChanged,
-                         m_q, [this] () {
-            //qDebug() << "itemSelectionChanged on" << tree
-            //    << ", new selected item count =" << tree->selectedItems().size();
+                         m_q, [this, tree] () {
+            qDebug() << "itemSelectionChanged on" << tree
+                << ", new selected item count =" << tree->selectedItems().size();
+
+            m_selectedOperator = {};
+            auto nodes = tree->selectedItems();
+
+            if (nodes.size() == 1)
+            {
+                if (auto obj = get_analysis_object(nodes.first(), DataRole_AnalysisObject))
+                {
+                    if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+                    {
+                        qDebug() << "setting selected operator to" << op->objectName();
+                        m_selectedOperator = op;
+                    }
+                }
+            }
+
             updateActions();
         });
     }
@@ -2668,8 +2562,26 @@ AnalysisObjectVector objects_from_nodes(const C &nodes, bool recurse=false)
     return objects_from_nodes<AnalysisObject>(nodes, recurse);
 }
 
+static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
+    const QList<QTreeWidgetItem *> selectedNodes)
+{
+    std::vector<QTreeWidgetItem *> viableHistoGenNodes;
+
+    std::copy_if(
+        std::begin(selectedNodes), std::end(selectedNodes),
+        std::back_inserter(viableHistoGenNodes),
+        [] (const QTreeWidgetItem *item) {
+
+            return (item->type() == NodeType_Source
+                    || item->type() == NodeType_Operator
+                    || item->type() == NodeType_OutputPipe);
+        });
+
+    return viableHistoGenNodes;
+}
+
 /* Context menu for the operator tree views (top). */
-void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
+void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
     //auto localSelectedObjects  = objects_from_nodes(tree->selectedItems());
     //auto activeObject = get_shared_analysis_object<AnalysisObject>(activeNode);
@@ -2677,11 +2589,13 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
     if (m_uniqueWidget) return;
 
+#if 0
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
             return;
     }
+#endif
 
     // Handle the top-left tree containing the modules and data extractors.
     if (userLevel == 0)
@@ -2774,10 +2688,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             });
         }
 
+        auto obj = get_shared_analysis_object<AnalysisObject>(activeNode, DataRole_AnalysisObject);
+
         if (activeNode->type() == NodeType_Operator)
         {
-            if (auto op = get_shared_analysis_object<OperatorInterface>(activeNode,
-                                                                        DataRole_AnalysisObject))
+            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
             {
                 if (op->getNumberOfOutputs() == 1)
                 {
@@ -2807,6 +2722,28 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         tw->editItem(activeNode);
                     }
                 });
+
+                if (!std::dynamic_pointer_cast<ConditionInterface>(obj))
+                {
+                    menu.addAction("Select Conditions", [this, op]() {
+                        auto dialog = new SelectConditionsDialog(op, m_q);
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
+                        m_uniqueWidget = dialog;
+
+                        QObject::connect(dialog, &ObjectEditorDialog::applied,
+                                         m_q, &EventWidget::objectEditorDialogApplied);
+
+                        QObject::connect(dialog, &QDialog::accepted,
+                                         m_q, &EventWidget::objectEditorDialogAccepted);
+
+                        QObject::connect(dialog, &QDialog::rejected,
+                                         m_q, &EventWidget::objectEditorDialogRejected);
+
+                        clearAllTreeSelections();
+                        clearAllToDefaultNodeHighlights();
+                    });
+                }
             }
         }
 
@@ -2825,8 +2762,23 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 }
             });
         }
+
+
+
+        // Generate Histograms
+        auto localSelectedItems = tree->getTopLevelSelectedNodes();
+        auto viableHistoGenNodes = get_viable_nodes_for_histogram_generation(localSelectedItems);
+
+        if (!viableHistoGenNodes.empty())
+        {
+            menu.addSeparator();
+            menu.addAction(QIcon(":/hist1d.png"), QSL("Generate Histograms"),
+                           [this, tree, viableHistoGenNodes] () {
+                               this->actionGenerateHistograms(tree, viableHistoGenNodes);
+                           });
+        }
     }
-    else
+    else // Right-click on the tree background, not on an item.
     {
         auto actionNew = menu.addAction(QSL("New"));
         actionNew->setMenu(make_menu_new(&menu));
@@ -2874,9 +2826,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     }
 }
 
-void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
-                                                             QPoint pos,
-                                                             s32 userLevel)
+void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
+    ObjectTree *tree, QPoint pos, s32 userLevel)
 {
     /* Context menu for the top-left tree which contains modules and their
      * datasources. */
@@ -2897,12 +2848,12 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             auto menuNew = new QMenu(&menu);
             auto moduleConfig = get_pointer<ModuleConfig>(activeNode, DataRole_RawPointer);
 
-            auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig, userLevel]
+            auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig]
                 (const QString &title, auto srcPtr) {
                     auto icon = make_datasource_icon(srcPtr.get());
 
                     menuNew->addAction(icon, title, &menu,
-                                       [this, moduleConfig, srcPtr, userLevel]() {
+                                       [this, moduleConfig, srcPtr]() {
 
                                            auto dialog = datasource_editor_factory(
                                                srcPtr, ObjectEditorMode::New, moduleConfig, m_q);
@@ -2951,7 +2902,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                     QMessageBox box(
                         QMessageBox::Question,
                         QSL("Generate default filters"),
-                        QSL("This action will generate extraction filters,"
+                        QSL("This action will generate extraction filters"
                             ", calibrations and histograms for the selected module."
                             " Do you want to continue?"),
                         QMessageBox::Ok | QMessageBox::No,
@@ -2997,10 +2948,6 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
             if (auto srcPtr = get_shared_analysis_object<SourceInterface>(activeNode,
                                                                           DataRole_AnalysisObject))
             {
-                Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
-                           "doOperatorTreeContextMenu",
-                           "data sources with multiple outputs are not supported");
-
                 auto moduleNode = activeNode->parent();
                 ModuleConfig *moduleConfig = nullptr;
 
@@ -3009,10 +2956,10 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
 
                 const bool isAttachedToModule = moduleConfig != nullptr;
 
-                auto pipe = srcPtr->getOutput(0);
-
-                if (isAttachedToModule)
+                if (srcPtr->getNumberOfOutputs() == 1 && isAttachedToModule)
                 {
+                    auto pipe = srcPtr->getOutput(0);
+
                     menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
                         makeAndShowPipeDisplay(pipe);
                     });
@@ -3022,7 +2969,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                 {
                     menu.addAction(
                         QIcon(":/pencil.png"), QSL("Edit"),
-                        [this, srcPtr, moduleConfig, userLevel]() {
+                        [this, srcPtr, moduleConfig]() {
 
                             auto dialog = datasource_editor_factory(
                                 srcPtr, ObjectEditorMode::Edit, moduleConfig, m_q);
@@ -3036,8 +2983,38 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(QTreeWidget *tree,
                             clearAllTreeSelections();
                             clearAllToDefaultNodeHighlights();
                         });
+
+                    menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
+                        if (auto tw = activeNode->treeWidget())
+                        {
+                            tw->editItem(activeNode);
+                        }
+                    });
                 }
             }
+        }
+
+        // Output pipes for multi output data sources.
+        if (activeNode->type() == NodeType_OutputPipe)
+        {
+            auto pipe = get_pointer<Pipe>(activeNode, DataRole_RawPointer);
+
+            menu.addAction(QIcon(":/table.png"), QSL("Show Parameters"), [this, pipe]() {
+                makeAndShowPipeDisplay(pipe);
+            });
+        }
+
+        // Generate Histograms
+        auto localSelectedItems = tree->getTopLevelSelectedNodes();
+        auto viableHistoGenNodes = get_viable_nodes_for_histogram_generation(localSelectedItems);
+
+        if (!viableHistoGenNodes.empty())
+        {
+            menu.addSeparator();
+            menu.addAction(QIcon(":/hist1d.png"), QSL("Generate Histograms"),
+                           [this, tree, viableHistoGenNodes] () {
+                               this->actionGenerateHistograms(tree, viableHistoGenNodes);
+                           });
         }
     }
 
@@ -3115,11 +3092,13 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
     if (m_uniqueWidget) return;
 
+#if 0
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
             return;
     }
+#endif
 
     auto make_menu_new = [this, userLevel](QMenu *parentMenu,
                                            const DirectoryPtr &destDir = DirectoryPtr())
@@ -3429,8 +3408,8 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             case NodeType_Histo1DSink:
             case NodeType_Histo2DSink:
             case NodeType_Sink:
-                if (auto op = get_shared_analysis_object<OperatorInterface>(activeNode,
-                                                                            DataRole_AnalysisObject))
+                if (auto op = get_shared_analysis_object<OperatorInterface>(
+                        activeNode, DataRole_AnalysisObject))
                 {
                     menu.addSeparator();
                     // Edit Display Operator
@@ -3453,6 +3432,29 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         tw->editItem(activeNode);
                     }
                 });
+
+                if (auto op = get_shared_analysis_object<OperatorInterface>(
+                        activeNode, DataRole_AnalysisObject))
+                {
+                    menu.addAction("Conditions", [this, op]() {
+                        auto dialog = new SelectConditionsDialog(op, m_q);
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
+                        m_uniqueWidget = dialog;
+
+                        QObject::connect(dialog, &ObjectEditorDialog::applied,
+                                         m_q, &EventWidget::objectEditorDialogApplied);
+
+                        QObject::connect(dialog, &QDialog::accepted,
+                                         m_q, &EventWidget::objectEditorDialogAccepted);
+
+                        QObject::connect(dialog, &QDialog::rejected,
+                                         m_q, &EventWidget::objectEditorDialogRejected);
+
+                        clearAllTreeSelections();
+                        clearAllToDefaultNodeHighlights();
+                    });
+                }
 
                 break;
         }
@@ -3534,6 +3536,15 @@ EventWidgetPrivate::Mode EventWidgetPrivate::getMode() const
     return m_mode;
 }
 
+static bool can_use_condition(const OperatorPtr &op, const ConditionPtr &cond)
+{
+    if (op->getEventId() != cond->getEventId())
+        return false;
+
+    auto inputSet = collect_input_set(cond.get());
+    return !inputSet.contains(op.get());
+}
+
 void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
 {
     qDebug() << __PRETTY_FUNCTION__
@@ -3555,8 +3566,9 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
 
                 clearAllTreeSelections();
 
-                const bool isSink = qobject_cast<SinkInterface *>(
-                    m_inputSelectInfo.slot->parentOperator);
+                bool isSink = false;
+                if (m_inputSelectInfo.slot)
+                    isSink = qobject_cast<SinkInterface *>(m_inputSelectInfo.slot->parentOperator) != nullptr;
 
                 for (auto &trees: m_levelTrees)
                 {
@@ -3564,6 +3576,34 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
                         (getUserLevelForTree(trees.operatorTree) <= m_inputSelectInfo.userLevel))
                     {
                         highlightValidInputNodes(trees.operatorTree->invisibleRootItem());
+                    }
+                }
+            } break;
+
+        case SelectCondition:
+            {
+                assert(m_conditionSelectInfo.op);
+
+                auto op = m_conditionSelectInfo.op;
+
+                auto conditions = getAnalysis()->getConditions(op->getEventId());
+
+                for (const auto &cond: conditions)
+                {
+                    if (can_use_condition(op, cond))
+                    {
+                        if (auto condNode = m_objectMap[cond])
+                        {
+                            // Highlight the condition node and its parent directories.
+                            condNode->setBackground(0, ValidInputNodeColor);
+
+                            for (auto node = condNode->parent();
+                                 node && node->type() == NodeType_Directory;
+                                 node = node->parent())
+                            {
+                                node->setBackground(0, ChildIsInputNodeOfColor);
+                            }
+                        }
                     }
                 }
             } break;
@@ -3679,46 +3719,6 @@ void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
     }
 }
 
-static bool isSourceNodeOf(QTreeWidgetItem *node, Slot *slot)
-{
-    PipeSourceInterface *srcObject = nullptr;
-
-    switch (node->type())
-    {
-        case NodeType_Source:
-        case NodeType_Operator:
-            {
-                srcObject = get_pointer<PipeSourceInterface>(node, DataRole_AnalysisObject);
-                Q_ASSERT(srcObject);
-            } break;
-
-        case NodeType_OutputPipe:
-        case NodeType_OutputPipeParameter:
-            {
-                auto pipe = get_pointer<Pipe>(node, DataRole_RawPointer);
-                srcObject = pipe->source;
-                Q_ASSERT(srcObject);
-            } break;
-    }
-
-    bool result = false;
-
-    if (slot->inputPipe->source == srcObject)
-    {
-        if (slot->paramIndex == Slot::NoParamIndex && node->type() != NodeType_OutputPipeParameter)
-        {
-            result = true;
-        }
-        else if (slot->paramIndex != Slot::NoParamIndex && node->type() == NodeType_OutputPipeParameter)
-        {
-            s32 nodeParamAddress = node->data(0, DataRole_ParameterIndex).toInt();
-            result = (nodeParamAddress == slot->paramIndex);
-        }
-    }
-
-    return result;
-}
-
 static bool isOutputNodeOf(QTreeWidgetItem *node, PipeSourceInterface *ps)
 {
     assert(ps);
@@ -3762,40 +3762,6 @@ static bool isOutputNodeOf(QTreeWidgetItem *node, PipeSourceInterface *ps)
     return result;
 }
 
-// Returns true if this node or any of its children represent an input of the
-// given operator.
-static bool highlight_input_nodes(OperatorInterface *op, QTreeWidgetItem *node)
-{
-    assert(op);
-    assert(node);
-
-    bool result = false;
-
-    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
-    {
-        // recurse
-        auto child = node->child(childIndex);
-        result = highlight_input_nodes(op, child) || result;
-    }
-
-    if (result)
-    {
-        node->setBackground(0, ChildIsInputNodeOfColor);
-    }
-
-    for (s32 slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
-    {
-        Slot *slot = op->getSlot(slotIndex);
-        if (slot->inputPipe && isSourceNodeOf(node, slot))
-        {
-            node->setBackground(0, InputNodeOfColor);
-            result = true;
-        }
-    }
-
-    return result;
-}
-
 // Returns true if this node or any of its children are connected to an output of the
 // given pipe source.
 static bool highlight_output_nodes(PipeSourceInterface *ps, QTreeWidgetItem *node)
@@ -3827,9 +3793,12 @@ void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
 {
     assert(op);
 
-    for (auto trees: m_levelTrees)
+    for (s32 slotIdx=0; slotIdx<op->getNumberOfSlots(); ++slotIdx)
     {
-        highlight_input_nodes(op, trees.operatorTree->invisibleRootItem());
+        auto slot = op->getSlot(slotIdx);
+
+        m_q->highlightInputOf(slot, true);
+
     }
 }
 
@@ -3845,8 +3814,8 @@ void EventWidgetPrivate::highlightOutputNodes(PipeSourceInterface *ps)
 void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
 {
     node->setBackground(0, QBrush());
-    //node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-    //node->setData(0, Qt::CheckStateRole, QVariant());
+    node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
+    node->setData(0, Qt::CheckStateRole, QVariant());
 
     for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
     {
@@ -3907,99 +3876,6 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
     }
 }
 
-/* Adds checkboxes to the candidates of the given ConditionkLink. */
-void EventWidgetPrivate::addConditionDecorations(const ConditionLink &cl)
-{
-    if (!cl) return;
-
-    auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(cl.condition, analysis);
-
-    for (const auto &op: candidates)
-    {
-        auto it = m_objectMap.find(op);
-
-        if (it != m_objectMap.end())
-        {
-            if (!it->second)
-            {
-                qDebug() << __PRETTY_FUNCTION__ << op << "op eventId =" << op->getEventId()
-                    << "op userlevel =" << op->getUserLevel();
-            }
-            assert(it->second);
-
-            auto node = it->second;
-            auto opCond  = analysis->getConditionLink(op);
-            auto checked = ((opCond.condition == cl.condition
-                            && opCond.subIndex == cl.subIndex)
-                            ? Qt::Checked
-                            : Qt::Unchecked);
-
-            node->setFlags(node->flags() | Qt::ItemIsUserCheckable);
-            node->setCheckState(0, checked);
-        }
-    }
-}
-
-/* Removes checkboxes for the candidates of the given ConditionkLink. */
-void EventWidgetPrivate::removeConditionDecorations(const ConditionLink &cl)
-{
-    if (!cl) return;
-
-    auto analysis = getAnalysis();
-    auto candidates = get_apply_condition_candidates(cl.condition, analysis);
-
-    for (const auto &op: candidates)
-    {
-        auto it = m_objectMap.find(op);
-
-        if (it != m_objectMap.end())
-        {
-            assert(it->second);
-
-            auto node = it->second;
-            node->setFlags(node->flags() & ~Qt::ItemIsUserCheckable);
-            node->setData(0, Qt::CheckStateRole, QVariant());
-        }
-    }
-}
-
-bool EventWidgetPrivate::hasPendingConditionModifications() const
-{
-    if (m_applyConditionInfo)
-    {
-        auto &cl  = m_applyConditionInfo;
-        auto analysis = getAnalysis();
-        auto clMods = get_condition_modifications(cl, analysis, m_objectMap);
-
-        return clMods.hasModifications();
-    }
-
-    return false;
-}
-
-void EventWidgetPrivate::updateNodesForApplyConditionMode()
-{
-    auto &aci = m_applyConditionInfo;
-
-    if (!aci) return;
-
-    qDebug() << __PRETTY_FUNCTION__ << this
-        << endl
-        << "  condition is" << aci.condition.get()
-        << endl
-        << "  , with maxInputRank  =" << aci.condition->getMaximumInputRank()
-        << " , with maxOutputRank =" << aci.condition->getMaximumOutputRank()
-        << " , with rank =" << aci.condition->getRank()
-        << endl
-        << "  , objectFlags =" << to_string(aci.condition->getObjectFlags())
-        << endl
-        << "  candidates:"
-        ;
-
-    addConditionDecorations(aci);
-}
-
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
     (void) column;
@@ -4020,6 +3896,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
             {
                 auto idMap = vme_analysis_common::build_id_to_index_mapping(m_q->getVMEConfig());
                 auto indices = idMap.value(obj->getEventId());
+                auto eventConfig = m_q->getVMEConfig()->getEventConfig(obj->getEventId());
 
                 qDebug() << __PRETTY_FUNCTION__ << "click on object: id =" << obj->getId()
                     << ", class =" << obj->metaObject()->className()
@@ -4027,6 +3904,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     << ", ulvl  =" << obj->getUserLevel()
                     << ", eventId =" << obj->getEventId()
                     << ", eventIndex=" << indices.eventIndex
+                    << ", eventName=" << (eventConfig ? eventConfig->objectName() : QString())
                     ;
 
                 emit m_q->objectSelected(obj);
@@ -4097,8 +3975,36 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     case NodeType_Histo2DSink:
                     case NodeType_Sink:
                         {
-                            auto op = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject);
-                            highlightInputNodes(op);
+                            auto opRawPtr = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject);
+                            auto op = std::dynamic_pointer_cast<OperatorInterface>(opRawPtr->shared_from_this());
+                            highlightInputNodes(op.get());
+
+#if 0
+                            if (!qobject_cast<ConditionInterface *>(op.get()))
+                            {
+                                auto conditions = getAnalysis()->getConditions(op->getEventId());
+
+                                for (const auto &cond: conditions)
+                                {
+                                    auto inputSet = collect_input_set(cond.get());
+
+                                    if (!inputSet.contains(op.get()))
+                                    {
+                                        // TODO: get node for the condition,
+                                        // make it checkable and check it if
+                                        // the operator uses the cond
+                                        if (auto condNode = m_objectMap[cond])
+                                        {
+                                            condNode->setFlags(condNode->flags() | Qt::ItemIsUserCheckable);
+                                            auto checkState = Qt::Unchecked;
+                                            if (getAnalysis()->getActiveConditions(op).contains(cond))
+                                                checkState = Qt::Checked;
+                                            condNode->setCheckState(0, checkState);
+                                        }
+                                    }
+                                }
+                            }
+#endif
 
 #if 0
                             qDebug() << "Object Info: id =" << op->getId()
@@ -4211,6 +4117,24 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     setMode(Default);
                 }
             } break;
+
+        case SelectCondition:
+            {
+                if (auto cond = get_shared_analysis_object<ConditionInterface>(
+                        node, DataRole_AnalysisObject))
+                {
+                    if (auto op = m_conditionSelectInfo.op)
+                    {
+                        if (can_use_condition(op, cond))
+                        {
+                            m_conditionSelectInfo.callback(cond);
+                            m_conditionSelectInfo = {};
+                            setMode(Default);
+                        }
+                    }
+                }
+            } break;
+
     }
 }
 
@@ -4224,11 +4148,13 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
         return;
     }
 
+#if 0
     if (hasPendingConditionModifications())
     {
             qDebug() << __PRETTY_FUNCTION__ << "hasPendingConditionModifications() -> early return";
             return;
     }
+#endif
 
     if (m_mode == Default)
     {
@@ -4349,7 +4275,8 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                         widget->setServiceProvider(m_serviceProvider);
 
-                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(
+                            widget, sinkPtr.get(), sinkPtr->getId().toString());
 
                         widget->replot();
                     }
@@ -4449,10 +4376,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (auto srcPtr = get_shared_analysis_object<SourceInterface>(
                             node, DataRole_AnalysisObject))
                     {
-                        Q_ASSERT_X(srcPtr->getNumberOfOutputs() == 1,
-                                   "doOperatorTreeContextMenu",
-                                   "data sources with multiple outputs are not supported");
-
                         auto moduleNode = node->parent();
                         ModuleConfig *moduleConfig = nullptr;
 
@@ -4517,17 +4440,7 @@ void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel
         {
             obj->setObjectName(value);
             m_q->getAnalysis()->setModified(true);
-
-            if (auto op = qobject_cast<OperatorInterface *>(obj))
-            {
-                node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
-                        op->getShortName(),
-                        op->objectName()));
-            }
-            else
-            {
-                node->setData(0, Qt::DisplayRole, value);
-            }
+            repopulate();
         }
     }
 }
@@ -4538,17 +4451,40 @@ void EventWidgetPrivate::onNodeCheckStateChanged(QTreeWidget *tree,
     qDebug() << __PRETTY_FUNCTION__ << this << tree
         << node << ", checkstate =" << node->data(0, Qt::CheckStateRole)
         << ", prev =" << prev;
+    m_ignoreNextNodeClick = true;
 
-    assert(m_applyConditionInfo);
+    auto checkState = node->data(0, Qt::CheckStateRole).toInt();
+    auto obj = get_analysis_object(node, DataRole_AnalysisObject);
+    auto cond = std::dynamic_pointer_cast<ConditionInterface>(obj);
 
-    if (m_applyConditionInfo)
+    if (m_selectedOperator && cond && m_selectedOperator != cond)
     {
-        auto &cl  = m_applyConditionInfo;
-        auto analysis = getAnalysis();
-        auto clMods = get_condition_modifications(cl, analysis, m_objectMap);
-
-        emit m_q->conditionLinksModified(cl, clMods.hasModifications());
+        if (checkState == Qt::Checked)
+        {
+            qDebug() << "adding condition link: operator" << m_selectedOperator->objectName()
+                << "now uses" << cond->objectName();
+            getAnalysis()->addConditionLink(m_selectedOperator, cond);
+        }
+        else
+        {
+            qDebug() << "removing condition link: operator" << m_selectedOperator->objectName()
+                << "is not using" << cond->objectName() << "anymore";
+            getAnalysis()->removeConditionLink(m_selectedOperator, cond);
+        }
     }
+
+#if 0
+    assert(m_selectedCondition);
+
+    if (m_selectedCondition)
+    {
+        auto &cond = m_selectedCondition;
+        auto analysis = getAnalysis();
+        auto clMods = get_condition_modifications(cond, analysis, m_objectMap);
+
+        emit m_q->conditionLinksModified(cond, clMods.hasModifications());
+    }
+#endif
 }
 
 void EventWidgetPrivate::clearAllTreeSelections()
@@ -4755,68 +4691,108 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             if (!ds_a2)
                 continue;
 
-            auto hitCounts = to_qvector(ds_a2->hitCounts);
-
-            if (hitCounts.size() != node->childCount())
-                continue;
-
-            auto &prevHitCounts = m_extractorCounters[source].hitCounts;
-
-            prevHitCounts.resize(hitCounts.size());
-
-            auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
-            auto hitCountRates = hitCountDeltas;
-            std::for_each(hitCountRates.begin(), hitCountRates.end(),
-                          [dt_s](double &d) { d /= dt_s; });
-
-            Q_ASSERT(hitCounts.size() == node->childCount());
-
-            QStringList paramNames;
-
-            if (auto ex = qobject_cast<Extractor *>(source))
-                paramNames = ex->getParameterNames();
-            else if (auto ex = qobject_cast<ListFilterExtractor *>(source))
-                paramNames = ex->getParameterNames();
-
-            for (s32 addr = 0; addr < node->childCount(); ++addr)
+            auto render_datasource_output = [] (
+                QTreeWidgetItem *parentNode,
+                const QVector<double> &hitCounts,
+                const QVector<double> &prevHitCounts,
+                double dt_s,
+                const QStringList paramNames = {})
             {
-                Q_ASSERT(node->child(addr)->type() == NodeType_OutputPipeParameter);
+                assert(hitCounts.size() == prevHitCounts.size());
 
-                QString addrString = QSL("%1").arg(addr, 2);
+                auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
+                auto hitCountRates = hitCountDeltas;
+                std::for_each(hitCountRates.begin(), hitCountRates.end(),
+                              [dt_s](double &d) { d /= dt_s; });
 
-                if (addr < paramNames.size())
+                const s32 maxAddress = std::min(hitCounts.size(), parentNode->childCount());
+
+                for (s32 addr=0; addr<maxAddress; ++addr)
                 {
-                    addrString += " " + paramNames[addr];
+                    if (!parentNode->child(addr))
+                        continue;
+
+                    assert(parentNode->child(addr)->type() == NodeType_OutputPipeParameter);
+
+                    QString addrString = QSL("[%1]").arg(addr, 2);
+
+                    if (addr < paramNames.size())
+                    {
+                        addrString += " " + paramNames[addr];
+                    }
+
+                    addrString.replace(QSL(" "), QSL("&nbsp;"));
+
+                    double hitCount = hitCounts[addr];
+                    auto childNode = parentNode->child(addr);
+
+                    if (hitCount <= 0.0)
+                    {
+                        childNode->setText(0, addrString);
+                    }
+                    else
+                    {
+                        double rate = hitCountRates[addr];
+
+                        if (!std::isfinite(rate)) rate = 0.0;
+
+                        auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
+                                                        0, 'g', 3);
+
+                        childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
+                                           .arg(addrString)
+                                           .arg(hitCount)
+                                           .arg(rateString)
+                                           .arg(dt_s)
+                                          );
+                    }
                 }
+            };
 
-                addrString.replace(QSL(" "), QSL("&nbsp;"));
+            if (ds_a2->outputCount == 1)
+            {
+                // The data source has one output array -> the array elements are direct child
+                // nodes of the source node.
+                auto hitCounts = to_qvector(ds_a2->hitCounts[0]);
+                m_dataSourceCounters[source].resize(1);
+                auto &prevHitCounts = m_dataSourceCounters[source][0].hitCounts;
+                prevHitCounts.resize(hitCounts.size());
 
-                double hitCount = hitCounts[addr];
-                auto childNode = node->child(addr);
+                QStringList paramNames;
 
-                if (hitCount <= 0.0)
+                if (auto ex = qobject_cast<Extractor *>(source))
+                    paramNames = ex->getParameterNames();
+                else if (auto ex = qobject_cast<ListFilterExtractor *>(source))
+                    paramNames = ex->getParameterNames();
+
+                render_datasource_output(node, hitCounts, prevHitCounts, dt_s, paramNames);
+                prevHitCounts = hitCounts;
+            }
+            else if (ds_a2->outputCount > 1)
+            {
+                // Data source with multiple output arrays -> each array has its own parent node.
+                m_dataSourceCounters[source].resize(ds_a2->outputCount);
+
+                for (unsigned outIdx = 0; outIdx < ds_a2->outputCount; ++outIdx)
                 {
-                    childNode->setText(0, addrString);
-                }
-                else
-                {
-                    double rate = hitCountRates[addr];
+                    auto outputNode = node->child(outIdx);
 
-                    if (!std::isfinite(rate)) rate = 0.0;
+                    if (!outputNode)
+                        continue;
 
-                    auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
-                                                    0, 'g', 3);
-
-                    childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
-                                       .arg(addrString)
-                                       .arg(hitCount)
-                                       .arg(rateString)
-                                       .arg(dt_s)
-                                      );
+                    auto hitCounts = to_qvector(ds_a2->hitCounts[outIdx]);
+                    auto &prevHitCounts = m_dataSourceCounters[source][outIdx].hitCounts;
+                    prevHitCounts.resize(hitCounts.size());
+                    render_datasource_output(outputNode, hitCounts, prevHitCounts, dt_s);
+                    prevHitCounts = hitCounts;
                 }
             }
+            else
+            {
+                assert(ds_a2->outputCount == 0);
+                continue;
+            }
 
-            prevHitCounts = hitCounts;
         }
     }
 
@@ -5273,6 +5249,75 @@ void EventWidgetPrivate::actionImport()
     {
         QMessageBox::critical(m_q, "Import error", e.what());
     }
+}
+
+void EventWidgetPrivate::actionGenerateHistograms(
+    ObjectTree *tree, const std::vector<QTreeWidgetItem *> &nodes)
+{
+    assert(tree);
+    assert(!nodes.empty());
+
+    const s32 userLevel = tree->getUserLevel();
+    constexpr size_t bins = 1u << 16;
+    auto analysis = m_serviceProvider->getAnalysis();
+
+    assert(analysis);
+
+    AnalysisPauser pauser(m_serviceProvider);
+
+    auto make_histosink_for_pipe = [userLevel] (Pipe *outPipe)
+    {
+        auto pipeSource = outPipe->source;
+        QString sinkName;
+        if (pipeSource->getNumberOfOutputs() == 1)
+            sinkName = pipeSource->objectName();
+        else
+        {
+            sinkName = QSL("%1.%2")
+                .arg(pipeSource->objectName())
+                .arg(pipeSource->getOutputName(outPipe->sourceOutputIndex));
+        }
+
+        auto sink = std::make_shared<Histo1DSink>();
+        sink->setObjectName(sinkName);
+        sink->setUserLevel(userLevel);
+        sink->setEventId(pipeSource->getEventId());
+        sink->setHistoBins(bins);
+        sink->m_xAxisTitle = sinkName;
+        sink->connectArrayToInputSlot(0, outPipe);
+
+        return sink;
+    };
+
+    for (auto node: nodes)
+    {
+        switch (node->type())
+        {
+            case NodeType_Source:
+            case NodeType_Operator:
+                if (auto pipeSource = get_shared_analysis_object<PipeSourceInterface>(node, DataRole_AnalysisObject))
+                {
+                    for (s32 outIdx = 0; outIdx < pipeSource->getNumberOfOutputs(); ++outIdx)
+                    {
+                        auto outPipe = pipeSource->getOutput(outIdx);
+                        analysis->addOperator(make_histosink_for_pipe(outPipe));
+                    }
+                } break;
+
+            case NodeType_OutputPipe:
+                if (auto outPipe = get_pointer<Pipe>(node, DataRole_RawPointer))
+                {
+                    analysis->addOperator(make_histosink_for_pipe(outPipe));
+                }
+                break;
+
+            default:
+                assert(!"actionGenerateHistograms: unexpected node type in selection");
+        }
+    }
+
+    analysis->beginRun(Analysis::KeepState, m_q->getVMEConfig());
+    repopulate();
 }
 
 void EventWidgetPrivate::setSinksEnabled(const SinkVector &sinks, bool enabled)

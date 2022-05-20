@@ -58,17 +58,12 @@ class InputSelectButton: public QPushButton
         Slot *m_destSlot;
 };
 
-namespace detail
-{
-struct Model;
-}
-
 class SlotGrid: public QFrame
 {
     Q_OBJECT
     signals:
-        void addSlot();
-        void removeSlot();
+        void slotAdded();
+        void slotRemoved();
         void beginInputSelect(s32 slotIndex);
         void clearInput(s32 slotIndex);
         void inputPrefixEdited(s32 slotIndex, const QString &text);
@@ -80,16 +75,17 @@ class SlotGrid: public QFrame
         QVector<QPushButton *> clearButtons;
         QVector<QLineEdit *> inputPrefixLineEdits;
 
+        QGridLayout *slotLayout;
+
+        QPushButton *addSlotButton,
+                    *removeSlotButton;
+
     public slots:
-        void repopulate(const detail::Model &model, EventWidget *eventWidget, s32 userLevel);
         void endInputSelect();
-
-    private:
-        QGridLayout *m_slotLayout;
-
-        QPushButton *m_addSlotButton,
-                    *m_removeSlotButton;
 };
+
+template<typename Model>
+void repopulate(SlotGrid *slotGrid, const Model &model, EventWidget *eventWidget, s32 userLevel);
 
 /** Display for a single analysis pipe with optionally editable parameter
  * values. */

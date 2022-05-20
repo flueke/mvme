@@ -252,11 +252,13 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         friend class MVMEMainWindow;
 
+#if 1
         //QFuture<vme_script::ResultList>
         vme_script::ResultList
             runScript(const vme_script::VMEScript &script,
                       vme_script::LoggerFun logger = vme_script::LoggerFun(),
                       bool logEachResult = false);
+#endif
 
         MVMEMainWindow *getMainWindow() const { return m_mainwin; }
 

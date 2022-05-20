@@ -27,6 +27,7 @@
 #include "libmvme_export.h"
 #include "mvme_context.h"
 #include "mvme_options.h"
+#include "vme_config_scripts.h"
 #include "widget_registry.h"
 
 class ConfigObject;
@@ -82,13 +83,6 @@ public:
 
     void addWidget(QWidget *widget, const QString &stateKey = QString());
 
-    struct RunScriptOptions
-    {
-        using opt_t = u16;
-        static const opt_t Defaults = 0u;
-        static const opt_t AggregateResults = 1u << 0;
-    };
-
     mesytec::mvme::WidgetRegistry *getWidgetRegistry() const;
 
 public slots:
@@ -112,9 +106,11 @@ public slots:
 
     void updateWindowTitle();
     void runScriptConfig(VMEScriptConfig *config,
-                         RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
+                         const mesytec::mvme::ScriptConfigRunner::Options options = {});
 
     void closeAllHistogramWidgets();
+
+    //void loopVMEScript(const vme_script::VMEScript &script, bool enableLooping);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -161,11 +157,19 @@ private slots:
 
     void onVMEModuleMoved(ModuleConfig *mod, EventConfig *sourceEvent, EventConfig *destEvent);
 
-    void doRunScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
-                            RunScriptOptions::opt_t options = RunScriptOptions::Defaults);
+    void runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs,
+                          const mesytec::mvme::ScriptConfigRunner::Options options = {});
+
+    void runScriptConfigs(const std::vector<VMEScriptConfig *> &scriptConfigs,
+                          const mesytec::mvme::ScriptConfigRunner::Options options = {});
+
+    void runScriptConfigs(const std::vector<std::pair<const VMEScriptConfig *, vme_script::VMEScript>> &scripts,
+                          const mesytec::mvme::ScriptConfigRunner::Options options = {});
 
     void handleSniffedReadoutBuffer(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
     void showRunNotes();
+
+    //void loopVMEScript_runOnce();
 
 private:
     MVMEWindowPrivate *m_d;

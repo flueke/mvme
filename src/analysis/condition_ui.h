@@ -21,12 +21,12 @@
 #ifndef __MVME_CONDITION_UI_H__
 #define __MVME_CONDITION_UI_H__
 
-class MVMEContext;
-
 #include <memory>
 #include <QWidget>
 
-#include "analysis_fwd.h"
+#include "analysis_service_provider.h"
+
+#if 0
 
 namespace analysis
 {
@@ -44,7 +44,7 @@ class ConditionWidget: public QWidget
         void objectSelected(const AnalysisObjectPtr &obj);
 
     public:
-        ConditionWidget(MVMEContext *ctx, QWidget *parent = nullptr);
+        ConditionWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         virtual ~ConditionWidget() override;
 
     public slots:
@@ -69,5 +69,7 @@ class ConditionWidget: public QWidget
 
 } // ns ui
 } // ns analysis
+
+#endif
 
 #endif /* __MVME_CONDITION_UI_H__ */

@@ -96,15 +96,6 @@ QJsonObject serialze_connection(const Connection &con)
     return result;
 }
 
-QJsonObject serialize_conditionlink(const OperatorPtr &op, const ConditionLink &cl)
-{
-    QJsonObject result;
-    result["operatorId"] = op->getId().toString();
-    result["conditionId"] = cl.condition->getId().toString();
-    result["subIndex"] = cl.subIndex;
-    return result;
-}
-
 QSet<Connection> collect_internal_connections(const AnalysisObjectVector &objects)
 {
     QSet<Connection> connections;
@@ -227,6 +218,12 @@ void ObjectSerializerVisitor::visit(SinkInterface *sink)
     visitedObjects.append(sink->shared_from_this());
 }
 
+void ObjectSerializerVisitor::visit(ConditionInterface *cond)
+{
+    operatorsArray.append(serialize(cond));
+    visitedObjects.append(cond->shared_from_this());
+}
+
 void ObjectSerializerVisitor::visit(Directory *dir)
 {
     directoriesArray.append(serialize(dir));
@@ -238,18 +235,24 @@ QJsonArray ObjectSerializerVisitor::serializeConnections() const
     return serialize_internal_connections(visitedObjects);
 }
 
-QJsonArray ObjectSerializerVisitor::serializeConditionLinks(const ConditionLinks &links) const
+QJsonObject ObjectSerializerVisitor::serializeConditionLinks(const ConditionLinks &links) const
 {
-    QJsonArray result;
+    // { operatorId: [ condId, ... ], ... }
+    QJsonObject result;
 
     for (auto it = links.begin(); it != links.end(); it++)
     {
         const auto &op(it.key());
-        const auto &link(it.value());
+        const auto &links(it.value());
 
-        if (op && link)
+        if (op && !links.empty())
         {
-            result.append(serialize_conditionlink(op, link));
+            QJsonArray condIds;
+
+            for (auto it=std::begin(links); it!=std::end(links); ++it)
+                condIds.append((*it)->getId().toString());
+
+            result[op->getId().toString()] = condIds;
         }
     }
 
@@ -447,25 +450,27 @@ AnalysisObjectStore deserialize_objects(
 
     // Condition Links
     {
-        QJsonArray array = data["conditionLinks"].toArray();
+        QJsonObject condLinks = data["conditionLinks"].toObject();
 
-        for (auto it = array.begin(); it != array.end(); ++it)
+        for (auto linkIt=condLinks.begin(); linkIt!=condLinks.end(); ++linkIt)
         {
-            auto objectJson = it->toObject();
-
-            QUuid opId(objectJson["operatorId"].toString());
-            QUuid condId(objectJson["conditionId"].toString());
-            s32 subIndex = objectJson["subIndex"].toInt();
+            auto opId = QUuid(linkIt.key());
+            auto condIds = linkIt.value().toArray();
 
             auto op = std::dynamic_pointer_cast<OperatorInterface>(
                 result.objectsById.value(opId));
 
-            auto cond = std::dynamic_pointer_cast<ConditionInterface>(
-                result.objectsById.value(condId));
-
-            if (op && cond)
+            for (auto condIt=condIds.begin(); condIt!=condIds.end(); ++condIt)
             {
-                result.conditionLinks.insert(op, { cond, subIndex });
+                auto condId = QUuid(condIt->toString());
+
+                auto cond = std::dynamic_pointer_cast<ConditionInterface>(
+                    result.objectsById.value(condId));
+
+                if (op && cond)
+                {
+                    result.conditionLinks[op].insert(cond);
+                }
             }
         }
     }
@@ -722,6 +727,8 @@ AnalysisObjectStore deserialize_objects(
 
 void establish_connections(const QSet<Connection> &connections)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "#connetions=" << connections.size();
+
     for (const auto &con: connections)
     {
         if (con.srcObject && con.dstObject)
@@ -729,6 +736,10 @@ void establish_connections(const QSet<Connection> &connections)
             if (Pipe *srcPipe = con.srcObject->getOutput(con.srcIndex))
             {
                 con.dstObject->connectInputSlot(con.dstIndex, srcPipe, con.dstParamIndex);
+            }
+            else
+            {
+                qDebug() << "establish_connections: no srcPipe for" << con.srcObject->objectName();
             }
         }
     }

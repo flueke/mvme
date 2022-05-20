@@ -38,16 +38,16 @@ class LIBMVME_EXPORT ConditionEditorInterface
          * instance, true otherwise.
          * In case the condition can't be edited getCondition() may return an
          * invalid ConditionLink instead of the one passed here. */
-        virtual bool setEditCondition(const ConditionLink &cl) = 0;
+        virtual bool setEditCondition(const ConditionPtr &cond) = 0;
 
         /* Returns the condition and subindex currently being edited.
          *
          * Note that the returned subindex may be different than the one
          * originally passed in when editCondition() was called. This is
          * because the editor can offer to edit all subindexes in one
-         * graphical widget, e.g. Histo1DListWidget.
+         * graphical widget, e.g. Histo1DWidget.
          */
-        virtual ConditionLink getEditCondition() const = 0;
+        virtual ConditionPtr getEditCondition() const = 0;
 
         /* Starts editing the condition that was previously set via
          * setEditCondition. */

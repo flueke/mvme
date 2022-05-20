@@ -36,7 +36,10 @@ class VMEScriptEditor: public MVMEWidget
     signals:
         void logMessage(const QString &msg);
         void runScript(const vme_script::VMEScript &script);
+#if 0
         void runScriptWritesBatched(const vme_script::VMEScript &script);
+        void loopScript(const vme_script::VMEScript &script, bool enableLooping);
+#endif
         void addApplicationWidget(QWidget *widget);
 
     public:
@@ -51,6 +54,8 @@ class VMEScriptEditor: public MVMEWidget
         CodeEditor *textEdit();
         QString toPlainText() const;
 
+        VMEScriptConfig *getScriptConfig() const;
+
     public slots:
         void reloadFromScriptConfig() { revert(); }
 
@@ -61,7 +66,10 @@ class VMEScriptEditor: public MVMEWidget
         void onScriptModified(bool isModified);
 
         void runScript_();
+#if 0
+        void loopScript_(bool enableLooping);
         void runScriptWritesBatched_();
+#endif
         void loadFromFile();
         void loadFromTemplate();
         void saveToFile();

@@ -49,16 +49,14 @@ using ConditionVector = QVector<ConditionPtr>;
 using DirectoryPtr = std::shared_ptr<Directory>;
 using DirectoryVector = QVector<DirectoryPtr>;
 using OperatorPtr = std::shared_ptr<OperatorInterface>;
-using OperatorVector = QVector<OperatorPtr>;
+using OperatorVector = std::vector<OperatorPtr>;
 using PipeSourcePtr = std::shared_ptr<PipeSourceInterface>;
 using SinkPtr = std::shared_ptr<SinkInterface>;
 using SinkVector = QVector<SinkPtr>;
 using SourcePtr = std::shared_ptr<SourceInterface>;
-using SourceVector = QVector<SourcePtr>;
+using SourceVector = std::vector<SourcePtr>;
 
-struct ConditionLink;
-
-using ConditionLinks = QHash<OperatorPtr, ConditionLink>;
+using ConditionLinks = QHash<OperatorPtr, QSet<ConditionPtr>>;
 
 } // end namespace analysis
 

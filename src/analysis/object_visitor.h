@@ -33,6 +33,7 @@ class LIBMVME_EXPORT ObjectVisitor
         virtual void visit(SourceInterface *source) = 0;
         virtual void visit(OperatorInterface *op) = 0;
         virtual void visit(SinkInterface *sink) = 0;
+        virtual void visit(ConditionInterface *cond) = 0;
         virtual void visit(Directory *dir) = 0;
 };
 

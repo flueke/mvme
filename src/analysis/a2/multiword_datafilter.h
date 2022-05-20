@@ -91,7 +91,9 @@ inline bool process_data(MultiWordFilter *filter, u32 dataWord, s32 wordIndex = 
     for (int i = 0; i < filter->filterCount; i++)
     {
         u16 partMask = 1u << i;
-        assert(sizeof(partMask) >= sizeof(filter->filterCount));
+
+        static_assert(sizeof(partMask) >= sizeof(filter->filterCount),
+                      "partMask type too small for max filterCount");
 
         if (!(filter->completionMask & partMask)
             && matches(filter->filters[i], dataWord, wordIndex))

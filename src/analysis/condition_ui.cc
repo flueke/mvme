@@ -99,22 +99,12 @@ TreeNode *make_condition_node(ConditionInterface *cond)
 
     ret->setFlags(ret->flags() | Qt::ItemIsEditable);
 
-    if (cond->getNumberOfBits() > 1)
-    {
-        for (s32 bi = 0; bi < cond->getNumberOfBits(); bi++)
-        {
-            auto child = make_node(cond, NodeType_ConditionBit, DataRole_AnalysisObject);
-            child->setData(0, DataRole_BitIndex, bi);
-            child->setText(0, QString::number(bi));
-
-            ret->addChild(child);
-        }
-    }
-
     return ret;
 }
 
 } // end anon namespace
+
+#if 0
 
 //
 // NodeModificationButtons
@@ -153,22 +143,22 @@ struct ConditionTreeWidget::Private
     static const int ButtonsColumn = 1;
 
     explicit Private(ConditionTreeWidget *q): m_q(q) {}
-    MVMEContext *getContext() const { return m_context; }
-    Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
+    AnalysisServiceProvider *getAnalysisServiceProvider() const { return m_asp; }
+    Analysis *getAnalysis() const { return getAnalysisServiceProvider()->getAnalysis(); }
     QUuid getEventId() const { return m_eventId; }
     int getEventIndex() const { return m_eventIndex; }
     void doContextMenu(const QPoint &pos);
     void removeObject(const AnalysisObjectPtr &obj);
 
     ConditionTreeWidget *m_q;
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_asp;
     QUuid m_eventId;
     int m_eventIndex;
     QSet<void *> m_expandedObjects;
     ObjectToNode m_objectMap;
 };
 
-ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
+ConditionTreeWidget::ConditionTreeWidget(AnalysisServiceProvider *asp, const QUuid &eventId, int eventIndex,
                                          QWidget *parent)
     : QTreeWidget(parent)
     , m_d(std::make_unique<Private>(this))
@@ -176,7 +166,7 @@ ConditionTreeWidget::ConditionTreeWidget(MVMEContext *ctx, const QUuid &eventId,
     //qDebug() << __PRETTY_FUNCTION__ << this;
 
     // Private setup
-    m_d->m_context = ctx;
+    m_d->m_asp = asp;
     m_d->m_eventId = eventId;
     m_d->m_eventIndex = eventIndex;
 
@@ -260,20 +250,7 @@ void ConditionTreeWidget::repopulate()
         auto node = make_condition_node(cond.get());
         addTopLevelItem(node);
         m_d->m_objectMap[cond] = node;
-
-        if (cond->getNumberOfBits() == 1)
-        {
-            make_mod_buttons(node);
-        }
-        else
-        {
-            assert(node->childCount() == cond->getNumberOfBits());
-
-            for (auto ci = 0; ci < node->childCount(); ci++)
-            {
-                make_mod_buttons(node->child(ci));
-            }
-        }
+        make_mod_buttons(node);
     }
 
     resizeColumnToContents(0);
@@ -297,22 +274,7 @@ void ConditionTreeWidget::highlightConditionLink(const ConditionLink &cl)
 
     if (auto condNode = m_d->m_objectMap[cl.condition])
     {
-        if (cl.condition->getNumberOfBits() == 1)
-        {
-            condNode->setBackground(0, InputNodeOfColor);
-        }
-        else if (0 <= cl.subIndex && cl.subIndex < condNode->childCount())
-        {
-            if (auto bitNode = condNode->child(cl.subIndex))
-            {
-                condNode->setBackground(0, ChildIsInputNodeOfColor);
-                bitNode->setBackground(0, InputNodeOfColor);
-            }
-            else
-            {
-                InvalidCodePath;
-            }
-        }
+        condNode->setBackground(0, InputNodeOfColor);
     }
     else
     {
@@ -331,16 +293,7 @@ void ConditionTreeWidget::setModificationButtonsVisible(const ConditionLink &cl,
 {
     //qDebug() << __PRETTY_FUNCTION__ << cl.condition << visible;
 
-    QTreeWidgetItem *node = nullptr;
-
-    if (cl && (node = m_d->m_objectMap[cl.condition]))
-    {
-        if (cl.condition->getNumberOfBits() > 1
-            && 0 <= cl.subIndex && cl.subIndex < node->childCount())
-        {
-            node = node->child(cl.subIndex);
-        }
-    }
+    QTreeWidgetItem *node = cl ? m_d->m_objectMap[cl.condition] : nullptr;
 
     if (node)
     {
@@ -464,7 +417,7 @@ void ConditionTreeWidget::Private::removeObject(const AnalysisObjectPtr &obj)
 {
     if (obj)
     {
-        AnalysisPauser pauser(getContext());
+        AnalysisPauser pauser(getAnalysisServiceProvider());
         getAnalysis()->removeObjectsRecursively({ obj });
     }
 }
@@ -477,15 +430,15 @@ struct ConditionWidget::Private
 {
     ConditionWidget *m_q;
 
-    MVMEContext *m_context;
+    AnalysisServiceProvider *m_asp;
     QToolBar *m_toolbar;
     QStackedWidget *m_treeStack;
     QHash<QUuid, ConditionTreeWidget *> m_treesByEventId;
     ConditionLink m_conditionLinkWithVisibleButtons;
 
     explicit Private(ConditionWidget *q): m_q(q) {}
-    MVMEContext *getContext() const { return m_context; }
-    Analysis *getAnalysis() const { return getContext()->getAnalysis(); }
+    AnalysisServiceProvider *getAnalysisServiceProvider() const { return m_asp; }
+    Analysis *getAnalysis() const { return getAnalysisServiceProvider()->getAnalysis(); }
 
     void onCurrentNodeChanged(QTreeWidgetItem *node);
     void onNodeChanged(QTreeWidgetItem *node, int column);
@@ -494,11 +447,11 @@ struct ConditionWidget::Private
     void editConditionInEditor(const ConditionLink &cl);
 };
 
-ConditionWidget::ConditionWidget(MVMEContext *ctx, QWidget *parent)
+ConditionWidget::ConditionWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<Private>(this))
 {
-    m_d->m_context = ctx;
+    m_d->m_asp = asp;
     m_d->m_toolbar = make_toolbar();
     m_d->m_treeStack = new QStackedWidget;
 
@@ -533,7 +486,7 @@ void ConditionWidget::repopulate()
     m_d->m_treesByEventId.clear();
     m_d->m_conditionLinkWithVisibleButtons = {};
 
-    auto eventConfigs = m_d->getContext()->getEventConfigs();
+    auto eventConfigs = m_d->getAnalysisServiceProvider()->getVMEConfig()->getEventConfigs();
 
     for (s32 eventIndex = 0;
          eventIndex < eventConfigs.size();
@@ -543,7 +496,7 @@ void ConditionWidget::repopulate()
         auto eventId = eventConfig->getId();
 
         auto conditionTree = new ConditionTreeWidget(
-            m_d->getContext(), eventId, eventIndex);
+            m_d->getAnalysisServiceProvider(), eventId, eventIndex);
 
         m_d->m_treeStack->addWidget(conditionTree);
         m_d->m_treesByEventId[eventId] = conditionTree;
@@ -654,14 +607,7 @@ void ConditionWidget::Private::onCurrentNodeChanged(QTreeWidgetItem *node)
                 auto condPtr = std::dynamic_pointer_cast<ConditionInterface>(
                     cond->shared_from_this());
 
-                if (cond->getNumberOfBits() == 1)
-                {
-                    emit m_q->conditionLinkSelected({ condPtr, 0 });
-                }
-                else
-                {
-                    emit m_q->conditionLinkSelected({ condPtr, -1 });
-                }
+                emit m_q->conditionLinkSelected({ condPtr, 0 });
             }
             else
             {
@@ -780,15 +726,16 @@ void ConditionWidget::Private::onModificationsRejected()
 void ConditionWidget::Private::editConditionInEditor(const ConditionLink &cl)
 {
     qDebug() << __PRETTY_FUNCTION__;
-    if (auto cond = dynamic_cast<ConditionInterval *>(cl.condition.get()))
+    if (auto cond = dynamic_cast<IntervalCondition *>(cl.condition.get()))
     {
-        ConditionIntervalEditor editor(cond, m_context, m_q);
+        IntervalConditionEditor editor(cond, m_asp, m_q);
         if (editor.exec() == QDialog::Accepted)
         {
             m_q->repopulate();
         }
     }
 }
+#endif
 
 } // ns ui
 } // ns analysis

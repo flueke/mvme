@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo2d_widget.h"
+#include "analysis/analysis_fwd.h"
 #include "histo2d_widget_p.h"
 
 #include <qwt_color_map.h>
@@ -296,8 +297,8 @@ struct Histo2DWidgetPrivate
     QAction *m_actionClear,
             *m_actionSubRange,
             *m_actionChangeRes,
-            *m_actionInfo;
-            //*m_actionCreateCut;
+            *m_actionInfo,
+            *m_actionCreateCut;
 
     QComboBox *m_zScaleCombo;
 
@@ -318,7 +319,7 @@ struct Histo2DWidgetPrivate
     ResolutionReductionFactors m_rrf = {};
 
     // Cuts / Conditions
-    analysis::ConditionLink m_editingCondition;
+    analysis::ConditionPtr m_editingCondition;
     QwtPlotPicker *m_cutPolyPicker;
     std::unique_ptr<QwtPlotShapeItem> m_cutShapeItem;
 
@@ -511,7 +512,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     // XXX: cut test
     {
-#if 0
+#if 1
         QPen pickerPen(Qt::red);
 
 
@@ -531,7 +532,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         }));
 #endif
 
-#if 0
+#if 1
         auto action = tb->addAction("Dev: Create cut");
         action->setCheckable(true);
         action->setEnabled(false); // will be enabled in setContext()
@@ -571,6 +572,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_plot->canvas()->setMouseTracking(true);
 
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
+    m_d->m_zoomer->setObjectName("zoomer");
 
     TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
@@ -745,8 +747,8 @@ Histo2DWidget::~Histo2DWidget()
 void Histo2DWidget::setServiceProvider(AnalysisServiceProvider *asp)
 {
     m_d->m_serviceProvider = asp;
-#if 0
-    m_d->m_actionCreateCut->setEnabled(context != nullptr);
+#if 1
+    m_d->m_actionCreateCut->setEnabled(asp != nullptr);
 #endif
 }
 
@@ -848,8 +850,8 @@ void Histo2DWidget::replot()
 
     auto &zInterval = intervals[Qt::ZAxis];
 
-    qDebug("%s stats zInterval: %lf, %lf, valid=%d, width=%lf",
-           __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
+    //qDebug("%s stats zInterval: %lf, %lf, valid=%d, width=%lf",
+    //       __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
 
     // Z axis handling for log scales: start from 1.0
     double zBase = zAxisIsLog() ? 1.0 : 0.0;
@@ -861,8 +863,8 @@ void Histo2DWidget::replot()
 
     assert(zInterval.width() > 0.0);
 
-    qDebug("%s adjusted zInterval: %lf, %lf, valid=%d, width=%lf",
-           __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
+    //qDebug("%s adjusted zInterval: %lf, %lf, valid=%d, width=%lf",
+    //       __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
 
     // Set the intervals on the interal raster data object.
     auto rasterData = reinterpret_cast<RasterDataBase *>(m_d->m_plotItem->data());
@@ -1697,7 +1699,7 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
 
     // create a new cut object and add it to the analysis
 
-    auto cond = std::make_shared<analysis::ConditionPolygon>();
+    auto cond = std::make_shared<analysis::PolygonCondition>();
     cond->setPolygon(poly);
     cond->setObjectName(cutName);
 
@@ -1711,8 +1713,7 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
         cond->connectInputSlot(0, xInput, xIndex);
         cond->connectInputSlot(1, yInput, yIndex);
 
-        // FIXME: remove this once conditions do not show up in the event trees anymore
-        const int userLevel = 3;
+        const int userLevel = 1;
 
         m_serviceProvider->getAnalysis()->addOperator(
             m_sink->getEventId(),
@@ -1721,11 +1722,11 @@ void Histo2DWidgetPrivate::onCutPolyPickerActivated(bool active)
     }
 }
 
-bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
+bool Histo2DWidget::setEditCondition(const analysis::ConditionPtr &cond)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this << cl.condition.get();
+    qDebug() << __PRETTY_FUNCTION__ << this << cond.get();
 
-    auto condPoly = qobject_cast<analysis::ConditionPolygon *>(cl.condition.get());
+    auto condPoly = qobject_cast<analysis::PolygonCondition *>(cond.get());
 
     if (!condPoly)
     {
@@ -1734,7 +1735,7 @@ bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
         return false;
     }
 
-    m_d->m_editingCondition = cl;
+    m_d->m_editingCondition = cond;
 
     if (!m_d->m_cutShapeItem)
     {
@@ -1755,7 +1756,7 @@ bool Histo2DWidget::setEditCondition(const analysis::ConditionLink &cl)
     return true;
 }
 
-analysis::ConditionLink Histo2DWidget::getEditCondition() const
+analysis::ConditionPtr Histo2DWidget::getEditCondition() const
 {
     return m_d->m_editingCondition;
 }

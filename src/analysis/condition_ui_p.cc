@@ -31,12 +31,12 @@ namespace ui
 {
 
 
-ConditionIntervalEditor::ConditionIntervalEditor(ConditionInterval *cond,
-                                                 MVMEContext *context,
+IntervalConditionEditor::IntervalConditionEditor(IntervalCondition *cond,
+                                                 AnalysisServiceProvider *asp,
                                                  QWidget *parent)
     : QDialog(parent)
     , m_cond(cond)
-    , m_context(context)
+    , m_asp(asp)
 {
     le_name = new QLineEdit(this);
     le_name->setText(cond->objectName());
@@ -56,8 +56,8 @@ ConditionIntervalEditor::ConditionIntervalEditor(ConditionInterval *cond,
     bbLayout->addStretch(1);
     bbLayout->addWidget(m_bb);
 
-    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &ConditionIntervalEditor::accept);
-    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &ConditionIntervalEditor::reject);
+    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &IntervalConditionEditor::accept);
+    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &IntervalConditionEditor::reject);
 
     auto layout = new QVBoxLayout(this);
     layout->addLayout(topLayout);
@@ -100,16 +100,16 @@ ConditionIntervalEditor::ConditionIntervalEditor(ConditionInterval *cond,
     resize(325, 400);
 }
 
-ConditionIntervalEditor::~ConditionIntervalEditor()
+IntervalConditionEditor::~IntervalConditionEditor()
 {
 }
 
-void ConditionIntervalEditor::accept()
+void IntervalConditionEditor::accept()
 {
     if (le_name->text() != m_cond->objectName())
     {
         m_cond->setObjectName(le_name->text());
-        m_context->getAnalysis()->setModified(true);
+        m_asp->getAnalysis()->setModified(true);
     }
 
     QVector<QwtInterval> intervals;
@@ -127,18 +127,18 @@ void ConditionIntervalEditor::accept()
 
     if (m_cond->getIntervals() != intervals)
     {
-        AnalysisPauser pauser(m_context);
+        AnalysisPauser pauser(m_asp);
 
         m_cond->setIntervals(intervals);
 
         auto op = std::dynamic_pointer_cast<OperatorInterface>(m_cond->shared_from_this());
-        m_context->getAnalysis()->setOperatorEdited(op);
+        m_asp->getAnalysis()->setOperatorEdited(op);
     }
 
     QDialog::accept();
 }
 
-void ConditionIntervalEditor::reject()
+void IntervalConditionEditor::reject()
 {
     QDialog::reject();
 }

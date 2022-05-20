@@ -18,8 +18,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef __DATA_FILTER_H__
-#define __DATA_FILTER_H__
+#ifndef __MVME_DATA_FILTER_H__
+#define __MVME_DATA_FILTER_H__
 
 #include <QByteArray>
 #include <QDebug>
@@ -217,4 +217,4 @@ LIBMVME_EXPORT QString generate_pretty_filter_string(u8 bits = 32, char c = 'N')
 // Groups of 4 chars separated by a space, padded on the left with spaces if dataBits < totalBits.
 LIBMVME_EXPORT QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c = 'N');
 
-#endif /* __DATA_FILTER_H__ */
+#endif /* __MVME_DATA_FILTER_H__ */

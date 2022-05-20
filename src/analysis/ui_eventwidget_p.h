@@ -231,6 +231,8 @@ struct EventWidgetPrivate
         /* An data extractor or operator add/edit dialog is active and waits
          * for input selection by the user. */
         SelectInput,
+
+        SelectCondition,
     };
 
     EventWidget *m_q;
@@ -255,7 +257,17 @@ struct EventWidgetPrivate
 
     InputSelectInfo m_inputSelectInfo;
 
-    ConditionLink m_applyConditionInfo;
+    struct ConditionSelectInfo
+    {
+        OperatorPtr op;
+        EventWidget::SelectConditionCallback callback;
+    };
+
+    ConditionSelectInfo m_conditionSelectInfo;
+
+    ConditionPtr m_selectedCondition;
+    OperatorPtr m_selectedOperator;
+    bool m_ignoreNextNodeClick = false; // hack to ignore the next itemClicked signal
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;
@@ -295,7 +307,7 @@ struct EventWidgetPrivate
         QVector<double> hitCounts;
     };
 
-    QHash<SourceInterface *, ObjectCounters> m_extractorCounters;
+    QHash<SourceInterface *, QVector<ObjectCounters>> m_dataSourceCounters;
     QHash<Histo1DSink *, ObjectCounters> m_histo1DSinkCounters;
     QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
@@ -316,8 +328,8 @@ struct EventWidgetPrivate
     void removeUserLevel();
     s32 getUserLevelForTree(QTreeWidget *tree);
 
-    void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
-    void doDataSourceOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
+    void doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel);
+    void doDataSourceOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel);
     void doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
 
     void setMode(Mode mode);
@@ -328,10 +340,7 @@ struct EventWidgetPrivate
     void highlightOutputNodes(PipeSourceInterface *ps);
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
-    void updateNodesForApplyConditionMode();
-    void addConditionDecorations(const ConditionLink &cl);
-    void removeConditionDecorations(const ConditionLink &cl);
-    bool hasPendingConditionModifications() const;
+    //bool hasPendingConditionModifications() const;
     void onNodeClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void onNodeChanged(TreeNode *node, int column, s32 userLevel);
@@ -372,6 +381,7 @@ struct EventWidgetPrivate
     void actionExport();
     void actionImport();
 
+    // context menu action implementations
     void setSinksEnabled(const SinkVector &sinks, bool enabled);
 
     void removeSinks(const QVector<SinkInterface *> sinks);
@@ -384,6 +394,8 @@ struct EventWidgetPrivate
     void copyToClipboard(const AnalysisObjectVector &objects);
     bool canPaste();
     void pasteFromClipboard(QTreeWidget *destTree);
+
+    void actionGenerateHistograms(ObjectTree *tree, const std::vector<QTreeWidgetItem *> &nodes);
 
     Analysis *getAnalysis() const;
 };

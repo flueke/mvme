@@ -53,6 +53,7 @@ class Histo1DSubRangeDialog: public QDialog
         QDialogButtonBox *buttonBox;
 };
 
+#if 0
 /* ConditionInterval display and editing:
  *
  * Display is done using a QwtPlotZoneItem to color the interval and two
@@ -178,5 +179,6 @@ class IntervalCutDialog: public QDialog
 
         IntervalEditor *m_editor;
 };
+#endif
 
 #endif /* __HISTO1D_WIDGET_P_H__ */

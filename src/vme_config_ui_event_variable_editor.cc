@@ -475,9 +475,7 @@ void EventVariableEditor::Private::runAffectedScripts()
         auto flatSymbolTables = mesytec::mvme::convert_to_symboltables(symtabsWithObject);
 
         // Determine the module base address
-        u32 moduleBaseAddress = 0u;
-        if (auto moduleConfig = qobject_cast<ModuleConfig *>(c.initScript->parent()))
-            moduleBaseAddress = moduleConfig->getBaseAddress();
+        u32 moduleBaseAddress = mesytec::mvme::get_base_address(c.initScript);
 
         try
         {
@@ -487,13 +485,13 @@ void EventVariableEditor::Private::runAffectedScripts()
 
             logger(QSL("Running script \"%1\"").arg(c.initScript->getObjectPath()));
 
-            auto results = runScriptCallback(parsedScript, indented_logger);
+            auto results = runScriptCallback(std::make_pair(c.initScript, parsedScript));
 
             // Detect controller disconnect and treat it as an error.
             if (results.size() > 0 && results[0].error.error() == VMEError::NotOpen)
                 seenScriptError = true;
 
-            if (results.size() > 1 && results[0].error.error() != VMEError::NotOpen)
+            if (results.size() >= 1 && results[0].error.error() != VMEError::NotOpen)
             {
                 for (auto result: results)
                 {

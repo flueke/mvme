@@ -39,6 +39,12 @@ class CountingVisitor: public ObjectVisitor
             nOperators++;
         }
 
+        virtual void visit(ConditionInterface *cond) override
+        {
+            Q_UNUSED(cond);
+            nConditions++;
+        }
+
         virtual void visit(SinkInterface *sink) override
         {
             Q_UNUSED(sink);
@@ -53,6 +59,7 @@ class CountingVisitor: public ObjectVisitor
 
         int nSources = 0,
             nOperators = 0,
+            nConditions = 0,
             nSinks = 0,
             nDirs = 0;
 };
@@ -78,6 +85,7 @@ TEST(objectVisitor, BasicVisitation)
 
     ASSERT_EQ(cv.nSources, 2);
     ASSERT_EQ(cv.nOperators, 2);
+    ASSERT_EQ(cv.nConditions, 0);
     ASSERT_EQ(cv.nSinks, 2);
     ASSERT_EQ(cv.nDirs, 1);
 }

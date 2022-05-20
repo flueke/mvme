@@ -401,8 +401,10 @@ Data Sources
 Analysis Data Sources attach directly to a VME module. On every step of the
 analysis system they're handed all the data words produced by that module in
 the corresponding readout cycle. Their job is to extract data values from the
-raw module data and produce an output parameter array. Currently there's one
-Source implemented: The :ref:`Filter Extractor <analysis-extractor>`
+raw module data and produce an output parameter array.
+
+.. _Currently there's one
+.. Source implemented: The :ref:`Filter Extractor <analysis-extractor>`
 
 .. _analysis-extractor:
 
@@ -411,6 +413,8 @@ Filter Extractor
 
 The Filter Extractor uses a list of bit-level filters to classify input words
 and extract address and data values.
+
+.. _analysis-bit-level-filter-basics:
 
 Filter Basics
 ^^^^^^^^^^^^^
@@ -503,7 +507,7 @@ During a DAQ run or a replay the Filter Extractor gets passed all the data that
 was produced by a single module readout (*Event Data*). Each data word is
 passed to the internal filter.
 
-Once the filter has completed *Required Completion Count* times address and
+Once the filter has completed *Required Completion Count* times, address and
 data values will be extracted.
 
 The data value is cast to a double and a uniform random value in the range
@@ -533,8 +537,95 @@ for the :ref:`Calibration Operator <analysis-Calibration>`.
 Predefined filters can be loaded into the UI using the *Load Filter Template*
 button.
 
-.. TODO: add listfilter extractor documentation and example of when to use this
+.. _analysis-multihit-extractor:
 
+MultiHit Extractor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`Filter Extractors <analysis-extractor>` are limited to a single hit per extracted
+(channel) address. If multiple hits per address can occur in the same event the MultiHit Extractor
+can be used to gain access to these hits.
+
+
+Properties
+^^^^^^^^^^
+
+* filter
+
+  A single :ref:`bit-level filter <analysis-bit-level-filter-basics>` specifying the bit-pattern
+  to match and the position and number of address and data bits.
+
+* maxHits
+
+  Maximum number of hits to record per address. The total number of hits will be counted in a
+  separate *hitCounts* array.
+
+* shape
+
+  - Array per Hit
+
+    Hit0 for all addresses is stored in the first array, hit1 in the second, etc.
+    A total of ``maxHits`` arrays is created each of length :math:`2^{addrBits}`.
+
+  - Array per Address
+
+    Hits for the same address are recorded in an array of length ``maxHits``.
+    Creates a total of :math:`2^{addrBits}` arrays.
+
+Diagram showing the number and size of the MultiHit Extractor output arrays depending on the
+selected shape type: ::
+
+                 Array per Hit
+               =================
+
+           +----------------------+ <---.
+     hit0  |                      |     |
+           +----------------------+     |
+           +----------------------+     |
+     hit1  |                      |  maxHits
+           +----------------------+  arrays 
+                     ...                |
+           +----------------------+     |
+     hitN  |                      |     |
+           +----------------------+ <---'
+
+           ^                      ^
+           '----len=2^addrBits----'
+
+           +----------------------+
+ hitCounts |                      |
+           +----------------------+
+
+           ^                      ^
+           '----len=2^addrBits----'
+
+
+                 Array per Address
+               =====================
+
+           +----------------------+ <------.
+   hits[0] |                      |        |
+           +----------------------+        |
+           +----------------------+        |
+   hits[1] |                      |   2^addrBits
+           +----------------------+     arrays  
+                     ...                   |
+           +----------------------+        |
+   hits[N] |                      |        |
+           +----------------------+ <------'
+
+           ^                      ^
+           '------len=maxHits-----'
+
+           +---------------------------+
+ hitCounts |                           |
+           +---------------------------+
+
+           ^                           ^
+           '------len=2^addrBits-------'
+
+
+.. TODO: document the listfilter extractor
 
 .. _analysis-operators:
 
@@ -851,7 +942,7 @@ same number of events. The drawbacks are that non-perfect trigger handling can
 lead to unsynchronized events across modules and that data processing becomes
 more complicated.
 
-Splitting is performed on the module data as shown in the diagram below:::
+Splitting is performed on the module data as shown in the diagram below: ::
 
      multievent
     +-----------+                 split0           split1          split2
@@ -875,9 +966,9 @@ the data in-between the two header words is assumed to be the single event
 data. ::
 
     +-----------+
-    |m0_header  | <- Filter matches here. Extract event size if 'S' character in filter,
-    |m0_e0_word0|    otherwise try the following words until another match is found or
-    |m0_e0_word1|    there is no more input data left.
+    |m0_header  | <- Filter matches here. Extract event size if 'S' character in
+    |m0_e0_word0|    filter, otherwise try the following words until another match is
+    |m0_e0_word1|    found or there is no more input data left.
     |m0_e0_word2|
     |m0_header1 | <- Filter matches again
     |m0_e1_word0|
@@ -918,6 +1009,10 @@ are interested in) is reached the event building starts:
    timestamp of the reference module. A user defined time window specifies the
    maximum timestamp delta relative to the reference timestamp that is acceptable
    for the module-event to be included in the fully assembled output event.
+
+.. raw:: latex
+
+   \clearpage
 
 Example: ::
 

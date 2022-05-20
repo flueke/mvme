@@ -411,7 +411,7 @@ std::vector<std::vector<UnitAddressVector>> make_l3_input_choices()
         // For Counters input0 is the counter input, input1 is the latch input.
         // Both can connect to L0[13:0], L2[5:0], L0[14]. The sysclk on L0[14]
         // was added at a later point, that's why it's separated from the other
-        // L0 units. Since FW0016 both inputs can also connect to the new L2.LUT3.
+        // L0 units. Since FW0016 both inputs can also connect to the new L2.LUT2.
         // The latch input also has a special "not-connected" value which is
         // one past the last valid connection value but this value is not
         // stored in here for now.
