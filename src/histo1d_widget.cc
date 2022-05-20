@@ -360,6 +360,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
 
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
+    m_d->m_zoomer->setObjectName("zoomer");
 
     m_d->m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_d->m_zoomer->setZoomBase();
@@ -411,6 +412,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_actionZoom = new QAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom", this);
     m_d->m_actionZoom->setCheckable(true);
     m_d->m_actionZoom->setChecked(true);
+    m_d->m_actionZoom->setObjectName("zoomAction");
     connect(m_d->m_actionZoom, &QAction::toggled,
             m_d->m_zoomer, [this] (bool checked) {
                 m_d->m_zoomer->setEnabled(checked);
@@ -1802,6 +1804,7 @@ void Histo1DWidget::selectHistogram(int index)
 
         QSignalBlocker sb(m_d->m_histoSpin);
         m_d->m_histoSpin->setValue(index);
+        emit histogramSelected(index);
     }
 }
 
