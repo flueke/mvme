@@ -1207,7 +1207,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // and object info (right)
     auto mainSplitter = new QSplitter;
     mainSplitter->addWidget(centralWidget);
-    mainSplitter->addWidget(rightSplitter);
+    //mainSplitter->addWidget(rightSplitter);
     mainSplitter->setStretchFactor(0, 3);
     mainSplitter->setStretchFactor(1, 1);
 
