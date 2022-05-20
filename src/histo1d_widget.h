@@ -21,7 +21,6 @@
 #ifndef __HISTO1D_WIDGET_H__
 #define __HISTO1D_WIDGET_H__
 
-#include "analysis/condition_editor_interface.h"
 #include "analysis_service_provider.h"
 #include "histo1d.h"
 #include "libmvme_export.h"
@@ -44,7 +43,6 @@ struct Histo1DWidgetPrivate;
 class LIBMVME_EXPORT Histo1DWidget: public QWidget
 {
     Q_OBJECT
-    //Q_INTERFACES(analysis::ConditionEditorInterface);
 
     signals:
         void histogramSelected(int histoIndex);
@@ -82,11 +80,6 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         void setResolutionReductionSliderEnabled(bool b);
 
         QwtPlot *getPlot() const;
-
-        // ConditionEditorInterface
-        //virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
-        //virtual analysis::ConditionPtr getEditCondition() const override;
-        //virtual void beginEditCondition() override;
 
         s32 currentHistoIndex() const;
 

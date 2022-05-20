@@ -22,7 +22,6 @@
 #define __HISTO2D_WIDGET_H__
 
 #include "analysis/analysis_fwd.h"
-#include "analysis/condition_editor_interface.h"
 #include "analysis_service_provider.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
@@ -40,10 +39,9 @@ namespace analysis
 
 struct Histo2DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEditorInterface
+class LIBMVME_EXPORT Histo2DWidget: public QWidget
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::ConditionEditorInterface);
 
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
@@ -68,11 +66,6 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEd
 
         void setLinZ();
         void setLogZ();
-
-        // ConditionEditorInterface
-        virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
-        virtual analysis::ConditionPtr getEditCondition() const override;
-        virtual void beginEditCondition() override;
 
     public slots:
         void replot();

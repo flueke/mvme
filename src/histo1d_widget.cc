@@ -1763,114 +1763,6 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
 }
 
-#if 0
-bool Histo1DWidget::setEditCondition(const analysis::ConditionPtr &condPtr)
-{
-    qDebug() << __PRETTY_FUNCTION__ << condPtr.get();
-
-    auto cond = std::dynamic_pointer_cast<IntervalCondition>(condPtr);
-
-    // TODO: handle the case where cond interval count != histo count
-
-    if (!cond)
-    {
-        // Error was either the Condition is not an interval cut or it's null.
-        m_d->m_editingCondition = {};
-        m_d->m_intervalCutEditor->endEdit();
-        return false;
-    }
-
-    m_d->m_editingCondition = cond;
-    // create a copy of the intervals. that's the core data we're editing
-    m_d->m_cutIntervals = cond->getIntervals();
-
-    //selectHistogram(cl.subIndex);
-
-    auto interval = m_d->m_cutIntervals.value(currentHistoIndex());
-    m_d->m_intervalCutEditor->setInterval(interval);
-    m_d->m_intervalCutEditor->show();
-    return true;
-}
-
-analysis::ConditionPtr Histo1DWidget::getEditCondition() const
-{
-    return m_d->m_editingCondition;
-}
-
-void Histo1DWidget::beginEditCondition()
-{
-}
-#endif
-
-#if 0
-void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interval)
-{
-    assert(m_serviceProvider);
-    assert(m_sink);
-
-    // TODO: make unique name
-    QString cutName = QSL("New Cut");
-
-    // cut name dialog
-    {
-        auto le_cutName = new QLineEdit;
-        le_cutName->setText(cutName);
-
-        auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-
-        QDialog dialog(m_q);
-        auto layout = new QFormLayout(&dialog);
-        layout->addRow("Cut Name", le_cutName);
-        layout->addRow(buttons);
-
-        QObject::connect(buttons, &QDialogButtonBox::accepted,
-                         &dialog, &QDialog::accept);
-
-        QObject::connect(buttons, &QDialogButtonBox::rejected,
-                         &dialog, &QDialog::reject);
-
-        if (dialog.exec() == QDialog::Rejected)
-        {
-            m_intervalCutEditor->hide();
-            m_q->replot();
-            return;
-        }
-
-        cutName = le_cutName->text();
-    }
-
-    // Create the IntervalCondition analysis object. The number of intervals
-    // will be the same as the number of elements in the input array of the
-    // Histo1DSink currently being display.
-    // Note: this means when creating a condition in a Histo1DSink connected to
-    // a particular element of the input array then the resulting
-    // IntervalCondition will still have the same number of elements as the
-    // input array, not just one element!
-
-    // Set all intervals to the same value.
-    QVector<QwtInterval> intervals(m_sink->getNumberOfHistos(), interval);
-    auto cond = std::make_shared<analysis::IntervalCondition>();
-    cond->setIntervals(intervals);
-    cond->setObjectName(cutName);
-
-    {
-        auto xInput = m_sink->getSlot(0)->inputPipe;
-
-        AnalysisPauser pauser(m_serviceProvider);
-        cond->connectArrayToInputSlot(0, xInput);
-
-        const int userLevel = 1;
-
-        m_serviceProvider->getAnalysis()->addOperator(
-            m_sink->getEventId(),
-            userLevel,
-            cond);
-
-        m_q->setEditCondition(cond);
-    }
-}
-#endif
-
 QwtPlot *Histo1DWidget::getPlot() const
 {
     return m_d->m_plot;
@@ -1905,17 +1797,6 @@ void Histo1DWidget::selectHistogram(int index)
             m_d->m_rrSlider->setValue(m_d->m_rrSlider->maximum());
 
         //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
-
-#if 0
-        if (auto cl = getEditCondition())
-        {
-            if (cl.subIndex != index)
-            {
-                cl.subIndex = index;
-                setEditCondition(cl);
-            }
-        }
-#endif
 
         m_d->displayChanged();
 
