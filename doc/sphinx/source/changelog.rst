@@ -4,8 +4,8 @@
 Changelog
 ##################################################
 
-Version 1.4.9-rc
-----------------
+Version 1.4.9
+-------------
 * [analysis]
 
   - Add a new MultiHitExtractor data source allowing to extract multiple hits per
@@ -15,6 +15,8 @@ Version 1.4.9-rc
     generate histograms for selected objects.
 
   - Raise maximum number of data sources and operators per VME event context from 256 to 65536.
+
+  - Improve histo1d stats output.
 
 * New feature: listfile splitting (MVLC only!)
 
@@ -43,11 +45,28 @@ Version 1.4.9-rc
 
 * Fix 'VME Script -> Run' in the MVLC Debug GUI
 
-* Revert the MVLC readout parser simplification done in 1.4.8
+* [mvlc]
 
-  The parser now allows prefix, dynamic and suffix parts again. The parser data
-  callback remains unchanged, passing the parsed data as a single pointer +
-  size.
+  - Revert the MVLC readout parser simplification done in 1.4.8
+
+    The parser now allows prefix, dynamic and suffix parts again. The parser data
+    callback remains unchanged, passing the parsed data as a single pointer +
+    size.
+
+  - Fix command timeout errors with older USB2 chipsets.
+
+  - Fix USB2 connection issues by retrying opening the device.
+
+* [vme_templates]
+
+  Add 'stop_acquisition', 'reset_fifo' and 'readout_reset' commands to mesytec
+  module reset scripts. Fixes an issue where the modules could signal a VME IRQ
+  during the init sequence but before the DAQ was properly started with the
+  multicast start sequence.
+
+* Improved VME Script Execution: log messages from commands are now immediately
+  visible. Progress dialog shows progress based on number of commands.
+
 
 Version 1.4.8.2
 ---------------
