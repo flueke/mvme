@@ -199,8 +199,10 @@ void MesytecDiagnostics::endEvent(int eventIndex)
         if (m_lastEventBuffer->size())
         {
 
-            messagesToLog.append(QString("Last Event (%1):")
-                            .arg(m_nEvents - 1));
+            messagesToLog.append(QString("Last Event (#%1, size=%2):")
+                            .arg(m_nEvents - 1)
+                            .arg(m_lastEventBuffer->size())
+                            );
 
             for (int i=0; i<m_lastEventBuffer->size(); ++i)
             {
@@ -213,8 +215,10 @@ void MesytecDiagnostics::endEvent(int eventIndex)
             messagesToLog.append(QString());
         }
 
-        messagesToLog.append(QString("Current Event (%1):")
-                        .arg(m_nEvents));
+        messagesToLog.append(QString("Current Event (#%1, size=%2):")
+                        .arg(m_nEvents)
+                        .arg(m_currentEventBuffer->size())
+                        );
 
         for (int i=0; i<m_currentEventBuffer->size(); ++i)
         {
