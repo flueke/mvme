@@ -556,4 +556,26 @@ void PlotAxisScaleChanger::setLogarithmic()
     }
 }
 
+void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText)
+{
+    auto scaleChanger = new PlotAxisScaleChanger(w->getPlot(), axis);
+    auto combo = new QComboBox;
+    combo->addItem("Lin");
+    combo->addItem("Log");
+
+    auto container = make_vbox_container(axisText, combo, 2, -2).container.release();
+    w->getToolBar()->addWidget(container);
+
+    QObject::connect(
+        combo, qOverload<int>(&QComboBox::currentIndexChanged),
+        w, [w, scaleChanger] (int index)
+        {
+            if (index == 0)
+                scaleChanger->setLinear();
+            else
+                scaleChanger->setLogarithmic();
+            w->replot();
+        });
+}
+
 }

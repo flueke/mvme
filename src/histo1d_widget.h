@@ -23,11 +23,10 @@
 
 #include "analysis_service_provider.h"
 #include "histo1d.h"
+#include "histo_ui.h"
 #include "libmvme_export.h"
 
-#include <QSpinBox>
 #include <QWidget>
-
 #include <qwt_plot_picker.h>
 
 class QwtPlotPicker;
@@ -108,5 +107,35 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         std::unique_ptr<Histo1DWidgetPrivate> m_d;
         friend struct Histo1DWidgetPrivate;
 };
+
+#if 0
+
+class Histo1DSinkWidget: public histo_ui::PlotWidget
+{
+    Q_OBJECT
+    public:
+        const Histo1DSinkPtr getSink() const { return m_sink; }
+
+        int selectedHistogramIndex() const;
+
+    public slots:
+        void selectHistogram(int histoIndex);
+
+    private:
+        Histo1DSinkWidget(const Histo1DSinkPtr &sink, QWidget *parent = nullptr);
+
+        friend Histo1DSinkWidget *make_h1dsink_widget(
+            const Histo1DSinkPtr &histoSink, QWidget *parent);
+
+        Histo1DSinkPtr m_sink;
+};
+
+Histo1DSinkWidget *make_h1dsink_widget(
+    const Histo1DSinkPtr &histoSink, QWidget *parent=nullptr);
+
+histo_ui::PlotWidget *make_h1d_widget(
+    const Histo1DPtr &histo, QWidget *parent=nullptr);
+#endif
+
 
 #endif /* __HISTO1D_WIDGET_H__ */

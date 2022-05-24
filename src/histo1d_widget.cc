@@ -20,6 +20,7 @@
  */
 #include "histo1d_widget.h"
 #include "analysis/analysis_fwd.h"
+#include "analysis/condition_ui.h"
 #include "histo1d_widget_p.h"
 
 #include <qwt_interval.h>
@@ -1841,3 +1842,73 @@ void Histo1DWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMi
     m_d->m_calib = calib;
     m_d->m_actionCalibUi->setVisible(m_d->m_calib != nullptr);
 }
+
+#if 0
+
+//
+// Histo1DSinkWidget
+//
+
+Histo1DSinkWidget::Histo1DSinkWidget(const Histo1DSinkPtr &sink, QWidget *parent)
+    : PlotWidget(parent)
+    , m_sink(sink)
+{
+}
+
+int Histo1DSinkWidget::selectedHistogramIndex() const
+{
+    if (auto histoSpin = findChild<QSpinBox *>("histoSpin"))
+        return histoSpin->value();
+    return -1;
+}
+
+void Histo1DSinkWidget::selectHistogram(int histoIndex)
+{
+}
+
+Histo1DSinkWidget *make_h1dsink_widget(
+    const Histo1DSinkPtr &histoSink, QWidget *parent)
+{
+    auto plotWidget = new Histo1DSinkWidget(histoSink, parent);
+
+    // histogram plot item
+    {
+        auto plotHisto = new QwtPlotHistogram;
+        plotHisto->setStyle(QwtPlotHistogram::Outline);
+        plotHisto->attach(plotWidget->getPlot());
+    }
+
+    // zoomer
+    {
+        auto zoomer = new ScrollZoomer(plotWidget->getPlot()->canvas());
+        zoomer->setObjectName("zoomer");
+        zoomer->setEnabled(true);
+    }
+
+    // replot timer
+    {
+        auto replotTimer = new QTimer(plotWidget);
+        replotTimer->setInterval(ReplotPeriod_ms);
+        QObject::connect(replotTimer, &QTimer::timeout,
+                         plotWidget, &PlotWidget::replot);
+    }
+
+    // lin/log axis scale changer
+    setup_axis_scale_changer(plotWidget, QwtPlot::yLeft, "Y-Scale");
+
+    // histo selection spinbox
+    {
+        auto histoSpin = new QSpinBox();
+        histoSpin->setObjectName("histoSpin");
+        plotWidget->getToolBar()->addWidget(make_spacer_widget());
+        plotWidget->getToolBar()->addWidget(
+            make_vbox_container(QSL("Histogram #"), histoSpin, 2, -2)
+            .container.release());
+        QObject::connect(histoSpin, qOverload<int>(&QSpinBox::valueChanged),
+                         plotWidget, &Histo1DSinkWidget::selectHistogram);
+    }
+
+    return plotWidget;
+}
+
+#endif

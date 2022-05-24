@@ -3233,6 +3233,15 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
                 }
             });
+
+#if 0
+            menu.addAction(QSL("Open in new histosink widget"), m_q, [this, activeNode]() {
+                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+                auto widget = make_h1dsink_widget(widgetInfo.sink);
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+                widget->show();
+            });
+#endif
         }
 
         if (activeNode->type() == NodeType_Histo2DSink)
