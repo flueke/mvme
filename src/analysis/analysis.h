@@ -1745,6 +1745,8 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         u32 m_rrf;
 };
 
+using Histo1DSinkPtr = std::shared_ptr<analysis::Histo1DSink>;
+
 class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 {
     Q_OBJECT

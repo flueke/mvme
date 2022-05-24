@@ -265,6 +265,8 @@ struct Histo1DWidgetPrivate
     Histo1DWidget::SinkPtr m_sink;
     Histo1DWidget::HistoSinkCallback m_sinkModifiedCallback;
 
+    analysis::ui::IntervalConditionEditorController *m_intervalConditionEditorController = nullptr;
+
     void setCalibUiVisible(bool b)
     {
         auto window = m_calibUi.window;
@@ -519,6 +521,27 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     connect(m_d->m_actionHistoListStats, &QAction::triggered,
             this, [this] () { m_d->onActionHistoListStats(); });
+
+    auto actionIntervalConditions = tb->addAction("Interval Conditions");
+    actionIntervalConditions->setObjectName("intervalConditions");
+
+    connect(actionIntervalConditions, &QAction::triggered,
+            this, [this] () {
+                if (!m_d->m_intervalConditionEditorController)
+                {
+                    m_d->m_intervalConditionEditorController =
+                        new analysis::ui::IntervalConditionEditorController(
+                            getSink(),
+                            this, // histoWidget
+                            getServiceProvider(),
+                            this); // parent
+
+                    m_d->m_intervalConditionEditorController->setObjectName(
+                        "intervalConditionEditorController");
+                }
+
+                m_d->m_intervalConditionEditorController->setEnabled(true);
+            });
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
