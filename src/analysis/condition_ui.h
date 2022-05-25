@@ -26,6 +26,7 @@
 #include <QDialog>
 
 #include "analysis_service_provider.h"
+#include "histo_ui.h"
 
 
 namespace analysis
@@ -87,12 +88,15 @@ class IntervalConditionDialog: public QDialog
         using ConditionInfo = std::pair<QUuid, QString>;
 
         QVector<QwtInterval> getIntervals() const;
+        QString getConditionName(const QUuid &objectId) const;
+        QString getCurrentConditionName() const;
 
     public slots:
         void setConditionList(const QVector<ConditionInfo> &condInfos);
         void setIntervals(const QVector<QwtInterval> &intervals);
         void setInfoText(const QString &txt);
         void selectCondition(const QUuid &objectId);
+        void selectInterval(int index);
 
     private:
         struct Private;
@@ -106,7 +110,7 @@ class IntervalConditionEditorController: public QObject
     public:
         IntervalConditionEditorController(
             const Histo1DSinkPtr &sinkPtr,
-            QWidget *histoWidget,
+            histo_ui::IPlotWidget *histoWidget,
             AnalysisServiceProvider *asp,
             QObject *parent = nullptr);
 

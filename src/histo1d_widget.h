@@ -39,7 +39,7 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo1DWidget: public QWidget
+class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
 {
     Q_OBJECT
 
@@ -78,7 +78,8 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         void setResolutionReductionFactor(u32 rrf);
         void setResolutionReductionSliderEnabled(bool b);
 
-        QwtPlot *getPlot() const;
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
 
         s32 currentHistoIndex() const;
 

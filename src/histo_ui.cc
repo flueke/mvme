@@ -38,6 +38,10 @@ QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos)
         );
 }
 
+IPlotWidget::~IPlotWidget()
+{
+}
+
 struct PlotWidget::Private
 {
     Private(PlotWidget *q_)
@@ -53,7 +57,7 @@ struct PlotWidget::Private
 };
 
 PlotWidget::PlotWidget(QWidget *parent)
-    : QWidget(parent)
+    : IPlotWidget(parent)
     , d(std::make_unique<Private>(this))
 {
     d->toolbar = new QToolBar;
@@ -505,8 +509,10 @@ void IntervalEditorPicker::onPointMoved(const QPointF &p)
     qDebug() << __PRETTY_FUNCTION__ << p;
     if (d->draggingPointIndex >= 0)
     {
+        assert(d->draggingPointIndex < d->selectedPoints.size());
         d->selectedPoints[d->draggingPointIndex] = p;
         d->updateMarkersAndZone();
+        emit intervalModified(d->getInterval());
     }
 }
 

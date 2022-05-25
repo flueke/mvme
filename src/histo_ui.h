@@ -22,7 +22,18 @@ namespace histo_ui
 QRectF canvas_to_scale(const QwtPlot *plot, const QRect &rect);
 QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos);
 
-class PlotWidget: public QWidget
+class IPlotWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        using QWidget::QWidget;
+        ~IPlotWidget() override;
+
+        virtual QwtPlot *getPlot() = 0;
+        virtual const QwtPlot *getPlot() const = 0;
+};
+
+class PlotWidget: public IPlotWidget
 {
     Q_OBJECT
     signals:
@@ -35,8 +46,8 @@ class PlotWidget: public QWidget
         PlotWidget(QWidget *parent = nullptr);
         ~PlotWidget() override;
 
-        QwtPlot *getPlot();
-        const QwtPlot *getPlot() const;
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
 
         QToolBar *getToolBar();
         QStatusBar *getStatusBar();

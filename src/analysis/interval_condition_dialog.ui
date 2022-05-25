@@ -84,8 +84,14 @@
       </property>
       <item row="0" column="0">
        <widget class="QTableWidget" name="tw_intervals">
+        <property name="editTriggers">
+         <set>QAbstractItemView::NoEditTriggers</set>
+        </property>
         <property name="alternatingRowColors">
          <bool>true</bool>
+        </property>
+        <property name="selectionBehavior">
+         <enum>QAbstractItemView::SelectRows</enum>
         </property>
         <property name="cornerButtonEnabled">
          <bool>false</bool>

@@ -347,7 +347,7 @@ Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
 }
 
 Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
-    : QWidget(parent)
+    : IPlotWidget(parent)
     , m_d(std::make_unique<Histo1DWidgetPrivate>())
 {
     assert(!histos.isEmpty());
@@ -423,7 +423,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     // Optional: add the zoomer to the toolbar. Right now the action is not
     // visible but activated by, e.g. the rate estimation picker after two
     // points have been picked.
-    //tb->addAction(m_d->m_actionZoom);
+    tb->addAction(m_d->m_actionZoom);
 
     m_d->m_actionGaussFit = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
     m_d->m_actionGaussFit->setCheckable(true);
@@ -496,10 +496,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             childWidget->setVisible(b);
         }
     });
-
-    m_d->m_exclusiveActions = new QActionGroup(this);
-    //m_d->m_exclusiveActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
-    m_d->m_exclusiveActions->addAction(m_d->m_actionZoom);
 
     // Resolution Reduction
     {
@@ -1789,7 +1785,12 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
 }
 
-QwtPlot *Histo1DWidget::getPlot() const
+QwtPlot *Histo1DWidget::getPlot()
+{
+    return m_d->m_plot;
+}
+
+const QwtPlot *Histo1DWidget::getPlot() const
 {
     return m_d->m_plot;
 }
