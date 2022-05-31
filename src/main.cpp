@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
 
     //mesytec::mvlc::get_logger("cmd_pipe_reader")->set_level(spdlog::level::trace);
     //mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::trace);
+    //mesytec::mvlc::get_logger("readout")->set_level(spdlog::level::trace);
 
 #ifdef QT_NO_DEBUG
     QSplashScreen splash(QPixmap(":/splash-screen.png"),
