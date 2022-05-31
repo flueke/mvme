@@ -40,22 +40,27 @@ void process_file(u32 *addr, size_t size)
     BufferIterator iter(addr, size);
 
     size_t linearPacketNumber = 0;
-    s32 lastPacketNumber = -1;
+    std::array<s32, mvlc::eth::header0::PacketChannelMask> lastPacketNumbers;
+    lastPacketNumbers.fill(-1);
 
     while (!iter.atEnd())
     {
         ptrdiff_t packetOffset = iter.current32BitOffset();
         mvlc::eth::PayloadHeaderInfo ethHeaders{ iter.extractU32(), iter.extractU32() };
 
+        u16 packetChannel = ethHeaders.packetChannel();
+
+        assert(packetChannel < lastPacketNumbers.size());
+
         s32 packetLoss = 0;
-        if (lastPacketNumber >= 0)
-            packetLoss = mvlc::eth::calc_packet_loss(lastPacketNumber, ethHeaders.packetNumber());
+        if (lastPacketNumbers[packetChannel] >= 0)
+            packetLoss = mvlc::eth::calc_packet_loss(lastPacketNumbers[packetChannel], ethHeaders.packetNumber());
 
 
-        printf("pkt %lu @%lu:\n", linearPacketNumber, packetOffset);
+        printf("pkt %lu @ 32-bit offset %lu:\n", linearPacketNumber, packetOffset);
 
-        printf(" header0=0x%08x, packetNumber=%u, dataWordCount=%u, lossToPrevious=%d\n",
-               ethHeaders.header0, ethHeaders.packetNumber(), ethHeaders.dataWordCount(),
+        printf(" header0=0x%08x, packetChannel=%u, packetNumber=%u, dataWordCount=%u, lossToPrevious=%d\n",
+               ethHeaders.header0, ethHeaders.packetChannel(), ethHeaders.packetNumber(), ethHeaders.dataWordCount(),
                packetLoss);
 
         printf(" header1=0x%08x, udpTimestamp=%u, nextHeaderPointer=%u\n",
@@ -99,7 +104,7 @@ void process_file(u32 *addr, size_t size)
         assert(packetWordIndex == ethHeaders.dataWordCount());
 
 
-        lastPacketNumber = ethHeaders.packetNumber();
+        lastPacketNumbers[packetChannel] = ethHeaders.packetNumber();
         ++linearPacketNumber;
     }
 }
