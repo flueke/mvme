@@ -2,6 +2,19 @@
 TODO list
 ==================================================
 
+* MVLC: find workaround for the CommandTimeout during MCST init sequence bug
+  with USB under windows. Flush the pipes somehow?
+
+* Multi plot window
+
+* Add GUI elements to set the listfile output directory.
+
+* GSI triva test setup: analyse bringt modul indizes durcheinander (lauter
+  deaktivierte module)
+
+* move module templates to JSON format
+* add GSI VFTX module template (JSON format if possible, otherwise the old template format)
+
 * root_client: avoid creating duplicate branch names for trees
 
 * analysis: Directories contain references to ids of deleted objects. Could be
