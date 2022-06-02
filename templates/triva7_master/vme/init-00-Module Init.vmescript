@@ -44,6 +44,9 @@ writeabs A32 D16 0xFFFF7010 3	# Map trigger 3 (bit combination of 1&2) to the
 writeabs A32 D16 0xFFFF7012 8	# data event too. This avoids the readout getting
                                 # stuck when both the data and scaler triggers are
                                 # active at the same time.
+                                #
+
+writeabs A32 D16 0xFFFF7020 14  # Map all other trigger values to the start event.
 */
 
 /*
@@ -72,4 +75,8 @@ writeabs A32 D16 0xFFFF701A 0      # mapped to mvlc irq
 
 writeabs A32 D16 0xFFFF701C 0      # triva trigger number
 writeabs A32 D16 0xFFFF701E 0      # mapped to mvlc irq
+
+# Catchall for signal aliases. Sets the mapped IRQ for all unassigned signal
+# aliases (unassigned means never set or set to 0). Available since FW0026.
+writeabs A32 D16 0xFFFF7020 0
 */
