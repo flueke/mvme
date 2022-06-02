@@ -434,6 +434,17 @@ void MVMEContextPrivate::stopAnalysis()
 
 void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 {
+    {
+        auto daqState = m_q->getDAQState();
+
+        if (daqState == DAQState::Idle || daqState == DAQState::Stopping)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "edge case detected: readout side is"
+                << DAQStateStrings.value(daqState, "unknown") << ", not resuming analysis!";
+            return;
+        }
+    }
+
     assert(m_q->m_streamWorker->getState() == AnalysisWorkerState::Idle);
 
     if (m_q->m_streamWorker->getState() == AnalysisWorkerState::Idle)
