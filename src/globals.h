@@ -165,7 +165,8 @@ enum class ListFileFormat
     Invalid,
     Plain,
     ZIP,
-    LZ4
+    LZ4,
+    ZMQ_Ganil,
 };
 
 QString toString(const ListFileFormat &fmt);

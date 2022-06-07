@@ -150,6 +150,7 @@ struct MVLCReadoutWorker::Private
 
     std::unique_ptr<mesytec::mvlc::ReadoutWorker> mvlcReadoutWorker;
     std::unique_ptr<mesytec::mvlc::listfile::SplitZipCreator> mvlcZipCreator;
+    std::unique_ptr<mesytec::mvlc::listfile::WriteHandle> listfileWriteHandle;
     mvlc::ReadoutBufferQueues *snoopQueues = nullptr;
 
     // lots of mvlc api layers
@@ -478,44 +479,14 @@ void MVLCReadoutWorker::start(quint32 cycles)
         auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
 
         // listfile handling
-        mvlc::listfile::WriteHandle *listfileWriteHandle = nullptr;
+        d->listfileWriteHandle = {};
 
         if (m_workerContext.listfileOutputInfo->enabled)
         {
-            auto outInfo = m_workerContext.listfileOutputInfo;
-
-            if (outInfo->fullDirectory.isEmpty())
-                throw std::runtime_error("Error: listfile output directory is not set");
-
-            if (outInfo->format != ListFileFormat::ZIP
-                && outInfo->format != ListFileFormat::LZ4)
-            {
-                throw std::runtime_error("Unsupported listfile format");
-            }
-
-            listfile::SplitListfileSetup lfSetup;
-            lfSetup.entryType = (outInfo->format == ListFileFormat::ZIP
-                                 ? listfile::ZipEntryInfo::ZIP
-                                 : listfile::ZipEntryInfo::LZ4);
-            lfSetup.compressLevel = outInfo->compressionLevel;
-
-            if (outInfo->flags & ListFileOutputInfo::SplitBySize)
-                lfSetup.splitMode = listfile::ZipSplitMode::SplitBySize;
-            else if (outInfo->flags & ListFileOutputInfo::SplitByTime)
-                lfSetup.splitMode = listfile::ZipSplitMode::SplitByTime;
-
-            lfSetup.splitSize = outInfo->splitSize;
-            lfSetup.splitTime = outInfo->splitTime;
-
-            QFileInfo lfInfo(make_new_listfile_name(outInfo));
-            auto lfDir = lfInfo.path();
-            auto lfBase = lfInfo.completeBaseName();
-            auto lfPrefix = lfDir + "/" + lfBase;
-
-            lfSetup.filenamePrefix = lfPrefix.toStdString();
-
             // Create the listfile preamble in a buffer and store it for later
-            // use by the SplitZipCreator.
+            // use.
+            std::vector<u8> preamble;
+
             {
                 listfile::BufferedWriteHandle bwh;
 
@@ -528,47 +499,95 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // VMEConfig).
                 mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
 
-                lfSetup.preamble = bwh.getBuffer();
+                preamble = bwh.getBuffer();
             }
 
-            // Set the openArchiveCallback
-            lfSetup.openArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
+            auto outInfo = m_workerContext.listfileOutputInfo;
+
+            if (outInfo->format == ListFileFormat::ZIP
+                || outInfo->format == ListFileFormat::LZ4)
             {
-                // FIXME: thread safety!
-                m_workerContext.daqStats.listfileFilename =
-                    QString::fromStdString(zipCreator->archiveName());
-            };
+                if (outInfo->fullDirectory.isEmpty())
+                    throw std::runtime_error("Error: listfile output directory is not set");
 
-            // Set the closeArchiveCallback
-            lfSetup.closeArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
-            {
-                assert(zipCreator->isOpen());
-                assert(!zipCreator->hasOpenEntry());
+                listfile::SplitListfileSetup lfSetup;
+                lfSetup.entryType = (outInfo->format == ListFileFormat::ZIP
+                                     ? listfile::ZipEntryInfo::ZIP
+                                     : listfile::ZipEntryInfo::LZ4);
+                lfSetup.compressLevel = outInfo->compressionLevel;
 
-                // Add the log buffer, analysis config and other files to the
-                // archive.
+                if (outInfo->flags & ListFileOutputInfo::SplitBySize)
+                    lfSetup.splitMode = listfile::ZipSplitMode::SplitBySize;
+                else if (outInfo->flags & ListFileOutputInfo::SplitByTime)
+                    lfSetup.splitMode = listfile::ZipSplitMode::SplitByTime;
 
-                auto do_write = [zipCreator] (const std::string &filename, const QByteArray &data)
+                lfSetup.splitSize = outInfo->splitSize;
+                lfSetup.splitTime = outInfo->splitTime;
+
+                QFileInfo lfInfo(make_new_listfile_name(outInfo));
+                auto lfDir = lfInfo.path();
+                auto lfBase = lfInfo.completeBaseName();
+                auto lfPrefix = lfDir + "/" + lfBase;
+
+                lfSetup.filenamePrefix = lfPrefix.toStdString();
+                lfSetup.preamble = preamble;
+
+
+                // Set the openArchiveCallback
+                lfSetup.openArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
                 {
-                    auto writeHandle = zipCreator->createZIPEntry(filename, 0); // uncompressed zip entry
-                    writeHandle->write(reinterpret_cast<const u8 *>(data.data()), data.size());
-                    zipCreator->closeCurrentEntry();
+                    // Update daqStats so that the GUI displays the current filename.
+                    // FIXME: thread safety!
+                    m_workerContext.daqStats.listfileFilename =
+                        QString::fromStdString(zipCreator->archiveName());
                 };
 
-                do_write("messages.log", m_workerContext.getLogBuffer().join('\n').toUtf8());
-                // FIXME: thread safety for m_workerContext.getAnalysisJson()!
-                do_write("analysis.analysis", m_workerContext.getAnalysisJson().toJson());
-                do_write("mvme_run_notes.txt", m_workerContext.getRunNotes().toLocal8Bit());
-            };
+                // Set the closeArchiveCallback
+                lfSetup.closeArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
+                {
+                    assert(zipCreator->isOpen());
+                    assert(!zipCreator->hasOpenEntry());
 
-            d->mvlcZipCreator = std::make_unique<mvlc::listfile::SplitZipCreator>();
-            d->mvlcZipCreator->createArchive(lfSetup);
+                    // Add the log buffer, analysis config and other files to the
+                    // archive.
 
-            logMessage("");
-            logger(QString("Writing listfile into %1").arg(m_workerContext.daqStats.listfileFilename));
-            logMessage("");
+                    auto do_write = [zipCreator] (const std::string &filename, const QByteArray &data)
+                    {
+                        auto writeHandle = zipCreator->createZIPEntry(filename, 0); // uncompressed zip entry
+                        writeHandle->write(reinterpret_cast<const u8 *>(data.data()), data.size());
+                        zipCreator->closeCurrentEntry();
+                    };
 
-            listfileWriteHandle = d->mvlcZipCreator->createListfileEntry();
+                    do_write("messages.log", m_workerContext.getLogBuffer().join('\n').toUtf8());
+                    // FIXME: thread safety for m_workerContext.getAnalysisJson()!
+                    do_write("analysis.analysis", m_workerContext.getAnalysisJson().toJson());
+                    do_write("mvme_run_notes.txt", m_workerContext.getRunNotes().toLocal8Bit());
+                };
+
+                d->mvlcZipCreator = std::make_unique<mvlc::listfile::SplitZipCreator>();
+                d->mvlcZipCreator->createArchive(lfSetup);
+
+                logMessage("");
+                logger(QString("Writing listfile into %1").arg(m_workerContext.daqStats.listfileFilename));
+                logMessage("");
+
+                // This call writes out the preamble. The same happens if listfile splitting is
+                // enabled and a new archive is started by the SplitZipCreator.
+                d->listfileWriteHandle = std::unique_ptr<mvlc::listfile::WriteHandle>(
+                    d->mvlcZipCreator->createListfileEntry());
+            }
+#ifdef MVLC_HAVE_ZMQ
+            else if (outInfo->format == ListFileFormat::ZMQ_Ganil)
+            {
+                d->listfileWriteHandle = std::make_unique<mvlc::listfile::ZmqGanilWriteHandle>();
+                // Note: intentionally not sending the listfile preamble as the GANIL receiver
+                // code does not expect it.
+            }
+#endif
+            else
+            {
+                throw std::runtime_error("Unsupported listfile format");
+            }
         }
 
         // mesytec-mvlc readout worker
@@ -576,7 +595,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             d->mvlcCtrl->getMVLC(),
             d->stackTriggers,
             *d->snoopQueues,
-            listfileWriteHandle);
+            d->listfileWriteHandle.get());
 
         d->mvlcReadoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
         d->mvlcReadoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);
@@ -611,8 +630,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 set_daq_state(daqState);
         }
 
-        if (listfileWriteHandle)
-            listfile_write_system_event(*listfileWriteHandle, system_event::subtype::EndOfFile);
+        if (d->listfileWriteHandle)
+            listfile_write_system_event(*d->listfileWriteHandle, system_event::subtype::EndOfFile);
 
         logMessage("Leaving readout loop");
         logMessage("");
@@ -711,6 +730,9 @@ void MVLCReadoutWorker::stop()
         }
         logMessage(QString(QSL("MVLC readout stopped")));
     }
+
+    // delete the listfileWriteHandle
+    d->listfileWriteHandle = {};
 }
 
 void MVLCReadoutWorker::pause()
