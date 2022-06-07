@@ -88,8 +88,7 @@ class IntervalConditionDialog: public QDialog
         using ConditionInfo = std::pair<QUuid, QString>;
 
         QVector<QwtInterval> getIntervals() const;
-        QString getConditionName(const QUuid &objectId) const;
-        QString getCurrentConditionName() const;
+        QString getConditionName() const;
 
     public slots:
         void setConditionList(const QVector<ConditionInfo> &condInfos);
@@ -97,6 +96,7 @@ class IntervalConditionDialog: public QDialog
         void setInfoText(const QString &txt);
         void selectCondition(const QUuid &objectId);
         void selectInterval(int index);
+        void reject() override;
 
     private:
         struct Private;
@@ -119,6 +119,8 @@ class IntervalConditionEditorController: public QObject
         bool eventFilter(QObject *watched, QEvent *event) override;
 
         void setEnabled(bool on);
+
+        IntervalConditionDialog *getDialog() const;
 
     private:
         struct Private;

@@ -267,6 +267,7 @@ NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
 
 NewIntervalPicker::~NewIntervalPicker()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void NewIntervalPicker::reset()
@@ -447,6 +448,7 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
 IntervalEditorPicker::~IntervalEditorPicker()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void IntervalEditorPicker::setInterval(const QwtInterval &interval)

@@ -521,10 +521,11 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     auto actionIntervalConditions = tb->addAction("Interval Conditions");
     actionIntervalConditions->setObjectName("intervalConditions");
+    actionIntervalConditions->setCheckable(true);
 
-    connect(actionIntervalConditions, &QAction::triggered,
-            this, [this] () {
-                if (!m_d->m_intervalConditionEditorController)
+    connect(actionIntervalConditions, &QAction::toggled,
+            this, [this, actionIntervalConditions] (bool on) {
+                if (on && !m_d->m_intervalConditionEditorController)
                 {
                     m_d->m_intervalConditionEditorController =
                         new analysis::ui::IntervalConditionEditorController(
@@ -535,9 +536,22 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
                     m_d->m_intervalConditionEditorController->setObjectName(
                         "intervalConditionEditorController");
+
+                    connect(m_d->m_intervalConditionEditorController->getDialog(), &QDialog::accepted,
+                            this, [actionIntervalConditions] ()
+                            {
+                                actionIntervalConditions->setChecked(false);
+                            });
+
+                    connect(m_d->m_intervalConditionEditorController->getDialog(), &QDialog::rejected,
+                            this, [actionIntervalConditions] ()
+                            {
+                                actionIntervalConditions->setChecked(false);
+                            });
                 }
 
-                m_d->m_intervalConditionEditorController->setEnabled(true);
+                if (m_d->m_intervalConditionEditorController)
+                    m_d->m_intervalConditionEditorController->setEnabled(on);
             });
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after

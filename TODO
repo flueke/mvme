@@ -2,6 +2,9 @@
 TODO list
 ==================================================
 
+* analysis eventwidget: react to object name changed events (needed when
+  applying changes in the IntervalConditionEditor)
+
 * MVLC: find workaround for the CommandTimeout during MCST init sequence bug
   with USB under windows. Flush the pipes somehow?
 
