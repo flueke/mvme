@@ -32,7 +32,7 @@ TEST(vme_script_commands, WriteFloatWord)
         auto &cmd = script.first();
         qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::A16);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::a16Priv);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 0));
@@ -46,7 +46,7 @@ TEST(vme_script_commands, WriteFloatWord)
         auto &cmd = script.first();
         qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::A16);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::a16Priv);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 0));
@@ -63,7 +63,7 @@ TEST(vme_script_commands, WriteFloatWord)
 
         qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::a32PrivData);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 1));
@@ -78,7 +78,7 @@ TEST(vme_script_commands, WriteFloatWord)
 
         qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::a32PrivData);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 1));
@@ -171,7 +171,7 @@ TEST(vme_script_commands, MVLC_ReadToAccu)
     ASSERT_EQ(cmd.type, CommandType::MVLC_ReadToAccu);
     ASSERT_EQ(cmd.address, 0x1337);
     ASSERT_EQ(cmd.dataWidth, DataWidth::D32);
-    ASSERT_EQ(cmd.addressMode, vme_address_modes::A24);
+    ASSERT_EQ(cmd.addressMode, vme_address_modes::a24PrivData);
 }
 
 TEST(vme_script_commands, MVLC_CompareLoopAccu)
