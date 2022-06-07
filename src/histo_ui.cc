@@ -38,6 +38,10 @@ QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos)
         );
 }
 
+IPlotWidget::~IPlotWidget()
+{
+}
+
 struct PlotWidget::Private
 {
     Private(PlotWidget *q_)
@@ -53,7 +57,7 @@ struct PlotWidget::Private
 };
 
 PlotWidget::PlotWidget(QWidget *parent)
-    : QWidget(parent)
+    : IPlotWidget(parent)
     , d(std::make_unique<Private>(this))
 {
     d->toolbar = new QToolBar;
@@ -505,8 +509,10 @@ void IntervalEditorPicker::onPointMoved(const QPointF &p)
     qDebug() << __PRETTY_FUNCTION__ << p;
     if (d->draggingPointIndex >= 0)
     {
+        assert(d->draggingPointIndex < d->selectedPoints.size());
         d->selectedPoints[d->draggingPointIndex] = p;
         d->updateMarkersAndZone();
+        emit intervalModified(d->getInterval());
     }
 }
 
@@ -554,6 +560,28 @@ void PlotAxisScaleChanger::setLogarithmic()
         scaleEngine->setTransformation(new MinBoundLogTransform);
         m_plot->setAxisScaleEngine(m_axis, scaleEngine);
     }
+}
+
+void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText)
+{
+    auto scaleChanger = new PlotAxisScaleChanger(w->getPlot(), axis);
+    auto combo = new QComboBox;
+    combo->addItem("Lin");
+    combo->addItem("Log");
+
+    auto container = make_vbox_container(axisText, combo, 2, -2).container.release();
+    w->getToolBar()->addWidget(container);
+
+    QObject::connect(
+        combo, qOverload<int>(&QComboBox::currentIndexChanged),
+        w, [w, scaleChanger] (int index)
+        {
+            if (index == 0)
+                scaleChanger->setLinear();
+            else
+                scaleChanger->setLogarithmic();
+            w->replot();
+        });
 }
 
 }

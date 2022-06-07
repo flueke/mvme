@@ -4147,7 +4147,7 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<AggregateOps>();
     m_objectFactory.registerOperator<ExpressionOperator>();
     m_objectFactory.registerOperator<ScalerOverflow>();
-#if 0
+#if 1
     // conditions
     m_objectFactory.registerOperator<IntervalCondition>();
     m_objectFactory.registerOperator<RectangleCondition>();

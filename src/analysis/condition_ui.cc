@@ -34,6 +34,9 @@
 #include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "treewidget_utils.h"
+#include "ui_interval_condition_dialog.h"
+#include "histo_ui.h"
+#include "histo1d_widget.h"
 
 namespace analysis
 {
@@ -88,6 +91,7 @@ TreeNode *make_node(T *data, int type = QTreeWidgetItem::Type, int dataRole = Da
     return ret;
 }
 
+#if 0
 TreeNode *make_condition_node(ConditionInterface *cond)
 {
     auto ret = make_node(cond, NodeType_Condition, DataRole_AnalysisObject);
@@ -101,6 +105,7 @@ TreeNode *make_condition_node(ConditionInterface *cond)
 
     return ret;
 }
+#endif
 
 } // end anon namespace
 
@@ -158,7 +163,7 @@ struct ConditionTreeWidget::Private
     ObjectToNode m_objectMap;
 };
 
-ConditionTreeWidget::ConditionTreeWidget(AnalysisServiceProvider *asp, const QUuid &eventId, int eventIndex,
+ConditionTreeWidget::ConditionTreeWidget(AnalysisServiceProvider *asp_, const QUuid &eventId, int eventIndex,
                                          QWidget *parent)
     : QTreeWidget(parent)
     , m_d(std::make_unique<Private>(this))
@@ -166,7 +171,7 @@ ConditionTreeWidget::ConditionTreeWidget(AnalysisServiceProvider *asp, const QUu
     //qDebug() << __PRETTY_FUNCTION__ << this;
 
     // Private setup
-    m_d->m_asp = asp;
+    m_d->m_asp = asp_;
     m_d->m_eventId = eventId;
     m_d->m_eventIndex = eventIndex;
 
@@ -185,7 +190,7 @@ ConditionTreeWidget::ConditionTreeWidget(AnalysisServiceProvider *asp, const QUu
     QObject::connect(this, &QWidget::customContextMenuRequested,
                      this, [this] (QPoint pos) { m_d->doContextMenu(pos); });
 
-    // FIXME: restoring expanded state doesn't work because the trees are
+    // FIXME: restoring expanded state_ doesn't work because the trees are
     // recreated in ConditionWidget::repopulate()
 #if 0
     connect(this, &QTreeWidget::itemExpanded,
@@ -447,11 +452,11 @@ struct ConditionWidget::Private
     void editConditionInEditor(const ConditionLink &cl);
 };
 
-ConditionWidget::ConditionWidget(AnalysisServiceProvider *asp, QWidget *parent)
+ConditionWidget::ConditionWidget(AnalysisServiceProvider *asp_, QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<Private>(this))
 {
-    m_d->m_asp = asp;
+    m_d->m_asp = asp_;
     m_d->m_toolbar = make_toolbar();
     m_d->m_treeStack = new QStackedWidget;
 
@@ -589,7 +594,7 @@ void ConditionWidget::Private::onCurrentNodeChanged(QTreeWidgetItem *node)
          * tree have their Qt::ItemIsEnabled flags cleared
          * (setModificationButtonsVisible()).
          *
-         * We want to stay in this state until the user either accepts or
+         * We want to stay in this state_ until the user either accepts or
          * rejects the changes so none of the signals below should be emitted.
          */
         qDebug() << __PRETTY_FUNCTION__ << this << "early return";
@@ -736,6 +741,407 @@ void ConditionWidget::Private::editConditionInEditor(const ConditionLink &cl)
     }
 }
 #endif
+
+using namespace histo_ui;
+
+struct IntervalConditionDialog::Private
+{
+    std::unique_ptr<Ui::IntervalConditionDialog> ui;
+};
+
+IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
+    : QDialog(parent)
+    , d(std::make_unique<Private>())
+{
+    d->ui = std::make_unique<Ui::IntervalConditionDialog>();
+    d->ui->setupUi(this);
+    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(false);
+    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setAutoDefault(false);
+    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    d->ui->tw_intervals->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    connect(d->ui->buttonBox->button(QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &IntervalConditionDialog::applied);
+
+    connect(d->ui->pb_new, &QPushButton::clicked,
+            this, &IntervalConditionDialog::newConditionButtonClicked);
+
+    connect(d->ui->combo_cond, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this] (int /*index*/) {
+                emit conditionSelected(d->ui->combo_cond->currentData().toUuid());
+            });
+
+    connect(d->ui->combo_cond, &QComboBox::editTextChanged,
+            this, [this] (const QString &text) {
+                emit conditionNameChanged(
+                    d->ui->combo_cond->currentData().toUuid(),
+                    text);
+            });
+}
+
+IntervalConditionDialog::~IntervalConditionDialog()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+}
+
+void IntervalConditionDialog::setConditionList(const QVector<ConditionInfo> &condInfos)
+{
+    d->ui->combo_cond->clear();
+    for (const auto &info: condInfos)
+    {
+        d->ui->combo_cond->addItem(info.second, info.first);
+    }
+
+    d->ui->combo_cond->setEditable(d->ui->combo_cond->count() > 0);
+}
+
+void IntervalConditionDialog::setIntervals(const QVector<QwtInterval> &intervals)
+{
+    d->ui->tw_intervals->clearContents();
+    d->ui->tw_intervals->setRowCount(intervals.size());
+    int row = 0;
+    for (const auto &interval: intervals)
+    {
+        auto x1Item = new QTableWidgetItem(QString::number(interval.minValue()));
+        auto x2Item = new QTableWidgetItem(QString::number(interval.maxValue()));
+        d->ui->tw_intervals->setItem(row, 0, x1Item);
+        d->ui->tw_intervals->setItem(row, 1, x2Item);
+
+        auto headerItem = new QTableWidgetItem(QString::number(row));
+        d->ui->tw_intervals->setVerticalHeaderItem(row, headerItem);
+
+        ++row;
+    }
+    d->ui->tw_intervals->resizeRowsToContents();
+}
+
+
+QVector<QwtInterval> IntervalConditionDialog::getIntervals() const
+{
+    QVector<QwtInterval> ret;
+
+    for (int row=0; row<d->ui->tw_intervals->rowCount(); ++row)
+    {
+        auto x1Item = d->ui->tw_intervals->item(row, 0);
+        auto x2Item = d->ui->tw_intervals->item(row, 1);
+
+        double x1 = x1Item->data(Qt::EditRole).toDouble();
+        double x2 = x2Item->data(Qt::EditRole).toDouble();
+
+        ret.push_back({x1, x2});
+    }
+
+    return ret;
+}
+
+#if 1
+QString IntervalConditionDialog::getConditionName(const QUuid &objectId) const
+{
+    auto idx = d->ui->combo_cond->findData(objectId);
+
+    if (idx >= 0)
+        d->ui->combo_cond->itemText(idx);
+
+    return {};
+}
+#endif
+
+#if 1
+QString IntervalConditionDialog::getCurrentConditionName() const
+{
+    return d->ui->combo_cond->currentText();
+}
+#endif
+
+void IntervalConditionDialog::setInfoText(const QString &txt)
+{
+    d->ui->label_info->setText(txt);
+}
+
+void IntervalConditionDialog::selectCondition(const QUuid &objectId)
+{
+    auto idx = d->ui->combo_cond->findData(objectId);
+
+    if (idx >= 0)
+        d->ui->combo_cond->setCurrentIndex(idx);
+}
+
+void IntervalConditionDialog::selectInterval(int index)
+{
+    if (auto item = d->ui->tw_intervals->item(index, 0))
+    {
+        d->ui->tw_intervals->setCurrentItem(item, QItemSelectionModel::Rows | QItemSelectionModel::ClearAndSelect);
+    }
+}
+
+struct IntervalConditionEditorController::Private
+{
+    enum class State
+    {
+        Inactive,
+        NewInterval,
+        EditInterval
+    };
+
+    Histo1DSinkPtr sink_;
+    IPlotWidget *histoWidget_;
+    IntervalConditionDialog *dialog_;
+    AnalysisServiceProvider *asp_;
+    std::shared_ptr<IntervalCondition> cond_;
+    QString condName_;
+    QVector<QwtInterval> intervals_;
+    State state_ = State::Inactive;
+
+    NewIntervalPicker *newPicker_ = nullptr;
+    IntervalEditorPicker *editPicker_ = nullptr;
+
+
+    void onDialogApplied()
+    {
+        if (!cond_) return;
+
+        AnalysisPauser pauser(asp_);
+
+        if (!cond_->getAnalysis())
+        {
+            // It's a new condition. Connect its input and add it to the analysis.
+            cond_->connectArrayToInputSlot(0, sink_->getSlot(0)->inputPipe);
+            asp_->getAnalysis()->addOperator(sink_->getEventId(), sink_->getUserLevel(), cond_);
+        }
+
+        //cond_->setObjectName(dialog_->getConditionName(cond_->getId()));
+        cond_->setObjectName(condName_);
+        cond_->setIntervals(intervals_);
+    }
+
+    void onDialogAccepted()
+    {
+    }
+
+    void onDialogRejected()
+    {
+    }
+
+    // Keeps the dialog_ at the top right of the histo widget.
+    void updateDialogPosition()
+    {
+        int x = histoWidget_->x() + histoWidget_->frameGeometry().width() + 2;
+        int y = histoWidget_->y();
+        dialog_->move({x, y});
+    }
+
+    void onNewConditionRequested()
+    {
+        state_ = State::NewInterval;
+
+        cond_ = std::make_shared<IntervalCondition>();
+        cond_->setObjectName("<new condition>");
+        intervals_ = QVector<QwtInterval>(sink_->getNumberOfHistos(), {make_quiet_nan(), make_quiet_nan()});
+
+        auto conditions = getEditableConditions();
+        conditions.push_back(cond_);
+
+        auto condInfos = getConditionInfos(conditions);
+        dialog_->setConditionList(condInfos);
+        dialog_->selectCondition(cond_->getId());
+
+        // canceledit
+        // activate newPicker
+        // deactivate zoomer for now
+        newPicker_->reset();
+        newPicker_->setEnabled(true);
+        editPicker_->reset();
+        editPicker_->setEnabled(false);
+
+        if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
+            zoomAction->setChecked(false);
+    }
+
+    void onNewIntervalSelected(const QwtInterval &interval)
+    {
+        if (state_ == State::NewInterval)
+        {
+            // Set all intervals to the same, newly selected value.
+            for (auto &iv: intervals_)
+                iv = interval;
+
+            dialog_->setIntervals(intervals_);
+
+            newPicker_->reset();
+            newPicker_->setEnabled(false);
+            editPicker_->reset();
+            editPicker_->setInterval(interval);
+            editPicker_->setEnabled(true);
+
+            if (auto w = qobject_cast<Histo1DWidget *>(histoWidget_))
+            {
+                int intervalIndex = w->currentHistoIndex();
+                dialog_->selectInterval(intervalIndex);
+            }
+
+            state_ = State::EditInterval;
+        }
+        else
+            assert(false);
+    }
+
+    void onIntervalModified(const QwtInterval &interval)
+    {
+        if (state_ == State::EditInterval)
+        {
+            int intervalIndex = 0;
+
+            if (auto w = qobject_cast<Histo1DWidget *>(histoWidget_))
+                intervalIndex = w->currentHistoIndex();
+
+            if (intervalIndex < intervals_.size())
+                intervals_[intervalIndex] = interval;
+
+            dialog_->setIntervals(intervals_);
+        }
+        else
+            assert(false);
+    }
+
+    void onHistogramSelected(int histoIndex)
+    {
+        if (state_ == State::EditInterval && histoIndex < intervals_.size())
+        {
+            editPicker_->setInterval(intervals_[histoIndex]);
+            dialog_->selectInterval(histoIndex);
+        }
+    }
+
+    ConditionVector getEditableConditions()
+    {
+        if (auto analysis = sink_->getAnalysis())
+            return find_conditions_for_sink(sink_, analysis->getConditions());
+        return {};
+    };
+
+    QVector<IntervalConditionDialog::ConditionInfo> getConditionInfos(
+        const ConditionVector &conditions)
+    {
+        QVector<IntervalConditionDialog::ConditionInfo> condInfos;
+
+        for (const auto &cond: conditions)
+            condInfos.push_back(std::make_pair(cond->getId(), cond->objectName()));
+
+        return condInfos;
+    }
+
+    QVector<QwtInterval> getIntervals(const QUuid &id)
+    {
+        if (cond_->getId() == id)
+            return cond_->getIntervals();
+
+        for (const auto &cond: getEditableConditions())
+            if (cond->getId() == id)
+                if (auto intervalCond = std::dynamic_pointer_cast<IntervalCondition>(cond))
+                    return intervalCond->getIntervals();
+
+        return {};
+    }
+
+    void onConditionSelected(const QUuid &id)
+    {
+        dialog_->setIntervals(getIntervals(id));
+    }
+};
+
+IntervalConditionEditorController::IntervalConditionEditorController(
+            const Histo1DSinkPtr &sinkPtr,
+            IPlotWidget *histoWidget,
+            AnalysisServiceProvider *asp,
+            QObject *parent)
+    : QObject(parent)
+    , d(std::make_unique<Private>())
+{
+    d->sink_ = sinkPtr;
+    d->histoWidget_ = histoWidget;
+    d->dialog_ = new IntervalConditionDialog(histoWidget);
+    d->asp_ = asp;
+    d->newPicker_ = new NewIntervalPicker(histoWidget->getPlot());
+    d->newPicker_->setEnabled(false);
+    d->editPicker_ = new IntervalEditorPicker(histoWidget->getPlot());
+    d->editPicker_->setEnabled(false);
+
+    connect(d->dialog_, &IntervalConditionDialog::applied,
+            this, [this] () { d->onDialogApplied(); });
+
+    connect(d->dialog_, &QDialog::accepted,
+            this, [this] () { d->onDialogAccepted(); });
+
+    connect(d->dialog_, &QDialog::rejected,
+            this, [this] () { d->onDialogRejected(); });
+
+    connect(d->dialog_, &IntervalConditionDialog::newConditionButtonClicked,
+            this, [this] () { d->onNewConditionRequested(); });
+
+    connect(d->dialog_, &IntervalConditionDialog::conditionSelected,
+           this, [this] (const QUuid &id) { d->onConditionSelected(id); });
+
+    // XXX: leftoff here
+    connect(d->dialog_, &IntervalConditionDialog::conditionNameChanged,
+            this, [this] (const QUuid &objectId, const QString &name) {
+                if (d->cond_ && d->cond_->getId() == objectId)
+                    d->condName_ = name;
+            });
+
+    connect(d->newPicker_, &NewIntervalPicker::intervalSelected,
+            this, [this] (const QwtInterval &interval) { d->onNewIntervalSelected(interval); });
+
+    connect(d->editPicker_, &IntervalEditorPicker::intervalModified,
+            this, [this] (const QwtInterval &interval) { d->onIntervalModified(interval); });
+
+    if (auto histo1DWidget = qobject_cast<Histo1DWidget *>(histoWidget))
+    {
+        connect(histo1DWidget, &Histo1DWidget::histogramSelected,
+               this, [this] (int histoIndex) { d->onHistogramSelected(histoIndex); });
+    }
+
+    d->histoWidget_->installEventFilter(this);
+    d->dialog_->installEventFilter(this);
+
+    d->updateDialogPosition();
+    d->dialog_->show();
+}
+
+IntervalConditionEditorController::~IntervalConditionEditorController()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    delete d->dialog_;
+}
+
+bool IntervalConditionEditorController::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == d->histoWidget_
+        && (event->type() == QEvent::Move
+            || event->type() == QEvent::Resize))
+    {
+        d->updateDialogPosition();
+    }
+
+    // TODO: find another way to ensure the histoWidget_ becomes visible when
+    // the dialog_ gets input focus. The solution below leads to window frame
+    // flickering on every click in the dialog_.
+#if 0
+    if (watched == d->dialog_ && event->type() == QEvent::ActivationChange)
+    {
+        if (d->dialog_->isActiveWindow())
+        {
+            qDebug() << "raise your glasss!";
+            d->histoWidget_->raise();
+        }
+    }
+#endif
+
+    return QObject::eventFilter(watched, event);
+}
+
+void IntervalConditionEditorController::setEnabled(bool on)
+{
+}
 
 } // ns ui
 } // ns analysis

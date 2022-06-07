@@ -1745,6 +1745,8 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         u32 m_rrf;
 };
 
+using Histo1DSinkPtr = std::shared_ptr<analysis::Histo1DSink>;
+
 class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 {
     Q_OBJECT
@@ -2148,7 +2150,8 @@ class LIBMVME_EXPORT Analysis:
         // exists, true otherwise.
         bool addConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
-        // Removes the condition from the set of
+        // Removes the condition from the set of conditions for the given
+        // operator. */
         bool removeConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
         /* Clears the condition link of the given operator if it was linked to

@@ -171,7 +171,7 @@ struct AnalysisWidgetPrivate
     void onDirectoryRemoved(const DirectoryPtr &dir);
     void onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
     void onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
-    void editConditionLinkGraphically(const ConditionPtr &cond);
+    //void editConditionLinkGraphically(const ConditionPtr &cond);
 
     AnalysisServiceProvider *getServiceProvider() const { return m_serviceProvider; }
     Analysis *getAnalysis() const { return getServiceProvider()->getAnalysis(); }
@@ -260,6 +260,7 @@ void AnalysisWidgetPrivate::onConditionLinkRemoved(const OperatorPtr &op, const 
 #endif
 }
 
+#if 0
 void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionPtr &cond)
 {
     (void) cond;
@@ -331,6 +332,7 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionPtr &con
     //InvalidCodePath;
 #endif
 }
+#endif
 
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
@@ -1207,7 +1209,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // and object info (right)
     auto mainSplitter = new QSplitter;
     mainSplitter->addWidget(centralWidget);
-    //mainSplitter->addWidget(rightSplitter);
+    mainSplitter->addWidget(rightSplitter);
     mainSplitter->setStretchFactor(0, 3);
     mainSplitter->setStretchFactor(1, 1);
 

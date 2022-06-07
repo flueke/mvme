@@ -414,24 +414,22 @@ bool slots_match(const QVector<Slot *> &slotsA, const QVector<Slot *> &slotsB)
     return true;
 }
 
+bool slot_lessThan(const Slot *slotA, const Slot *slotB)
+{
+    if (slotA->inputPipe == slotB->inputPipe)
+        return slotA->paramIndex < slotB->paramIndex;
+
+    return slotA->inputPipe < slotB->inputPipe;
+};
+
 }
 
-/* Filters sinks, returning the ones using all of the inputs that are used by
- * the Condition. */
-SinkVector get_sinks_for_condition(const ConditionPtr &cond, const SinkVector &sinks)
+SinkVector find_sinks_for_condition(const ConditionPtr &cond, const SinkVector &sinks)
 {
     /* Get the input slots of the condition and of each sink.
      * Sort each of the slots vectors by input pipe and param index.
      * Then compare the pairs of condition and sink slots.
      * Add the sink to the result if all of the slots compare equal. */
-
-    auto slot_lessThan = [] (const Slot *slotA, const Slot *slotB) -> bool
-    {
-        if (slotA->inputPipe == slotB->inputPipe)
-            return slotA->paramIndex < slotB->paramIndex;
-
-        return slotA->inputPipe < slotB->inputPipe;
-    };
 
     auto condInputSlots = cond->getSlots();
 
@@ -453,9 +451,39 @@ SinkVector get_sinks_for_condition(const ConditionPtr &cond, const SinkVector &s
         std::sort(sinkSlots.begin(), sinkSlots.end(), slot_lessThan);
 
         if (slots_match(condInputSlots, sinkSlots))
-        {
             result.push_back(sink);
-        }
+    }
+
+    return result;
+}
+
+ConditionVector find_conditions_for_sink(const SinkPtr &sink, const ConditionVector &conditions)
+{
+    /* Idea is the same as for find_sinks_for_condition():
+     * Create a defined order of slots for the sink and each condition, then
+     * compare these slot lists.  */
+
+    auto sinkSlots = sink->getSlots();
+
+    std::sort(std::begin(sinkSlots), std::end(sinkSlots), slot_lessThan);
+
+    ConditionVector result;
+    result.reserve(conditions.size());
+
+    for (const auto &cond: conditions)
+    {
+        if (sink->getEventId() != cond->getEventId())
+            continue;
+
+        if (cond->getNumberOfSlots() != sinkSlots.size())
+            continue;
+
+        auto condSlots = cond->getSlots();
+
+        std::sort(std::begin(condSlots), std::end(condSlots), slot_lessThan);
+
+        if (slots_match(sinkSlots, condSlots))
+            result.push_back(cond);
     }
 
     return result;

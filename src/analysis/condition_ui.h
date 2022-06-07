@@ -23,15 +23,17 @@
 
 #include <memory>
 #include <QWidget>
+#include <QDialog>
 
 #include "analysis_service_provider.h"
+#include "histo_ui.h"
 
-#if 0
 
 namespace analysis
 {
 namespace ui
 {
+#if 0
 
 class ConditionWidget: public QWidget
 {
@@ -66,10 +68,65 @@ class ConditionWidget: public QWidget
         struct Private;
         std::unique_ptr<Private> m_d;
 };
+#endif
+
+class IntervalConditionDialog: public QDialog
+{
+    Q_OBJECT
+    signals:
+        void newConditionButtonClicked();
+        void conditionSelected(const QUuid &objectId);
+        void conditionNameChanged(const QUuid &objectId, const QString &name);
+        void intervalsEdited(const QVector<QwtInterval> &intervals);
+        void applied();
+
+    public:
+        IntervalConditionDialog(QWidget *parent = nullptr);
+        ~IntervalConditionDialog() override;
+
+        // (object id, name)
+        using ConditionInfo = std::pair<QUuid, QString>;
+
+        QVector<QwtInterval> getIntervals() const;
+        QString getConditionName(const QUuid &objectId) const;
+        QString getCurrentConditionName() const;
+
+    public slots:
+        void setConditionList(const QVector<ConditionInfo> &condInfos);
+        void setIntervals(const QVector<QwtInterval> &intervals);
+        void setInfoText(const QString &txt);
+        void selectCondition(const QUuid &objectId);
+        void selectInterval(int index);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+
+};
+
+class IntervalConditionEditorController: public QObject
+{
+    Q_OBJECT
+    public:
+        IntervalConditionEditorController(
+            const Histo1DSinkPtr &sinkPtr,
+            histo_ui::IPlotWidget *histoWidget,
+            AnalysisServiceProvider *asp,
+            QObject *parent = nullptr);
+
+        ~IntervalConditionEditorController() override;
+
+        bool eventFilter(QObject *watched, QEvent *event) override;
+
+        void setEnabled(bool on);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
 
 } // ns ui
 } // ns analysis
 
-#endif
 
 #endif /* __MVME_CONDITION_UI_H__ */

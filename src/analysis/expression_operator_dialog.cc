@@ -2478,8 +2478,8 @@ struct ExpressionConditionDialog::Private
         model.inputIndexes.clear();
         model.inputPrefixes.clear();
         model.a1_inputPipes.clear();
-        model.opClone = std::dynamic_pointer_cast<ExpressionCondition>(
-            m_op->clone()->shared_from_this());
+        auto sharedClone = std::shared_ptr<AnalysisObject>(m_op->clone());
+        model.opClone = std::dynamic_pointer_cast<ExpressionCondition>(sharedClone);
     }
 
     void repopulateGUIFromModel()

@@ -9,6 +9,7 @@
 #include <qwt_point_data.h>
 #include <qwt_samples.h>
 #include <qwt_series_data.h>
+#include <QComboBox>
 
 #include "histo1d.h"
 
@@ -21,7 +22,18 @@ namespace histo_ui
 QRectF canvas_to_scale(const QwtPlot *plot, const QRect &rect);
 QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos);
 
-class PlotWidget: public QWidget
+class IPlotWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        using QWidget::QWidget;
+        ~IPlotWidget() override;
+
+        virtual QwtPlot *getPlot() = 0;
+        virtual const QwtPlot *getPlot() const = 0;
+};
+
+class PlotWidget: public IPlotWidget
 {
     Q_OBJECT
     signals:
@@ -34,8 +46,8 @@ class PlotWidget: public QWidget
         PlotWidget(QWidget *parent = nullptr);
         ~PlotWidget() override;
 
-        QwtPlot *getPlot();
-        const QwtPlot *getPlot() const;
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
 
         QToolBar *getToolBar();
         QStatusBar *getStatusBar();
@@ -151,12 +163,12 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
             assert(histo);
         }
 
-        virtual size_t size() const override
+        size_t size() const override
         {
             return m_histo->getNumberOfBins(m_rrf);
         }
 
-        virtual QwtIntervalSample sample(size_t i) const override
+        QwtIntervalSample sample(size_t i) const override
         {
             auto result = QwtIntervalSample(
                 m_histo->getBinContent(i, m_rrf),
@@ -166,7 +178,7 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
             return result;
         }
 
-        virtual QRectF boundingRect() const override
+        QRectF boundingRect() const override
         {
             // Qt and Qwt have different understanding of rectangles. For Qt
             // it's top-down like screen coordinates, for Qwt it's bottom-up
@@ -206,7 +218,7 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
         {
         }
 
-        virtual double y(double x) const override
+        double y(double x) const override
         {
             double s = m_stats.fwhm / FWHMSigmaFactor;
             // Instead of using the center of the max bin the center point
@@ -241,6 +253,8 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
     private:
         Histo1DStatistics m_stats;
 };
+
+void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
 
 }
 
