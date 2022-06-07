@@ -164,15 +164,19 @@ void MVLC_StreamWorker::fillModuleIndexMaps(const VMEConfig *vmeConfig)
 {
     // Clear, then update the mapping of readout_parser module indexes to analysis module indexes.
     // This is done to handle VME modules that are disabled in the configuration.
-    m_eventModuleIndexMaps.fill({});
+
+    for (auto &indexMap: m_eventModuleIndexMaps)
+        indexMap.fill(-1);
 
     auto events = vmeConfig->getEventConfigs();
 
     for (int ei=0; ei<events.size(); ++ei)
     {
-        auto modules = vmeConfig->getAllModuleConfigs();
-        auto mapIter = m_eventModuleIndexMaps[ei].begin();
-        const auto mapEnd = m_eventModuleIndexMaps[ei].end();
+        auto &indexMap = m_eventModuleIndexMaps[ei];
+        auto modules = events[ei]->getModuleConfigs();
+
+        auto mapIter = indexMap.begin();
+        const auto mapEnd = indexMap.end();
 
         for (int mi=0; mi<modules.size(); ++mi)
         {
@@ -181,15 +185,19 @@ void MVLC_StreamWorker::fillModuleIndexMaps(const VMEConfig *vmeConfig)
         }
     }
 
-#if 0
+#if 1
     for (int ei=0; ei<events.size(); ++ei)
     {
         qDebug() << __PRETTY_FUNCTION__ << "moduleIndexMap for event" << ei << ":";
+        auto &indexMap = m_eventModuleIndexMaps[ei];
+        auto modules = events[ei]->getModuleConfigs();
 
-        for (unsigned pim=0; pim<m_eventModuleIndexMaps[ei].size(); ++pim)
+        for (unsigned pim=0; pim<indexMap.size(); ++pim)
         {
-            qDebug() << "   " << __PRETTY_FUNCTION__ << "parserModuleIndex=" << pim
-                << " -> mvmeModuleIndex=" << m_eventModuleIndexMaps[ei][pim];
+            auto analysisIndex = indexMap[pim];
+            if (analysisIndex >= 0)
+                qDebug() << "   " << __PRETTY_FUNCTION__ << "parserModuleIndex=" << pim
+                    << " -> analysisModuleIndex=" << indexMap[pim] << modules[indexMap[pim]]->objectName();
         }
     }
 #endif
