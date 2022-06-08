@@ -89,7 +89,8 @@ QString generate_output_filename(const ListFileOutputInfo &info)
             result += QSL(".zip");
             break;
 
-        InvalidDefaultCase;
+        default:
+            break;
     }
 
     return result;
