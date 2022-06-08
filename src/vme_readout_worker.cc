@@ -40,12 +40,12 @@ bool VMEReadoutWorker::do_VME_DAQ_Init(VMEController *ctrl)
     auto error_logger = [this] (const QString &msg) { getContext().errorLogger(msg); };
 
     vme_script::run_script_options::Flag opts = 0u;
-    if (!m_workerContext.runInfo->ignoreStartupErrors)
+    if (!m_workerContext.runInfo.ignoreStartupErrors)
         opts = vme_script::run_script_options::AbortOnError;
 
     auto initResults = vme_daq_init(m_workerContext.vmeConfig, ctrl, logger, error_logger, opts);
 
-    if (!m_workerContext.runInfo->ignoreStartupErrors
+    if (!m_workerContext.runInfo.ignoreStartupErrors
         && has_errors(initResults))
     {
         logMessage("");

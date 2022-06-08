@@ -166,7 +166,7 @@ struct LIBMVME_EXPORT EventReadoutBuildFlags
  * - event readout start ("cycle start" in the GUI)
  * - for each module:
  *     - module readout script (empty if module is disabled)
- *     - EndMarker command
+ *     - EndMarker command (if NoModuleEndMarker is not specified in the given flags)
  * - event readout end ("cycle end" in the GUI)
  */
 vme_script::VMEScript LIBMVME_EXPORT build_event_readout_script(
@@ -175,6 +175,7 @@ vme_script::VMEScript LIBMVME_EXPORT build_event_readout_script(
 
 struct DAQReadoutListfileHelperPrivate;
 
+// Helper class for the old mvmelst custom format. Used by the SIS3153 and VMUSB readout workers.
 class LIBMVME_EXPORT DAQReadoutListfileHelper
 {
     public:

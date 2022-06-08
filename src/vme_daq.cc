@@ -493,18 +493,18 @@ QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 
 void DAQReadoutListfileHelper::beginRun()
 {
-    if (!m_readoutContext.listfileOutputInfo->enabled)
+    if (!m_readoutContext.listfileOutputInfo.enabled)
         return;
 
     // empty output path
-    if (m_readoutContext.listfileOutputInfo->fullDirectory.isEmpty())
+    if (m_readoutContext.listfileOutputInfo.fullDirectory.isEmpty())
         return;
 
-    switch (m_readoutContext.listfileOutputInfo->format)
+    switch (m_readoutContext.listfileOutputInfo.format)
     {
         case ListFileFormat::Plain:
             {
-                QString outFilename = make_new_listfile_name(m_readoutContext.listfileOutputInfo);
+                QString outFilename = make_new_listfile_name(&m_readoutContext.listfileOutputInfo);
 
                 m_d->listfileOut = std::make_unique<QFile>(outFilename);
                 auto outFile = reinterpret_cast<QFile *>(m_d->listfileOut.get());
@@ -525,7 +525,7 @@ void DAQReadoutListfileHelper::beginRun()
 
         case ListFileFormat::ZIP:
             {
-                QString outFilename = make_new_listfile_name(m_readoutContext.listfileOutputInfo);
+                QString outFilename = make_new_listfile_name(&m_readoutContext.listfileOutputInfo);
 
                 /* The name of the listfile inside the zip archive. */
                 QFileInfo fi(outFilename);
@@ -554,7 +554,7 @@ void DAQReadoutListfileHelper::beginRun()
                                          // method (Z_DEFLATED or 0 for no compression)
                                          Z_DEFLATED,
                                          // level
-                                         m_readoutContext.listfileOutputInfo->compressionLevel
+                                         m_readoutContext.listfileOutputInfo.compressionLevel
                                         );
 
                 if (!res)
@@ -597,7 +597,7 @@ void DAQReadoutListfileHelper::endRun()
     m_d->listfileOut->close();
 
     // TODO: more error reporting here (file I/O)
-    switch (m_readoutContext.listfileOutputInfo->format)
+    switch (m_readoutContext.listfileOutputInfo.format)
     {
         case ListFileFormat::Plain:
             {
@@ -633,7 +633,7 @@ void DAQReadoutListfileHelper::endRun()
                                             // method (Z_DEFLATED or 0 for no compression)
                                             0,
                                             // level
-                                            m_readoutContext.listfileOutputInfo->compressionLevel
+                                            m_readoutContext.listfileOutputInfo.compressionLevel
                                            );
 
                     if (res)
@@ -660,7 +660,7 @@ void DAQReadoutListfileHelper::endRun()
                                             // method (Z_DEFLATED or 0 for no compression)
                                             0,
                                             // level
-                                            m_readoutContext.listfileOutputInfo->compressionLevel
+                                            m_readoutContext.listfileOutputInfo.compressionLevel
                                            );
 
                     if (res)
@@ -681,7 +681,7 @@ void DAQReadoutListfileHelper::endRun()
                                             // method (Z_DEFLATED or 0 for no compression)
                                             0,
                                             // level
-                                            m_readoutContext.listfileOutputInfo->compressionLevel
+                                            m_readoutContext.listfileOutputInfo.compressionLevel
                                            );
 
                     if (res)
@@ -701,10 +701,10 @@ void DAQReadoutListfileHelper::endRun()
             InvalidDefaultCase;
     }
 
-    if (m_readoutContext.listfileOutputInfo->flags & ListFileOutputInfo::UseRunNumber)
+    if (m_readoutContext.listfileOutputInfo.flags & ListFileOutputInfo::UseRunNumber)
     {
         // increment the run number here so that it represents the _next_ run number
-        m_readoutContext.listfileOutputInfo->runNumber++;
+        m_readoutContext.listfileOutputInfo.runNumber++;
     }
 }
 

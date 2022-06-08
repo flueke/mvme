@@ -153,7 +153,7 @@ struct MVMEContextPrivate
     MVMEOptions m_options;
     QStringList m_logBuffer;
     QMutex m_logBufferMutex;
-    ListFileOutputInfo m_listfileOutputInfo = {};
+
     RunInfo m_runInfo;
     u32 m_ctrlOpenRetryCount = 0;
     bool m_isFirstConnectionAttempt = false;
@@ -827,24 +827,6 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     connect(m_readoutWorker, &VMEReadoutWorker::daqStopped,
             this, &MVMEContext::onDAQDone);
 
-    VMEReadoutWorkerContext readoutWorkerContext;
-
-    readoutWorkerContext.controller         = controller;
-    readoutWorkerContext.daqStats           = {};
-    readoutWorkerContext.vmeConfig          = m_vmeConfig;
-    readoutWorkerContext.freeBuffers        = &m_freeBuffers;
-    readoutWorkerContext.fullBuffers        = &m_fullBuffers;
-    readoutWorkerContext.listfileOutputInfo = &m_d->m_listfileOutputInfo;
-    readoutWorkerContext.runInfo            = &m_d->m_runInfo;
-
-    readoutWorkerContext.logger             = [this](const QString &msg) { logMessage(msg); };
-    readoutWorkerContext.errorLogger        = [this](const QString &msg) { logError(msg); };
-    readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); }; // this is thread-safe
-    readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); }; // this is NOT thread-safe
-    readoutWorkerContext.getRunNotes        = [this]() { return getRunNotes(); }; // this is thread-safe
-
-    m_readoutWorker->setContext(readoutWorkerContext);
-
     if (auto mvlcReadoutWorker = qobject_cast<MVLCReadoutWorker *>(m_readoutWorker))
     {
         connect(mvlcReadoutWorker, &MVLCReadoutWorker::debugInfoReady,
@@ -1301,8 +1283,12 @@ void MVMEContext::onDAQDone()
 
     // The readout worker might have modified the ListFileOutputInfo structure.
     // Write it out to the workspace.
-    qDebug() << __PRETTY_FUNCTION__ << "writing listfile output info to workspace";
-    writeToSettings(m_d->m_listfileOutputInfo, *makeWorkspaceSettings());
+    if (m_readoutWorker)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "writing listfile output info to mvmeworkspace.ini";
+        auto rdoWorkerContext = m_readoutWorker->getContext();
+        writeToSettings(rdoWorkerContext.listfileOutputInfo, *makeWorkspaceSettings());
+    }
 }
 
 // Called on ListfileReplayWorker::replayStopped()
@@ -1606,6 +1592,23 @@ void MVMEContext::setAnalysisConfigFilename(QString name, bool updateWorkspace)
     }
 }
 
+RunInfo MVMEContext::makeBasicRunInfo()
+{
+    RunInfo ret;
+
+    auto wsSettings = makeWorkspaceSettings();
+    auto experimentName = wsSettings->value("Experiment/Name").toString();
+    if (experimentName.isEmpty())
+        experimentName = "Experiment";
+    ret.infoDict["ExperimentName"] = experimentName;
+    ret.infoDict["ExperimentTitle"] = wsSettings->value("Experiment/Title");
+    ret.infoDict["MVMEWorkspace"] = getWorkspaceDirectory();
+    ret.ignoreStartupErrors = wsSettings->value(
+        "Experiment/IgnoreVMEStartupErrors").toBool();
+
+    return ret;
+}
+
 // Rebuilds the analyis in the main thread and then tells the stream worker that
 // a run is about to start.
 bool MVMEContext::prepareStart()
@@ -1618,17 +1621,6 @@ bool MVMEContext::prepareStart()
         qDebug() << *it;
     }
 #endif
-
-    // add info from the workspace to the current RunInfo object
-    auto wsSettings = makeWorkspaceSettings();
-    auto experimentName = wsSettings->value("Experiment/Name").toString();
-    if (experimentName.isEmpty())
-        experimentName = "Experiment";
-    m_d->m_runInfo.infoDict["ExperimentName"] = experimentName;
-    m_d->m_runInfo.infoDict["ExperimentTitle"] = wsSettings->value("Experiment/Title");
-    m_d->m_runInfo.infoDict["MVMEWorkspace"] = getWorkspaceDirectory();
-    m_d->m_runInfo.ignoreStartupErrors = wsSettings->value(
-        "Experiment/IgnoreVMEStartupErrors").toBool();
 
     qDebug() << __PRETTY_FUNCTION__
         << "free buffers:" << queue_size(&m_freeBuffers)
@@ -1715,11 +1707,12 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     // Generate new RunInfo here. Has to happen before prepareStart() calls
     // MVMEStreamWorker::beginRun()
-    // FIXME: does this still do anything? runId is still used in histo1d_widget?
+    // FIXME: does this still do anything? runId is still used in histo1d_widget.
     // FIXME: the output filename generation (based on run settings, etc) must
     // be done before filling this runinfo. Meaning move the output file
     // creation and error handling from the readout worker into this thread and
     // pass the open output file descriptor the readout worker instead.
+    m_d->m_runInfo = makeBasicRunInfo();
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
@@ -1728,6 +1721,24 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
     // TODO: use ListFileOutputInfo to generate the runId for the analysis
     // FIXME: we don't actually know the runId before the listfile is successfully opened.
     // E.g. the runNumber might be incremented due to run files already existing.
+
+    VMEReadoutWorkerContext readoutWorkerContext;
+
+    readoutWorkerContext.controller         = m_controller;
+    readoutWorkerContext.daqStats           = {};
+    readoutWorkerContext.vmeConfig          = m_vmeConfig;
+    readoutWorkerContext.freeBuffers        = &m_freeBuffers;
+    readoutWorkerContext.fullBuffers        = &m_fullBuffers;
+    readoutWorkerContext.listfileOutputInfo = getListFileOutputInfo();
+    readoutWorkerContext.runInfo            = m_d->m_runInfo;
+
+    readoutWorkerContext.logger             = [this](const QString &msg) { logMessage(msg); };
+    readoutWorkerContext.errorLogger        = [this](const QString &msg) { logError(msg); };
+    readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); }; // this is thread-safe
+    readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); }; // this is NOT thread-safe
+    readoutWorkerContext.getRunNotes        = [this]() { return getRunNotes(); }; // this is thread-safe
+
+    m_readoutWorker->setContext(readoutWorkerContext);
 
     m_d->clearLog();
 
@@ -1797,6 +1808,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     }
 
     // Extract a runId from the listfile filename.
+    m_d->m_runInfo = makeBasicRunInfo();
     QFileInfo fi(m_d->listfileReplayHandle.inputFilename);
     m_d->m_runInfo.runId = fi.completeBaseName();
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
@@ -2260,40 +2272,6 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // mvme.log is kept open during the application lifetime and contains
         // all logged messages.
         make_missing_workspace_dir(QSL("LogsDirectory"), LogsWorkspaceDirectory);
-
-        // special listfile output directory handling.
-        // FIXME: this might not actually be needed anymore
-        {
-            ListFileOutputInfo info = readFromSettings(*workspaceSettings);
-
-
-            QDir listFileOutputDir(info.directory);
-
-            if (listFileOutputDir.isAbsolute() && !listFileOutputDir.exists())
-            {
-                /* A non-existant absolute path was loaded from the INI -> go back
-                 * to the default of "listfiles". */
-                logMessage(QString("Warning: Stored Listfile directory %1 does not exist. "
-                                   "Reverting back to default of \"listfiles\".")
-                           .arg(info.directory));
-                info.directory = QSL("listfiles");
-
-                // create the default listfile directory if it does not exist
-                listFileOutputDir = QDir(info.directory);
-                if (!listFileOutputDir.exists())
-                {
-                    if (!QDir::root().mkpath(dir.absolutePath()))
-                    {
-                        throw QString(QSL("Error creating listfiles directory %1.")).arg(dir.path());
-                    }
-                }
-            }
-
-            info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
-            logMessage(QString("Setting ListFileOutputInfo.fullDirectory=%1").arg(info.fullDirectory));
-            m_d->m_listfileOutputInfo = info;
-            writeToSettings(info, *workspaceSettings);
-        }
 
         // Create a new LastlogHelper to log into mvme.log until another
         // workspace is opened.
@@ -2921,21 +2899,16 @@ void MVMEContext::analysisWasSaved()
 
 void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 {
-    m_d->m_listfileOutputInfo = info;
-
     auto settings = makeWorkspaceSettings();
-
     writeToSettings(info, *settings);
-
     emit ListFileOutputInfoChanged(info);
 }
 
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
 {
-    // Tracing an issue on exit where m_d has already been destroyed but
-    // MVMEMainWindow is calling this method.
-    assert(m_d);
-    return m_d->m_listfileOutputInfo;
+    auto info = readFromSettings(*makeWorkspaceSettings());
+    info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
+    return info;
 }
 
 QString MVMEContext::getListFileOutputDirectoryFullPath(const QString &directory) const

@@ -37,8 +37,8 @@ struct VMEReadoutWorkerContext
     ThreadSafeDataBufferQueue *freeBuffers = nullptr,
                               *fullBuffers = nullptr;
 
-    ListFileOutputInfo *listfileOutputInfo = nullptr;
-    RunInfo *runInfo = nullptr;
+    ListFileOutputInfo listfileOutputInfo = {};
+    RunInfo runInfo = {};
 
     std::function<void (const QString &)> logger;
     std::function<void (const QString &)> errorLogger;
