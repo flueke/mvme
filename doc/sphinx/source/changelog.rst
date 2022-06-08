@@ -18,7 +18,7 @@ Version 1.4.9
 
   - Improve histo1d stats output.
 
-* New feature: listfile splitting (MVLC only!)
+* New feature: listfile splitting (MVLC only)
 
   When recording readout data the output listfile can now be split either based
   on file size or elapsed time. Each partial listfile ZIP archive is in itself
@@ -66,6 +66,11 @@ Version 1.4.9
 
 * Improved VME Script Execution: log messages from commands are now immediately
   visible. Progress dialog shows progress based on number of commands.
+
+* Fix wrong VME -> analysis module assignments when disabled VME modules are
+  present in the config.
+
+* New ZMQ publisher listfile output. Based on code from GANIL.
 
 
 Version 1.4.8.2
