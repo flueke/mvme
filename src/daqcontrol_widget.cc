@@ -626,13 +626,16 @@ void DAQControlWidget::updateWidget()
 
     if (auto settings = make_workspace_settings(m_workspaceDirectory))
     {
-        QDir listfileDir(settings->value(QSL("ListFileDirectory")).toString());
-
-        QString prefix = m_workspaceDirectory + "/" + listfileDir.path() + "/";
+        QDir workspaceDir(m_workspaceDirectory);
+        auto prefix = workspaceDir.canonicalPath() + '/';
 
         if (filename.startsWith(prefix))
+            filename.remove(0, prefix.size());
+        else
         {
-            filename.remove(prefix);
+            prefix = workspaceDir.path() + '/';
+            if (filename.startsWith(prefix))
+                filename.remove(0, prefix.size());
         }
     }
 
@@ -852,6 +855,14 @@ void DAQRunSettingsDialog::updateExample()
     le_exampleName->setText(filename);
 }
 
+QLabel *make_explanation_label(const QString &str)
+{
+    auto result = new QLabel(str);
+    result->setWordWrap(true);
+    set_widget_font_pointsize_relative(result, -1);
+    return result;
+}
+
 WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings> &settings,
                                                  QWidget *parent)
     : QDialog(parent)
@@ -876,13 +887,12 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
         auto gb = new QGroupBox(QSL("General"));
         auto l = new QFormLayout(gb);
 
-        auto label = new QLabel(QSL(
-                "If enabled VME read/write errors during the DAQ start sequence will not abort the DAQ run."));
-        label->setWordWrap(true);
-        set_widget_font_pointsize_relative(label, -1);
+        auto label = make_explanation_label(QSL(
+                "If enabled VME read/write errors during the DAQ"
+                " start sequence will not abort the DAQ run."));
 
-        l->addRow(cb_ignoreStartupErrors);
         l->addRow(label);
+        l->addRow(cb_ignoreStartupErrors);
 
         auto l_listfileOutput = new QHBoxLayout;
         l_listfileOutput->addWidget(le_listfileDir);
@@ -895,10 +905,16 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
 
     // Groupbox ExperimentName and ExperimentTitle
     {
-        auto gb = new QGroupBox(QSL("Experiment"));
+        auto gb = new QGroupBox(QSL("Experiment Info"));
         le_expName = new QLineEdit(this);
         le_expTitle = new QLineEdit(this);
         auto l = new QFormLayout(gb);
+
+        auto label = make_explanation_label(QSL(
+            "Information transmitted in the EventServer protocol. Used by mvme_root_client"
+            "to generate class and file names."));
+
+        l->addRow(label);
         l->addRow(QSL("Experiment Name"), le_expName);
         l->addRow(QSL("Experiment Title"), le_expTitle);
 
@@ -911,14 +927,11 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     spin_jsonRPCListenPort->setMaximum((1 << 16) - 1);
 
     {
-        auto label = new QLabel(QSL(
+        auto label = make_explanation_label(QSL(
                 "Enables a built-in JSON-RPC server allowing remote control"
                 " and remote status queries.\n"
                 "The listen address may be a hostname or an IP address. Leave blank to"
                 " bind to all local interfaces."));
-
-        label->setWordWrap(true);
-        set_widget_font_pointsize_relative(label, -1);
 
         auto l = new QFormLayout(gb_jsonRPC);
         l->addRow(label);
@@ -932,14 +945,11 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     spin_eventServerListenPort->setMaximum((1 << 16) - 1);
 
     {
-        auto label = new QLabel(QSL(
+        auto label = make_explanation_label(QSL(
                 "Enables the EventServer component which streams "
                 "extracted Event data over a TCP socket.\n"
                 "The listen address may be a hostname or an IP address. Leave blank to"
                 " bind to all local interfaces."));
-
-        label->setWordWrap(true);
-        set_widget_font_pointsize_relative(label, -1);
 
         auto l = new QFormLayout(gb_eventServer);
         l->addRow(label);
