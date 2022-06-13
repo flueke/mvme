@@ -990,7 +990,7 @@ struct IntervalConditionEditorController::Private
         transitionPickers(State::Inactive);
         newCond_ = {};
         intervals_ = {};
-        currentConditionId_ = {};
+        currentConditionId_ = QUuid();
     }
 
     // Keeps the dialog_ at the top right of the histo widget.
