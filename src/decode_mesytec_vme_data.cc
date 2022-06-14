@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
-#include <fmt/format.h>
+#include <mesytec-mvlc/util/fmt.h>
 
 // CLI tool for decoding data from mesytec VME modules.
 //

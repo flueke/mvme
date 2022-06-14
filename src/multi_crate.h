@@ -10,7 +10,6 @@
 
 #include <cassert>
 #include <stdexcept>
-#include <fmt/format.h>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "libmvme_export.h"

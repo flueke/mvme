@@ -1,6 +1,5 @@
 #include <QApplication>
 #include <iostream>
-#include <fmt/format.h>
 #include <lyra/lyra.hpp>
 #include <set>
 #include <vector>
