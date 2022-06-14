@@ -597,6 +597,17 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         // Focus the main window
         this->raise();
     });
+
+    auto timer1s = new QTimer(this);
+    timer1s->setInterval(1000);
+
+    connect(timer1s, &QTimer::timeout,
+            this, [] ()
+            {
+                spdlog::info("logger names: {}", fmt::join(mesytec::mvlc::list_logger_names(), ", "));
+            });
+
+    timer1s->start();
 }
 
 MVMEMainWindow::~MVMEMainWindow()
