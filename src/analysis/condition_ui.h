@@ -127,6 +127,31 @@ class IntervalConditionEditorController: public QObject
         std::unique_ptr<Private> d;
 };
 
+class PolygonConditionEditorController: public QObject
+{
+    Q_OBJECT
+    public:
+        PolygonConditionEditorController(
+            const Histo2DSinkPtr,
+            histo_ui::IPlotWidget *histoWidget,
+            AnalysisServiceProvider *asp,
+            QObject *parent = nullptr);
+
+        ~PolygonConditionEditorController() override;
+
+        bool eventFilter(QObject *watched, QEvent *event) override;
+
+        void setEnabled(bool on);
+
+        QDialog *getDialog() const;
+
+        //IntervalConditionDialog *getDialog() const;
+        //
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 } // ns ui
 } // ns analysis
 

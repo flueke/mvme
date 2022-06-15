@@ -1235,5 +1235,37 @@ IntervalConditionDialog *IntervalConditionEditorController::getDialog() const
     return d->dialog_;
 }
 
+//
+// PolygonConditionEditorController
+//
+
+struct PolygonConditionEditorController::Private
+{
+};
+
+PolygonConditionEditorController::PolygonConditionEditorController(
+    const Histo2DSinkPtr,
+    histo_ui::IPlotWidget *histoWidget,
+    AnalysisServiceProvider *asp,
+    QObject *parent)
+{
+}
+
+PolygonConditionEditorController::~PolygonConditionEditorController()
+{
+}
+
+bool PolygonConditionEditorController::eventFilter(QObject *watched, QEvent *event)
+{
+}
+
+void PolygonConditionEditorController::setEnabled(bool on)
+{
+}
+
+QDialog *PolygonConditionEditorController::getDialog() const
+{
+}
+
 } // ns ui
 } // ns analysis

@@ -1820,6 +1820,8 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         ResolutionReductionFactors m_rrf;
 };
 
+using Histo2DSinkPtr = std::shared_ptr<analysis::Histo2DSink>;
+
 class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
 {
     Q_OBJECT
