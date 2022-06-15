@@ -21,6 +21,7 @@
 #include "daqcontrol_widget.h"
 
 #include <QHBoxLayout>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QRegularExpressionValidator>
 #include <QStorageInfo>
@@ -76,16 +77,16 @@ static void fill_compression_combo(QComboBox *combo, bool isMVLC)
     QSignalBlocker blocker(combo);
     combo->clear();
 
-    combo->addItem(QSL("No compression"), CompressionPreset::NoCompression);
+    combo->addItem(QSL("ZIP (No compression)"), CompressionPreset::NoCompression);
 
     if (isMVLC)
-        combo->addItem(QSL("LZ4 fast"), CompressionPreset::Fast_LZ4);
+        combo->addItem(QSL("LZ4 fast compression"), CompressionPreset::Fast_LZ4);
 
-    combo->addItem(QSL("ZIP fast"), CompressionPreset::Fast_ZIP);
+    combo->addItem(QSL("ZIP fast compression"), CompressionPreset::Fast_ZIP);
 
 #ifdef MVLC_HAVE_ZMQ
     if (isMVLC)
-        combo->addItem(QSL("ZMQ Server GANIL"), CompressionPreset::ZmqServer_Ganil);
+        combo->addItem(QSL("ZMQ Publisher"), CompressionPreset::ZmqServer_Ganil);
 #endif
 }
 #endif
@@ -312,7 +313,7 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             hbox->setContentsMargins(0, 0, 0, 0);
             hbox->setSpacing(2);
             hbox->addWidget(cb_writeListfile);
-            hbox->addWidget(new QLabel(QSL("Compression:")));
+            hbox->addWidget(new QLabel(QSL("Format:")));
             hbox->addWidget(combo_compression);
             hbox->addStretch();
             gbLayout->addRow(hbox);
@@ -625,16 +626,16 @@ void DAQControlWidget::updateWidget()
 
     if (auto settings = make_workspace_settings(m_workspaceDirectory))
     {
-        QDir listfileDir(settings->value(QSL("ListFileDirectory")).toString());
+        QDir workspaceDir(m_workspaceDirectory);
+        auto prefix = workspaceDir.canonicalPath() + '/';
 
-        if (!listfileDir.isAbsolute())
+        if (filename.startsWith(prefix))
+            filename.remove(0, prefix.size());
+        else
         {
-            QString prefix = m_workspaceDirectory + "/" + listfileDir.path() + "/";
-
+            prefix = workspaceDir.path() + '/';
             if (filename.startsWith(prefix))
-            {
-                filename.remove(prefix);
-            }
+                filename.remove(0, prefix.size());
         }
     }
 
@@ -854,6 +855,14 @@ void DAQRunSettingsDialog::updateExample()
     le_exampleName->setText(filename);
 }
 
+QLabel *make_explanation_label(const QString &str)
+{
+    auto result = new QLabel(str);
+    result->setWordWrap(true);
+    set_widget_font_pointsize_relative(result, -1);
+    return result;
+}
+
 WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings> &settings,
                                                  QWidget *parent)
     : QDialog(parent)
@@ -861,23 +870,53 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     , gb_eventServer(new QGroupBox(QSL("Enable Event Server")))
     , le_jsonRPCListenAddress(new QLineEdit)
     , le_eventServerListenAddress(new QLineEdit)
+    , le_listfileDir(new QLineEdit)
+    , pb_listfileDir(new QPushButton(QSL("Select")))
     , spin_jsonRPCListenPort(new QSpinBox)
     , spin_eventServerListenPort(new QSpinBox)
     , cb_ignoreStartupErrors(new QCheckBox("Ignore VME Init Startup Errors"))
     , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
     , m_settings(settings)
 {
+    setWindowTitle("mvme workspace settings");
+
     auto widgetLayout = new QVBoxLayout(this);
+
+    // General settings: ignore startup errors, listfile output directory
+    {
+        auto gb = new QGroupBox(QSL("General"));
+        auto l = new QFormLayout(gb);
+
+        auto label = make_explanation_label(QSL(
+                "If enabled VME read/write errors during the DAQ"
+                " start sequence will not abort the DAQ run."));
+
+        l->addRow(label);
+        l->addRow(cb_ignoreStartupErrors);
+
+        auto l_listfileOutput = new QHBoxLayout;
+        l_listfileOutput->addWidget(le_listfileDir);
+        l_listfileOutput->addWidget(pb_listfileDir);
+
+        l->addRow(QSL("Listfile output directory"), l_listfileOutput);
+
+        widgetLayout->addWidget(gb);
+    }
 
     // Groupbox ExperimentName and ExperimentTitle
     {
-        auto gb = new QGroupBox(QSL("Experiment"));
+        auto gb = new QGroupBox(QSL("Experiment Info"));
         le_expName = new QLineEdit(this);
         le_expTitle = new QLineEdit(this);
         auto l = new QFormLayout(gb);
+
+        auto label = make_explanation_label(QSL(
+            "Information transmitted in the EventServer protocol. Used by mvme_root_client"
+            "to generate class and file names."));
+
+        l->addRow(label);
         l->addRow(QSL("Experiment Name"), le_expName);
         l->addRow(QSL("Experiment Title"), le_expTitle);
-        l->addRow(cb_ignoreStartupErrors);
 
         widgetLayout->addWidget(gb);
     }
@@ -888,14 +927,11 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     spin_jsonRPCListenPort->setMaximum((1 << 16) - 1);
 
     {
-        auto label = new QLabel(QSL(
+        auto label = make_explanation_label(QSL(
                 "Enables a built-in JSON-RPC server allowing remote control"
                 " and remote status queries.\n"
                 "The listen address may be a hostname or an IP address. Leave blank to"
                 " bind to all local interfaces."));
-
-        label->setWordWrap(true);
-        set_widget_font_pointsize_relative(label, -1);
 
         auto l = new QFormLayout(gb_jsonRPC);
         l->addRow(label);
@@ -909,14 +945,11 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     spin_eventServerListenPort->setMaximum((1 << 16) - 1);
 
     {
-        auto label = new QLabel(QSL(
+        auto label = make_explanation_label(QSL(
                 "Enables the EventServer component which streams "
                 "extracted Event data over a TCP socket.\n"
                 "The listen address may be a hostname or an IP address. Leave blank to"
                 " bind to all local interfaces."));
-
-        label->setWordWrap(true);
-        set_widget_font_pointsize_relative(label, -1);
 
         auto l = new QFormLayout(gb_eventServer);
         l->addRow(label);
@@ -926,19 +959,33 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
 
     widgetLayout->addWidget(gb_jsonRPC);
     widgetLayout->addWidget(gb_eventServer);
+    widgetLayout->addStretch(1);
     widgetLayout->addWidget(m_bb);
 
-    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(pb_listfileDir, &QPushButton::clicked,
+            this, &WorkspaceSettingsDialog::selectListfileDir);
+
+    connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     populate();
 }
 
+void WorkspaceSettingsDialog::selectListfileDir()
+{
+    auto dirpath = QFileDialog::getExistingDirectory(
+        this, QSL("Select listfile output directory"), le_listfileDir->text());
+
+    if (!dirpath.isEmpty())
+        le_listfileDir->setText(dirpath);
+}
+
 void WorkspaceSettingsDialog::populate()
 {
+    le_listfileDir->setText(m_settings->value("ListFileDirectory").toString());
+
     le_expName->setText(m_settings->value(QSL("Experiment/Name")).toString());
     le_expTitle->setText(m_settings->value(QSL("Experiment/Title")).toString());
-
     cb_ignoreStartupErrors->setChecked(m_settings->value(
             QSL("Experiment/IgnoreVMEStartupErrors")).toBool());
 
@@ -953,6 +1000,8 @@ void WorkspaceSettingsDialog::populate()
 
 void WorkspaceSettingsDialog::accept()
 {
+    m_settings->setValue("ListFileDirectory", le_listfileDir->text());
+
     m_settings->setValue(QSL("Experiment/Name"), le_expName->text());
     m_settings->setValue(QSL("Experiment/Title"), le_expTitle->text());
     m_settings->setValue(QSL("Experiment/IgnoreVMEStartupErrors"),

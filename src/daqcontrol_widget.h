@@ -158,6 +158,9 @@ class WorkspaceSettingsDialog: public QDialog
         virtual void accept() override;
         virtual void reject() override;
 
+    private slots:
+        void selectListfileDir();
+
     private:
         void populate();
 
@@ -167,7 +170,10 @@ class WorkspaceSettingsDialog: public QDialog
         QLineEdit *le_jsonRPCListenAddress,
                   *le_eventServerListenAddress,
                   *le_expName,
-                  *le_expTitle;
+                  *le_expTitle,
+                  *le_listfileDir;
+
+        QPushButton *pb_listfileDir;
 
         QSpinBox *spin_jsonRPCListenPort,
                  *spin_eventServerListenPort;

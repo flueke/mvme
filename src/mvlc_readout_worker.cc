@@ -360,7 +360,7 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
     return run_daq_start_sequence(
         mvlcCtrl,
         *q->getContext().vmeConfig,
-        q->getContext().runInfo->ignoreStartupErrors,
+        q->getContext().runInfo.ignoreStartupErrors,
         logger,
         error_logger);
 }
@@ -481,7 +481,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // listfile handling
         d->listfileWriteHandle = {};
 
-        if (m_workerContext.listfileOutputInfo->enabled)
+        if (m_workerContext.listfileOutputInfo.enabled)
         {
             // Create the listfile preamble in a buffer and store it for later
             // use.
@@ -502,29 +502,29 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 preamble = bwh.getBuffer();
             }
 
-            auto outInfo = m_workerContext.listfileOutputInfo;
+            auto &outInfo = m_workerContext.listfileOutputInfo;
 
-            if (outInfo->format == ListFileFormat::ZIP
-                || outInfo->format == ListFileFormat::LZ4)
+            if (outInfo.format == ListFileFormat::ZIP
+                || outInfo.format == ListFileFormat::LZ4)
             {
-                if (outInfo->fullDirectory.isEmpty())
+                if (outInfo.fullDirectory.isEmpty())
                     throw std::runtime_error("Error: listfile output directory is not set");
 
                 listfile::SplitListfileSetup lfSetup;
-                lfSetup.entryType = (outInfo->format == ListFileFormat::ZIP
+                lfSetup.entryType = (outInfo.format == ListFileFormat::ZIP
                                      ? listfile::ZipEntryInfo::ZIP
                                      : listfile::ZipEntryInfo::LZ4);
-                lfSetup.compressLevel = outInfo->compressionLevel;
+                lfSetup.compressLevel = outInfo.compressionLevel;
 
-                if (outInfo->flags & ListFileOutputInfo::SplitBySize)
+                if (outInfo.flags & ListFileOutputInfo::SplitBySize)
                     lfSetup.splitMode = listfile::ZipSplitMode::SplitBySize;
-                else if (outInfo->flags & ListFileOutputInfo::SplitByTime)
+                else if (outInfo.flags & ListFileOutputInfo::SplitByTime)
                     lfSetup.splitMode = listfile::ZipSplitMode::SplitByTime;
 
-                lfSetup.splitSize = outInfo->splitSize;
-                lfSetup.splitTime = outInfo->splitTime;
+                lfSetup.splitSize = outInfo.splitSize;
+                lfSetup.splitTime = outInfo.splitTime;
 
-                QFileInfo lfInfo(make_new_listfile_name(outInfo));
+                QFileInfo lfInfo(make_new_listfile_name(&outInfo));
                 auto lfDir = lfInfo.path();
                 auto lfBase = lfInfo.completeBaseName();
                 auto lfPrefix = lfDir + "/" + lfBase;
@@ -577,7 +577,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                     d->mvlcZipCreator->createListfileEntry());
             }
 #ifdef MVLC_HAVE_ZMQ
-            else if (outInfo->format == ListFileFormat::ZMQ_Ganil)
+            else if (outInfo.format == ListFileFormat::ZMQ_Ganil)
             {
                 d->listfileWriteHandle = std::make_unique<mvlc::listfile::ZmqGanilWriteHandle>();
                 // Note: intentionally not sending the listfile preamble as the GANIL receiver
@@ -643,10 +643,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         // In case we recorded a listfile and the run number was used increment
         // the run number here so that it represents the _next_ run number.
-        if (m_workerContext.listfileOutputInfo->enabled
-            && (m_workerContext.listfileOutputInfo->flags & ListFileOutputInfo::UseRunNumber))
+        if (m_workerContext.listfileOutputInfo.enabled
+            && (m_workerContext.listfileOutputInfo.flags & ListFileOutputInfo::UseRunNumber))
         {
-            ++m_workerContext.listfileOutputInfo->runNumber;
+            ++m_workerContext.listfileOutputInfo.runNumber;
         }
 
         set_daq_state(readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state()));

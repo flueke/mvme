@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <stdexcept>
-#include <fmt/format.h>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "vme_config_scripts.h"
 

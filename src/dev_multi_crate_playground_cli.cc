@@ -1,6 +1,5 @@
 #include <array>
 #include <chrono>
-#include <fmt/format.h>
 #include <memory>
 #include <spdlog/spdlog.h>
 

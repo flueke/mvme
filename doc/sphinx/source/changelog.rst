@@ -8,17 +8,18 @@ Version 1.4.9
 -------------
 * [analysis]
 
-  - Add a new MultiHitExtractor data source allowing to extract multiple hits per
-    address.
+  - Add a new MultiHitExtractor data source allowing to extract multiple hits
+    per address.
 
-  - Add 'Generate Histograms' context menu action to data sources and operators to quickly
-    generate histograms for selected objects.
+  - Add 'Generate Histograms' context menu action to data sources and operators
+    to quickly generate histograms for selected objects.
 
-  - Raise maximum number of data sources and operators per VME event context from 256 to 65536.
+  - Raise maximum number of data sources and operators per VME event context
+    from 256 to 65536.
 
   - Improve histo1d stats output.
 
-* New feature: listfile splitting (MVLC only!)
+* New feature: listfile splitting (MVLC only)
 
   When recording readout data the output listfile can now be split either based
   on file size or elapsed time. Each partial listfile ZIP archive is in itself
@@ -28,6 +29,8 @@ Version 1.4.9
   Replaying from split listfiles currently has to be done manually for each
   part. Using the 'keep histo contents' in mvme allows to accumulate data from
   multiple (partial) listfiles into the same analysis.
+
+* Listfile output directory can now be selected in the Workspace Settings GUI.
 
 * New feature: VME modules can now be saved to and loaded from JSON files. This
   can be used to create custom VME modules without having to use the mvme VME
@@ -39,11 +42,7 @@ Version 1.4.9
 * Show the original incoming data rate in the analysis window when replaying
   from listfile.
 
-* Improve Triva7 VME module templates.
-
 * VME Config: allow moving modules between VME Events via drag&drop.
-
-* Fix 'VME Script -> Run' in the MVLC Debug GUI
 
 * [mvlc]
 
@@ -57,15 +56,30 @@ Version 1.4.9
 
   - Fix USB2 connection issues by retrying opening the device.
 
+  - Periodically add stack error information received on the command pipe to
+    recorded listfile data. Uses a new system_event::StackErrors section to
+    store stack error locations, flags and counts.
+
+  - Fix 'VME Script -> Run' in the MVLC Debug GUI
+
 * [vme_templates]
 
-  Add 'stop_acquisition', 'reset_fifo' and 'readout_reset' commands to mesytec
-  module reset scripts. Fixes an issue where the modules could signal a VME IRQ
-  during the init sequence but before the DAQ was properly started with the
-  multicast start sequence.
+  - Add 'stop_acquisition', 'reset_fifo' and 'readout_reset' commands to
+    mesytec module reset scripts. Fixes an issue where the modules could signal
+    a VME IRQ during the init sequence but before the DAQ was properly started
+    with the multicast start sequence.
+
+  - Improve Triva7 VME module templates.
 
 * Improved VME Script Execution: log messages from commands are now immediately
   visible. Progress dialog shows progress based on number of commands.
+
+* Fix wrong VME -> analysis module assignments when disabled VME modules are
+  present in the config.
+
+* New ZMQ publisher listfile output (MVLC only).
+
+  Sends readout buffers through a ZMQ PUB socket. Based on code from GANIL.
 
 
 Version 1.4.8.2
