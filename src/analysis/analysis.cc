@@ -4099,6 +4099,7 @@ void ExpressionCondition::read(const QJsonObject &json)
     for (s32 inputIndex = 0; inputIndex < inputCount; ++inputIndex)
         addSlot();
 
+    setExpression(json["expression"].toString());
 
     m_inputPrefixes.clear();
 
