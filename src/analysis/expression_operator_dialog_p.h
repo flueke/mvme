@@ -48,13 +48,17 @@ class EventWidget;
 class InputSelectButton: public QPushButton
 {
     Q_OBJECT
+    signals:
+        void mouseHoverUpdate(bool isHovered);
+
     public:
-        InputSelectButton(Slot *destSlot, EventWidget *eventWidget, QWidget *parent = nullptr);
+        InputSelectButton(Slot *destSlot, QWidget *parent = nullptr);
+
+        Slot *destSlot() { return m_destSlot; }
 
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
 
     private:
-        EventWidget *m_eventWidget;
         Slot *m_destSlot;
 };
 
@@ -62,8 +66,8 @@ class SlotGrid: public QFrame
 {
     Q_OBJECT
     signals:
-        void slotAdded();
-        void slotRemoved();
+        void sigAddSlot();
+        void sigRemoveSlot();
         void beginInputSelect(s32 slotIndex);
         void clearInput(s32 slotIndex);
         void inputPrefixEdited(s32 slotIndex, const QString &text);

@@ -65,9 +65,8 @@ namespace ui
 // InputSelectButton
 //
 
-InputSelectButton::InputSelectButton(Slot *destSlot, EventWidget *eventWidget, QWidget *parent)
+InputSelectButton::InputSelectButton(Slot *destSlot, QWidget *parent)
     : QPushButton(QSL("<select>"), parent)
-    , m_eventWidget(eventWidget)
     , m_destSlot(destSlot)
 {
     setCheckable(true);
@@ -81,7 +80,7 @@ bool InputSelectButton::eventFilter(QObject *watched, QEvent *event)
 
     if (!isChecked() && (event->type() == QEvent::Enter || event->type() == QEvent::Leave))
     {
-        m_eventWidget->highlightInputOf(m_destSlot, event->type() == QEvent::Enter);
+        emit mouseHoverUpdate(event->type() == QEvent::Enter);
     }
 
     return false; // Do not filter the event out.
@@ -1374,8 +1373,8 @@ SlotGrid::SlotGrid(QWidget *parent)
     outerLayout->setStretch(0, 1);
 
 
-    connect(addSlotButton, &QPushButton::clicked, this, &SlotGrid::slotAdded);
-    connect(removeSlotButton, &QPushButton::clicked, this, &SlotGrid::slotRemoved);
+    connect(addSlotButton, &QPushButton::clicked, this, &SlotGrid::sigAddSlot);
+    connect(removeSlotButton, &QPushButton::clicked, this, &SlotGrid::sigRemoveSlot);
 }
 
 template<typename Model>
@@ -1423,7 +1422,7 @@ void repopulate(SlotGrid *slotGrid, const Model &model, EventWidget *eventWidget
     {
         Slot *slot = op->getSlot(slotIndex);
 
-        auto selectButton = new InputSelectButton(slot, eventWidget);
+        auto selectButton = new InputSelectButton(slot);
         slotGrid->selectButtons.push_back(selectButton);
 
         auto clearButton = new QPushButton(QIcon(":/dialog-close.png"), QString());
@@ -1461,6 +1460,16 @@ void repopulate(SlotGrid *slotGrid, const Model &model, EventWidget *eventWidget
                 emit slotGrid->beginInputSelect(slotIndex);
             }
         });
+
+        QObject::connect(selectButton, &InputSelectButton::mouseHoverUpdate,
+                         eventWidget, [eventWidget, slotIndex, &model] (bool isHovered)
+                         {
+                             //eventWidget->highlightInputOf(selectButton->destSlot(), isHovered);
+                             eventWidget->highlightInputPipe(
+                                 model.a1_inputPipes[slotIndex],
+                                 model.inputIndexes[slotIndex],
+                                 isHovered);
+                         });
 
         QObject::connect(clearButton, &QPushButton::clicked,
                          slotGrid, [slotGrid, selectButton, eventWidget, slotIndex]() {
@@ -2000,11 +2009,11 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<Express
     dialogLayout->setStretch(0, 1);
 
     // Slotgrid interactions
-    connect(m_d->m_slotGrid, &SlotGrid::slotAdded, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigAddSlot, this, [this]() {
         m_d->onAddSlotButtonClicked();
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::slotRemoved, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigRemoveSlot, this, [this]() {
         m_d->onRemoveSlotButtonClicked();
     });
 
@@ -2534,11 +2543,11 @@ ExpressionConditionDialog::ExpressionConditionDialog(
     gb_slotGridLayout->setContentsMargins(2, 2, 2, 2);
     gb_slotGridLayout->addWidget(m_d->m_slotGrid);
 
-    connect(m_d->m_slotGrid, &SlotGrid::slotAdded, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigAddSlot, this, [this]() {
         m_d->onSlotGridSlotAdded();
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::slotRemoved, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigRemoveSlot, this, [this]() {
         m_d->onSlotGridSlotRemoved();
     });
 

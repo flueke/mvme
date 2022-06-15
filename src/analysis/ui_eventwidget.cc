@@ -1505,24 +1505,23 @@ void EventWidget::endSelectInput()
 
 void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
 {
-    auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
-    {
-        if (doHighlight)
-            node->setBackground(0, color);
-        else
-            node->setBackground(0, QColor(0, 0, 0, 0));
-    };
-
-    if (!slot || !slot->isParamIndexInRange())
+    if (!slot)
         return;
 
-    auto sourcePipe = slot->inputPipe;
-    auto source = sourcePipe->source;
+    highlightInputPipe(slot->inputPipe, slot->paramIndex, doHighlight);
+}
 
-    if (!source)
+void EventWidget::highlightInputPipe(Pipe *pipe, bool doHighlight)
+{
+    highlightInputPipe(pipe, -1, doHighlight);
+}
+
+void EventWidget::highlightInputPipe(Pipe *pipe, s32 paramIndex, bool doHighlight)
+{
+    if (!pipe || !pipe->source)
         return;
 
-    auto sourceNode = m_d->m_objectMap[source->shared_from_this()];
+    auto sourceNode = m_d->m_objectMap[pipe->source->shared_from_this()];
 
     if (!sourceNode)
         return;
@@ -1530,18 +1529,26 @@ void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
     // Find the parent node of the sourcePipes output array.
     QTreeWidgetItem *outputArrayParent = nullptr;
 
-    if (qobject_cast<SourceInterface *>(source) && source->getNumberOfOutputs() == 1)
+    if (qobject_cast<SourceInterface *>(pipe->source) && pipe->source->getNumberOfOutputs() == 1)
         outputArrayParent = sourceNode;
     else
-        outputArrayParent = sourceNode->child(sourcePipe->sourceOutputIndex);;
+        outputArrayParent = sourceNode->child(pipe->sourceOutputIndex);;
 
     if (!outputArrayParent)
         return;
 
     auto nodeToHighlight = outputArrayParent;
 
-    if (slot->isParameterConnection() && slot->paramIndex < outputArrayParent->childCount())
-        nodeToHighlight = outputArrayParent->child(slot->paramIndex);
+    if (paramIndex != Slot::NoParamIndex && paramIndex < outputArrayParent->childCount())
+        nodeToHighlight = outputArrayParent->child(paramIndex);
+
+    auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
+    {
+        if (doHighlight)
+            node->setBackground(0, color);
+        else
+            node->setBackground(0, QColor(0, 0, 0, 0));
+    };
 
     highlight_node(nodeToHighlight, InputNodeOfColor);
 
