@@ -1454,6 +1454,10 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 #endif
     }
 
+    // Repopulate on service provider operatorEdited signal
+    connect(serviceProvider, &AnalysisServiceProvider::analysisOperatorEdited,
+            this, [this]() { m_d->repopulate(); }, Qt::QueuedConnection);
+
     m_d->repopulate();
 }
 
@@ -2361,7 +2365,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         });
 
         QObject::connect(tree, &QTreeWidget::itemActivated,
-                         m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
+                         m_q, [this] (QTreeWidgetItem *node, int column) {
             qDebug() << "### tree itemActivated:" << node << column;
         });
 
@@ -2372,7 +2376,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
         // keyboard interaction changes the treewidgets current item
         QObject::connect(tree, &QTreeWidget::currentItemChanged,
-                         m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous)
+                         m_q, [this](QTreeWidgetItem *current, QTreeWidgetItem *previous)
                          {
                              (void) current;
                              (void) previous;
@@ -2530,8 +2534,6 @@ void EventWidgetPrivate::repopulate()
     expandObjectNodes(m_levelTrees, m_expandedObjects);
     clearAllToDefaultNodeHighlights();
     updateActions();
-
-    //m_analysisWidget->getConditionWidget()->repopulate();
 
 #ifndef NDEBUG
     qDebug() << __PRETTY_FUNCTION__ << this << "_-_-_-_-_-"

@@ -2972,7 +2972,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId,
     }
 }
 
-void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
+void MVMEContext::setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
     AnalysisPauser pauser(getAnalysisServiceProvider());
     getAnalysis()->setOperatorEdited(op);

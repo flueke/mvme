@@ -978,6 +978,11 @@ struct IntervalConditionEditorController::Private
             cond->connectArrayToInputSlot(0, sink_->getSlot(0)->inputPipe);
             asp_->getAnalysis()->addOperator(sink_->getEventId(), sink_->getUserLevel(), cond);
         }
+        else
+        {
+            assert(asp_->getAnalysis() == cond->getAnalysis().get());
+            asp_->setAnalysisOperatorEdited(cond);
+        }
 
         newCond_ = {};
         repopulateDialogFromAnalysis();
@@ -1181,6 +1186,7 @@ IntervalConditionEditorController::IntervalConditionEditorController(
 
     d->histoWidget_->installEventFilter(this);
     d->dialog_->installEventFilter(this);
+    d->dialog_->setInfoText("Use the \"Condition Name\" controls to edit an existing or create a new condition.");
 
     d->updateDialogPosition();
     d->dialog_->show();

@@ -29,7 +29,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox_3">
      <property name="title">
-      <string>Condition</string>
+      <string>Condition Name</string>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0">
       <property name="leftMargin">
@@ -67,7 +67,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Intervals</string>
+      <string>Condition Intervals</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <property name="leftMargin">
