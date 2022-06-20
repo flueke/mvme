@@ -250,6 +250,7 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
     mesytec_diagnostics.ui
     vme_debug_widget.ui
     analysis/interval_condition_dialog.ui
+    analysis/polygon_condition_dialog.ui
     )
 
 add_library(libmvme SHARED

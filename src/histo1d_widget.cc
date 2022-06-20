@@ -519,7 +519,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     connect(m_d->m_actionHistoListStats, &QAction::triggered,
             this, [this] () { m_d->onActionHistoListStats(); });
 
-    auto actionIntervalConditions = tb->addAction("Interval Conditions");
+    auto actionIntervalConditions = tb->addAction(QIcon(":/scissors.png"), "Interval Conditions");
     actionIntervalConditions->setObjectName("intervalConditions");
     actionIntervalConditions->setCheckable(true);
 

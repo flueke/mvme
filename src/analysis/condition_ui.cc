@@ -27,6 +27,10 @@
 #include <QStackedWidget>
 #include <memory>
 
+#include <qwt_picker_machine.h>
+#include <qwt_plot_picker.h>
+#include <qwt_plot_shapeitem.h>
+
 #include "analysis/analysis.h"
 #include "analysis/analysis_util.h"
 #include "analysis/ui_lib.h"
@@ -36,6 +40,7 @@
 #include "qt_util.h"
 #include "treewidget_utils.h"
 #include "ui_interval_condition_dialog.h"
+#include "ui_polygon_condition_dialog.h"
 #include "histo_ui.h"
 #include "histo1d_widget.h"
 
@@ -745,13 +750,22 @@ void ConditionWidget::Private::editConditionInEditor(const ConditionLink &cl)
 
 using namespace histo_ui;
 
+ConditionDialogBase::ConditionDialogBase(QWidget *parent)
+    : QDialog(parent)
+{
+}
+
+ConditionDialogBase::~ConditionDialogBase()
+{
+}
+
 struct IntervalConditionDialog::Private
 {
     std::unique_ptr<Ui::IntervalConditionDialog> ui;
 };
 
 IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
-    : QDialog(parent)
+    : ConditionDialogBase(parent)
     , d(std::make_unique<Private>())
 {
     d->ui = std::make_unique<Ui::IntervalConditionDialog>();
@@ -1101,6 +1115,13 @@ struct IntervalConditionEditorController::Private
         for (const auto &cond: conditions)
             condInfos.push_back(std::make_pair(cond->getId(), cond->objectName()));
 
+        // sort by condition name
+        std::sort(std::begin(condInfos), std::end(condInfos),
+                  [] (const auto &a, const auto &b)
+                  {
+                      return a.second < b.second;
+                  });
+
         return condInfos;
     }
 
@@ -1235,35 +1256,422 @@ IntervalConditionDialog *IntervalConditionEditorController::getDialog() const
 }
 
 //
+// PolygonConditionDialog
+//
+struct PolygonConditionDialog::Private
+{
+    std::unique_ptr<Ui::PolygonConditionDialog> ui;
+};
+
+PolygonConditionDialog::PolygonConditionDialog(QWidget *parent)
+    : ConditionDialogBase(parent)
+    , d(std::make_unique<Private>())
+{
+    d->ui = std::make_unique<Ui::PolygonConditionDialog>();
+    d->ui->setupUi(this);
+    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(false);
+    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setAutoDefault(false);
+    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
+    d->ui->tw_coords->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    connect(d->ui->buttonBox->button(QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, &PolygonConditionDialog::applied);
+
+    connect(d->ui->pb_new, &QPushButton::clicked,
+            this, &PolygonConditionDialog::newConditionButtonClicked);
+
+    connect(d->ui->combo_cond, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this] (int /*index*/) {
+                emit conditionSelected(d->ui->combo_cond->currentData().toUuid());
+            });
+
+    connect(d->ui->combo_cond, &QComboBox::editTextChanged,
+            this, [this] (const QString &text) {
+                emit conditionNameChanged(
+                    d->ui->combo_cond->currentData().toUuid(),
+                    text);
+            });
+}
+
+PolygonConditionDialog::~PolygonConditionDialog()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+}
+
+void PolygonConditionDialog::setConditionList(const QVector<ConditionInfo> &condInfos)
+{
+    d->ui->combo_cond->clear();
+    for (const auto &info: condInfos)
+    {
+        d->ui->combo_cond->addItem(info.second, info.first);
+    }
+
+    d->ui->combo_cond->setEditable(d->ui->combo_cond->count() > 0);
+}
+
+void PolygonConditionDialog::setPolygon(const QPolygonF &poly)
+{
+    d->ui->tw_coords->clearContents();
+    d->ui->tw_coords->setRowCount(poly.size());
+    int row = 0;
+    for (const auto &point: poly)
+    {
+        auto xItem = new QTableWidgetItem(QString::number(point.x()));
+        auto yItem = new QTableWidgetItem(QString::number(point.y()));
+        d->ui->tw_coords->setItem(row, 0, xItem);
+        d->ui->tw_coords->setItem(row, 1, yItem);
+
+        auto headerItem = new QTableWidgetItem(QString::number(row));
+        d->ui->tw_coords->setVerticalHeaderItem(row, headerItem);
+
+        ++row;
+    }
+    d->ui->tw_coords->resizeRowsToContents();
+    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!poly.isEmpty());
+    d->ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(!poly.isEmpty());
+}
+
+QPolygonF PolygonConditionDialog::getPolygon() const
+{
+    QPolygonF ret;
+
+    for (int row=0; row<d->ui->tw_coords->rowCount(); ++row)
+    {
+        auto xItem = d->ui->tw_coords->item(row, 0);
+        auto yItem = d->ui->tw_coords->item(row, 1);
+
+        double x = xItem->data(Qt::EditRole).toDouble();
+        double y = yItem->data(Qt::EditRole).toDouble();
+
+        ret.push_back({x, y});
+    }
+
+    return ret;
+
+}
+
+QString PolygonConditionDialog::getConditionName() const
+{
+    return d->ui->combo_cond->currentText();
+}
+
+void PolygonConditionDialog::setInfoText(const QString &txt)
+{
+    d->ui->label_info->setText(txt);
+}
+
+void PolygonConditionDialog::selectCondition(const QUuid &objectId)
+{
+    auto idx = d->ui->combo_cond->findData(objectId);
+
+    if (idx >= 0)
+        d->ui->combo_cond->setCurrentIndex(idx);
+}
+
+void PolygonConditionDialog::selectPoint(int index)
+{
+    if (auto item = d->ui->tw_coords->item(index, 0))
+    {
+        d->ui->tw_coords->setCurrentItem(item, QItemSelectionModel::Rows | QItemSelectionModel::ClearAndSelect);
+    }
+}
+
+void PolygonConditionDialog::reject()
+{
+    d->ui->tw_coords->clearContents();
+    d->ui->combo_cond->clear();
+    d->ui->combo_cond->setEditable(false);
+    QDialog::reject();
+}
+
+//
 // PolygonConditionEditorController
 //
 
 struct PolygonConditionEditorController::Private
 {
+    enum class State
+    {
+        Inactive,
+        NewPolygon,
+    };
+
+    Histo2DSinkPtr sink_;
+    IPlotWidget *histoWidget_;
+    PolygonConditionDialog *dialog_;
+    AnalysisServiceProvider *asp_;
+
+    // Currently selected condition id. Updated when the dialoge emits conditionSelected()
+    QUuid currentConditionId_;
+
+    // Set if a new condition is to be created. Cleared once the condition has
+    // been added to the analysis via 'apply'.
+    std::shared_ptr<PolygonCondition> newCond_;
+
+    // The polygon currently being edited.
+    QPolygonF poly_;
+
+    // Interval edit state
+    State state_ = State::Inactive;
+
+    PlotPicker *newPicker_;
+
+    QwtPlotShapeItem *polyPlotItem_ = nullptr;
+
+    void repopulateDialogFromAnalysis()
+    {
+        auto conditions = getEditableConditions();
+        auto condInfos = getConditionInfos(conditions);
+        dialog_->setConditionList(condInfos);
+    }
+
+    std::shared_ptr<PolygonCondition> getCondition(const QUuid &objectId)
+    {
+        for (const auto &condPtr: getEditableConditions())
+            if (condPtr->getId() == objectId)
+                return std::dynamic_pointer_cast<PolygonCondition>(condPtr);
+        return {};
+    }
+
+    void transitionState(State newState)
+    {
+        switch (newState)
+        {
+            case State::Inactive:
+                {
+                    newPicker_->reset();
+                    newPicker_->setEnabled(false);
+
+                    if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
+                        zoomAction->setChecked(true);
+
+                    dialog_->setInfoText("Click the \"New\" button to create a new polygon condition using the histograms inputs.");
+                } break;
+
+            case State::NewPolygon:
+                {
+                    newPicker_->reset();
+                    newPicker_->setEnabled(true);
+
+                    if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
+                        zoomAction->setChecked(false);
+
+                    dialog_->setInfoText("Left-click to add polygon points, right-click to select the final point and close the polygon.");
+                } break;
+        }
+
+        state_ = newState;
+    }
+
+    void onPointsSelected(const QVector<QPointF> &points)
+    {
+        poly_ = { points };
+
+        if (!polyPlotItem_)
+        {
+            polyPlotItem_ = new QwtPlotShapeItem;
+            polyPlotItem_->attach(histoWidget_->getPlot());
+            QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
+            polyPlotItem_->setBrush(brush);
+        }
+
+        polyPlotItem_->setPolygon(poly_);
+    }
+
+    void onDialogApplied()
+    {
+        std::shared_ptr<PolygonCondition> cond;
+
+        if (newCond_ && newCond_->getId() == currentConditionId_)
+            cond = newCond_;
+        else
+            cond = getCondition(currentConditionId_);
+
+        if (!cond)
+            return;
+
+        AnalysisPauser pauser(asp_);
+
+        cond->setObjectName(dialog_->getConditionName());
+        cond->setPolygon(poly_);
+
+        if (!cond->getAnalysis())
+        {
+            // It's a new condition. Connect its input and add it to the analysis.
+            cond->connectArrayToInputSlot(0, sink_->getSlot(0)->inputPipe);
+            asp_->getAnalysis()->addOperator(sink_->getEventId(), sink_->getUserLevel(), cond);
+        }
+        else
+        {
+            assert(asp_->getAnalysis() == cond->getAnalysis().get());
+            asp_->setAnalysisOperatorEdited(cond);
+        }
+
+        newCond_ = {};
+        repopulateDialogFromAnalysis();
+        dialog_->selectCondition(cond->getId());
+    }
+
+    void onDialogAccepted()
+    {
+        onDialogApplied();
+    }
+
+    void onDialogRejected()
+    {
+        transitionState(State::Inactive);
+        newCond_ = {};
+        poly_ = {};
+        currentConditionId_ = QUuid();
+    }
+
+    // Keeps the dialog_ at the top right of the histo widget.
+    void updateDialogPosition()
+    {
+        int x = histoWidget_->x() + histoWidget_->frameGeometry().width() + 2;
+        int y = histoWidget_->y();
+        dialog_->move({x, y});
+        dialog_->resize(dialog_->width(), histoWidget_->height());
+    }
+
+    void onNewConditionRequested()
+    {
+        newCond_ = std::make_shared<PolygonCondition>();
+        newCond_->setObjectName("new poly condition");
+        poly_ = {};
+
+        auto conditions = getEditableConditions();
+        conditions.push_back(newCond_);
+        auto condInfos = getConditionInfos(conditions);
+
+        dialog_->setConditionList(condInfos);
+        dialog_->selectCondition(newCond_->getId());
+        dialog_->setPolygon(poly_);
+
+        transitionState(State::NewPolygon);
+    }
+
+    void onConditionSelected(const QUuid &id)
+    {
+    }
+
+    ConditionVector getEditableConditions()
+    {
+        if (auto analysis = sink_->getAnalysis())
+            return find_conditions_for_sink(sink_, analysis->getConditions());
+        return {};
+    };
+
+    QVector<IntervalConditionDialog::ConditionInfo> getConditionInfos(
+        const ConditionVector &conditions)
+    {
+        QVector<IntervalConditionDialog::ConditionInfo> condInfos;
+
+        for (const auto &cond: conditions)
+            condInfos.push_back(std::make_pair(cond->getId(), cond->objectName()));
+
+        // sort by condition name
+        std::sort(std::begin(condInfos), std::end(condInfos),
+                  [] (const auto &a, const auto &b)
+                  {
+                      return a.second < b.second;
+                  });
+
+        return condInfos;
+    }
 };
 
 PolygonConditionEditorController::PolygonConditionEditorController(
-    const Histo2DSinkPtr,
-    histo_ui::IPlotWidget *histoWidget,
-    AnalysisServiceProvider *asp,
-    QObject *parent)
+        const Histo2DSinkPtr &sinkPtr,
+        histo_ui::IPlotWidget *histoWidget,
+        AnalysisServiceProvider *asp,
+        QObject *parent)
+    : QObject(parent)
+    , d(std::make_unique<Private>())
 {
+    d->sink_ = sinkPtr;
+    d->histoWidget_ = histoWidget;
+    d->dialog_ = new PolygonConditionDialog(histoWidget);
+    d->asp_ = asp;
+
+    d->newPicker_ = new PlotPicker(
+        QwtPlot::xBottom, QwtPlot::yLeft,
+        QwtPicker::PolygonRubberBand,
+        QwtPicker::ActiveOnly,
+        histoWidget->getPlot()->canvas());
+
+    d->newPicker_->setStateMachine(new QwtPickerPolygonMachine);
+    d->newPicker_->setEnabled(false);
+
+    connect(d->dialog_, &IntervalConditionDialog::applied,
+            this, [this] () { d->onDialogApplied(); });
+
+    connect(d->dialog_, &QDialog::accepted,
+            this, [this] () { d->onDialogAccepted(); });
+
+    connect(d->dialog_, &QDialog::rejected,
+            this, [this] () { d->onDialogRejected(); });
+
+    connect(d->dialog_, &IntervalConditionDialog::newConditionButtonClicked,
+            this, [this] () { d->onNewConditionRequested(); });
+
+    connect(d->dialog_, &IntervalConditionDialog::conditionSelected,
+           this, [this] (const QUuid &id) { d->onConditionSelected(id); });
+
+    connect(d->newPicker_, qOverload<const QVector<QPointF> &>(&QwtPlotPicker::selected),
+            this, [this] (const QVector<QPointF> &points) { d->onPointsSelected(points); });
+
+    //connect(d->editPicker_, &IntervalEditorPicker::intervalModified,
+    //        this, [this] (const QwtInterval &interval) { d->onIntervalModified(interval); });
+
+    d->histoWidget_->installEventFilter(this);
+    d->dialog_->installEventFilter(this);
+    d->dialog_->setInfoText("Use the \"Condition Name\" controls to edit an existing or create a new condition.");
+
+    d->updateDialogPosition();
+    d->dialog_->show();
 }
 
 PolygonConditionEditorController::~PolygonConditionEditorController()
 {
+    qDebug() << __PRETTY_FUNCTION__;
+    delete d->dialog_;
+
+    if (auto zoomAction = d->histoWidget_->findChild<QAction *>("zoomAction"))
+        zoomAction->setChecked(true);
 }
 
 bool PolygonConditionEditorController::eventFilter(QObject *watched, QEvent *event)
 {
+    if (watched == d->histoWidget_
+        && (event->type() == QEvent::Move
+            || event->type() == QEvent::Resize))
+    {
+        d->updateDialogPosition();
+    }
+
+    return QObject::eventFilter(watched, event);
 }
 
 void PolygonConditionEditorController::setEnabled(bool on)
 {
+    if (on)
+    {
+        d->repopulateDialogFromAnalysis();
+    }
+    else
+    {
+        d->dialog_->reject();
+        if (auto zoomAction = d->histoWidget_->findChild<QAction *>("zoomAction"))
+            zoomAction->setChecked(true);
+    }
+
+    d->dialog_->setVisible(on);
 }
 
 QDialog *PolygonConditionEditorController::getDialog() const
 {
+    return d->dialog_;
 }
 
 } // ns ui

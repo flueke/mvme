@@ -553,7 +553,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
                             this); // parent
 
                     m_d->m_polygonConditionEditorController->setObjectName(
-                        "intervalConditionEditorController");
+                        "polygonConditionEditorController");
 
                     connect(m_d->m_polygonConditionEditorController->getDialog(), &QDialog::accepted,
                             this, [actionPolyConditions] ()
