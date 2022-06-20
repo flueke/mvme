@@ -908,7 +908,7 @@ struct IntervalConditionEditorController::Private
         dialog_->setConditionList(condInfos);
     }
 
-    void transitionPickers(State newState)
+    void transitionState(State newState)
     {
         switch (newState)
         {
@@ -921,6 +921,8 @@ struct IntervalConditionEditorController::Private
 
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(true);
+
+                    dialog_->setInfoText("Click the \"New\" button to create a new interval condition working on the histograms input.");
                 } break;
 
             case State::NewInterval:
@@ -932,6 +934,8 @@ struct IntervalConditionEditorController::Private
 
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(false);
+
+                    dialog_->setInfoText("Select two points in the histogram to create the initial condition intervals.");
                 } break;
 
             case State::EditInterval:
@@ -943,6 +947,8 @@ struct IntervalConditionEditorController::Private
 
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(false);
+
+                    dialog_->setInfoText("Drag interval borders to modify. Use the \"Histogram #\" box to cycle through histograms.");
                 } break;
         }
 
@@ -987,7 +993,7 @@ struct IntervalConditionEditorController::Private
     void onDialogRejected()
     {
         qDebug() << __PRETTY_FUNCTION__ << this;
-        transitionPickers(State::Inactive);
+        transitionState(State::Inactive);
         newCond_ = {};
         intervals_ = {};
         currentConditionId_ = QUuid();
@@ -1016,7 +1022,7 @@ struct IntervalConditionEditorController::Private
         dialog_->selectCondition(newCond_->getId());
         dialog_->setIntervals(intervals_);
 
-        transitionPickers(State::NewInterval);
+        transitionState(State::NewInterval);
     }
 
     void onNewIntervalSelected(const QwtInterval &interval)
@@ -1033,7 +1039,7 @@ struct IntervalConditionEditorController::Private
                 dialog_->selectInterval(w->currentHistoIndex());
 
             // Transition to EditInterval state
-            transitionPickers(State::EditInterval);
+            transitionState(State::EditInterval);
             editPicker_->setInterval(interval);
         }
         else
@@ -1108,12 +1114,12 @@ struct IntervalConditionEditorController::Private
 
         if (newCond_ && newCond_->getId() == id)
         {
-            transitionPickers(State::NewInterval);
+            transitionState(State::NewInterval);
         }
         else
         {
             dialog_->setIntervals(intervals_);
-            transitionPickers(State::EditInterval);
+            transitionState(State::EditInterval);
 
             if (auto w = qobject_cast<Histo1DWidget *>(histoWidget_))
             {
@@ -1197,19 +1203,6 @@ bool IntervalConditionEditorController::eventFilter(QObject *watched, QEvent *ev
     {
         d->updateDialogPosition();
     }
-
-    // TODO: find another way to ensure the histoWidget_ becomes visible when
-    // the dialog_ gets input focus. The solution below leads to window frame
-    // flickering on every click in the dialog_.
-#if 0
-    if (watched == d->dialog_ && event->type() == QEvent::ActivationChange)
-    {
-        if (d->dialog_->isActiveWindow())
-        {
-            d->histoWidget_->raise();
-        }
-    }
-#endif
 
     return QObject::eventFilter(watched, event);
 }
