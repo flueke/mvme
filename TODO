@@ -2,6 +2,8 @@
 TODO list
 ==================================================
 
+* ExprCond: having an expression compile error is not visible in the analysis ui
+
 * analysis eventwidget: react to object name changed events (needed when
   applying changes in the IntervalConditionEditor)
 

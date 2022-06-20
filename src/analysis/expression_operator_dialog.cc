@@ -378,6 +378,7 @@ ExpressionErrorWidget::ExpressionErrorWidget(QWidget *parent)
     m_errorTable->setColumnCount(headerLabels.size());
     m_errorTable->setHorizontalHeaderLabels(headerLabels);
     m_errorTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_errorTable->horizontalHeader()->setStretchLastSection(true);
 
     auto layout = new QHBoxLayout(this);
     layout->addWidget(m_errorTable);
