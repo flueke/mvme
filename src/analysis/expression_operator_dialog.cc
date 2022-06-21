@@ -2403,8 +2403,12 @@ void connect_input(ExpressionConditionDialogModel &model, s32 inputIndex, Pipe *
     model.inputStorage[inputIndex] = std::move(storage);
     model.inputIndexes[inputIndex] = paramIndex;
     model.a1_inputPipes[inputIndex] = inPipe;
-    auto varName = inPipe->source->objectName().toStdString();;
-    model.inputPrefixes[inputIndex] = varName;
+
+    if (model.inputPrefixes[inputIndex].empty())
+    {
+        auto varName = inPipe->source->objectName().toStdString();;
+        model.inputPrefixes[inputIndex] = varName;
+    }
 }
 
 void disconnect_input(ExpressionConditionDialogModel &model, s32 inputIndex)
