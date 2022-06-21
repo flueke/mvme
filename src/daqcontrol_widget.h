@@ -132,7 +132,8 @@ class DAQRunSettingsDialog: public QDialog
         void updateExample();
 
         ListFileOutputInfo m_settings;
-        QLineEdit *le_prefix;
+        QLineEdit *le_prefix,
+                  *le_suffix;
         QSpinBox *spin_runNumber;
         QCheckBox *cb_useRunNumber;
         QCheckBox *cb_useTimestamp;
