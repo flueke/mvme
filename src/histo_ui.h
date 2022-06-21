@@ -2,14 +2,15 @@
 #define __MVME_HISTO_UI_H__
 
 #include <memory>
+#include <QComboBox>
 #include <QWidget>
 #include <qwt_interval.h>
+#include <qwt_picker_machine.h>
 #include <qwt_plot.h>
 #include <qwt_plot_picker.h>
 #include <qwt_point_data.h>
 #include <qwt_samples.h>
 #include <qwt_series_data.h>
-#include <QComboBox>
 
 #include "histo1d.h"
 
@@ -65,8 +66,19 @@ class PlotWidget: public IPlotWidget
 
 class PlotPicker: public QwtPlotPicker
 {
+    Q_OBJECT
+    signals:
+        // Overloads QwtPicker::removed(const QPoint &).
+        // Emitted when the last appended point of a selection is removed.
+        void removed(const QPointF &p);
+
     public:
-        using QwtPlotPicker::QwtPlotPicker;
+        explicit PlotPicker(QWidget *canvas);
+
+        PlotPicker(int xAxis, int yAxis,
+                   RubberBand rubberBand,
+                   DisplayMode trackerMode,
+                   QWidget *canvas);
 
         // make the protected QwtPlotPicker::reset() public
         void reset() override
@@ -130,6 +142,13 @@ class IntervalEditorPicker: public PlotPicker
     private:
         struct Private;
         std::unique_ptr<Private> d;
+};
+
+class ImprovedPickerPolygonMachine: public QwtPickerPolygonMachine
+{
+    using QwtPickerPolygonMachine::QwtPickerPolygonMachine;
+
+    QList<Command> transition(const QwtEventPattern &ep, const QEvent *ev) override;
 };
 
 bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);

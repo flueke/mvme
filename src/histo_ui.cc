@@ -175,6 +175,30 @@ namespace
     static const int CanStartDragDistancePixels = 4;
 }
 
+PlotPicker::PlotPicker(QWidget *canvas)
+    : QwtPlotPicker(canvas)
+{
+    connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+            this, [this] (const QPoint &p)
+            {
+                emit removed(invTransform(p));
+            });
+}
+
+PlotPicker::PlotPicker(int xAxis, int yAxis,
+                       RubberBand rubberBand,
+                       DisplayMode trackerMode,
+                       QWidget *canvas)
+    : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
+{
+    connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+            this, [this] (const QPoint &p)
+            {
+                emit removed(invTransform(p));
+            });
+}
+
+
 struct NewIntervalPicker::Private
 {
     NewIntervalPicker *q;
@@ -516,6 +540,24 @@ void IntervalEditorPicker::onPointMoved(const QPointF &p)
         d->updateMarkersAndZone();
         emit intervalModified(d->getInterval());
     }
+}
+
+QList<QwtPickerMachine::Command> ImprovedPickerPolygonMachine::transition(
+    const QwtEventPattern &eventPattern, const QEvent *event)
+{
+    auto cmdList = QwtPickerPolygonMachine::transition(eventPattern, event);
+
+    if (event->type() == QEvent::MouseButtonPress)
+    {
+        if (eventPattern.mouseMatch(
+                QwtEventPattern::MouseSelect3,
+                static_cast<const QMouseEvent *>(event)))
+            {
+                cmdList += Remove;
+            }
+    }
+
+    return cmdList;
 }
 
 bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis)
