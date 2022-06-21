@@ -73,7 +73,7 @@ class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
         const QwtPlot *getPlot() const override;
 
     public slots:
-        void replot();
+        void replot() override;
 
     private slots:
         void exportPlot();

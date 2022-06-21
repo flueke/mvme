@@ -32,6 +32,9 @@ class IPlotWidget: public QWidget
 
         virtual QwtPlot *getPlot() = 0;
         virtual const QwtPlot *getPlot() const = 0;
+
+    public slots:
+        virtual void replot() = 0;
 };
 
 class PlotWidget: public IPlotWidget
@@ -54,7 +57,7 @@ class PlotWidget: public IPlotWidget
         QStatusBar *getStatusBar();
 
     public slots:
-        void replot();
+        void replot() override;
 
     protected:
         bool eventFilter(QObject * object, QEvent *event) override;
