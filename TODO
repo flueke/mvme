@@ -4,21 +4,14 @@ TODO list
 
 * ExprCond: having an expression compile error is not visible in the analysis ui
 
-* analysis eventwidget: react to object name changed events (needed when
-  applying changes in the IntervalConditionEditor)
-
-* MVLC: find workaround for the CommandTimeout during MCST init sequence bug
-  with USB under windows. Flush the pipes somehow?
+* doc: describe listfile formats and ZMQ transport
 
 * Multi plot window
 
-* Add GUI elements to set the listfile output directory.
-
-* GSI triva test setup: analyse bringt modul indizes durcheinander (lauter
-  deaktivierte module)
-
 * move module templates to JSON format
 * add GSI VFTX module template (JSON format if possible, otherwise the old template format)
+* Load module templates from JSON, then convert existing module templates to
+  JSON format.
 
 * root_client: avoid creating duplicate branch names for trees
 
@@ -29,9 +22,6 @@ TODO list
 
 * Maybe: remove the VME controller auto (re)connect feature. instead try to connect when needed.
 
-* Load module templates from JSON, then convert existing module templates to
-  JSON format. Also add the updated TRIVA template (it's in an email from R.)
-
 * Packet loss and error counters for the MVLC command side.
 
 * Document ListFilterExtractor
@@ -40,11 +30,6 @@ TODO list
 
 * Update the DAQControl and listfile GUI to better support non-file listfiles,
   e.g. ZMQ. Its currently only designed to handle file based listfiles.
-
-* Verify that api_v2 command timeouts work correctly. When using USB2 with an
-  MTDC and executing a VME script "command timeouts" appear altough not enough
-  real time has elapsed for the timeouts to actually happen. Raising the
-  timeout value to 10s also doesn't change the behaviour.
 
 * VME Script execution in the timeout/error case can hang for a long while.
   Instead the execution should be aborted earlier, upong encountering the first
@@ -64,7 +49,6 @@ TODO list
   used in mvlc_stream_worker.cc to check for UnixTimetick events coming from
   the main crate. Also the same code ignores the crateIndex completely! Weird
   state right now!
-
 
 * when stopping a run do wait for the analysis to finish. right now the code
   only waits for the readout/replay side to finish.
