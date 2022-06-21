@@ -1144,7 +1144,6 @@ struct IntervalConditionEditorController::Private
         }
         else
         {
-            dialog_->setIntervals(intervals_);
             transitionState(State::EditInterval);
 
             if (auto w = qobject_cast<Histo1DWidget *>(histoWidget_))
@@ -1394,6 +1393,7 @@ struct PolygonConditionEditorController::Private
     {
         Inactive,
         NewPolygon,
+        EditPolygon,
     };
 
     Histo2DSinkPtr sink_;
@@ -1446,6 +1446,9 @@ struct PolygonConditionEditorController::Private
                         zoomAction->setChecked(true);
 
                     dialog_->setInfoText("Click the \"New\" button to create a new polygon condition using the histograms inputs.");
+
+                    if (polyPlotItem_)
+                        polyPlotItem_->setVisible(false);
                 } break;
 
             case State::NewPolygon:
@@ -1456,26 +1459,82 @@ struct PolygonConditionEditorController::Private
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(false);
 
-                    dialog_->setInfoText("Left-click to add polygon points, right-click to select the final point and close the polygon.");
+                    dialog_->setInfoText("Left-click to add polygon points, right-click to select the final point and close the polygon."
+                                         " Middle-click to remove the last placed point.");
+
+                    if (polyPlotItem_)
+                        polyPlotItem_->setVisible(false);
+                } break;
+
+            case State::EditPolygon:
+                {
+                    newPicker_->reset();
+                    newPicker_->setEnabled(false);
+
+                    if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
+                        zoomAction->setChecked(true);
+
+                    // TODO: implement polygon editing
+                    dialog_->setInfoText({});
+
+                    if (polyPlotItem_)
+                        polyPlotItem_->setVisible(true);
                 } break;
         }
 
+        histoWidget_->replot();
         state_ = newState;
     }
 
     void onPointsSelected(const QVector<QPointF> &points)
     {
-        poly_ = { points };
-
-        if (!polyPlotItem_)
+        if (state_ == State::NewPolygon)
         {
-            polyPlotItem_ = new QwtPlotShapeItem;
-            polyPlotItem_->attach(histoWidget_->getPlot());
-            QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
-            polyPlotItem_->setBrush(brush);
-        }
+            poly_ = { points };
 
-        polyPlotItem_->setPolygon(poly_);
+            if (!poly_.isEmpty() && poly_.first() != poly_.last())
+                poly_.push_back(poly_.first());
+
+            if (!polyPlotItem_)
+            {
+                polyPlotItem_ = new QwtPlotShapeItem;
+                polyPlotItem_->attach(histoWidget_->getPlot());
+                QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
+                polyPlotItem_->setBrush(brush);
+            }
+
+            polyPlotItem_->setPolygon(poly_);
+            dialog_->setPolygon(poly_);
+
+            transitionState(State::EditPolygon);
+        }
+    }
+
+    void onPointAppended(const QPointF &p)
+    {
+        if (state_ == State::NewPolygon)
+        {
+            poly_.append(p);
+            dialog_->setPolygon(poly_);
+        }
+    }
+
+    void onPointMoved(const QPointF &p)
+    {
+        if (state_ == State::NewPolygon && !poly_.isEmpty())
+        {
+            poly_.last() = p;
+            dialog_->setPolygon(poly_);
+        }
+    }
+
+    void onPointRemoved(const QPointF &)
+    {
+        if (state_ == State::NewPolygon && !poly_.isEmpty())
+        {
+            poly_.pop_back();
+            dialog_->setPolygon(poly_);
+        }
     }
 
     void onDialogApplied()
@@ -1497,8 +1556,11 @@ struct PolygonConditionEditorController::Private
 
         if (!cond->getAnalysis())
         {
-            // It's a new condition. Connect its input and add it to the analysis.
-            cond->connectArrayToInputSlot(0, sink_->getSlot(0)->inputPipe);
+            // It's a new condition. Connect its inputs and add it to the analysis.
+            auto sinkSlot0 = sink_->getSlot(0);
+            auto sinkSlot1 = sink_->getSlot(1);
+            cond->connectInputSlot(0, sinkSlot0->inputPipe, sinkSlot0->paramIndex);
+            cond->connectInputSlot(1, sinkSlot1->inputPipe, sinkSlot1->paramIndex);
             asp_->getAnalysis()->addOperator(sink_->getEventId(), sink_->getUserLevel(), cond);
         }
         else
@@ -1551,8 +1613,27 @@ struct PolygonConditionEditorController::Private
         transitionState(State::NewPolygon);
     }
 
+    QPolygonF getPolygon(const QUuid &id)
+    {
+        if (auto polyCond = getCondition(id))
+            return polyCond->getPolygon();
+        return {};
+    }
+
     void onConditionSelected(const QUuid &id)
     {
+        currentConditionId_ = id;
+        poly_ = getPolygon(id);
+        dialog_->setPolygon(poly_);
+
+        if (newCond_ && newCond_->getId() == id)
+        {
+            transitionState(State::NewPolygon);
+        }
+        else
+        {
+            transitionState(State::EditPolygon);
+        }
     }
 
     ConditionVector getEditableConditions()
@@ -1600,7 +1681,7 @@ PolygonConditionEditorController::PolygonConditionEditorController(
         QwtPicker::ActiveOnly,
         histoWidget->getPlot()->canvas());
 
-    d->newPicker_->setStateMachine(new QwtPickerPolygonMachine);
+    d->newPicker_->setStateMachine(new ImprovedPickerPolygonMachine);
     d->newPicker_->setEnabled(false);
 
     connect(d->dialog_, &IntervalConditionDialog::applied,
@@ -1621,8 +1702,14 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     connect(d->newPicker_, qOverload<const QVector<QPointF> &>(&QwtPlotPicker::selected),
             this, [this] (const QVector<QPointF> &points) { d->onPointsSelected(points); });
 
-    //connect(d->editPicker_, &IntervalEditorPicker::intervalModified,
-    //        this, [this] (const QwtInterval &interval) { d->onIntervalModified(interval); });
+    connect(d->newPicker_, qOverload<const QPointF &>(&QwtPlotPicker::appended),
+            this, [this] (const QPointF &point) { d->onPointAppended(point); });
+
+    connect(d->newPicker_, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+            this, [this] (const QPointF &point) { d->onPointMoved(point); });
+
+    connect(d->newPicker_, qOverload<const QPointF &>(&PlotPicker::removed),
+            this, [this] (const QPointF &point) { d->onPointRemoved(point); });
 
     d->histoWidget_->installEventFilter(this);
     d->dialog_->installEventFilter(this);
