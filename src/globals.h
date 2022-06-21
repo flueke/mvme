@@ -180,7 +180,7 @@ struct ListFileOutputInfo
     static const u32 SplitBySize  = 1u << 2;
     static const u32 SplitByTime  = 1u << 3;
 
-    // TODO: move enabled into flags
+    // TODO: maybe move enabled into flags
     bool enabled = true;        // true if a listfile should be written
 
     ListFileFormat format;      // the format to write
@@ -194,6 +194,7 @@ struct ListFileOutputInfo
     int compressionLevel = 1;   // zlib/lz4 compression level
 
     QString prefix = QSL("mvmelst");
+    QString suffix;
 
     u32 runNumber = 1;          // Incremented on endRun and if output filename already exists.
 

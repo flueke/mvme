@@ -688,6 +688,7 @@ DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, Q
     : QDialog(parent)
     , m_settings(settings)
     , le_prefix(new QLineEdit(this))
+    , le_suffix(new QLineEdit(this))
     , spin_runNumber(new QSpinBox(this))
     , cb_useRunNumber(new QCheckBox(this))
     , cb_useTimestamp(new QCheckBox(this))
@@ -707,15 +708,22 @@ DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, Q
 
     auto re_prefix = QRegularExpression(QSL("^[^\\\\/]+$"));
     le_prefix->setValidator(new QRegularExpressionValidator(re_prefix, le_prefix));
+    le_suffix->setValidator(new QRegularExpressionValidator(re_prefix, le_prefix));
 
     // populate
     le_prefix->setText(settings.prefix);
+    le_suffix->setText(settings.suffix);
     spin_runNumber->setValue(settings.runNumber);
     cb_useRunNumber->setChecked(settings.flags & ListFileOutputInfo::UseRunNumber);
     cb_useTimestamp->setChecked(settings.flags & ListFileOutputInfo::UseTimestamp);
 
     connect(le_prefix, &QLineEdit::textEdited, this, [this](const QString &text) {
         m_settings.prefix = text;
+        updateExample();
+    });
+
+    connect(le_suffix, &QLineEdit::textEdited, this, [this](const QString &text) {
+        m_settings.suffix = text;
         updateExample();
     });
 
@@ -813,6 +821,7 @@ DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, Q
     auto gb_listfileName = new QGroupBox("Listfile filename");
     auto l_listfileName = new QFormLayout(gb_listfileName);
     l_listfileName->addRow(QSL("Prefix"), le_prefix);
+    l_listfileName->addRow(QSL("Suffix"), le_suffix);
     l_listfileName->addRow(QSL("Use Run Number"), cb_useRunNumber);
     l_listfileName->addRow(QSL("Next Run Number"), spin_runNumber);
     l_listfileName->addRow(QSL("Use Timestamp"), cb_useTimestamp);

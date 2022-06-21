@@ -71,6 +71,8 @@ QString generate_output_basename(const ListFileOutputInfo &info)
         result += QSL("_") + now.toString("yyMMdd_HHmmss");
     }
 
+    result += info.suffix;
+
     return result;
 }
 
