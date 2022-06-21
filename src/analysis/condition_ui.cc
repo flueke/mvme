@@ -1475,10 +1475,18 @@ struct PolygonConditionEditorController::Private
                         zoomAction->setChecked(true);
 
                     // TODO: implement polygon editing
-                    dialog_->setInfoText({});
+                    dialog_->setInfoText("poly editing not implemented yet :(");
 
-                    if (polyPlotItem_)
-                        polyPlotItem_->setVisible(true);
+                    if (!polyPlotItem_)
+                    {
+                        polyPlotItem_ = new QwtPlotShapeItem;
+                        polyPlotItem_->attach(histoWidget_->getPlot());
+                        QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
+                        polyPlotItem_->setBrush(brush);
+                    }
+                    polyPlotItem_->setPolygon(poly_);
+                    polyPlotItem_->setVisible(true);
+                    dialog_->setPolygon(poly_);
                 } break;
         }
 
@@ -1494,17 +1502,6 @@ struct PolygonConditionEditorController::Private
 
             if (!poly_.isEmpty() && poly_.first() != poly_.last())
                 poly_.push_back(poly_.first());
-
-            if (!polyPlotItem_)
-            {
-                polyPlotItem_ = new QwtPlotShapeItem;
-                polyPlotItem_->attach(histoWidget_->getPlot());
-                QBrush brush(Qt::magenta, Qt::DiagCrossPattern);
-                polyPlotItem_->setBrush(brush);
-            }
-
-            polyPlotItem_->setPolygon(poly_);
-            dialog_->setPolygon(poly_);
 
             transitionState(State::EditPolygon);
         }
