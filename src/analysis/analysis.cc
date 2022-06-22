@@ -27,7 +27,8 @@
 #include <QJsonObject>
 #include <memory>
 #include <random>
-#include <zstr/src/zstr.hpp>
+#include <set>
+#include <sstream>
 
 #include "analysis/a2_adapter.h"
 #include "analysis/a2/multiword_datafilter.h"
@@ -5506,6 +5507,16 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
         clear();
         auto updatedData = convert_to_current_version(inputJson, vmeConfig);
         auto objectStore = deserialize_objects(updatedData, m_objectFactory);
+
+        // Fix for directories containing references to objects that are no
+        // longer present: create a set of all object ids and later on when
+        // processing directories do only keep existing objects ids as
+        // directory members.
+        std::set<QUuid> allObjectIds;
+
+        for (const auto &obj: objectStore.allObjects())
+            allObjectIds.insert(obj->getId());
+
         establish_connections(objectStore);
 
         for (const auto &obj: objectStore.sources)
@@ -5529,6 +5540,12 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
 
         for (const auto &obj: objectStore.directories)
         {
+            for (const auto &id: obj->getMembers())
+            {
+                if (!allObjectIds.count(id))
+                    obj->remove(id);
+            }
+
             m_directories.append(obj);
             obj->setAnalysis(this->shared_from_this());
         }
