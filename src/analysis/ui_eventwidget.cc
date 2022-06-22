@@ -3668,6 +3668,16 @@ static bool is_valid_input_node(QTreeWidgetItem *node, Slot *slot,
         result = true;
     }
 
+    if ((slot->acceptedInputTypes & InputType::Value
+         && srcObject
+         && srcObject->getNumberOfOutputs() == 1
+         && srcObject->getOutput(0)->getSize() == 1)
+       )
+    {
+        // Want value input, source has a single output containing a single value -> valid.
+        result = true;
+    }
+
     return result;
 }
 
@@ -3676,6 +3686,12 @@ void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
     if (is_valid_input_node(node, m_inputSelectInfo.slot, m_inputSelectInfo.additionalInvalidSources))
     {
         node->setBackground(0, ValidInputNodeColor);
+
+        for (auto cn = node->parent(); cn != nullptr; cn = cn->parent())
+        {
+            if (!is_valid_input_node(cn, m_inputSelectInfo.slot, m_inputSelectInfo.additionalInvalidSources))
+                cn->setBackground(0, ChildIsInputNodeOfColor);
+        }
     }
 
     for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
@@ -4006,13 +4022,18 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                         case NodeType_Source:
                         case NodeType_Operator:
                             {
-                                Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
+                                //Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
 
                                 PipeSourceInterface *source = get_pointer<PipeSourceInterface>(
                                     node, DataRole_AnalysisObject);
 
                                 selectedPipe       = source->getOutput(0);
-                                selectedParamIndex = Slot::NoParamIndex;
+
+                                if (slot->acceptedInputTypes & InputType::Array)
+                                    selectedParamIndex = Slot::NoParamIndex;
+                                else if (slot->acceptedInputTypes & InputType::Value
+                                         && selectedPipe->getSize() > 0)
+                                    selectedParamIndex = 0;
 
                                 //slot->connectPipe(source->getOutput(0), Slot::NoParamIndex);
                             } break;
