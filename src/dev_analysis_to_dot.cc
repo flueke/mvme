@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <set>
 
 #include <lyra/lyra.hpp>
@@ -78,6 +79,10 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
             continue;
 
         auto label = obj->objectName().toStdString();
+        label = std::regex_replace(label, std::regex("&"), "&amp;");
+        label = std::regex_replace(label, std::regex("\""), "&quot;");
+        label = std::regex_replace(label, std::regex(">"), "&gt;");
+        label = std::regex_replace(label, std::regex("<"), "&lt;");
 
         if (auto pipeSource = dynamic_cast<const PipeSourceInterface *>(obj.get()))
         {
