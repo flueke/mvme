@@ -244,6 +244,14 @@ std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 }
 
 //
+// PipeSourceInterface
+//
+const Pipe *PipeSourceInterface::getOutput(s32 index) const
+{
+    return const_cast<PipeSourceInterface *>(this)->getOutput(index);
+}
+
+//
 // Pipe
 //
 

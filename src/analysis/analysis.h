@@ -212,6 +212,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
         virtual s32 getNumberOfOutputs() const = 0;
         virtual QString getOutputName(s32 outputIndex) const = 0;
         virtual Pipe *getOutput(s32 index) = 0;
+        const Pipe *getOutput(s32 index) const;
         virtual bool hasVariableNumberOfOutputs() const { return false; }
 
         virtual QString getDisplayName() const = 0;
