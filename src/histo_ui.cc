@@ -1,5 +1,6 @@
 #include "histo_ui.h"
 
+#include <array>
 #include <QBoxLayout>
 #include <QEvent>
 #include <QMouseEvent>
