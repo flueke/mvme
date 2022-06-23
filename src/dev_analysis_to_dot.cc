@@ -63,8 +63,11 @@ class DotVisitor: public analysis::ObjectVisitor
 
 void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
 {
+    const auto FontName = "Bitstream Vera Sans";
+
     out << "strict digraph {" << std::endl;
     out << "rankdir=LR" << std::endl;
+    out << fmt::format("fontname=\"{}\"", FontName) << std::endl;
 
     auto allObjects = ana.getAllObjects();
 
@@ -89,9 +92,10 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
             label = fmt::format("<b>{}</b><br/>{}", pipeSource->getDisplayName().toStdString(), label);
         }
 
-        out << fmt::format("\"{}\" [label=<{}>]",
+        out << fmt::format("\"{}\" [label=<{}>, fontname=\"{}\"]",
                            obj->getId().toString().toStdString(),
-                           label
+                           label,
+                           FontName
                           ) << std::endl;
     }
 
