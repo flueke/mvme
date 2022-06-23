@@ -32,6 +32,8 @@ Version 1.4.9
 
 * Listfile output directory can now be selected in the Workspace Settings GUI.
 
+* Add new optional suffix part to listfile filename generation.
+
 * New feature: VME modules can now be saved to and loaded from JSON files. This
   can be used to create custom VME modules without having to use the mvme VME
   template system.
