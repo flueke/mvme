@@ -67,6 +67,7 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
 
     out << "strict digraph {" << std::endl;
     out << "rankdir=LR" << std::endl;
+    out << "id=OuterGraph" << std::endl;
     out << fmt::format("fontname=\"{}\"", FontName) << std::endl;
 
     auto allObjects = ana.getAllObjects();
@@ -92,7 +93,8 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
             label = fmt::format("<b>{}</b><br/>{}", pipeSource->getDisplayName().toStdString(), label);
         }
 
-        out << fmt::format("\"{}\" [label=<{}>, fontname=\"{}\"]",
+        out << fmt::format("\"{}\" [id=\"{}\" label=<{}>, fontname=\"{}\"]",
+                           obj->getId().toString().toStdString(),
                            obj->getId().toString().toStdString(),
                            label,
                            FontName
@@ -109,8 +111,10 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
                 continue;
 
 
-            out << fmt::format("subgraph \"cluster{}\" {{", dir->getId().toString().toStdString()) << std::endl;
+            //out << fmt::format("subgraph \"cluster{}\" {{", dir->getId().toString().toStdString()) << std::endl;
+            out << fmt::format("subgraph \"cluster{}\" {{", dir->objectName().toStdString()) << std::endl;
             out << fmt::format("label=\"{}\"", dir->objectName().toStdString()) << std::endl;
+            out << fmt::format("id=\"{}\"", dir->getId().toString().toStdString()) << std::endl;
 
             for (const auto &id: memberIds)
             {

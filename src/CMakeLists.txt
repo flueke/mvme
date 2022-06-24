@@ -13,6 +13,7 @@ find_package(Qt5OpenGL REQUIRED)
 find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Xml REQUIRED)
 find_package(Graphviz)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
@@ -133,6 +134,7 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::OpenGL
     PUBLIC Qt5::Svg
     PUBLIC Qt5::Widgets
+    PUBLIC Qt5::Xml
     PUBLIC libmvme_resources
     )
 
@@ -549,17 +551,18 @@ add_mvme_executable(dev_multi_crate_playground_cli dev_multi_crate_playground_cl
 add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 add_mvme_executable(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
 add_mvme_executable(dev_analysis_to_dot dev_analysis_to_dot.cc)
+
 add_mvme_executable(dev_graphviz_lib_test0 dev_graphviz_lib_test0.cc)
-target_link_libraries(dev_graphviz_lib_test0
-    PRIVATE cdt
-    PRIVATE cgraph
-    PRIVATE gvc)
+target_link_libraries(dev_graphviz_lib_test0 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
 
 add_mvme_executable(dev_graphviz_lib_test1 dev_graphviz_lib_test1.cc)
-target_link_libraries(dev_graphviz_lib_test1
-    PRIVATE cdt
-    PRIVATE cgraph
-    PRIVATE gvc)
+target_link_libraries(dev_graphviz_lib_test1 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+add_mvme_executable(dev_graphviz_lib_test2 dev_graphviz_lib_test2.cc)
+target_link_libraries(dev_graphviz_lib_test2 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+add_mvme_executable(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
+target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
 
 if (NOT WIN32)
 add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)

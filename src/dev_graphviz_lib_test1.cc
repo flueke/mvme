@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
         | QPainter::HighQualityAntialiasing
         );
 
+    view.setWindowTitle("dot -> svg -> one QGraphicsSvgItem");
     view.show();
 
     return app.exec();
