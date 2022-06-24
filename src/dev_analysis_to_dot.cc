@@ -74,9 +74,12 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
 
     std::set<QUuid> allObjectIds;
 
+    // Set of all registered objects. Used to check if ids referened by
+    // directories still exist.
     for (const auto &obj: allObjects)
         allObjectIds.insert(obj->getId());
 
+    // Non-directory  objects nodes.
     for (const auto &obj: allObjects)
     {
         if (auto dir = dynamic_cast<const Directory *>(obj.get()))
@@ -101,6 +104,7 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
                           ) << std::endl;
     }
 
+    // Directory clusters
     for (const auto &obj: allObjects)
     {
         if (auto dir = dynamic_cast<const Directory *>(obj.get()))
@@ -126,6 +130,7 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
         }
     }
 
+    // Pipe edges between objects
     for (const auto &obj: allObjects)
     {
         if (auto pipeSource = dynamic_cast<const PipeSourceInterface *>(obj.get()))
@@ -147,26 +152,24 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
         }
     }
 
-#if 0
-    for (const auto &source: ana.getSources())
+    // Condition links
+    auto condLinks = ana.getConditionLinks();
+    for (const auto &op: condLinks.keys())
     {
-        out << fmt::format("\"{}\" [label=\"{}\"]",
-                           source->getId().toString().toStdString(),
-                           source->objectName().toStdString()
-                          ) << std::endl;
+        if (!allObjects.contains(op))
+            continue;
+
+        for (const auto &cond: condLinks[op])
+        {
+            if (!allObjects.contains(cond))
+                continue;
+
+            out << fmt::format("\"{}\" -> \"{}\" [arrowhead=diamond, color=blue]",
+                               op->getId().toString().toStdString(),
+                               cond->getId().toString().toStdString())
+                << std::endl;
+        }
     }
-
-    for (const auto &op: ana.getOperators())
-    {
-        out << fmt::format("\"{}\" [label=\"{}\"]",
-                           op->getId().toString().toStdString(),
-                           op->objectName().toStdString()
-                          ) << std::endl;
-    }
-#endif
-
-
-
 
     out << "}" << std::endl;
 }

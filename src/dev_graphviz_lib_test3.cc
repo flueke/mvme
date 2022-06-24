@@ -19,9 +19,13 @@
 // QSvgRenderer to load and render the svg data. Use the xml reader to get the
 // ids of svg items that should be rendered.
 // For each item create a QGraphicsSvgItem using the shared renderer.
+//
 // Problem: cannot change attributes like the background color of the svg
 // graphics items. QGraphicsSvgItem does not expose any functionality to
 // influcence the drawing (probably as the rendering is done by the svg renderer).
+//
+// Solution: use QDomDocument and manipulate DOM attributes on the fly to
+// change the apperance of the rendered SVG.
 
 struct DomAndRenderer
 {
@@ -215,9 +219,9 @@ int main(int argc, char *argv[])
 
                 auto elementClass = attributes.value("class").toString();
 
-                QSet<QString> elementTypesToDraw = { "node", "edge" };
+                QSet<QString> elementClassesToDraw = { "node", "edge" };
 
-                if (!elementTypesToDraw.contains(elementClass))
+                if (!elementClassesToDraw.contains(elementClass))
                     continue;
 
                 if (attributes.hasAttribute("id"))
