@@ -70,7 +70,10 @@ class SlotGrid: public QFrame
         void sigRemoveSlot();
         void beginInputSelect(s32 slotIndex);
         void clearInput(s32 slotIndex);
-        void inputPrefixEdited(s32 slotIndex, const QString &text);
+        // emitted on QLineEdit::editingFinished()
+        void inputPrefixEditingFinished(s32 slotIndex, const QString &text);
+        // emitted on QLineEdit::textChanged()
+        void inputPrefixTextChanged(s32 slotIndex, const QString &text);
 
     public:
         explicit SlotGrid(QWidget *parent = nullptr);

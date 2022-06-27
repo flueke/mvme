@@ -1488,7 +1488,18 @@ void repopulate(SlotGrid *slotGrid, const Model &model, EventWidget *eventWidget
 
             if (le_inputPrefix->text().toStdString() != model.inputPrefixes[slotIndex])
             {
-                emit slotGrid->inputPrefixEdited(slotIndex, le_inputPrefix->text());
+                emit slotGrid->inputPrefixEditingFinished(slotIndex, le_inputPrefix->text());
+            }
+        });
+
+        QObject::connect(le_inputPrefix, &QLineEdit::textChanged,
+                         slotGrid, [slotGrid, &model, slotIndex, le_inputPrefix]() {
+
+            assert(static_cast<size_t>(slotIndex) < model.inputPrefixes.size());
+
+            if (le_inputPrefix->text().toStdString() != model.inputPrefixes[slotIndex])
+            {
+                emit slotGrid->inputPrefixTextChanged(slotIndex, le_inputPrefix->text());
             }
         });
 
@@ -2041,7 +2052,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<Express
         m_d->onInputCleared(slotIndex);
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixEdited,
+    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixEditingFinished,
             this, [this] (s32 slotIndex, const QString &text) {
         m_d->onInputPrefixEdited(slotIndex, text);
     });
@@ -2539,7 +2550,11 @@ struct ExpressionConditionDialog::Private
     {
         (void) slotIndex;
         (void) text;
-        postInputsModified();
+        updateModelFromGUI();
+        model_compileExpression();
+        // Only the input prefix, e.g. variable name was edited, so there's no
+        // need to call repopulateGUIFromModel() which would also mess up input
+        // focus because the slotgrid line edits are recreated.
     }
 
     void postInputsModified()
@@ -2711,7 +2726,7 @@ ExpressionConditionDialog::ExpressionConditionDialog(
         m_d->onSlotGridInputCleared(slotIndex);
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixEdited,
+    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixTextChanged,
             this, [this] (s32 slotIndex, const QString &text) {
         m_d->onSlotGridInputPrefixEdited(slotIndex, text);
     });
@@ -2722,12 +2737,18 @@ ExpressionConditionDialog::ExpressionConditionDialog(
     m_d->pb_compileExpr->setIcon(QIcon(":/hammer.png"));
     m_d->pb_compileExpr->setToolTip("Compile Expression");
 
+    connect(m_d->le_expression, &QLineEdit::textChanged,
+            this, [this]()
+            {
+                m_d->updateModelFromGUI();
+                m_d->model_compileExpression();
+            });
+
     connect(m_d->pb_compileExpr, &QPushButton::clicked,
             this, [this] ()
             {
                 m_d->updateModelFromGUI();
                 m_d->model_compileExpression();
-                m_d->repopulateGUIFromModel();
             });
 
     auto exprBox = new QGroupBox("Expression");
