@@ -14,6 +14,7 @@
 #include <sstream>
 #include <set>
 #include <mesytec-mvlc/util/logging.h>
+#include "graphviz_util.h"
 
 // Approach:
 // load DOT code -> use graphviz to render to svg -> use QXmlStreamReader and
@@ -155,19 +156,24 @@ class DomElementSvgItem: public QGraphicsSvgItem
             setPos(bounds.x(), bounds.y());
         }
 
+        QDomElement getRootElement() const
+        {
+            return find_element_by_id(dr_.dom, elementId());
+        }
+
+        QDomElement getSvgShapeElement() const
+        {
+            return find_first_basic_svg_shape_element(getRootElement());
+        }
+
         void setFillColor(const QColor &c)
         {
-            auto localRoot = find_element_by_id(dr_.dom, elementId());
+            auto shapeElement = getSvgShapeElement();
 
-            if (!localRoot.isNull())
+            if (!shapeElement.isNull())
             {
-                auto shapeElement = find_first_basic_svg_shape_element(localRoot);
-
-                if (!shapeElement.isNull())
-                {
-                    shapeElement.setAttribute("fill", c.name());
-                    dr_.reload();
-                }
+                shapeElement.setAttribute("fill", c.name());
+                dr_.reload();
             }
         }
 
@@ -212,6 +218,7 @@ int main(int argc, char *argv[])
     dotBuf << dotIn.rdbuf();
     std::string dotStr(dotBuf.str());
 
+#if 0
     g_graphvizErrorBuffer.str({}); // clear the buffer
 
     GVC_t *gvc = gvContext();
@@ -245,6 +252,10 @@ int main(int argc, char *argv[])
     gvFreeLayout(gvc, g);
     agclose(g);
     gvFreeContext(gvc);
+#else
+    auto svgData = mesytec::graphviz_util::layout_and_render_dot_q(
+        dotStr.c_str(), "dot");
+#endif
 
     DomAndRenderer dr = {};
     dr.renderer = std::make_shared<QSvgRenderer>(svgData);

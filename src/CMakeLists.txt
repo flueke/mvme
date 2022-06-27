@@ -289,6 +289,7 @@ add_library(libmvme SHARED
     data_filter_edit.cc
     file_autosaver.cc
     globals.cc
+    graphviz_util.cc
     gui_util.cc
     histo1d.cc
     histo1d_util.cc
@@ -387,6 +388,10 @@ target_link_libraries(libmvme
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
+    # graphviz libraries
+    PRIVATE cdt
+    PRIVATE cgraph
+    PRIVATE gvc
     )
 
 target_compile_options(libmvme
