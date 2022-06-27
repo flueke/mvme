@@ -3,6 +3,7 @@
 
 #include <QByteArray>
 #include <QString>
+#include "libmvme_export.h"
 
 namespace mesytec
 {
@@ -16,21 +17,21 @@ namespace graphviz_util
     // creates and destroys a gvContext. Uses a global mutex to ensure the
     // function is not invoked concurrently. Uses a global error buffer to store
     // graphviz generated warnings and errors.
-    std::string layout_and_render_dot(
+    LIBMVME_EXPORT std::string layout_and_render_dot(
         const char *dotCode,
         const char *layoutEngine = "dot",
         const char *outputFormat = "svg");
 
-    std::string get_error_buffer();
+    LIBMVME_EXPORT std::string get_error_buffer();
 
     // Qt container versions of the above functions. Even slower as internally
     // the non-qt versions are used and the results converted.
-    QByteArray layout_and_render_dot_q(
+    LIBMVME_EXPORT QByteArray layout_and_render_dot_q(
         const QString &dotCode,
         const char *layoutEngine = "dot",
         const char *outputFormat = "svg");
 
-    QString get_error_buffer_q();
+    LIBMVME_EXPORT QString get_error_buffer_q();
 }
 }
 
