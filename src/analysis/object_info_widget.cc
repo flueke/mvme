@@ -26,16 +26,22 @@
 #include "mvme_context.h"
 #include "qt_util.h"
 
+#include <QGraphicsView>
+
 namespace analysis
 {
 
 struct ObjectInfoWidget::Private
 {
+    //std::vector<std::unique_ptr<ObjectInfoHandler>> handlers_;
+
     AnalysisServiceProvider *m_serviceProvider;
     AnalysisObjectPtr m_analysisObject;
     const ConfigObject *m_configObject;
 
     QLabel *m_infoLabel;
+    QGraphicsView *m_graphView;
+    std::unique_ptr<QGraphicsScene> m_scene;
 };
 
 ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -50,10 +56,18 @@ ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent
     m_d->m_infoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     set_widget_font_pointsize_relative(m_d->m_infoLabel, -2);
 
-    auto layout = new QHBoxLayout(this);
+    m_d->m_scene = std::make_unique<QGraphicsScene>();
+    m_d->m_graphView = new QGraphicsView;
+    m_d->m_graphView->setScene(m_d->m_scene.get());
+
+
+    auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
     layout->addWidget(m_d->m_infoLabel);
+    layout->addWidget(m_d->m_graphView);
+    layout->setStretch(0, 1);
+    layout->setStretch(1, 1);
 
     connect(asp, &AnalysisServiceProvider::vmeConfigAboutToBeSet,
             this, &ObjectInfoWidget::clear);
@@ -68,7 +82,10 @@ void ObjectInfoWidget::setAnalysisObject(const AnalysisObjectPtr &obj)
     m_d->m_configObject = nullptr;
 
     connect(obj.get(), &QObject::destroyed,
-            this, [this] { m_d->m_analysisObject = nullptr; });
+            this, [this] {
+                m_d->m_analysisObject = nullptr;
+                refresh();
+            });
 
     refresh();
 }
@@ -79,7 +96,10 @@ void ObjectInfoWidget::setVMEConfigObject(const ConfigObject *obj)
     m_d->m_configObject = obj;
 
     connect(obj, &QObject::destroyed,
-            this, [this] { m_d->m_configObject = nullptr; });
+            this, [this] {
+                m_d->m_configObject = nullptr;
+                refresh();
+            });
 
     refresh();
 }

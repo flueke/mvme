@@ -422,7 +422,7 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
 #if 0
     m_conditionWidget->doPeriodicUpdate();
 #endif
-    m_objectInfoWidget->refresh();
+    //m_objectInfoWidget->refresh();
 }
 
 void AnalysisWidgetPrivate::closeAllUniqueWidgets()
