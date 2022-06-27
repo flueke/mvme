@@ -16,19 +16,6 @@
 #include <mesytec-mvlc/util/logging.h>
 #include "graphviz_util.h"
 
-// Approach:
-// load DOT code -> use graphviz to render to svg -> use QXmlStreamReader and
-// QSvgRenderer to load and render the svg data. Use the xml reader to get the
-// ids of svg items that should be rendered.
-// For each item create a QGraphicsSvgItem using the shared renderer.
-//
-// Problem: cannot change attributes like the background color of the svg
-// graphics items. QGraphicsSvgItem does not expose any functionality to
-// influcence the drawing (probably as the rendering is done by the svg renderer).
-//
-// Solution: use QDomDocument and manipulate DOM attributes on the fly to
-// change the apperance of the rendered SVG.
-
 enum class DomVisitResult
 {
     Continue,
@@ -295,12 +282,12 @@ int main(int argc, char *argv[])
                     auto svgItem = new DomElementSvgItem(dr, elementId);
                     scene.addItem(svgItem);
                     --nodesToDraw;
-                   ++elementTypeCounts[elementClass];
-                   if (elementClass == "node")
-                   {
-                    svgItem->installSceneEventFilter(myFilterItem);
-                    svgItem->setAcceptHoverEvents(true);
-                   }
+                    ++elementTypeCounts[elementClass];
+                    if (elementClass == "node")
+                    {
+                        svgItem->installSceneEventFilter(myFilterItem);
+                        svgItem->setAcceptHoverEvents(true);
+                    }
                 }
             } break;
 
