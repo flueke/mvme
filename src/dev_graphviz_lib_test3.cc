@@ -13,6 +13,7 @@
 #include <QXmlStreamReader>
 #include <sstream>
 #include <set>
+#include <mesytec-mvlc/util/logging.h>
 
 // Approach:
 // load DOT code -> use graphviz to render to svg -> use QXmlStreamReader and
@@ -27,6 +28,109 @@
 // Solution: use QDomDocument and manipulate DOM attributes on the fly to
 // change the apperance of the rendered SVG.
 
+enum class DomVisitResult
+{
+    Continue,
+    Stop
+};
+
+using DomNodeVisitor = std::function<DomVisitResult (const QDomNode &node, int depth)>;
+
+// Depth first search starting at the given root node.
+void visit_dom_nodes(const QDomNode &node, int depth, const DomNodeVisitor &f)
+{
+    if (f(node, depth) == DomVisitResult::Stop)
+        return;
+
+    auto n = node.firstChild();
+
+    while (!n.isNull())
+    {
+        visit_dom_nodes(n, depth+1, f);
+        n = n.nextSibling();
+    }
+}
+
+inline void visit_dom_nodes(const QDomNode &root, const DomNodeVisitor &f)
+{
+    visit_dom_nodes(root, 0, f);
+}
+
+inline void visit_dom_nodes(QDomDocument &doc, const DomNodeVisitor &f)
+{
+    auto n = doc.documentElement();
+    visit_dom_nodes(n, f);
+}
+
+static const std::set<QString> SvgBasicShapes = { "circle", "ellipse", "line", "polygon", "polyline", "rect" };
+
+QDomElement find_first_basic_svg_shape_element(const QDomNode &root)
+{
+    QDomElement result;
+
+    auto f = [&result] (const QDomNode &node, int) -> DomVisitResult
+    {
+        if (!result.isNull())
+            return DomVisitResult::Stop;
+
+        auto e = node.toElement();
+
+        if (!e.isNull() && SvgBasicShapes.count(e.tagName()))
+        {
+            result = e;
+            return DomVisitResult::Stop;
+        }
+
+        return DomVisitResult::Continue;
+    };
+
+    visit_dom_nodes(root, f);
+
+    return result;
+}
+
+QDomElement find_element_by_predicate(
+    const QDomNode &root,
+    const std::function<bool (const QDomElement &e, int depth)> &predicate)
+{
+    QDomElement result;
+
+    auto f = [&] (const QDomNode &n, int depth) -> DomVisitResult
+    {
+        if (!result.isNull())
+           return DomVisitResult::Stop;
+
+        auto e = n.toElement();
+
+        if (!e.isNull() && predicate(e, depth))
+        {
+            result = e;
+            return DomVisitResult::Stop;
+        }
+
+        return DomVisitResult::Continue;
+    };
+
+    visit_dom_nodes(root, f);
+
+    return result;
+}
+
+QDomElement find_element_by_id(const QDomNode &root, const QString &id)
+{
+    auto predicate = [&id] (const QDomElement &e, int)
+    {
+        return (e.hasAttribute("id") && e.attribute("id") == id);
+    };
+
+    return find_element_by_predicate(root, predicate);
+}
+
+QDomElement find_element_by_id(const QDomDocument &doc, const QString &id)
+{
+    return find_element_by_id(doc.documentElement(), id);
+}
+
 struct DomAndRenderer
 {
     QDomDocument dom;
@@ -38,78 +142,10 @@ struct DomAndRenderer
     }
 };
 
-static const std::set<QString> SvgBasicShapes = { "circle", "ellipse", "line", "polygon", "polyline", "rect" };
-
-// Depth first search starting at the children of the given root node.
-QDomElement find_first_basic_svg_shape_element(const QDomNode &root)
-{
-    auto n = root.firstChild();
-
-    while (!n.isNull())
-    {
-        if (n.isElement())
-        {
-            auto e = n.toElement();
-            if (SvgBasicShapes.count(e.tagName()))
-                return e;
-        }
-
-        if (n.hasChildNodes())
-        {
-            auto e = find_first_basic_svg_shape_element(n);
-            if (!e.isNull())
-                return e;
-        }
-
-        n = n.nextSibling();
-    }
-
-    return {};
-}
-
-QDomElement find_element_by_id(const QDomNode &root, const QString &id)
-{
-    auto predicate = [&id](const QDomNode &n)
-    {
-        if (n.isElement())
-        {
-            auto e = n.toElement();
-            return (e.hasAttribute("id") && e.attribute("id") == id);
-        }
-
-        return false;
-    };
-
-    if (predicate(root))
-        return root.toElement();;
-
-    auto n = root.firstChild();
-
-    while (!n.isNull())
-    {
-        if (predicate(n))
-            return n.toElement();
-
-        auto ret = find_element_by_id(n, id);
-
-        if (!ret.isNull())
-            return ret;
-
-        n = n.nextSibling();
-    }
-
-    return {};
-}
-
-QDomElement find_element_by_id(const QDomDocument &doc, const QString &id)
-{
-    return find_element_by_id(doc.documentElement(), id);
-}
-
-class MyGraphicsSvgItem: public QGraphicsSvgItem
+class DomElementSvgItem: public QGraphicsSvgItem
 {
     public:
-        MyGraphicsSvgItem(const DomAndRenderer &dr, const QString &elementId, QGraphicsItem *parentItem = nullptr)
+        DomElementSvgItem(const DomAndRenderer &dr, const QString &elementId, QGraphicsItem *parentItem = nullptr)
             : QGraphicsSvgItem(parentItem)
             , dr_(dr)
         {
@@ -146,7 +182,7 @@ class MyFilterItem: public QGraphicsItemGroup
 
         bool sceneEventFilter(QGraphicsItem *watched, QEvent *event) override
         {
-            if (auto svgItem = dynamic_cast<MyGraphicsSvgItem *>(watched))
+            if (auto svgItem = dynamic_cast<DomElementSvgItem *>(watched))
             {
                 if (event->type() == QEvent::GraphicsSceneHoverEnter)
                 {
@@ -165,6 +201,8 @@ class MyFilterItem: public QGraphicsItemGroup
         }
 };
 
+static std::stringstream g_graphvizErrorBuffer;
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -174,7 +212,23 @@ int main(int argc, char *argv[])
     dotBuf << dotIn.rdbuf();
     std::string dotStr(dotBuf.str());
 
+    g_graphvizErrorBuffer.str({}); // clear the buffer
+
     GVC_t *gvc = gvContext();
+
+    auto myerrf = [] (char *msg) -> int
+    {
+        g_graphvizErrorBuffer << msg;
+        return 0;
+    };
+
+    agseterrf(myerrf);
+
+    agwarningf("my ag warning\n");
+    agerrorf("my ag error\n");
+
+    spdlog::info("graphviz errors: {}", g_graphvizErrorBuffer.str());
+
     Agraph_t *g = agmemread(dotStr.c_str());
 
     gvLayout(gvc, g, "dot");
@@ -227,7 +281,7 @@ int main(int argc, char *argv[])
                 if (attributes.hasAttribute("id"))
                 {
                     auto elementId = attributes.value("id").toString();
-                    auto svgItem = new MyGraphicsSvgItem(dr, elementId);
+                    auto svgItem = new DomElementSvgItem(dr, elementId);
                     scene.addItem(svgItem);
                     --nodesToDraw;
                    ++elementTypeCounts[elementClass];
