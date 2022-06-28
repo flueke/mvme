@@ -290,6 +290,7 @@ add_library(libmvme SHARED
     file_autosaver.cc
     globals.cc
     graphviz_util.cc
+    graphicsview_util.cc
     gui_util.cc
     histo1d.cc
     histo1d_util.cc
