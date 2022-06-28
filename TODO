@@ -2,7 +2,12 @@
 TODO list
 ==================================================
 
+* Expr Cond (maybe a general issue): setting the "Parent Event" to unspecified
+  does not mark the operator as having an issue (need two VME events to repdocue
+  as otherwise the only existing event is used as the parent).
+
 * ExprCond: having an expression compile error is not visible in the analysis ui
+  (operator is not highlighted in red)
 
 * doc: describe listfile formats and ZMQ transport
 
@@ -14,11 +19,6 @@ TODO list
   JSON format.
 
 * root_client: avoid creating duplicate branch names for trees
-
-* analysis: Directories contain references to ids of deleted objects. Could be
-  cleaned up when saving the analysis or right at the time where the objects
-  are deleted. Should be similar to the code that moves objects out of a
-  directory.
 
 * Maybe: remove the VME controller auto (re)connect feature. instead try to connect when needed.
 

@@ -4,6 +4,7 @@
 #include <graphviz/gvc.h>
 #include <mutex>
 #include <sstream>
+#include <QGraphicsScene>
 
 namespace mesytec
 {
@@ -33,6 +34,9 @@ std::string layout_and_render_dot(
     agseterrf(myerrf);
 
     Agraph_t *g = agmemread(dotCode);
+
+    if (!g)
+        return {};
 
     gvLayout(gvc, g, layoutEngine);
 
@@ -175,6 +179,25 @@ std::vector<std::unique_ptr<DomElementSvgItem>> create_svg_graphics_items(
     }
 
     return result;
+}
+
+void DotGraphicsSceneManager::setDot(const std::string &dotStr)
+{
+    m_scene->clear();
+
+    m_dotErrorBuffer = {};
+    m_dotStr = dotStr;
+    m_svgData = mesytec::graphviz_util::layout_and_render_dot_q(m_dotStr);
+    m_dotErrorBuffer = get_error_buffer();
+    m_dr = { m_svgData };
+    auto items = mesytec::graphviz_util::create_svg_graphics_items(m_svgData, m_dr);
+
+    for (auto &item: items)
+        m_scene->addItem(item.release());
+
+    // For the scene to recalculate the scene rect based on the items present.
+    // This is the only way to actually shrink the scene rect.
+    m_scene->setSceneRect(m_scene->itemsBoundingRect());
 }
 
 }

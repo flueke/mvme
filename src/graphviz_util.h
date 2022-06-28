@@ -122,13 +122,18 @@ inline QDomElement find_element_by_id(const QDomDocument &doc, const QString &id
 class DomAndRenderer
 {
     public:
+        DomAndRenderer()
+            : renderer_(std::make_shared<QSvgRenderer>())
+        {
+        }
+
         DomAndRenderer(const QByteArray &svgData)
             : renderer_(std::make_shared<QSvgRenderer>(svgData))
         {
             dom_.setContent(svgData);
         }
 
-        QSvgRenderer *renderer() { return renderer_.get(); }
+        QSvgRenderer *renderer() const { return renderer_.get(); }
         QDomDocument dom() const { return dom_; }
         void reload()
         {
@@ -137,6 +142,7 @@ class DomAndRenderer
 
     private:
         QDomDocument dom_;
+        // deliberately a shared_ptr to make the whole thing copyable
         std::shared_ptr<QSvgRenderer> renderer_;
 };
 
@@ -183,6 +189,37 @@ std::vector<std::unique_ptr<DomElementSvgItem>> create_svg_graphics_items(
     const QByteArray &svgData,
     const DomAndRenderer &dr,
     const std::set<QString> &acceptedElementClasses = { "node", "edge", "cluster" });
+
+class DotGraphicsSceneManager
+{
+    public:
+        DotGraphicsSceneManager()
+            : m_scene(std::make_unique<QGraphicsScene>())
+        {
+        }
+
+        DotGraphicsSceneManager(std::unique_ptr<QGraphicsScene> &&scene)
+            : m_scene(std::move(scene))
+        {
+        }
+
+        QGraphicsScene *scene() const { return m_scene.get(); }
+        std::string dotString() const { return m_dotStr; }
+        QByteArray svgData() const { return m_svgData; }
+        QDomDocument dom() const { return m_dr.dom(); }
+        QSvgRenderer *renderer() const { return m_dr.renderer(); }
+        std::string dotErrorBuffer() const { return m_dotErrorBuffer; }
+
+        void setDot(const QString &dotStr) { setDot(dotStr.toStdString()); }
+        void setDot(const std::string &dotStr);
+
+    private:
+        std::unique_ptr<QGraphicsScene> m_scene;
+        std::string m_dotStr;
+        QByteArray m_svgData;
+        DomAndRenderer m_dr;
+        std::string m_dotErrorBuffer;
+};
 
 }
 }

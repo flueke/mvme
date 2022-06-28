@@ -47,7 +47,8 @@ struct ObjectInfoWidget::Private
 
     QLabel *m_infoLabel;
     QGraphicsView *m_graphView;
-    std::unique_ptr<QGraphicsScene> m_scene;
+
+    mesytec::graphviz_util::DotGraphicsSceneManager m_dotManager;
 
     void refreshGraphView(const AnalysisObjectPtr &obj);
 };
@@ -61,13 +62,13 @@ std::string escape_dot_string(std::string label)
     return label;
 }
 
-std::string make_label(const AnalysisObject *obj)
+std::string make_basic_label(const AnalysisObject *obj)
 {
     auto label = escape_dot_string(obj->objectName().toStdString());
 
     if (auto ps = dynamic_cast<const PipeSourceInterface *>(obj))
     {
-        label = fmt::format("{}<br/><b>{}</b>",
+        label = fmt::format("<{}<br/><b>{}</b>>",
             label,
             escape_dot_string(ps->getDisplayName().toStdString()));
     }
@@ -75,50 +76,102 @@ std::string make_label(const AnalysisObject *obj)
     return label;
 }
 
-std::ostream &format_object(std::ostream &out , const AnalysisObject *obj, const char *fontName = "sans")
+std::ostream &format_object(std::ostream &out , const AnalysisObject *obj, const char *fontName)
 {
     auto id = obj->getId().toString().toStdString();
-    auto label = make_label(obj);
+    auto label = make_basic_label(obj);
 
-    out << fmt::format("\"{}\" [id=\"{}\" label=<{}>, fontname=\"{}\"]",
+    out << fmt::format("\"{}\" [id=\"{}\" label={} fontname=\"{}\"]",
                        id, id, label, fontName)
         << std::endl;
 
     return out;
 }
 
+std::ostream &write_node(std::ostream &out, const QString &id, const std::map<QString, QString> &attributes)
+{
+    out << fmt::format("\"{}\" [id=\"{}\" ", id.toStdString());
+
+    for (const auto &kv: attributes)
+        out << fmt::format("{}={}", kv.first.toStdString(), kv.second.toStdString());
+
+    out << "]" << std::endl;
+
+    return out;
+}
+
+std::ostream &write_node(std::ostream &out, const std::string &id, const std::map<std::string, std::string> &attributes)
+{
+    out << fmt::format("\"{}\" [id=\"{}\" ", id, id);
+
+    for (const auto &kv: attributes)
+        out << fmt::format("{}={}", kv.first, kv.second);
+
+    out << "]" << std::endl;
+
+    return out;
+}
+
+template<typename T>
+std::string id_str(const T &t)
+{
+    return t->getId().toString().toStdString();
+}
+
 void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
 {
-    const char *FontName = "sans";
+    //const char *FontName = "sans";
+    const char *FontName = "Bitstream Vera Sans";
     std::ostringstream dotOut;
     dotOut << "strict digraph {" << std::endl;
-    dotOut << "  rankdir=TB" << std::endl;
+    dotOut << "  rankdir=LR" << std::endl;
     dotOut << "  id=OuterGraph" << std::endl;
     dotOut << fmt::format("  fontname=\"{}\"", FontName) << std::endl;
 
-    format_object(dotOut, obj.get());
+    format_object(dotOut, obj.get(), FontName);
 
     auto ana = obj->getAnalysis();
-    auto op = std::dynamic_pointer_cast<const OperatorInterface>(obj);
+    auto op = std::dynamic_pointer_cast<OperatorInterface>(obj);
 
     if (ana && op)
     {
         auto condSet = ana->getActiveConditions(op);
-    }
 
+        if (!condSet.isEmpty())
+        {
+            dotOut << fmt::format("subgraph \"clusterConditions{}\" {{",
+                                  op->getId().toString().toStdString())
+                   << std::endl;
+            dotOut << "label=Conditions" << std::endl;
+
+            for (const auto &cond : condSet)
+            {
+                std::map<std::string, std::string> attribs =
+                {
+                    { "label", make_basic_label(cond.get()) },
+                    { "shape", "hexagon" },
+                };
+                write_node(dotOut, id_str(cond), attribs);
+            }
+
+            dotOut << "}" << std::endl;
+
+            for (const auto &cond : condSet)
+            {
+                dotOut << fmt::format("\"{}\" -> \"{}\" [arrowhead=diamond, color=blue]",
+                                        id_str(op), id_str(cond))
+                        << std::endl;
+            }
+        }
+    }
 
     dotOut << "}" << std::endl;
 
-    auto svgData = mesytec::graphviz_util::layout_and_render_dot_q(dotOut.str());
-    mesytec::graphviz_util::DomAndRenderer dr(svgData);
-    auto items = mesytec::graphviz_util::create_svg_graphics_items(svgData, dr);
+    m_dotManager.setDot(dotOut.str());
 
-    m_scene->clear();
-    m_graphView->setTransform({});
+    spdlog::info("dot output:\n {}", m_dotManager.dotString());
 
-    for (auto &item: items)
-        m_scene->addItem(item.release());
-
+    //m_graphView->setTransform({}); // resets zoom
 }
 
 ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -133,11 +186,11 @@ ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent
     m_d->m_infoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     set_widget_font_pointsize_relative(m_d->m_infoLabel, -2);
 
-    m_d->m_scene = std::make_unique<QGraphicsScene>();
     m_d->m_graphView = new QGraphicsView;
-    m_d->m_graphView->setScene(m_d->m_scene.get());
+    m_d->m_graphView->setScene(m_d->m_dotManager.scene());
     m_d->m_graphView->setRenderHints(
-        QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
+        QPainter::Antialiasing | QPainter::TextAntialiasing |
+        QPainter::SmoothPixmapTransform | QPainter::HighQualityAntialiasing);
     m_d->m_graphView->setDragMode(QGraphicsView::ScrollHandDrag);
     m_d->m_graphView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     new MouseWheelZoomer(m_d->m_graphView, m_d->m_graphView);
