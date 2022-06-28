@@ -297,6 +297,12 @@ int main(int argc, char *argv[])
     }
 
     qDebug() << "elementTypeCounts:" << elementTypeCounts;
+    {
+        qDebug() << "writing svgData to foo_rendered.svg";
+        QFile svgOut("foo_rendered.svg");
+        svgOut.open(QIODevice::WriteOnly);
+        svgOut.write(svgData);
+    }
 
     QGraphicsView view;
     view.setScene(&scene);

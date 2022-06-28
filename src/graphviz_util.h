@@ -235,7 +235,6 @@ std::vector<std::unique_ptr<DomElementSvgItem>> create_svg_graphics_items(
             case QXmlStreamReader::TokenType::StartElement:
             {
                 auto attributes = xmlReader.attributes();
-
                 auto elementClass = attributes.value("class").toString();
 
                 if (!acceptedElementClasses.count(elementClass))

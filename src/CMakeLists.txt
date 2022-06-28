@@ -568,6 +568,7 @@ target_link_libraries(dev_graphviz_lib_test2 PRIVATE cdt PRIVATE cgraph PRIVATE 
 
 add_mvme_executable(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
 target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+install(TARGETS dev_graphviz_lib_test3 RUNTIME DESTINATION bin)
 
 if (NOT WIN32)
 add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
