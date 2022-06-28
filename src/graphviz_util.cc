@@ -68,6 +68,18 @@ QByteArray layout_and_render_dot_q(
             .c_str());
 }
 
+QByteArray layout_and_render_dot_q(
+    const std::string &dotCode,
+    const char *layoutEngine,
+    const char *outputFormat)
+{
+    return QByteArray(
+        layout_and_render_dot(
+            dotCode.c_str(),
+            layoutEngine, outputFormat)
+            .c_str());
+}
+
 QString get_error_buffer_q()
 {
     return QString::fromStdString(get_error_buffer());

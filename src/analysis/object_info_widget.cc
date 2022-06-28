@@ -25,8 +25,14 @@
 #include "analysis_util.h"
 #include "mvme_context.h"
 #include "qt_util.h"
+#include "graphviz_util.h"
+#include "graphicsview_util.h"
 
 #include <QGraphicsView>
+#include <spdlog/fmt/fmt.h>
+#include <sstream>
+#include <regex>
+#include <memory>
 
 namespace analysis
 {
@@ -42,7 +48,78 @@ struct ObjectInfoWidget::Private
     QLabel *m_infoLabel;
     QGraphicsView *m_graphView;
     std::unique_ptr<QGraphicsScene> m_scene;
+
+    void refreshGraphView(const AnalysisObjectPtr &obj);
 };
+
+std::string escape_dot_string(std::string label)
+{
+    label = std::regex_replace(label, std::regex("&"), "&amp;");
+    label = std::regex_replace(label, std::regex("\""), "&quot;");
+    label = std::regex_replace(label, std::regex(">"), "&gt;");
+    label = std::regex_replace(label, std::regex("<"), "&lt;");
+    return label;
+}
+
+std::string make_label(const AnalysisObject *obj)
+{
+    auto label = escape_dot_string(obj->objectName().toStdString());
+
+    if (auto ps = dynamic_cast<const PipeSourceInterface *>(obj))
+    {
+        label = fmt::format("{}<br/><b>{}</b>",
+            label,
+            escape_dot_string(ps->getDisplayName().toStdString()));
+    }
+
+    return label;
+}
+
+std::ostream &format_object(std::ostream &out , const AnalysisObject *obj, const char *fontName = "sans")
+{
+    auto id = obj->getId().toString().toStdString();
+    auto label = make_label(obj);
+
+    out << fmt::format("\"{}\" [id=\"{}\" label=<{}>, fontname=\"{}\"]",
+                       id, id, label, fontName)
+        << std::endl;
+
+    return out;
+}
+
+void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
+{
+    const char *FontName = "sans";
+    std::ostringstream dotOut;
+    dotOut << "strict digraph {" << std::endl;
+    dotOut << "  rankdir=TB" << std::endl;
+    dotOut << "  id=OuterGraph" << std::endl;
+    dotOut << fmt::format("  fontname=\"{}\"", FontName) << std::endl;
+
+    format_object(dotOut, obj.get());
+
+    auto ana = obj->getAnalysis();
+    auto op = std::dynamic_pointer_cast<const OperatorInterface>(obj);
+
+    if (ana && op)
+    {
+        auto condSet = ana->getActiveConditions(op);
+    }
+
+
+    dotOut << "}" << std::endl;
+
+    auto svgData = mesytec::graphviz_util::layout_and_render_dot_q(dotOut.str());
+    mesytec::graphviz_util::DomAndRenderer dr(svgData);
+    auto items = mesytec::graphviz_util::create_svg_graphics_items(svgData, dr);
+
+    m_scene->clear();
+    m_graphView->setTransform({});
+
+    for (auto &item: items)
+        m_scene->addItem(item.release());
+
+}
 
 ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QFrame(parent)
@@ -59,14 +136,18 @@ ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent
     m_d->m_scene = std::make_unique<QGraphicsScene>();
     m_d->m_graphView = new QGraphicsView;
     m_d->m_graphView->setScene(m_d->m_scene.get());
-
+    m_d->m_graphView->setRenderHints(
+        QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
+    m_d->m_graphView->setDragMode(QGraphicsView::ScrollHandDrag);
+    m_d->m_graphView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    new MouseWheelZoomer(m_d->m_graphView, m_d->m_graphView);
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
     layout->addWidget(m_d->m_infoLabel);
     layout->addWidget(m_d->m_graphView);
-    layout->setStretch(0, 1);
+    //layout->setStretch(0, 1);
     layout->setStretch(1, 1);
 
     connect(asp, &AnalysisServiceProvider::vmeConfigAboutToBeSet,
@@ -106,7 +187,7 @@ void ObjectInfoWidget::setVMEConfigObject(const ConfigObject *obj)
 
 void ObjectInfoWidget::refresh()
 {
-    auto refresh_analysisObject = [this] (const AnalysisObjectPtr &obj)
+    auto refresh_analysisObject_infoLabel = [this] (const AnalysisObjectPtr &obj)
     {
         assert(obj);
         auto &label(m_d->m_infoLabel);
@@ -215,7 +296,8 @@ void ObjectInfoWidget::refresh()
     if (m_d->m_analysisObject)
         //&& m_d->m_analysisObject->getAnalysis().get() == m_d->m_serviceProvider->getAnalysis())
     {
-        refresh_analysisObject(m_d->m_analysisObject);
+        refresh_analysisObject_infoLabel(m_d->m_analysisObject);
+        m_d->refreshGraphView(m_d->m_analysisObject);
     }
     else if (m_d->m_configObject)
     {

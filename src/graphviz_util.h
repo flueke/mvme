@@ -51,6 +51,11 @@ LIBMVME_EXPORT QByteArray layout_and_render_dot_q(
     const char *layoutEngine = "dot",
     const char *outputFormat = "svg");
 
+LIBMVME_EXPORT QByteArray layout_and_render_dot_q(
+    const std::string &dotCode,
+    const char *layoutEngine = "dot",
+    const char *outputFormat = "svg");
+
 LIBMVME_EXPORT QString get_error_buffer_q();
 
 // The following is not limited to graphviz but should work on SVGs in
