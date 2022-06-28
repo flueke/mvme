@@ -73,5 +73,97 @@ QString get_error_buffer_q()
     return QString::fromStdString(get_error_buffer());
 }
 
+QDomElement find_first_basic_svg_shape_element(const QDomNode &root)
+{
+    static const std::set<QString> SvgBasicShapes = {
+        "circle", "ellipse", "line", "polygon", "polyline", "rect"
+    };
+
+    QDomElement result;
+
+    auto f = [&result] (const QDomNode &node, int) -> DomVisitResult
+    {
+        if (!result.isNull())
+            return DomVisitResult::Stop;
+
+        auto e = node.toElement();
+
+        if (!e.isNull() && SvgBasicShapes.count(e.tagName()))
+        {
+            result = e;
+            return DomVisitResult::Stop;
+        }
+
+        return DomVisitResult::Continue;
+    };
+
+    visit_dom_nodes(root, f);
+
+    return result;
+}
+
+QDomElement find_element_by_predicate(
+    const QDomNode &root,
+    const std::function<bool (const QDomElement &e, int depth)> &predicate)
+{
+    QDomElement result;
+
+    auto visitor = [&] (const QDomNode &n, int depth) -> DomVisitResult
+    {
+        if (!result.isNull())
+           return DomVisitResult::Stop;
+
+        auto e = n.toElement();
+
+        if (!e.isNull() && predicate(e, depth))
+        {
+            result = e;
+            return DomVisitResult::Stop;
+        }
+
+        return DomVisitResult::Continue;
+    };
+
+    visit_dom_nodes(root, visitor);
+
+    return result;
+}
+
+std::vector<std::unique_ptr<DomElementSvgItem>> create_svg_graphics_items(
+    const QByteArray &svgData,
+    const DomAndRenderer &dr,
+    const std::set<QString> &acceptedElementClasses)
+{
+    std::vector<std::unique_ptr<DomElementSvgItem>> result;
+
+    QXmlStreamReader xmlReader(svgData);
+    while (!xmlReader.atEnd())
+    {
+        switch (xmlReader.readNext())
+        {
+            case QXmlStreamReader::TokenType::StartElement:
+            {
+                auto attributes = xmlReader.attributes();
+                auto elementClass = attributes.value("class").toString();
+
+                if (!acceptedElementClasses.count(elementClass))
+                    continue;
+
+                if (attributes.hasAttribute("id"))
+                {
+                    auto elementId = attributes.value("id").toString();
+                    auto svgItem = std::make_unique<DomElementSvgItem>(dr, elementId);
+                    result.emplace_back(std::move(svgItem));
+                }
+            } break;
+
+            default:
+                break;
+        }
+    }
+
+    return result;
+}
+
 }
 }
