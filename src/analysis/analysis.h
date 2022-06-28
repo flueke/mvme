@@ -2432,8 +2432,16 @@ namespace read_options
 };
 
 LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
-    read_analysis_config_from_file(const QString &filename, const VMEConfig *vmeConfig,
-                                   read_options::Opt = read_options::BuildAnalysis,
+    read_analysis_config_from_file(const QString &filename,
+                                   const VMEConfig *vmeConfig,
+                                   read_options::Opt options = read_options::BuildAnalysis,
+                                   Logger logger = {});
+
+// Simpler version of the above: uses a default constructed VMEConfig for the
+// call to Analysis::read().
+LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename,
+                                   read_options::Opt options = read_options::BuildAnalysis,
                                    Logger logger = {});
 
 // Returns a list of parent directory names of the object.

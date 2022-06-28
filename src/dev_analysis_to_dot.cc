@@ -11,30 +11,6 @@
 #include "analysis/analysis.h"
 #include "analysis/object_visitor.h"
 
-std::shared_ptr<analysis::Analysis> read_analysis_from_file(const std::string &filename)
-{
-    QFile inFile(QString::fromStdString(filename));
-
-    if (!inFile.open(QIODevice::ReadOnly))
-    {
-        spdlog::error("Error opening input file {} for reading: {}", filename, inFile.errorString().toStdString());
-        return {};
-    }
-
-    auto doc = QJsonDocument::fromJson(inFile.readAll());
-    auto json = doc.object()["AnalysisNG"].toObject();
-    auto result = std::make_shared<analysis::Analysis>();
-    VMEConfig emptyVmeConfig{};
-
-    if (auto ec = result->read(json, &emptyVmeConfig))
-    {
-        spdlog::error("Error loading analysis from {}: {}", filename, ec.message());
-        return {};
-    }
-
-    return result;
-}
-
 using namespace analysis;
 
 class DotVisitor: public analysis::ObjectVisitor
@@ -82,7 +58,8 @@ void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
     // Non-directory  objects nodes.
     for (const auto &obj: allObjects)
     {
-        if (auto dir = dynamic_cast<const Directory *>(obj.get()))
+        // skip directories
+        if (dynamic_cast<const Directory *>(obj.get()))
             continue;
 
         auto label = obj->objectName().toStdString();
@@ -202,7 +179,8 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    auto analysis = read_analysis_from_file(opt_analysisInputFile);
+    auto readResult = read_analysis_config_from_file(QString::fromStdString(opt_analysisInputFile));
+    auto analysis = std::move(readResult.first);
 
     if (!analysis)
         return 1;

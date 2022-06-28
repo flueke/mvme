@@ -6143,6 +6143,19 @@ std::pair<std::unique_ptr<Analysis>, QString>
     return result;
 }
 
+std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename,
+                                   read_options::Opt options,
+                                   Logger logger)
+{
+    VMEConfig emptyVmeConfig{};
+    return read_analysis_config_from_file(
+        filename,
+        &emptyVmeConfig,
+        options,
+        logger);
+}
+
 QStringList
 make_parent_path_list(const AnalysisObjectPtr &obj)
 {
