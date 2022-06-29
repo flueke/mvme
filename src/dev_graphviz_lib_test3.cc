@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
     gvFreeContext(gvc);
 #else
     auto svgData = mesytec::graphviz_util::layout_and_render_dot_q(
-        dotStr.c_str(), "dot");
+        dotStr, "dot");
 #endif
 
     DomAndRenderer dr = {};
