@@ -14,7 +14,6 @@ find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Xml REQUIRED)
-find_package(Graphviz)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -58,6 +57,11 @@ endif()
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+
+find_package(Graphviz REQUIRED)
+include_directories(${GRAPHVIZ_INCLUDE_DIRS})
+message("-- Using GRAPHVIZ_INCLUDE_DIRS=${GRAPHVIZ_INCLUDE_DIRS}")
+message("-- Using GRAPHVIZ_LIBRARIES=${GRAPHVIZ_LIBRARIES}")
 
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
