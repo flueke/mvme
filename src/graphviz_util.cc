@@ -44,7 +44,7 @@ std::string layout_and_render_dot(
     unsigned int renderSize = 0;
     gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
 
-    std::string svgData(renderDest);
+    std::string svgData{renderDest ? renderDest : ""};
 
     gvFreeRenderData(renderDest);
     gvFreeLayout(gvc, g);
