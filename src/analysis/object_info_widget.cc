@@ -169,7 +169,8 @@ void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
 
     m_dotManager.setDot(dotOut.str());
 
-    spdlog::info("dot output:\n {}", m_dotManager.dotString());
+    spdlog::info("dot output:\n{}\n", m_dotManager.dotString());
+    spdlog::info("dot -> svg data:\n{}\n", m_dotManager.svgData().toStdString());
 
     //m_graphView->setTransform({}); // resets zoom
 }

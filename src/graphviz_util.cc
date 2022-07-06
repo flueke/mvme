@@ -5,6 +5,7 @@
 #include <mutex>
 #include <sstream>
 #include <QGraphicsScene>
+#include <QDebug>
 
 namespace mesytec
 {
@@ -13,6 +14,8 @@ namespace graphviz_util
 
 static std::mutex g_mutex;
 static std::stringstream g_errorBuffer;
+
+extern gvplugin_library_t gvplugin_dot_layout_LTX_library;
 
 std::string layout_and_render_dot(
     const char *dotCode,
@@ -31,6 +34,8 @@ std::string layout_and_render_dot(
 
     GVC_t *gvc = gvContext();
 
+    gvAddLibrary(gvc, &gvplugin_dot_layout_LTX_library);
+
     agseterrf(myerrf);
 
     Agraph_t *g = agmemread(dotCode);
@@ -40,9 +45,13 @@ std::string layout_and_render_dot(
 
     gvLayout(gvc, g, layoutEngine);
 
+    qDebug() << "layout_and_render_dot: errorbuffer after gvLayout" << g_errorBuffer.str().c_str();
+
     char *renderDest = nullptr;
     unsigned int renderSize = 0;
     gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
+
+    qDebug() << "layout_and_render_dot: errorbuffer after gvRenderData" << g_errorBuffer.str().c_str();
 
     std::string svgData{renderDest ? renderDest : ""};
 
