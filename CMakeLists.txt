@@ -262,7 +262,8 @@ if (WIN32)
     if (MVME_INSTALL_DEPLOY_FILES)
         # C:\src\deploy\mvme-x64-libusb-0.1-Debug
         # C:\src\deploy\mvme-x64-libusb-0.1-Release
-        set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
+        #set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
+        set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-Release/")
 
         install(DIRECTORY "${DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
     endif()

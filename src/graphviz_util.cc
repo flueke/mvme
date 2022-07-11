@@ -35,6 +35,8 @@ namespace graphviz_util
 static std::mutex g_mutex;
 static std::stringstream g_errorBuffer;
 
+extern gvplugin_library_t gvplugin_dot_layout_LTX_library;
+
 std::string layout_and_render_dot(
     const char *dotCode,
     const char *layoutEngine,
@@ -67,10 +69,14 @@ std::string layout_and_render_dot(
     gvLayout(gvc, g, layoutEngine);
     qDebug() << "gv error buffer after gvLayout():" << g_errorBuffer.str().c_str();
 
+    qDebug() << "layout_and_render_dot: errorbuffer after gvLayout" << g_errorBuffer.str().c_str();
+
     char *renderDest = nullptr;
     unsigned int renderSize = 0;
     gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
     qDebug() << "gv error buffer after gvRenderData():" << g_errorBuffer.str().c_str();
+
+    qDebug() << "layout_and_render_dot: errorbuffer after gvRenderData" << g_errorBuffer.str().c_str();
 
     std::string svgData{renderDest ? renderDest : ""};
 

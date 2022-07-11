@@ -244,6 +244,8 @@ int main(int argc, char *argv[])
         dotStr, "dot");
 #endif
 
+    qDebug() << "svgData=" << svgData;
+
     DomAndRenderer dr = {};
     dr.renderer = std::make_shared<QSvgRenderer>(svgData);
     dr.dom.setContent(svgData);
