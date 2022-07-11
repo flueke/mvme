@@ -397,6 +397,7 @@ target_link_libraries(libmvme
     PRIVATE cdt
     PRIVATE cgraph
     PRIVATE gvc
+    PRIVATE libgvplugin_dot_layout
     )
 
 target_compile_options(libmvme
@@ -572,7 +573,7 @@ add_mvme_executable(dev_graphviz_lib_test2 dev_graphviz_lib_test2.cc)
 target_link_libraries(dev_graphviz_lib_test2 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
 
 add_mvme_executable(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
-target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+#target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc PRIVATE libgvplugin_dot_layout)
 install(TARGETS dev_graphviz_lib_test3 RUNTIME DESTINATION bin)
 
 if (NOT WIN32)

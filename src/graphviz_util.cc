@@ -5,6 +5,27 @@
 #include <mutex>
 #include <sstream>
 #include <QGraphicsScene>
+#include <QDebug>
+
+extern gvplugin_library_t gvplugin_dot_layout_LTX_library;
+#if 0
+extern gvplugin_library_t gvplugin_neato_layout_LTX_library;
+extern gvplugin_library_t gvplugin_core_LTX_library;
+extern gvplugin_library_t gvplugin_quartz_LTX_library;
+extern gvplugin_library_t gvplugin_visio_LTX_library;
+#endif
+
+lt_symlist_t lt_preloaded_symbols[] =
+{
+    { "gvplugin_dot_layout_LTX_library", &gvplugin_dot_layout_LTX_library},
+    #if 0
+    { "gvplugin_neato_layout_LTX_library", &gvplugin_neato_layout_LTX_library},
+    { "gvplugin_core_LTX_library", &gvplugin_core_LTX_library},
+    { "gvplugin_quartz_LTX_library", &gvplugin_quartz_LTX_library},
+    { "gvplugin_visio_LTX_library", &gvplugin_visio_LTX_library},
+    #endif
+    { 0, 0}
+};
 
 namespace mesytec
 {
@@ -28,21 +49,28 @@ std::string layout_and_render_dot(
     std::lock_guard<std::mutex> guard(g_mutex);
 
     g_errorBuffer.str({}); // clear the error buffer
-
-    GVC_t *gvc = gvContext();
-
     agseterrf(myerrf);
 
+    GVC_t *gvc = gvContext();
+    char *args[] = { {"mvme" }, {"-v"} };
+    gvParseArgs(gvc, 2, args);
+
+    gvAddLibrary(gvc, &gvplugin_dot_layout_LTX_library);
+    qDebug() << "gv error buffer after gvAddLibrary():" << g_errorBuffer.str().c_str();
+
     Agraph_t *g = agmemread(dotCode);
+    qDebug() << "gv error buffer after agmemread():" << g_errorBuffer.str().c_str();
 
     if (!g)
         return {};
 
     gvLayout(gvc, g, layoutEngine);
+    qDebug() << "gv error buffer after gvLayout():" << g_errorBuffer.str().c_str();
 
     char *renderDest = nullptr;
     unsigned int renderSize = 0;
     gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
+    qDebug() << "gv error buffer after gvRenderData():" << g_errorBuffer.str().c_str();
 
     std::string svgData{renderDest ? renderDest : ""};
 
