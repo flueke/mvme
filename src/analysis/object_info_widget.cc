@@ -76,46 +76,47 @@ std::string make_basic_label(const AnalysisObject *obj)
     return label;
 }
 
-std::ostream &format_object(std::ostream &out , const AnalysisObject *obj, const char *fontName)
+std::ostream &write_node(std::ostream &out, const std::string &id, const std::map<std::string, std::string> &attributes)
 {
-    auto id = obj->getId().toString().toStdString();
-    auto label = make_basic_label(obj);
+    out << fmt::format("\"{}\" [id=\"{}\" ", id, id);
 
-    out << fmt::format("\"{}\" [id=\"{}\" label={} fontname=\"{}\"]",
-                       id, id, label, fontName)
-        << std::endl;
+    for (const auto &kv: attributes)
+    {
+        if (!kv.second.empty() && kv.second[0] == '<')
+            out << fmt::format("{}={}", kv.first, kv.second); // unquoted html value
+        else
+            out << fmt::format("{}=\"{}\"", kv.first, kv.second); // quoted plain text value
+    }
+
+    out << "]" << std::endl;
 
     return out;
 }
 
 std::ostream &write_node(std::ostream &out, const QString &id, const std::map<QString, QString> &attributes)
 {
-    out << fmt::format("\"{}\" [id=\"{}\" ", id.toStdString());
+    std::map<std::string, std::string> stdMap;
 
     for (const auto &kv: attributes)
-        out << fmt::format("{}={}", kv.first.toStdString(), kv.second.toStdString());
+        stdMap.insert({ kv.first.toStdString(), kv.second.toStdString() });
 
-    out << "]" << std::endl;
-
-    return out;
-}
-
-std::ostream &write_node(std::ostream &out, const std::string &id, const std::map<std::string, std::string> &attributes)
-{
-    out << fmt::format("\"{}\" [id=\"{}\" ", id, id);
-
-    for (const auto &kv: attributes)
-        out << fmt::format("{}=\"{}\"", kv.first, kv.second);
-
-    out << "]" << std::endl;
-
-    return out;
+    return write_node(out, id.toStdString(), stdMap);
 }
 
 template<typename T>
 std::string id_str(const T &t)
 {
     return t->getId().toString().toStdString();
+}
+
+std::ostream &format_object(std::ostream &out , const AnalysisObject *obj, const char *fontName)
+{
+    auto id = id_str(obj);
+    auto label = make_basic_label(obj);
+
+    write_node(out, id, {{ "label", label }, { "font", fontName }});
+
+    return out;
 }
 
 void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
