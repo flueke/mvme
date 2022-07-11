@@ -105,7 +105,7 @@ std::ostream &write_node(std::ostream &out, const std::string &id, const std::ma
     out << fmt::format("\"{}\" [id=\"{}\" ", id, id);
 
     for (const auto &kv: attributes)
-        out << fmt::format("{}={}", kv.first, kv.second);
+        out << fmt::format("{}=\"{}\"", kv.first, kv.second);
 
     out << "]" << std::endl;
 
@@ -167,9 +167,8 @@ void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
 
     dotOut << "}" << std::endl;
 
+    spdlog::info("dot output:\n {}", dotOut.str());
     m_dotManager.setDot(dotOut.str());
-
-    spdlog::info("dot output:\n {}", m_dotManager.dotString());
 
     //m_graphView->setTransform({}); // resets zoom
 }
