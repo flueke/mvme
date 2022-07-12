@@ -3,25 +3,26 @@
 
 #include <QByteArray>
 #include <QDomDocument>
+#include <QGraphicsScene>
 #include <QGraphicsSvgItem>
 #include <QString>
 #include <QSvgRenderer>
+#include <QWidget>
 #include <QXmlStreamReader>
 #include <set>
+
 #include "libmvme_export.h"
 
-// Approach:
-// load DOT code -> use graphviz to render to svg -> use QXmlStreamReader and
-// QSvgRenderer to load and render the svg data. Use the xml reader to get the
-// ids of svg items that should be rendered.
-// For each item create a QGraphicsSvgItem using the shared renderer.
+// Graphviz utilities for generating, layouting and rendering DOT code.
 //
-// Problem: cannot change attributes like the background color of the svg
-// graphics items. QGraphicsSvgItem does not expose any functionality to
-// influcence the drawing (probably as the rendering is done by the svg renderer).
+// The approach taken is to generate DOT code, render it to SVG using graphviz,
+// then walk the generated SVG XML code to create QGraphicsSvgItems for desired
+// elements.
 //
-// Solution: use QDomDocument and manipulate DOM attributes on the fly to
-// change the apperance of the rendered SVG.
+// One problem of this approach is that QGraphicsSvgItems do not have methods
+// to set e.g. the foreground and background colors/brushes. Solution: use
+// QDomDocument to manipulate the SVG DOM attributes on the fly which does
+// change the apperance of the QGraphicsSvgItems.
 
 
 namespace mesytec
@@ -42,8 +43,6 @@ LIBMVME_EXPORT std::string layout_and_render_dot(
     const char *layoutEngine = "dot",
     const char *outputFormat = "svg");
 
-LIBMVME_EXPORT std::string get_error_buffer();
-
 // Qt container versions of the above functions. Even slower as internally the
 // non-qt data types are used and the results converted.
 LIBMVME_EXPORT QByteArray layout_and_render_dot_q(
@@ -56,9 +55,15 @@ LIBMVME_EXPORT QByteArray layout_and_render_dot_q(
     const char *layoutEngine = "dot",
     const char *outputFormat = "svg");
 
+// Returns the contents of the graphviz error message buffer.
+LIBMVME_EXPORT std::string get_error_buffer();
+
+// Clears the graphviz error buffer.
+LIBMVME_EXPORT void clear_error_buffer();
+
 LIBMVME_EXPORT QString get_error_buffer_q();
 
-// The following is not limited to graphviz but should work on SVGs in general.
+// The following DOM related code is not limited to graphviz but should work on SVGs in general.
 
 enum class DomVisitResult
 {
@@ -218,6 +223,18 @@ class DotGraphicsSceneManager
         QByteArray m_svgData;
         DomAndRenderer m_dr;
         std::string m_dotErrorBuffer;
+};
+
+class DotWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        explicit DotWidget(QWidget *parent = nullptr);
+        virtual ~DotWidget() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
 };
 
 }

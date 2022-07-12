@@ -28,7 +28,10 @@
 #include "graphviz_util.h"
 #include "graphicsview_util.h"
 
+#include <QClipboard>
 #include <QGraphicsView>
+#include <QGuiApplication>
+#include <QMenu>
 #include <spdlog/fmt/fmt.h>
 #include <sstream>
 #include <regex>
@@ -51,6 +54,7 @@ struct ObjectInfoWidget::Private
     mesytec::graphviz_util::DotGraphicsSceneManager m_dotManager;
 
     void refreshGraphView(const AnalysisObjectPtr &obj);
+    void showGraphViewContextMenu(const QPoint &pos);
 };
 
 std::string escape_dot_string(std::string label)
@@ -76,18 +80,25 @@ std::string make_basic_label(const AnalysisObject *obj)
     return label;
 }
 
+using Attributes = std::map<std::string, std::string>;
+
+std::ostream &write_attributes(std::ostream &out, const Attributes &attributes)
+{
+    for (const auto &kv: attributes)
+    {
+        if (!kv.second.empty() && kv.second.front() == '<' && kv.second.back() == '>')
+            out << fmt::format("{}={} ", kv.first, kv.second); // unquoted html value
+        else
+            out << fmt::format("{}=\"{}\" ", kv.first, kv.second); // quoted plain text value
+    }
+
+    return out;
+}
+
 std::ostream &write_node(std::ostream &out, const std::string &id, const std::map<std::string, std::string> &attributes)
 {
     out << fmt::format("\"{}\" [id=\"{}\" ", id, id);
-
-    for (const auto &kv: attributes)
-    {
-        if (!kv.second.empty() && kv.second[0] == '<')
-            out << fmt::format("{}={}", kv.first, kv.second); // unquoted html value
-        else
-            out << fmt::format("{}=\"{}\"", kv.first, kv.second); // quoted plain text value
-    }
-
+    write_attributes(out, attributes);
     out << "]" << std::endl;
 
     return out;
@@ -103,6 +114,14 @@ std::ostream &write_node(std::ostream &out, const QString &id, const std::map<QS
     return write_node(out, id.toStdString(), stdMap);
 }
 
+std::ostream &write_edge(std::ostream &out, const std::string &sourceId, const std::string &destId, const std::map<std::string, std::string> &attributes)
+{
+    out << fmt::format("\"{}\" -> \"{}\" [", sourceId, destId);
+    write_attributes(out, attributes);
+    out << "]" << std::endl;
+    return out;
+}
+
 template<typename T>
 std::string id_str(const T &t)
 {
@@ -114,13 +133,19 @@ std::ostream &format_object(std::ostream &out , const AnalysisObject *obj, const
     auto id = id_str(obj);
     auto label = make_basic_label(obj);
 
-    write_node(out, id, {{ "label", label }, { "font", fontName }});
+    write_node(out, id, {{ "label", label }, { "fontname", fontName }});
 
     return out;
 }
 
 void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
 {
+    // TODO: colors
+    // operator background color: fillcolor="#fffbcc"
+    // condition cluster background color: bgcolor="#eeeeee"
+    // conditions fillcolor=lightblue
+
+
     //const char *FontName = "sans";
     const char *FontName = "Bitstream Vera Sans";
     std::ostringstream dotOut;
@@ -140,10 +165,11 @@ void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
 
         if (!condSet.isEmpty())
         {
-            dotOut << fmt::format("subgraph \"clusterConditions{}\" {{",
+            dotOut << fmt::format("  subgraph \"clusterConditions{}\" {{",
                                   op->getId().toString().toStdString())
                    << std::endl;
-            dotOut << "label=Conditions" << std::endl;
+            dotOut << "  label=Conditions" << std::endl;
+            dotOut << fmt::format("  fontname=\"{}\"", FontName) << std::endl;
 
             for (const auto &cond : condSet)
             {
@@ -151,6 +177,7 @@ void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
                 {
                     { "label", make_basic_label(cond.get()) },
                     { "shape", "hexagon" },
+                    { "fontname", FontName },
                 };
                 write_node(dotOut, id_str(cond), attribs);
             }
@@ -159,9 +186,14 @@ void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
 
             for (const auto &cond : condSet)
             {
-                dotOut << fmt::format("\"{}\" -> \"{}\" [arrowhead=diamond, color=blue]",
-                                        id_str(op), id_str(cond))
-                        << std::endl;
+                //dotOut << fmt::format("\"{}\" -> \"{}\" [arrowhead=diamond, color=blue]",
+                //                        id_str(op), id_str(cond))
+                //        << std::endl;
+                write_edge(dotOut, id_str(op), id_str(cond),
+                           {
+                               {"arrowhead", "diamond"},
+                               {"color", "blue"},
+                           });
             }
         }
     }
@@ -174,6 +206,19 @@ void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
     spdlog::info("dot -> svg data:\n{}\n", m_dotManager.svgData().toStdString());
 
     //m_graphView->setTransform({}); // resets zoom
+}
+
+void ObjectInfoWidget::Private::showGraphViewContextMenu(const QPoint &pos)
+{
+    auto menu = new QMenu;
+    menu->addAction("Copy DOT code", [this]() {
+        auto dotString = m_dotManager.dotString();
+        auto clipboard = QGuiApplication::clipboard();
+        clipboard->setText(QString::fromStdString(dotString));
+    });
+
+    menu->exec(m_graphView->mapToGlobal(pos));
+    menu->deleteLater();
 }
 
 ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -195,6 +240,7 @@ ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent
         QPainter::SmoothPixmapTransform | QPainter::HighQualityAntialiasing);
     m_d->m_graphView->setDragMode(QGraphicsView::ScrollHandDrag);
     m_d->m_graphView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    m_d->m_graphView->setContextMenuPolicy(Qt::CustomContextMenu);
     new MouseWheelZoomer(m_d->m_graphView, m_d->m_graphView);
 
     auto layout = new QVBoxLayout(this);
@@ -207,6 +253,9 @@ ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent
 
     connect(asp, &AnalysisServiceProvider::vmeConfigAboutToBeSet,
             this, &ObjectInfoWidget::clear);
+
+    connect(m_d->m_graphView, &QWidget::customContextMenuRequested,
+            this, [this] (const QPoint &pos) { m_d->showGraphViewContextMenu(pos); });
 }
 
 ObjectInfoWidget::~ObjectInfoWidget()
@@ -370,6 +419,5 @@ void ObjectInfoWidget::clear()
     m_d->m_configObject = nullptr;
     m_d->m_infoLabel->clear();
 }
-
 
 } // end namespace analysis

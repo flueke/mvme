@@ -393,11 +393,9 @@ target_link_libraries(libmvme
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
-    # graphviz libraries
-    PRIVATE cdt
-    PRIVATE cgraph
-    PRIVATE gvc
-    PRIVATE libgvplugin_dot_layout
+    PRIVATE ${GRAPHVIZ_CDT_LIBRARY}
+    PRIVATE ${GRAPHVIZ_CGRAPH_LIBRARY}
+    PRIVATE ${GRAPHVIZ_GVC_LIBRARY}
     )
 
 target_compile_options(libmvme
@@ -415,6 +413,7 @@ endif()
 target_include_directories(libmvme
     PRIVATE ${CMAKE_SOURCE_DIR}/external
     PRIVATE "${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/"
+    PRIVATE ${GRAPHVIZ_INCLUDE_DIRS}
     PUBLIC ${QUAZIP_INCLUDE_DIR}
     SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/"
     )
@@ -581,8 +580,10 @@ target_link_libraries(dev_graphviz_lib_test4
     PRIVATE cdt
     PRIVATE cgraph
     PRIVATE gvc
-    PRIVATE libgvplugin_dot_layout
 )
+
+add_mvme_executable(dev_dotwidget dev_dotwidget.cc)
+install(TARGETS dev_dotwidget RUNTIME DESTINATION bin)
 
 if (NOT WIN32)
 add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)

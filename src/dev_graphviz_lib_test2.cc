@@ -49,7 +49,10 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    std::ifstream dotIn("foo.dot");
+    if (argc < 2)
+        return 1;
+
+    std::ifstream dotIn(argv[1]);
     std::stringstream dotBuf;
     dotBuf << dotIn.rdbuf();
     std::string dotStr(dotBuf.str());
