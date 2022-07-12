@@ -69,8 +69,6 @@ std::string layout_and_render_dot(
     gvLayout(gvc, g, layoutEngine);
     qDebug() << "gv error buffer after gvLayout():" << g_errorBuffer.str().c_str();
 
-    qDebug() << "layout_and_render_dot: errorbuffer after gvLayout" << g_errorBuffer.str().c_str();
-
     char *renderDest = nullptr;
     unsigned int renderSize = 0;
     gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
