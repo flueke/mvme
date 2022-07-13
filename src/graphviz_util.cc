@@ -5,12 +5,16 @@
 #include <mutex>
 #include <QBoxLayout>
 #include <QDebug>
+#include <QEvent>
 #include <QGraphicsScene>
+#include <QGraphicsSceneMouseEvent>
 #include <QGraphicsView>
 #include <QSplitter>
 #include <QGroupBox>
 #include <spdlog/spdlog.h>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "analysis/code_editor.h"
 #include "qt_util.h"
@@ -124,7 +128,7 @@ QDomElement find_first_basic_svg_shape_element(const QDomNode &root)
 
     QDomElement result;
 
-    auto f = [&result] (const QDomNode &node, int) -> DomVisitResult
+    auto f = [&result] (const QDomNode &node) -> DomVisitResult
     {
         if (!result.isNull())
             return DomVisitResult::Stop;
@@ -147,18 +151,18 @@ QDomElement find_first_basic_svg_shape_element(const QDomNode &root)
 
 QDomElement find_element_by_predicate(
     const QDomNode &root,
-    const std::function<bool (const QDomElement &e, int depth)> &predicate)
+    const std::function<bool (const QDomElement &e)> &predicate)
 {
     QDomElement result;
 
-    auto visitor = [&] (const QDomNode &n, int depth) -> DomVisitResult
+    auto visitor = [&] (const QDomNode &n) -> DomVisitResult
     {
         if (!result.isNull())
            return DomVisitResult::Stop;
 
         auto e = n.toElement();
 
-        if (!e.isNull() && predicate(e, depth))
+        if (!e.isNull() && predicate(e))
         {
             result = e;
             return DomVisitResult::Stop;
@@ -172,40 +176,50 @@ QDomElement find_element_by_predicate(
     return result;
 }
 
-std::vector<std::unique_ptr<DomElementSvgItem>> create_svg_graphics_items(
-    const QByteArray &svgData,
+std::vector<std::unique_ptr<QGraphicsItem>> create_svg_graphics_items(
     const DomAndRenderer &dr,
-    const std::set<QString> &acceptedElementClasses)
+    const SvgItemFactory &itemFactory)
 {
-    std::vector<std::unique_ptr<DomElementSvgItem>> result;
+    std::vector<std::unique_ptr<QGraphicsItem>> result;
 
-    QXmlStreamReader xmlReader(svgData);
-    while (!xmlReader.atEnd())
+    auto visitor = [&](const QDomNode &n)
     {
-        switch (xmlReader.readNext())
+        auto e = n.toElement();
+
+        if (!e.isNull())
         {
-            case QXmlStreamReader::TokenType::StartElement:
+            if (auto svgItem = itemFactory(e))
             {
-                auto attributes = xmlReader.attributes();
-                auto elementClass = attributes.value("class").toString();
-
-                if (!acceptedElementClasses.count(elementClass))
-                    continue;
-
-                if (attributes.hasAttribute("id"))
-                {
-                    auto elementId = attributes.value("id").toString();
-                    auto svgItem = std::make_unique<DomElementSvgItem>(dr, elementId);
-                    result.emplace_back(std::move(svgItem));
-                }
-            } break;
-
-            default:
-                break;
+                result.emplace_back(std::move(svgItem));
+                return DomVisitResult::Stop;
+            }
         }
-    }
+
+        return DomVisitResult::Continue;
+    };
+
+    visit_dom_nodes(dr.dom(), visitor);
 
     return result;
+}
+
+std::unique_ptr<QGraphicsItem> DefaultSvgItemFactory::operator()(const QDomElement &e) const
+{
+    static const std::set<QString> &acceptedElementClasses = { "node", "edge", "cluster" };
+
+    if (!e.isNull() && e.hasAttribute("id") && e.hasAttribute("class") && acceptedElementClasses.count(e.attribute("class")))
+    {
+        auto elementId = e.attribute("id");
+
+        if (e.attribute("class") == "edge")
+        {
+            return {};
+        }
+
+        return std::make_unique<DomElementSvgItem>(dr_, elementId);
+    }
+
+    return {};
 }
 
 void DotGraphicsSceneManager::setDot(const std::string &dotStr)
@@ -217,7 +231,7 @@ void DotGraphicsSceneManager::setDot(const std::string &dotStr)
     m_svgData = layout_and_render_dot_q(m_dotStr);
     m_dotErrorBuffer = get_error_buffer();
     m_dr = { m_svgData };
-    auto items = create_svg_graphics_items(m_svgData, m_dr);
+    auto items = create_svg_graphics_items(m_dr, DefaultSvgItemFactory(m_dr));
 
     for (auto &item: items)
         m_scene->addItem(item.release());
@@ -227,17 +241,64 @@ void DotGraphicsSceneManager::setDot(const std::string &dotStr)
     m_scene->setSceneRect(m_scene->itemsBoundingRect());
 }
 
+class DotSceneEventFilter: public QObject
+{
+    public:
+        explicit DotSceneEventFilter(QObject *parent = nullptr)
+            : QObject(parent)
+    {
+    }
+
+    protected:
+        bool eventFilter(QObject *obj, QEvent *ev) override
+        {
+            if (auto scene = qobject_cast<QGraphicsScene *>(obj))
+            {
+                //qDebug() << __PRETTY_FUNCTION__ << ev << scene;
+                if (ev->type() == QEvent::GraphicsSceneMouseMove)
+                {
+                    for (auto decoItem: decoItems_)
+                        decoItem->hide();
+
+                    auto me = static_cast<QGraphicsSceneMouseEvent *>(ev);
+                    //qDebug() << me << me->pos() << me->scenePos() << me->button();
+                    auto items = scene->items(me->scenePos());
+                    qDebug() << items;
+                    for (auto item: items)
+                    {
+                        if (!decoItems_.count(item) && !decoMap_.count(item))
+                        {
+                            // FIXME: on scene clear the decoMap_ will not be updated
+                            auto decoItem = scene->addRect(item->boundingRect(), QPen(Qt::red));
+                            decoItem->setPos(item->pos());
+                            decoMap_.insert({item, decoItem});
+                            decoItems_.insert(decoItem);
+                        }
+
+                        decoMap_[item]->show();
+                    }
+                }
+            }
+
+            return QObject::eventFilter(obj, ev);
+        }
+
+    private:
+        std::unordered_map<QGraphicsItem *, QGraphicsItem *> decoMap_; // item -> deco item
+        std::unordered_set<QGraphicsItem *> decoItems_; // set of all deco items added to the scene
+};
+
 struct DotWidget::Private
 {
-    DotGraphicsSceneManager manager_;
+    DotGraphicsSceneManager sceneManager_;
     QGraphicsView *view_;
     CodeEditor *dotEditor_;
     CodeEditor *svgEditor_;
 
     void onDotTextChanged()
     {
-        manager_.setDot(dotEditor_->toPlainText());
-        svgEditor_->setPlainText(manager_.svgData());
+        sceneManager_.setDot(dotEditor_->toPlainText());
+        svgEditor_->setPlainText(sceneManager_.svgData());
     }
 };
 
@@ -250,7 +311,9 @@ DotWidget::DotWidget(QWidget *parent)
     d->svgEditor_ = new CodeEditor;
     new MouseWheelZoomer(d->view_, d->view_);
 
-    d->view_->setScene(d->manager_.scene());
+    d->sceneManager_.scene()->installEventFilter(new DotSceneEventFilter(this));
+
+    d->view_->setScene(d->sceneManager_.scene());
     d->view_->setRenderHints(
         QPainter::Antialiasing | QPainter::TextAntialiasing |
         QPainter::SmoothPixmapTransform | QPainter::HighQualityAntialiasing);
@@ -276,10 +339,12 @@ DotWidget::DotWidget(QWidget *parent)
     l_gfxView->addWidget(d->view_);
 
     auto vSplitter = new QSplitter(Qt::Vertical);
+    vSplitter->setObjectName("editorsSplitter");
     vSplitter->addWidget(gb_dotEditor);
     vSplitter->addWidget(gb_svgEditor);
 
     auto hSplitter = new QSplitter(Qt::Horizontal);
+    hSplitter->setObjectName("lrSplitter");
     hSplitter->addWidget(vSplitter);
     hSplitter->addWidget(gb_gfxView);
 
@@ -292,6 +357,16 @@ DotWidget::DotWidget(QWidget *parent)
 
 DotWidget::~DotWidget()
 {
+}
+
+void DotWidget::setDot(const std::string &dotStr)
+{
+    d->dotEditor_->setPlainText(QString::fromStdString(dotStr));
+}
+
+DotGraphicsSceneManager *DotWidget::sceneManager() const
+{
+    return &d->sceneManager_;
 }
 
 }

@@ -8,7 +8,6 @@
 #include <QString>
 #include <QSvgRenderer>
 #include <QWidget>
-#include <QXmlStreamReader>
 #include <set>
 
 #include "libmvme_export.h"
@@ -71,43 +70,37 @@ enum class DomVisitResult
     Stop
 };
 
-using DomNodeVisitor = std::function<DomVisitResult (const QDomNode &node, int depth)>;
+using DomNodeVisitor = std::function<DomVisitResult (const QDomNode &node)>;
 
 // Depth first search starting at the given root node.
-inline void visit_dom_nodes(const QDomNode &node, int depth, const DomNodeVisitor &f)
+inline void visit_dom_nodes(const QDomNode &node, const DomNodeVisitor &f)
 {
-    if (f(node, depth) == DomVisitResult::Stop)
+    if (f(node) == DomVisitResult::Stop)
         return;
 
     auto n = node.firstChild();
 
     while (!n.isNull())
     {
-        visit_dom_nodes(n, depth+1, f);
+        visit_dom_nodes(n, f);
         n = n.nextSibling();
     }
 }
 
-inline void visit_dom_nodes(const QDomNode &root, const DomNodeVisitor &f)
+inline void visit_dom_nodes(const QDomDocument &doc, const DomNodeVisitor &f)
 {
-    visit_dom_nodes(root, 0, f);
-}
-
-inline void visit_dom_nodes(QDomDocument &doc, const DomNodeVisitor &f)
-{
-    auto n = doc.documentElement();
-    visit_dom_nodes(n, f);
+    visit_dom_nodes(doc.documentElement(), f);
 }
 
 QDomElement find_first_basic_svg_shape_element(const QDomNode &root);
 
 QDomElement find_element_by_predicate(
     const QDomNode &root,
-    const std::function<bool (const QDomElement &e, int depth)> &predicate);
+    const std::function<bool (const QDomElement &e)> &predicate);
 
 inline QDomElement find_element_by_id(const QDomNode &root, const QString &id)
 {
-    auto predicate = [&id] (const QDomElement &e, int)
+    auto predicate = [&id] (const QDomElement &e)
     {
         return (e.hasAttribute("id") && e.attribute("id") == id);
     };
@@ -137,11 +130,23 @@ class DomAndRenderer
             dom_.setContent(svgData);
         }
 
-        QSvgRenderer *renderer() const { return renderer_.get(); }
-        QDomDocument dom() const { return dom_; }
-        void reload()
+        QSvgRenderer *renderer() const { return renderer_.get(); };
+        const QDomDocument &dom() const { return dom_; }
+
+        void reloadFromDom()
         {
             renderer_->load(dom_.toByteArray());
+        }
+
+        void setDomContent(const QByteArray &svgData)
+        {
+            dom_.setContent(svgData);
+            renderer_->load(svgData);
+        }
+
+        QByteArray domConent() const
+        {
+            return dom_.toByteArray();
         }
 
     private:
@@ -181,7 +186,7 @@ class DomElementSvgItem : public QGraphicsSvgItem
             if (!shapeElement.isNull())
             {
                 shapeElement.setAttribute("fill", c.name());
-                dr_.reload();
+                dr_.reloadFromDom();
             }
         }
 
@@ -189,10 +194,35 @@ class DomElementSvgItem : public QGraphicsSvgItem
         DomAndRenderer dr_;
 };
 
-std::vector<std::unique_ptr<DomElementSvgItem>> create_svg_graphics_items(
-    const QByteArray &svgData,
+class EdgeItem: public QGraphicsItem
+{
+    public:
+
+};
+
+class SvgItemFactory
+{
+    public:
+        virtual ~SvgItemFactory() {}
+        virtual std::unique_ptr<QGraphicsItem> operator()(const QDomElement &e) const = 0;
+};
+
+class DefaultSvgItemFactory: public SvgItemFactory
+{
+    public:
+        DefaultSvgItemFactory(const DomAndRenderer &dr)
+           : dr_(dr)
+        { }
+
+        std::unique_ptr<QGraphicsItem> operator()(const QDomElement &e) const override;
+
+    private:
+       DomAndRenderer dr_;
+};
+
+std::vector<std::unique_ptr<QGraphicsItem>> create_svg_graphics_items(
     const DomAndRenderer &dr,
-    const std::set<QString> &acceptedElementClasses = { "node", "edge", "cluster" });
+    const SvgItemFactory &itemFactory);
 
 class DotGraphicsSceneManager
 {
@@ -231,6 +261,9 @@ class DotWidget: public QWidget
     public:
         explicit DotWidget(QWidget *parent = nullptr);
         virtual ~DotWidget() override;
+
+    void setDot(const std::string &dotStr);
+    DotGraphicsSceneManager *sceneManager() const;
 
     private:
         struct Private;
