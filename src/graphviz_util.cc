@@ -222,7 +222,7 @@ std::unique_ptr<QGraphicsItem> DefaultSvgItemFactory::operator()(const QDomEleme
     return {};
 }
 
-void DotGraphicsSceneManager::setDot(const std::string &dotStr)
+void DotSvgGraphicsSceneManager::setDot(const std::string &dotStr)
 {
     m_scene->clear();
 
@@ -290,7 +290,7 @@ class DotSceneEventFilter: public QObject
 
 struct DotWidget::Private
 {
-    DotGraphicsSceneManager sceneManager_;
+    DotSvgGraphicsSceneManager sceneManager_;
     QGraphicsView *view_;
     CodeEditor *dotEditor_;
     CodeEditor *svgEditor_;
@@ -364,7 +364,7 @@ void DotWidget::setDot(const std::string &dotStr)
     d->dotEditor_->setPlainText(QString::fromStdString(dotStr));
 }
 
-DotGraphicsSceneManager *DotWidget::sceneManager() const
+DotSvgGraphicsSceneManager *DotWidget::sceneManager() const
 {
     return &d->sceneManager_;
 }

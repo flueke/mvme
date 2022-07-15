@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    std::ifstream dotIn("bar.dot");
+    std::ifstream dotIn("blob.dot");
     dotIn.exceptions(std::ios_base::failbit | std::ios_base::badbit);
     std::stringstream dotBuf;
     dotBuf << dotIn.rdbuf();

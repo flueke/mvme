@@ -224,15 +224,15 @@ std::vector<std::unique_ptr<QGraphicsItem>> create_svg_graphics_items(
     const DomAndRenderer &dr,
     const SvgItemFactory &itemFactory);
 
-class DotGraphicsSceneManager
+class DotSvgGraphicsSceneManager
 {
     public:
-        DotGraphicsSceneManager()
+        DotSvgGraphicsSceneManager()
             : m_scene(std::make_unique<QGraphicsScene>())
         {
         }
 
-        DotGraphicsSceneManager(std::unique_ptr<QGraphicsScene> &&scene)
+        DotSvgGraphicsSceneManager(std::unique_ptr<QGraphicsScene> &&scene)
             : m_scene(std::move(scene))
         {
         }
@@ -263,7 +263,7 @@ class DotWidget: public QWidget
         virtual ~DotWidget() override;
 
     void setDot(const std::string &dotStr);
-    DotGraphicsSceneManager *sceneManager() const;
+    DotSvgGraphicsSceneManager *sceneManager() const;
 
     private:
         struct Private;
