@@ -1,3 +1,6 @@
-[submodule "3rdparty/mesytec-mvlc"]
+[submodule "external/mesytec-mvlc"]
 	path = external/mesytec-mvlc
 	url = ../mesytec-mvlc.git
+[submodule "external/qgv"]
+	path = external/qgv
+	url = roflo:~/var/git/qgv.git

@@ -288,7 +288,7 @@ class DotSceneEventFilter: public QObject
         std::unordered_set<QGraphicsItem *> decoItems_; // set of all deco items added to the scene
 };
 
-struct DotWidget::Private
+struct DotSvgWidget::Private
 {
     DotSvgGraphicsSceneManager sceneManager_;
     QGraphicsView *view_;
@@ -302,7 +302,7 @@ struct DotWidget::Private
     }
 };
 
-DotWidget::DotWidget(QWidget *parent)
+DotSvgWidget::DotSvgWidget(QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
@@ -355,16 +355,16 @@ DotWidget::DotWidget(QWidget *parent)
             this, [this] () { d->onDotTextChanged(); });
 }
 
-DotWidget::~DotWidget()
+DotSvgWidget::~DotSvgWidget()
 {
 }
 
-void DotWidget::setDot(const std::string &dotStr)
+void DotSvgWidget::setDot(const std::string &dotStr)
 {
     d->dotEditor_->setPlainText(QString::fromStdString(dotStr));
 }
 
-DotSvgGraphicsSceneManager *DotWidget::sceneManager() const
+DotSvgGraphicsSceneManager *DotSvgWidget::sceneManager() const
 {
     return &d->sceneManager_;
 }

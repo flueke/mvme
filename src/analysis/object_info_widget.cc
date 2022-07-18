@@ -51,7 +51,7 @@ struct ObjectInfoWidget::Private
     QLabel *m_infoLabel;
     QGraphicsView *m_graphView;
 
-    mesytec::graphviz_util::DotGraphicsSceneManager m_dotManager;
+    mesytec::graphviz_util::DotSvgGraphicsSceneManager m_dotManager;
 
     void refreshGraphView(const AnalysisObjectPtr &obj);
     void showGraphViewContextMenu(const QPoint &pos);

@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     std::stringstream dotBuf;
     dotBuf << dotIn.rdbuf();
 
-    mesytec::graphviz_util::DotWidget dotWidget;
+    mesytec::graphviz_util::DotSvgWidget dotWidget;
     add_widget_close_action(&dotWidget);
 
     dotWidget.setDot(dotBuf.str());

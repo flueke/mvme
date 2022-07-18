@@ -255,12 +255,12 @@ class DotSvgGraphicsSceneManager
         std::string m_dotErrorBuffer;
 };
 
-class DotWidget: public QWidget
+class DotSvgWidget: public QWidget
 {
     Q_OBJECT
     public:
-        explicit DotWidget(QWidget *parent = nullptr);
-        virtual ~DotWidget() override;
+        explicit DotSvgWidget(QWidget *parent = nullptr);
+        virtual ~DotSvgWidget() override;
 
     void setDot(const std::string &dotStr);
     DotSvgGraphicsSceneManager *sceneManager() const;
