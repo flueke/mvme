@@ -396,6 +396,7 @@ target_link_libraries(libmvme
     PRIVATE ${GRAPHVIZ_CDT_LIBRARY}
     PRIVATE ${GRAPHVIZ_CGRAPH_LIBRARY}
     PRIVATE ${GRAPHVIZ_GVC_LIBRARY}
+    PRIVATE qgvcore
     )
 
 target_compile_options(libmvme

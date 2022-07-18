@@ -38,3 +38,5 @@ INSTALL(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pybind11 DESTINATION include)
 if (MVME_BUILD_TESTS)
     add_subdirectory(googletest)
 endif()
+
+add_subdirectory(qgv)

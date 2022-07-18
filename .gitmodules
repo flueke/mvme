@@ -3,4 +3,4 @@
 	url = ../mesytec-mvlc.git
 [submodule "external/qgv"]
 	path = external/qgv
-	url = roflo:~/var/git/qgv.git
+	url = ../qgv.git
