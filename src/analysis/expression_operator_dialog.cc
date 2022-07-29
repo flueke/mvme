@@ -2417,7 +2417,7 @@ struct ExpressionConditionDialog::Private
     void onSlotGridSlotAdded()
     {
         m_eventWidget->endSelectInput();
-        m_op->addSlot();
+        m_model->opClone->addSlot();
         m_model->inputs.push_back({});
         m_model->inputStorage.push_back({});
         m_model->inputIndexes.push_back(a2::NoParamIndex);
