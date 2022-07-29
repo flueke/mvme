@@ -384,7 +384,6 @@ AnalysisObjectStore deserialize_objects(
             dir->setEventId(QUuid(objectJson["eventId"].toString()));
             dir->setUserLevel(objectJson["userLevel"].toInt());
             dir->read(objectJson["data"].toObject());
-            dir->setObjectFlags(ObjectFlags::NeedsRebuild);
 
             result.directories.push_back(dir);
             result.objectsById.insert(dir->getId(), dir);

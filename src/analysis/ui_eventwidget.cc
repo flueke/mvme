@@ -1454,6 +1454,10 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 #endif
     }
 
+    // Repopulate on service provider operatorEdited signal
+    connect(serviceProvider, &AnalysisServiceProvider::analysisOperatorEdited,
+            this, [this]() { m_d->repopulate(); }, Qt::QueuedConnection);
+
     m_d->repopulate();
 }
 
@@ -1505,24 +1509,23 @@ void EventWidget::endSelectInput()
 
 void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
 {
-    auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
-    {
-        if (doHighlight)
-            node->setBackground(0, color);
-        else
-            node->setBackground(0, QColor(0, 0, 0, 0));
-    };
-
-    if (!slot || !slot->isParamIndexInRange())
+    if (!slot)
         return;
 
-    auto sourcePipe = slot->inputPipe;
-    auto source = sourcePipe->source;
+    highlightInputPipe(slot->inputPipe, slot->paramIndex, doHighlight);
+}
 
-    if (!source)
+void EventWidget::highlightInputPipe(Pipe *pipe, bool doHighlight)
+{
+    highlightInputPipe(pipe, -1, doHighlight);
+}
+
+void EventWidget::highlightInputPipe(Pipe *pipe, s32 paramIndex, bool doHighlight)
+{
+    if (!pipe || !pipe->source)
         return;
 
-    auto sourceNode = m_d->m_objectMap[source->shared_from_this()];
+    auto sourceNode = m_d->m_objectMap[pipe->source->shared_from_this()];
 
     if (!sourceNode)
         return;
@@ -1530,18 +1533,26 @@ void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
     // Find the parent node of the sourcePipes output array.
     QTreeWidgetItem *outputArrayParent = nullptr;
 
-    if (qobject_cast<SourceInterface *>(source) && source->getNumberOfOutputs() == 1)
+    if (qobject_cast<SourceInterface *>(pipe->source) && pipe->source->getNumberOfOutputs() == 1)
         outputArrayParent = sourceNode;
     else
-        outputArrayParent = sourceNode->child(sourcePipe->sourceOutputIndex);;
+        outputArrayParent = sourceNode->child(pipe->sourceOutputIndex);;
 
     if (!outputArrayParent)
         return;
 
     auto nodeToHighlight = outputArrayParent;
 
-    if (slot->isParameterConnection() && slot->paramIndex < outputArrayParent->childCount())
-        nodeToHighlight = outputArrayParent->child(slot->paramIndex);
+    if (paramIndex != Slot::NoParamIndex && paramIndex < outputArrayParent->childCount())
+        nodeToHighlight = outputArrayParent->child(paramIndex);
+
+    auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
+    {
+        if (doHighlight)
+            node->setBackground(0, color);
+        else
+            node->setBackground(0, QColor(0, 0, 0, 0));
+    };
 
     highlight_node(nodeToHighlight, InputNodeOfColor);
 
@@ -2354,7 +2365,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         });
 
         QObject::connect(tree, &QTreeWidget::itemActivated,
-                         m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
+                         m_q, [this] (QTreeWidgetItem *node, int column) {
             qDebug() << "### tree itemActivated:" << node << column;
         });
 
@@ -2365,7 +2376,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
 
         // keyboard interaction changes the treewidgets current item
         QObject::connect(tree, &QTreeWidget::currentItemChanged,
-                         m_q, [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous)
+                         m_q, [this](QTreeWidgetItem *current, QTreeWidgetItem *previous)
                          {
                              (void) current;
                              (void) previous;
@@ -2523,8 +2534,6 @@ void EventWidgetPrivate::repopulate()
     expandObjectNodes(m_levelTrees, m_expandedObjects);
     clearAllToDefaultNodeHighlights();
     updateActions();
-
-    //m_analysisWidget->getConditionWidget()->repopulate();
 
 #ifndef NDEBUG
     qDebug() << __PRETTY_FUNCTION__ << this << "_-_-_-_-_-"
@@ -3659,6 +3668,16 @@ static bool is_valid_input_node(QTreeWidgetItem *node, Slot *slot,
         result = true;
     }
 
+    if ((slot->acceptedInputTypes & InputType::Value
+         && srcObject
+         && srcObject->getNumberOfOutputs() == 1
+         && srcObject->getOutput(0)->getSize() == 1)
+       )
+    {
+        // Want value input, source has a single output containing a single value -> valid.
+        result = true;
+    }
+
     return result;
 }
 
@@ -3667,6 +3686,12 @@ void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
     if (is_valid_input_node(node, m_inputSelectInfo.slot, m_inputSelectInfo.additionalInvalidSources))
     {
         node->setBackground(0, ValidInputNodeColor);
+
+        for (auto cn = node->parent(); cn != nullptr; cn = cn->parent())
+        {
+            if (!is_valid_input_node(cn, m_inputSelectInfo.slot, m_inputSelectInfo.additionalInvalidSources))
+                cn->setBackground(0, ChildIsInputNodeOfColor);
+        }
     }
 
     for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
@@ -3997,13 +4022,18 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                         case NodeType_Source:
                         case NodeType_Operator:
                             {
-                                Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
+                                //Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
 
                                 PipeSourceInterface *source = get_pointer<PipeSourceInterface>(
                                     node, DataRole_AnalysisObject);
 
                                 selectedPipe       = source->getOutput(0);
-                                selectedParamIndex = Slot::NoParamIndex;
+
+                                if (slot->acceptedInputTypes & InputType::Array)
+                                    selectedParamIndex = Slot::NoParamIndex;
+                                else if (slot->acceptedInputTypes & InputType::Value
+                                         && selectedPipe->getSize() > 0)
+                                    selectedParamIndex = 0;
 
                                 //slot->connectPipe(source->getOutput(0), Slot::NoParamIndex);
                             } break;

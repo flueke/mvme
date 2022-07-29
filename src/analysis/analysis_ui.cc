@@ -422,7 +422,7 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
 #if 0
     m_conditionWidget->doPeriodicUpdate();
 #endif
-    m_objectInfoWidget->refresh();
+    //m_objectInfoWidget->refresh();
 }
 
 void AnalysisWidgetPrivate::closeAllUniqueWidgets()
@@ -955,28 +955,6 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     {
         m_d->m_objectInfoWidget = new ObjectInfoWidget(m_d->m_serviceProvider);
     }
-
-#if 0
-    // condition/cut displays
-    {
-        m_d->m_conditionWidget = new ConditionWidget(m_d->m_serviceProvider);
-        auto condWidget = m_d->m_conditionWidget;
-
-        QObject::connect(condWidget, &ConditionWidget::objectSelected,
-                         this, [this] (const AnalysisObjectPtr &) {
-
-            m_d->m_eventWidget->m_d->clearAllTreeSelections();
-        });
-
-        QObject::connect(condWidget, &ConditionWidget::editCondition,
-                         this, [this] (const ConditionLink &cl) {
-            m_d->editConditionLinkGraphically(cl);
-        });
-
-        QObject::connect(condWidget, &ConditionWidget::objectSelected,
-                         m_d->m_objectInfoWidget, &ObjectInfoWidget::setAnalysisObject);
-    }
-#endif
 
     // toolbar
     {

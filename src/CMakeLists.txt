@@ -13,6 +13,7 @@ find_package(Qt5OpenGL REQUIRED)
 find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Xml REQUIRED)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -56,6 +57,11 @@ endif()
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+
+find_package(Graphviz REQUIRED)
+include_directories(${GRAPHVIZ_INCLUDE_DIRS})
+message("-- Using GRAPHVIZ_INCLUDE_DIRS=${GRAPHVIZ_INCLUDE_DIRS}")
+message("-- Using GRAPHVIZ_LIBRARIES=${GRAPHVIZ_LIBRARIES}")
 
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
@@ -132,6 +138,7 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::OpenGL
     PUBLIC Qt5::Svg
     PUBLIC Qt5::Widgets
+    PUBLIC Qt5::Xml
     PUBLIC libmvme_resources
     )
 
@@ -250,6 +257,7 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
     mesytec_diagnostics.ui
     vme_debug_widget.ui
     analysis/interval_condition_dialog.ui
+    analysis/polygon_condition_dialog.ui
     )
 
 add_library(libmvme SHARED
@@ -285,6 +293,8 @@ add_library(libmvme SHARED
     data_filter_edit.cc
     file_autosaver.cc
     globals.cc
+    graphviz_util.cc
+    graphicsview_util.cc
     gui_util.cc
     histo1d.cc
     histo1d_util.cc
@@ -383,6 +393,10 @@ target_link_libraries(libmvme
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
+    PRIVATE ${GRAPHVIZ_CDT_LIBRARY}
+    PRIVATE ${GRAPHVIZ_CGRAPH_LIBRARY}
+    PRIVATE ${GRAPHVIZ_GVC_LIBRARY}
+    PRIVATE qgvcore
     )
 
 target_compile_options(libmvme
@@ -400,6 +414,7 @@ endif()
 target_include_directories(libmvme
     PRIVATE ${CMAKE_SOURCE_DIR}/external
     PRIVATE "${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/"
+    PRIVATE ${GRAPHVIZ_INCLUDE_DIRS}
     PUBLIC ${QUAZIP_INCLUDE_DIR}
     SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/"
     )
@@ -546,6 +561,31 @@ add_mvme_executable(mvme_multi_crate_gui multi_crate_gui_main.cc)
 add_mvme_executable(dev_multi_crate_playground_cli dev_multi_crate_playground_cli.cc)
 add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 add_mvme_executable(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
+add_mvme_executable(dev_analysis_to_dot dev_analysis_to_dot.cc)
+
+add_mvme_executable(dev_graphviz_lib_test0 dev_graphviz_lib_test0.cc)
+target_link_libraries(dev_graphviz_lib_test0 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+add_mvme_executable(dev_graphviz_lib_test1 dev_graphviz_lib_test1.cc)
+target_link_libraries(dev_graphviz_lib_test1 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+add_mvme_executable(dev_graphviz_lib_test2 dev_graphviz_lib_test2.cc)
+target_link_libraries(dev_graphviz_lib_test2 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+add_mvme_executable(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
+#target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc PRIVATE libgvplugin_dot_layout)
+install(TARGETS dev_graphviz_lib_test3 RUNTIME DESTINATION bin)
+
+add_executable(dev_graphviz_lib_test4 dev_graphviz_lib_test4.cc)
+target_link_libraries(dev_graphviz_lib_test4
+    PRIVATE cdt
+    PRIVATE cgraph
+    PRIVATE gvc
+)
+
+add_mvme_executable(dev_dotwidget dev_dotwidget.cc)
+install(TARGETS dev_dotwidget RUNTIME DESTINATION bin)
+
 if (NOT WIN32)
 add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_executable(dev_histo_ui dev_histo_ui.cc)

@@ -62,7 +62,7 @@ static const int modeNA(0x400);
 static const int modeMB(0x800);
 static const int modeSLF(0x1000);
 static const int modeMarker(0x2000);
-static const int modeDelay(0x8000); 
+static const int modeDelay(0x8000);
 static const int modeBE(0x10000);
 static const int modeHD(0x20000);
 static const int modeND(0x40000);
@@ -130,7 +130,7 @@ CVMUSBReadoutList::CVMUSBReadoutList(const CVMUSBReadoutList& rhs) :
 CVMUSBReadoutList::~CVMUSBReadoutList()
 {}
 
-CVMUSBReadoutList& 
+CVMUSBReadoutList&
 CVMUSBReadoutList::operator=(const CVMUSBReadoutList& rhs)
 {
   if (this != &rhs) {
@@ -264,10 +264,12 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             {
                 u8 amod = cmd.addressMode;
 
-                if (amod == vme_address_modes::A32)
+                if (amod == vme_address_modes::a32UserData
+                    || amod == vme_address_modes::a32PrivData)
                     amod = vme_address_modes::BLT32;
 
-                if (amod == vme_address_modes::A24)
+                if (amod == vme_address_modes::a24UserData
+                    || amod == vme_address_modes::a24PrivData)
                     amod = vme_address_modes::a24PrivBlock;
 
                 addBlockRead32(cmd.address, amod, cmd.transfers);
@@ -278,10 +280,12 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             {
                 u8 amod = cmd.addressMode;
 
-                if (amod == vme_address_modes::A32)
+                if (amod == vme_address_modes::a32UserData
+                    || amod == vme_address_modes::a32PrivData)
                     amod = vme_address_modes::BLT32;
 
-                if (amod == vme_address_modes::A24)
+                if (amod == vme_address_modes::a24UserData
+                    || amod == vme_address_modes::a24PrivData)
                     amod = vme_address_modes::a24PrivBlock;
 
                 addFifoRead32(cmd.address, amod, cmd.transfers);
@@ -293,7 +297,8 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             {
                 u8 amod = cmd.addressMode;
 
-                if (amod == vme_address_modes::A32)
+                if (amod == vme_address_modes::a32UserData
+                    || amod == vme_address_modes::a32PrivData)
                     amod = vme_address_modes::MBLT64;
 
                 addBlockRead32(cmd.address, amod, cmd.transfers);
@@ -304,7 +309,8 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             {
                 u8 amod = cmd.addressMode;
 
-                if (amod == vme_address_modes::A32)
+                if (amod == vme_address_modes::a32UserData
+                    || amod == vme_address_modes::a32PrivData)
                     amod = vme_address_modes::MBLT64;
 
                 addFifoRead32(cmd.address, amod, cmd.transfers);
@@ -328,8 +334,8 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
 
 /*!
     Add a register read to a stack.  Register reads are just like
-    single shot 32 bit reads but the SLF bit must be set in the 
-    mode line.  I am assuming that we don't need stuff like the 
+    single shot 32 bit reads but the SLF bit must be set in the
+    mode line.  I am assuming that we don't need stuff like the
     DS bits either, as those are significant only for VME bus.
    \param address  : unsigned int
        Register address, see 3.4 of the VM-USB manual for a table
@@ -341,7 +347,7 @@ CVMUSBReadoutList::addRegisterRead(unsigned int address)
     uint32_t mode = modeNW  | modeSLF;
     m_list.push_back(mode);
     m_list.push_back(address);
-	
+
 }
 /*!
    Add a register write to a stack. Register writes are the same
@@ -352,7 +358,7 @@ CVMUSBReadoutList::addRegisterRead(unsigned int address)
    \param address : unsigned int
        Address of the register.  See VM-USB manual section 3.4 for
        a table of addresses.
-   \param data    : uint32_t 
+   \param data    : uint32_t
       The data to write.  Note that some registers are only 16 bits
       wide.  In these cases, set the low order 16 bits of the data.
 */
@@ -369,7 +375,7 @@ CVMUSBReadoutList::addRegisterWrite(unsigned int address,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// 
+//
 // Single shot VME write operations:
 
 /*!
@@ -382,7 +388,7 @@ CVMUSBReadoutList::addRegisterWrite(unsigned int address,
      Instead, the address will have the bottom 2 bits set to 0.
      The VM-USB does not support marshalling the longword into an appropriate
      multi-transfer UAT, and neither do we.
- 
+
    \param address : uint32_t
        The address to which the data are transferred. It is the caller's
        responsibility to ensure that this is longword aligned.
@@ -410,10 +416,10 @@ CVMUSBReadoutList::addWrite32(uint32_t address, uint8_t amod, uint32_t datum)
    address modifier is acceptalbe.   This version has the following restrictions:
    - No checking for address modifier suitability is done.
    - The address must be word aligned.  The bottom bit of the address will be
-     silently zeroed if this is not the case.  
+     silently zeroed if this is not the case.
 
    \param address : uint32_t
-       Address to which the data are transferred.  
+       Address to which the data are transferred.
    \param amod : uint8_t
        The 6 bit address modifier for the transfer.  Extraneous bits are
        silently masked off.
@@ -438,7 +444,7 @@ CVMUSBReadoutList::addWrite16(uint32_t address, uint8_t amod, uint16_t datum)
 
 }
 /*!
-   Add a single 8 bit write to the list. 
+   Add a single 8 bit write to the list.
    - No checking for the address modifier is done, and any extraneous
      bits in it are silently discarded.
 
@@ -466,10 +472,10 @@ CVMUSBReadoutList::addWrite8(uint32_t address, uint8_t amod, uint8_t datum)
   m_list.push_back(laddr);
 
   // The claim is that the data must be shifted to the correct lane.
-  // some old code I have does not do this.. What I'm going to do so I 
+  // some old code I have does not do this.. What I'm going to do so I
   // don't have to think too hard about whether or not this is correct
   // is to put the data byte on both D0-D7 and D8-D15, so it does not
-  // matter if 
+  // matter if
   // - an even byte is being written, or odd
   // - the data has to or does not have to be in the appropriate data lanes.
   //
@@ -478,7 +484,7 @@ CVMUSBReadoutList::addWrite8(uint32_t address, uint8_t amod, uint8_t datum)
   datum16         |= (datum16 << 8);               // D8-D15.
 
   m_list.push_back(datum16);
-  
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -508,13 +514,13 @@ CVMUSBReadoutList::addRead32(uint32_t address, uint8_t amod)
    datum to transfer:
    - The address modifier is not checked for validity, and extraneous bits are
      silently discarded.
-   - Data must be word aligned, but this is not checked for validity. 
+   - Data must be word aligned, but this is not checked for validity.
    \param address : uint32_t
       The transfer address.
    \param amod : uint8_t
       Address modifier gated on the bus for the transfer.
 */
-void 
+void
 CVMUSBReadoutList::addRead16(uint32_t address, uint8_t amod)
 {
   uint32_t mode = modeNW | ((static_cast<uint32_t>(amod) << modeAMShift) & modeAMMask);
@@ -523,13 +529,13 @@ CVMUSBReadoutList::addRead16(uint32_t address, uint8_t amod)
 }
 /*!
    Add an 8 bit read to the list.  Note that at this time, I am not 100%
-   sure which data lanes will hold the result.  The VME spec is 
+   sure which data lanes will hold the result.  The VME spec is
    contradictory between the spec and the examples, I \em think,
    even bytes get returned in D0-D7, while odd bytes in D8-D15.
    When this is thoroughly tested, this comment must be fixed.
    \param address : uint32_t
       The transfer address
-   \param amod : uint8_t 
+   \param amod : uint8_t
       The address modifier. No legality checking is done, and any
       extraneous bits are silently discarded.
 */
@@ -545,7 +551,7 @@ CVMUSBReadoutList::addRead8(uint32_t address, uint8_t amod)
 //////////////////////////////////////////////////////////////////////////////////
 //
 // Block transfer operations.
-//  
+//
 
 /*!
    Add a 32 bit block read to the list.  There are several requirements
@@ -554,23 +560,23 @@ CVMUSBReadoutList::addRead8(uint32_t address, uint8_t amod)
    -  The base address must be longword aligned.
    - The address modifier must be one of the block transfer modes e.g.
      CVMUSBReadoutList::a32UserBlock
-  
+
    This operation may generate more than one stack transaction, an initial
    one of complete 256 byte blocks in MB mode, and a final partial block
    transfer if necessary.
    \param baseAddress : uint32_t
       The addreess from which the first transfer occurs.
-   \param amod : uint8_t 
+   \param amod : uint8_t
       The address modifier for this transfer.  Should be one of the block
       mode modifiers.
    \param transfers : size_t
-      Number of \em longwords to transfer. 
+      Number of \em longwords to transfer.
 */
 void
 CVMUSBReadoutList::addBlockRead32(uint32_t baseAddress, uint8_t amod,
 				  size_t transfers)
 {
-  addBlockRead(baseAddress,  transfers, 
+  addBlockRead(baseAddress,  transfers,
 	       static_cast<uint32_t>(((amod << modeAMShift) & modeAMMask) | modeNW));
 }
 
@@ -596,11 +602,11 @@ CVMUSBReadoutList::addBlockWrite32(uint32_t baseAddress, uint8_t amod,
   m_list.push_back(mode);
   m_list.push_back(transfers);
   m_list.push_back(baseAddress);
-  
+
   // Put the data in the list too:
   uint32_t* src = reinterpret_cast<uint32_t*>(data);
   m_list.insert(m_list.end(), src, src+transfers);
-  
+
 }
 
 /*!
@@ -611,7 +617,7 @@ CVMUSBReadoutList::addBlockWrite32(uint32_t baseAddress, uint8_t amod,
 void
 CVMUSBReadoutList::addFifoRead32(uint32_t address, uint8_t amod, size_t transfers)
 {
-  addBlockRead(address,  transfers, static_cast<uint32_t>(modeNA | 
+  addBlockRead(address,  transfers, static_cast<uint32_t>(modeNA |
 	                                ((amod << modeAMShift) & modeAMMask) |
 	                                modeNW));
 }
@@ -694,11 +700,11 @@ CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, uint32_t starti
     m_list.push_back(base | (notlong ? addrNotLong : 0));
 
     base      += aligningTransfers * width; //  This should align the base.
-    transfers -= aligningTransfers; 
+    transfers -= aligningTransfers;
 
   }
   if (transfers == 0) return;	// itty bitty  unaligned xfer or masked count.
-  
+
 
   // There are two cases, remaining transfers are larger than a block,
   // or transfers are le a block.
@@ -717,13 +723,13 @@ CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, uint32_t starti
     mode         |= (256/width) << modeBLTShift; // Full block to xfer.
     m_list.push_back(mode);
     m_list.push_back(fullBlocks);
-    m_list.push_back(base  | (notlong ? addrNotLong : 0)); 
-  
+    m_list.push_back(base  | (notlong ? addrNotLong : 0));
+
     if ((startingMode & modeNA) == 0 ) {
       base += fullBlocks * 256;	// Adjust to end of MBLT if not FIFO read.
     }
 
-    
+
   }
   if (partialBlock) {
     uint32_t   mode = startingMode;
@@ -736,10 +742,10 @@ CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, uint32_t starti
 
 /*!
    Add a delay in stack execution
-   \param clocks : uint8_t 
+   \param clocks : uint8_t
     The number of 200ns clocks to delay the  stack execution for.
 */
-void 
+void
 CVMUSBReadoutList::addDelay(uint8_t clocks)
 {
   uint32_t line = modeDelay | clocks;
@@ -751,7 +757,7 @@ CVMUSBReadoutList::addDelay(uint8_t clocks)
   16 bits of literal data.
   \param uint16_t value    - the value to put in the buffer.
 */
-void 
+void
 CVMUSBReadoutList::addMarker(uint16_t value)
 {
   uint32_t line = modeMarker;
@@ -790,7 +796,7 @@ CVMUSBReadoutList::addBlockCountRead8(uint32_t address, uint32_t mask, uint8_t a
    \param amod    (uint8_t)  - address modifier.
 
 */
-void 
+void
 CVMUSBReadoutList::addBlockCountRead16(uint32_t address, uint32_t mask, uint8_t amod)
 {
   addRead16(address, amod);
@@ -812,8 +818,8 @@ CVMUSBReadoutList::addBlockCountRead32(uint32_t address, uint32_t mask,  uint8_t
 }
 
 /*!
-   Add a variable length block transfer.  The length of this transfer is 
-   determined by the number data last read and the current value of the 
+   Add a variable length block transfer.  The length of this transfer is
+   determined by the number data last read and the current value of the
    Number extract mask register. The stack setup is for a normal block transfer
    followed by the mask that specifies the bit field that contains the transfer count.
 
@@ -829,7 +835,7 @@ CVMUSBReadoutList::addMaskedCountBlockRead32(uint32_t address, uint8_t amod)
                                     // get generated
 }
 /*!
-   Add a variable length block transfer from a FIFO. The list must contain a prior read of 
+   Add a variable length block transfer from a FIFO. The list must contain a prior read of
    the number data (e.g. addBlockCountReadxx) prior to this with no intervening block transfers
    \param address(uint32_t) address of the fifo.
    \param amod   (uint8_t)  transfer address modifier.

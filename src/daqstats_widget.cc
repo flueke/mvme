@@ -365,7 +365,8 @@ struct DAQStatsWidgetPrivate
                 updateMVLC_ETH_Throttling(mvlcEth);
             }
 
-            updateMVLCStackErrors(mvlc->getMVLC().getStackErrorCounters());
+            if (mvlc)
+                updateMVLCStackErrors(mvlc->getMVLC().getStackErrorCounters());
 
             prevCounters.mvlcReadoutCounters = mvlcReadoutCounters;
         }

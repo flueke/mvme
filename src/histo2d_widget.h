@@ -24,9 +24,8 @@
 #include "analysis/analysis_fwd.h"
 #include "analysis_service_provider.h"
 #include "histo2d.h"
+#include "histo_ui.h"
 #include "libmvme_export.h"
-
-#include <QWidget>
 
 class QwtPlot;
 class QwtLinearColorMap;
@@ -39,7 +38,7 @@ namespace analysis
 
 struct Histo2DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo2DWidget: public QWidget
+class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
 {
     Q_OBJECT
 
@@ -55,20 +54,26 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget
         ~Histo2DWidget();
 
         void setServiceProvider(AnalysisServiceProvider *asp);
+        AnalysisServiceProvider *getServiceProvider() const;
         void setSink(const SinkPtr &sink,
                      HistoSinkCallback addSinkCallback,
                      HistoSinkCallback sinkModifiedCallback,
                      MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
 
-        virtual bool event(QEvent *event) override;
+        SinkPtr getSink() const;
+
+        bool event(QEvent *event) override;
 
         QwtPlot *getQwtPlot();
 
         void setLinZ();
         void setLogZ();
 
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
+
     public slots:
-        void replot();
+        void replot() override;
 
     private slots:
         void exportPlot();

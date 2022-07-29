@@ -68,7 +68,7 @@ class MVMEContextServiceProvider: public AnalysisServiceProvider
     public slots:
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
                                  s32 userLevel) override;
-        void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op) override;
+        void setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op) override;
 
     private:
         MVMEContext *ctx_;

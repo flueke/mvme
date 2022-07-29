@@ -212,6 +212,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
         virtual s32 getNumberOfOutputs() const = 0;
         virtual QString getOutputName(s32 outputIndex) const = 0;
         virtual Pipe *getOutput(s32 index) = 0;
+        const Pipe *getOutput(s32 index) const;
         virtual bool hasVariableNumberOfOutputs() const { return false; }
 
         virtual QString getDisplayName() const = 0;
@@ -1820,6 +1821,8 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         ResolutionReductionFactors m_rrf;
 };
 
+using Histo2DSinkPtr = std::shared_ptr<analysis::Histo2DSink>;
+
 class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
 {
     Q_OBJECT
@@ -2429,8 +2432,16 @@ namespace read_options
 };
 
 LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
-    read_analysis_config_from_file(const QString &filename, const VMEConfig *vmeConfig,
-                                   read_options::Opt = read_options::BuildAnalysis,
+    read_analysis_config_from_file(const QString &filename,
+                                   const VMEConfig *vmeConfig,
+                                   read_options::Opt options = read_options::BuildAnalysis,
+                                   Logger logger = {});
+
+// Simpler version of the above: uses a default constructed VMEConfig for the
+// call to Analysis::read().
+LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename,
+                                   read_options::Opt options = read_options::BuildAnalysis,
                                    Logger logger = {});
 
 // Returns a list of parent directory names of the object.

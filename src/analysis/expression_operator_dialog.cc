@@ -50,7 +50,7 @@
  - add a flags argument to repopulateGUIFromModel() with the option to only rebuild parts
    of the gui (i.e. leave the slotgrid intact if nothing changed there)
  - as an alternative to the flags improve the slotgrid repopulate code to reuse existing
-   items and only clear things that are not needed anymore.
+   items and only 4lear things that are not needed anymore.
  - store the result of the compilations somewhere. specifically the Step part must know if
    the Begin part has an error and thus Step was never compiled.
 
@@ -65,9 +65,8 @@ namespace ui
 // InputSelectButton
 //
 
-InputSelectButton::InputSelectButton(Slot *destSlot, EventWidget *eventWidget, QWidget *parent)
+InputSelectButton::InputSelectButton(Slot *destSlot, QWidget *parent)
     : QPushButton(QSL("<select>"), parent)
-    , m_eventWidget(eventWidget)
     , m_destSlot(destSlot)
 {
     setCheckable(true);
@@ -81,7 +80,7 @@ bool InputSelectButton::eventFilter(QObject *watched, QEvent *event)
 
     if (!isChecked() && (event->type() == QEvent::Enter || event->type() == QEvent::Leave))
     {
-        m_eventWidget->highlightInputOf(m_destSlot, event->type() == QEvent::Enter);
+        emit mouseHoverUpdate(event->type() == QEvent::Enter);
     }
 
     return false; // Do not filter the event out.
@@ -379,6 +378,7 @@ ExpressionErrorWidget::ExpressionErrorWidget(QWidget *parent)
     m_errorTable->setColumnCount(headerLabels.size());
     m_errorTable->setHorizontalHeaderLabels(headerLabels);
     m_errorTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_errorTable->horizontalHeader()->setStretchLastSection(true);
 
     auto layout = new QHBoxLayout(this);
     layout->addWidget(m_errorTable);
@@ -1374,8 +1374,8 @@ SlotGrid::SlotGrid(QWidget *parent)
     outerLayout->setStretch(0, 1);
 
 
-    connect(addSlotButton, &QPushButton::clicked, this, &SlotGrid::slotAdded);
-    connect(removeSlotButton, &QPushButton::clicked, this, &SlotGrid::slotRemoved);
+    connect(addSlotButton, &QPushButton::clicked, this, &SlotGrid::sigAddSlot);
+    connect(removeSlotButton, &QPushButton::clicked, this, &SlotGrid::sigRemoveSlot);
 }
 
 template<typename Model>
@@ -1423,7 +1423,7 @@ void repopulate(SlotGrid *slotGrid, const Model &model, EventWidget *eventWidget
     {
         Slot *slot = op->getSlot(slotIndex);
 
-        auto selectButton = new InputSelectButton(slot, eventWidget);
+        auto selectButton = new InputSelectButton(slot);
         slotGrid->selectButtons.push_back(selectButton);
 
         auto clearButton = new QPushButton(QIcon(":/dialog-close.png"), QString());
@@ -1462,6 +1462,15 @@ void repopulate(SlotGrid *slotGrid, const Model &model, EventWidget *eventWidget
             }
         });
 
+        QObject::connect(selectButton, &InputSelectButton::mouseHoverUpdate,
+                         eventWidget, [eventWidget, slotIndex, &model] (bool isHovered)
+                         {
+                             eventWidget->highlightInputPipe(
+                                 model.a1_inputPipes[slotIndex],
+                                 model.inputIndexes[slotIndex],
+                                 isHovered);
+                         });
+
         QObject::connect(clearButton, &QPushButton::clicked,
                          slotGrid, [slotGrid, selectButton, eventWidget, slotIndex]() {
 
@@ -1479,7 +1488,18 @@ void repopulate(SlotGrid *slotGrid, const Model &model, EventWidget *eventWidget
 
             if (le_inputPrefix->text().toStdString() != model.inputPrefixes[slotIndex])
             {
-                emit slotGrid->inputPrefixEdited(slotIndex, le_inputPrefix->text());
+                emit slotGrid->inputPrefixEditingFinished(slotIndex, le_inputPrefix->text());
+            }
+        });
+
+        QObject::connect(le_inputPrefix, &QLineEdit::textChanged,
+                         slotGrid, [slotGrid, &model, slotIndex, le_inputPrefix]() {
+
+            assert(static_cast<size_t>(slotIndex) < model.inputPrefixes.size());
+
+            if (le_inputPrefix->text().toStdString() != model.inputPrefixes[slotIndex])
+            {
+                emit slotGrid->inputPrefixTextChanged(slotIndex, le_inputPrefix->text());
             }
         });
 
@@ -2000,11 +2020,11 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<Express
     dialogLayout->setStretch(0, 1);
 
     // Slotgrid interactions
-    connect(m_d->m_slotGrid, &SlotGrid::slotAdded, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigAddSlot, this, [this]() {
         m_d->onAddSlotButtonClicked();
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::slotRemoved, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigRemoveSlot, this, [this]() {
         m_d->onRemoveSlotButtonClicked();
     });
 
@@ -2032,7 +2052,7 @@ ExpressionOperatorDialog::ExpressionOperatorDialog(const std::shared_ptr<Express
         m_d->onInputCleared(slotIndex);
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixEdited,
+    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixEditingFinished,
             this, [this] (s32 slotIndex, const QString &text) {
         m_d->onInputPrefixEdited(slotIndex, text);
     });
@@ -2372,6 +2392,15 @@ struct ExpressionConditionDialogModel
 
 void assert_consistency(const ExpressionConditionDialogModel &model)
 {
+    assert(model.inputs.size() == model.inputStorage.size());
+    assert(model.inputs.size() == model.inputIndexes.size());
+    assert(model.inputs.size() == model.inputPrefixes.size());
+    assert(model.inputs.size() == model.a1_inputPipes.size());
+
+    for (size_t ii = 0; ii < model.inputs.size(); ii++)
+    {
+        model.inputStorage[ii].assert_consistency(model.inputs[ii]);
+    }
 }
 
 void connect_input(ExpressionConditionDialogModel &model, s32 inputIndex, Pipe *inPipe, s32 paramIndex)
@@ -2384,10 +2413,26 @@ void connect_input(ExpressionConditionDialogModel &model, s32 inputIndex, Pipe *
     model.inputs[inputIndex] = storage.make_pipe_vectors();
     model.inputStorage[inputIndex] = std::move(storage);
     model.inputIndexes[inputIndex] = paramIndex;
-    // Note: input prefix is not touched here
-    //model.inputPrefixes[inputIndex] = model.opClone->getInputPrefix(inputIndex).toStdString();
-    // TODO: make a unique variable name from the inPipe info
     model.a1_inputPipes[inputIndex] = inPipe;
+
+    if (model.inputPrefixes[inputIndex].empty())
+    {
+        auto varName = inPipe->source->objectName().toStdString();;
+        model.inputPrefixes[inputIndex] = varName;
+    }
+}
+
+void disconnect_input(ExpressionConditionDialogModel &model, s32 inputIndex)
+{
+    assert_consistency(model);
+
+    model.inputs[inputIndex] = {};
+    model.inputStorage[inputIndex] = {};
+    model.inputIndexes[inputIndex] = a2::NoParamIndex;
+    model.inputPrefixes[inputIndex] = {};
+    model.a1_inputPipes[inputIndex] = nullptr;
+
+    assert_consistency(model);
 }
 
 struct ExpressionConditionDialog::Private
@@ -2405,14 +2450,26 @@ struct ExpressionConditionDialog::Private
     // backpointer to the eventwidget used for input selection
     EventWidget *m_eventWidget;
 
+    // data transfer to/from gui and storage of inputs
     std::unique_ptr<ExpressionConditionDialogModel> m_model;
+    // work arena for a2 operator creation
+    memory::Arena m_arena;
+    // runtime version of the operator for evaluating the expression
+    a2::Operator m_a2Op;
 
     QComboBox *combo_eventSelect;
     QLineEdit *le_operatorName;
     SlotGrid *m_slotGrid;
     QLineEdit *le_expression;
-    QLabel *l_error;
+    QPushButton *pb_compileExpr;
+    ExpressionErrorWidget *m_exprErrorWidget;
     QDialogButtonBox *m_buttonBox;
+
+    static const size_t WorkArenaSegmentSize = Kilobytes(4);
+
+    Private()
+        : m_arena(WorkArenaSegmentSize)
+    {}
 
     void onSlotGridSlotAdded()
     {
@@ -2424,10 +2481,25 @@ struct ExpressionConditionDialog::Private
         m_model->inputPrefixes.push_back({});
         m_model->a1_inputPipes.push_back(nullptr);
         repopulate(m_slotGrid, *m_model, m_eventWidget, m_userLevel);
+        postInputsModified();
     }
 
     void onSlotGridSlotRemoved()
     {
+        if (m_model->opClone->getNumberOfSlots() > 1)
+        {
+            m_eventWidget->endSelectInput();
+            if (m_model->opClone->removeLastSlot())
+            {
+                m_model->inputs.pop_back();
+                m_model->inputStorage.pop_back();
+                m_model->inputIndexes.pop_back();
+                m_model->inputPrefixes.pop_back();
+                m_model->a1_inputPipes.pop_back();
+            }
+            repopulateSlotGridFromModel();
+            postInputsModified();
+        }
     }
 
     void onSlotGridBeginInputSelect(s32 slotIndex)
@@ -2448,9 +2520,12 @@ struct ExpressionConditionDialog::Private
         m_eventWidget->selectInputFor(slot, m_userLevel, callback, invalidSources);
     }
 
-    void onSlotGridInputSelected(Slot *destSlot, s32 slotIndex, Pipe *sourcePipe, s32 sourceParamIndex)
+    void onSlotGridInputSelected(Slot * /*destSlot*/, s32 slotIndex, Pipe *sourcePipe, s32 sourceParamIndex)
     {
         connect_input(*m_model, slotIndex, sourcePipe, sourceParamIndex);
+        m_slotGrid->inputPrefixLineEdits[slotIndex]->setText(
+            QString::fromStdString(m_model->inputPrefixes[slotIndex]));
+
         // If no valid event has been selected yet, use the event of the newly
         // selected input pipe.
         if (combo_eventSelect->currentData().toUuid().isNull())
@@ -2460,14 +2535,45 @@ struct ExpressionConditionDialog::Private
             if (idx >= 0)
                 combo_eventSelect->setCurrentIndex(idx);
         }
+
+        postInputsModified();
     }
 
     void onSlotGridInputCleared(s32 slotIndex)
     {
+        disconnect_input(*m_model, slotIndex);
+        m_slotGrid->inputPrefixLineEdits[slotIndex]->clear();
+        postInputsModified();
     }
 
     void onSlotGridInputPrefixEdited(s32 slotIndex, const QString &text)
     {
+        (void) slotIndex;
+        (void) text;
+        updateModelFromGUI();
+        model_compileExpression();
+        // Only the input prefix, e.g. variable name was edited, so there's no
+        // need to call repopulateGUIFromModel() which would also mess up input
+        // focus because the slotgrid line edits are recreated.
+    }
+
+    void postInputsModified()
+    {
+        updateModelFromGUI();
+        model_compileExpression();
+        repopulateGUIFromModel();
+    }
+
+    void updateModelFromGUI()
+    {
+        m_model->opClone->setObjectName(le_operatorName->text());
+
+        for (s32 i = 0; i < m_slotGrid->inputPrefixLineEdits.size(); i++)
+        {
+            m_model->inputPrefixes[i] = m_slotGrid->inputPrefixLineEdits[i]->text().toStdString();
+        }
+
+        m_model->expression = le_expression->text().toStdString();
     }
 
     void updateModelFromOperator()
@@ -2480,12 +2586,77 @@ struct ExpressionConditionDialog::Private
         model.a1_inputPipes.clear();
         auto sharedClone = std::shared_ptr<AnalysisObject>(m_op->clone());
         model.opClone = std::dynamic_pointer_cast<ExpressionCondition>(sharedClone);
+
+        auto &op = m_op;
+
+        for (s32 si=0; si<op->getNumberOfSlots(); ++si)
+        {
+            auto slot = op->getSlot(si);
+
+            model.inputs.push_back({});
+            model.inputStorage.push_back({});
+            model.inputIndexes.push_back(a2::NoParamIndex);
+            model.inputPrefixes.push_back(op->getInputPrefix(si).toStdString());
+            model.a1_inputPipes.push_back(nullptr);
+
+            if (slot && slot->isConnected())
+            {
+                connect_input(model, si, slot->inputPipe, slot->paramIndex);
+            }
+        }
+
+        model.expression = op->getExpression().toStdString();
+        model_compileExpression();
     }
 
     void repopulateGUIFromModel()
     {
         auto &model = *m_model;
+
         le_operatorName->setText(model.opClone->objectName());
+        repopulateSlotGridFromModel();
+        le_expression->setText(QString::fromStdString(m_model->expression));
+
+        //bool okEnabled = true;
+
+        //if (le_operatorName->text().isEmpty())
+        //    okEnabled = false;
+
+        //if (combo_eventSelect->currentData().toUuid().isNull())
+        //    okEnabled = false;
+
+        //auto okButton = m_buttonBox->button(QDialogButtonBox::Ok);
+        //okButton->setEnabled(okEnabled);
+    }
+
+    void repopulateSlotGridFromModel()
+    {
+        repopulate(m_slotGrid, *m_model, m_eventWidget, m_userLevel);
+    }
+
+    void model_compileExpression()
+    {
+        try
+        {
+            m_exprErrorWidget->clear();
+
+            m_a2Op = a2::make_expression_condition(
+                &m_arena,
+                m_model->inputs,
+                m_model->inputIndexes,
+                m_model->inputPrefixes,
+                m_model->expression);
+        }
+        catch (const std::runtime_error &)
+        {
+            m_a2Op = {};
+
+            bool showErrors = std::any_of(std::begin(m_model->a1_inputPipes), std::end(m_model->a1_inputPipes),
+                                          [] (const auto &inputPipe) { return inputPipe != nullptr; });
+
+            if (showErrors)
+                m_exprErrorWidget->setError(std::current_exception());
+        }
     }
 };
 
@@ -2506,18 +2677,21 @@ ExpressionConditionDialog::ExpressionConditionDialog(
     m_d->m_eventWidget = eventWidget;
     m_d->m_model = std::make_unique<ExpressionConditionDialogModel>();
 
+#if 0
     auto update_ok_button = [this] ()
     {
         bool enableOkButton = !m_d->combo_eventSelect->currentData().toUuid().isNull();
         m_d->m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
     };
+#endif
 
     // event selection
     m_d->combo_eventSelect = make_event_selection_combo(
         eventWidget->getVMEConfig()->getEventConfigs(), op, destDir);
 
-    connect(m_d->combo_eventSelect, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, update_ok_button);
+    // TODO
+    //connect(m_d->combo_eventSelect, qOverload<int>(&QComboBox::currentIndexChanged),
+    //        this, update_ok_button);
 
     // operator name
     m_d->le_operatorName = new QLineEdit;
@@ -2534,11 +2708,11 @@ ExpressionConditionDialog::ExpressionConditionDialog(
     gb_slotGridLayout->setContentsMargins(2, 2, 2, 2);
     gb_slotGridLayout->addWidget(m_d->m_slotGrid);
 
-    connect(m_d->m_slotGrid, &SlotGrid::slotAdded, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigAddSlot, this, [this]() {
         m_d->onSlotGridSlotAdded();
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::slotRemoved, this, [this]() {
+    connect(m_d->m_slotGrid, &SlotGrid::sigRemoveSlot, this, [this]() {
         m_d->onSlotGridSlotRemoved();
     });
 
@@ -2552,25 +2726,50 @@ ExpressionConditionDialog::ExpressionConditionDialog(
         m_d->onSlotGridInputCleared(slotIndex);
     });
 
-    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixEdited,
+    connect(m_d->m_slotGrid, &SlotGrid::inputPrefixTextChanged,
             this, [this] (s32 slotIndex, const QString &text) {
         m_d->onSlotGridInputPrefixEdited(slotIndex, text);
     });
 
     // expression input lineedit
     m_d->le_expression = new QLineEdit;
+    m_d->pb_compileExpr = new QPushButton();
+    m_d->pb_compileExpr->setIcon(QIcon(":/hammer.png"));
+    m_d->pb_compileExpr->setToolTip("Compile Expression");
+
+    connect(m_d->le_expression, &QLineEdit::textChanged,
+            this, [this]()
+            {
+                m_d->updateModelFromGUI();
+                m_d->model_compileExpression();
+            });
+
+    connect(m_d->pb_compileExpr, &QPushButton::clicked,
+            this, [this] ()
+            {
+                m_d->updateModelFromGUI();
+                m_d->model_compileExpression();
+            });
+
+    auto exprBox = new QGroupBox("Expression");
+    auto l_exprBox = make_hbox<2>(exprBox);
+    l_exprBox->addWidget(m_d->le_expression);
+    l_exprBox->addWidget(m_d->pb_compileExpr);
+    l_exprBox->setStretch(0, 1);
 
     // error label
-    m_d->l_error = new QLabel;
+    m_d->m_exprErrorWidget = new ExpressionErrorWidget;
+    auto errorBox = new QGroupBox("Expression Errors");
+    auto l_errorBox = make_hbox<2>(errorBox);
+    l_errorBox->addWidget(m_d->m_exprErrorWidget);
 
     auto lowerLayout = new QFormLayout;
-    lowerLayout->addRow(QSL("Expression"), m_d->le_expression);
-    lowerLayout->addRow(m_d->l_error);
+    lowerLayout->addRow(exprBox);
+    lowerLayout->addRow(errorBox);
 
     // buttonbox: ok/cancel
     m_d->m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
                                             | QDialogButtonBox::Cancel,
-                                            //| QDialogButtonBox::Apply,
                                             this);
 
     connect(m_d->m_buttonBox, &QDialogButtonBox::accepted, this, &ExpressionConditionDialog::accept);
@@ -2602,8 +2801,8 @@ ExpressionConditionDialog::ExpressionConditionDialog(
     }
 
     add_widget_close_action(this);
-    //resize(800, 600);
-    update_ok_button();
+    resize(600, 400);
+    //update_ok_button();
     m_d->updateModelFromOperator();
     m_d->repopulateGUIFromModel();
 }
@@ -2612,8 +2811,73 @@ ExpressionConditionDialog::~ExpressionConditionDialog()
 {
 }
 
+void save_to_operator(const ExpressionConditionDialogModel &model, ExpressionCondition &op)
+{
+    assert_consistency(model);
+
+    while (op.removeLastSlot()) {};
+
+    const s32 slotCount = static_cast<s32>(model.inputs.size());
+
+    while (op.getNumberOfSlots() < slotCount)
+    {
+        op.addSlot();
+    }
+
+    for (s32 slotIndex = 0; slotIndex < slotCount; slotIndex++)
+    {
+        // Note: it's ok to pass a nullptr Pipe here. It will leave the slot in
+        // disconnected state.
+        op.connectInputSlot(slotIndex,
+                            model.a1_inputPipes[slotIndex],
+                            model.inputIndexes[slotIndex]);
+    }
+
+    op.setExpression(QString::fromStdString(model.expression));
+    op.setInputPrefixes(qStringList_from_vector(model.inputPrefixes));
+    op.setObjectName(model.opClone->objectName());
+
+    // Note: opClone should not need to be udpated: the only parts used are its
+    // slots and those should have been updated in add_new_input_slot() and
+    // pop_input_slot().
+    assert(model.opClone->getNumberOfSlots() == op.getNumberOfSlots());
+}
+
 void ExpressionConditionDialog::apply()
 {
+    AnalysisPauser pauser(m_d->m_eventWidget->getServiceProvider());
+
+    m_d->updateModelFromGUI();
+    save_to_operator(*m_d->m_model, *m_d->m_op);
+    m_d->m_op->setEventId(m_d->combo_eventSelect->currentData().toUuid());
+    m_d->model_compileExpression();
+    m_d->repopulateGUIFromModel();
+
+    auto analysis = m_d->m_eventWidget->getAnalysis();
+
+    switch (m_d->m_mode)
+    {
+        case ObjectEditorMode::New:
+            {
+                m_d->m_op->setUserLevel(m_d->m_userLevel);
+                analysis->addOperator(m_d->m_op);
+
+                m_d->m_mode = ObjectEditorMode::Edit;
+
+                if (m_d->m_destDir)
+                {
+                    m_d->m_destDir->push_back(m_d->m_op);
+                }
+            } break;
+
+        case ObjectEditorMode::Edit:
+            {
+                analysis->setOperatorEdited(m_d->m_op);
+            } break;
+    }
+
+    analysis->beginRun(Analysis::KeepState, m_d->m_eventWidget->getVMEConfig());
+    emit applied();
 }
 
 void ExpressionConditionDialog::accept()

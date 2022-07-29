@@ -132,7 +132,8 @@ class DAQRunSettingsDialog: public QDialog
         void updateExample();
 
         ListFileOutputInfo m_settings;
-        QLineEdit *le_prefix;
+        QLineEdit *le_prefix,
+                  *le_suffix;
         QSpinBox *spin_runNumber;
         QCheckBox *cb_useRunNumber;
         QCheckBox *cb_useTimestamp;
@@ -158,6 +159,9 @@ class WorkspaceSettingsDialog: public QDialog
         virtual void accept() override;
         virtual void reject() override;
 
+    private slots:
+        void selectListfileDir();
+
     private:
         void populate();
 
@@ -167,7 +171,10 @@ class WorkspaceSettingsDialog: public QDialog
         QLineEdit *le_jsonRPCListenAddress,
                   *le_eventServerListenAddress,
                   *le_expName,
-                  *le_expTitle;
+                  *le_expTitle,
+                  *le_listfileDir;
+
+        QPushButton *pb_listfileDir;
 
         QSpinBox *spin_jsonRPCListenPort,
                  *spin_eventServerListenPort;

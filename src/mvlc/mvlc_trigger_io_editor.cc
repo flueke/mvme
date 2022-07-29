@@ -606,7 +606,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     QObject::connect(d->scriptConfig, &VMEScriptConfig::modified,
                      this, &MVLCTriggerIOEditor::reload);
 
-    auto view = new TriggerIOView(scene);
+    auto view = new QGraphicsView(scene);
+    new MouseWheelZoomer(view, view);
 
     view->setRenderHints(
         QPainter::Antialiasing | QPainter::TextAntialiasing |

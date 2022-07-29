@@ -3333,8 +3333,8 @@ EventSettingsDialog::EventSettingsDialog(
 
         if (!hasEventBuilder)
         {
+            table->cellWidget(ei, 0)->setEnabled(false);
             table->cellWidget(ei, 1)->setEnabled(false);
-            table->cellWidget(ei, 2)->setEnabled(false);
         }
 
         d->check_multiEvent_.push_back(cb_multiEvent);

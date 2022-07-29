@@ -84,7 +84,7 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
         s32 currentHistoIndex() const;
 
     public slots:
-        void replot();
+        void replot() override;
 
     private slots:
         /* IMPORTANT: leave slots invoked by qwt here for now. do not use lambdas!

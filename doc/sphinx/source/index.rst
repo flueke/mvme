@@ -11,7 +11,7 @@ mvme - mesytec VME Data Acquisition
 ##################################################
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 3
    :caption: Contents:
 
    intro
@@ -19,7 +19,7 @@ mvme - mesytec VME Data Acquisition
    quickstart
    reference
    howto
-   changelog
+   include_changelog
 
 
 .. only:: html

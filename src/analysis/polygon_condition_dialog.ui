@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>IntervalConditionDialog</class>
- <widget class="QDialog" name="IntervalConditionDialog">
+ <class>PolygonConditionDialog</class>
+ <widget class="QDialog" name="PolygonConditionDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Interval Condition Editor</string>
+   <string>Polygon Condition Editor</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="leftMargin">
@@ -67,7 +67,7 @@
    <item>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>Condition Intervals</string>
+      <string>Polygon Coordinates</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <property name="leftMargin">
@@ -83,7 +83,7 @@
        <number>4</number>
       </property>
       <item row="0" column="0">
-       <widget class="QTableWidget" name="tw_intervals">
+       <widget class="QTableWidget" name="tw_coords">
         <property name="editTriggers">
          <set>QAbstractItemView::NoEditTriggers</set>
         </property>
@@ -107,12 +107,12 @@
         </attribute>
         <column>
          <property name="text">
-          <string>x1</string>
+          <string>x</string>
          </property>
         </column>
         <column>
          <property name="text">
-          <string>x2</string>
+          <string>y</string>
          </property>
         </column>
        </widget>
@@ -171,7 +171,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>IntervalConditionDialog</receiver>
+   <receiver>PolygonConditionDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -187,7 +187,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>IntervalConditionDialog</receiver>
+   <receiver>PolygonConditionDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

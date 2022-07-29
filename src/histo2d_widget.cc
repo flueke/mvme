@@ -20,6 +20,7 @@
  */
 #include "histo2d_widget.h"
 #include "analysis/analysis_fwd.h"
+#include "analysis/condition_ui.h"
 #include "histo2d_widget_p.h"
 
 #include <qwt_color_map.h>
@@ -294,7 +295,8 @@ struct Histo2DWidgetPrivate
     s32 m_labelCursorInfoMaxWidth  = 0;
     s32 m_labelCursorInfoMaxHeight = 0;
 
-    QAction *m_actionClear,
+    QAction *m_actionZoom,
+            *m_actionClear,
             *m_actionSubRange,
             *m_actionChangeRes,
             *m_actionInfo,
@@ -329,6 +331,8 @@ struct Histo2DWidgetPrivate
     Histo2DWidget::HistoSinkCallback m_addSinkCallback;
     Histo2DWidget::HistoSinkCallback m_sinkModifiedCallback;
     Histo2DWidget::MakeUniqueOperatorNameFunction m_makeUniqueOperatorNameFunction;
+
+    analysis::ui::PolygonConditionEditorController *m_polygonConditionEditorController = nullptr;
 
     Histo1DWidget *m_xProjWidget = nullptr;
     Histo1DWidget *m_yProjWidget = nullptr;
@@ -402,7 +406,7 @@ enum class AxisScaleType
 /* The private constructor doing most of the object creation and initialization. To be
  * invoked by all other, more specific constructors. */
 Histo2DWidget::Histo2DWidget(QWidget *parent)
-    : QWidget(parent)
+    : IPlotWidget(parent)
     , m_d(std::make_unique<Histo2DWidgetPrivate>())
 {
     m_d->m_q = this;
@@ -416,6 +420,19 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_toolBar = new QToolBar;
     m_d->m_plot = new QwtPlot;
     m_d->m_statusBar = make_statusbar();
+
+    m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
+    m_d->m_zoomer->setObjectName("zoomer");
+
+    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(zoomerZoomed(const QRectF &))));
+
+    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+                       this, &Histo2DWidget::mouseCursorMovedToPlotCoord));
+
+    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+                       this, &Histo2DWidget::mouseCursorLeftPlot));
+
 
     // Toolbar and actions
     auto tb = m_d->m_toolBar;
@@ -439,6 +456,21 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         tb->addWidget(make_vbox_container(QSL("Z-Scale"), zScaleCombo, 2, -2)
                       .container.release());
     }
+
+    // Zoom action for easy enabling/disabling of the zoomer.
+    m_d->m_actionZoom = new QAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom", this);
+    m_d->m_actionZoom->setCheckable(true);
+    m_d->m_actionZoom->setChecked(true);
+    m_d->m_actionZoom->setObjectName("zoomAction");
+    connect(m_d->m_actionZoom, &QAction::toggled,
+            m_d->m_zoomer, [this] (bool checked) {
+                m_d->m_zoomer->setEnabled(checked);
+            });
+
+    // Optional: add the zoomer to the toolbar. Right now the action is not
+    // visible but activated by, e.g. the rate estimation picker after two
+    // points have been picked.
+    tb->addAction(m_d->m_actionZoom);
 
     tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("X-Proj"),
                   this, &Histo2DWidget::on_tb_projX_clicked);
@@ -505,6 +537,41 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         });
     }
 
+    auto actionPolyConditions = tb->addAction("Polygon Conditions");
+    actionPolyConditions->setObjectName("polygonConditions");
+    actionPolyConditions->setCheckable(true);
+
+    connect(actionPolyConditions, &QAction::toggled,
+            this, [this, actionPolyConditions] (bool on) {
+                if (on && !m_d->m_polygonConditionEditorController)
+                {
+                    m_d->m_polygonConditionEditorController =
+                        new analysis::ui::PolygonConditionEditorController(
+                            getSink(),
+                            this, // histoWidget
+                            getServiceProvider(),
+                            this); // parent
+
+                    m_d->m_polygonConditionEditorController->setObjectName(
+                        "polygonConditionEditorController");
+
+                    connect(m_d->m_polygonConditionEditorController->getDialog(), &QDialog::accepted,
+                            this, [actionPolyConditions] ()
+                            {
+                                actionPolyConditions->setChecked(false);
+                            });
+
+                    connect(m_d->m_polygonConditionEditorController->getDialog(), &QDialog::rejected,
+                            this, [actionPolyConditions] ()
+                            {
+                                actionPolyConditions->setChecked(false);
+                            });
+                }
+
+                if (m_d->m_polygonConditionEditorController)
+                    m_d->m_polygonConditionEditorController->setEnabled(on);
+            });
+
     // XXX: cut test
     {
 #if 0
@@ -565,18 +632,6 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_replotTimer->start(ReplotPeriod_ms);
 
     m_d->m_plot->canvas()->setMouseTracking(true);
-
-    m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
-    m_d->m_zoomer->setObjectName("zoomer");
-
-    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
-                       this, SLOT(zoomerZoomed(const QRectF &))));
-
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
-                       this, &Histo2DWidget::mouseCursorMovedToPlotCoord));
-
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
-                       this, &Histo2DWidget::mouseCursorLeftPlot));
 
     //
     // Watermark text when exporting
@@ -745,6 +800,11 @@ void Histo2DWidget::setServiceProvider(AnalysisServiceProvider *asp)
 #if 0
     m_d->m_actionCreateCut->setEnabled(asp != nullptr);
 #endif
+}
+
+AnalysisServiceProvider *Histo2DWidget::getServiceProvider() const
+{
+    return m_d->m_serviceProvider;
 }
 
 void Histo2DWidget::replot()
@@ -953,6 +1013,16 @@ void Histo2DWidget::setLinZ()
 void Histo2DWidget::setLogZ()
 {
     m_d->m_zScaleCombo->setCurrentIndex(1);
+}
+
+QwtPlot *Histo2DWidget::getPlot()
+{
+    return m_d->m_plot;
+}
+
+const QwtPlot *Histo2DWidget::getPlot() const
+{
+    return m_d->m_plot;
 }
 
 void Histo2DWidget::displayChanged()
@@ -1350,6 +1420,11 @@ void Histo2DWidget::setSink(const SinkPtr &sink,
         int sliderValue = std::log2(visBins);
         m_d->m_rrSliderY->setValue(sliderValue);
     }
+}
+
+Histo2DWidget::SinkPtr Histo2DWidget::getSink() const
+{
+    return m_d->m_sink;
 }
 
 void Histo2DWidget::on_tb_subRange_clicked()

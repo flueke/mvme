@@ -135,7 +135,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             spdlog::warn("{}: unhandled source command type {} ({})",
                          __PRETTY_FUNCTION__,
                          to_string(srcCmd.type).toStdString(),
-                         srcCmd.type);
+                         static_cast<int>(srcCmd.type));
             assert(!"unhandled command type");
             throw std::runtime_error(fmt::format(
                 "Unhandled MVLC stack command type: {} {}",

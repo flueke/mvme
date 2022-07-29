@@ -346,7 +346,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
                                  s32 userLevel);
-        void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
+        void setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
 
         void reconnectVMEController();
         void forceResetVMEController();
@@ -380,6 +380,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void cleanupWorkspaceAutoSaveFiles();
 
         QString getListFileOutputDirectoryFullPath(const QString &directory) const;
+        RunInfo makeBasicRunInfo();
         bool prepareStart();
 
         MVMEContextPrivate *m_d;

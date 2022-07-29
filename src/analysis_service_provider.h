@@ -35,6 +35,8 @@ class AnalysisServiceProvider: public QObject
         /* Emitted when the current analysis file name changed. */
         void analysisConfigFileNameChanged(const QString &name);
 
+        void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
+
         // Various state changes...
         void mvmeStreamWorkerStateChanged(AnalysisWorkerState);
         void daqStateChanged(const DAQState &state);
@@ -106,7 +108,7 @@ class AnalysisServiceProvider: public QObject
     public slots:
         virtual void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
                                  s32 userLevel) = 0;
-        virtual void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op) = 0;
+        virtual void setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op) = 0;
 
 };
 

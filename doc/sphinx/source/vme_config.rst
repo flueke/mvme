@@ -202,3 +202,47 @@ defined in the VME configuration.
 
 OUT1 and LED_A are activated prior to entering autonomous DAQ mode and
 deactivated after leaving DAQ mode.
+
+Custom VME Modules
+------------------
+
+To create a template for a custom VME module start by adding an existing module
+type to the VME config as a base to start from (e.g. one of the UserModule_xx
+modules). Then edit the VME scripts and test the module until initialization
+and readout work correctly.
+
+To save the module as a template right-click the module node and select ``Save
+Module to file``.
+
+.. figure:: images/vme_config_custom_module.png
+
+   Custom Module properties dialog
+
+The dialog lets you specify the following module properties:
+
+* Type Name: internal module indentifier. Must be unique across all modules
+  defined in mvme. Also used as the base name for newly added module instances.
+
+  E.g. ``mdpp16_scp_custom``
+
+* Display Name: User visible module type string, e.g. ``MDPP16 SCP Custom``.
+
+* Vendor Name: custom vendor name. Used to group modules together in the UI.
+
+* Default VME Address: the full 32-bit VME address assigned to newly added
+  instance of the module, e.g ``0x00010000``
+
+* MultiEvent Header Filter: in case the module supports reading out multiple
+  buffered events using a single VME block transfer this property specifies the
+  bit level filter used to split the mulievent data into separate events.  Set
+  a static bitmask to match the module headers and optionally use the character
+  ``S`` to specify the bits used to extract the module data size in words.
+  Setting the size bits speeds up the multievent splitting code a bit as it can
+  jump from event to event instead of having to match each data word against
+  the static bitmask.
+
+Accept the dialog and chose a location and filename to save the file. The
+module file format is JSON so it can be hand-edited if needed.
+
+To add an instance of a custom module to the VME config right-click an event
+node or the ``Modules Init`` node and select ``Add Module from file``.

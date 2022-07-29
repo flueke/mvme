@@ -33,6 +33,7 @@
 
 #include "mvlc/mvlc_trigger_io.h"
 #include "util/qt_layouts.h"
+#include "graphicsview_util.h"
 
 namespace mesytec
 {
@@ -42,19 +43,6 @@ namespace trigger_io_config
 {
 
 using namespace trigger_io;
-
-class TriggerIOView: public QGraphicsView
-{
-    Q_OBJECT
-    public:
-        TriggerIOView(QGraphicsScene *scene, QWidget *parent = nullptr);
-
-    protected:
-        void wheelEvent(QWheelEvent *event);
-
-    private:
-        void scaleView(qreal scaleFactor);
-};
 
 namespace gfx
 {
