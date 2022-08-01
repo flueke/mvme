@@ -12,6 +12,8 @@
 #include <QXmlStreamReader>
 #include <sstream>
 
+// DOT -> layout -> svg -> individual QGraphicsSvgItems created using the same shared renderer
+
 // Approach:
 // load DOT code -> use graphviz to render to svg -> use QXmlStreamReader and
 // QSvgRenderer to load and render the svg data. Use the xml reader to get the

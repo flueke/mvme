@@ -16,6 +16,8 @@
 #include <mesytec-mvlc/util/logging.h>
 #include "graphviz_util.h"
 
+// similar to test2 but with more abstractions
+
 enum class DomVisitResult
 {
     Continue,

@@ -628,4 +628,22 @@ QJsonDocument analysis_to_json_doc(const Analysis &analysis)
     return QJsonDocument(analysis_to_json_object(analysis));
 }
 
+std::pair<std::shared_ptr<Analysis>, std::error_code> read_analysis(const QJsonDocument &doc)
+{
+    auto json = doc.object();
+
+    if (json.contains("AnalysisNG"))
+        json = json["AnalysisNG"].toObject();
+
+    std::pair<std::shared_ptr<Analysis>, std::error_code> ret;
+
+    ret.first = std::shared_ptr<Analysis>(new Analysis, [] (auto a) { a->deleteLater(); });
+    ret.second = ret.first->read(json);
+
+    if (ret.second)
+        ret.first = {};
+
+    return ret;
+}
+
 } // namespace analysis

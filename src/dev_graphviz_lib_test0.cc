@@ -7,6 +7,8 @@
 #include <QDebug>
 #include <sstream>
 
+// DOT -> layout -> png
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);

@@ -5,6 +5,8 @@
 #include <iostream>
 #include <cstdlib>
 
+// read DOT from fixed in put filename write svg to fixed output filename
+
 static const char *inputFilename = "foo.dot";
 static const char *outputFilename = "foo_rendered.svg";
 static const char *layoutEngine = "dot";

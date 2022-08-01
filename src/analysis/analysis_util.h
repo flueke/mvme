@@ -22,6 +22,7 @@
 #define __ANALYSIS_UTIL_H__
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "libmvme_export.h"
@@ -216,6 +217,8 @@ void LIBMVME_EXPORT add_default_filters(Analysis *analysis, ModuleConfig *module
 
 QJsonObject LIBMVME_EXPORT analysis_to_json_object(const Analysis &analysis);
 QJsonDocument LIBMVME_EXPORT analysis_to_json_doc(const Analysis &analysis);
+
+std::pair<std::shared_ptr<Analysis>, std::error_code> read_analysis(const QJsonDocument &doc);
 
 } // namespace analysis
 

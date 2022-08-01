@@ -4,6 +4,8 @@ include(GenerateExportHeader)
 
 # Qt5
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC OFF)
+set(CMAKE_AUTOUIC OFF)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Concurrent REQUIRED)
@@ -582,6 +584,13 @@ target_link_libraries(dev_graphviz_lib_test4
     PRIVATE cgraph
     PRIVATE gvc
 )
+
+qt5_wrap_ui(dev_graphviz_lib_test5_uic dev_graphviz_lib_test5_mainwin.ui)
+add_executable(dev_graphviz_lib_test5
+    ${dev_graphviz_lib_test5_uic}
+    dev_graphviz_lib_test5_main.cc
+    dev_graphviz_lib_test5.cc)
+target_link_libraries(dev_graphviz_lib_test5 PRIVATE qgvcore PRIVATE libmvme)
 
 add_mvme_executable(dev_dotwidget dev_dotwidget.cc)
 install(TARGETS dev_dotwidget RUNTIME DESTINATION bin)

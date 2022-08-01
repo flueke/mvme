@@ -12,6 +12,8 @@
 #include <QXmlStreamReader>
 #include <sstream>
 
+// DOT -> layout -> svg -> QGraphicsSvgItem
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
