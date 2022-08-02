@@ -9,6 +9,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     MainWindow mainwin;
+    mainwin.resize(1200, 800);
     mainwin.show();
 
     QTimer::singleShot(0, [&] { mainwin.openAnalysis(DefaultAnalysisFilename); });
