@@ -2236,6 +2236,8 @@ class LIBMVME_EXPORT Analysis:
             setProperty("ModuleProperties", props);
         }
 
+        QVariant getModuleProperty(const QUuid &moduleId, const QString &prop) const;
+
         //
         // Pre and post run work
         //

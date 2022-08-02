@@ -5037,6 +5037,18 @@ void Analysis::addObjects(const AnalysisObjectVector &objects)
     }
 }
 
+QVariant Analysis::getModuleProperty(const QUuid &moduleId, const QString &prop) const
+{
+    const auto idStr = moduleId.toString();
+    for (const auto &props: getModulePropertyList())
+    {
+        auto pm = props.toMap();
+        if (pm["moduleId"] == idStr)
+            return pm.value(prop);
+    }
+    return {};
+}
+
 //
 // Pre and post run work
 //
