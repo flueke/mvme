@@ -13,6 +13,9 @@ class MainWindow: public QMainWindow
         MainWindow();
         ~MainWindow() override;
 
+    public slots:
+        void openAnalysis(const QString &filename);
+
     private:
         struct Private;
         std::unique_ptr<Private> d;

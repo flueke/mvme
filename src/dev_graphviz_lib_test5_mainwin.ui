@@ -28,6 +28,8 @@
      <string>&amp;File</string>
     </property>
     <addaction name="action_openAnalysis"/>
+    <addaction name="action_saveGraph"/>
+    <addaction name="action_showGraphCode"/>
     <addaction name="action_quit"/>
    </widget>
    <addaction name="menu_File"/>
@@ -44,6 +46,8 @@
     <bool>false</bool>
    </attribute>
    <addaction name="action_openAnalysis"/>
+   <addaction name="action_saveGraph"/>
+   <addaction name="action_showGraphCode"/>
   </widget>
   <action name="action_openAnalysis">
    <property name="text">
@@ -68,6 +72,19 @@
    </property>
    <property name="shortcutContext">
     <enum>Qt::ApplicationShortcut</enum>
+   </property>
+  </action>
+  <action name="action_saveGraph">
+   <property name="text">
+    <string>&amp;Save Graph</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="action_showGraphCode">
+   <property name="text">
+    <string>Show Graph Code</string>
    </property>
   </action>
  </widget>
