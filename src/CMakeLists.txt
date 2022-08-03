@@ -61,7 +61,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
 find_package(Graphviz REQUIRED)
-include_directories(${GRAPHVIZ_INCLUDE_DIRS})
 message("-- Using GRAPHVIZ_INCLUDE_DIRS=${GRAPHVIZ_INCLUDE_DIRS}")
 message("-- Using GRAPHVIZ_LIBRARIES=${GRAPHVIZ_LIBRARIES}")
 
