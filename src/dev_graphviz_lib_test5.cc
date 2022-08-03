@@ -4,10 +4,7 @@
 #include <map>
 #include <QFileDialog>
 #include <QGraphicsView>
-#include <QGVCore/QGVEdge.h>
-#include <QGVCore/QGVNode.h>
-#include <QGVCore/QGVScene.h>
-#include <QGVCore/QGVSubGraph.h>
+#include <qgv.h>
 #include <QJsonDocument>
 #include <QMessageBox>
 #include <QTextBrowser>
@@ -313,7 +310,7 @@ QGVNode *object_graph_add_node(
     if (auto cond = std::dynamic_pointer_cast<analysis::ConditionInterface>(obj))
         objNode->setAttribute("shape", "hexagon");
     else if (auto src = std::dynamic_pointer_cast<analysis::SourceInterface>(obj))
-        objNode->setAttribute("shape", "box");
+        objNode->setAttribute("shape", "ellipse");
 
     return objNode;
 }
@@ -349,6 +346,7 @@ void object_graph_add_source_module(GraphContext &gctx, const analysis::SourcePt
     {
         auto label = src->getAnalysis()->getModuleProperty(modId, "moduleName").toString();
         auto node = gctx.scene->addNode(label, modId.toString());
+        node->setAttribute("shape", "box");
         gctx.nodes[modId] = node;
     }
 
@@ -404,6 +402,8 @@ void MainWindow::Private::showAnalysisObjectGraph(const analysis::AnalysisObject
 
     if (auto op = std::dynamic_pointer_cast<analysis::OperatorInterface>(obj))
         object_graph_recurse_on_inputs(gctx, op);
+    else if (auto inputSrc = std::dynamic_pointer_cast<analysis::SourceInterface>(obj))
+        object_graph_add_source_module(gctx, inputSrc);
 
     scene_.applyLayout();
 }

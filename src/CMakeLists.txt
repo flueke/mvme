@@ -266,6 +266,7 @@ add_library(libmvme SHARED
     ${LIBMVME_UIC_OUT}
     analysis/a2_adapter.cc
     analysis/analysis.cc
+    analysis/analysis_graphs.cc
     analysis/analysis_info_widget.cc
     analysis/analysis_serialization.cc
     analysis/analysis_session.cc

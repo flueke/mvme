@@ -35,12 +35,13 @@
 #include <QMenu>
 #include <spdlog/fmt/fmt.h>
 #include <sstream>
-#include <regex>
 #include <memory>
 #include <set>
 
 namespace analysis
 {
+
+using namespace mesytec::graphviz_util;
 
 struct ObjectInfoWidget::Private
 {
@@ -62,20 +63,6 @@ struct ObjectInfoWidget::Private
     void refreshGraphView(const AnalysisObjectPtr &obj);
     void showGraphViewContextMenu(const QPoint &pos);
 };
-
-std::string escape_dot_string(std::string label)
-{
-    label = std::regex_replace(label, std::regex("&"), "&amp;");
-    label = std::regex_replace(label, std::regex("\""), "&quot;");
-    label = std::regex_replace(label, std::regex(">"), "&gt;");
-    label = std::regex_replace(label, std::regex("<"), "&lt;");
-    return label;
-}
-
-std::string escape_dot_string(const QString &label)
-{
-    return escape_dot_string(label.toStdString());
-}
 
 std::string make_basic_label(const AnalysisObject *obj)
 {

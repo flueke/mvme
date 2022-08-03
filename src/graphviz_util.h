@@ -8,7 +8,9 @@
 #include <QString>
 #include <QSvgRenderer>
 #include <QWidget>
+#include <regex>
 #include <set>
+#include <string>
 
 #include "libmvme_export.h"
 
@@ -269,6 +271,20 @@ class DotSvgWidget: public QWidget
         struct Private;
         std::unique_ptr<Private> d;
 };
+
+inline std::string escape_dot_string(std::string label)
+{
+    label = std::regex_replace(label, std::regex("&"), "&amp;");
+    label = std::regex_replace(label, std::regex("\""), "&quot;");
+    label = std::regex_replace(label, std::regex(">"), "&gt;");
+    label = std::regex_replace(label, std::regex("<"), "&lt;");
+    return label;
+}
+
+inline std::string escape_dot_string(const QString &label)
+{
+    return escape_dot_string(label.toStdString());
+}
 
 }
 }
