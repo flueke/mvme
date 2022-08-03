@@ -10,7 +10,7 @@ class QGVNode;
 class QGVEdge;
 class QGVSubGraph;
 
-namespace analysis
+namespace analysis::graph
 {
 
 struct GraphContext
@@ -20,10 +20,36 @@ struct GraphContext
     std::map<std::pair<QUuid, QUuid>, QGVEdge *> edges;
     std::map<QUuid, QGVSubGraph *> dirgraphs;
 
+    GraphContext(QGVScene *scene_): scene(scene_) {}
     void clear(); // clears the scene and the item maps
 };
 
-void create_graph(GraphContext &gctx, const AnalysisObjectPtr &obj);
+using Attributes = std::map<QString, QString>;
+
+struct GraphObjectAttributes
+{
+    Attributes graphAttributes =
+    {
+        { "rankdir", "LR" },
+        { "compound", "true" },
+        { "fontname", "Bitstream Vera Sans" },
+    };
+
+    Attributes nodeAttributes =
+    {
+        { "fontname", "Bitstream Vera Sans" },
+        { "style", "filled" },
+        { "fillcolor", "#fffbcc" },
+    };
+
+    Attributes edgeAttributes =
+    {
+        { "fontname", "Bitstream Vera Sans" },
+    };
+};
+
+void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa);
+void create_graph(GraphContext &gctx, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa = {});
 
 }
 

@@ -286,6 +286,11 @@ inline std::string escape_dot_string(const QString &label)
     return escape_dot_string(label.toStdString());
 }
 
+inline QString escape_dot_string_q(const QString &label)
+{
+    return QString::fromStdString(escape_dot_string(label));
+}
+
 }
 }
 
