@@ -32,13 +32,15 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QGraphicsView>
 #include <QStandardPaths>
 #include <QTimer>
 #include <iterator>
 #include <memory>
-#include <qnamespace.h>
+#include <qgv.h>
 
 #include "analysis/a2_adapter.h"
+#include "analysis/analysis_graphs.h"
 #include "analysis/analysis_serialization.h"
 #include "analysis/analysis_ui.h"
 #include "analysis/condition_ui.h"
@@ -48,6 +50,7 @@
 
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "graphicsview_util.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
@@ -174,6 +177,25 @@ QVector<QUuid> decode_id_list(QByteArray data)
     }
 
     return result;
+}
+
+std::pair<QGraphicsView *, QGVScene *> make_graph_view()
+{
+    auto view = new QGraphicsView;
+    add_widget_close_action(view);
+    view->setAttribute(Qt::WA_DeleteOnClose, true);
+    view->resize(1200, 800);
+    auto scene = new QGVScene(view);
+    view->setScene(scene);
+
+    view->setRenderHints(
+     QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
+    view->setDragMode(QGraphicsView::ScrollHandDrag);
+    view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    view->setContextMenuPolicy(Qt::CustomContextMenu);
+    new MouseWheelZoomer(view, view);
+
+    return std::make_pair(view, scene);
 }
 
 } // end anon namespace
@@ -2779,6 +2801,15 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                         clearAllToDefaultNodeHighlights();
                     });
                 }
+
+                menu.addAction("View Dependency Graph", [this, op]
+                {
+                    // TODO: reuse existing graph window unless ctrl is held
+                    auto [view, scene] = make_graph_view();
+                    analysis::graph::GraphContext gctx{scene};
+                    create_graph(gctx, op);
+                    view->show();
+                });
             }
         }
 
@@ -3024,6 +3055,15 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         {
                             tw->editItem(activeNode);
                         }
+                    });
+
+                    menu.addAction("View Dependency Graph", [this, srcPtr]
+                    {
+                        // TODO: reuse existing graph window unless ctrl is held
+                        auto [view, scene] = make_graph_view();
+                        analysis::graph::GraphContext gctx{scene};
+                        create_graph(gctx, srcPtr);
+                        view->show();
                     });
                 }
             }
@@ -3398,7 +3438,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     }
                 });
 
-#if 1
                 if (auto op = get_shared_analysis_object<OperatorInterface>(
                         activeNode, DataRole_AnalysisObject))
                 {
@@ -3420,8 +3459,17 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
                     });
+
+                    menu.addAction("View Dependency Graph", [this, op]
+                    {
+                        // TODO: reuse existing graph window unless ctrl is held
+                        auto [view, scene] = make_graph_view();
+                        analysis::graph::GraphContext gctx{scene};
+                        create_graph(gctx, op);
+                        view->show();
+                    });
+
                 }
-#endif
 
                 break;
         }
