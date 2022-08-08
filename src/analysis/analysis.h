@@ -485,6 +485,8 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         void setRank(s32 rank) { m_rank = rank; }
         s32 getRank() const { return m_rank; }
 
+        QSet<ConditionPtr> getActiveConditions() const;
+
         virtual void slotConnected(Slot *slot) { (void) slot; }
         virtual void slotDisconnected(Slot *slot) { (void) slot; }
 
@@ -2133,8 +2135,7 @@ class LIBMVME_EXPORT Analysis:
         ConditionVector getConditions(const QUuid &eventId) const;
 
         QSet<ConditionPtr> getActiveConditions(const OperatorPtr &op) const;
-
-
+        QSet<ConditionPtr> getActiveConditions(const OperatorInterface *op) const;
 
         //ConditionPtr getCondition(const OperatorPtr &op) const;
         //ConditionPtr getCondition(OperatorInterface *op) const;

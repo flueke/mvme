@@ -417,6 +417,13 @@ s32 OperatorInterface::getMaximumOutputRank()
     return result;
 }
 
+QSet<ConditionPtr> OperatorInterface::getActiveConditions() const
+{
+    if (auto ana = getAnalysis())
+        return ana->getActiveConditions(this);
+    return {};
+}
+
 void OperatorInterface::accept(ObjectVisitor &visitor)
 {
     visitor.visit(this);
@@ -4605,6 +4612,13 @@ ConditionVector Analysis::getConditions(const QUuid &eventId) const
 QSet<ConditionPtr> Analysis::getActiveConditions(const OperatorPtr &op) const
 {
     return m_conditionLinks.value(op);
+}
+
+QSet<ConditionPtr> Analysis::getActiveConditions(const OperatorInterface *op) const
+{
+    assert(op);
+    auto cop = const_cast<OperatorInterface *>(op);
+    return getActiveConditions(std::dynamic_pointer_cast<OperatorInterface>(cop->shared_from_this()));
 }
 
 bool Analysis::addConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
