@@ -94,9 +94,9 @@ inline void visit_dom_nodes(const QDomDocument &doc, const DomNodeVisitor &f)
     visit_dom_nodes(doc.documentElement(), f);
 }
 
-QDomElement find_first_basic_svg_shape_element(const QDomNode &root);
+LIBMVME_EXPORT QDomElement find_first_basic_svg_shape_element(const QDomNode &root);
 
-QDomElement find_element_by_predicate(
+LIBMVME_EXPORT QDomElement find_element_by_predicate(
     const QDomNode &root,
     const std::function<bool (const QDomElement &e)> &predicate);
 
@@ -118,7 +118,7 @@ inline QDomElement find_element_by_id(const QDomDocument &doc, const QString &id
 // Combines a QDomDocument and a QSvgRenderer, both using the same underlying
 // svg data. After modifying the DOM contents use reload() to keep the
 // SvgRenderer in sync.
-class DomAndRenderer
+class LIBMVME_EXPORT DomAndRenderer
 {
     public:
         DomAndRenderer()
@@ -157,7 +157,7 @@ class DomAndRenderer
         std::shared_ptr<QSvgRenderer> renderer_;
 };
 
-class DomElementSvgItem : public QGraphicsSvgItem
+class LIBMVME_EXPORT DomElementSvgItem : public QGraphicsSvgItem
 {
     public:
         DomElementSvgItem(const DomAndRenderer &dr,
@@ -196,13 +196,13 @@ class DomElementSvgItem : public QGraphicsSvgItem
         DomAndRenderer dr_;
 };
 
-class EdgeItem: public QGraphicsItem
+class LIBMVME_EXPORT EdgeItem: public QGraphicsItem
 {
     public:
 
 };
 
-class SvgItemFactory
+class LIBMVME_EXPORT SvgItemFactory
 {
     public:
         virtual ~SvgItemFactory() {}
@@ -226,7 +226,7 @@ std::vector<std::unique_ptr<QGraphicsItem>> create_svg_graphics_items(
     const DomAndRenderer &dr,
     const SvgItemFactory &itemFactory);
 
-class DotSvgGraphicsSceneManager
+class LIBMVME_EXPORT DotSvgGraphicsSceneManager
 {
     public:
         DotSvgGraphicsSceneManager()
@@ -257,7 +257,7 @@ class DotSvgGraphicsSceneManager
         std::string m_dotErrorBuffer;
 };
 
-class DotSvgWidget: public QWidget
+class LIBMVME_EXPORT DotSvgWidget: public QWidget
 {
     Q_OBJECT
     public:
