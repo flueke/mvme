@@ -5,12 +5,14 @@
 #include <QDomDocument>
 #include <QGraphicsScene>
 #include <QGraphicsSvgItem>
+#include <QGraphicsView>
 #include <QString>
 #include <QSvgRenderer>
 #include <QWidget>
 #include <regex>
 #include <set>
 #include <string>
+#include <utility>
 
 #include "libmvme_export.h"
 
@@ -24,7 +26,6 @@
 // to set e.g. the foreground and background colors/brushes. Solution: use
 // QDomDocument to manipulate the SVG DOM attributes on the fly which does
 // change the apperance of the QGraphicsSvgItems.
-
 
 namespace mesytec
 {
@@ -290,6 +291,9 @@ inline QString escape_dot_string_q(const QString &label)
 {
     return QString::fromStdString(escape_dot_string(label));
 }
+
+// Creates a QGraphicsView initialized for rendering graphviz objects.
+LIBMVME_EXPORT QGraphicsView *make_graph_view();
 
 }
 }

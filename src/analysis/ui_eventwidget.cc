@@ -55,6 +55,7 @@
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
 #include "util/algo.h"
+#include "../graphviz_util.h"
 
 namespace analysis
 {
@@ -179,21 +180,33 @@ QVector<QUuid> decode_id_list(QByteArray data)
     return result;
 }
 
-std::pair<QGraphicsView *, QGVScene *> make_graph_view()
+std::pair<QGraphicsView *, QGVScene *> make_graph_view_and_scene()
 {
-    auto view = new QGraphicsView;
-    add_widget_close_action(view);
-    view->setAttribute(Qt::WA_DeleteOnClose, true);
-    view->resize(1200, 800);
+    auto view = mesytec::graphviz_util::make_graph_view();
     auto scene = new QGVScene(view);
     view->setScene(scene);
 
-    view->setRenderHints(
-     QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
-    view->setDragMode(QGraphicsView::ScrollHandDrag);
-    view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    auto context_menu_handler = [view, scene] (const QPoint &relpos)
+    {
+        QMenu menu;
+        menu.addAction("View DOT code", scene , [scene]
+        {
+            auto dotStr = scene->toDot();
+            auto tw = new QPlainTextEdit;
+            tw->setAttribute(Qt::WA_DeleteOnClose);
+            add_widget_close_action(tw);
+            tw->setPlainText(dotStr);
+            tw->resize(1000, 800);
+            tw->show();
+        });
+
+        auto pos = view->mapToGlobal(relpos);
+        menu.exec(pos);
+    };
+
     view->setContextMenuPolicy(Qt::CustomContextMenu);
-    new MouseWheelZoomer(view, view);
+    QObject::connect(view, &QWidget::customContextMenuRequested,
+                     view, context_menu_handler);
 
     return std::make_pair(view, scene);
 }
@@ -2805,7 +2818,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                 menu.addAction("View Dependency Graph", [this, op]
                 {
                     // TODO: reuse existing graph window unless ctrl is held
-                    auto [view, scene] = make_graph_view();
+                    auto [view, scene] = make_graph_view_and_scene();
                     analysis::graph::GraphContext gctx{scene};
                     create_graph(gctx, op);
                     view->show();
@@ -3060,7 +3073,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                     menu.addAction("View Dependency Graph", [this, srcPtr]
                     {
                         // TODO: reuse existing graph window unless ctrl is held
-                        auto [view, scene] = make_graph_view();
+                        auto [view, scene] = make_graph_view_and_scene();
                         analysis::graph::GraphContext gctx{scene};
                         create_graph(gctx, srcPtr);
                         view->show();
@@ -3463,7 +3476,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     menu.addAction("View Dependency Graph", [this, op]
                     {
                         // TODO: reuse existing graph window unless ctrl is held
-                        auto [view, scene] = make_graph_view();
+                        auto [view, scene] = make_graph_view_and_scene();
                         analysis::graph::GraphContext gctx{scene};
                         create_graph(gctx, op);
                         view->show();

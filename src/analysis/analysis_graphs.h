@@ -15,17 +15,19 @@ namespace analysis::graph
 
 struct GraphContext
 {
-    QGVScene *scene;
+    QGVScene *scene; // must point to an existing object before use
     std::map<QUuid, QGVNode *> nodes;
     std::map<std::pair<QUuid, QUuid>, QGVEdge *> edges;
     std::map<QUuid, QGVSubGraph *> dirgraphs;
+    QGVSubGraph *conditionsCluster = nullptr;
 
-    GraphContext(QGVScene *scene_): scene(scene_) {}
+    explicit GraphContext(QGVScene *scene_): scene(scene_) {}
     void clear(); // clears the scene and the item maps
 };
 
 using Attributes = std::map<QString, QString>;
 
+// global attributes set on the graph
 struct GraphObjectAttributes
 {
     Attributes graphAttributes =
@@ -49,7 +51,7 @@ struct GraphObjectAttributes
 };
 
 void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa);
-void create_graph(GraphContext &gctx, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa = {});
+void create_graph(GraphContext &gctx, const AnalysisObjectPtr &rootObj, const GraphObjectAttributes &goa = {});
 
 }
 

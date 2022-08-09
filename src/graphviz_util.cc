@@ -369,5 +369,23 @@ DotSvgGraphicsSceneManager *DotSvgWidget::sceneManager() const
     return &d->sceneManager_;
 }
 
+QGraphicsView *make_graph_view()
+{
+    auto view = new QGraphicsView;
+    add_widget_close_action(view);
+    view->setAttribute(Qt::WA_DeleteOnClose, true);
+    view->resize(1200, 800);
+    view->setRenderHints(
+        QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
+    view->setDragMode(QGraphicsView::ScrollHandDrag);
+    view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    view->setContextMenuPolicy(Qt::CustomContextMenu);
+    view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    new MouseWheelZoomer(view, view);
+
+    return view;
+}
+
 }
 }

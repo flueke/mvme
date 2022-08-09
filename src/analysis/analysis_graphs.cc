@@ -17,6 +17,56 @@ void GraphContext::clear()
     dirgraphs.clear();
 }
 
+template<typename Parent>
+QGVNode *object_graph_add_node(GraphContext &gctx, Parent *parent, const AnalysisObjectPtr &obj)
+{
+    if (gctx.nodes.count(obj->getId()))
+        return gctx.nodes[obj->getId()];
+
+    QString label;
+
+    if (auto exprCond = std::dynamic_pointer_cast<analysis::ExpressionCondition>(obj))
+    {
+        label = QSL("<<b>%1</b><br/>%2<br/><i>%3</i>>")
+                    .arg(escape_dot_string_q(exprCond->getDisplayName()))
+                    .arg(escape_dot_string_q(exprCond->objectName()))
+                    .arg(escape_dot_string_q(exprCond->getExpression()));
+    }
+    else if (auto ps = std::dynamic_pointer_cast<analysis::PipeSourceInterface>(obj))
+    {
+        label = QSL("<<b>%1</b><br/>%2>")
+                    .arg(escape_dot_string_q(ps->getDisplayName()))
+                    .arg(escape_dot_string_q(ps->objectName()));
+    }
+
+    auto objNode = parent->addNode(label, obj->getId().toString());
+    gctx.nodes[obj->getId()] = objNode;
+
+    if (std::dynamic_pointer_cast<analysis::ConditionInterface>(obj))
+    {
+        objNode->setAttribute("shape", "hexagon");
+        objNode->setAttribute("fillcolor", "lightblue");
+    }
+
+    if (std::dynamic_pointer_cast<analysis::SourceInterface>(obj))
+        objNode->setAttribute("fillcolor", "lightgrey");
+
+    return objNode;
+}
+
+QGVNode *object_graph_add_node(GraphContext &gctx, const AnalysisObjectPtr &obj)
+{
+    return object_graph_add_node(gctx, gctx.scene, obj);
+}
+
+#if 0
+QGVNode *object_graph_add_node(GraphContext &gctx, QGVSubGraph *sg, const AnalysisObjectPtr &obj)
+{
+    return object_graph_add_node(gctx, sg, obj);
+}
+#endif
+
+#if 0
 QGVNode *object_graph_add_node(GraphContext &gctx, const AnalysisObjectPtr &obj)
 {
     if (gctx.nodes.count(obj->getId()))
@@ -49,6 +99,7 @@ QGVNode *object_graph_add_node(GraphContext &gctx, const AnalysisObjectPtr &obj)
 
     return objNode;
 }
+#endif
 
 QGVEdge *object_graph_add_edge(
     GraphContext &gctx,
@@ -108,8 +159,10 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
     auto opNode = gctx.nodes[op->getId()];
     assert(opNode);
 
+    const auto slotCount = op->getNumberOfSlots();
+
     // inputs
-    for (auto si = 0; si < op->getNumberOfSlots(); ++si)
+    for (auto si = 0; si < slotCount; ++si)
     {
         auto slot = op->getSlot(si);
 
@@ -117,7 +170,14 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
         {
             auto inputObj = slot->getSource()->shared_from_this();
             object_graph_add_node(gctx, inputObj);
-            object_graph_add_edge(gctx, inputObj, op);
+            auto e = object_graph_add_edge(gctx, inputObj, op);
+
+            if (slotCount > 1 && !slot->name.isEmpty())
+            {
+                e->setAttribute("headlabel", slot->name + "\nfoo");
+                e->setAttribute("fontcolor", "red");
+            }
+
             if (auto inputOp = std::dynamic_pointer_cast<analysis::OperatorInterface>(inputObj))
                 object_graph_recurse_to_source(gctx, inputOp);
             else if (auto inputSrc = std::dynamic_pointer_cast<analysis::SourceInterface>(inputObj))
@@ -125,8 +185,30 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
         }
     }
 
-    // conditions
-    // XXX: leftoff here
+    // conditions:
+    // if there are active conditions:
+    //   create the condition cluster if it does not exist yet
+    //   create each condition node in the cluster if it does not exist yet
+    //   add edges from conditions to this oeprator
+    auto condSet = op->getActiveConditions();
+
+    if (!condSet.isEmpty())
+    {
+        if (!gctx.conditionsCluster)
+        {
+            gctx.conditionsCluster = gctx.scene->addSubGraph("conditions");
+            gctx.conditionsCluster->setAttribute("label", "Conditions");
+            gctx.conditionsCluster->setAttribute("style", "filled");
+            gctx.conditionsCluster->setAttribute("fillcolor", "#eeeeee");
+        }
+
+        for (const auto &cond: condSet)
+        {
+            object_graph_add_node(gctx, gctx.conditionsCluster, cond);
+            auto e = object_graph_add_edge(gctx, cond, op);
+            e->setAttribute("color", "blue");
+        }
+    }
 }
 
 #if 1
