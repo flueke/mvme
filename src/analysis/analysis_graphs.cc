@@ -225,11 +225,19 @@ void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa)
 
 void create_graph(GraphContext &gctx, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa)
 {
-    gctx.scene->newGraph();
-    apply_graph_attributes(gctx.scene, goa);
+    new_graph(gctx, goa);
     CreateGraphVisitor v{gctx};
     obj->accept(v);
-    gctx.scene->setRootNode(gctx.nodes[obj->getId()]);
+    if (gctx.nodes.count(obj->getId()))
+        gctx.scene->setRootNode(gctx.nodes[obj->getId()]);
     gctx.scene->applyLayout();
 }
+
+void new_graph(GraphContext &gctx, const GraphObjectAttributes &goa)
+{
+    gctx.scene->newGraph();
+    gctx.clear();
+    apply_graph_attributes(gctx.scene, goa);
+}
+
 }

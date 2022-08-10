@@ -4,6 +4,7 @@
 #include <map>
 #include <QUuid>
 #include "analysis_fwd.h"
+#include "libmvme_export.h"
 
 class QGVScene;
 class QGVNode;
@@ -13,7 +14,7 @@ class QGVSubGraph;
 namespace analysis::graph
 {
 
-struct GraphContext
+struct LIBMVME_EXPORT GraphContext
 {
     QGVScene *scene; // must point to an existing object before use
 
@@ -29,7 +30,7 @@ struct GraphContext
 using Attributes = std::map<QString, QString>;
 
 // global attributes set on the graph
-struct GraphObjectAttributes
+struct LIBMVME_EXPORT GraphObjectAttributes
 {
     Attributes graphAttributes =
     {
@@ -51,8 +52,9 @@ struct GraphObjectAttributes
     };
 };
 
-void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa);
-void create_graph(GraphContext &gctx, const AnalysisObjectPtr &rootObj, const GraphObjectAttributes &goa = {});
+LIBMVME_EXPORT void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa);
+LIBMVME_EXPORT void create_graph(GraphContext &gctx, const AnalysisObjectPtr &rootObj, const GraphObjectAttributes &goa = {});
+LIBMVME_EXPORT void new_graph(GraphContext &gctx, const GraphObjectAttributes &goa = {});
 
 }
 
