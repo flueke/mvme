@@ -9,16 +9,18 @@
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsView>
-#include <QSplitter>
 #include <QGroupBox>
+#include <QScrollBar>
+#include <QSplitter>
 #include <spdlog/spdlog.h>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "analysis/code_editor.h"
-#include "qt_util.h"
 #include "graphicsview_util.h"
+#include "qt_util.h"
+#include "util/qt_eventfilters.h"
 
 namespace mesytec
 {
@@ -383,6 +385,10 @@ QGraphicsView *make_graph_view()
     view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     new MouseWheelZoomer(view, view);
+
+    auto wheelFilter = new mesytec::mvme::util::WheelEventFilter(view);
+    view->horizontalScrollBar()->installEventFilter(wheelFilter);
+    view->verticalScrollBar()->installEventFilter(wheelFilter);
 
     return view;
 }
