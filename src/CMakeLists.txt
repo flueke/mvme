@@ -348,6 +348,7 @@ add_library(libmvme SHARED
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
+    util/qt_eventfilters.cc
     util/qt_logview.cc
     util/qt_monospace_textedit.cc
     util/qt_plaintextedit.cc
