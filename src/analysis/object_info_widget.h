@@ -32,21 +32,12 @@ class MVMEContext;
 namespace analysis
 {
 
-class ObjectInfoHandler
-{
-    public:
-       virtual bool handles(QObject *obj) = 0;
-       virtual QWidget *createWidget(QObject *obj) = 0;
-};
-
 class ObjectInfoWidget: public QFrame
 {
     Q_OBJECT
     public:
         ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~ObjectInfoWidget();
-
-        //void addHandler(std::unique_ptr<ObjectInfoHandler> &&handler);
 
     public slots:
         void setAnalysisObject(const AnalysisObjectPtr &obj);
@@ -58,10 +49,6 @@ class ObjectInfoWidget: public QFrame
         struct Private;
         std::unique_ptr<Private> m_d;
 };
-
-//class AnalysisObjectDevInfoHandler: public ObjectInfoHandler
-//{
-//};
 
 } // end namespace analysis
 

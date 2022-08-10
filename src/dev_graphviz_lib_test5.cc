@@ -137,18 +137,21 @@ void MainWindow::Private::on_action_saveGraph()
 
 void MainWindow::Private::on_action_showGraphCode()
 {
-    auto fp = std::tmpfile();
-    agwrite(scene_.graph(), fp);
-    auto bytes = std::ftell(fp);
-    std::fseek(fp, 0, SEEK_SET);
-    QByteArray dest(bytes, '\0');
-    std::fread(dest.data(), dest.size(), dest.size(), fp);
+    if (auto fp = std::tmpfile())
+    {
+        agwrite(scene_.graph(), fp);
+        auto bytes = std::ftell(fp);
+        std::rewind(fp);
+        QByteArray dest(bytes, '\0');
+        std::fread(dest.data(), dest.size(), 1, fp);
+        std::fclose(fp);
 
-    auto tb = new QTextBrowser;
-    tb->setText(QString::fromLocal8Bit(dest));
-    tb->setAttribute(Qt::WA_DeleteOnClose, true);
-    tb->resize(1200, 800);
-    tb->show();
+        auto tb = new QTextBrowser;
+        tb->setText(QString::fromLocal8Bit(dest));
+        tb->setAttribute(Qt::WA_DeleteOnClose, true);
+        tb->resize(1200, 800);
+        tb->show();
+    }
 }
 
 #define id_str(x) (x).toString().toLocal8Bit().data()
