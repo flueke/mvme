@@ -16,6 +16,7 @@ namespace analysis::graph
 struct GraphContext
 {
     QGVScene *scene; // must point to an existing object before use
+
     std::map<QUuid, QGVNode *> nodes;
     std::map<std::pair<QUuid, QUuid>, QGVEdge *> edges;
     std::map<QUuid, QGVSubGraph *> dirgraphs;
@@ -39,9 +40,9 @@ struct GraphObjectAttributes
 
     Attributes nodeAttributes =
     {
-        { "fontname", "Bitstream Vera Sans" },
         { "style", "filled" },
         { "fillcolor", "#fffbcc" },
+        { "fontname", "Bitstream Vera Sans" },
     };
 
     Attributes edgeAttributes =

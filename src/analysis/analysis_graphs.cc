@@ -15,8 +15,10 @@ void GraphContext::clear()
     nodes.clear();
     edges.clear();
     dirgraphs.clear();
+    conditionsCluster = nullptr;
 }
 
+// The template parameter Parent must provide an addNode() method like QGVScene or QGVSubGraph.
 template<typename Parent>
 QGVNode *object_graph_add_node(GraphContext &gctx, Parent *parent, const AnalysisObjectPtr &obj)
 {
@@ -59,48 +61,6 @@ QGVNode *object_graph_add_node(GraphContext &gctx, const AnalysisObjectPtr &obj)
     return object_graph_add_node(gctx, gctx.scene, obj);
 }
 
-#if 0
-QGVNode *object_graph_add_node(GraphContext &gctx, QGVSubGraph *sg, const AnalysisObjectPtr &obj)
-{
-    return object_graph_add_node(gctx, sg, obj);
-}
-#endif
-
-#if 0
-QGVNode *object_graph_add_node(GraphContext &gctx, const AnalysisObjectPtr &obj)
-{
-    if (gctx.nodes.count(obj->getId()))
-        return gctx.nodes[obj->getId()];
-
-    QString label;
-
-    if (auto exprCond = std::dynamic_pointer_cast<analysis::ExpressionCondition>(obj))
-    {
-        label = QSL("<<b>%1</b><br/>%2<br/><i>%3</i>>")
-                    .arg(escape_dot_string_q(exprCond->getDisplayName()))
-                    .arg(escape_dot_string_q(exprCond->objectName()))
-                    .arg(escape_dot_string_q(exprCond->getExpression()));
-    }
-    else if (auto ps = std::dynamic_pointer_cast<analysis::PipeSourceInterface>(obj))
-    {
-        label = QSL("<<b>%1</b><br/>%2>")
-                    .arg(escape_dot_string_q(ps->getDisplayName()))
-                    .arg(escape_dot_string_q(ps->objectName()));
-    }
-
-    auto objNode = gctx.scene->addNode(label, obj->getId().toString());
-    gctx.nodes[obj->getId()] = objNode;
-
-    if (std::dynamic_pointer_cast<analysis::ConditionInterface>(obj))
-        objNode->setAttribute("shape", "hexagon");
-
-    if (std::dynamic_pointer_cast<analysis::SourceInterface>(obj))
-        objNode->setAttribute("fillcolor", "lightgrey");
-
-    return objNode;
-}
-#endif
-
 QGVEdge *object_graph_add_edge(
     GraphContext &gctx,
     const analysis::AnalysisObjectPtr &srcObj,
@@ -118,6 +78,7 @@ QGVEdge *object_graph_add_edge(
         return {};
 
     auto edge = gctx.scene->addEdge(srcNode, dstNode);
+    edge->setFlag(QGraphicsItem::ItemIsSelectable, false);
     gctx.edges[key] = edge;
 
     return edge;
@@ -148,6 +109,7 @@ QGVNode *object_graph_add_module_for_source(GraphContext &gctx, const analysis::
         auto modNode = gctx.nodes[modId];
         auto srcNode = gctx.nodes[src->getId()];
         auto edge = gctx.scene->addEdge(modNode, srcNode);
+        edge->setFlag(QGraphicsItem::ItemIsSelectable, false);
         gctx.edges[edgeKey] = edge;
     }
 
@@ -174,8 +136,7 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
 
             if (slotCount > 1 && !slot->name.isEmpty())
             {
-                e->setAttribute("headlabel", slot->name + "\nfoo");
-                e->setAttribute("fontcolor", "red");
+                e->setAttribute("headlabel", slot->name + "\n ");
             }
 
             if (auto inputOp = std::dynamic_pointer_cast<analysis::OperatorInterface>(inputObj))
@@ -189,7 +150,7 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
     // if there are active conditions:
     //   create the condition cluster if it does not exist yet
     //   create each condition node in the cluster if it does not exist yet
-    //   add edges from conditions to this oeprator
+    //   add edges from conditions to this operator
     auto condSet = op->getActiveConditions();
 
     if (!condSet.isEmpty())
@@ -211,7 +172,6 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
     }
 }
 
-#if 1
 struct CreateGraphVisitor: public ObjectVisitor
 {
     GraphContext &gctx;
@@ -246,10 +206,10 @@ struct CreateGraphVisitor: public ObjectVisitor
 
     void visit(Directory *dir_) override
     {
-        auto dir = std::dynamic_pointer_cast<Directory>(dir_->shared_from_this());
+        Q_UNUSED(dir_);
+        //auto dir = std::dynamic_pointer_cast<Directory>(dir_->shared_from_this());
     }
 };
-#endif
 
 void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa)
 {
