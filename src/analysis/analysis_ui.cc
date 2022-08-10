@@ -1191,6 +1191,12 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     mainSplitter->setStretchFactor(0, 3);
     mainSplitter->setStretchFactor(1, 1);
 
+#ifdef QT_NO_DEBUG
+    // Hide the object info widget in non-debug builds.
+    rightSplitter->hide();
+#endif
+
+
     static const char *mainSplitterStateKey = "AnalysisWidget/MainSplitterState";
 
     connect(mainSplitter, &QSplitter::splitterMoved,
