@@ -26,6 +26,7 @@
 #include <QCollator>
 #include <QClipboard>
 #include <QFileDialog>
+#include <QApplication>
 #include <QGuiApplication>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -2658,6 +2659,16 @@ static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
     return viableHistoGenNodes;
 }
 
+void show_dependency_graph(const AnalysisObjectPtr &obj)
+{
+    auto [view, scene] = make_graph_view_and_scene();
+    analysis::graph::GraphContext gctx{scene};
+    create_graph(gctx, obj);
+    view->fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
+    view->setWindowTitle(QSL("Dependency graph for '%1'").arg(obj->objectName()));
+    view->show();
+}
+
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
@@ -2815,13 +2826,9 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                     });
                 }
 
-                menu.addAction("View Dependency Graph", [this, op]
+                menu.addAction("View Dependency Graph", [op]
                 {
-                    // TODO: reuse existing graph window unless ctrl is held
-                    auto [view, scene] = make_graph_view_and_scene();
-                    analysis::graph::GraphContext gctx{scene};
-                    create_graph(gctx, op);
-                    view->show();
+                    show_dependency_graph(op);
                 });
             }
         }
@@ -3070,13 +3077,9 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         }
                     });
 
-                    menu.addAction("View Dependency Graph", [this, srcPtr]
+                    menu.addAction("View Dependency Graph", [srcPtr]
                     {
-                        // TODO: reuse existing graph window unless ctrl is held
-                        auto [view, scene] = make_graph_view_and_scene();
-                        analysis::graph::GraphContext gctx{scene};
-                        create_graph(gctx, srcPtr);
-                        view->show();
+                        show_dependency_graph(srcPtr);
                     });
                 }
             }
@@ -3475,11 +3478,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                     menu.addAction("View Dependency Graph", [this, op]
                     {
-                        // TODO: reuse existing graph window unless ctrl is held
-                        auto [view, scene] = make_graph_view_and_scene();
-                        analysis::graph::GraphContext gctx{scene};
-                        create_graph(gctx, op);
-                        view->show();
+                        show_dependency_graph(op);
                     });
 
                 }

@@ -376,7 +376,7 @@ QGraphicsView *make_graph_view()
     auto view = new QGraphicsView;
     add_widget_close_action(view);
     view->setAttribute(Qt::WA_DeleteOnClose, true);
-    view->resize(1200, 800);
+    //view->resize(1200, 800);
     view->setRenderHints(
         QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
     view->setDragMode(QGraphicsView::ScrollHandDrag);
