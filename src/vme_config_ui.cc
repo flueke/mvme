@@ -51,6 +51,7 @@
 #include "vme_config.h"
 #include "vme_script.h"
 #include "vme_config_ui_variable_editor.h"
+#include "vme_config_util.h"
 
 using namespace mesytec;
 using namespace vats;
@@ -415,22 +416,23 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 struct ModuleConfigDialog::Private
 {
     VariableEditorWidget *variableEditor;
+    bool isNewModule_ = false;
 };
 
 //
 // ModuleConfigDialog
 //
 ModuleConfigDialog::ModuleConfigDialog(
-    ModuleConfig *module,
+    ModuleConfig *mod,
     const EventConfig *parentEvent,
     const VMEConfig *vmeConfig,
     QWidget *parent)
 : QDialog(parent)
-, m_module(module)
+, m_module(mod)
 , m_vmeConfig(vmeConfig)
 , m_d(std::make_unique<Private>())
 {
-    assert(module);
+    assert(mod);
     assert(parentEvent);
     assert(vmeConfig);
 
@@ -443,7 +445,7 @@ ModuleConfigDialog::ModuleConfigDialog(
     m_moduleMetas = templates.moduleMetas;
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
-     * the highest priority. Moduls without a vendor name always have to the
+     * the highest priority. Modules without a vendor name always have to the
      * lowest prio. */
     std::sort(m_moduleMetas.begin(), m_moduleMetas.end(),
           [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
@@ -486,43 +488,29 @@ ModuleConfigDialog::ModuleConfigDialog(
 
         typeCombo->addItem(mm.displayName, mm.typeId);
 
-#if 0 // typeId based comparison
-        if (mm.typeId == module->getModuleMeta().typeId)
-        {
+        if (mm.typeName == m_module->getModuleMeta().typeName)
             typeComboIndex = typeCombo->count() - 1;
-        }
-#else // typeName based comparsion
-        if (mm.typeName == module->getModuleMeta().typeName)
-            typeComboIndex = typeCombo->count() - 1;
-#endif
     }
 
-#if 0
-    if (typeComboIndex < 0 && !m_moduleMetas.isEmpty())
-    {
-        typeComboIndex = 0;
-    }
-#else
     if (typeComboIndex < 0)
     {
-        if (!module->getModuleMeta().displayName.isEmpty())
+        if (!m_module->getModuleMeta().displayName.isEmpty())
         {
             typeCombo->insertSeparator(typeCombo->count());
-            typeCombo->addItem(module->getModuleMeta().displayName);
+            typeCombo->addItem(m_module->getModuleMeta().displayName);
             typeComboIndex = typeCombo->count() - 1;
         }
         else
             typeComboIndex = 0;
     }
-#endif
-
 
     nameEdit = new QLineEdit;
 
-    addressEdit = make_vme_address_edit(module->getBaseAddress());
+    addressEdit = make_vme_address_edit(m_module->getBaseAddress());
 
-    const bool isNewModule = (module->getModuleMeta().typeId
+    const bool isNewModule = (m_module->getModuleMeta().typeId
                               == vats::VMEModuleMeta::InvalidTypeId);
+    m_d->isNewModule_ = isNewModule;
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -553,7 +541,7 @@ ModuleConfigDialog::ModuleConfigDialog(
     layout->addRow(gb_variables);
     layout->addRow(bb);
 
-    auto onTypeComboIndexChanged = [this, module](int /*index*/)
+    auto onTypeComboIndexChanged = [this](int /*index*/)
     {
         u8 typeId = typeCombo->currentData().toUInt();
 
@@ -563,9 +551,9 @@ ModuleConfigDialog::ModuleConfigDialog(
 
         if (it == m_moduleMetas.end())
         {
-            nameEdit->setText(module->objectName());
+            nameEdit->setText(m_module->objectName());
             addressEdit->setText(QString("0x%1")
-                                 .arg(module->getBaseAddress(), 8, 16, QChar('0')));
+                                 .arg(m_module->getBaseAddress(), 8, 16, QChar('0')));
             return;
         }
 
@@ -613,10 +601,6 @@ void ModuleConfigDialog::accept()
 {
     u8 typeId = typeCombo->currentData().toUInt();
 
-    m_module->setObjectName(nameEdit->text());
-    m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
-    m_module->setVariables(m_d->variableEditor->getVariables());
-
     auto it = std::find_if(
         m_moduleMetas.begin(), m_moduleMetas.end(),
         [typeId] (const auto &mm) { return mm.typeId == typeId; });
@@ -625,7 +609,45 @@ void ModuleConfigDialog::accept()
     {
         const auto &mm(*it);
         m_module->setModuleMeta(mm);
+
+        if (m_d->isNewModule_ && !mm.moduleJson.empty())
+        {
+            // New style template from a single json file.
+            mvme::vme_config::load_moduleconfig_from_modulejson(*m_module, mm.moduleJson);
+        }
+        else if (m_d->isNewModule_)
+        {
+            // Old style template from multiple .vme files
+            m_module->getReadoutScript()->setObjectName(mm.templates.readout.name);
+            m_module->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
+
+            m_module->getResetScript()->setObjectName(mm.templates.reset.name);
+            m_module->getResetScript()->setScriptContents(mm.templates.reset.contents);
+
+            for (const auto &vmeTemplate: mm.templates.init)
+            {
+                m_module->addInitScript(new VMEScriptConfig(
+                    vmeTemplate.name, vmeTemplate.contents));
+            }
+
+            // FIXME: This should be done earlier so that default module
+            // variables are visible when selecting the module type.
+            for (int i=0; i<mm.variables.size(); ++i)
+            {
+                auto json = mm.variables.at(i).toObject();
+                vme_script::Variable var(
+                    json["value"].toString(),
+                    {},
+                    json["comment"].toString());
+
+                m_module->setVariable(json["name"].toString(), var);
+            }
+        }
     }
+
+    m_module->setObjectName(nameEdit->text());
+    m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
+    m_module->setVariables(m_d->variableEditor->getVariables());
 
     QDialog::accept();
 }
@@ -678,4 +700,3 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
     });
 }
 #endif
-

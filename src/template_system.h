@@ -84,6 +84,9 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QJsonArray variables;
 
     QString templatePath;
+    // New style templates only: contents of the .mvmemodule file from which
+    // this VMEModuleMeta object was created.
+    QJsonObject moduleJson;
 };
 
 bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb);
@@ -101,6 +104,8 @@ using TemplateLogger = std::function<void (const QString &)>;
 MVMETemplates LIBMVME_EXPORT read_templates(TemplateLogger logger = TemplateLogger());
 // Read templates from the given path
 MVMETemplates LIBMVME_EXPORT read_templates_from_path(const QString &path, TemplateLogger logger = TemplateLogger());
+
+VMEModuleMeta LIBMVME_EXPORT modulemeta_from_json(const QJsonObject &json);
 
 QString LIBMVME_EXPORT get_module_path(const QString &moduleTypeName);
 
