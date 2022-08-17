@@ -30,6 +30,9 @@ These files are loaded when the user creates a new event via the GUI.
 Module Templates
 ----------------
 
+Version 1 (script files in subdirectory)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Other subdirectories represent VME modules. The layout is:
 
   module_dir/
@@ -83,6 +86,20 @@ Description of the per module files and directories:
       creating a new module. At DAQ start time the scripts are executed in order to initialize the
       module. The part after the second '-' and before the filename extension is used in the GUI as
       the script title.
+
+Version 2 (single .mvmemodule file)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Newer way of storing module and meta information. Uses a single .mvmemodule
+json file with two root keys: 'ModuleConfig' containing the serialized json
+data and 'ModuleMeta' containing module meta information stored in a json
+object. Compatible files can be created via the 'Save Module to File' context
+menu entry in the vme config tree.
+
+Multiple .mvmemodule files can be put in the same module subdirectory.
+
+Analysis filter templates
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * analysis/
   - default_filters.analysis:

@@ -129,6 +129,8 @@ class LIBMVME_EXPORT ConfigObject: public QObject
             return findChildById<ConfigObject *>(id, recurse);
         }
 
+        std::string objectNameStdString() const;
+
     public slots:
         void setModified(bool b = true);
         void setEnabled(bool b);
