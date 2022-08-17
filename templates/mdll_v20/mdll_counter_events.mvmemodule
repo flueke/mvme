@@ -1,0 +1,96 @@
+{
+    "ModuleConfig": {
+        "baseAddress": 0,
+        "enabled": true,
+        "id": "{4155c85e-ebcf-49b0-8782-7d722592fe90}",
+        "initScripts": [
+            {
+                "enabled": true,
+                "id": "{d5d869b9-a049-48e1-8052-9bf088f3da8c}",
+                "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            },
+            {
+                "enabled": true,
+                "id": "{9e604d1c-afe9-4075-ba9f-9dccfa88ed8a}",
+                "name": "Frontend Settings",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            },
+            {
+                "enabled": true,
+                "id": "{e2f202d6-fce9-46f9-9e59-31b7b49f6093}",
+                "name": "VME Interface Settings",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            }
+        ],
+        "name": "Counter_Events",
+        "type": "mdpp32_qdc",
+        "variable_table": {
+            "name": "",
+            "variables": {
+            }
+        },
+        "vmeReadout": {
+            "enabled": true,
+            "id": "{fc181c1f-9c7a-4074-a210-614b831964b0}",
+            "name": "Module Readout",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# BLT readout until BERR or number of transfers reached\nmbltfifo a32 0x0000 65535\n"
+        },
+        "vmeReset": {
+            "enabled": true,
+            "id": "{9cca54fe-ad31-4113-abf9-1fcf3029851f}",
+            "name": "Module Reset",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": ""
+        }
+    },
+    "ModuleMeta": {
+        "typeId": 23,
+        "displayName": "MDLL Counter Events",
+        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+        "typeName": "mdllv20_counter_events",
+        "variables": [
+        ],
+        "vendorName": "mesytec",
+        "vmeAddress": 4294901760
+    }
+}
