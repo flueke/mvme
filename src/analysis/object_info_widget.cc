@@ -69,7 +69,7 @@ void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
     analysis::graph::create_graph(m_gctx, obj);
 }
 
-void ObjectInfoWidget::Private::showGraphViewContextMenu(const QPoint &pos)
+void ObjectInfoWidget::Private::showGraphViewContextMenu(const QPoint &/*pos*/)
 {
 #if 0
     auto menu = new QMenu;
