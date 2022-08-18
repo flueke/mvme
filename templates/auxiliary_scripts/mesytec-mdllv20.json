@@ -1,0 +1,23 @@
+{
+    "auxiliary_vme_scripts": [
+        {
+            "fileName": "mdllv20-set_pulser.vmescript",
+            "scriptName": "MDLL Set Pulser",
+            "vendorName": "mesytec",
+            "moduleName": "MDLL"
+        },
+        {
+            "fileName": "mdllv20-timing_setup.vmescript",
+            "scriptName": "MDLL Timing Setup",
+            "vendorName": "mesytec",
+            "moduleName": "MDLL"
+        },
+        {
+            "fileName": "mdllv20-counter_events.vmescript",
+            "scriptName": "MDLL Counter Events Setup",
+            "vendorName": "mesytec",
+            "moduleName": "MDLL"
+        }
+    ]
+}
+
