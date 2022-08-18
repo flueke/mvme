@@ -1,0 +1,4 @@
+#setbase 0xffff0000  # high 16 bits ignored by MDLL
+0x6070 0	# 1= on
+0x6072 1080  #0...255
+
