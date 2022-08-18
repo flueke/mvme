@@ -4167,9 +4167,9 @@ Analysis::Analysis(QObject *parent)
 #if 1
     // conditions
     m_objectFactory.registerOperator<IntervalCondition>();
-    m_objectFactory.registerOperator<RectangleCondition>();
+    //m_objectFactory.registerOperator<RectangleCondition>(); // TODO: create a proper gui for this
     m_objectFactory.registerOperator<PolygonCondition>();
-    m_objectFactory.registerOperator<LutCondition>();
+    m_objectFactory.registerOperator<LutCondition>(); // TODO: disabled for now, remove the code
     m_objectFactory.registerOperator<ExpressionCondition>();
 #endif
 
