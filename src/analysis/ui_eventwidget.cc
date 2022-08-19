@@ -181,37 +181,6 @@ QVector<QUuid> decode_id_list(QByteArray data)
     return result;
 }
 
-std::pair<QGraphicsView *, QGVScene *> make_graph_view_and_scene()
-{
-    auto view = mesytec::graphviz_util::make_graph_view();
-    auto scene = new QGVScene(view);
-    view->setScene(scene);
-
-    auto context_menu_handler = [view, scene] (const QPoint &relpos)
-    {
-        QMenu menu;
-        menu.addAction("View DOT code", scene , [scene]
-        {
-            auto dotStr = scene->toDot();
-            auto tw = new QPlainTextEdit;
-            tw->setAttribute(Qt::WA_DeleteOnClose);
-            add_widget_close_action(tw);
-            tw->setPlainText(dotStr);
-            tw->resize(1000, 800);
-            tw->show();
-        });
-
-        auto pos = view->mapToGlobal(relpos);
-        menu.exec(pos);
-    };
-
-    view->setContextMenuPolicy(Qt::CustomContextMenu);
-    QObject::connect(view, &QWidget::customContextMenuRequested,
-                     view, context_menu_handler);
-
-    return std::make_pair(view, scene);
-}
-
 } // end anon namespace
 
 ObjectTree::~ObjectTree()
@@ -2659,16 +2628,6 @@ static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
     return viableHistoGenNodes;
 }
 
-void show_dependency_graph(const AnalysisObjectPtr &obj)
-{
-    auto [view, scene] = make_graph_view_and_scene();
-    analysis::graph::GraphContext gctx{scene};
-    create_graph(gctx, obj);
-    view->fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
-    view->setWindowTitle(QSL("Dependency graph for '%1'").arg(obj->objectName()));
-    view->show();
-}
-
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
@@ -2828,7 +2787,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
                 menu.addAction("View Dependency Graph", [op]
                 {
-                    show_dependency_graph(op);
+                    analysis::graph::show_dependency_graph(op);
                 });
             }
         }
@@ -3079,7 +3038,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
 
                     menu.addAction("View Dependency Graph", [srcPtr]
                     {
-                        show_dependency_graph(srcPtr);
+                        analysis::graph::show_dependency_graph(srcPtr);
                     });
                 }
             }
@@ -3478,7 +3437,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                     menu.addAction("View Dependency Graph", [this, op]
                     {
-                        show_dependency_graph(op);
+                        analysis::graph::show_dependency_graph(op);
                     });
 
                 }

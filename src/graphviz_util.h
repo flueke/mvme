@@ -16,6 +16,8 @@
 
 #include "libmvme_export.h"
 
+class QGVScene;
+
 // Graphviz utilities for generating, layouting and rendering DOT code.
 //
 // The approach taken is to generate DOT code, render it to SVG using graphviz,
@@ -294,6 +296,10 @@ inline QString escape_dot_string_q(const QString &label)
 
 // Creates a QGraphicsView initialized for rendering graphviz objects.
 LIBMVME_EXPORT QGraphicsView *make_graph_view();
+
+// Creates a QGraphicsView for rendering graphviz objects and a QGVScene object
+// for dynamically creating graphviz graphs.
+LIBMVME_EXPORT std::pair<QGraphicsView *, QGVScene *> make_graph_view_and_scene();
 
 }
 }

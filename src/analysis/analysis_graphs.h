@@ -56,6 +56,8 @@ LIBMVME_EXPORT void apply_graph_attributes(QGVScene *scene, const GraphObjectAtt
 LIBMVME_EXPORT void create_graph(GraphContext &gctx, const AnalysisObjectPtr &rootObj, const GraphObjectAttributes &goa = {});
 LIBMVME_EXPORT void new_graph(GraphContext &gctx, const GraphObjectAttributes &goa = {});
 
+LIBMVME_EXPORT void show_dependency_graph(const AnalysisObjectPtr &obj);
+
 }
 
 #endif // __SSD2_DATA_SRC_MVME2_SRC_ANALYSIS_ANALYSIS_GRAPHS_H_

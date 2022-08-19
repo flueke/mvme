@@ -1,6 +1,7 @@
 #include "analysis_graphs.h"
 
 #include <qgv.h>
+#include <QTimer>
 #include "analysis.h"
 #include "../graphviz_util.h"
 
@@ -238,6 +239,22 @@ void new_graph(GraphContext &gctx, const GraphObjectAttributes &goa)
     gctx.scene->newGraph();
     gctx.clear();
     apply_graph_attributes(gctx.scene, goa);
+}
+
+void show_dependency_graph(const AnalysisObjectPtr &obj)
+{
+    auto [view, scene] = mesytec::graphviz_util::make_graph_view_and_scene();
+    analysis::graph::GraphContext gctx{scene};
+    create_graph(gctx, obj);
+    view->setWindowTitle(QSL("Dependency graph for '%1'").arg(obj->objectName()));
+    view->resize(800, 400);
+
+    // Save/restore window position and size.
+    auto geoSaver = new WidgetGeometrySaver(view);
+    geoSaver->addAndRestore(view, "WindowGeometries/AnalysisObjectDependencyGraph");
+
+    view->show();
+    view->fitInView(view->scene()->sceneRect(), Qt::KeepAspectRatio);
 }
 
 }

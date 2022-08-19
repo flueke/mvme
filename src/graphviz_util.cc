@@ -2,6 +2,7 @@
 
 #include <graphviz/cgraph.h>
 #include <graphviz/gvc.h>
+#include <qgv.h>
 #include <mutex>
 #include <QBoxLayout>
 #include <QDebug>
@@ -10,6 +11,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsView>
 #include <QGroupBox>
+#include <QMenu>
 #include <QScrollBar>
 #include <QSplitter>
 #include <spdlog/spdlog.h>
@@ -376,7 +378,6 @@ QGraphicsView *make_graph_view()
     auto view = new QGraphicsView;
     add_widget_close_action(view);
     view->setAttribute(Qt::WA_DeleteOnClose, true);
-    //view->resize(1200, 800);
     view->setRenderHints(
         QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
     view->setDragMode(QGraphicsView::ScrollHandDrag);
@@ -391,6 +392,38 @@ QGraphicsView *make_graph_view()
     view->verticalScrollBar()->installEventFilter(wheelFilter);
 
     return view;
+}
+
+std::pair<QGraphicsView *, QGVScene *> make_graph_view_and_scene()
+{
+    auto view = mesytec::graphviz_util::make_graph_view();
+    auto scene = new QGVScene(view);
+    view->setScene(scene);
+    view->installEventFilter(new FitInViewOnResizeFilter(view));
+
+    auto context_menu_handler = [view, scene] (const QPoint &relpos)
+    {
+        QMenu menu;
+        menu.addAction("View DOT code", scene , [scene]
+        {
+            auto dotStr = scene->toDot();
+            auto tw = new QPlainTextEdit;
+            tw->setAttribute(Qt::WA_DeleteOnClose);
+            add_widget_close_action(tw);
+            tw->setPlainText(dotStr);
+            tw->resize(1000, 800);
+            tw->show();
+        });
+
+        auto pos = view->mapToGlobal(relpos);
+        menu.exec(pos);
+    };
+
+    view->setContextMenuPolicy(Qt::CustomContextMenu);
+    QObject::connect(view, &QWidget::customContextMenuRequested,
+                     view, context_menu_handler);
+
+    return std::make_pair(view, scene);
 }
 
 }
