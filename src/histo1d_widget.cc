@@ -66,6 +66,7 @@
 #include <QPrintDialog>
 
 #include "analysis/analysis.h"
+#include "analysis/analysis_graphs.h"
 #include "histo1d_util.h"
 #include "histo_gui_util.h"
 #include "mvme_context_lib.h"
@@ -552,6 +553,13 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
                 if (m_d->m_intervalConditionEditorController)
                     m_d->m_intervalConditionEditorController->setEnabled(on);
+            });
+
+    auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");
+    connect(actionShowDependencyGraph, &QAction::triggered,
+            this, [this] ()
+            {
+                analysis::graph::show_dependency_graph(getSink());
             });
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after

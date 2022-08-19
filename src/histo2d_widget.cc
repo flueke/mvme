@@ -51,6 +51,7 @@
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_graphs.h"
 #include "git_sha1.h"
 #include "histo1d_widget.h"
 #include "histo_gui_util.h"
@@ -537,7 +538,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         });
     }
 
-    auto actionPolyConditions = tb->addAction("Polygon Conditions");
+    auto actionPolyConditions = tb->addAction(QIcon(":/scissors.png"), "Polygon Conditions");
     actionPolyConditions->setObjectName("polygonConditions");
     actionPolyConditions->setCheckable(true);
 
@@ -614,6 +615,13 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         });
 #endif
     }
+
+    auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");
+    connect(actionShowDependencyGraph, &QAction::triggered,
+            this, [this] ()
+            {
+                analysis::graph::show_dependency_graph(getSink());
+            });
 
     tb->addWidget(make_spacer_widget());
 
