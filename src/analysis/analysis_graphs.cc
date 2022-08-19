@@ -203,6 +203,7 @@ struct CreateGraphVisitor: public ObjectVisitor
     {
         auto cond = std::dynamic_pointer_cast<ConditionInterface>(cond_->shared_from_this());
         object_graph_add_node(gctx, cond);
+        object_graph_recurse_to_source(gctx, cond);
     }
 
     void visit(Directory *dir_) override
