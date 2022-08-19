@@ -35,6 +35,26 @@ bool MouseWheelZoomer::eventFilter(QObject *watched, QEvent *event)
     return true;
 }
 
+bool FitInViewOnResizeFilter::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() != QEvent::Resize)
+        return false;
+
+    auto view = qobject_cast<QGraphicsView *>(watched);
+
+    if (!view)
+        return false;
+
+    auto scene = view->scene();
+
+    if (!scene)
+        return false;
+
+    view->fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
+
+    return false; // let the event pass on
+}
+
 void scale_view(
     QGraphicsView *view, qreal scaleFactor,
     double zoomOutLimit, double zoomInLimit)

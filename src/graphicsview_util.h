@@ -22,4 +22,14 @@ void scale_view(
     QGraphicsView *view, double scaleFactor,
     double zoomOutLimit = 0.25, double zoomInLimit = 10);
 
+class FitInViewOnResizeFilter: public QObject
+{
+    Q_OBJECT
+
+    public:
+        using QObject::QObject;
+
+        bool eventFilter(QObject *watched, QEvent *event) override;
+};
+
 #endif /* __MVME_GRAPHICSVIEW_UTIL_H__ */
