@@ -2785,7 +2785,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                     });
                 }
 
-                menu.addAction("View Dependency Graph", [op]
+                menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [op]
                 {
                     analysis::graph::show_dependency_graph(op);
                 });
