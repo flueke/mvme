@@ -2,10 +2,11 @@
 #define __MVME_GRAPHICSVIEW_UTIL_H__
 
 #include <QObject>
+#include "libmvme_export.h"
 
 class QGraphicsView;
 
-class MouseWheelZoomer: public QObject
+class LIBMVME_EXPORT MouseWheelZoomer: public QObject
 {
     Q_OBJECT
 
@@ -18,11 +19,11 @@ class MouseWheelZoomer: public QObject
        bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
-void scale_view(
+LIBMVME_EXPORT void scale_view(
     QGraphicsView *view, double scaleFactor,
     double zoomOutLimit = 0.25, double zoomInLimit = 10);
 
-class FitInViewOnResizeFilter: public QObject
+class LIBMVME_EXPORT FitInViewOnResizeFilter: public QObject
 {
     Q_OBJECT
 
