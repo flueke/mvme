@@ -2,7 +2,9 @@
 #define __SSD2_DATA_SRC_MVME2_SRC_ANALYSIS_ANALYSIS_GRAPHS_H_
 
 #include <map>
+#include <memory>
 #include <QUuid>
+#include <QWidget>
 #include "analysis_fwd.h"
 #include "libmvme_export.h"
 
@@ -57,6 +59,19 @@ LIBMVME_EXPORT void create_graph(GraphContext &gctx, const AnalysisObjectPtr &ro
 LIBMVME_EXPORT void new_graph(GraphContext &gctx, const GraphObjectAttributes &goa = {});
 
 LIBMVME_EXPORT void show_dependency_graph(const AnalysisObjectPtr &obj);
+
+class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        explicit DependencyGraphWidget(QWidget *parent = nullptr);
+        ~DependencyGraphWidget() override;
+
+    private:
+        struct Private;
+        std::shared_ptr<Private> d;
+
+};
 
 }
 

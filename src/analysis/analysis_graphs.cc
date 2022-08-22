@@ -258,4 +258,19 @@ void show_dependency_graph(const AnalysisObjectPtr &obj)
     view->fitInView(view->scene()->sceneRect(), Qt::KeepAspectRatio);
 }
 
+struct DependencyGraphWidget::Private
+{
+    int i = 42;
+};
+
+DependencyGraphWidget::DependencyGraphWidget(QWidget *parent)
+    : QWidget(parent)
+    , d(std::make_shared<Private>())
+{
+}
+
+DependencyGraphWidget::~DependencyGraphWidget()
+{
+}
+
 }
