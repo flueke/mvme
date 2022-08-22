@@ -4,11 +4,15 @@
 #include <QWheelEvent>
 #include <cmath>
 
-
-MouseWheelZoomer::MouseWheelZoomer(QGraphicsView *view, QObject *parent)
-    : QObject(parent)
+void scale_view(
+    QGraphicsView *view, qreal scaleFactor,
+    double zoomOutLimit, double zoomInLimit)
 {
-    view->installEventFilter(this);
+    qreal factor = view->transform().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width();
+    if (factor < zoomOutLimit || factor > zoomInLimit)
+        return;
+
+    view->scale(scaleFactor, scaleFactor);
 }
 
 bool MouseWheelZoomer::eventFilter(QObject *watched, QEvent *event)
@@ -37,31 +41,16 @@ bool MouseWheelZoomer::eventFilter(QObject *watched, QEvent *event)
 
 bool FitInViewOnResizeFilter::eventFilter(QObject *watched, QEvent *event)
 {
-    if (event->type() != QEvent::Resize)
-        return false;
-
-    auto view = qobject_cast<QGraphicsView *>(watched);
-
-    if (!view)
-        return false;
-
-    auto scene = view->scene();
-
-    if (!scene)
-        return false;
-
-    view->fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
+    if (event->type() == QEvent::Resize)
+    {
+        if (auto view = qobject_cast<QGraphicsView *>(watched))
+        {
+            if (auto scene = view->scene())
+            {
+                view->fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
+            }
+        }
+    }
 
     return false; // let the event pass on
-}
-
-void scale_view(
-    QGraphicsView *view, qreal scaleFactor,
-    double zoomOutLimit, double zoomInLimit)
-{
-    qreal factor = view->transform().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width();
-    if (factor < zoomOutLimit || factor > zoomInLimit)
-        return;
-
-    view->scale(scaleFactor, scaleFactor);
 }
