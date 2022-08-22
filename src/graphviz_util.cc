@@ -401,6 +401,7 @@ std::pair<QGraphicsView *, QGVScene *> make_graph_view_and_scene()
     auto scene = new QGVScene(view);
     view->setScene(scene);
 
+#if 0
     auto context_menu_handler = [view, scene] (const QPoint &relpos)
     {
         QMenu menu;
@@ -422,6 +423,7 @@ std::pair<QGraphicsView *, QGVScene *> make_graph_view_and_scene()
     view->setContextMenuPolicy(Qt::CustomContextMenu);
     QObject::connect(view, &QWidget::customContextMenuRequested,
                      view, context_menu_handler);
+#endif
 
     return std::make_pair(view, scene);
 }
