@@ -313,7 +313,7 @@ DotSvgWidget::DotSvgWidget(QWidget *parent)
     d->view_ = new QGraphicsView;
     d->dotEditor_ = new CodeEditor;
     d->svgEditor_ = new CodeEditor;
-    new MouseWheelZoomer(d->view_, d->view_);
+    d->view_->installEventFilter(new MouseWheelZoomer(d->view_));
 
     d->sceneManager_.scene()->installEventFilter(new DotSceneEventFilter(this));
 
@@ -385,8 +385,9 @@ QGraphicsView *make_graph_view()
     view->setContextMenuPolicy(Qt::CustomContextMenu);
     view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    new MouseWheelZoomer(view, view);
 
+    view->installEventFilter(new FitInViewOnResizeFilter(view));
+    view->installEventFilter(new MouseWheelZoomer(view));
     auto wheelFilter = new mesytec::mvme::util::WheelEventFilter(view);
     view->horizontalScrollBar()->installEventFilter(wheelFilter);
     view->verticalScrollBar()->installEventFilter(wheelFilter);
@@ -399,7 +400,6 @@ std::pair<QGraphicsView *, QGVScene *> make_graph_view_and_scene()
     auto view = mesytec::graphviz_util::make_graph_view();
     auto scene = new QGVScene(view);
     view->setScene(scene);
-    view->installEventFilter(new FitInViewOnResizeFilter(view));
 
     auto context_menu_handler = [view, scene] (const QPoint &relpos)
     {

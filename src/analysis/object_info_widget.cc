@@ -108,7 +108,7 @@ ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent
     m_d->m_graphView->setDragMode(QGraphicsView::ScrollHandDrag);
     m_d->m_graphView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     m_d->m_graphView->setContextMenuPolicy(Qt::CustomContextMenu);
-    new MouseWheelZoomer(m_d->m_graphView, m_d->m_graphView);
+    m_d->m_graphView->installEventFilter(new MouseWheelZoomer(m_d->m_graphView));
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);

@@ -607,7 +607,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                      this, &MVLCTriggerIOEditor::reload);
 
     auto view = new QGraphicsView(scene);
-    new MouseWheelZoomer(view, view);
+    view->installEventFilter(new MouseWheelZoomer(view));
 
     view->setRenderHints(
         QPainter::Antialiasing | QPainter::TextAntialiasing |

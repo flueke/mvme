@@ -6,6 +6,11 @@
 
 class QGraphicsView;
 
+LIBMVME_EXPORT void scale_view(
+    QGraphicsView *view, double scaleFactor,
+    double zoomOutLimit = 0.25, double zoomInLimit = 10);
+
+
 class LIBMVME_EXPORT MouseWheelZoomer: public QObject
 {
     Q_OBJECT
@@ -13,15 +18,8 @@ class LIBMVME_EXPORT MouseWheelZoomer: public QObject
     public:
        using QObject::QObject;
 
-       // Convenience constructor installing the MouseWheelZoomer on the view.
-       MouseWheelZoomer(QGraphicsView *view, QObject *parent = nullptr);
-
        bool eventFilter(QObject *watched, QEvent *event) override;
 };
-
-LIBMVME_EXPORT void scale_view(
-    QGraphicsView *view, double scaleFactor,
-    double zoomOutLimit = 0.25, double zoomInLimit = 10);
 
 class LIBMVME_EXPORT FitInViewOnResizeFilter: public QObject
 {

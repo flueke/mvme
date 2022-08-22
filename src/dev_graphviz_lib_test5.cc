@@ -72,7 +72,7 @@ MainWindow::MainWindow()
     d->view_->setDragMode(QGraphicsView::ScrollHandDrag);
     d->view_->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     d->view_->setContextMenuPolicy(Qt::CustomContextMenu);
-    new MouseWheelZoomer(d->view_, d->view_);
+    d->view_->installEventFilter(new MouseWheelZoomer(d->view_));
 
     ui_->setupUi(this);
 
