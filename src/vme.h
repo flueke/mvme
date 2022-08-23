@@ -58,7 +58,7 @@ namespace vme_address_modes
     static const u8 A32         = a32UserData;
     static const u8 BLT32       = a32UserBlock;
     static const u8 MBLT64      = a32UserBlock64;
-    static const u8 Blk2eSST64  = 0x21;
+    static const u8 Blk2eSST64  = 0x20;
 
     inline bool is_block_amod(u8 amod)
     {

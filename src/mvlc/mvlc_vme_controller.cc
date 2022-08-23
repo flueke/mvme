@@ -343,6 +343,19 @@ VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
     return error_wrap(*m_mvlc, ec);
 }
 
+VMEError MVLC_VMEController::blockRead(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate,
+                                       u16 transfers, QVector<u32> *dest)
+{
+    std::vector<u32> buffer;
+    auto ec = m_mvlc->vmeBlockRead(address, rate, transfers, buffer);
+
+    dest->clear();
+    dest->reserve(buffer.size());
+    std::copy(std::begin(buffer), std::end(buffer), std::back_inserter(*dest));
+
+    return error_wrap(*m_mvlc, ec);
+}
+
 VMEError MVLC_VMEController::vmeMBLTSwapped(u32 address, u16 transfers, QVector<u32> *dest)
 {
     std::vector<u32> buffer;

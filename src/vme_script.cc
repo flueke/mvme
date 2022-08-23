@@ -317,6 +317,38 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
     return result;
 }
 
+static Blk2eSSTRate parse2esstRate(const QString &arg)
+{
+    if (arg == "0" || arg == "160" || arg.toLower() == "160mb")
+        return Blk2eSSTRate::Rate160MB;
+
+    if (arg == "1" || arg == "276" || arg.toLower() == "276mb")
+        return Blk2eSSTRate::Rate276MB;
+
+    if (arg == "2" || arg == "320" || arg.toLower() == "320mb")
+        return Blk2eSSTRate::Rate320MB;
+
+   throw "invalid 2eSST rate";
+}
+
+Command parse2esstTransfer(const QStringList &args, int lineNumber)
+{
+    auto usage = QString("%1 <address> <rate> <transfer_count>").arg(args[0]);
+
+    if (args.size() != 4)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+    result.addressMode = mesytec::mvlc::vme_amods::Blk2eSST64;
+    result.address = parseAddress(args[1]);
+    result.blk2eSSTRate = parse2esstRate(args[2]);
+    result.transfers = parseValue<u32>(args[3]);
+    result.lineNumber = lineNumber;
+
+    return result;
+}
+
 Command parseSetBase(const QStringList &args, int lineNumber)
 {
     auto usage = QString("%1 <address>").arg(args[0]);
@@ -686,6 +718,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("mblt"),                  parseBlockTransfer },
     { QSL("mbltfifo"),              parseBlockTransfer },
     { QSL("mblts"),                 parseBlockTransfer },
+    { QSL("2esst"),                 parse2esstTransfer },
 
     { QSL("setbase"),               parseSetBase },
     { QSL("resetbase"),             parseResetBase },
@@ -1662,6 +1695,7 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MBLT,                QSL("mblt") },
     { CommandType::MBLTFifo,            QSL("mbltfifo") },
     { CommandType::MBLTSwapped,         QSL("mblts") },
+    { CommandType::Blk2eSST64,          QSL("2esst") },
     { CommandType::SetBase,             QSL("setbase") },
     { CommandType::ResetBase,           QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
@@ -1758,6 +1792,21 @@ QString to_string(MVLCSpecialWord sw)
     return "Unrecognized MVLC special word";
 }
 
+QString to_string(const Blk2eSSTRate &rate)
+{
+    switch (rate)
+    {
+        case Blk2eSSTRate::Rate160MB:
+            return "160MB";
+        case Blk2eSSTRate::Rate276MB:
+            return "276MB";
+        case Blk2eSSTRate::Rate320MB:
+            return "320MB";
+    }
+
+    return "Unknown 2eSST transfer rate";
+}
+
 QString to_string(const Command &cmd)
 {
     QString buffer;
@@ -1818,7 +1867,11 @@ QString to_string(const Command &cmd)
 
         case CommandType::Blk2eSST64:
             {
-                assert(false);
+                buffer = QString(QSL("%1 %2 %3 %4"))
+                    .arg(cmdStr)
+                    .arg(format_hex(cmd.address))
+                    .arg(to_string(cmd.blk2eSSTRate))
+                    .arg(cmd.transfers);
             }
 
         case CommandType::SetBase:

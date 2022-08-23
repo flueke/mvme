@@ -70,6 +70,13 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.transfers = srcCmd.transfers;
             break;
 
+        case CommandType::Blk2eSST64:
+            dstCmd.type = mvlcCT::VMERead;
+            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
         case CommandType::MVLC_WriteSpecial:
             dstCmd.type = mvlcCT::WriteSpecial;
             dstCmd.value = srcCmd.value;
