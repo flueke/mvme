@@ -1,9 +1,14 @@
 #include "analysis_graphs.h"
 
 #include <qgv.h>
+#include <QApplication>
 #include <QTimer>
+#include <QToolBar>
+#include <QUndoStack>
+#include <QUndoCommand>
 #include "analysis.h"
 #include "../graphviz_util.h"
+#include "../qt_util.h"
 
 namespace analysis::graph
 {
@@ -213,6 +218,13 @@ struct CreateGraphVisitor: public ObjectVisitor
     }
 };
 
+LIBMVME_EXPORT GraphContext create_graph_context()
+{
+    auto [view, scene] = mesytec::graphviz_util::make_graph_view_and_scene();
+    analysis::graph::GraphContext gctx{scene, view};
+    return gctx;
+}
+
 void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa)
 {
     for (auto & [key, value]: goa.graphAttributes)
@@ -242,35 +254,73 @@ void new_graph(GraphContext &gctx, const GraphObjectAttributes &goa)
     apply_graph_attributes(gctx.scene, goa);
 }
 
-void show_dependency_graph(const AnalysisObjectPtr &obj)
-{
-    auto [view, scene] = mesytec::graphviz_util::make_graph_view_and_scene();
-    analysis::graph::GraphContext gctx{scene};
-    create_graph(gctx, obj);
-    view->setWindowTitle(QSL("Dependency graph for '%1'").arg(obj->objectName()));
-    view->resize(800, 400);
-
-    // Save/restore window position and size.
-    auto geoSaver = new WidgetGeometrySaver(view);
-    geoSaver->addAndRestore(view, "WindowGeometries/AnalysisObjectDependencyGraph");
-
-    view->show();
-    view->fitInView(view->scene()->sceneRect(), Qt::KeepAspectRatio);
-}
-
 struct DependencyGraphWidget::Private
 {
-    int i = 42;
+    Private() {}
+
+    GraphContext gctx_;
+    QToolBar *toolbar_;
+    QUndoStack history_;
 };
 
 DependencyGraphWidget::DependencyGraphWidget(QWidget *parent)
     : QWidget(parent)
     , d(std::make_shared<Private>())
 {
+    setObjectName("AnalysisDependencyGraphWidget");
+    d->gctx_ = create_graph_context();
+    d->toolbar_ = new QToolBar;
+    auto layout = make_vbox(this);
+    layout->addWidget(d->toolbar_);
+    layout->addWidget(d->gctx_.view);
+    layout->setStretch(0, 1);
+
+    d->toolbar_->addAction(d->history_.createUndoAction(this, "%1"));
+    d->toolbar_->addAction(d->history_.createRedoAction(this, "%1"));
 }
 
 DependencyGraphWidget::~DependencyGraphWidget()
 {
+}
+
+void DependencyGraphWidget::setObject(const AnalysisObjectPtr &rootObj)
+{
+    create_graph(d->gctx_, rootObj);
+    setWindowTitle(QSL("Dependency graph for '%1'").arg(rootObj->objectName()));
+    d->gctx_.view->fitInView(d->gctx_.view->scene()->sceneRect(), Qt::KeepAspectRatio);
+}
+
+void DependencyGraphWidget::setGraphObjectAttributes(const GraphObjectAttributes &goa)
+{
+    apply_graph_attributes(d->gctx_.scene, goa);
+}
+
+DependencyGraphWidget *show_dependency_graph(const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa)
+{
+    DependencyGraphWidget *dgw = nullptr;
+    auto widgets = QApplication::topLevelWidgets();
+
+    for (auto w: widgets)
+    {
+        if ((dgw = qobject_cast<DependencyGraphWidget *>(w)))
+            break;
+    }
+
+    if (!dgw)
+    {
+        dgw = new DependencyGraphWidget();
+        // Save/restore window position and size.
+        auto geoSaver = new WidgetGeometrySaver(dgw);
+        geoSaver->addAndRestore(dgw, "WindowGeometries/AnalysisDependencyGraphWidget");
+    }
+
+    dgw->setObject(obj);
+    dgw->setGraphObjectAttributes(goa);
+    dgw->show();
+    dgw->showNormal();
+    dgw->raise();
+
+    return dgw;
 }
 
 }

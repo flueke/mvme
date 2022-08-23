@@ -12,20 +12,25 @@ class QGVScene;
 class QGVNode;
 class QGVEdge;
 class QGVSubGraph;
+class QGraphicsView;
 
 namespace analysis::graph
 {
 
 struct LIBMVME_EXPORT GraphContext
 {
-    QGVScene *scene; // must point to an existing object before use
+    QGVScene *scene; // non-owning
+    QGraphicsView *view; // non-owning
 
     std::map<QUuid, QGVNode *> nodes;
     std::map<std::pair<QUuid, QUuid>, QGVEdge *> edges;
     std::map<QUuid, QGVSubGraph *> dirgraphs;
     QGVSubGraph *conditionsCluster = nullptr;
 
-    explicit GraphContext(QGVScene *scene_): scene(scene_) {}
+    explicit GraphContext(QGVScene *scene_ = nullptr, QGraphicsView *view_ = nullptr)
+        : scene(scene_)
+        , view(view_)
+        {}
     void clear(); // clears the scene and the item maps
 };
 
@@ -54,11 +59,10 @@ struct LIBMVME_EXPORT GraphObjectAttributes
     };
 };
 
+LIBMVME_EXPORT GraphContext create_graph_context();
 LIBMVME_EXPORT void apply_graph_attributes(QGVScene *scene, const GraphObjectAttributes &goa);
 LIBMVME_EXPORT void create_graph(GraphContext &gctx, const AnalysisObjectPtr &rootObj, const GraphObjectAttributes &goa = {});
 LIBMVME_EXPORT void new_graph(GraphContext &gctx, const GraphObjectAttributes &goa = {});
-
-LIBMVME_EXPORT void show_dependency_graph(const AnalysisObjectPtr &obj);
 
 class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
 {
@@ -67,11 +71,17 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
         explicit DependencyGraphWidget(QWidget *parent = nullptr);
         ~DependencyGraphWidget() override;
 
+    public slots:
+        void setObject(const AnalysisObjectPtr &rootObj);
+        void setGraphObjectAttributes(const GraphObjectAttributes &goa);
+
     private:
         struct Private;
         std::shared_ptr<Private> d;
 
 };
+
+LIBMVME_EXPORT DependencyGraphWidget *show_dependency_graph(const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa = {});
 
 }
 
