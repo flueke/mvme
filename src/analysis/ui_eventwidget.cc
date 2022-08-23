@@ -3036,7 +3036,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         }
                     });
 
-                    menu.addAction("View Dependency Graph", [srcPtr]
+                    menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [srcPtr]
                     {
                         analysis::graph::show_dependency_graph(srcPtr);
                     });
@@ -3435,11 +3435,10 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         clearAllToDefaultNodeHighlights();
                     });
 
-                    menu.addAction("View Dependency Graph", [this, op]
+                    menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [op]
                     {
                         analysis::graph::show_dependency_graph(op);
                     });
-
                 }
 
                 break;
