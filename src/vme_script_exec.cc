@@ -179,6 +179,14 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                     vme_address_modes::MBLT64, true);
             } break;
 
+        case CommandType::Blk2eSST64:
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
+            {
+                result.error = mvlc->blockRead(
+                    cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate),
+                    cmd.transfers, &result.valueVector);
+            } break;
+
         case CommandType::VMUSB_WriteRegister:
             if (auto vmusb = qobject_cast<VMUSB *>(controller))
             {
@@ -251,7 +259,6 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
 
         case CommandType::MetaBlock:
-        case CommandType::Blk2eSST64:
         case CommandType::Print:
             // These just don't do anything.
             break;

@@ -112,6 +112,11 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
                     result.addVMEBlockRead(cmd.address, vme_address_modes::MBLT64, cmd.transfers);
                 } break;
 
+            case CommandType::Blk2eSST64:
+                {
+                    result.addVMEBlockRead(cmd.address, cmd.blk2eSSTRate, cmd.transfers);
+                } break;
+
             case CommandType::MBLTSwapped:
                 {
                     result.addVMEMBLTSwapped(cmd.address, vme_address_modes::MBLT64, cmd.transfers);
@@ -125,7 +130,6 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::Wait:
             case CommandType::VMUSB_ReadRegister:
             case CommandType::VMUSB_WriteRegister:
-            case CommandType::Blk2eSST64:
                 qDebug() << __FUNCTION__ << " unsupported VME Script command:"
                     << to_string(cmd.type);
                 throw std::runtime_error(fmt::format("build_mvlc_stack: unsupported VME Script command {}",
