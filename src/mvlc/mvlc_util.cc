@@ -114,7 +114,8 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
 
             case CommandType::Blk2eSST64:
                 {
-                    result.addVMEBlockRead(cmd.address, cmd.blk2eSSTRate, cmd.transfers);
+                    result.addVMEBlockRead2eSST(
+                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers);
                 } break;
 
             case CommandType::MBLTSwapped:
