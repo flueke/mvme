@@ -84,6 +84,7 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QJsonArray variables;
 
     QString templatePath;
+    QString templateFile;
     // New style templates only: contents of the .mvmemodule file from which
     // this VMEModuleMeta object was created.
     QJsonObject moduleJson;

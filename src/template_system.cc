@@ -285,7 +285,8 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
                 auto l = [] (const QString &msg) { spdlog::error(msg.toStdString()); };
                 auto moduleJson = read_json_file(moduleDir.filePath(c), l).object();
                 auto mm = modulemeta_from_json(moduleJson["ModuleMeta"].toObject());
-                mm.templatePath = moduleDir.filePath(c);
+                mm.templatePath = moduleDir.path();
+                mm.templateFile = moduleDir.filePath(c);
                 mm.moduleJson = moduleJson;
                 result.moduleMetas.push_back(mm);
             }
