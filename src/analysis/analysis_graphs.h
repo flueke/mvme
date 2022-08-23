@@ -71,11 +71,19 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
         explicit DependencyGraphWidget(QWidget *parent = nullptr);
         ~DependencyGraphWidget() override;
 
+    public:
+        AnalysisObjectPtr getObject() const;
+
     public slots:
         void setObject(const AnalysisObjectPtr &rootObj);
         void setGraphObjectAttributes(const GraphObjectAttributes &goa);
+        void fitInView();
+
+    protected:
+        bool eventFilter(QObject *obj, QEvent *ev) override;
 
     private:
+        friend class ShowObjectGraphCommand;
         struct Private;
         std::shared_ptr<Private> d;
 

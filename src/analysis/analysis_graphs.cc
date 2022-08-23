@@ -2,6 +2,7 @@
 
 #include <qgv.h>
 #include <QApplication>
+#include <QMouseEvent>
 #include <QTimer>
 #include <QToolBar>
 #include <QUndoStack>
@@ -258,41 +259,151 @@ struct DependencyGraphWidget::Private
 {
     Private() {}
 
+    DependencyGraphWidget *q;
     GraphContext gctx_;
     QToolBar *toolbar_;
     QUndoStack history_;
+    AnalysisObjectPtr obj_;
+    QAction *actionBack_ = {};
+    QAction *actionForward_ = {};
+    QAction *actionView = {};
+    QAction *actionOpen = {};
+    QAction *actionEdit = {};
+
+    void setObject(const AnalysisObjectPtr &obj)
+    {
+        create_graph(gctx_, obj);
+        if (auto ps = qobject_cast<PipeSourceInterface *>(obj.get()))
+        {
+            q->setWindowTitle(QSL("Dependency graph for %1 '%2'")
+                .arg(ps->getDisplayName()).arg(obj->objectName()));
+        }
+        else
+        {
+            q->setWindowTitle(QSL("Dependency graph for '%1'").arg(obj->objectName()));
+        }
+
+        obj_ = obj;
+    }
+};
+
+class ShowObjectGraphCommand: public QUndoCommand
+{
+    public:
+        ShowObjectGraphCommand(DependencyGraphWidget::Private *graphWidgetPrivate, const AnalysisObjectPtr &obj)
+            : QUndoCommand(obj->objectName())
+            , graphWidgetPrivate_(graphWidgetPrivate)
+            , curObj_(obj)
+        {}
+
+        void redo() override
+        {
+            prevObj_ = graphWidgetPrivate_->q->getObject();
+            graphWidgetPrivate_->setObject(curObj_);
+            graphWidgetPrivate_->q->fitInView();
+        }
+
+        void undo() override
+        {
+            if (prevObj_)
+            {
+                graphWidgetPrivate_->setObject(prevObj_);
+                prevObj_ = {};
+                graphWidgetPrivate_->q->fitInView();
+            }
+        }
+
+    private:
+        DependencyGraphWidget::Private *graphWidgetPrivate_;
+        AnalysisObjectPtr curObj_;
+        AnalysisObjectPtr prevObj_;
 };
 
 DependencyGraphWidget::DependencyGraphWidget(QWidget *parent)
     : QWidget(parent)
     , d(std::make_shared<Private>())
 {
-    setObjectName("AnalysisDependencyGraphWidget");
+    d->q = this;
     d->gctx_ = create_graph_context();
     d->toolbar_ = new QToolBar;
+
+    setObjectName("AnalysisDependencyGraphWidget");
+
     auto layout = make_vbox(this);
     layout->addWidget(d->toolbar_);
     layout->addWidget(d->gctx_.view);
     layout->setStretch(0, 1);
 
-    d->toolbar_->addAction(d->history_.createUndoAction(this, "%1"));
-    d->toolbar_->addAction(d->history_.createRedoAction(this, "%1"));
+    auto actionBack = d->history_.createUndoAction(this, QSL("Back to"));
+    actionBack->setIcon(QIcon(QSL(":/arrow_left.png")));
+    actionBack->setShortcut(QKeySequence("Alt-Right"));
+    actionBack->setShortcutContext(Qt::WindowShortcut);
+
+    auto actionForward = d->history_.createRedoAction(this, QSL("Forward to"));
+    actionForward->setIcon(QIcon(QSL(":/arrow_right.png")));
+    actionForward->setShortcut(QKeySequence("Alt+Left"));
+    actionForward->setShortcutContext(Qt::WindowShortcut);
+
+    // Handle forward/backward mouse button clicks
+    installEventFilter(this);
+
+    d->actionBack_ = actionBack;
+    d->actionForward_ = actionForward;
+    d->actionView = new QAction(QIcon(":/node-select.png"), "View Graph");
+    d->actionOpen = new QAction(QIcon(":/document-open.png"), "Open");
+    d->actionEdit = new QAction(QIcon(":/pencli.png"), "Edit");
+
+    d->toolbar_->addAction(actionBack);
+    d->toolbar_->addAction(actionForward);
+    d->toolbar_->addAction(d->actionView);
+    d->toolbar_->addAction(d->actionOpen);
+    d->toolbar_->addAction(d->actionEdit);
+
 }
 
 DependencyGraphWidget::~DependencyGraphWidget()
 {
 }
 
+AnalysisObjectPtr DependencyGraphWidget::getObject() const
+{
+    return d->obj_;
+}
+
 void DependencyGraphWidget::setObject(const AnalysisObjectPtr &rootObj)
 {
-    create_graph(d->gctx_, rootObj);
-    setWindowTitle(QSL("Dependency graph for '%1'").arg(rootObj->objectName()));
-    d->gctx_.view->fitInView(d->gctx_.view->scene()->sceneRect(), Qt::KeepAspectRatio);
+    if (getObject() && getObject() != rootObj)
+    {
+        auto cmd = new ShowObjectGraphCommand(d.get(), rootObj);
+        d->history_.push(cmd);
+    }
+    else
+        d->setObject(rootObj);
 }
 
 void DependencyGraphWidget::setGraphObjectAttributes(const GraphObjectAttributes &goa)
 {
     apply_graph_attributes(d->gctx_.scene, goa);
+}
+
+void DependencyGraphWidget::fitInView()
+{
+    d->gctx_.view->fitInView(d->gctx_.view->scene()->sceneRect(), Qt::KeepAspectRatio);
+}
+
+bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
+{
+    if (watched == this && ev->type() == QEvent::MouseButtonPress)
+    {
+        auto mev = reinterpret_cast<QMouseEvent *>(ev);
+
+        if (mev->button() == Qt::MouseButton::BackButton)
+            d->actionBack_->trigger();
+        else if (mev->button() == Qt::MouseButton::ForwardButton)
+            d->actionForward_->trigger();
+    }
+
+    return false;
 }
 
 DependencyGraphWidget *show_dependency_graph(const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa)
@@ -312,13 +423,15 @@ DependencyGraphWidget *show_dependency_graph(const AnalysisObjectPtr &obj, const
         // Save/restore window position and size.
         auto geoSaver = new WidgetGeometrySaver(dgw);
         geoSaver->addAndRestore(dgw, "WindowGeometries/AnalysisDependencyGraphWidget");
+        add_widget_close_action(dgw);
     }
 
-    dgw->setObject(obj);
     dgw->setGraphObjectAttributes(goa);
+    dgw->setObject(obj);
     dgw->show();
     dgw->showNormal();
     dgw->raise();
+    dgw->fitInView();
 
     return dgw;
 }
