@@ -7,9 +7,14 @@
 #include <QToolBar>
 #include <QUndoStack>
 #include <QUndoCommand>
+#include <QGraphicsSceneMouseEvent>
 #include "analysis.h"
+#include "analysis_ui_util.h"
+#include "../analysis_service_provider.h"
 #include "../graphviz_util.h"
 #include "../qt_util.h"
+
+using namespace analysis::ui;
 
 namespace analysis::graph
 {
@@ -20,6 +25,7 @@ void GraphContext::clear()
 {
     scene->clearGraphItems();
     nodes.clear();
+    nodesToId.clear();
     edges.clear();
     dirgraphs.clear();
     conditionsCluster = nullptr;
@@ -50,6 +56,7 @@ QGVNode *object_graph_add_node(GraphContext &gctx, Parent *parent, const Analysi
 
     auto objNode = parent->addNode(label, obj->getId().toString());
     gctx.nodes[obj->getId()] = objNode;
+    gctx.nodesToId[objNode] = obj->getId();
 
     if (std::dynamic_pointer_cast<analysis::ConditionInterface>(obj))
     {
@@ -107,6 +114,7 @@ QGVNode *object_graph_add_module_for_source(GraphContext &gctx, const analysis::
         node->setAttribute("shape", "box");
         node->setAttribute("fillcolor", "lightgreen");
         gctx.nodes[modId] = node;
+        gctx.nodesToId[node] = modId;
     }
 
     auto edgeKey = std::make_pair(modId, src->getId());
@@ -259,11 +267,12 @@ struct DependencyGraphWidget::Private
 {
     Private() {}
 
-    DependencyGraphWidget *q;
+    DependencyGraphWidget *q = {};
     GraphContext gctx_;
-    QToolBar *toolbar_;
+    QToolBar *toolbar_ = {};
     QUndoStack history_;
     AnalysisObjectPtr obj_;
+    AnalysisServiceProvider *asp_ = {};
     QAction *actionBack_ = {};
     QAction *actionForward_ = {};
     QAction *actionView = {};
@@ -273,6 +282,7 @@ struct DependencyGraphWidget::Private
     void setObject(const AnalysisObjectPtr &obj)
     {
         create_graph(gctx_, obj);
+
         if (auto ps = qobject_cast<PipeSourceInterface *>(obj.get()))
         {
             q->setWindowTitle(QSL("Dependency graph for %1 '%2'")
@@ -285,6 +295,43 @@ struct DependencyGraphWidget::Private
 
         obj_ = obj;
     }
+
+    QGVScene *scene() { return gctx_.scene; }
+    QGraphicsView *view() { return gctx_.view; }
+
+    QUuid objectId(const QGraphicsItem *item) const
+    {
+        if (auto qgvNode = dynamic_cast<const QGVNode *>(item))
+            return gctx_.nodesToId.at(qgvNode);
+        return {};
+    }
+
+    AnalysisObjectPtr object(const QGraphicsItem *item) const
+    {
+        if (auto obj = q->getObject())
+        {
+            if (obj->getAnalysis())
+                return obj->getAnalysis()->getObject(objectId(item));
+        }
+
+        return {};
+    }
+
+    AnalysisObjectPtr selectedObject()
+    {
+        for (auto item : scene()->selectedItems())
+        {
+            if (auto obj = object(item))
+                return obj;
+        }
+
+        return {};
+    }
+
+    void onSceneSelectionChanged();
+    void onActionViewTriggered();
+    void onActionOpenTriggered();
+    void onActionEditTriggered();
 };
 
 class ShowObjectGraphCommand: public QUndoCommand
@@ -319,13 +366,14 @@ class ShowObjectGraphCommand: public QUndoCommand
         AnalysisObjectPtr prevObj_;
 };
 
-DependencyGraphWidget::DependencyGraphWidget(QWidget *parent)
+DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QWidget(parent)
     , d(std::make_shared<Private>())
 {
     d->q = this;
     d->gctx_ = create_graph_context();
     d->toolbar_ = new QToolBar;
+    d->asp_ = asp;
 
     setObjectName("AnalysisDependencyGraphWidget");
 
@@ -344,14 +392,11 @@ DependencyGraphWidget::DependencyGraphWidget(QWidget *parent)
     actionForward->setShortcut(QKeySequence("Alt+Left"));
     actionForward->setShortcutContext(Qt::WindowShortcut);
 
-    // Handle forward/backward mouse button clicks
-    installEventFilter(this);
-
     d->actionBack_ = actionBack;
     d->actionForward_ = actionForward;
     d->actionView = new QAction(QIcon(":/node-select.png"), "View Graph");
     d->actionOpen = new QAction(QIcon(":/document-open.png"), "Open");
-    d->actionEdit = new QAction(QIcon(":/pencli.png"), "Edit");
+    d->actionEdit = new QAction(QIcon(":/pencil.png"), "Edit");
 
     d->toolbar_->addAction(actionBack);
     d->toolbar_->addAction(actionForward);
@@ -359,9 +404,50 @@ DependencyGraphWidget::DependencyGraphWidget(QWidget *parent)
     d->toolbar_->addAction(d->actionOpen);
     d->toolbar_->addAction(d->actionEdit);
 
+    // Handle forward/backward mouse button clicks
+    installEventFilter(this);
+
+    // Scene event handling (mouse clicks)
+    d->scene()->installEventFilter(this);
+
+    connect(d->scene(), &QGraphicsScene::selectionChanged,
+            this, [this] { d->onSceneSelectionChanged(); });
+    connect(d->actionView, &QAction::triggered,
+            this, [this] { d->onActionViewTriggered(); });
+    connect(d->actionOpen, &QAction::triggered,
+            this, [this] { d->onActionOpenTriggered(); });
+    connect(d->actionEdit, &QAction::triggered,
+            this, [this] { d->onActionEditTriggered(); });
 }
 
 DependencyGraphWidget::~DependencyGraphWidget()
+{
+}
+
+void DependencyGraphWidget::Private::onSceneSelectionChanged()
+{
+    auto obj = selectedObject();
+    actionView->setEnabled(obj != nullptr);
+    actionOpen->setEnabled(obj != nullptr && qobject_cast<SinkInterface *>(obj.get()));
+    actionView->setEnabled(obj != nullptr);
+}
+
+void DependencyGraphWidget::Private::onActionViewTriggered()
+{
+    if (auto obj = selectedObject())
+        q->setObject(obj);
+}
+
+void DependencyGraphWidget::Private::onActionOpenTriggered()
+{
+    if (auto obj = selectedObject())
+    {
+        if (auto sink = std::dynamic_pointer_cast<SinkInterface>(obj))
+            show_sink_widget(asp_, sink);
+    }
+}
+
+void DependencyGraphWidget::Private::onActionEditTriggered()
 {
 }
 
@@ -402,11 +488,33 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
         else if (mev->button() == Qt::MouseButton::ForwardButton)
             d->actionForward_->trigger();
     }
+    else if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMousePress && getObject())
+    {
+        auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
+
+        if (mev->modifiers() & Qt::KeyboardModifier::ControlModifier
+            && mev->buttons() & Qt::MouseButton::LeftButton)
+        {
+            for (auto item: d->scene()->items(mev->scenePos()))
+            {
+                if (auto qgvNode = dynamic_cast<QGVNode *>(item))
+                {
+                    auto objectId = d->gctx_.nodesToId.at(qgvNode);
+                    if (auto obj = getObject()->getAnalysis()->getObject(objectId))
+                    {
+                        setObject(obj);
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     return false;
 }
 
-DependencyGraphWidget *show_dependency_graph(const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa)
+DependencyGraphWidget *show_dependency_graph(
+    AnalysisServiceProvider *asp, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa)
 {
     DependencyGraphWidget *dgw = nullptr;
     auto widgets = QApplication::topLevelWidgets();
@@ -419,7 +527,7 @@ DependencyGraphWidget *show_dependency_graph(const AnalysisObjectPtr &obj, const
 
     if (!dgw)
     {
-        dgw = new DependencyGraphWidget();
+        dgw = new DependencyGraphWidget(asp);
         // Save/restore window position and size.
         auto geoSaver = new WidgetGeometrySaver(dgw);
         geoSaver->addAndRestore(dgw, "WindowGeometries/AnalysisDependencyGraphWidget");

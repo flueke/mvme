@@ -620,7 +620,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     connect(actionShowDependencyGraph, &QAction::triggered,
             this, [this] ()
             {
-                analysis::graph::show_dependency_graph(getSink());
+                analysis::graph::show_dependency_graph(getServiceProvider(), getSink());
             });
 
     tb->addWidget(make_spacer_widget());

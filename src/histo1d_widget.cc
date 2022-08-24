@@ -559,7 +559,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     connect(actionShowDependencyGraph, &QAction::triggered,
             this, [this] ()
             {
-                analysis::graph::show_dependency_graph(getSink());
+                analysis::graph::show_dependency_graph(getServiceProvider(), getSink());
             });
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after

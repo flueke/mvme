@@ -8,6 +8,7 @@
 #include "analysis_fwd.h"
 #include "libmvme_export.h"
 
+class AnalysisServiceProvider;
 class QGVScene;
 class QGVNode;
 class QGVEdge;
@@ -23,6 +24,7 @@ struct LIBMVME_EXPORT GraphContext
     QGraphicsView *view; // non-owning
 
     std::map<QUuid, QGVNode *> nodes;
+    std::map<const QGVNode *, QUuid> nodesToId;
     std::map<std::pair<QUuid, QUuid>, QGVEdge *> edges;
     std::map<QUuid, QGVSubGraph *> dirgraphs;
     QGVSubGraph *conditionsCluster = nullptr;
@@ -68,7 +70,7 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
 {
     Q_OBJECT
     public:
-        explicit DependencyGraphWidget(QWidget *parent = nullptr);
+        explicit DependencyGraphWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~DependencyGraphWidget() override;
 
     public:
@@ -89,7 +91,8 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
 
 };
 
-LIBMVME_EXPORT DependencyGraphWidget *show_dependency_graph(const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa = {});
+LIBMVME_EXPORT DependencyGraphWidget *show_dependency_graph(
+    AnalysisServiceProvider *asp, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa = {});
 
 }
 
