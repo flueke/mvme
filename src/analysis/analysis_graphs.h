@@ -74,10 +74,10 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
         ~DependencyGraphWidget() override;
 
     public:
-        AnalysisObjectPtr getObject() const;
+        AnalysisObjectPtr getRootObject() const;
 
     public slots:
-        void setObject(const AnalysisObjectPtr &rootObj);
+        void setRootObject(const AnalysisObjectPtr &rootObj);
         void setGraphObjectAttributes(const GraphObjectAttributes &goa);
         void fitInView();
 

@@ -1,5 +1,6 @@
 #include "analysis_graphs.h"
 
+#include <cassert>
 #include <qgv.h>
 #include <QApplication>
 #include <QMouseEvent>
@@ -308,7 +309,7 @@ struct DependencyGraphWidget::Private
 
     AnalysisObjectPtr object(const QGraphicsItem *item) const
     {
-        if (auto obj = q->getObject())
+        if (auto obj = q->getRootObject())
         {
             if (obj->getAnalysis())
                 return obj->getAnalysis()->getObject(objectId(item));
@@ -323,6 +324,24 @@ struct DependencyGraphWidget::Private
         {
             if (auto obj = object(item))
                 return obj;
+        }
+
+        return {};
+    }
+
+    AnalysisObjectPtr objectAtScenePos(const QPointF &scenePos)
+    {
+        if (!q->getRootObject()->getAnalysis())
+            return {};
+
+        for (auto item: scene()->items(scenePos))
+        {
+            if (auto qgvNode = dynamic_cast<QGVNode *>(item))
+            {
+                auto objectId = gctx_.nodesToId.at(qgvNode);
+                auto obj = q->getRootObject()->getAnalysis()->getObject(objectId);
+                return obj;
+            }
         }
 
         return {};
@@ -345,7 +364,7 @@ class ShowObjectGraphCommand: public QUndoCommand
 
         void redo() override
         {
-            prevObj_ = graphWidgetPrivate_->q->getObject();
+            prevObj_ = graphWidgetPrivate_->q->getRootObject();
             graphWidgetPrivate_->setObject(curObj_);
             graphWidgetPrivate_->q->fitInView();
         }
@@ -370,6 +389,7 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
     : QWidget(parent)
     , d(std::make_shared<Private>())
 {
+    assert(asp);
     d->q = this;
     d->gctx_ = create_graph_context();
     d->toolbar_ = new QToolBar;
@@ -435,7 +455,7 @@ void DependencyGraphWidget::Private::onSceneSelectionChanged()
 void DependencyGraphWidget::Private::onActionViewTriggered()
 {
     if (auto obj = selectedObject())
-        q->setObject(obj);
+        q->setRootObject(obj);
 }
 
 void DependencyGraphWidget::Private::onActionOpenTriggered()
@@ -451,14 +471,14 @@ void DependencyGraphWidget::Private::onActionEditTriggered()
 {
 }
 
-AnalysisObjectPtr DependencyGraphWidget::getObject() const
+AnalysisObjectPtr DependencyGraphWidget::getRootObject() const
 {
     return d->obj_;
 }
 
-void DependencyGraphWidget::setObject(const AnalysisObjectPtr &rootObj)
+void DependencyGraphWidget::setRootObject(const AnalysisObjectPtr &rootObj)
 {
-    if (getObject() && getObject() != rootObj)
+    if (getRootObject() && getRootObject() != rootObj)
     {
         auto cmd = new ShowObjectGraphCommand(d.get(), rootObj);
         d->history_.push(cmd);
@@ -488,26 +508,24 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
         else if (mev->button() == Qt::MouseButton::ForwardButton)
             d->actionForward_->trigger();
     }
-    else if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMousePress && getObject())
+    else if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMousePress && getRootObject())
     {
         auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
 
         if (mev->modifiers() & Qt::KeyboardModifier::ControlModifier
             && mev->buttons() & Qt::MouseButton::LeftButton)
         {
-            for (auto item: d->scene()->items(mev->scenePos()))
-            {
-                if (auto qgvNode = dynamic_cast<QGVNode *>(item))
-                {
-                    auto objectId = d->gctx_.nodesToId.at(qgvNode);
-                    if (auto obj = getObject()->getAnalysis()->getObject(objectId))
-                    {
-                        setObject(obj);
-                        break;
-                    }
-                }
-            }
+            if (auto obj = d->objectAtScenePos(mev->scenePos()))
+                setRootObject(obj);
         }
+    }
+    else if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMouseDoubleClick && getRootObject())
+    {
+        auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
+
+        if (auto obj = d->objectAtScenePos(mev->scenePos()))
+            if (auto sink = std::dynamic_pointer_cast<SinkInterface>(obj))
+                show_sink_widget(d->asp_, sink);
     }
 
     return false;
@@ -535,7 +553,7 @@ DependencyGraphWidget *show_dependency_graph(
     }
 
     dgw->setGraphObjectAttributes(goa);
-    dgw->setObject(obj);
+    dgw->setRootObject(obj);
     dgw->show();
     dgw->showNormal();
     dgw->raise();
