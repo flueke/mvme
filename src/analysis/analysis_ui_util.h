@@ -15,10 +15,12 @@ struct Histo1DWidgetInfo
     std::shared_ptr<Histo1DSink> sink;
 };
 
-QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkInterface *sink);
-QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkPtr sink);
+QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkInterface *sink, bool newWindow = false);
+QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkPtr sink, bool newWindow = false);
+QWidget *show_sink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo, bool newWindow = false);
 
-QWidget *open_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo);
+QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo);
+QWidget *open_new_histo2dsink_widget(AnalysisServiceProvider *asp, const Histo2DSinkPtr &sink);
 
 }
 

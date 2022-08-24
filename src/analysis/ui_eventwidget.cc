@@ -3194,7 +3194,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
             menu.addAction(QSL("Open Histogram in new window"), m_q, [this, activeNode]() {
                 auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-                open_histo1dsink_widget(m_serviceProvider, widgetInfo);
+                open_new_histo1dsink_widget(m_serviceProvider, widgetInfo);
             });
         }
 
@@ -3209,6 +3209,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             menu.addAction(QSL("Open Histogram in new window"), m_q, [this, activeNode]() {
                 auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
                 open_histo1dsink_widget(m_serviceProvider, widgetInfo);
+                show_sink_widget(asp, widgetInfo.sink);
             });
 
             menu.addAction(QSL("Open 1D List View"), m_q, [this, activeNode]() {
