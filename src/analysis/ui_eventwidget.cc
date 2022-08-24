@@ -44,6 +44,7 @@
 #include "analysis/analysis_graphs.h"
 #include "analysis/analysis_serialization.h"
 #include "analysis/analysis_ui.h"
+#include "analysis/analysis_ui_util.h"
 #include "analysis/condition_ui.h"
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/listfilter_extractor_dialog.h"
@@ -1184,14 +1185,6 @@ QDialog::DialogCode run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels,
     return QDialog::Rejected;
 }
 
-struct Histo1DWidgetInfo
-{
-    QVector<std::shared_ptr<Histo1D>> histos;
-    s32 histoAddress;
-    std::shared_ptr<CalibrationMinMax> calib;
-    std::shared_ptr<Histo1DSink> sink;
-};
-
 Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
 {
     QTreeWidgetItem *sinkNode = nullptr;
@@ -1229,33 +1222,6 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
     }
 
     return result;
-}
-
-void open_histo1dsink_widget(
-    AnalysisServiceProvider *asp,
-    const Histo1DWidgetInfo &widgetInfo
-    )
-{
-    if (widgetInfo.sink && widgetInfo.histoAddress < widgetInfo.histos.size())
-    {
-        auto widget = new Histo1DWidget(widgetInfo.histos);
-        widget->setServiceProvider(asp);
-
-        if (widgetInfo.calib)
-            widget->setCalibration(widgetInfo.calib);
-
-        widget->setSink(widgetInfo.sink, [asp]
-                        (const std::shared_ptr<Histo1DSink> &sink) {
-                            asp->analysisOperatorEdited(sink);
-                        });
-
-        if (widgetInfo.histoAddress >= 0)
-            widget->selectHistogram(widgetInfo.histoAddress);
-
-        asp->getWidgetRegistry()->addObjectWidget(
-            widget, widgetInfo.sink.get(),
-            widgetInfo.sink->getId().toString());
-    }
 }
 
 void open_or_raise_histo1dsink_widget(
@@ -2785,9 +2751,9 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                     });
                 }
 
-                menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [op]
+                menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [this, op]
                 {
-                    analysis::graph::show_dependency_graph(op);
+                    analysis::graph::show_dependency_graph(m_serviceProvider, op);
                 });
             }
         }
@@ -3036,9 +3002,9 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         }
                     });
 
-                    menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [srcPtr]
+                    menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [this, srcPtr]
                     {
-                        analysis::graph::show_dependency_graph(srcPtr);
+                        analysis::graph::show_dependency_graph(m_serviceProvider, srcPtr);
                     });
                 }
             }
@@ -3435,9 +3401,9 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         clearAllToDefaultNodeHighlights();
                     });
 
-                    menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [op]
+                    menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [this, op]
                     {
-                        analysis::graph::show_dependency_graph(op);
+                        analysis::graph::show_dependency_graph(m_serviceProvider, op);
                     });
                 }
 
