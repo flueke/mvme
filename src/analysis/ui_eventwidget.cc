@@ -1232,7 +1232,7 @@ void open_or_raise_histo1dsink_widget(
     if (!asp->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
     {
-        open_histo1dsink_widget(asp, widgetInfo);
+        show_sink_widget(asp, widgetInfo);
     }
     else if (auto widget = qobject_cast<Histo1DWidget *>(
             asp->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
@@ -3208,8 +3208,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
             menu.addAction(QSL("Open Histogram in new window"), m_q, [this, activeNode]() {
                 auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-                open_histo1dsink_widget(m_serviceProvider, widgetInfo);
-                show_sink_widget(asp, widgetInfo.sink);
+                show_sink_widget(m_serviceProvider, widgetInfo);
             });
 
             menu.addAction(QSL("Open 1D List View"), m_q, [this, activeNode]() {

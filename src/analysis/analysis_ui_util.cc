@@ -20,21 +20,7 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkPtr sink, bool newWi
         Histo1DWidgetInfo widgetInfo{};
         widgetInfo.sink = h1dSink;
         widgetInfo.histos = h1dSink->getHistos();
-
-        if (newWindow
-            || !asp->getWidgetRegistry()->hasObjectWidget(sink.get())
-            || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-        {
-            return open_new_histo1dsink_widget(asp, widgetInfo);
-        }
-        else if (auto widget = qobject_cast<Histo1DWidget *>(
-                    asp->getWidgetRegistry()->getObjectWidget(sink.get())))
-        {
-            if (widgetInfo.histoAddress >= 0)
-                widget->selectHistogram(widgetInfo.histoAddress);
-            show_and_activate(widget);
-            return widget;
-        }
+        return show_sink_widget(asp, widgetInfo, newWindow);
     }
     else if (auto h2dSink = std::dynamic_pointer_cast<Histo2DSink>(sink))
     {
@@ -59,8 +45,24 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkPtr sink, bool newWi
     return {};
 }
 
-QWidget *show_sink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo, bool newWindow = false);
+QWidget *show_sink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo, bool newWindow)
 {
+    if (newWindow
+        || !asp->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
+        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+    {
+        return open_new_histo1dsink_widget(asp, widgetInfo);
+    }
+    else if (auto widget = qobject_cast<Histo1DWidget *>(
+                asp->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
+    {
+        if (widgetInfo.histoAddress >= 0)
+            widget->selectHistogram(widgetInfo.histoAddress);
+        show_and_activate(widget);
+        return widget;
+    }
+
+    return {};
 }
 
 QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo)
@@ -110,6 +112,10 @@ QWidget *open_new_histo2dsink_widget(AnalysisServiceProvider *asp, const Histo2D
         [asp] (const QString &name) {
             return make_unique_operator_name(asp->getAnalysis(), name);
         });
+
+    asp->getWidgetRegistry()->addObjectWidget(widget, sink.get(), sink->getId().toString());
+
+    return widget;
 }
 
 }
