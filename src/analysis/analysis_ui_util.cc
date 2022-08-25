@@ -79,7 +79,7 @@ QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1D
 
         widget->setSink(widgetInfo.sink, [asp]
                         (const std::shared_ptr<Histo1DSink> &sink) {
-                            asp->analysisOperatorEdited(sink);
+                            asp->setAnalysisOperatorEdited(sink);
                         });
 
         if (widgetInfo.histoAddress >= 0)
@@ -106,7 +106,7 @@ QWidget *open_new_histo2dsink_widget(AnalysisServiceProvider *asp, const Histo2D
         },
         // sinkModifiedCallback
         [asp] (const std::shared_ptr<Histo2DSink> &sink) {
-            asp->analysisOperatorEdited(sink);
+            asp->setAnalysisOperatorEdited(sink);
         },
         // makeUniqueOperatorNameFunction
         [asp] (const QString &name) {
@@ -122,7 +122,7 @@ QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::sh
 {
     auto widget = new RateMonitorWidget(rms,
         // sinkModifiedCallback
-        [asp] (const std::shared_ptr<RateMonitorSink> &sink) { asp->analysisOperatorEdited(sink); });
+        [asp] (const std::shared_ptr<RateMonitorSink> &sink) { asp->setAnalysisOperatorEdited(sink); });
 
     widget->setPlotExportDirectory(asp->getWorkspacePath(QSL("PlotsDirectory")));
 
