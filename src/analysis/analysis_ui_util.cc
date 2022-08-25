@@ -4,6 +4,7 @@
 #include "analysis.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "rate_monitor_widget.h"
 
 namespace analysis::ui
 {
@@ -15,6 +16,18 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkInterface *sink, boo
 
 QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkPtr sink, bool newWindow)
 {
+    bool createWidget = (newWindow
+            || !asp->getWidgetRegistry()->hasObjectWidget(sink.get())
+            || QGuiApplication::keyboardModifiers() & Qt::ControlModifier);
+
+    QWidget *existingWidget = asp->getWidgetRegistry()->getObjectWidget(sink.get());
+
+    if (!createWidget)
+    {
+        show_and_activate(existingWidget);
+        return existingWidget;
+    }
+
     if (auto h1dSink = std::dynamic_pointer_cast<Histo1DSink>(sink))
     {
         Histo1DWidgetInfo widgetInfo{};
@@ -24,22 +37,11 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkPtr sink, bool newWi
     }
     else if (auto h2dSink = std::dynamic_pointer_cast<Histo2DSink>(sink))
     {
-        if (newWindow
-            || !asp->getWidgetRegistry()->hasObjectWidget(sink.get())
-            || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-        {
-            return open_new_histo2dsink_widget(asp, h2dSink);
-        }
-        else if (auto widget = qobject_cast<Histo2DWidget *>(
-                    asp->getWidgetRegistry()->getObjectWidget(sink.get())))
-        {
-            show_and_activate(widget);
-            return widget;
-        }
+        return open_new_histo2dsink_widget(asp, h2dSink);
     }
     else if (auto rms = std::dynamic_pointer_cast<RateMonitorSink>(sink))
     {
-        #warning "implement me";
+        return open_new_ratemonitor_widget(asp, rms);
     }
 
     return {};
@@ -83,9 +85,7 @@ QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1D
         if (widgetInfo.histoAddress >= 0)
             widget->selectHistogram(widgetInfo.histoAddress);
 
-        asp->getWidgetRegistry()->addObjectWidget(
-            widget, widgetInfo.sink.get(),
-            widgetInfo.sink->getId().toString());
+        asp->getWidgetRegistry()->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
 
         return widget;
     }
@@ -114,6 +114,39 @@ QWidget *open_new_histo2dsink_widget(AnalysisServiceProvider *asp, const Histo2D
         });
 
     asp->getWidgetRegistry()->addObjectWidget(widget, sink.get(), sink->getId().toString());
+
+    return widget;
+}
+
+QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::shared_ptr<RateMonitorSink> &rms)
+{
+    auto widget = new RateMonitorWidget(rms,
+        // sinkModifiedCallback
+        [asp] (const std::shared_ptr<RateMonitorSink> &sink) { asp->analysisOperatorEdited(sink); });
+
+    widget->setPlotExportDirectory(asp->getWorkspacePath(QSL("PlotsDirectory")));
+
+    // Note: using a QueuedConnection here is a hack to
+    // make the UI refresh _after_ the analysis has been
+    // rebuilt.
+    // The call sequence is
+    //   sinkModifiedCallback
+    //   -> serviceProvider->analysisOperatorEdited
+    //     -> analysis->setOperatorEdited
+    //     -> emit operatorEdited
+    //   -> analysis->beginRun.
+    // So with a direct connection the Widgets sinkModified
+    // is called before the analysis has been rebuilt in
+    // beginRun.
+    QObject::connect(
+        asp->getAnalysis(), &Analysis::operatorEdited,
+        widget, [rms, widget] (const OperatorPtr &op)
+        {
+            if (op == rms)
+                widget->sinkModified();
+        }, Qt::QueuedConnection);
+
+    asp->getWidgetRegistry()->addObjectWidget(widget, rms.get(), rms->getId().toString());
 
     return widget;
 }
