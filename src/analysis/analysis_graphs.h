@@ -69,6 +69,9 @@ LIBMVME_EXPORT void new_graph(GraphContext &gctx, const GraphObjectAttributes &g
 class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void editObject(const AnalysisObjectPtr &obj);
+
     public:
         explicit DependencyGraphWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~DependencyGraphWidget() override;

@@ -357,7 +357,7 @@ class ShowObjectGraphCommand: public QUndoCommand
 {
     public:
         ShowObjectGraphCommand(DependencyGraphWidget::Private *graphWidgetPrivate, const AnalysisObjectPtr &obj)
-            : QUndoCommand(obj->objectName())
+            : QUndoCommand()
             , graphWidgetPrivate_(graphWidgetPrivate)
             , curObj_(obj)
         {}
@@ -396,18 +396,19 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
     d->asp_ = asp;
 
     setObjectName("AnalysisDependencyGraphWidget");
+    d->toolbar_->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextUnderIcon);
 
     auto layout = make_vbox(this);
     layout->addWidget(d->toolbar_);
     layout->addWidget(d->gctx_.view);
     layout->setStretch(0, 1);
 
-    auto actionBack = d->history_.createUndoAction(this, QSL("Back to"));
+    auto actionBack = d->history_.createUndoAction(this, QSL("Back"));
     actionBack->setIcon(QIcon(QSL(":/arrow_left.png")));
     actionBack->setShortcut(QKeySequence("Alt-Right"));
     actionBack->setShortcutContext(Qt::WindowShortcut);
 
-    auto actionForward = d->history_.createRedoAction(this, QSL("Forward to"));
+    auto actionForward = d->history_.createRedoAction(this, QSL("Forward"));
     actionForward->setIcon(QIcon(QSL(":/arrow_right.png")));
     actionForward->setShortcut(QKeySequence("Alt+Left"));
     actionForward->setShortcutContext(Qt::WindowShortcut);
@@ -420,6 +421,7 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
 
     d->toolbar_->addAction(actionBack);
     d->toolbar_->addAction(actionForward);
+    d->toolbar_->addSeparator();
     d->toolbar_->addAction(d->actionView);
     d->toolbar_->addAction(d->actionOpen);
     d->toolbar_->addAction(d->actionEdit);
@@ -469,6 +471,8 @@ void DependencyGraphWidget::Private::onActionOpenTriggered()
 
 void DependencyGraphWidget::Private::onActionEditTriggered()
 {
+    if (auto obj = selectedObject())
+        emit q->editObject(obj);
 }
 
 AnalysisObjectPtr DependencyGraphWidget::getRootObject() const
@@ -546,6 +550,7 @@ DependencyGraphWidget *show_dependency_graph(
     if (!dgw)
     {
         dgw = new DependencyGraphWidget(asp);
+        dgw->setAttribute(Qt::WA_DeleteOnClose, true);
         // Save/restore window position and size.
         auto geoSaver = new WidgetGeometrySaver(dgw);
         geoSaver->addAndRestore(dgw, "WindowGeometries/AnalysisDependencyGraphWidget");
