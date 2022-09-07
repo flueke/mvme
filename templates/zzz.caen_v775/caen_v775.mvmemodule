@@ -1,0 +1,65 @@
+{
+    "ModuleConfig": {
+        "baseAddress": 0,
+        "enabled": true,
+        "id": "{3f9426fc-572e-466e-ba30-974458ce5857}",
+        "initScripts": [
+            {
+                "enabled": true,
+                "id": "{aa043969-5d79-47ae-8fb5-459fcb5830e5}",
+                "name": "Module Init",
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "## Parameters\n\n# Parameters for the CAEN_V775\n# Note: requires MVLC Firmware 0009 or later\n\n# 4.8 MCST/CBLT Address Register\nwrite a32 d16 0x1004 0x${mesy_mcst}\n\n# 4.11 - Interrupt Level\nwrite a32 d16 0x100A ${sys_irq}\n\n# 4.19 - Event Trigger Register\n# An IRQ is generated when number of stored events in the buffer is equal to\n# this value. Setting this to 0 disables interrupt generation.\nwrite a32 d16 0x1020 1\n\n# 4.14 - Control Register 1\n# Bit 2: BLKEND\n# Bit 5: BERR enable\n# Bit 6: Align 64\n# With the above bits set the module sends only complete events in block\n# transfers and then generates a BERR on the VME bus. Also fill words are\n# inserted into the datastream to guarantee an even number of data words.\n# See also \"5.6 - Block Transfer Mode\"\nwrite a32 d16 0x1010 0b1100100\n\n# 4.26 Bit Set 2 - Operation Mode\n# Bit  6: Test Acq.\n# Bit 11: Auto incr.\nwrite a32 d16 0x1032 0x800 # auto incr\n\n# 4.40 Thresholds Memory\n# caen v775 AC (32 channel version)\nwrite a32 d16 0x1080 0 # channel  0\nwrite a32 d16 0x1082 0 # channel  1\nwrite a32 d16 0x1084 0 # channel  2\nwrite a32 d16 0x1086 0 # channel  3\nwrite a32 d16 0x1088 0 # channel  4\nwrite a32 d16 0x108A 0 # channel  5\nwrite a32 d16 0x108C 0 # channel  6\nwrite a32 d16 0x108E 0 # channel  7\nwrite a32 d16 0x1090 0 # channel  8\nwrite a32 d16 0x1092 0 # channel  9\nwrite a32 d16 0x1094 0 # channel 10\nwrite a32 d16 0x1096 0 # channel 11\nwrite a32 d16 0x1098 0 # channel 12\nwrite a32 d16 0x109A 0 # channel 13\nwrite a32 d16 0x109C 0 # channel 14\nwrite a32 d16 0x109E 0 # channel 15\nwrite a32 d16 0x10A0 0 # channel 16\nwrite a32 d16 0x10A2 0 # channel 17\nwrite a32 d16 0x10A4 0 # channel 18\nwrite a32 d16 0x10A6 0 # channel 19\nwrite a32 d16 0x10A8 0 # channel 20\nwrite a32 d16 0x10AA 0 # channel 21\nwrite a32 d16 0x10AC 0 # channel 22\nwrite a32 d16 0x10AE 0 # channel 23\nwrite a32 d16 0x10B0 0 # channel 24\nwrite a32 d16 0x10B2 0 # channel 25\nwrite a32 d16 0x10B4 0 # channel 26\nwrite a32 d16 0x10B6 0 # channel 27\nwrite a32 d16 0x10B8 0 # channel 28\nwrite a32 d16 0x10BA 0 # channel 29\nwrite a32 d16 0x10BC 0 # channel 30\nwrite a32 d16 0x10BE 0 # channel 31\n\n/*\n# 5.5.2 Acq Test Mode\n# This block sets the module up to produce test data (and raie the irq if enabled) when\n# triggered (e.g. via the NIM Gate input).\n\n# Toggle TEST ACQ bit\nwrite a32 d16 0x1032 0x40 # Use Bit Set 2 to set the TEST ACQ bit (bit 6)\nwrite a32 d16 0x1034 0x40 # Use the Bit Clear 2 register to clear the TEST ACQ bit (bit 6)\n\n# Write 32 data words with 13 valid bits per word (12 bit adc value, 1 overflow bit).\nwrite a32 d16 0x103E 0x0000 # Channel 0\nwrite a32 d16 0x103E 0x0010 # Channel 16\nwrite a32 d16 0x103E 0x0001 # Channel 1\nwrite a32 d16 0x103E 0x0011 # Channel 17\nwrite a32 d16 0x103E 0x0002 # Channel 2\nwrite a32 d16 0x103E 0x0012 # Channel 18\nwrite a32 d16 0x103E 0x0003 # Channel 3\nwrite a32 d16 0x103E 0x0013 # Channel 19\nwrite a32 d16 0x103E 0x0004 # Channel 4\nwrite a32 d16 0x103E 0x0014 # Channel 20\nwrite a32 d16 0x103E 0x0005 # Channel 5\nwrite a32 d16 0x103E 0x0015 # Channel 21\nwrite a32 d16 0x103E 0x0006 # Channel 6\nwrite a32 d16 0x103E 0x0016 # Channel 22\nwrite a32 d16 0x103E 0x0007 # Channel 7\nwrite a32 d16 0x103E 0x0017 # Channel 23\nwrite a32 d16 0x103E 0x0008 # Channel 8\nwrite a32 d16 0x103E 0x0018 # Channel 24\nwrite a32 d16 0x103E 0x0009 # Channel 9\nwrite a32 d16 0x103E 0x0019 # Channel 25\nwrite a32 d16 0x103E 0x000A # Channel 10\nwrite a32 d16 0x103E 0x001A # Channel 26\nwrite a32 d16 0x103E 0x000B # Channel 11\nwrite a32 d16 0x103E 0x001B # Channel 27\nwrite a32 d16 0x103E 0x000C # Channel 12\nwrite a32 d16 0x103E 0x001C # Channel 28\nwrite a32 d16 0x103E 0x000D # Channel 13\nwrite a32 d16 0x103E 0x001D # Channel 29\nwrite a32 d16 0x103E 0x000E # Channel 14\nwrite a32 d16 0x103E 0x001E # Channel 30\nwrite a32 d16 0x103E 0x000F # Channel 15\nwrite a32 d16 0x103E 0x001F # Channel 31\n\nwrite a32 d16 0x1032 0x40 # Use Bit Set 2 to set the TEST ACQ bit (bit 6)\n*/"
+            }
+        ],
+        "name": "caen_v775",
+        "type": "user01",
+        "variable_table": {
+            "name": "",
+            "variables": {
+            }
+        },
+        "vmeReadout": {
+            "enabled": true,
+            "id": "{d48f4741-f736-43d2-b6a8-66518aaab710}",
+            "name": "Module Readout",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# BLT readout until BERR or number of transfers reached\n# Readout commands go here. For example a BLT read from the module.\n"
+        },
+        "vmeReset": {
+            "enabled": true,
+            "id": "{d730608a-fbfc-4393-ae5b-c700113289b8}",
+            "name": "Module Reset",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\n\n# 4.9/10 - 'Bit Set 1' and 'Bit Clear 1' registers\n# Bit 7 is the 'soft reset' bit\nwrite a32 d16 0x1006 0x80 # enable soft reset\nwait 100ms\nwrite a32 d16 0x1008 0x80 # disable soft reset\nwait 100ms\n\n# 4.6 - Firmware Revision: read out to appear in the logfile\nread a32 d16 0x1000"
+        }
+    },
+    "ModuleMeta": {
+        "typeId": 143,
+        "displayName": "CAEN V775",
+        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+        "typeName": "caen_v775",
+        "variables": [
+        ],
+        "vendorName": "CAEN",
+        "vmeAddress": 0
+    }
+}
