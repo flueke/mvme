@@ -519,6 +519,7 @@ static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
     settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
     settings.setValue(QSL("ListFilePrefix"),            info.prefix);
     settings.setValue(QSL("ListFileSuffix"),            info.suffix);
+    settings.setValue(QSL("ListFileFormatString"),      info.fmtStr);
     settings.setValue(QSL("ListFileRunNumber"),         info.runNumber);
     settings.setValue(QSL("ListFileOutputFlags"),       info.flags);
     settings.setValue(QSL("ListFileSplitSize"),         static_cast<quint64>(info.splitSize));
@@ -536,6 +537,7 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
     result.compressionLevel = settings.value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
     result.prefix           = settings.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();
     result.suffix           = settings.value(QSL("ListFileSuffix")).toString();
+    result.fmtStr           = settings.value(QSL("ListFileFormatString"), result.fmtStr).toString();
     result.runNumber        = settings.value(QSL("ListFileRunNumber"), 1u).toUInt();
     result.flags            = settings.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseRunNumber).toUInt();
     result.splitSize        = settings.value(QSL("ListFileSplitSize"), static_cast<quint64>(result.splitSize)).toUInt();

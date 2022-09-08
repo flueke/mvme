@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "globals.h"
+#include <spdlog/spdlog.h>
 
 QString toString(const ListFileFormat &fmt)
 {
@@ -58,20 +59,32 @@ ListFileFormat listFileFormat_fromString(const QString &str)
 
 QString generate_output_basename(const ListFileOutputInfo &info)
 {
-    QString result(info.prefix);
+    QString result;
 
-    if (info.flags & ListFileOutputInfo::UseRunNumber)
+    if (!(info.flags & ListFileOutputInfo::UseFormatStr))
     {
-        result += QString("_run%1").arg(info.runNumber, 3, 10, QLatin1Char('0'));
-    }
+        result = info.prefix;
 
-    if (info.flags & ListFileOutputInfo::UseTimestamp)
+        if (info.flags & ListFileOutputInfo::UseRunNumber)
+        {
+            result += QString("run%1").arg(info.runNumber, 3, 10, QLatin1Char('0'));
+        }
+
+        if (info.flags & ListFileOutputInfo::UseTimestamp)
+        {
+            auto now = QDateTime::currentDateTime();
+            result += QSL("_") + now.toString("yyMMdd_HHmmss");
+        }
+
+        result += info.suffix;
+    }
+    else
     {
         auto now = QDateTime::currentDateTime();
-        result += QSL("_") + now.toString("yyMMdd_HHmmss");
+        auto ts = now.toString("yyMMdd_HHmmss").toStdString();
+        auto s = fmt::format(info.fmtStr.toStdString(), info.runNumber, ts);
+        result = QString::fromStdString(s);
     }
-
-    result += info.suffix;
 
     return result;
 }

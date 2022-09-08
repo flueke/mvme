@@ -3,6 +3,14 @@ cmake_minimum_required(VERSION 3.12)
 project(mvme
     DESCRIPTION "mesytec VME Data Acquisition")
 
+message("CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug")
+endif()
+
+message("CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")

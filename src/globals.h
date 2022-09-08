@@ -179,6 +179,7 @@ struct ListFileOutputInfo
     static const u32 UseTimestamp = 1u << 1;
     static const u32 SplitBySize  = 1u << 2;
     static const u32 SplitByTime  = 1u << 3;
+    static const u32 UseFormatStr = 1u << 4;
 
     // TODO: maybe move enabled into flags
     bool enabled = true;        // true if a listfile should be written
@@ -195,6 +196,7 @@ struct ListFileOutputInfo
 
     QString prefix = QSL("mvmelst");
     QString suffix;
+    QString fmtStr = QSL("mvmelst_run{0:03d}");
 
     u32 runNumber = 1;          // Incremented on endRun and if output filename already exists.
 
@@ -204,9 +206,11 @@ struct ListFileOutputInfo
     std::chrono::seconds splitTime = std::chrono::seconds(3600);
 };
 
-// without extensions
+// listfile name without filename extensions
+// Can throw fmt::format_error
 QString generate_output_basename(const ListFileOutputInfo &info);
-// with .zip or .mvmelst extension
+
+// same as above but with .zip or .mvmelst extension
 QString generate_output_filename(const ListFileOutputInfo &info);
 
 enum class ControllerState
