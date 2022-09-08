@@ -33,6 +33,7 @@
 #include "util.h"
 #include "util/strings.h"
 #include "vme_controller_ui.h"
+#include "ui_daq_run_settings_dialog.h"
 
 #if 0
 // zlib supports [0,9] with 6 being the default.
@@ -686,182 +687,125 @@ void DAQControlWidget::updateWidget()
 
 DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, QWidget *parent)
     : QDialog(parent)
+    , ui(new Ui::DaqRunSettingsDialog)
     , m_settings(settings)
-    , le_prefix(new QLineEdit(this))
-    , le_suffix(new QLineEdit(this))
-    , spin_runNumber(new QSpinBox(this))
-    , cb_useRunNumber(new QCheckBox(this))
-    , cb_useTimestamp(new QCheckBox(this))
-    , le_exampleName(new QLineEdit(this))
-    , rb_dontSplit(new QRadioButton("Don't split", this))
-    , rb_splitBySize(new QRadioButton("Split by size", this))
-    , rb_splitByTime(new QRadioButton("Split by time", this))
-    , spin_splitSize(new QSpinBox(this))
-    , spin_splitTime(new QSpinBox(this))
-    , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
 {
+    ui->setupUi(this);
     setWindowTitle(QSL("DAQ Run Settings"));
-    setMinimumWidth(400);
+    auto re_prefixSuffix = QRegularExpression(QSL("^[^\\\\/]+$"));
+    ui->le_prefix->setValidator(new QRegularExpressionValidator(re_prefixSuffix, ui->le_prefix));
+    ui->le_suffix->setValidator(new QRegularExpressionValidator(re_prefixSuffix, ui->le_suffix));
 
-    le_exampleName->setReadOnly(true);
-    spin_runNumber->setMinimum(1);
+    ui->le_prefix->setText(settings.prefix);
+    ui->le_suffix->setText(settings.suffix);
+    ui->cb_useRunNumber->setChecked(settings.flags & ListFileOutputInfo::UseRunNumber);
+    ui->cb_useTimestamp->setChecked(settings.flags & ListFileOutputInfo::UseTimestamp);
+    ui->le_formatString->setText(settings.fmtStr);
+    ui->spin_runNumber->setValue(settings.runNumber);
+    ui->rb_dontSplit->setChecked(true);
+    ui->rb_splitBySize->setChecked(settings.flags & ListFileOutputInfo::SplitBySize);
+    ui->rb_splitByTime->setChecked(settings.flags & ListFileOutputInfo::SplitByTime);
+    ui->spin_splitSize->setValue(settings.splitSize / Megabytes(1));
+    ui->spin_splitTime->setValue(settings.splitTime.count());
 
-    auto re_prefix = QRegularExpression(QSL("^[^\\\\/]+$"));
-    le_prefix->setValidator(new QRegularExpressionValidator(re_prefix, le_prefix));
-    le_suffix->setValidator(new QRegularExpressionValidator(re_prefix, le_prefix));
-
-    // populate
-    le_prefix->setText(settings.prefix);
-    le_suffix->setText(settings.suffix);
-    spin_runNumber->setValue(settings.runNumber);
-    cb_useRunNumber->setChecked(settings.flags & ListFileOutputInfo::UseRunNumber);
-    cb_useTimestamp->setChecked(settings.flags & ListFileOutputInfo::UseTimestamp);
-
-    connect(le_prefix, &QLineEdit::textEdited, this, [this](const QString &text) {
-        m_settings.prefix = text;
-        updateExample();
-    });
-
-    connect(le_suffix, &QLineEdit::textEdited, this, [this](const QString &text) {
-        m_settings.suffix = text;
-        updateExample();
-    });
-
-    connect(spin_runNumber, static_cast<void (QSpinBox::*)(int num)>(&QSpinBox::valueChanged),
-            this, [this] (int num) {
-                m_settings.runNumber = num;
+    connect(ui->gb_prefixSuffix, &QGroupBox::toggled,
+            [this](bool on)
+            {
+                ui->gb_formatString->setChecked(!on);
                 updateExample();
             });
 
-    connect(cb_useRunNumber, &QCheckBox::stateChanged, this, [this](int) {
-        if (cb_useRunNumber->isChecked())
-        {
-            m_settings.flags |= ListFileOutputInfo::UseRunNumber;
-        }
-        else
-        {
-            m_settings.flags &= ~ListFileOutputInfo::UseRunNumber;
-        }
-        updateExample();
-    });
-
-    connect(cb_useTimestamp, &QCheckBox::stateChanged, this, [this](int) {
-        if (cb_useTimestamp->isChecked())
-        {
-            m_settings.flags |= ListFileOutputInfo::UseTimestamp;
-        }
-        else
-        {
-            m_settings.flags &= ~ListFileOutputInfo::UseTimestamp;
-        }
-        updateExample();
-    });
-
-    spin_splitSize->setPrefix("split every ");
-    spin_splitSize->setSuffix(" MB");
-    spin_splitSize->setMinimum(1);
-    spin_splitSize->setMaximum(std::numeric_limits<int>::max());
-    spin_splitSize->setValue(settings.splitSize / Megabytes(1));
-
-    spin_splitTime->setPrefix("split after ");
-    spin_splitTime->setSuffix(" seconds");
-    spin_splitTime->setMinimum(1);
-    spin_splitTime->setMaximum(std::numeric_limits<int>::max());
-    spin_splitTime->setValue(settings.splitTime.count());
-
-    if (settings.flags & ListFileOutputInfo::SplitBySize)
-        rb_splitBySize->setChecked(true);
-    else if (settings.flags & ListFileOutputInfo::SplitByTime)
-        rb_splitByTime->setChecked(true);
-    else
-        rb_dontSplit->setChecked(true);
-
-    connect(spin_splitSize, qOverload<int>(&QSpinBox::valueChanged),
-            this, [this] (int value) {
-                m_settings.splitSize = static_cast<size_t>(value) * Megabytes(1);
+    connect(ui->gb_formatString, &QGroupBox::toggled,
+            [this](bool on)
+            {
+                ui->gb_prefixSuffix->setChecked(!on);
+                updateExample();
             });
 
-    connect(spin_splitTime, qOverload<int>(&QSpinBox::valueChanged),
-            this, [this] (int value) {
-                m_settings.splitTime = std::chrono::seconds(value);
-            });
+    ui->gb_prefixSuffix->setChecked(!(settings.flags & ListFileOutputInfo::UseFormatStr));
 
-    connect(rb_dontSplit, &QRadioButton::clicked,
-            this, [this] (bool checked) {
-                if (checked)
-                {
-                    m_settings.flags &= ~(ListFileOutputInfo::SplitBySize | ListFileOutputInfo::SplitByTime);
-                    updateExample();
-                }
-            });
+    connect(ui->le_prefix, &QLineEdit::textChanged, this, [this] { updateExample(); });
+    connect(ui->le_suffix, &QLineEdit::textChanged, this, [this] { updateExample(); });
+    connect(ui->le_formatString, &QLineEdit::textChanged, this, [this] { updateExample(); });
+    connect(ui->spin_runNumber, qOverload<int>(&QSpinBox::valueChanged), this, [this] { updateExample(); });
+    connect(ui->cb_useRunNumber, &QCheckBox::toggled, this, [this] { updateExample(); });
+    connect(ui->cb_useTimestamp, &QCheckBox::toggled, this, [this] { updateExample(); });
+    connect(ui->spin_splitSize, qOverload<int>(&QSpinBox::valueChanged), this, [this] { updateExample(); });
+    connect(ui->spin_splitTime, qOverload<int>(&QSpinBox::valueChanged), this, [this] { updateExample(); });
+    connect(ui->rb_dontSplit, &QRadioButton::toggled, this, [this] { updateExample(); });
+    connect(ui->rb_splitBySize, &QRadioButton::toggled, this, [this] { updateExample(); });
+    connect(ui->rb_splitByTime, &QRadioButton::toggled, this, [this] { updateExample(); });
 
-    connect(rb_splitByTime, &QRadioButton::clicked,
-            this, [this] (bool checked) {
-                if (checked)
-                {
-                    m_settings.flags &= ~(ListFileOutputInfo::SplitBySize | ListFileOutputInfo::SplitByTime);
-                    m_settings.flags |= ListFileOutputInfo::SplitByTime;
-                    updateExample();
-                }
-            });
-
-    connect(rb_splitBySize, &QRadioButton::clicked,
-            this, [this] (bool checked) {
-                if (checked)
-                {
-                    m_settings.flags &= ~(ListFileOutputInfo::SplitBySize | ListFileOutputInfo::SplitByTime);
-                    m_settings.flags |= ListFileOutputInfo::SplitBySize;
-                    updateExample();
-                }
-            });
-
-    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
-    auto gb_listfileName = new QGroupBox("Listfile filename");
-    auto l_listfileName = new QFormLayout(gb_listfileName);
-    l_listfileName->addRow(QSL("Prefix"), le_prefix);
-    l_listfileName->addRow(QSL("Suffix"), le_suffix);
-    l_listfileName->addRow(QSL("Use Run Number"), cb_useRunNumber);
-    l_listfileName->addRow(QSL("Next Run Number"), spin_runNumber);
-    l_listfileName->addRow(QSL("Use Timestamp"), cb_useTimestamp);
-
-    auto gb_splitting = new QGroupBox("Listfile splitting");
-    auto l_splitting = new QGridLayout(gb_splitting);
-    l_splitting->addWidget(rb_dontSplit, 0, 0);
-    l_splitting->addWidget(rb_splitBySize, 1, 0);
-    l_splitting->addWidget(spin_splitSize, 1, 1);
-    l_splitting->addWidget(rb_splitByTime, 2, 0);
-    l_splitting->addWidget(spin_splitTime, 2, 1);
-
-    auto l_exampleName = make_hbox();
-    l_exampleName->addWidget(new QLabel("Example filename"));
-    l_exampleName->addWidget(le_exampleName);
-
-    auto widgetLayout = make_vbox(this);
-    widgetLayout->addWidget(gb_listfileName);
-    widgetLayout->addWidget(gb_splitting);
-    widgetLayout->addWidget(make_separator_frame());
-    widgetLayout->addLayout(l_exampleName);
-    widgetLayout->addWidget(m_bb);
+    connect(ui->bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(ui->bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     updateExample();
 }
 
 DAQRunSettingsDialog::~DAQRunSettingsDialog()
 {
+    delete ui;
+}
+
+void DAQRunSettingsDialog::updateSettings()
+{
+    auto &s = m_settings;
+    s.prefix = ui->le_prefix->text();
+    s.suffix = ui->le_suffix->text();
+    s.fmtStr = ui->le_formatString->text();
+    s.runNumber = ui->spin_runNumber->value();
+    s.splitSize = ui->spin_splitSize->value() * Megabytes(1);
+    s.splitTime = std::chrono::seconds(ui->spin_splitSize->value());
+
+    s.flags &= ~(ListFileOutputInfo::UseRunNumber | ListFileOutputInfo::UseTimestamp);
+
+    if (ui->cb_useRunNumber->isChecked())
+        s.flags |= ListFileOutputInfo::UseRunNumber;
+
+    if (ui->cb_useTimestamp->isChecked())
+        s.flags |= ListFileOutputInfo::UseTimestamp;
+
+    if (ui->gb_formatString->isChecked())
+        s.flags |= ListFileOutputInfo::UseFormatStr;
+    else
+        s.flags &= ~ListFileOutputInfo::UseFormatStr;
+
+    s.flags &= ~(ListFileOutputInfo::SplitBySize | ListFileOutputInfo::SplitByTime);
+
+    if (ui->rb_splitByTime->isChecked())
+        s.flags |= ListFileOutputInfo::SplitByTime;
+
+    if (ui->rb_splitBySize->isChecked())
+        s.flags |= ListFileOutputInfo::SplitBySize;
 }
 
 void DAQRunSettingsDialog::updateExample()
 {
-    auto filename = generate_output_filename(m_settings);
-    auto basename = QFileInfo(filename).completeBaseName();
-    auto extension = QFileInfo(filename).completeSuffix();
+    try
+    {
+        ui->le_formatError->clear();
+        updateSettings();
+        auto filename = generate_output_filename(m_settings);
+        auto basename = QFileInfo(filename).completeBaseName();
+        auto extension = QFileInfo(filename).completeSuffix();
 
-    if (m_settings.flags & (ListFileOutputInfo::SplitByTime | ListFileOutputInfo::SplitBySize))
-        filename = basename + "_part007." + extension;
+        if (m_settings.flags & (ListFileOutputInfo::SplitByTime | ListFileOutputInfo::SplitBySize))
+            filename = basename + "_part007." + extension;
 
-    le_exampleName->setText(filename);
+        ui->le_exampleName->setText(filename);
+        ui->bb->button(QDialogButtonBox::StandardButton::Ok)->setEnabled(true);
+    }
+    catch (const std::runtime_error &e)
+    {
+        ui->le_formatError->setText(e.what());
+        ui->bb->button(QDialogButtonBox::StandardButton::Ok)->setEnabled(false);
+    }
+}
+
+void DAQRunSettingsDialog::accept()
+{
+    updateSettings();
+    QDialog::accept();
 }
 
 QLabel *make_explanation_label(const QString &str)

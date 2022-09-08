@@ -41,6 +41,11 @@
 
 class QFormLayout;
 
+namespace Ui
+{
+    class DaqRunSettingsDialog;
+};
+
 class DAQControlWidget: public QWidget
 {
     Q_OBJECT
@@ -128,25 +133,14 @@ class DAQRunSettingsDialog: public QDialog
 
         ListFileOutputInfo getSettings() const { return m_settings; }
 
+        void accept() override;
+
     private:
+        void updateSettings();
         void updateExample();
 
+        Ui::DaqRunSettingsDialog *ui;
         ListFileOutputInfo m_settings;
-        QLineEdit *le_prefix,
-                  *le_suffix;
-        QSpinBox *spin_runNumber;
-        QCheckBox *cb_useRunNumber;
-        QCheckBox *cb_useTimestamp;
-        QLineEdit *le_exampleName;
-
-        QRadioButton *rb_dontSplit,
-                     *rb_splitBySize,
-                     *rb_splitByTime;
-
-        QSpinBox *spin_splitSize,
-                 *spin_splitTime;
-
-        QDialogButtonBox *m_bb;
 };
 
 class WorkspaceSettingsDialog: public QDialog
