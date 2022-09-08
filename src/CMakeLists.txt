@@ -212,12 +212,15 @@ install(TARGETS libmvme_mvlc
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib)
 
-# mvlc_dev_gui
-add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
-target_link_libraries(mvlc_dev_gui PRIVATE libmvme_mvlc)
-install(TARGETS mvlc_dev_gui
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib)
+# libmvme_mvlc based dev tools
+if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
+    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
+    target_link_libraries(mvlc_dev_gui PRIVATE libmvme_mvlc)
+    install(TARGETS mvlc_dev_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+    add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
+    target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
+endif()
 
 # mvlc_dev_win_usb_debug
 #if (WIN32)
@@ -226,9 +229,6 @@ install(TARGETS mvlc_dev_gui
 #        PRIVATE libmvme_mvlc
 #        )
 #endif (WIN32)
-
-add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
-target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme_mvlc)
 
 if(MVME_BUILD_TESTS)
     function(add_mvlc_gtest exe_name exe_source)
@@ -434,6 +434,8 @@ target_include_directories(libmvme
     #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>
     )
 
+install(TARGETS libmvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
 # The above still did not work under debian9. So the next line add
 # yaml-cpp to the global include paths.
 #include_directories(${MVME_YAML_DIR}/include)
@@ -442,26 +444,7 @@ target_include_directories(libmvme
 #add_executable(dev_mvlc_daq_init dev_mvlc_daq_init.cc)
 #target_link_libraries(dev_mvlc_daq_init libmvme)
 
-add_executable(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
-target_link_libraries(dev_mvlc_trigger_gui libmvme)
 
-add_executable(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
-target_link_libraries(dev_import_mvlc_crateconfig PRIVATE libmvme)
-
-if (NOT WIN32)
-    add_executable(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
-    target_link_libraries(dev_mvlc_dump_eth_file PRIVATE libmvme)
-endif(NOT WIN32)
-
-add_executable(mvlc_listfile_updater mvlc_listfile_updater.cc)
-target_link_libraries(mvlc_listfile_updater PRIVATE libmvme)
-install(TARGETS mvlc_listfile_updater
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib)
-
-install(TARGETS libmvme
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib)
 
 #
 # mvme - the main GUI binary
@@ -474,11 +457,7 @@ else()
 endif()
 
 target_sources(mvme PRIVATE main.cpp mvme.rc)
-
-target_link_libraries(mvme
-    PRIVATE libmvme
-    )
-
+target_link_libraries(mvme PRIVATE libmvme)
 target_include_directories(mvme PRIVATE ${CMAKE_SOURCE_DIR}/external)
 
 target_compile_options(mvme
@@ -490,53 +469,65 @@ if (WIN32)
     target_compile_options(mvme PRIVATE -Wno-format)
 endif()
 
-install(TARGETS mvme
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib)
+install(TARGETS mvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # Helper for additional utility / debug binaries and alternative launchers.
-function(add_mvme_executable exe_name exe_sources)
-    add_executable(${exe_name} ${exe_sources})
-    target_link_libraries(${exe_name} PRIVATE libmvme)
-    target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/external)
-    target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
-endfunction(add_mvme_executable)
+function(add_mvme_dev_exe exe_name exe_sources)
+    if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
+        add_executable(${exe_name} ${exe_sources})
+        target_link_libraries(${exe_name} PRIVATE libmvme)
+        target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/external)
+        target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
+    endif()
+endfunction(add_mvme_dev_exe)
 
-add_mvme_executable(vme_script_checker vme_script_checker.cc)
-add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
-add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
-add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
-add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
-add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
-add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
-add_mvme_executable(dev_rate_monitoring "dev_rate_monitoring.cc")
-add_mvme_executable(dev_rate_monitor_widget "dev_rate_monitor_widget.cc")
-add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
-add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
-add_mvme_executable(dev_zip_write_test zip-write-test.cc)
-target_link_libraries(dev_zip_write_test PRIVATE Threads::Threads)
-add_mvme_executable(dev_make_default_module_analyses "dev_make_default_module_analyses.cc")
-add_mvme_executable(dev_replay_bench dev_replay_bench.cc)
+add_mvme_dev_exe(vme_script_checker vme_script_checker.cc)
+add_mvme_dev_exe(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
+add_mvme_dev_exe(dev_data_filter_runner "dev_data_filter_runner.cc")
+add_mvme_dev_exe(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
+add_mvme_dev_exe(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
+add_mvme_dev_exe(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
+add_mvme_dev_exe(dev_listfile_dumper "dev_listfile_dumper.cc")
+add_mvme_dev_exe(dev_rate_monitoring "dev_rate_monitoring.cc")
+add_mvme_dev_exe(dev_rate_monitor_widget "dev_rate_monitor_widget.cc")
+add_mvme_dev_exe(dev_mvme_event_processing "dev_mvme_event_processing.cc")
+add_mvme_dev_exe(dev_histo1d_testing "dev_histo1d_testing.cc")
+add_mvme_dev_exe(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
+add_mvme_dev_exe(dev_zip_write_test zip-write-test.cc)
+add_mvme_dev_exe(dev_make_default_module_analyses "dev_make_default_module_analyses.cc")
+add_mvme_dev_exe(dev_replay_bench dev_replay_bench.cc)
 
 if (WIN32)
-    add_mvme_executable(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
-    target_link_libraries(dev_timeBeginPeriod_test PRIVATE winmm)
+    add_mvme_dev_exe(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
 endif(WIN32)
 
-add_mvme_executable(mvme_to_mvlc mvme_to_mvlc.cc)
-add_mvme_executable(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
-add_mvme_executable(dev_mvlc_dso dev_mvlc_dso.cc)
-add_mvme_executable(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
-add_mvme_executable(mvme_multi_crate_gui multi_crate_gui_main.cc)
-add_mvme_executable(dev_multi_crate_playground_cli dev_multi_crate_playground_cli.cc)
-add_mvme_executable(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
-add_mvme_executable(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
+add_mvme_dev_exe(mvme_to_mvlc mvme_to_mvlc.cc)
+add_mvme_dev_exe(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
+add_mvme_dev_exe(dev_mvlc_dso dev_mvlc_dso.cc)
+add_mvme_dev_exe(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
+add_mvme_dev_exe(mvme_multi_crate_gui multi_crate_gui_main.cc)
+add_mvme_dev_exe(dev_multi_crate_playground_cli dev_multi_crate_playground_cli.cc)
+add_mvme_dev_exe(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
+add_mvme_dev_exe(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
 if (NOT WIN32)
-add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
-add_mvme_executable(dev_histo_ui dev_histo_ui.cc)
+    add_mvme_dev_exe(dev_vme_config_model_view dev_vme_config_model_view.cc)
+    add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
 endif()
-add_mvme_executable(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
+
+add_mvme_dev_exe(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
+add_mvme_dev_exe(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
+add_mvme_dev_exe(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
+
+if (NOT WIN32)
+    add_mvme_dev_exe(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
+endif(NOT WIN32)
+
+add_mvme_dev_exe(mvlc_listfile_updater mvlc_listfile_updater.cc)
+if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
+    install(TARGETS mvlc_listfile_updater RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+endif()
+
+add_mvme_dev_exe(cpp_vector_at_test "cpp_vector_at_test.cc")
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
@@ -587,10 +578,8 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_vmeconfig_to_crateconfig mvlc/vmeconfig_to_crateconfig.test.cc)
     add_mvme_gtest(test_multi_crate multi_crate.test.cc)
 
-    add_mvme_executable(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
+    add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
 endif(MVME_BUILD_TESTS)
-
-add_mvme_executable(cpp_vector_at_test "cpp_vector_at_test.cc")
 
 # vim:tw=0
