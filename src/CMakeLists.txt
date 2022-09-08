@@ -502,25 +502,15 @@ function(add_mvme_executable exe_name exe_sources)
     target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
 endfunction(add_mvme_executable)
 
-#
-# vme_script_checker
-#
 add_mvme_executable(vme_script_checker vme_script_checker.cc)
-
-#
-# vmusb_read_buffers_file
-#
 add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
-
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
 add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
-#install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
 add_mvme_executable(dev_rate_monitoring "dev_rate_monitoring.cc")
 add_mvme_executable(dev_rate_monitor_widget "dev_rate_monitor_widget.cc")
-
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_histo1d_testing "dev_histo1d_testing.cc")
 add_mvme_executable(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
