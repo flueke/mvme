@@ -246,7 +246,7 @@ endif(MVME_BUILD_TESTS)
 # libmvme
 #
 
-qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui)
+qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui daq_run_settings_dialog.ui)
 
 add_library(libmvme SHARED
     "${CMAKE_SOURCE_DIR}/external/qt-collapsible-section/Section.cpp"
@@ -546,6 +546,7 @@ if (NOT WIN32)
 add_mvme_executable(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_executable(dev_histo_ui dev_histo_ui.cc)
 endif()
+add_mvme_executable(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
