@@ -62,7 +62,7 @@ QString generate_output_basename(const ListFileOutputInfo &info)
 
     if (info.flags & ListFileOutputInfo::UseRunNumber)
     {
-        result += QString("_run%1").arg(info.runNumber, 3, 10, QLatin1Char('0'));
+        result += QString("run%1").arg(info.runNumber, 3, 10, QLatin1Char('0'));
     }
 
     if (info.flags & ListFileOutputInfo::UseTimestamp)
