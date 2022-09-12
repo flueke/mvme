@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.4.9.2
+---------------
+
+* [analysis] Suppress completely empty events when using the SIS3153 controller.
+
 Version 1.4.9
 -------------
 * [analysis]
