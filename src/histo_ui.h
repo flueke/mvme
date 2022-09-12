@@ -2,8 +2,10 @@
 #define __MVME_HISTO_UI_H__
 
 #include <memory>
+#include <QComboBox>
 #include <QWidget>
 #include <qwt_interval.h>
+#include <qwt_picker_machine.h>
 #include <qwt_plot.h>
 #include <qwt_plot_picker.h>
 #include <qwt_point_data.h>
@@ -21,7 +23,21 @@ namespace histo_ui
 QRectF canvas_to_scale(const QwtPlot *plot, const QRect &rect);
 QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos);
 
-class PlotWidget: public QWidget
+class IPlotWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        using QWidget::QWidget;
+        ~IPlotWidget() override;
+
+        virtual QwtPlot *getPlot() = 0;
+        virtual const QwtPlot *getPlot() const = 0;
+
+    public slots:
+        virtual void replot() = 0;
+};
+
+class PlotWidget: public IPlotWidget
 {
     Q_OBJECT
     signals:
@@ -34,14 +50,14 @@ class PlotWidget: public QWidget
         PlotWidget(QWidget *parent = nullptr);
         ~PlotWidget() override;
 
-        QwtPlot *getPlot();
-        const QwtPlot *getPlot() const;
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
 
         QToolBar *getToolBar();
         QStatusBar *getStatusBar();
 
     public slots:
-        void replot();
+        void replot() override;
 
     protected:
         bool eventFilter(QObject * object, QEvent *event) override;
@@ -53,8 +69,19 @@ class PlotWidget: public QWidget
 
 class PlotPicker: public QwtPlotPicker
 {
+    Q_OBJECT
+    signals:
+        // Overloads QwtPicker::removed(const QPoint &).
+        // Emitted when the last appended point of a selection is removed.
+        void removed(const QPointF &p);
+
     public:
-        using QwtPlotPicker::QwtPlotPicker;
+        explicit PlotPicker(QWidget *canvas);
+
+        PlotPicker(int xAxis, int yAxis,
+                   RubberBand rubberBand,
+                   DisplayMode trackerMode,
+                   QWidget *canvas);
 
         // make the protected QwtPlotPicker::reset() public
         void reset() override
@@ -120,6 +147,13 @@ class IntervalEditorPicker: public PlotPicker
         std::unique_ptr<Private> d;
 };
 
+class ImprovedPickerPolygonMachine: public QwtPickerPolygonMachine
+{
+    using QwtPickerPolygonMachine::QwtPickerPolygonMachine;
+
+    QList<Command> transition(const QwtEventPattern &ep, const QEvent *ev) override;
+};
+
 bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
 bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
 
@@ -151,12 +185,12 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
             assert(histo);
         }
 
-        virtual size_t size() const override
+        size_t size() const override
         {
             return m_histo->getNumberOfBins(m_rrf);
         }
 
-        virtual QwtIntervalSample sample(size_t i) const override
+        QwtIntervalSample sample(size_t i) const override
         {
             auto result = QwtIntervalSample(
                 m_histo->getBinContent(i, m_rrf),
@@ -166,7 +200,7 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
             return result;
         }
 
-        virtual QRectF boundingRect() const override
+        QRectF boundingRect() const override
         {
             // Qt and Qwt have different understanding of rectangles. For Qt
             // it's top-down like screen coordinates, for Qwt it's bottom-up
@@ -206,7 +240,7 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
         {
         }
 
-        virtual double y(double x) const override
+        double y(double x) const override
         {
             double s = m_stats.fwhm / FWHMSigmaFactor;
             // Instead of using the center of the max bin the center point
@@ -241,6 +275,8 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
     private:
         Histo1DStatistics m_stats;
 };
+
+void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
 
 }
 

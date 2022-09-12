@@ -394,6 +394,18 @@ their inputs or single values for all their inputs).
 The :ref:`Analysis UI <analysis-ui>` will highlight valid input nodes in green
 when selecting an operators input.
 
+Condition System
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since mvme-1.5 the analysis system supports conditional evaluation/skipping of
+operators and data sinks.
+
+Conditions are a special kind of operator producing only a single output value:
+the boolean result of evaluating the condition. Each condition can be applied
+to multiple operators and/or data sinks. Multiple conditions can be applied to
+the same object in which case the **logical AND** of all condition outputs is
+used to decide whethere the object should be run or skipped.
+
 .. _analysis-sources:
 
 Data Sources
@@ -893,6 +905,39 @@ circular buffer and a plot of the rate over time can be displayed.
 
 Details can be found in the Rate Monitor user interface.
 
+.. _analysis-conditions:
+
+Conditions
+-----------------------------------------
+
+.. _analysis-interval-condition:
+
+Interval Condition (1D Gates)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Accepts a parameter array as the single input value. Holds an interval for each
+member of the input array.
+
+When being evaluated the Interval Condition checks if each input parameter
+value is inside its respective interval. The final condition result is the
+**logical OR** over the individual interval checks.
+
+Note: intervals are interpreted as half-open with the lower border
+considered part of the interval.
+
+.. _analysis-polygon-condition:
+
+Polygon Condition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A two-dimensional condition checking if the input coordinates are contained
+within a polygon.
+
+.. _analysis-expression-condition:
+
+Expression Condition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Higher level condition, accepting multiple other conditions as its input. Uses
+the `exprtk`_ library to evaulate a user-defined expression. Uses the
+expression result as the conditions output value.
 
 Loading foreign analysis files
 ------------------------------

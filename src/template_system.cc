@@ -30,6 +30,7 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QTextStream>
+#include <spdlog/spdlog.h>
 
 #include <limits>
 
@@ -196,11 +197,27 @@ MVMETemplates read_templates(TemplateLogger logger)
     return read_templates_from_path(templatePath, logger);
 }
 
+VMEModuleMeta modulemeta_from_json(const QJsonObject &json)
+{
+    VMEModuleMeta mm;
+    mm.typeId = json["typeId"].toInt(0);
+    mm.typeName = json["typeName"].toString();
+    mm.displayName = json["displayName"].toString();
+    mm.vendorName = json["vendorName"].toString();
+    mm.eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
+    //mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
+    mm.vmeAddress = static_cast<u32>(json["vmeAddress"].toDouble());
+    mm.variables = json["variables"].toArray();
+    return mm;
+}
+
 // TODO:
 // - check for duplicate typeIds
 // - check for duplicate typeNames
 // - check for empty typeNames
 
+// Handles both the old style (multiple .vme files) and new style (single
+// .mvmemodule file) module templates.
 MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logger)
 {
     const QDir baseDir(path);
@@ -228,41 +245,52 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
     {
         QDir moduleDir(baseDir.filePath(dirName));
 
-        if (!moduleDir.exists(QSL("module_info.json")))
-            continue;
-
-        auto moduleInfo = read_json_file(moduleDir.filePath(QSL("module_info.json")), logger);
-
-        if (moduleInfo.isEmpty())
+        if (moduleDir.exists(QSL("module_info.json")))
         {
-            do_log(QString("Skipping %1: invalid module_info.json").arg(moduleDir.path()), logger);
-            continue;
+            // Old style format with a module_info.json and separate .vme template files.
+            auto moduleInfo = read_json_file(moduleDir.filePath(QSL("module_info.json")), logger);
+
+            if (moduleInfo.isEmpty())
+            {
+                do_log(QString("Skipping %1: invalid module_info.json").arg(moduleDir.path()), logger);
+                continue;
+            }
+
+            auto json = moduleInfo.object();
+
+            s32 moduleType = json["typeId"].toInt();
+
+            if (moduleType <= 0 || moduleType > std::numeric_limits<u8>::max())
+            {
+                do_log(QString("%1: module typeId out of range (valid range is [1, 255])")
+                       .arg(moduleDir.filePath(QSL("moduleInfo.json"))),
+                       logger);
+                continue;
+            }
+
+            auto mm = modulemeta_from_json(json);
+            mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
+            mm.templatePath = moduleDir.path();
+            result.moduleMetas.push_back(mm);
         }
-
-        auto json = moduleInfo.object();
-
-        s32 moduleType = json["typeId"].toInt();
-
-        if (moduleType <= 0 || moduleType > std::numeric_limits<u8>::max())
+        else
         {
-            do_log(QString("%1: module typeId out of range (valid range is [1, 255])")
-                   .arg(moduleDir.filePath(QSL("moduleInfo.json"))),
-                   logger);
-            continue;
+            // New style format where everything is stored in a single
+            // .mvmemodule json file. Supports multiple .mvmemodule files in a
+            // single directory.
+            auto candidates = moduleDir.entryList({ "*.mvmemodule" }, QDir::Files, QDir::Name);
+
+            for (const auto &c: candidates)
+            {
+                auto l = [] (const QString &msg) { spdlog::error(msg.toStdString()); };
+                auto moduleJson = read_json_file(moduleDir.filePath(c), l).object();
+                auto mm = modulemeta_from_json(moduleJson["ModuleMeta"].toObject());
+                mm.templatePath = moduleDir.path();
+                mm.templateFile = moduleDir.filePath(c);
+                mm.moduleJson = moduleJson;
+                result.moduleMetas.push_back(mm);
+            }
         }
-
-        VMEModuleMeta mm;
-        mm.typeId = static_cast<u8>(moduleType);
-        mm.typeName = json["typeName"].toString();
-        mm.displayName = json["displayName"].toString();
-        mm.vendorName = json["vendorName"].toString();
-        mm.eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
-        mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
-        mm.variables = json["variables"].toArray();
-        mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
-        mm.templatePath = moduleDir.path();
-
-        result.moduleMetas.push_back(mm);
     }
 
     return result;
@@ -357,7 +385,7 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
         });
 
         out << ">>>>> Known Modules <<<<<" << endl;
-        const int fw = 20;
+        const int fw = 25;
         left(out) << qSetFieldWidth(fw)
             << "typeId" << "typeName" << "displayName"
             << qSetFieldWidth(0) << endl;

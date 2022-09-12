@@ -40,7 +40,7 @@ constexpr const T& clamp( const T& v, const T& lo, const T& hi, Compare comp )
 template<class T>
 constexpr const T& clamp( const T& v, const T& lo, const T& hi )
 {
-    return clamp( v, lo, hi, ::std::less<>() );
+    return ::cpp17::std::clamp( v, lo, hi, ::std::less<>() );
 }
 
 } // namespace std

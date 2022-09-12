@@ -157,7 +157,7 @@ enum Blk2eSSTRate: u8
 {
     Rate160MB,
     Rate276MB,
-    Rate300MB,
+    Rate320MB,
 };
 
 enum class MVLCSpecialWord: u8

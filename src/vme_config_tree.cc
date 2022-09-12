@@ -1706,44 +1706,14 @@ void VMEConfigTreeWidget::addModule()
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
         bool doExpand = (event->getModuleConfigs().size() == 0);
 
-        auto module = std::make_unique<ModuleConfig>();
-        ModuleConfigDialog dialog(module.get(), event, m_config, this);
+        auto mod = std::make_unique<ModuleConfig>();
+        ModuleConfigDialog dialog(mod.get(), event, m_config, this);
         dialog.setWindowTitle(QSL("Add Module"));
         int result = dialog.exec();
 
         if (result == QDialog::Accepted)
         {
-            // Create and add script configs using the data stored in the
-            // module meta information.
-            auto moduleMeta = module->getModuleMeta();
-
-            module->getReadoutScript()->setObjectName(moduleMeta.templates.readout.name);
-            module->getReadoutScript()->setScriptContents(moduleMeta.templates.readout.contents);
-
-            module->getResetScript()->setObjectName(moduleMeta.templates.reset.name);
-            module->getResetScript()->setScriptContents(moduleMeta.templates.reset.contents);
-
-            for (const auto &vmeTemplate: moduleMeta.templates.init)
-            {
-                module->addInitScript(new VMEScriptConfig(
-                        vmeTemplate.name, vmeTemplate.contents));
-            }
-
-            // FIXME: This should be done in the ModuleConfigDialog so that
-            // default module variables are visible when selecting the module
-            // type.
-            for (int i=0; i<moduleMeta.variables.size(); ++i)
-            {
-                auto json = moduleMeta.variables.at(i).toObject();
-                vme_script::Variable var(
-                    json["value"].toString(),
-                    {},
-                    json["comment"].toString());
-
-                module->setVariable(json["name"].toString(), var);
-            }
-
-            event->addModuleConfig(module.release());
+            event->addModuleConfig(mod.release());
 
             if (doExpand)
                 static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
@@ -1958,38 +1928,7 @@ void VMEConfigTreeWidget::addModuleFromFile()
         return;
     }
 
-    auto containerJ = doc.object();
-
-    auto mod = std::make_unique<ModuleConfig>();
-    mod->read(containerJ["ModuleConfig"].toObject());
-
-    mvme::vme_config::generate_new_object_ids(mod.get());
-
-    // Restore parts of the module meta, then set it on the ModuleConfig instance.
-    VMEModuleMeta meta{};
-    auto metaJ = containerJ["ModuleMeta"].toObject();
-    //meta.typeId = metaJ["typeId"].toInt();
-    meta.typeName = metaJ["typeName"].toString();
-    meta.displayName = metaJ["displayName"].toString();
-    meta.vendorName = metaJ["vendorName"].toString();
-    meta.eventHeaderFilter = metaJ["eventHeaderFilter"].toString().toLocal8Bit();
-    // toDouble() is a hack to get the full 32 address bits back
-    meta.vmeAddress = static_cast<u32>(metaJ["vmeAddress"].toDouble());
-    meta.variables = metaJ["variables"].toArray();
-
-    mod->setModuleMeta(meta);
-    mod->setObjectName(meta.typeName);
-
-    // Restore the variables on the module instance.
-    for (auto it=meta.variables.begin(); it!=meta.variables.end(); ++it)
-    {
-        auto varJ = it->toObject();
-        auto varName = varJ["name"].toString();
-        vme_script::Variable var;
-        var.value = varJ["value"].toString();
-        var.comment = varJ["comment"].toString();
-        mod->setVariable(varName, var);
-    }
+    auto mod = moduleconfig_from_modulejson(doc.object());
 
     // Now run the module config dialog on the newly loaded module
     ModuleConfigDialog dialog(mod.get(), event, m_config, this);

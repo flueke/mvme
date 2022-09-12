@@ -69,7 +69,9 @@ class EventWidget: public QWidget
         using SelectConditionCallback = std::function<
             void (const ConditionPtr &cond)>;
 
-        EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidget *analysisWidget, QWidget *parent = 0);
+        EventWidget(AnalysisServiceProvider *serviceProvider,
+                    AnalysisWidget *analysisWidget,
+                    QWidget *parent = 0);
         virtual ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
@@ -77,6 +79,8 @@ class EventWidget: public QWidget
         void selectConditionFor(const OperatorPtr &op, SelectConditionCallback callback);
         void endSelectInput();
         void highlightInputOf(Slot *slot, bool doHighlight);
+        void highlightInputPipe(Pipe *pipe, bool doHighlight);
+        void highlightInputPipe(Pipe *pipe, s32 paramIndex, bool doHighlight);
 
         void addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
                        const QString &unit = QString(), double unitMin = 0.0, double unitMax = 0.0);

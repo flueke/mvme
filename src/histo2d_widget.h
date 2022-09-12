@@ -22,12 +22,10 @@
 #define __HISTO2D_WIDGET_H__
 
 #include "analysis/analysis_fwd.h"
-#include "analysis/condition_editor_interface.h"
 #include "analysis_service_provider.h"
 #include "histo2d.h"
+#include "histo_ui.h"
 #include "libmvme_export.h"
-
-#include <QWidget>
 
 class QwtPlot;
 class QwtLinearColorMap;
@@ -40,10 +38,9 @@ namespace analysis
 
 struct Histo2DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEditorInterface
+class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::ConditionEditorInterface);
 
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
@@ -57,25 +54,26 @@ class LIBMVME_EXPORT Histo2DWidget: public QWidget, public analysis::ConditionEd
         ~Histo2DWidget();
 
         void setServiceProvider(AnalysisServiceProvider *asp);
+        AnalysisServiceProvider *getServiceProvider() const;
         void setSink(const SinkPtr &sink,
                      HistoSinkCallback addSinkCallback,
                      HistoSinkCallback sinkModifiedCallback,
                      MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
 
-        virtual bool event(QEvent *event) override;
+        SinkPtr getSink() const;
+
+        bool event(QEvent *event) override;
 
         QwtPlot *getQwtPlot();
 
         void setLinZ();
         void setLogZ();
 
-        // ConditionEditorInterface
-        virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
-        virtual analysis::ConditionPtr getEditCondition() const override;
-        virtual void beginEditCondition() override;
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
 
     public slots:
-        void replot();
+        void replot() override;
 
     private slots:
         void exportPlot();

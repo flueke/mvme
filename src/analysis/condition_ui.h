@@ -23,53 +23,133 @@
 
 #include <memory>
 #include <QWidget>
+#include <QDialog>
 
 #include "analysis_service_provider.h"
+#include "histo_ui.h"
 
-#if 0
 
 namespace analysis
 {
 namespace ui
 {
 
-class ConditionWidget: public QWidget
+class ConditionDialogBase: public QDialog
 {
     Q_OBJECT
     signals:
-        void conditionLinkSelected(const ConditionLink &cl);
-        void applyConditionAccept();
-        void applyConditionReject();
-        void editCondition(const ConditionLink &cond);
-        void objectSelected(const AnalysisObjectPtr &obj);
+        void newConditionButtonClicked();
+        void conditionSelected(const QUuid &objectId);
+        void conditionNameChanged(const QUuid &objectId, const QString &name);
+        void applied();
 
     public:
-        ConditionWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
-        virtual ~ConditionWidget() override;
+        // (object id, name)
+        using ConditionInfo = std::pair<QUuid, QString>;
+
+        ConditionDialogBase(QWidget *parent = nullptr);
+        ~ConditionDialogBase() override;
+};
+
+class IntervalConditionDialog: public ConditionDialogBase
+{
+    Q_OBJECT
+    signals:
+        void intervalsEdited(const QVector<QwtInterval> &intervals);
+
+    public:
+        IntervalConditionDialog(QWidget *parent = nullptr);
+        ~IntervalConditionDialog() override;
+
+        QVector<QwtInterval> getIntervals() const;
+        QString getConditionName() const;
 
     public slots:
-        void repopulate();
-        void repopulate(int eventIndex);
-        void repopulate(const QUuid &eventId);
-        void doPeriodicUpdate();
-
-        void selectEvent(int eventIndex);
-        void selectEventById(const QUuid &eventId);
-        void clearTreeSelections();
-        void clearTreeHighlights();
-
-        void highlightConditionLink(const ConditionLink &cl);
-        void setModificationButtonsVisible(const ConditionLink &cl, bool visible);
-
+        void setConditionList(const QVector<ConditionInfo> &condInfos);
+        void setIntervals(const QVector<QwtInterval> &intervals);
+        void setInfoText(const QString &txt);
+        void selectCondition(const QUuid &objectId);
+        void selectInterval(int index);
+        void reject() override;
 
     private:
         struct Private;
-        std::unique_ptr<Private> m_d;
+        std::unique_ptr<Private> d;
+
+};
+
+class IntervalConditionEditorController: public QObject
+{
+    Q_OBJECT
+    public:
+        IntervalConditionEditorController(
+            const Histo1DSinkPtr &sinkPtr,
+            histo_ui::IPlotWidget *histoWidget,
+            AnalysisServiceProvider *asp,
+            QObject *parent = nullptr);
+
+        ~IntervalConditionEditorController() override;
+
+        bool eventFilter(QObject *watched, QEvent *event) override;
+
+        void setEnabled(bool on);
+        IntervalConditionDialog *getDialog() const;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class PolygonConditionDialog: public ConditionDialogBase
+{
+    Q_OBJECT
+    signals:
+        void polygonEdited(const QPolygonF &poly);
+
+    public:
+        PolygonConditionDialog(QWidget *parent = nullptr);
+        ~PolygonConditionDialog() override;
+
+        QPolygonF getPolygon() const;
+        QString getConditionName() const;
+
+    public slots:
+        void setConditionList(const QVector<ConditionInfo> &condInfos);
+        void setPolygon(const QPolygonF &poly);
+        void setInfoText(const QString &txt);
+        void selectCondition(const QUuid &objectId);
+        void selectPoint(int index);
+        void reject() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class PolygonConditionEditorController: public QObject
+{
+    Q_OBJECT
+    public:
+        PolygonConditionEditorController(
+            const Histo2DSinkPtr &sinkPtr,
+            histo_ui::IPlotWidget *histoWidget,
+            AnalysisServiceProvider *asp,
+            QObject *parent = nullptr);
+
+        ~PolygonConditionEditorController() override;
+
+        bool eventFilter(QObject *watched, QEvent *event) override;
+
+        void setEnabled(bool on);
+        QDialog *getDialog() const;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
 };
 
 } // ns ui
 } // ns analysis
 
-#endif
 
 #endif /* __MVME_CONDITION_UI_H__ */

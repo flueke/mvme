@@ -315,5 +315,32 @@ bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
     return out.write(doc.toJson()) >= 0;
 }
 
+std::unique_ptr<ModuleConfig> LIBMVME_EXPORT moduleconfig_from_modulejson(const QJsonObject &json)
+{
+    auto mod = std::make_unique<ModuleConfig>();
+    load_moduleconfig_from_modulejson(*mod, json);
+    return mod;
+}
+
+void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const QJsonObject &json)
+{
+    mod.read(json["ModuleConfig"].toObject());
+    mvme::vme_config::generate_new_object_ids(&mod);
+    auto mm = vats::modulemeta_from_json(json["ModuleMeta"].toObject());
+    mod.setModuleMeta(mm);
+    mod.setObjectName(mm.typeName);
+
+    // Restore the variables on the module instance.
+    for (auto it=mm.variables.begin(); it!=mm.variables.end(); ++it)
+    {
+        auto varJ = it->toObject();
+        auto varName = varJ["name"].toString();
+        vme_script::Variable var;
+        var.value = varJ["value"].toString();
+        var.comment = varJ["comment"].toString();
+        mod.setVariable(varName, var);
+    }
+}
+
 } // end namespace vme_config
 } // end namespace mvme

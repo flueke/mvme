@@ -4,6 +4,8 @@ include(GenerateExportHeader)
 
 # Qt5
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC OFF)
+set(CMAKE_AUTOUIC OFF)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Concurrent REQUIRED)
@@ -13,6 +15,7 @@ find_package(Qt5OpenGL REQUIRED)
 find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Xml REQUIRED)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -56,6 +59,10 @@ endif()
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
+
+find_package(Graphviz REQUIRED)
+message("-- Using GRAPHVIZ_INCLUDE_DIRS=${GRAPHVIZ_INCLUDE_DIRS}")
+message("-- Using GRAPHVIZ_LIBRARIES=${GRAPHVIZ_LIBRARIES}")
 
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
@@ -132,6 +139,7 @@ target_link_libraries(libmvme_core
     PUBLIC Qt5::OpenGL
     PUBLIC Qt5::Svg
     PUBLIC Qt5::Widgets
+    PUBLIC Qt5::Xml
     PUBLIC libmvme_resources
     )
 
@@ -246,19 +254,27 @@ endif(MVME_BUILD_TESTS)
 # libmvme
 #
 
-qt5_wrap_ui(LIBMVME_UIC_OUT mesytec_diagnostics.ui vme_debug_widget.ui daq_run_settings_dialog.ui)
+qt5_wrap_ui(LIBMVME_UIC_OUT
+    mesytec_diagnostics.ui
+    vme_debug_widget.ui
+    daq_run_settings_dialog.ui
+    analysis/interval_condition_dialog.ui
+    analysis/polygon_condition_dialog.ui
+    )
 
 add_library(libmvme SHARED
     "${CMAKE_SOURCE_DIR}/external/qt-collapsible-section/Section.cpp"
     ${LIBMVME_UIC_OUT}
     analysis/a2_adapter.cc
     analysis/analysis.cc
+    analysis/analysis_graphs.cc
     analysis/analysis_info_widget.cc
     analysis/analysis_serialization.cc
     analysis/analysis_session.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
+    analysis/analysis_ui_util.cc
     analysis/code_editor.cc
     analysis/condition_ui.cc
     analysis/condition_ui_p.cc
@@ -281,6 +297,8 @@ add_library(libmvme SHARED
     data_filter_edit.cc
     file_autosaver.cc
     globals.cc
+    graphviz_util.cc
+    graphicsview_util.cc
     gui_util.cc
     histo1d.cc
     histo1d_util.cc
@@ -332,6 +350,7 @@ add_library(libmvme SHARED
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
+    util/qt_eventfilters.cc
     util/qt_logview.cc
     util/qt_monospace_textedit.cc
     util/qt_plaintextedit.cc
@@ -379,6 +398,10 @@ target_link_libraries(libmvme
     PRIVATE liba2_static
     PRIVATE Threads::Threads
     PRIVATE jcon
+    PRIVATE ${GRAPHVIZ_CDT_LIBRARY}
+    PRIVATE ${GRAPHVIZ_CGRAPH_LIBRARY}
+    PRIVATE ${GRAPHVIZ_GVC_LIBRARY}
+    PRIVATE qgvcore
     )
 
 target_compile_options(libmvme
@@ -396,6 +419,7 @@ endif()
 target_include_directories(libmvme
     PRIVATE ${CMAKE_SOURCE_DIR}/external
     PRIVATE "${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/"
+    PRIVATE ${GRAPHVIZ_INCLUDE_DIRS}
     PUBLIC ${QUAZIP_INCLUDE_DIR}
     SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/"
     )
@@ -480,6 +504,13 @@ function(add_mvme_dev_exe exe_name exe_sources)
         target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
     endif()
 endfunction(add_mvme_dev_exe)
+# Same as above for tools that should be part of release builds.
+function(add_mvme_exe exe_name exe_sources)
+        add_executable(${exe_name} ${exe_sources})
+        target_link_libraries(${exe_name} PRIVATE libmvme)
+        target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/external)
+        target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
+endfunction(add_mvme_exe)
 
 add_mvme_dev_exe(vme_script_checker vme_script_checker.cc)
 add_mvme_dev_exe(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
@@ -529,6 +560,40 @@ endif()
 
 add_mvme_dev_exe(cpp_vector_at_test "cpp_vector_at_test.cc")
 
+add_mvme_dev_exe(dev_analysis_to_dot dev_analysis_to_dot.cc)
+
+if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
+    add_mvme_dev_exe(dev_graphviz_lib_test0 dev_graphviz_lib_test0.cc)
+    target_link_libraries(dev_graphviz_lib_test0 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+    add_mvme_dev_exe(dev_graphviz_lib_test1 dev_graphviz_lib_test1.cc)
+    target_link_libraries(dev_graphviz_lib_test1 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+    add_mvme_dev_exe(dev_graphviz_lib_test2 dev_graphviz_lib_test2.cc)
+    target_link_libraries(dev_graphviz_lib_test2 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+
+    add_mvme_dev_exe(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
+    #target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc PRIVATE libgvplugin_dot_layout)
+    install(TARGETS dev_graphviz_lib_test3 RUNTIME DESTINATION bin)
+
+    add_executable(dev_graphviz_lib_test4 dev_graphviz_lib_test4.cc)
+    target_link_libraries(dev_graphviz_lib_test4
+        PRIVATE cdt
+        PRIVATE cgraph
+        PRIVATE gvc
+    )
+
+    qt5_wrap_ui(dev_graphviz_lib_test5_uic dev_graphviz_lib_test5_mainwin.ui)
+    add_executable(dev_graphviz_lib_test5
+        ${dev_graphviz_lib_test5_uic}
+        dev_graphviz_lib_test5_main.cc
+        dev_graphviz_lib_test5.cc)
+    target_link_libraries(dev_graphviz_lib_test5 PRIVATE qgvcore PRIVATE libmvme)
+
+    add_mvme_dev_exe(dev_dotwidget dev_dotwidget.cc)
+    install(TARGETS dev_dotwidget RUNTIME DESTINATION bin)
+endif()
+
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
 # find the installed includes from that directory?
 #install(FILES data_export/mvme_root_treewriter_client.cc DESTINATION extras/root_treewriter_client/)
@@ -551,6 +616,7 @@ if (NOT WIN32)
         LIBRARY DESTINATION lib)
 endif (NOT WIN32)
 
+# automated gtests
 if(MVME_BUILD_TESTS)
 
     function(add_mvme_gtest exe_name exe_source)

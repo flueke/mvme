@@ -20,6 +20,7 @@
  */
 #include "histo1d_widget.h"
 #include "analysis/analysis_fwd.h"
+#include "analysis/condition_ui.h"
 #include "histo1d_widget_p.h"
 
 #include <qwt_interval.h>
@@ -65,6 +66,7 @@
 #include <QPrintDialog>
 
 #include "analysis/analysis.h"
+#include "analysis/analysis_graphs.h"
 #include "histo1d_util.h"
 #include "histo_gui_util.h"
 #include "mvme_context_lib.h"
@@ -265,6 +267,8 @@ struct Histo1DWidgetPrivate
     Histo1DWidget::SinkPtr m_sink;
     Histo1DWidget::HistoSinkCallback m_sinkModifiedCallback;
 
+    analysis::ui::IntervalConditionEditorController *m_intervalConditionEditorController = nullptr;
+
     void setCalibUiVisible(bool b)
     {
         auto window = m_calibUi.window;
@@ -344,7 +348,7 @@ Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
 }
 
 Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
-    : QWidget(parent)
+    : IPlotWidget(parent)
     , m_d(std::make_unique<Histo1DWidgetPrivate>())
 {
     assert(!histos.isEmpty());
@@ -360,6 +364,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
 
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
+    m_d->m_zoomer->setObjectName("zoomer");
 
     m_d->m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_d->m_zoomer->setZoomBase();
@@ -411,6 +416,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_actionZoom = new QAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom", this);
     m_d->m_actionZoom->setCheckable(true);
     m_d->m_actionZoom->setChecked(true);
+    m_d->m_actionZoom->setObjectName("zoomAction");
     connect(m_d->m_actionZoom, &QAction::toggled,
             m_d->m_zoomer, [this] (bool checked) {
                 m_d->m_zoomer->setEnabled(checked);
@@ -418,7 +424,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     // Optional: add the zoomer to the toolbar. Right now the action is not
     // visible but activated by, e.g. the rate estimation picker after two
     // points have been picked.
-    //tb->addAction(m_d->m_actionZoom);
+    tb->addAction(m_d->m_actionZoom);
 
     m_d->m_actionGaussFit = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
     m_d->m_actionGaussFit->setCheckable(true);
@@ -492,10 +498,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         }
     });
 
-    m_d->m_exclusiveActions = new QActionGroup(this);
-    //m_d->m_exclusiveActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
-    m_d->m_exclusiveActions->addAction(m_d->m_actionZoom);
-
     // Resolution Reduction
     {
         m_d->m_rrSlider = make_res_reduction_slider();
@@ -517,6 +519,48 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     connect(m_d->m_actionHistoListStats, &QAction::triggered,
             this, [this] () { m_d->onActionHistoListStats(); });
+
+    auto actionIntervalConditions = tb->addAction(QIcon(":/scissors.png"), "Interval Conditions");
+    actionIntervalConditions->setObjectName("intervalConditions");
+    actionIntervalConditions->setCheckable(true);
+
+    connect(actionIntervalConditions, &QAction::toggled,
+            this, [this, actionIntervalConditions] (bool on) {
+                if (on && !m_d->m_intervalConditionEditorController)
+                {
+                    m_d->m_intervalConditionEditorController =
+                        new analysis::ui::IntervalConditionEditorController(
+                            getSink(),
+                            this, // histoWidget
+                            getServiceProvider(),
+                            this); // parent
+
+                    m_d->m_intervalConditionEditorController->setObjectName(
+                        "intervalConditionEditorController");
+
+                    connect(m_d->m_intervalConditionEditorController->getDialog(), &QDialog::accepted,
+                            this, [actionIntervalConditions] ()
+                            {
+                                actionIntervalConditions->setChecked(false);
+                            });
+
+                    connect(m_d->m_intervalConditionEditorController->getDialog(), &QDialog::rejected,
+                            this, [actionIntervalConditions] ()
+                            {
+                                actionIntervalConditions->setChecked(false);
+                            });
+                }
+
+                if (m_d->m_intervalConditionEditorController)
+                    m_d->m_intervalConditionEditorController->setEnabled(on);
+            });
+
+    auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");
+    connect(actionShowDependencyGraph, &QAction::triggered,
+            this, [this] ()
+            {
+                analysis::graph::show_dependency_graph(getServiceProvider(), getSink());
+            });
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -1763,115 +1807,12 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
 }
 
-#if 0
-bool Histo1DWidget::setEditCondition(const analysis::ConditionPtr &condPtr)
+QwtPlot *Histo1DWidget::getPlot()
 {
-    qDebug() << __PRETTY_FUNCTION__ << condPtr.get();
-
-    auto cond = std::dynamic_pointer_cast<IntervalCondition>(condPtr);
-
-    // TODO: handle the case where cond interval count != histo count
-
-    if (!cond)
-    {
-        // Error was either the Condition is not an interval cut or it's null.
-        m_d->m_editingCondition = {};
-        m_d->m_intervalCutEditor->endEdit();
-        return false;
-    }
-
-    m_d->m_editingCondition = cond;
-    // create a copy of the intervals. that's the core data we're editing
-    m_d->m_cutIntervals = cond->getIntervals();
-
-    //selectHistogram(cl.subIndex);
-
-    auto interval = m_d->m_cutIntervals.value(currentHistoIndex());
-    m_d->m_intervalCutEditor->setInterval(interval);
-    m_d->m_intervalCutEditor->show();
-    return true;
+    return m_d->m_plot;
 }
 
-analysis::ConditionPtr Histo1DWidget::getEditCondition() const
-{
-    return m_d->m_editingCondition;
-}
-
-void Histo1DWidget::beginEditCondition()
-{
-}
-#endif
-
-#if 0
-void Histo1DWidgetPrivate::onCutEditorIntervalCreated(const QwtInterval &interval)
-{
-    assert(m_serviceProvider);
-    assert(m_sink);
-
-    // TODO: make unique name
-    QString cutName = QSL("New Cut");
-
-    // cut name dialog
-    {
-        auto le_cutName = new QLineEdit;
-        le_cutName->setText(cutName);
-
-        auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-
-        QDialog dialog(m_q);
-        auto layout = new QFormLayout(&dialog);
-        layout->addRow("Cut Name", le_cutName);
-        layout->addRow(buttons);
-
-        QObject::connect(buttons, &QDialogButtonBox::accepted,
-                         &dialog, &QDialog::accept);
-
-        QObject::connect(buttons, &QDialogButtonBox::rejected,
-                         &dialog, &QDialog::reject);
-
-        if (dialog.exec() == QDialog::Rejected)
-        {
-            m_intervalCutEditor->hide();
-            m_q->replot();
-            return;
-        }
-
-        cutName = le_cutName->text();
-    }
-
-    // Create the IntervalCondition analysis object. The number of intervals
-    // will be the same as the number of elements in the input array of the
-    // Histo1DSink currently being display.
-    // Note: this means when creating a condition in a Histo1DSink connected to
-    // a particular element of the input array then the resulting
-    // IntervalCondition will still have the same number of elements as the
-    // input array, not just one element!
-
-    // Set all intervals to the same value.
-    QVector<QwtInterval> intervals(m_sink->getNumberOfHistos(), interval);
-    auto cond = std::make_shared<analysis::IntervalCondition>();
-    cond->setIntervals(intervals);
-    cond->setObjectName(cutName);
-
-    {
-        auto xInput = m_sink->getSlot(0)->inputPipe;
-
-        AnalysisPauser pauser(m_serviceProvider);
-        cond->connectArrayToInputSlot(0, xInput);
-
-        const int userLevel = 1;
-
-        m_serviceProvider->getAnalysis()->addOperator(
-            m_sink->getEventId(),
-            userLevel,
-            cond);
-
-        m_q->setEditCondition(cond);
-    }
-}
-#endif
-
-QwtPlot *Histo1DWidget::getPlot() const
+const QwtPlot *Histo1DWidget::getPlot() const
 {
     return m_d->m_plot;
 }
@@ -1906,21 +1847,11 @@ void Histo1DWidget::selectHistogram(int index)
 
         //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
 
-#if 0
-        if (auto cl = getEditCondition())
-        {
-            if (cl.subIndex != index)
-            {
-                cl.subIndex = index;
-                setEditCondition(cl);
-            }
-        }
-#endif
-
         m_d->displayChanged();
 
         QSignalBlocker sb(m_d->m_histoSpin);
         m_d->m_histoSpin->setValue(index);
+        emit histogramSelected(index);
     }
 }
 
@@ -1934,3 +1865,73 @@ void Histo1DWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMi
     m_d->m_calib = calib;
     m_d->m_actionCalibUi->setVisible(m_d->m_calib != nullptr);
 }
+
+#if 0
+
+//
+// Histo1DSinkWidget
+//
+
+Histo1DSinkWidget::Histo1DSinkWidget(const Histo1DSinkPtr &sink, QWidget *parent)
+    : PlotWidget(parent)
+    , m_sink(sink)
+{
+}
+
+int Histo1DSinkWidget::selectedHistogramIndex() const
+{
+    if (auto histoSpin = findChild<QSpinBox *>("histoSpin"))
+        return histoSpin->value();
+    return -1;
+}
+
+void Histo1DSinkWidget::selectHistogram(int histoIndex)
+{
+}
+
+Histo1DSinkWidget *make_h1dsink_widget(
+    const Histo1DSinkPtr &histoSink, QWidget *parent)
+{
+    auto plotWidget = new Histo1DSinkWidget(histoSink, parent);
+
+    // histogram plot item
+    {
+        auto plotHisto = new QwtPlotHistogram;
+        plotHisto->setStyle(QwtPlotHistogram::Outline);
+        plotHisto->attach(plotWidget->getPlot());
+    }
+
+    // zoomer
+    {
+        auto zoomer = new ScrollZoomer(plotWidget->getPlot()->canvas());
+        zoomer->setObjectName("zoomer");
+        zoomer->setEnabled(true);
+    }
+
+    // replot timer
+    {
+        auto replotTimer = new QTimer(plotWidget);
+        replotTimer->setInterval(ReplotPeriod_ms);
+        QObject::connect(replotTimer, &QTimer::timeout,
+                         plotWidget, &PlotWidget::replot);
+    }
+
+    // lin/log axis scale changer
+    setup_axis_scale_changer(plotWidget, QwtPlot::yLeft, "Y-Scale");
+
+    // histo selection spinbox
+    {
+        auto histoSpin = new QSpinBox();
+        histoSpin->setObjectName("histoSpin");
+        plotWidget->getToolBar()->addWidget(make_spacer_widget());
+        plotWidget->getToolBar()->addWidget(
+            make_vbox_container(QSL("Histogram #"), histoSpin, 2, -2)
+            .container.release());
+        QObject::connect(histoSpin, qOverload<int>(&QSpinBox::valueChanged),
+                         plotWidget, &Histo1DSinkWidget::selectHistogram);
+    }
+
+    return plotWidget;
+}
+
+#endif

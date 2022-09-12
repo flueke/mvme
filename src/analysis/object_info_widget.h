@@ -42,8 +42,8 @@ class ObjectInfoWidget: public QFrame
     public slots:
         void setAnalysisObject(const AnalysisObjectPtr &obj);
         void setVMEConfigObject(const ConfigObject *obj);
-        void refresh();
         void clear();
+        void refresh();
 
     private:
         struct Private;

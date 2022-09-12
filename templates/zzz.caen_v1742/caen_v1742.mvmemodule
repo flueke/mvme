@@ -1,0 +1,67 @@
+{
+    "ModuleConfig": {
+        "baseAddress": 786432,
+        "enabled": true,
+        "id": "{bcd00eed-3424-455a-9731-16811fb7be2f}",
+        "initScripts": [
+            {
+                "enabled": true,
+                "id": "{80f93835-66ad-4add-aa0d-ff05b1ae21e9}",
+                "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "## Parameters\nwrite a32 d16 0x8004 0x100  # set individual trigger\n#write a32 d16 0x8004 0x1000 # enable TRn to trigger\n#write a32 d16 0x8004 0x40   # TRn falling edge\n#write a32 d16 0x8004 0x800  # enable TRn readout\nwrite a32 d16 0x8120 0xf    # (all) groups in readout\nwrite a32 d16 0x8020 0      # 0: 1024,1: 520, 2:256, 3: 136 samples\nwrite a32 d16 0x80d8 1      # sampling frequency 2.5 ghz\nwrite a32 d16 0x8114 0      # triggerdelay\nwrite a32 d16 0xef08 0x13   # board id\nwait 10ms\n\nread  a32 d16 0x1088        #\nwrite a32 d16 0x1098 0x5fd8 # group 0 offset, negative signals\nwait 10ms\n\nread  a32 d16 0x1188        #\nwrite a32 d16 0x1198 0x5fd8 # group 1 offset, negative signals\nwait 10ms\n\nread  a32 d16 0x1288        #\nwrite a32 d16 0x1298 0x5fd8 # group 2 offset, negative signals\nwait 10ms\n\nread  a32 d16 0x1388        #\nwrite a32 d16 0x1398 0x5fd8 # group 3 offset, negative signals\nwait 10ms\n\nread  a32 d16 0x1088        # group 0  status\nwrite a32 d16 0x10d4 0x51c6 # group 0  tr 0 threshhold\nwait 10ms\n\nread  a32 d16 0x1288        # group 2  status\nwrite a32 d16 0x12d4 0x51c6 # group 2  tr 0 threshhold\nwait 10ms\n\nread  a32 d16 0xef00        #\nwrite a32 d16 0xef00 0x10   # enable bus error at end of block vme readout\nread  a32 d16 0xef00\nread  a32 d16 0x8100\nwrite a32 d16 0x8100 0x4    # start acquisition\nwait 1s\n"
+            }
+        ],
+        "name": "caen_v1742",
+        "type": "caen_v1742",
+        "variable_table": {
+            "name": "",
+            "variables": {
+            }
+        },
+        "vmeReadout": {
+            "enabled": true,
+            "id": "{3b6cead5-2479-479d-b253-d76baf1d8ebb}",
+            "name": "Module Readout",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# BLT readout until BERR or number of transfers reached\n# Readout commands go here. For example a BLT read from the module.\n\nmvlc_stack_begin \t\t\t# for interactive debugging only\n\nmvlc_wait 3000\nread a32 d16 0x812c\t\t\t# data ready if value = 1\nread a32 d16 0x814c\t\t\t# event length in 32 bit words\nmarker 0xbbbbbbbb\nmbltfifo a32 0x0000 65535\nmarker 0xeeeeeeee\n\nmvlc_stack_end   \t\t\t# for interactive debugging only\n"
+        },
+        "vmeReset": {
+            "enabled": true,
+            "id": "{f46fec6c-524d-4e43-9712-d3cf6194e345}",
+            "name": "Module Reset",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\n\nwrite a32 d16 0xef24 1      # soft reset\nwait 10ms "
+        }
+    },
+    "ModuleMeta": {
+        "displayName": "CAEN V1742",
+        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+        "typeName": "caen_v1742",
+        "variables": [
+        ],
+        "vendorName": "CAEN",
+        "vmeAddress": 786432
+    }
+}

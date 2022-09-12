@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"msys2.root": "c:\\msys64",
+		"cmake.generator": "MSYS Makefiles",
+		"mingw64.provider": "msys2",
+		"cmake.cmakePath": "${command:cmake.buildkit.cmake.exe}",
+		"cmake.configureSettings": {
+			"CMAKE_MAKE_PROGRAM": "c:\\msys64\\usr\\bin\\make.exe",
+			"CMAKE_VERBOSE_MAKEFILE": false
+		}
+	}
+}

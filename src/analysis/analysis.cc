@@ -27,7 +27,8 @@
 #include <QJsonObject>
 #include <memory>
 #include <random>
-#include <zstr/src/zstr.hpp>
+#include <set>
+#include <sstream>
 
 #include "analysis/a2_adapter.h"
 #include "analysis/a2/multiword_datafilter.h"
@@ -244,6 +245,14 @@ std::unique_ptr<AnalysisObject> AnalysisObject::clone() const
 }
 
 //
+// PipeSourceInterface
+//
+const Pipe *PipeSourceInterface::getOutput(s32 index) const
+{
+    return const_cast<PipeSourceInterface *>(this)->getOutput(index);
+}
+
+//
 // Pipe
 //
 
@@ -406,6 +415,13 @@ s32 OperatorInterface::getMaximumOutputRank()
     }
 
     return result;
+}
+
+QSet<ConditionPtr> OperatorInterface::getActiveConditions() const
+{
+    if (auto ana = getAnalysis())
+        return ana->getActiveConditions(this);
+    return {};
 }
 
 void OperatorInterface::accept(ObjectVisitor &visitor)
@@ -4099,6 +4115,7 @@ void ExpressionCondition::read(const QJsonObject &json)
     for (s32 inputIndex = 0; inputIndex < inputCount; ++inputIndex)
         addSlot();
 
+    setExpression(json["expression"].toString());
 
     m_inputPrefixes.clear();
 
@@ -4147,12 +4164,12 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<AggregateOps>();
     m_objectFactory.registerOperator<ExpressionOperator>();
     m_objectFactory.registerOperator<ScalerOverflow>();
-#if 0
+#if 1
     // conditions
     m_objectFactory.registerOperator<IntervalCondition>();
-    m_objectFactory.registerOperator<RectangleCondition>();
+    //m_objectFactory.registerOperator<RectangleCondition>(); // TODO: create a proper gui for this
     m_objectFactory.registerOperator<PolygonCondition>();
-    m_objectFactory.registerOperator<LutCondition>();
+    m_objectFactory.registerOperator<LutCondition>(); // TODO: disabled for now, remove the code
     m_objectFactory.registerOperator<ExpressionCondition>();
 #endif
 
@@ -4597,6 +4614,13 @@ QSet<ConditionPtr> Analysis::getActiveConditions(const OperatorPtr &op) const
     return m_conditionLinks.value(op);
 }
 
+QSet<ConditionPtr> Analysis::getActiveConditions(const OperatorInterface *op) const
+{
+    assert(op);
+    auto cop = const_cast<OperatorInterface *>(op);
+    return getActiveConditions(std::dynamic_pointer_cast<OperatorInterface>(cop->shared_from_this()));
+}
+
 bool Analysis::addConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
 {
     assert(op->getEventId() == cond->getEventId());
@@ -5025,6 +5049,18 @@ void Analysis::addObjects(const AnalysisObjectVector &objects)
             addDirectory(dir);
         }
     }
+}
+
+QVariant Analysis::getModuleProperty(const QUuid &moduleId, const QString &prop) const
+{
+    const auto idStr = moduleId.toString();
+    for (const auto &props: getModulePropertyList())
+    {
+        auto pm = props.toMap();
+        if (pm["moduleId"] == idStr)
+            return pm.value(prop);
+    }
+    return {};
 }
 
 //
@@ -5497,6 +5533,16 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
         clear();
         auto updatedData = convert_to_current_version(inputJson, vmeConfig);
         auto objectStore = deserialize_objects(updatedData, m_objectFactory);
+
+        // Fix for directories containing references to objects that are no
+        // longer present: create a set of all object ids and later on when
+        // processing directories do only keep existing objects ids as
+        // directory members.
+        std::set<QUuid> allObjectIds;
+
+        for (const auto &obj: objectStore.allObjects())
+            allObjectIds.insert(obj->getId());
+
         establish_connections(objectStore);
 
         for (const auto &obj: objectStore.sources)
@@ -5520,6 +5566,12 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
 
         for (const auto &obj: objectStore.directories)
         {
+            for (const auto &id: obj->getMembers())
+            {
+                if (!allObjectIds.count(id))
+                    obj->remove(id);
+            }
+
             m_directories.append(obj);
             obj->setAnalysis(this->shared_from_this());
         }
@@ -6115,6 +6167,19 @@ std::pair<std::unique_ptr<Analysis>, QString>
     }
 
     return result;
+}
+
+std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename,
+                                   read_options::Opt options,
+                                   Logger logger)
+{
+    VMEConfig emptyVmeConfig{};
+    return read_analysis_config_from_file(
+        filename,
+        &emptyVmeConfig,
+        options,
+        logger);
 }
 
 QStringList

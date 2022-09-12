@@ -39,6 +39,10 @@ QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos)
         );
 }
 
+IPlotWidget::~IPlotWidget()
+{
+}
+
 struct PlotWidget::Private
 {
     Private(PlotWidget *q_)
@@ -54,7 +58,7 @@ struct PlotWidget::Private
 };
 
 PlotWidget::PlotWidget(QWidget *parent)
-    : QWidget(parent)
+    : IPlotWidget(parent)
     , d(std::make_unique<Private>(this))
 {
     d->toolbar = new QToolBar;
@@ -172,6 +176,30 @@ namespace
     static const int CanStartDragDistancePixels = 4;
 }
 
+PlotPicker::PlotPicker(QWidget *canvas)
+    : QwtPlotPicker(canvas)
+{
+    connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+            this, [this] (const QPoint &p)
+            {
+                emit removed(invTransform(p));
+            });
+}
+
+PlotPicker::PlotPicker(int xAxis, int yAxis,
+                       RubberBand rubberBand,
+                       DisplayMode trackerMode,
+                       QWidget *canvas)
+    : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
+{
+    connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+            this, [this] (const QPoint &p)
+            {
+                emit removed(invTransform(p));
+            });
+}
+
+
 struct NewIntervalPicker::Private
 {
     NewIntervalPicker *q;
@@ -264,6 +292,7 @@ NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
 
 NewIntervalPicker::~NewIntervalPicker()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void NewIntervalPicker::reset()
@@ -444,6 +473,7 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
 IntervalEditorPicker::~IntervalEditorPicker()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void IntervalEditorPicker::setInterval(const QwtInterval &interval)
@@ -506,9 +536,29 @@ void IntervalEditorPicker::onPointMoved(const QPointF &p)
     qDebug() << __PRETTY_FUNCTION__ << p;
     if (d->draggingPointIndex >= 0)
     {
+        assert(d->draggingPointIndex < d->selectedPoints.size());
         d->selectedPoints[d->draggingPointIndex] = p;
         d->updateMarkersAndZone();
+        emit intervalModified(d->getInterval());
     }
+}
+
+QList<QwtPickerMachine::Command> ImprovedPickerPolygonMachine::transition(
+    const QwtEventPattern &eventPattern, const QEvent *event)
+{
+    auto cmdList = QwtPickerPolygonMachine::transition(eventPattern, event);
+
+    if (event->type() == QEvent::MouseButtonPress)
+    {
+        if (eventPattern.mouseMatch(
+                QwtEventPattern::MouseSelect3,
+                static_cast<const QMouseEvent *>(event)))
+            {
+                cmdList += Remove;
+            }
+    }
+
+    return cmdList;
 }
 
 bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis)
@@ -555,6 +605,28 @@ void PlotAxisScaleChanger::setLogarithmic()
         scaleEngine->setTransformation(new MinBoundLogTransform);
         m_plot->setAxisScaleEngine(m_axis, scaleEngine);
     }
+}
+
+void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText)
+{
+    auto scaleChanger = new PlotAxisScaleChanger(w->getPlot(), axis);
+    auto combo = new QComboBox;
+    combo->addItem("Lin");
+    combo->addItem("Log");
+
+    auto container = make_vbox_container(axisText, combo, 2, -2).container.release();
+    w->getToolBar()->addWidget(container);
+
+    QObject::connect(
+        combo, qOverload<int>(&QComboBox::currentIndexChanged),
+        w, [w, scaleChanger] (int index)
+        {
+            if (index == 0)
+                scaleChanger->setLinear();
+            else
+                scaleChanger->setLogarithmic();
+            w->replot();
+        });
 }
 
 }

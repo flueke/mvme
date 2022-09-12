@@ -1,0 +1,21 @@
+
+0x0010 1	# master
+0x0018 0	# term
+0x001C 0x23	#run_id[11:0]
+0x0002 1 	#stat
+0x0012 0	#timer low
+0x0014 0
+0x0016 0	#timer hi
+
+
+#0x0010 1	# master
+
+read A32 D16 0x10	#master
+read A32 D16 0x18	#term
+read A32 D16 0x1A	#status[1:0] = {not_synchronised,start}
+read A32 D16 0x1C	#run_id[11:0]
+
+print timer
+read A32 D16 0x12
+read A32 D16 0x14
+read A32 D16 0x16

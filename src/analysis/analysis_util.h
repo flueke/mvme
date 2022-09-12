@@ -22,6 +22,7 @@
 #define __ANALYSIS_UTIL_H__
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "libmvme_export.h"
@@ -191,7 +192,15 @@ using ObjectToNodes = ObjectMap<NodeSet>;
 
 QDebug &operator<<(QDebug &dbg, const AnalysisObjectPtr &obj);
 
-SinkVector LIBMVME_EXPORT get_sinks_for_condition(const ConditionPtr &cond, const SinkVector &allSinks);
+/* Filters sinks, returning the ones using all of the inputs that are used by
+ * the Condition. */
+SinkVector LIBMVME_EXPORT
+    find_sinks_for_condition(const ConditionPtr &cond, const SinkVector &allSinks);
+
+/* Filters conditions, returning the ones using the same inputs slots that are
+ * used by the given sink. */
+ConditionVector LIBMVME_EXPORT
+    find_conditions_for_sink(const SinkPtr &sink, const ConditionVector &conditions);
 
 // Disconnects the Slots connected to the outputs of the given
 // PipeSourceInterface. Returns number of Slots that have been disconnected.
@@ -208,6 +217,8 @@ void LIBMVME_EXPORT add_default_filters(Analysis *analysis, ModuleConfig *module
 
 QJsonObject LIBMVME_EXPORT analysis_to_json_object(const Analysis &analysis);
 QJsonDocument LIBMVME_EXPORT analysis_to_json_doc(const Analysis &analysis);
+
+std::pair<std::shared_ptr<Analysis>, std::error_code> LIBMVME_EXPORT read_analysis(const QJsonDocument &doc);
 
 } // namespace analysis
 

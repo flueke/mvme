@@ -41,7 +41,8 @@ class WidgetRegistry: public QObject
         QList<QWidget *> getAllWidgets() const;
 
         // TODO: addWidget() does not really belong here as there's no object
-        // involved and there's no way to query the widget
+        // involved and there's no way to query the widget (stateKey is used for
+        // the geoSaver).
         void addWidget(QWidget *widget, const QString &stateKey);
 
     private:

@@ -21,14 +21,12 @@
 #ifndef __HISTO1D_WIDGET_H__
 #define __HISTO1D_WIDGET_H__
 
-#include "analysis/condition_editor_interface.h"
 #include "analysis_service_provider.h"
 #include "histo1d.h"
+#include "histo_ui.h"
 #include "libmvme_export.h"
 
-#include <QSpinBox>
 #include <QWidget>
-
 #include <qwt_plot_picker.h>
 
 class QwtPlotPicker;
@@ -41,10 +39,9 @@ namespace analysis
 
 struct Histo1DWidgetPrivate;
 
-class LIBMVME_EXPORT Histo1DWidget: public QWidget
+class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
 {
     Q_OBJECT
-    //Q_INTERFACES(analysis::ConditionEditorInterface);
 
     signals:
         void histogramSelected(int histoIndex);
@@ -81,17 +78,13 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         void setResolutionReductionFactor(u32 rrf);
         void setResolutionReductionSliderEnabled(bool b);
 
-        QwtPlot *getPlot() const;
-
-        // ConditionEditorInterface
-        //virtual bool setEditCondition(const analysis::ConditionPtr &cond) override;
-        //virtual analysis::ConditionPtr getEditCondition() const override;
-        //virtual void beginEditCondition() override;
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
 
         s32 currentHistoIndex() const;
 
     public slots:
-        void replot();
+        void replot() override;
 
     private slots:
         /* IMPORTANT: leave slots invoked by qwt here for now. do not use lambdas!
@@ -115,5 +108,35 @@ class LIBMVME_EXPORT Histo1DWidget: public QWidget
         std::unique_ptr<Histo1DWidgetPrivate> m_d;
         friend struct Histo1DWidgetPrivate;
 };
+
+#if 0
+
+class Histo1DSinkWidget: public histo_ui::PlotWidget
+{
+    Q_OBJECT
+    public:
+        const Histo1DSinkPtr getSink() const { return m_sink; }
+
+        int selectedHistogramIndex() const;
+
+    public slots:
+        void selectHistogram(int histoIndex);
+
+    private:
+        Histo1DSinkWidget(const Histo1DSinkPtr &sink, QWidget *parent = nullptr);
+
+        friend Histo1DSinkWidget *make_h1dsink_widget(
+            const Histo1DSinkPtr &histoSink, QWidget *parent);
+
+        Histo1DSinkPtr m_sink;
+};
+
+Histo1DSinkWidget *make_h1dsink_widget(
+    const Histo1DSinkPtr &histoSink, QWidget *parent=nullptr);
+
+histo_ui::PlotWidget *make_h1d_widget(
+    const Histo1DPtr &histo, QWidget *parent=nullptr);
+#endif
+
 
 #endif /* __HISTO1D_WIDGET_H__ */

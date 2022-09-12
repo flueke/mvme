@@ -69,6 +69,8 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         VMEError blockRead(u32 address, u32 transfers,
                            QVector<u32> *dest, u8 amod, bool /*fifo*/) override;
 
+        VMEError blockRead(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 transfers, QVector<u32> *dest);
+
         VMEError vmeMBLTSwapped(u32 address, u16 transfers, QVector<u32> *dest);
 
         //
