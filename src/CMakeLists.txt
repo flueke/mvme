@@ -504,6 +504,13 @@ function(add_mvme_dev_exe exe_name exe_sources)
         target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
     endif()
 endfunction(add_mvme_dev_exe)
+# Same as above for tools that should be part of release builds.
+function(add_mvme_exe exe_name exe_sources)
+        add_executable(${exe_name} ${exe_sources})
+        target_link_libraries(${exe_name} PRIVATE libmvme)
+        target_include_directories(${exe_name} PRIVATE ${CMAKE_SOURCE_DIR}/external)
+        target_compile_options(${exe_name} PRIVATE $<${not-msvc}:-Wall -Wextra>)
+endfunction(add_mvme_exe)
 
 add_mvme_dev_exe(vme_script_checker vme_script_checker.cc)
 add_mvme_dev_exe(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
