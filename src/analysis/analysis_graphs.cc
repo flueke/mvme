@@ -531,8 +531,12 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
         auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
 
         if (auto obj = d->objectAtScenePos(mev->scenePos()))
+        {
             if (auto sink = std::dynamic_pointer_cast<SinkInterface>(obj))
                 show_sink_widget(d->asp_, sink);
+            else
+                emit editObject(obj);
+        }
     }
 
     return false;
