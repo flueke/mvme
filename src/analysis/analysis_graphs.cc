@@ -440,6 +440,8 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
             this, [this] { d->onActionOpenTriggered(); });
     connect(d->actionEdit, &QAction::triggered,
             this, [this] { d->onActionEditTriggered(); });
+
+    d->onSceneSelectionChanged();
 }
 
 DependencyGraphWidget::~DependencyGraphWidget()
@@ -452,6 +454,7 @@ void DependencyGraphWidget::Private::onSceneSelectionChanged()
     actionView->setEnabled(obj != nullptr);
     actionOpen->setEnabled(obj != nullptr && qobject_cast<SinkInterface *>(obj.get()));
     actionView->setEnabled(obj != nullptr);
+    actionEdit->setEnabled(obj != nullptr);
 }
 
 void DependencyGraphWidget::Private::onActionViewTriggered()
