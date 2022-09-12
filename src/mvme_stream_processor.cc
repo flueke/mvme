@@ -443,6 +443,42 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
 #endif
 
     //
+    // Empty event suppression. Should not happen if the readout is configured
+    // and working correctly.
+    //
+    if (!this->doMultiEventProcessing[eventIndex])
+    {
+        bool allEmpty = true;
+
+        for (u32 moduleIndex=0; moduleIndex < MaxVMEModules; ++moduleIndex)
+        {
+            auto &mi = moduleInfos[moduleIndex];
+
+            if (!mi.moduleDataHeader)
+                continue;
+
+            if (lf.getModuleDataSize(*mi.moduleDataHeader) != 1)
+            {
+                allEmpty = false;
+                break;
+            }
+
+            if (*(mi.moduleDataHeader + 1) != EndMarker)
+            {
+                allEmpty = false;
+                break;
+            }
+        }
+
+        if (allEmpty)
+        {
+            //qDebug("  eventIndex=%d, all subevents are empty! suppressing event", eventIndex);
+            ++this->counters.suppressedEmptyEvents;
+            return;
+        }
+    }
+
+    //
     // Step2: yield events in the correct order:
     // (mod0, ev0), (mod1, ev0), .., (mod0, ev1), (mod1, ev1), ..
     //

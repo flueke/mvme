@@ -439,8 +439,12 @@ void AnalysisInfoWidget::update()
     // total Events
     t = QSL("%1 events").arg(counters.totalEvents);
 
-    if (counters.invalidEventIndices)
-        t += QSL(" (%1 invalid)").arg(counters.invalidEventIndices);
+    if (counters.invalidEventIndices || counters.suppressedEmptyEvents)
+    {
+        t += QSL(" (%1 invalid, %2 suppressed empty)")
+            .arg(counters.invalidEventIndices)
+            .arg(counters.suppressedEmptyEvents);
+    }
 
     m_d->labels[ii++]->setText(t);
 
