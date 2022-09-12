@@ -354,6 +354,7 @@ struct EventWidgetPrivate
     void periodicUpdateHistoCounters(double dt_s);
     void updateActions();
     void showDependencyGraphWidget(const AnalysisObjectPtr &obj);
+    void editOperator(const OperatorPtr &op);
 
     // Object and node selections
 

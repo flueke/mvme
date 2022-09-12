@@ -2709,20 +2709,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                     });
                 }
 
-                auto edit_operator_action = [this] (const OperatorPtr &op)
-                {
-                    auto dialog = operator_editor_factory(
-                        op, op->getUserLevel(), ObjectEditorMode::Edit, DirectoryPtr(), m_q);
-
-                    //POS dialog->move(QCursor::pos());
-                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    dialog->show();
-                    m_uniqueWidget = dialog;
-                    clearAllTreeSelections();
-                    clearAllToDefaultNodeHighlights();
-                };
-
-                menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [=] { edit_operator_action(op); });
+                menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [=] { editOperator(op); });
 
                 menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                     if (auto tw = activeNode->treeWidget())
@@ -2755,18 +2742,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
                 menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [=]
                 {
-                    bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
-                    auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, op);
-
-                    if (isNewWidget)
-                    {
-                        QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
-                                        m_q, [=] (const AnalysisObjectPtr &obj)
-                                        {
-                                            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-                                                edit_operator_action(op);
-                                        });
-                    }
+                    showDependencyGraphWidget(op);
                 });
             }
         }
@@ -3017,18 +2993,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
 
                     menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [=]
                     {
-                        bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
-                        auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, srcPtr);
-
-                        if (isNewWidget)
-                        {
-                            QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
-                                            m_q, [=] (const AnalysisObjectPtr &obj)
-                                            {
-                                                if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
-                                                    edit_datasource_action(src);
-                                            });
-                        }
+                        showDependencyGraphWidget(srcPtr);
                     });
                 }
             }
@@ -3372,19 +3337,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             });
         }
 
-        auto edit_operator_action = [this] (const OperatorPtr &op)
-        {
-            auto dialog = operator_editor_factory(
-                op, op->getUserLevel(), ObjectEditorMode::Edit, DirectoryPtr(), m_q);
-
-            //POS dialog->move(QCursor::pos());
-            dialog->setAttribute(Qt::WA_DeleteOnClose);
-            dialog->show();
-            m_uniqueWidget = dialog;
-            clearAllTreeSelections();
-            clearAllToDefaultNodeHighlights();
-        };
-
         switch (activeNode->type())
         {
             case NodeType_Operator:
@@ -3396,7 +3348,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 {
                     menu.addSeparator();
                     // Edit Display Operator
-                    menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [=] { edit_operator_action(op); });
+                    menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [=] { editOperator(op); });
                 }
 
                 menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
@@ -3430,18 +3382,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                     menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [=]
                     {
-                        bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
-                        auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, op);
-
-                        if (isNewWidget)
-                        {
-                            QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
-                                            m_q, [=] (const AnalysisObjectPtr &obj)
-                                            {
-                                                if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-                                                    edit_operator_action(op);
-                                            });
-                        }
+                        showDependencyGraphWidget(op);
                     });
                 }
 
@@ -4979,6 +4920,35 @@ void EventWidgetPrivate::updateActions()
     {
         m_actionExport->setEnabled(canExport());
     }
+}
+
+void EventWidgetPrivate::showDependencyGraphWidget(const AnalysisObjectPtr &obj)
+{
+    bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
+    auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, obj);
+
+    if (isNewWidget)
+    {
+        QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
+                         m_q, [=] (const AnalysisObjectPtr &obj)
+                         {
+                            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+                                editOperator(op);
+                         });
+    }
+}
+
+void EventWidgetPrivate::editOperator(const OperatorPtr &op)
+{
+    auto dialog = operator_editor_factory(
+        op, op->getUserLevel(), ObjectEditorMode::Edit, DirectoryPtr(), m_q);
+
+    //POS dialog->move(QCursor::pos());
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+    m_uniqueWidget = dialog;
+    clearAllTreeSelections();
+    clearAllToDefaultNodeHighlights();
 }
 
 bool EventWidgetPrivate::canExport() const
