@@ -353,6 +353,7 @@ struct EventWidgetPrivate
     void periodicUpdateDataSourceTreeCounters(double dt_s);
     void periodicUpdateHistoCounters(double dt_s);
     void updateActions();
+    void showDependencyGraphWidget(const AnalysisObjectPtr &obj);
 
     // Object and node selections
 

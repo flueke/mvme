@@ -542,17 +542,22 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
     return false;
 }
 
+
+DependencyGraphWidget *find_dependency_graph_widget()
+{
+    for (auto w: QApplication::topLevelWidgets())
+    {
+        if (auto dgw = qobject_cast<DependencyGraphWidget *>(w))
+            return dgw;
+    }
+
+    return {};
+}
+
 DependencyGraphWidget *show_dependency_graph(
     AnalysisServiceProvider *asp, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa)
 {
-    DependencyGraphWidget *dgw = nullptr;
-    auto widgets = QApplication::topLevelWidgets();
-
-    for (auto w: widgets)
-    {
-        if ((dgw = qobject_cast<DependencyGraphWidget *>(w)))
-            break;
-    }
+    auto dgw = find_dependency_graph_widget();
 
     if (!dgw)
     {

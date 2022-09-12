@@ -2755,14 +2755,18 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
                 menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [=]
                 {
+                    bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
                     auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, op);
 
-                    QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
-                                     m_q, [=] (const AnalysisObjectPtr &obj)
-                                     {
-                                        if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-                                            edit_operator_action(op);
-                                     });
+                    if (isNewWidget)
+                    {
+                        QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
+                                        m_q, [=] (const AnalysisObjectPtr &obj)
+                                        {
+                                            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+                                                edit_operator_action(op);
+                                        });
+                    }
                 });
             }
         }
@@ -3013,14 +3017,18 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
 
                     menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [=]
                     {
+                        bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
                         auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, srcPtr);
 
-                        QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
-                                        m_q, [=] (const AnalysisObjectPtr &obj)
-                                        {
-                                            if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
-                                                edit_datasource_action(src);
-                                        });
+                        if (isNewWidget)
+                        {
+                            QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
+                                            m_q, [=] (const AnalysisObjectPtr &obj)
+                                            {
+                                                if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
+                                                    edit_datasource_action(src);
+                                            });
+                        }
                     });
                 }
             }
@@ -3422,14 +3430,18 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                     menu.addAction(QIcon(":/node-select.png"), "Dependency Graph", [=]
                     {
+                        bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
                         auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, op);
 
-                        QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
-                                        m_q, [=] (const AnalysisObjectPtr &obj)
-                                        {
-                                            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-                                                edit_operator_action(op);
-                                        });
+                        if (isNewWidget)
+                        {
+                            QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
+                                            m_q, [=] (const AnalysisObjectPtr &obj)
+                                            {
+                                                if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+                                                    edit_operator_action(op);
+                                            });
+                        }
                     });
                 }
 

@@ -94,6 +94,12 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
 
 };
 
+// Returns a pointer to the last used DependencyGraphWidget or nullptr if no
+// widget is found.
+LIBMVME_EXPORT DependencyGraphWidget *find_dependency_graph_widget();
+
+// Creates a new or reuses the last used DependencyGraphWidget to show the graph
+// for the given obj.
 LIBMVME_EXPORT DependencyGraphWidget *show_dependency_graph(
     AnalysisServiceProvider *asp, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa = {});
 
