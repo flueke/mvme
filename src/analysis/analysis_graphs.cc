@@ -446,6 +446,9 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
 
 DependencyGraphWidget::~DependencyGraphWidget()
 {
+    // Avoid crashing here if an object is selected in the scene and
+    // onSceneSelectionChanged() is invoked during descruction.
+    d->scene()->disconnect(this);
 }
 
 void DependencyGraphWidget::Private::onSceneSelectionChanged()
