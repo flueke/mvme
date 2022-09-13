@@ -4,6 +4,15 @@
 Changelog
 ##################################################
 
+Version 1.4.9.3
+---------------
+
+* Improved listfile filename generation: an fmt format string can now be used to
+  specify the output filename. Currently the run number and the timestamp are passed
+  as arguments when generating the output filename.
+
+* Add untested templates for the CAEN v775 TDC module.
+
 Version 1.4.9.2
 ---------------
 
