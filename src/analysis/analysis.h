@@ -1531,7 +1531,7 @@ class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
         Q_INVOKABLE IntervalCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
-        virtual QString getShortName() const override { return QSL("CondInter"); }
+        virtual QString getShortName() const override { return QSL("IntervalCond"); }
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1560,7 +1560,7 @@ class LIBMVME_EXPORT RectangleCondition: public ConditionInterface
         Q_INVOKABLE RectangleCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
-        virtual QString getShortName() const override { return QSL("CondRect"); }
+        virtual QString getShortName() const override { return QSL("RectCond"); }
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1587,7 +1587,7 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
         Q_INVOKABLE PolygonCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Polygon Condition"); }
-        virtual QString getShortName() const override { return QSL("CondPoly"); }
+        virtual QString getShortName() const override { return QSL("PolyCond"); }
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
