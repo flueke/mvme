@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.4.9.4
+---------------
+
+* Fix data rate monitoring and display when using MVLC_USB (read timeout issue)
+
 Version 1.4.9.3
 ---------------
 
