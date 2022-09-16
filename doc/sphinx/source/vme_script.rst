@@ -136,14 +136,28 @@ mvme supports the following read-only block transfer commands:
 * **mblt** *<amode> <address> <count>*
 * **mbltfifo** *<amode> <address> <count>*
 * **mblts** *<amode> <address> <count>* (**MVLC only**)
+* **2esst** *<address> <rate> <count>* (**to be supported by MVLC**)
 
 **blt** and **bltfifo** transfer *<count>* number of 32-bit words, **mblt** and **mbltfifo**
-transfer 64-bit words.
+transfer 64-bit words. **2esst** uses the 2eSST protocol for data transfer.
 
 The **\*fifo** variants do not increment the given starting address.
 
 **mblts** stands for *MBLT swapped* and is the same as MBLT but swaps the two
 32-bit words in each transferred 64-bit word. It is only supported by the MVLC.
+
+The **2esst** command accepts the following *<rate>* arguments:
+
+.. table:: 2esst rates
+  :name: 2esst-rates
+
+  +-----------+------------+-------+
+  | 160       | 160mb      | 0     |
+  +-----------+------------+-------+
+  | 276       | 276mb      | 1     |
+  +-----------+------------+-------+
+  | 320       | 320mb      | 2     |
+  +-----------+------------+-------+
 
 .. note::
   For the MVLC there is no difference between the FIFO and non-FIFO block
