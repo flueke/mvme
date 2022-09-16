@@ -404,7 +404,7 @@ Conditions are a special kind of operator producing only a single output value:
 the boolean result of evaluating the condition. Each condition can be applied
 to multiple operators and/or data sinks. Multiple conditions can be applied to
 the same object in which case the **logical AND** of all condition outputs is
-used to decide whethere the object should be run or skipped.
+used to decide whether the object should be run or skipped.
 
 .. _analysis-sources:
 
@@ -414,9 +414,6 @@ Analysis Data Sources attach directly to a VME module. On every step of the
 analysis system they're handed all the data words produced by that module in
 the corresponding readout cycle. Their job is to extract data values from the
 raw module data and produce an output parameter array.
-
-.. _Currently there's one
-.. Source implemented: The :ref:`Filter Extractor <analysis-extractor>`
 
 .. _analysis-extractor:
 
@@ -595,7 +592,7 @@ selected shape type: ::
            +----------------------+     |
            +----------------------+     |
      hit1  |                      |  maxHits
-           +----------------------+  arrays 
+           +----------------------+  arrays
                      ...                |
            +----------------------+     |
      hitN  |                      |     |
@@ -620,7 +617,7 @@ selected shape type: ::
            +----------------------+        |
            +----------------------+        |
    hits[1] |                      |   2^addrBits
-           +----------------------+     arrays  
+           +----------------------+     arrays
                      ...                   |
            +----------------------+        |
    hits[N] |                      |        |
@@ -1038,7 +1035,7 @@ dialog found in the context menu of each module in the analysis UI.
 Event Builder
 ~~~~~~~~~~~~~
 
-.. todo:: improve the event builder description
+.. todo: improve the event builder description
 
 Since version 1.4.7 mvme contains a timestamp based EventBuilder module which
 can be enabled if using the MVLC VME Controller. The purpose of the
