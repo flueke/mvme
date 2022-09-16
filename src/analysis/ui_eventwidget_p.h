@@ -355,6 +355,7 @@ struct EventWidgetPrivate
     void updateActions();
     void showDependencyGraphWidget(const AnalysisObjectPtr &obj);
     void editOperator(const OperatorPtr &op);
+    QAction *createEditAction(const OperatorPtr &op);
 
     // Object and node selections
 

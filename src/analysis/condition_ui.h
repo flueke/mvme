@@ -141,7 +141,7 @@ class PolygonConditionEditorController: public QObject
         bool eventFilter(QObject *watched, QEvent *event) override;
 
         void setEnabled(bool on);
-        QDialog *getDialog() const;
+        PolygonConditionDialog *getDialog() const;
 
     private:
         struct Private;

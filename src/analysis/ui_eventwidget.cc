@@ -1224,7 +1224,7 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
     return result;
 }
 
-void open_or_raise_histo1dsink_widget(
+QWidget *open_or_raise_histo1dsink_widget(
     AnalysisServiceProvider *asp,
     const Histo1DWidgetInfo &widgetInfo
     )
@@ -1232,7 +1232,7 @@ void open_or_raise_histo1dsink_widget(
     if (!asp->getWidgetRegistry()->hasObjectWidget(widgetInfo.sink.get())
         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
     {
-        show_sink_widget(asp, widgetInfo);
+        return show_sink_widget(asp, widgetInfo);
     }
     else if (auto widget = qobject_cast<Histo1DWidget *>(
             asp->getWidgetRegistry()->getObjectWidget(widgetInfo.sink.get())))
@@ -1240,7 +1240,9 @@ void open_or_raise_histo1dsink_widget(
         if (widgetInfo.histoAddress >= 0)
             widget->selectHistogram(widgetInfo.histoAddress);
         show_and_activate(widget);
+        return widget;
     }
+    return {};
 }
 
 static const u32 PeriodicUpdateTimerInterval_ms = 1000;
@@ -2709,7 +2711,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                     });
                 }
 
-                menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [=] { editOperator(op); });
+                if (auto editAction = createEditAction(op))
+                    menu.addAction(editAction);
+                //else
+                //    menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [=] { editOperator(op); });
 
                 menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                     if (auto tw = activeNode->treeWidget())
@@ -4949,6 +4954,86 @@ void EventWidgetPrivate::editOperator(const OperatorPtr &op)
     m_uniqueWidget = dialog;
     clearAllTreeSelections();
     clearAllToDefaultNodeHighlights();
+}
+
+QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
+{
+    auto cond = std::dynamic_pointer_cast<ConditionInterface>(op);
+
+    if (!cond)
+    {
+        auto result = new QAction(QIcon(":/pencil.png"), QSL("Edit"));
+        QObject::connect(result, &QAction::triggered, m_q, [=] { editOperator(op); });
+        return result;
+    }
+
+    if (auto ana = cond->getAnalysis())
+    {
+        auto sinks = find_sinks_for_condition(cond, ana->getSinkOperators<std::shared_ptr<SinkInterface>>());
+
+        if (sinks.isEmpty())
+        {
+            // TODO: could create the correct sinks type on the fly and display
+            // that or error out and show an error message that no one will
+            // understand.
+            return {};
+        }
+
+        auto menu = std::make_unique<QMenu>();
+
+        for (auto &sink: sinks)
+        {
+            if (!qobject_cast<Histo1DSink *>(sink.get())
+                && !qobject_cast<Histo2DSink *>(sink.get()))
+                continue;
+
+            // Look for the first sink that does not itself have an active
+            // condition.
+            if (!ana->getActiveConditions(sink).isEmpty())
+            {
+                continue;
+            }
+
+            auto edit_cond = [=] ()
+            {
+                auto widget = show_sink_widget(m_serviceProvider, sink);
+                if (auto h1dsink = std::dynamic_pointer_cast<Histo1DSink>(sink))
+                {
+                    auto action = widget->findChild<QAction *>("intervalConditions");
+                    assert(action);
+                    action->setChecked(true);
+                    auto editController = widget->findChild<IntervalConditionEditorController *>(
+                        "intervalConditionEditorController");
+                    assert(editController);
+                    auto editDialog = editController->getDialog();
+                    editDialog->selectCondition(cond->getId());
+                }
+                else if (auto h2dSink = std::dynamic_pointer_cast<Histo2DSink>(sink))
+                {
+                    auto action = widget->findChild<QAction *>("polygonConditions");
+                    assert(action);
+                    action->setChecked(true);
+                    auto editController = widget->findChild<PolygonConditionEditorController *>(
+                        "polygonConditionEditorController");
+                    assert(editController);
+                    auto editDialog = editController->getDialog();
+                    editDialog->selectCondition(cond->getId());
+                }
+            };
+
+            auto editAction = menu->addAction(QSL("Sink %1").arg(sink->objectName()));
+            QObject::connect(editAction, &QAction::triggered, m_q, edit_cond);
+        }
+
+        if (!menu->isEmpty())
+        {
+            auto result = new QAction(QIcon(":/pencil.png"), QSL("Edit in"));
+            result->setMenu(menu.release());
+            return result;
+        }
+    }
+
+    return {};
 }
 
 bool EventWidgetPrivate::canExport() const

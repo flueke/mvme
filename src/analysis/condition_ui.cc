@@ -1120,7 +1120,7 @@ void PolygonConditionEditorController::setEnabled(bool on)
     d->dialog_->setVisible(on);
 }
 
-QDialog *PolygonConditionEditorController::getDialog() const
+PolygonConditionDialog *PolygonConditionEditorController::getDialog() const
 {
     return d->dialog_;
 }
