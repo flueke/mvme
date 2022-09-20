@@ -87,7 +87,7 @@
         "typeId": 22,
         "displayName": "MDLL",
         "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
-        "typeName": "mdllv20",
+        "typeName": "mdll",
         "variables": [
         ],
         "vendorName": "mesytec",

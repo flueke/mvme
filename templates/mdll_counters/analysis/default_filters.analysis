@@ -1,0 +1,91 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": {
+        },
+        "connections": [
+        ],
+        "directories": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{097ae84e-5589-448d-a230-0aa9fc64bcfd}",
+                    "moduleName": "mdll_counter_events",
+                    "moduleTypeName": "mdll_counter_events"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 1,
+                    "parameterNames": [
+                        "mon0",
+                        "mon1",
+                        "mon2",
+                        "mon3",
+                        "rear_ttl1",
+                        "rear_ttl2",
+                        "adc1",
+                        "adc2"
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "f437ba19deae775b",
+                    "subFilters": [
+                        {
+                            "filterString": "ZZZZZZZZDDDDDXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": 0
+                        },
+                        {
+                            "filterString": "ZZZZZZZZ1XXXXAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": 1
+                        }
+                    ]
+                },
+                "eventId": "{b2584bbe-3dca-4208-aa03-6526c398aba3}",
+                "id": "{2acf91fb-a26e-43a6-a571-564452dbd881}",
+                "moduleId": "{097ae84e-5589-448d-a230-0aa9fc64bcfd}",
+                "name": "data values"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 1,
+                    "parameterNames": [
+                        "mon0",
+                        "mon1",
+                        "mon2",
+                        "mon3",
+                        "rear_ttl1",
+                        "rear_ttl2",
+                        "adc1",
+                        "adc2"
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "faa9248619a5e6e0",
+                    "subFilters": [
+                        {
+                            "filterString": "ZZZZZZZZXXXXXDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": 0
+                        },
+                        {
+                            "filterString": "ZZZZZZZZ1XXXXAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": 1
+                        }
+                    ]
+                },
+                "eventId": "{b2584bbe-3dca-4208-aa03-6526c398aba3}",
+                "id": "{1929b5c0-8356-4c6f-b93a-a18d3567bc76}",
+                "moduleId": "{097ae84e-5589-448d-a230-0aa9fc64bcfd}",
+                "name": "timestamps"
+            }
+        ]
+    }
+}
+
