@@ -1,14 +1,26 @@
 # 0x80..0x86: Capture registers for timers. Time base is 10us. Range is (10us, 655.36ms).
-print Setup Timers
-0x80 1000	# timer 0, 10ms period
-0x82    0	# timer 1
-0x84    0	# timer 2
+print Setup timers
+0x80 1000	# timer 0, 10ms periode
+0x82 2000   # timer 1, 20ms periode
+0x84 3000   # timer 2, 30ms periode
 0x86    0	# timer 3
 
-# Set trigger sources for event generation. 
+# Set trigger sources for event generation.
 # Accepted values: 0=none, 1..4=timer_trigger, 5,6=N/A, 7=compare_register
 print Setup Trigger Sources
 0x60 1		# send counter 0 when trigger 0
 0x62 2		# send counter 1 when trigger 1
 0x64 3		# send counter 2 when trigger 2
 0x66 4		# send counter 3 when trigger 3
+
+/*
+read a32 d16 0x80	#trigger timer
+read a32 d16 0x82	#trigger timer
+read a32 d16 0x84	#trigger timer
+read a32 d16 0x86	#trigger timer
+
+read a32 d16 0x60	#cell 0 trigger source
+read a32 d16 0x62	#cell 1 trigger source
+read a32 d16 0x64	#cell 2 trigger source
+read a32 d16 0x66	#cell 3 trigger source
+*/

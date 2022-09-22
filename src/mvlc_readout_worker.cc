@@ -536,8 +536,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // Set the openArchiveCallback
                 lfSetup.openArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
                 {
-                    // Update daqStats so that the GUI displays the current filename.
-                    // FIXME: thread safety!
+                    // Update daqStats here so that the GUI displays the current filename.
+                    // FIXME: thread safety! horrible design!
                     m_workerContext.daqStats.listfileFilename =
                         QString::fromStdString(zipCreator->archiveName());
                 };

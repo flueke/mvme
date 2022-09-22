@@ -87,7 +87,7 @@
         "typeId": 23,
         "displayName": "MDLL Counter Events",
         "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
-        "typeName": "mdllv20_counter_events",
+        "typeName": "mdll_counter_events",
         "variables": [
         ],
         "vendorName": "mesytec",

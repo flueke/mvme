@@ -34,6 +34,20 @@
             },
             {
                 "enabled": true,
+                "id": "{bfb21715-44e1-4g9b-9457-f0c5cd01ec7c}",
+                "name": "Counters Setup",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Front end settings\n# ############################################################################\n# select_chan_pair ____>>>> Catodes\n0x6100  8       # 0 -> channel 0, 1\n                # 1 -> channel 2, 3\n                # ...\n                # 8 -> all channels (set to common values)\n\n# signal_width (10 bit value)\n0x6110  20      # FWHM in ns\n\n# input_amplitude (16 bit value)\n0x6112  1000    # maximum required input amplitude: 0 to peak in mV\n\n# jumper_range\n0x6114  2000    # range printed on jumper top in mV\n\n# integration_long\n0x6118  $(250 / 12.5)  # first term in ns\n\t\t\t\t# 2..128 in multiples of 12.5 ns\n\n# integration_short\n0x611A  2#$(25 / 12.5)  # first term in ns\n\t\t       # 1..31 in multiples of 12.5 ns,\n                # must be < integration_long.\n\n# threshold0 (15 bit value for the even channel)\n0x611C  0x0FFF   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n# threshold1 (15 bit value for the odd channel)\n0x611E  0x0FFF   # 1..0xFFFF, example: 0x200 -> 0.8%\n###################################################################\n# select_chan_pair ------>>>>>> ANODE\n0x6100  0       # 0 -> channel 0, 1\n                # 1 -> channel 2, 3\n                # ...\n                # 8 -> all channels (set to common values)\n\n# signal_width (10 bit value)\n0x6110  20      # FWHM in ns\n\n# input_amplitude (16 bit value)\n0x6112  1000    # maximum required input amplitude: 0 to peak in mV\n\n# jumper_range\n0x6114  2000    # range printed on jumper top in mV\n\n# integration_long\n0x6118  $(250 / 12.5)  # first term in ns\n\t\t\t\t# 2..128 in multiples of 12.5 ns\n\n# integration_short\n0x611A  2#$(25 / 12.5)  # first term in ns\n\t\t       # 1..31 in multiples of 12.5 ns,\n                # must be < integration_long.\n\n# threshold0 (15 bit value for the even channel)\n0x611C  0x0FF2   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n# threshold1 (15 bit value for the odd channel)\n0x611E  0x0FF0   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n\n### Expert settings, usually the default settings are fine ####\n# qdc_jumper\n#0x6116  0      # 0 -> no, 1 -> yes\n# reset_time (common for both selected channels)\n0x6100  8\n0x6128  0     # multiple of 12.5 ns\n\n# long_gain_correction\n#0x612A  1024   #  256 -> divide by 4\n                # 4096 -> multiply by 4\n                # 1024 -> neutral\n\n# tf_gain_correction\n#0x612C  1024   #  256 -> divide by 4\n                # 4096 -> multiply by 4\n                # 1024 -> neutral\n\n# short_gain_correction\n#0x612E  1024   #  256 -> divide by 4\n                # 4096 -> multiply by 4\n                # 1024 -> neutral\n\n# Channel / Channel Pair Front end settings\n# ############################################################################\n\n/*\n# channels (0, 1)\n0x6100       0\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n# channels (2, 3)\n0x6100       1\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n# channels (4, 5)\n0x6100       2\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n*/"
+            },
+            {
+                "enabled": true,
                 "id": "{0e6cd8ac-9ea5-4a7e-8992-69e245e4c3fe}",
                 "name": "VME Interface Settings",
                 "properties": {
@@ -87,7 +101,7 @@
         "typeId": 22,
         "displayName": "MDLL",
         "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
-        "typeName": "mdllv20",
+        "typeName": "mdll",
         "variables": [
         ],
         "vendorName": "mesytec",

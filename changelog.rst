@@ -4,6 +4,16 @@
 Changelog
 ##################################################
 
+Version 1.4.9.5
+---------------
+
+* Bugfix release: listfile archives where missing the analysis config and log file.
+
+Version 1.4.9.4
+---------------
+
+* Fix data rate monitoring and display when using MVLC_USB (read timeout issue)
+
 Version 1.4.9.3
 ---------------
 
