@@ -1878,7 +1878,10 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
     {
         QMessageBox::critical(0, "Error", QSL("Error writing to %1: %2")
                               .arg(filename).arg(out.errorString()));
+        return;
     }
+
+    QSettings().setValue("LastModuleSaveDirectory", QFileInfo(filename).absolutePath());
 }
 
 // TODO: merge with VMEConfigTreeWidget::addModule()
