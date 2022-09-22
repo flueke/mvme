@@ -1,0 +1,138 @@
+{
+    "ModuleConfig": {
+        "baseAddress": 4294901760,
+        "enabled": true,
+        "id": "{261568d9-6779-429a-a387-ee12ddababcb}",
+        "initScripts": [
+            {
+                "enabled": true,
+                "id": "{3feb45c1-52b2-4a77-9f12-142af19b889d}",
+                "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "## Parameters for MCPD-8\n\n# Synchronisation setup\n0x10 0b01\t# 1=syncmaster, 0=slave; bit 1 for external synchronisation via input 3\n0x18 1 \t\t# 1=terminate sync input (only has an effect for slave mode)\n\n0x1C 1\t\t# Run ID, transmitted by the syncmaster.\n\n# Time stamp\n0x12 0\n0x14 0\n0x16 0\n\n#Compare registers\n#0x40 to 0x44\n\n# Define trigger sources (Accepted values: 0=none, 1..4=timer_trigger, 5,6=N/A, 7=compare_register)\n0x60 1\t# trig_sel0 mon0\n0x62 2\t# trig_sel1 mon1\n0x64 3 \t# trig_sel2 mon2\n0x66 1\t# trig_sel3 mon3\n0x6C 2  #           adc0\n0x6E 3  #           adc1\n\n#Set Receive Format for all buses\n# 0x70  #2 = Amplitude or Pos, or 4 = Amplitude and pos \n\n# Generate triggers, 4 cells:\n# Capture registers for timers. Time base is 10us. Range is (10us, 655.36ms).\nprint Setup timers\n0x80 1000\t# timer 0, 10ms periode\n0x82 2000   # timer 1, 20ms periode\n0x84 3000   # timer 2, 30ms periode\n0x86    0\t# timer 3\n\n#Definition of header parameters\n# 0x90 to 0x9E\n\n#ADC-Cells\n#0xA0 #ADC0[11:0], read\n#0xA2 #ADC1[11:0], read\n#0xA4 #DAC0[11:0], write\n#0xA6 #DAC1[11:0], write\n0xA8 1 #Testmode, DAC0=ADC0, DAC1 = ADC1\n\n# Set MPSD channel gain\nset bus 0\t\t\t# MCPD bus number 0..7 to which the target MPSD is connected\nset channel 0\t\t# Channel number within the MPSD: 0=MPSD top channel, 7=MPSD bottom channel\n\n0x0180 ${bus}\t\t# Select bus\n0x0184 0\t\t\t# opcode: 0=write channel potis\n0x0100 ${channel}\t# Select channel/pot pair\n0x0102 0\t\t\t# Pot sub index: 1=pot0, 2=pot1, 3=both pots\n0x0104 0\t\t\t# Pot value 0..255\n\n# Setup pulser\n0x0180 ${bus}\t\t# Select bus\n0x0184 0\t\t\t# opcode: 0=write channel potis"
+            },
+            {
+                "enabled": true,
+                "id": "{22dca0c8-96be-48c3-9fd5-bba6cd3295fd}",
+                "name": "Frontend Settings",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Front end settings\n# ############################################################################\n/*\n0x0180 ${Bus} \t#Set bus number\n0x0184 2\t#Opcode 2= pulser/threshold Poti\n\n0x0100 ${PulserAmplitude}\t#Set Pot0 and 1: generate bit stream for serial bus\n0x0102 20\t#Set Pot1: append bit stream to overwrite pot 1\n\n0x0188 0\t\t#send data to module\n\nwait 5ms\n# Set pulser Position\n0x0180 0\t#\n0x0184 $(32 +4)\t# Opcode Pulser position; \"32\" sets bit 5 to switch on pulser\n\n0x0128\t${Channel}\t# Pulser channel; Generate bit stream\n0x012A\t3\t# pulser pos 0=off,1=left,2=right,3=mid\n\n0x0188 0\t#send bit stream\n*/"
+            },
+            {
+                "enabled": true,
+                "id": "{089ab802-6ddb-4685-ba9e-01b96ed091ef}",
+                "name": "Counters Setup MCPD",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Capture registers for timers. Time base is 10us. Range is (10us, 655.36ms).\nprint Setup timers\n0x80 1000\t# timer 0, 10ms periode\n0x82 2000   # timer 1, 20ms periode\n0x84 3000   # timer 2, 30ms periode\n0x86    0\t# timer 3\n\n# Set trigger sources for event generation.\n# Accepted values: 0=none, 1..4=timer_trigger, 5,6=N/A, 7=compare_register\nprint Setup Trigger Sources\n0x60 0\t\t# mon0\n0x62 0\t\t# mon1\n0x64 0\t\t# mon2\n0x66 0\t\t# mon3\n0x6C 0\t\t# adc0\n0x6E 0\t\t# adc1\n\n# Header parameter setup (only transmitted in the MCPD/MDLL packet format but can be setup through the VME interface)\n# Valid paramN_source values: 0..3: cell0..3; 6,7: adc0,1 (FIXME: verify!)\n/*\n0x90 0\t\t# param0_source\n0x92 0\t\t# param1_source\n0x94 0\t\t# param2_source\n0x96 0\t\t# param3_source\n*/\n\n# Readout of parameter values is possible too (unlatched!): \n/*\n0x98 0\t\t# select_parameter (0..3)\nread a32 d16 0x9A # low word\nread a32 d16 0x9C # mid word\nread a32 d16 0x9E # high word\n*/\n\n/*\n# Debug: readout some of the registers written above.\nread a32 d16 0x80\t# timer0\nread a32 d16 0x82\t# timer1\nread a32 d16 0x84\t# timer2\nread a32 d16 0x86\t# timer3\n\nread a32 d16 0x60\t# mon0 trigger source\nread a32 d16 0x62\t# mon1 trigger source\nread a32 d16 0x64\t# mon2 trigger source\nread a32 d16 0x66\t# mon3 trigger source\n*/\n"
+            },
+            {
+                "enabled": true,
+                "id": "{97d24972-b752-4fcc-bd26-12840dbab4fd}",
+                "name": "MPSD Thresholds",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Set MPSD Thresholds (all MCPD busses)\n# ##########################################################\nset threshold0     0 # threshold bus 0, range: (0..255)\nset threshold1     0 # threshold bus 1, range: (0..255)\nset threshold2     0 # threshold bus 2, range: (0..255)\nset threshold3     0 # threshold bus 3, range: (0..255)\nset threshold4     0 # threshold bus 4, range: (0..255)\nset threshold5     0 # threshold bus 5, range: (0..255)\nset threshold6     0 # threshold bus 6, range: (0..255)\nset threshold7     0 # threshold bus 7, range: (0..255)\n\n0x0182 0             # module bus address (always 0 for MCPD)\n0x0184 2             # opcode=2: write pulser/threshold\n0x0100 0             # pot pair index (for opcode=2: pot0=pulser value, pot1=threshold)\n0x0102 2             # write to pot1 only (threshold when opcode=2)\n\n0x0180 0             # select bus0\n0x0104 ${threshold0} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms\n\n0x0180 1             # select bus1\n0x0104 ${threshold1} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms\n\n0x0180 2             # select bus2\n0x0104 ${threshold2} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms\n\n0x0180 3             # select bus3\n0x0104 ${threshold3} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms\n\n0x0180 4             # select bus4\n0x0104 ${threshold4} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms\n\n0x0180 5             # select bus5\n0x0104 ${threshold5} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms\n\n0x0180 6             # select bus6\n0x0104 ${threshold6} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms\n\n0x0180 7             # select bus7\n0x0104 ${threshold7} # threshold value\n0x0188 0             # send data to MPSD\nwait 1ms"
+            },
+            {
+                "enabled": true,
+                "id": "{842cf9f7-c053-4d1a-b8dc-edcec7e27f19}",
+                "name": "MPSD Channel Gains",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Set MPSD Channel Gain Potis\n# ##########################################################\nset gain_pot_mpsd0 128   # Gain poti value for MPSD on bus0\nset gain_pot_mpsd1 128   # Gain poti value for MPSD on bus1\nset gain_pot_mpsd2 128   # Gain poti value for MPSD on bus2\nset gain_pot_mpsd3 128   # Gain poti value for MPSD on bus3\nset gain_pot_mpsd4 128   # Gain poti value for MPSD on bus4\nset gain_pot_mpsd5 128   # Gain poti value for MPSD on bus5\nset gain_pot_mpsd6 128   # Gain poti value for MPSD on bus6\nset gain_pot_mpsd7 128   # Gain poti value for MPSD on bus7\n\n0x0182 0                 # module bus address (always 0 for MCPD)\n0x0184 0                 # opcode=0: write channel potis\n0x0102 3                 # write to pot0 and pot1\n\n# bus 0 ----------------------------------------------------\n0x0180 0                 # select bus0\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd0} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n# bus 1 ----------------------------------------------------\n0x0180 1                 # select bus1\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd1} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n# bus 2 ----------------------------------------------------\n0x0180 2                 # select bus2\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd2} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n# bus 3 ----------------------------------------------------\n0x0180 3                 # select bus3\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd3} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n# bus 4 ----------------------------------------------------\n0x0180 4                 # select bus4\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd4} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n# bus 5 ----------------------------------------------------\n0x0180 5                 # select bus5\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd5} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n# bus 6 ----------------------------------------------------\n0x0180 6                 # select bus6\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd6} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n# bus 7 ----------------------------------------------------\n0x0180 7                 # select bus7\n\n0x0100 0                 # select channel 0\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 1                 # select channel 1\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 2                 # select channel 2\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 3                 # select channel 3\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 4                 # select channel 4\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 5                 # select channel 5\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 6                 # select channel 6\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n\n0x0100 7                 # select channel 7\n0x0104 ${gain_pot_mpsd7} # pot value\n0x0188 0                 # send data to MPSD\nwait 1ms\n"
+            },
+            {
+                "enabled": true,
+                "id": "{d28c170f-1c97-488a-a364-7fe14a79ac73}",
+                "name": "MPSD Test Pulsers",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# MPSD test pulser\n# ##########################################################\nset bus          0 # bus number the MPSD is connected to\nset channel      0 # channel within MPSD\nset pulser_on    0 # 0: disable pulser, 1: enable pulser\nset pulser_amp   0 # pulser amplitude (0..255)\nset pulser_pos   0 # pulser position: 0=off, 1=left, 2=right, 3=mid\n\n# set pulser amplitude\n0x0182 0                     # module bus address (always 0 for MCPD)\n0x0180 ${bus}                # select the bus\n0x0184 2                     # opcode=2: write pulser/threshold\n0x0100 0                     # select chan 0 to set the pulser amplitude\n0x0102 1                     # select pot0 (with opcode=2 sets the pulser amplitude)\n0x0104 ${pulser_amp}         # amplitude data\n0x0188 0                     # send data to MPSD\nwait 1ms\n\n# set pulser channel, position and status\n0x0182 0                     # module bus address (always 0 for MCPD)\n0x0180 ${bus}                # select the bus\n0x0184 $(4+32*${pulser_on})) # opcode=4: set pulser pos, bit5 (32) sets pulser on/off\n0x0128 ${channel}            # set pulser channel\n0x012A ${pulser_pos}         # pulser position\n0x0188 0                     # send data to MPSD\nwait 1ms"
+            }
+        ],
+        "name": "mcpd8_1",
+        "type": "mcpd8",
+        "variable_table": {
+            "name": "",
+            "variables": {
+            }
+        },
+        "vmeReadout": {
+            "enabled": true,
+            "id": "{0b3b0b95-7f29-4dcf-8d72-fce5dc2303ef}",
+            "name": "Module Readout",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# BLT readout until BERR or number of transfers reached\nmbltfifo a32 0x0000 65535\n"
+        },
+        "vmeReset": {
+            "enabled": true,
+            "id": "{82ff25d9-16f7-449f-bdc1-8fedf729bbc7}",
+            "name": "Module Reset",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# Reset the module\n0x6008 1\nwait 500ms\n## Get Module ids for log file\nprint \"Hardware ID:\"\nread a32 d16 0x6008\t# hardware ID\nprint \"Firmware Revision:\"\nread a32 d16 0x600E # firmware revision\n"
+        }
+    },
+    "ModuleMeta": {
+        "displayName": "MCPD-8",
+        "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
+        "typeId": 24,
+        "typeName": "mcpd8",
+        "variables": [
+        ],
+        "vendorName": "mesytec",
+        "vmeAddress": 4294901760
+    }
+}
