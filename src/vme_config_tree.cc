@@ -36,6 +36,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QShortcut>
+#include <QSpinBox>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QUrl>
@@ -1783,6 +1784,9 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
 
     {
         auto le_typeName = new QLineEdit;
+        auto spin_typeId = new QSpinBox;
+        spin_typeId->setMinimum(1);
+        spin_typeId->setMaximum(255);
         auto le_displayName = new QLineEdit;
         auto le_vendorName = new QLineEdit;
         auto le_headerFilter = new DataFilterEdit();
@@ -1791,6 +1795,7 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
         le_typeName->setText(meta.typeName);
+        spin_typeId->setValue(meta.typeId);
         le_displayName->setText(meta.displayName);
         le_vendorName->setText(meta.vendorName);
         le_headerFilter->setFilterString(QString::fromLocal8Bit(meta.eventHeaderFilter));
@@ -1799,6 +1804,7 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
         d.setWindowTitle("Save VME module to file");
         auto l = new QFormLayout(&d);
         l->addRow("Type Name", le_typeName);
+        l->addRow("Unique Type ID", spin_typeId);
         l->addRow("Display Name", le_displayName);
         l->addRow("Vendor Name", le_vendorName);
         l->addRow("Default VME Address", le_vmeAddress);
@@ -1812,6 +1818,7 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
             return;
 
         meta.typeName = le_typeName->text();
+        meta.typeId = spin_typeId->value();
         meta.displayName = le_displayName->text();
         meta.vendorName = le_vendorName->text();
         meta.eventHeaderFilter = le_headerFilter->getFilterString().toLocal8Bit();
@@ -1844,8 +1851,8 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
 
     // Store parts of the VMEModuleMeta in a json object
     QJsonObject metaJ;
-    //metaJ["typeId"] = static_cast<int>(meta.typeId);
     metaJ["typeName"] = meta.typeName;
+    metaJ["typeId"] = static_cast<int>(meta.typeId);
     metaJ["displayName"] = meta.displayName;
     metaJ["vendorName"] = meta.vendorName;
     metaJ["eventHeaderFilter"] = QString::fromLocal8Bit(meta.eventHeaderFilter);
