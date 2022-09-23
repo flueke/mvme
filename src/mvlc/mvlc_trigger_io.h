@@ -189,6 +189,10 @@ struct LIBMVME_EXPORT TriggerResource
 using UnitAddress = std::array<unsigned, 3>;
 using UnitAddressVector = std::vector<UnitAddress>;
 
+inline unsigned level(const UnitAddress &a) { return a[0]; }
+inline unsigned unit(const UnitAddress &a) { return a[1]; }
+inline unsigned subunit(const UnitAddress &a) { return a[2]; }
+
 struct LIBMVME_EXPORT UnitConnection
 {
     static UnitConnection makeDynamic()

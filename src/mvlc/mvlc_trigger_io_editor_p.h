@@ -388,8 +388,11 @@ class TriggerIOGraphicsScene: public QGraphicsScene
         void setStaticConnectionsVisible(bool visible);
         void setConnectionBarsVisible(bool visible);
 
+        // throws std::runtime_error() if no valid unit is at the given scenePos.
+        UnitAddress unitAt(const QPointF &pos) const;
+
     protected:
-        virtual void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev) override;
+        void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev) override;
 
     private:
         struct Level0InputItems
@@ -494,7 +497,8 @@ struct NIM_IO_Table_UI
         ColHoldoff,
         ColInvert,
         ColName,
-        ColConnection
+        ColConnection,
+        ColReset,
     };
 
     QTableWidget *table;
@@ -502,6 +506,7 @@ struct NIM_IO_Table_UI
     QVector<QCheckBox *> checks_activate;
     QVector<QCheckBox *> checks_invert;
     QVector<QComboBox *> combos_connection;
+    QVector<QPushButton *> buttons_reset;
 };
 
 struct IRQ_Inputs_Table_UI
@@ -514,12 +519,14 @@ struct IRQ_Inputs_Table_UI
         ColHoldoff,
         ColInvert,
         ColName,
+        ColReset,
     };
 
     QTableWidget *table;
     QVector<QCheckBox *> checks_activate;
     QVector<QCheckBox *> checks_invert;
     QVector<QComboBox *> combos_connection;
+    QVector<QPushButton *> buttons_reset;
 };
 
 struct ECL_Table_UI
@@ -532,13 +539,15 @@ struct ECL_Table_UI
         ColHoldoff,
         ColInvert,
         ColName,
-        ColConnection
+        ColConnection,
+        ColReset
     };
 
     QTableWidget *table;
     QVector<QCheckBox *> checks_activate;
     QVector<QCheckBox *> checks_invert;
     QVector<QComboBox *> combos_connection;
+    QVector<QPushButton *> buttons_reset;
 };
 
 NIM_IO_Table_UI make_nim_io_settings_table(
@@ -551,12 +560,14 @@ class NIM_IO_SettingsDialog: public QDialog
         // Use this when editing NIMs on Level0 (to be used as inputs)
         NIM_IO_SettingsDialog(
             const QStringList &names,
+            const QStringList &defaultNames,
             const QVector<trigger_io::IO> &settings,
             QWidget *parent = nullptr);
 
         // Use this when editing NIMs on Level3 (to be used as outputs)
         NIM_IO_SettingsDialog(
             const QStringList &names,
+            const QStringList &defaultNames,
             const QVector<trigger_io::IO> &settings,
             const QVector<QStringList> &inputChoiceNameLists,
             const QVector<std::vector<unsigned>> &connections,
@@ -569,6 +580,7 @@ class NIM_IO_SettingsDialog: public QDialog
     private:
         NIM_IO_SettingsDialog(
             const QStringList &names,
+            const QStringList &defaultNames,
             const QVector<trigger_io::IO> &settings,
             const trigger_io::IO::Direction &dir,
             QWidget *parent = nullptr);
@@ -638,6 +650,7 @@ class Level0UtilsDialog: public QDialog
                 ColPeriod,
                 ColDelay,
                 ColSoftActivate,
+                ColReset,
             };
 
             static const int FirstUnitIndex = 0;
@@ -645,6 +658,7 @@ class Level0UtilsDialog: public QDialog
             QWidget *parentWidget;
             QVector<QComboBox *> combos_range;
             QVector<QCheckBox *> checks_softActivate;
+            QVector<QPushButton *> buttons_reset;
         };
 
         struct TriggerResource_UI: public Table_UI_Base
@@ -659,6 +673,7 @@ class Level0UtilsDialog: public QDialog
                 ColWidth,
                 ColHoldoff,
                 ColInvert,
+                ColReset,
             };
 
             static const int FirstUnitIndex = Level0::TriggerResourceOffset;
@@ -667,6 +682,7 @@ class Level0UtilsDialog: public QDialog
             QVector<QSpinBox *> spins_irqIndex;
             QVector<QCheckBox *> checks_invert;
             QVector<QSpinBox *> spins_slaveTriggerIndex;
+            QVector<QPushButton *> buttons_reset;
         };
 
         struct StackBusy_UI: public Table_UI_Base
@@ -675,11 +691,13 @@ class Level0UtilsDialog: public QDialog
             {
                 ColName,
                 ColStackIndex,
+                ColReset,
             };
 
             static const int FirstUnitIndex = Level0::StackBusyOffset;
 
             QVector<QComboBox *> combos_stack;
+            QVector<QPushButton *> buttons_reset;
         };
 
 
