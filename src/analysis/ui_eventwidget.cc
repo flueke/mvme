@@ -4975,7 +4975,8 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
         {
             // TODO: could create the correct sinks type on the fly and display
             // that or error out and show an error message that no one will
-            // understand.
+            // understand. Or offer a non plot based way of editing, e.g. run
+            // the dialog without using a plot widget or the controller.
             return {};
         }
 
@@ -4987,12 +4988,14 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
                 && !qobject_cast<Histo2DSink *>(sink.get()))
                 continue;
 
+            #if 0
             // Look for the first sink that does not itself have an active
             // condition.
             if (!ana->getActiveConditions(sink).isEmpty())
             {
                 continue;
             }
+            #endif
 
             auto edit_cond = [=] ()
             {
