@@ -404,7 +404,7 @@ Conditions are a special kind of operator producing only a single output value:
 the boolean result of evaluating the condition. Each condition can be applied
 to multiple operators and/or data sinks. Multiple conditions can be applied to
 the same object in which case the **logical AND** of all condition outputs is
-used to decide whether the object should be run or skipped.
+used to decide whether the operator should be run.
 
 .. _analysis-sources:
 

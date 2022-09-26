@@ -63,6 +63,7 @@ class IntervalConditionDialog: public ConditionDialogBase
 
         QVector<QwtInterval> getIntervals() const;
         QString getConditionName() const;
+        bool shouldEditAllIntervals() const;
 
     public slots:
         void setConditionList(const QVector<ConditionInfo> &condInfos);
