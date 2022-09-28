@@ -2187,6 +2187,47 @@ void TriggerIOGraphicsScene::setConnectionBarsVisible(bool visible)
         bar->setVisible(visible);
 }
 
+UnitAddress TriggerIOGraphicsScene::unitAt(const QPointF &scenePos) const
+{
+    auto items = this->items(scenePos);
+
+    // level 0
+    if (items.indexOf(m_level0InputItems.nimItem) >= 0)
+        return { 0, Level0::NIM_IO_Offset, 0 };
+
+    if (items.indexOf(m_level0InputItems.irqItem) >= 0)
+        return { 0, Level0::IRQ_Inputs_Offset, 0 };
+
+    if (items.indexOf(m_level0UtilItems.utilsItem) >= 0)
+        return { 0, 0, 0 };
+
+    // level1
+    for (size_t unit = 0; unit < m_level1Items.luts.size(); unit++)
+    {
+        if (items.indexOf(m_level1Items.luts[unit]) >= 0)
+            return { 1, static_cast<unsigned>(unit), 0 };
+    }
+
+    // level2
+    for (size_t unit = 0; unit < m_level2Items.luts.size(); unit++)
+    {
+        if (items.indexOf(m_level2Items.luts[unit]) >= 0)
+            return { 2, static_cast<unsigned>(unit), 0 };
+    }
+
+    // level3
+    if (items.indexOf(m_level3Items.nimItem) >= 0)
+        return { 3, Level3::NIM_IO_Unit_Offset, 0 };
+
+    if (items.indexOf(m_level3Items.eclItem) >= 0)
+        return { 3, Level3::ECL_Unit_Offset, 0 };
+
+    if (items.indexOf(m_level3UtilItems.utilsItem) >= 0)
+        return { 3, 0, 0 };
+
+    throw std::runtime_error("No unit at given scene position");
+}
+
 void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
 {
     auto items = this->items(ev->scenePos());
@@ -2235,7 +2276,7 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
         }
     }
 
-    // leve3
+    // level3
     if (items.indexOf(m_level3Items.nimItem) >= 0)
     {
         ev->accept();
@@ -2262,11 +2303,11 @@ NIM_IO_Table_UI make_nim_io_settings_table(
     const trigger_io::IO::Direction dir)
 {
     QStringList columnTitles = {
-        "Activate", "Direction", "Delay", "Width", "Holdoff", "Invert", "Name"
+        "Activate", "Direction", "Delay", "Width", "Holdoff", "Invert", "Name", "Input", "Reset"
     };
 
-    if (dir == trigger_io::IO::Direction::out)
-        columnTitles.push_back("Input");
+    //if (dir == trigger_io::IO::Direction::out)
+    //    columnTitles.push_back("Input");
 
     NIM_IO_Table_UI ret = {};
 
@@ -2286,10 +2327,15 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 
         auto check_activate = new QCheckBox;
         auto check_invert = new QCheckBox;
+        auto combo_connection = new QComboBox;
+        combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+        auto pb_reset = new QPushButton("Reset");
 
         ret.combos_direction.push_back(combo_dir);
         ret.checks_activate.push_back(check_activate);
         ret.checks_invert.push_back(check_invert);
+        ret.combos_connection.push_back(combo_connection);
+        ret.buttons_reset.push_back(pb_reset);
 
         table->setCellWidget(row, 0, make_centered(check_activate));
         table->setCellWidget(row, 1, combo_dir);
@@ -2297,14 +2343,8 @@ NIM_IO_Table_UI make_nim_io_settings_table(
         table->setItem(row, 6, new QTableWidgetItem(
                 QString("NIM%1").arg(row)));
 
-        if (dir == trigger_io::IO::Direction::out)
-        {
-            auto combo_connection = new QComboBox;
-            ret.combos_connection.push_back(combo_connection);
-            combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-
-            table->setCellWidget(row, NIM_IO_Table_UI::ColConnection, combo_connection);
-        }
+        table->setCellWidget(row, NIM_IO_Table_UI::ColConnection, combo_connection);
+        table->setCellWidget(row, NIM_IO_Table_UI::ColReset, make_centered(pb_reset));
     }
 
     reverse_rows(table);
@@ -2321,6 +2361,8 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 
     if (dir == trigger_io::IO::Direction::out)
         table->horizontalHeader()->moveSection(NIM_IO_Table_UI::ColConnection, 1);
+    else
+        table->horizontalHeader()->hideSection(NIM_IO_Table_UI::ColConnection);
 
     table->resizeColumnsToContents();
     table->resizeRowsToContents();
@@ -2331,7 +2373,7 @@ NIM_IO_Table_UI make_nim_io_settings_table(
 IRQ_Inputs_Table_UI make_irq_inputs_settings_table()
 {
     QStringList columnTitles = {
-        "Activate", "Delay", "Width", "Holdoff", "Invert", "Name"
+        "Activate", "Delay", "Width", "Holdoff", "Invert", "Name", "Reset",
     };
 
     IRQ_Inputs_Table_UI ret = {};
@@ -2348,14 +2390,17 @@ IRQ_Inputs_Table_UI make_irq_inputs_settings_table()
 
         auto check_activate = new QCheckBox;
         auto check_invert = new QCheckBox;
+        auto pb_reset = new QPushButton("Reset");
 
         ret.checks_activate.push_back(check_activate);
         ret.checks_invert.push_back(check_invert);
+        ret.buttons_reset.push_back(pb_reset);
 
         table->setCellWidget(row, 0, make_centered(check_activate));
         table->setCellWidget(row, 4, make_centered(check_invert));
         table->setItem(row, 5, new QTableWidgetItem(
                 QString("IRQ%1").arg(row)));
+        table->setCellWidget(row, IRQ_Inputs_Table_UI::ColReset, make_centered(pb_reset));
     }
 
     reverse_rows(table);
@@ -2379,7 +2424,7 @@ ECL_Table_UI make_ecl_table_ui(
     ECL_Table_UI ui = {};
 
     QStringList columnTitles = {
-        "Activate", "Delay", "Width", "Holdoff", "Invert", "Name", "Input"
+        "Activate", "Delay", "Width", "Holdoff", "Invert", "Name", "Input", "Reset"
     };
 
     auto table = new QTableWidget(trigger_io::ECL_OUT_Count, columnTitles.size());
@@ -2395,10 +2440,12 @@ ECL_Table_UI make_ecl_table_ui(
         auto check_activate = new QCheckBox;
         auto check_invert = new QCheckBox;
         auto combo_connection = new QComboBox;
+        auto pb_reset = new QPushButton("Reset");
 
         ui.checks_activate.push_back(check_activate);
         ui.checks_invert.push_back(check_invert);
         ui.combos_connection.push_back(combo_connection);
+        ui.buttons_reset.push_back(pb_reset);
 
         check_activate->setChecked(settings.value(row).activate);
         check_invert->setChecked(settings.value(row).invert);
@@ -2417,6 +2464,7 @@ ECL_Table_UI make_ecl_table_ui(
         table->setCellWidget(row, ui.ColInvert, make_centered(check_invert));
         table->setItem(row, ui.ColName, new QTableWidgetItem(names.value(row)));
         table->setCellWidget(row, ui.ColConnection, combo_connection);
+        table->setCellWidget(row, ui.ColReset, make_centered(pb_reset));
     }
 
     reverse_rows(table);
@@ -2435,6 +2483,7 @@ ECL_Table_UI make_ecl_table_ui(
 //
 NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     const QStringList &names,
+    const QStringList &defaultNames,
     const QVector<trigger_io::IO> &settings,
     const trigger_io::IO::Direction &dir,
     QWidget *parent)
@@ -2458,6 +2507,20 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
         ui.combos_direction[row]->setCurrentIndex(static_cast<int>(io.direction));
         ui.checks_activate[row]->setChecked(io.activate);
         ui.checks_invert[row]->setChecked(io.invert);
+
+        connect(ui.buttons_reset[row], &QPushButton::clicked,
+            this, [=]
+            {
+                ui.table->item(row, ui.ColName)->setText(defaultNames[row]);
+                ui.table->item(row, ui.ColDelay)->setText("0");
+                ui.table->item(row, ui.ColWidth)->setText("0");
+                ui.table->item(row, ui.ColHoldoff)->setText("0");
+                ui.combos_direction[row]->setCurrentIndex(0);
+                ui.checks_activate[row]->setChecked(false);
+                ui.checks_invert[row]->setChecked(false);
+                if (row < ui.combos_connection.size())
+                    ui.combos_connection[row]->setCurrentIndex(0);
+            });
     }
 
     auto bb = new QDialogButtonBox(
@@ -2479,24 +2542,23 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
 
 NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     const QStringList &names,
+    const QStringList &defaultNames,
     const QVector<trigger_io::IO> &settings,
     QWidget *parent)
-    : NIM_IO_SettingsDialog(names, settings, trigger_io::IO::Direction::in, parent)
+    : NIM_IO_SettingsDialog(names, defaultNames, settings, trigger_io::IO::Direction::in, parent)
 {
-    assert(m_tableUi.combos_connection.size() == 0);
-
     m_tableUi.table->resizeColumnsToContents();
     m_tableUi.table->resizeRowsToContents();
-    resize(500, 500);
 }
 
 NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     const QStringList &names,
+    const QStringList &defaultNames,
     const QVector<trigger_io::IO> &settings,
     const QVector<QStringList> &inputChoiceNameLists,
     const QVector<std::vector<unsigned>> &connections,
     QWidget *parent)
-    : NIM_IO_SettingsDialog(names, settings, trigger_io::IO::Direction::out, parent)
+    : NIM_IO_SettingsDialog(names, defaultNames, settings, trigger_io::IO::Direction::out, parent)
 {
     assert(m_tableUi.combos_connection.size() == m_tableUi.table->rowCount());
 
@@ -2523,7 +2585,6 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
 
     m_tableUi.table->resizeColumnsToContents();
     m_tableUi.table->resizeRowsToContents();
-    resize(600, 500);
 }
 
 QStringList NIM_IO_SettingsDialog::getNames() const
@@ -2602,6 +2663,16 @@ IRQ_Inputs_SettingsDialog::IRQ_Inputs_SettingsDialog(
 
         ui.checks_activate[row]->setChecked(io.activate);
         ui.checks_invert[row]->setChecked(io.invert);
+
+        connect(ui.buttons_reset[row], &QPushButton::clicked,
+            this, [=]
+            {
+                ui.table->item(row, ui.ColName)->setText(QSL("IRQ%1").arg(row+1));
+                ui.table->item(row, ui.ColDelay)->setText("0");
+                ui.table->item(row, ui.ColWidth)->setText("0");
+                ui.table->item(row, ui.ColHoldoff)->setText("0");
+                ui.checks_invert[row]->setChecked(false);
+            });
     }
 
     auto bb = new QDialogButtonBox(
@@ -2622,7 +2693,7 @@ IRQ_Inputs_SettingsDialog::IRQ_Inputs_SettingsDialog(
 
     m_tableUi.table->resizeColumnsToContents();
     m_tableUi.table->resizeRowsToContents();
-    resize(400, 200);
+    resize(400, 300);
 }
 
 QStringList IRQ_Inputs_SettingsDialog::getNames() const
@@ -2672,6 +2743,21 @@ ECL_SettingsDialog::ECL_SettingsDialog(
 
     m_tableUi = make_ecl_table_ui(names, settings, inputConnections, inputChoiceNameLists);
     auto &ui = m_tableUi;
+
+    for (int row =0; row < ui.table->rowCount(); ++row)
+    {
+        connect(ui.buttons_reset[row], &QPushButton::clicked,
+            this, [=]
+        {
+            ui.table->item(row, ui.ColName)->setText(QSL("LVDS%1").arg(row+1));
+            ui.table->item(row, ui.ColDelay)->setText("0");
+            ui.table->item(row, ui.ColWidth)->setText("0");
+            ui.table->item(row, ui.ColHoldoff)->setText("0");
+            ui.checks_activate[row]->setChecked(false);
+            ui.checks_invert[row]->setChecked(false);
+            ui.combos_connection[row]->setCurrentIndex(0);
+        });
+    }
 
     auto bb = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
@@ -2762,7 +2848,7 @@ Level0UtilsDialog::Level0UtilsDialog(
     {
         static const QString RowTitleFormat = "Timer%1";
         static const QStringList ColumnTitles = {
-            "Name", "Range", "Period", "Delay", "Soft Activate" };
+            "Name", "Range", "Period", "Delay", "Soft Activate", "Reset" };
         const size_t rowCount = l0.timers.size();
 
         TimersTable_UI ret = {};
@@ -2787,6 +2873,7 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.checks_softActivate.push_back(cb_softActivate);
             cb_softActivate->setChecked(l0.timers[row].softActivate);
 
+
             ret.table->setItem(row, ret.ColName, new QTableWidgetItem(
                     l0.unitNames.value(row)));
 
@@ -2799,6 +2886,18 @@ Level0UtilsDialog::Level0UtilsDialog(
                     QString::number(l0.timers[row].delay_ns)));
 
             ret.table->setCellWidget(row, ret.ColSoftActivate, make_centered(cb_softActivate));
+
+            auto pb_reset = new QPushButton("Reset");
+            ret.buttons_reset.push_back(pb_reset);
+            ret.table->setCellWidget(row, ret.ColReset, make_centered(pb_reset));
+            connect(pb_reset, &QPushButton::clicked, ret.table, [=] ()
+                    {
+                        ret.table->item(row, ret.ColName)->setText(QSL("timer%1").arg(row));
+                        combo_range->setCurrentIndex(2);
+                        ret.table->item(row, ret.ColPeriod)->setText("0");
+                        ret.table->item(row, ret.ColDelay)->setText("0");
+                        cb_softActivate->setChecked(false);
+                    });
 
 
             // Hack to mark some of the units as potentially reserved by giving
@@ -2832,7 +2931,7 @@ Level0UtilsDialog::Level0UtilsDialog(
     auto make_stack_busy_table_ui = [&vmeEventNames](const Level0 &l0)
     {
         static const QString RowTitleFormat = "StackBusy%1";
-        static const QStringList ColumnTitles = { "Name", "Stack#" };
+        static const QStringList ColumnTitles = { "Name", "Stack#", "Reset" };
         const size_t rowCount = l0.stackBusy.size();
         const int nameOffset = l0.StackBusyOffset;
 
@@ -2865,6 +2964,15 @@ Level0UtilsDialog::Level0UtilsDialog(
                     l0.unitNames.value(row + nameOffset)));
 
             ret.table->setCellWidget(row, ret.ColStackIndex, combo_stack);
+
+            auto pb_reset = new QPushButton("Reset");
+            ret.buttons_reset.push_back(pb_reset);
+            ret.table->setCellWidget(row, ret.ColReset, make_centered(pb_reset));
+            connect(pb_reset, &QPushButton::clicked, ret.table, [=] ()
+                    {
+                        ret.table->item(row, ret.ColName)->setText(QSL("stack_busy%1").arg(row));
+                        combo_stack->setCurrentIndex(0);
+                    });
         }
 
         ret.table->resizeColumnsToContents();
@@ -2885,7 +2993,8 @@ Level0UtilsDialog::Level0UtilsDialog(
             "Delay",
             "Width",
             "Holdoff",
-            "Invert"
+            "Invert",
+            "Reset",
         };
 
         const size_t rowCount = l0.triggerResources.size();
@@ -2975,6 +3084,21 @@ Level0UtilsDialog::Level0UtilsDialog(
             ret.spins_irqIndex.push_back(spin_irqIndex);
             ret.checks_invert.push_back(check_invert);
             ret.spins_slaveTriggerIndex.push_back(spin_slaveTriggerIndex);
+
+            auto pb_reset = new QPushButton("Reset");
+            ret.buttons_reset.push_back(pb_reset);
+            ret.table->setCellWidget(row, ret.ColReset, make_centered(pb_reset));
+            connect(pb_reset, &QPushButton::clicked, ret.table, [=] ()
+                    {
+                        ret.table->item(row, ret.ColName)->setText(QSL("trigger_resource%1").arg(row));
+                        combo_type->setCurrentIndex(0);
+                        spin_irqIndex->setValue(1);
+                        spin_slaveTriggerIndex->setValue(0);
+                        ret.table->item(row, ret.ColDelay)->setText("0");
+                        ret.table->item(row, ret.ColWidth)->setText("0");
+                        ret.table->item(row, ret.ColHoldoff)->setText("0");
+                        check_invert->setChecked(false);
+                    });
         }
 
         return ret;

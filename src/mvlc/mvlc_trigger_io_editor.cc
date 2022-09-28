@@ -54,6 +54,7 @@ struct MVLCTriggerIOEditor::Private
     QString initialScriptContents;
     VMEScriptEditor *scriptEditor = nullptr;
     TriggerIOGraphicsScene *scene = nullptr;
+    QGraphicsView *view = nullptr;
     bool scriptAutorun = false;
     QStringList vmeEventNames;
 
@@ -61,6 +62,7 @@ struct MVLCTriggerIOEditor::Private
     mvlc::MVLC mvlc;
 
     void onActionPrintFrontPanelSetup();
+    void runContextMenu(const QPoint &pos);
 };
 
 void MVLCTriggerIOEditor::Private::onActionPrintFrontPanelSetup()
@@ -76,6 +78,133 @@ void MVLCTriggerIOEditor::Private::onActionPrintFrontPanelSetup()
     te->setPlainText(buffer);
     te->show();
     te->raise();
+}
+
+void MVLCTriggerIOEditor::Private::runContextMenu(const QPoint &pos_)
+{
+    auto scenePos = view->mapToScene(pos_);
+    auto screenPos = view->mapToGlobal(pos_);
+    //qDebug() << "scenePos=" << scenePos << "screenPos=" << screenPos;
+
+    try
+    {
+        auto unitAddr = scene->unitAt(scenePos);
+        //qDebug() << "context menu on unit" << unitAddr[0] << unitAddr[1] << unitAddr[2];
+
+        QMenu menu;
+
+        auto reset_nim_ios = [=]
+        {
+            // reset l0 ios
+            ioCfg.l0.ioNIM.fill({});
+
+            // set default names on l0
+            std::copy_n(
+                std::begin(Level0::DefaultUnitNames) + Level0::NIM_IO_Offset,
+                NIM_IO_Count,
+                std::begin(ioCfg.l0.unitNames) + Level0::NIM_IO_Offset);
+
+            // copy l0 IOs -> l3 IOs
+            std::copy(std::begin(ioCfg.l0.ioNIM), std::end(ioCfg.l0.ioNIM),
+                        std::begin(ioCfg.l3.ioNIM));
+
+            // copy l0 names -> l3 names
+            std::copy_n(
+                std::begin(ioCfg.l0.unitNames) + Level0::NIM_IO_Offset,
+                NIM_IO_Count,
+                std::begin(ioCfg.l3.unitNames) + Level3::NIM_IO_Unit_Offset);
+
+            // reset l3 connection values
+            for (size_t i=0; i<NIM_IO_Count; ++i)
+                ioCfg.l3.connections[Level3::NIM_IO_Unit_Offset + i][0] = 0;
+
+            q->setupModified();
+        };
+
+        auto reset_irq_inputs = [=]
+        {
+            ioCfg.l0.ioIRQ.fill({});
+            // set default names on l0
+            std::copy_n(
+                std::begin(Level0::DefaultUnitNames) + Level0::IRQ_Inputs_Offset,
+                Level0::IRQ_Inputs_Count,
+                std::begin(ioCfg.l0.unitNames) + Level0::IRQ_Inputs_Offset);
+
+            q->setupModified();
+        };
+
+        auto reset_lvds_outputs = [=]
+        {
+            // reset ios, names and connections
+            ioCfg.l3.ioECL.fill({});
+            std::copy_n(
+                std::begin(Level3::DefaultUnitNames) + Level3::ECL_Unit_Offset,
+                ECL_OUT_Count,
+                std::begin(ioCfg.l3.unitNames) + Level3::ECL_Unit_Offset);
+            for (size_t i=0; i<ECL_OUT_Count; ++i)
+                ioCfg.l3.connections[Level3::ECL_Unit_Offset + i][0] = 0;
+
+            q->setupModified();
+        };
+
+        if (level(unitAddr) == 0)
+        {
+            if (unit(unitAddr) == Level0::NIM_IO_Offset)
+                menu.addAction("Reset NIM IOs", q, reset_nim_ios);
+            else if (unit(unitAddr) == Level0::IRQ_Inputs_Offset)
+                menu.addAction("Reset IRQ Inputs", q, reset_irq_inputs);
+        }
+        else if (level(unitAddr) == 1)
+        {
+            menu.addAction(
+                QSL("Reset L1.LUT%1").arg(unit(unitAddr)),
+                q, [=]
+                {
+                    auto &lut = ioCfg.l1.luts[unit(unitAddr)];
+                    lut.lutContents = {};
+                    lut.strobedOutputs.reset();
+                    lut.strobeGG = { .delay = 0, .width = LUT::StrobeGGDefaultWidth, .holdoff = 0,
+                        .invert = false, .direction = IO::Direction::in, .activate = false };
+                    std::copy(lut.defaultOutputNames.begin(), lut.defaultOutputNames.end(),
+                              lut.outputNames.begin());
+                    if (unit(unitAddr) == 2)
+                        ioCfg.l1.lut2Connections = {};
+                    q->setupModified();
+                });
+        }
+        else if (level(unitAddr) == 2)
+        {
+            menu.addAction(
+                QSL("Reset L2.LUT%1").arg(unit(unitAddr)),
+                q, [this, unitAddr]
+                {
+                    auto &lut = ioCfg.l2.luts[unit(unitAddr)];
+                    lut.lutContents = {};
+                    lut.strobedOutputs.reset();
+                    lut.strobeGG = { .delay = 0, .width = LUT::StrobeGGDefaultWidth, .holdoff = 0,
+                        .invert = false, .direction = IO::Direction::in, .activate = false };
+                    std::copy(lut.defaultOutputNames.begin(), lut.defaultOutputNames.end(),
+                              lut.outputNames.begin());
+                    ioCfg.l2.lutConnections[unit(unitAddr)] = {};
+                    ioCfg.l2.strobeConnections[unit(unitAddr)] = {};
+                    q->setupModified();
+                });
+        }
+        else if (level(unitAddr) == 3)
+        {
+            if (unit(unitAddr) == Level3::NIM_IO_Unit_Offset)
+                menu.addAction("Reset NIM IOs", q, reset_nim_ios);
+            else if (unit(unitAddr) == Level3::ECL_Unit_Offset)
+                menu.addAction("Reset LVDS Outputs", q, reset_lvds_outputs);
+        }
+
+
+        if (!menu.isEmpty())
+            menu.exec(screenPos);
+    }
+    catch (const std::runtime_error &e)
+    {
+    }
 }
 
 MVLCTriggerIOEditor::MVLCTriggerIOEditor(
@@ -291,17 +420,23 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         // read names stored in the Level0 structure
         QStringList names;
-
         std::copy_n(ioCfg.l0.unitNames.begin() + ioCfg.l0.NIM_IO_Offset,
                     trigger_io::NIM_IO_Count,
                     std::back_inserter(names));
+
+        // copy the default names from Level0 structure
+        QStringList defaultNames;
+        std::copy_n(Level0::DefaultUnitNames.begin() + ioCfg.l0.NIM_IO_Offset,
+                    trigger_io::NIM_IO_Count,
+                    std::back_inserter(defaultNames));
 
         // settings stored in Level0
         QVector<trigger_io::IO> settings;
         std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), std::back_inserter(settings));
 
-        NIM_IO_SettingsDialog dialog(names, settings, this);
+        NIM_IO_SettingsDialog dialog(names, defaultNames, settings, this);
         dialog.setWindowModality(Qt::WindowModal);
+        dialog.resize(700, 500);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
         {
@@ -387,6 +522,12 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                     trigger_io::NIM_IO_Count,
                     std::back_inserter(names));
 
+        // copy the default names from Level0 structure
+        QStringList defaultNames;
+        std::copy_n(Level0::DefaultUnitNames.begin() + ioCfg.l0.NIM_IO_Offset,
+                    trigger_io::NIM_IO_Count,
+                    std::back_inserter(defaultNames));
+
         // settings stored in Level3
         QVector<trigger_io::IO> settings;
         std::copy(ioCfg.l3.ioNIM.begin(), ioCfg.l3.ioNIM.end(),
@@ -412,9 +553,9 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset,
             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count);
 
-        NIM_IO_SettingsDialog dialog(names, settings, inputChoiceNameLists, connections, this);
+        NIM_IO_SettingsDialog dialog(names, defaultNames, settings, inputChoiceNameLists, connections, this);
         dialog.setWindowModality(Qt::WindowModal);
-
+        dialog.resize(800, 500);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
         {
@@ -590,7 +731,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         Level0UtilsDialog dialog(ioCfg.l0, d->vmeEventNames, this);
         dialog.setWindowModality(Qt::WindowModal);
-        dialog.resize(1300, 600);
+        dialog.resize(1350, 600);
 
         auto do_apply = [this, &dialog, &ioCfg] ()
         {
@@ -608,11 +749,17 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     auto view = new QGraphicsView(scene);
     view->installEventFilter(new MouseWheelZoomer(view));
+    d->view = view;
 
     view->setRenderHints(
         QPainter::Antialiasing | QPainter::TextAntialiasing |
         QPainter::SmoothPixmapTransform |
         QPainter::HighQualityAntialiasing);
+
+    view->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(view, &QWidget::customContextMenuRequested,
+            this, [this](const QPoint &pos) { d->runContextMenu(pos); });
 
     auto logicWidget = new QWidget;
     auto logicLayout = make_vbox<0, 0>(logicWidget);

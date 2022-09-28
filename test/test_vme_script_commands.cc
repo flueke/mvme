@@ -195,3 +195,66 @@ TEST(vme_script_commands, MVLC_CompareLoopAccu)
     QString input = R"_(mvlc_compare_loop_accu wrong 13)_";
     ASSERT_THROW(vme_script::parse(input), ParseError);
 }
+
+TEST(vme_script_commands, BlockRead2eSST)
+{
+    {
+        QStringList inputs =
+        {
+            "2esst 0x1234 0 54321",
+            "2esst 0x1234 160 54321",
+            "2esst 0x1234 160mb 54321",
+        };
+
+        for (const auto &input: inputs)
+        {
+            auto script = vme_script::parse(input);
+            ASSERT_EQ(script.size(), 1);
+            auto &cmd = script.first();
+            ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
+            ASSERT_EQ(cmd.address, 0x1234);
+            ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate160MB);
+            ASSERT_EQ(cmd.transfers, 54321);
+        }
+    }
+
+    {
+        QStringList inputs =
+        {
+            "2esst 0x1235 1 54322",
+            "2esst 0x1235 276 54322",
+            "2esst 0x1235 276mb 54322",
+        };
+
+        for (const auto &input: inputs)
+        {
+            auto script = vme_script::parse(input);
+            ASSERT_EQ(script.size(), 1);
+            auto &cmd = script.first();
+            ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
+            ASSERT_EQ(cmd.address, 0x1235);
+            ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate276MB);
+            ASSERT_EQ(cmd.transfers, 54322);
+        }
+    }
+
+    {
+        QStringList inputs =
+        {
+            "2esst 0x1236 2 54323",
+            "2esst 0x1236 320 54323",
+            "2esst 0x1236 320mb 54323",
+        };
+
+        for (const auto &input: inputs)
+        {
+            auto script = vme_script::parse(input);
+            ASSERT_EQ(script.size(), 1);
+            auto &cmd = script.first();
+            ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
+            ASSERT_EQ(cmd.address, 0x1236);
+            ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+            ASSERT_EQ(cmd.transfers, 54323);
+        }
+    }
+}
