@@ -144,6 +144,12 @@ class PolygonConditionEditorController: public QObject
         void setEnabled(bool on);
         PolygonConditionDialog *getDialog() const;
 
+    private slots:
+        void onPointsSelected(const QVector<QPointF> &points);
+        void onPointAppended(const QPointF &p);
+        void onPointMoved(const QPointF &p);
+        void onPointRemoved(const QPointF &p);
+
     private:
         struct Private;
         std::unique_ptr<Private> d;

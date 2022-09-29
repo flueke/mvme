@@ -179,11 +179,15 @@ namespace
 PlotPicker::PlotPicker(QWidget *canvas)
     : QwtPlotPicker(canvas)
 {
-    connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
-            this, [this] (const QPoint &p)
-            {
-                emit removed(invTransform(p));
-            });
+    qDebug() << __PRETTY_FUNCTION__ << this;
+#ifdef Q_OS_WIN
+    bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                     this, SLOT(onPointRemoved(const QPoint &)));
+#else
+    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                     this, &PlotPicker::onPointRemoved);
+#endif
+    assert(b);
 }
 
 PlotPicker::PlotPicker(int xAxis, int yAxis,
@@ -192,13 +196,21 @@ PlotPicker::PlotPicker(int xAxis, int yAxis,
                        QWidget *canvas)
     : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
 {
-    connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
-            this, [this] (const QPoint &p)
-            {
-                emit removed(invTransform(p));
-            });
+    qDebug() << __PRETTY_FUNCTION__ << this;
+#ifdef Q_OS_WIN
+    bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                     this, SLOT(onPointRemoved(const QPoint &)));
+#else
+    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                     this, &PlotPicker::onPointRemoved);
+#endif
+    assert(b);
 }
 
+void PlotPicker::onPointRemoved(const QPoint &p)
+{
+    emit removed(invTransform(p));
+}
 
 struct NewIntervalPicker::Private
 {

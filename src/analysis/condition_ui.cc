@@ -1113,17 +1113,45 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     connect(d->dialog_, &IntervalConditionDialog::conditionSelected,
            this, [this] (const QUuid &id) { d->onConditionSelected(id); });
 
-    connect(d->newPicker_, qOverload<const QVector<QPointF> &>(&QwtPlotPicker::selected),
-            this, [this] (const QVector<QPointF> &points) { d->onPointsSelected(points); });
+    bool b = false;
 
-    connect(d->newPicker_, qOverload<const QPointF &>(&QwtPlotPicker::appended),
-            this, [this] (const QPointF &point) { d->onPointAppended(point); });
+#ifdef Q_OS_WIN
+    // Working around an issue where connecting QwtPicker/QwtPlotPicker signals
+    // with the new method pointer syntax does not work. A warning appears on
+    // the console: 'QObject::connect: signal not found in histo_ui::PlotPicker'.
+    // Somehow the combination of windows, qt+moc and qwt leads to this error.
+    b = connect(d->newPicker_, SIGNAL(selected(const QVector<QPointF> &)),
+                this, SLOT(onPointsSelected(const QVector<QPointF> &)));
+    assert(b);
 
-    connect(d->newPicker_, qOverload<const QPointF &>(&QwtPlotPicker::moved),
-            this, [this] (const QPointF &point) { d->onPointMoved(point); });
+    b = connect(d->newPicker_, SIGNAL(appended(const QPointF &)),
+                this, SLOT(onPointAppended(const QPointF &)));
+    assert(b);
 
-    connect(d->newPicker_, qOverload<const QPointF &>(&PlotPicker::removed),
-            this, [this] (const QPointF &point) { d->onPointRemoved(point); });
+    b = connect(d->newPicker_, SIGNAL(moved(const QPointF &)),
+                this, SLOT(onPointMoved(const QPointF &)));
+    assert(b);
+
+    b = connect(d->newPicker_, SIGNAL(removed(const QPointF &)),
+                this, SLOT(onPointRemoved(const QPointF &)));
+    assert(b);
+#else
+    b = connect(d->newPicker_, qOverload<const QVector<QPointF> &>(&QwtPlotPicker::selected),
+                this, &PolygonConditionEditorController::onPointsSelected);
+    assert(b);
+
+    b = connect(d->newPicker_, qOverload<const QPointF &>(&QwtPlotPicker::appended),
+                this, &PolygonConditionEditorController::onPointAppended);
+    assert(b);
+
+    b = connect(d->newPicker_, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+                this, &PolygonConditionEditorController::onPointMoved);
+    assert(b);
+
+    b = connect(d->newPicker_, qOverload<const QPointF &>(&PlotPicker::removed),
+                this, &PolygonConditionEditorController::onPointRemoved);
+    assert(b);
+#endif
 
     d->histoWidget_->installEventFilter(this);
     d->dialog_->installEventFilter(this);
@@ -1173,6 +1201,30 @@ void PolygonConditionEditorController::setEnabled(bool on)
 PolygonConditionDialog *PolygonConditionEditorController::getDialog() const
 {
     return d->dialog_;
+}
+
+// Note: these forwarding methods have only been added because of the QwtPicker
+// signal problems described above. If not for these issues lambdas would have
+// been used instead.
+
+void PolygonConditionEditorController::onPointsSelected(const QVector<QPointF> &points)
+{
+    d->onPointsSelected(points);
+}
+
+void PolygonConditionEditorController::onPointAppended(const QPointF &p)
+{
+    d->onPointAppended(p);
+}
+
+void PolygonConditionEditorController::onPointMoved(const QPointF &p)
+{
+    d->onPointMoved(p);
+}
+
+void PolygonConditionEditorController::onPointRemoved(const QPointF &p)
+{
+    d->onPointRemoved(p);
 }
 
 } // ns ui

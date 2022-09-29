@@ -13,6 +13,7 @@
 #include <qwt_series_data.h>
 
 #include "histo1d.h"
+#include "libmvme_export.h"
 
 class QToolBar;
 class QStatusBar;
@@ -23,7 +24,7 @@ namespace histo_ui
 QRectF canvas_to_scale(const QwtPlot *plot, const QRect &rect);
 QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos);
 
-class IPlotWidget: public QWidget
+class LIBMVME_EXPORT IPlotWidget: public QWidget
 {
     Q_OBJECT
     public:
@@ -37,7 +38,7 @@ class IPlotWidget: public QWidget
         virtual void replot() = 0;
 };
 
-class PlotWidget: public IPlotWidget
+class LIBMVME_EXPORT PlotWidget: public IPlotWidget
 {
     Q_OBJECT
     signals:
@@ -67,7 +68,7 @@ class PlotWidget: public IPlotWidget
         std::unique_ptr<Private> d;
 };
 
-class PlotPicker: public QwtPlotPicker
+class LIBMVME_EXPORT PlotPicker: public QwtPlotPicker
 {
     Q_OBJECT
     signals:
@@ -88,9 +89,12 @@ class PlotPicker: public QwtPlotPicker
         {
             QwtPlotPicker::reset();
         }
+
+    private slots:
+        void onPointRemoved(const QPoint &p);
 };
 
-class NewIntervalPicker: public PlotPicker
+class LIBMVME_EXPORT NewIntervalPicker: public PlotPicker
 {
     Q_OBJECT
     signals:
@@ -121,7 +125,7 @@ class NewIntervalPicker: public PlotPicker
         std::unique_ptr<Private> d;
 };
 
-class IntervalEditorPicker: public PlotPicker
+class LIBMVME_EXPORT IntervalEditorPicker: public PlotPicker
 {
     Q_OBJECT
     signals:
@@ -147,17 +151,17 @@ class IntervalEditorPicker: public PlotPicker
         std::unique_ptr<Private> d;
 };
 
-class ImprovedPickerPolygonMachine: public QwtPickerPolygonMachine
+class LIBMVME_EXPORT ImprovedPickerPolygonMachine: public QwtPickerPolygonMachine
 {
     using QwtPickerPolygonMachine::QwtPickerPolygonMachine;
 
     QList<Command> transition(const QwtEventPattern &ep, const QEvent *ev) override;
 };
 
-bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
-bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
+LIBMVME_EXPORT bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
+LIBMVME_EXPORT bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
 
-class PlotAxisScaleChanger: public QObject
+class LIBMVME_EXPORT PlotAxisScaleChanger: public QObject
 {
     Q_OBJECT
     public:
@@ -175,7 +179,7 @@ class PlotAxisScaleChanger: public QObject
         QwtPlot::Axis m_axis;
 };
 
-class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
+class LIBMVME_EXPORT Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
 {
     public:
         explicit Histo1DIntervalData(Histo1D *histo)
@@ -230,7 +234,7 @@ class Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
  */
 static constexpr double FWHMSigmaFactor = 2.3548;
 
-class Histo1DGaussCurveData: public QwtSyntheticPointData
+class LIBMVME_EXPORT Histo1DGaussCurveData: public QwtSyntheticPointData
 {
     public:
         static constexpr size_t NumberOfPoints = 500;
@@ -276,7 +280,7 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
         Histo1DStatistics m_stats;
 };
 
-void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
+LIBMVME_EXPORT void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
 
 }
 
