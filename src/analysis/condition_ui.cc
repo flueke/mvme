@@ -351,7 +351,8 @@ struct IntervalConditionEditorController::Private
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(false);
 
-                    dialog_->setInfoText("Drag interval borders to modify. Use the \"Histogram #\" box to cycle through histograms.");
+                    dialog_->setInfoText("Drag interval borders or edit table cells to modify. "
+                                         "Use the \"Histogram #\" box to cycle through histograms.");
                 } break;
         }
 
@@ -832,6 +833,7 @@ struct PolygonConditionEditorController::Private
     State state_ = State::Inactive;
 
     PlotPicker *newPicker_;
+    PolygonEditorPicker *editPicker_;
 
     QwtPlotShapeItem *polyPlotItem_ = nullptr;
 
@@ -858,6 +860,8 @@ struct PolygonConditionEditorController::Private
                 {
                     newPicker_->reset();
                     newPicker_->setEnabled(false);
+                    editPicker_->reset();
+                    editPicker_->setEnabled(false);
 
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(true);
@@ -872,6 +876,8 @@ struct PolygonConditionEditorController::Private
                 {
                     newPicker_->reset();
                     newPicker_->setEnabled(true);
+                    editPicker_->reset();
+                    editPicker_->setEnabled(false);
 
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(false);
@@ -887,12 +893,14 @@ struct PolygonConditionEditorController::Private
                 {
                     newPicker_->reset();
                     newPicker_->setEnabled(false);
+                    editPicker_->reset();
+                    editPicker_->setEnabled(true);
 
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
-                        zoomAction->setChecked(true);
+                        zoomAction->setChecked(false);
 
                     // TODO: implement polygon editing
-                    dialog_->setInfoText("poly editing not implemented yet :(");
+                    dialog_->setInfoText("poly editing is being worked on! :-)");
 
                     if (!polyPlotItem_)
                     {
@@ -904,6 +912,7 @@ struct PolygonConditionEditorController::Private
                     polyPlotItem_->setPolygon(poly_);
                     polyPlotItem_->setVisible(true);
                     dialog_->setPolygon(poly_);
+                    editPicker_->setPolygon(poly_);
                 } break;
         }
 
@@ -948,6 +957,17 @@ struct PolygonConditionEditorController::Private
         {
             poly_.pop_back();
             dialog_->setPolygon(poly_);
+        }
+    }
+
+    void onPolygonModified(const QVector<QPointF> &points)
+    {
+        if (state_ == State::EditPolygon)
+        {
+            poly_ = { points };
+            polyPlotItem_->setPolygon(poly_);
+            dialog_->setPolygon(poly_);
+            histoWidget_->replot();
         }
     }
 
@@ -1098,6 +1118,9 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     d->newPicker_->setStateMachine(new ImprovedPickerPolygonMachine);
     d->newPicker_->setEnabled(false);
 
+    d->editPicker_ = new PolygonEditorPicker(histoWidget->getPlot());
+    d->editPicker_->setEnabled(false);
+
     connect(d->dialog_, &IntervalConditionDialog::applied,
             this, [this] () { d->onDialogApplied(); });
 
@@ -1152,6 +1175,10 @@ PolygonConditionEditorController::PolygonConditionEditorController(
                 this, &PolygonConditionEditorController::onPointRemoved);
     assert(b);
 #endif
+
+    // Not a qwt signal -> always use the new style connect()
+    connect(d->editPicker_, &PolygonEditorPicker::polygonModified,
+            this, [this] (const QPolygonF &poly) { d->onPolygonModified(poly); });
 
     d->histoWidget_->installEventFilter(this);
     d->dialog_->installEventFilter(this);

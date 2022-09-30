@@ -151,11 +151,38 @@ class LIBMVME_EXPORT IntervalEditorPicker: public PlotPicker
         std::unique_ptr<Private> d;
 };
 
+// Allows to remove the last placed point by pressing mouse button 3.
 class LIBMVME_EXPORT ImprovedPickerPolygonMachine: public QwtPickerPolygonMachine
 {
     using QwtPickerPolygonMachine::QwtPickerPolygonMachine;
 
     QList<Command> transition(const QwtEventPattern &ep, const QEvent *ev) override;
+};
+
+class LIBMVME_EXPORT PolygonEditorPicker: public PlotPicker
+{
+    Q_OBJECT
+    signals:
+        void polygonModified(const QPolygonF &poly);
+
+    public:
+        PolygonEditorPicker(QwtPlot *plot);
+        ~PolygonEditorPicker() override;
+
+        void setPolygon(const QPolygonF &poly);
+        void reset() override;
+
+    protected:
+        void widgetMousePressEvent(QMouseEvent *) override;
+        void widgetMouseReleaseEvent(QMouseEvent *) override;
+        void widgetMouseMoveEvent(QMouseEvent *) override;
+
+    private slots:
+        void onPointMoved(const QPointF &p);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
 };
 
 LIBMVME_EXPORT bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);

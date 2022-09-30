@@ -601,6 +601,120 @@ QList<QwtPickerMachine::Command> ImprovedPickerPolygonMachine::transition(
     return cmdList;
 }
 
+struct PolygonEditorPicker::Private
+{
+    PolygonEditorPicker *q;
+    QPolygonF poly_;
+    int draggingPointIndex = -1;
+
+    int getClosestPolyPointIndex(const QPoint &pixelPoint)
+    {
+        for (int i=0; i<poly_.size(); ++i)
+        {
+            auto p = q->transform(poly_[i]); // plot to pixel coordinates
+
+            auto dx = std::abs(pixelPoint.x() - p.x());
+            auto dy = std::abs(pixelPoint.y() - p.y());
+
+            if (dx < CanStartDragDistancePixels && dy < CanStartDragDistancePixels)
+                return i;
+        }
+        return -1;
+    }
+};
+
+PolygonEditorPicker::PolygonEditorPicker(QwtPlot *plot)
+    : PlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                 QwtPicker::NoRubberBand,
+                 QwtPicker::AlwaysOff,
+                 plot->canvas())
+    , d(std::make_unique<Private>())
+{
+    d->q = this;
+
+    setStateMachine(new AutoBeginClickPointMachine);
+
+    bool b = false;
+#ifdef Q_OS_WIN
+    b = connect(this, SIGNAL(moved(const QPointF &)),
+                this, SLOT(onPointMoved(const QPointF &)));
+    assert(b);
+#else
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+                this, &PolygonEditorPicker::onPointMoved);
+    assert(b);
+#endif
+}
+
+PolygonEditorPicker::~PolygonEditorPicker()
+{
+}
+
+void PolygonEditorPicker::setPolygon(const QPolygonF &poly)
+{
+    d->poly_ = poly;
+}
+
+void PolygonEditorPicker::reset()
+{
+    d->poly_ = {};
+}
+
+void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
+{
+    if (mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev)))
+        d->draggingPointIndex = d->getClosestPolyPointIndex(ev->pos());
+    else
+        PlotPicker::widgetMousePressEvent(ev);
+}
+
+void PolygonEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
+{
+    if (!mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev)))
+        return;
+
+    d->draggingPointIndex = -1;
+}
+
+void PolygonEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
+{
+    if (d->draggingPointIndex < 0)
+    {
+        if (d->getClosestPolyPointIndex(ev->pos()) >= 0)
+            canvas()->setCursor(Qt::SizeAllCursor);
+        else
+            canvas()->setCursor(Qt::CrossCursor);
+    }
+    else
+        PlotPicker::widgetMouseMoveEvent(ev);
+
+#if 0
+    else if (d->draggingPointIndex < poly_.size())
+    {
+        poly_[d->draggingPointIndex] = invTransform(ev->pos());
+    }
+#endif
+}
+
+void PolygonEditorPicker::onPointMoved(const QPointF &p)
+{
+    const auto pi = d->draggingPointIndex;
+
+    if (0 <= pi && pi < d->poly_.size())
+    {
+        d->poly_[pi] = p;
+
+        // when moving the first point also move the last one
+        if (pi == 0)
+            d->poly_[d->poly_.size()-1] = p;
+        // when moving the last point also move the first one
+        if (pi == d->poly_.size()-1)
+            d->poly_[0] = p;
+
+        emit polygonModified(d->poly_);
+    }
+}
+
 bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis)
 {
     return dynamic_cast<const QwtLinearScaleEngine *>(plot->axisScaleEngine(axis));
