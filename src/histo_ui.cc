@@ -292,14 +292,33 @@ NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::selected),
-            this, &NewIntervalPicker::onPointSelected);
+    bool b = false;
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
-            this, &NewIntervalPicker::onPointMoved);
+#ifdef Q_OS_WIN
+    b = connect(this, SIGNAL(selected(const QPointF &)),
+                this, SLOT(onPointSelected(const QPointF &)));
+    assert(b);
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::appended),
-            this, &NewIntervalPicker::onPointAppended);
+    b = connect(this, SIGNAL(moved(const QPointF &)),
+                this, SLOT(onPointMoved(const QPointF &)));
+    assert(b);
+
+    b = connect(this, SIGNAL(appended(const QPointF &)),
+                this, SLOT(onPointAppended(const QPointF &)));
+    assert(b);
+#else
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::selected),
+                this, &NewIntervalPicker::onPointSelected);
+    assert(b);
+
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+                this, &NewIntervalPicker::onPointMoved);
+    assert(b);
+
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::appended),
+                this, &NewIntervalPicker::onPointAppended);
+    assert(b);
+#endif
 }
 
 NewIntervalPicker::~NewIntervalPicker()
@@ -479,8 +498,17 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
-            this, &IntervalEditorPicker::onPointMoved);
+    bool b = false;
+
+#ifdef Q_OS_WIN
+    b = connect(this, SIGNAL(moved(const QPointF &)),
+                this, SLOT(onPointMoved(const QPointF &)));
+    assert(b);
+#else
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+                this, &IntervalEditorPicker::onPointMoved);
+    assert(b);
+#endif
 }
 
 IntervalEditorPicker::~IntervalEditorPicker()
