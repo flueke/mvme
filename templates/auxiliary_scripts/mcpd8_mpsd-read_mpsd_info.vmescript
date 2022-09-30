@@ -1,0 +1,36 @@
+0x0180 0	#bus
+0x0182 0	# not applicable, module idex on bus
+0x0184 3	#read
+0x0186 0	#mpsd local address
+0x0188 0
+
+
+print MPSD capabilities
+read A32 D16 0x0188
+
+0x0180 0	#bus
+0x0182 0	# not applicable, module idex on bus
+0x0184 3	#read
+0x0186 1	#mpsd local address
+0x0188 0
+
+print MPSD bus setting
+read A32 D16 0x0188
+
+0x0180 0	#bus
+0x0182 0	# not applicable, module idex on bus
+0x0184 3	#read
+0x0186 2	#mpsd local address
+0x0188 0
+
+
+print Firmware Revision
+read A32 D16 0x0188
+
+0x0180 0	#bus
+0x0182 0	# not applicable, module idex on bus
+0x0184 6	#read
+0x0186 0	#mpsd local address
+0x0188 0
+print ID
+read A32 D16 0x018C

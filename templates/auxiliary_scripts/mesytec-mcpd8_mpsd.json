@@ -1,0 +1,12 @@
+{
+    "auxiliary_vme_scripts": [
+        {
+            "fileName": "mcpd8_mpsd-read_mpsd_info.vmescript",
+            "scriptName": "MCPD Read MPSD Info",
+            "vendorName": "mesytec",
+            "moduleName": "MCPD8_MPSD"
+        }
+    ]
+}
+
+

@@ -1,0 +1,244 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": {
+        },
+        "connections": [
+            {
+                "dstId": "{3db43d6f-c9f3-47ae-93da-8ab7b3249875}",
+                "dstIndex": 0,
+                "dstParamIndex": 0,
+                "srcId": "{6805bb53-6cf1-4bcc-aa6e-9759286ec0b5}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3db43d6f-c9f3-47ae-93da-8ab7b3249875}",
+                "dstIndex": 1,
+                "dstParamIndex": 0,
+                "srcId": "{713dde10-293a-4240-ae4c-e919eeef4f86}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{8bcf8db2-666a-4ca0-bdab-19509bf867d5}",
+                "dstIndex": 0,
+                "dstParamIndex": 0,
+                "srcId": "{5b06584e-373c-4807-82b2-29e54391e669}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{91bb2bff-e2d6-4a5a-85c8-5c47526d27d3}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{88f1ccf6-6643-4cc9-9f8d-d46110bad8e1}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{d74ba66c-a570-43a5-b8a0-c2e5683d20c2}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{713dde10-293a-4240-ae4c-e919eeef4f86}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{d660569f-abb0-42e5-8785-cb8e1ca06762}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{6805bb53-6cf1-4bcc-aa6e-9759286ec0b5}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+        ],
+        "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 1024,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "Position",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{d74ba66c-a570-43a5-b8a0-c2e5683d20c2}",
+                "name": "Position",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "timestamp",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{8bcf8db2-666a-4ca0-bdab-19509bf867d5}",
+                "name": "timestamp",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 1024,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "amplitude",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{d660569f-abb0-42e5-8785-cb8e1ca06762}",
+                "name": "amplitude",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo2DSink",
+                "data": {
+                    "rrfX": 0,
+                    "rrfY": 0,
+                    "xAxisTitle": "amplitude[0]",
+                    "xBins": 1024,
+                    "xLimitMax": null,
+                    "xLimitMin": null,
+                    "yAxisTitle": "position[0]",
+                    "yBins": 1024,
+                    "yLimitMax": null,
+                    "yLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{3db43d6f-c9f3-47ae-93da-8ab7b3249875}",
+                "name": "amplitude[0]_vs_position[0]",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 32,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "Bus-Slot",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{91bb2bff-e2d6-4a5a-85c8-5c47526d27d3}",
+                "name": "Bus-Slot",
+                "userLevel": 0
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{b1f24169-cb66-426a-af46-ca961871bf00}",
+                    "moduleName": "MCPD-8_V5",
+                    "moduleTypeName": "mcpd8_mpsd"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d052ad06b98095e4",
+                    "subFilters": [
+                        {
+                            "filterString": "01100000XXXXXDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "110000000MMMXXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{5b06584e-373c-4807-82b2-29e54391e669}",
+                "moduleId": "{b1f24169-cb66-426a-af46-ca961871bf00}",
+                "name": "timestamp"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "f7ef66e94cc5bd9a",
+                    "subFilters": [
+                        {
+                            "filterString": "01100000DDDDDXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": 0
+                        },
+                        {
+                            "filterString": "110000000MMMXXAAAXXXXXXXXXXDDDDD",
+                            "wordIndex": 1
+                        }
+                    ]
+                },
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{713dde10-293a-4240-ae4c-e919eeef4f86}",
+                "moduleId": "{b1f24169-cb66-426a-af46-ca961871bf00}",
+                "name": "position"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "b782dfc2a2adacca",
+                    "subFilters": [
+                        {
+                            "filterString": "01100000XXXXXXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": 0
+                        },
+                        {
+                            "filterString": "110000000MMMXxAAADDDDDDDDDDXXXXX",
+                            "wordIndex": 1
+                        }
+                    ]
+                },
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{6805bb53-6cf1-4bcc-aa6e-9759286ec0b5}",
+                "moduleId": "{b1f24169-cb66-426a-af46-ca961871bf00}",
+                "name": "amplitude"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "3cf52109b1b935ea",
+                    "subFilters": [
+                        {
+                            "filterString": "01100000XXXXXXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": 0
+                        },
+                        {
+                            "filterString": "110000000AAADDDDDXXXXXXXXXXXXXXX",
+                            "wordIndex": 1
+                        }
+                    ]
+                },
+                "eventId": "{81b93b28-6fa2-4520-a8f1-dc1ab0c0a513}",
+                "id": "{88f1ccf6-6643-4cc9-9f8d-d46110bad8e1}",
+                "moduleId": "{b1f24169-cb66-426a-af46-ca961871bf00}",
+                "name": "Bus"
+            }
+        ]
+    }
+}
