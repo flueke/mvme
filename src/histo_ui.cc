@@ -916,11 +916,11 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
 
     using State = Private::State;
 
+    d->dragPointIndex_ = d->getPointIndexInDragRange(ev->pos());
+    const auto ed = closest_edge(ev->pos(), d->pixelPoly());
+
     if (d->state_ == State::Default && mb1)
     {
-        d->dragPointIndex_ = d->getPointIndexInDragRange(ev->pos());
-        auto ed = closest_edge(ev->pos(), d->pixelPoly());
-
         if (d->dragPointIndex_ >= 0)
         {
             d->state_ = State::DragPoint;
@@ -943,8 +943,6 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
     }
     else if (d->state_ == State::Default && mb2)
     {
-        d->dragPointIndex_ = d->getPointIndexInDragRange(ev->pos());
-
         if (d->dragPointIndex_ >= 0)
         {
             auto pointIndex = d->dragPointIndex_;
@@ -957,21 +955,16 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
                 });
             menu.exec(d->plot->mapToGlobal(ev->pos()));
         }
-        else
+        else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
         {
-            auto ed = closest_edge(ev->pos(), d->pixelPoly());
-
-            if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
-            {
-                QMenu menu;
-                menu.addAction(QIcon::fromTheme("list-add"), "Insert Point", this, [this, ed]
-                    {
-                        d->poly_.insert(ed.indexes.second, invTransform(ed.closestPoint.toPoint()));
-                        d->plot->replot();
-                        emit polygonModified(d->poly_);
-                    });
-                menu.exec(d->plot->mapToGlobal(ev->pos()));
-            }
+            QMenu menu;
+            menu.addAction(QIcon::fromTheme("list-add"), "Insert Point", this, [this, ed]
+                {
+                    d->poly_.insert(ed.indexes.second, invTransform(ed.closestPoint.toPoint()));
+                    d->plot->replot();
+                    emit polygonModified(d->poly_);
+                });
+            menu.exec(d->plot->mapToGlobal(ev->pos()));
         }
     }
     else
