@@ -5,13 +5,14 @@
 #include <QTreeView>
 #include <QStandardItemModel>
 #include "vme_config.h"
+#include "libmvme_export.h"
 
 namespace mesytec
 {
 namespace mvme
 {
 
-class EventModel: public QAbstractItemModel
+class LIBMVME_EXPORT EventModel: public QAbstractItemModel
 {
     Q_OBJECT
     public:
@@ -118,7 +119,7 @@ class EventModel: public QAbstractItemModel
         EventConfig *m_event = nullptr;
 };
 
-class EventModel2: public QStandardItemModel
+class LIBMVME_EXPORT EventModel2: public QStandardItemModel
 {
     Q_OBJECT
     public:
@@ -197,7 +198,7 @@ class EventModel2: public QStandardItemModel
         std::vector<std::vector<QStandardItem *>> m_moduleRoots;
 };
 
-class VmeConfigView: public QTreeView
+class LIBMVME_EXPORT VmeConfigView: public QTreeView
 {
     Q_OBJECT
     public:
