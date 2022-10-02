@@ -414,8 +414,6 @@ struct IntervalEditorPicker::Private
     QwtPlotZoneItem * zoneItem;
     QVector<QPointF> selectedPoints;
     int dragPointIndex_ = -1;
-    std::pair<int, int> dragEdgeIndexes_ = { -1, -1 };
-    QPoint dragEdgeStartPixel_;
 
     QwtInterval getInterval() const
     {
@@ -713,8 +711,8 @@ struct PolygonEditorPicker::Private
     QPolygonF pixelPoly_; // the polygon in pixel coordinates. updated in pixelPoly().
     int dragPointIndex_ = -1;
     std::pair<int, int> dragEdgePointIndexes_ = { -1, -1 };
-    std::pair<QPointF, QPointF> dragEdgeStartPoints_;
-    QPoint dragEdgeStartPixel_;
+    std::pair<QPointF, QPointF> dragEdgeStartPolyPoints_;
+    QPointF dragEdgeStartPoint_;
     QPolygonF panStartPoly_;
     QPointF panStartPoint_;
 
@@ -762,8 +760,6 @@ struct PolygonEditorPicker::Private
             // when moving the last point also move the first one
             if (pointIndex == poly_.size()-1)
                 poly_[0] = p;
-
-            emit q->polygonModified(poly_);
         }
     }
 
@@ -932,9 +928,9 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
         else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
         {
             d->dragEdgePointIndexes_ = ed.indexes;
-            d->dragEdgeStartPixel_ = ev->pos();
-            d->dragEdgeStartPoints_.first = d->poly_[ed.indexes.first];
-            d->dragEdgeStartPoints_.second = d->poly_[ed.indexes.second];
+            d->dragEdgeStartPoint_ = invTransform(ev->pos());
+            d->dragEdgeStartPolyPoints_.first = d->poly_[ed.indexes.first];
+            d->dragEdgeStartPolyPoints_.second = d->poly_[ed.indexes.second];
             d->state_ = State::DragEdge;
         }
         else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
@@ -1001,17 +997,14 @@ void PolygonEditorPicker::onPointMoved(const QPointF &p)
     if (d->state_ == State::DragPoint)
     {
         d->movePolyPoint(d->dragPointIndex_, p);
+        emit polygonModified(d->poly_);
     }
     else if (d->state_ == State::DragEdge)
     {
-        auto pp = transform(p); // plot to pixel coordinates
-        auto pe1 = transform(d->dragEdgeStartPoints_.first);
-        auto pe2 = transform(d->dragEdgeStartPoints_.second);
-        auto pDelta = pp - d->dragEdgeStartPixel_;
-        pe1 += pDelta;
-        pe2 += pDelta;
-        d->movePolyPoint(d->dragEdgePointIndexes_.first, invTransform(pe1));
-        d->movePolyPoint(d->dragEdgePointIndexes_.second, invTransform(pe2));
+        auto delta = p - d->dragEdgeStartPoint_;
+        d->movePolyPoint(d->dragEdgePointIndexes_.first, d->dragEdgeStartPolyPoints_.first + delta);
+        d->movePolyPoint(d->dragEdgePointIndexes_.second, d->dragEdgeStartPolyPoints_.second + delta);
+        emit polygonModified(d->poly_);
     }
     else if (d->state_ == State::PanPolygon)
     {
