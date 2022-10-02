@@ -795,7 +795,7 @@ struct PolygonEditorPicker::Private
             }
         }
 
-        const auto &after = poly_;
+        const auto &after = poly;
         (void) before;
         (void) after;
         //qDebug() << "pointIndex =" << pointIndex;
