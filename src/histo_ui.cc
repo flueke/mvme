@@ -971,7 +971,14 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
 
             if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
             {
-                // TODO: show context menu for adding a point in the center of the edge
+                QMenu menu;
+                menu.addAction(QIcon::fromTheme("list-add"), "Insert Point", this, [this, ed]
+                    {
+                        d->poly_.insert(ed.indexes.second, invTransform(ed.closestPoint.toPoint()));
+                        d->plot->replot();
+                        emit polygonModified(d->poly_);
+                    });
+                menu.exec(d->plot->mapToGlobal(ev->pos()));
             }
         }
     }
