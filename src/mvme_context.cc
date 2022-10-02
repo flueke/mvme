@@ -31,6 +31,7 @@
 #include "file_autosaver.h"
 #include "logfile_helper.h"
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/mvlc_impl_eth.h>
 #include "mvme_mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_vme_controller.h"
