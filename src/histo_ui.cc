@@ -7,6 +7,7 @@
 #include <QEvent>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QPen>
 #include <QStatusBar>
 #include <QToolBar>
 #include <QVector2D>
