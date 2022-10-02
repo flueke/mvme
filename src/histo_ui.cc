@@ -702,6 +702,7 @@ struct PolygonEditorPicker::Private
         Default,
         DragPoint,
         DragEdge,
+        PanPolygon,
     };
 
     PolygonEditorPicker *q;
@@ -714,6 +715,8 @@ struct PolygonEditorPicker::Private
     std::pair<int, int> dragEdgePointIndexes_ = { -1, -1 };
     std::pair<QPointF, QPointF> dragEdgeStartPoints_;
     QPoint dragEdgeStartPixel_;
+    QPolygonF panStartPoly_;
+    QPointF panStartPoint_;
 
     // Returns the index of the first polygon point that is close enough to the
     // given pixel coordinates so that it can be used for mouse drag operations.
@@ -861,6 +864,10 @@ void PolygonEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 
     if (d->state_ == State::Default)
     {
+        // Note: the distance calculations are done in pixel coordinates.
+        auto ed = closest_edge(ev->pos(), d->pixelPoly());
+        //qDebug() << "i1" << ed.indexes.first << ", i2" << ed.indexes.second << ", distance =" << ed.distance;
+
         // Point drag detection
         if (d->getPointIndexInDragRange(ev->pos()) >= 0)
         {
@@ -869,50 +876,36 @@ void PolygonEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
             canvas()->setCursor(Qt::SizeAllCursor);
         }
         // Edge drag detection
-        else
+        else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
         {
-            // Note: the distance calculations are done in pixel coordinates.
-            auto ed = closest_edge(ev->pos(), d->pixelPoly());
+            auto p1 = d->poly_[ed.indexes.first];
+            auto p2 = d->poly_[ed.indexes.second];
+            auto polyLine = QPolygonF() << p1 << p2;
+            d->edgeHighlight->setPolygon(polyLine);
+            d->edgeHighlight->show();
 
-            //qDebug() << "i1" << ed.indexes.first << ", i2" << ed.indexes.second << ", distance =" << ed.distance;
+            // Note: angle calculation is done in pixel coordinates as the
+            // plot x and y-axes can have different scales.
+            QLineF line{transform(p1), transform(p2)};
+            auto angle = line.angle();
 
-            if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
+            if ((0.0 <= angle && angle < 45.0)
+                || (135.0 <= angle && angle < 225.0)
+                || (315.0 <= angle && angle < 360.0))
             {
-                auto p1 = d->poly_[ed.indexes.first];
-                auto p2 = d->poly_[ed.indexes.second];
-                auto polyLine = QPolygonF() << p1 << p2;
-                d->edgeHighlight->setPolygon(polyLine);
-                d->edgeHighlight->show();
-
-                // Note: angle calculation is done in pixel coordinates as the
-                // plot x and y-axes can have different scales.
-                QLineF line{transform(p1), transform(p2)};
-                auto angle = line.angle();
-
-                if ((0.0 <= angle && angle < 45.0)
-                    || (135.0 <= angle && angle < 225.0)
-                    || (315.0 <= angle && angle < 360.0))
-                {
-                    canvas()->setCursor(Qt::SizeVerCursor);
-                }
-                else
-                    canvas()->setCursor(Qt::SizeHorCursor);
-
+                canvas()->setCursor(Qt::SizeVerCursor);
             }
             else
-                canvas()->setCursor(Qt::CrossCursor);
+                canvas()->setCursor(Qt::SizeHorCursor);
         }
+        // Pan detection
+        else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
+        {
+            canvas()->setCursor(Qt::OpenHandCursor);
+        }
+        else
+            canvas()->setCursor(Qt::CrossCursor);
     }
-    else if (d->state_ == State::DragPoint)
-    {
-        // Point dragging is handled in onPointMoved() which is emitted by the
-        // base QwtPlotPicker.
-    }
-    else if (d->state_ == State::DragEdge)
-    {
-    }
-    else
-        canvas()->setCursor(Qt::CrossCursor);
 
     PlotPicker::widgetMouseMoveEvent(ev);
     d->plot->replot();
@@ -930,23 +923,26 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
     if (d->state_ == State::Default && mb1)
     {
         d->dragPointIndex_ = d->getPointIndexInDragRange(ev->pos());
+        auto ed = closest_edge(ev->pos(), d->pixelPoly());
 
         if (d->dragPointIndex_ >= 0)
         {
-            d->state_ = Private::State::DragPoint;
+            d->state_ = State::DragPoint;
         }
-        else
+        else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
         {
-            auto ed = closest_edge(ev->pos(), d->pixelPoly());
-
-            if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
-            {
-                d->dragEdgePointIndexes_ = ed.indexes;
-                d->dragEdgeStartPixel_ = ev->pos();
-                d->dragEdgeStartPoints_.first = d->poly_[ed.indexes.first];
-                d->dragEdgeStartPoints_.second = d->poly_[ed.indexes.second];
-                d->state_ = Private::State::DragEdge;
-            }
+            d->dragEdgePointIndexes_ = ed.indexes;
+            d->dragEdgeStartPixel_ = ev->pos();
+            d->dragEdgeStartPoints_.first = d->poly_[ed.indexes.first];
+            d->dragEdgeStartPoints_.second = d->poly_[ed.indexes.second];
+            d->state_ = State::DragEdge;
+        }
+        else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
+        {
+            canvas()->setCursor(Qt::ClosedHandCursor);
+            d->panStartPoly_ = d->poly_;
+            d->panStartPoint_ = invTransform(ev->pos());
+            d->state_ = State::PanPolygon;
         }
     }
     else if (d->state_ == State::Default && mb2)
@@ -1016,6 +1012,12 @@ void PolygonEditorPicker::onPointMoved(const QPointF &p)
         pe2 += pDelta;
         d->movePolyPoint(d->dragEdgePointIndexes_.first, invTransform(pe1));
         d->movePolyPoint(d->dragEdgePointIndexes_.second, invTransform(pe2));
+    }
+    else if (d->state_ == State::PanPolygon)
+    {
+        auto delta = p - d->panStartPoint_;
+        d->poly_ = d->panStartPoly_.translated(delta);
+        emit polygonModified(d->poly_);
     }
 }
 
