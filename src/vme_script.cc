@@ -1872,7 +1872,7 @@ QString to_string(const Command &cmd)
                     .arg(format_hex(cmd.address))
                     .arg(to_string(cmd.blk2eSSTRate))
                     .arg(cmd.transfers);
-            }
+            } break;
 
         case CommandType::SetBase:
             {
