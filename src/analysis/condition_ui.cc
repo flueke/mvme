@@ -686,15 +686,18 @@ PolygonConditionDialog::PolygonConditionDialog(QWidget *parent)
 {
     d->ui = std::make_unique<Ui::PolygonConditionDialog>();
     d->ui->setupUi(this);
+
+#if 0
     d->ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(false);
     d->ui->buttonBox->button(QDialogButtonBox::Ok)->setAutoDefault(false);
     d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
+#endif
     d->ui->tw_coords->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
-    connect(d->ui->buttonBox->button(QDialogButtonBox::Apply), &QPushButton::clicked,
+    connect(d->ui->tb_save, &QPushButton::clicked,
             this, &PolygonConditionDialog::applied);
 
-    connect(d->ui->pb_new, &QPushButton::clicked,
+    connect(d->ui->tb_new, &QPushButton::clicked,
             this, &PolygonConditionDialog::newConditionButtonClicked);
 
     connect(d->ui->combo_cond, qOverload<int>(&QComboBox::currentIndexChanged),
@@ -744,8 +747,8 @@ void PolygonConditionDialog::setPolygon(const QPolygonF &poly)
         ++row;
     }
     d->ui->tw_coords->resizeRowsToContents();
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!poly.isEmpty());
-    d->ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(!poly.isEmpty());
+    //d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!poly.isEmpty());
+    //d->ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(!poly.isEmpty());
 }
 
 QPolygonF PolygonConditionDialog::getPolygon() const
