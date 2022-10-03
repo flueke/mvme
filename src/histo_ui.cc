@@ -886,14 +886,33 @@ void PolygonEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
             QLineF line{transform(p1), transform(p2)};
             auto angle = line.angle();
 
-            if ((0.0 <= angle && angle < 45.0)
-                || (135.0 <= angle && angle < 225.0)
-                || (315.0 <= angle && angle < 360.0))
-            {
-                canvas()->setCursor(Qt::SizeVerCursor);
-            }
+            if (angle < 0.0)
+                angle += 360.0;
+
+            assert(0.0 <= angle && angle < 360.0);
+
+            Qt::CursorShape cursor{};
+
+            if (angle < 22.5)
+                cursor = Qt::SizeVerCursor;
+            else if (angle < 67.5)
+                cursor = Qt::SizeFDiagCursor;
+            else if (angle < 112.5)
+                cursor = Qt::SizeHorCursor;
+            else if (angle < 157.5)
+                cursor = Qt::SizeBDiagCursor;
+            else if (angle < 202.5)
+                cursor = Qt::SizeVerCursor;
+            else if (angle < 247.5)
+                cursor = Qt::SizeFDiagCursor;
+            else if (angle < 292.5)
+                cursor = Qt::SizeHorCursor;
+            else if (angle < 337.5)
+                cursor = Qt::SizeBDiagCursor;
             else
-                canvas()->setCursor(Qt::SizeHorCursor);
+                cursor = Qt::SizeVerCursor;
+
+            canvas()->setCursor(cursor);
         }
         // Pan detection
         else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
