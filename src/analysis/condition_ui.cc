@@ -131,6 +131,7 @@ ConditionDialogBase::~ConditionDialogBase()
 struct IntervalConditionDialog::Private
 {
     std::unique_ptr<Ui::IntervalConditionDialog> ui;
+    QToolBar *toolbar_;
 };
 
 IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
@@ -139,16 +140,20 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
 {
     d->ui = std::make_unique<Ui::IntervalConditionDialog>();
     d->ui->setupUi(this);
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(false);
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setAutoDefault(false);
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
+    d->toolbar_ = make_toolbar();
+    auto tb_frameLayout = make_hbox<0, 0>(d->ui->tb_frame);
+    tb_frameLayout->addWidget(d->toolbar_);
+    auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
+    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Apply");
+
     d->ui->tw_intervals->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
-    connect(d->ui->buttonBox->button(QDialogButtonBox::Apply), &QPushButton::clicked,
-            this, &IntervalConditionDialog::applied);
 
-    connect(d->ui->pb_new, &QPushButton::clicked,
+    connect(actionNew, &QAction::triggered,
             this, &IntervalConditionDialog::newConditionButtonClicked);
+
+    connect(actionSave, &QAction::triggered,
+            this, &IntervalConditionDialog::applied);
 
     connect(d->ui->combo_cond, qOverload<int>(&QComboBox::currentIndexChanged),
             this, [this] (int /*index*/) {
@@ -214,8 +219,6 @@ void IntervalConditionDialog::setIntervals(const QVector<QwtInterval> &intervals
         ++row;
     }
     d->ui->tw_intervals->resizeRowsToContents();
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!intervals.isEmpty());
-    d->ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(!intervals.isEmpty());
 }
 
 
