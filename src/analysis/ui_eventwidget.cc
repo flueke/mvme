@@ -4960,23 +4960,26 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
 {
     auto cond = std::dynamic_pointer_cast<ConditionInterface>(op);
 
-    if (!cond)
+    if (!cond || std::dynamic_pointer_cast<ExpressionCondition>(cond))
     {
+        // Use the standard edit action
         auto result = new QAction(QIcon(":/pencil.png"), QSL("Edit"));
         QObject::connect(result, &QAction::triggered, m_q, [=] { editOperator(op); });
         return result;
     }
 
+    // Special handling to figure out which sinks are available for graphical
+    // editing.
     if (auto ana = cond->getAnalysis())
     {
         auto sinks = find_sinks_for_condition(cond, ana->getSinkOperators<std::shared_ptr<SinkInterface>>());
 
         if (sinks.isEmpty())
         {
-            // TODO: could create the correct sinks type on the fly and display
-            // that or error out and show an error message that no one will
-            // understand. Or offer a non plot based way of editing, e.g. run
-            // the dialog without using a plot widget or the controller.
+            // TODO(maybe): could create the correct sink type on the fly and
+            // display that or error out and show an error message that no one
+            // will understand. Or offer a non plot based way of editing, e.g.
+            // run the dialog without using a plot widget or the controller.
             return {};
         }
 
