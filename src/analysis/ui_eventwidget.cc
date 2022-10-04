@@ -4987,23 +4987,16 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
 
         for (auto &sink: sinks)
         {
-            if (!qobject_cast<Histo1DSink *>(sink.get())
-                && !qobject_cast<Histo2DSink *>(sink.get()))
-                continue;
+            auto h1dSink = std::dynamic_pointer_cast<Histo1DSink>(sink);
+            auto h2dSink = std::dynamic_pointer_cast<Histo2DSink>(sink);
 
-            #if 0
-            // Look for the first sink that does not itself have an active
-            // condition.
-            if (!ana->getActiveConditions(sink).isEmpty())
-            {
+            if (!(h1dSink || h2dSink))
                 continue;
-            }
-            #endif
 
             auto edit_cond = [=] ()
             {
                 auto widget = show_sink_widget(m_serviceProvider, sink);
-                if (auto h1dsink = std::dynamic_pointer_cast<Histo1DSink>(sink))
+                if (h1dSink)
                 {
                     auto action = widget->findChild<QAction *>("intervalConditions");
                     assert(action);
@@ -5014,7 +5007,7 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
                     auto editDialog = editController->getDialog();
                     editDialog->selectCondition(cond->getId());
                 }
-                else if (auto h2dSink = std::dynamic_pointer_cast<Histo2DSink>(sink))
+                else if (h2dSink)
                 {
                     auto action = widget->findChild<QAction *>("polygonConditions");
                     assert(action);
@@ -5028,6 +5021,7 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
             };
 
             auto editAction = menu->addAction(QSL("Sink %1").arg(sink->objectName()));
+            editAction->setIcon(QIcon(h1dSink ? ":/hist1d.png" : ":/hist2d.png"));
             QObject::connect(editAction, &QAction::triggered, m_q, edit_cond);
         }
 
