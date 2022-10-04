@@ -355,7 +355,8 @@ struct EventWidgetPrivate
     void updateActions();
     void showDependencyGraphWidget(const AnalysisObjectPtr &obj);
     void editOperator(const OperatorPtr &op);
-    void editConditionInSink(const ConditionPtr &cond);
+    void editConditionInFirstAvailableSink(const ConditionPtr &cond);
+    bool editConditionInSink(const ConditionPtr &cond, const SinkPtr &sink);
     QAction *createEditAction(const OperatorPtr &op);
 
     // Object and node selections
