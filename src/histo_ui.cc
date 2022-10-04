@@ -971,7 +971,7 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
         {
             auto pointIndex = d->dragPointIndex_;
             QMenu menu;
-            menu.addAction(QIcon::fromTheme("edit-delete"), "Remove Point", this, [this, pointIndex]
+            menu.addAction(QIcon(":/list_remove.png", "Remove Point", this, [this, pointIndex]
                 {
                     emit beginModification();
                     d->removePolyPoint(pointIndex);
@@ -984,7 +984,7 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
         else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
         {
             QMenu menu;
-            menu.addAction(QIcon::fromTheme("list-add"), "Insert Point", this, [this, ed]
+            menu.addAction(QIcon(":/list_add.png"), "Insert Point", this, [this, ed]
                 {
                     emit beginModification();
                     d->poly_.insert(ed.indexes.second, invTransform(ed.closestPoint.toPoint()));

@@ -696,7 +696,7 @@ PolygonConditionDialog::PolygonConditionDialog(QWidget *parent)
     auto tb_frameLayout = make_hbox<0, 0>(d->ui->tb_frame);
     tb_frameLayout->addWidget(d->toolbar_);
     auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
-    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Save");
+    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Apply");
 
     d->ui->tw_coords->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
@@ -938,8 +938,13 @@ struct PolygonConditionEditorController::Private
                     if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
                         zoomAction->setChecked(false);
 
-                    // TODO: implement polygon editing
-                    dialog_->setInfoText("poly editing is being worked on! :-)");
+                    auto editText = QSL(
+                        "Polygon Editing:\n"
+                        "- Drag points, edges or the polygon itself using the left mouse button\n"
+                        "- Use the right-click context menu to insert and remove points.\n"
+                        "- Use the 'Apply' button to save your changes."
+                        );
+                    dialog_->setInfoText(editText);
 
                     if (!polyPlotItem_)
                     {
