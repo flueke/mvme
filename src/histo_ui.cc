@@ -971,7 +971,7 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
         {
             auto pointIndex = d->dragPointIndex_;
             QMenu menu;
-            menu.addAction(QIcon(":/list_remove.png", "Remove Point", this, [this, pointIndex]
+            menu.addAction(QIcon(":/list_remove.png"), "Remove Point", this, [this, pointIndex]
                 {
                     emit beginModification();
                     d->removePolyPoint(pointIndex);
