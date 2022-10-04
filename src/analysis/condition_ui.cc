@@ -1138,7 +1138,6 @@ struct PolygonConditionEditorController::Private
     {
         if (auto cond = getCondition(currentConditionId_))
         {
-            // TODO: implement deletion
             AnalysisPauser pauser(asp_);
             asp_->getAnalysis()->removeObjectsRecursively({ cond });
             repopulateDialogFromAnalysis();
