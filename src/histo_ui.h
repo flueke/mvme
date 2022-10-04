@@ -163,7 +163,13 @@ class LIBMVME_EXPORT PolygonEditorPicker: public PlotPicker
 {
     Q_OBJECT
     signals:
+        // Emitted when a point or and edge has been moved, a point has been
+        // inserted/removed, or the polygon has been panned.
         void polygonModified(const QPolygonF &poly);
+
+        // Emitted when a drag/pan operation starts/ends
+        void beginModification();
+        void endModification();
 
     public:
         PolygonEditorPicker(QwtPlot *plot);

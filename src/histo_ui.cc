@@ -843,6 +843,7 @@ PolygonEditorPicker::~PolygonEditorPicker()
 void PolygonEditorPicker::setPolygon(const QPolygonF &poly)
 {
     d->poly_ = poly;
+    d->edgeHighlight->hide();
 }
 
 void PolygonEditorPicker::reset()
@@ -944,6 +945,7 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
         if (d->dragPointIndex_ >= 0)
         {
             d->state_ = State::DragPoint;
+            emit beginModification();
         }
         else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
         {
@@ -952,6 +954,7 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
             d->dragEdgeStartPolyPoints_.first = d->poly_[ed.indexes.first];
             d->dragEdgeStartPolyPoints_.second = d->poly_[ed.indexes.second];
             d->state_ = State::DragEdge;
+            emit beginModification();
         }
         else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
         {
@@ -959,6 +962,7 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
             d->panStartPoly_ = d->poly_;
             d->panStartPoint_ = invTransform(ev->pos());
             d->state_ = State::PanPolygon;
+            emit beginModification();
         }
     }
     else if (d->state_ == State::Default && mb2)
@@ -969,9 +973,11 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
             QMenu menu;
             menu.addAction(QIcon::fromTheme("edit-delete"), "Remove Point", this, [this, pointIndex]
                 {
+                    emit beginModification();
                     d->removePolyPoint(pointIndex);
                     d->plot->replot();
                     emit polygonModified(d->poly_);
+                    emit endModification();
                 });
             menu.exec(d->plot->mapToGlobal(ev->pos()));
         }
@@ -980,9 +986,11 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
             QMenu menu;
             menu.addAction(QIcon::fromTheme("list-add"), "Insert Point", this, [this, ed]
                 {
+                    emit beginModification();
                     d->poly_.insert(ed.indexes.second, invTransform(ed.closestPoint.toPoint()));
                     d->plot->replot();
                     emit polygonModified(d->poly_);
+                    emit endModification();
                 });
             menu.exec(d->plot->mapToGlobal(ev->pos()));
         }
@@ -995,12 +1003,19 @@ void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
 
 void PolygonEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
 {
-    if (!mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev)))
+    widgetMouseMoveEvent(ev); // to update the state of plot items and schedule a replot
+
+    if (!mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev))
+        || d->state_ == Private::State::Default)
+    {
+        PlotPicker::widgetMouseReleaseEvent(ev);
         return;
+    }
+
+    if (d->state_ != Private::State::Default)
+        emit endModification();
 
     d->state_ = Private::State::Default;
-
-    widgetMouseMoveEvent(ev); // to update the state of plot items and schedule a replot
 }
 
 void PolygonEditorPicker::onPointMoved(const QPointF &p)
