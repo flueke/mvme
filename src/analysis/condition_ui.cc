@@ -25,6 +25,8 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QStackedWidget>
+#include <QUndoCommand>
+#include <QUndoStack>
 #include <memory>
 
 #include <qwt_picker_machine.h>
@@ -605,7 +607,7 @@ IntervalConditionEditorController::IntervalConditionEditorController(
             this, [this] () { d->onNewConditionRequested(); });
 
     connect(d->dialog_, &IntervalConditionDialog::conditionSelected,
-           this, [this] (const QUuid &id) { d->onConditionSelected(id); });
+            this, [this] (const QUuid &id) { d->onConditionSelected(id); });
 
     connect(d->dialog_, &IntervalConditionDialog::intervalsEdited,
             this, [this] (const QVector<QwtInterval> &intervals) { d->onIntervalsEditedInDialog(intervals); });
@@ -678,6 +680,7 @@ IntervalConditionDialog *IntervalConditionEditorController::getDialog() const
 struct PolygonConditionDialog::Private
 {
     std::unique_ptr<Ui::PolygonConditionDialog> ui;
+    QToolBar *toolbar_;
 };
 
 PolygonConditionDialog::PolygonConditionDialog(QWidget *parent)
@@ -686,19 +689,19 @@ PolygonConditionDialog::PolygonConditionDialog(QWidget *parent)
 {
     d->ui = std::make_unique<Ui::PolygonConditionDialog>();
     d->ui->setupUi(this);
+    d->toolbar_ = make_toolbar();
+    auto tb_frameLayout = make_hbox<0, 0>(d->ui->tb_frame);
+    tb_frameLayout->addWidget(d->toolbar_);
+    auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
+    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Save");
 
-#if 0
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setDefault(false);
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setAutoDefault(false);
-    d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
-#endif
     d->ui->tw_coords->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
-    connect(d->ui->tb_save, &QPushButton::clicked,
-            this, &PolygonConditionDialog::applied);
-
-    connect(d->ui->tb_new, &QPushButton::clicked,
+    connect(actionNew, &QAction::triggered,
             this, &PolygonConditionDialog::newConditionButtonClicked);
+
+    connect(actionSave, &QAction::triggered,
+            this, &PolygonConditionDialog::applied);
 
     connect(d->ui->combo_cond, qOverload<int>(&QComboBox::currentIndexChanged),
             this, [this] (int /*index*/) {
@@ -721,10 +724,9 @@ PolygonConditionDialog::~PolygonConditionDialog()
 void PolygonConditionDialog::setConditionList(const QVector<ConditionInfo> &condInfos)
 {
     d->ui->combo_cond->clear();
+
     for (const auto &info: condInfos)
-    {
         d->ui->combo_cond->addItem(info.second, info.first);
-    }
 
     d->ui->combo_cond->setEditable(d->ui->combo_cond->count() > 0);
 }
@@ -747,8 +749,6 @@ void PolygonConditionDialog::setPolygon(const QPolygonF &poly)
         ++row;
     }
     d->ui->tw_coords->resizeRowsToContents();
-    //d->ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!poly.isEmpty());
-    //d->ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(!poly.isEmpty());
 }
 
 QPolygonF PolygonConditionDialog::getPolygon() const
@@ -773,6 +773,16 @@ QPolygonF PolygonConditionDialog::getPolygon() const
 QString PolygonConditionDialog::getConditionName() const
 {
     return d->ui->combo_cond->currentText();
+}
+
+void PolygonConditionDialog::setConditionName(const QString &newName)
+{
+    d->ui->combo_cond->setCurrentText(newName);
+}
+
+QToolBar *PolygonConditionDialog::getToolBar()
+{
+    return d->toolbar_;
 }
 
 void PolygonConditionDialog::setInfoText(const QString &txt)
@@ -808,6 +818,26 @@ void PolygonConditionDialog::reject()
 // PolygonConditionEditorController
 //
 
+class ModifyPolygonCommand: public QUndoCommand
+{
+    public:
+        ModifyPolygonCommand(
+            PolygonConditionEditorController::Private *cp,
+            const QPolygonF &before, const QPolygonF &after)
+        : cp_(cp)
+        , before_(before)
+        , after_(after)
+        { }
+
+    void redo() override;
+    void undo() override;
+
+    private:
+        PolygonConditionEditorController::Private *cp_;
+        QPolygonF before_;
+        QPolygonF after_;
+};
+
 struct PolygonConditionEditorController::Private
 {
     enum class State
@@ -839,6 +869,9 @@ struct PolygonConditionEditorController::Private
     PolygonEditorPicker *editPicker_;
 
     QwtPlotShapeItem *polyPlotItem_ = nullptr;
+
+    QUndoStack undoStack_;
+    QPolygonF polyPreModification_;
 
     void repopulateDialogFromAnalysis()
     {
@@ -963,6 +996,20 @@ struct PolygonConditionEditorController::Private
         }
     }
 
+    void onBeginModifyCondition()
+    {
+        polyPreModification_ = poly_;
+    }
+
+    void onEndModifyCondition()
+    {
+        if (polyPreModification_ != poly_)
+        {
+            auto command = std::make_unique<ModifyPolygonCommand>(this, polyPreModification_, poly_);
+            undoStack_.push(command.release());
+        }
+    }
+
     void onPolygonModified(const QVector<QPointF> &points)
     {
         if (state_ == State::EditPolygon)
@@ -970,6 +1017,7 @@ struct PolygonConditionEditorController::Private
             poly_ = { points };
             polyPlotItem_->setPolygon(poly_);
             dialog_->setPolygon(poly_);
+            editPicker_->setPolygon(poly_);
             histoWidget_->replot();
         }
     }
@@ -1071,6 +1119,19 @@ struct PolygonConditionEditorController::Private
         {
             transitionState(State::EditPolygon);
         }
+
+        undoStack_.clear();
+    }
+
+    void onActionDeleteCond()
+    {
+        if (auto cond = getCondition(currentConditionId_))
+        {
+            // TODO: implement deletion
+            AnalysisPauser pauser(asp_);
+            asp_->getAnalysis()->removeObjectsRecursively({ cond });
+            repopulateDialogFromAnalysis();
+        }
     }
 
     ConditionVector getEditableConditions()
@@ -1099,6 +1160,26 @@ struct PolygonConditionEditorController::Private
     }
 };
 
+void ModifyPolygonCommand::redo()
+{
+    const auto &poly = after_;
+    cp_->poly_ = poly;
+    cp_->polyPlotItem_->setPolygon(poly);
+    cp_->editPicker_->setPolygon(poly);
+    cp_->dialog_->setPolygon(poly);
+    cp_->histoWidget_->replot();
+}
+
+void ModifyPolygonCommand::undo()
+{
+    const auto &poly = before_;
+    cp_->poly_ = poly;
+    cp_->polyPlotItem_->setPolygon(poly);
+    cp_->editPicker_->setPolygon(poly);
+    cp_->dialog_->setPolygon(poly);
+    cp_->histoWidget_->replot();
+}
+
 PolygonConditionEditorController::PolygonConditionEditorController(
         const Histo2DSinkPtr &sinkPtr,
         histo_ui::IPlotWidget *histoWidget,
@@ -1111,6 +1192,17 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     d->histoWidget_ = histoWidget;
     d->dialog_ = new PolygonConditionDialog(histoWidget);
     d->asp_ = asp;
+
+    auto actionUndo = d->undoStack_.createUndoAction(this);
+    actionUndo->setIcon(QIcon(":/arrow_left.png"));
+
+    auto actionRedo = d->undoStack_.createRedoAction(this);
+    actionRedo->setIcon(QIcon(":/arrow_right.png"));
+
+    auto toolbar = d->dialog_->getToolBar();
+    auto actionDelete = toolbar->addAction(QIcon(":/list_remove.png"), "Delete");
+    toolbar->addAction(actionUndo);
+    toolbar->addAction(actionRedo);
 
     d->newPicker_ = new PlotPicker(
         QwtPlot::xBottom, QwtPlot::yLeft,
@@ -1138,6 +1230,15 @@ PolygonConditionEditorController::PolygonConditionEditorController(
 
     connect(d->dialog_, &IntervalConditionDialog::conditionSelected,
            this, [this] (const QUuid &id) { d->onConditionSelected(id); });
+
+    connect(d->editPicker_, &PolygonEditorPicker::beginModification,
+            this, [this] { d->onBeginModifyCondition(); });
+
+    connect(d->editPicker_, &PolygonEditorPicker::endModification,
+            this, [this] { d->onEndModifyCondition(); });
+
+    connect(actionDelete, &QAction::triggered,
+            this, [this] () { d->onActionDeleteCond(); });
 
     bool b = false;
 

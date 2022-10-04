@@ -22,8 +22,9 @@
 #define __MVME_CONDITION_UI_H__
 
 #include <memory>
-#include <QWidget>
 #include <QDialog>
+#include <QToolBar>
+#include <QWidget>
 
 #include "analysis_service_provider.h"
 #include "histo_ui.h"
@@ -113,6 +114,8 @@ class PolygonConditionDialog: public ConditionDialogBase
 
         QPolygonF getPolygon() const;
         QString getConditionName() const;
+        void setConditionName(const QString &newName);
+        QToolBar *getToolBar();
 
     public slots:
         void setConditionList(const QVector<ConditionInfo> &condInfos);
@@ -153,6 +156,7 @@ class PolygonConditionEditorController: public QObject
     private:
         struct Private;
         std::unique_ptr<Private> d;
+        friend class ModifyPolygonCommand;
 };
 
 } // ns ui
