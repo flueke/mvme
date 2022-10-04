@@ -25,6 +25,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QUndoCommand>
 #include <QUndoStack>
 #include <memory>
@@ -633,6 +634,8 @@ IntervalConditionEditorController::IntervalConditionEditorController(
 
     d->updateDialogPosition();
     d->dialog_->show();
+
+    QTimer::singleShot(250, this, [this] { d->updateDialogPosition(); });
 }
 
 IntervalConditionEditorController::~IntervalConditionEditorController()
@@ -1298,6 +1301,8 @@ PolygonConditionEditorController::PolygonConditionEditorController(
 
     d->updateDialogPosition();
     d->dialog_->show();
+
+    QTimer::singleShot(250, this, [this] { d->updateDialogPosition(); });
 }
 
 PolygonConditionEditorController::~PolygonConditionEditorController()
