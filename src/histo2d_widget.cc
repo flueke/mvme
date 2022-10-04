@@ -1624,7 +1624,7 @@ void Histo2DWidgetPrivate::onRRSliderXValueChanged(int sliderValue)
 
         m_rrLabelX->setText(QSL("Visible X Resolution: %1, %2 bit")
                             .arg(visBins)
-                            .arg(std::log2(visBins))
+                            .arg(std::log2(visBins), 2)
                            );
 
         //qDebug() << __PRETTY_FUNCTION__
@@ -1652,8 +1652,8 @@ void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
         m_rrf.y = physBins / visBins;
 
         m_rrLabelY->setText(QSL("Visible Y Resolution: %1, %2 bit")
-                            .arg(visBins)
-                            .arg(std::log2(visBins))
+                            .arg(visBins, 5)
+                            .arg(std::log2(visBins), 2)
                            );
 
         //qDebug() << __PRETTY_FUNCTION__
@@ -1674,7 +1674,7 @@ void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
         m_rrf.y = physBins / visBins;
 
         m_rrLabelY->setText(QSL("Visible Y Resolution: %1, %2 bit")
-                            .arg(visBins)
+                            .arg(visBins, 5)
                             .arg(std::log2(visBins))
                            );
 
