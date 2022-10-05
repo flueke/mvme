@@ -81,6 +81,8 @@ class EventWidget: public QWidget
         void highlightInputOf(Slot *slot, bool doHighlight);
         void highlightInputPipe(Pipe *pipe, bool doHighlight);
         void highlightInputPipe(Pipe *pipe, s32 paramIndex, bool doHighlight);
+        void clearAllTreeSelections();
+        void clearAllToDefaultNodeHighlights();
 
         void addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
                        const QString &unit = QString(), double unitMin = 0.0, double unitMax = 0.0);

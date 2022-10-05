@@ -7,6 +7,9 @@
 #include "histo2d_widget.h"
 #include "rate_monitor_widget.h"
 
+#include "analysis_ui_p.h"
+#include "expression_operator_dialog.h"
+
 namespace analysis::ui
 {
 
@@ -152,6 +155,24 @@ QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::sh
     return widget;
 }
 
+EventWidget *find_event_widget(const Analysis *analysis)
+{
+    auto widgets = QApplication::topLevelWidgets();
+
+    for (auto widget: widgets)
+    {
+        if (auto ew = qobject_cast<EventWidget *>(widget))
+            if (!analysis || ew->getAnalysis() == analysis)
+                return ew;
+
+        if (auto ew = widget->findChild<EventWidget *>())
+            if (!analysis || ew->getAnalysis() == analysis)
+                return ew;
+    }
+
+    return {};
+}
+
 ObjectEditorDialog *find_object_editor_dialog()
 {
     auto widgets = QApplication::topLevelWidgets();
@@ -160,6 +181,69 @@ ObjectEditorDialog *find_object_editor_dialog()
     {
         if (auto oed = qobject_cast<ObjectEditorDialog *>(widget))
             return oed;
+    }
+
+    return {};
+}
+
+ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op,
+                                            s32 userLevel,
+                                            ObjectEditorMode mode,
+                                            const DirectoryPtr &destDir,
+                                            EventWidget *eventWidget)
+{
+    ObjectEditorDialog *result = nullptr;
+
+    if (auto expr = std::dynamic_pointer_cast<ExpressionOperator>(op))
+    {
+        result = new ExpressionOperatorDialog(expr, userLevel, mode, destDir, eventWidget);
+    }
+    else if (auto exprCond = std::dynamic_pointer_cast<ExpressionCondition>(op))
+    {
+        result = new ExpressionConditionDialog(exprCond, userLevel, mode, destDir, eventWidget);
+    }
+    else
+    {
+        result = new AddEditOperatorDialog(op, userLevel, mode, destDir, eventWidget);
+    }
+
+    QObject::connect(result, &ObjectEditorDialog::applied,
+                     eventWidget, &EventWidget::objectEditorDialogApplied);
+
+    QObject::connect(result, &QDialog::accepted,
+                     eventWidget, &EventWidget::objectEditorDialogAccepted);
+
+    QObject::connect(result, &QDialog::rejected,
+                     eventWidget, &EventWidget::objectEditorDialogRejected);
+
+    return result;
+}
+
+ObjectEditorDialog *edit_operator(const OperatorPtr &op)
+{
+    // Check if an operator is being edited already.
+    if (auto oed = find_object_editor_dialog())
+    {
+        // Raise the editor and abort.
+        oed->show();
+        oed->showNormal();
+        oed->raise();
+        return {};
+    }
+
+    if (auto eventWidget = find_event_widget(op))
+    {
+        auto dialog = operator_editor_factory(
+            op, op->getUserLevel(), ObjectEditorMode::Edit, DirectoryPtr{}, eventWidget);
+
+        if (dialog)
+        {
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
+            eventWidget->clearAllTreeSelections();
+            eventWidget->clearAllToDefaultNodeHighlights();
+            return dialog;
+        }
     }
 
     return {};

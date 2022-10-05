@@ -1076,39 +1076,6 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     return result;
 }
 
-ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op,
-                                            s32 userLevel,
-                                            ObjectEditorMode mode,
-                                            const DirectoryPtr &destDir,
-                                            EventWidget *eventWidget)
-{
-    ObjectEditorDialog *result = nullptr;
-
-    if (auto expr = std::dynamic_pointer_cast<ExpressionOperator>(op))
-    {
-        result = new ExpressionOperatorDialog(expr, userLevel, mode, destDir, eventWidget);
-    }
-    else if (auto exprCond = std::dynamic_pointer_cast<ExpressionCondition>(op))
-    {
-        result = new ExpressionConditionDialog(exprCond, userLevel, mode, destDir, eventWidget);
-    }
-    else
-    {
-        result = new AddEditOperatorDialog(op, userLevel, mode, destDir, eventWidget);
-    }
-
-    QObject::connect(result, &ObjectEditorDialog::applied,
-                     eventWidget, &EventWidget::objectEditorDialogApplied);
-
-    QObject::connect(result, &QDialog::accepted,
-                     eventWidget, &EventWidget::objectEditorDialogAccepted);
-
-    QObject::connect(result, &QDialog::rejected,
-                     eventWidget, &EventWidget::objectEditorDialogRejected);
-
-    return result;
-}
-
 bool may_move_into(const AnalysisObject *obj, const Directory *destDir)
 {
     assert(obj);
@@ -1526,6 +1493,16 @@ void EventWidget::highlightInputPipe(Pipe *pipe, s32 paramIndex, bool doHighligh
 
     for (auto node = nodeToHighlight->parent(); node != nullptr; node = node->parent())
         highlight_node(node, ChildIsInputNodeOfColor);
+}
+
+void EventWidget::clearAllTreeSelections()
+{
+    m_d->clearAllTreeSelections();
+}
+
+void EventWidget::clearAllToDefaultNodeHighlights()
+{
+    m_d->clearAllToDefaultNodeHighlights();
 }
 
 //
@@ -4938,14 +4915,7 @@ void EventWidgetPrivate::showDependencyGraphWidget(const AnalysisObjectPtr &obj)
 
 void EventWidgetPrivate::editOperator(const OperatorPtr &op)
 {
-    auto dialog = operator_editor_factory(
-        op, op->getUserLevel(), ObjectEditorMode::Edit, DirectoryPtr(), m_q);
-
-    //POS dialog->move(QCursor::pos());
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
-    clearAllTreeSelections();
-    clearAllToDefaultNodeHighlights();
+    edit_operator(op);
 }
 
 void EventWidgetPrivate::editConditionInFirstAvailableSink(const ConditionPtr &cond)
@@ -5355,7 +5325,6 @@ bool EventWidgetPrivate::canPaste()
 
     return clipboardData->hasFormat(ObjectIdListMIMEType);
 }
-
 
 } // ns ui
 } // ns analysis
