@@ -11,6 +11,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include "analysis.h"
 #include "analysis_ui_util.h"
+#include "condition_ui.h"
 #include "../analysis_service_provider.h"
 #include "../graphviz_util.h"
 #include "../qt_util.h"
@@ -557,7 +558,9 @@ DependencyGraphWidget *find_dependency_graph_widget()
 }
 
 DependencyGraphWidget *show_dependency_graph(
-    AnalysisServiceProvider *asp, const AnalysisObjectPtr &obj, const GraphObjectAttributes &goa)
+    AnalysisServiceProvider *asp,
+    const AnalysisObjectPtr &obj,
+    const GraphObjectAttributes &goa)
 {
     auto dgw = find_dependency_graph_widget();
 
@@ -565,10 +568,24 @@ DependencyGraphWidget *show_dependency_graph(
     {
         dgw = new DependencyGraphWidget(asp);
         dgw->setAttribute(Qt::WA_DeleteOnClose, true);
+
         // Save/restore window position and size.
         auto geoSaver = new WidgetGeometrySaver(dgw);
         geoSaver->addAndRestore(dgw, "WindowGeometries/AnalysisDependencyGraphWidget");
         add_widget_close_action(dgw);
+
+        QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
+                         dgw, [=] (const AnalysisObjectPtr &obj)
+                         {
+                            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
+                            {
+                                auto cond = std::dynamic_pointer_cast<ConditionInterface>(op);
+                                if (cond && !std::dynamic_pointer_cast<ExpressionCondition>(cond))
+                                    edit_condition_in_first_available_sink(asp, cond);
+                                else
+                                    edit_operator(op);
+                            }
+                         });
     }
 
     dgw->setGraphObjectAttributes(goa);
