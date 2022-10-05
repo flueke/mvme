@@ -4950,57 +4950,12 @@ void EventWidgetPrivate::editOperator(const OperatorPtr &op)
 
 void EventWidgetPrivate::editConditionInFirstAvailableSink(const ConditionPtr &cond)
 {
-    assert(cond);
-
-    const auto allSinks = cond->getAnalysis()->getSinkOperators<std::shared_ptr<SinkInterface>>();
-    auto sinks = find_sinks_for_condition(cond, allSinks);
-
-    for (auto &sink: sinks)
-    {
-        if (editConditionInSink(cond, sink))
-            break;
-    }
+    edit_condition_in_first_available_sink(cond, m_serviceProvider);
 }
 
 bool EventWidgetPrivate::editConditionInSink(const ConditionPtr &cond, const SinkPtr &sink)
 {
-    assert(cond);
-    assert(sink);
-
-    auto h1dSink = std::dynamic_pointer_cast<Histo1DSink>(sink);
-    auto h2dSink = std::dynamic_pointer_cast<Histo2DSink>(sink);
-
-    if (!h1dSink && !h2dSink)
-        return false;
-
-    auto widget = show_sink_widget(m_serviceProvider, sink);
-
-    if (h1dSink)
-    {
-        auto action = widget->findChild<QAction *>("intervalConditions");
-        assert(action);
-        action->setChecked(true);
-        auto editController = widget->findChild<IntervalConditionEditorController *>(
-            "intervalConditionEditorController");
-        assert(editController);
-        auto editDialog = editController->getDialog();
-        editDialog->selectCondition(cond->getId());
-        return true;
-    }
-    else if (h2dSink)
-    {
-        auto action = widget->findChild<QAction *>("polygonConditions");
-        assert(action);
-        action->setChecked(true);
-        auto editController = widget->findChild<PolygonConditionEditorController *>(
-            "polygonConditionEditorController");
-        assert(editController);
-        auto editDialog = editController->getDialog();
-        editDialog->selectCondition(cond->getId());
-        return true;
-    }
-
-    return false;
+    return edit_condition_in_sink(cond, sink, m_serviceProvider);
 }
 
 QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)

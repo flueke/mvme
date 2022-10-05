@@ -159,6 +159,9 @@ class PolygonConditionEditorController: public QObject
         friend class ModifyPolygonCommand;
 };
 
+bool edit_condition_in_sink(const ConditionPtr &cond, const SinkPtr &sink, AnalysisServiceProvider *asp);
+bool edit_condition_in_first_available_sink(const ConditionPtr &cond, AnalysisServiceProvider *asp);
+
 } // ns ui
 } // ns analysis
 
