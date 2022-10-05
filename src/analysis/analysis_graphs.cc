@@ -392,11 +392,10 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
     assert(asp);
     d->q = this;
     d->gctx_ = create_graph_context();
-    d->toolbar_ = new QToolBar;
+    d->toolbar_ = make_toolbar();
     d->asp_ = asp;
 
     setObjectName("AnalysisDependencyGraphWidget");
-    d->toolbar_->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextUnderIcon);
 
     auto layout = make_vbox(this);
     layout->addWidget(d->toolbar_);
