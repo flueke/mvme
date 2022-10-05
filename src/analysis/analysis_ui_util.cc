@@ -1,6 +1,7 @@
 #include "analysis_ui_util.h"
 
 #include <QGuiApplication>
+#include <QApplication>
 #include "analysis.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
@@ -149,6 +150,19 @@ QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::sh
     asp->getWidgetRegistry()->addObjectWidget(widget, rms.get(), rms->getId().toString());
 
     return widget;
+}
+
+ObjectEditorDialog *find_object_editor_dialog()
+{
+    auto widgets = QApplication::topLevelWidgets();
+
+    for (auto widget: widgets)
+    {
+        if (auto oed = qobject_cast<ObjectEditorDialog *>(widget))
+            return oed;
+    }
+
+    return {};
 }
 
 }

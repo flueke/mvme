@@ -430,7 +430,6 @@ void AnalysisWidgetPrivate::closeAllUniqueWidgets()
     if (m_eventWidget->m_d->m_uniqueWidget)
     {
         m_eventWidget->m_d->m_uniqueWidget->close();
-        m_eventWidget->uniqueWidgetCloses();
     }
 }
 

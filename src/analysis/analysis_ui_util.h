@@ -3,6 +3,7 @@
 
 #include "analysis_fwd.h"
 #include "analysis_service_provider.h"
+#include "object_editor_dialog.h"
 
 namespace analysis::ui
 {
@@ -22,6 +23,9 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo 
 QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo);
 QWidget *open_new_histo2dsink_widget(AnalysisServiceProvider *asp, const Histo2DSinkPtr &sink);
 QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::shared_ptr<RateMonitorSink> &sink);
+
+// Returns the first ObjectEditorDialog found QApplication::topLevelWidgets()
+ObjectEditorDialog *find_object_editor_dialog();
 
 }
 

@@ -1436,13 +1436,8 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
 EventWidget::~EventWidget()
 {
-    if (m_d->m_uniqueWidget)
-    {
-        if (auto dialog = qobject_cast<QDialog *>(m_d->m_uniqueWidget))
-        {
-            dialog->reject();
-        }
-    }
+    if (auto oed = find_object_editor_dialog())
+        oed->reject();
 }
 
 void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback,
@@ -1548,7 +1543,6 @@ void EventWidget::objectEditorDialogAccepted()
 {
     qDebug() << __PRETTY_FUNCTION__;
     //endSelectInput(); // FIXME: needed?
-    uniqueWidgetCloses();
     m_d->repopulate();
     m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
 }
@@ -1557,7 +1551,6 @@ void EventWidget::objectEditorDialogRejected()
 {
     qDebug() << __PRETTY_FUNCTION__;
     //endSelectInput(); // FIXME: needed?
-    uniqueWidgetCloses();
 }
 
 void EventWidget::removeOperator(OperatorInterface *op)
@@ -1581,11 +1574,6 @@ void EventWidget::removeSource(SourceInterface *src)
     AnalysisPauser pauser(m_d->m_serviceProvider);
     m_d->m_serviceProvider->getAnalysis()->removeSource(src);
     m_d->repopulate();
-}
-
-void EventWidget::uniqueWidgetCloses()
-{
-    m_d->m_uniqueWidget = nullptr;
 }
 
 void EventWidget::addUserLevel()
@@ -2603,7 +2591,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
     //auto activeObject = get_shared_analysis_object<AnalysisObject>(activeNode);
     Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
-    if (m_uniqueWidget) return;
+    if (find_object_editor_dialog())
+        return;
 
     // Handle the top-left tree containing the modules and data extractors.
     if (userLevel == 0)
@@ -2630,7 +2619,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                     //POS dialog->move(QCursor::pos());
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
                     dialog->show();
-                    m_uniqueWidget = dialog;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
                 });
@@ -2729,7 +2717,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                         auto dialog = new SelectConditionsDialog(op, m_q);
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
-                        m_uniqueWidget = dialog;
 
                         QObject::connect(dialog, &ObjectEditorDialog::applied,
                                          m_q, &EventWidget::objectEditorDialogApplied);
@@ -2839,7 +2826,8 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
 
     assert(userLevel == 0);
 
-    if (m_uniqueWidget) return;
+    if (find_object_editor_dialog())
+        return;
 
     auto globalSelectedObjects = getAllSelectedObjects();
     auto activeNode = tree->itemAt(pos);
@@ -2868,7 +2856,6 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                                            //POS dialog->move(QCursor::pos());
                                            dialog->setAttribute(Qt::WA_DeleteOnClose);
                                            dialog->show();
-                                           m_uniqueWidget = dialog;
                                            clearAllTreeSelections();
                                            clearAllToDefaultNodeHighlights();
                                        });
@@ -2982,7 +2969,6 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         //POS dialog->move(QCursor::pos());
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
-                        m_uniqueWidget = dialog;
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
                     };
@@ -3100,7 +3086,8 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 {
     Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
-    if (m_uniqueWidget) return;
+    if (find_object_editor_dialog())
+        return;
 
     auto make_menu_new = [this, userLevel](QMenu *parentMenu,
                                            const DirectoryPtr &destDir = DirectoryPtr())
@@ -3120,7 +3107,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     //POS dialog->move(QCursor::pos());
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
                     dialog->show();
-                    m_uniqueWidget = dialog;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
                 });
@@ -3370,7 +3356,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         auto dialog = new SelectConditionsDialog(op, m_q);
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
-                        m_uniqueWidget = dialog;
 
                         QObject::connect(dialog, &ObjectEditorDialog::applied,
                                          m_q, &EventWidget::objectEditorDialogApplied);
@@ -4202,7 +4187,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 } break;
 
             case NodeType_Operator:
-                if (!m_uniqueWidget)
+                if (!find_object_editor_dialog())
                 {
                     if (auto op = get_shared_analysis_object<OperatorInterface>(
                             node, DataRole_AnalysisObject))
@@ -4221,7 +4206,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 } break;
 
             case NodeType_Source:
-                if (!m_uniqueWidget)
+                if (!find_object_editor_dialog())
                 {
                     if (auto srcPtr = get_shared_analysis_object<SourceInterface>(
                             node, DataRole_AnalysisObject))
@@ -4242,7 +4227,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                             //POS dialog->move(QCursor::pos());
                             dialog->setAttribute(Qt::WA_DeleteOnClose);
                             dialog->show();
-                            m_uniqueWidget = dialog;
                         }
                     }
                 } break;
@@ -4960,7 +4944,6 @@ void EventWidgetPrivate::editOperator(const OperatorPtr &op)
     //POS dialog->move(QCursor::pos());
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
-    m_uniqueWidget = dialog;
     clearAllTreeSelections();
     clearAllToDefaultNodeHighlights();
 }

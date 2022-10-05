@@ -612,7 +612,6 @@ void MultiHitExtractorDialog::accept()
 
 void MultiHitExtractorDialog::reject()
 {
-    d->eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
 
@@ -1140,7 +1139,6 @@ void AddEditOperatorDialog::reject()
     }
 
     m_eventWidget->endSelectInput();
-    m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
 

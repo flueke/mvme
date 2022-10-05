@@ -89,7 +89,6 @@ class EventWidget: public QWidget
 
         void removeOperator(OperatorInterface *op);
 
-        void uniqueWidgetCloses();
         void addUserLevel();
         void removeUserLevel();
         void toggleSinkEnabled(SinkInterface *sink);
