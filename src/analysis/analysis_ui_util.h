@@ -24,7 +24,7 @@ QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1D
 QWidget *open_new_histo2dsink_widget(AnalysisServiceProvider *asp, const Histo2DSinkPtr &sink);
 QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::shared_ptr<RateMonitorSink> &sink);
 
-// Returns the first ObjectEditorDialog found QApplication::topLevelWidgets()
+// Returns the first ObjectEditorDialog found in QApplication::topLevelWidgets()
 ObjectEditorDialog *find_object_editor_dialog();
 
 }

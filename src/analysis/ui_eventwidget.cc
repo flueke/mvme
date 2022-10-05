@@ -4950,12 +4950,12 @@ void EventWidgetPrivate::editOperator(const OperatorPtr &op)
 
 void EventWidgetPrivate::editConditionInFirstAvailableSink(const ConditionPtr &cond)
 {
-    edit_condition_in_first_available_sink(cond, m_serviceProvider);
+    edit_condition_in_first_available_sink(m_serviceProvider, cond);
 }
 
 bool EventWidgetPrivate::editConditionInSink(const ConditionPtr &cond, const SinkPtr &sink)
 {
-    return edit_condition_in_sink(cond, sink, m_serviceProvider);
+    return edit_condition_in_sink(m_serviceProvider, cond, sink);
 }
 
 QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)

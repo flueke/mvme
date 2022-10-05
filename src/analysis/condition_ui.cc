@@ -1371,7 +1371,7 @@ void PolygonConditionEditorController::onPointRemoved(const QPointF &p)
     d->onPointRemoved(p);
 }
 
-bool edit_condition_in_sink(const ConditionPtr &cond, const SinkPtr &sink, AnalysisServiceProvider *asp)
+bool edit_condition_in_sink(AnalysisServiceProvider *asp, const ConditionPtr &cond, const SinkPtr &sink)
 {
     assert(cond);
     assert(sink);
@@ -1413,7 +1413,7 @@ bool edit_condition_in_sink(const ConditionPtr &cond, const SinkPtr &sink, Analy
     return false;
 }
 
-bool edit_condition_in_first_available_sink(const ConditionPtr &cond, AnalysisServiceProvider *asp)
+bool edit_condition_in_first_available_sink(AnalysisServiceProvider *asp, const ConditionPtr &cond)
 {
     assert(cond);
 
@@ -1422,7 +1422,7 @@ bool edit_condition_in_first_available_sink(const ConditionPtr &cond, AnalysisSe
 
     for (auto &sink: sinks)
     {
-        if (edit_condition_in_sink(cond, sink, asp))
+        if (edit_condition_in_sink(asp, cond, sink))
             return true;
     }
 
