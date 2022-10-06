@@ -32,6 +32,7 @@ void GraphContext::clear()
     edges.clear();
     dirgraphs.clear();
     conditionsCluster = nullptr;
+    conditionDependees = nullptr;
 }
 
 // The template parameter Parent must provide an addNode() method like QGVScene or QGVSubGraph.
@@ -231,6 +232,25 @@ struct CreateGraphVisitor: public ObjectVisitor
         auto node = object_graph_add_node(gctx, cond);
         darken_node_color(node); // darker folor for the central object
         object_graph_recurse_to_source(gctx, cond);
+
+        for (const auto &op: cond->getAnalysis()->getOperators())
+        {
+            if (op->getActiveConditions().contains(cond))
+            {
+                if (!gctx.conditionDependees)
+                {
+                    auto &cluster = gctx.conditionDependees;
+                    cluster = gctx.scene->addSubGraph("conditionUsers");
+                    cluster->setAttribute("label", "Dependees");
+                    cluster->setAttribute("style", "filled");
+                    cluster->setAttribute("fillcolor", "#eeeeee");
+                }
+
+                object_graph_add_node(gctx, gctx.conditionDependees, op);
+                auto e = object_graph_add_edge(gctx, cond, op);
+                e->setAttribute("color", "darkblue");
+            }
+        }
     }
 
     void visit(Directory *dir_) override

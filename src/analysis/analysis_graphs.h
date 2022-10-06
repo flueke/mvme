@@ -27,7 +27,16 @@ struct LIBMVME_EXPORT GraphContext
     std::map<const QGVNode *, QUuid> nodesToId;
     std::map<std::pair<QUuid, QUuid>, QGVEdge *> edges;
     std::map<QUuid, QGVSubGraph *> dirgraphs;
+
+    // Cluster for holding the conditions being used by objects in the graph.
+    // Arrows point from the conditions in this cluster to the objects using
+    // them.
     QGVSubGraph *conditionsCluster = nullptr;
+
+    // Cluster for objects that use the condition being shown.
+    // Only used when the root object is a condition. Arrows point from the
+    // condition to the objects referencing it.
+    QGVSubGraph *conditionDependees = nullptr;
 
     explicit GraphContext(QGVScene *scene_ = nullptr, QGraphicsView *view_ = nullptr)
         : scene(scene_)
