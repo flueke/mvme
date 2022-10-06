@@ -380,7 +380,6 @@ QGraphicsView *make_graph_view()
         QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
     view->setDragMode(QGraphicsView::ScrollHandDrag);
     view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
-    view->setContextMenuPolicy(Qt::CustomContextMenu);
     view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 

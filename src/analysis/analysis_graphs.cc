@@ -1,14 +1,15 @@
 #include "analysis_graphs.h"
 
 #include <cassert>
-#include <qgv.h>
 #include <QApplication>
+#include <QGraphicsSceneMouseEvent>
+#include <qgv.h>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QTimer>
 #include <QToolBar>
-#include <QUndoStack>
 #include <QUndoCommand>
-#include <QGraphicsSceneMouseEvent>
+#include <QUndoStack>
 #include "analysis.h"
 #include "analysis_ui_util.h"
 #include "condition_ui.h"
@@ -352,6 +353,7 @@ struct DependencyGraphWidget::Private
     void onActionViewTriggered();
     void onActionOpenTriggered();
     void onActionEditTriggered();
+    void runContextMenu(const QPoint &pos);
 };
 
 class ShowObjectGraphCommand: public QUndoCommand
@@ -441,6 +443,14 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
     connect(d->actionEdit, &QAction::triggered,
             this, [this] { d->onActionEditTriggered(); });
 
+    // Setting this policy has the side effect of QGVScene::contextMenuEvent()
+    // not being called anymore. Instead we can do all the context menu handling
+    // ourselves.
+    d->gctx_.view->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(d->gctx_.view, &QWidget::customContextMenuRequested,
+            this, [this] (const QPoint &pos) { d->runContextMenu(pos); });
+
     d->onSceneSelectionChanged();
 }
 
@@ -456,7 +466,6 @@ void DependencyGraphWidget::Private::onSceneSelectionChanged()
     auto obj = selectedObject();
     actionView->setEnabled(obj != nullptr);
     actionOpen->setEnabled(obj != nullptr && qobject_cast<SinkInterface *>(obj.get()));
-    actionView->setEnabled(obj != nullptr);
     actionEdit->setEnabled(obj != nullptr);
 }
 
@@ -479,6 +488,33 @@ void DependencyGraphWidget::Private::onActionEditTriggered()
 {
     if (auto obj = selectedObject())
         emit q->editObject(obj);
+}
+
+void DependencyGraphWidget::Private::runContextMenu(const QPoint &pos)
+{
+    auto scenePos =  gctx_.view->mapToScene(pos);
+    auto screenPos = gctx_.view->mapToGlobal(pos);
+    auto obj = objectAtScenePos(scenePos);
+
+    if (obj)
+    {
+        if (auto node = gctx_.nodes.at(obj->getId()))
+        {
+            gctx_.scene->clearSelection();
+            // Selecting the node leads to onSceneSelectionChanged() being
+            // called which updates the actions used in the context menu.
+            node->setSelected(true);
+        }
+    }
+
+    QMenu menu;
+    menu.addAction(actionBack_);
+    menu.addAction(actionForward_);
+    menu.addSeparator();
+    menu.addAction(actionView);
+    menu.addAction(actionOpen);
+    menu.addAction(actionEdit);
+    menu.exec(screenPos);
 }
 
 AnalysisObjectPtr DependencyGraphWidget::getRootObject() const
@@ -509,6 +545,7 @@ void DependencyGraphWidget::fitInView()
 
 bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
 {
+    // Go forward/backward with mouse buttons 4/5.
     if (watched == this && ev->type() == QEvent::MouseButtonPress)
     {
         auto mev = reinterpret_cast<QMouseEvent *>(ev);
@@ -518,6 +555,7 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
         else if (mev->button() == Qt::MouseButton::ForwardButton)
             d->actionForward_->trigger();
     }
+    // Control-left click shows the graph for the clicked item.
     else if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMousePress && getRootObject())
     {
         auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
@@ -529,6 +567,7 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
                 setRootObject(obj);
         }
     }
+    // Double click starts editing non-sink operators and opens sinks in their specific view.
     else if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMouseDoubleClick && getRootObject())
     {
         auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
@@ -544,7 +583,6 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
 
     return false;
 }
-
 
 DependencyGraphWidget *find_dependency_graph_widget()
 {
