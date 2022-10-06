@@ -5155,7 +5155,7 @@ void Analysis::updateRank(OperatorPtr op,
 
         const s32 condRank = cond->getRank();
 
-        newRank = std::max(maxInputRank, condRank) + 1;
+        newRank = std::max(newRank, std::max(maxInputRank, condRank) + 1);
 
         qDebug() << __PRETTY_FUNCTION__ << "op" << op
             << " uses conditon" << cond.get()
