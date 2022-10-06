@@ -190,6 +190,14 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
     }
 }
 
+void darken_node_color(QGVNode *node, int factor = 120)
+{
+    QColor nodeColor(node->getAttribute("fillcolor"));
+    node->setAttribute("fillcolor", nodeColor.darker(factor).name());
+}
+
+// Used when creating a graph for an object. visit() is only called for the root
+// object of the graph.
 struct CreateGraphVisitor: public ObjectVisitor
 {
     GraphContext &gctx;
@@ -199,7 +207,8 @@ struct CreateGraphVisitor: public ObjectVisitor
     void visit(SourceInterface *source) override
     {
         auto src = std::dynamic_pointer_cast<SourceInterface>(source->shared_from_this());
-        object_graph_add_node(gctx, src);
+        auto node = object_graph_add_node(gctx, src);
+        darken_node_color(node); // darker folor for the central object
         object_graph_add_module_for_source(gctx, src);
     }
 
@@ -207,7 +216,7 @@ struct CreateGraphVisitor: public ObjectVisitor
     {
         auto op = std::dynamic_pointer_cast<OperatorInterface>(op_->shared_from_this());
         auto node = object_graph_add_node(gctx, op);
-        node->setAttribute("fillcolor", "#fff580");
+        darken_node_color(node); // darker folor for the central object
         object_graph_recurse_to_source(gctx, op);
     }
 
@@ -219,7 +228,8 @@ struct CreateGraphVisitor: public ObjectVisitor
     void visit(ConditionInterface *cond_) override
     {
         auto cond = std::dynamic_pointer_cast<ConditionInterface>(cond_->shared_from_this());
-        object_graph_add_node(gctx, cond);
+        auto node = object_graph_add_node(gctx, cond);
+        darken_node_color(node); // darker folor for the central object
         object_graph_recurse_to_source(gctx, cond);
     }
 
