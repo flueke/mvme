@@ -719,6 +719,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("mbltfifo"),              parseBlockTransfer },
     { QSL("mblts"),                 parseBlockTransfer },
     { QSL("2esst"),                 parse2esstTransfer },
+    { QSL("2essts"),                parse2esstTransfer },
 
     { QSL("setbase"),               parseSetBase },
     { QSL("resetbase"),             parseResetBase },
