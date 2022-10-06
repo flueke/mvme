@@ -2607,7 +2607,12 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
         for (auto operatorName: objectFactory.getOperatorNames())
         {
             OperatorPtr op(objectFactory.makeOperator(operatorName));
-            operators.push_back(op);
+
+            if (!std::dynamic_pointer_cast<ConditionInterface>(op)
+                || std::dynamic_pointer_cast<ExpressionCondition>(op))
+            {
+                operators.push_back(op);
+            }
         }
 
         // Sort operators by displayname
