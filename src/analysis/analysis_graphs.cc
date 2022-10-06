@@ -216,7 +216,7 @@ struct CreateGraphVisitor: public ObjectVisitor
     {
         auto op = std::dynamic_pointer_cast<OperatorInterface>(op_->shared_from_this());
         auto node = object_graph_add_node(gctx, op);
-        darken_node_color(node); // darker folor for the central object
+        node->setAttribute("fillcolor", "#fff580");
         object_graph_recurse_to_source(gctx, op);
     }
 
