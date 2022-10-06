@@ -112,15 +112,21 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
                     result.addVMEBlockRead(cmd.address, vme_address_modes::MBLT64, cmd.transfers);
                 } break;
 
+            case CommandType::MBLTSwapped:
+                {
+                    result.addVMEBlockReadSwapped(cmd.address, cmd.transfers);
+                } break;
+
             case CommandType::Blk2eSST64:
                 {
                     result.addVMEBlockRead(
                         cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers);
                 } break;
 
-            case CommandType::MBLTSwapped:
+            case CommandType::Blk2eSST64Swapped:
                 {
-                    result.addVMEMBLTSwapped(cmd.address, vme_address_modes::MBLT64, cmd.transfers);
+                    result.addVMEBlockReadSwapped(
+                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers);
                 } break;
 
             case CommandType::Marker:

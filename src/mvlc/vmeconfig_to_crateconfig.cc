@@ -73,6 +73,15 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
         case CommandType::Blk2eSST64:
             dstCmd.type = mvlcCT::VMERead;
             dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
+        case CommandType::Blk2eSST64Swapped:
+            dstCmd.type = mvlcCT::VMEMBLTSwapped;
+            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
