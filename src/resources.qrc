@@ -67,6 +67,9 @@
     <file alias="document-rename.png">resources/document-rename.png</file>
     <file alias="printer.png">resources/printer.png</file>
     <file>resources/magnifier-zoom.png</file>
+    <file alias="code-function.png">resources/code-function.png</file>
+    <file alias="interval_condition.png">resources/layer-resize-replicate.png</file>
+    <file alias="polygon_condition.png">resources/layer-shape-polygon.png</file>
 
     <file>resources/layer-visible-off.png</file>
     <file>resources/layer-visible-on.png</file>

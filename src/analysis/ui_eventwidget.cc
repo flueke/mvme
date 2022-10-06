@@ -886,6 +886,20 @@ static QIcon make_operator_icon(OperatorInterface *op)
     if (qobject_cast<SinkInterface *>(op))
         return QIcon(":/sink.png");
 
+    // conditions
+    if (qobject_cast<IntervalCondition *>(op))
+        return QIcon(":/interval_condition.png");
+
+    if (qobject_cast<PolygonCondition *>(op))
+        return QIcon(":/polygon_condition.png");
+
+    if (qobject_cast<ExpressionCondition *>(op))
+        return QIcon(":/function.png");
+
+    if (qobject_cast<ConditionInterface *>(op))
+        return QIcon(":/code-function.png");
+
+
     return QIcon(":/operator_generic.png");
 }
 
@@ -2583,23 +2597,22 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
     {
         auto menuNew = new QMenu(parentMenu);
 
-        auto add_newOperatorAction =
-            [this, parentMenu, menuNew, userLevel] (const QString &title,
-                                                    auto op,
-                                                    const DirectoryPtr &destDir) {
-                auto icon = make_operator_icon(op.get());
-                // New Operator
-                menuNew->addAction(icon, title, parentMenu, [this, userLevel, op, destDir]() {
-                    auto dialog = operator_editor_factory(
-                        op, userLevel, ObjectEditorMode::New, destDir, m_q);
+        auto add_newOperatorAction = [this, parentMenu, menuNew, userLevel] (
+            const QString &title, auto op, const DirectoryPtr &destDir)
+        {
+            auto icon = make_operator_icon(op.get());
+            // New Operator
+            menuNew->addAction(icon, title, parentMenu, [this, userLevel, op, destDir]() {
+                auto dialog = operator_editor_factory(
+                    op, userLevel, ObjectEditorMode::New, destDir, m_q);
 
-                    //POS dialog->move(QCursor::pos());
-                    dialog->setAttribute(Qt::WA_DeleteOnClose);
-                    dialog->show();
-                    clearAllTreeSelections();
-                    clearAllToDefaultNodeHighlights();
-                });
-            };
+                //POS dialog->move(QCursor::pos());
+                dialog->setAttribute(Qt::WA_DeleteOnClose);
+                dialog->show();
+                clearAllTreeSelections();
+                clearAllToDefaultNodeHighlights();
+            });
+        };
 
         auto objectFactory = m_serviceProvider->getAnalysis()->getObjectFactory();
         OperatorVector operators;
