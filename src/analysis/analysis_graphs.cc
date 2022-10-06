@@ -405,12 +405,12 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
 
     auto actionBack = d->history_.createUndoAction(this, QSL("Back"));
     actionBack->setIcon(QIcon(QSL(":/arrow_left.png")));
-    actionBack->setShortcut(QKeySequence("Alt-Right"));
+    actionBack->setShortcut(QKeySequence("Alt+Left"));
     actionBack->setShortcutContext(Qt::WindowShortcut);
 
     auto actionForward = d->history_.createRedoAction(this, QSL("Forward"));
     actionForward->setIcon(QIcon(QSL(":/arrow_right.png")));
-    actionForward->setShortcut(QKeySequence("Alt+Left"));
+    actionForward->setShortcut(QKeySequence("Alt+Right"));
     actionForward->setShortcutContext(Qt::WindowShortcut);
 
     d->actionBack_ = actionBack;
