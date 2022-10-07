@@ -426,8 +426,9 @@ struct IntervalConditionEditorController::Private
 
     void onNewConditionRequested()
     {
+        auto analysis = asp_->getAnalysis();
         newCond_ = std::make_shared<IntervalCondition>();
-        newCond_->setObjectName("new condition");
+        newCond_->setObjectName(make_unique_operator_name(analysis, "interval", ""));
         intervals_ = {};
 
         auto conditions = getEditableConditions();
@@ -1095,8 +1096,9 @@ struct PolygonConditionEditorController::Private
 
     void onNewConditionRequested()
     {
+        auto analysis = asp_->getAnalysis();
         newCond_ = std::make_shared<PolygonCondition>();
-        newCond_->setObjectName("new poly condition");
+        newCond_->setObjectName(make_unique_operator_name(analysis, "poly", ""));
         poly_ = {};
 
         auto conditions = getEditableConditions();
