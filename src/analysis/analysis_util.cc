@@ -646,4 +646,44 @@ std::pair<std::shared_ptr<Analysis>, std::error_code> read_analysis(const QJsonD
     return ret;
 }
 
+DirectoryPtr add_condition_to_analysis(Analysis *analysis, const ConditionPtr &cond)
+{
+    assert(analysis);
+    assert(cond);
+
+    // Place the condition in the common conditions directory. Create the
+    // directory if it does not exist yet.
+    auto dirs = analysis->getDirectories(cond->getUserLevel(), DisplayLocation::Operator);
+
+    auto it = std::find_if(
+        std::begin(dirs), std::end(dirs),
+        [](const auto &dir)
+        {
+            return dir->property("isConditionsDirectory").toBool();
+        });
+
+    DirectoryPtr destDir = {};
+
+    if (it == std::end(dirs))
+    {
+        destDir = std::make_shared<Directory>();
+        destDir->setObjectName("Conditions");
+        destDir->setProperty("isConditionsDirectory", true);
+        destDir->setProperty("icon", ":/scissors.png");
+        destDir->setUserLevel(cond->getUserLevel());
+        destDir->setDisplayLocation(DisplayLocation::Operator);
+        analysis->addDirectory(destDir);
+    }
+    else
+        destDir = *it;
+
+    assert(destDir);
+
+    destDir->push_back(cond);
+
+    analysis->addOperator(cond);
+
+    return destDir;
+}
+
 } // namespace analysis

@@ -220,6 +220,11 @@ QJsonDocument LIBMVME_EXPORT analysis_to_json_doc(const Analysis &analysis);
 
 std::pair<std::shared_ptr<Analysis>, std::error_code> LIBMVME_EXPORT read_analysis(const QJsonDocument &doc);
 
+// Adds the condition to the analysis and places it in the common conditions
+// directory for the conditions userlevel. The directory is created if it does
+// not exist yet. Returns the destination directory where the condition was placed.
+DirectoryPtr LIBMVME_EXPORT add_condition_to_analysis(Analysis *analysis, const ConditionPtr &cond);
+
 } // namespace analysis
 
 

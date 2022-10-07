@@ -530,6 +530,7 @@ void Directory::read(const QJsonObject &json)
     }
 
     setDisplayLocation(displayLocation_from_string(json["displayLocation"].toString()));
+    loadDynamicProperties(json["dynamicProperties"].toObject(), this);
 }
 
 void Directory::write(QJsonObject &json) const
@@ -543,6 +544,7 @@ void Directory::write(QJsonObject &json) const
 
     json["members"] = memberIds;
     json["displayLocation"] = to_string(getDisplayLocation());
+    json["dynamicProperties"] = storeDynamicProperties(this);
 }
 
 void Directory::postClone(const AnalysisObject *cloneSource)

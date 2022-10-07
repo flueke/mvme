@@ -387,7 +387,9 @@ struct IntervalConditionEditorController::Private
         {
             // It's a new condition. Connect its input and add it to the analysis.
             cond->connectArrayToInputSlot(0, sink_->getSlot(0)->inputPipe);
-            asp_->getAnalysis()->addOperator(sink_->getEventId(), sink_->getUserLevel(), cond);
+            cond->setEventId(sink_->getEventId());
+            cond->setUserLevel(sink_->getUserLevel());
+            add_condition_to_analysis(asp_->getAnalysis(), cond);
         }
         else
         {
@@ -1059,7 +1061,9 @@ struct PolygonConditionEditorController::Private
             auto sinkSlot1 = sink_->getSlot(1);
             cond->connectInputSlot(0, sinkSlot0->inputPipe, sinkSlot0->paramIndex);
             cond->connectInputSlot(1, sinkSlot1->inputPipe, sinkSlot1->paramIndex);
-            asp_->getAnalysis()->addOperator(sink_->getEventId(), sink_->getUserLevel(), cond);
+            cond->setEventId(sink_->getEventId());
+            cond->setUserLevel(sink_->getUserLevel());
+            add_condition_to_analysis(asp_->getAnalysis(), cond);
         }
         else
         {
