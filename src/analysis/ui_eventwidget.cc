@@ -1004,8 +1004,13 @@ inline TreeNode *make_directory_node(const DirectoryPtr &dir)
 {
     auto result = make_node(dir.get(), NodeType_Directory, DataRole_AnalysisObject);
 
+    auto iconName = dir->property("icon").toString();
+
+    if (iconName.isEmpty())
+        iconName = QSL(":/folder_orange.png");
+
     result->setText(0, dir->objectName());
-    result->setIcon(0, QIcon(QSL(":/folder_orange.png")));
+    result->setIcon(0, QIcon(iconName));
     result->setFlags(result->flags()
                      | Qt::ItemIsDropEnabled
                      | Qt::ItemIsDragEnabled
