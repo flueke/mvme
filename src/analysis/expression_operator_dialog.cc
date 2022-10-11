@@ -28,6 +28,7 @@
 #include "analysis/analysis_util.h"
 #include "analysis/ui_eventwidget.h"
 #include "mvme_context_lib.h"
+#include "mvme_qthelp.h"
 #include "qt_util.h"
 #include "util/cpp17_algo.h"
 #include "util/qt_font.h"
@@ -2763,20 +2764,42 @@ ExpressionConditionDialog::ExpressionConditionDialog(
     auto l_errorBox = make_hbox<2>(errorBox);
     l_errorBox->addWidget(m_d->m_exprErrorWidget);
 
+    // info box and label
+    auto label_info = new QLabel;
+    label_info->setWordWrap(true);
+    label_info->setTextFormat(Qt::RichText);
+    label_info->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    label_info->setText(QSL(
+        "Select the desired inputs, assign variable names and edit the expression text.<br/>"
+        "Example expressions:<br/>"
+        "* <tt>c1 and c2              # logical 'and'</tt><br/>"
+        "* <tt>c1 or not(c2 and c3)   # negation uses the 'not' function</tt><br/>"
+        "* <tt>mand(c1, c2, c3 or c4) # uses the mand() function: multi-input AND</tt><br/>"
+        )
+    );
+    auto infoBox = new QGroupBox("Info");
+    auto l_infoBox = make_hbox<2>(infoBox);
+    l_infoBox->addWidget(label_info);
+
     auto lowerLayout = new QFormLayout;
     lowerLayout->addRow(exprBox);
     lowerLayout->addRow(errorBox);
+    lowerLayout->addRow(infoBox);
 
     // buttonbox: ok/cancel
-    m_d->m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
-                                            | QDialogButtonBox::Cancel,
-                                            this);
+    m_d->m_buttonBox = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help,
+        this);
 
     connect(m_d->m_buttonBox, &QDialogButtonBox::accepted, this, &ExpressionConditionDialog::accept);
     connect(m_d->m_buttonBox, &QDialogButtonBox::rejected, this, &ExpressionConditionDialog::reject);
-    connect(m_d->m_buttonBox, &QDialogButtonBox::clicked, this, [this] (QAbstractButton *button) {
-        if (m_d->m_buttonBox->buttonRole(button) == QDialogButtonBox::ApplyRole)
+    connect(m_d->m_buttonBox, &QDialogButtonBox::clicked, this, [this] (QAbstractButton *button)
+     {
+        auto br = m_d->m_buttonBox->buttonRole(button);
+        if (br == QDialogButtonBox::ApplyRole)
             apply();
+        else if (br == QDialogButtonBox::HelpRole)
+            mesytec::mvme::make_help_keyword_handler("Expression Condition")();
     });
 
     // main layout
