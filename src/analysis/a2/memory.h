@@ -31,7 +31,14 @@
 #include <type_traits>
 #include <vector>
 
+#ifdef A2_HUGE_PAGES
+#include <sys/mman.h>
+#endif
+
+#include <spdlog/spdlog.h>
+
 #include "util/typedefs.h"
+#include "util/sizes.h"
 
 namespace memory
 {
@@ -55,12 +62,57 @@ struct destroy_only_deleter
     }
 };
 
+#ifdef A2_HUGE_PAGES
+
+// https://rigtorp.se/hugepages/
+
+template <typename T> struct huge_page_allocator {
+  constexpr static std::size_t huge_page_size = 1 << 21; // 2 MiB
+  using value_type = T;
+
+  huge_page_allocator() = default;
+  template <class U>
+  constexpr huge_page_allocator(const huge_page_allocator<U> &) noexcept {}
+
+  size_t round_to_huge_page_size(size_t n) {
+    return (((n - 1) / huge_page_size) + 1) * huge_page_size;
+  }
+
+  T *allocate(std::size_t n) {
+    if (n > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
+      throw std::bad_alloc();
+    }
+    spdlog::debug("huge page alloc: size={}, rounded_to_page_size={}", n, round_to_huge_page_size(n * sizeof(T)));
+    auto p = static_cast<T *>(mmap(
+        nullptr, round_to_huge_page_size(n * sizeof(T)), PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0));
+    if (p == MAP_FAILED) {
+        spdlog::error("mmap failed: {}", strerror(errno));
+      throw std::bad_alloc();
+    }
+    return p;
+  }
+
+  void deallocate(T *p, std::size_t n) {
+    spdlog::debug("deallocate huge page: size={}, rounded_to_page_size={}", n, round_to_huge_page_size(n * sizeof(T)));
+    munmap(p, round_to_huge_page_size(n * sizeof(T)));
+  }
+};
+
+template<typename T>
+void huge_page_allocator_deleter(huge_page_allocator<T> alloc, T *ptr, std::size_t size)
+{
+    alloc.deallocate(ptr, size);
+}
+
+#endif // A2_HUGE_PAGES
+
 } // namespace detail
 
 class Arena
 {
     public:
-        explicit Arena(size_t segmentSize)
+        explicit Arena(size_t segmentSize = a2::Megabytes(2))
             : m_segmentSize(segmentSize)
             , m_currentSegmentIndex(0)
         {
@@ -236,7 +288,8 @@ class Arena
                 cur = mem.get();
             }
 
-            std::unique_ptr<u8[]> mem;
+            using DeleterFunc = std::function<void (u8 *)>;
+            std::unique_ptr<u8[], DeleterFunc> mem;
             void *cur;
             size_t size;
         };
@@ -255,6 +308,29 @@ class Arena
             return m_segments[m_currentSegmentIndex];
         }
 
+        #ifdef A2_HUGE_PAGES
+        void addSegment(size_t size)
+        {
+            detail::huge_page_allocator<u8> alloc;
+
+            auto roundedSize = alloc.round_to_huge_page_size(size);
+
+            auto deleter = [=] (u8 *ptr)
+            {
+                detail::huge_page_allocator_deleter(alloc, ptr, roundedSize);
+            };
+
+            Segment segment = {};
+            segment.mem     = std::unique_ptr<u8[], Segment::DeleterFunc>{ alloc.allocate(roundedSize), deleter};
+            segment.cur     = segment.mem.get();
+            segment.size    = size;
+
+            m_segments.emplace_back(std::move(segment));
+
+            //fprintf(stderr, "%s: added segment of size %u, segmentCount=%u\n",
+            //        __PRETTY_FUNCTION__, (u32)size, (u32)segmentCount());
+        }
+        #else
         void addSegment(size_t size)
         {
             Segment segment = {};
@@ -267,6 +343,7 @@ class Arena
             //fprintf(stderr, "%s: added segment of size %u, segmentCount=%u\n",
             //        __PRETTY_FUNCTION__, (u32)size, (u32)segmentCount());
         }
+        #endif
 
         inline void destroyObjects()
         {
