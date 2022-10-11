@@ -2395,7 +2395,8 @@ void LIBMVME_EXPORT add_raw_data_display(
 
 void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 
-QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QString &prefix);
+QString LIBMVME_EXPORT make_unique_operator_name(
+    Analysis *analysis, const QString &prefix, const QString &separator = ".");
 
 bool LIBMVME_EXPORT required_inputs_connected_and_valid(OperatorInterface *op);
 bool LIBMVME_EXPORT no_input_connected(OperatorInterface *op);

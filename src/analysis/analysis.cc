@@ -530,6 +530,7 @@ void Directory::read(const QJsonObject &json)
     }
 
     setDisplayLocation(displayLocation_from_string(json["displayLocation"].toString()));
+    loadDynamicProperties(json["dynamicProperties"].toObject(), this);
 }
 
 void Directory::write(QJsonObject &json) const
@@ -543,6 +544,7 @@ void Directory::write(QJsonObject &json) const
 
     json["members"] = memberIds;
     json["displayLocation"] = to_string(getDisplayLocation());
+    json["dynamicProperties"] = storeDynamicProperties(this);
 }
 
 void Directory::postClone(const AnalysisObject *cloneSource)
@@ -5911,37 +5913,30 @@ void do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo
     }
 }
 
-QString make_unique_operator_name(Analysis *analysis, const QString &prefix)
+QString make_unique_operator_name(Analysis *analysis, const QString &prefix, const QString &separator)
 {
     int suffixNumber = 0;
+
+    auto make_name = [&] { return prefix + separator + QString::number(suffixNumber); };
+
+    std::set<QString> names;
 
     for (const auto &op: analysis->getOperators())
     {
         auto name = op->objectName();
-
         if (name.startsWith(prefix))
-        {
-            QString suffix;
-            if (name.size() - 1 > prefix.size())
-            {
-                suffix = name.right(name.size() - prefix.size() - 1);
-            }
-
-            if (suffix.size())
-            {
-                bool ok;
-                int n = suffix.toInt(&ok);
-                if (ok)
-                {
-                    suffixNumber = std::max(suffixNumber, n);
-                }
-            }
-        }
+            names.insert(op->objectName());
     }
 
-    ++suffixNumber;
+    auto result = make_name();
 
-    return prefix + QSL(".") + QString::number(suffixNumber);
+    while (names.count(result))
+    {
+        ++suffixNumber;
+        result = make_name();
+    }
+
+    return result;
 }
 
 bool required_inputs_connected_and_valid(OperatorInterface *op)
