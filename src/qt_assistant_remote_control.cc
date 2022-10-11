@@ -51,8 +51,18 @@ bool QtAssistantRemoteControl::Private::startAssistant()
     if (process->state() == QProcess::Running)
         return true;
 
-    QString collectionFile = QCoreApplication::applicationDirPath()
-        + QDir::separator() + ".." + QDir::separator() + QSL("doc") + QDir::separator() + QSL("mvme.qhc");
+    QString collectionFile;
+    auto appPath = QCoreApplication::applicationDirPath();
+
+    if (appPath.endsWith("build"))
+    {
+        collectionFile = appPath + "/doc/sphinx/qthelp/mvme.qhc";
+    }
+    else
+    {
+        collectionFile = appPath
+            + QDir::separator() + ".." + QDir::separator() + QSL("doc") + QDir::separator() + QSL("mvme.qhc");
+    }
 
     QStringList args =
     {
@@ -87,7 +97,7 @@ bool QtAssistantRemoteControl::Private::startAssistant()
         }
     }
 
-    cout << "Qt Assistant is running" << endl;
+    cout << "Qt Assistant is now running" << endl;
 
     return true;
 }
