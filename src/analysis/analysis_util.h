@@ -120,6 +120,15 @@ inline bool is_sink(const AnalysisObjectPtr &obj)
     return is_sink(obj.get());
 }
 
+inline bool is_condition(const AnalysisObject *obj)
+{
+    return qobject_cast<const ConditionInterface *>(obj);
+}
+
+inline bool is_condition(const AnalysisObjectPtr &obj)
+{
+    return is_condition(obj.get());
+}
 
 using StringSet = QSet<QString>;
 using NamesByMetaObject = QHash<const QMetaObject *, StringSet>;
