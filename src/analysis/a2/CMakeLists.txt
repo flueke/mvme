@@ -66,6 +66,10 @@ endif()
 #option(A2_BUILD_SHARED "Build shared version of the a2 library" OFF)
 option(A2_BUILD_STATIC "Build static version of the a2 library" ON)
 
+if (NOT win32)
+    option(A2_HUGE_PAGES "Try to allocate using huge pages (linux only)" OFF)
+endif()
+
 #if (A2_BUILD_SHARED)
 #    add_library(liba2_shared SHARED ${liba2_SOURCES})
 #    target_link_libraries(liba2_shared
@@ -109,6 +113,10 @@ if (A2_BUILD_STATIC)
         POSITION_INDEPENDENT_CODE ON)
 
     target_compile_options(liba2_static PRIVATE -Wall -Wextra -Wno-format)
+
+    if (A2_HUGE_PAGES)
+        target_compile_definitions(liba2_static PUBLIC -DA2_HUGE_PAGES)
+    endif()
 
     set(A2_TEST_LIBRARY liba2_static)
 endif (A2_BUILD_STATIC)
