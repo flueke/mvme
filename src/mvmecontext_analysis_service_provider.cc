@@ -178,7 +178,8 @@ void MVMEContextServiceProvider::addAnalysisOperator(QUuid eventId, const std::s
     ctx_->addAnalysisOperator(eventId, op, userLevel);
 }
 
-void MVMEContextServiceProvider::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
+void MVMEContextServiceProvider::setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
-    ctx_->analysisOperatorEdited(op);
+    ctx_->setAnalysisOperatorEdited(op);
+    emit analysisOperatorEdited(op);
 }

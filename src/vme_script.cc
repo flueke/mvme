@@ -719,6 +719,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("mbltfifo"),              parseBlockTransfer },
     { QSL("mblts"),                 parseBlockTransfer },
     { QSL("2esst"),                 parse2esstTransfer },
+    { QSL("2essts"),                parse2esstTransfer },
 
     { QSL("setbase"),               parseSetBase },
     { QSL("resetbase"),             parseResetBase },
@@ -1696,6 +1697,7 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MBLTFifo,            QSL("mbltfifo") },
     { CommandType::MBLTSwapped,         QSL("mblts") },
     { CommandType::Blk2eSST64,          QSL("2esst") },
+    { CommandType::Blk2eSST64Swapped,   QSL("2essts") },
     { CommandType::SetBase,             QSL("setbase") },
     { CommandType::ResetBase,           QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
@@ -1866,13 +1868,14 @@ QString to_string(const Command &cmd)
             } break;
 
         case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Swapped:
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
                     .arg(format_hex(cmd.address))
                     .arg(to_string(cmd.blk2eSSTRate))
                     .arg(cmd.transfers);
-            }
+            } break;
 
         case CommandType::SetBase:
             {
@@ -2013,6 +2016,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::MBLTFifo:
         case CommandType::MBLTSwapped:
         case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Swapped:
         case CommandType::MVLC_ReadToAccu:
             cmd.address += baseAddress;
             break;

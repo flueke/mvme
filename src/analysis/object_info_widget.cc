@@ -25,9 +25,24 @@
 #include "analysis_util.h"
 #include "mvme_context.h"
 #include "qt_util.h"
+#include "graphviz_util.h"
+#include "graphicsview_util.h"
+#include "analysis_graphs.h"
+#include <qgv/QGVCore/QGVScene.h>
+
+#include <QClipboard>
+#include <QGraphicsView>
+#include <QGuiApplication>
+#include <QMenu>
+#include <spdlog/fmt/fmt.h>
+#include <sstream>
+#include <memory>
+#include <set>
 
 namespace analysis
 {
+
+using namespace mesytec::graphviz_util;
 
 struct ObjectInfoWidget::Private
 {
@@ -36,7 +51,38 @@ struct ObjectInfoWidget::Private
     const ConfigObject *m_configObject;
 
     QLabel *m_infoLabel;
+    QGraphicsView *m_graphView;
+
+    QGVScene m_qgvScene;
+    analysis::graph::GraphContext m_gctx;
+
+    Private()
+        : m_gctx(&m_qgvScene)
+    { }
+
+    void refreshGraphView(const AnalysisObjectPtr &obj);
+    void showGraphViewContextMenu(const QPoint &pos);
 };
+
+void ObjectInfoWidget::Private::refreshGraphView(const AnalysisObjectPtr &obj)
+{
+    analysis::graph::create_graph(m_gctx, obj);
+}
+
+void ObjectInfoWidget::Private::showGraphViewContextMenu(const QPoint &/*pos*/)
+{
+#if 0
+    auto menu = new QMenu;
+    menu->addAction("Copy DOT code", [this]() {
+        auto dotString = m_dotManager.dotString();
+        auto clipboard = QGuiApplication::clipboard();
+        clipboard->setText(QString::fromStdString(dotString));
+    });
+
+    menu->exec(m_graphView->mapToGlobal(pos));
+    menu->deleteLater();
+#endif
+}
 
 ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QFrame(parent)
@@ -50,13 +96,33 @@ ObjectInfoWidget::ObjectInfoWidget(AnalysisServiceProvider *asp, QWidget *parent
     m_d->m_infoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     set_widget_font_pointsize_relative(m_d->m_infoLabel, -2);
 
-    auto layout = new QHBoxLayout(this);
+    m_d->m_graphView = new QGraphicsView;
+#if 0
+    m_d->m_graphView->setScene(m_d->m_dotManager.scene());
+#else
+    m_d->m_graphView->setScene(&m_d->m_qgvScene);
+#endif
+    m_d->m_graphView->setRenderHints(
+        QPainter::Antialiasing | QPainter::TextAntialiasing |
+        QPainter::SmoothPixmapTransform | QPainter::HighQualityAntialiasing);
+    m_d->m_graphView->setDragMode(QGraphicsView::ScrollHandDrag);
+    m_d->m_graphView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    m_d->m_graphView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_d->m_graphView->installEventFilter(new MouseWheelZoomer(m_d->m_graphView));
+
+    auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
     layout->addWidget(m_d->m_infoLabel);
+    layout->addWidget(m_d->m_graphView);
+    //layout->setStretch(0, 1);
+    layout->setStretch(1, 1);
 
     connect(asp, &AnalysisServiceProvider::vmeConfigAboutToBeSet,
             this, &ObjectInfoWidget::clear);
+
+    connect(m_d->m_graphView, &QWidget::customContextMenuRequested,
+            this, [this] (const QPoint &pos) { m_d->showGraphViewContextMenu(pos); });
 }
 
 ObjectInfoWidget::~ObjectInfoWidget()
@@ -68,7 +134,10 @@ void ObjectInfoWidget::setAnalysisObject(const AnalysisObjectPtr &obj)
     m_d->m_configObject = nullptr;
 
     connect(obj.get(), &QObject::destroyed,
-            this, [this] { m_d->m_analysisObject = nullptr; });
+            this, [this] {
+                m_d->m_analysisObject = nullptr;
+                refresh();
+            });
 
     refresh();
 }
@@ -79,14 +148,17 @@ void ObjectInfoWidget::setVMEConfigObject(const ConfigObject *obj)
     m_d->m_configObject = obj;
 
     connect(obj, &QObject::destroyed,
-            this, [this] { m_d->m_configObject = nullptr; });
+            this, [this] {
+                m_d->m_configObject = nullptr;
+                refresh();
+            });
 
     refresh();
 }
 
 void ObjectInfoWidget::refresh()
 {
-    auto refresh_analysisObject = [this] (const AnalysisObjectPtr &obj)
+    auto refresh_analysisObject_infoLabel = [this] (const AnalysisObjectPtr &obj)
     {
         assert(obj);
         auto &label(m_d->m_infoLabel);
@@ -195,7 +267,8 @@ void ObjectInfoWidget::refresh()
     if (m_d->m_analysisObject)
         //&& m_d->m_analysisObject->getAnalysis().get() == m_d->m_serviceProvider->getAnalysis())
     {
-        refresh_analysisObject(m_d->m_analysisObject);
+        refresh_analysisObject_infoLabel(m_d->m_analysisObject);
+        m_d->refreshGraphView(m_d->m_analysisObject);
     }
     else if (m_d->m_configObject)
     {
@@ -212,7 +285,7 @@ void ObjectInfoWidget::clear()
     m_d->m_analysisObject = {};
     m_d->m_configObject = nullptr;
     m_d->m_infoLabel->clear();
+    analysis::graph::new_graph(m_d->m_gctx);
 }
-
 
 } // end namespace analysis

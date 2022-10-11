@@ -171,7 +171,7 @@ struct AnalysisWidgetPrivate
     void onDirectoryRemoved(const DirectoryPtr &dir);
     void onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
     void onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
-    void editConditionLinkGraphically(const ConditionPtr &cond);
+    //void editConditionLinkGraphically(const ConditionPtr &cond);
 
     AnalysisServiceProvider *getServiceProvider() const { return m_serviceProvider; }
     Analysis *getAnalysis() const { return getServiceProvider()->getAnalysis(); }
@@ -260,6 +260,7 @@ void AnalysisWidgetPrivate::onConditionLinkRemoved(const OperatorPtr &op, const 
 #endif
 }
 
+#if 0
 void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionPtr &cond)
 {
     (void) cond;
@@ -331,6 +332,7 @@ void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionPtr &con
     //InvalidCodePath;
 #endif
 }
+#endif
 
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
@@ -420,7 +422,7 @@ void AnalysisWidgetPrivate::doPeriodicUpdate()
 #if 0
     m_conditionWidget->doPeriodicUpdate();
 #endif
-    m_objectInfoWidget->refresh();
+    //m_objectInfoWidget->refresh();
 }
 
 void AnalysisWidgetPrivate::closeAllUniqueWidgets()
@@ -428,7 +430,6 @@ void AnalysisWidgetPrivate::closeAllUniqueWidgets()
     if (m_eventWidget->m_d->m_uniqueWidget)
     {
         m_eventWidget->m_d->m_uniqueWidget->close();
-        m_eventWidget->uniqueWidgetCloses();
     }
 }
 
@@ -954,28 +955,6 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->m_objectInfoWidget = new ObjectInfoWidget(m_d->m_serviceProvider);
     }
 
-#if 0
-    // condition/cut displays
-    {
-        m_d->m_conditionWidget = new ConditionWidget(m_d->m_serviceProvider);
-        auto condWidget = m_d->m_conditionWidget;
-
-        QObject::connect(condWidget, &ConditionWidget::objectSelected,
-                         this, [this] (const AnalysisObjectPtr &) {
-
-            m_d->m_eventWidget->m_d->clearAllTreeSelections();
-        });
-
-        QObject::connect(condWidget, &ConditionWidget::editCondition,
-                         this, [this] (const ConditionLink &cl) {
-            m_d->editConditionLinkGraphically(cl);
-        });
-
-        QObject::connect(condWidget, &ConditionWidget::objectSelected,
-                         m_d->m_objectInfoWidget, &ObjectInfoWidget::setAnalysisObject);
-    }
-#endif
-
     // toolbar
     {
         m_d->m_toolbar = make_toolbar();
@@ -1207,9 +1186,15 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // and object info (right)
     auto mainSplitter = new QSplitter;
     mainSplitter->addWidget(centralWidget);
-    //mainSplitter->addWidget(rightSplitter);
+    mainSplitter->addWidget(rightSplitter);
     mainSplitter->setStretchFactor(0, 3);
     mainSplitter->setStretchFactor(1, 1);
+
+#ifdef QT_NO_DEBUG
+    // Hide the object info widget in non-debug builds.
+    rightSplitter->hide();
+#endif
+
 
     static const char *mainSplitterStateKey = "AnalysisWidget/MainSplitterState";
 

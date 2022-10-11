@@ -353,6 +353,11 @@ struct EventWidgetPrivate
     void periodicUpdateDataSourceTreeCounters(double dt_s);
     void periodicUpdateHistoCounters(double dt_s);
     void updateActions();
+    void showDependencyGraphWidget(const AnalysisObjectPtr &obj);
+    void editOperator(const OperatorPtr &op);
+    void editConditionInFirstAvailableSink(const ConditionPtr &cond);
+    bool editConditionInSink(const ConditionPtr &cond, const SinkPtr &sink);
+    QAction *createEditAction(const OperatorPtr &op);
 
     // Object and node selections
 

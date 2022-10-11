@@ -23,7 +23,7 @@
 
 #include "libmvme_export.h"
 
-#include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/readout_buffer.h>
 #include "analysis/analysis.h"
 #include "analysis_service_provider.h"
 #include "globals.h"
@@ -346,7 +346,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
                                  s32 userLevel);
-        void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
+        void setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
 
         void reconnectVMEController();
         void forceResetVMEController();

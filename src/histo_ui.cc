@@ -1,18 +1,22 @@
 #include "histo_ui.h"
 
 #include <array>
-#include <QBoxLayout>
-#include <QEvent>
-#include <QMouseEvent>
-#include <QToolBar>
-#include <QStatusBar>
-#include <QDebug>
 #include <memory>
+#include <QBoxLayout>
+#include <QDebug>
+#include <QEvent>
+#include <QMenu>
+#include <QMouseEvent>
+#include <QPen>
+#include <QStatusBar>
+#include <QToolBar>
+#include <QVector2D>
+#include <qwt_plot_marker.h>
+#include <qwt_plot_shapeitem.h>
+#include <qwt_plot_zoneitem.h>
+#include <qwt_scale_engine.h>
 #include <qwt_scale_map.h>
 #include <spdlog/spdlog.h>
-#include <qwt_plot_zoneitem.h>
-#include <qwt_plot_marker.h>
-#include <qwt_scale_engine.h>
 
 #include "histo_gui_util.h"
 #include "histo_util.h"
@@ -39,6 +43,10 @@ QPointF canvas_to_scale(const QwtPlot *plot, const QPoint &pos)
         );
 }
 
+IPlotWidget::~IPlotWidget()
+{
+}
+
 struct PlotWidget::Private
 {
     Private(PlotWidget *q_)
@@ -54,7 +62,7 @@ struct PlotWidget::Private
 };
 
 PlotWidget::PlotWidget(QWidget *parent)
-    : QWidget(parent)
+    : IPlotWidget(parent)
     , d(std::make_unique<Private>(this))
 {
     d->toolbar = new QToolBar;
@@ -169,7 +177,43 @@ namespace
         QwtPlotZoneItem *zone;
     };
 
-    static const int CanStartDragDistancePixels = 4;
+    static const int CanStartDragDistancePixels = 6;
+}
+
+PlotPicker::PlotPicker(QWidget *canvas)
+    : QwtPlotPicker(canvas)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+#ifdef Q_OS_WIN
+    bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                     this, SLOT(onPointRemoved(const QPoint &)));
+#else
+    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                     this, &PlotPicker::onPointRemoved);
+#endif
+    assert(b);
+}
+
+PlotPicker::PlotPicker(int xAxis, int yAxis,
+                       RubberBand rubberBand,
+                       DisplayMode trackerMode,
+                       QWidget *canvas)
+    : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+#ifdef Q_OS_WIN
+    bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                     this, SLOT(onPointRemoved(const QPoint &)));
+#else
+    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                     this, &PlotPicker::onPointRemoved);
+#endif
+    assert(b);
+}
+
+void PlotPicker::onPointRemoved(const QPoint &p)
+{
+    emit removed(invTransform(p));
 }
 
 struct NewIntervalPicker::Private
@@ -252,18 +296,38 @@ NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::selected),
-            this, &NewIntervalPicker::onPointSelected);
+    bool b = false;
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
-            this, &NewIntervalPicker::onPointMoved);
+#ifdef Q_OS_WIN
+    b = connect(this, SIGNAL(selected(const QPointF &)),
+                this, SLOT(onPointSelected(const QPointF &)));
+    assert(b);
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::appended),
-            this, &NewIntervalPicker::onPointAppended);
+    b = connect(this, SIGNAL(moved(const QPointF &)),
+                this, SLOT(onPointMoved(const QPointF &)));
+    assert(b);
+
+    b = connect(this, SIGNAL(appended(const QPointF &)),
+                this, SLOT(onPointAppended(const QPointF &)));
+    assert(b);
+#else
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::selected),
+                this, &NewIntervalPicker::onPointSelected);
+    assert(b);
+
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+                this, &NewIntervalPicker::onPointMoved);
+    assert(b);
+
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::appended),
+                this, &NewIntervalPicker::onPointAppended);
+    assert(b);
+#endif
 }
 
 NewIntervalPicker::~NewIntervalPicker()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void NewIntervalPicker::reset()
@@ -350,7 +414,7 @@ struct IntervalEditorPicker::Private
     std::array<QwtPlotMarker *, 2> markers;
     QwtPlotZoneItem * zoneItem;
     QVector<QPointF> selectedPoints;
-    int draggingPointIndex = -1;
+    int dragPointIndex_ = -1;
 
     QwtInterval getInterval() const
     {
@@ -399,9 +463,9 @@ struct IntervalEditorPicker::Private
             int iMinPixel = q->transform({ interval.minValue(), 0.0 }).x();
             int iMaxPixel = q->transform({ interval.maxValue(), 0.0 }).x();
 
-            if (std::abs(pixelX - iMinPixel) < CanStartDragDistancePixels)
+            if (std::abs(pixelX - iMinPixel) <= CanStartDragDistancePixels)
                 return 0;
-            else if (std::abs(pixelX - iMaxPixel) < CanStartDragDistancePixels)
+            else if (std::abs(pixelX - iMaxPixel) <= CanStartDragDistancePixels)
                 return 1;
         }
 
@@ -438,12 +502,22 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
-            this, &IntervalEditorPicker::onPointMoved);
+    bool b = false;
+
+#ifdef Q_OS_WIN
+    b = connect(this, SIGNAL(moved(const QPointF &)),
+                this, SLOT(onPointMoved(const QPointF &)));
+    assert(b);
+#else
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+                this, &IntervalEditorPicker::onPointMoved);
+    assert(b);
+#endif
 }
 
 IntervalEditorPicker::~IntervalEditorPicker()
 {
+    qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void IntervalEditorPicker::setInterval(const QwtInterval &interval)
@@ -468,8 +542,8 @@ void IntervalEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
     if (mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev))
         && d->getInterval().isValid())
     {
-        qDebug() << __PRETTY_FUNCTION__ << "draggingPointIndex=" << d->draggingPointIndex;
-        d->draggingPointIndex = d->getClosestPointIndex(ev->pos().x());
+        qDebug() << __PRETTY_FUNCTION__ << "dragPointIndex_=" << d->dragPointIndex_;
+        d->dragPointIndex_ = d->getClosestPointIndex(ev->pos().x());
     }
     else
         PlotPicker::widgetMousePressEvent(ev);
@@ -480,17 +554,17 @@ void IntervalEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
     if (!mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev)))
         return;
 
-    if (d->draggingPointIndex < 0)
+    if (d->dragPointIndex_ < 0)
         return;
 
-    d->draggingPointIndex = -1;
+    d->dragPointIndex_ = -1;
     std::sort(d->selectedPoints.begin(), d->selectedPoints.end(),
               [] (const auto &a, const auto &b) { return a.x() < b.x(); });
 }
 
 void IntervalEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 {
-    if (d->getInterval().isValid() && d->draggingPointIndex < 0)
+    if (d->getInterval().isValid() && d->dragPointIndex_ < 0)
     {
         if (d->getClosestPointIndex(ev->pos().x()) >= 0)
             canvas()->setCursor(Qt::SplitHCursor);
@@ -504,10 +578,467 @@ void IntervalEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 void IntervalEditorPicker::onPointMoved(const QPointF &p)
 {
     qDebug() << __PRETTY_FUNCTION__ << p;
-    if (d->draggingPointIndex >= 0)
+    if (d->dragPointIndex_ >= 0)
     {
-        d->selectedPoints[d->draggingPointIndex] = p;
+        assert(d->dragPointIndex_ < d->selectedPoints.size());
+        d->selectedPoints[d->dragPointIndex_] = p;
         d->updateMarkersAndZone();
+        emit intervalModified(d->getInterval());
+    }
+}
+
+QList<QwtPickerMachine::Command> ImprovedPickerPolygonMachine::transition(
+    const QwtEventPattern &eventPattern, const QEvent *event)
+{
+    auto cmdList = QwtPickerPolygonMachine::transition(eventPattern, event);
+
+    if (event->type() == QEvent::MouseButtonPress)
+    {
+        if (eventPattern.mouseMatch(
+                QwtEventPattern::MouseSelect3,
+                static_cast<const QMouseEvent *>(event)))
+            {
+                cmdList += Remove;
+            }
+    }
+
+    return cmdList;
+}
+
+namespace
+{
+
+// Returns the shortest distance from the point p to the line l. Fills cp with
+// the coordinates of the closest point.
+inline double distance_to_line(QPointF p, QLineF l, QPointF &cp)
+{
+    // line is 'ab', 'ap' is a to p
+    QVector2D ab { l.p2() - l.p1() };
+    QVector2D ap { p - l.p1() };
+    auto proj = QVector2D::dotProduct(ap, ab);
+    auto abLen2 = ab.lengthSquared();
+    auto d = proj / abLen2;
+
+    if (d <= 0.0)
+        cp = l.p1();
+    else if (d >= 1.0)
+        cp = l.p2();
+    else
+        cp = l.pointAt(d);
+
+    auto result = QVector2D{p}.distanceToPoint(QVector2D{cp});
+    return result;
+}
+
+// Helper structure for determining the closest edge of a polygon to a given
+// point.
+struct EdgeIndexesAndDistance
+{
+    std::pair<int, int> indexes = { -1, -1 }; // indexes into the polygon
+    double distance = {}; // distance from the given point to the edge
+    QPointF closestPoint = {}; // coordinates of the closest point on the polygon edge
+
+    inline bool isValid() const
+    {
+        return indexes.first >= 0;
+    }
+};
+
+// Calculates the distance from p to each of the polygon edges. Returns info for
+// the shortest distance found.
+inline EdgeIndexesAndDistance closest_edge(QPointF p, const QPolygonF &poly)
+{
+
+    std::vector<EdgeIndexesAndDistance> distances;
+    distances.reserve(poly.size());
+
+    for (auto it_p1 = std::begin(poly), it_p2 = std::begin(poly) + 1;
+         it_p2 < std::end(poly);
+         ++it_p1, ++it_p2)
+    {
+        EdgeIndexesAndDistance ed;
+        ed.indexes = { it_p1 - std::begin(poly), it_p2 - std::begin(poly) };
+        ed.distance = distance_to_line(p, { *it_p1 , *it_p2 }, ed.closestPoint);
+        distances.emplace_back(ed);
+    }
+
+#if 0
+    qDebug() << ">>> p =" << p;
+
+    std::for_each(std::begin(distances), std::end(distances),
+                  [](const auto &ed)
+                  {
+                      qDebug() << "i1" << ed.indexes.first << ", i2" << ed.indexes.second << ", distance =" << ed.distance;
+                  });
+
+    qDebug() << "<<<";
+#endif
+
+    std::sort(std::begin(distances), std::end(distances),
+              [] (const auto &ed1, const auto &ed2)
+              {
+                return ed1.distance < ed2.distance;
+              });
+
+    EdgeIndexesAndDistance ed;
+
+    if (!distances.empty())
+        ed = distances[0];
+
+#if 0
+    qDebug() << "<<< i1" << ed.indexes.first << ", i2" << ed.indexes.second << ", distance =" << ed.distance << ", closestPoint =" << ed.closestPoint;
+#endif
+
+    return ed;
+}
+
+}
+
+struct PolygonEditorPicker::Private
+{
+    enum class State
+    {
+        Default,
+        DragPoint,
+        DragEdge,
+        PanPolygon,
+    };
+
+    PolygonEditorPicker *q;
+    QwtPlot *plot;
+    State state_ = State::Default;
+    QwtPlotShapeItem *edgeHighlight; // ownership goes to QwtPlot
+    QPolygonF poly_; // the polygon being edited
+    QPolygonF pixelPoly_; // the polygon in pixel coordinates. updated in pixelPoly().
+    int dragPointIndex_ = -1;
+    std::pair<int, int> dragEdgePointIndexes_ = { -1, -1 };
+    std::pair<QPointF, QPointF> dragEdgeStartPolyPoints_;
+    QPointF dragEdgeStartPoint_;
+    QPolygonF panStartPoly_;
+    QPointF panStartPoint_;
+
+    // Returns the index of the first polygon point that is close enough to the
+    // given pixel coordinates so that it can be used for mouse drag operations.
+    // Returns -1 if there is no such point.
+    int getPointIndexInDragRange(const QPoint &pixelPoint)
+    {
+        for (int i=0; i<poly_.size(); ++i)
+        {
+            auto p = q->transform(poly_[i]); // plot to pixel coordinates
+
+            auto dx = std::abs(pixelPoint.x() - p.x());
+            auto dy = std::abs(pixelPoint.y() - p.y());
+
+            if (dx <= CanStartDragDistancePixels && dy <= CanStartDragDistancePixels)
+                return i;
+        }
+        return -1;
+    }
+
+    // Returns the polygon converted to pixel coordinates.
+    const QPolygonF &pixelPoly()
+    {
+        pixelPoly_.clear();
+        pixelPoly_.reserve(poly_.size());
+
+        std::transform(std::begin(poly_), std::end(poly_), std::back_inserter(pixelPoly_),
+                       [this](const auto &p)
+                       { return q->transform(p); });
+
+        return pixelPoly_;
+    }
+
+    void movePolyPoint(int pointIndex, const QPointF &p)
+    {
+        if (0 <= pointIndex && pointIndex < poly_.size())
+        {
+            poly_[pointIndex] = p;
+
+            // when moving the first point also move the last one
+            if (pointIndex == 0)
+                poly_[poly_.size()-1] = p;
+
+            // when moving the last point also move the first one
+            if (pointIndex == poly_.size()-1)
+                poly_[0] = p;
+        }
+    }
+
+    void removePolyPoint(int pointIndex)
+    {
+        auto before = poly_;
+        auto &poly = poly_;
+
+        if (0 <= pointIndex  && pointIndex < poly.size())
+        {
+            if (pointIndex == 0)
+            {
+                poly.pop_front();
+                // To make sure the poly is closed when removing the first point,
+                // move the last point to the new front of the poly.
+                if (poly.size())
+                    poly.back() = poly.front();
+            }
+            else if (pointIndex == poly.size() - 1)
+            {
+                poly.pop_back();
+                // Close the poly by moving the first point to the new back of the poly
+                if (poly.size())
+                    poly.front() = poly.back();
+            }
+            else
+                poly.remove(pointIndex);
+
+            if (poly.size() <= 2)
+            {
+                // only two points remain which should be at the same coordinates
+                poly.clear();
+            }
+        }
+
+        const auto &after = poly;
+        (void) before;
+        (void) after;
+        //qDebug() << "pointIndex =" << pointIndex;
+        //qDebug() << "before" << before << ", size =" << before.size();
+        //qDebug() << "after" << after << ", size =" << after.size();
+    }
+};
+
+PolygonEditorPicker::PolygonEditorPicker(QwtPlot *plot)
+    : PlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                 QwtPicker::NoRubberBand,
+                 QwtPicker::AlwaysOff,
+                 plot->canvas())
+    , d(std::make_unique<Private>())
+{
+    d->q = this;
+    d->plot = plot;
+
+    QPen pen(Qt::red, 5.0);
+    d->edgeHighlight = new QwtPlotShapeItem;
+    d->edgeHighlight->setPen(pen);
+    d->edgeHighlight->attach(d->plot);
+    d->edgeHighlight->hide();
+
+    setStateMachine(new AutoBeginClickPointMachine);
+
+    bool b = false;
+#ifdef Q_OS_WIN
+    b = connect(this, SIGNAL(moved(const QPointF &)),
+                this, SLOT(onPointMoved(const QPointF &)));
+    assert(b);
+#else
+    b = connect(this, qOverload<const QPointF &>(&QwtPlotPicker::moved),
+                this, &PolygonEditorPicker::onPointMoved);
+    assert(b);
+#endif
+}
+
+PolygonEditorPicker::~PolygonEditorPicker()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+}
+
+void PolygonEditorPicker::setPolygon(const QPolygonF &poly)
+{
+    d->poly_ = poly;
+    d->edgeHighlight->hide();
+}
+
+void PolygonEditorPicker::reset()
+{
+    d->poly_ = {};
+    d->state_ = Private::State::Default;
+    d->edgeHighlight->hide();
+    PlotPicker::reset();
+}
+
+void PolygonEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
+{
+    using State = Private::State;
+
+    d->edgeHighlight->hide();
+
+    if (d->state_ == State::Default)
+    {
+        // Note: the distance calculations are done in pixel coordinates.
+        auto ed = closest_edge(ev->pos(), d->pixelPoly());
+        //qDebug() << "i1" << ed.indexes.first << ", i2" << ed.indexes.second << ", distance =" << ed.distance;
+
+        // Point drag detection
+        if (d->getPointIndexInDragRange(ev->pos()) >= 0)
+        {
+            // Arrows top, left, right, bottom
+            // Can start to drag this point with mouse button 1.
+            canvas()->setCursor(Qt::SizeAllCursor);
+        }
+        // Edge drag detection
+        else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
+        {
+            auto p1 = d->poly_[ed.indexes.first];
+            auto p2 = d->poly_[ed.indexes.second];
+            auto polyLine = QPolygonF() << p1 << p2;
+            d->edgeHighlight->setPolygon(polyLine);
+            d->edgeHighlight->show();
+
+            // Note: angle calculation is done in pixel coordinates as the
+            // plot x and y-axes can have different scales.
+            QLineF line{transform(p1), transform(p2)};
+            auto angle = line.angle();
+
+            if (angle < 0.0)
+                angle += 360.0;
+
+            assert(0.0 <= angle && angle < 360.0);
+
+            Qt::CursorShape cursor{};
+
+            if (angle < 22.5)
+                cursor = Qt::SizeVerCursor;
+            else if (angle < 67.5)
+                cursor = Qt::SizeFDiagCursor;
+            else if (angle < 112.5)
+                cursor = Qt::SizeHorCursor;
+            else if (angle < 157.5)
+                cursor = Qt::SizeBDiagCursor;
+            else if (angle < 202.5)
+                cursor = Qt::SizeVerCursor;
+            else if (angle < 247.5)
+                cursor = Qt::SizeFDiagCursor;
+            else if (angle < 292.5)
+                cursor = Qt::SizeHorCursor;
+            else if (angle < 337.5)
+                cursor = Qt::SizeBDiagCursor;
+            else
+                cursor = Qt::SizeVerCursor;
+
+            canvas()->setCursor(cursor);
+        }
+        // Pan detection
+        else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
+        {
+            canvas()->setCursor(Qt::OpenHandCursor);
+        }
+        else
+            canvas()->setCursor(Qt::CrossCursor);
+    }
+
+    PlotPicker::widgetMouseMoveEvent(ev);
+    d->plot->replot();
+}
+
+void PolygonEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
+{
+    d->edgeHighlight->hide();
+
+    const bool mb1 = mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev));
+    const bool mb2 = mouseMatch(QwtEventPattern::MouseSelect2, static_cast<const QMouseEvent *>(ev));
+
+    using State = Private::State;
+
+    d->dragPointIndex_ = d->getPointIndexInDragRange(ev->pos());
+    const auto ed = closest_edge(ev->pos(), d->pixelPoly());
+
+    if (d->state_ == State::Default && mb1)
+    {
+        if (d->dragPointIndex_ >= 0)
+        {
+            d->state_ = State::DragPoint;
+            emit beginModification();
+        }
+        else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
+        {
+            d->dragEdgePointIndexes_ = ed.indexes;
+            d->dragEdgeStartPoint_ = invTransform(ev->pos());
+            d->dragEdgeStartPolyPoints_.first = d->poly_[ed.indexes.first];
+            d->dragEdgeStartPolyPoints_.second = d->poly_[ed.indexes.second];
+            d->state_ = State::DragEdge;
+            emit beginModification();
+        }
+        else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
+        {
+            canvas()->setCursor(Qt::ClosedHandCursor);
+            d->panStartPoly_ = d->poly_;
+            d->panStartPoint_ = invTransform(ev->pos());
+            d->state_ = State::PanPolygon;
+            emit beginModification();
+        }
+    }
+    else if (d->state_ == State::Default && mb2)
+    {
+        if (d->dragPointIndex_ >= 0)
+        {
+            auto pointIndex = d->dragPointIndex_;
+            QMenu menu;
+            menu.addAction(QIcon(":/list_remove.png"), "Remove Point", this, [this, pointIndex]
+                {
+                    emit beginModification();
+                    d->removePolyPoint(pointIndex);
+                    d->plot->replot();
+                    emit polygonModified(d->poly_);
+                    emit endModification();
+                });
+            menu.exec(d->plot->mapToGlobal(ev->pos()));
+        }
+        else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
+        {
+            QMenu menu;
+            menu.addAction(QIcon(":/list_add.png"), "Insert Point", this, [this, ed]
+                {
+                    emit beginModification();
+                    d->poly_.insert(ed.indexes.second, invTransform(ed.closestPoint.toPoint()));
+                    d->plot->replot();
+                    emit polygonModified(d->poly_);
+                    emit endModification();
+                });
+            menu.exec(d->plot->mapToGlobal(ev->pos()));
+        }
+    }
+    else
+        PlotPicker::widgetMousePressEvent(ev);
+
+    widgetMouseMoveEvent(ev); // to update the state of plot items and schedule a replot
+}
+
+void PolygonEditorPicker::widgetMouseReleaseEvent(QMouseEvent *ev)
+{
+    widgetMouseMoveEvent(ev); // to update the state of plot items and schedule a replot
+
+    if (!mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev))
+        || d->state_ == Private::State::Default)
+    {
+        PlotPicker::widgetMouseReleaseEvent(ev);
+        return;
+    }
+
+    if (d->state_ != Private::State::Default)
+        emit endModification();
+
+    d->state_ = Private::State::Default;
+}
+
+void PolygonEditorPicker::onPointMoved(const QPointF &p)
+{
+    using State = Private::State;
+
+    if (d->state_ == State::DragPoint)
+    {
+        d->movePolyPoint(d->dragPointIndex_, p);
+        emit polygonModified(d->poly_);
+    }
+    else if (d->state_ == State::DragEdge)
+    {
+        auto delta = p - d->dragEdgeStartPoint_;
+        d->movePolyPoint(d->dragEdgePointIndexes_.first, d->dragEdgeStartPolyPoints_.first + delta);
+        d->movePolyPoint(d->dragEdgePointIndexes_.second, d->dragEdgeStartPolyPoints_.second + delta);
+        emit polygonModified(d->poly_);
+    }
+    else if (d->state_ == State::PanPolygon)
+    {
+        auto delta = p - d->panStartPoint_;
+        d->poly_ = d->panStartPoly_.translated(delta);
+        emit polygonModified(d->poly_);
     }
 }
 
@@ -555,6 +1086,28 @@ void PlotAxisScaleChanger::setLogarithmic()
         scaleEngine->setTransformation(new MinBoundLogTransform);
         m_plot->setAxisScaleEngine(m_axis, scaleEngine);
     }
+}
+
+void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText)
+{
+    auto scaleChanger = new PlotAxisScaleChanger(w->getPlot(), axis);
+    auto combo = new QComboBox;
+    combo->addItem("Lin");
+    combo->addItem("Log");
+
+    auto container = make_vbox_container(axisText, combo, 2, -2).container.release();
+    w->getToolBar()->addWidget(container);
+
+    QObject::connect(
+        combo, qOverload<int>(&QComboBox::currentIndexChanged),
+        w, [w, scaleChanger] (int index)
+        {
+            if (index == 0)
+                scaleChanger->setLinear();
+            else
+                scaleChanger->setLogarithmic();
+            w->replot();
+        });
 }
 
 }

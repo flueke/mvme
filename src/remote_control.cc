@@ -23,8 +23,8 @@
 #include "git_sha1.h"
 #include "sis3153_readout_worker.h"
 
-#include "jcon/json_rpc_logger.h"
-#include "jcon/json_rpc_tcp_server.h"
+#include <jcon/json_rpc_logger.h>
+#include <jcon/json_rpc_tcp_server.h>
 
 namespace
 {

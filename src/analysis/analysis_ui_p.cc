@@ -612,7 +612,6 @@ void MultiHitExtractorDialog::accept()
 
 void MultiHitExtractorDialog::reject()
 {
-    d->eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
 
@@ -1140,7 +1139,6 @@ void AddEditOperatorDialog::reject()
     }
 
     m_eventWidget->endSelectInput();
-    m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();
 }
 
@@ -3333,8 +3331,8 @@ EventSettingsDialog::EventSettingsDialog(
 
         if (!hasEventBuilder)
         {
+            table->cellWidget(ei, 0)->setEnabled(false);
             table->cellWidget(ei, 1)->setEnabled(false);
-            table->cellWidget(ei, 2)->setEnabled(false);
         }
 
         d->check_multiEvent_.push_back(cb_multiEvent);

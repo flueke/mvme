@@ -214,6 +214,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             break;
 
         case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Swapped:
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
             break;

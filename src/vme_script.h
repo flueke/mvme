@@ -108,6 +108,7 @@ enum class CommandType
     MBLTFifo,
     MBLTSwapped,
     Blk2eSST64,
+    Blk2eSST64Swapped,
 
     // Meta commands to temporarily use a different base address for the
     // following commands and then reset back to the default base address.

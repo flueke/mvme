@@ -67,6 +67,9 @@
     <file alias="document-rename.png">resources/document-rename.png</file>
     <file alias="printer.png">resources/printer.png</file>
     <file>resources/magnifier-zoom.png</file>
+    <file alias="code-function.png">resources/code-function.png</file>
+    <file alias="interval_condition.png">resources/layer-resize-replicate.png</file>
+    <file alias="polygon_condition.png">resources/layer-shape-polygon.png</file>
 
     <file>resources/layer-visible-off.png</file>
     <file>resources/layer-visible-on.png</file>
@@ -86,6 +89,8 @@
     <file alias="scissors_minus.png">resources/scissors--minus.png</file>
     <file alias="scissors_pencil.png">resources/scissors--pencil.png</file>
     <file alias="scissors_plus.png">resources/scissors--plus.png</file>
+    <file alias="node.png">resources/node.png</file>
+    <file alias="node-select.png">resources/node-select.png</file>
 
     <!-- non icon files -->
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
@@ -138,4 +143,3 @@
 </RCC>
 <!-- vim:ft=xml
      -->
-

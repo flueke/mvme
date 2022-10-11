@@ -54,7 +54,7 @@ struct MVLCTriggerIOEditor::Private
     QString initialScriptContents;
     VMEScriptEditor *scriptEditor = nullptr;
     TriggerIOGraphicsScene *scene = nullptr;
-    TriggerIOView *view = nullptr;
+    QGraphicsView *view = nullptr;
     bool scriptAutorun = false;
     QStringList vmeEventNames;
 
@@ -747,7 +747,8 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     QObject::connect(d->scriptConfig, &VMEScriptConfig::modified,
                      this, &MVLCTriggerIOEditor::reload);
 
-    auto view = new TriggerIOView(scene);
+    auto view = new QGraphicsView(scene);
+    view->installEventFilter(new MouseWheelZoomer(view));
     d->view = view;
 
     view->setRenderHints(

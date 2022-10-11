@@ -138,11 +138,16 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
             return updateState(m_mvlc.vmeBlockRead(address, rate, maxTransfers, dest));
         }
 
-
-        std::error_code vmeMBLTSwapped(
+        std::error_code vmeBlockReadSwapped(
             u32 address, u16 maxTransfers, std::vector<u32> &dest)
         {
-            return updateState(m_mvlc.vmeMBLTSwapped(address, maxTransfers, dest));
+            return updateState(m_mvlc.vmeBlockReadSwapped(address, maxTransfers, dest));
+        }
+
+        std::error_code vmeBlockReadSwapped(
+            u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 maxTransfers, std::vector<u32> &dest)
+        {
+            return updateState(m_mvlc.vmeBlockReadSwapped(address, rate, maxTransfers, dest));
         }
 
         // stack uploading

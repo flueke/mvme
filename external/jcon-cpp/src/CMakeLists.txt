@@ -49,8 +49,18 @@ endif()
 target_link_libraries(${PROJECT_NAME} jcon)
 
 if(USE_QT)
-    find_package(Qt5 COMPONENTS Core)
-    qt5_use_modules(${PROJECT_NAME} Core Network Test WebSockets Widgets)
+    find_package(Qt5Core REQUIRED)
+    find_package(Qt5Network REQUIRED)
+    find_package(Qt5Test REQUIRED)
+    find_package(Qt5WebSockets REQUIRED)
+    find_package(Qt5Widgets REQUIRED)
+
+    target_link_libraries(${PROJECT_NAME}
+        PUBLIC Qt5::Core
+        PUBLIC Qt5::Network
+        PUBLIC Qt5::Test
+        PUBLIC Qt5::WebSockets
+        PUBLIC Qt5::Widgets)
 endif()
 
 if(APPLE)

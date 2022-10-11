@@ -142,6 +142,7 @@ namespace
                 case CommandType::VMUSB_ReadRegister:
                 case CommandType::VMUSB_WriteRegister:
                 case CommandType::Blk2eSST64:
+                case CommandType::Blk2eSST64Swapped:
                 case CommandType::MVLC_WriteSpecial:
                 case CommandType::MetaBlock:
                 case CommandType::SetVariable:
@@ -402,6 +403,7 @@ namespace
                 case CommandType::VMUSB_ReadRegister:
                 case CommandType::VMUSB_WriteRegister:
                 case CommandType::Blk2eSST64:
+                case CommandType::Blk2eSST64Swapped:
                 case CommandType::MVLC_WriteSpecial:
                 case CommandType::MetaBlock:
                 case CommandType::SetVariable:

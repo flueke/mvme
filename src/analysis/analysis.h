@@ -212,6 +212,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public AnalysisObject
         virtual s32 getNumberOfOutputs() const = 0;
         virtual QString getOutputName(s32 outputIndex) const = 0;
         virtual Pipe *getOutput(s32 index) = 0;
+        const Pipe *getOutput(s32 index) const;
         virtual bool hasVariableNumberOfOutputs() const { return false; }
 
         virtual QString getDisplayName() const = 0;
@@ -483,6 +484,8 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
 
         void setRank(s32 rank) { m_rank = rank; }
         s32 getRank() const { return m_rank; }
+
+        QSet<ConditionPtr> getActiveConditions() const;
 
         virtual void slotConnected(Slot *slot) { (void) slot; }
         virtual void slotDisconnected(Slot *slot) { (void) slot; }
@@ -1528,7 +1531,7 @@ class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
         Q_INVOKABLE IntervalCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
-        virtual QString getShortName() const override { return QSL("CondInter"); }
+        virtual QString getShortName() const override { return QSL("IntervalCond"); }
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1557,7 +1560,7 @@ class LIBMVME_EXPORT RectangleCondition: public ConditionInterface
         Q_INVOKABLE RectangleCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
-        virtual QString getShortName() const override { return QSL("CondRect"); }
+        virtual QString getShortName() const override { return QSL("RectCond"); }
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1584,7 +1587,7 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
         Q_INVOKABLE PolygonCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Polygon Condition"); }
-        virtual QString getShortName() const override { return QSL("CondPoly"); }
+        virtual QString getShortName() const override { return QSL("PolyCond"); }
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -1745,6 +1748,8 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         u32 m_rrf;
 };
 
+using Histo1DSinkPtr = std::shared_ptr<analysis::Histo1DSink>;
+
 class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 {
     Q_OBJECT
@@ -1817,6 +1822,8 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
     private:
         ResolutionReductionFactors m_rrf;
 };
+
+using Histo2DSinkPtr = std::shared_ptr<analysis::Histo2DSink>;
 
 class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
 {
@@ -2128,8 +2135,7 @@ class LIBMVME_EXPORT Analysis:
         ConditionVector getConditions(const QUuid &eventId) const;
 
         QSet<ConditionPtr> getActiveConditions(const OperatorPtr &op) const;
-
-
+        QSet<ConditionPtr> getActiveConditions(const OperatorInterface *op) const;
 
         //ConditionPtr getCondition(const OperatorPtr &op) const;
         //ConditionPtr getCondition(OperatorInterface *op) const;
@@ -2148,7 +2154,8 @@ class LIBMVME_EXPORT Analysis:
         // exists, true otherwise.
         bool addConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
-        // Removes the condition from the set of
+        // Removes the condition from the set of conditions for the given
+        // operator. */
         bool removeConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
         /* Clears the condition link of the given operator if it was linked to
@@ -2229,6 +2236,8 @@ class LIBMVME_EXPORT Analysis:
         {
             setProperty("ModuleProperties", props);
         }
+
+        QVariant getModuleProperty(const QUuid &moduleId, const QString &prop) const;
 
         //
         // Pre and post run work
@@ -2386,7 +2395,8 @@ void LIBMVME_EXPORT add_raw_data_display(
 
 void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 
-QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QString &prefix);
+QString LIBMVME_EXPORT make_unique_operator_name(
+    Analysis *analysis, const QString &prefix, const QString &separator = ".");
 
 bool LIBMVME_EXPORT required_inputs_connected_and_valid(OperatorInterface *op);
 bool LIBMVME_EXPORT no_input_connected(OperatorInterface *op);
@@ -2426,8 +2436,16 @@ namespace read_options
 };
 
 LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
-    read_analysis_config_from_file(const QString &filename, const VMEConfig *vmeConfig,
-                                   read_options::Opt = read_options::BuildAnalysis,
+    read_analysis_config_from_file(const QString &filename,
+                                   const VMEConfig *vmeConfig,
+                                   read_options::Opt options = read_options::BuildAnalysis,
+                                   Logger logger = {});
+
+// Simpler version of the above: uses a default constructed VMEConfig for the
+// call to Analysis::read().
+LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
+    read_analysis_config_from_file(const QString &filename,
+                                   read_options::Opt options = read_options::BuildAnalysis,
                                    Logger logger = {});
 
 // Returns a list of parent directory names of the object.

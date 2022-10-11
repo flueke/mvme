@@ -154,7 +154,9 @@ ParamVec push_param_vector(Arena *arena, s32 size, double value)
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
 {
+    assert(0 <= inputIndex);
     assert(inputIndex < op->inputCount);
+
     op->inputs[inputIndex] = input.data;
     op->inputLowerLimits[inputIndex] = input.lowerLimits;
     op->inputUpperLimits[inputIndex] = input.upperLimits;
@@ -3281,14 +3283,18 @@ Operator make_expression_condition(
     auto result = make_condition_operator(arena, Operator_ExpressionCondition, inputs.size());
     auto d = arena->pushObject<ExpressionConditionData>();
     result.d = d;
+    d->inputParamIndexes = push_copy_typed_block(arena, inputParamIndexes);
     d->values = push_typed_block<double>(arena, inputs.size());
 
     for (size_t i=0; i<inputs.size(); ++i)
     {
+        assign_input(&result, inputs[i], i);
         const auto &name = inputNames[i];
+        // Let the symbol table refer to elements of our values array.
         register_symbol(d->symtab, addScalar, name, d->values[i]);
     }
 
+    d->expr.registerSymbolTable(d->symtab);
     d->expr.setExpressionString(expression);
     d->expr.compile();
 
@@ -3311,10 +3317,11 @@ void expression_condition_step(Operator *op, A2 *a2)
         const auto &pi = d->inputParamIndexes[inputIndex];
         double paramValue = input[pi];
         // convert invalid to 0.0, valid to 1.0
+        // store the result in our values array to which the expression symbol table refers
         d->values[inputIndex] = is_param_valid(paramValue) ? 1.0 : 0.0;
     }
 
-    // Evaluate and interpret result as a boolean
+    // Evaluate and interpret the result as a boolean
     bool result = static_cast<bool>(d->expr.eval());
 
     a2->conditionBits.set(d->bitIndex, result);
