@@ -902,11 +902,13 @@ circular buffer and a plot of the rate over time can be displayed.
 
 Details can be found in the Rate Monitor user interface.
 
+.. index:: Analysis Conditions
 .. _analysis-conditions:
 
 Conditions
 -----------------------------------------
 
+.. index:: Interval Condition
 .. _analysis-interval-condition:
 
 Interval Condition (1D Gates)
@@ -921,6 +923,7 @@ value is inside its respective interval. The final condition result is the
 Note: intervals are interpreted as half-open with the lower border
 considered part of the interval.
 
+.. index:: Polygon Condition
 .. _analysis-polygon-condition:
 
 Polygon Condition
@@ -928,26 +931,14 @@ Polygon Condition
 A two-dimensional condition checking if the input coordinates are contained
 within a polygon.
 
+.. index:: Expression Condition
 .. _analysis-expression-condition:
 
 Expression Condition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Higher level condition, accepting multiple other conditions as its input. Uses
-the `exprtk`_ library to evaulate a user-defined expression. Uses the
-expression result as the conditions output value.
-
-Loading foreign analysis files
-------------------------------
-
-Internally VME modules are uniquely identified by a UUID and the module type
-name. This information is stored in both the VME and analysis configs.
-
-When opening (or importing from) a "foreign" analysis file, module UUIDs and
-types may not match. In this case auto-assignment of analysis objects to VME
-modules is tried first. If auto-assignment is not possible the unassigned
-objects are collected under a special node in the top left tree of the analysis
-window. Data sources from these unassigned modules can be dragged onto modules
-existing in current DAQ setup to assign them.
+the `exprtk`_ library to evaulate a user-defined expression. The expression
+result becomes the conditions output value.
 
 .. index:: Analysis Processing Chain, Readout Data Processing
 .. _analysis-processing-chain:
@@ -1171,3 +1162,16 @@ The behavior is similary to the copy/paste operations: all selected objects
 will be exported to file. On import clones of these objects are created,
 internal connections are restored and all objects are placed in the same
 userlevels as their originals.
+
+Loading foreign analysis files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Internally VME modules are uniquely identified by a UUID and the module type
+name. This information is stored in both the VME and analysis configs.
+
+When opening (or importing from) a "foreign" analysis file, module UUIDs and
+types may not match. In this case auto-assignment of analysis objects to VME
+modules is tried first. If auto-assignment is not possible the unassigned
+objects are collected under a special node in the top left tree of the analysis
+window. Data sources from these unassigned modules can be dragged onto modules
+existing in current DAQ setup to assign them.
