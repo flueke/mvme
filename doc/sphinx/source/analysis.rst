@@ -288,6 +288,75 @@ Double-click on a *H2D* node to open the histogram widget:
   This will not rebin existing data. Instead the histogram is cleared
   and new data is accumulated using the newly set resolution.
 
+.. index:: Condition System
+.. _analysis-condition-system:
+
+Condition System
+~~~~~~~~~~~~~~~~
+
+Since mvme-1.5 the analysis system supports conditional evaluation/skipping of
+operators and data sinks.
+
+Conditions are a special kind of operator producing only a single output value:
+the boolean result of evaluating the condition. Each condition can be applied
+to multiple operators and/or data sinks. Multiple conditions can be applied to
+the same object in which case the **logical AND** of all condition outputs is
+used to decide whether the operator should be run.
+
+Currently :ref:`1d-interval <analysis-interval-condition>`, :ref:`2d-polygon
+<analysis-polygon-condition>` and boolean :ref:`expression conditions
+<analysis-expression-condition>` are implemented.
+
+Creating and editing conditions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:ref:`1d interval <analysis-interval-condition>` and :ref:`2d polygon
+<analysis-polygon-condition>` conditions can be created and edited from within
+histogram windows. Use the "Interval Conditions" or "Polygon Conditions" buttons
+to start the respective editor.
+
+A new condition created this way will use the same input arrays as the histogram
+where the editor was started. The new condition will be placed in a common
+directory on the same userlevel as the histogram used to create the condition.
+
+.. figure:: images/analysis_polycond_editor.png
+
+  Polygon Condition Editor
+
+:ref:`Expression conditions <analysis-expression-condition>` are created the
+same way as other operators: using the context menu and selecting ``New ->
+Expression Condition``.
+
+Using conditions
+^^^^^^^^^^^^^^^^^^^
+
+Once you have created one or more condtions you can apply them to operators and
+(histogram) sinks using the right-click context menu and selecting "conditions".
+This works the same way as the input selection when creating operators. If
+multiple conditions are applied to the same operator they all have to evaluate
+to **true** in the current event for the operator to be executed.
+
+.. index:: Analysis Dependency Graph, Dependency Viewer
+.. _analysis-dependency-graph:
+
+Inspecting Dependencies
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Since version 1.5 mvme includes a dependency graph viewer for analysis objects.
+It allows to visualize the data path and any active conditions affecting the
+processing. The graph can be opened from within histogram windows using the
+``Dependency Graph`` button via the right-click context menu in the main
+analysis window.
+
+.. figure:: images/analysis_dependency_graph01.png
+
+  Dependency graph for a 2D histogram. Active conditions in the data path are
+  grouped together in the grey box.
+
+Within the graph double-clicking on histograms or other sinks opens the
+respective view while double clicks on other objects start the appropriate
+editor. Ctrl-clicking navigates to the graph for the clicked object.
+
 System Details
 ----------------------------------------
 
@@ -393,18 +462,6 @@ their inputs or single values for all their inputs).
 
 The :ref:`Analysis UI <analysis-ui>` will highlight valid input nodes in green
 when selecting an operators input.
-
-Condition System
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Since mvme-1.5 the analysis system supports conditional evaluation/skipping of
-operators and data sinks.
-
-Conditions are a special kind of operator producing only a single output value:
-the boolean result of evaluating the condition. Each condition can be applied
-to multiple operators and/or data sinks. Multiple conditions can be applied to
-the same object in which case the **logical AND** of all condition outputs is
-used to decide whether the operator should be run.
 
 .. _analysis-sources:
 
