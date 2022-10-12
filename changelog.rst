@@ -4,6 +4,26 @@
 Changelog
 ##################################################
 
+Version 1.5.0-rc1
+-----------------
+
+* [analysis]
+
+  - Implemented a :ref:`condition system <analysis-condition-system>` and
+    1d-interval, 2d-polygon and expression (exprtk) conditions.
+
+  - Added a new :ref:`dependency viewer <analysis-dependency-graph>` to
+    visualize data processing and active conditions.
+
+* [vme/readout]
+
+  - Add new commands for the fast 2eSST VME transfer modes: ``2esst`` and the
+    word swapped version ``2essts``.
+
+  - Add new module templates for mesytec MDLL, mesytec MCPD-8_MPSD and the CAEN v1742
+
+  - Listfile filenames can now be specified using format strings (fmt library).
+
 Version 1.4.9.5
 ---------------
 
