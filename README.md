@@ -5,10 +5,11 @@
 * gcc/clang with c++14 support
 * cmake
 * Qt >= 5.15
-* qwt >= 6.1.0
+* qwt >= 6.2.0
 * quazip
 * libusb-0.1
 * zlib
+* graphviz
 * boost
 * ninja or make
 * Optional: sphinx and latex for the documentation
@@ -34,7 +35,8 @@ enviroment selected during installation time.
 
     apt-get install build-essential cmake libboost-all-dev qt5-default \
                     qtbase5-dev-tools libquazip5-dev libqwt-qt5-dev \
-                    zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build
+                    zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build \
+                    libgraphviz-dev
     git clone https://github.com/flueke/mvme
     cd mvme
     git submodule update --init
@@ -56,6 +58,7 @@ http://www.msys2.org/
 * mingw-w64-x86_64-quazip
 * mingw-w64-x86_64-qwt-qt5
 * mingw-w64-x86_64-zlib
+* mingw-w64-x86_64-graphviz
 
 #### CMake invocation under windows
 `cmake -DCMAKE_BUILD_TYPE=Release -G"MSYS Makefiles" ../mvme`
