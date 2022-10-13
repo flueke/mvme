@@ -29,6 +29,8 @@
 #include <QTimer>
 #include <iostream>
 
+#include <spdlog/sinks/basic_file_sink.h>
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -57,8 +59,25 @@ int main(int argc, char *argv[])
     if (args.contains("--trace"))
         spdlog::set_level(spdlog::level::trace);
 
-    //mesytec::mvlc::get_logger("cmd_pipe_reader")->set_level(spdlog::level::trace);
-    //mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::trace);
+    if (args.contains("--debug-mvlc"))
+    {
+        mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::debug);
+        mesytec::mvlc::get_logger("mvlc")->set_level(spdlog::level::debug);
+        mesytec::mvlc::get_logger("cmd_pipe_reader")->set_level(spdlog::level::debug);
+    }
+
+    // FIXME: debug code here
+    if (args.contains("--trace-mvlc") || true)
+    {
+        mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::trace);
+        mesytec::mvlc::get_logger("mvlc")->set_level(spdlog::level::trace);
+        mesytec::mvlc::get_logger("cmd_pipe_reader")->set_level(spdlog::level::trace);
+        auto fs = std::make_shared<spdlog::sinks::basic_file_sink_mt>("mvlc_trace.log");
+        mesytec::mvlc::get_logger("mvlc_apiv2")->sinks().push_back(fs);
+        mesytec::mvlc::get_logger("mvlc")->sinks().push_back(fs);
+        mesytec::mvlc::get_logger("cmd_pipe_reader")->sinks().push_back(fs);
+    }
+
     //mesytec::mvlc::get_logger("readout")->set_level(spdlog::level::trace);
 
 #ifdef QT_NO_DEBUG
