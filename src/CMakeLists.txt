@@ -614,6 +614,9 @@ if (NOT WIN32)
         LIBRARY DESTINATION lib)
 endif (NOT WIN32)
 
+add_mvme_exe(mvme_histo_viewer mvme_histo_viewer_main.cc)
+install(TARGETS mvme_histo_viewer RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
 # automated gtests
 if(MVME_BUILD_TESTS)
 
