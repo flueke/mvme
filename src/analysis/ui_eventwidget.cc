@@ -2713,7 +2713,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
                 if (!std::dynamic_pointer_cast<ConditionInterface>(obj))
                 {
-                    menu.addAction("Select Conditions", [this, op]() {
+                    menu.addAction(QIcon(":/scissors.png"), "Select Conditions", [this, op]() {
                         auto dialog = new SelectConditionsDialog(op, m_q);
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();
@@ -3352,7 +3352,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 if (auto op = get_shared_analysis_object<OperatorInterface>(
                         activeNode, DataRole_AnalysisObject))
                 {
-                    menu.addAction("Conditions", [this, op]() {
+                    menu.addAction(QIcon(":/scissors.png"), "Conditions", [this, op]() {
                         auto dialog = new SelectConditionsDialog(op, m_q);
                         dialog->setAttribute(Qt::WA_DeleteOnClose);
                         dialog->show();

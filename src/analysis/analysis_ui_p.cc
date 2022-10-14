@@ -49,6 +49,8 @@
 #include <memory>
 #include <set>
 
+#include <mesytec-mvlc/mesytec-mvlc.h>
+
 #include "a2/a2_exprtk.h"
 #include "a2_adapter.h"
 #include "analysis_util.h"
@@ -59,7 +61,6 @@
 #include "globals.h"
 #include "gui_util.h"
 #include "histo_util.h"
-#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "../mvme_qthelp.h"
@@ -2923,6 +2924,17 @@ SelectConditionsDialog::SelectConditionsDialog(const OperatorPtr &op, EventWidge
     connect(addConditionButton, &QPushButton::clicked,
             this, [this] () { addSelectButtons(); });
 
+    auto gb_info = new QGroupBox("Info");
+    auto l_info = make_hbox(gb_info);
+    auto label_info = new QLabel;
+    l_info->addWidget(label_info);
+    label_info->setWordWrap(true);
+    label_info->setText(QSL("Shows the active conditions for '%1 %2'. Use the plus button to add another selection row,"
+        " then select the condition to use. The operator will only be run if all of its assigned conditions are true"
+        " (AND over all conditions).")
+        .arg(op->getDisplayName())
+        .arg(op->objectName()));
+
     auto buttonLayout = new QHBoxLayout;
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->addStretch();
@@ -2939,6 +2951,7 @@ SelectConditionsDialog::SelectConditionsDialog(const OperatorPtr &op, EventWidge
     auto layout = new QGridLayout(this);
     s32 row = 0;
     layout->addWidget(conditionsGroupBox, row++, 0);
+    layout->addWidget(gb_info, row++, 0);
     layout->addLayout(buttonBoxLayout, row++, 0);
 
     if (auto analysis = op->getAnalysis())
@@ -2950,7 +2963,10 @@ SelectConditionsDialog::SelectConditionsDialog(const OperatorPtr &op, EventWidge
             addSelectButtons(cond);
     }
 
-    addSelectButtons();
+    if (m_selectButtons.isEmpty())
+        addSelectButtons();
+
+    resize(450, 400);
 }
 
 void SelectConditionsDialog::addSelectButtons(const ConditionPtr &cond)
