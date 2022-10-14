@@ -212,7 +212,8 @@ struct Histo1DWidgetPrivate
             *m_actionCalibUi,
             *m_actionInfo,
             *m_actionHistoListStats,
-            *m_actionCuts;
+            *m_actionCuts,
+            *m_actionConditions;
 
     QActionGroup *m_exclusiveActions;
 
@@ -523,6 +524,8 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     auto actionIntervalConditions = tb->addAction(QIcon(":/scissors.png"), "Interval Conditions");
     actionIntervalConditions->setObjectName("intervalConditions");
     actionIntervalConditions->setCheckable(true);
+    m_d->m_actionConditions = actionIntervalConditions;
+    m_d->m_actionConditions->setEnabled(false); // enabled when setSink() is called
 
     connect(actionIntervalConditions, &QAction::toggled,
             this, [this, actionIntervalConditions] (bool on) {
@@ -1570,6 +1573,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     m_d->m_sinkModifiedCallback = sinkModifiedCallback;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
+    m_d->m_actionConditions->setEnabled(sink->getUserLevel() > 0);
 
     auto rrf = sink->getResolutionReductionFactor();
 

@@ -301,7 +301,8 @@ struct Histo2DWidgetPrivate
             *m_actionSubRange,
             *m_actionChangeRes,
             *m_actionInfo,
-            *m_actionCreateCut;
+            *m_actionCreateCut,
+            *m_actionConditions;
 
     QComboBox *m_zScaleCombo;
 
@@ -541,6 +542,8 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     auto actionPolyConditions = tb->addAction(QIcon(":/scissors.png"), "Polygon Conditions");
     actionPolyConditions->setObjectName("polygonConditions");
     actionPolyConditions->setCheckable(true);
+    m_d->m_actionConditions = actionPolyConditions;
+    m_d->m_actionConditions->setEnabled(false); // enabled when setSink() is called
 
     connect(actionPolyConditions, &QAction::toggled,
             this, [this, actionPolyConditions] (bool on) {
@@ -1404,6 +1407,7 @@ void Histo2DWidget::setSink(const SinkPtr &sink,
     m_d->m_makeUniqueOperatorNameFunction = makeUniqueOperatorNameFunction;
     m_d->m_actionSubRange->setEnabled(true);
     m_d->m_actionChangeRes->setEnabled(true);
+    m_d->m_actionConditions->setEnabled(sink->getUserLevel() > 0);
 
     auto rrf = sink->getResolutionReductionFactors();
 
