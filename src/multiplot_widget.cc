@@ -139,6 +139,13 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     d->plotGrid_ = new QGridLayout;
     d->statusBar_ = make_statusbar();
 
+    auto toolBarFrame = new QFrame;
+    toolBarFrame->setFrameStyle(QFrame::StyledPanel);
+    {
+        auto l = make_hbox<0, 0>(toolBarFrame);
+        l->addWidget(d->toolBar_);
+    }
+
     auto scrollWidget = new QWidget;
     scrollWidget->setLayout(d->plotGrid_);
 
@@ -149,7 +156,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 
     auto layout = make_vbox<2, 2>(this);
-    layout->addWidget(d->toolBar_);
+    layout->addWidget(toolBarFrame);
     layout->addWidget(scrollArea);
     layout->addWidget(d->statusBar_);
 
