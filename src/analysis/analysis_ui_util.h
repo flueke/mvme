@@ -9,6 +9,23 @@
 namespace analysis::ui
 {
 
+// MIME types for drag and drop operations
+
+// SourceInterface objects only
+static const QString DataSourceIdListMIMEType = QSL("application/x-mvme-analysis-datasource-id-list");
+
+// Non datasource operators and directories
+static const QString OperatorIdListMIMEType = QSL("application/x-mvme-analysis-operator-id-list");
+
+// Sink-type operators and directories
+static const QString SinkIdListMIMEType = QSL("application/x-mvme-analysis-sink-id-list");
+
+// Generic, untyped analysis objects
+static const QString ObjectIdListMIMEType = QSL("application/x-mvme-analysis-object-id-list");
+
+// Decode data for any of the above id list mime types.
+QVector<QUuid> decode_id_list(QByteArray data);
+
 struct Histo1DWidgetInfo
 {
     QVector<std::shared_ptr<Histo1D>> histos;

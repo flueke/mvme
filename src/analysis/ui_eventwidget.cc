@@ -50,14 +50,15 @@
 #include "analysis/listfilter_extractor_dialog.h"
 #include "analysis/object_info_widget.h"
 
+#include "graphicsview_util.h"
+#include "graphviz_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
-#include "graphicsview_util.h"
+#include "multiplot_widget.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
 #include "util/algo.h"
-#include "../graphviz_util.h"
 
 namespace analysis
 {
@@ -147,42 +148,6 @@ std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
 //
 // ObjectTree and subclasses
 //
-
-// MIME types for drag and drop operations
-
-// SourceInterface objects only
-static const QString DataSourceIdListMIMEType = QSL("application/x-mvme-analysis-datasource-id-list");
-
-// Non datasource operators and directories
-static const QString OperatorIdListMIMEType = QSL("application/x-mvme-analysis-operator-id-list");
-
-// Sink-type operators and directories
-static const QString SinkIdListMIMEType = QSL("application/x-mvme-analysis-sink-id-list");
-
-// Generic, untyped analysis objects
-static const QString ObjectIdListMIMEType = QSL("application/x-mvme-analysis-object-id-list");
-
-namespace
-{
-
-QVector<QUuid> decode_id_list(QByteArray data)
-{
-    QDataStream stream(&data, QIODevice::ReadOnly);
-    QVector<QByteArray> sourceIds;
-    stream >> sourceIds;
-
-    QVector<QUuid> result;
-    result.reserve(sourceIds.size());
-
-    for (const auto &idData: sourceIds)
-    {
-        result.push_back(QUuid(idData));
-    }
-
-    return result;
-}
-
-} // end anon namespace
 
 ObjectTree::~ObjectTree()
 {
@@ -1398,18 +1363,33 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
 
-        tb->addAction(
-            QSL("Repopulate"), this, [this]() {
-                m_d->repopulate();
-            });
+        tb->addAction(QSL("Repopulate"), this, [this]() { m_d->repopulate(); });
 
-        tb->addAction(
-            QSL("Print ModuleProperties"), this, [this] () {
-                auto analysis = getAnalysis();
-                auto modPropsList = analysis->property("ModuleProperties").toList();
-                for (const auto &modProps: modPropsList)
-                    qDebug() << modProps;
-            });
+        tb->addAction(QSL("Print ModuleProperties"), this, [this] ()
+        {
+            auto analysis = getAnalysis();
+            auto modPropsList = analysis->property("ModuleProperties").toList();
+            for (const auto &modProps: modPropsList)
+                qDebug() << modProps;
+        });
+
+        tb->addAction(QSL("Open MultiPlotWidget"), this, [this]
+        {
+
+            auto w = new MultiPlotWidget(getServiceProvider());
+            w->setAttribute(Qt::WA_DeleteOnClose);
+            // FIXME: keyboard activation of the close action does not work here
+            // for some reason. The action is there as can be seen by the debug
+            // output in the destructor.
+            add_widget_close_action(w);
+            w->resize(800, 600);
+            w->show();
+
+            auto ana = getServiceProvider()->getAnalysis();
+            auto sink = ana->getObject<SinkInterface>(QUuid("{3239508d-93a2-44e6-b9ec-40b95ac10256}"));
+            assert(sink);
+            w->addSink(sink);
+        });
 #endif
     }
 

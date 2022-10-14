@@ -12,6 +12,11 @@ TODO list
 * doc: describe listfile formats and ZMQ transport
 
 * Multi plot window
+  - Grid arrangement of histograms
+  - Drag histo sinks onto the canvas to add them
+  - Features:
+    * Gauss fit
+    * statistics
 
 * move module templates to JSON format
 * add GSI VFTX module template (JSON format if possible, otherwise the old template format)

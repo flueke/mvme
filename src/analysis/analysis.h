@@ -2218,6 +2218,11 @@ class LIBMVME_EXPORT Analysis:
         //
 
         AnalysisObjectPtr getObject(const QUuid &id) const;
+        template<typename T> std::shared_ptr<T> getObject(const QUuid &id) const
+        {
+            return std::dynamic_pointer_cast<T>(getObject(id));
+        }
+
         int removeObjectsRecursively(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllObjects() const;
         int objectCount() const;

@@ -316,6 +316,8 @@ add_library(libmvme SHARED
     logfile_helper.cc
     mesytec_diagnostics.cc
     multi_event_splitter.cc
+    multiplot_widget.cc
+    multiplot_widget_p.cc
     mvmecontext_analysis_service_provider.cc
     mvme_context.cc
     mvme_context_lib.cc

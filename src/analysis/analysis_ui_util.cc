@@ -13,6 +13,23 @@
 namespace analysis::ui
 {
 
+QVector<QUuid> decode_id_list(QByteArray data)
+{
+    QDataStream stream(&data, QIODevice::ReadOnly);
+    QVector<QByteArray> sourceIds;
+    stream >> sourceIds;
+
+    QVector<QUuid> result;
+    result.reserve(sourceIds.size());
+
+    for (const auto &idData: sourceIds)
+    {
+        result.push_back(QUuid(idData));
+    }
+
+    return result;
+}
+
 QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkInterface *sink, bool newWindow)
 {
     return show_sink_widget(asp, std::dynamic_pointer_cast<SinkInterface>(sink->shared_from_this()), newWindow);
