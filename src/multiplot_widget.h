@@ -13,12 +13,18 @@ class MultiPlotWidget: public QWidget
 
     public slots:
         void addSink(const analysis::SinkPtr &sink);
+        bool eventFilter(QObject *watched, QEvent *event) override;
 
     protected:
         void dragEnterEvent(QDragEnterEvent *ev) override;
         void dragLeaveEvent(QDragLeaveEvent *ev) override;
         void dragMoveEvent(QDragMoveEvent *ev) override;
         void dropEvent(QDropEvent *ev) override;
+        void mouseMoveEvent(QMouseEvent *ev) override;
+        void mousePressEvent(QMouseEvent *ev) override;
+        void mouseReleaseEvent(QMouseEvent *ev) override;
+        void wheelEvent(QWheelEvent *ev) override;
+
 
     private:
         struct Private;

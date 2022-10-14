@@ -7,9 +7,12 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSpinBox>
 #include <QTimer>
+#include <QWheelEvent>
 
 #include "analysis/analysis_ui_util.h"
 #include "histo_ui.h"
@@ -38,14 +41,25 @@ struct MultiPlotWidget::Private
         Histo1DIntervalData *histoData;
         QwtPlotCurve *gaussCurve;
         Histo1DGaussCurveData *gaussCurveData;
+        ScrollZoomer *zoomer;
+    };
+
+    enum class State
+    {
+        Panning,
+        PanningActive,
+        Zooming,
     };
 
     AnalysisServiceProvider *asp_;
     QToolBar *toolBar_;
+    QScrollArea *scrollArea_;
     QGridLayout *plotGrid_;
     QStatusBar *statusBar_;
     std::vector<PlotEntry> entries_;
     int maxColumns_ = DefaultMaxColumns;
+    State state_ = State::Panning;
+    QPoint panRef_;
 
     void addSinks(std::vector<SinkPtr> &&sinks)
     {
@@ -69,6 +83,9 @@ struct MultiPlotWidget::Private
                     e.gaussCurveData = new Histo1DGaussCurveData;
                     e.gaussCurve->setData(e.gaussCurveData);
                     e.gaussCurve->hide();
+                    e.zoomer = new ScrollZoomer(e.plot->canvas());
+                    e.zoomer->setEnabled(false);
+                    e.zoomer->setZoomBase();
 
                     //e.plot->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
                     e.plot->setMinimumSize(TileMinWidth, TileMinHeight);
@@ -119,6 +136,16 @@ struct MultiPlotWidget::Private
         }
     }
 
+    void enlargeTiles()
+    {
+        addToTileSize(TileDeltaWidth, TileDeltaHeight);
+    }
+
+    void shrinkTiles()
+    {
+        addToTileSize(-TileDeltaWidth, -TileDeltaHeight);
+    }
+
     void refresh()
     {
         for (auto &e: entries_)
@@ -126,7 +153,36 @@ struct MultiPlotWidget::Private
             auto histoStats = e.histoData->getHisto()->calcStatistics();
             e.gaussCurveData->setStats(histoStats);
             e.plot->replot();
+            if (state_ == State::Zooming)
+            {
+                e.plot->canvas()->setCursor(Qt::CrossCursor);
+                e.zoomer->setEnabled(true);
+            }
+            else
+            {
+                e.plot->canvas()->unsetCursor();
+                e.zoomer->setEnabled(false);
+            }
+
         }
+    }
+
+    void transitionState(const State &newState)
+    {
+        switch (newState)
+        {
+            case State::Panning:
+                scrollArea_->viewport()->setCursor(Qt::OpenHandCursor);
+                break;
+            case State::PanningActive:
+                scrollArea_->viewport()->setCursor(Qt::ClosedHandCursor);
+                break;
+            case State::Zooming:
+                scrollArea_->viewport()->unsetCursor();
+                break;
+        }
+        state_ = newState;
+        refresh();
     }
 };
 
@@ -149,11 +205,14 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     auto scrollWidget = new QWidget;
     scrollWidget->setLayout(d->plotGrid_);
 
-    auto scrollArea = new QScrollArea;
+    d->scrollArea_ = new QScrollArea;
+    auto scrollArea = d->scrollArea_;
     scrollArea->setWidget(scrollWidget);
     scrollArea->setWidgetResizable(true);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->viewport()->installEventFilter(this);
+    scrollArea->viewport()->setCursor(Qt::OpenHandCursor);
 
     auto layout = make_vbox<2, 2>(this);
     layout->addWidget(toolBarFrame);
@@ -182,11 +241,23 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     actionGauss->setCheckable(true);
     actionGauss->setChecked(false);
 
+
+    auto actionPan = tb->addAction("Pan");
+    actionPan->setCheckable(true);
+    actionPan->setChecked(true);
+
+    auto actionZoom = tb->addAction("Zoom");
+    actionZoom->setCheckable(true);
+
+    auto plotInteractions = new QActionGroup(this);
+    plotInteractions->addAction(actionPan);
+    plotInteractions->addAction(actionZoom);
+
     connect(actionEnlargeTiles, &QAction::triggered,
-            this, [this] { d->addToTileSize(Private::TileDeltaWidth, Private::TileDeltaHeight); });
+            this, [this] { d->enlargeTiles(); });
 
     connect(actionShrinkTiles, &QAction::triggered,
-            this, [this] { d->addToTileSize(-Private::TileDeltaWidth, -Private::TileDeltaHeight); });
+            this, [this] { d->shrinkTiles(); });
 
     connect(spinColumns, qOverload<int>(&QSpinBox::valueChanged),
             this, [this] (int value)
@@ -201,6 +272,15 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
                 for (auto &e: d->entries_)
                     e.gaussCurve->setVisible(checked);
                 d->refresh();
+            });
+
+    connect(plotInteractions, &QActionGroup::triggered,
+            this, [this, actionPan, actionZoom] (QAction *action)
+            {
+                if (action == actionPan)
+                    d->transitionState(Private::State::Panning);
+                else if (action == actionZoom)
+                    d->transitionState(Private::State::Zooming);
             });
 
     auto replotTimer = new QTimer(this);
@@ -264,4 +344,66 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
     }
     else
         QWidget::dropEvent(ev);
+}
+
+void MultiPlotWidget::mouseMoveEvent(QMouseEvent *ev)
+{
+    auto move_scrollbar = [] (QScrollBar *sb, int delta)
+    {
+        auto pos = sb->sliderPosition();
+        pos += delta * 2.0;
+        sb->setValue(pos);
+    };
+
+    if (d->state_ == Private::State::PanningActive)
+    {
+        auto delta = ev->pos() - d->panRef_;
+        move_scrollbar(d->scrollArea_->horizontalScrollBar(), -delta.x());
+        move_scrollbar(d->scrollArea_->verticalScrollBar(), -delta.y());
+        d->panRef_ = ev->pos();
+    }
+}
+
+void MultiPlotWidget::mousePressEvent(QMouseEvent *ev)
+{
+    if (d->state_ == Private::State::Panning)
+    {
+        d->state_ = Private::State::PanningActive;
+        d->scrollArea_->viewport()->setCursor(Qt::ClosedHandCursor);
+        d->panRef_ = ev->pos();
+    }
+}
+
+void MultiPlotWidget::mouseReleaseEvent(QMouseEvent *ev)
+{
+    if (d->state_ == Private::State::PanningActive)
+    {
+        d->state_ = Private::State::Panning;
+        d->scrollArea_->viewport()->setCursor(Qt::OpenHandCursor);
+    }
+}
+
+bool MultiPlotWidget::eventFilter(QObject *watched, QEvent *ev)
+{
+    if (watched == d->scrollArea_->viewport()
+        && ev->type() == QEvent::Wheel
+        && (dynamic_cast<QWheelEvent *>(ev)->modifiers() & Qt::ControlModifier)
+        )
+    {
+        return true;
+    }
+
+    return false;
+}
+
+void MultiPlotWidget::wheelEvent(QWheelEvent *ev)
+{
+    if (ev->modifiers() & Qt::ControlModifier)
+    {
+        if (ev->delta() > 0)
+            d->enlargeTiles();
+        else if (ev->delta() < 0)
+            d->shrinkTiles();
+        ev->accept();
+    }
 }

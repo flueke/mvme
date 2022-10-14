@@ -9,6 +9,7 @@ TilePlot::TilePlot(QWidget *parent)
     canvas->setLineWidth(1);
     canvas->setFrameStyle(QFrame::Box | QFrame::Plain);
     setCanvas(canvas);
+    canvas->unsetCursor();
 }
 
 TilePlot::~TilePlot() { }
