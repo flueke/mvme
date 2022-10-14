@@ -9,6 +9,7 @@
 #include <QMimeData>
 #include <QScrollArea>
 #include <QSpinBox>
+#include <QTimer>
 
 #include "analysis/analysis_ui_util.h"
 #include "histo_ui.h"
@@ -18,6 +19,7 @@
 using namespace analysis;
 using namespace analysis::ui;
 using namespace histo_ui;
+using namespace mvme_qwt;
 
 struct MultiPlotWidget::Private
 {
@@ -26,6 +28,7 @@ struct MultiPlotWidget::Private
     static const int TileMinHeight = 200;
     static const int TileDeltaWidth = 50;
     static const int TileDeltaHeight = 50;
+    static const int ReplotPeriod_ms = 1000;
 
     struct PlotEntry
     {
@@ -34,6 +37,7 @@ struct MultiPlotWidget::Private
         QwtPlotItem *plotItem;
         Histo1DIntervalData *histoData;
         QwtPlotCurve *gaussCurve;
+        Histo1DGaussCurveData *gaussCurveData;
     };
 
     AnalysisServiceProvider *asp_;
@@ -61,11 +65,16 @@ struct MultiPlotWidget::Private
                     e.plot = new TilePlot;
                     e.plotItem = histoItem;
                     e.histoData = histoData;
+                    e.gaussCurve = make_plot_curve(Qt::green);
+                    e.gaussCurveData = new Histo1DGaussCurveData;
+                    e.gaussCurve->setData(e.gaussCurveData);
+                    e.gaussCurve->hide();
 
                     //e.plot->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
                     e.plot->setMinimumSize(TileMinWidth, TileMinHeight);
 
                     e.plotItem->attach(e.plot);
+                    e.gaussCurve->attach(e.plot);
                     addEntryToLayout(e);
                     entries_.emplace_back(std::move(e));
                 }
@@ -109,6 +118,16 @@ struct MultiPlotWidget::Private
             e.plot->setMinimumSize(tileSize);
         }
     }
+
+    void refresh()
+    {
+        for (auto &e: entries_)
+        {
+            auto histoStats = e.histoData->getHisto()->calcStatistics();
+            e.gaussCurveData->setStats(histoStats);
+            e.plot->replot();
+        }
+    }
 };
 
 MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -140,7 +159,6 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     auto &tb = d->toolBar_;
     auto actionEnlargeTiles = tb->addAction("++tilesize");
     auto actionShrinkTiles = tb->addAction("--tilesize");
-    auto actionGauss = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
     auto spinColumns = new QSpinBox;
 
     {
@@ -152,6 +170,10 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
         l->addWidget(spinColumns);
         tb->addWidget(w);
     }
+
+    auto actionGauss = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
+    actionGauss->setCheckable(true);
+    actionGauss->setChecked(false);
 
     connect(actionEnlargeTiles, &QAction::triggered,
             this, [this] { d->addToTileSize(Private::TileDeltaWidth, Private::TileDeltaHeight); });
@@ -165,6 +187,18 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
                 d->maxColumns_ = value;
                 d->relayout();
             });
+
+    connect(actionGauss, &QAction::toggled,
+            this, [this] (bool checked)
+            {
+                for (auto &e: d->entries_)
+                    e.gaussCurve->setVisible(checked);
+                d->refresh();
+            });
+
+    auto replotTimer = new QTimer(this);
+    connect(replotTimer, &QTimer::timeout, this, [this] { d->refresh(); });
+    replotTimer->start(Private::ReplotPeriod_ms);
 }
 
 MultiPlotWidget::~MultiPlotWidget()
@@ -175,6 +209,7 @@ MultiPlotWidget::~MultiPlotWidget()
 void MultiPlotWidget::addSink(const analysis::SinkPtr &sink)
 {
     d->addSinks({ sink });
+    d->refresh();
 }
 
 void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
@@ -218,6 +253,7 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
                 d->addSinks(std::move(sinks));
             }
         }
+        d->refresh();
     }
     else
         QWidget::dropEvent(ev);

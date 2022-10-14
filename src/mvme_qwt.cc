@@ -308,4 +308,18 @@ int TextLabelRowLayout::getSpacing() const
     return m_d->m_spacing;
 }
 
+QwtPlotCurve *make_plot_curve(
+    const QColor &penColor, double penWidth, double zLayer, QwtPlot *plot)
+{
+    auto result = new QwtPlotCurve;
+    result->setZ(zLayer);
+    result->setPen(penColor, penWidth);
+    result->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+
+    if (plot)
+        result->attach(plot);
+
+    return result;
+}
+
 } // end namespace mvme_qwt

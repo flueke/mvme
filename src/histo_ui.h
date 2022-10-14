@@ -255,6 +255,9 @@ class LIBMVME_EXPORT Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample
         void setResolutionReductionFactor(u32 rrf) { m_rrf = rrf; }
         u32 getResolutionReductionFactor() const { return m_rrf; }
 
+        Histo1D *getHisto() { return m_histo; }
+        const Histo1D *getHisto() const { return m_histo; }
+
     private:
         Histo1D *m_histo;
         u32 m_rrf = Histo1D::NoRR;

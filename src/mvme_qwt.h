@@ -106,6 +106,10 @@ class LIBMVME_EXPORT TextLabelRowLayout
         std::unique_ptr<Private> m_d;
 };
 
+LIBMVME_EXPORT QwtPlotCurve *make_plot_curve(
+    const QColor &penColor = Qt::black, double penWidth = 1.0, double zLayer = 1000.0,
+    QwtPlot *plot = nullptr);
+
 
 } // end namespace mvme_qwt
 

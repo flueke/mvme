@@ -79,6 +79,7 @@
 #include "git_sha1.h"
 
 using namespace histo_ui;
+using namespace mvme_qwt;
 
 // TODO Mon Nov 26 2018
 // 1) Combine sink, calibration, context, etc. Having those set on the widget
@@ -720,30 +721,14 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     TRY_ASSERT(connect(m_d->m_rateEstimationPointPicker, SIGNAL(selected(const QPointF &)),
                        this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
 
-    auto make_plot_curve = [](QColor penColor, double penWidth,
-                              double zLayer, QwtPlot *plot = nullptr, bool hide = true)
-    {
-        auto result = new QwtPlotCurve;
-
-        result->setZ(zLayer);
-        result->setPen(penColor, penWidth);
-        result->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-
-        if (plot)
-            result->attach(plot);
-
-        if (hide)
-            result->hide();
-
-        return result;
-    };
-
     m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
+    m_d->m_rateEstimationCurve->hide();
 
     //
     // Gauss Curve
     //
     m_d->m_gaussCurve = make_plot_curve(Qt::green, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
+    m_d->m_gaussCurve->hide();
 
     //
     // Watermark text when exporting
