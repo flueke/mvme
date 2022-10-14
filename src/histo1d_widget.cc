@@ -1638,9 +1638,11 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
     if (checked)
     {
         m_d->m_rateEstimationData = RateEstimationData();
+        #if 0
         // uncheck the currently active exclusive action
         if (auto action = m_d->m_exclusiveActions->checkedAction())
             action->setChecked(false);
+        #endif
         // enable the picker
         m_d->m_rateEstimationPointPicker->setEnabled(true);
     }
