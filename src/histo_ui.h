@@ -191,6 +191,12 @@ class LIBMVME_EXPORT PolygonEditorPicker: public PlotPicker
         std::unique_ptr<Private> d;
 };
 
+enum class AxisScaleType
+{
+    Linear,
+    Logarithmic
+};
+
 LIBMVME_EXPORT bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
 LIBMVME_EXPORT bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
 
@@ -206,6 +212,14 @@ class LIBMVME_EXPORT PlotAxisScaleChanger: public QObject
     public slots:
         void setLinear();
         void setLogarithmic();
+
+        inline void setScaleType(AxisScaleType t)
+        {
+            if (t == AxisScaleType::Linear)
+                setLinear();
+            else
+                setLogarithmic();
+        }
 
     private:
         QwtPlot *m_plot;

@@ -338,12 +338,6 @@ struct Histo1DWidgetPrivate
     }
 };
 
-enum class AxisScaleType
-{
-    Linear,
-    Logarithmic
-};
-
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
     : Histo1DWidget(HistoList{ histo }, parent)
 {

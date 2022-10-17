@@ -1,6 +1,7 @@
 #include "multiplot_widget.h"
 #include "multiplot_widget_p.h"
 
+#include <QComboBox>
 #include <QDebug>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
@@ -26,23 +27,7 @@ using namespace mvme_qwt;
 
 struct MultiPlotWidget::Private
 {
-    static const int DefaultMaxColumns = 4;
-    static const int TileMinWidth = 200;
-    static const int TileMinHeight = 200;
-    static const int TileDeltaWidth = 50;
-    static const int TileDeltaHeight = 50;
     static const int ReplotPeriod_ms = 1000;
-
-    struct PlotEntry
-    {
-        SinkPtr sink;
-        TilePlot *plot;
-        QwtPlotItem *plotItem;
-        Histo1DIntervalData *histoData;
-        QwtPlotCurve *gaussCurve;
-        Histo1DGaussCurveData *gaussCurveData;
-        ScrollZoomer *zoomer;
-    };
 
     enum class State
     {
@@ -51,13 +36,14 @@ struct MultiPlotWidget::Private
         Zooming,
     };
 
+    MultiPlotWidget *q;
     AnalysisServiceProvider *asp_;
     QToolBar *toolBar_;
     QScrollArea *scrollArea_;
     QGridLayout *plotGrid_;
     QStatusBar *statusBar_;
-    std::vector<PlotEntry> entries_;
-    int maxColumns_ = DefaultMaxColumns;
+    std::vector<std::shared_ptr<PlotEntry>> entries_;
+    int maxColumns_ = TilePlot::DefaultMaxColumns;
     State state_ = State::Panning;
     QPoint panRef_;
 
@@ -65,37 +51,32 @@ struct MultiPlotWidget::Private
     {
         for (auto &s: sinks)
         {
-            if (auto h1dSink = std::dynamic_pointer_cast<Histo1DSink>(s))
+            if (auto sink = std::dynamic_pointer_cast<Histo1DSink>(s))
             {
-                for (const auto &h1d: h1dSink->getHistos())
+                for (const auto &histo: sink->getHistos())
                 {
-                    auto histoData = new Histo1DIntervalData(h1d.get());
-                    auto histoItem = new QwtPlotHistogram;
-                    histoItem->setStyle(QwtPlotHistogram::Outline);
-                    histoItem->setData(histoData); // ownership of histoData goes to qwt
-
-                    PlotEntry e{};
-                    e.sink = std::move(s);
-                    e.plot = new TilePlot;
-                    e.plotItem = histoItem;
-                    e.histoData = histoData;
-                    e.gaussCurve = make_plot_curve(Qt::green);
-                    e.gaussCurveData = new Histo1DGaussCurveData;
-                    e.gaussCurve->setData(e.gaussCurveData);
-                    e.gaussCurve->hide();
-                    e.zoomer = new ScrollZoomer(e.plot->canvas());
-                    e.zoomer->setEnabled(false);
-                    e.zoomer->setZoomBase();
-
-                    //e.plot->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-                    e.plot->setMinimumSize(TileMinWidth, TileMinHeight);
-
-                    e.plotItem->attach(e.plot);
-                    e.gaussCurve->attach(e.plot);
+                    auto e = std::make_shared<Histo1DSinkPlotEntry>(sink, histo, q);
                     addEntryToLayout(e);
+
+                    auto on_zoomer_zoomed = [this, e] (const QRectF &zoomRect)
+                    {
+                        refresh();
+                    };
+
+                    QObject::connect(e->zoomer(), &ScrollZoomer::zoomed, q, on_zoomer_zoomed);
+
                     entries_.emplace_back(std::move(e));
                 }
             }
+            #if 0
+            else if (auto sink = std::dynamic_pointer_cast<Histo2DSink>(s))
+            {
+                auto e = std::make_shared<Histo2DSinkPlotEntry>(sink, q);
+                addEntryToLayout(e);
+
+                entries_.emplace_back(std::move(e));
+            }
+            #endif
         }
     }
 
@@ -104,8 +85,13 @@ struct MultiPlotWidget::Private
         int index = plotGrid_->count();
         int row = std::floor(index / maxColumns_);
         int col = index % maxColumns_;
-        e.plot->resize(100, 100);
-        plotGrid_->addWidget(e.plot, row, col);
+        e.plot()->resize(100, 100);
+        plotGrid_->addWidget(e.plot(), row, col);
+    }
+
+    void addEntryToLayout(const std::shared_ptr<PlotEntry> &e)
+    {
+        addEntryToLayout(*e);
     }
 
     void relayout()
@@ -124,46 +110,38 @@ struct MultiPlotWidget::Private
 
     void addToTileSize(const QSize &delta)
     {
-        for (auto &e: entries_)
-        {
-            auto tileSize = e.plot->minimumSize();
-            tileSize += delta;
-            if (tileSize.width() < TileMinWidth)
-                tileSize.setWidth(TileMinWidth);
-            if (tileSize.height() < TileMinHeight)
-                tileSize.setHeight(TileMinHeight);
-            e.plot->setMinimumSize(tileSize);
-        }
+        std::for_each(std::begin(entries_), std::end(entries_),
+                      [=](auto &e)
+                      { e->plot()->addToTileSize(delta); });
     }
 
     void enlargeTiles()
     {
-        addToTileSize(TileDeltaWidth, TileDeltaHeight);
+        addToTileSize(TilePlot::TileDeltaWidth, TilePlot::TileDeltaHeight);
     }
 
     void shrinkTiles()
     {
-        addToTileSize(-TileDeltaWidth, -TileDeltaHeight);
+        addToTileSize(-TilePlot::TileDeltaWidth, -TilePlot::TileDeltaHeight);
     }
 
     void refresh()
     {
         for (auto &e: entries_)
         {
-            auto histoStats = e.histoData->getHisto()->calcStatistics();
-            e.gaussCurveData->setStats(histoStats);
-            e.plot->replot();
+            e->refresh();
+            e->plot()->replot();
+
             if (state_ == State::Zooming)
             {
-                e.plot->canvas()->setCursor(Qt::CrossCursor);
-                e.zoomer->setEnabled(true);
+                e->plot()->canvas()->setCursor(Qt::CrossCursor);
+                e->zoomer()->setEnabled(true);
             }
             else
             {
-                e.plot->canvas()->unsetCursor();
-                e.zoomer->setEnabled(false);
+                e->plot()->canvas()->unsetCursor();
+                e->zoomer()->setEnabled(false);
             }
-
         }
     }
 
@@ -184,12 +162,21 @@ struct MultiPlotWidget::Private
         state_ = newState;
         refresh();
     }
+
+    void setAxisScaling(AxisScaleType ast)
+    {
+        std::for_each(std::begin(entries_), std::end(entries_),
+                      [=](auto &e)
+                      { e->scaleChanger()->setScaleType(ast); });
+        refresh();
+    }
 };
 
 MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    d->q = this;
     d->asp_ = asp;
     d->toolBar_ = make_toolbar();
     d->plotGrid_ = new QGridLayout;
@@ -241,7 +228,6 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     actionGauss->setCheckable(true);
     actionGauss->setChecked(false);
 
-
     auto actionPan = tb->addAction("Pan");
     actionPan->setCheckable(true);
     actionPan->setChecked(true);
@@ -252,6 +238,22 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     auto plotInteractions = new QActionGroup(this);
     plotInteractions->addAction(actionPan);
     plotInteractions->addAction(actionZoom);
+
+    // Y/Z-Scale linear/logarithmic toggle
+    {
+        auto combo = new QComboBox;
+        combo->addItem(QSL("Lin"), static_cast<int>(AxisScaleType::Linear));
+        combo->addItem(QSL("Log"), static_cast<int>(AxisScaleType::Logarithmic));
+
+        tb->addWidget(make_vbox_container(QSL("Axis Scale"), combo, 2, -2)
+                      .container.release());
+
+        connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this] (int idx)
+                {
+                    d->setAxisScaling(static_cast<AxisScaleType>(idx));
+                });
+    }
 
     connect(actionEnlargeTiles, &QAction::triggered,
             this, [this] { d->enlargeTiles(); });
@@ -270,7 +272,10 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             this, [this] (bool checked)
             {
                 for (auto &e: d->entries_)
-                    e.gaussCurve->setVisible(checked);
+                {
+                    if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(e))
+                        h1dEntry->gaussCurve->setVisible(checked);
+                }
                 d->refresh();
             });
 

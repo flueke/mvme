@@ -17,6 +17,11 @@ TODO list
   - Features:
     * Gauss fit
     * statistics
+  - Interactions: zoom all plots, h1d zoom axis handling, resolution reduction, stats, plot dragging
+  - rate monitor tiles, h2d tiles
+  - variants: h1d array, manual tiled (mixed plot types),
+  - react to sink modifications after beginRun() was called: have to update the
+    histo list as otherwise we might display state histograms kept alive by our copy
 
 * move module templates to JSON format
 * add GSI VFTX module template (JSON format if possible, otherwise the old template format)
