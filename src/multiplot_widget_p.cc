@@ -41,3 +41,70 @@ void enable_plot_axis(QwtPlot* plot, int axis, bool on)
     sw->setMargin( on ? 4 : 0 );
     sw->setSpacing( on ? 20 : 0 );
 }
+
+void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode)
+{
+    for (int index = 0; index < grid->count(); ++index)
+    {
+        if (auto li = grid->itemAt(index);
+            auto plot = qobject_cast<TilePlot *>(li->widget()))
+        {
+            auto [row, col] = row_col_from_index(index, grid->columnCount());
+
+            switch (mode)
+            {
+                case GridScaleDrawMode::ShowAll:
+                {
+                    plot->setPlotXAxis(QwtPlot::xBottom);
+                    plot->setPlotYAxis(QwtPlot::yLeft);
+                    enable_plot_axis(plot, QwtPlot::xBottom, true);
+                    enable_plot_axis(plot, QwtPlot::xTop, false);
+                    enable_plot_axis(plot, QwtPlot::yLeft, true);
+                    enable_plot_axis(plot, QwtPlot::yRight, false);
+                } break;
+
+                case GridScaleDrawMode::HideInner:
+                {
+                    if (row == 0)
+                    {
+                        plot->setPlotXAxis(QwtPlot::xTop);
+                        enable_plot_axis(plot, QwtPlot::xTop, true);
+                        enable_plot_axis(plot, QwtPlot::xBottom, false);
+                    }
+                    else if (row == grid->rowCount() - 1 || !grid->itemAtPosition(row+1, col))
+                    {
+                        plot->setPlotXAxis(QwtPlot::xBottom);
+                        enable_plot_axis(plot, QwtPlot::xTop, false);
+                        enable_plot_axis(plot, QwtPlot::xBottom, true);
+                    }
+                    else
+                    {
+                        plot->setPlotXAxis(QwtPlot::xBottom);
+                        enable_plot_axis(plot, QwtPlot::xTop, false);
+                        enable_plot_axis(plot, QwtPlot::xBottom, false);
+                    }
+
+                    if (col == 0)
+                    {
+                        plot->setPlotYAxis(QwtPlot::yLeft);
+                        enable_plot_axis(plot, QwtPlot::yLeft, true);
+                        enable_plot_axis(plot, QwtPlot::yRight, false);
+                    }
+                    else if (col == grid->columnCount() - 1)
+                    {
+                        plot->setPlotYAxis(QwtPlot::yRight);
+                        enable_plot_axis(plot, QwtPlot::yLeft, false);
+                        enable_plot_axis(plot, QwtPlot::yRight, true);
+                    }
+                    else
+                    {
+                        plot->setPlotYAxis(QwtPlot::yLeft);
+                        enable_plot_axis(plot, QwtPlot::yLeft, false);
+                        enable_plot_axis(plot, QwtPlot::yRight, false);
+                    }
+
+                }
+            };
+        }
+    }
+}

@@ -1,6 +1,8 @@
 #ifndef __MNT_DATA_SRC_MVME2_SRC_MULTIPLOT_WIDGET_P_H_
 #define __MNT_DATA_SRC_MVME2_SRC_MULTIPLOT_WIDGET_P_H_
 
+#include <cmath>
+#include <QGridLayout>
 #include <qwt_plot.h>
 
 #include "analysis/analysis.h"
@@ -38,12 +40,19 @@ class TilePlot: public QwtPlot
             setMinimumSize(tileSize);
         }
 
+
+        // Which plot axis to use for the x axis. If the plot is in the top row
+        // xTop will be used, otherwise xBottom.
+        QwtPlot::Axis plotXAxis() const { return xAxis_; }
+        void setPlotXAxis(QwtPlot::Axis axis) { xAxis_ = axis; }
+
         // Which plot axis to use for the y axis. If the plot is in the
         // rightmost column yRight will be used, otherwise yLeft.
         QwtPlot::Axis plotYAxis() const { return yAxis_; }
         void setPlotYAxis(QwtPlot::Axis axis) { yAxis_ = axis; }
 
     private:
+        QwtPlot::Axis xAxis_ = QwtPlot::Axis::xBottom;
         QwtPlot::Axis yAxis_ = QwtPlot::Axis::yLeft;
 };
 
@@ -95,6 +104,7 @@ struct Histo1DSinkPlotEntry: public PlotEntry
         gaussCurve->hide();
         gaussCurve->attach(plot());
 
+        zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
         zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     }
 
@@ -107,12 +117,12 @@ struct Histo1DSinkPlotEntry: public PlotEntry
         if (zoomer()->zoomRectIndex() == 0)
         {
             // fully zoomed out -> set to full resolution
-            plot()->setAxisScale(QwtPlot::xBottom, histo->getXMin(), histo->getXMax());
+            plot()->setAxisScale(plot()->plotXAxis(), histo->getXMin(), histo->getXMax());
             zoomer()->setZoomBase();
         }
 
         // do not zoom outside the histogram range
-        auto scaleDiv = plot()->axisScaleDiv(QwtPlot::xBottom);
+        auto scaleDiv = plot()->axisScaleDiv(plot()->plotXAxis());
         double lowerBound = scaleDiv.lowerBound();
         double upperBound = scaleDiv.upperBound();
 
@@ -160,6 +170,8 @@ struct Histo1DSinkPlotEntry: public PlotEntry
         // by the scrollzoomer.
         plot()->setAxisScale(plot()->plotYAxis(), base, maxValue);
         plot()->updateAxes();
+
+        zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
     }
 
     SinkPtr sink;
@@ -181,5 +193,20 @@ struct RateMonitorSinkPlotEntry: public PlotEntry
 };
 
 void enable_plot_axis(QwtPlot* plot, int axis, bool on);
+
+enum class GridScaleDrawMode
+{
+    ShowAll,
+    HideInner,
+};
+
+inline std::pair<int, int> row_col_from_index(int index, int columns)
+{
+    int row = std::floor(index / columns);
+    int col = index % columns;
+    return std::pair(row, col);
+}
+
+void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode);
 
 #endif // __MNT_DATA_SRC_MVME2_SRC_MULTIPLOT_WIDGET_P_H_

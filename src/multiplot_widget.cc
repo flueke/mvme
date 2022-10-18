@@ -14,6 +14,7 @@
 #include <QSpinBox>
 #include <QTimer>
 #include <QWheelEvent>
+#include <QSignalBlocker>
 
 #include "analysis/analysis_ui_util.h"
 #include "histo_ui.h"
@@ -42,10 +43,13 @@ struct MultiPlotWidget::Private
     QScrollArea *scrollArea_;
     QGridLayout *plotGrid_;
     QStatusBar *statusBar_;
+    QWidget *scrollWidget_;
     std::vector<std::shared_ptr<PlotEntry>> entries_;
     int maxColumns_ = TilePlot::DefaultMaxColumns;
     State state_ = State::Panning;
     QPoint panRef_;
+    GridScaleDrawMode scaleDrawMode_ = GridScaleDrawMode::ShowAll;
+    bool inZoomHandling_ = false;
 
     void addSinks(std::vector<SinkPtr> &&sinks)
     {
@@ -60,7 +64,23 @@ struct MultiPlotWidget::Private
 
                     auto on_zoomer_zoomed = [this, e] (const QRectF &zoomRect)
                     {
+                        if (inZoomHandling_)
+                            return;
+
+                        inZoomHandling_ = true;
+
+                        if (scaleDrawMode_ == GridScaleDrawMode::HideInner)
+                        {
+                            for (auto &e2: entries_)
+                            {
+                                if (e2 != e)
+                                {
+                                    e2->zoomer()->setZoomStack(e->zoomer()->zoomStack(), e->zoomer()->zoomRectIndex());
+                                }
+                            }
+                        }
                         refresh();
+                        inZoomHandling_ = false;
                     };
 
                     QObject::connect(e->zoomer(), &ScrollZoomer::zoomed, q, on_zoomer_zoomed);
@@ -99,8 +119,24 @@ struct MultiPlotWidget::Private
         while (plotGrid_->count())
             delete plotGrid_->takeAt(0);
 
+        delete plotGrid_;
+        plotGrid_ = new QGridLayout;
+        scrollWidget_->setLayout(plotGrid_);
+
         for (auto &e: entries_)
+        {
             addEntryToLayout(e);
+        }
+
+        set_plot_axes(plotGrid_, scaleDrawMode_);
+
+        for (auto &e: entries_)
+        {
+            e->refresh();
+            qDebug() << "relayout(): clearing zoomstack for" << e.get();
+            e->zoomer()->setZoomStack({});
+            e->plot()->replot();
+        }
     }
 
     void addToTileSize(int dx, int dy)
@@ -127,6 +163,7 @@ struct MultiPlotWidget::Private
 
     void refresh()
     {
+        qDebug() << ">>> refresh";
         for (auto &e: entries_)
         {
             e->refresh();
@@ -142,7 +179,11 @@ struct MultiPlotWidget::Private
                 e->plot()->canvas()->unsetCursor();
                 e->zoomer()->setEnabled(false);
             }
+
+            if (auto sz = e->zoomer()->zoomStack().size())
+                qDebug() << "zoomstack depth for entry" << e.get() << sz;
         }
+        qDebug() << "<<< refresh";
     }
 
     void transitionState(const State &newState)
@@ -170,6 +211,12 @@ struct MultiPlotWidget::Private
                       { e->scaleChanger()->setScaleType(ast); });
         refresh();
     }
+
+    void setScaleDrawMode(GridScaleDrawMode mode)
+    {
+        scaleDrawMode_ = mode;
+        relayout();
+    }
 };
 
 MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -181,6 +228,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     d->toolBar_ = make_toolbar();
     d->plotGrid_ = new QGridLayout;
     d->statusBar_ = make_statusbar();
+    d->scrollWidget_ = new QWidget;
 
     auto toolBarFrame = new QFrame;
     toolBarFrame->setFrameStyle(QFrame::StyledPanel);
@@ -189,12 +237,11 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
         l->addWidget(d->toolBar_);
     }
 
-    auto scrollWidget = new QWidget;
-    scrollWidget->setLayout(d->plotGrid_);
+    d->scrollWidget_->setLayout(d->plotGrid_);
 
     d->scrollArea_ = new QScrollArea;
     auto scrollArea = d->scrollArea_;
-    scrollArea->setWidget(scrollWidget);
+    scrollArea->setWidget(d->scrollWidget_);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -254,6 +301,24 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
                     d->setAxisScaling(static_cast<AxisScaleType>(idx));
                 });
     }
+
+    // x and y axis scale draw visibility
+    {
+        auto combo = new QComboBox;
+        combo->addItem(QSL("Individual"), static_cast<int>(GridScaleDrawMode::ShowAll));
+        combo->addItem(QSL("Combined"), static_cast<int>(GridScaleDrawMode::HideInner));
+
+        tb->addWidget(make_vbox_container(QSL("Axis Mode"), combo, 2, -2)
+                      .container.release());
+
+        connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this, combo]
+                {
+                    auto mode = static_cast<GridScaleDrawMode>(combo->currentData().toInt());
+                    d->setScaleDrawMode(mode);
+                });
+    }
+
 
     connect(actionEnlargeTiles, &QAction::triggered,
             this, [this] { d->enlargeTiles(); });
