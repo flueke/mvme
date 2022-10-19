@@ -1385,10 +1385,11 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
             w->resize(800, 600);
             w->show();
 
-            auto ana = getServiceProvider()->getAnalysis();
-            auto sink = ana->getObject<SinkInterface>(QUuid("{3239508d-93a2-44e6-b9ec-40b95ac10256}"));
-            assert(sink);
-            w->addSink(sink);
+#ifndef NDEBUG
+            if (auto ana = getServiceProvider()->getAnalysis())
+                if (auto sink = ana->getObject<SinkInterface>(QUuid("{3239508d-93a2-44e6-b9ec-40b95ac10256}")))
+                    w->addSink(sink);
+#endif
         });
 #endif
     }
