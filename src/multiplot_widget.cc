@@ -11,10 +11,11 @@
 #include <QMouseEvent>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStack>
 #include <QTimer>
 #include <QWheelEvent>
-#include <QSignalBlocker>
 
 #include "analysis/analysis_ui_util.h"
 #include "histo_ui.h"
