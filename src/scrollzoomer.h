@@ -75,6 +75,13 @@ public:
 
     void ignoreNextMouseRelease();
 
+    #if QWT_VERSION >= 0x060200
+    void setAxis(int xAxis, int yAxis)
+    {
+        setAxes(xAxis, yAxis);
+    }
+    #endif
+
 protected:
     virtual ScrollBar *scrollBar( Qt::Orientation );
     virtual void updateScrollBars();
