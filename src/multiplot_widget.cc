@@ -42,9 +42,10 @@ struct MultiPlotWidget::Private
     AnalysisServiceProvider *asp_;
     QToolBar *toolBar_;
     QScrollArea *scrollArea_;
-    QGridLayout *plotGrid_;
+    //QGridLayout *plotGrid_;
+    PlotMatrix *plotMatrix_ = {};
     QStatusBar *statusBar_;
-    QWidget *scrollWidget_;
+    //QWidget *scrollWidget_;
     std::vector<std::shared_ptr<PlotEntry>> entries_;
     int maxColumns_ = TilePlot::DefaultMaxColumns;
     State state_ = State::Panning;
@@ -52,6 +53,7 @@ struct MultiPlotWidget::Private
     GridScaleDrawMode scaleDrawMode_ = GridScaleDrawMode::ShowAll;
     bool inZoomHandling_ = false;
 
+    #if 0
     void addSinks(std::vector<SinkPtr> &&sinks)
     {
         for (auto &s: sinks)
@@ -139,6 +141,45 @@ struct MultiPlotWidget::Private
             e->plot()->replot();
         }
     }
+    #else
+    void addSink(const SinkPtr &s)
+    {
+        if (auto sink = std::dynamic_pointer_cast<Histo1DSink>(s))
+        {
+            for (const auto &histo : sink->getHistos())
+            {
+                auto e = std::make_shared<Histo1DSinkPlotEntry>(sink, histo, q);
+
+                #if 0
+                auto on_zoomer_zoomed = [this, e](const QRectF &zoomRect)
+                {
+                    if (inZoomHandling_)
+                        return;
+
+                    inZoomHandling_ = true;
+
+                    if (scaleDrawMode_ == GridScaleDrawMode::HideInner)
+                    {
+                        for (auto &e2 : entries_)
+                        {
+                            if (e2 != e)
+                            {
+                                e2->zoomer()->setZoomStack(e->zoomer()->zoomStack(), e->zoomer()->zoomRectIndex());
+                            }
+                        }
+                    }
+                    refresh();
+                    inZoomHandling_ = false;
+                };
+
+                QObject::connect(e->zoomer(), &ScrollZoomer::zoomed, q, on_zoomer_zoomed);
+                #endif
+
+                entries_.emplace_back(std::move(e));
+            }
+        }
+    }
+#endif
 
     void addToTileSize(int dx, int dy)
     {
@@ -164,7 +205,7 @@ struct MultiPlotWidget::Private
 
     void refresh()
     {
-        qDebug() << ">>> refresh";
+        //qDebug() << ">>> refresh";
         for (auto &e: entries_)
         {
             e->refresh();
@@ -181,10 +222,10 @@ struct MultiPlotWidget::Private
                 e->zoomer()->setEnabled(false);
             }
 
-            if (auto sz = e->zoomer()->zoomStack().size())
-                qDebug() << "zoomstack depth for entry" << e.get() << sz;
+            //if (auto sz = e->zoomer()->zoomStack().size())
+            //    qDebug() << "zoomstack depth for entry" << e.get() << sz;
         }
-        qDebug() << "<<< refresh";
+        //qDebug() << "<<< refresh";
     }
 
     void transitionState(const State &newState)
@@ -216,7 +257,7 @@ struct MultiPlotWidget::Private
     void setScaleDrawMode(GridScaleDrawMode mode)
     {
         scaleDrawMode_ = mode;
-        relayout();
+        //relayout();
     }
 };
 
@@ -227,9 +268,9 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     d->q = this;
     d->asp_ = asp;
     d->toolBar_ = make_toolbar();
-    d->plotGrid_ = new QGridLayout;
+    //d->plotGrid_ = new QGridLayout;
     d->statusBar_ = make_statusbar();
-    d->scrollWidget_ = new QWidget;
+    //d->scrollWidget_ = new QWidget;
 
     auto toolBarFrame = new QFrame;
     toolBarFrame->setFrameStyle(QFrame::StyledPanel);
@@ -238,11 +279,11 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
         l->addWidget(d->toolBar_);
     }
 
-    d->scrollWidget_->setLayout(d->plotGrid_);
+    //d->scrollWidget_->setLayout(d->plotGrid_);
 
     d->scrollArea_ = new QScrollArea;
     auto scrollArea = d->scrollArea_;
-    scrollArea->setWidget(d->scrollWidget_);
+    //scrollArea->setWidget(d->scrollWidget_);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -331,7 +372,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             this, [this] (int value)
             {
                 d->maxColumns_ = value;
-                d->relayout();
+                //d->relayout();
             });
 
     connect(actionGauss, &QAction::toggled,
@@ -366,7 +407,8 @@ MultiPlotWidget::~MultiPlotWidget()
 
 void MultiPlotWidget::addSink(const analysis::SinkPtr &sink)
 {
-    d->addSinks({ sink });
+    //d->addSinks({ sink });
+    d->addSink(sink);
     d->refresh();
 }
 
@@ -406,9 +448,10 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
         {
             if (auto sink = analysis->getObject<SinkInterface>(id))
             {
-                qDebug() << sink.get();
-                sinks.emplace_back(std::move(sink));
-                d->addSinks(std::move(sinks));
+                //qDebug() << sink.get();
+                //sinks.emplace_back(std::move(sink));
+                //d->addSinks(std::move(sinks));
+                d->addSink(sink);
             }
         }
         d->refresh();

@@ -113,4 +113,19 @@ LIBMVME_EXPORT QwtPlotCurve *make_plot_curve(
 
 } // end namespace mvme_qwt
 
+inline bool is_x_axis(int qwtAxisId)
+{
+    return (qwtAxisId == QwtPlot::xBottom || qwtAxisId == QwtPlot::xTop);
+}
+
+inline bool is_y_axis(int qwtAxisId)
+{
+    return (qwtAxisId == QwtPlot::yLeft || qwtAxisId == QwtPlot::yRight);
+}
+
+inline bool is_valid_axis(int qwtAxisId)
+{
+    return is_x_axis(qwtAxisId) || is_y_axis(qwtAxisId);
+}
+
 #endif /* __MVME_PLOT_UTIL_H__ */

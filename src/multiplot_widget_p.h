@@ -40,7 +40,6 @@ class TilePlot: public QwtPlot
             setMinimumSize(tileSize);
         }
 
-
         // Which plot axis to use for the x axis. If the plot is in the top row
         // xTop will be used, otherwise xBottom.
         QwtPlot::Axis plotXAxis() const { return xAxis_; }
@@ -56,11 +55,60 @@ class TilePlot: public QwtPlot
         QwtPlot::Axis yAxis_ = QwtPlot::Axis::yLeft;
 };
 
+/*****************************************************************************
+ * Based on: Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+class PlotMatrix : public QFrame
+{
+    Q_OBJECT
+
+  public:
+    PlotMatrix( int rows, int columns, QWidget* parent = NULL );
+    virtual ~PlotMatrix();
+
+    int numRows() const;
+    int numColumns() const;
+
+    TilePlot* plotAt( int row, int column );
+    const TilePlot* plotAt( int row, int column ) const;
+
+    void setAxisVisible( int axisId, bool tf = true );
+    bool isAxisVisible( int axisId ) const;
+
+    void setAxisScale( int axisId, int rowOrColumn,
+        double min, double max, double step = 0 );
+
+    QGridLayout *plotGrid();
+
+  protected:
+    void updateLayout();
+
+  private Q_SLOTS:
+    void scaleDivChanged();
+
+  private:
+    void alignAxes( int rowOrColumn, int axis );
+    void alignScaleBorder( int rowOrColumn, int axis );
+
+    class PrivateData;
+    PrivateData* m_data;
+};
+
 struct PlotEntry
 {
     public:
         explicit PlotEntry(QWidget *plotParent, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft)
             : plot_(new TilePlot(plotParent))
+            , zoomer_(new ScrollZoomer(plot_->canvas()))
+            , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
+        {
+            zoomer_->setEnabled(false);
+            zoomer_->setZoomBase();
+        }
+
+        explicit PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft)
+            : plot_(tilePlot)
             , zoomer_(new ScrollZoomer(plot_->canvas()))
             , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
         {

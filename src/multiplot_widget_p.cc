@@ -102,9 +102,382 @@ void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode)
                         enable_plot_axis(plot, QwtPlot::yLeft, false);
                         enable_plot_axis(plot, QwtPlot::yRight, false);
                     }
-
-                }
+                } break;
             };
+        }
+    }
+}
+
+class PlotMatrix::PrivateData
+{
+  public:
+    PrivateData():
+        inScaleSync( false )
+    {
+        isAxisEnabled[QwtPlot::xBottom] = true;
+        isAxisEnabled[QwtPlot::xTop] = false;
+        isAxisEnabled[QwtPlot::yLeft] = true;
+        isAxisEnabled[QwtPlot::yRight] = false;
+    }
+
+    bool isAxisEnabled[QwtPlot::axisCnt];
+    QVector< TilePlot * > plotWidgets;
+    mutable bool inScaleSync;
+};
+
+PlotMatrix::PlotMatrix( int numRows, int numColumns, QWidget* parent )
+    : QFrame( parent )
+{
+    m_data = new PrivateData();
+    m_data->plotWidgets.resize( numRows * numColumns );
+
+    QGridLayout* layout = new QGridLayout( this );
+    layout->setSpacing( 5 );
+
+    for ( int row = 0; row < numRows; row++ )
+    {
+        for ( int col = 0; col < numColumns; col++ )
+        {
+            auto plot = new TilePlot( this );
+
+            layout->addWidget( plot, row, col );
+
+            for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
+            {
+                connect( plot->axisWidget( axisPos ),
+                    SIGNAL(scaleDivChanged()), SLOT(scaleDivChanged()),
+                    Qt::QueuedConnection );
+            }
+            m_data->plotWidgets[row * numColumns + col] = plot;
+        }
+    }
+
+    updateLayout();
+}
+
+PlotMatrix::~PlotMatrix()
+{
+    delete m_data;
+}
+
+int PlotMatrix::numRows() const
+{
+    const QGridLayout* l = qobject_cast< const QGridLayout* >( layout() );
+    if ( l )
+        return l->rowCount();
+
+    return 0;
+}
+
+int PlotMatrix::numColumns() const
+{
+    const QGridLayout* l = qobject_cast< const QGridLayout* >( layout() );
+    if ( l )
+        return l->columnCount();
+    return 0;
+}
+
+TilePlot* PlotMatrix::plotAt( int row, int column )
+{
+    const int index = row * numColumns() + column;
+    if ( index < m_data->plotWidgets.size() )
+        return m_data->plotWidgets[index];
+
+    return NULL;
+}
+
+const TilePlot* PlotMatrix::plotAt( int row, int column ) const
+{
+    const int index = row * numColumns() + column;
+    if ( index < m_data->plotWidgets.size() )
+        return m_data->plotWidgets[index];
+
+    return NULL;
+}
+
+void PlotMatrix::setAxisVisible( int axis, bool tf )
+{
+    if ( is_valid_axis( axis ) )
+    {
+        if ( tf != m_data->isAxisEnabled[axis] )
+        {
+            m_data->isAxisEnabled[axis] = tf;
+            updateLayout();
+        }
+    }
+}
+
+bool PlotMatrix::isAxisVisible( int axis ) const
+{
+    if ( is_valid_axis( axis ) )
+        return m_data->isAxisEnabled[axis];
+
+    return false;
+}
+
+void PlotMatrix::setAxisScale( int axis, int rowOrColumn,
+    double min, double max, double step )
+{
+    int row = 0;
+    int col = 0;
+
+    if ( is_x_axis( axis ) )
+        col = rowOrColumn;
+    else
+        row = rowOrColumn;
+
+    QwtPlot* plt = plotAt( row, col );
+    if ( plt )
+    {
+        plt->setAxisScale( axis, min, max, step );
+        plt->updateAxes();
+    }
+}
+
+QGridLayout *PlotMatrix::plotGrid()
+{
+    return qobject_cast<QGridLayout *>(layout());
+}
+
+void PlotMatrix::scaleDivChanged()
+{
+    if ( m_data->inScaleSync )
+        return;
+
+    m_data->inScaleSync = true;
+
+    QwtPlot* plt = NULL;
+    int axisId = -1;
+    int rowOrColumn = -1;
+
+    // find the changed axis
+    for ( int row = 0; row < numRows(); row++ )
+    {
+        for ( int col = 0; col < numColumns(); col++ )
+        {
+            QwtPlot* p = plotAt( row, col );
+            if ( p )
+            {
+                for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
+                {
+                    if ( p->axisWidget( axisPos ) == sender() )
+                    {
+                        plt = p;
+                        axisId = axisPos;
+                        rowOrColumn = is_x_axis( axisId ) ? col : row;
+                    }
+                }
+            }
+        }
+    }
+
+    if ( plt )
+    {
+        const QwtScaleDiv scaleDiv = plt->axisScaleDiv( axisId );
+
+        // synchronize the axes
+        if ( is_x_axis( axisId ) )
+        {
+            for ( int row = 0; row < numRows(); row++ )
+            {
+                QwtPlot* p = plotAt( row, rowOrColumn );
+                if ( p != plt )
+                {
+                    p->setAxisScaleDiv( axisId, scaleDiv );
+                }
+            }
+        }
+        else
+        {
+            for ( int col = 0; col < numColumns(); col++ )
+            {
+                QwtPlot* p = plotAt( rowOrColumn, col );
+                if ( p != plt )
+                {
+                    p->setAxisScaleDiv( axisId, scaleDiv );
+                }
+            }
+        }
+
+        updateLayout();
+    }
+
+    m_data->inScaleSync = false;
+}
+
+void PlotMatrix::updateLayout()
+{
+    for ( int row = 0; row < numRows(); row++ )
+    {
+        for ( int col = 0; col < numColumns(); col++ )
+        {
+            QwtPlot* p = plotAt( row, col );
+            if ( p )
+            {
+                bool showAxis[QwtPlot::axisCnt];
+
+                showAxis[QwtPlot::xBottom] = isAxisVisible( QwtPlot::xBottom ) && row == numRows() - 1;
+                showAxis[QwtPlot::xTop] = isAxisVisible( QwtPlot::xTop ) && row == 0;
+                showAxis[QwtPlot::yLeft] = isAxisVisible( QwtPlot::yLeft ) && col == 0;
+                showAxis[QwtPlot::yRight] = isAxisVisible( QwtPlot::yRight ) && col == numColumns() - 1;
+
+                for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
+                {
+                    enable_plot_axis(p, axis, showAxis[axis]);
+                }
+            }
+        }
+    }
+
+    for ( int row = 0; row < numRows(); row++ )
+    {
+        alignAxes( row, QwtPlot::xTop );
+        alignAxes( row, QwtPlot::xBottom );
+
+        alignScaleBorder( row, QwtPlot::yLeft );
+        alignScaleBorder( row, QwtPlot::yRight );
+    }
+
+    for ( int col = 0; col < numColumns(); col++ )
+    {
+        alignAxes( col, QwtPlot::yLeft );
+        alignAxes( col, QwtPlot::yRight );
+
+        alignScaleBorder( col, QwtPlot::xBottom );
+        alignScaleBorder( col, QwtPlot::xTop );
+    }
+
+    for ( int row = 0; row < numRows(); row++ )
+    {
+        for ( int col = 0; col < numColumns(); col++ )
+        {
+            QwtPlot* p = plotAt( row, col );
+            if ( p )
+                p->replot();
+        }
+    }
+}
+
+void PlotMatrix::alignAxes( int rowOrColumn, int axis )
+{
+    if ( is_y_axis(axis) )
+    {
+        double maxExtent = 0;
+
+        for ( int row = 0; row < numRows(); row++ )
+        {
+            QwtPlot* p = plotAt( row, rowOrColumn );
+            if ( p )
+            {
+                QwtScaleWidget* scaleWidget = p->axisWidget( axis );
+
+                QwtScaleDraw* sd = scaleWidget->scaleDraw();
+                sd->setMinimumExtent( 0.0 );
+
+                const double extent = sd->extent( scaleWidget->font() );
+                if ( extent > maxExtent )
+                    maxExtent = extent;
+            }
+        }
+
+        for ( int row = 0; row < numRows(); row++ )
+        {
+            QwtPlot* p = plotAt( row, rowOrColumn );
+            if ( p )
+            {
+                QwtScaleWidget* scaleWidget = p->axisWidget( axis );
+                scaleWidget->scaleDraw()->setMinimumExtent( maxExtent );
+            }
+        }
+    }
+    else
+    {
+        double maxExtent = 0;
+
+        for ( int col = 0; col < numColumns(); col++ )
+        {
+            QwtPlot* p = plotAt( rowOrColumn, col );
+            if ( p )
+            {
+                QwtScaleWidget* scaleWidget = p->axisWidget( axis );
+
+                QwtScaleDraw* sd = scaleWidget->scaleDraw();
+                sd->setMinimumExtent( 0.0 );
+
+                const double extent = sd->extent( scaleWidget->font() );
+                if ( extent > maxExtent )
+                    maxExtent = extent;
+            }
+        }
+
+        for ( int col = 0; col < numColumns(); col++ )
+        {
+            QwtPlot* p = plotAt( rowOrColumn, col );
+            if ( p )
+            {
+                QwtScaleWidget* scaleWidget = p->axisWidget( axis );
+                scaleWidget->scaleDraw()->setMinimumExtent( maxExtent );
+            }
+        }
+    }
+}
+
+void PlotMatrix::alignScaleBorder( int rowOrColumn, int axis )
+{
+    int startDist = 0;
+    int endDist = 0;
+
+    if ( axis == QwtPlot::yLeft )
+    {
+        QwtPlot* plot = plotAt( rowOrColumn, 0 );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+
+        for ( int col = 1; col < numColumns(); col++ )
+        {
+            plot = plotAt( rowOrColumn, col );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
+        }
+    }
+    else if ( axis == QwtPlot::yRight )
+    {
+        QwtPlot* plot = plotAt( rowOrColumn, numColumns() - 1 );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+
+        for ( int col = 0; col < numColumns() - 1; col++ )
+        {
+            plot = plotAt( rowOrColumn, col );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
+        }
+    }
+
+    if ( axis == QwtPlot::xTop )
+    {
+        QwtPlot* plot = plotAt( rowOrColumn, 0 );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+
+        for ( int row = 1; row < numRows(); row++ )
+        {
+            plot = plotAt( row, rowOrColumn );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
+        }
+    }
+    else if ( axis == QwtPlot::xBottom )
+    {
+        QwtPlot* plot = plotAt( numRows() - 1, rowOrColumn );
+        if ( plot )
+            plot->axisWidget( axis )->getBorderDistHint( startDist, endDist );
+
+        for ( int row = 0; row < numRows() - 1; row++ )
+        {
+            plot = plotAt( row, rowOrColumn );
+            if ( plot )
+                plot->axisWidget( axis )->setMinBorderDist( startDist, endDist );
         }
     }
 }

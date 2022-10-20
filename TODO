@@ -12,6 +12,12 @@ TODO list
 * doc: describe listfile formats and ZMQ transport
 
 * Multi plot window
+  - Two variants: one for 1d histo arrays / rate monitors, another variant
+    serving as a plot gallery
+
+  - array variant: gauss if 1d histos,
+
+
   - Grid arrangement of histograms
   - Drag histo sinks onto the canvas to add them
   - Features:
