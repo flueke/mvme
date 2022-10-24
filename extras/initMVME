@@ -2,9 +2,10 @@
 
 export MVME=$(readlink -f $(dirname "${BASH_SOURCE[0]}")/../)
 
-echo "Setting up environment for mvme in $MVME: PATH, LD_LIBRARY_PATH, ROOT_INCLUDE_PATH, PYTHONPATH"
+echo "Setting up environment for mvme in $MVME: PATH, LD_LIBRARY_PATH, ROOT_INCLUDE_PATH, PYTHONPATH, GVBINDIR"
 
 export PATH="${MVME}/bin:${PATH}"
 export LD_LIBRARY_PATH="${MVME}/lib:${LD_LIBRARY_PATH}"
 export ROOT_INCLUDE_PATH="${MVME}/include:${ROOT_INCLUDE_PATH}"
 export PYTHONPATH="${MVME}/lib:${PYTHONPATH}"
+export GVBINDIR="${MVME}/lib"
