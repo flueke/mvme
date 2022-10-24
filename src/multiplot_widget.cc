@@ -178,6 +178,28 @@ struct MultiPlotWidget::Private
                 entries_.emplace_back(std::move(e));
             }
         }
+
+        relayout();
+    }
+
+    void relayout()
+    {
+        if (plotMatrix_)
+        {
+            // Empty the layout
+            while (plotMatrix_->plotGrid()->count())
+                delete plotMatrix_->plotGrid()->takeAt(0);
+            assert(plotMatrix_->plotGrid()->count() == 0);
+
+            // Orphan the plot instances so ~PlotMatrix() does not delete them.
+            for (auto &e: entries_)
+                e->plot()->setParent(nullptr);
+
+            delete plotMatrix_;
+        }
+
+        plotMatrix_ = new PlotMatrix(entries_, maxColumns_);
+        scrollArea_->setWidget(plotMatrix_);
     }
 #endif
 
@@ -208,7 +230,7 @@ struct MultiPlotWidget::Private
         //qDebug() << ">>> refresh";
         for (auto &e: entries_)
         {
-            e->refresh();
+            //e->refresh();
             e->plot()->replot();
 
             if (state_ == State::Zooming)
@@ -372,7 +394,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             this, [this] (int value)
             {
                 d->maxColumns_ = value;
-                //d->relayout();
+                d->relayout();
             });
 
     connect(actionGauss, &QAction::toggled,
@@ -485,7 +507,10 @@ void MultiPlotWidget::mousePressEvent(QMouseEvent *ev)
         d->state_ = Private::State::PanningActive;
         d->scrollArea_->viewport()->setCursor(Qt::ClosedHandCursor);
         d->panRef_ = ev->pos();
+        ev->accept();
     }
+    else
+        QWidget::mousePressEvent(ev);
 }
 
 void MultiPlotWidget::mouseReleaseEvent(QMouseEvent *ev)
@@ -494,7 +519,10 @@ void MultiPlotWidget::mouseReleaseEvent(QMouseEvent *ev)
     {
         d->state_ = Private::State::Panning;
         d->scrollArea_->viewport()->setCursor(Qt::OpenHandCursor);
+        ev->accept();
     }
+    else
+        QWidget::mouseReleaseEvent(ev);
 }
 
 bool MultiPlotWidget::eventFilter(QObject *watched, QEvent *ev)
@@ -504,6 +532,8 @@ bool MultiPlotWidget::eventFilter(QObject *watched, QEvent *ev)
         && (dynamic_cast<QWheelEvent *>(ev)->modifiers() & Qt::ControlModifier)
         )
     {
+        // Do not pass the event to the scrollareas viewport which would scroll
+        // the vertical scrollbar.
         return true;
     }
 
@@ -520,4 +550,12 @@ void MultiPlotWidget::wheelEvent(QWheelEvent *ev)
             d->shrinkTiles();
         ev->accept();
     }
+    else
+        QWidget::wheelEvent(ev);
+}
+
+void MultiPlotWidget::mouseDoubleClickEvent(QMouseEvent *ev)
+{
+    // TODO: open plot at position in its own window
+    QWidget::mouseDoubleClickEvent(ev);
 }

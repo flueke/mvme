@@ -17,7 +17,9 @@ TilePlot::TilePlot(QWidget *parent)
     //setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
-TilePlot::~TilePlot() {}
+TilePlot::~TilePlot()
+{
+}
 
 QSize TilePlot::sizeHint() const
 {
@@ -145,11 +147,39 @@ PlotMatrix::PlotMatrix( int numRows, int numColumns, QWidget* parent )
             for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
             {
                 connect( plot->axisWidget( axisPos ),
-                    SIGNAL(scaleDivChanged()), SLOT(scaleDivChanged()),
+                    SIGNAL(scaleDivChanged()), SLOT(onScaleDivChanged()),
                     Qt::QueuedConnection );
             }
             m_data->plotWidgets[row * numColumns + col] = plot;
         }
+    }
+
+    updateLayout();
+}
+
+PlotMatrix::PlotMatrix(const std::vector<std::shared_ptr<PlotEntry>> entries, int maxColumns, QWidget *parent)
+    : QFrame(parent)
+    , m_data(new PrivateData)
+{
+    m_data->plotWidgets.resize(entries.size());
+
+    auto layout = new QGridLayout(this);
+    layout->setSpacing( 5 );
+
+    for (auto &e: entries)
+    {
+        int index = layout->count();
+        auto [row, col] = row_col_from_index(index, maxColumns);
+        e->plot()->resize(100, 100);
+        layout->addWidget(e->plot(), row, col);
+
+        for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
+        {
+            connect( e->plot()->axisWidget( axisPos ),
+                SIGNAL(scaleDivChanged()), SLOT(onScaleDivChanged()),
+                Qt::QueuedConnection );
+        }
+        m_data->plotWidgets[row * maxColumns + col] = e->plot();
     }
 
     updateLayout();
@@ -239,10 +269,12 @@ QGridLayout *PlotMatrix::plotGrid()
     return qobject_cast<QGridLayout *>(layout());
 }
 
-void PlotMatrix::scaleDivChanged()
+void PlotMatrix::onScaleDivChanged()
 {
     if ( m_data->inScaleSync )
         return;
+
+    qDebug() << __PRETTY_FUNCTION__;
 
     m_data->inScaleSync = true;
 
@@ -316,10 +348,14 @@ void PlotMatrix::updateLayout()
             {
                 bool showAxis[QwtPlot::axisCnt];
 
-                showAxis[QwtPlot::xBottom] = isAxisVisible( QwtPlot::xBottom ) && row == numRows() - 1;
-                showAxis[QwtPlot::xTop] = isAxisVisible( QwtPlot::xTop ) && row == 0;
-                showAxis[QwtPlot::yLeft] = isAxisVisible( QwtPlot::yLeft ) && col == 0;
-                showAxis[QwtPlot::yRight] = isAxisVisible( QwtPlot::yRight ) && col == numColumns() - 1;
+                //showAxis[QwtPlot::xBottom] = isAxisVisible( QwtPlot::xBottom ) && row == numRows() - 1;
+                //showAxis[QwtPlot::xTop] = isAxisVisible( QwtPlot::xTop ) && row == 0;
+                //showAxis[QwtPlot::yLeft] = isAxisVisible( QwtPlot::yLeft ) && col == 0;
+                //showAxis[QwtPlot::yRight] = isAxisVisible( QwtPlot::yRight ) && col == numColumns() - 1;
+                showAxis[QwtPlot::xBottom] = true;
+                showAxis[QwtPlot::xTop] = false;
+                showAxis[QwtPlot::yLeft] = true;
+                showAxis[QwtPlot::yRight] = false;
 
                 for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
                 {

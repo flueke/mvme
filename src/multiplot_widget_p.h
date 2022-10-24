@@ -55,46 +55,6 @@ class TilePlot: public QwtPlot
         QwtPlot::Axis yAxis_ = QwtPlot::Axis::yLeft;
 };
 
-/*****************************************************************************
- * Based on: Qwt Examples - Copyright (C) 2002 Uwe Rathmann
- * This file may be used under the terms of the 3-clause BSD License
- *****************************************************************************/
-class PlotMatrix : public QFrame
-{
-    Q_OBJECT
-
-  public:
-    PlotMatrix( int rows, int columns, QWidget* parent = NULL );
-    virtual ~PlotMatrix();
-
-    int numRows() const;
-    int numColumns() const;
-
-    TilePlot* plotAt( int row, int column );
-    const TilePlot* plotAt( int row, int column ) const;
-
-    void setAxisVisible( int axisId, bool tf = true );
-    bool isAxisVisible( int axisId ) const;
-
-    void setAxisScale( int axisId, int rowOrColumn,
-        double min, double max, double step = 0 );
-
-    QGridLayout *plotGrid();
-
-  protected:
-    void updateLayout();
-
-  private Q_SLOTS:
-    void scaleDivChanged();
-
-  private:
-    void alignAxes( int rowOrColumn, int axis );
-    void alignScaleBorder( int rowOrColumn, int axis );
-
-    class PrivateData;
-    PrivateData* m_data;
-};
-
 struct PlotEntry
 {
     public:
@@ -256,5 +216,47 @@ inline std::pair<int, int> row_col_from_index(int index, int columns)
 }
 
 void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode);
+
+/*****************************************************************************
+ * Based on: Qwt Examples - Copyright (C) 2002 Uwe Rathmann
+ * This file may be used under the terms of the 3-clause BSD License
+ *****************************************************************************/
+class PlotMatrix : public QFrame
+{
+    Q_OBJECT
+
+  public:
+    PlotMatrix( int rows, int columns, QWidget* parent = NULL );
+    PlotMatrix(const std::vector<std::shared_ptr<PlotEntry>> entries, int maxColumns, QWidget *parent = nullptr);
+    virtual ~PlotMatrix();
+
+    int numRows() const;
+    int numColumns() const;
+
+    TilePlot* plotAt( int row, int column );
+    const TilePlot* plotAt( int row, int column ) const;
+
+    void setAxisVisible( int axisId, bool tf = true );
+    bool isAxisVisible( int axisId ) const;
+
+    void setAxisScale( int axisId, int rowOrColumn,
+        double min, double max, double step = 0 );
+
+    QGridLayout *plotGrid();
+
+  protected:
+    void updateLayout();
+
+  private Q_SLOTS:
+    void onScaleDivChanged();
+
+  private:
+    void alignAxes( int rowOrColumn, int axis );
+    void alignScaleBorder( int rowOrColumn, int axis );
+
+    class PrivateData;
+    PrivateData* m_data;
+};
+
 
 #endif // __MNT_DATA_SRC_MVME2_SRC_MULTIPLOT_WIDGET_P_H_

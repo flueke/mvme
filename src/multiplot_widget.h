@@ -11,9 +11,10 @@ class MultiPlotWidget: public QWidget
         explicit MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~MultiPlotWidget() override;
 
+        bool eventFilter(QObject *watched, QEvent *event) override;
+
     public slots:
         void addSink(const analysis::SinkPtr &sink);
-        bool eventFilter(QObject *watched, QEvent *event) override;
 
     protected:
         void dragEnterEvent(QDragEnterEvent *ev) override;
@@ -24,7 +25,7 @@ class MultiPlotWidget: public QWidget
         void mousePressEvent(QMouseEvent *ev) override;
         void mouseReleaseEvent(QMouseEvent *ev) override;
         void wheelEvent(QWheelEvent *ev) override;
-
+        void mouseDoubleClickEvent(QMouseEvent *event) override;
 
     private:
         struct Private;
