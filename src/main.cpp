@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     }
 
     // FIXME: debug code here
-    if (args.contains("--trace-mvlc") || true)
+    if (args.contains("--trace-mvlc"))
     {
         mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::trace);
         mesytec::mvlc::get_logger("mvlc")->set_level(spdlog::level::trace);
