@@ -1,6 +1,7 @@
 #include "multiplot_widget.h"
 #include "multiplot_widget_p.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QDebug>
 #include <QDragEnterEvent>
@@ -171,9 +172,16 @@ struct MultiPlotWidget::Private
                     refresh();
                     inZoomHandling_ = false;
                 };
+                #else
+
+                auto on_zoomer_zoomed = [this, e](const QRectF &zoomRect)
+                {
+                    e->refresh();
+                    e->plot()->replot();
+                };
+                #endif
 
                 QObject::connect(e->zoomer(), &ScrollZoomer::zoomed, q, on_zoomer_zoomed);
-                #endif
 
                 entries_.emplace_back(std::move(e));
             }
@@ -227,11 +235,10 @@ struct MultiPlotWidget::Private
 
     void refresh()
     {
-        //qDebug() << ">>> refresh";
+        qDebug() << ">>> refresh";
         for (auto &e: entries_)
         {
-            //e->refresh();
-            e->plot()->replot();
+            e->refresh();
 
             if (state_ == State::Zooming)
             {
@@ -244,10 +251,16 @@ struct MultiPlotWidget::Private
                 e->zoomer()->setEnabled(false);
             }
 
+            e->plot()->replot();
+
+            // Let the qt event loop run after each plot. Makes updates feel
+            // much smoother.
+            QApplication::processEvents();
+
             //if (auto sz = e->zoomer()->zoomStack().size())
             //    qDebug() << "zoomstack depth for entry" << e.get() << sz;
         }
-        //qDebug() << "<<< refresh";
+        qDebug() << "<<< refresh";
     }
 
     void transitionState(const State &newState)

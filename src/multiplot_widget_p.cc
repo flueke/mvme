@@ -146,9 +146,11 @@ PlotMatrix::PlotMatrix( int numRows, int numColumns, QWidget* parent )
 
             for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
             {
+                #if 0
                 connect( plot->axisWidget( axisPos ),
                     SIGNAL(scaleDivChanged()), SLOT(onScaleDivChanged()),
                     Qt::QueuedConnection );
+                #endif
             }
             m_data->plotWidgets[row * numColumns + col] = plot;
         }
@@ -175,9 +177,11 @@ PlotMatrix::PlotMatrix(const std::vector<std::shared_ptr<PlotEntry>> entries, in
 
         for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
         {
+            #if 0
             connect( e->plot()->axisWidget( axisPos ),
                 SIGNAL(scaleDivChanged()), SLOT(onScaleDivChanged()),
                 Qt::QueuedConnection );
+            #endif
         }
         m_data->plotWidgets[row * maxColumns + col] = e->plot();
     }
@@ -245,6 +249,7 @@ bool PlotMatrix::isAxisVisible( int axis ) const
     return false;
 }
 
+#if 0
 void PlotMatrix::setAxisScale( int axis, int rowOrColumn,
     double min, double max, double step )
 {
@@ -263,12 +268,14 @@ void PlotMatrix::setAxisScale( int axis, int rowOrColumn,
         plt->updateAxes();
     }
 }
+#endif
 
 QGridLayout *PlotMatrix::plotGrid()
 {
     return qobject_cast<QGridLayout *>(layout());
 }
 
+#if 0
 void PlotMatrix::onScaleDivChanged()
 {
     if ( m_data->inScaleSync )
@@ -336,6 +343,7 @@ void PlotMatrix::onScaleDivChanged()
 
     m_data->inScaleSync = false;
 }
+#endif
 
 void PlotMatrix::updateLayout()
 {

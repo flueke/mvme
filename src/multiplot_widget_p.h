@@ -118,9 +118,6 @@ struct Histo1DSinkPlotEntry: public PlotEntry
 
     void refresh() override
     {
-        auto histoStats = histoData->getHisto()->calcStatistics();
-        gaussCurveData->setStats(histoStats);
-
         // x-axis update
         if (zoomer()->zoomRectIndex() == 0)
         {
@@ -130,30 +127,35 @@ struct Histo1DSinkPlotEntry: public PlotEntry
         }
 
         // do not zoom outside the histogram range
-        auto scaleDiv = plot()->axisScaleDiv(plot()->plotXAxis());
-        double lowerBound = scaleDiv.lowerBound();
-        double upperBound = scaleDiv.upperBound();
+        auto xScaleDiv = plot()->axisScaleDiv(plot()->plotXAxis());
+        double lowerBound = xScaleDiv.lowerBound();
+        double upperBound = xScaleDiv.upperBound();
 
         if (lowerBound <= upperBound)
         {
             if (lowerBound < histo->getXMin())
-                scaleDiv.setLowerBound(histo->getXMin());
+                xScaleDiv.setLowerBound(histo->getXMin());
 
             if (upperBound > histo->getXMax())
-                scaleDiv.setUpperBound(histo->getXMax());
+                xScaleDiv.setUpperBound(histo->getXMax());
         }
         else
         {
             if (lowerBound > histo->getXMin())
-                scaleDiv.setLowerBound(histo->getXMin());
+                xScaleDiv.setLowerBound(histo->getXMin());
 
             if (upperBound < histo->getXMax())
-                scaleDiv.setUpperBound(histo->getXMax());
+                xScaleDiv.setUpperBound(histo->getXMax());
         }
 
-        plot()->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
+        plot()->setAxisScaleDiv(plot()->plotXAxis(), xScaleDiv);
+
+        // Calculate histo statistics over the visible x range
+        auto histoStats = histoData->getHisto()->calcStatistics(
+            xScaleDiv.lowerBound(), xScaleDiv.upperBound());
 
         // y-axis update
+
         // Scale the y axis using the currently visible max value plus 20%
         double maxValue = histoStats.maxValue;
 
@@ -174,12 +176,15 @@ struct Histo1DSinkPlotEntry: public PlotEntry
             maxValue = maxValue * 1.2;
         }
 
-        // This sets a fixed y axis scale effectively overriding any changes made
-        // by the scrollzoomer.
+        // This sets a fixed y axis scale effectively overriding any changes
+        // made by the scrollzoomer.
         plot()->setAxisScale(plot()->plotYAxis(), base, maxValue);
         plot()->updateAxes();
 
         zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
+
+        // Also update the gauss curve with the calculated histo stats.
+        gaussCurveData->setStats(histoStats);
     }
 
     SinkPtr sink;
@@ -215,7 +220,10 @@ inline std::pair<int, int> row_col_from_index(int index, int columns)
     return std::pair(row, col);
 }
 
-void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode);
+void set_plot_grid_scale_draw_mode(
+    QGridLayout *plotGrid, GridScaleDrawMode xScaleMode, GridScaleDrawMode yScaleMode);
+
+//void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode);
 
 /*****************************************************************************
  * Based on: Qwt Examples - Copyright (C) 2002 Uwe Rathmann
@@ -239,16 +247,16 @@ class PlotMatrix : public QFrame
     void setAxisVisible( int axisId, bool tf = true );
     bool isAxisVisible( int axisId ) const;
 
-    void setAxisScale( int axisId, int rowOrColumn,
-        double min, double max, double step = 0 );
+    //void setAxisScale( int axisId, int rowOrColumn,
+    //    double min, double max, double step = 0 );
 
     QGridLayout *plotGrid();
 
   protected:
     void updateLayout();
 
-  private Q_SLOTS:
-    void onScaleDivChanged();
+  //private Q_SLOTS:
+  //  void onScaleDivChanged();
 
   private:
     void alignAxes( int rowOrColumn, int axis );
