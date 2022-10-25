@@ -99,11 +99,14 @@ struct Histo1DSinkPlotEntry: public PlotEntry
         : PlotEntry(plotParent)
         , sink(sink_)
         , histo(histo_)
+        , histoIndex(sink->getHistos().indexOf(histo))
         , plotItem(new QwtPlotHistogram)
         , histoData(new Histo1DIntervalData(histo.get()))
         , gaussCurve(make_plot_curve(Qt::green))
         , gaussCurveData(new Histo1DGaussCurveData)
     {
+        histoIndex = sink->getHistos().indexOf(histo_);
+
         plotItem->setStyle(QwtPlotHistogram::Outline);
         plotItem->setData(histoData); // ownership of histoData goes to qwt
         plotItem->attach(plot());
@@ -189,6 +192,7 @@ struct Histo1DSinkPlotEntry: public PlotEntry
 
     SinkPtr sink;
     Histo1DPtr histo; // to keep a copy of the histo alive
+    int histoIndex; // index of this entries histogram in the sink
     QwtPlotHistogram *plotItem;
     Histo1DIntervalData *histoData;
     QwtPlotCurve *gaussCurve;

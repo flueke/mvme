@@ -19,6 +19,7 @@ TilePlot::TilePlot(QWidget *parent)
 
 TilePlot::~TilePlot()
 {
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 QSize TilePlot::sizeHint() const

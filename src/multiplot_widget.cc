@@ -1,6 +1,7 @@
 #include "multiplot_widget.h"
 #include "multiplot_widget_p.h"
 
+#include <atomic>
 #include <QApplication>
 #include <QComboBox>
 #include <QDebug>
@@ -34,6 +35,7 @@ struct MultiPlotWidget::Private
 
     enum class State
     {
+        Default,
         Panning,
         PanningActive,
         Zooming,
@@ -50,9 +52,9 @@ struct MultiPlotWidget::Private
     std::vector<std::shared_ptr<PlotEntry>> entries_;
     int maxColumns_ = TilePlot::DefaultMaxColumns;
     State state_ = State::Panning;
-    QPoint panRef_;
+    QPoint panRef_; // where the current pan operation started in pixel coordinates
     GridScaleDrawMode scaleDrawMode_ = GridScaleDrawMode::ShowAll;
-    bool inZoomHandling_ = false;
+    std::atomic<bool> inRefresh_ = false;
 
     #if 0
     void addSinks(std::vector<SinkPtr> &&sinks)
@@ -174,7 +176,7 @@ struct MultiPlotWidget::Private
                 };
                 #else
 
-                auto on_zoomer_zoomed = [this, e](const QRectF &zoomRect)
+                auto on_zoomer_zoomed = [this, e](const QRectF &/*zoomRect*/)
                 {
                     e->refresh();
                     e->plot()->replot();
@@ -235,31 +237,41 @@ struct MultiPlotWidget::Private
 
     void refresh()
     {
-        qDebug() << ">>> refresh";
+        if (inRefresh_)
+            return;
+
+        inRefresh_ = true;
+        qDebug() << ">>> refresh, entries_.size()=" << entries_.size();
+
         for (auto &e: entries_)
         {
             e->refresh();
 
-            if (state_ == State::Zooming)
+            if (e->plot()->canvas())
             {
-                e->plot()->canvas()->setCursor(Qt::CrossCursor);
-                e->zoomer()->setEnabled(true);
-            }
-            else
-            {
-                e->plot()->canvas()->unsetCursor();
-                e->zoomer()->setEnabled(false);
+                if (state_ == State::Zooming)
+                {
+                    e->plot()->canvas()->setCursor(Qt::CrossCursor);
+                    e->zoomer()->setEnabled(true);
+                }
+                else
+                {
+                    e->plot()->canvas()->unsetCursor();
+                    e->zoomer()->setEnabled(false);
+                }
             }
 
             e->plot()->replot();
 
             // Let the qt event loop run after each plot. Makes updates feel
             // much smoother.
-            QApplication::processEvents();
+            QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
             //if (auto sz = e->zoomer()->zoomStack().size())
             //    qDebug() << "zoomstack depth for entry" << e.get() << sz;
         }
+
+        inRefresh_ = false;
         qDebug() << "<<< refresh";
     }
 
@@ -267,6 +279,9 @@ struct MultiPlotWidget::Private
     {
         switch (newState)
         {
+            case State::Default:
+                scrollArea_->viewport()->unsetCursor();
+                break;
             case State::Panning:
                 scrollArea_->viewport()->setCursor(Qt::OpenHandCursor);
                 break;
@@ -274,9 +289,11 @@ struct MultiPlotWidget::Private
                 scrollArea_->viewport()->setCursor(Qt::ClosedHandCursor);
                 break;
             case State::Zooming:
+                // Each zoomer will set the cross cursor on its plot.
                 scrollArea_->viewport()->unsetCursor();
                 break;
         }
+
         state_ = newState;
         refresh();
     }
@@ -294,6 +311,36 @@ struct MultiPlotWidget::Private
         scaleDrawMode_ = mode;
         //relayout();
     }
+
+    TilePlot *plotAt(const QPoint &p)
+    {
+        for (auto w = q->childAt(p); w; w = w->parentWidget())
+        {
+            if (auto tp = qobject_cast<TilePlot *>(w))
+                return tp;
+        }
+
+        return {};
+    }
+
+    std::shared_ptr<PlotEntry> findEntry(TilePlot *plot)
+    {
+        if (auto it = std::find_if(std::begin(entries_), std::end(entries_),
+            [plot] (const auto &e) { return e->plot() == plot; });
+            it != std::end(entries_))
+        {
+            return *it;
+        }
+
+        return {};
+    }
+
+    std::shared_ptr<PlotEntry> entryAt(const QPoint &p)
+    {
+        if (auto tp = plotAt(p))
+            return findEntry(tp);
+        return {};
+    }
 };
 
 MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -303,9 +350,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     d->q = this;
     d->asp_ = asp;
     d->toolBar_ = make_toolbar();
-    //d->plotGrid_ = new QGridLayout;
     d->statusBar_ = make_statusbar();
-    //d->scrollWidget_ = new QWidget;
 
     auto toolBarFrame = new QFrame;
     toolBarFrame->setFrameStyle(QFrame::StyledPanel);
@@ -314,11 +359,8 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
         l->addWidget(d->toolBar_);
     }
 
-    //d->scrollWidget_->setLayout(d->plotGrid_);
-
     d->scrollArea_ = new QScrollArea;
     auto scrollArea = d->scrollArea_;
-    //scrollArea->setWidget(d->scrollWidget_);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -334,34 +376,6 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     setMouseTracking(true);
 
     auto &tb = d->toolBar_;
-    auto actionEnlargeTiles = tb->addAction("++tilesize");
-    auto actionShrinkTiles = tb->addAction("--tilesize");
-    auto spinColumns = new QSpinBox;
-
-    {
-        spinColumns->setMinimum(1);
-        spinColumns->setValue(d->maxColumns_);
-        auto w = new QWidget;
-        auto l = make_vbox<2, 2>(w);
-        l->addWidget(new QLabel("Columns"));
-        l->addWidget(spinColumns);
-        tb->addWidget(w);
-    }
-
-    auto actionGauss = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
-    actionGauss->setCheckable(true);
-    actionGauss->setChecked(false);
-
-    auto actionPan = tb->addAction("Pan");
-    actionPan->setCheckable(true);
-    actionPan->setChecked(true);
-
-    auto actionZoom = tb->addAction("Zoom");
-    actionZoom->setCheckable(true);
-
-    auto plotInteractions = new QActionGroup(this);
-    plotInteractions->addAction(actionPan);
-    plotInteractions->addAction(actionZoom);
 
     // Y/Z-Scale linear/logarithmic toggle
     {
@@ -379,6 +393,37 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
                 });
     }
 
+    auto actionPan = tb->addAction(QIcon(":/hand.png"), "Pan");
+    actionPan->setCheckable(true);
+
+    auto actionZoom = tb->addAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom");
+    actionZoom->setCheckable(true);
+
+    auto actionGauss = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
+    actionGauss->setCheckable(true);
+    actionGauss->setChecked(false);
+
+    tb->addSeparator();
+
+    auto actionEnlargeTiles = tb->addAction(QIcon(":/map.png"), "Larger Tiles");
+    auto actionShrinkTiles = tb->addAction(QIcon(":/map-medium.png"), "Smaller Tiles");
+    auto spinColumns = new QSpinBox;
+
+    {
+        spinColumns->setMinimum(1);
+        spinColumns->setValue(d->maxColumns_);
+        auto w = new QWidget;
+        auto l = make_vbox<2, 2>(w);
+        l->addWidget(new QLabel("Columns"));
+        l->addWidget(spinColumns);
+        tb->addWidget(w);
+    }
+
+    auto plotInteractions = new QActionGroup(this);
+    plotInteractions->addAction(actionPan);
+    plotInteractions->addAction(actionZoom);
+
+#if 0
     // x and y axis scale draw visibility
     {
         auto combo = new QComboBox;
@@ -395,7 +440,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
                     d->setScaleDrawMode(mode);
                 });
     }
-
+#endif
 
     connect(actionEnlargeTiles, &QAction::triggered,
             this, [this] { d->enlargeTiles(); });
@@ -422,22 +467,30 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             });
 
     connect(plotInteractions, &QActionGroup::triggered,
-            this, [this, actionPan, actionZoom] (QAction *action)
+            this, [this, actionPan, actionZoom] (QAction */*action*/)
             {
-                if (action == actionPan)
+                if (actionPan->isChecked())
                     d->transitionState(Private::State::Panning);
-                else if (action == actionZoom)
+                else if (actionZoom->isChecked())
                     d->transitionState(Private::State::Zooming);
+                else
+                    d->transitionState(Private::State::Default);
             });
 
-    auto replotTimer = new QTimer(this);
-    connect(replotTimer, &QTimer::timeout, this, [this] { d->refresh(); });
-    replotTimer->start(Private::ReplotPeriod_ms);
+    actionPan->setChecked(true);
+
+    auto refreshTimer = new QTimer(this);
+
+    connect(refreshTimer, &QTimer::timeout,
+            this, [this] { d->refresh(); },
+            Qt::QueuedConnection);
+
+    refreshTimer->start(Private::ReplotPeriod_ms);
 }
 
 MultiPlotWidget::~MultiPlotWidget()
 {
-    qDebug() << __PRETTY_FUNCTION__ << actions();
+    qDebug() << __PRETTY_FUNCTION__ << "<<< inRefresh=" << d->inRefresh_;
 }
 
 void MultiPlotWidget::addSink(const analysis::SinkPtr &sink)
@@ -569,6 +622,21 @@ void MultiPlotWidget::wheelEvent(QWheelEvent *ev)
 
 void MultiPlotWidget::mouseDoubleClickEvent(QMouseEvent *ev)
 {
-    // TODO: open plot at position in its own window
-    QWidget::mouseDoubleClickEvent(ev);
+    if (d->state_ == Private::State::Default || d->state_ == Private::State::Panning)
+    {
+        // Open the clicked plot if any.
+        if (auto e = d->entryAt(ev->pos()))
+        {
+            if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(e))
+            {
+                Histo1DWidgetInfo info{};
+                info.sink = h1dEntry->sink;
+                info.histos = h1dEntry->sink->getHistos();
+                info.histoAddress = h1dEntry->histoIndex;
+                show_sink_widget(d->asp_, info);
+            }
+        }
+    }
+    else
+        QWidget::mouseDoubleClickEvent(ev);
 }

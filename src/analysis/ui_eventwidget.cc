@@ -1377,11 +1377,12 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
         {
 
             auto w = new MultiPlotWidget(getServiceProvider());
-            w->setAttribute(Qt::WA_DeleteOnClose);
+            //w->setAttribute(Qt::WA_DeleteOnClose);
             // FIXME: keyboard activation of the close action does not work here
             // for some reason. The action is there as can be seen by the debug
             // output in the destructor.
-            add_widget_close_action(w);
+            auto closeAction = add_widget_close_action(w);
+            connect(closeAction, &QAction::triggered, w, [w] { w->deleteLater(); });
             w->resize(800, 600);
             w->show();
 
@@ -3182,6 +3183,19 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     m_serviceProvider->getWidgetRegistry()->addWidget(
                         widget,
                         widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
+                }
+            });
+
+            menu.addAction(QSL("Open in Plot Grid"), m_q, [this, activeNode]() {
+                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
+
+                if (widgetInfo.histos.size())
+                {
+                    auto widget = new MultiPlotWidget(m_serviceProvider);
+                    widget->addSink(widgetInfo.sink);
+                    m_serviceProvider->getWidgetRegistry()->addWidget(
+                        widget,
+                        widgetInfo.sink->getId().toString() + QSL("_plotgrid"));
                 }
             });
 
