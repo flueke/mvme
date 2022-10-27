@@ -37,7 +37,7 @@ QSlider *make_res_reduction_slider(QWidget *parent)
     return result;
 }
 
-std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags)
+std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags, int fontPixelSize)
 {
     auto result = std::make_unique<QwtText>();
 
@@ -57,7 +57,7 @@ std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags)
     /* The text rendered by qwt looked non-antialiased when using the RichText
      * format. Manually setting the pixelSize fixes this. */
     QFont font;
-    font.setPixelSize(10);
+    font.setPixelSize(fontPixelSize);
     result->setFont(font);
 
     return result;

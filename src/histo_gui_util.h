@@ -92,6 +92,6 @@ class AutoBeginClickPointMachine: public QwtPickerMachine
         }
 };
 
-std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags = Qt::AlignRight | Qt::AlignTop);
+std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags = Qt::AlignRight | Qt::AlignTop, int fontPixelSize = 10);
 
 #endif /* __MVME_HISTO_GUI_UTIL_H__ */

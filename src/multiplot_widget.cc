@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDebug>
 #include <QDragEnterEvent>
@@ -20,6 +21,7 @@
 #include <QWheelEvent>
 
 #include "analysis/analysis_ui_util.h"
+#include "histo_gui_util.h"
 #include "histo_ui.h"
 #include "mvme_qwt.h"
 #include "qt_util.h"
@@ -41,110 +43,23 @@ struct MultiPlotWidget::Private
         Zooming,
     };
 
-    MultiPlotWidget *q;
-    AnalysisServiceProvider *asp_;
-    QToolBar *toolBar_;
-    QScrollArea *scrollArea_;
-    //QGridLayout *plotGrid_;
+    MultiPlotWidget *q = {};
+    AnalysisServiceProvider *asp_ = {};
+    QToolBar *toolBar_ = {};
+    QScrollArea *scrollArea_ = {};
     PlotMatrix *plotMatrix_ = {};
-    QStatusBar *statusBar_;
-    //QWidget *scrollWidget_;
+    QStatusBar *statusBar_ = {};
     std::vector<std::shared_ptr<PlotEntry>> entries_;
     int maxColumns_ = TilePlot::DefaultMaxColumns;
     State state_ = State::Panning;
     QPoint panRef_; // where the current pan operation started in pixel coordinates
-    GridScaleDrawMode scaleDrawMode_ = GridScaleDrawMode::ShowAll;
     std::atomic<bool> inRefresh_ = false;
+    bool inZoomHandling_ = false;
+    QCheckBox *cb_combinedZoom_;
+    QLabel *rrLabel_ = {};
+    QSlider *rrSlider_ = {};
+    u32 rrf_ = Histo1D::NoRR;
 
-    #if 0
-    void addSinks(std::vector<SinkPtr> &&sinks)
-    {
-        for (auto &s: sinks)
-        {
-            if (auto sink = std::dynamic_pointer_cast<Histo1DSink>(s))
-            {
-                for (const auto &histo: sink->getHistos())
-                {
-                    auto e = std::make_shared<Histo1DSinkPlotEntry>(sink, histo, q);
-                    addEntryToLayout(e);
-
-                    auto on_zoomer_zoomed = [this, e] (const QRectF &zoomRect)
-                    {
-                        if (inZoomHandling_)
-                            return;
-
-                        inZoomHandling_ = true;
-
-                        if (scaleDrawMode_ == GridScaleDrawMode::HideInner)
-                        {
-                            for (auto &e2: entries_)
-                            {
-                                if (e2 != e)
-                                {
-                                    e2->zoomer()->setZoomStack(e->zoomer()->zoomStack(), e->zoomer()->zoomRectIndex());
-                                }
-                            }
-                        }
-                        refresh();
-                        inZoomHandling_ = false;
-                    };
-
-                    QObject::connect(e->zoomer(), &ScrollZoomer::zoomed, q, on_zoomer_zoomed);
-
-                    entries_.emplace_back(std::move(e));
-                }
-            }
-            #if 0
-            else if (auto sink = std::dynamic_pointer_cast<Histo2DSink>(s))
-            {
-                auto e = std::make_shared<Histo2DSinkPlotEntry>(sink, q);
-                addEntryToLayout(e);
-
-                entries_.emplace_back(std::move(e));
-            }
-            #endif
-        }
-    }
-
-    void addEntryToLayout(PlotEntry &e)
-    {
-        int index = plotGrid_->count();
-        int row = std::floor(index / maxColumns_);
-        int col = index % maxColumns_;
-        e.plot()->resize(100, 100);
-        plotGrid_->addWidget(e.plot(), row, col);
-    }
-
-    void addEntryToLayout(const std::shared_ptr<PlotEntry> &e)
-    {
-        addEntryToLayout(*e);
-    }
-
-    void relayout()
-    {
-        while (plotGrid_->count())
-            delete plotGrid_->takeAt(0);
-
-        delete plotGrid_;
-        plotGrid_ = new QGridLayout;
-        scrollWidget_->setLayout(plotGrid_);
-
-        for (auto &e: entries_)
-        {
-            addEntryToLayout(e);
-        }
-
-        set_plot_axes(plotGrid_, scaleDrawMode_);
-
-        for (auto &e: entries_)
-        {
-            e->refresh();
-            qDebug() << "relayout(): clearing zoomstack for" << e.get();
-            e->zoomer()->setZoomStack({});
-            e->plot()->replot();
-        }
-    }
-    #else
     void addSink(const SinkPtr &s)
     {
         if (auto sink = std::dynamic_pointer_cast<Histo1DSink>(s))
@@ -153,41 +68,23 @@ struct MultiPlotWidget::Private
             {
                 auto e = std::make_shared<Histo1DSinkPlotEntry>(sink, histo, q);
 
-                #if 0
-                auto on_zoomer_zoomed = [this, e](const QRectF &zoomRect)
-                {
-                    if (inZoomHandling_)
-                        return;
-
-                    inZoomHandling_ = true;
-
-                    if (scaleDrawMode_ == GridScaleDrawMode::HideInner)
-                    {
-                        for (auto &e2 : entries_)
-                        {
-                            if (e2 != e)
-                            {
-                                e2->zoomer()->setZoomStack(e->zoomer()->zoomStack(), e->zoomer()->zoomRectIndex());
-                            }
-                        }
-                    }
-                    refresh();
-                    inZoomHandling_ = false;
-                };
-                #else
-
-                auto on_zoomer_zoomed = [this, e](const QRectF &/*zoomRect*/)
-                {
-                    e->refresh();
-                    e->plot()->replot();
-                };
-                #endif
-
-                QObject::connect(e->zoomer(), &ScrollZoomer::zoomed, q, on_zoomer_zoomed);
+                QObject::connect(e->zoomer(), &ScrollZoomer::zoomed,
+                                 q, [this, e] (const QRectF &) { onEntryZoomed(e); });
 
                 entries_.emplace_back(std::move(e));
             }
         }
+
+        u32 maxBins = 0;
+
+        for (const auto &e: entries_)
+        {
+            if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(e))
+                maxBins = std::max(maxBins, h1dEntry->histo->getNumberOfBins());
+        }
+        rrSlider_->setMaximum(std::log2(maxBins));
+        if (rrf_ == Histo1D::NoRR)
+            rrSlider_->setValue(rrSlider_->maximum());
 
         relayout();
     }
@@ -211,7 +108,6 @@ struct MultiPlotWidget::Private
         plotMatrix_ = new PlotMatrix(entries_, maxColumns_);
         scrollArea_->setWidget(plotMatrix_);
     }
-#endif
 
     void addToTileSize(int dx, int dy)
     {
@@ -241,10 +137,10 @@ struct MultiPlotWidget::Private
             return;
 
         inRefresh_ = true;
-        qDebug() << ">>> refresh, entries_.size()=" << entries_.size();
 
         for (auto &e: entries_)
         {
+            e->setRRF(Qt::XAxis, rrf_);
             e->refresh();
 
             if (e->plot()->canvas())
@@ -262,17 +158,18 @@ struct MultiPlotWidget::Private
             }
 
             e->plot()->replot();
-
-            // Let the qt event loop run after each plot. Makes updates feel
-            // much smoother.
-            QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-
-            //if (auto sz = e->zoomer()->zoomStack().size())
-            //    qDebug() << "zoomstack depth for entry" << e.get() << sz;
         }
 
+        QString windowTitle("PlotGrid");
+
+        if (!entries_.empty())
+        {
+            if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(entries_[0]))
+                windowTitle = "PlotGrid " + h1dEntry->histo->objectName();
+        }
+        q->setWindowTitle(windowTitle);
+
         inRefresh_ = false;
-        qDebug() << "<<< refresh";
     }
 
     void transitionState(const State &newState)
@@ -306,10 +203,46 @@ struct MultiPlotWidget::Private
         refresh();
     }
 
-    void setScaleDrawMode(GridScaleDrawMode mode)
+    void onEntryZoomed(const std::shared_ptr<PlotEntry> &entry)
     {
-        scaleDrawMode_ = mode;
-        //relayout();
+        if (inZoomHandling_)
+            return;
+
+        inZoomHandling_ = true;
+
+        if (cb_combinedZoom_->isChecked())
+        {
+            std::for_each(
+                std::begin(entries_), std::end(entries_),
+                [&] (auto &e)
+                {
+                    if (e != entry)
+                    {
+                        e->zoomer()->setZoomStack(entry->zoomer()->zoomStack(),
+                                                  entry->zoomer()->zoomRectIndex());
+                        e->refresh();
+                        e->plot()->replot();
+                    }
+                });
+        }
+
+        entry->refresh();
+        entry->plot()->replot();
+
+        inZoomHandling_ = false;
+    }
+
+    void onRRSliderValueChanged(int sliderValue)
+    {
+        u32 maxBins = 1u << rrSlider_->maximum();
+        u32 visBins = 1u << sliderValue;
+        rrf_ = maxBins / visBins;
+
+        rrLabel_->setText(QSL("X-Res: %1, %2 bit")
+                              .arg(visBins)
+                              .arg(std::log2(visBins)));
+        qDebug("maxBins=%d, visBins=%d, rrf=%d", maxBins, visBins, rrf_);
+        refresh();
     }
 
     TilePlot *plotAt(const QPoint &p)
@@ -399,9 +332,28 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     auto actionZoom = tb->addAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom");
     actionZoom->setCheckable(true);
 
+    {
+        d->cb_combinedZoom_ = new QCheckBox;
+        auto boxStruct = make_vbox_container(QSL("Zoom all"), d->cb_combinedZoom_);
+        set_widget_font_pointsize(d->cb_combinedZoom_, 7);
+        set_widget_font_pointsize(boxStruct.label, 7);
+        tb->addWidget(boxStruct.container.release());
+    }
+
     auto actionGauss = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
     actionGauss->setCheckable(true);
     actionGauss->setChecked(false);
+
+    {
+        d->rrSlider_ = make_res_reduction_slider();
+        auto boxStruct = make_vbox_container(QSL("Visible X Resolution"), d->rrSlider_, 0, -2);
+        set_widget_font_pointsize(boxStruct.label, 7);
+        d->rrLabel_ = boxStruct.label;
+        tb->addWidget(boxStruct.container.release());
+
+        connect(d->rrSlider_, &QSlider::valueChanged,
+                this, [this] (int sliderValue) { d->onRRSliderValueChanged(sliderValue); });
+    }
 
     tb->addSeparator();
 
@@ -422,25 +374,6 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     auto plotInteractions = new QActionGroup(this);
     plotInteractions->addAction(actionPan);
     plotInteractions->addAction(actionZoom);
-
-#if 0
-    // x and y axis scale draw visibility
-    {
-        auto combo = new QComboBox;
-        combo->addItem(QSL("Individual"), static_cast<int>(GridScaleDrawMode::ShowAll));
-        combo->addItem(QSL("Combined"), static_cast<int>(GridScaleDrawMode::HideInner));
-
-        tb->addWidget(make_vbox_container(QSL("Axis Mode"), combo, 2, -2)
-                      .container.release());
-
-        connect(combo, qOverload<int>(&QComboBox::currentIndexChanged),
-                this, [this, combo]
-                {
-                    auto mode = static_cast<GridScaleDrawMode>(combo->currentData().toInt());
-                    d->setScaleDrawMode(mode);
-                });
-    }
-#endif
 
     connect(actionEnlargeTiles, &QAction::triggered,
             this, [this] { d->enlargeTiles(); });
@@ -495,19 +428,20 @@ MultiPlotWidget::~MultiPlotWidget()
 
 void MultiPlotWidget::addSink(const analysis::SinkPtr &sink)
 {
-    //d->addSinks({ sink });
     d->addSink(sink);
     d->refresh();
 }
 
 void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
 {
+    #if 0
     if (ev->mimeData()->hasFormat(SinkIdListMIMEType))
     {
         qDebug() << __PRETTY_FUNCTION__ << ev << ev->mimeData();
         ev->acceptProposedAction();
     }
     else
+    #endif
         QWidget::dragEnterEvent(ev);
 }
 
@@ -525,6 +459,7 @@ void MultiPlotWidget::dragMoveEvent(QDragMoveEvent *ev)
 
 void MultiPlotWidget::dropEvent(QDropEvent *ev)
 {
+    #if 0
     auto analysis = d->asp_->getAnalysis();
 
     if (analysis && ev->mimeData()->hasFormat(SinkIdListMIMEType))
@@ -536,15 +471,13 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
         {
             if (auto sink = analysis->getObject<SinkInterface>(id))
             {
-                //qDebug() << sink.get();
-                //sinks.emplace_back(std::move(sink));
-                //d->addSinks(std::move(sinks));
                 d->addSink(sink);
             }
         }
         d->refresh();
     }
     else
+    #endif
         QWidget::dropEvent(ev);
 }
 
@@ -622,7 +555,10 @@ void MultiPlotWidget::wheelEvent(QWheelEvent *ev)
 
 void MultiPlotWidget::mouseDoubleClickEvent(QMouseEvent *ev)
 {
-    if (d->state_ == Private::State::Default || d->state_ == Private::State::Panning)
+    if ((d->state_ == Private::State::Default
+        || d->state_ == Private::State::Panning
+        || d->state_ == Private::State::Zooming)
+        && ev->button() == Qt::LeftButton)
     {
         // Open the clicked plot if any.
         if (auto e = d->entryAt(ev->pos()))
@@ -634,6 +570,7 @@ void MultiPlotWidget::mouseDoubleClickEvent(QMouseEvent *ev)
                 info.histos = h1dEntry->sink->getHistos();
                 info.histoAddress = h1dEntry->histoIndex;
                 show_sink_widget(d->asp_, info);
+                ev->accept();
             }
         }
     }

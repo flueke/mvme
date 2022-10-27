@@ -50,9 +50,20 @@ class TilePlot: public QwtPlot
         QwtPlot::Axis plotYAxis() const { return yAxis_; }
         void setPlotYAxis(QwtPlot::Axis axis) { yAxis_ = axis; }
 
+        // Which plot axis to use for the x title.
+        QwtPlot::Axis xTitleAxis() const { return xTitleAxis_; }
+        void setXTitleAxis(QwtPlot::Axis axis) { xTitleAxis_ = axis; }
+
+        // Which plot axis to use for the y title.
+        QwtPlot::Axis yTitleAxis() const { return yTitleAxis_; }
+        void setYTitleAxis(QwtPlot::Axis axis) { yTitleAxis_ = axis; }
+
     private:
         QwtPlot::Axis xAxis_ = QwtPlot::Axis::xBottom;
         QwtPlot::Axis yAxis_ = QwtPlot::Axis::yLeft;
+
+        QwtPlot::Axis xTitleAxis_ = QwtPlot::Axis::xTop;
+        QwtPlot::Axis yTitleAxis_ = QwtPlot::Axis::yLeft;
 };
 
 struct PlotEntry
@@ -65,6 +76,7 @@ struct PlotEntry
         {
             zoomer_->setEnabled(false);
             zoomer_->setZoomBase();
+            resReductions_.fill(0);
         }
 
         explicit PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft)
@@ -74,6 +86,7 @@ struct PlotEntry
         {
             zoomer_->setEnabled(false);
             zoomer_->setZoomBase();
+            resReductions_.fill(0);
         }
 
         virtual ~PlotEntry() {}
@@ -85,10 +98,29 @@ struct PlotEntry
         PlotAxisScaleChanger *scaleChanger() { return scaleChanger_; }
         virtual void refresh() {};
 
+        // resolution reduction factor
+        u32 rrf(Qt::Axis axis)
+        {
+            if (axis < resReductions_.size())
+                return resReductions_[axis];
+            return 0;
+        }
+
+        void setRRF(Qt::Axis axis, u32 rrf)
+        {
+            if (axis < resReductions_.size())
+                resReductions_[axis] = rrf;
+        }
+
+    protected:
+        int xMajorTicks = 5;
+        int yMajorTicks = 5;
+
     private:
         TilePlot *plot_;
         ScrollZoomer *zoomer_;
         PlotAxisScaleChanger *scaleChanger_;
+        std::array<u32, 3> resReductions_;
 };
 
 struct Histo1DSinkPlotEntry: public PlotEntry
@@ -104,8 +136,10 @@ struct Histo1DSinkPlotEntry: public PlotEntry
         , histoData(new Histo1DIntervalData(histo.get()))
         , gaussCurve(make_plot_curve(Qt::green))
         , gaussCurveData(new Histo1DGaussCurveData)
+        , statsTextItem(new TextLabelItem)
     {
         histoIndex = sink->getHistos().indexOf(histo_);
+        assert(histoIndex >= 0); // the histo should be one of the sinks histograms
 
         plotItem->setStyle(QwtPlotHistogram::Outline);
         plotItem->setData(histoData); // ownership of histoData goes to qwt
@@ -115,80 +149,14 @@ struct Histo1DSinkPlotEntry: public PlotEntry
         gaussCurve->hide();
         gaussCurve->attach(plot());
 
+        statsTextItem->hide();
+        statsTextItem->attach(plot());
+
         zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
         zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     }
 
-    void refresh() override
-    {
-        // x-axis update
-        if (zoomer()->zoomRectIndex() == 0)
-        {
-            // fully zoomed out -> set to full resolution
-            plot()->setAxisScale(plot()->plotXAxis(), histo->getXMin(), histo->getXMax());
-            zoomer()->setZoomBase();
-        }
-
-        // do not zoom outside the histogram range
-        auto xScaleDiv = plot()->axisScaleDiv(plot()->plotXAxis());
-        double lowerBound = xScaleDiv.lowerBound();
-        double upperBound = xScaleDiv.upperBound();
-
-        if (lowerBound <= upperBound)
-        {
-            if (lowerBound < histo->getXMin())
-                xScaleDiv.setLowerBound(histo->getXMin());
-
-            if (upperBound > histo->getXMax())
-                xScaleDiv.setUpperBound(histo->getXMax());
-        }
-        else
-        {
-            if (lowerBound > histo->getXMin())
-                xScaleDiv.setLowerBound(histo->getXMin());
-
-            if (upperBound < histo->getXMax())
-                xScaleDiv.setUpperBound(histo->getXMax());
-        }
-
-        plot()->setAxisScaleDiv(plot()->plotXAxis(), xScaleDiv);
-
-        // Calculate histo statistics over the visible x range
-        auto histoStats = histoData->getHisto()->calcStatistics(
-            xScaleDiv.lowerBound(), xScaleDiv.upperBound());
-
-        // y-axis update
-
-        // Scale the y axis using the currently visible max value plus 20%
-        double maxValue = histoStats.maxValue;
-
-        // force a minimum of 10 units in y
-        if (maxValue <= 1.0)
-            maxValue = 10.0;
-
-        double base = 0.0;
-
-        if (is_logarithmic_axis_scale(plot(), plot()->plotYAxis()))
-        {
-            base = 1.0;
-            maxValue = std::pow(maxValue, 1.2);
-        }
-        else
-        {
-            base = 0.0;
-            maxValue = maxValue * 1.2;
-        }
-
-        // This sets a fixed y axis scale effectively overriding any changes
-        // made by the scrollzoomer.
-        plot()->setAxisScale(plot()->plotYAxis(), base, maxValue);
-        plot()->updateAxes();
-
-        zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
-
-        // Also update the gauss curve with the calculated histo stats.
-        gaussCurveData->setStats(histoStats);
-    }
+    void refresh() override;
 
     SinkPtr sink;
     Histo1DPtr histo; // to keep a copy of the histo alive
@@ -197,6 +165,7 @@ struct Histo1DSinkPlotEntry: public PlotEntry
     Histo1DIntervalData *histoData;
     QwtPlotCurve *gaussCurve;
     Histo1DGaussCurveData *gaussCurveData;
+    TextLabelItem *statsTextItem;
 };
 
 struct Histo2DSinkPlotEntry: public PlotEntry

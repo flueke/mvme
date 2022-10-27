@@ -5,6 +5,8 @@
 #include <qwt_scale_draw.h>
 #include <qwt_scale_widget.h>
 
+#include "histo_gui_util.h"
+
 TilePlot::TilePlot(QWidget *parent)
     : QwtPlot(parent)
 {
@@ -25,6 +27,123 @@ TilePlot::~TilePlot()
 QSize TilePlot::sizeHint() const
 {
     return minimumSizeHint();
+}
+
+void Histo1DSinkPlotEntry::refresh()
+{
+    histoData->setResolutionReductionFactor(rrf(Qt::XAxis));
+
+    // x-axis update
+    // ====================
+    if (zoomer()->zoomRectIndex() == 0)
+    {
+        // fully zoomed out -> set to full resolution
+        plot()->setAxisScale(plot()->plotXAxis(), histo->getXMin(), histo->getXMax());
+        zoomer()->setZoomBase();
+    }
+
+    // do not zoom outside the histogram range
+    auto xScaleDiv = plot()->axisScaleDiv(plot()->plotXAxis());
+    double lowerBound = xScaleDiv.lowerBound();
+    double upperBound = xScaleDiv.upperBound();
+
+    if (lowerBound <= upperBound)
+    {
+        if (lowerBound < histo->getXMin())
+            xScaleDiv.setLowerBound(histo->getXMin());
+
+        if (upperBound > histo->getXMax())
+            xScaleDiv.setUpperBound(histo->getXMax());
+    }
+    else
+    {
+        if (lowerBound > histo->getXMin())
+            xScaleDiv.setLowerBound(histo->getXMin());
+
+        if (upperBound < histo->getXMax())
+            xScaleDiv.setUpperBound(histo->getXMax());
+    }
+
+    if (auto scaleEngine = plot()->axisScaleEngine(plot()->plotXAxis()))
+    {
+        // max of N major ticks and no minor ticks
+        xScaleDiv = scaleEngine->divideScale(xScaleDiv.lowerBound(), xScaleDiv.upperBound(), xMajorTicks, 0);
+        plot()->setAxisScaleDiv(plot()->plotXAxis(), xScaleDiv);
+    }
+
+    // Calculate histo statistics over the visible x range
+    auto histoStats = histo->calcStatistics(
+        xScaleDiv.lowerBound(), xScaleDiv.upperBound(), rrf(Qt::XAxis));
+
+    // Update the gauss curve with the calculated histo stats.
+    gaussCurveData->setStats(histoStats);
+
+    // y-axis update
+    // ====================
+
+    // Scale the y axis using the currently visible max value plus 20%
+    double maxValue = histoStats.maxValue;
+
+    // force a minimum of 10 units in y
+    if (maxValue <= 1.0)
+        maxValue = 10.0;
+
+    double base = 0.0;
+
+    if (is_logarithmic_axis_scale(plot(), plot()->plotYAxis()))
+    {
+        base = 1.0;
+        maxValue = std::pow(maxValue, 1.2);
+    }
+    else
+    {
+        base = 0.0;
+        maxValue = maxValue * 1.2;
+    }
+
+    // This sets a fixed y axis scale effectively overriding any changes
+    // made by the scrollzoomer.
+    plot()->setAxisScale(plot()->plotYAxis(), base, maxValue);
+
+    if (auto scaleEngine = plot()->axisScaleEngine(plot()->plotYAxis()))
+    {
+        // max of N major ticks and no minor ticks
+        auto yScaleDiv = scaleEngine->divideScale(base, maxValue, yMajorTicks, 0);
+        plot()->setAxisScaleDiv(plot()->plotYAxis(), yScaleDiv);
+    }
+
+    // update the x axis title
+    {
+        auto axisInfo = histo->getAxisInfo(Qt::XAxis);
+        QwtText title(make_title_string(axisInfo));
+        auto font = title.font();
+        font.setPointSize(10);
+        title.setFont(font);
+        plot()->setAxisTitle(plot()->xTitleAxis(), title);
+    }
+
+    // Update the stats text box
+    // ====================
+    static const QString RowTemplate = "<tr><td align=\"left\">%1</td><td>%2</td></tr>";
+    QStringList textRows;
+
+    textRows << "<table>";
+    textRows << RowTemplate.arg("Counts").arg(histoStats.entryCount);
+
+    if (gaussCurve->isVisible())
+        textRows << RowTemplate.arg("FWHM").arg(histoStats.fwhm, 0, 'g', 4);
+
+    textRows << "</table>";
+
+    auto statsQwtText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight, 8);
+    statsQwtText->setText(textRows.join("\n"));
+    statsTextItem->setText(*statsQwtText);
+    statsTextItem->show();
+
+    // Final plot and zoomer axes update
+    // ====================
+    plot()->updateAxes(); // let qwt recalculate the axes
+    zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
 }
 
 void enable_plot_axis(QwtPlot* plot, int axis, bool on)
@@ -373,6 +492,13 @@ void PlotMatrix::updateLayout()
             }
         }
     }
+
+    for (int row = 0; row < numRows(); ++row)
+        plotGrid()->setRowStretch(row, 1);
+
+    for (int col = 0; col < numColumns(); ++col)
+        plotGrid()->setColumnStretch(col, 1);
+
 
     for ( int row = 0; row < numRows(); row++ )
     {

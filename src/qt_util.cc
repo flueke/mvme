@@ -264,8 +264,8 @@ VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *wi
     layout->setContentsMargins(0, 0, 0, 0);
 
     layout->setSpacing(spacing);
-    layout->addWidget(label);
-    layout->addWidget(widget);
+    layout->addWidget(label, 0, Qt::AlignCenter);
+    layout->addWidget(widget, 0, Qt::AlignCenter);
 
     VBoxContainerWithLabel result { std::move(container), layout, label, widget };
 
