@@ -74,6 +74,11 @@ struct MultiPlotWidget::Private
                 entries_.emplace_back(std::move(e));
             }
         }
+        else if (auto sink = std::dynamic_pointer_cast<Histo2DSink>(s))
+        {
+            auto e = std::make_shared<Histo2DSinkPlotEntry>(sink, q);
+            entries_.emplace_back(std::move(e));
+        }
 
         u32 maxBins = 0;
 
@@ -106,6 +111,7 @@ struct MultiPlotWidget::Private
         }
 
         plotMatrix_ = new PlotMatrix(entries_, maxColumns_);
+        plotMatrix_->setAxisVisible(QwtPlot::yRight, true);
         scrollArea_->setWidget(plotMatrix_);
     }
 
@@ -237,11 +243,12 @@ struct MultiPlotWidget::Private
         u32 maxBins = 1u << rrSlider_->maximum();
         u32 visBins = 1u << sliderValue;
         rrf_ = maxBins / visBins;
+        rrf_ = 0;
 
         rrLabel_->setText(QSL("X-Res: %1, %2 bit")
                               .arg(visBins)
                               .arg(std::log2(visBins)));
-        qDebug("maxBins=%d, visBins=%d, rrf=%d", maxBins, visBins, rrf_);
+        qDebug("hack! maxBins=%d, visBins=%d, rrf=%d", maxBins, visBins, rrf_);
         refresh();
     }
 
@@ -415,8 +422,8 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     auto refreshTimer = new QTimer(this);
 
     connect(refreshTimer, &QTimer::timeout,
-            this, [this] { d->refresh(); },
-            Qt::QueuedConnection);
+            this, [this] { d->refresh(); });
+            //Qt::QueuedConnection);
 
     refreshTimer->start(Private::ReplotPeriod_ms);
 }
@@ -434,7 +441,7 @@ void MultiPlotWidget::addSink(const analysis::SinkPtr &sink)
 
 void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
 {
-    #if 0
+    #if 1
     if (ev->mimeData()->hasFormat(SinkIdListMIMEType))
     {
         qDebug() << __PRETTY_FUNCTION__ << ev << ev->mimeData();
@@ -459,7 +466,7 @@ void MultiPlotWidget::dragMoveEvent(QDragMoveEvent *ev)
 
 void MultiPlotWidget::dropEvent(QDropEvent *ev)
 {
-    #if 0
+    #if 1
     auto analysis = d->asp_->getAnalysis();
 
     if (analysis && ev->mimeData()->hasFormat(SinkIdListMIMEType))
@@ -477,8 +484,8 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
         d->refresh();
     }
     else
-    #endif
         QWidget::dropEvent(ev);
+    #endif
 }
 
 void MultiPlotWidget::mouseMoveEvent(QMouseEvent *ev)

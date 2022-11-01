@@ -4,6 +4,7 @@
 #include <cmath>
 #include <QGridLayout>
 #include <qwt_plot.h>
+#include <qwt_plot_spectrogram.h>
 
 #include "analysis/analysis.h"
 #include "histo_ui.h"
@@ -171,6 +172,33 @@ struct Histo1DSinkPlotEntry: public PlotEntry
 struct Histo2DSinkPlotEntry: public PlotEntry
 {
     using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
+
+    Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotParent)
+        : PlotEntry(plotParent, QwtPlot::yRight)
+        , sink(sink_)
+        , histo(sink->getHisto())
+        , plotItem(new QwtPlotSpectrogram)
+        , histoData(new Histo2DRasterData(histo.get()))
+        , statsTextItem(new TextLabelItem)
+    {
+        plotItem->setRenderThreadCount(0);
+        plotItem->setData(histoData);
+        plotItem->attach(plot());
+
+        statsTextItem->hide();
+        statsTextItem->attach(plot());
+
+        zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
+        zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
+    }
+
+    void refresh() override;
+
+    SinkPtr sink;
+    Histo2DPtr histo; // to ensure the histo stays alive
+    QwtPlotSpectrogram *plotItem;
+    Histo2DRasterData *histoData;
+    TextLabelItem *statsTextItem;
 };
 
 struct RateMonitorSinkPlotEntry: public PlotEntry

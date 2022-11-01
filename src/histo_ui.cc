@@ -1110,4 +1110,58 @@ void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &
         });
 }
 
+// from http://stackoverflow.com/a/9021841
+class LogarithmicColorMap : public QwtLinearColorMap
+{
+    public:
+        LogarithmicColorMap(const QColor &from, const QColor &to)
+            : QwtLinearColorMap(from, to)
+        {
+        }
+
+        QRgb rgb(const QwtInterval &interval, double value) const
+        {
+            /* XXX: Hack for log scale. Is this the right place? Limit the
+             * interval somewhere else so that it is bounded to (1, X) when
+             * this function is called? */
+            double minValue = interval.minValue();
+            if (interval.minValue() <= 0)
+            {
+                minValue = 1.0;
+            }
+            return QwtLinearColorMap::rgb(QwtInterval(std::log(minValue),
+                                                      std::log(interval.maxValue())),
+                                          std::log(value));
+        }
+};
+
+QwtLinearColorMap *make_histo2d_color_map(AxisScaleType scaleType)
+{
+    auto colorFrom = Qt::darkBlue;
+    auto colorTo   = Qt::darkRed;
+    QwtLinearColorMap *colorMap = nullptr;
+
+    switch (scaleType)
+    {
+        case AxisScaleType::Linear:
+            colorMap = new QwtLinearColorMap(colorFrom, colorTo);
+            break;
+
+        case AxisScaleType::Logarithmic:
+            colorMap = new LogarithmicColorMap(colorFrom, colorTo);
+            break;
+    }
+
+    assert(colorMap);
+
+    colorMap->addColorStop(0.2, Qt::blue);
+    colorMap->addColorStop(0.4, Qt::cyan);
+    colorMap->addColorStop(0.6, Qt::yellow);
+    colorMap->addColorStop(0.8, Qt::red);
+
+    colorMap->setMode(QwtLinearColorMap::ScaledColors);
+
+    return colorMap;
+}
+
 }

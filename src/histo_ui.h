@@ -4,7 +4,9 @@
 #include <memory>
 #include <QComboBox>
 #include <QWidget>
+#include <qwt_color_map.h>
 #include <qwt_interval.h>
+#include <qwt_matrix_raster_data.h>
 #include <qwt_picker_machine.h>
 #include <qwt_plot.h>
 #include <qwt_plot_picker.h>
@@ -13,6 +15,7 @@
 #include <qwt_series_data.h>
 
 #include "histo1d.h"
+#include "histo2d.h"
 #include "libmvme_export.h"
 
 class QToolBar;
@@ -330,7 +333,144 @@ class LIBMVME_EXPORT Histo1DGaussCurveData: public QwtSyntheticPointData
         Histo1DStatistics m_stats;
 };
 
+struct BasicRasterData: public QwtMatrixRasterData
+{
+    ResolutionReductionFactors m_rrf;
+
+#ifndef QT_NO_DEBUG
+    /* Counts the number of samples obtained by qwt when doing a replot. Has to be atomic
+     * as QwtPlotSpectrogram::renderImage() uses threaded rendering internally.
+     * The number of samples heavily depends on the result of the pixelHint() method and
+     * is performance critical. */
+    mutable std::atomic<u64> m_sampledValuesForLastReplot;
+#endif
+
+    BasicRasterData()
+#ifndef QT_NO_DEBUG
+        : m_sampledValuesForLastReplot(0u)
+#endif
+    {}
+
+    void setResolutionReductionFactors(u32 rrfX, u32 rrfY) { m_rrf = { rrfX, rrfY }; }
+    void setResolutionReductionFactors(const ResolutionReductionFactors &rrf) { m_rrf = rrf; }
+
+    virtual void initRaster(const QRectF &area, const QSize &raster) override
+    {
+        preReplot();
+        QwtRasterData::initRaster(area, raster);
+    }
+
+    virtual void discardRaster() override
+    {
+        postReplot();
+        QwtRasterData::discardRaster();
+    }
+
+    void preReplot()
+    {
+#ifndef QT_NO_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << this;
+        m_sampledValuesForLastReplot = 0u;
+#endif
+    }
+
+    void postReplot()
+    {
+#ifndef QT_NO_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << this
+            << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+#endif
+    }
+};
+
+struct Histo2DRasterData: public BasicRasterData
+{
+    Histo2D *m_histo;
+
+    explicit Histo2DRasterData(Histo2D *histo)
+        : BasicRasterData()
+        , m_histo(histo)
+    {
+    }
+
+    virtual double value(double x, double y) const override
+    {
+#ifndef QT_NO_DEBUG
+        m_sampledValuesForLastReplot++;
+#endif
+        //qDebug() << __PRETTY_FUNCTION__ << this
+        //    << "x" << x << ", y" << y;
+
+        double v = m_histo->getValue(x, y, m_rrf);
+        double r = (v > 0.0 ? v : make_quiet_nan());
+        return r;
+    }
+
+    virtual QRectF pixelHint(const QRectF &) const override
+    {
+        QRectF result
+        {
+            0.0, 0.0,
+            m_histo->getAxisBinning(Qt::XAxis).getBinWidth(m_rrf.x),
+            m_histo->getAxisBinning(Qt::YAxis).getBinWidth(m_rrf.y)
+        };
+
+        qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << m_histo << result;
+
+        return result;
+    }
+
+};
+
+using HistoList = QVector<std::shared_ptr<Histo1D>>;
+
+struct Histo1DListRasterData: public BasicRasterData
+{
+    HistoList m_histos;
+
+    explicit Histo1DListRasterData(const HistoList &histos)
+        : BasicRasterData()
+        , m_histos(histos)
+    {}
+
+    virtual double value(double x, double y) const override
+    {
+#ifndef QT_NO_DEBUG
+        m_sampledValuesForLastReplot++;
+#endif
+        int histoIndex = x;
+
+        if (histoIndex < 0 || histoIndex >= m_histos.size())
+            return make_quiet_nan();
+
+        double v = m_histos[histoIndex]->getValue(y, m_rrf.y);
+        double r = (v > 0.0 ? v : make_quiet_nan());
+        return r;
+    }
+
+    virtual QRectF pixelHint(const QRectF &/*area*/) const override
+    {
+        double sizeX = 1.0;
+        double sizeY = 1.0;
+
+        if (!m_histos.isEmpty())
+        {
+            sizeY = m_histos[0]->getBinWidth(m_rrf.y);
+        }
+
+        QRectF result
+        {
+            0.0, 0.0, sizeX, sizeY
+        };
+
+        //qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << result;
+
+        return result;
+    }
+};
+
 LIBMVME_EXPORT void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
+LIBMVME_EXPORT QwtLinearColorMap *make_histo2d_color_map(AxisScaleType scaleType);
 
 }
 

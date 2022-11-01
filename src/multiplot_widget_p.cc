@@ -123,7 +123,7 @@ void Histo1DSinkPlotEntry::refresh()
     }
 
     // Update the stats text box
-    // ====================
+    // =========================
     static const QString RowTemplate = "<tr><td align=\"left\">%1</td><td>%2</td></tr>";
     QStringList textRows;
 
@@ -133,6 +133,58 @@ void Histo1DSinkPlotEntry::refresh()
     if (gaussCurve->isVisible())
         textRows << RowTemplate.arg("FWHM").arg(histoStats.fwhm, 0, 'g', 4);
 
+    textRows << "</table>";
+
+    auto statsQwtText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight, 8);
+    statsQwtText->setText(textRows.join("\n"));
+    statsTextItem->setText(*statsQwtText);
+    statsTextItem->show();
+
+    // Final plot and zoomer axes update
+    // ====================
+    plot()->updateAxes(); // let qwt recalculate the axes
+    zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
+}
+
+void Histo2DSinkPlotEntry::refresh()
+{
+    //histoData->setResolutionReductionFactors(rrf(Qt::XAxis), rrf(Qt::YAxis));
+
+    auto histo = sink->getHisto();
+
+    // x/y-axis update
+    // ====================
+    if (zoomer()->zoomRectIndex() == 0)
+    {
+        // fully zoomed out -> set to full resolution
+        plot()->setAxisScale(plot()->plotXAxis(), histo->getXMin(), histo->getXMax());
+        plot()->setAxisScale(plot()->plotYAxis(), histo->getYMin(), histo->getYMax());
+        zoomer()->setZoomBase();
+    }
+
+    // z-axis update
+    // ====================
+    if (is_logarithmic_axis_scale(plot(), QwtPlot::yRight))
+    {
+        auto colorMap = make_histo2d_color_map(AxisScaleType::Logarithmic);
+        plotItem->setColorMap(colorMap);
+    }
+    else
+    {
+        auto colorMap = make_histo2d_color_map(AxisScaleType::Linear);
+        plotItem->setColorMap(colorMap);
+    }
+
+    // TODO: calculate histo stats for the visible area and use these for the stats box
+    auto histoStats = histo->calcGlobalStatistics();
+
+    // Update the stats text box
+    // =========================
+    static const QString RowTemplate = "<tr><td align=\"left\">%1</td><td>%2</td></tr>";
+    QStringList textRows;
+
+    textRows << "<table>";
+    textRows << RowTemplate.arg("Counts").arg(histoStats.entryCount);
     textRows << "</table>";
 
     auto statsQwtText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight, 8);
@@ -483,7 +535,7 @@ void PlotMatrix::updateLayout()
                 showAxis[QwtPlot::xBottom] = true;
                 showAxis[QwtPlot::xTop] = false;
                 showAxis[QwtPlot::yLeft] = true;
-                showAxis[QwtPlot::yRight] = false;
+                showAxis[QwtPlot::yRight] = true;
 
                 for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
                 {

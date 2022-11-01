@@ -210,6 +210,11 @@ class LIBMVME_EXPORT Histo2D: public QObject
             return m_axisBinnings[Qt::YAxis].getBins(rrf);
         }
 
+        inline double getXMin() const { return m_axisBinnings[Qt::XAxis].getMin(); }
+        inline double getXMax() const { return m_axisBinnings[Qt::XAxis].getMax(); }
+        inline double getYMin() const { return m_axisBinnings[Qt::YAxis].getMin(); }
+        inline double getYMax() const { return m_axisBinnings[Qt::YAxis].getMax(); }
+
     private:
         AxisBinnings m_axisBinnings;
         AxisInfos m_axisInfos;

@@ -1385,12 +1385,6 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
             connect(closeAction, &QAction::triggered, w, [w] { w->deleteLater(); });
             w->resize(800, 600);
             w->show();
-
-#ifndef NDEBUG
-            if (auto ana = getServiceProvider()->getAnalysis())
-                if (auto sink = ana->getObject<SinkInterface>(QUuid("{3239508d-93a2-44e6-b9ec-40b95ac10256}")))
-                    w->addSink(sink);
-#endif
         });
 #endif
     }
