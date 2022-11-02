@@ -111,7 +111,6 @@ struct MultiPlotWidget::Private
         }
 
         plotMatrix_ = new PlotMatrix(entries_, maxColumns_);
-        plotMatrix_->setAxisVisible(QwtPlot::yRight, true);
         scrollArea_->setWidget(plotMatrix_);
     }
 

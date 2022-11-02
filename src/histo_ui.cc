@@ -1135,20 +1135,21 @@ class LogarithmicColorMap : public QwtLinearColorMap
         }
 };
 
-QwtLinearColorMap *make_histo2d_color_map(AxisScaleType scaleType)
+std::unique_ptr<QwtLinearColorMap> make_histo2d_color_map(AxisScaleType scaleType)
 {
     auto colorFrom = Qt::darkBlue;
     auto colorTo   = Qt::darkRed;
-    QwtLinearColorMap *colorMap = nullptr;
+
+    std::unique_ptr<QwtLinearColorMap> colorMap{};
 
     switch (scaleType)
     {
         case AxisScaleType::Linear:
-            colorMap = new QwtLinearColorMap(colorFrom, colorTo);
+            colorMap = std::make_unique<QwtLinearColorMap>(colorFrom, colorTo);
             break;
 
         case AxisScaleType::Logarithmic:
-            colorMap = new LogarithmicColorMap(colorFrom, colorTo);
+            colorMap = std::make_unique<LogarithmicColorMap>(colorFrom, colorTo);
             break;
     }
 

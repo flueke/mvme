@@ -369,7 +369,7 @@ struct BasicRasterData: public QwtMatrixRasterData
     void preReplot()
     {
 #ifndef QT_NO_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << this;
+        //qDebug() << __PRETTY_FUNCTION__ << this;
         m_sampledValuesForLastReplot = 0u;
 #endif
     }
@@ -377,8 +377,8 @@ struct BasicRasterData: public QwtMatrixRasterData
     void postReplot()
     {
 #ifndef QT_NO_DEBUG
-        qDebug() << __PRETTY_FUNCTION__ << this
-            << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+        //qDebug() << __PRETTY_FUNCTION__ << this
+        //    << "sampled values for last replot: " << m_sampledValuesForLastReplot;
 #endif
     }
 };
@@ -415,7 +415,11 @@ struct Histo2DRasterData: public BasicRasterData
             m_histo->getAxisBinning(Qt::YAxis).getBinWidth(m_rrf.y)
         };
 
-        qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << m_histo << result;
+        //qDebug("%s: rrfs: x=%d, y=%d, binWidths: x=%lf, y=%lf",
+        //       __PRETTY_FUNCTION__, m_rrf.x, m_rrf.y,
+        //       m_histo->getAxisBinning(Qt::XAxis).getBinWidth(m_rrf.x),
+        //       m_histo->getAxisBinning(Qt::YAxis).getBinWidth(m_rrf.y));
+        //qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << m_histo << result;
 
         return result;
     }
@@ -470,7 +474,7 @@ struct Histo1DListRasterData: public BasicRasterData
 };
 
 LIBMVME_EXPORT void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
-LIBMVME_EXPORT QwtLinearColorMap *make_histo2d_color_map(AxisScaleType scaleType);
+LIBMVME_EXPORT std::unique_ptr<QwtLinearColorMap> make_histo2d_color_map(AxisScaleType scaleType);
 
 }
 

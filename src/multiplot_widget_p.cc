@@ -112,7 +112,17 @@ void Histo1DSinkPlotEntry::refresh()
         plot()->setAxisScaleDiv(plot()->plotYAxis(), yScaleDiv);
     }
 
-    // update the x axis title
+    // Set the plot title
+    {
+        QwtText title(sink->objectName());
+        auto font = title.font();
+        font.setPointSize(10);
+        title.setFont(font);
+        plot()->setTitle(title);
+    }
+
+    // x axis title
+    #if 0
     {
         auto axisInfo = histo->getAxisInfo(Qt::XAxis);
         QwtText title(make_title_string(axisInfo));
@@ -121,6 +131,7 @@ void Histo1DSinkPlotEntry::refresh()
         title.setFont(font);
         plot()->setAxisTitle(plot()->xTitleAxis(), title);
     }
+    #endif
 
     // Update the stats text box
     // =========================
@@ -146,13 +157,20 @@ void Histo1DSinkPlotEntry::refresh()
     zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
 }
 
+std::unique_ptr<QwtColorMap> Histo2DSinkPlotEntry::makeColorMap()
+{
+    if (is_logarithmic_axis_scale(plot(), QwtPlot::yRight))
+        return make_histo2d_color_map(AxisScaleType::Logarithmic);
+    return make_histo2d_color_map(AxisScaleType::Linear);
+}
+
 void Histo2DSinkPlotEntry::refresh()
 {
-    //histoData->setResolutionReductionFactors(rrf(Qt::XAxis), rrf(Qt::YAxis));
+    histoData->setResolutionReductionFactors(rrf(Qt::XAxis), rrf(Qt::YAxis));
 
     auto histo = sink->getHisto();
 
-    // x/y-axis update
+    // axis and stats updates
     // ====================
     if (zoomer()->zoomRectIndex() == 0)
     {
@@ -162,21 +180,68 @@ void Histo2DSinkPlotEntry::refresh()
         zoomer()->setZoomBase();
     }
 
-    // z-axis update
-    // ====================
-    if (is_logarithmic_axis_scale(plot(), QwtPlot::yRight))
+    auto xInterval = plot()->axisScaleDiv(QwtPlot::xBottom).interval();
+    auto yInterval = plot()->axisScaleDiv(QwtPlot::yLeft).interval();
+
+    auto histoStats = histo->calcStatistics(
+        { xInterval.minValue(), xInterval.maxValue() },
+        { yInterval.minValue(), yInterval.maxValue() },
+        { rrf(Qt::XAxis), rrf(Qt::YAxis) }
+        );
+
+    QwtInterval zInterval
     {
-        auto colorMap = make_histo2d_color_map(AxisScaleType::Logarithmic);
-        plotItem->setColorMap(colorMap);
-    }
-    else
+        histoStats.intervals[Qt::ZAxis].minValue,
+        histoStats.intervals[Qt::ZAxis].maxValue
+    };
+
+    double zBase = is_logarithmic_axis_scale(plot(), QwtPlot::yRight) ? 1.0 : 0.0;
+
+    zInterval.setMinValue(zBase);
+
+    if (zInterval.width() <= 0.0)
+        zInterval.setMaxValue(is_logarithmic_axis_scale(plot(), QwtPlot::yRight) ? 2.0 : 1.0);
+
+    assert(zInterval.width() > 0.0);
+
+    plot()->setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
+    plot()->axisWidget(QwtPlot::yRight)->setColorMap(zInterval, makeColorMap().release());
+    plotItem->setColorMap(makeColorMap().release());
+
+    // Set the intervals on the interal raster data object.
+    histoData->setInterval(Qt::XAxis, xInterval);
+    histoData->setInterval(Qt::YAxis, yInterval);
+    histoData->setInterval(Qt::ZAxis, zInterval);
+
+    // Set the plot title
     {
-        auto colorMap = make_histo2d_color_map(AxisScaleType::Linear);
-        plotItem->setColorMap(colorMap);
+        QwtText title(sink->objectName());
+        auto font = title.font();
+        font.setPointSize(10);
+        title.setFont(font);
+        plot()->setTitle(title);
     }
 
-    // TODO: calculate histo stats for the visible area and use these for the stats box
-    auto histoStats = histo->calcGlobalStatistics();
+    // x axis title
+    {
+        auto axisInfo = histo->getAxisInfo(Qt::XAxis);
+        QwtText title(make_title_string(axisInfo));
+        auto font = title.font();
+        font.setPointSize(10);
+        title.setFont(font);
+        plot()->setAxisTitle(plot()->xTitleAxis(), title);
+
+    }
+
+    // y axis title
+    {
+        auto axisInfo = histo->getAxisInfo(Qt::YAxis);
+        QwtText title(make_title_string(axisInfo));
+        auto font = title.font();
+        font.setPointSize(10);
+        title.setFont(font);
+        plot()->setAxisTitle(plot()->yTitleAxis(), title);
+    }
 
     // Update the stats text box
     // =========================
@@ -211,75 +276,9 @@ void enable_plot_axis(QwtPlot* plot, int axis, bool on)
     sd->enableComponent( QwtScaleDraw::Ticks, on );
     sd->enableComponent( QwtScaleDraw::Labels, on );
 
-    QwtScaleWidget* sw = plot->axisWidget( axis );
-    sw->setMargin( on ? 4 : 0 );
-    sw->setSpacing( on ? 20 : 0 );
-}
-
-void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode)
-{
-    for (int index = 0; index < grid->count(); ++index)
-    {
-        if (auto li = grid->itemAt(index);
-            auto plot = qobject_cast<TilePlot *>(li->widget()))
-        {
-            auto [row, col] = row_col_from_index(index, grid->columnCount());
-
-            switch (mode)
-            {
-                case GridScaleDrawMode::ShowAll:
-                {
-                    plot->setPlotXAxis(QwtPlot::xBottom);
-                    plot->setPlotYAxis(QwtPlot::yLeft);
-                    enable_plot_axis(plot, QwtPlot::xBottom, true);
-                    enable_plot_axis(plot, QwtPlot::xTop, false);
-                    enable_plot_axis(plot, QwtPlot::yLeft, true);
-                    enable_plot_axis(plot, QwtPlot::yRight, false);
-                } break;
-
-                case GridScaleDrawMode::HideInner:
-                {
-                    if (row == 0)
-                    {
-                        plot->setPlotXAxis(QwtPlot::xTop);
-                        enable_plot_axis(plot, QwtPlot::xTop, true);
-                        enable_plot_axis(plot, QwtPlot::xBottom, false);
-                    }
-                    else if (row == grid->rowCount() - 1 || !grid->itemAtPosition(row+1, col))
-                    {
-                        plot->setPlotXAxis(QwtPlot::xBottom);
-                        enable_plot_axis(plot, QwtPlot::xTop, false);
-                        enable_plot_axis(plot, QwtPlot::xBottom, true);
-                    }
-                    else
-                    {
-                        plot->setPlotXAxis(QwtPlot::xBottom);
-                        enable_plot_axis(plot, QwtPlot::xTop, false);
-                        enable_plot_axis(plot, QwtPlot::xBottom, false);
-                    }
-
-                    if (col == 0)
-                    {
-                        plot->setPlotYAxis(QwtPlot::yLeft);
-                        enable_plot_axis(plot, QwtPlot::yLeft, true);
-                        enable_plot_axis(plot, QwtPlot::yRight, false);
-                    }
-                    else if (col == grid->columnCount() - 1)
-                    {
-                        plot->setPlotYAxis(QwtPlot::yRight);
-                        enable_plot_axis(plot, QwtPlot::yLeft, false);
-                        enable_plot_axis(plot, QwtPlot::yRight, true);
-                    }
-                    else
-                    {
-                        plot->setPlotYAxis(QwtPlot::yLeft);
-                        enable_plot_axis(plot, QwtPlot::yLeft, false);
-                        enable_plot_axis(plot, QwtPlot::yRight, false);
-                    }
-                } break;
-            };
-        }
-    }
+    //QwtScaleWidget* sw = plot->axisWidget( axis );
+    //sw->setMargin( on ? 4 : 0 );
+    //sw->setSpacing( on ? 20 : 0 );
 }
 
 class PlotMatrix::PrivateData
@@ -535,7 +534,7 @@ void PlotMatrix::updateLayout()
                 showAxis[QwtPlot::xBottom] = true;
                 showAxis[QwtPlot::xTop] = false;
                 showAxis[QwtPlot::yLeft] = true;
-                showAxis[QwtPlot::yRight] = true;
+                showAxis[QwtPlot::yRight] = false;
 
                 for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
                 {

@@ -15,6 +15,8 @@
 using namespace histo_ui;
 using namespace mvme_qwt;
 
+void enable_plot_axis(QwtPlot* plot, int axis, bool on);
+
 class TilePlot: public QwtPlot
 {
     Q_OBJECT
@@ -63,7 +65,7 @@ class TilePlot: public QwtPlot
         QwtPlot::Axis xAxis_ = QwtPlot::Axis::xBottom;
         QwtPlot::Axis yAxis_ = QwtPlot::Axis::yLeft;
 
-        QwtPlot::Axis xTitleAxis_ = QwtPlot::Axis::xTop;
+        QwtPlot::Axis xTitleAxis_ = QwtPlot::Axis::xBottom;
         QwtPlot::Axis yTitleAxis_ = QwtPlot::Axis::yLeft;
 };
 
@@ -181,6 +183,11 @@ struct Histo2DSinkPlotEntry: public PlotEntry
         , histoData(new Histo2DRasterData(histo.get()))
         , statsTextItem(new TextLabelItem)
     {
+        auto rightAxis = plot()->axisWidget(QwtPlot::yRight);
+        //rightAxis->setTitle("Counts");
+        rightAxis->setColorBarEnabled(true);
+        enable_plot_axis(plot(), QwtPlot::yRight, true);
+
         plotItem->setRenderThreadCount(0);
         plotItem->setData(histoData);
         plotItem->attach(plot());
@@ -192,6 +199,7 @@ struct Histo2DSinkPlotEntry: public PlotEntry
         zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     }
 
+    std::unique_ptr<QwtColorMap> makeColorMap();
     void refresh() override;
 
     SinkPtr sink;
@@ -205,8 +213,6 @@ struct RateMonitorSinkPlotEntry: public PlotEntry
 {
     using SinkPtr = std::shared_ptr<analysis::RateMonitorSink>;
 };
-
-void enable_plot_axis(QwtPlot* plot, int axis, bool on);
 
 enum class GridScaleDrawMode
 {
@@ -223,8 +229,6 @@ inline std::pair<int, int> row_col_from_index(int index, int columns)
 
 void set_plot_grid_scale_draw_mode(
     QGridLayout *plotGrid, GridScaleDrawMode xScaleMode, GridScaleDrawMode yScaleMode);
-
-//void set_plot_axes(QGridLayout *grid, GridScaleDrawMode mode);
 
 /*****************************************************************************
  * Based on: Qwt Examples - Copyright (C) 2002 Uwe Rathmann
@@ -267,5 +271,6 @@ class PlotMatrix : public QFrame
     PrivateData* m_data;
 };
 
+void enable_plot_axis(QwtPlot* plot, int axis, bool on);
 
 #endif // __MNT_DATA_SRC_MVME2_SRC_MULTIPLOT_WIDGET_P_H_

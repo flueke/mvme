@@ -1017,8 +1017,8 @@ bool Histo2DWidget::zAxisIsLin() const
 QwtLinearColorMap *Histo2DWidget::getColorMap() const
 {
     if (zAxisIsLin())
-        return make_histo2d_color_map(AxisScaleType::Linear);
-    return make_histo2d_color_map(AxisScaleType::Logarithmic);
+        return make_histo2d_color_map(AxisScaleType::Linear).release();
+    return make_histo2d_color_map(AxisScaleType::Logarithmic).release();
 }
 
 void Histo2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
