@@ -242,12 +242,11 @@ struct MultiPlotWidget::Private
         u32 maxBins = 1u << rrSlider_->maximum();
         u32 visBins = 1u << sliderValue;
         rrf_ = maxBins / visBins;
-        rrf_ = 0;
 
         rrLabel_->setText(QSL("X-Res: %1, %2 bit")
                               .arg(visBins)
                               .arg(std::log2(visBins)));
-        qDebug("hack! maxBins=%d, visBins=%d, rrf=%d", maxBins, visBins, rrf_);
+        qDebug("maxBins=%d, visBins=%d, rrf=%d", maxBins, visBins, rrf_);
         refresh();
     }
 
@@ -359,6 +358,13 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
         connect(d->rrSlider_, &QSlider::valueChanged,
                 this, [this] (int sliderValue) { d->onRRSliderValueChanged(sliderValue); });
+
+        for (auto w: std::initializer_list<QWidget *>{ d->rrSlider_, d->rrLabel_ })
+        {
+            // XXX: testing size policy settings
+            QSizePolicy p(QSizePolicy::Fixed, QSizePolicy::Fixed);
+            w->setSizePolicy(p);
+        }
     }
 
     tb->addSeparator();
