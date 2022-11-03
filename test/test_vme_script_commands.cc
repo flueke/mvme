@@ -30,9 +30,9 @@ TEST(vme_script_commands, WriteFloatWord)
         ASSERT_EQ(script.size(), 1);
 
         auto &cmd = script.first();
-        qDebug("cmd.value=0x%08x", cmd.value);
+        //qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::a16Priv);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::A16);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 0));
@@ -44,9 +44,9 @@ TEST(vme_script_commands, WriteFloatWord)
         ASSERT_EQ(script.size(), 1);
 
         auto &cmd = script.first();
-        qDebug("cmd.value=0x%08x", cmd.value);
+        //qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::a16Priv);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::A16);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 0));
@@ -61,9 +61,9 @@ TEST(vme_script_commands, WriteFloatWord)
 
         auto &cmd = script.first();
 
-        qDebug("cmd.value=0x%08x", cmd.value);
+        //qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::a32PrivData);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 1));
@@ -76,9 +76,9 @@ TEST(vme_script_commands, WriteFloatWord)
 
         auto &cmd = script.first();
 
-        qDebug("cmd.value=0x%08x", cmd.value);
+        //qDebug("cmd.value=0x%08x", cmd.value);
         ASSERT_EQ(cmd.type, CommandType::Write);
-        ASSERT_EQ(cmd.addressMode, vme_address_modes::a32PrivData);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
         ASSERT_EQ(cmd.dataWidth, DataWidth::D16);
         ASSERT_EQ(cmd.address, 0x6060);
         ASSERT_EQ(cmd.value, get_float_word(666.666, 1));
@@ -171,7 +171,7 @@ TEST(vme_script_commands, MVLC_ReadToAccu)
     ASSERT_EQ(cmd.type, CommandType::MVLC_ReadToAccu);
     ASSERT_EQ(cmd.address, 0x1337);
     ASSERT_EQ(cmd.dataWidth, DataWidth::D32);
-    ASSERT_EQ(cmd.addressMode, vme_address_modes::a24PrivData);
+    ASSERT_EQ(cmd.addressMode, vme_address_modes::A24);
 }
 
 TEST(vme_script_commands, MVLC_CompareLoopAccu)
@@ -257,4 +257,23 @@ TEST(vme_script_commands, BlockRead2eSST)
             ASSERT_EQ(cmd.transfers, 54323);
         }
     }
+}
+
+TEST(vme_script_commands, ParseVMEAddressModes)
+{
+    namespace vme_amods = vme_address_modes;
+
+    ASSERT_EQ(vme_script::parseAddressMode("a16"), vme_amods::A16);
+    ASSERT_EQ(vme_script::parseAddressMode("A16"), vme_amods::A16);
+
+    ASSERT_EQ(vme_script::parseAddressMode("a24"), vme_amods::A24);
+    ASSERT_EQ(vme_script::parseAddressMode("A24"), vme_amods::A24);
+
+    ASSERT_EQ(vme_script::parseAddressMode("a32"), vme_amods::A32);
+    ASSERT_EQ(vme_script::parseAddressMode("A32"), vme_amods::A32);
+
+    ASSERT_EQ(vme_script::parseAddressMode("42"), 42);
+    ASSERT_EQ(vme_script::parseAddressMode("0x2a"), 42);
+
+    ASSERT_THROW(vme_script::parseAddressMode("foobar"), const char *);
 }

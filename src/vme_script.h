@@ -291,6 +291,8 @@ QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
 LIBMVME_CORE_EXPORT Command get_first_meta_block(const VMEScript &vmeScript);
 LIBMVME_CORE_EXPORT QString get_first_meta_block_tag(const VMEScript &vmeScript);
 
+LIBMVME_CORE_EXPORT u8 parseAddressMode(const QString &str);
+
 } // namespace vme_script
 
 #endif /* __VME_SCRIPT_QT_H__ */
