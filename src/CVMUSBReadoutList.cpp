@@ -655,7 +655,7 @@ CVMUSBReadoutList::dataStrobes(uint32_t address)
 void
 CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, uint32_t startingMode)
 {
-    assert(vme_address_modes::is_block_amod(startingMode));
+    assert(vme_address_modes::is_block_mode(startingMode));
 
     uint8_t amod = (startingMode >> modeAMShift) & modeAMMask;
 
