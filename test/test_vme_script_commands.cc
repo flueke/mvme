@@ -7,6 +7,8 @@ using namespace vme_script;
 
 namespace
 {
+    // Returns the lower (index=0) or upper (index=1) raw 16 bits of a 32 bit
+    // float value.
     u16 get_float_word(float f, unsigned index)
     {
         u32 result = 0u;
