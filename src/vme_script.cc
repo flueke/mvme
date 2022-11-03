@@ -46,29 +46,26 @@ namespace vme_script
 
 u8 parseAddressMode(const QString &str)
 {
-    // lower case: privileged modes
-    if (str.compare(QSL("a16"), Qt::CaseSensitive) == 0)
-        return vme_address_modes::a16Priv;
+    // Standard user address modes.
+    if (str.compare(QSL("a16"), Qt::CaseInsensitive) == 0)
+        return vme_address_modes::A16;
 
-    if (str.compare(QSL("a24"), Qt::CaseSensitive) == 0)
-        return vme_address_modes::a24PrivData;
+    if (str.compare(QSL("a24"), Qt::CaseInsensitive) == 0)
+        return vme_address_modes::A24;
 
-    if (str.compare(QSL("a32"), Qt::CaseSensitive) == 0)
-        return vme_address_modes::a32PrivData;
-
-    // upper case: user modes
-    if (str.compare(QSL("A16"), Qt::CaseSensitive) == 0)
-        return vme_address_modes::a16User;
-
-    if (str.compare(QSL("A24"), Qt::CaseSensitive) == 0)
-        return vme_address_modes::a24UserData;
-
-    if (str.compare(QSL("A32"), Qt::CaseSensitive) == 0)
-        return vme_address_modes::a32UserData;
+    if (str.compare(QSL("a32"), Qt::CaseInsensitive) == 0)
+        return vme_address_modes::A32;
 
     // CR/CSR address space
     if (str.compare(QSL("cr"), Qt::CaseInsensitive) == 0)
         return vme_address_modes::cr;
+
+    // Attempt to parse a raw numeric value (hex, decimal, ...)
+    bool couldParse = false;
+    u32 parsedValue = str.toUInt(&couldParse, 0);
+
+    if (couldParse && parsedValue < std::numeric_limits<u8>::max())
+        return static_cast<u8>(parsedValue);
 
     throw "invalid address mode";
 }
