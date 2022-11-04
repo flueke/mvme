@@ -140,24 +140,19 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             } break;
 
         case CommandType::BLT:
-            {
-                result.error = controller->blockRead(
-                    cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::BLT32, false);
-            } break;
-
-        case CommandType::BLTFifo:
-            {
-                result.error = controller->blockRead(
-                    cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::BLT32, true);
-            } break;
-
         case CommandType::MBLT:
             {
                 result.error = controller->blockRead(
                     cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::MBLT64, false);
+                    cmd.addressMode, false);
+            } break;
+
+        case CommandType::BLTFifo:
+        case CommandType::MBLTFifo:
+            {
+                result.error = controller->blockRead(
+                    cmd.address, cmd.transfers, &result.valueVector,
+                    cmd.addressMode, true);
             } break;
 
         case CommandType::MBLTSwapped:
@@ -170,13 +165,6 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             {
                 result.error = VMEError(VMEError::WrongControllerType,
                                         QSL("MVLC controller required"));
-            } break;
-
-        case CommandType::MBLTFifo:
-            {
-                result.error = controller->blockRead(
-                    cmd.address, cmd.transfers, &result.valueVector,
-                    vme_address_modes::MBLT64, true);
             } break;
 
         case CommandType::Blk2eSST64:

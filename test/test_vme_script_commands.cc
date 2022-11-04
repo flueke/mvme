@@ -198,6 +198,93 @@ TEST(vme_script_commands, MVLC_CompareLoopAccu)
     ASSERT_THROW(vme_script::parse(input), ParseError);
 }
 
+TEST(vme_script_commands, BlockReads)
+{
+    // blt a24
+    {
+        auto input = QSL("blt a24 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::BLT);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::a24UserBlock);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // bltfifo a24
+    {
+        auto input = QSL("bltfifo a24 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::BLTFifo);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::a24UserBlock);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // blt a32
+    {
+        auto input = QSL("blt a32 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::BLT);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::BLT32);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // bltfifo a32
+    {
+        auto input = QSL("bltfifo a32 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::BLTFifo);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::BLT32);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // blt but with a custom, non-sensical address mode
+    {
+        auto input = QSL("blt 0x42 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::BLT);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, 0x42);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // mblt a32
+    {
+        auto input = QSL("mblt a32 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::MBLT);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::MBLT64);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // mblt but with a custom amod
+    {
+        auto input = QSL("mblt 0x42 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::MBLT);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, 0x42);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+}
+
 TEST(vme_script_commands, BlockRead2eSST)
 {
     {

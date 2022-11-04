@@ -24,7 +24,8 @@ do not modify their address argument. The base address can also be temporarily
 replaced with a different value by using the :ref:`setbase
 <vme-command-setbase>` and :ref:`resetbase <vme-command-resetbase>` commands.
 
-The commands below accept the following values for address modifiers and data widths:
+The commands below accept the following values for VME address modes and data
+widths:
 
 .. table:: VME Address Modes
   :name: vme-address-modes
@@ -38,6 +39,8 @@ The commands below accept the following values for address modifiers and data wi
   +------------------------------+
   | a32                          |
   +------------------------------+
+
+Additionally raw numeric values (e.g. 0x39) are also accepted.
 
 .. only:: html
 
@@ -63,20 +66,20 @@ Internally these non-privileged (aka user) address modifiers will be used:
   +-----------+------------+---------+----------+
   | **amode** | **single** | **BLT** | **MBLT** |
   +===========+============+=========+==========+
-  | A16       | 0x29       |         |          |
+  | a16       | 0x29       |         |          |
   +-----------+------------+---------+----------+
-  | A24       | 0x39       | 0x3b    |          |
+  | a24       | 0x39       | 0x3b    |          |
   +-----------+------------+---------+----------+
-  | A32       | 0x09       | 0x0b    | 0x08     |
+  | a32       | 0x09       | 0x0b    | 0x08     |
   +-----------+------------+---------+----------+
-  | CR        | 0x2f       |         |          |
+  | cr        | 0x2f       |         |          |
   +-----------+------------+---------+----------+
 
 Numbers in the script (addresses, transfer counts, masks) may be specified in
-decimal, octal, hex or floating point notation using the standard C prefixes
-(``0x`` for hex, ``0`` for octal). Additionally register values may be written
-in binary starting with a prefix of ``0b`` followed by ``0``\ s and ``1``\ s,
-optionally separated by ``'`` characters.
+decimal, hex or floating point notation using the standard C prefixes (``0x``
+for hex). Additionally register values may be written in binary starting with a
+prefix of ``0b`` followed by ``0``\ s and ``1``\ s, optionally separated by
+``'`` characters.
 
 Example: ``0b1010'0101'1100'0011`` is equal to ``0xa5c3``
 
