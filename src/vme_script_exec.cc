@@ -23,6 +23,7 @@ ResultList run_script(
     const run_script_options::Flag &options)
 {
     int cmdNumber = 1;
+    RunState state;
     ResultList results;
 
     for (const auto &cmd: script)
@@ -43,7 +44,7 @@ ResultList run_script(
             //qDebug() << __FUNCTION__
             //    << tStart << "begin run_command" << cmdNumber << "of" << script.size();
 
-            auto result = run_command(controller, cmd, logger);
+            auto result = run_command(controller, cmd, state, logger);
 
             auto tEnd = QDateTime::currentDateTime();
             results.push_back(result);
@@ -75,7 +76,7 @@ ResultList run_script(
     return results;
 }
 
-Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger)
+Result run_command(VMEController *controller, const Command &cmd, RunState &state, LoggerFun logger)
 {
     /*
     if (logger)
@@ -89,10 +90,10 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
     switch (cmd.type)
     {
         case CommandType::Invalid:
-            /* Note: SetBase and ResetBase have already been handled at parse time. */
         case CommandType::SetBase:
         case CommandType::ResetBase:
         case CommandType::SetVariable:
+            /* Note: The commands in this block have already been handled at parse time. */
             break;
 
         case CommandType::Read:
@@ -105,12 +106,14 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                             uint16_t value = 0;
                             result.error = controller->read16(cmd.address, &value, cmd.addressMode);
                             result.value = value;
+                            state.accu = value;
                         } break;
                     case DataWidth::D32:
                         {
                             uint32_t value = 0;
                             result.error = controller->read32(cmd.address, &value, cmd.addressMode);
                             result.value = value;
+                            state.accu = value;
                         } break;
                 }
             } break;
@@ -285,6 +288,67 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             {
                 result.error = VMEError(VMEError::WrongControllerType,
                                         QSL("MVLC controller required"));
+            } break;
+
+        case CommandType::Accu_Set:
+            {
+                state.accu = cmd.value;
+            } break;
+        case CommandType::Accu_Shift:
+            {
+                state.accu = state.accu >> cmd.value;
+            } break;
+        case CommandType::Accu_Mask:
+            {
+                state.accu = state.accu & cmd.value;
+            } break;
+        case CommandType::Accu_Test:
+            {
+                bool testResult = {};
+                QString opStr = {};
+                switch (cmd.accuTestOp)
+                {
+                    case AccuTestOp::EQ:
+                        testResult = state.accu == cmd.accuTestValue;
+                        opStr = "==";
+                        break;
+
+                    case AccuTestOp::NEQ:
+                        testResult = state.accu != cmd.accuTestValue;
+                        opStr = "!=";
+                        break;
+
+                    case AccuTestOp::LT:
+                        testResult = state.accu < cmd.accuTestValue;
+                        opStr = "<";
+                        break;
+
+                    case AccuTestOp::LTE:
+                        testResult = state.accu <= cmd.accuTestValue;
+                        opStr = "<=";
+                        break;
+
+                    case AccuTestOp::GT:
+                        testResult = state.accu > cmd.accuTestValue;
+                        opStr = ">";
+                        break;
+
+                    case AccuTestOp::GTE:
+                        testResult = state.accu >= cmd.accuTestValue;
+                        opStr = ">=";
+                        break;
+                }
+
+                if (!testResult)
+                {
+                    result.error = VMEError(QSL("%4 (accu test '0x%1 %2 0x%3' is false)")
+                        .arg(state.accu, 8, 16, QLatin1Char('0'))
+                        .arg(opStr)
+                        .arg(cmd.value, 8, 16, QLatin1Char('0'))
+                        .arg(cmd.accuTestFailMessage)
+                        );
+                }
+
             } break;
     }
 

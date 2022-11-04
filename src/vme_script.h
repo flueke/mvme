@@ -149,11 +149,26 @@ enum class CommandType
     MVLC_SetAccu,
     MVLC_ReadToAccu,
     MVLC_CompareLoopAccu,
+
+    Accu_Set,
+    Accu_Shift,
+    Accu_Mask,
+    Accu_Test,
 };
 
 using DataWidth = mesytec::mvlc::VMEDataWidth;
 using Blk2eSSTRate = mesytec::mvlc::Blk2eSSTRate;
 using MVLCSpecialWord = mesytec::mvlc::SpecialWord;
+
+enum class AccuTestOp
+{
+    EQ,
+    NEQ,
+    LT,
+    LTE,
+    GT,
+    GTE,
+};
 
 struct Command
 {
@@ -178,6 +193,11 @@ struct Command
     // vme script parsed from a mvlc_stack_begin block
     std::vector<std::shared_ptr<Command>> mvlcInlineStack;
     bool mvlcSlowRead = false;
+
+    // for the internal accu_test function
+    AccuTestOp accuTestOp;
+    u32 accuTestValue;
+    QString accuTestFailMessage;
 };
 
 inline bool is_valid(const Command &cmd)

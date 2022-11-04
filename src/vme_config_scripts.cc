@@ -265,6 +265,7 @@ vme_script::ResultList ScriptConfigRunner::Private::run_impl()
 
         vme_script::ResultList scriptResults;
         bool errorSeen = false;
+        vme_script::RunState runState = {};
 
         for (const auto &cmd: script)
         {
@@ -277,7 +278,7 @@ vme_script::ResultList ScriptConfigRunner::Private::run_impl()
                         .arg(cmd.warning) .arg(cmd.lineNumber) .arg(to_string(cmd.type)));
             }
 
-            auto result = vme_script::run_command(ctrl, cmd, log_msg);
+            auto result = vme_script::run_command(ctrl, cmd, runState, log_msg);
 
             if (!options.AggregateResults)
             {
