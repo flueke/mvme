@@ -736,6 +736,113 @@ Command parse_mvlc_compare_loop_accu(const QStringList &args, int lineNumber)
     }
 }
 
+Command parse_accu_set(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("%1 <value>").arg(args[0]);
+
+    if (args.size() != 2)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    try
+    {
+        Command result;
+        result.type = CommandType::Accu_Set;
+        result.value = parseValue<u32>(args[1]);
+        result.lineNumber = lineNumber;
+        return result;
+    } catch (const std::runtime_error &e)
+    {
+        throw ParseError(e.what(), lineNumber);
+    }
+}
+
+Command parse_accu_shift(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("%1 <shift_amount>").arg(args[0]);
+
+    if (args.size() != 2)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    try
+    {
+        Command result;
+        result.type = CommandType::Accu_Shift;
+        result.value = parseValue<u32>(args[1]);
+        result.lineNumber = lineNumber;
+        return result;
+    } catch (const std::runtime_error &e)
+    {
+        throw ParseError(e.what(), lineNumber);
+    }
+}
+
+Command parse_accu_mask(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("%1 <mask>").arg(args[0]);
+
+    if (args.size() != 2)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    try
+    {
+        Command result;
+        result.type = CommandType::Accu_Mask;
+        result.value = parseValue<u32>(args[1]);
+        result.lineNumber = lineNumber;
+        return result;
+    } catch (const std::runtime_error &e)
+    {
+        throw ParseError(e.what(), lineNumber);
+    }
+}
+
+AccuTestOp accu_test_op_from_string(const QString &s_)
+{
+    auto s = s_.toLower();
+
+    if (s == "==" || s == "eq" || s == "=")
+        return AccuTestOp::EQ;
+
+    if (s == "!=" || s == "neq")
+        return AccuTestOp::NEQ;
+
+    if (s == "<" || s == "lt")
+        return AccuTestOp::LT;
+
+    if (s == "<=" || s == "lte")
+        return AccuTestOp::LTE;
+
+    if (s == ">" || s == "gt")
+        return AccuTestOp::GT;
+
+    if (s == ">=" || s == "gte")
+        return AccuTestOp::GTE;
+
+    throw std::runtime_error("invalid comparison operator");
+}
+
+Command parse_accu_test(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("%1 <compare_op> <compare_value> <fail_message>").arg(args[0]);
+
+    if (args.size() != 4)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    try
+    {
+        Command result;
+        result.type = CommandType::Accu_Test;
+        result.accuTestOp = accu_test_op_from_string(args[1]);
+        result.accuTestValue = parseValue<u32>(args[2]);
+        result.accuTestFailMessage = args[3];
+        result.lineNumber = lineNumber;
+        return result;
+    } catch (const std::runtime_error &e)
+    {
+        throw ParseError(e.what(), lineNumber);
+    }
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
@@ -774,6 +881,11 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("mvlc_set_accu"),             parse_mvlc_set_accu },
     { QSL("mvlc_read_to_accu"),         parse_mvlc_read_to_accu },
     { QSL("mvlc_compare_loop_accu"),    parse_mvlc_compare_loop_accu },
+
+    { QSL("accu_set"),      parse_accu_set },
+    { QSL("accu_shift"),    parse_accu_shift },
+    { QSL("accu_mask"),     parse_accu_mask },
+    { QSL("accu_test"),     parse_accu_test },
 };
 
 static QString handle_multiline_comment(QString line, bool &in_multiline_comment)
@@ -1749,6 +1861,11 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MVLC_CompareLoopAccu,    QSL("mvlc_compare_loop_accu") },
     { CommandType::MVLC_Custom,             QSL("mvlc_custom") },
     { CommandType::MVLC_InlineStack,        QSL("mvlc_stack") },
+
+    { CommandType::Accu_Set,                QSL("accu_set") },
+    { CommandType::Accu_Shift,              QSL("accu_shift") },
+    { CommandType::Accu_Mask,               QSL("accu_mask") },
+    { CommandType::Accu_Test,               QSL("accu_test") },
 };
 
 QString to_string(CommandType commandType)

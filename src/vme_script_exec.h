@@ -48,8 +48,14 @@ inline bool has_errors(const ResultList &results)
         [] (const Result &r) { return r.error.isError(); });
 }
 
+struct RunState
+{
+    u32 accu = {};
+};
+
 LIBMVME_CORE_EXPORT Result run_command(VMEController *controller,
                                   const Command &cmd,
+                                  RunState &state,
                                   LoggerFun logger = LoggerFun());
 
 LIBMVME_CORE_EXPORT QString format_result(const Result &result);
