@@ -25,6 +25,7 @@
 #include <functional>
 #include <memory>
 #include <QVector>
+#include <mesytec-mvlc/mvlc_constants.h>
 
 #include "libmvme_core_export.h"
 
@@ -150,26 +151,9 @@ enum class CommandType
     MVLC_CompareLoopAccu,
 };
 
-enum class DataWidth
-{
-    D16 = 1,
-    D32
-};
-
-enum Blk2eSSTRate: u8
-{
-    Rate160MB,
-    Rate276MB,
-    Rate320MB,
-};
-
-enum class MVLCSpecialWord: u8
-{
-    Timestamp     = 0x0,
-    Accu          = 0x1,
-};
-
-struct Command;
+using DataWidth = mesytec::mvlc::VMEDataWidth;
+using Blk2eSSTRate = mesytec::mvlc::Blk2eSSTRate;
+using MVLCSpecialWord = mesytec::mvlc::SpecialWord;
 
 struct Command
 {
