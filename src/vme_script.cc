@@ -44,7 +44,7 @@ using namespace mesytec;
 namespace vme_script
 {
 
-u8 parseAddressMode(const QString &str)
+u8 parseAddressMode(const QString &str, bool acceptNumericValues)
 {
     // Standard user address modes.
     if (str.compare(QSL("a16"), Qt::CaseInsensitive) == 0)
@@ -60,12 +60,15 @@ u8 parseAddressMode(const QString &str)
     if (str.compare(QSL("cr"), Qt::CaseInsensitive) == 0)
         return vme_address_modes::cr;
 
-    // Attempt to parse a raw numeric value (hex, decimal, ...)
-    bool couldParse = false;
-    u32 parsedValue = str.toUInt(&couldParse, 0);
+    // Parse numeric values
+    if (acceptNumericValues)
+    {
+        bool couldParse = false;
+        u32 parsedValue = str.toUInt(&couldParse, 0);
 
-    if (couldParse && parsedValue < std::numeric_limits<u8>::max())
-        return static_cast<u8>(parsedValue);
+        if (couldParse && parsedValue < std::numeric_limits<u8>::max())
+            return static_cast<u8>(parsedValue);
+    }
 
     throw "invalid address mode";
 }
@@ -296,6 +299,8 @@ Command parseMarker(const QStringList &args, int lineNumber)
 
 Command parseBlockTransfer(const QStringList &args, int lineNumber)
 {
+    namespace vme_amods = vme_address_modes;
+
     auto usage = QString("%1 <address_mode> <address> <transfer_count>").arg(args[0]);
 
     if (args.size() != 4)
@@ -303,10 +308,42 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
 
     Command result;
     result.type = commandType_from_string(args[0]);
-    // FIXME: this is not the actual block address mode for the vme bus.
-    // Instead contains the single transfers amod. The real amod is determined
-    // by the command type instead
-    result.addressMode = parseAddressMode(args[1]);
+
+    try
+    {
+        // Parse non-numeric address modes only and translate them to the
+        // correct address mode for the transfer type.
+        auto amod = parseAddressMode(args[1], false);
+
+        switch (result.type)
+        {
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+            if (amod == vme_amods::A24)
+                amod = vme_amods::a24UserBlock;
+            else if (amod == vme_amods::A32)
+                amod = vme_amods::a32UserBlock;
+            break;
+
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+        case CommandType::MBLTSwapped:
+            if (amod == vme_amods::A32)
+                amod = vme_amods::a32UserBlock64;
+            break;
+
+        default:
+            break;
+        }
+
+        result.addressMode = amod;
+    }
+    catch(const char *)
+    {
+        // Try parsing again but this time accepting raw numeric values too.
+        result.addressMode = parseAddressMode(args[1], true);
+    }
+
     result.address = parseAddress(args[2]);
     result.transfers = parseValue<u32>(args[3]);
     result.lineNumber = lineNumber;

@@ -107,6 +107,8 @@ enum class CommandType
     MBLT,
     MBLTFifo,
     MBLTSwapped,
+
+    // fast source synchronous block transfers
     Blk2eSST64,
     Blk2eSST64Swapped,
 
@@ -291,7 +293,7 @@ QSet<QString> LIBMVME_CORE_EXPORT collect_variable_references(
 LIBMVME_CORE_EXPORT Command get_first_meta_block(const VMEScript &vmeScript);
 LIBMVME_CORE_EXPORT QString get_first_meta_block_tag(const VMEScript &vmeScript);
 
-LIBMVME_CORE_EXPORT u8 parseAddressMode(const QString &str);
+LIBMVME_CORE_EXPORT u8 parseAddressMode(const QString &str, bool acceptNumericValues = true);
 
 } // namespace vme_script
 
