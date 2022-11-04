@@ -1802,7 +1802,11 @@ QString amod_to_string(u8 addressMode)
         { vme_address_modes::cr             , QSL("cr") },
     };
 
-    return addressModeToString.value(addressMode, QSL("unknown"));
+    auto result = addressModeToString.value(addressMode);
+    if (!result.isEmpty())
+        result += " ";
+    result += QSL("(amod=0x%1)").arg(static_cast<u32>(addressMode), 2, 16, QLatin1Char('0'));
+    return result;
 }
 
 QString to_string(DataWidth dataWidth)
