@@ -31,13 +31,6 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-// vme_script -> mvlc constant
-LIBMVME_MVLC_EXPORT mvlc::VMEDataWidth convert_data_width(vme_script::DataWidth width);
-LIBMVME_MVLC_EXPORT u8 convert_data_width_untyped(vme_script::DataWidth width);
-
-// mvlc constant -> vme_script
-LIBMVME_MVLC_EXPORT vme_script::DataWidth convert_data_width(mvlc::VMEDataWidth dataWidth);
-
 LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
     build_mvlc_stack(const vme_script::VMEScript &script);
 

@@ -548,7 +548,7 @@ void MVLCCommandListBuilder::addVMERead(u32 address, u8 amod, mvlc::VMEDataWidth
     command.type = vme_script::CommandType::Read;
     command.address = address;
     command.addressMode = amod;
-    command.dataWidth = convert_data_width(dataWidth);
+    command.dataWidth = dataWidth;
 
     addStack(DefaultOutputPipe, DefaultOffset, { command });
 }
@@ -599,7 +599,7 @@ void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, u8 amod,
     command.address = address;
     command.value = value & Mask;
     command.addressMode = amod;
-    command.dataWidth = convert_data_width(dataWidth);
+    command.dataWidth = dataWidth;
 
     addStack(DefaultOutputPipe, DefaultOffset, { command });
 }

@@ -349,7 +349,7 @@ std::error_code setup_trigger_io(
 
         if (auto ec = mvlc.vmeWrite(
                 cmd.address, cmd.value,
-                cmd.addressMode, convert_data_width(cmd.dataWidth)))
+                cmd.addressMode, cmd.dataWidth))
         {
             return ec;
         }
@@ -371,72 +371,6 @@ inline std::error_code write_vme_reg(MVLCObject &mvlc, u16 reg, u16 value)
     return mvlc.vmeWrite(mvlc::SelfVMEAddress + reg, value,
                          vme_address_modes::a32UserData, mvlc::VMEDataWidth::D16);
 }
-
-#if 0
-std::error_code setup_mvlc(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger)
-{
-    logger("Initializing MVLC Readout Stacks and Trigger I/O");
-
-    logger("  Disabling triggers");
-
-    if (auto ec = disable_all_triggers_and_daq_mode(mvlc))
-    {
-        logger(QString("Error disabling readout triggers: %1")
-               .arg(ec.message().c_str()));
-        return ec;
-    }
-
-    logger("  Resetting stack offsets");
-
-    if (auto ec = reset_stack_offsets(mvlc))
-    {
-        logger(QString("Error resetting stack offsets: %1")
-               .arg(ec.message().c_str()));
-        return ec;
-    }
-
-    logger("  Setting up readout stacks");
-
-    if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
-    {
-        logger(QString("Error setting up readout stacks: %1").arg(ec.message().c_str()));
-        return ec;
-    }
-
-    logger("  Applying trigger & I/O setup");
-
-    if (auto ec = setup_trigger_io(mvlc, vmeConfig, logger))
-    {
-        logger(QSL("Error applying trigger & I/O setup: %1").arg(ec.message().c_str()));
-        return ec;
-    }
-
-    if (mvlc.connectionType() == mvlc::ConnectionType::ETH)
-    {
-        bool enableJumboFrames = vmeConfig.getControllerSettings().value("mvlc_eth_enable_jumbos").toBool();
-
-        logger(QSL("  %1 jumbo frame support")
-               .arg(enableJumboFrames ? QSL("Enabling") : QSL("Disabling")));
-
-        if (auto ec = mvlc.writeRegister(mvlc::registers::jumbo_frame_enable, enableJumboFrames))
-        {
-            logger(QSL("Error %1 jumbo frames: %2")
-                   .arg(enableJumboFrames ? QSL("enabling") : QSL("disabling"))
-                   .arg(ec.message().c_str()));
-            return ec;
-        }
-
-        if (auto eth = dynamic_cast<mvlc::eth::MVLC_ETH_Interface *>(mvlc.getImpl()))
-        {
-            auto counters = eth->getThrottleCounters();
-            logger(QSL("  Eth receive buffer size: %1")
-                   .arg(format_number(counters.rcvBufferSize, QSL("B"), UnitScaling::Binary, 0, 'f', 0)));
-        }
-    }
-
-    return {};
-}
-#endif
 
 mesytec::mvme_mvlc::trigger_io::TriggerIO
     update_trigger_io(const VMEConfig &vmeConfig)

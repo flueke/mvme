@@ -36,36 +36,6 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-//
-// vme_script -> mvlc
-//
-mvlc::VMEDataWidth convert_data_width(vme_script::DataWidth width)
-{
-    switch (width)
-    {
-        case vme_script::DataWidth::D16: return mvlc::VMEDataWidth::D16;
-        case vme_script::DataWidth::D32: return mvlc::VMEDataWidth::D32;
-    }
-
-    return mvlc::VMEDataWidth::D16;
-}
-
-u8 convert_data_width_untyped(vme_script::DataWidth width)
-{
-    return static_cast<u8>(convert_data_width(width));
-}
-
-vme_script::DataWidth convert_data_width(mvlc::VMEDataWidth dataWidth)
-{
-    switch (dataWidth)
-    {
-        case mvlc::VMEDataWidth::D16: return vme_script::DataWidth::D16;
-        case mvlc::VMEDataWidth::D32: return vme_script::DataWidth::D32;
-    }
-
-    throw std::runtime_error("invalid mvlc::VMEDataWidth given");
-}
-
 LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
     build_mvlc_stack(const vme_script::VMEScript &script)
 {
@@ -88,16 +58,13 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::Write:
             case CommandType::WriteAbs:
                 {
-                    result.addVMEWrite(cmd.address, cmd.value, cmd.addressMode,
-                                       convert_data_width(cmd.dataWidth));
+                    result.addVMEWrite(cmd.address, cmd.value, cmd.addressMode, cmd.dataWidth);
                 } break;
 
             case CommandType::Read:
             case CommandType::ReadAbs:
                 {
-                    result.addVMERead(cmd.address, cmd.addressMode,
-                                      convert_data_width(cmd.dataWidth),
-                                      cmd.mvlcSlowRead);
+                    result.addVMERead(cmd.address, cmd.addressMode, cmd.dataWidth, cmd.mvlcSlowRead);
                 } break;
 
             case CommandType::BLT:
@@ -176,9 +143,7 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
                 break;
 
             case CommandType::MVLC_ReadToAccu:
-                result.addReadToAccu(cmd.address, cmd.addressMode,
-                                     convert_data_width(cmd.dataWidth),
-                                     cmd.mvlcSlowRead);
+                result.addReadToAccu(cmd.address, cmd.addressMode, cmd.dataWidth, cmd.mvlcSlowRead);
                 break;
 
             case CommandType::MVLC_CompareLoopAccu:

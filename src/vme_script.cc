@@ -1906,7 +1906,7 @@ QString to_string(const Command &cmd)
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
                     .arg(format_hex(cmd.address))
-                    .arg(amod_to_string(cmd.blk2eSSTRate))
+                    .arg(to_string(cmd.blk2eSSTRate))
                     .arg(cmd.transfers);
             } break;
 
