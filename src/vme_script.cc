@@ -201,7 +201,7 @@ QString parseValue(const QString &str)
 
 Command parseRead(const QStringList &args, int lineNumber)
 {
-    auto usage = QSL("read <address_mode> <data_width> <address> ['slow']");
+    auto usage = QSL("read <address_mode> <data_width> <address> ['slow'|'late']");
 
     if (args.size() < 4 || args.size() > 5)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
@@ -214,9 +214,10 @@ Command parseRead(const QStringList &args, int lineNumber)
 
     if (args.size() == 5)
     {
-        if (args[4].toLower() != "slow")
+        if (auto mode = args[4].toLower();
+            mode != "slow" && mode != "late")
         {
-            throw ParseError(QSL("Unknown argument '%1', expected 'slow' or no argument")
+            throw ParseError(QSL("Unknown argument '%1', expected 'slow'|'late' or no argument")
                              .arg(args[4]));
         }
 
