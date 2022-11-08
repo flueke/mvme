@@ -113,8 +113,8 @@ Example: ``0x6070 3`` is the same as ``write a32 d16 0x6070 3``
 
 Reading
 ~~~~~~~
-* **read** *<amode> <dwidth> <address> ['slow']*
-* **readabs** *<amode> <dwidth> <address> ['slow']*
+* **read** *<amode> <dwidth> <address> ['slow'|'late']*
+* **readabs** *<amode> <dwidth> <address> ['slow'|'late']*
 
 Reads a single value from the given *<address>*.
 
