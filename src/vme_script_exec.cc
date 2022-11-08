@@ -294,13 +294,10 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             {
                 state.accu = cmd.value;
             } break;
-        case CommandType::Accu_Shift:
+        case CommandType::Accu_MaskAndRotate:
             {
-                state.accu = state.accu >> cmd.value;
-            } break;
-        case CommandType::Accu_Mask:
-            {
-                state.accu = state.accu & cmd.value;
+                state.accu &= cmd.accuMask;
+                state.accu = mesytec::mvlc::util::rotl32(state.accu, cmd.accuRotate);
             } break;
         case CommandType::Accu_Test:
             {
@@ -345,7 +342,7 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                         .arg(state.accu, 8, 16, QLatin1Char('0'))
                         .arg(opStr)
                         .arg(cmd.value, 8, 16, QLatin1Char('0'))
-                        .arg(cmd.accuTestFailMessage)
+                        .arg(cmd.accuTestMessage)
                         );
                 }
 

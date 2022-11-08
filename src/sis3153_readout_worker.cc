@@ -156,6 +156,9 @@ namespace
                 case CommandType::MVLC_ReadToAccu:
                 case CommandType::MVLC_CompareLoopAccu:
                 case CommandType::MVLC_InlineStack:
+                case CommandType::Accu_Set:
+                case CommandType::Accu_MaskAndRotate:
+                case CommandType::Accu_Test:
                     break;
 
                 case  CommandType::Invalid:
@@ -417,6 +420,9 @@ namespace
                 case CommandType::MVLC_ReadToAccu:
                 case CommandType::MVLC_CompareLoopAccu:
                 case CommandType::MVLC_InlineStack:
+                case CommandType::Accu_Set:
+                case CommandType::Accu_MaskAndRotate:
+                case CommandType::Accu_Test:
                     break;
 
                 case  CommandType::Invalid:
