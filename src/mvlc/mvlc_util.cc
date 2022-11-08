@@ -53,6 +53,9 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::MetaBlock:
             case CommandType::SetVariable:
             case CommandType::Print:
+            case CommandType::Accu_Set:
+            case CommandType::Accu_MaskAndRotate:
+            case CommandType::Accu_Test:
                 break;
 
             case CommandType::Write:

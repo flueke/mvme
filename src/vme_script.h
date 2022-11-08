@@ -150,10 +150,11 @@ enum class CommandType
     MVLC_ReadToAccu,
     MVLC_CompareLoopAccu,
 
-    Accu_Set,
-    Accu_Shift,
-    Accu_Mask,
-    Accu_Test,
+    // 32 bit accumulator value containing the result of the last non-block vme
+    // read operation.
+    Accu_Set,               // Set the accu to a constant value.
+    Accu_MaskAndRotate,     // Mask, then left rotate the accu value.
+    Accu_Test,              // Compare against constant value and error out on failure.
 };
 
 using DataWidth = mesytec::mvlc::VMEDataWidth;
@@ -195,9 +196,28 @@ struct Command
     bool mvlcSlowRead = false;
 
     // for the internal accu_test function
-    AccuTestOp accuTestOp;
-    u32 accuTestValue;
-    QString accuTestFailMessage;
+    AccuTestOp accuTestOp = {};
+    u32 accuTestValue = 0;
+    QString accuTestMessage;
+    u32 accuMask = 0;
+    u32 accuRotate = 0;
+
+    #if 0
+    struct AccuTest
+    {
+        AccuTestOp accuTestOp = {};
+        u32 accuTestValue = 0;
+        QString accuTestMessage;
+    };
+
+    struct AccuMaskAndRotate
+    {
+        u32 accuMask = 0;
+        u32 accuRotate = 0;
+    };
+
+    std::variant<AccuTest, AccuMaskAndRotate> accu;
+    #endif
 };
 
 inline bool is_valid(const Command &cmd)
@@ -211,6 +231,21 @@ LIBMVME_CORE_EXPORT QString amod_to_string(u8 addressMode);
 LIBMVME_CORE_EXPORT QString to_string(DataWidth dataWidth);
 LIBMVME_CORE_EXPORT QString to_string(const Command &cmd);
 LIBMVME_CORE_EXPORT QString format_hex(uint32_t value);
+
+inline QString to_string(AccuTestOp testop)
+{
+    switch (testop)
+    {
+    case AccuTestOp::EQ:    return QSL("==");
+    case AccuTestOp::NEQ:   return QSL("!=");
+    case AccuTestOp::LT:    return QSL("<");
+    case AccuTestOp::LTE:   return QSL("<=");
+    case AccuTestOp::GT:    return QSL(">");
+    case AccuTestOp::GTE:   return QSL(">=");
+    }
+
+    return {};
+};
 
 using VMEScript = QVector<Command>;
 

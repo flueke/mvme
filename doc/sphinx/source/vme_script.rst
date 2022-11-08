@@ -40,7 +40,7 @@ widths:
   | a32                          |
   +------------------------------+
 
-Additionally raw numeric values (e.g. 0x39) are also accepted.
+Additionally raw numeric amod values (e.g. 0x39) are also accepted.
 
 .. only:: html
 
@@ -120,10 +120,15 @@ Reads a single value from the given *<address>*.
 
 **readabs** uses the given *<address>* unmodified, meaning the module base address will not be added.
 
-The optional last argument 'slow' is implemented for the MVLC only. It causes
-the VME read to be carried out on the trailing edge of the modules DTACK signal
-instead of at the leading edge. This is a workaround for VME modules which do
-signal DTACK while not having the actual data ready yet.
+The optional last argument 'slow'/'late' is implemented for the MVLC only. It
+causes the VME read to be carried out on the trailing edge of the modules DTACK
+signal instead of at the leading edge. This is a workaround for VME modules
+which do signal DTACK while not having the actual data ready yet.
+
+During manual script execution the value read from the VME bus is stored in the
+script local accumulator. The accumulator can be modified and tested using
+:ref:`accu_mask_and_rotate <vme-command-accu-mask-and-rotate>` and
+:ref:`accu_test <vme-command-accu-test>`.
 
 .. _vme-command-blt:
 .. _vme-command-bltfifo:
@@ -277,8 +282,56 @@ Example
   print "Hello World!"
   print Hello World!
 
+.. index:: VME Script Accumulator Commands
+.. _vme_script_accu_commands:
+
+.. _vme-command-accu-set:
+
+accu_set
+^^^^^^^^
+
+* **accu_set** *<value>* Set the script local accumulator to a constant value.
+
+.. _vme-command-accu-mask-and-rotate:
+
+accu_mask_and_rotate
+^^^^^^^^^^^^^^^^^^^^^
+
+* **accu_mask_and_rotate** *<mask>* *<rotate_amount>*
+
+First applies the 32 bit *<mask>* value to the accu, then left rotates the accu
+by *<rotate_amount>* bits.
+
+.. _vme-command-accu-test:
+
+accu_test
+^^^^^^^^^
+
+* **accu_test** *<compare_op>* *<compare_value>* *<message>*
+
+Compares the current accumulator value against the constant *<compare_value>*
+and prints a message containing the result.
+
+.. table:: accu_test comparison operators
+   :name: accu_test_comparison_operators
+
+    +-----+----+
+    | eq  | == |
+    +-----+----+
+    | neq | != |
+    +-----+----+
+    | lt  | <  |
+    +-----+----+
+    | lte | <= |
+    +-----+----+
+    | gt  | >  |
+    +-----+----+
+    | gte | >= |
+    +-----+----+
+
 .. index:: MVLC VME Script Commands
 .. _vme_script_mvlc_commands:
+
 
 MVLC special commands
 ~~~~~~~~~~~~~~~~~~~~~
