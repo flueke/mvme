@@ -867,6 +867,9 @@ void Histo1DWidgetPrivate::updateAxisScales()
 
 void Histo1DWidget::replot()
 {
+    if (!m_d->getCurrentHisto())
+        return;
+
     // ResolutionReduction
     const u32 rrf = m_d->m_rrf;
 
@@ -1130,6 +1133,9 @@ void Histo1DWidget::mouseCursorLeftPlot()
 
 void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
 {
+    if (!getCurrentHisto())
+        return;
+
     double lowerBound = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double upperBound = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
 
@@ -1324,6 +1330,9 @@ void Histo1DWidgetPrivate::saveHistogram()
 
 void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
 {
+    if (!getCurrentHisto())
+        return;
+
     double plotX = m_cursorPosition.x();
     double plotY = m_cursorPosition.y();
     auto binning = getCurrentHisto()->getAxisBinning(Qt::XAxis);
@@ -1501,9 +1510,13 @@ void Histo1DWidgetPrivate::onRRSliderValueChanged(int sliderValue)
         ;
 #endif
 
+    u32 physBins = 0;
+    u32 visBins  = 1u << sliderValue;
+
+    if (auto histo = getCurrentHisto())
+        physBins = histo->getNumberOfBins();
+
     // (phys number of bins) / (res reduction number of bins)
-    u32 physBins = getCurrentHisto()->getNumberOfBins();
-    u32 visBins   = 1u << sliderValue;
     m_rrf = physBins / visBins;
 
     m_rrLabel->setText(QSL("Res: %1, %2 bit")
