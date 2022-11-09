@@ -77,6 +77,8 @@ struct MultiPlotWidget::Private
         else if (auto sink = std::dynamic_pointer_cast<Histo2DSink>(s))
         {
             auto e = std::make_shared<Histo2DSinkPlotEntry>(sink, q);
+            QObject::connect(e->zoomer(), &ScrollZoomer::zoomed,
+                                q, [this, e] (const QRectF &) { onEntryZoomed(e); });
             entries_.emplace_back(std::move(e));
         }
 
