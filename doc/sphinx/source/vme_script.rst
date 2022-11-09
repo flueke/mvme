@@ -127,13 +127,15 @@ which do signal DTACK while not having the actual data ready yet.
 
 During manual script execution the value read from the VME bus is stored in the
 script local accumulator. The accumulator can be modified and tested using
-:ref:`accu_mask_rotate <vme-command-accu_mask_rotate>` and
+:ref:`accu_mask_rotate <vme-command-accu-mask-rotate>` and
 :ref:`accu_test <vme-command-accu-test>`.
 
 .. _vme-command-blt:
 .. _vme-command-bltfifo:
 .. _vme-command-mblt:
 .. _vme-command-mbltfifo:
+.. _vme-command-2esst:
+.. _vme-command-2essts:
 
 Block Transfers
 ~~~~~~~~~~~~~~~
@@ -290,7 +292,7 @@ accu_set
 
 * **accu_set** *<value>* Set the script local accumulator to a constant value.
 
-.. _vme-command-accu_mask_rotate:
+.. _vme-command-accu-mask-rotate:
 
 accu_mask_rotate
 ^^^^^^^^^^^^^^^^
