@@ -349,6 +349,7 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             } break;
     }
 
+    result.state = state;
     return result;
 }
 
@@ -356,11 +357,24 @@ QString format_result(const Result &result)
 {
     if (result.error.isError())
     {
-        QString ret = QString("Error from \"%1\": %2")
-            .arg(to_string(result.command))
-            .arg(result.error.toString());
+        QString ret;
+        if (result.command.type == CommandType::Accu_Test)
+        {
+            ret = QSL("%1 failed: ('%2', accu=0x%3)")
+                .arg(result.command.accuTestMessage)
+                .arg(to_string(result.command))
+                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                ;
+        }
+        else
+        {
+            ret = QSL("Error from \"%1\": %2")
+                .arg(to_string(result.command))
+                .arg(result.error.toString());
+        }
 
-#if 0 // too verbose
+        return ret;
+#if 0 // too verbose but also possible
         if (auto ec = result.error.getStdErrorCode())
         {
             ret += QString(" (std::error_code: msg=%1, value=%2, cat=%3)")
@@ -369,8 +383,6 @@ QString format_result(const Result &result)
                 .arg(ec.category().name());
         }
 #endif
-
-        return ret;
     }
 
     QString ret(to_string(result.command));
@@ -455,6 +467,20 @@ QString format_result(const Result &result)
                 ret = result.command.printArgs.join(' ');
             }
             break;
+
+        case CommandType::Accu_MaskAndRotate:
+            ret += QSL(" -> accu=0x%1")
+                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                ;
+            break;
+
+        case CommandType::Accu_Test:
+            ret = QSL("%1 ok (accu=0x%2)")
+                .arg(result.command.accuTestMessage)
+                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                ;
+            break;
+
     }
 
     return ret;

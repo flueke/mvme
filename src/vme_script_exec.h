@@ -7,12 +7,18 @@
 namespace vme_script
 {
 
+struct RunState
+{
+    u32 accu = {};
+};
+
 struct LIBMVME_CORE_EXPORT Result
 {
     VMEError error;
     uint32_t value = 0u;
     QVector<uint32_t> valueVector = {};
     Command command;
+    RunState state; // state after the command was run
 };
 
 using ResultList = QVector<Result>;

@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 1.5.0-rc1
+Version 1.5.0-rc2
 -----------------
 
 * [analysis]
@@ -17,10 +17,23 @@ Version 1.5.0-rc1
 
 * [vme/readout]
 
-  - Add new commands for the fast 2eSST VME transfer modes: ``2esst`` and the
-    word swapped version ``2essts``.
+  - Revert a change from 1.4.9 where lowercase amod specifiers used the
+    *privileged* value, while uppercase specifiers where converted to the *user*
+    value. Now by default the user amods are used but numeric amod arguments can
+    be given to single and block read commands for full control over the amod.
+
+  - Add new commands for the fast 2eSST VME transfer modes:
+    :ref:`2esst <vme-command-2esst>` and the word swapped version
+    :ref:`2essts <vme-command-2essts>`.
 
   - Add new module templates for mesytec MDLL, mesytec MCPD-8_MPSD and the CAEN v1742
+
+  - Add a new software accumulator and related functions:
+    :ref:`accu_set <vme-command-accu-set>`,
+    :ref:`accu_mask_rotate <vme-command-accu-mask-rotate>`,
+    :ref:`accu_test <vme-command-accu-test>`
+
+  - Update MDPP-16/32 scripts to check if the correct firmware revision is loaded.
 
   - Listfile filenames can now be specified using format strings (fmt library).
 

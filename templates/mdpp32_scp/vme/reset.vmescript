@@ -6,6 +6,8 @@ print "Hardware ID:"
 read a32 d16 0x6008	# hardware ID
 print "Firmware Revision:"
 read a32 d16 0x600E # firmware revision
+accu_mask_rotate 0x0000f000 20
+accu_test eq 2 "SCP firmware check"
 
 0x603a 0   # stop acq
 0x603c 1   # FIFO reset

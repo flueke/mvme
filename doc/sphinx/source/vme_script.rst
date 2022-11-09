@@ -127,13 +127,15 @@ which do signal DTACK while not having the actual data ready yet.
 
 During manual script execution the value read from the VME bus is stored in the
 script local accumulator. The accumulator can be modified and tested using
-:ref:`accu_mask_and_rotate <vme-command-accu-mask-and-rotate>` and
+:ref:`accu_mask_rotate <vme-command-accu-mask-rotate>` and
 :ref:`accu_test <vme-command-accu-test>`.
 
 .. _vme-command-blt:
 .. _vme-command-bltfifo:
 .. _vme-command-mblt:
 .. _vme-command-mbltfifo:
+.. _vme-command-2esst:
+.. _vme-command-2essts:
 
 Block Transfers
 ~~~~~~~~~~~~~~~
@@ -260,7 +262,6 @@ Arguments:
   The floating point value using a *.* as the decimal separator.
 
 Example
-^^^^^^^
 ::
 
   write_float_word a16 0x0014 upper 3.14
@@ -276,11 +277,10 @@ separated by a space by default which means string quoting is not
 strictly required.
 
 Example
-^^^^^^^
 ::
 
   print "Hello World!"
-  print Hello World!
+  print Hello World!  # Quoting the string is optional
 
 .. index:: VME Script Accumulator Commands
 .. _vme_script_accu_commands:
@@ -292,12 +292,12 @@ accu_set
 
 * **accu_set** *<value>* Set the script local accumulator to a constant value.
 
-.. _vme-command-accu-mask-and-rotate:
+.. _vme-command-accu-mask-rotate:
 
-accu_mask_and_rotate
-^^^^^^^^^^^^^^^^^^^^^
+accu_mask_rotate
+^^^^^^^^^^^^^^^^
 
-* **accu_mask_and_rotate** *<mask>* *<rotate_amount>*
+* **accu_mask_rotate** *<mask>* *<rotate_amount>*
 
 First applies the 32 bit *<mask>* value to the accu, then left rotates the accu
 by *<rotate_amount>* bits.
@@ -313,21 +313,21 @@ Compares the current accumulator value against the constant *<compare_value>*
 and prints a message containing the result.
 
 .. table:: accu_test comparison operators
-   :name: accu_test_comparison_operators
+  :name: accu_test_comparison_operators
 
-    +-----+----+
-    | eq  | == |
-    +-----+----+
-    | neq | != |
-    +-----+----+
-    | lt  | <  |
-    +-----+----+
-    | lte | <= |
-    +-----+----+
-    | gt  | >  |
-    +-----+----+
-    | gte | >= |
-    +-----+----+
+  +-----+----+
+  | eq  | == |
+  +-----+----+
+  | neq | != |
+  +-----+----+
+  | lt  | <  |
+  +-----+----+
+  | lte | <= |
+  +-----+----+
+  | gt  | >  |
+  +-----+----+
+  | gte | >= |
+  +-----+----+
 
 .. index:: MVLC VME Script Commands
 .. _vme_script_mvlc_commands:
