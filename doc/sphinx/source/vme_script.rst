@@ -278,7 +278,7 @@ Example
 ::
 
   print "Hello World!"
-  print Hello World!
+  print Hello World!  # Quoting the string is optional
 
 .. index:: VME Script Accumulator Commands
 .. _vme_script_accu_commands:
@@ -311,21 +311,21 @@ Compares the current accumulator value against the constant *<compare_value>*
 and prints a message containing the result.
 
 .. table:: accu_test comparison operators
-   :name: accu_test_comparison_operators
+  :name: accu_test_comparison_operators
 
-    +-----+----+
-    | eq  | == |
-    +-----+----+
-    | neq | != |
-    +-----+----+
-    | lt  | <  |
-    +-----+----+
-    | lte | <= |
-    +-----+----+
-    | gt  | >  |
-    +-----+----+
-    | gte | >= |
-    +-----+----+
+  +-----+----+
+  | eq  | == |
+  +-----+----+
+  | neq | != |
+  +-----+----+
+  | lt  | <  |
+  +-----+----+
+  | lte | <= |
+  +-----+----+
+  | gt  | >  |
+  +-----+----+
+  | gte | >= |
+  +-----+----+
 
 .. index:: MVLC VME Script Commands
 .. _vme_script_mvlc_commands:
