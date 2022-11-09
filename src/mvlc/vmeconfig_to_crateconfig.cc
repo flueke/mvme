@@ -145,6 +145,9 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
         case CommandType::Print:
+        case CommandType::Accu_Set:
+        case CommandType::Accu_MaskAndRotate:
+        case CommandType::Accu_Test:
             break;
 
         default:
