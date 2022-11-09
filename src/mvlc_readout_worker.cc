@@ -446,7 +446,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         return;
     }
 
-    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles");
+    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles"); (void) cycles;
     assert(d->snoopQueues);
 
     try
@@ -757,7 +757,7 @@ void MVLCReadoutWorker::pause()
 
 void MVLCReadoutWorker::resume(quint32 cycles)
 {
-    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles");
+    assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles"); (void) cycles;
 
     if (auto ec = d->mvlcReadoutWorker->resume())
         logError(ec.message().c_str());

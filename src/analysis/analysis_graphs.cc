@@ -137,7 +137,7 @@ QGVNode *object_graph_add_module_for_source(GraphContext &gctx, const analysis::
 
 void object_graph_recurse_to_source(GraphContext &gctx, const analysis::OperatorPtr &op)
 {
-    auto opNode = gctx.nodes[op->getId()];
+    [[maybe_unused]] auto opNode = gctx.nodes[op->getId()];
     assert(opNode);
 
     const auto slotCount = op->getNumberOfSlots();

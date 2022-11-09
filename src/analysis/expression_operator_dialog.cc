@@ -75,7 +75,7 @@ InputSelectButton::InputSelectButton(Slot *destSlot, QWidget *parent)
     installEventFilter(this);
 }
 
-bool InputSelectButton::eventFilter(QObject *watched, QEvent *event)
+bool InputSelectButton::eventFilter([[maybe_unused]] QObject *watched, QEvent *event)
 {
     assert(watched == this);
 
@@ -216,7 +216,7 @@ void ExpressionOperatorPipeView::onCellChanged(int row, int col)
     }
 }
 
-bool ExpressionOperatorPipeView::eventFilter(QObject *watched, QEvent *event)
+bool ExpressionOperatorPipeView::eventFilter([[maybe_unused]] QObject *watched, QEvent *event)
 {
     assert(watched == m_tableWidget);
 
@@ -1018,14 +1018,14 @@ class A2PipeStorage
             };
         }
 
-        void assert_consistency(const a2::PipeVectors &a2_pipe) const
+        void assert_consistency([[maybe_unused]] const a2::PipeVectors &a2_pipe) const
         {
             //qDebug() << __PRETTY_FUNCTION__ << a2_pipe.data.size;
 
             assert(a2_pipe.data.size == a2_pipe.lowerLimits.size);
             assert(a2_pipe.data.size == a2_pipe.upperLimits.size);
 
-            const s32 expected_size = static_cast<s32>(data.size());
+            [[maybe_unused]] const s32 expected_size = static_cast<s32>(data.size());
 
             assert(a2_pipe.data.size == expected_size);
             assert(a2_pipe.lowerLimits.size == expected_size);

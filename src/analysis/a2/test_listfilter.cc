@@ -39,7 +39,7 @@ static void TEST_combine(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::NoFlag, 4, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
         assert(result == 0x4040030320200101u);
     }
@@ -56,7 +56,7 @@ static void TEST_combine(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::ReverseCombine, 4, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
         assert(result == 0x0101202003034040u);
     }
@@ -71,7 +71,7 @@ static void TEST_combine(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::WordSize32, 2, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
         assert(result == 0x0303404001012020u);
     }
@@ -86,7 +86,7 @@ static void TEST_combine(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::ReverseCombine | ListFilter::WordSize32, 2, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
         assert(result == 0x0101202003034040u);
     }
@@ -137,12 +137,12 @@ static void TEST_combine_and_extract_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::NoFlag, 4, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
         assert(combined == 0x4040030320200101u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -168,11 +168,11 @@ static void TEST_combine_and_extract_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::ReverseCombine, 4, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
         assert(combined == 0x0101202003034040u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -196,12 +196,12 @@ static void TEST_combine_and_extract_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::WordSize32, 2, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
         assert(combined == 0x0303404001012020u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -225,12 +225,12 @@ static void TEST_combine_and_extract_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 2, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
         assert(combined == 0x0101202003034040u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -260,12 +260,12 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::NoFlag, 3, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
         assert(combined == 0x030320200101u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -291,11 +291,11 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::ReverseCombine, 3, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
         assert(combined == 0x010120200303u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -319,12 +319,12 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::WordSize32, 1, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
         assert(combined == 0x01012020u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -348,12 +348,12 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &)
 
         auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 1, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
         assert(combined == 0x01012020u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+        [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+        [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
         //printf("address=0x%08x, value=0x%08x\n", address, value);
 
@@ -383,7 +383,7 @@ static void BM_combine_and_extract(benchmark::State &state)
 
         auto cf = make_listfilter(ListFilter::ReverseCombine, 4, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
         assert(combined == 0x0101202003034040u);
 
         while (state.KeepRunning())

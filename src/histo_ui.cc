@@ -185,11 +185,11 @@ PlotPicker::PlotPicker(QWidget *canvas)
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 #ifdef Q_OS_WIN
-    bool b = connect(this, SIGNAL(removed(const QPoint &)),
-                     this, SLOT(onPointRemoved(const QPoint &)));
+    [[maybe_unused]] bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                                      this, SLOT(onPointRemoved(const QPoint &)));
 #else
-    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
-                     this, &PlotPicker::onPointRemoved);
+    [[maybe_unused]] bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                                      this, &PlotPicker::onPointRemoved);
 #endif
     assert(b);
 }
@@ -202,11 +202,11 @@ PlotPicker::PlotPicker(int xAxis, int yAxis,
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 #ifdef Q_OS_WIN
-    bool b = connect(this, SIGNAL(removed(const QPoint &)),
-                     this, SLOT(onPointRemoved(const QPoint &)));
+    [[maybe_unused]] bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                                      this, SLOT(onPointRemoved(const QPoint &)));
 #else
-    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
-                     this, &PlotPicker::onPointRemoved);
+    [[maybe_unused]] bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                                      this, &PlotPicker::onPointRemoved);
 #endif
     assert(b);
 }
@@ -296,7 +296,7 @@ NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 
 #ifdef Q_OS_WIN
     b = connect(this, SIGNAL(selected(const QPointF &)),
@@ -502,7 +502,7 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 
 #ifdef Q_OS_WIN
     b = connect(this, SIGNAL(moved(const QPointF &)),
@@ -823,7 +823,7 @@ PolygonEditorPicker::PolygonEditorPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 #ifdef Q_OS_WIN
     b = connect(this, SIGNAL(moved(const QPointF &)),
                 this, SLOT(onPointMoved(const QPointF &)));

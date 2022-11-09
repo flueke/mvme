@@ -195,7 +195,7 @@ DEF_OP_MAGIC(difference_magic)
     assert_slot(inputSlots[0]);
     assert_slot(inputSlots[1]);
 
-    auto diff = qobject_cast<analysis::Difference *>(op.get());
+    [[maybe_unused]] auto diff = qobject_cast<analysis::Difference *>(op.get());
 
     assert(diff);
 
@@ -619,7 +619,7 @@ DEF_OP_MAGIC(scaler_overflow_magic)
     OP_MAGIC_NOWARN;
     LOG("");
 
-    auto a1_op = qobject_cast<analysis::ScalerOverflow *>(op.get());
+    [[maybe_unused]] auto a1_op = qobject_cast<analysis::ScalerOverflow *>(op.get());
 
     assert(a1_op);
 
@@ -1838,11 +1838,11 @@ A2AdapterState a2_adapter_build(
 
     for (const auto &cond: result.conditionBitIndexes.hash.keys())
     {
-        s16 bitIndex = result.conditionBitIndexes.value(cond);
+        [[maybe_unused]] s16 bitIndex = result.conditionBitIndexes.value(cond);
 
         assert(bitIndex < static_cast<s32>(result.a2->conditionBits.size()));
 
-        if (auto a2_cond = result.operatorMap.value(cond))
+        if ([[maybe_unused]] auto a2_cond = result.operatorMap.value(cond))
         {
             LOG("    firstBit=%3d, a2_cond=%p, a2_type=%2d, a1_type=%s, a1_name=%s",
                 bitIndex,

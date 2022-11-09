@@ -1257,7 +1257,7 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     connect(actionDelete, &QAction::triggered,
             this, [this] () { d->onActionDeleteCond(); });
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 
 #ifdef Q_OS_WIN
     // Working around an issue where connecting QwtPicker/QwtPlotPicker signals

@@ -424,7 +424,7 @@ struct ModuleConfigDialog::Private
 //
 ModuleConfigDialog::ModuleConfigDialog(
     ModuleConfig *mod,
-    const EventConfig *parentEvent,
+    [[maybe_unused]] const EventConfig *parentEvent,
     const VMEConfig *vmeConfig,
     QWidget *parent)
 : QDialog(parent)

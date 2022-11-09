@@ -175,7 +175,7 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         while (state.KeepRunning())
         {
-            const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+            [[maybe_unused]] const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
             assert(dataPtr == inputData + inputSize); // all data should have been consumed
             assert(!is_param_valid(ce.outputs[0][0]));
@@ -237,7 +237,7 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         listfilter_extractor_begin_event(&ce);
 
-        const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        [[maybe_unused]] const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
         assert(dataPtr == inputData + inputSize); // all data should have been consumed
 
@@ -295,7 +295,7 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         listfilter_extractor_begin_event(&ce);
 
-        const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        [[maybe_unused]] const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
         assert(dataPtr == inputData + inputSize);
         assert(is_param_valid(ce.outputs[0][0]));
@@ -350,7 +350,7 @@ static void BM_listfilter_extractor(benchmark::State &state)
 
     while (state.KeepRunning())
     {
-        const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        [[maybe_unused]] const u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
         bytesProcessed += sizeof(inputData);
         moduleCounter++;
 
@@ -422,7 +422,7 @@ static void BM_multihit_extractor_array_per_hit_exceeds(benchmark::State &state)
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(totalHits.size == 16);
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return d == 0.0; }));
@@ -444,7 +444,7 @@ static void BM_multihit_extractor_array_per_hit_exceeds(benchmark::State &state)
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return !std::isnan(d); }));
         }
@@ -517,7 +517,7 @@ static void BM_multihit_extractor_array_per_hit(benchmark::State &state)
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(totalHits.size == 16);
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return d == 0.0; }));
@@ -539,7 +539,7 @@ static void BM_multihit_extractor_array_per_hit(benchmark::State &state)
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return !std::isnan(d); }));
         }
@@ -620,7 +620,7 @@ static void BM_multihit_extractor_array_per_address_exceeds(benchmark::State &st
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(totalHits.size == 16);
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return d == 0.0; }));
@@ -643,7 +643,7 @@ static void BM_multihit_extractor_array_per_address_exceeds(benchmark::State &st
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return !std::isnan(d); }));
         }
@@ -716,7 +716,7 @@ static void BM_multihit_extractor_array_per_address(benchmark::State &state)
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(totalHits.size == 16);
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return d == 0.0; }));
@@ -739,7 +739,7 @@ static void BM_multihit_extractor_array_per_address(benchmark::State &state)
 
         // Check the totalHits array
         {
-            auto &totalHits = ex.outputs[ex.outputCount-1];
+            [[maybe_unused]] auto &totalHits = ex.outputs[ex.outputCount-1];
             assert(std::all_of(totalHits.data, totalHits.data+totalHits.size,
                                [] (double d) { return !std::isnan(d); }));
         }
@@ -778,7 +778,7 @@ static void BM_calibration_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputData);
-    static const s32 invalidIndex = 13;
+    [[maybe_unused]] static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -882,7 +882,7 @@ static void BM_difference_step(benchmark::State &state)
         8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
     };
     static const s32 inputSize = ArrayCount(inputDataA);
-    static const s32 invalidIndex = 13;
+    [[maybe_unused]] static const s32 invalidIndex = 13;
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
@@ -1154,7 +1154,7 @@ static void BM_aggregate_multiplicity_step(benchmark::State &state)
     assert(op.outputCount == 1);
     assert(op.outputs[0].size == 1);
 
-    double expectedResult = inputSize - 1;
+    [[maybe_unused]] double expectedResult = inputSize - 1;
 
     assert(op.outputLowerLimits[0][0] == 0.0);
     assert(op.outputUpperLimits[0][0] == inputSize);
@@ -1204,7 +1204,7 @@ static void BM_aggregate_max_step(benchmark::State &state)
     assert(op.outputCount == 1);
     assert(op.outputs[0].size == 1);
 
-    double expectedResult = 15;
+    [[maybe_unused]] double expectedResult = 15;
 
     assert(op.outputLowerLimits[0][0] == 0.0);
     assert(op.outputUpperLimits[0][0] == 20.0);

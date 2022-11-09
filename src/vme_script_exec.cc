@@ -404,6 +404,7 @@ QString format_result(const Result &result)
         case CommandType::MVLC_SetAccu:
         case CommandType::MVLC_ReadToAccu:
         case CommandType::MVLC_CompareLoopAccu:
+        case CommandType::Accu_Set:
             break;
 
         case CommandType::Write:

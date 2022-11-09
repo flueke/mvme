@@ -178,7 +178,7 @@ namespace
 
 using ProcessingState = MVMEStreamProcessor::ProcessingState;
 
-void debug_dump(const ProcessingState &procState)
+[[maybe_unused]] void debug_dump(const ProcessingState &procState)
 {
     Q_ASSERT(procState.buffer);
 

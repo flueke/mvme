@@ -4715,7 +4715,7 @@ void a2_end_event(A2 *a2, int eventIndex)
 
         if (is_condition_operator(*op))
         {
-            auto d = reinterpret_cast<ConditionBaseData *>(op->d);
+            [[maybe_unused]] auto d = reinterpret_cast<ConditionBaseData *>(op->d);
 
             assert(d->bitIndex >= 0); // bitIndex must have been assigned when the runtime was built
             assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());

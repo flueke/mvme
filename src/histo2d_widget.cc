@@ -70,11 +70,9 @@ using Histo1DSinkPtr = Histo2DWidget::Histo1DSinkPtr;
 static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &sink,
                                                          AxisInterval xInterval,
                                                          AxisInterval yInterval,
-                                                         analysis::A2AdapterState *a2State,
                                                          const u32 rrfY)
 {
     assert(sink);
-    assert(a2State);
     Histo2DStatistics result;
 
     /* Counts: sum of all histo counts
@@ -731,7 +729,6 @@ void Histo2DWidget::replot()
             m_d->m_histo1DSink,
             { visibleXInterval.minValue(), visibleXInterval.maxValue() },
             { visibleYInterval.minValue(), visibleYInterval.maxValue() },
-            m_d->m_serviceProvider->getAnalysis()->getA2AdapterState(),
             rrf.y);
     }
 

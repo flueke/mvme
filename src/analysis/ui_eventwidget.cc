@@ -2795,7 +2795,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 }
 
 void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
-    ObjectTree *tree, QPoint pos, s32 userLevel)
+    ObjectTree *tree, QPoint pos, [[maybe_unused]] s32 userLevel)
 {
     /* Context menu for the top-left tree which contains modules and their
      * datasources. */

@@ -558,9 +558,14 @@ void Directory::accept(ObjectVisitor &visitor)
     visitor.visit(this);
 }
 
+#ifdef QT_NO_DEBUG
+bool check_directory_consistency(const DirectoryVector &, const Analysis *)
+{
+    return true;
+}
+#else
 bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *analysis)
 {
-#ifndef QT_NO_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
 
     QHash<DirectoryPtr, Directory::MemberSet> memberSets;
@@ -604,10 +609,10 @@ bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *an
 
         allMembers.unite(set);
     }
-#endif
 
     return true;
 }
+#endif
 
 
 //
@@ -5405,9 +5410,9 @@ void Analysis::beginRun(const RunInfo &runInfo,
                 assert(savedStaticVars.size() == data->static_vars.size());
                 assert(map_keys(savedStaticVars) == map_keys(data->static_vars));
 
+#ifndef NDEBUG
                 using StaticVar = a2::ExpressionOperatorData::StaticVar;
 
-#ifndef NDEBUG
                 // Return the address of the actual data stored in the StaticVar.
                 auto get_var_address = [] (const StaticVar &staticVar) -> const void *
                 {

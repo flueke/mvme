@@ -456,8 +456,8 @@ void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOp
             runOption, m_q->getVMEConfig(),
             [this] (const QString &msg) { m_q->logMessage(msg); });
 
-        bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
-                                                 Qt::QueuedConnection);
+        [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
+                                                                  Qt::QueuedConnection);
 
         assert(invoked);
 
@@ -937,7 +937,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     // connect to the service.
     // TODO: add a way to wait for completion of the startup.
     {
-        bool invoked = QMetaObject::invokeMethod(
+        [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(
             m_streamWorker.get(), "startupConsumers", Qt::QueuedConnection);
         assert(invoked);
     }
@@ -1663,8 +1663,8 @@ bool MVMEContext::prepareStart()
             m_streamWorker.get(), &MVMEStreamWorker::stopped,
             &localLoop, &QEventLoop::quit);
 
-        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "start",
-                                                 Qt::QueuedConnection);
+        [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "start",
+                                                                  Qt::QueuedConnection);
         assert(invoked);
 
         localLoop.exec();
@@ -1770,7 +1770,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     qDebug() << __PRETTY_FUNCTION__ << "starting readout worker";
 
-    bool invoked = QMetaObject::invokeMethod(
+    [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(
         m_readoutWorker, "start", Qt::QueuedConnection,
         Q_ARG(quint32, nCycles));
     assert(invoked);
@@ -1837,7 +1837,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 
     qDebug() << __PRETTY_FUNCTION__ << "starting listfile reader";
 
-    bool invoked = QMetaObject::invokeMethod(
+    [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(
         m_d->listfileReplayWorker.get(), "start", Qt::QueuedConnection);
     assert(invoked);
 
@@ -2018,7 +2018,7 @@ MVMEContext::runScript(
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {
-        auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller);
+        [[maybe_unused]] auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller);
         assert(mvlc);
 
         // The below code should be equivalent to

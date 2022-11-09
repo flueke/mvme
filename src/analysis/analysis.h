@@ -849,9 +849,13 @@ class LIBMVME_EXPORT DataSourceCopy: public SourceInterface
         Q_INVOKABLE DataSourceCopy(QObject *parent = nullptr);
 
         virtual s32 getNumberOfOutputs() const override { return 1; }
-        virtual QString getOutputName(s32 index) const override
+
+        virtual QString getOutputName([[maybe_unused]] s32 index) const override
         { assert(index == 0); return QSL("Output"); }
-        virtual Pipe *getOutput(s32 index) override { assert(index == 0); return &m_output; }
+
+        virtual Pipe *getOutput([[maybe_unused]] s32 index) override
+        { assert(index == 0); return &m_output; }
+
         virtual QString getDisplayName() const override { return QSL("DataSourceCopy"); }
         virtual QString getShortName() const override { return QSL("DSC"); }
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
