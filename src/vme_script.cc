@@ -2108,23 +2108,24 @@ QString to_string(const Command &cmd)
             break;
 
         case CommandType::Accu_Set:
-            buffer = QSL("%1 %2")
+            buffer = QSL("%1 accu=0x%2 (%3 dec)")
                 .arg(cmdStr)
-                .arg(cmd.value);
+                .arg(cmd.value, 8, 16, QLatin1Char('0'))
+                .arg(cmd.value)
+                ;
             break;
         case CommandType::Accu_MaskAndRotate:
-            buffer = QSL("%1 %2 %3")
+            buffer = QSL("%1 mask=0x%2 rotate=%3")
                 .arg(cmdStr)
-                .arg(cmd.accuMask)
+                .arg(cmd.accuMask, 8, 16, QLatin1Char('0'))
                 .arg(cmd.accuRotate);
             break;
         case CommandType::Accu_Test:
-            buffer = QSL("%1 %2 \"%3\"")
+            buffer = QSL("%1 accu %2 0x%3 \"%4\"")
                 .arg(cmdStr)
                 // op value msg
                 .arg(to_string(cmd.accuTestOp))
-                .arg(cmd.accuTestValue)
-                .arg(cmd.accuTestValue)
+                .arg(cmd.accuTestValue, 8, 16, QLatin1Char('0'))
                 .arg(cmd.accuTestMessage);
             break;
     }
