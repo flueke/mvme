@@ -1460,6 +1460,19 @@ void Difference::beginRun(const RunInfo &, Logger)
     Q_ASSERT((m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
              || (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex));
 
+    // Hack to fix an issue with existing analysis files where one input was a
+    // single parameter while the other was an array. In debug builds the above
+    // assertion would have been triggered but release builds just continue on
+    // which leads to crashes when opening histograms connected to this
+    // difference operator. To circumvent the crash rewrite both inputs to use
+    // the whole array.
+    if ((m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex) ||
+        (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex))
+    {
+        m_inputA.paramIndex = Slot::NoParamIndex;
+        m_inputB.paramIndex = Slot::NoParamIndex;
+    }
+
     m_output.parameters.unit = m_inputA.inputPipe->parameters.unit;
 
     if (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex)
