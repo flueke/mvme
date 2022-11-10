@@ -16,7 +16,6 @@ TilePlot::TilePlot(QWidget *parent)
     setCanvas(canvas);
     canvas->unsetCursor();
     setMinimumSize(TileMinWidth, TileMinHeight);
-    //setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 }
 
 TilePlot::~TilePlot()
@@ -37,6 +36,9 @@ PlotEntry::PlotEntry(QWidget *plotParent, QwtPlot::Axis scaleAxis)
     zoomer_->setEnabled(false);
     zoomer_->setZoomBase();
     resReductions_.fill(0);
+
+    plot_->setMouseTracking(true);
+    plot_->canvas()->setMouseTracking(true);
 }
 
 PlotEntry::PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis)
@@ -47,6 +49,9 @@ PlotEntry::PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis)
     zoomer_->setEnabled(false);
     zoomer_->setZoomBase();
     resReductions_.fill(0);
+
+    plot_->setMouseTracking(true);
+    plot_->canvas()->setMouseTracking(true);
 }
 
 Histo1DSinkPlotEntry::Histo1DSinkPlotEntry(

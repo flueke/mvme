@@ -73,6 +73,7 @@
     <file alias="hand.png">resources/hand.png</file>
     <file alias="map.png">resources/map.png</file>
     <file alias="map-medium.png">resources/map-medium.png</file>
+    <file alias="arrow-out.png">resources/arrow-out.png</file>
 
     <file>resources/layer-visible-off.png</file>
     <file>resources/layer-visible-on.png</file>

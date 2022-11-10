@@ -6,6 +6,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDebug>
+#include <QDrag>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
@@ -31,9 +32,12 @@ using namespace analysis::ui;
 using namespace histo_ui;
 using namespace mvme_qwt;
 
+static const QString PlotTileMimeType = QSL("mvme/x-multiplot-tile");
+
 struct MultiPlotWidget::Private
 {
     static const int ReplotPeriod_ms = 1000;
+    static const int CanStartDragDistancePixels = 6;
 
     enum class State
     {
@@ -41,6 +45,8 @@ struct MultiPlotWidget::Private
         Panning,
         PanningActive,
         Zooming,
+        Rearrange,
+        RearrangeActive,
     };
 
     MultiPlotWidget *q = {};
@@ -53,12 +59,12 @@ struct MultiPlotWidget::Private
     int maxColumns_ = TilePlot::DefaultMaxColumns;
     State state_ = State::Panning;
     QPoint panRef_; // where the current pan operation started in pixel coordinates
+    QPoint dragRef_; // where the mouse was pressed to potentially start a drag operation
     std::atomic<bool> inRefresh_ = false;
     bool inZoomHandling_ = false;
     QCheckBox *cb_combinedZoom_;
     QLabel *rrLabel_ = {};
     QComboBox *combo_maxRes_ = {};
-    u32 rrf_ = Histo1D::NoRR;
     u32 maxVisibleBins_ = 1u << 16;
 
     void addSink(const SinkPtr &s)
@@ -68,6 +74,7 @@ struct MultiPlotWidget::Private
             for (const auto &histo : sink->getHistos())
             {
                 auto e = std::make_shared<Histo1DSinkPlotEntry>(sink, histo, q);
+                e->plot()->canvas()->installEventFilter(q);
 
                 QObject::connect(e->zoomer(), &ScrollZoomer::zoomed,
                                  q, [this, e] (const QRectF &) { onEntryZoomed(e); });
@@ -78,17 +85,11 @@ struct MultiPlotWidget::Private
         else if (auto sink = std::dynamic_pointer_cast<Histo2DSink>(s))
         {
             auto e = std::make_shared<Histo2DSinkPlotEntry>(sink, q);
+            e->plot()->canvas()->installEventFilter(q);
+
             QObject::connect(e->zoomer(), &ScrollZoomer::zoomed,
                                 q, [this, e] (const QRectF &) { onEntryZoomed(e); });
             entries_.emplace_back(std::move(e));
-        }
-
-        u32 maxBins = 0;
-
-        for (const auto &e: entries_)
-        {
-            if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(e))
-                maxBins = std::max(maxBins, h1dEntry->histo->getNumberOfBins());
         }
 
         relayout();
@@ -101,6 +102,7 @@ struct MultiPlotWidget::Private
             // Empty the layout
             while (plotMatrix_->plotGrid()->count())
                 delete plotMatrix_->plotGrid()->takeAt(0);
+
             assert(plotMatrix_->plotGrid()->count() == 0);
 
             // Orphan the plot instances so ~PlotMatrix() does not delete them.
@@ -111,6 +113,8 @@ struct MultiPlotWidget::Private
         }
 
         plotMatrix_ = new PlotMatrix(entries_, maxColumns_);
+        //plotMatrix_->installEventFilter(q);
+        //plotMatrix_->setMouseTracking(true);
         scrollArea_->setWidget(plotMatrix_);
     }
 
@@ -180,7 +184,7 @@ struct MultiPlotWidget::Private
         if (!entries_.empty())
         {
             if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(entries_[0]))
-                windowTitle = "PlotGrid " + h1dEntry->histo->objectName();
+                windowTitle = "PlotGrid " + h1dEntry->sink->objectName();
         }
         q->setWindowTitle(windowTitle);
 
@@ -192,6 +196,7 @@ struct MultiPlotWidget::Private
         switch (newState)
         {
             case State::Default:
+            case State::Rearrange:
                 scrollArea_->viewport()->unsetCursor();
                 break;
             case State::Panning:
@@ -276,6 +281,17 @@ struct MultiPlotWidget::Private
             return findEntry(tp);
         return {};
     }
+
+    int indexOf(const std::shared_ptr<PlotEntry> &e) const
+    {
+        if (auto it = std::find(std::begin(entries_), std::end(entries_), e);
+            it != std::end(entries_))
+        {
+            return it - std::begin(entries_);
+        }
+
+        return -1;
+    }
 };
 
 MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -301,6 +317,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->viewport()->installEventFilter(this);
     scrollArea->viewport()->setCursor(Qt::OpenHandCursor);
+    scrollArea->viewport()->setMouseTracking(true);
 
     auto layout = make_vbox<2, 2>(this);
     layout->addWidget(toolBarFrame);
@@ -357,20 +374,24 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             d->combo_maxRes_->addItem(text, value);
         }
 
-        d->combo_maxRes_->setCurrentIndex(d->combo_maxRes_->count() - 1);
-
         connect(d->combo_maxRes_, qOverload<int>(&QComboBox::currentIndexChanged),
                 this, [this]
                 {
                     d->maxVisibleBins_ = d->combo_maxRes_->currentData().toUInt();
                     d->refresh();
                 });
+
+        d->combo_maxRes_->setCurrentIndex(6);
     }
 
     tb->addSeparator();
 
     auto actionPan = tb->addAction(QIcon(":/hand.png"), "Pan");
     actionPan->setCheckable(true);
+
+    auto actionRearrange = tb->addAction(QIcon(":/arrow-out.png"), "Rearrange");
+    actionRearrange->setCheckable(true);
+
     auto actionEnlargeTiles = tb->addAction(QIcon(":/map.png"), "Larger Tiles");
     auto actionShrinkTiles = tb->addAction(QIcon(":/map-medium.png"), "Smaller Tiles");
     auto spinColumns = new QSpinBox;
@@ -386,8 +407,10 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     }
 
     auto plotInteractions = new QActionGroup(this);
+    //plotInteractions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
     plotInteractions->addAction(actionPan);
     plotInteractions->addAction(actionZoom);
+    plotInteractions->addAction(actionRearrange);
 
     connect(actionEnlargeTiles, &QAction::triggered,
             this, [this] { d->enlargeTiles(); });
@@ -414,12 +437,14 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             });
 
     connect(plotInteractions, &QActionGroup::triggered,
-            this, [this, actionPan, actionZoom] (QAction */*action*/)
+            this, [=] (QAction */*action*/)
             {
                 if (actionPan->isChecked())
                     d->transitionState(Private::State::Panning);
                 else if (actionZoom->isChecked())
                     d->transitionState(Private::State::Zooming);
+                else if (actionRearrange->isChecked())
+                    d->transitionState(Private::State::Rearrange);
                 else
                     d->transitionState(Private::State::Default);
             });
@@ -454,6 +479,11 @@ void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
         qDebug() << __PRETTY_FUNCTION__ << ev << ev->mimeData();
         ev->acceptProposedAction();
     }
+    else if (ev->mimeData()->hasFormat(PlotTileMimeType))
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "a mime a day is a meme a week";
+        ev->acceptProposedAction();
+    }
     else
     #endif
         QWidget::dragEnterEvent(ev);
@@ -473,7 +503,6 @@ void MultiPlotWidget::dragMoveEvent(QDragMoveEvent *ev)
 
 void MultiPlotWidget::dropEvent(QDropEvent *ev)
 {
-    #if 1
     auto analysis = d->asp_->getAnalysis();
 
     if (analysis && ev->mimeData()->hasFormat(SinkIdListMIMEType))
@@ -490,26 +519,55 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
         }
         d->refresh();
     }
+    else if (ev->source() == this && ev->mimeData()->hasFormat(PlotTileMimeType))
+    {
+        auto sourceIndex = QVariant(ev->mimeData()->data(PlotTileMimeType)).toInt();
+        auto destIndex = d->indexOf(d->entryAt(ev->pos()));
+        qDebug() << __PRETTY_FUNCTION__
+                 << "sourceIndex =" << sourceIndex
+                 << "destIndex =" << destIndex;
+    }
     else
         QWidget::dropEvent(ev);
-    #endif
 }
 
 void MultiPlotWidget::mouseMoveEvent(QMouseEvent *ev)
 {
-    auto move_scrollbar = [] (QScrollBar *sb, int delta)
-    {
-        auto pos = sb->sliderPosition();
-        pos += delta * 2.0;
-        sb->setValue(pos);
-    };
+    qDebug() << __PRETTY_FUNCTION__ << ev;
 
     if (d->state_ == Private::State::PanningActive)
     {
+        auto move_scrollbar = [] (QScrollBar *sb, int delta)
+        {
+            auto pos = sb->sliderPosition();
+            pos += delta * 2.0;
+            sb->setValue(pos);
+        };
+
         auto delta = ev->pos() - d->panRef_;
         move_scrollbar(d->scrollArea_->horizontalScrollBar(), -delta.x());
         move_scrollbar(d->scrollArea_->verticalScrollBar(), -delta.y());
         d->panRef_ = ev->pos();
+    }
+    else if (d->state_ == Private::State::Rearrange)
+    {
+        auto entry = d->entryAt(ev->pos());
+
+        if (entry && (ev->buttons() & Qt::LeftButton))
+        {
+            if (auto delta = (ev->pos() - d->dragRef_).manhattanLength();
+                delta >= Private::CanStartDragDistancePixels)
+            {
+                QVariant dragData(d->indexOf(entry));
+                auto mimeData = new QMimeData;
+                mimeData->setData(PlotTileMimeType, dragData.toByteArray());
+                auto drag = new QDrag(this);
+                drag->setMimeData(mimeData);
+                qDebug() << __PRETTY_FUNCTION__ << "pre drag exec";
+                drag->exec(Qt::MoveAction);
+                qDebug() << __PRETTY_FUNCTION__ << "post drag exec";
+            }
+        }
     }
 }
 
@@ -520,6 +578,11 @@ void MultiPlotWidget::mousePressEvent(QMouseEvent *ev)
         d->state_ = Private::State::PanningActive;
         d->scrollArea_->viewport()->setCursor(Qt::ClosedHandCursor);
         d->panRef_ = ev->pos();
+        ev->accept();
+    }
+    else if (d->state_ == Private::State::Rearrange)
+    {
+        d->dragRef_ = ev->pos();
         ev->accept();
     }
     else
@@ -540,17 +603,30 @@ void MultiPlotWidget::mouseReleaseEvent(QMouseEvent *ev)
 
 bool MultiPlotWidget::eventFilter(QObject *watched, QEvent *ev)
 {
+    bool result = false;
+
     if (watched == d->scrollArea_->viewport()
         && ev->type() == QEvent::Wheel
         && (dynamic_cast<QWheelEvent *>(ev)->modifiers() & Qt::ControlModifier)
         )
     {
         // Do not pass the event to the scrollareas viewport which would scroll
-        // the vertical scrollbar.
-        return true;
+        // the vertical scrollbar. See wheelEvent() for the code dealing with
+        // wheel events.
+        result = true;
+    }
+    else if ((watched == d->scrollArea_->viewport() || watched == d->scrollArea_->widget())
+        && ev->type() == QEvent::MouseMove
+        && d->state_ == Private::State::Rearrange)
+    {
+        // Similar to the wheel event above: when rearranging we want the mouse
+        // events from the scrollareas viewport or its widget for ourselves.
+        result = true;
     }
 
-    return false;
+    //qDebug() << __PRETTY_FUNCTION__ << watched << ev << result;
+
+    return result;
 }
 
 void MultiPlotWidget::wheelEvent(QWheelEvent *ev)
