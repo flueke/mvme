@@ -29,6 +29,56 @@ QSize TilePlot::sizeHint() const
     return minimumSizeHint();
 }
 
+PlotEntry::PlotEntry(QWidget *plotParent, QwtPlot::Axis scaleAxis)
+    : plot_(new TilePlot(plotParent))
+    , zoomer_(new ScrollZoomer(plot_->canvas()))
+    , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
+{
+    zoomer_->setEnabled(false);
+    zoomer_->setZoomBase();
+    resReductions_.fill(0);
+}
+
+PlotEntry::PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis)
+    : plot_(tilePlot)
+    , zoomer_(new ScrollZoomer(plot_->canvas()))
+    , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
+{
+    zoomer_->setEnabled(false);
+    zoomer_->setZoomBase();
+    resReductions_.fill(0);
+}
+
+Histo1DSinkPlotEntry::Histo1DSinkPlotEntry(
+    const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent)
+        : PlotEntry(plotParent)
+        , sink(sink_)
+        , histo(histo_)
+        , histoIndex(sink->getHistos().indexOf(histo))
+        , plotItem(new QwtPlotHistogram)
+        , histoData(new Histo1DIntervalData(histo.get()))
+        , gaussCurve(make_plot_curve(Qt::green))
+        , gaussCurveData(new Histo1DGaussCurveData)
+        , statsTextItem(new TextLabelItem)
+{
+    histoIndex = sink->getHistos().indexOf(histo_);
+    assert(histoIndex >= 0); // the histo should be one of the sinks histograms
+
+    plotItem->setStyle(QwtPlotHistogram::Outline);
+    plotItem->setData(histoData); // ownership of histoData goes to qwt
+    plotItem->attach(plot());
+
+    gaussCurve->setData(gaussCurveData);
+    gaussCurve->hide();
+    gaussCurve->attach(plot());
+
+    statsTextItem->hide();
+    statsTextItem->attach(plot());
+
+    zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
+    zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
+}
+
 void Histo1DSinkPlotEntry::refresh()
 {
     histoData->setResolutionReductionFactor(rrf(Qt::XAxis));
@@ -157,11 +207,35 @@ void Histo1DSinkPlotEntry::refresh()
     zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
 }
 
-std::unique_ptr<QwtColorMap> Histo2DSinkPlotEntry::makeColorMap()
+Histo2DSinkPlotEntry::Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotParent)
+    : PlotEntry(plotParent, QwtPlot::yRight)
+    , sink(sink_)
+    , histo(sink->getHisto())
+    , plotItem(new QwtPlotSpectrogram)
+    , histoData(new Histo2DRasterData(histo.get()))
+    , statsTextItem(new TextLabelItem)
 {
-    if (is_logarithmic_axis_scale(plot(), QwtPlot::yRight))
-        return make_histo2d_color_map(AxisScaleType::Logarithmic);
-    return make_histo2d_color_map(AxisScaleType::Linear);
+    // z axis setup
+    {
+        QwtText title("Counts");
+        auto font = title.font();
+        font.setPointSize(10);
+        title.setFont(font);
+        auto rightAxis = plot()->axisWidget(QwtPlot::yRight);
+        rightAxis->setTitle(title);
+        rightAxis->setColorBarEnabled(true);
+        enable_plot_axis(plot(), QwtPlot::yRight, true);
+    }
+
+    plotItem->setRenderThreadCount(0);
+    plotItem->setData(histoData);
+    plotItem->attach(plot());
+
+    statsTextItem->hide();
+    statsTextItem->attach(plot());
+
+    zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
+    zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
 }
 
 void Histo2DSinkPlotEntry::refresh()
@@ -207,6 +281,11 @@ void Histo2DSinkPlotEntry::refresh()
     plot()->setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
     plot()->axisWidget(QwtPlot::yRight)->setColorMap(zInterval, makeColorMap().release());
     plotItem->setColorMap(makeColorMap().release());
+    if (auto scaleEngine = plot()->axisScaleEngine(QwtPlot::yRight))
+    {
+        auto zScaleDiv = scaleEngine->divideScale(zInterval.minValue(), zInterval.maxValue(), zMajorTicks, 0);
+        plot()->setAxisScaleDiv(QwtPlot::yRight, zScaleDiv);
+    }
 
     // Set the intervals on the interal raster data object.
     histoData->setInterval(Qt::XAxis, xInterval);
@@ -263,6 +342,13 @@ void Histo2DSinkPlotEntry::refresh()
     zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
 }
 
+std::unique_ptr<QwtColorMap> Histo2DSinkPlotEntry::makeColorMap()
+{
+    if (is_logarithmic_axis_scale(plot(), QwtPlot::yRight))
+        return make_histo2d_color_map(AxisScaleType::Logarithmic);
+    return make_histo2d_color_map(AxisScaleType::Linear);
+}
+
 void enable_plot_axis(QwtPlot* plot, int axis, bool on)
 {
     // when false we still enable the axis to have an effect
@@ -290,7 +376,7 @@ class PlotMatrix::PrivateData
         isAxisEnabled[QwtPlot::xBottom] = true;
         isAxisEnabled[QwtPlot::xTop] = false;
         isAxisEnabled[QwtPlot::yLeft] = true;
-        isAxisEnabled[QwtPlot::yRight] = false;
+        isAxisEnabled[QwtPlot::yRight] = true;
     }
 
     bool isAxisEnabled[QwtPlot::axisCnt];
@@ -314,15 +400,6 @@ PlotMatrix::PlotMatrix( int numRows, int numColumns, QWidget* parent )
             auto plot = new TilePlot( this );
 
             layout->addWidget( plot, row, col );
-
-            for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
-            {
-                #if 0
-                connect( plot->axisWidget( axisPos ),
-                    SIGNAL(scaleDivChanged()), SLOT(onScaleDivChanged()),
-                    Qt::QueuedConnection );
-                #endif
-            }
             m_data->plotWidgets[row * numColumns + col] = plot;
         }
     }
@@ -345,15 +422,6 @@ PlotMatrix::PlotMatrix(const std::vector<std::shared_ptr<PlotEntry>> entries, in
         auto [row, col] = row_col_from_index(index, maxColumns);
         e->plot()->resize(100, 100);
         layout->addWidget(e->plot(), row, col);
-
-        for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
-        {
-            #if 0
-            connect( e->plot()->axisWidget( axisPos ),
-                SIGNAL(scaleDivChanged()), SLOT(onScaleDivChanged()),
-                Qt::QueuedConnection );
-            #endif
-        }
         m_data->plotWidgets[row * maxColumns + col] = e->plot();
     }
 
@@ -420,130 +488,13 @@ bool PlotMatrix::isAxisVisible( int axis ) const
     return false;
 }
 
-#if 0
-void PlotMatrix::setAxisScale( int axis, int rowOrColumn,
-    double min, double max, double step )
-{
-    int row = 0;
-    int col = 0;
-
-    if ( is_x_axis( axis ) )
-        col = rowOrColumn;
-    else
-        row = rowOrColumn;
-
-    QwtPlot* plt = plotAt( row, col );
-    if ( plt )
-    {
-        plt->setAxisScale( axis, min, max, step );
-        plt->updateAxes();
-    }
-}
-#endif
-
 QGridLayout *PlotMatrix::plotGrid()
 {
     return qobject_cast<QGridLayout *>(layout());
 }
 
-#if 0
-void PlotMatrix::onScaleDivChanged()
-{
-    if ( m_data->inScaleSync )
-        return;
-
-    qDebug() << __PRETTY_FUNCTION__;
-
-    m_data->inScaleSync = true;
-
-    QwtPlot* plt = NULL;
-    int axisId = -1;
-    int rowOrColumn = -1;
-
-    // find the changed axis
-    for ( int row = 0; row < numRows(); row++ )
-    {
-        for ( int col = 0; col < numColumns(); col++ )
-        {
-            QwtPlot* p = plotAt( row, col );
-            if ( p )
-            {
-                for ( int axisPos = 0; axisPos < QwtPlot::axisCnt; axisPos++ )
-                {
-                    if ( p->axisWidget( axisPos ) == sender() )
-                    {
-                        plt = p;
-                        axisId = axisPos;
-                        rowOrColumn = is_x_axis( axisId ) ? col : row;
-                    }
-                }
-            }
-        }
-    }
-
-    if ( plt )
-    {
-        const QwtScaleDiv scaleDiv = plt->axisScaleDiv( axisId );
-
-        // synchronize the axes
-        if ( is_x_axis( axisId ) )
-        {
-            for ( int row = 0; row < numRows(); row++ )
-            {
-                QwtPlot* p = plotAt( row, rowOrColumn );
-                if ( p != plt )
-                {
-                    p->setAxisScaleDiv( axisId, scaleDiv );
-                }
-            }
-        }
-        else
-        {
-            for ( int col = 0; col < numColumns(); col++ )
-            {
-                QwtPlot* p = plotAt( rowOrColumn, col );
-                if ( p != plt )
-                {
-                    p->setAxisScaleDiv( axisId, scaleDiv );
-                }
-            }
-        }
-
-        updateLayout();
-    }
-
-    m_data->inScaleSync = false;
-}
-#endif
-
 void PlotMatrix::updateLayout()
 {
-    for ( int row = 0; row < numRows(); row++ )
-    {
-        for ( int col = 0; col < numColumns(); col++ )
-        {
-            QwtPlot* p = plotAt( row, col );
-            if ( p )
-            {
-                bool showAxis[QwtPlot::axisCnt];
-
-                //showAxis[QwtPlot::xBottom] = isAxisVisible( QwtPlot::xBottom ) && row == numRows() - 1;
-                //showAxis[QwtPlot::xTop] = isAxisVisible( QwtPlot::xTop ) && row == 0;
-                //showAxis[QwtPlot::yLeft] = isAxisVisible( QwtPlot::yLeft ) && col == 0;
-                //showAxis[QwtPlot::yRight] = isAxisVisible( QwtPlot::yRight ) && col == numColumns() - 1;
-                showAxis[QwtPlot::xBottom] = true;
-                showAxis[QwtPlot::xTop] = false;
-                showAxis[QwtPlot::yLeft] = true;
-                showAxis[QwtPlot::yRight] = false;
-
-                for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
-                {
-                    enable_plot_axis(p, axis, showAxis[axis]);
-                }
-            }
-        }
-    }
-
     for (int row = 0; row < numRows(); ++row)
         plotGrid()->setRowStretch(row, 1);
 

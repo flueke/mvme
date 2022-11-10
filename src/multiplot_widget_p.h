@@ -22,8 +22,8 @@ class TilePlot: public QwtPlot
     Q_OBJECT
     public:
         static const int DefaultMaxColumns = 4;
-        static const int TileMinWidth = 150;
-        static const int TileMinHeight = 150;
+        static const int TileMinWidth = 256;
+        static const int TileMinHeight = TileMinWidth;
         static const int TileDeltaWidth = 50;
         static const int TileDeltaHeight = 50;
 
@@ -43,13 +43,11 @@ class TilePlot: public QwtPlot
             setMinimumSize(tileSize);
         }
 
-        // Which plot axis to use for the x axis. If the plot is in the top row
-        // xTop will be used, otherwise xBottom.
+        // Which plot axis to use for the x axis.
         QwtPlot::Axis plotXAxis() const { return xAxis_; }
         void setPlotXAxis(QwtPlot::Axis axis) { xAxis_ = axis; }
 
-        // Which plot axis to use for the y axis. If the plot is in the
-        // rightmost column yRight will be used, otherwise yLeft.
+        // Which plot axis to use for the y axis.
         QwtPlot::Axis plotYAxis() const { return yAxis_; }
         void setPlotYAxis(QwtPlot::Axis axis) { yAxis_ = axis; }
 
@@ -72,41 +70,22 @@ class TilePlot: public QwtPlot
 struct PlotEntry
 {
     public:
-        explicit PlotEntry(QWidget *plotParent, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft)
-            : plot_(new TilePlot(plotParent))
-            , zoomer_(new ScrollZoomer(plot_->canvas()))
-            , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
-        {
-            zoomer_->setEnabled(false);
-            zoomer_->setZoomBase();
-            resReductions_.fill(0);
-        }
-
-        explicit PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft)
-            : plot_(tilePlot)
-            , zoomer_(new ScrollZoomer(plot_->canvas()))
-            , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
-        {
-            zoomer_->setEnabled(false);
-            zoomer_->setZoomBase();
-            resReductions_.fill(0);
-        }
-
+        explicit PlotEntry(QWidget *plotParent, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft);
+        explicit PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft);
         virtual ~PlotEntry() {}
+
         PlotEntry(const PlotEntry &) = delete;
         PlotEntry &operator=(const PlotEntry &) = delete;
 
         TilePlot *plot() { return plot_; }
         ScrollZoomer *zoomer() { return zoomer_; }
         PlotAxisScaleChanger *scaleChanger() { return scaleChanger_; }
-        virtual void refresh() {};
+        virtual void refresh() = 0;
 
         // resolution reduction factor
-        u32 rrf(Qt::Axis axis)
+        inline u32 rrf(Qt::Axis axis)
         {
-            if (axis < resReductions_.size())
-                return resReductions_[axis];
-            return 0;
+            return (axis < resReductions_.size() ?  resReductions_[axis] : 0u);
         }
 
         void setRRF(Qt::Axis axis, u32 rrf)
@@ -118,47 +97,20 @@ struct PlotEntry
     protected:
         int xMajorTicks = 5;
         int yMajorTicks = 5;
+        int zMajorTicks = 5;
 
     private:
         TilePlot *plot_;
         ScrollZoomer *zoomer_;
         PlotAxisScaleChanger *scaleChanger_;
-        std::array<u32, 3> resReductions_;
+        std::array<u32, 3> resReductions_; // x, y, z resolution reduction factors
 };
 
 struct Histo1DSinkPlotEntry: public PlotEntry
 {
     using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
 
-    Histo1DSinkPlotEntry(const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent)
-        : PlotEntry(plotParent)
-        , sink(sink_)
-        , histo(histo_)
-        , histoIndex(sink->getHistos().indexOf(histo))
-        , plotItem(new QwtPlotHistogram)
-        , histoData(new Histo1DIntervalData(histo.get()))
-        , gaussCurve(make_plot_curve(Qt::green))
-        , gaussCurveData(new Histo1DGaussCurveData)
-        , statsTextItem(new TextLabelItem)
-    {
-        histoIndex = sink->getHistos().indexOf(histo_);
-        assert(histoIndex >= 0); // the histo should be one of the sinks histograms
-
-        plotItem->setStyle(QwtPlotHistogram::Outline);
-        plotItem->setData(histoData); // ownership of histoData goes to qwt
-        plotItem->attach(plot());
-
-        gaussCurve->setData(gaussCurveData);
-        gaussCurve->hide();
-        gaussCurve->attach(plot());
-
-        statsTextItem->hide();
-        statsTextItem->attach(plot());
-
-        zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
-        zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
-    }
-
+    Histo1DSinkPlotEntry(const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent);
     void refresh() override;
 
     SinkPtr sink;
@@ -175,32 +127,9 @@ struct Histo2DSinkPlotEntry: public PlotEntry
 {
     using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
 
-    Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotParent)
-        : PlotEntry(plotParent, QwtPlot::yRight)
-        , sink(sink_)
-        , histo(sink->getHisto())
-        , plotItem(new QwtPlotSpectrogram)
-        , histoData(new Histo2DRasterData(histo.get()))
-        , statsTextItem(new TextLabelItem)
-    {
-        auto rightAxis = plot()->axisWidget(QwtPlot::yRight);
-        //rightAxis->setTitle("Counts");
-        rightAxis->setColorBarEnabled(true);
-        enable_plot_axis(plot(), QwtPlot::yRight, true);
-
-        plotItem->setRenderThreadCount(0);
-        plotItem->setData(histoData);
-        plotItem->attach(plot());
-
-        statsTextItem->hide();
-        statsTextItem->attach(plot());
-
-        zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
-        zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
-    }
-
-    std::unique_ptr<QwtColorMap> makeColorMap();
+    Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotParent);
     void refresh() override;
+    std::unique_ptr<QwtColorMap> makeColorMap();
 
     SinkPtr sink;
     Histo2DPtr histo; // to ensure the histo stays alive
@@ -226,9 +155,6 @@ inline std::pair<int, int> row_col_from_index(int index, int columns)
     int col = index % columns;
     return std::pair(row, col);
 }
-
-void set_plot_grid_scale_draw_mode(
-    QGridLayout *plotGrid, GridScaleDrawMode xScaleMode, GridScaleDrawMode yScaleMode);
 
 /*****************************************************************************
  * Based on: Qwt Examples - Copyright (C) 2002 Uwe Rathmann
@@ -270,7 +196,5 @@ class PlotMatrix : public QFrame
     class PrivateData;
     PrivateData* m_data;
 };
-
-void enable_plot_axis(QwtPlot* plot, int axis, bool on);
 
 #endif // __MNT_DATA_SRC_MVME2_SRC_MULTIPLOT_WIDGET_P_H_
