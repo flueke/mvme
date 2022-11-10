@@ -57,8 +57,9 @@ struct MultiPlotWidget::Private
     bool inZoomHandling_ = false;
     QCheckBox *cb_combinedZoom_;
     QLabel *rrLabel_ = {};
-    QSlider *rrSlider_ = {};
+    QComboBox *combo_maxRes_ = {};
     u32 rrf_ = Histo1D::NoRR;
+    u32 maxVisibleBins_ = 1u << 16;
 
     void addSink(const SinkPtr &s)
     {
@@ -89,9 +90,6 @@ struct MultiPlotWidget::Private
             if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(e))
                 maxBins = std::max(maxBins, h1dEntry->histo->getNumberOfBins());
         }
-        rrSlider_->setMaximum(std::log2(maxBins));
-        if (rrf_ == Histo1D::NoRR)
-            rrSlider_->setValue(rrSlider_->maximum());
 
         relayout();
     }
@@ -147,7 +145,17 @@ struct MultiPlotWidget::Private
 
         for (auto &e: entries_)
         {
-            e->setRRF(Qt::XAxis, rrf_);
+            const auto maxVisBins = maxVisibleBins_;
+
+            for (Qt::Axis axis: { Qt::XAxis, Qt::YAxis })
+            {
+                if (auto bins = e->binCount(axis); bins > maxVisBins)
+                    e->setRRF(axis, bins / maxVisBins);
+                else
+                    e->setRRF(axis, 0);
+                //qDebug("e=%s, axis=%d, rrf=%lu", e->analysisObject()->objectName().toLatin1().data(), axis, e->rrf(axis));
+            }
+
             e->refresh();
 
             if (e->plot()->canvas())
@@ -237,19 +245,6 @@ struct MultiPlotWidget::Private
         entry->plot()->replot();
 
         inZoomHandling_ = false;
-    }
-
-    void onRRSliderValueChanged(int sliderValue)
-    {
-        u32 maxBins = 1u << rrSlider_->maximum();
-        u32 visBins = 1u << sliderValue;
-        rrf_ = maxBins / visBins;
-
-        rrLabel_->setText(QSL("X-Res: %1, %2 bit")
-                              .arg(visBins)
-                              .arg(std::log2(visBins)));
-        qDebug("maxBins=%d, visBins=%d, rrf=%d", maxBins, visBins, rrf_);
-        refresh();
     }
 
     TilePlot *plotAt(const QPoint &p)
@@ -351,22 +346,28 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     actionGauss->setCheckable(true);
     actionGauss->setChecked(false);
 
+    // combo_maxRes
     {
-        d->rrSlider_ = make_res_reduction_slider();
-        auto boxStruct = make_vbox_container(QSL("Visible X Resolution"), d->rrSlider_, 0, -2);
+        d->combo_maxRes_ = new QComboBox;
+        auto boxStruct = make_vbox_container(QSL("Max Visible Resolution"), d->combo_maxRes_, 0, -2);
         set_widget_font_pointsize(boxStruct.label, 7);
-        d->rrLabel_ = boxStruct.label;
         tb->addWidget(boxStruct.container.release());
 
-        connect(d->rrSlider_, &QSlider::valueChanged,
-                this, [this] (int sliderValue) { d->onRRSliderValueChanged(sliderValue); });
-
-        for (auto w: std::initializer_list<QWidget *>{ d->rrSlider_, d->rrLabel_ })
+        for (u32 bits=4; bits<=16; ++bits)
         {
-            // XXX: testing size policy settings
-            QSizePolicy p(QSizePolicy::Fixed, QSizePolicy::Fixed);
-            w->setSizePolicy(p);
+            u32 value = 1u << bits;
+            auto text = QSL("%1 (%2 bit)").arg(value).arg(bits);
+            d->combo_maxRes_->addItem(text, value);
         }
+
+        d->combo_maxRes_->setCurrentIndex(d->combo_maxRes_->count() - 1);
+
+        connect(d->combo_maxRes_, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this]
+                {
+                    d->maxVisibleBins_ = d->combo_maxRes_->currentData().toUInt();
+                    d->refresh();
+                });
     }
 
     tb->addSeparator();

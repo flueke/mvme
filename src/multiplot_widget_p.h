@@ -22,7 +22,7 @@ class TilePlot: public QwtPlot
     Q_OBJECT
     public:
         static const int DefaultMaxColumns = 4;
-        static const int TileMinWidth = 256;
+        static const int TileMinWidth = 200;
         static const int TileMinHeight = TileMinWidth;
         static const int TileDeltaWidth = 50;
         static const int TileDeltaHeight = 50;
@@ -94,10 +94,17 @@ struct PlotEntry
                 resReductions_[axis] = rrf;
         }
 
+        // May return 0 in case binCount() is not a concept for the entry or the
+        // axis is unused. Otherwise should return the number of bins for the
+        // axis without any resolution reduction applied (e.g. the number of
+        // physical bins).
+        virtual u32 binCount(Qt::Axis axis) const = 0;
+        virtual analysis::AnalysisObjectPtr analysisObject() const = 0;
+
     protected:
-        int xMajorTicks = 5;
-        int yMajorTicks = 5;
-        int zMajorTicks = 5;
+        const int xMajorTicks = 5;
+        const int yMajorTicks = 5;
+        const int zMajorTicks = 5;
 
     private:
         TilePlot *plot_;
@@ -112,6 +119,8 @@ struct Histo1DSinkPlotEntry: public PlotEntry
 
     Histo1DSinkPlotEntry(const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent);
     void refresh() override;
+    u32 binCount(Qt::Axis axis) const override;
+    analysis::AnalysisObjectPtr analysisObject() const override { return sink; }
 
     SinkPtr sink;
     Histo1DPtr histo; // to keep a copy of the histo alive
@@ -129,7 +138,9 @@ struct Histo2DSinkPlotEntry: public PlotEntry
 
     Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotParent);
     void refresh() override;
+    u32 binCount(Qt::Axis axis) const override;
     std::unique_ptr<QwtColorMap> makeColorMap();
+    analysis::AnalysisObjectPtr analysisObject() const override { return sink; }
 
     SinkPtr sink;
     Histo2DPtr histo; // to ensure the histo stays alive

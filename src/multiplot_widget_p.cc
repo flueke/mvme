@@ -207,6 +207,13 @@ void Histo1DSinkPlotEntry::refresh()
     zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
 }
 
+u32 Histo1DSinkPlotEntry::binCount(Qt::Axis axis) const
+{
+    if (axis == Qt::XAxis)
+        return histo->getNumberOfBins();
+    return 0;
+}
+
 Histo2DSinkPlotEntry::Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotParent)
     : PlotEntry(plotParent, QwtPlot::yRight)
     , sink(sink_)
@@ -340,6 +347,11 @@ void Histo2DSinkPlotEntry::refresh()
     // ====================
     plot()->updateAxes(); // let qwt recalculate the axes
     zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
+}
+
+u32 Histo2DSinkPlotEntry::binCount(Qt::Axis axis) const
+{
+    return histo->getNumberOfBins(axis);
 }
 
 std::unique_ptr<QwtColorMap> Histo2DSinkPlotEntry::makeColorMap()
