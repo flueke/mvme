@@ -1165,4 +1165,13 @@ std::unique_ptr<QwtLinearColorMap> make_histo2d_color_map(AxisScaleType scaleTyp
     return colorMap;
 }
 
+QwtText make_qwt_text(const QString &str, int fontPointSize)
+{
+    QwtText txt(str);
+    auto font = txt.font();
+    font.setPointSize(fontPointSize);
+    txt.setFont(font);
+    return txt;
+}
+
 }

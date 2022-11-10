@@ -475,6 +475,7 @@ struct Histo1DListRasterData: public BasicRasterData
 
 LIBMVME_EXPORT void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
 LIBMVME_EXPORT std::unique_ptr<QwtLinearColorMap> make_histo2d_color_map(AxisScaleType scaleType);
+LIBMVME_EXPORT QwtText make_qwt_text(const QString &str, int fontPointSize = 10);
 
 }
 

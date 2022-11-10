@@ -164,24 +164,16 @@ void Histo1DSinkPlotEntry::refresh()
 
     // Set the plot title
     {
-        QwtText title(sink->objectName());
-        auto font = title.font();
-        font.setPointSize(10);
-        title.setFont(font);
-        plot()->setTitle(title);
+        auto plotTitle = QSL("%1[%2]").arg(sink->objectName()).arg(histoIndex);
+        plot()->setTitle(make_qwt_text(plotTitle));
     }
 
     // x axis title
-    #if 0
     {
         auto axisInfo = histo->getAxisInfo(Qt::XAxis);
-        QwtText title(make_title_string(axisInfo));
-        auto font = title.font();
-        font.setPointSize(10);
-        title.setFont(font);
-        plot()->setAxisTitle(plot()->xTitleAxis(), title);
+        auto axisTitle = make_title_string(axisInfo);
+        plot()->setAxisTitle(plot()->xTitleAxis(), make_qwt_text(axisTitle));
     }
-    #endif
 
     // Update the stats text box
     // =========================
@@ -212,6 +204,11 @@ u32 Histo1DSinkPlotEntry::binCount(Qt::Axis axis) const
     if (axis == Qt::XAxis)
         return histo->getNumberOfBins();
     return 0;
+}
+
+void Histo1DSinkPlotEntry::accept(PlotEntryVisitor &v)
+{
+    v.visit(this);
 }
 
 Histo2DSinkPlotEntry::Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotParent)
@@ -301,32 +298,22 @@ void Histo2DSinkPlotEntry::refresh()
 
     // Set the plot title
     {
-        QwtText title(sink->objectName());
-        auto font = title.font();
-        font.setPointSize(10);
-        title.setFont(font);
-        plot()->setTitle(title);
+        auto plotTitle = sink->objectName();
+        plot()->setTitle(make_qwt_text(plotTitle));
     }
 
     // x axis title
     {
         auto axisInfo = histo->getAxisInfo(Qt::XAxis);
-        QwtText title(make_title_string(axisInfo));
-        auto font = title.font();
-        font.setPointSize(10);
-        title.setFont(font);
-        plot()->setAxisTitle(plot()->xTitleAxis(), title);
-
+        auto axisTitle = make_title_string(axisInfo);
+        plot()->setAxisTitle(plot()->xTitleAxis(), make_qwt_text(axisTitle));
     }
 
     // y axis title
     {
         auto axisInfo = histo->getAxisInfo(Qt::YAxis);
-        QwtText title(make_title_string(axisInfo));
-        auto font = title.font();
-        font.setPointSize(10);
-        title.setFont(font);
-        plot()->setAxisTitle(plot()->yTitleAxis(), title);
+        auto axisTitle = make_title_string(axisInfo);
+        plot()->setAxisTitle(plot()->yTitleAxis(), make_qwt_text(axisTitle));
     }
 
     // Update the stats text box
@@ -359,6 +346,11 @@ std::unique_ptr<QwtColorMap> Histo2DSinkPlotEntry::makeColorMap()
     if (is_logarithmic_axis_scale(plot(), QwtPlot::yRight))
         return make_histo2d_color_map(AxisScaleType::Logarithmic);
     return make_histo2d_color_map(AxisScaleType::Linear);
+}
+
+void Histo2DSinkPlotEntry::accept(PlotEntryVisitor &v)
+{
+    v.visit(this);
 }
 
 void enable_plot_axis(QwtPlot* plot, int axis, bool on)

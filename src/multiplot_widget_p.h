@@ -67,6 +67,8 @@ class TilePlot: public QwtPlot
         QwtPlot::Axis yTitleAxis_ = QwtPlot::Axis::yLeft;
 };
 
+class PlotEntryVisitor;
+
 struct PlotEntry
 {
     public:
@@ -100,6 +102,7 @@ struct PlotEntry
         // physical bins).
         virtual u32 binCount(Qt::Axis axis) const = 0;
         virtual analysis::AnalysisObjectPtr analysisObject() const = 0;
+        virtual void accept(PlotEntryVisitor &v) = 0;
 
     protected:
         const int xMajorTicks = 5;
@@ -121,6 +124,7 @@ struct Histo1DSinkPlotEntry: public PlotEntry
     void refresh() override;
     u32 binCount(Qt::Axis axis) const override;
     analysis::AnalysisObjectPtr analysisObject() const override { return sink; }
+    void accept(PlotEntryVisitor &v) override;
 
     SinkPtr sink;
     Histo1DPtr histo; // to keep a copy of the histo alive
@@ -141,6 +145,7 @@ struct Histo2DSinkPlotEntry: public PlotEntry
     u32 binCount(Qt::Axis axis) const override;
     std::unique_ptr<QwtColorMap> makeColorMap();
     analysis::AnalysisObjectPtr analysisObject() const override { return sink; }
+    void accept(PlotEntryVisitor &v) override;
 
     SinkPtr sink;
     Histo2DPtr histo; // to ensure the histo stays alive
@@ -152,6 +157,13 @@ struct Histo2DSinkPlotEntry: public PlotEntry
 struct RateMonitorSinkPlotEntry: public PlotEntry
 {
     using SinkPtr = std::shared_ptr<analysis::RateMonitorSink>;
+};
+
+struct PlotEntryVisitor
+{
+    virtual void visit(Histo1DSinkPlotEntry *e) = 0;
+    virtual void visit(Histo2DSinkPlotEntry *e) = 0;
+    virtual ~PlotEntryVisitor() {}
 };
 
 enum class GridScaleDrawMode

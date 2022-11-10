@@ -328,9 +328,6 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
                 });
     }
 
-    auto actionPan = tb->addAction(QIcon(":/hand.png"), "Pan");
-    actionPan->setCheckable(true);
-
     auto actionZoom = tb->addAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom");
     actionZoom->setCheckable(true);
 
@@ -372,6 +369,8 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
     tb->addSeparator();
 
+    auto actionPan = tb->addAction(QIcon(":/hand.png"), "Pan");
+    actionPan->setCheckable(true);
     auto actionEnlargeTiles = tb->addAction(QIcon(":/map.png"), "Larger Tiles");
     auto actionShrinkTiles = tb->addAction(QIcon(":/map-medium.png"), "Smaller Tiles");
     auto spinColumns = new QSpinBox;
@@ -568,8 +567,33 @@ void MultiPlotWidget::wheelEvent(QWheelEvent *ev)
         QWidget::wheelEvent(ev);
 }
 
+struct OpenSinkVisitor: public PlotEntryVisitor
+{
+    explicit OpenSinkVisitor(AnalysisServiceProvider *asp)
+       : asp_(asp)
+    { }
+
+    void visit(Histo1DSinkPlotEntry *e)
+    {
+        Histo1DWidgetInfo info{};
+        info.sink = e->sink;
+        info.histos = e->sink->getHistos();
+        info.histoAddress = e->histoIndex;
+        show_sink_widget(asp_, info);
+    }
+
+    void visit(Histo2DSinkPlotEntry *e)
+    {
+        show_sink_widget(asp_, e->sink);
+    }
+
+    AnalysisServiceProvider *asp_;
+};
+
 void MultiPlotWidget::mouseDoubleClickEvent(QMouseEvent *ev)
 {
+    OpenSinkVisitor osv(d->asp_);
+
     if ((d->state_ == Private::State::Default
         || d->state_ == Private::State::Panning
         || d->state_ == Private::State::Zooming)
@@ -578,15 +602,8 @@ void MultiPlotWidget::mouseDoubleClickEvent(QMouseEvent *ev)
         // Open the clicked plot if any.
         if (auto e = d->entryAt(ev->pos()))
         {
-            if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(e))
-            {
-                Histo1DWidgetInfo info{};
-                info.sink = h1dEntry->sink;
-                info.histos = h1dEntry->sink->getHistos();
-                info.histoAddress = h1dEntry->histoIndex;
-                show_sink_widget(d->asp_, info);
-                ev->accept();
-            }
+            e->accept(osv);
+            ev->accept();
         }
     }
     else
