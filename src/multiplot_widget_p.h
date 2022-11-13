@@ -69,7 +69,7 @@ class TilePlot: public QwtPlot
 
 class PlotEntryVisitor;
 
-struct PlotEntry
+class PlotEntry
 {
     public:
         explicit PlotEntry(QWidget *plotParent, QwtPlot::Axis scaleAxis = QwtPlot::Axis::yLeft);
@@ -103,6 +103,14 @@ struct PlotEntry
         virtual u32 binCount(Qt::Axis axis) const = 0;
         virtual analysis::AnalysisObjectPtr analysisObject() const = 0;
         virtual void accept(PlotEntryVisitor &v) = 0;
+        // Custom title for the plot
+        QString title() const { return title_; }
+        void setTitle(const QString &title)
+        {
+             title_ = title;
+             plot()->setTitle(make_qwt_text(title));
+        }
+        bool hasCustomTitle() const { return !title_.isEmpty(); }
 
     protected:
         const int xMajorTicks = 5;
@@ -114,6 +122,7 @@ struct PlotEntry
         ScrollZoomer *zoomer_;
         PlotAxisScaleChanger *scaleChanger_;
         std::array<u32, 3> resReductions_; // x, y, z resolution reduction factors
+        QString title_;
 };
 
 struct Histo1DSinkPlotEntry: public PlotEntry

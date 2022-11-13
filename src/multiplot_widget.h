@@ -15,6 +15,8 @@ class MultiPlotWidget: public QWidget
 
     public slots:
         void addSink(const analysis::SinkPtr &sink);
+        // For adding single 1d histograms and rate monitors
+        void addSinkElement(const analysis::SinkPtr &sink, int elementIndex);
 
     protected:
         void dragEnterEvent(QDragEnterEvent *ev) override;

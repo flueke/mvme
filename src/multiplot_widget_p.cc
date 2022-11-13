@@ -16,6 +16,7 @@ TilePlot::TilePlot(QWidget *parent)
     setCanvas(canvas);
     canvas->unsetCursor();
     setMinimumSize(TileMinWidth, TileMinHeight);
+    setMouseTracking(true);
 }
 
 TilePlot::~TilePlot()
@@ -29,29 +30,20 @@ QSize TilePlot::sizeHint() const
 }
 
 PlotEntry::PlotEntry(QWidget *plotParent, QwtPlot::Axis scaleAxis)
-    : plot_(new TilePlot(plotParent))
-    , zoomer_(new ScrollZoomer(plot_->canvas()))
-    , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
-{
-    zoomer_->setEnabled(false);
-    zoomer_->setZoomBase();
-    resReductions_.fill(0);
-
-    plot_->setMouseTracking(true);
-    plot_->canvas()->setMouseTracking(true);
-}
+    : PlotEntry(new TilePlot(plotParent), scaleAxis)
+{}
 
 PlotEntry::PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis)
     : plot_(tilePlot)
     , zoomer_(new ScrollZoomer(plot_->canvas()))
     , scaleChanger_(new PlotAxisScaleChanger(plot_, scaleAxis))
 {
-    zoomer_->setEnabled(false);
-    zoomer_->setZoomBase();
     resReductions_.fill(0);
 
-    plot_->setMouseTracking(true);
-    plot_->canvas()->setMouseTracking(true);
+    zoomer_->setEnabled(false);
+    zoomer_->setZoomBase();
+    zoomer_->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
+    zoomer_->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
 }
 
 Histo1DSinkPlotEntry::Histo1DSinkPlotEntry(
@@ -79,9 +71,6 @@ Histo1DSinkPlotEntry::Histo1DSinkPlotEntry(
 
     statsTextItem->hide();
     statsTextItem->attach(plot());
-
-    zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
-    zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
 }
 
 void Histo1DSinkPlotEntry::refresh()
@@ -167,8 +156,9 @@ void Histo1DSinkPlotEntry::refresh()
         plot()->setAxisScaleDiv(plot()->plotYAxis(), yScaleDiv);
     }
 
-    // Set the plot title
+    if (!hasCustomTitle())
     {
+        // Set plot title to sink[index]
         auto plotTitle = QSL("%1[%2]").arg(sink->objectName()).arg(histoIndex);
         plot()->setTitle(make_qwt_text(plotTitle));
     }
@@ -242,9 +232,6 @@ Histo2DSinkPlotEntry::Histo2DSinkPlotEntry(const SinkPtr &sink_, QWidget *plotPa
 
     statsTextItem->hide();
     statsTextItem->attach(plot());
-
-    zoomer()->setHScrollBarMode(Qt::ScrollBarAlwaysOff);
-    zoomer()->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
 }
 
 void Histo2DSinkPlotEntry::refresh()
