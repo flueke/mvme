@@ -667,7 +667,7 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
 bool check_directory_consistency(const DirectoryVector &dirs,
                                  const Analysis *analysis = nullptr);
 
-class PlotGridView: public AnalysisObject
+class LIBMVME_EXPORT PlotGridView: public AnalysisObject
 {
     Q_OBJECT
     public:
@@ -685,8 +685,11 @@ class PlotGridView: public AnalysisObject
         void setEntries(const std::vector<Entry> &entries) { entries_ = entries; }
         void setEntries(std::vector<Entry> &&entries) { entries_ = entries; }
 
-        size_t getVisibleMaxResolution() const { return visibleMaxResolution_; }
-        void setVisibleMaxResolution(size_t maxres) { visibleMaxResolution_ = maxres; }
+        size_t getMaxVisibleResolution() const { return maxVisibleRes_; }
+        void setMaxVisibleResolution(size_t maxres) { maxVisibleRes_ = maxres; }
+
+        int getAxisScaleType() const { return axisScaleType_; }
+        void setAxisScaleType(int scaleType) { axisScaleType_ = scaleType; }
 
         void read(const QJsonObject &json) override;
         void write(QJsonObject &json) const override;
@@ -694,7 +697,8 @@ class PlotGridView: public AnalysisObject
 
     private:
         std::vector<Entry> entries_;
-        size_t visibleMaxResolution_ = 1u << 10;
+        size_t maxVisibleRes_ = 1u << 10;
+        int axisScaleType_ = {};
 };
 
 } // end namespace analysis
@@ -2088,6 +2092,8 @@ class LIBMVME_EXPORT Analysis:
         void conditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
         void conditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
 
+        void objectAdded(const AnalysisObjectPtr &obj);
+
 
     public:
         explicit Analysis(QObject *parent = nullptr);
@@ -2251,6 +2257,8 @@ class LIBMVME_EXPORT Analysis:
         // Untyped Object access
         //
 
+        // Adds a generic object
+        void addObject(const AnalysisObjectPtr &obj);
         AnalysisObjectPtr getObject(const QUuid &id) const;
         template<typename T> std::shared_ptr<T> getObject(const QUuid &id) const
         {
@@ -2391,6 +2399,7 @@ class LIBMVME_EXPORT Analysis:
         SourceVector m_sources;
         OperatorVector m_operators;
         DirectoryVector m_directories;
+        AnalysisObjectVector m_genericObjects;
         VMEObjectSettings m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
         ConditionLinks m_conditionLinks;

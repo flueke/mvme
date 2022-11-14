@@ -41,6 +41,7 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo 
 QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo);
 QWidget *open_new_histo2dsink_widget(AnalysisServiceProvider *asp, const Histo2DSinkPtr &sink);
 QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::shared_ptr<RateMonitorSink> &sink);
+QWidget *open_new_gridview_widget(AnalysisServiceProvider *asp, const std::shared_ptr<PlotGridView> &gridView);
 
 EventWidget *find_event_widget(const Analysis *analysis = nullptr);
 

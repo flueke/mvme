@@ -9,6 +9,7 @@
 #include "analysis/analysis.h"
 #include "histo_ui.h"
 #include "mvme_qwt.h"
+#include "multiplot_widget.h"
 #include "scrollzoomer.h"
 
  // Private header so these are fine
@@ -81,7 +82,7 @@ class PlotEntry
 
         TilePlot *plot() { return plot_; }
         ScrollZoomer *zoomer() { return zoomer_; }
-        PlotAxisScaleChanger *scaleChanger() { return scaleChanger_; }
+        histo_ui::PlotAxisScaleChanger *scaleChanger() { return scaleChanger_; }
         virtual void refresh() = 0;
 
         // resolution reduction factor
@@ -108,7 +109,7 @@ class PlotEntry
         void setTitle(const QString &title)
         {
              title_ = title;
-             plot()->setTitle(make_qwt_text(title));
+             plot()->setTitle(histo_ui::make_qwt_text(title));
         }
         bool hasCustomTitle() const { return !title_.isEmpty(); }
 
@@ -120,7 +121,7 @@ class PlotEntry
     private:
         TilePlot *plot_;
         ScrollZoomer *zoomer_;
-        PlotAxisScaleChanger *scaleChanger_;
+        histo_ui::PlotAxisScaleChanger *scaleChanger_;
         std::array<u32, 3> resReductions_; // x, y, z resolution reduction factors
         QString title_;
 };

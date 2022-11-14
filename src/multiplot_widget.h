@@ -3,6 +3,8 @@
 
 #include <QWidget>
 #include "analysis_service_provider.h"
+#include "histo_ui.h"
+#include "mvme_qwt.h"
 
 class MultiPlotWidget: public QWidget
 {
@@ -14,9 +16,17 @@ class MultiPlotWidget: public QWidget
         bool eventFilter(QObject *watched, QEvent *event) override;
 
     public slots:
+        // Add all plots for the given sink
         void addSink(const analysis::SinkPtr &sink);
-        // For adding single 1d histograms and rate monitors
+
+        // For adding single sink elements (1d histograms, rate monitors, ...)
         void addSinkElement(const analysis::SinkPtr &sink, int elementIndex);
+
+        void setMaxVisibleResolution(size_t maxres);
+        size_t getMaxVisibleResolution() const;
+
+        // Replaces this widgets contents based on the data stored in view.
+        void loadView(const std::shared_ptr<analysis::PlotGridView> &view);
 
     protected:
         void dragEnterEvent(QDragEnterEvent *ev) override;

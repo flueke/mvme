@@ -81,6 +81,7 @@ QJsonObject serialize(PlotGridView *view)
     QJsonObject dest;
     dest["id"]        = view->getId().toString();
     dest["name"]      = view->objectName();
+    dest["class"]     = getClassName(view);
     dest["userLevel"] = view->getUserLevel();
     QJsonObject dataJson;
     view->write(dataJson);
@@ -284,6 +285,7 @@ QJsonObject ObjectSerializerVisitor::finalize(const Analysis *analysis) const
     json["sources"] = sourcesArray;
     json["operators"] = operatorsArray;
     json["directories"] = directoriesArray;
+    json["genericObjects"] = genericObjectsArray;
     json["connections"] = serializeConnections();
     json["conditionLinks"] = serializeConditionLinks(analysis->getConditionLinks());
     return json;
@@ -407,6 +409,26 @@ AnalysisObjectStore deserialize_objects(
             result.objectsById.insert(dir->getId(), dir);
 
             assert(dir->getUserLevel() >= 0);
+        }
+    }
+
+    // Generic objects
+    {
+        for (const auto &jv: data["genericObjects"].toArray())
+        {
+            auto jo = jv.toObject();
+            auto obj = std::shared_ptr<AnalysisObject>(
+                objectFactory.makeGeneric(jo["class"].toString()));
+
+            if (obj)
+            {
+                obj->setId(jo["id"].toString());
+                obj->setObjectName(jo["name"].toString());
+                obj->setUserLevel(jo["userLevel"].toInt());
+                obj->read(jo["data"].toObject());
+                result.generics.push_back(obj);
+                result.objectsById.insert(obj->getId(), obj);
+            }
         }
     }
 

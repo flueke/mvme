@@ -38,6 +38,9 @@ AnalysisObject *ObjectFactory::makeObject(const QString &name) const
     if (auto result = makeSink(name))
         return result;
 
+    if (auto result = makeGeneric(name))
+        return result;
+
     return nullptr;
 }
 
@@ -73,6 +76,16 @@ SinkInterface *ObjectFactory::makeSink(const QString &name) const
     {
         result = m_sinkRegistry[name]();
     }
+
+    return result;
+}
+
+AnalysisObject *ObjectFactory::makeGeneric(const QString &name) const
+{
+    AnalysisObject *result = nullptr;
+
+    if (m_genericRegistry.contains(name))
+        result = m_genericRegistry[name]();
 
     return result;
 }

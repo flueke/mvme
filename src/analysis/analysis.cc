@@ -573,6 +573,22 @@ PlotGridView::PlotGridView(QObject *parent)
 
 void PlotGridView::read(const QJsonObject &json)
 {
+    entries_.clear();
+
+    for (auto jo: json["entries"].toArray())
+    {
+        auto je = jo.toObject();
+
+        Entry e;
+        e.sinkId = je["sinkId"].toString();
+        e.elementIndex = je["elementIndex"].toInt();
+        e.customTitle = je["customTitle"].toString();
+        e.zoomRect = qrectf_from_json(je["zoomRect"].toObject());
+        entries_.emplace_back(std::move(e));
+    }
+
+    setMaxVisibleResolution(json["maxVisibleResolution"].toInt());
+    setAxisScaleType(json["axisScaleType"].toInt());
 }
 
 void PlotGridView::write(QJsonObject &json) const
@@ -589,6 +605,10 @@ void PlotGridView::write(QJsonObject &json) const
 
         jEntries.append(jEntry);
     }
+
+    json["entries"] = jEntries;
+    json["maxVisibleResolution"] = static_cast<qint64>(getMaxVisibleResolution());
+    json["axisScaleType"] = axisScaleType_;
 }
 
 void PlotGridView::accept(ObjectVisitor &visitor)
@@ -4094,10 +4114,14 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerSink<RateMonitorSink>();
     m_objectFactory.registerSink<ExportSink>();
 
-#if 0
+    // generics
+    m_objectFactory.registerGeneric<PlotGridView>();
+
+#ifndef QT_NO_DEBUG
     qDebug() << "Registered Sources:   " << m_objectFactory.getSourceNames();
     qDebug() << "Registered Operators: " << m_objectFactory.getOperatorNames();
     qDebug() << "Registered Sinks:     " << m_objectFactory.getSinkNames();
+    qDebug() << "Registered Generics:  " << m_objectFactory.getGenericNames();
 #endif
 
     // create a2 arenas
@@ -4843,30 +4867,23 @@ class IdComparator
 
 } // end anon namespace
 
+void Analysis::addObject(const AnalysisObjectPtr &obj)
+{
+    obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+    obj->setAnalysis(this->shared_from_this());
+    m_genericObjects.push_back(obj);
+    setModified();
+    emit objectAdded(obj);
+}
+
 AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
 {
     IdComparator cmp(id);
+    auto allObjects = getAllObjects();
 
-    {
-        auto it = std::find_if(m_sources.begin(), m_sources.end(), cmp);
-
-        if (it != m_sources.end())
-            return *it;
-    }
-
-    {
-        auto it = std::find_if(m_operators.begin(), m_operators.end(), cmp);
-
-        if (it != m_operators.end())
-            return *it;
-    }
-
-    {
-        auto it = std::find_if(m_directories.begin(), m_directories.end(), cmp);
-
-        if (it != m_directories.end())
-            return *it;
-    }
+    if (auto it = std::find_if(std::begin(allObjects), std::end(allObjects), cmp);
+        it != std::end(allObjects))
+        return *it;
 
     return nullptr;
 }
@@ -4915,6 +4932,9 @@ AnalysisObjectVector Analysis::getAllObjects() const
     for (const auto &obj: m_directories)
         result.append(obj);
 
+    for (const auto &obj: m_genericObjects)
+        result.append(obj);
+
     return result;
 }
 
@@ -4925,6 +4945,7 @@ int Analysis::objectCount() const
     result += m_sources.size();
     result += m_operators.size();
     result += m_directories.size();
+    result += m_genericObjects.size();
 
     return result;
 }
@@ -4932,19 +4953,16 @@ int Analysis::objectCount() const
 void Analysis::addObjects(const AnalysisObjectStore &store)
 {
     for (auto &obj: store.sources)
-    {
         addSource(obj);
-    }
 
     for (auto &obj: store.operators)
-    {
         addOperator(obj);
-    }
 
     for (auto &obj: store.directories)
-    {
         addDirectory(obj);
-    }
+
+    for (auto &obj: store.generics)
+        addObject(obj);
 }
 
 void Analysis::addObjects(const AnalysisObjectVector &objects)
@@ -4963,6 +4981,8 @@ void Analysis::addObjects(const AnalysisObjectVector &objects)
         {
             addDirectory(dir);
         }
+        else
+            addObject(obj);
     }
 }
 
@@ -5491,6 +5511,12 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
             obj->setAnalysis(this->shared_from_this());
         }
 
+        for (const auto &obj: objectStore.generics)
+        {
+            m_genericObjects.push_back(obj);
+            obj->setAnalysis(this->shared_from_this());
+        }
+
         m_vmeObjectSettings = objectStore.objectSettingsById;
         m_conditionLinks = objectStore.conditionLinks;
         loadDynamicProperties(objectStore.dynamicQObjectProperties, this);
@@ -5557,26 +5583,35 @@ size_t Analysis::getTotalSinkStorageSize() const
     });
 }
 
+namespace
+{
+    bool userlevel_compare(const AnalysisObjectPtr &a, const AnalysisObjectPtr &b)
+    {
+        return a->getUserLevel() < b->getUserLevel();
+    };
+};
+
 s32 Analysis::getMaxUserLevel() const
 {
-    auto it = std::max_element(m_operators.begin(), m_operators.end(),
-                               [](const auto &a, const auto &b) {
-        return a->getUserLevel() < b->getUserLevel();
-    });
+    auto allObjects = getAllObjects();
 
-    return (it != m_operators.end() ? (*it)->getUserLevel() : 0);
+    auto it = std::max_element(std::begin(allObjects), std::end(allObjects),
+                               userlevel_compare);
+
+    return (it != std::end(allObjects)) ? (*it)->getUserLevel() : 0;
 }
 
 s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
 {
-    auto ops = getOperators(eventId);
+    s32 result = 0;
 
-    auto it = std::max_element(ops.begin(), ops.end(),
-                               [](const auto &a, const auto &b) {
-        return a->getUserLevel() < b->getUserLevel();
-    });
+    for (const auto &obj: getAllObjects())
+    {
+        if (obj->getEventId() == eventId)
+            result = std::max(result, obj->getUserLevel());
+    }
 
-    return (it != ops.end() ? (*it)->getUserLevel() : 0);
+    return result;
 }
 
 void Analysis::clear()

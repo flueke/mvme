@@ -7,11 +7,13 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDebug>
+#include <QDialogButtonBox>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QLineEdit>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QScrollArea>
@@ -33,7 +35,41 @@ using namespace analysis::ui;
 using namespace histo_ui;
 using namespace mvme_qwt;
 
+namespace
+{
+
 static const QString PlotTileMimeType = QSL("mvme/x-multiplot-tile");
+
+// For each visited PlotEntry creates and fills an analysis::PlotGridView::Entry
+// object before appending it to the 'entries' member.
+struct EntryConversionVisitor: public PlotEntryVisitor
+{
+    PlotGridView::Entry createBasicEntry(PlotEntry *pe)
+    {
+        PlotGridView::Entry ve;
+        ve.sinkId = pe->analysisObject()->getId();
+        ve.customTitle = pe->title();
+        ve.zoomRect = pe->zoomer()->zoomRect();
+        return ve;
+    }
+
+    void visit(Histo1DSinkPlotEntry *pe)
+    {
+        auto ve = createBasicEntry(pe);
+        ve.elementIndex = pe->histoIndex;
+        entries.emplace_back(std::move(ve));
+    }
+
+    void visit(Histo2DSinkPlotEntry *pe)
+    {
+        auto ve = createBasicEntry(pe);
+        entries.emplace_back(std::move(ve));
+    }
+
+    std::vector<PlotGridView::Entry> entries;
+};
+
+} // end anon namespace
 
 struct MultiPlotWidget::Private
 {
@@ -63,10 +99,12 @@ struct MultiPlotWidget::Private
     QPoint dragRef_; // where the mouse was pressed to potentially start a drag operation
     std::atomic<bool> inRefresh_ = false;
     bool inZoomHandling_ = false;
-    QCheckBox *cb_combinedZoom_;
+    QCheckBox *cb_combinedZoom_ = {};
     QLabel *rrLabel_ = {};
     QComboBox *combo_maxRes_ = {};
     u32 maxVisibleBins_ = 1u << 16;
+    std::shared_ptr<analysis::PlotGridView> analysisGridView_;
+    QComboBox *combo_axisScaleType_ = {};
 
     void addEntry(std::shared_ptr<PlotEntry> &&e)
     {
@@ -86,16 +124,13 @@ struct MultiPlotWidget::Private
             for (int i=0; i<sink->getNumberOfHistos(); ++i)
                 addSinkElement(sink, i);
         }
-        else if (auto sink = std::dynamic_pointer_cast<Histo2DSink>(s))
-        {
-            auto e = std::make_shared<Histo2DSinkPlotEntry>(sink, q);
-            addEntry(e);
-        }
+        else
+            addSinkElement(sink, -1);
 
         relayout();
     }
 
-    void addSinkElement(const SinkPtr &s, int index)
+    std::shared_ptr<PlotEntry> addSinkElement(const SinkPtr &s, int index)
     {
         if (auto sink = std::dynamic_pointer_cast<Histo1DSink>(s);
             sink && 0 <= index && index < sink->getNumberOfHistos())
@@ -103,9 +138,19 @@ struct MultiPlotWidget::Private
             auto histo = sink->getHisto(index);
             auto e = std::make_shared<Histo1DSinkPlotEntry>(sink, histo, q);
             addEntry(e);
+            return e;
         }
+        else if (auto sink = std::dynamic_pointer_cast<Histo2DSink>(s))
+        {
+            auto e = std::make_shared<Histo2DSinkPlotEntry>(sink, q);
+            addEntry(e);
+            return e;
+        }
+        return {};
     }
 
+    // FIXME: cannot move a plot to the very end. This code always moves to
+    // the left of the destination index.
     void moveEntry(int sourceIndex, int destIndex)
     {
         if (sourceIndex == destIndex || std::begin(entries_) + sourceIndex >= std::end(entries_))
@@ -113,10 +158,6 @@ struct MultiPlotWidget::Private
 
         auto source = entries_.at(sourceIndex);
         entries_.erase(std::begin(entries_) + sourceIndex);
-
-        //if (sourceIndex < destIndex)
-        //    --destIndex;
-
         entries_.insert(std::begin(entries_) + destIndex, source);
 
         relayout();
@@ -188,7 +229,8 @@ struct MultiPlotWidget::Private
             // Set resolution reductions based on the user selected maximum.
             for (Qt::Axis axis: { Qt::XAxis, Qt::YAxis })
             {
-                if (auto bins = e->binCount(axis); bins > maxVisibleBins_)
+                if (auto bins = e->binCount(axis);
+                    bins > maxVisibleBins_ && maxVisibleBins_ > 0)
                     e->setRRF(axis, bins / maxVisibleBins_);
                 else
                     e->setRRF(axis, 0);
@@ -214,14 +256,12 @@ struct MultiPlotWidget::Private
             e->plot()->replot();
         }
 
-        QString windowTitle("PlotGrid");
-
-        if (!entries_.empty())
+        // Select the active max resolution in the combo box
+        if (int idx = combo_maxRes_->findData(maxVisibleBins_);
+            idx >= 0)
         {
-            if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(entries_[0]))
-                windowTitle = "PlotGrid " + h1dEntry->sink->objectName();
+            combo_maxRes_->setCurrentIndex(idx);
         }
-        q->setWindowTitle(windowTitle);
 
         inRefresh_ = false;
     }
@@ -327,12 +367,87 @@ struct MultiPlotWidget::Private
 
         return -1;
     }
+
+    void saveView()
+    {
+        const bool isNewView = !analysisGridView_;
+
+        if (isNewView)
+        {
+            QDialog dlg;
+            auto l = new QFormLayout(&dlg);
+            auto le_name = new QLineEdit;
+            auto spin_userLevel = new QSpinBox;
+            spin_userLevel->setMinimum(1);
+            spin_userLevel->setMaximum(asp_->getAnalysis()->getMaxUserLevel());
+            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
+            l->addRow("View Name", le_name);
+            l->addRow("Userlevel", spin_userLevel);
+            l->addRow(bb);
+
+            QObject::connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+            if (dlg.exec() == QDialog::Rejected)
+                return;
+
+            analysisGridView_ = std::make_shared<PlotGridView>();
+            analysisGridView_->setObjectName(le_name->text());
+            analysisGridView_->setUserLevel(spin_userLevel->value());
+        }
+
+        EntryConversionVisitor ecv;
+
+        for (auto &e: entries_)
+            e->accept(ecv);
+
+        analysisGridView_->setEntries(std::move(ecv.entries));
+        analysisGridView_->setMaxVisibleResolution(maxVisibleBins_);
+        analysisGridView_->setAxisScaleType(combo_axisScaleType_->currentData().toInt());
+
+        if (isNewView)
+            // FIXME: eventwidget is currently not being repopulated after adding the grid view
+            asp_->getAnalysis()->addObject(analysisGridView_);
+        else
+            asp_->getAnalysis()->setModified();
+    }
+
+    void loadView(const std::shared_ptr<PlotGridView> &view)
+    {
+        entries_.clear();
+
+        for (const auto &ve: view->entries())
+        {
+            if (auto sink = asp_->getAnalysis()->getObject<SinkInterface>(ve.sinkId))
+            {
+                if (auto plotEntry = addSinkElement(sink, ve.elementIndex))
+                {
+                    plotEntry->setTitle(ve.customTitle);
+                    plotEntry->zoomer()->zoom(ve.zoomRect);
+                }
+            }
+        }
+
+        if (auto maxRes = view->getMaxVisibleResolution(); maxRes > 0)
+            maxVisibleBins_ = maxRes;
+
+        if (auto idx = combo_axisScaleType_->findData(view->getAxisScaleType()); idx >= 0)
+            combo_axisScaleType_->setCurrentIndex(idx);
+
+        q->setWindowTitle(view->objectName());
+        analysisGridView_ = view;
+
+        relayout();
+        refresh();
+    }
 };
 
 MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     : QWidget(parent)
     , d(std::make_unique<Private>())
 {
+    assert(asp);
+
     d->q = this;
     d->asp_ = asp;
     d->toolBar_ = make_toolbar();
@@ -377,6 +492,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
                 {
                     d->setAxisScaling(static_cast<AxisScaleType>(idx));
                 });
+        d->combo_axisScaleType_ = combo;
     }
 
     auto actionZoom = tb->addAction(QIcon(":/resources/magnifier-zoom.png"), "Zoom");
@@ -424,8 +540,10 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     actionPan->setCheckable(true);
 
     auto actionRearrange = tb->addAction(QIcon(":/arrow-out.png"), "Edit");
-    actionRearrange->setStatusTip("Drag & drop plots to rearrange. Double-click plot titles to edit.");
+    actionRearrange->setStatusTip("Drag & drop plots to rearrange."); // Double-click plot titles to edit.");
     actionRearrange->setCheckable(true);
+
+    auto actionSaveView = tb->addAction(QIcon(":/document-save.png"), "Save View");
 
     auto actionEnlargeTiles = tb->addAction(QIcon(":/map.png"), "Larger Tiles");
     auto actionShrinkTiles = tb->addAction(QIcon(":/map-medium.png"), "Smaller Tiles");
@@ -446,6 +564,9 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     plotInteractions->addAction(actionPan);
     plotInteractions->addAction(actionZoom);
     plotInteractions->addAction(actionRearrange);
+
+    connect(actionSaveView, &QAction::triggered,
+            this, [this] { d->saveView(); });
 
     connect(actionEnlargeTiles, &QAction::triggered,
             this, [this] { d->enlargeTiles(); });
@@ -490,7 +611,6 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
     connect(refreshTimer, &QTimer::timeout,
             this, [this] { d->refresh(); });
-            //Qt::QueuedConnection);
 
     refreshTimer->start(Private::ReplotPeriod_ms);
 }
@@ -503,13 +623,29 @@ MultiPlotWidget::~MultiPlotWidget()
 void MultiPlotWidget::addSink(const analysis::SinkPtr &sink)
 {
     d->addSink(sink);
+}
+
+void MultiPlotWidget::addSinkElement(
+    const analysis::SinkPtr &sink,
+    int elementIndex)
+{
+    d->addSinkElement(sink, elementIndex);
+}
+
+void MultiPlotWidget::setMaxVisibleResolution(size_t maxres)
+{
+    d->maxVisibleBins_ = maxres;
     d->refresh();
 }
 
-void MultiPlotWidget::addSinkElement(const analysis::SinkPtr &sink, int elementIndex)
+size_t MultiPlotWidget::getMaxVisibleResolution() const
 {
-    d->addSinkElement(sink, elementIndex);
-    d->refresh();
+    return d->maxVisibleBins_;
+}
+
+void MultiPlotWidget::loadView(const std::shared_ptr<analysis::PlotGridView> &view)
+{
+    d->loadView(view);
 }
 
 void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
