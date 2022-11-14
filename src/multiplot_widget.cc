@@ -105,6 +105,8 @@ struct MultiPlotWidget::Private
     u32 maxVisibleBins_ = 1u << 16;
     std::shared_ptr<analysis::PlotGridView> analysisGridView_;
     QComboBox *combo_axisScaleType_ = {};
+    QSpinBox *spin_columns_;
+    QAction *actionGauss_ = {};
 
     void addEntry(std::shared_ptr<PlotEntry> &&e)
     {
@@ -397,13 +399,21 @@ struct MultiPlotWidget::Private
         }
 
         EntryConversionVisitor ecv;
+        QSize minTileSize = {};
 
         for (auto &e: entries_)
+        {
             e->accept(ecv);
+            minTileSize = e->plot()->minTileSize();
+        }
 
         analysisGridView_->setEntries(std::move(ecv.entries));
         analysisGridView_->setMaxVisibleResolution(maxVisibleBins_);
         analysisGridView_->setAxisScaleType(combo_axisScaleType_->currentData().toInt());
+        analysisGridView_->setMaxColumns(maxColumns_);
+        analysisGridView_->setMinTileSize(minTileSize);
+        analysisGridView_->setCombinedZoom(cb_combinedZoom_->isChecked());
+        analysisGridView_->setGaussEnabled(actionGauss_->isChecked());
 
         if (isNewView)
             // FIXME: eventwidget is currently not being repopulated after adding the grid view
@@ -424,6 +434,8 @@ struct MultiPlotWidget::Private
                 {
                     plotEntry->setTitle(ve.customTitle);
                     plotEntry->zoomer()->zoom(ve.zoomRect);
+                    if (auto sz = view->getMinTileSize(); sz.isValid())
+                        plotEntry->plot()->setMinTileSize(sz);
                 }
             }
         }
@@ -434,7 +446,12 @@ struct MultiPlotWidget::Private
         if (auto idx = combo_axisScaleType_->findData(view->getAxisScaleType()); idx >= 0)
             combo_axisScaleType_->setCurrentIndex(idx);
 
-        q->setWindowTitle(view->objectName());
+        maxColumns_ = std::max(1, view->getMaxColumns());
+        spin_columns_->setValue(maxColumns_);
+        cb_combinedZoom_->setChecked(view->getCombinedZoom());
+        actionGauss_->setChecked(view->isGaussEnabled());
+
+        q->setWindowTitle("PlotGrid " + view->objectName());
         analysisGridView_ = view;
 
         relayout();
@@ -509,6 +526,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     auto actionGauss = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
     actionGauss->setCheckable(true);
     actionGauss->setChecked(false);
+    d->actionGauss_ = actionGauss;
 
     // combo_maxRes
     {
@@ -557,6 +575,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
         l->addWidget(new QLabel("Columns"));
         l->addWidget(spinColumns);
         tb->addWidget(w);
+        d->spin_columns_ = spinColumns;
     }
 
     auto plotInteractions = new QActionGroup(this);

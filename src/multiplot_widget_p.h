@@ -44,6 +44,9 @@ class TilePlot: public QwtPlot
             setMinimumSize(tileSize);
         }
 
+        void setMinTileSize(const QSize &sz) { setMinimumSize(sz); }
+        QSize minTileSize() const { return minimumSize(); }
+
         // Which plot axis to use for the x axis.
         QwtPlot::Axis plotXAxis() const { return xAxis_; }
         void setPlotXAxis(QwtPlot::Axis axis) { xAxis_ = axis; }

@@ -691,6 +691,18 @@ class LIBMVME_EXPORT PlotGridView: public AnalysisObject
         int getAxisScaleType() const { return axisScaleType_; }
         void setAxisScaleType(int scaleType) { axisScaleType_ = scaleType; }
 
+        int getMaxColumns() const { return maxColumns_; }
+        void setMaxColumns(int maxcols) { maxColumns_ = maxcols; }
+
+        QSize getMinTileSize() const { return minTileSize_; }
+        void setMinTileSize(const QSize &sz) { minTileSize_ = sz; }
+
+        bool getCombinedZoom() const { return combinedZoom_; }
+        void setCombinedZoom(bool b) { combinedZoom_ = b; }
+
+        bool isGaussEnabled() const { return gaussEnabled_; }
+        void setGaussEnabled(bool b) { gaussEnabled_ = b; }
+
         void read(const QJsonObject &json) override;
         void write(QJsonObject &json) const override;
         void accept(ObjectVisitor &visitor) override;
@@ -699,6 +711,10 @@ class LIBMVME_EXPORT PlotGridView: public AnalysisObject
         std::vector<Entry> entries_;
         size_t maxVisibleRes_ = 1u << 10;
         int axisScaleType_ = {};
+        int maxColumns_ = {};
+        QSize minTileSize_ = {};
+        bool combinedZoom_ = {};
+        bool gaussEnabled_ = {};
 };
 
 } // end namespace analysis
