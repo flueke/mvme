@@ -36,9 +36,13 @@
 #include "analysis/analysis_util.h"
 #include "analysis/exportsink_codegen.h"
 #include "analysis/object_visitor.h"
+#include "analysis/analysis_json_util.h"
 #include "util/algo.h"
 #include "util/qt_metaobject.h"
+#include "util/qt_json.h"
 #include "vme_config.h"
+
+using namespace mesytec::mvme::util;
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
@@ -81,79 +85,6 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     return result;
 }
 
-a2::data_filter::DataFilter a2_datafilter_from_json(const QJsonObject &json)
-{
-    return a2::data_filter::make_filter(
-        json["filterString"].toString().toStdString(),
-        json["wordIndex"].toInt());
-}
-
-QJsonObject to_json(const a2::data_filter::DataFilter &filter)
-{
-    QJsonObject result;
-    result["filterString"] = QString::fromStdString(to_string(filter));
-    result["wordIndex"] = filter.matchWordIndex;
-    return result;
-}
-
-QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
-{
-    QJsonObject result;
-
-    QJsonArray subFilterArray;
-
-    for (s32 i = 0; i < filter.filterCount; i++)
-    {
-        const auto &subfilter = filter.filters[i];
-        auto filterJson = to_json(subfilter);
-        subFilterArray.append(filterJson);
-    }
-
-    result["subFilters"] = subFilterArray;
-
-
-    return result;
-}
-
-a2::data_filter::MultiWordFilter a2_multiwordfilter_from_json(const QJsonObject &json)
-{
-    a2::data_filter::MultiWordFilter result = {};
-
-    auto subFilterArray = json["subFilters"].toArray();
-
-    for (auto it = subFilterArray.begin();
-         it != subFilterArray.end();
-         it++)
-    {
-        add_subfilter(&result, a2_datafilter_from_json(it->toObject()));
-    }
-
-    return result;
-}
-
-QJsonObject to_json(const a2::data_filter::ListFilter &filter)
-{
-    QJsonObject result;
-
-    result["extractionFilter"] = to_json(filter.extractionFilter);
-    result["flags"] = static_cast<qint64>(filter.flags);
-    result["wordCount"] = static_cast<qint64>(filter.wordCount);
-
-    return result;
-}
-
-a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
-{
-    using a2::data_filter::ListFilter;
-
-    ListFilter result = {};
-
-    result.extractionFilter = a2_multiwordfilter_from_json(json["extractionFilter"].toObject());
-    result.flags = static_cast<ListFilter::Flag>(json["flags"].toInt());
-    result.wordCount = static_cast<u8>(json["wordCount"].toInt());
-
-    return result;
-}
 
 class AnalysisReadResultErrorCategory: public std::error_category
 {
@@ -628,78 +559,6 @@ void normalize_intervals(It first, It onePastEnd)
         *first = first->normalized();
         first++;
     }
-}
-
-QJsonObject to_json(const QwtInterval &interval)
-{
-    QJsonObject result;
-    result["min"] = interval.minValue();
-    result["max"] = interval.maxValue();
-    return result;
-}
-
-QwtInterval interval_from_json(const QJsonObject &json)
-{
-    QwtInterval result;
-    result.setMinValue(json["min"].toDouble(make_quiet_nan()));
-    result.setMaxValue(json["max"].toDouble(make_quiet_nan()));
-    return result;
-}
-
-QJsonObject to_json(const QPointF &point)
-{
-    QJsonObject result;
-    result["x"] = point.x();
-    result["y"] = point.y();
-    return result;
-}
-
-QPointF qpointf_from_json(const QJsonObject &json)
-{
-    return { json["x"].toDouble(), json["y"].toDouble() };
-}
-
-QJsonObject to_json(const QRectF &rect)
-{
-    QJsonObject result;
-
-    result["topLeft"] = to_json(rect.topLeft());
-    result["bottomRight"] = to_json(rect.bottomRight());
-
-    return result;
-}
-
-QRectF qrectf_from_json(const QJsonObject &json)
-{
-    QRectF result(qpointf_from_json(json["topLeft"].toObject()),
-                  qpointf_from_json(json["bottomRight"].toObject()));
-
-    return result;
-}
-
-QJsonArray to_json(const QPolygonF &poly)
-{
-    QJsonArray points;
-
-    for (const auto &point: poly)
-    {
-        points.append(to_json(point));
-    }
-
-    return points;
-}
-
-QPolygonF qpolygonf_from_json(const QJsonArray &points)
-{
-    QPolygonF result;
-    result.reserve(points.size());
-
-    for (auto it = points.begin(); it != points.end(); it++)
-    {
-        result.append(qpointf_from_json(it->toObject()));
-    }
-
-    return result;
 }
 }
 

@@ -27,11 +27,6 @@
 #include <string>
 #include <array>
 
-// Speedup if bmi2 is enabled, penalty otherwise.
-#ifdef __BMI2__
-#define A2_DATA_FILTER_ALWAYS_GATHER
-#endif
-
 namespace a2
 {
 namespace data_filter
