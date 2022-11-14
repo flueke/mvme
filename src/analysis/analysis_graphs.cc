@@ -258,6 +258,11 @@ struct CreateGraphVisitor: public ObjectVisitor
         Q_UNUSED(dir_);
         //auto dir = std::dynamic_pointer_cast<Directory>(dir_->shared_from_this());
     }
+
+    void visit(PlotGridView *view_) override
+    {
+        Q_UNUSED(view_);
+    }
 };
 
 LIBMVME_EXPORT GraphContext create_graph_context()

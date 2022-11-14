@@ -76,6 +76,18 @@ QJsonObject serialize(Directory *dir)
     return dest;
 }
 
+QJsonObject serialize(PlotGridView *view)
+{
+    QJsonObject dest;
+    dest["id"]        = view->getId().toString();
+    dest["name"]      = view->objectName();
+    dest["userLevel"] = view->getUserLevel();
+    QJsonObject dataJson;
+    view->write(dataJson);
+    dest["data"] = dataJson;
+    return dest;
+}
+
 uint qHash(const Connection &con, uint seed)
 {
     return ::qHash(con.srcObject.get(), seed)
@@ -228,6 +240,12 @@ void ObjectSerializerVisitor::visit(Directory *dir)
 {
     directoriesArray.append(serialize(dir));
     visitedObjects.append(dir->shared_from_this());
+}
+
+void ObjectSerializerVisitor::visit(PlotGridView *view)
+{
+    genericObjectsArray.append(serialize(view));
+    visitedObjects.append(view->shared_from_this());
 }
 
 QJsonArray ObjectSerializerVisitor::serializeConnections() const

@@ -667,6 +667,36 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
 bool check_directory_consistency(const DirectoryVector &dirs,
                                  const Analysis *analysis = nullptr);
 
+class PlotGridView: public AnalysisObject
+{
+    Q_OBJECT
+    public:
+        struct Entry
+        {
+            QUuid sinkId;
+            int elementIndex = -1;
+            QString customTitle;
+            QRectF zoomRect;
+        };
+
+        Q_INVOKABLE explicit PlotGridView(QObject *parent = nullptr);
+
+        const std::vector<Entry> &entries() const { return entries_; }
+        void setEntries(const std::vector<Entry> &entries) { entries_ = entries; }
+        void setEntries(std::vector<Entry> &&entries) { entries_ = entries; }
+
+        size_t getVisibleMaxResolution() const { return visibleMaxResolution_; }
+        void setVisibleMaxResolution(size_t maxres) { visibleMaxResolution_ = maxres; }
+
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+        void accept(ObjectVisitor &visitor) override;
+
+    private:
+        std::vector<Entry> entries_;
+        size_t visibleMaxResolution_ = 1u << 10;
+};
+
 } // end namespace analysis
 
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"

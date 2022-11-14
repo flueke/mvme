@@ -36,6 +36,7 @@ class ConditionInterface;
 class Directory;
 class OperatorInterface;
 class PipeSourceInterface;
+class PlotGridView;
 class SinkInterface;
 class SourceInterface;
 

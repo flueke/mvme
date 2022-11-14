@@ -614,6 +614,128 @@ bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *an
 }
 #endif
 
+//
+// Support functions
+//
+
+namespace
+{
+template<typename It>
+void normalize_intervals(It first, It onePastEnd)
+{
+    while (first != onePastEnd)
+    {
+        *first = first->normalized();
+        first++;
+    }
+}
+
+QJsonObject to_json(const QwtInterval &interval)
+{
+    QJsonObject result;
+    result["min"] = interval.minValue();
+    result["max"] = interval.maxValue();
+    return result;
+}
+
+QwtInterval interval_from_json(const QJsonObject &json)
+{
+    QwtInterval result;
+    result.setMinValue(json["min"].toDouble(make_quiet_nan()));
+    result.setMaxValue(json["max"].toDouble(make_quiet_nan()));
+    return result;
+}
+
+QJsonObject to_json(const QPointF &point)
+{
+    QJsonObject result;
+    result["x"] = point.x();
+    result["y"] = point.y();
+    return result;
+}
+
+QPointF qpointf_from_json(const QJsonObject &json)
+{
+    return { json["x"].toDouble(), json["y"].toDouble() };
+}
+
+QJsonObject to_json(const QRectF &rect)
+{
+    QJsonObject result;
+
+    result["topLeft"] = to_json(rect.topLeft());
+    result["bottomRight"] = to_json(rect.bottomRight());
+
+    return result;
+}
+
+QRectF qrectf_from_json(const QJsonObject &json)
+{
+    QRectF result(qpointf_from_json(json["topLeft"].toObject()),
+                  qpointf_from_json(json["bottomRight"].toObject()));
+
+    return result;
+}
+
+QJsonArray to_json(const QPolygonF &poly)
+{
+    QJsonArray points;
+
+    for (const auto &point: poly)
+    {
+        points.append(to_json(point));
+    }
+
+    return points;
+}
+
+QPolygonF qpolygonf_from_json(const QJsonArray &points)
+{
+    QPolygonF result;
+    result.reserve(points.size());
+
+    for (auto it = points.begin(); it != points.end(); it++)
+    {
+        result.append(qpointf_from_json(it->toObject()));
+    }
+
+    return result;
+}
+}
+
+//
+// PlotGridView
+//
+
+PlotGridView::PlotGridView(QObject *parent)
+    : AnalysisObject(parent)
+{
+}
+
+void PlotGridView::read(const QJsonObject &json)
+{
+}
+
+void PlotGridView::write(QJsonObject &json) const
+{
+    QJsonArray jEntries;
+
+    for (const auto &e: entries_)
+    {
+        QJsonObject jEntry;
+        jEntry["sinkId"] = e.sinkId.toString();
+        jEntry["elementIndex"] = e.elementIndex;
+        jEntry["customTitle"] = e.customTitle;
+        jEntry["zoomRect"] = to_json(e.zoomRect);
+
+        jEntries.append(jEntry);
+    }
+}
+
+void PlotGridView::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
 
 //
 // Extractor
@@ -3742,92 +3864,6 @@ QString ExportSink::getDataFileName(const RunInfo &runInfo) const
 QString ExportSink::getExportFileBasename() const
 {
     return QFileInfo(getOutputPrefixPath()).baseName();
-}
-
-//
-// Condition Support
-//
-
-template<typename It>
-void normalize_intervals(It first, It onePastEnd)
-{
-    while (first != onePastEnd)
-    {
-        *first = first->normalized();
-        first++;
-    }
-}
-
-QJsonObject to_json(const QwtInterval &interval)
-{
-    QJsonObject result;
-    result["min"] = interval.minValue();
-    result["max"] = interval.maxValue();
-    return result;
-}
-
-QwtInterval interval_from_json(const QJsonObject &json)
-{
-    QwtInterval result;
-    result.setMinValue(json["min"].toDouble(make_quiet_nan()));
-    result.setMaxValue(json["max"].toDouble(make_quiet_nan()));
-    return result;
-}
-
-QJsonObject to_json(const QPointF &point)
-{
-    QJsonObject result;
-    result["x"] = point.x();
-    result["y"] = point.y();
-    return result;
-}
-
-QPointF qpointf_from_json(const QJsonObject &json)
-{
-    return { json["x"].toDouble(), json["y"].toDouble() };
-}
-
-QJsonObject to_json(const QRectF &rect)
-{
-    QJsonObject result;
-
-    result["topLeft"] = to_json(rect.topLeft());
-    result["bottomRight"] = to_json(rect.bottomRight());
-
-    return result;
-}
-
-QRectF qrectf_from_json(const QJsonObject &json)
-{
-    QRectF result(qpointf_from_json(json["topLeft"].toObject()),
-                  qpointf_from_json(json["bottomRight"].toObject()));
-
-    return result;
-}
-
-QJsonArray to_json(const QPolygonF &poly)
-{
-    QJsonArray points;
-
-    for (const auto &point: poly)
-    {
-        points.append(to_json(point));
-    }
-
-    return points;
-}
-
-QPolygonF qpolygonf_from_json(const QJsonArray &points)
-{
-    QPolygonF result;
-    result.reserve(points.size());
-
-    for (auto it = points.begin(); it != points.end(); it++)
-    {
-        result.append(qpointf_from_json(it->toObject()));
-    }
-
-    return result;
 }
 
 //
