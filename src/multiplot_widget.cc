@@ -23,6 +23,7 @@
 #include <QStack>
 #include <QTimer>
 #include <QWheelEvent>
+#include <QMenu>
 
 #include "analysis/analysis_ui_util.h"
 #include "histo_gui_util.h"
@@ -457,6 +458,56 @@ struct MultiPlotWidget::Private
         relayout();
         refresh();
     }
+
+    void contextMenuRequested(const QPoint &pos)
+    {
+        if (state_ != State::Rearrange)
+            return;
+
+        auto entry = entryAt(pos);
+
+        if (!entry)
+         return;
+
+        QMenu menu;
+
+        auto set_custom_title = [this, entry] ()
+        {
+            QDialog dlg;
+            auto l = new QFormLayout(&dlg);
+            auto le_title = new QLineEdit;
+            le_title->setText(entry->title());
+            auto bb = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
+            l->addRow("Custom Plot Title", le_title);
+            l->addRow(bb);
+
+            QObject::connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+            if (dlg.exec() == QDialog::Rejected)
+                return;
+
+            entry->setTitle(le_title->text());
+            refresh();
+        };
+
+        auto clear_custom_title = [this, entry] ()
+        {
+            entry->setTitle({});
+            refresh();
+        };
+
+        auto remove_entry = [this, entry] ()
+        {
+        };
+
+        menu.addAction("Set Custom Title", set_custom_title);
+        menu.addAction("Clear Custom Title", clear_custom_title);
+        menu.addAction("Remove plot", remove_entry);
+
+        if (!menu.isEmpty())
+            menu.exec(q->mapToGlobal(pos));
+    }
 };
 
 MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
@@ -472,6 +523,10 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
     setAcceptDrops(true);
     setMouseTracking(true);
+    setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(this, &QWidget::customContextMenuRequested,
+            this, [this] (const QPoint &pos) { d->contextMenuRequested(pos); });
 
     auto toolBarFrame = new QFrame;
     toolBarFrame->setFrameStyle(QFrame::StyledPanel);

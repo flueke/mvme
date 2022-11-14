@@ -3215,6 +3215,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 {
                     auto widget = new MultiPlotWidget(m_serviceProvider);
                     widget->addSink(widgetInfo.sink);
+                    widget->setWindowTitle("PlotGrid " + widgetInfo.sink->objectName());
                     m_serviceProvider->getWidgetRegistry()->addWidget(
                         widget,
                         widgetInfo.sink->getId().toString() + QSL("_plotgrid"));
