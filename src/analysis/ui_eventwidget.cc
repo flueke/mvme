@@ -86,6 +86,7 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Histo2DSink:
         case NodeType_Sink:
         case NodeType_Directory:
+        case NodeType_PlotGridView:
             {
                 auto qo = get_qobject(node, dataRole);
                 if (qo == nullptr)
@@ -602,19 +603,10 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
             case NodeType_Histo1DSink:
             case NodeType_Histo2DSink:
             case NodeType_Sink:
+            case NodeType_PlotGridView:
+                if (auto obj = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
                 {
-                    if (auto op = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject))
-                    {
-                        idData.push_back(op->getId().toByteArray());
-                    }
-                } break;
-
-            case NodeType_Directory:
-                {
-                    if (auto dir = get_pointer<Directory>(node, DataRole_AnalysisObject))
-                    {
-                        idData.push_back(dir->getId().toByteArray());
-                    }
+                    idData.push_back(obj->getId().toByteArray());
                 } break;
 
             default:
@@ -673,6 +665,13 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
     for (auto &id: ids)
     {
         auto obj = analysis->getObject(id);
+
+        if (!obj)
+        {
+            assert(!"unepxected null object in dropped mime data id list");
+            continue;
+        }
+
         droppedObjects.append(obj);
 
         if (auto sourceDir = analysis->getParentDirectory(obj))
@@ -1193,6 +1192,24 @@ QWidget *open_or_raise_histo1dsink_widget(
         show_and_activate(widget);
         return widget;
     }
+    return {};
+}
+
+QWidget *open_or_raise_multiplot_widget(
+    AnalysisServiceProvider *asp,
+    std::shared_ptr<PlotGridView> &gridView)
+{
+    if (!asp->getWidgetRegistry()->hasObjectWidget(gridView.get())
+        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+    {
+        return open_new_gridview_widget(asp, gridView);
+    }
+    else if (auto widget = asp->getWidgetRegistry()->getObjectWidget(gridView.get()))
+    {
+        show_and_activate(widget);
+        return widget;
+    }
+
     return {};
 }
 
@@ -1825,36 +1842,23 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
 void EventWidgetPrivate::createView()
 {
-    auto analysis = m_serviceProvider->getAnalysis();
-    s32 maxUserLevel = 0;
-
-    for (const auto &op: analysis->getOperators())
-    {
-        maxUserLevel = std::max(maxUserLevel, op->getUserLevel());
-    }
-
-    for (const auto &dir: analysis->getDirectories())
-    {
-        maxUserLevel = std::max(maxUserLevel, dir->getUserLevel());
-    }
-
-    for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
-    {
-        auto trees = createTrees(userLevel);
-        m_levelTrees.push_back(trees);
-    }
-
+    // check state handler
     auto csh = [this] (ObjectTree *tree, QTreeWidgetItem *node, const QVariant &prev)
     {
         this->onNodeCheckStateChanged(tree, node, prev);
     };
 
-    for (auto &trees: m_levelTrees)
+    auto analysis = m_serviceProvider->getAnalysis();
+    auto maxUserLevel = analysis->getMaxUserLevel();
+
+    for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
     {
+        auto trees = createTrees(userLevel);
+
         for (auto &tree: trees.getObjectTrees())
-        {
             tree->setCheckStateChangeHandler(csh);
-        }
+
+        m_levelTrees.push_back(trees);
     }
 }
 
@@ -2190,7 +2194,6 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
         {
             result.operatorTree->addTopLevelItem(opNode.release());
         }
-
     }
 
     // Populate the SinkTree
@@ -2233,6 +2236,31 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
                 {
                     result.sinkTree->addTopLevelItem(theNode.release());
                 }
+            }
+        }
+
+        // generic sink objects. FIXME: refactor all object handling code. keep
+        // a single object vector in the analysis.
+        for (const auto &obj: analysis->getAllObjects())
+        {
+            if (auto view = std::dynamic_pointer_cast<PlotGridView>(obj);
+                view && obj->getUserLevel() == level)
+            {
+                std::unique_ptr<TreeNode> node(
+                    make_node(view.get(), NodeType_PlotGridView, DataRole_AnalysisObject));
+
+                node->setData(0, Qt::DisplayRole, QSL("<b>PlotGrid</b> %1").arg(view->objectName()));
+                node->setData(0, Qt::EditRole, view->objectName());
+                node->setFlags(node->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
+                node->setIcon(0, QIcon(":/grid.png"));
+
+                if (auto dir = analysis->getParentDirectory(view))
+                {
+                    if (auto dirNode = dirNodes.value(dir))
+                        dirNode->addChild(node.release());
+                }
+                else
+                    result.sinkTree->addTopLevelItem(node.release());
             }
         }
     }
@@ -2428,8 +2456,8 @@ void EventWidgetPrivate::repopulate()
     m_objectMap.clear();
 
     // populate
-        // This populates m_d->m_levelTrees
-        createView();
+    // This populates m_d->m_levelTrees
+    createView();
 
     for (auto trees: m_levelTrees)
     {
@@ -4219,6 +4247,12 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         }
                     }
                 } break;
+
+            case NodeType_PlotGridView:
+                if (auto gridView = get_shared_analysis_object<PlotGridView>(node, DataRole_AnalysisObject))
+                {
+                    open_or_raise_multiplot_widget(m_serviceProvider, gridView);
+                } break;
         }
     }
 }
@@ -4239,6 +4273,7 @@ void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel
         case NodeType_Histo2DSink:
         case NodeType_Sink:
         case NodeType_Directory:
+        case NodeType_PlotGridView:
             break;
 
         default:

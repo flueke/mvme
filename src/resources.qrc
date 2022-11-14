@@ -42,6 +42,7 @@
     <file alias="hist1d.png">resources/office-chart-bar.png</file>
     <file alias="hist2d.png">resources/hist2d.png</file>
     <file alias="histo_resolution.png">resources/grid.png</file>
+    <file alias="grid.png">resources/grid.png</file>
     <file alias="histo_subrange.png">resources/selection-resize.png</file>
     <file alias="info.png">resources/dialog-information.png</file>
     <file alias="list_add.png">resources/list-add.png</file>
