@@ -35,18 +35,19 @@
 #include <qwt_plot_shapeitem.h>
 
 #include "analysis/analysis.h"
-#include "analysis/analysis_util.h"
 #include "analysis/analysis_ui_util.h"
+#include "analysis/analysis_util.h"
 #include "analysis/ui_lib.h"
 #include "gui_util.h"
+#include "histo1d_widget.h"
+#include "histo_ui.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "mvme_qthelp.h"
 #include "qt_util.h"
 #include "treewidget_utils.h"
 #include "ui_interval_condition_dialog.h"
 #include "ui_polygon_condition_dialog.h"
-#include "histo_ui.h"
-#include "histo1d_widget.h"
 
 namespace analysis
 {
@@ -131,6 +132,8 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
     tb_frameLayout->addWidget(d->toolbar_);
     auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
     auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Apply");
+    d->toolbar_->addAction(QIcon(":/help.png"), QSL("Help"),
+                           this, mesytec::mvme::make_help_keyword_handler("Condition System"));
 
     d->ui->tw_intervals->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
@@ -1204,6 +1207,8 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     auto actionDelete = toolbar->addAction(QIcon(":/list_remove.png"), "Delete");
     toolbar->addAction(actionUndo);
     toolbar->addAction(actionRedo);
+    toolbar->addAction(QIcon(":/help.png"), QSL("Help"),
+                       this, mesytec::mvme::make_help_keyword_handler("Condition System"));
 
     d->newPicker_ = new PlotPicker(
         QwtPlot::xBottom, QwtPlot::yLeft,
