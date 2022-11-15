@@ -101,22 +101,6 @@ TreeNode *make_node(T *data, int type = QTreeWidgetItem::Type, int dataRole = Da
     return ret;
 }
 
-#if 0
-TreeNode *make_condition_node(ConditionInterface *cond)
-{
-    auto ret = make_node(cond, NodeType_Condition, DataRole_AnalysisObject);
-
-    ret->setData(0, Qt::EditRole, cond->objectName());
-    ret->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
-            cond->getShortName(),
-            cond->objectName()));
-
-    ret->setFlags(ret->flags() | Qt::ItemIsEditable);
-
-    return ret;
-}
-#endif
-
 } // end anon namespace
 
 using namespace histo_ui;

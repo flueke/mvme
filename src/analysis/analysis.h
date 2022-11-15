@@ -2194,17 +2194,6 @@ class LIBMVME_EXPORT Analysis:
         QSet<ConditionPtr> getActiveConditions(const OperatorPtr &op) const;
         QSet<ConditionPtr> getActiveConditions(const OperatorInterface *op) const;
 
-        //ConditionPtr getCondition(const OperatorPtr &op) const;
-        //ConditionPtr getCondition(OperatorInterface *op) const;
-        //ConditionLink getConditionLink(const OperatorPtr &op) const;
-        //ConditionLink getConditionLink(const OperatorInterface *op) const;
-
-
-        /* Links the given operator to the given condition and subindex. Any
-         * existing condition link will be replaced. */
-        //bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        //bool setConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
-
         // Adds a condition link from operator to cond. At runtime the operator
         // will only be evaluated if all its linked conditions are true.
         // Returns false and does nothing if the same condition link already

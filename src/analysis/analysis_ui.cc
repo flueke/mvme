@@ -171,9 +171,6 @@ struct AnalysisWidgetPrivate
     void onDirectoryRemoved(const DirectoryPtr &dir);
     void onObjectAdded(const AnalysisObjectPtr &obj);
     void onObjectRemoved(const AnalysisObjectPtr &obj);
-    void onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
-    void onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
-    //void editConditionLinkGraphically(const ConditionPtr &cond);
 
     AnalysisServiceProvider *getServiceProvider() const { return m_serviceProvider; }
     Analysis *getAnalysis() const { return getServiceProvider()->getAnalysis(); }
@@ -250,113 +247,10 @@ void AnalysisWidgetPrivate::onObjectRemoved(const AnalysisObjectPtr &obj)
     repopulateEventRelatedWidgets(eventId);
 }
 
-void AnalysisWidgetPrivate::onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond)
-{
-#if 0
-    qDebug() << __PRETTY_FUNCTION__ << this;
-    assert(op->getEventId() == cond->getEventId());
-    auto eventId = op->getEventId();
-    repopulateEventRelatedWidgets(eventId);
-#else
-    (void) op;
-    (void) cond;
-#endif
-}
-
-void AnalysisWidgetPrivate::onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond)
-{
-#if 0
-    qDebug() << __PRETTY_FUNCTION__ << this;
-    assert(op->getEventId() == cond->getEventId());
-    auto eventId = op->getEventId();
-    repopulateEventRelatedWidgets(eventId);
-#else
-    (void) op;
-    (void) cond;
-#endif
-}
-
-#if 0
-void AnalysisWidgetPrivate::editConditionLinkGraphically(const ConditionPtr &cond)
-{
-    (void) cond;
-#if 1
-    qDebug() << __PRETTY_FUNCTION__ << this;
-    if (!cond) return;
-
-    /* Get the input pipes of the conditon
-     * Find a sink displaying all of the pipes and the cl subindex.
-     * Find an active window for the sink or open a new one.
-     * Tell the window that we want to edit the condition.
-     * For now error out if no sink accumulating the pipes can be found. */
-
-    auto sinks = get_sinks_for_condition(cond, getAnalysis()->getSinkOperators<SinkPtr>());
-    auto widgetRegistry = getServiceProvider()->getWidgetRegistry();
-
-    // Try to use an existing window to edit the condition
-    for (const auto &sink: sinks)
-    {
-        auto widget = widgetRegistry->getObjectWidget(sink.get());
-
-        if (auto condEditor = qobject_cast<ConditionEditorInterface *>(widget))
-        {
-            if (condEditor->setEditCondition(cond))
-            {
-                condEditor->beginEditCondition();
-            }
-            show_and_activate(widget);
-            return;
-        }
-    }
-
-    // Create a new window
-    for (const auto &sink: sinks)
-    {
-        auto widget = std::unique_ptr<QWidget>(sink_widget_factory(sink, getServiceProvider()));
-
-        if (auto condEditor = qobject_cast<ConditionEditorInterface *>(widget.get()))
-        {
-            auto raw = widget.get();
-            widgetRegistry->addObjectWidget(widget.release(), sink.get(), sink->getId().toString());
-            if (condEditor->setEditCondition(cond))
-            {
-                condEditor->beginEditCondition();
-            }
-            show_and_activate(raw);
-            return;
-        }
-    }
-
-    /* Two possible cases:
-     * - no sinks matching the inputs of the condition link where found
-     * - no cut editors could be found or created given the list of possible sinks
-     * TODO: show message about having to create sink and display widget for
-     * the condition inputs or even better: offer to create them.
-     */
-
-    if (sinks.isEmpty())
-    {
-        qDebug() << __PRETTY_FUNCTION__
-            << "Error: no sinks found";
-    }
-    else
-    {
-        qDebug() << __PRETTY_FUNCTION__
-            << "Error: no viable editor widget could be found or created";
-    }
-
-    //InvalidCodePath;
-#endif
-}
-#endif
-
 void AnalysisWidgetPrivate::repopulateEventRelatedWidgets(const QUuid &eventId)
 {
     qDebug() << __PRETTY_FUNCTION__ << this << eventId;
     m_eventWidget->repopulate();
-#if 0
-    m_conditionWidget->repopulate(eventId);
-#endif
 }
 
 void AnalysisWidgetPrivate::repopulate()
@@ -369,47 +263,6 @@ void AnalysisWidgetPrivate::repopulate()
     m_eventWidget->deleteLater();
     m_eventWidget = nullptr;
     auto eventWidget = new EventWidget(getServiceProvider(), m_q);
-
-#if 0
-    auto condWidget = m_conditionWidget;
-
-    QObject::connect(condWidget, &ConditionWidget::conditionLinkSelected,
-                     eventWidget, &EventWidget::onConditionLinkSelected);
-
-    QObject::connect(condWidget, &ConditionWidget::applyConditionAccept,
-                     eventWidget, &EventWidget::applyConditionAccept);
-
-    QObject::connect(condWidget, &ConditionWidget::applyConditionReject,
-                     eventWidget, &EventWidget::applyConditionReject);
-
-    QObject::connect(eventWidget, &EventWidget::objectSelected,
-                     m_q, [this] (const analysis::AnalysisObjectPtr &obj) {
-
-         ConditionLink cl;
-
-         if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-         {
-             cl = getAnalysis()->getConditionLink(op);
-         }
-
-         if (cl)
-         {
-             m_conditionWidget->highlightConditionLink(cl);
-         }
-         else
-         {
-             m_conditionWidget->clearTreeHighlights();
-         }
-    });
-
-    QObject::connect(eventWidget, &EventWidget::nonObjectNodeSelected,
-                     m_q, [this] (const QTreeWidgetItem *) {
-        m_conditionWidget->clearTreeHighlights();
-    });
-
-    QObject::connect(eventWidget, &EventWidget::conditionLinksModified,
-                     m_conditionWidget, &ConditionWidget::setModificationButtonsVisible);
-#endif
 
     m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
     m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
@@ -424,9 +277,6 @@ void AnalysisWidgetPrivate::repopulate()
 
     m_eventWidgetScrollArea->setWidget(m_eventWidget);
 
-#if 0
-    m_conditionWidget->repopulate();
-#endif
     updateWindowTitle();
     updateAddRemoveUserLevelButtons();
 }
@@ -434,11 +284,6 @@ void AnalysisWidgetPrivate::repopulate()
 void AnalysisWidgetPrivate::doPeriodicUpdate()
 {
     m_eventWidget->m_d->doPeriodicUpdate();
-
-#if 0
-    m_conditionWidget->doPeriodicUpdate();
-#endif
-    //m_objectInfoWidget->refresh();
 }
 
 void AnalysisWidgetPrivate::closeAllUniqueWidgets()
@@ -613,9 +458,6 @@ void handle_session_error(const QString &title, const QString &message)
 {
     SessionErrorDialog dialog(title, message);
     dialog.exec();
-
-    //m_serviceProvider->logMessage(QString("Error saving session:"));
-    //m_serviceProvider->logMessageRaw(result.second);
 }
 
 void AnalysisWidgetPrivate::actionSaveSession()
@@ -1154,13 +996,6 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     centralLayout->addWidget(m_d->m_eventWidgetFrame);
     centralLayout->setStretch(1, 1);
 
-#if 0
-    auto conditionsTabWidget = new QTabWidget;
-    conditionsTabWidget->addTab(m_d->m_conditionWidget,
-                                QIcon(QSL(":/scissors.png")),
-                                QSL("Cuts/Conditions"));
-#endif
-
     // Object info inside a scrollarea in the bottom right corner
     auto objectInfoTabWidget = new QTabWidget;
 
@@ -1382,16 +1217,6 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->onObjectRemoved(obj);
     });
 
-    QObject::connect(&wrapper, &Wrapper::conditionLinkAdded,
-                     this, [this](const OperatorPtr &op, const ConditionPtr &cond) {
-         m_d->onConditionLinkAdded(op, cond);
-    });
-
-    QObject::connect(&wrapper, &Wrapper::conditionLinkRemoved,
-                     this, [this](const OperatorPtr &op, const ConditionPtr &cond) {
-         m_d->onConditionLinkRemoved(op, cond);
-    });
-
     // Initial update
     m_d->onAnalysisChanged(analysis);
     m_d->updateActions();
@@ -1413,30 +1238,17 @@ AnalysisWidget::~AnalysisWidget()
 void AnalysisWidget::operatorAddedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-#if 0
-    m_d->m_conditionWidget->repopulate();
-#endif
 }
 
 void AnalysisWidget::operatorEditedExternally(const OperatorPtr &/*op*/)
 {
     m_d->m_eventWidget->m_d->repopulate();
-#if 0
-    m_d->m_conditionWidget->repopulate();
-#endif
 }
 
 void AnalysisWidget::updateAddRemoveUserLevelButtons()
 {
     m_d->updateAddRemoveUserLevelButtons();
 }
-
-#if 0
-ConditionWidget *AnalysisWidget::getConditionWidget() const
-{
-    return m_d->m_conditionWidget;
-}
-#endif
 
 ObjectInfoWidget *AnalysisWidget::getObjectInfoWidget() const
 {
