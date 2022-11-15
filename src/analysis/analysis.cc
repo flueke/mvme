@@ -589,6 +589,10 @@ void PlotGridView::read(const QJsonObject &json)
 
     setMaxVisibleResolution(json["maxVisibleResolution"].toInt());
     setAxisScaleType(json["axisScaleType"].toInt());
+    setMaxColumns(json["maxColumns"].toInt());
+    setMinTileSize(qsize_from_json(json["minTileSize"].toObject()));
+    setCombinedZoom(json["combinedZoom"].toBool());
+    setGaussEnabled(json["gaussEnabled"].toBool());
 }
 
 void PlotGridView::write(QJsonObject &json) const
@@ -609,6 +613,10 @@ void PlotGridView::write(QJsonObject &json) const
     json["entries"] = jEntries;
     json["maxVisibleResolution"] = static_cast<qint64>(getMaxVisibleResolution());
     json["axisScaleType"] = axisScaleType_;
+    json["maxColumns"] = maxColumns_;
+    json["minTileSize"] = to_json(minTileSize_);
+    json["combinedZoom"] = combinedZoom_;
+    json["gaussEnabled"] = gaussEnabled_;
 }
 
 void PlotGridView::accept(ObjectVisitor &visitor)
