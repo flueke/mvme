@@ -2109,6 +2109,7 @@ class LIBMVME_EXPORT Analysis:
         void conditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
 
         void objectAdded(const AnalysisObjectPtr &obj);
+        void objectRemoved(const AnalysisObjectPtr &obj);
 
 
     public:

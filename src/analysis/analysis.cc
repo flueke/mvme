@@ -4918,6 +4918,13 @@ int Analysis::removeObjectsRecursively(const AnalysisObjectVector &objects)
         {
             removed += removeDirectoryRecursively(dir);
         }
+        else if (auto it = std::find(m_genericObjects.begin(), m_genericObjects.end(), obj);
+                 it != m_genericObjects.end())
+        {
+            m_genericObjects.erase(it);
+            setModified();
+            emit objectRemoved(obj);
+        }
     }
 
     return removed;

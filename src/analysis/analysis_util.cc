@@ -325,6 +325,12 @@ void AnalysisSignalWrapper::setAnalysis(Analysis *analysis)
     QObject::connect(analysis, &Analysis::directoryRemoved,
                      this, &AnalysisSignalWrapper::directoryRemoved);
 
+    QObject::connect(analysis, &Analysis::objectAdded,
+                     this, &AnalysisSignalWrapper::objectAdded);
+
+    QObject::connect(analysis, &Analysis::objectRemoved,
+                     this, &AnalysisSignalWrapper::objectRemoved);
+
     QObject::connect(analysis, &Analysis::conditionLinkAdded,
                      this, &AnalysisSignalWrapper::conditionLinkAdded);
 
