@@ -135,7 +135,7 @@ struct MultiPlotWidget::Private
                 addSinkElement(sink, i);
         }
         else
-            addSinkElement(sink, -1);
+            addSinkElement(s, -1);
 
         relayout();
     }

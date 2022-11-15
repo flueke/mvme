@@ -3309,6 +3309,18 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                             m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(),
                                                        sinkPtr->getId().toString());
                         });
+
+                    menu.addAction(
+                        QSL("Open in Plot Grid"), m_q,
+                        [this, histo, sinkPtr, userLevel]
+                        {
+                            auto widget = new MultiPlotWidget(m_serviceProvider);
+                            widget->addSink(sinkPtr);
+                            widget->setWindowTitle("PlotGrid " + sinkPtr->objectName());
+                            m_serviceProvider->getWidgetRegistry()->addWidget(
+                                widget,
+                                sinkPtr->getId().toString() + QSL("_plotgrid"));
+                        });
                 }
             }
         }
