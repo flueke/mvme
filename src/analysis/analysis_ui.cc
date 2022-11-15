@@ -169,6 +169,8 @@ struct AnalysisWidgetPrivate
     void onOperatorRemoved(const OperatorPtr &op);
     void onDirectoryAdded(const DirectoryPtr &dir);
     void onDirectoryRemoved(const DirectoryPtr &dir);
+    void onObjectAdded(const AnalysisObjectPtr &obj);
+    void onObjectRemoved(const AnalysisObjectPtr &obj);
     void onConditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
     void onConditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
     //void editConditionLinkGraphically(const ConditionPtr &cond);
@@ -231,6 +233,20 @@ void AnalysisWidgetPrivate::onDirectoryRemoved(const DirectoryPtr &dir)
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
     auto eventId = dir->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onObjectAdded(const AnalysisObjectPtr &obj)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+    auto eventId = obj->getEventId();
+    repopulateEventRelatedWidgets(eventId);
+}
+
+void AnalysisWidgetPrivate::onObjectRemoved(const AnalysisObjectPtr &obj)
+{
+    qDebug() << __PRETTY_FUNCTION__ << this;
+    auto eventId = obj->getEventId();
     repopulateEventRelatedWidgets(eventId);
 }
 
@@ -1356,6 +1372,16 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->onDirectoryRemoved(dir);
     });
 
+    QObject::connect(&wrapper, &Wrapper::objectAdded,
+                     this, [this](const AnalysisObjectPtr &obj) {
+        m_d->onObjectAdded(obj);
+    });
+
+    QObject::connect(&wrapper, &Wrapper::objectRemoved,
+                     this, [this](const AnalysisObjectPtr &obj) {
+        m_d->onObjectRemoved(obj);
+    });
+
     QObject::connect(&wrapper, &Wrapper::conditionLinkAdded,
                      this, [this](const OperatorPtr &op, const ConditionPtr &cond) {
          m_d->onConditionLinkAdded(op, cond);
@@ -1434,7 +1460,7 @@ bool AnalysisWidget::event(QEvent *e)
 
 int AnalysisWidget::removeObjects(const AnalysisObjectVector &objects)
 {
-    qDebug() << __PRETTY_FUNCTION__ << objects.size();
+    qDebug() << __PRETTY_FUNCTION__ << "objectCount =" << objects.size();
 
     if (objects.isEmpty()) return 0;
 
