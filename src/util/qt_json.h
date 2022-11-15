@@ -5,6 +5,7 @@
 #include <QJsonValue>
 #include <QPointF>
 #include <QPolygonF>
+#include <QSize>
 #include <QVector>
 #include <vector>
 
@@ -52,12 +53,12 @@ auto stdvector_from_json_array(const QJsonArray &a, Converter conv)
     return ret;
 }
 
-double json_value_to_double(const QJsonValue &jv)
+inline double json_value_to_double(const QJsonValue &jv)
 {
     return jv.toDouble();
 }
 
-QJsonObject to_json(const QwtInterval &interval)
+inline QJsonObject to_json(const QwtInterval &interval)
 {
     QJsonObject result;
     result["min"] = interval.minValue();
@@ -65,7 +66,7 @@ QJsonObject to_json(const QwtInterval &interval)
     return result;
 }
 
-QwtInterval interval_from_json(const QJsonObject &json)
+inline QwtInterval interval_from_json(const QJsonObject &json)
 {
     QwtInterval result;
     result.setMinValue(json["min"].toDouble(make_quiet_nan()));
@@ -73,7 +74,7 @@ QwtInterval interval_from_json(const QJsonObject &json)
     return result;
 }
 
-QJsonObject to_json(const QPointF &point)
+inline QJsonObject to_json(const QPointF &point)
 {
     QJsonObject result;
     result["x"] = point.x();
@@ -81,12 +82,12 @@ QJsonObject to_json(const QPointF &point)
     return result;
 }
 
-QPointF qpointf_from_json(const QJsonObject &json)
+inline QPointF qpointf_from_json(const QJsonObject &json)
 {
     return { json["x"].toDouble(), json["y"].toDouble() };
 }
 
-QJsonObject to_json(const QRectF &rect)
+inline QJsonObject to_json(const QRectF &rect)
 {
     QJsonObject result;
 
@@ -96,7 +97,7 @@ QJsonObject to_json(const QRectF &rect)
     return result;
 }
 
-QRectF qrectf_from_json(const QJsonObject &json)
+inline QRectF qrectf_from_json(const QJsonObject &json)
 {
     QRectF result(qpointf_from_json(json["topLeft"].toObject()),
                   qpointf_from_json(json["bottomRight"].toObject()));
@@ -104,7 +105,7 @@ QRectF qrectf_from_json(const QJsonObject &json)
     return result;
 }
 
-QJsonArray to_json(const QPolygonF &poly)
+inline QJsonArray to_json(const QPolygonF &poly)
 {
     QJsonArray points;
 
@@ -116,7 +117,7 @@ QJsonArray to_json(const QPolygonF &poly)
     return points;
 }
 
-QPolygonF qpolygonf_from_json(const QJsonArray &points)
+inline QPolygonF qpolygonf_from_json(const QJsonArray &points)
 {
     QPolygonF result;
     result.reserve(points.size());
@@ -126,6 +127,20 @@ QPolygonF qpolygonf_from_json(const QJsonArray &points)
         result.append(qpointf_from_json(it->toObject()));
     }
 
+    return result;
+}
+
+inline QJsonObject to_json(const QSize &sz)
+{
+    QJsonObject result;
+    result["width"] = sz.width();
+    result["height"] = sz.height();
+    return result;
+}
+
+inline QSize qsize_from_json(const QJsonObject &json)
+{
+    QSize result(json["width"].toInt(), json["height"].toInt());
     return result;
 }
 
