@@ -4985,14 +4985,14 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
 
     if (!cond || std::dynamic_pointer_cast<ExpressionCondition>(cond))
     {
-        // Use the standard edit action
+        // Not a condition or an ExpressionCondition: use the standard edit action
         auto result = new QAction(QIcon(":/pencil.png"), QSL("Edit"));
         QObject::connect(result, &QAction::triggered, m_q, [=] { editOperator(op); });
         return result;
     }
 
-    // Special handling to figure out which sinks are available for graphical
-    // editing.
+    // The operator is a condition: special handling to figure out which sinks
+    // are available for graphical editing.
     if (auto ana = cond->getAnalysis())
     {
         auto sinks = find_sinks_for_condition(cond, ana->getSinkOperators<std::shared_ptr<SinkInterface>>());
@@ -5005,6 +5005,23 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
             // run the dialog without using a plot widget or the controller.
             return {};
         }
+
+        // Sort the sinks: sinks without an active condition get priority => The
+        // first entries in the list of sinks won't have an active condition.
+        std::sort(std::begin(sinks), std::end(sinks),
+                  [&cond](const auto &a, const auto &b)
+                  {
+                      bool aHasConditions = !cond->getAnalysis()->getActiveConditions(a).isEmpty();
+                      bool bHasConditions = !cond->getAnalysis()->getActiveConditions(b).isEmpty();
+
+                      if (!aHasConditions && bHasConditions)
+                          return true;
+
+                      if (aHasConditions && !bHasConditions)
+                          return false;
+
+                      return a->objectName() < b->objectName();
+                  });
 
         auto menu = std::make_unique<QMenu>();
 

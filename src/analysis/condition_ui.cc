@@ -1410,6 +1410,23 @@ bool edit_condition_in_first_available_sink(AnalysisServiceProvider *asp, const 
     const auto allSinks = cond->getAnalysis()->getSinkOperators<std::shared_ptr<SinkInterface>>();
     auto sinks = find_sinks_for_condition(cond, allSinks);
 
+    // Sort the sinks: sinks without an active condition get priority => choses
+    // the first sinks without any active condition for editing.
+    std::sort(std::begin(sinks), std::end(sinks),
+              [&cond](const auto &a, const auto &b)
+              {
+                  bool aHasConditions = !cond->getAnalysis()->getActiveConditions(a).isEmpty();
+                  bool bHasConditions = !cond->getAnalysis()->getActiveConditions(b).isEmpty();
+
+                  if (!aHasConditions && bHasConditions)
+                      return true;
+
+                  if (aHasConditions && !bHasConditions)
+                      return false;
+
+                  return a->objectName() < b->objectName();
+              });
+
     for (auto &sink: sinks)
     {
         if (edit_condition_in_sink(asp, cond, sink))
