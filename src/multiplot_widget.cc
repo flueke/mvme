@@ -388,12 +388,27 @@ struct MultiPlotWidget::Private
 
         if (isNewView)
         {
+            // Collect the userlevels of all sinks in this widget. Use the
+            // maximum level as the proposed level for the new grid view.
+            int proposedUserLevel = 1;
+            std::set<s32> sinkUserLevels;
+
+            for (const auto &e: entries_)
+                sinkUserLevels.insert(e->analysisObject()->getUserLevel());
+
+            if (auto it = std::max_element(std::begin(sinkUserLevels), std::end(sinkUserLevels));
+                it != std::end(sinkUserLevels) && *it >= 1)
+            {
+                proposedUserLevel = *it;
+            }
+
             QDialog dlg;
             auto l = new QFormLayout(&dlg);
             auto le_name = new QLineEdit;
             auto spin_userLevel = new QSpinBox;
             spin_userLevel->setMinimum(1);
             spin_userLevel->setMaximum(asp_->getAnalysis()->getMaxUserLevel());
+            spin_userLevel->setValue(proposedUserLevel);
             auto bb = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel);
             l->addRow("View Name", le_name);
             l->addRow("Userlevel", spin_userLevel);
@@ -408,6 +423,7 @@ struct MultiPlotWidget::Private
             analysisGridView_ = std::make_shared<PlotGridView>();
             analysisGridView_->setObjectName(le_name->text());
             analysisGridView_->setUserLevel(spin_userLevel->value());
+            q->setWindowTitle(analysisGridView_->objectName());
         }
 
         EntryConversionVisitor ecv;
