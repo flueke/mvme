@@ -994,7 +994,7 @@ within a polygon.
 Expression Condition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Higher level condition, accepting multiple other conditions as its input. Uses
-the `exprtk`_ library to evaulate a user-defined expression. The expression
+the `exprtk`_ library to evaluate a user-defined expression. The expression
 result becomes the conditions output value.
 
 .. index:: Analysis Processing Chain, Readout Data Processing
