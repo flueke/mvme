@@ -354,7 +354,7 @@ analysis window.
   grouped together in the grey box.
 
 Within the graph double-clicking on histograms or other sinks opens the
-respective view while double clicks on other objects start the appropriate
+respective view, while double clicks on other objects start the appropriate
 editor. Ctrl-clicking navigates to the graph for the clicked object.
 
 System Details
