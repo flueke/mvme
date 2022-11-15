@@ -713,6 +713,7 @@ MultiPlotWidget::~MultiPlotWidget()
 void MultiPlotWidget::addSink(const analysis::SinkPtr &sink)
 {
     d->addSink(sink);
+    d->refresh();
 }
 
 void MultiPlotWidget::addSinkElement(
@@ -720,6 +721,7 @@ void MultiPlotWidget::addSinkElement(
     int elementIndex)
 {
     d->addSinkElement(sink, elementIndex);
+    d->refresh();
 }
 
 void MultiPlotWidget::setMaxVisibleResolution(size_t maxres)
