@@ -120,6 +120,13 @@ struct MultiPlotWidget::Private
         entries_.emplace_back(std::move(e));
     }
 
+    void removeEntry(const std::shared_ptr<PlotEntry> &e)
+    {
+        if (auto idx = indexOf(e); 0 <= idx && idx < static_cast<ssize_t>(entries_.size()))
+            entries_.erase(std::begin(entries_) + idx);
+        relayout();
+    }
+
     void addSink(const SinkPtr &s)
     {
         if (auto sink = std::dynamic_pointer_cast<Histo1DSink>(s))
@@ -286,6 +293,10 @@ struct MultiPlotWidget::Private
             case State::Zooming:
                 // Each zoomer will set the cross cursor on its plot.
                 scrollArea_->viewport()->unsetCursor();
+                break;
+
+            case State::RearrangeActive:
+                // Drag & Drop
                 break;
         }
 
@@ -466,7 +477,7 @@ struct MultiPlotWidget::Private
 
         auto entry = entryAt(pos);
 
-        if (!entry)
+        if (!entry || !entry->analysisObject())
          return;
 
         QMenu menu;
@@ -499,14 +510,19 @@ struct MultiPlotWidget::Private
 
         auto remove_entry = [this, entry] ()
         {
+            removeEntry(entry);
         };
 
+        auto title = entry->analysisObject()->objectName();
+        if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(entry))
+            title += QSL("[%1]").arg(h1dEntry->histoIndex);
+        menu.addSection(title);
         menu.addAction("Set Custom Title", set_custom_title);
-        menu.addAction("Clear Custom Title", clear_custom_title);
+        if (entry->hasCustomTitle())
+            menu.addAction("Clear Custom Title", clear_custom_title);
         menu.addAction("Remove plot", remove_entry);
 
-        if (!menu.isEmpty())
-            menu.exec(q->mapToGlobal(pos));
+        menu.exec(q->mapToGlobal(pos));
     }
 };
 
