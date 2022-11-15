@@ -4082,8 +4082,13 @@ void ExpressionCondition::beginRun(const RunInfo &, Logger)
 
 static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
+struct Analysis::Private
+{
+};
+
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
+    , d(std::make_unique<Private>())
     , m_modified(false)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
@@ -4147,6 +4152,16 @@ Analysis::~Analysis()
 //
 // Data Sources
 //
+
+const SourceVector &Analysis::getSources() const
+{
+    return m_sources;
+}
+
+SourceVector &Analysis::getSources()
+{
+    return m_sources;
+}
 
 SourceVector Analysis::getSources(const QUuid &eventId, const QUuid &moduleId) const
 {
@@ -4263,6 +4278,11 @@ void Analysis::setSourceEdited(const SourcePtr &source)
     emit dataSourceEdited(source);
 }
 
+s32 Analysis::getNumberOfSources() const
+{
+    return m_sources.size();
+}
+
 ListFilterExtractorVector Analysis::getListFilterExtractors(const QUuid &eventId,
                                                             const QUuid &moduleId) const
 {
@@ -4357,6 +4377,16 @@ void Analysis::setListFilterExtractors(const QUuid &eventId,
 //
 // Operators
 //
+
+const OperatorVector &Analysis::getOperators() const
+{
+    return m_operators;
+}
+
+OperatorVector &Analysis::getOperators()
+{
+    return m_operators;
+}
 
 OperatorVector Analysis::getOperators(const QUuid &eventId) const
 {
@@ -4520,6 +4550,11 @@ void Analysis::setOperatorEdited(const OperatorPtr &op)
     emit operatorEdited(op);
 }
 
+s32 Analysis::getNumberOfOperators() const
+{
+    return m_operators.size();
+}
+
 ConditionLinks Analysis::getConditionLinks() const
 {
     return m_conditionLinks;
@@ -4621,6 +4656,17 @@ void Analysis::clearConditionLinksUsing(const ConditionPtr &cond)
 //
 // Directories
 //
+
+const DirectoryVector &Analysis::getDirectories() const
+{
+    return m_directories;
+}
+
+DirectoryVector &Analysis::getDirectories()
+{
+    return m_directories;
+}
+
 const DirectoryVector Analysis::getDirectories(const QUuid &eventId,
                                                const DisplayLocation &loc) const
 {
@@ -4731,6 +4777,11 @@ void Analysis::removeDirectory(int index)
     m_directories.removeAt(index);
     setModified();
     emit directoryRemoved(dir);
+}
+
+int Analysis::directoryCount() const
+{
+    return m_directories.size();
 }
 
 DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
@@ -5578,6 +5629,21 @@ void Analysis::write(QJsonObject &json) const
 //
 // Misc
 //
+ObjectFlags::Flags Analysis::getObjectFlags() const
+{
+    return m_flags;
+}
+
+void Analysis::setObjectFlags(ObjectFlags::Flags flags)
+{
+    m_flags = flags;
+}
+
+void Analysis::clearObjectFlags(ObjectFlags::Flags flagsToClear)
+{
+    m_flags &= (~flagsToClear);
+}
+
 s32 Analysis::getNumberOfSinks() const
 {
     return std::count_if(m_operators.begin(), m_operators.end(), [](const OperatorPtr &op) {
@@ -5646,6 +5712,10 @@ bool Analysis::isEmpty() const
             );
 }
 
+bool Analysis::isModified() const
+{
+    return m_modified;
+}
 
 void Analysis::setModified(bool b)
 {
@@ -5656,6 +5726,26 @@ void Analysis::setModified(bool b)
         m_modified = b;
         emit modifiedChanged(b);
     }
+}
+
+A2AdapterState *Analysis::getA2AdapterState()
+{
+    return m_a2State.get();
+}
+
+const A2AdapterState *Analysis::getA2AdapterState() const
+{
+    return m_a2State.get();
+}
+
+RunInfo Analysis::getRunInfo() const
+{
+    return m_runInfo;
+}
+
+void Analysis::setRunInfo(const RunInfo &ri)
+{
+    m_runInfo = ri;
 }
 
 void Analysis::setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings)
@@ -5680,6 +5770,11 @@ void Analysis::setVMEObjectSettings(const VMEObjectSettings &settings)
 Analysis::VMEObjectSettings Analysis::getVMEObjectSettings() const
 {
     return m_vmeObjectSettings;
+}
+
+ObjectFactory &Analysis::getObjectFactory()
+{
+    return m_objectFactory;
 }
 
 bool Analysis::anyObjectNeedsRebuild() const
@@ -5732,6 +5827,11 @@ QVector<bool> Analysis::getUserLevelsHidden() const
 {
     return from_qvariantlist<QVector<bool>>(
         property("HiddenUserLevels").value<QVariantList>());
+}
+
+vme_analysis_common::VMEIdToIndex Analysis::getVMEIdToIndexMapping() const
+{
+    return m_vmeMap;
 }
 
 static const double maxRawHistoBins = (1 << 16);

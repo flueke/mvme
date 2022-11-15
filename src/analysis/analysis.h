@@ -2114,13 +2114,13 @@ class LIBMVME_EXPORT Analysis:
 
     public:
         explicit Analysis(QObject *parent = nullptr);
-        virtual ~Analysis();
+        ~Analysis() override;
 
         //
         // Data Sources
         //
-        const SourceVector &getSources() const { return m_sources; }
-        SourceVector &getSources() { return m_sources; }
+        const SourceVector &getSources() const;
+        SourceVector &getSources();
         SourceVector getSources(const QUuid &eventId, const QUuid &moduleId) const;
         SourceVector getSourcesByModule(const QUuid &moduleId) const;
         SourceVector getSourcesByEvent(const QUuid &eventId) const;
@@ -2131,7 +2131,7 @@ class LIBMVME_EXPORT Analysis:
         void removeSource(SourceInterface *source);
         void setSourceEdited(const SourcePtr &source);
 
-        s32 getNumberOfSources() const { return m_sources.size(); }
+        s32 getNumberOfSources() const;
 
         // Special handling for listfilter extractors as they only make sense when grouped
         // up as each consumes a certain amount of input words and the next filter
@@ -2149,8 +2149,8 @@ class LIBMVME_EXPORT Analysis:
         //
         // Operators
         //
-        const OperatorVector &getOperators() const { return m_operators; }
-        OperatorVector &getOperators() { return m_operators; }
+        const OperatorVector &getOperators() const;
+        OperatorVector &getOperators();
         OperatorVector getOperators(const QUuid &eventId) const;
         OperatorVector getOperators(const QUuid &eventId, s32 userLevel) const;
         OperatorVector getOperators(s32 userLevel) const;
@@ -2163,7 +2163,7 @@ class LIBMVME_EXPORT Analysis:
         {
             QVector<T> result;
 
-            for (const auto &op: m_operators)
+            for (const auto &op: getOperators())
             {
                 if (qobject_cast<SinkInterface *>(op.get()))
                 {
@@ -2180,7 +2180,7 @@ class LIBMVME_EXPORT Analysis:
         void removeOperator(OperatorInterface *op);
         void setOperatorEdited(const OperatorPtr &op);
 
-        s32 getNumberOfOperators() const { return m_operators.size(); }
+        s32 getNumberOfOperators() const;
 
         //
         // Conditions
@@ -2221,8 +2221,8 @@ class LIBMVME_EXPORT Analysis:
         //
         // Directory Objects
         //
-        const DirectoryVector &getDirectories() const { return m_directories; }
-        DirectoryVector &getDirectories() { return m_directories; }
+        const DirectoryVector &getDirectories() const;
+        DirectoryVector &getDirectories();
 
         const DirectoryVector getDirectories(const QUuid &eventId,
                                              const DisplayLocation &loc = DisplayLocation::Any) const;
@@ -2245,7 +2245,7 @@ class LIBMVME_EXPORT Analysis:
         void removeDirectory(const DirectoryPtr &dir);
         void removeDirectory(int index);
 
-        int directoryCount() const { return m_directories.size(); }
+        int directoryCount() const;
 
         DirectoryPtr getParentDirectory(const AnalysisObjectPtr &obj) const;
         QVector<DirectoryPtr> getParentDirectories(const AnalysisObjectPtr &obj) const;
@@ -2266,6 +2266,7 @@ class LIBMVME_EXPORT Analysis:
         // Adds a generic object
         void addObject(const AnalysisObjectPtr &obj);
         AnalysisObjectPtr getObject(const QUuid &id) const;
+
         template<typename T> std::shared_ptr<T> getObject(const QUuid &id) const
         {
             return std::dynamic_pointer_cast<T>(getObject(id));
@@ -2340,12 +2341,9 @@ class LIBMVME_EXPORT Analysis:
         void write(QJsonObject &json) const;
 
         /* Object flags containing system internal information. */
-        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
-        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
-        void clearObjectFlags(ObjectFlags::Flags flagsToClear)
-        {
-            m_flags &= (~flagsToClear);
-        }
+        ObjectFlags::Flags getObjectFlags() const;
+        void setObjectFlags(ObjectFlags::Flags flags);
+        void clearObjectFlags(ObjectFlags::Flags flagsToClear);
 
         //
         // Misc
@@ -2358,14 +2356,14 @@ class LIBMVME_EXPORT Analysis:
         void clear();
         bool isEmpty() const;
 
-        bool isModified() const { return m_modified; }
+        bool isModified() const;
         void setModified(bool b = true);
 
-        A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
-        const A2AdapterState *getA2AdapterState() const { return m_a2State.get(); }
+        A2AdapterState *getA2AdapterState();
+        const A2AdapterState *getA2AdapterState() const;
 
-        RunInfo getRunInfo() const { return m_runInfo; }
-        void setRunInfo(const RunInfo &ri) { m_runInfo = ri; }
+        RunInfo getRunInfo() const;
+        void setRunInfo(const RunInfo &ri);
 
         /* Additional settings tied to VME objects but stored in the analysis
          * due to logical and convenience reasons.
@@ -2383,7 +2381,7 @@ class LIBMVME_EXPORT Analysis:
         void setVMEObjectSettings(const VMEObjectSettings &settings);
         VMEObjectSettings getVMEObjectSettings() const;
 
-        ObjectFactory &getObjectFactory() { return m_objectFactory; }
+        ObjectFactory &getObjectFactory();
 
         bool anyObjectNeedsRebuild() const;
 
@@ -2392,15 +2390,15 @@ class LIBMVME_EXPORT Analysis:
         void setUserLevelsHidden(const QVector<bool> &hidden);
         QVector<bool> getUserLevelsHidden() const;
 
-        vme_analysis_common::VMEIdToIndex getVMEIdToIndexMapping() const
-        {
-            return m_vmeMap;
-        }
+        vme_analysis_common::VMEIdToIndex getVMEIdToIndexMapping() const;
 
     private:
         void updateRank(OperatorPtr op,
                         QSet<OperatorPtr> &updated,
                         QSet<OperatorPtr> &visited);
+
+        struct Private;
+        std::unique_ptr<Private> d;
 
         SourceVector m_sources;
         OperatorVector m_operators;
