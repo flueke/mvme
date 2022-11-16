@@ -257,13 +257,13 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
     m_d->m_zoomer->setObjectName("zoomer");
 
-    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+    DO_AND_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
 
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo2DWidget::mouseCursorMovedToPlotCoord));
 
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo2DWidget::mouseCursorLeftPlot));
 
 
@@ -424,7 +424,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         m_d->m_cutPolyPicker->setStateMachine(new QwtPickerPolygonMachine);
         m_d->m_cutPolyPicker->setEnabled(false);
 
-        TRY_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
+        DO_AND_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
             m_d->onCutPolyPickerActivated(on);
         }));
 #endif

@@ -329,7 +329,7 @@ vme_daq_init(
     ret += vme_daq_run_event_daq_start_scripts(config, controller, logger, errorLogger, opts);
 
 #if __WIN32
-    TRY_ASSERT(timeBeginPeriod(Win32TimePeriod) == TIMERR_NOERROR);
+    DO_AND_ASSERT(timeBeginPeriod(Win32TimePeriod) == TIMERR_NOERROR);
 #endif
 
     return ret;
@@ -359,7 +359,7 @@ vme_daq_shutdown(
     )
 {
 #if __WIN32
-    TRY_ASSERT(timeEndPeriod(Win32TimePeriod) == TIMERR_NOERROR);
+    DO_AND_ASSERT(timeEndPeriod(Win32TimePeriod) == TIMERR_NOERROR);
 #endif
 
     logger(QSL("DAQ stopped on %1")

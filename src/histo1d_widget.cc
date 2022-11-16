@@ -365,14 +365,14 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_d->m_zoomer->setZoomBase();
 
-    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+    DO_AND_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo1DWidget::mouseCursorLeftPlot));
 
-    TRY_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
+    DO_AND_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
                        this, [this] (Qt::Axis) {
         // Handle axis changes by zooming out fully. This will make sure
         // possible axis scale changes are immediately visible and the zoomer
@@ -712,7 +712,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_rateEstimationPointPicker->setStateMachine(new AutoBeginClickPointMachine);
     m_d->m_rateEstimationPointPicker->setEnabled(false);
 
-    TRY_ASSERT(connect(m_d->m_rateEstimationPointPicker, SIGNAL(selected(const QPointF &)),
+    DO_AND_ASSERT(connect(m_d->m_rateEstimationPointPicker, SIGNAL(selected(const QPointF &)),
                        this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
 
     m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);

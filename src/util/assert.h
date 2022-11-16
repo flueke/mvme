@@ -24,9 +24,9 @@
 #include <cassert>
 
 #ifdef NDEBUG
-    #define TRY_ASSERT(x) (x)
+    #define DO_AND_ASSERT(x) (x)
 #else
-    #define TRY_ASSERT(x) assert(x)
+    #define DO_AND_ASSERT(x) assert(x)
 #endif
 
 #define UNUSED_IF_ASSERT_DISABLED(x) ((void)(x))
