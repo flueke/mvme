@@ -45,6 +45,7 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
 
     signals:
         void histogramSelected(int histoIndex);
+        void zoomerZoomed(const QRectF &zoomRect);
 
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
@@ -93,7 +94,7 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
          * connections did not work. */
         // TODO 10/2018: recheck this. It might have just been an issue with
         // missing casts of overloaded signals.
-        void zoomerZoomed(const QRectF &);
+        void onZoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();
 

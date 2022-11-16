@@ -19,8 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo1d_widget.h"
-#include "analysis/analysis_fwd.h"
-#include "analysis/condition_ui.h"
 #include "histo1d_widget_p.h"
 
 #include <qwt_interval.h>
@@ -65,16 +63,19 @@
 #include <QPrinter>
 #include <QPrintDialog>
 
-#include "analysis/analysis.h"
+#include "analysis/analysis_fwd.h"
 #include "analysis/analysis_graphs.h"
+#include "analysis/analysis.h"
+#include "analysis/condition_ui.h"
 #include "histo1d_util.h"
 #include "histo_gui_util.h"
+#include "histo_stats_widget.h"
+#include "histo_ui.h"
 #include "mvme_context_lib.h"
 #include "mvme_qwt.h"
 #include "scrollzoomer.h"
 #include "util.h"
 #include "util/qt_monospace_textedit.h"
-#include "histo_ui.h"
 
 #include "git_sha1.h"
 
@@ -366,9 +367,14 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_zoomer->setZoomBase();
 
     DO_AND_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
-                       this, SLOT(zoomerZoomed(const QRectF &))));
+                       this, SLOT(onZoomerZoomed(const QRectF &))));
+
+    DO_AND_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SIGNAL(zoomerZoomed(const QRectF &))));
+
     DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
+
     DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo1DWidget::mouseCursorLeftPlot));
 
@@ -511,7 +517,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     m_d->m_actionHistoListStats = tb->addAction(
         QIcon(QSL(":/document-text.png")),
-        QSL("Print Stats"));
+        QSL("Statistics"));
 
     connect(m_d->m_actionHistoListStats, &QAction::triggered,
             this, [this] () { m_d->onActionHistoListStats(); });
@@ -1073,7 +1079,7 @@ void Histo1DWidgetPrivate::displayChanged()
     m_q->replot();
 }
 
-void Histo1DWidget::zoomerZoomed(const QRectF &)
+void Histo1DWidget::onZoomerZoomed(const QRectF &)
 {
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
@@ -1724,85 +1730,122 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 
 void Histo1DWidgetPrivate::onActionHistoListStats()
 {
-    if (m_histos.isEmpty() || !getCurrentHisto())
-        return;
-
-    double lowerBound = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
-    double upperBound = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
-
-    QString title = m_sink ? m_sink->objectName() : getCurrentHisto()->objectName();
-
-    QString buffer;
-    QTextStream stream(&buffer);
-    mvme::HistolistStatsOptions statOpts = {};
-    statOpts.printGaussStats = m_actionGaussFit->isChecked();
-    mvme::print_histolist_stats(
-        stream, m_histos, lowerBound, upperBound, m_rrf, title, statOpts);
-
-    // actions
-    auto action_save = [buffer] ()
+    // old code
     {
-        // FIXME: default filename based on histo name
-        auto dest = QFileDialog::getSaveFileName(
-            nullptr, // widget
-            "Save Histo Stats", // caption
-            QString(), // dir
-            "*.txt" // filter
-            );
+        if (m_histos.isEmpty() || !getCurrentHisto())
+            return;
 
-        // TODO: error handling
-        if (!dest.isEmpty())
+        double lowerBound = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+        double upperBound = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+
+        QString title = m_sink ? m_sink->objectName() : getCurrentHisto()->objectName();
+
+        QString buffer;
+        QTextStream stream(&buffer);
+        mvme::HistolistStatsOptions statOpts = {};
+        statOpts.printGaussStats = m_actionGaussFit->isChecked();
+        mvme::print_histolist_stats(
+            stream, m_histos, lowerBound, upperBound, m_rrf, title, statOpts);
+
+        // actions
+        auto action_save = [buffer] ()
         {
-            QFile outFile(dest);
-            if (outFile.open(QIODevice::WriteOnly))
-            {
-                outFile.write(buffer.toUtf8());
-            }
-        }
-    };
-
-    auto action_print = [buffer] ()
-    {
-#if 1
-        QPrinter printer;
-        QPrintDialog printDialog(&printer);
-
-        if (printDialog.exec() == QDialog::Accepted)
-        {
-            // FIXME: set monospace font!
             // FIXME: default filename based on histo name
-            QTextDocument doc;
-            doc.setPlainText(buffer);
-            doc.print(&printer);
+            auto dest = QFileDialog::getSaveFileName(
+                nullptr, // widget
+                "Save Histo Stats", // caption
+                QString(), // dir
+                "*.txt" // filter
+                );
+
+            // TODO: error handling
+            if (!dest.isEmpty())
+            {
+                QFile outFile(dest);
+                if (outFile.open(QIODevice::WriteOnly))
+                {
+                    outFile.write(buffer.toUtf8());
+                }
+            }
+        };
+
+        auto action_print = [buffer] ()
+        {
+    #if 1
+            QPrinter printer;
+            QPrintDialog printDialog(&printer);
+
+            if (printDialog.exec() == QDialog::Accepted)
+            {
+                // FIXME: set monospace font!
+                // FIXME: default filename based on histo name
+                QTextDocument doc;
+                doc.setPlainText(buffer);
+                doc.print(&printer);
+            }
+    #endif
+        };
+
+        // toolbar
+        auto tb = new QToolBar;
+        tb->addAction(QIcon(":/document-save.png"), "Save", action_save);
+        tb->addAction(QIcon(":/printer.png"), "Print", action_print);
+
+        // textedit
+        auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
+        te->setPlainText(buffer);
+
+        // parent widget
+        auto pw = new QWidget;
+        auto l = make_vbox(pw);
+        l->addWidget(tb);
+        l->addWidget(te);
+        l->setStretch(1, 1);
+
+        pw->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
+        pw->setAttribute(Qt::WA_DeleteOnClose);
+        pw->resize(1100, 600);
+        pw->show();
+        pw->raise();
+
+        add_widget_close_action(pw);
+        auto geometrySaver = new WidgetGeometrySaver(pw);
+        geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
+    }
+
+    // new code
+    {
+        auto statsWidget = new HistoStatsWidget;
+        statsWidget->setAttribute(Qt::WA_DeleteOnClose);
+        statsWidget->show();
+        add_widget_close_action(statsWidget);
+        (new WidgetGeometrySaver(statsWidget))->addAndRestore(
+            statsWidget, QSL("WindowGeometries/HistoStatsWidget"));
+
+        auto update_scale_div = [this, statsWidget]
+        {
+            statsWidget->setXScaleDiv(m_plot->axisScaleDiv(QwtPlot::xBottom));
+        };
+
+        update_scale_div();
+
+        QObject::connect(m_plot->axisWidget(QwtPlot::xBottom), &QwtScaleWidget::scaleDivChanged,
+                         statsWidget, update_scale_div);
+
+        QString title;
+        if (m_sink)
+        {
+            statsWidget->addSink(m_sink);
+            title = QSL("Statistics for histogram array '%1'").arg(m_sink->objectName());
+
         }
-#endif
-    };
-
-    // toolbar
-    auto tb = new QToolBar;
-    tb->addAction(QIcon(":/document-save.png"), "Save", action_save);
-    tb->addAction(QIcon(":/printer.png"), "Print", action_print);
-
-    // textedit
-    auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
-    te->setPlainText(buffer);
-
-    // parent widget
-    auto pw = new QWidget;
-    auto l = make_vbox(pw);
-    l->addWidget(tb);
-    l->addWidget(te);
-    l->setStretch(1, 1);
-
-    pw->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
-    pw->setAttribute(Qt::WA_DeleteOnClose);
-    pw->resize(1100, 600);
-    pw->show();
-    pw->raise();
-
-    add_widget_close_action(pw);
-    auto geometrySaver = new WidgetGeometrySaver(pw);
-    geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
+        else if (auto histo = getCurrentHisto())
+        {
+            statsWidget->addHistogram(histo);
+            title = QSL("Statistics for histogram '%1'").arg(histo->getTitle());
+        }
+        statsWidget->setWindowTitle(title);
+    }
 }
 
 QwtPlot *Histo1DWidget::getPlot()

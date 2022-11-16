@@ -297,8 +297,8 @@ add_library(libmvme SHARED
     data_filter_edit.cc
     file_autosaver.cc
     globals.cc
-    graphviz_util.cc
     graphicsview_util.cc
+    graphviz_util.cc
     gui_util.cc
     histo1d.cc
     histo1d_util.cc
@@ -308,6 +308,7 @@ add_library(libmvme SHARED
     histo2d_widget.cc
     histo2d_widget_p.cc
     histo_gui_util.cc
+    histo_stats_widget.cc
     histo_ui.cc
     histo_util.cc
     listfile_browser.cc
