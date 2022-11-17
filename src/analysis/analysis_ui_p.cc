@@ -3177,7 +3177,7 @@ QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOpti
         spin->setDecimals(8);
         spin->setMinimum(-1e20);
         spin->setMaximum(+1e20);
-        spin->setSpecialValueText(QSL("no set"));
+        spin->setSpecialValueText(QSL("not set"));
         spin->setValue(spin->minimum());
     }
 
