@@ -78,8 +78,8 @@ HistoStatsWidget::HistoStatsWidget(QWidget *parent)
     l->addWidget(statusBar);
     l->setStretch(2, 1);
 
-    auto actionExport = toolBar->addAction("Export");
-    auto actionPrint = toolBar->addAction("Print");
+    auto actionExport = toolBar->addAction(QIcon(":/document-save.png"), "Export");
+    auto actionPrint = toolBar->addAction(QIcon(":/printer.png"), "Print");
     toolBar->addWidget(resolutionComboContainer.container.release());
 
     connect(d->combo_resolution_, qOverload<int>(&QComboBox::currentIndexChanged),

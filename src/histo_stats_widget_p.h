@@ -50,4 +50,10 @@ class TableDataItem: public QStandardItem
         TableDataProvider *provider_;
 };
 
+struct BinCountVisitor
+{
+    s32 operator()(const SinkEntry &e) const { return e.sink->getHistoBins(); }
+    s32 operator()(const HistoEntry &e) const { return static_cast<s32>(e.histo->getNumberOfBins()); }
+};
+
 #endif // __MVME2_SRC_HISTO_STATS_WIDGET_P_H_
