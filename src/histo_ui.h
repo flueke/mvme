@@ -256,16 +256,13 @@ class LIBMVME_EXPORT Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample
 
         QRectF boundingRect() const override
         {
-            // Qt and Qwt have different understanding of rectangles. For Qt
-            // it's top-down like screen coordinates, for Qwt it's bottom-up
-            // like the coordinates in a plot.
-            //auto result = QRectF(
-            //    m_histo->getXMin(),  m_histo->getMaxValue(), // top-left
-            //    m_histo->getWidth(), m_histo->getMaxValue());  // width, height
-            auto result = QRectF(
-                m_histo->getXMin(), 0.0,
-                m_histo->getWidth(), m_histo->getMaxValue(m_rrf));
+            auto xMin = m_histo->getXMin();
+            auto yMin = m_histo->getMinValue(m_rrf);
+            auto yMax = m_histo->getMaxValue(m_rrf);
+            auto width = m_histo->getWidth();
+            auto height = yMax - yMin;
 
+            QRectF result(xMin, yMin, width, height);
             return result;
         }
 
