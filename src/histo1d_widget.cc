@@ -272,6 +272,8 @@ struct Histo1DWidgetPrivate
 
     analysis::ui::IntervalConditionEditorController *m_intervalConditionEditorController = nullptr;
 
+    int histoStyle_ = QwtPlotHistogram::Outline;
+
     void setCalibUiVisible(bool b)
     {
         auto window = m_calibUi.window;
@@ -565,6 +567,20 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             {
                 analysis::graph::show_dependency_graph(getServiceProvider(), getSink());
             });
+
+#ifndef QT_NO_DEBUG
+    auto combo_histoStyle = new QComboBox;
+    combo_histoStyle->addItem("Outline", QwtPlotHistogram::Outline);
+    combo_histoStyle->addItem("Columns", QwtPlotHistogram::Columns);
+    combo_histoStyle->addItem("Lines", QwtPlotHistogram::Lines);
+    tb->addWidget(combo_histoStyle);
+    connect(combo_histoStyle, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this, combo_histoStyle]
+            {
+                 m_d->histoStyle_ = combo_histoStyle->currentData().toInt();
+                 replot();
+            });
+#endif
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -877,6 +893,8 @@ void Histo1DWidget::replot()
 {
     if (!m_d->getCurrentHisto())
         return;
+
+    m_d->m_plotHisto->setStyle(static_cast<QwtPlotHistogram::HistogramStyle>(m_d->histoStyle_));
 
     // ResolutionReduction
     const u32 rrf = m_d->m_rrf;
