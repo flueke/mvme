@@ -18,11 +18,19 @@
 #include "util/cpp17_util.h"
 
 HistoStatsTableModel::~HistoStatsTableModel()
-{
-}
+{ }
 
 struct HistoStatsWidget::Private
 {
+    static const int AdditionalTableRows = 3; // min, max mean for each of the columns
+
+    struct AggregateStats
+    {
+        double min;
+        double max;
+        double mean;
+    };
+
     HistoStatsWidget *q = {};
     std::vector<Entry> entries_;
     QwtScaleDiv xScaleDiv_;
@@ -38,6 +46,10 @@ struct HistoStatsWidget::Private
     void refresh(); // Recalculates the statistics and fills the table view with data.
     void handleTableContextMenu(const QPoint &pos);
     void showColumnHistogram(const int col);
+    // Number of rows containing histo statistics values. The additional rows
+    // contain aggregate values.
+    int statsRowCount() const { return itemModel_->rowCount() - AdditionalTableRows; }
+    AggregateStats calculateAggregateStats(int column) const;
 };
 
 HistoStatsWidget::HistoStatsWidget(QWidget *parent)
@@ -145,7 +157,9 @@ void HistoStatsWidget::Private::repopulate()
         [&rowCountVisitor](auto accu, const auto &entry)
         { return accu + std::visit(rowCountVisitor, entry); });
 
-    QStringList hLabels{ "Histo #", "EntryCount", "Mean", "RMS", "Gauss Mean", "FWHM"};
+    rowCount += Private::AdditionalTableRows;
+
+    QStringList hLabels{ "Histo", "EntryCount", "Mean", "RMS", "Gauss Mean", "FWHM"};
     auto model = std::make_unique<QStandardItemModel>(rowCount, hLabels.size());
     model->setHorizontalHeaderLabels(hLabels);
 
@@ -160,6 +174,11 @@ void HistoStatsWidget::Private::repopulate()
             model->setItem(row, column, item);
         }
     }
+
+    // Aggregate statistics in the additional bottom rows
+    model->item(model->rowCount() - 3, 0)->setData("min", Qt::DisplayRole);
+    model->item(model->rowCount() - 2, 0)->setData("max", Qt::DisplayRole);
+    model->item(model->rowCount() - 1, 0)->setData("mean", Qt::DisplayRole);
 
     auto sm = tableView_->selectionModel();
     tableView_->setModel(model.get());
@@ -204,6 +223,9 @@ namespace
 
 void HistoStatsWidget::Private::refresh()
 {
+    if (!itemModel_)
+        return;
+
     auto collectStatsVisitor = overloaded
     {
         [this] (const SinkEntry &e)
@@ -239,7 +261,10 @@ void HistoStatsWidget::Private::refresh()
             return accu;
         });
 
-    QStringList infoRows =
+    assert(static_cast<ssize_t>(allStats.size()) == statsRowCount());
+
+    // Update the info label (the groupbox above the table).
+    QStringList infoLines =
     {
         QSL("* Number of histograms: %1").arg(allStats.size()),
 
@@ -250,9 +275,10 @@ void HistoStatsWidget::Private::refresh()
         QSL("* X-Axis Interval: [%1, %2)").arg(xScaleDiv_.lowerBound()).arg(xScaleDiv_.upperBound()),
     };
 
-    label_info_->setText(infoRows.join("\n"));
+    label_info_->setText(infoLines.join("\n"));
 
     int row = 0;
+
     for (const auto &stats: allStats)
     {
         int col = 0;
@@ -270,6 +296,15 @@ void HistoStatsWidget::Private::refresh()
         else while (col < itemModel_->columnCount())
                 itemModel_->item(row, col++)->setData({}, Qt::DisplayRole);
         ++row;
+    }
+
+    // Aggregate statistics in the additional bottom rows
+    for (int col = 1; col < itemModel_->columnCount(); ++col)
+    {
+        auto aggs = calculateAggregateStats(col);
+        itemModel_->item(itemModel_->rowCount() - 3, col)->setData(aggs.min, Qt::DisplayRole);
+        itemModel_->item(itemModel_->rowCount() - 2, col)->setData(aggs.max, Qt::DisplayRole);
+        itemModel_->item(itemModel_->rowCount() - 1, col)->setData(aggs.mean, Qt::DisplayRole);
     }
 
     tableView_->resizeColumnsToContents();
@@ -304,7 +339,7 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
     if (col < 0 || col >= itemModel_->columnCount())
         return;
 
-    const auto rowCount = itemModel_->rowCount();
+    const auto rowCount = statsRowCount();
     auto histo = std::make_shared<Histo1D>(rowCount, 0, rowCount-1);
 
     for (auto row=0; row<rowCount; ++row)
@@ -316,4 +351,25 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
     auto widget = new Histo1DWidget(histo);
     widget->setAttribute(Qt::WA_DeleteOnClose);
     widget->show();
+}
+
+HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAggregateStats(int col) const
+{
+    AggregateStats result{};
+
+    result.min = std::numeric_limits<double>::max();
+    result.max = std::numeric_limits<double>::lowest();
+
+    for (int row = 0; row < statsRowCount(); ++row)
+    {
+        auto value = itemModel_->item(row, col)->data(Qt::DisplayRole).toDouble();
+        result.min = std::min(result.min, value);
+        result.max = std::max(result.max, value);
+        result.mean += value;
+    }
+
+    if (statsRowCount())
+        result.mean /= statsRowCount();
+
+    return result;
 }
