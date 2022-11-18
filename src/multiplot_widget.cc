@@ -3,6 +3,8 @@
 
 #include <atomic>
 #include <list>
+#include <set>
+
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
