@@ -1865,6 +1865,9 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
             title = QSL("Statistics for histogram '%1'").arg(histo->getTitle());
         }
         statsWidget->setWindowTitle(title);
+        // Set the initial resolution for stats calculation based on the visible
+        // resolution set here. Unlike zooming this is not currently synced.
+        statsWidget->setEffectiveResolution(1u << m_rrSlider->value());
     }
 }
 
