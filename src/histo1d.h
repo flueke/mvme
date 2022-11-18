@@ -243,6 +243,10 @@ class LIBMVME_EXPORT Histo1D: public QObject
 
         void debugDump(bool dumpEmptyBins = true) const;
 
+        // The entry count is incremented by one each time fill() or
+        // setBinContent() is called.
+        size_t getEntryCount() const { return m_entryCount; };
+
         double getUnderflow() const { return m_underflow; }
         void setUnderflow(double value) { m_underflow = value; }
 
@@ -251,6 +255,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
 
         double *getUnderflowPtr() { return &m_underflow; }
         double *getOverflowPtr() { return &m_overflow; }
+        size_t *getEntryCountPtr() { return &m_entryCount; }
 
         Histo1DStatistics calcStatistics(u32 rrf = NoRR) const
         {
@@ -290,7 +295,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         double m_underflow = 0.0;
         double m_overflow = 0.0;
 
-        double m_count = 0.0;
+        size_t m_entryCount = 0;
         double m_maxValue = 0.0;
         u32 m_maxBin = 0;
 
@@ -305,4 +310,3 @@ Histo1D *readHisto1D(QTextStream &in);
 
 
 #endif /* __HISTO1D_H__ */
-

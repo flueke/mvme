@@ -4682,7 +4682,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     entryCounts.reserve(sinkData->histos.size);
                     std::transform(std::begin(sinkData->histos), std::end(sinkData->histos),
                                    std::back_inserter(entryCounts),
-                                   [] (const auto &histo) { return histo.entryCount; });
+                                   [] (const auto &histo) { return *histo.entryCount; });
                 }
 
                 auto &prevEntryCounts = m_histo1DSinkCounters[histoSink].hitCounts;
