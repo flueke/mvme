@@ -25,38 +25,60 @@
 #include <QFrame>
 #include "qwt_plot_curve.h"
 
-static const u32 nBins = 16;
-static const double xMin = 0.0;
-static const double xMax = 16.0;
+[[nodiscard]] std::unique_ptr<Histo1DWidget> make_histo_widget(const std::shared_ptr<Histo1D> &histo)
+{
+    auto histoWidget = std::make_unique<Histo1DWidget>(histo);
+    add_widget_close_action(histoWidget.get());
+    histoWidget->setWindowIcon(QIcon(":/window_icon.png"));
+    histoWidget->show();
+    histoWidget->raise();
+    return histoWidget;
+}
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+    auto make_test_histo0 = []
+    {
+        static const u32 nBins = 16;
+        static const double xMin = 0.0;
+        static const double xMax = 16.0;
 
-    histo->fill(0.0, 1.0);
-    histo->fill(1.0, 2.0);
-    histo->fill(2.0, 3.0);
-    histo->fill(3.0, 2.0);
+        auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+        histo->setObjectName("Test Histo 0");
 
-    histo->fill(0.0, 1.0);
-    histo->fill(1.0, 2.0);
-    histo->fill(2.0, 3.0);
-    histo->fill(3.0, 2.0);
+        for (int i = 0; i < 4; ++i)
+        {
+            histo->fill(i, 1.0);
+            histo->fill(i, 2.0);
+            histo->fill(i, 3.0);
+            histo->fill(i, 2.0);
+        }
+        return histo;
+    };
 
-    histo->fill(0.0, 1.0);
-    histo->fill(1.0, 2.0);
-    histo->fill(2.0, 3.0);
-    histo->fill(3.0, 2.0);
+    auto make_test_histo1 = []
+    {
+        static const u32 nBins = 1024;
+        static const double xMin = -10;
+        static const double xMax = +10;
 
-    histo->fill(0.0, 1.0);
-    histo->fill(1.0, 2.0);
-    histo->fill(2.0, 3.0);
-    histo->fill(3.0, 2.0);
+        auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+        histo->setObjectName("Test Histo 1");
 
-    Histo1DWidget histoWidget(histo);
-    histoWidget.show();
+        for (u32 i=0; i<nBins; ++i)
+        {
+            auto x = histo->getBinCenter(i);
+            histo->fill(x, std::sin(x));
+        }
+
+        return histo;
+    };
+
+    //auto w0 = make_histo_widget(make_test_histo0());
+    auto w1 = make_histo_widget(make_test_histo1());
+
 
 #if 0
     QFrame settingsWidget;
