@@ -63,6 +63,7 @@ void save(QDataStream &out, const Histo1DSink *obj)
         if (const auto &histo = obj->getHisto(hi).get())
         {
             out << static_cast<u32>(histo->getNumberOfBins());
+            out << static_cast<u32>(histo->getEntryCount());
             out.writeRawData(reinterpret_cast<const char *>(histo->data()),
                              histo->getNumberOfBins() * sizeof(double));
         }
@@ -96,7 +97,9 @@ void load(QDataStream &in, Histo1DSink *obj)
         }
 
         u32 binCount = 0;
+        u32 entryCount = 0;
         in >> binCount;
+        in >> entryCount;
 
         if (binCount != histo->getNumberOfBins())
         {
@@ -105,6 +108,7 @@ void load(QDataStream &in, Histo1DSink *obj)
 
         in.readRawData(reinterpret_cast<char *>(histo->data()),
                        binCount * sizeof(double));
+        histo->setEntryCount(entryCount);
     }
 }
 

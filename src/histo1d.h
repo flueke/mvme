@@ -246,6 +246,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         // The entry count is incremented by one each time fill() or
         // setBinContent() is called.
         size_t getEntryCount() const { return m_entryCount; };
+        void setEntryCount(size_t entryCount) { m_entryCount = entryCount; }
 
         double getUnderflow() const { return m_underflow; }
         void setUnderflow(double value) { m_underflow = value; }
