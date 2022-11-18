@@ -588,6 +588,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     //
     m_d->m_globalStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
     m_d->m_globalStatsTextItem = new mvme_qwt::TextLabelItem();
+    m_d->m_globalStatsTextItem->setZ(PlotTextLayerZ);
     /* Margin added to contentsMargins() of the canvas. This is (mis)used to
      * not clip the top scrollbar. */
     //m_d->m_globalStatsTextItem->setMargin(25);
@@ -599,6 +600,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     m_d->m_gaussStatsTextItem = new mvme_qwt::TextLabelItem();
     m_d->m_gaussStatsTextItem->setVisible(false);
+    m_d->m_gaussStatsTextItem->setZ(PlotTextLayerZ);
 
     m_d->m_textLabelLayout.addTextLabel(m_d->m_globalStatsTextItem);
     m_d->m_textLabelLayout.addTextLabel(m_d->m_gaussStatsTextItem);
