@@ -2456,8 +2456,16 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
             if (fi.exists())
             {
-                //logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
-                load_analysis_session(fi.filePath(), getAnalysis());
+                try
+                {
+                    load_analysis_session(fi.filePath(), getAnalysis());
+                    logMessage(QSL("Loaded analysis session auto save from %1").arg(fi.filePath()));
+                }
+                catch (const std::runtime_error &e)
+                {
+                    logMessage(QSL("Failed loading analysis session auto save from '%1': %2")
+                        .arg(fi.filePath()).arg(e.what()));
+                }
             }
         }
 
