@@ -563,9 +563,10 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");
     connect(actionShowDependencyGraph, &QAction::triggered,
-            this, [this] ()
+            this, [this]
             {
-                analysis::graph::show_dependency_graph(getServiceProvider(), getSink());
+                if (auto asp = getServiceProvider())
+                    analysis::graph::show_dependency_graph(asp, getSink());
             });
 
 #ifndef QT_NO_DEBUG
