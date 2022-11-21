@@ -50,6 +50,7 @@ struct HistoStatsWidget::Private
     // contain aggregate values.
     int statsRowCount() const { return itemModel_->rowCount() - AdditionalTableRows; }
     AggregateStats calculateAggregateStats(int column) const;
+    QString columnTitle(int col) const;
 };
 
 HistoStatsWidget::HistoStatsWidget(QWidget *parent)
@@ -318,13 +319,9 @@ void HistoStatsWidget::Private::handleTableContextMenu(const QPoint &pos)
     if (!sm->currentIndex().isValid())
         return;
 
-    auto col = sm->currentIndex().column();
-    QString colTitle;
 
-    if (auto headerItem = itemModel_->horizontalHeaderItem(col))
-        colTitle = headerItem->text();
-    else
-        return;
+    auto col = sm->currentIndex().column();
+    auto colTitle = columnTitle(col);
 
     QMenu menu;
 
@@ -342,6 +339,7 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
     const auto rowCount = statsRowCount();
     auto histo = std::make_shared<Histo1D>(rowCount, 0, rowCount);
     histo->setAxisInfo(Qt::XAxis, { "Histo #", "" });
+    histo->setTitle(columnTitle(col));
 
     for (auto row=0; row<rowCount; ++row)
     {
@@ -351,6 +349,7 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
 
     auto widget = new Histo1DWidget(histo);
     widget->setAttribute(Qt::WA_DeleteOnClose);
+    widget->setWindowTitle(QSL("'%1' histogram").arg(columnTitle(col)));
     add_widget_close_action(widget);
     widget->show();
 }
@@ -374,4 +373,11 @@ HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAg
         result.mean /= statsRowCount();
 
     return result;
+}
+
+QString HistoStatsWidget::Private::columnTitle(int col) const
+{
+    if (auto headerItem = itemModel_->horizontalHeaderItem(col))
+        return headerItem->text();
+    return {};
 }
