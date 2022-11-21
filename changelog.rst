@@ -18,8 +18,8 @@ Version 1.6.0-rc1
     histogram widget.
 
 
-Version 1.5.0-rc2
------------------
+Version 1.5.0
+-------------
 
 * [analysis]
 
