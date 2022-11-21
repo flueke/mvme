@@ -4,6 +4,20 @@
 Changelog
 ##################################################
 
+Version 1.6.0-rc1
+-----------------
+* TODO: listfile writer buffer queue level display in DAQ mode
+
+* [analysis]
+
+  - Add plot grid views: configurable window for showing multiple plots in a
+    grid layout.
+
+  - Reworked the 1d histogram statistics window: it now uses a table to display
+    the data and the statistics are synchronized to the zoomed area of the
+    histogram widget.
+
+
 Version 1.5.0-rc2
 -----------------
 
@@ -21,6 +35,8 @@ Version 1.5.0-rc2
     *privileged* value, while uppercase specifiers where converted to the *user*
     value. Now by default the user amods are used but numeric amod arguments can
     be given to single and block read commands for full control over the amod.
+
+  - Add the raw VME amod value to the log output of vme script commands.
 
   - Add new commands for the fast 2eSST VME transfer modes:
     :ref:`2esst <vme-command-2esst>` and the word swapped version
