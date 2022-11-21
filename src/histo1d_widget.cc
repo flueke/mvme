@@ -853,39 +853,38 @@ void Histo1DWidget::setHistogram(const Histo1DPtr &histo)
 
 void Histo1DWidgetPrivate::updateAxisScales()
 {
-    // Scale the y axis using the currently visible max value plus 20%
+    double minValue = m_stats.minValue;
     double maxValue = m_stats.maxValue;
-
-    // force a minimum of 10 units in y
-    if (maxValue <= 1.0)
-        maxValue = 10.0;
-
-    double base;
 
     if (yAxisIsLog())
     {
-        base = 1.0;
-        maxValue = std::pow(maxValue, 1.2);
-    }
-    else
-    {
-        base = 0.0;
-        maxValue = maxValue * 1.2;
+        // Force log scale to go from [1.0, something >= 1.0).
+        minValue = 1.0;
+        maxValue = std::max(minValue, maxValue);
     }
 
-    // This sets a fixed y axis scale effectively overriding any changes made
-    // by the scrollzoomer.
-    m_plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
+    // Scale the y-axis by 5% to have some margin to the top and bottom of the
+    // widget. Mostly to make the top scrollbar not overlap the plotted graph.
+    minValue *= (minValue < 0.0) ? 1.05 : 0.95;
+    maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
+
+    //qDebug() << "y scale min" << minValue << "max" << maxValue;
+
+    // This sets a fixed y-axis scale effectively overriding any changes made by
+    // the scrollzoomer.
+    m_plot->setAxisScale(QwtPlot::yLeft, minValue, maxValue);
 
     // xAxis
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        m_plot->setAxisScale(QwtPlot::xBottom, getCurrentHisto()->getXMin(),
+        m_plot->setAxisScale(QwtPlot::xBottom,
+                             getCurrentHisto()->getXMin(),
                              getCurrentHisto()->getXMax());
         m_zoomer->setZoomBase();
     }
 
+    m_plotHisto->setBaseline(minValue);
     m_plot->updateAxes();
 }
 
@@ -1750,6 +1749,7 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 
 void Histo1DWidgetPrivate::onActionHistoListStats()
 {
+    #if 1
     // old code
     {
         if (m_histos.isEmpty() || !getCurrentHisto())
@@ -1832,6 +1832,7 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
         auto geometrySaver = new WidgetGeometrySaver(pw);
         geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
     }
+    #endif
 
     // new code
     {
