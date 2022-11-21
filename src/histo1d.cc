@@ -215,10 +215,12 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         << ", rrf =" << rrf;
 #endif
 
-    Histo1DStatistics result;
+    Histo1DStatistics result = {};
 
     result.rrf = rrf;
     result.entryCount = getEntryCount();
+    result.minValue = std::numeric_limits<double>::max();
+    result.maxValue = std::numeric_limits<double>::lowest();
 
     if (startBin > onePastEndBin)
         std::swap(startBin, onePastEndBin);
@@ -232,6 +234,18 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         getBinLowEdge(onePastEndBin, rrf)
     };
 
+    if (startBin >= onePastEndBin)
+    {
+        // No bins to calculate actual min/max values
+        result.minValue = 0.0;
+        result.maxValue = 0.0;
+    }
+    else
+    {
+        result.minValue = std::numeric_limits<double>::max();
+        result.maxValue = std::numeric_limits<double>::lowest();
+    }
+
     for (u32 bin = startBin; bin < onePastEndBin; ++bin)
     {
         double v = getBinContent(bin, rrf);
@@ -241,6 +255,12 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         {
             result.maxValue = v;
             result.maxBin = bin;
+        }
+
+        if (v < result.minValue)
+        {
+            result.minValue = v;
+            result.minBin = bin;
         }
     }
 
@@ -326,9 +346,9 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         double rightLowEdge = binning.getBinLowEdgeFractional(rightBinFraction, rrf);
         double leftLowEdge = binning.getBinLowEdgeFractional(leftBinFraction, rrf);
         result.fwhm = std::abs(rightLowEdge - leftLowEdge);
-        double binWidth_2 = binning.getBinWidth(rrf) * 0.5;
+        double halfbinWidth = binning.getBinWidth(rrf) * 0.5;
         // moves the fwhm center by half a bin width to the right
-        result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + binWidth_2;
+        result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + halfbinWidth;
     }
 
     return result;

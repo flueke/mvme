@@ -31,7 +31,9 @@
 
 struct Histo1DStatistics
 {
+    u32 minBin = 0;
     u32 maxBin = 0;
+    double minValue = 0.0;
     double maxValue = 0.0;
     double mean = 0.0;
     double sigma = 0.0;
