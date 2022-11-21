@@ -2,13 +2,19 @@
 #include "histo_stats_widget_p.h"
 
 #include <QComboBox>
-#include <QGroupBox>
-#include <QHeaderView>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
+#include <QGroupBox>
+#include <QHeaderView>
 #include <QMenu>
+#include <QMessageBox>
+#include <QPlainTextEdit>
+#include <QPrintDialog>
+#include <QPrinter>
 #include <QStatusBar>
 #include <QTableView>
+#include <QTextDocument>
 #include <QTimer>
 #include <QToolBar>
 #include <vector>
@@ -16,6 +22,7 @@
 #include "histo1d_widget.h"
 #include "qt_util.h"
 #include "util/cpp17_util.h"
+#include "util/qt_monospace_textedit.h"
 
 HistoStatsTableModel::~HistoStatsTableModel()
 { }
@@ -51,6 +58,9 @@ struct HistoStatsWidget::Private
     int statsRowCount() const { return itemModel_->rowCount() - AdditionalTableRows; }
     AggregateStats calculateAggregateStats(int column) const;
     QString columnTitle(int col) const;
+    QTextStream &makeStatsText(QTextStream &out) const;
+    void handleActionExport();
+    void handleActionPrint();
 };
 
 HistoStatsWidget::HistoStatsWidget(QWidget *parent)
@@ -104,6 +114,12 @@ HistoStatsWidget::HistoStatsWidget(QWidget *parent)
 
     connect(d->tableView_, &QWidget::customContextMenuRequested,
             this, [this] (const QPoint &pos) { d->handleTableContextMenu(pos); });
+
+    connect(actionExport, &QAction::triggered,
+            this, [this] { d->handleActionExport(); });
+
+    connect(actionPrint, &QAction::triggered,
+            this, [this] { d->handleActionPrint(); });
 
     auto refreshTimer = new QTimer(this);
     refreshTimer->setInterval(1000);
@@ -267,13 +283,13 @@ void HistoStatsWidget::Private::refresh()
     // Update the info label (the groupbox above the table).
     QStringList infoLines =
     {
-        QSL("* Number of histograms: %1").arg(allStats.size()),
+        QSL("Number of histograms: %1").arg(allStats.size()),
 
-        QSL("* Effective Resolution: %1 (%2 bit)")
+        QSL("Effective Resolution: %1 (%2 bit)")
             .arg(combo_resolution_->currentData().toInt())
             .arg(std::ceil(std::log2(combo_resolution_->currentData().toInt()))),
 
-        QSL("* X-Axis Interval: [%1, %2)").arg(xScaleDiv_.lowerBound()).arg(xScaleDiv_.upperBound()),
+        QSL("X-Axis Interval: [%1, %2)").arg(xScaleDiv_.lowerBound()).arg(xScaleDiv_.upperBound()),
     };
 
     label_info_->setText(infoLines.join("\n"));
@@ -285,10 +301,10 @@ void HistoStatsWidget::Private::refresh()
         int col = 0;
 
         itemModel_->item(row, col++)->setData(row, Qt::DisplayRole);
-        itemModel_->item(row, col++)->setData(stats.entryCount, Qt::DisplayRole);
 
         if (stats.entryCount)
         {
+            itemModel_->item(row, col++)->setData(stats.entryCount, Qt::DisplayRole);
             itemModel_->item(row, col++)->setData(stats.mean, Qt::DisplayRole);
             itemModel_->item(row, col++)->setData(stats.sigma, Qt::DisplayRole);
             itemModel_->item(row, col++)->setData(stats.fwhmCenter, Qt::DisplayRole);
@@ -360,17 +376,23 @@ HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAg
 
     result.min = std::numeric_limits<double>::max();
     result.max = std::numeric_limits<double>::lowest();
+    size_t validRows = 0;
 
     for (int row = 0; row < statsRowCount(); ++row)
     {
-        auto value = itemModel_->item(row, col)->data(Qt::DisplayRole).toDouble();
-        result.min = std::min(result.min, value);
-        result.max = std::max(result.max, value);
-        result.mean += value;
+        if (auto data = itemModel_->item(row, col)->data(Qt::DisplayRole);
+            !data.isNull())
+        {
+            auto value = itemModel_->item(row, col)->data(Qt::DisplayRole).toDouble();
+            result.min = std::min(result.min, value);
+            result.max = std::max(result.max, value);
+            result.mean += value;
+            ++validRows;
+        }
     }
 
-    if (statsRowCount())
-        result.mean /= statsRowCount();
+    if (validRows)
+        result.mean /= validRows;
 
     return result;
 }
@@ -380,4 +402,98 @@ QString HistoStatsWidget::Private::columnTitle(int col) const
     if (auto headerItem = itemModel_->horizontalHeaderItem(col))
         return headerItem->text();
     return {};
+}
+
+namespace
+{
+
+// Note: assumes a table model structure. Does not work with tree hierarchies.
+// Also type conversion is only specialized for doubles, all other cell data is
+// converted to string.
+QTextStream &table_model_to_text(QTextStream &out, const QStandardItemModel &model, const int fieldWidth = 14)
+{
+    const int colCount = model.columnCount();
+    const int rowCount = model.rowCount();
+
+    out.reset();
+    out.setFieldAlignment(QTextStream::AlignLeft);
+
+    out << qSetFieldWidth(fieldWidth);
+
+    for (int col=0; col<colCount; ++col)
+        out << model.horizontalHeaderItem(col)->text();
+
+    out << qSetFieldWidth(0) << Qt::endl << qSetFieldWidth(fieldWidth);
+
+    for (int row=0; row<rowCount; ++row)
+    {
+        for (int col=0; col<colCount; ++col)
+        {
+            auto data = model.item(row, col)->data(Qt::DisplayRole);
+            if (auto d = data; d.convert(QMetaType::Double))
+                out << d.toDouble();
+            else
+                out << data.toString();
+        }
+        out << qSetFieldWidth(0) << Qt::endl << qSetFieldWidth(fieldWidth);
+    }
+
+    return out;
+}
+}
+
+QTextStream &HistoStatsWidget::Private::makeStatsText(QTextStream &out) const
+{
+    // Header with info label contents
+    out << "# " << q->windowTitle() << Qt::endl;
+    for (auto str: label_info_->text().split("\n"))
+        out << "# " << str << Qt::endl;
+    out << Qt::endl;
+
+    // Table contents
+    return table_model_to_text(out, *itemModel_);
+}
+
+void HistoStatsWidget::Private::handleActionExport()
+{
+    auto startdir = QSettings().value("LastHistoStatsSaveDirectory").toString();
+    auto filename = QFileDialog::getSaveFileName(q, "Save histo stats to file", startdir, "*.txt");
+
+    if (filename.isEmpty())
+        return;
+
+    QFile outfile(filename);
+
+    if (!outfile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(
+            q, QSL("File save error"),
+            QSL("Error opening %1 for writing: %2")
+                .arg(filename)
+                .arg(outfile.errorString()));
+        return;
+    }
+
+    QString buffer;
+    QTextStream out(&buffer);
+    makeStatsText(out);
+    outfile.write(buffer.toUtf8());
+    QSettings().setValue("LastHistoStatsSaveDirectory", QFileInfo(filename).absolutePath());
+}
+
+void HistoStatsWidget::Private::handleActionPrint()
+{
+    QPrinter printer;
+    QPrintDialog printDialog(&printer);
+
+    if (printDialog.exec() == QDialog::Accepted)
+    {
+        QString buffer;
+        QTextStream out(&buffer);
+        makeStatsText(out);
+        QTextDocument doc;
+        doc.setDefaultFont(make_monospace_font());
+        doc.setPlainText(buffer);
+        doc.print(&printer);
+    }
 }
