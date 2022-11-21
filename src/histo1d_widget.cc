@@ -1052,15 +1052,11 @@ void Histo1DWidget::replot()
         //qDebug() << __PRETTY_FUNCTION__ << "rate estimation formula marker x,y =" << x1 << plotY;
     }
 
-    // window and axis titles
+    // window and axis titles. If no sink is set the window title is left
+    // untouched, so can be set externally, e.g. when creating the widget.
+    if (auto sink = getSink())
     {
-        QStringList pathParts;
-
-        if (auto sink = getSink())
-        {
-            pathParts = analysis::make_parent_path_list(sink);
-        }
-
+        auto pathParts = analysis::make_parent_path_list(sink);
         pathParts.push_back(m_d->getCurrentHisto()->objectName());
         setWindowTitle(pathParts.join('/'));
     }
