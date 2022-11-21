@@ -341,6 +341,7 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
 
     const auto rowCount = statsRowCount();
     auto histo = std::make_shared<Histo1D>(rowCount, 0, rowCount-1);
+    histo->setAxisInfo(Qt::XAxis, { "Histo #", "" });
 
     for (auto row=0; row<rowCount; ++row)
     {
@@ -350,6 +351,7 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
 
     auto widget = new Histo1DWidget(histo);
     widget->setAttribute(Qt::WA_DeleteOnClose);
+    add_widget_close_action(widget);
     widget->show();
 }
 
