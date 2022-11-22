@@ -659,6 +659,13 @@ void MVLC_StreamWorker::start()
                 break;
             else if (buffer)
             {
+                // Do this at some point in the future and pass the shared ptr
+                // to threads and be happy until one thread outlives this stream
+                // worker instance! :)
+                //auto bufferPtr = std::shared_ptr<mesytec::mvlc::ReadoutBuffer>(
+                //    buffer, [this](mesytec::mvlc::ReadoutBuffer *b)
+                //    { m_snoopQueues.emptyBufferQueue().enqueue(b); });
+
                 try
                 {
                     processBuffer(buffer, vmeConfig, analysis);
@@ -884,6 +891,8 @@ void MVLC_StreamWorker::processBuffer(
     auto bufferView = buffer->viewU32();
     const bool useLogThrottle = true;
 
+    if (
+
     try
     {
         ParseResult pr = readout_parser::parse_readout_buffer(
@@ -904,6 +913,8 @@ void MVLC_StreamWorker::processBuffer(
         else
             qDebug() << __PRETTY_FUNCTION__ << (int)pr << get_parse_result_name(pr);
     }
+    // TODO: check which of these can actually escape parse_readout_buffer().
+    // Seems like code duplication between here and the parser.
     catch (const end_of_buffer &e)
     {
         logWarn(QSL("end_of_buffer (%1) when parsing buffer #%2")
