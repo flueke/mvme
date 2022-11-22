@@ -463,6 +463,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->mvlcETHWidget = new QWidget;
     m_d->mvlcStackErrorsWidget = new QWidget;
     m_d->listfileQueueFillLevel = new QProgressBar;
+    m_d->listfileQueueFillLevel->setAlignment(Qt::AlignCenter);
     m_d->listfileQueueFillLevel->setFormat("Listfile queue fill level: %p% (%v of %m buffers in use)");
     m_d->listfileQueueFillLevel->setRange(0, 10);
     m_d->listfileQueueFillLevel->setValue(0);
