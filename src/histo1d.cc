@@ -154,14 +154,14 @@ void Histo1D::clear()
     }
 }
 
-bool Histo1D::setBinContent(u32 bin, double value)
+bool Histo1D::setBinContent(u32 bin, double value, size_t entryCount)
 {
     bool result = false;
 
     if (bin < getNumberOfBins())
     {
         m_data[bin] = value;
-        ++m_entryCount;
+        m_entryCount += entryCount;
         result = true;
     }
 
@@ -355,14 +355,14 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
 }
 
 /* The Histo1D text format is
- * 1st line: bins xMin xMax underflow overflow
+ * 1st line: bins xMin xMax underflow overflow entryCount
  * subsequent lines: one double per line representing the bin content starting at bin=0
  */
 
 QTextStream &writeHisto1D(QTextStream &out, Histo1D *histo)
 {
     out << histo->getNumberOfBins() << " " << histo->getXMin() << " " << histo->getXMax()
-        << " " << histo->getUnderflow() << " " << histo->getOverflow() << endl;
+        << " " << histo->getUnderflow() << " " << histo->getOverflow() << histo->getEntryCount() << endl;
 
     for (u32 bin = 0; bin < histo->getNumberOfBins(); ++bin)
     {
@@ -376,8 +376,9 @@ Histo1D *readHisto1D(QTextStream &in)
 {
     double xMin, xMax, underflow, overflow;
     u32 nBins;
+    size_t entryCount;
 
-    in >> nBins >> xMin >> xMax >> underflow >> overflow;
+    in >> nBins >> xMin >> xMax >> underflow >> overflow >> entryCount;
 
     if (in.status() != QTextStream::Ok)
         return nullptr;
@@ -394,8 +395,10 @@ Histo1D *readHisto1D(QTextStream &in)
         if (in.status() != QTextStream::Ok)
             break;
 
-        result->setBinContent(bin, value);
+        result->setBinContent(bin, value, 1);
     }
+
+    result->setEntryCount(entryCount);
 
     return result;
 }
