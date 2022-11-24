@@ -207,7 +207,7 @@ void VMEDebugWidget::on_readRead1_clicked()
     {
         Command cmd;
         cmd.type = ui->readModeBLT->isChecked() ? CommandType::BLT : CommandType::MBLT;
-        cmd.addressMode = vme_address_modes::A32;
+        cmd.addressMode = (cmd.type == CommandType::BLT) ? vme_address_modes::BLT32 : vme_address_modes::MBLT64;
         cmd.address = address;
         cmd.transfers = static_cast<u32>(ui->blockReadCount->value());
 
@@ -221,14 +221,16 @@ void VMEDebugWidget::on_readRead1_clicked()
 
             if (result.error.isError())
             {
-                m_context->logMessage(QString("VME Debug: block read 0x%1, vmeError=%2")
+                m_context->logMessage(QString("VME Debug: block read (amod=0x%1) 0x%2, vmeError=%3")
+                                      .arg(static_cast<int>(cmd.addressMode), 2, 16, QLatin1Char('0'))
                                       .arg(address, 8, 16, QChar('0'))
                                       .arg(result.error.toString())
                                      );
             }
             else
             {
-                m_context->logMessage(QString("VME Debug: block read 0x%1, read %2 32-bit words")
+                m_context->logMessage(QString("VME Debug: block read (amod=0x%1) 0x%2, read %3 32-bit words")
+                                      .arg(static_cast<int>(cmd.addressMode), 2, 16, QLatin1Char('0'))
                                       .arg(address, 8, 16, QChar('0'))
                                       .arg(result.valueVector.size()));
             }
