@@ -80,7 +80,7 @@ std::error_code read_dso(mvlc::MVLC &mvlc, std::vector<u32> &dest)
 CombinedTriggers
 get_combined_triggers(const DSOSetup &setup)
 {
-    std::bitset<CombinedTriggerCount> result;
+    CombinedTriggers result;
 
     assert(result.size() == setup.nimTriggers.size() + setup.irqTriggers.size() + setup.utilTriggers.size());
 
