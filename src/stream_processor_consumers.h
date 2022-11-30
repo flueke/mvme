@@ -57,7 +57,6 @@ class LIBMVME_EXPORT IStreamBufferConsumer: public StreamConsumerBase
         virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) = 0;
 
         virtual void processBuffer(s32 bufferType, u32 bufferNumber, const u32 *buffer, size_t bufferSize) = 0;
-        virtual void processTimetick() = 0;
 };
 
 #endif /* __MVME_STREAM_PROCESSOR_MODULE_CONSUMER_H__ */

@@ -298,9 +298,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                 Q_ASSERT(m_d->runInfo.isReplay);
 
                 for (auto &c: m_d->moduleConsumers)
-                {
                     c->processTimetick();
-                }
             }
 
             if (likely(sectionType == ListfileSections::SectionType_Event))
@@ -351,9 +349,6 @@ void MVMEStreamProcessor::processExternalTimetick()
     m_d->analysis->processTimetick();
 
     for (auto &c: m_d->moduleConsumers)
-        c->processTimetick();
-
-    for (auto &c: m_d->bufferConsumers)
         c->processTimetick();
 }
 
@@ -877,7 +872,8 @@ MVMEStreamProcessor::singleStepNextStep(ProcessingState &procState)
 
                 m_d->analysis->processTimetick();
 
-                for (auto c: m_d->moduleConsumers) c->processTimetick();
+                for (auto &c: m_d->moduleConsumers)
+                    c->processTimetick();
 
                 m_d->counters.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
             }
