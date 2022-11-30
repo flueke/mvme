@@ -322,10 +322,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         {
             analysis->processTimetick();
 
-            for (auto c: m_moduleConsumers)
-            {
+            for (auto &c: m_moduleConsumers)
                 c->processTimetick();
-            }
         }
     };
 
@@ -744,10 +742,8 @@ void MVLC_StreamWorker::start()
             {
                 analysis->processTimetick();
 
-                for (auto c: m_moduleConsumers)
-                {
+                for (auto &c: m_moduleConsumers)
                     c->processTimetick();
-                }
 
                 elapsedSeconds--;
             }
@@ -959,6 +955,12 @@ void MVLC_StreamWorker::processBuffer(
             analysis);
     }
 
+    for (auto &c: m_bufferConsumers)
+    {
+        auto view = buffer->viewU32();
+        c->processBuffer(buffer->type(), buffer->bufferNumber(), view.data(), view.size());
+    }
+
     {
         UniqueLock guard(m_countersMutex);
         m_counters.bytesProcessed += buffer->used();
@@ -1016,16 +1018,18 @@ void MVLC_StreamWorker::singleStep()
 
 void MVLC_StreamWorker::startupConsumers()
 {
-    for (auto c: m_moduleConsumers)
-    {
+    for (auto &c: m_moduleConsumers)
         c->startup();
-    }
+
+    for (auto &c: m_bufferConsumers)
+        c->startup();
 }
 
 void MVLC_StreamWorker::shutdownConsumers()
 {
-    for (auto c: m_moduleConsumers)
-    {
+    for (auto &c: m_moduleConsumers)
         c->shutdown();
-    }
+
+    for (auto &c: m_bufferConsumers)
+        c->shutdown();
 }
