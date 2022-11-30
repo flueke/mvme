@@ -886,12 +886,8 @@ void MVLC_StreamWorker::processBuffer(
     }
 
     bool processingOk = false;
-    bool exceptionSeen = false;
-
     auto bufferView = buffer->viewU32();
     const bool useLogThrottle = true;
-
-    if (
 
     try
     {
@@ -921,7 +917,6 @@ void MVLC_StreamWorker::processBuffer(
                 .arg(e.what())
                 .arg(buffer->bufferNumber()),
                 useLogThrottle);
-        exceptionSeen = true;
     }
     catch (const std::exception &e)
     {
@@ -929,18 +924,13 @@ void MVLC_StreamWorker::processBuffer(
                 .arg(e.what())
                 .arg(buffer->bufferNumber()),
                 useLogThrottle);
-        exceptionSeen = true;
     }
     catch (...)
     {
         logWarn(QSL("unknown exception when parsing buffer #%1")
                 .arg(buffer->bufferNumber()),
                 useLogThrottle);
-        exceptionSeen = true;
     }
-
-    if (exceptionSeen)
-        qDebug() << __PRETTY_FUNCTION__ << "exception seen";
 
     if (debugRequest == DebugInfoRequest::OnNextBuffer
         || (debugRequest == DebugInfoRequest::OnNextBufferIgnoreTimeticks

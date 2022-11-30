@@ -91,14 +91,32 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_startPaused;
         }
 
-        void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) override
+        void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) override
         {
             m_moduleConsumers.push_back(consumer);
         }
 
-        void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) override
+        void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) override
         {
-            m_moduleConsumers.removeAll(consumer);
+            if (auto it = std::remove(std::begin(m_moduleConsumers), std::end(m_moduleConsumers), consumer);
+                it != std::end(m_moduleConsumers))
+            {
+                m_moduleConsumers.erase(it);
+            }
+        }
+
+        void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) override
+        {
+            m_bufferConsumers.push_back(consumer);
+        }
+
+        void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) override
+        {
+            if (auto it = std::remove(std::begin(m_bufferConsumers), std::end(m_bufferConsumers), consumer);
+                it != std::end(m_bufferConsumers))
+            {
+                m_bufferConsumers.erase(it);
+            }
         }
 
         virtual MVMEStreamProcessorCounters getCounters() const override
@@ -193,7 +211,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         MVMEContext *m_context = nullptr;
 
-        QVector<IMVMEStreamModuleConsumer *> m_moduleConsumers;
+        std::vector<std::shared_ptr<IStreamModuleConsumer>> m_moduleConsumers;
+        std::vector<std::shared_ptr<IStreamBufferConsumer>> m_bufferConsumers;
 
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};

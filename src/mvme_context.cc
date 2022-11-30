@@ -165,7 +165,7 @@ struct MVMEContextPrivate
 
     std::unique_ptr<RemoteControl> m_remoteControl;
     // owned by the MVMEStreamWorker
-    EventServer *m_eventServer = nullptr;
+    std::shared_ptr<EventServer> m_eventServer;
 
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
@@ -894,7 +894,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     // EventServer setup
     {
-        m_d->m_eventServer = new EventServer(m_streamWorker.get());; // Note: this is a non-owning pointer
+        m_d->m_eventServer = std::make_shared<EventServer>(m_streamWorker.get()); // Note: this is a non-owning pointer
         m_streamWorker->attachModuleConsumer(m_d->m_eventServer);
 
         auto eventServer = m_d->m_eventServer;
@@ -919,7 +919,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
-        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer.get(),
                                                  "setEnabled",
                                                  Qt::QueuedConnection,
                                                  Q_ARG(bool, enabled));
@@ -2715,7 +2715,7 @@ void MVMEContext::reapplyWorkspaceSettings()
             m_d->m_eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
-        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer.get(),
                                                  "setEnabled",
                                                  Qt::QueuedConnection,
                                                  Q_ARG(bool, enabled));
