@@ -5220,7 +5220,7 @@ void EventWidgetPrivate::actionGenerateHistograms(
     assert(!nodes.empty());
 
     const s32 userLevel = tree->getUserLevel();
-    constexpr size_t bins = 1u << 16;
+    constexpr size_t bins = 1u << 13;
     auto analysis = m_serviceProvider->getAnalysis();
 
     assert(analysis);
