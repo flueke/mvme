@@ -115,9 +115,9 @@ s32 Histo1D::fill(double x, double weight)
                 m_maxValue = value;
                 m_maxBin = bin;
             }
-        }
 
-        ++m_entryCount;
+            ++m_entryCount;
+        }
 
         return static_cast<s32>(bin);
     }
