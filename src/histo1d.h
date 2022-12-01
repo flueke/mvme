@@ -250,8 +250,9 @@ class LIBMVME_EXPORT Histo1D: public QObject
 
         void debugDump(bool dumpEmptyBins = true) const;
 
-        // The entry count is incremented by one each time fill() is called
-        // or by the amount specified in the call to setBinContent().
+        // The entry count is incremented by one each time fill() is called with
+        // a non-under/overflowing value or by the amount specified in the call
+        // to setBinContent().
         size_t getEntryCount() const { return m_entryCount; };
         void setEntryCount(size_t entryCount) { m_entryCount = entryCount; }
 
@@ -265,11 +266,10 @@ class LIBMVME_EXPORT Histo1D: public QObject
         double *getOverflowPtr() { return &m_overflow; }
         size_t *getEntryCountPtr() { return &m_entryCount; }
 
-        Histo1DStatistics calcStatistics(u32 rrf = NoRR) const
-        {
-            return calcStatistics(getXMin(), getXMax(), rrf);
-        }
-
+        // Statistics calculations. Note that these assume a weight of 1.0 for
+        // each fill() operation to determine the entry count in the given axis
+        // or bin range.
+        Histo1DStatistics calcStatistics(u32 rrf = NoRR) const { return calcStatistics(getXMin(), getXMax(), rrf); }
         Histo1DStatistics calcStatistics(double minX, double maxX, u32 rrf = NoRR) const;
         Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin, u32 rrf = NoRR) const;
 
@@ -303,6 +303,8 @@ class LIBMVME_EXPORT Histo1D: public QObject
         double m_underflow = 0.0;
         double m_overflow = 0.0;
 
+        // Number of times fill() was called and the value did not over- or
+        // underflow.
         size_t m_entryCount = 0;
         double m_maxValue = 0.0;
         u32 m_maxBin = 0;
