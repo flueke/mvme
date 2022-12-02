@@ -106,12 +106,17 @@ QGVEdge *object_graph_add_edge(
 QGVNode *object_graph_add_module_for_source(GraphContext &gctx, const analysis::SourcePtr &src)
 {
     assert(gctx.nodes[src->getId()]); // source node must exist already
+    assert(src->getAnalysis()); // should have been set when the source was added to the analysis
 
     auto modId = src->getModuleId();
 
     if (!gctx.nodes.count(modId))
     {
-        auto moduleName = src->getAnalysis()->getModuleProperty(modId, "moduleName").toString();
+        QString moduleName("<unknown module>");
+
+        if (auto ana = src->getAnalysis())
+            moduleName = ana->getModuleProperty(modId, "moduleName").toString();
+
         auto label = QSL("<<b>Module</b><br/>%1>")
                          .arg(escape_dot_string_q(moduleName));
         auto node = gctx.scene->addNode(label, modId.toString());
