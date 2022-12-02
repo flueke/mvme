@@ -1613,6 +1613,8 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
 
         m_d->m_rrSlider->setValue(sliderValue);
     }
+
+    replot();
 }
 
 Histo1DWidget::SinkPtr Histo1DWidget::getSink() const
