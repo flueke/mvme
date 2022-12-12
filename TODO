@@ -16,20 +16,8 @@ TODO list
 * doc: describe listfile formats and ZMQ transport
 
 * Multi plot window
-  - Two variants: one for 1d histo arrays / rate monitors, another variant
+  - Support RateMonitors
     serving as a plot gallery
-
-  - array variant: gauss if 1d histos,
-
-
-  - Grid arrangement of histograms
-  - Drag histo sinks onto the canvas to add them
-  - Features:
-    * Gauss fit
-    * statistics
-  - Interactions: zoom all plots, h1d zoom axis handling, resolution reduction, stats, plot dragging
-  - rate monitor tiles, h2d tiles
-  - variants: h1d array, manual tiled (mixed plot types),
   - react to sink modifications after beginRun() was called: have to update the
     histo list as otherwise we might display state histograms kept alive by our copy
 
