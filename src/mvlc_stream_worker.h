@@ -130,6 +130,11 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_parserCountersSnapshot.copy();
         }
 
+        mesytec::mvme::multi_event_splitter::Counters getMultiEventSplitterCounters() const
+        {
+            return m_multiEventSplitter.access()->counters;
+        }
+
         mesytec::mvlc::EventBuilder::EventBuilderCounters getEventBuilderCounters() const
         {
             return m_eventBuilder.getCounters();
@@ -240,7 +245,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         std::atomic<StopFlag> m_stopFlag;
 
         std::atomic<DebugInfoRequest> m_debugInfoRequest;
-        mesytec::mvme::multi_event_splitter::State m_multiEventSplitter;
+        mutable mesytec::mvlc::Protected<mesytec::mvme::multi_event_splitter::State> m_multiEventSplitter;
         mesytec::mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
         mesytec::mvlc::EventBuilder m_eventBuilder;
         mesytec::mvlc::Callbacks m_eventBuilderCallbacks;

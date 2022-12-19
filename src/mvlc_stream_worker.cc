@@ -340,7 +340,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
                       reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
         mvme::multi_event_splitter::event_data(
-            m_multiEventSplitter, m_multiEventSplitterCallbacks,
+            m_multiEventSplitter.access().ref(), m_multiEventSplitterCallbacks,
             userContext, ei, moduleDataList, moduleCount);
     };
 
@@ -472,7 +472,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         logInfo("enabling multi_event_splitter");
 
         std::error_code ec;
-        std::tie(m_multiEventSplitter, ec) = multi_event_splitter::make_splitter(filterStrings);
+        std::tie(m_multiEventSplitter.access().ref(), ec) = multi_event_splitter::make_splitter(filterStrings);
 
         if (ec)
             throw std::runtime_error(fmt::format("multi_event_splitter: {}", ec.message()));
