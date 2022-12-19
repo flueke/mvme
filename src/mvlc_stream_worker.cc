@@ -458,6 +458,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         m_eventBuilder = mesytec::mvlc::EventBuilder({});
     }
 
+    bool multiEventSplitterEnabled = false;
+
     // multi event splitter setup
     // if used the chain is splitter [-> event_builder] -> analysis
     if (uses_multi_event_splitting(*vmeConfig, *analysis))
@@ -469,7 +471,13 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
         logInfo("enabling multi_event_splitter");
 
-        m_multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
+        std::error_code ec;
+        std::tie(m_multiEventSplitter, ec) = multi_event_splitter::make_splitter(filterStrings);
+
+        if (ec)
+            throw std::runtime_error(fmt::format("multi_event_splitter: {}", ec.message()));
+
+        multiEventSplitterEnabled = true;
 
         if (uses_event_builder(*vmeConfig, *analysis))
         {
@@ -497,7 +505,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         m_parserCallbacks.systemEvent = systemEvent_analysis;
     }
 
-    if (uses_multi_event_splitting(*vmeConfig, *analysis))
+    if (multiEventSplitterEnabled)
     {
         // parser -> splitter
         m_parserCallbacks.eventData = eventData_splitter;
@@ -552,11 +560,11 @@ void MVLC_StreamWorker::start()
         m_counters.startTime = QDateTime::currentDateTime();
     }
 
-    fillModuleIndexMaps(vmeConfig);
-    setupParserCallbacks(runInfo, vmeConfig, analysis);
-
     try
     {
+        fillModuleIndexMaps(vmeConfig);
+        setupParserCallbacks(runInfo, vmeConfig, analysis);
+
         auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
 
         auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
@@ -605,14 +613,14 @@ void MVLC_StreamWorker::start()
     }
     catch (const vme_script::ParseError &e)
     {
-        logError(QSL("Error setting up MVLC stream parser: %1")
+        logError(QSL("Error setting up MVLC stream worker: %1")
                  .arg(e.toString()));
         emit stopped();
         return;
     }
     catch (const std::exception &e)
     {
-        logError(QSL("Error setting up MVLC stream parser: %1")
+        logError(QSL("Error setting up MVLC stream worker: %1")
                  .arg(e.what()));
         emit stopped();
         return;
