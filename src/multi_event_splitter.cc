@@ -21,6 +21,7 @@
 #include "multi_event_splitter.h"
 
 #include <algorithm>
+#include <mesytec-mvlc/util/fmt.h>
 
 
 #define LOG_LEVEL_OFF     0
@@ -73,6 +74,12 @@ class TheMultiEventSplitterErrorCategory: public std::error_category
 
             case ErrorCode::ModuleIndexOutOfRange:
                 return "Module index out of range";
+
+            case ErrorCode::MaxVMEEventsExceeded:
+                return fmt::format("Maximum number of VME events ({}) exceeded", MaxVMEEvents);
+
+            case ErrorCode::MaxVMEModulesExceeded:
+                return fmt::format("Maximum number of VME modules ({}) exceeded", MaxVMEModules);
         }
 
         return "unrecognized multi_event_splitter error";
@@ -90,9 +97,10 @@ namespace mvme
 namespace multi_event_splitter
 {
 
-State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings)
+std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings)
 {
-    State result;
+    State state;
+    std::error_code ec;
 
     size_t eventMaxModules = 0u;
 
@@ -110,18 +118,18 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
             moduleFilters.emplace_back(fc);
         }
 
-        result.splitFilters.emplace_back(moduleFilters);
+        state.splitFilters.emplace_back(moduleFilters);
 
         eventMaxModules = std::max(moduleStrings.size(), eventMaxModules);
     }
 
     // Allocate space for the module data spans for each event
-    result.dataSpans.resize(eventMaxModules);
+    state.dataSpans.resize(eventMaxModules);
 
     // For each event determine if splitting should be enabled. This is the
     // case if any of the events modules has a non-zero header filter.
     size_t eventIndex = 0;
-    for (const auto &filters: result.splitFilters)
+    for (const auto &filters: state.splitFilters)
     {
         bool hasNonZeroFilter = std::any_of(
             filters.begin(), filters.end(),
@@ -130,12 +138,12 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
                 return fc.filter.matchMask != 0;
             });
 
-        result.enabledForEvent[eventIndex++] = hasNonZeroFilter;
+        state.enabledForEvent[eventIndex++] = hasNonZeroFilter;
     }
 
-    assert(result.enabledForEvent.size() >= result.splitFilters.size());
+    assert(state.enabledForEvent.size() >= state.splitFilters.size());
 
-    return result;
+    return std::pair(std::move(state), ec);
 }
 
 namespace
@@ -185,13 +193,19 @@ inline size_t words_in_span(const State::DataSpan &span)
     return 0u;
 }
 
-std::error_code end_event(State &state, Callbacks &callbacks, void *userContext, int ei, unsigned moduleCount)
+std::error_code end_event(State &state, Callbacks &callbacks, void *userContext, const int ei, const unsigned moduleCount)
 {
     // This is called after prefix, suffix and the dynamic part of all modules for
     // the given event have been recorded in the ModuleDataSpans. Now walk the data
     // and yield the subevents.
 
     LOG_TRACE("state=%p, ei=%d", &state, ei);
+
+    if (ei > MaxVMEEvents)
+        return make_error_code(ErrorCode::MaxVMEEventsExceeded);
+
+    if (moduleCount > MaxVMEModules)
+        return make_error_code(ErrorCode::MaxVMEModulesExceeded);
 
     if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -208,8 +222,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
                   &state, ei);
 
-
-        std::array<ModuleData, MaxVMEModules> moduleDataList;
+        std::array<ModuleData, MaxVMEModules+1> moduleDataList;
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
@@ -229,16 +242,16 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
     assert(moduleFilters.size() == moduleSpans.size());
 
-    std::array<s64, MaxVMEModules> moduleSubeventSizes;
+    std::array<s64, MaxVMEModules+1> moduleSubeventSizes;
 
     // Space to record filter matches per module during the splitting phase.
-    std::bitset<MaxVMEModules> moduleFilterMatches;
+    std::bitset<MaxVMEModules+1> moduleFilterMatches;
 
     // ModuleData structures used when invoking the eventData callback.
-    std::array<ModuleData, MaxVMEModules> moduleDataList;
+    std::array<ModuleData, MaxVMEModules+1> moduleDataList;
 
-    assert(moduleSubeventSizes.size() >= moduleCount);
-    assert(moduleFilterMatches.size() >= moduleCount);
+    assert(moduleSubeventSizes.size() > moduleCount);
+    assert(moduleFilterMatches.size() > moduleCount);
 
     while (true)
     {
@@ -304,9 +317,6 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         if (moduleFilterMatches.none())
             break;
 
-        //LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
-        //callbacks.beginEvent(ei);
-
         // Yield one split subevent for each of the modules.
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
@@ -365,9 +375,6 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
         int crateIndex = 0;
         callbacks.eventData(nullptr, crateIndex, ei, moduleDataList.data(), moduleCount);
-
-        LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
-        //callbacks.endEvent(ei);
     }
 
     return {};

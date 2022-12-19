@@ -27,6 +27,7 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include <utility>
 #include <mesytec-mvlc/mvlc_readout_parser.h>
 
 #include "libmvme_export.h"
@@ -108,6 +109,8 @@ struct Counters
     std::vector<size_t> outputEvents; // numer of output events by zero based event index
     std::vector<std::vector<size_t>> inputModules; // [eventIndex, moduleIndex] -> number of input events per module
     std::vector<std::vector<size_t>> outputModules; // [eventIndex, moduleIndex] -> number of output events per module
+    size_t eventIndexOutOfRange = 0;
+    size_t moduleIndexOutOfRange = 0;
 };
 
 struct State
@@ -139,7 +142,7 @@ struct State
     std::vector<ModuleDataSpans> dataSpans;
 
     // Bit N is set if splitting is enabled for corresponding event index.
-    std::bitset<MaxVMEEvents> enabledForEvent;
+    std::bitset<MaxVMEEvents+1> enabledForEvent;
 
     Counters counters;
 };
@@ -155,13 +158,16 @@ struct State
 // of the first event doesn't have the 'S' match character so repeated
 // matching will be performed to find the next header. For the other modules
 // the event size can be directly extracted using the filter.
-State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
+std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
 
-enum class ErrorCode: u8
+enum class ErrorCode : u8
 {
     Ok,
+    // event_data() was called with an event index >= the number of events in the splitFilterString vector
     EventIndexOutOfRange,
     ModuleIndexOutOfRange,
+    MaxVMEEventsExceeded,
+    MaxVMEModulesExceeded,
 };
 
 std::error_code LIBMVME_EXPORT event_data(
