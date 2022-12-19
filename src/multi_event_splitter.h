@@ -24,10 +24,11 @@
 #include <bitset>
 #include <functional>
 #include <map>
+#include <sstream>
 #include <string>
 #include <system_error>
-#include <vector>
 #include <utility>
+#include <vector>
 #include <mesytec-mvlc/mvlc_readout_parser.h>
 
 #include "libmvme_export.h"
@@ -176,6 +177,8 @@ std::error_code LIBMVME_EXPORT event_data(
 
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
+
+std::ostringstream &format_counters(std::ostringstream &out, const Counters &counters);
 
 } // end namespace multi_event_splitter
 } // end namespace mvme

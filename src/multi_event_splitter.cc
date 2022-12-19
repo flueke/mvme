@@ -97,10 +97,49 @@ namespace mvme
 namespace multi_event_splitter
 {
 
+namespace
+{
+    Counters make_counters(const std::vector<std::vector<std::string>> &splitFilterStrings)
+    {
+        const size_t eventCount = splitFilterStrings.size();
+
+        Counters counters;
+        counters.inputEvents.resize(eventCount);
+        counters.outputEvents.resize(eventCount);
+        counters.inputModules.resize(eventCount);
+        counters.outputModules.resize(eventCount);
+
+        for (size_t ei=0; ei<splitFilterStrings.size(); ++ei)
+        {
+            const size_t moduleCount = splitFilterStrings[ei].size();
+            counters.inputModules[ei].resize(moduleCount);
+            counters.outputModules[ei].resize(moduleCount);
+        }
+
+        return counters;
+    }
+}
+
 std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings)
 {
-    State state;
-    std::error_code ec;
+    auto result = std::pair<State, std::error_code>();
+    auto &state = result.first;
+    auto &ec = result.second;
+
+    if (splitFilterStrings.size() > MaxVMEEvents)
+    {
+        ec = make_error_code(ErrorCode::MaxVMEEventsExceeded);
+        return result;
+    }
+
+    for (size_t ei=0; ei<splitFilterStrings.size(); ++ei)
+    {
+        if (splitFilterStrings[ei].size() > MaxVMEModules)
+        {
+            ec == make_error_code(ErrorCode::MaxVMEModulesExceeded);
+            return result;
+        }
+    }
 
     size_t eventMaxModules = 0u;
 
@@ -143,11 +182,23 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
 
     assert(state.enabledForEvent.size() >= state.splitFilters.size());
 
-    return std::pair(std::move(state), ec);
+    state.counters = make_counters(splitFilterStrings);
+
+    return std::make_pair(std::move(state), ec);
 }
 
 namespace
 {
+
+// Returns the number of words in the span or 0 in case any of the pointers is
+// null or begin >= end.
+inline size_t words_in_span(const State::DataSpan &span)
+{
+    if (span.begin && span.end && span.begin < span.end)
+        return static_cast<size_t>(span.end - span.begin);
+
+    return 0u;
+}
 
 inline std::error_code begin_event(State &state, int ei)
 {
@@ -159,6 +210,7 @@ inline std::error_code begin_event(State &state, int ei)
     auto &spans = state.dataSpans;
 
     std::fill(spans.begin(), spans.end(), State::ModuleDataSpans{});
+    ++state.counters.inputEvents[ei];
 
     return {};
 }
@@ -168,29 +220,27 @@ inline std::error_code begin_event(State &state, int ei)
 inline std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
 {
     if (ei >= static_cast<int>(state.splitFilters.size()))
+    {
+        ++state.counters.eventIndexOutOfRange;
         return make_error_code(ErrorCode::EventIndexOutOfRange);
+    }
 
     auto &spans = state.dataSpans;
 
     if (mi >= static_cast<int>(spans.size()))
+    {
+        ++state.counters.moduleIndexOutOfRange;
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
+    }
 
     spans[mi].dataSpan = { data, data + size };
 
     LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
               &state, ei, mi, data, size);
 
+    ++state.counters.inputModules[ei][mi];
+
     return {};
-}
-
-// Returns the number of words in the span or 0 in case any of the pointers is
-// null or begin >= end.
-inline size_t words_in_span(const State::DataSpan &span)
-{
-    if (span.begin && span.end && span.begin < span.end)
-        return static_cast<size_t>(span.end - span.begin);
-
-    return 0u;
 }
 
 std::error_code end_event(State &state, Callbacks &callbacks, void *userContext, const int ei, const unsigned moduleCount)
@@ -222,6 +272,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
                   &state, ei);
 
+        ++state.counters.outputEvents[ei];
+
         std::array<ModuleData, MaxVMEModules+1> moduleDataList;
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
@@ -232,6 +284,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
             moduleData.data = {
                 spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan))
             };
+            ++state.counters.outputModules[ei][mi];
         }
 
         const int crateIndex = 0;
@@ -370,9 +423,12 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                                   &state, *spans.dataSpan.begin);
                     }
                 }
+
+                ++state.counters.outputModules[ei][mi];
             }
         }
 
+        ++state.counters.outputEvents[ei];
         int crateIndex = 0;
         callbacks.eventData(nullptr, crateIndex, ei, moduleDataList.data(), moduleCount);
     }
@@ -400,6 +456,22 @@ std::error_code LIBMVME_EXPORT event_data(
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)
 {
     return { static_cast<int>(error), theMultiEventSplitterErrorCategory };
+}
+
+std::ostringstream &format_counters(std::ostringstream &out, const Counters &counters)
+{
+    for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
+    {
+        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}\n",
+            ei, counters.inputEvents[ei], counters.outputEvents[ei]);
+        for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
+        {
+            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}\n",
+                mi, counters.inputModules[ei][mi], counters.outputModules[ei][mi]);
+        }
+    }
+
+    return out;
 }
 
 } // end namespace multi_event_splitter

@@ -3905,6 +3905,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
     using ModuleData = mesytec::mvme::multi_event_splitter::ModuleData;
     bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
     std::error_code multiEventSplitterError;
+    mesytec::mvme::multi_event_splitter::State multiEventSplitter;
     QString parserText;
     QString splitterText;
 
@@ -3914,7 +3915,6 @@ void MVLCParserDebugHandler::handleDebugInfo(
         QTextStream parserOut(&parserText);
         QTextStream splitterOut(&splitterText);
 
-        mesytec::mvme::multi_event_splitter::State multiEventSplitter;
         mesytec::mvme::multi_event_splitter::Callbacks splitterCallbacks;
         readout_parser::ReadoutParserCallbacks parserCallbacks;
 
@@ -4097,6 +4097,11 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
         if (usesMultiEventSplitting)
         {
+            std::ostringstream ss;
+            mesytec::mvme::multi_event_splitter::format_counters(ss, multiEventSplitter.counters);
+            QString countersText = "Multi Event Splitter Counters:\n" + QString::fromStdString(ss.str());
+            countersText += "\n========================================\n";
+            splitterText.prepend(countersText);
             auto tb_splitterResult = new QTextBrowser;
             tb_splitterResult->setText(splitterText);
             auto splitterResultWidget = make_searchable_text_widget(tb_splitterResult).first;
