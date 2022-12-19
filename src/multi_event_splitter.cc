@@ -347,6 +347,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     // header filter matches again.
                     const u32 *moduleWord = dynamicSpan.begin + 1;
 
+                    // TODO: fix this, moduleWord is never incremented
                     while (moduleWord < dynamicSpan.end)
                     {
                         if (a2::data_filter::matches(
@@ -399,6 +400,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     // in the dynamic span. Move the span begin pointer forward
                     // so that the span has size 0 and the module filter test
                     // above will fail on the next iteration.
+                    //++state.counters.moduleEventSizeExceeded[ei][mi];
                     spans.dataSpan.begin = spans.dataSpan.end;
                     moduleData.data = {};
                 }

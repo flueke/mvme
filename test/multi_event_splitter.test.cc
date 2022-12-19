@@ -14,7 +14,12 @@ TEST(MultiEventSplitter, WithSizeSameCount)
         "XXXX 0010 XXXX SSSS",
     };
 
-    auto splitter = make_splitter({ filters });
+    State splitter;
+    std::error_code ec;
+
+    std::tie(splitter, ec) = make_splitter({ filters });
+
+    ASSERT_FALSE(ec);
 
     std::vector<std::vector<u32>> data =
     {
@@ -91,7 +96,12 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
         "XXXX 0010 XXXX SSSS",
     };
 
-    auto splitter = make_splitter({ filters });
+    State splitter;
+    std::error_code ec;
+
+    std::tie(splitter, ec) = make_splitter({ filters });
+
+    ASSERT_FALSE(ec);
 
     std::vector<std::vector<u32>> data =
     {
@@ -168,7 +178,12 @@ TEST(MultiEventSplitter, WithSizeExceeded)
         "XXXX 0010 XXXX SSSS",
     };
 
-    auto splitter = make_splitter({ filters });
+    State splitter;
+    std::error_code ec;
+
+    std::tie(splitter, ec) = make_splitter({ filters });
+
+    ASSERT_FALSE(ec);
 
     std::vector<std::vector<u32>> data =
     {
@@ -247,7 +262,12 @@ TEST(MultiEventSplitter, NoSizeSameCount)
         "XXXX 0010 XXXX XXXX",
     };
 
-    auto splitter = make_splitter({ filters });
+    State splitter;
+    std::error_code ec;
+
+    std::tie(splitter, ec) = make_splitter({ filters });
+
+    ASSERT_FALSE(ec);
 
     std::vector<std::vector<u32>> data =
     {
@@ -327,24 +347,37 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
         "XXXX 0010 XXXX XXXX",
     };
 
-    auto splitter = make_splitter({ filters });
+    State splitter;
+    std::error_code ec;
+
+    std::tie(splitter, ec) = make_splitter({ filters });
+
+    ASSERT_FALSE(ec);
 
     std::vector<std::vector<u32>> data =
     {
         // Data for module 0, 3 events
         {
-            0x0101,
+            0x0102,
             0x1111,
-            0x0101,
             0x1112,
-            0x0101,
-            0x1113,
+
+            0x0102,
+            0x1121,
+            0x1122,
+
+            0x0102,
+            0x1131,
+            0x1132,
         },
         // Data for module 1, 2 events
         {
-            0x0201,
+            0x0202,
+            0x2211,
+            0x2212,
+
+            0x0202,
             0x2221,
-            0x0201,
             0x2222,
         }
     };
@@ -386,11 +419,11 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     ASSERT_TRUE(splitEvents.size() == 2);
 
     ASSERT_TRUE(splitEvents[0].size() == 3);
-    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(splitEvents[0][0], expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(splitEvents[0][1], expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(splitEvents[0][2], expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1111, 0x1112 }; ASSERT_EQ(splitEvents[0][0], expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1121, 0x1122 }; ASSERT_EQ(splitEvents[0][1], expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1131, 0x1132 }; ASSERT_EQ(splitEvents[0][2], expected); }
 
     ASSERT_TRUE(splitEvents[1].size() == 2);
-    { std::vector<u32> expected = { 0x0201, 0x2221 }; ASSERT_EQ(splitEvents[1][0], expected); }
-    { std::vector<u32> expected = { 0x0201, 0x2222 }; ASSERT_EQ(splitEvents[1][1], expected); }
+    { std::vector<u32> expected = { 0x0201, 0x2211, 0x2212 }; ASSERT_EQ(splitEvents[1][0], expected); }
+    { std::vector<u32> expected = { 0x0201, 0x2221, 0x2222 }; ASSERT_EQ(splitEvents[1][1], expected); }
 }
