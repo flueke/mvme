@@ -229,7 +229,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
     // Edit LUT
     QObject::connect(scene, &TriggerIOGraphicsScene::editLUT,
-                     [this] (int level, int unit)
+                     this, [this] (int level, int unit)
     {
         auto &ioCfg = d->ioCfg;
         auto lutName = QString("L%1.LUT%2").arg(level).arg(unit);
@@ -366,9 +366,9 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         assert(lutEditor);
 
-        auto do_apply = [this, &lutEditor, &ioCfg, level, unit]
+        auto do_apply = [this, editor = lutEditor.get(), &ioCfg, level, unit]
         {
-            auto outputNames = lutEditor->getOutputNames();
+            auto outputNames = editor->getOutputNames();
             LUT *lut = nullptr;
 
             if (level == 1)
@@ -386,19 +386,19 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
             std::copy_n(outputNames.begin(), count, lut->outputNames.begin());
 
-            lut->lutContents = lutEditor->getLUTContents();
+            lut->lutContents = editor->getLUTContents();
 
             if (level == 1 && unit == 2)
             {
-                ioCfg.l1.lut2Connections = lutEditor->getDynamicConnectionValues();
+                ioCfg.l1.lut2Connections = editor->getDynamicConnectionValues();
             }
 
             if (level == 2)
             {
-                ioCfg.l2.lutConnections[unit] = lutEditor->getDynamicConnectionValues();
-                ioCfg.l2.strobeConnections[unit] = lutEditor->getStrobeConnectionValue();
-                ioCfg.l2.luts[unit].strobeGG = lutEditor->getStrobeSettings();
-                ioCfg.l2.luts[unit].strobedOutputs = lutEditor->getStrobedOutputMask();
+                ioCfg.l2.lutConnections[unit] = editor->getDynamicConnectionValues();
+                ioCfg.l2.strobeConnections[unit] = editor->getStrobeConnectionValue();
+                ioCfg.l2.luts[unit].strobeGG = editor->getStrobeSettings();
+                ioCfg.l2.luts[unit].strobedOutputs = editor->getStrobedOutputMask();
             }
 
             setupModified();
@@ -409,12 +409,13 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         connect(lutEditor.get(), &QDialog::accepted, this, do_apply);
 
         lutEditor->setWindowModality(Qt::WindowModal);
-        lutEditor->exec();
+        lutEditor->setAttribute(Qt::WA_DeleteOnClose);
+        lutEditor.release()->exec();
     });
 
     // NIM IO Setup
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Inputs,
-                     [this] ()
+                     this, [this] ()
     {
         auto &ioCfg = d->ioCfg;
 
@@ -434,13 +435,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         QVector<trigger_io::IO> settings;
         std::copy(ioCfg.l0.ioNIM.begin(), ioCfg.l0.ioNIM.end(), std::back_inserter(settings));
 
-        NIM_IO_SettingsDialog dialog(names, defaultNames, settings, this);
-        dialog.setWindowModality(Qt::WindowModal);
-        dialog.resize(700, 500);
+        auto dialog = std::make_unique<NIM_IO_SettingsDialog>(names, defaultNames, settings, this);
 
-        auto do_apply = [this, &dialog, &ioCfg] ()
+        auto do_apply = [this, dia = dialog.get(), &ioCfg] ()
         {
-            auto names = dialog.getNames();
+            auto names = dia->getNames();
 
             // Copy names to L0
             std::copy_n(names.begin(),
@@ -452,7 +451,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                         trigger_io::NIM_IO_Count,
                         ioCfg.l3.unitNames.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
 
-            auto settings = dialog.getSettings();
+            auto settings = dia->getSettings();
             size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
 
             // Copy settings to L0 and L3
@@ -462,9 +461,12 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             setupModified();
         };
 
-        connect(&dialog, &QDialog::accepted, this, do_apply);
+        connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog.exec();
+        dialog->resize(700, 500);
+        dialog->setWindowModality(Qt::WindowModal);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog.release()->exec();
     });
 
     // IRQ inputs
@@ -484,19 +486,18 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
         QVector<trigger_io::IO> settings;
         std::copy(ioCfg.l0.ioIRQ.begin(), ioCfg.l0.ioIRQ.end(), std::back_inserter(settings));
 
-        IRQ_Inputs_SettingsDialog dialog(names, settings, this);
-        dialog.setWindowModality(Qt::WindowModal);
+        auto dialog = std::make_unique<IRQ_Inputs_SettingsDialog>(names, settings, this);
 
-        auto do_apply = [this, &dialog, &ioCfg] ()
+        auto do_apply = [this, dia = dialog.get(), &ioCfg] ()
         {
-            auto names = dialog.getNames();
+            auto names = dia->getNames();
 
             // Copy names to L0
             std::copy_n(names.begin(),
                         trigger_io::Level0::IRQ_Inputs_Count,
                         ioCfg.l0.unitNames.begin() + ioCfg.l0.IRQ_Inputs_Offset);
 
-            auto settings = dialog.getSettings();
+            auto settings = dia->getSettings();
             size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioIRQ.size());
 
             // Copy settings to L0
@@ -505,9 +506,12 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             setupModified();
         };
 
-        connect(&dialog, &QDialog::accepted, this, do_apply);
+        connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog.exec();
+        dialog->resize(700, 500);
+        dialog->setWindowModality(Qt::WindowModal);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog.release()->exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editNIM_Outputs,
@@ -553,13 +557,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset,
             ioCfg.l3.connections.begin() + ioCfg.l3.NIM_IO_Unit_Offset + trigger_io::NIM_IO_Count);
 
-        NIM_IO_SettingsDialog dialog(names, defaultNames, settings, inputChoiceNameLists, connections, this);
-        dialog.setWindowModality(Qt::WindowModal);
-        dialog.resize(800, 500);
+        auto dialog = std::make_unique<NIM_IO_SettingsDialog>(names, defaultNames, settings, inputChoiceNameLists, connections, this);
 
-        auto do_apply = [this, &dialog, &ioCfg] ()
+        auto do_apply = [this, dia = dialog.get(), &ioCfg] ()
         {
-            auto names = dialog.getNames();
+            auto names = dia->getNames();
 
             // Copy names to L0
             std::copy_n(names.begin(),
@@ -571,7 +573,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
                         trigger_io::NIM_IO_Count,
                         ioCfg.l3.unitNames.begin() + ioCfg.l3.NIM_IO_Unit_Offset);
 
-            auto settings = dialog.getSettings();
+            auto settings = dia->getSettings();
             {
                 size_t count = std::min(static_cast<size_t>(settings.size()), ioCfg.l0.ioNIM.size());
 
@@ -581,7 +583,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             }
 
             {
-                auto connections = dialog.getConnections();
+                auto connections = dia->getConnections();
                 auto count = std::min(static_cast<size_t>(connections.size()),
                                       trigger_io::NIM_IO_Count);
                 std::copy_n(
@@ -592,9 +594,12 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             setupModified();
         };
 
-        connect(&dialog, &QDialog::accepted, this, do_apply);
+        connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog.exec();
+        dialog->resize(800, 500);
+        dialog->setWindowModality(Qt::WindowModal);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog.release()->exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editECL_Outputs,
@@ -633,19 +638,18 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset,
             ioCfg.l3.connections.begin() + ioCfg.l3.ECL_Unit_Offset + trigger_io::ECL_OUT_Count);
 
-        ECL_SettingsDialog dialog(names, settings, connections, inputChoiceNameLists, this);
-        dialog.setWindowModality(Qt::WindowModal);
+        auto dialog = std::make_unique<ECL_SettingsDialog>(names, settings, connections, inputChoiceNameLists, this);
 
-        auto do_apply = [this, &dialog, &ioCfg] ()
+        auto do_apply = [this, dia = dialog.get(), &ioCfg] ()
         {
-            auto names = dialog.getNames();
+            auto names = dia->getNames();
 
             // Copy names to L3
             std::copy_n(names.begin(),
                         trigger_io::ECL_OUT_Count,
                         ioCfg.l3.unitNames.begin() + ioCfg.l3.ECL_Unit_Offset);
 
-            auto settings = dialog.getSettings();
+            auto settings = dia->getSettings();
             {
                 size_t count = std::min(static_cast<size_t>(settings.size()),
                                         ioCfg.l3.ioECL.size());
@@ -655,7 +659,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             }
 
             {
-                auto connections = dialog.getConnections();
+                auto connections = dia->getConnections();
                 auto count = std::min(static_cast<size_t>(connections.size()),
                                       trigger_io::ECL_OUT_Count);
                 std::copy_n(
@@ -666,9 +670,11 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             setupModified();
         };
 
-        connect(&dialog, &QDialog::accepted, this, do_apply);
+        connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog.exec();
+        dialog->setWindowModality(Qt::WindowModal);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog.release()->exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL3Utils,
@@ -709,19 +715,20 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             }
         }
 
-        Level3UtilsDialog dialog(ioCfg.l3, inputChoiceNameLists, d->vmeEventNames, this);
-        dialog.setWindowModality(Qt::WindowModal);
-        dialog.resize(1100, 600);
+        auto dialog = std::make_unique<Level3UtilsDialog>(ioCfg.l3, inputChoiceNameLists, d->vmeEventNames, this);
 
-        auto do_apply = [this, &dialog, &ioCfg] ()
+        auto do_apply = [this, dia = dialog.get(), &ioCfg] ()
         {
-            ioCfg.l3 = dialog.getSettings();
+            ioCfg.l3 = dia->getSettings();
             setupModified();
         };
 
-        connect(&dialog, &QDialog::accepted, this, do_apply);
+        connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog.exec();
+        dialog->resize(1100, 600);
+        dialog->setWindowModality(Qt::WindowModal);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog.release()->exec();
     });
 
     QObject::connect(scene, &TriggerIOGraphicsScene::editL0Utils,
@@ -729,19 +736,20 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
     {
         auto &ioCfg = d->ioCfg;
 
-        Level0UtilsDialog dialog(ioCfg.l0, d->vmeEventNames, this);
-        dialog.setWindowModality(Qt::WindowModal);
-        dialog.resize(1350, 600);
+        auto dialog = std::make_unique<Level0UtilsDialog>(ioCfg.l0, d->vmeEventNames, this);
 
-        auto do_apply = [this, &dialog, &ioCfg] ()
+        auto do_apply = [this, dia = dialog.get(), &ioCfg] ()
         {
-            ioCfg.l0 = dialog.getSettings();
+            ioCfg.l0 = dia->getSettings();
             setupModified();
         };
 
-        connect(&dialog, &QDialog::accepted, this, do_apply);
+        connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog.exec();
+        dialog->resize(1350, 600);
+        dialog->setWindowModality(Qt::WindowModal);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog.release()->exec();
     });
 
     QObject::connect(d->scriptConfig, &VMEScriptConfig::modified,
