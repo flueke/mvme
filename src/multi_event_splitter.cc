@@ -462,14 +462,20 @@ std::ostringstream &format_counters(std::ostringstream &out, const Counters &cou
 {
     for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
     {
-        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}\n",
-            ei, counters.inputEvents[ei], counters.outputEvents[ei]);
+        auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
+        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}, out/in={:.2}\n",
+            ei, counters.inputEvents[ei], counters.outputEvents[ei], eventRatio);
+
         for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
         {
-            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}\n",
-                mi, counters.inputModules[ei][mi], counters.outputModules[ei][mi]);
+            auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
+            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}, out/in={:.2}\n",
+                mi, counters.inputModules[ei][mi], counters.outputModules[ei][mi], moduleRatio);
         }
     }
+
+    out << fmt::format("* Error Counts: eventIndexOutOfRange={}, moduleIndexOutOfRange={}\n",
+        counters.eventIndexOutOfRange, counters.moduleIndexOutOfRange);
 
     return out;
 }
