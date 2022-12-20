@@ -360,6 +360,12 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=false, searchedSize=%u",
                               &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize)
                 }
+                else
+                {
+                    auto hasSizeMask = moduleFilters[mi].cache.extractMask;
+                    LOG_WARN("state=%p, ei=%d, mi=%lu, checked header '0x%08x', no match!, hasSizeMask=%s",
+                             &state, ei, mi, *dynamicSpan.begin, hasSizeMask ? "true" : "false");
+                }
             }
         }
 
@@ -428,6 +434,16 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         }
 
         ++state.counters.outputEvents[ei];
+
+        if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE)
+        {
+            auto inEvents = state.counters.inputEvents[ei];
+            auto outEvents =state.counters.outputEvents[ei];
+            auto ratio = outEvents * 1.0 / inEvents;
+
+            LOG_TRACE("event out/in ratio=%f, outEvents=%lu, inEvents=%lu", ratio, outEvents, inEvents);
+        }
+
         int crateIndex = 0;
         callbacks.eventData(nullptr, crateIndex, ei, moduleDataList.data(), moduleCount);
     }
@@ -462,13 +478,13 @@ std::ostringstream &format_counters(std::ostringstream &out, const Counters &cou
     for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
     {
         auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
-        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}, out/in={:.2}\n",
+        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}, out/in={:.2f}\n",
             ei, counters.inputEvents[ei], counters.outputEvents[ei], eventRatio);
 
         for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
         {
             auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
-            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}, out/in={:.2}\n",
+            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}, out/in={:.2f}\n",
                 mi, counters.inputModules[ei][mi], counters.outputModules[ei][mi], moduleRatio);
         }
     }
