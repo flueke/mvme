@@ -347,17 +347,14 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     // header filter matches again.
                     const u32 *moduleWord = dynamicSpan.begin + 1;
 
-                    // TODO: fix this, moduleWord is never incremented
                     while (moduleWord < dynamicSpan.end)
                     {
-                        if (a2::data_filter::matches(
-                                moduleFilters[mi].filter, *moduleWord))
-                        {
+                        if (a2::data_filter::matches(moduleFilters[mi].filter, *moduleWord))
                             break;
-                        }
+                        ++moduleWord;
                     }
 
-                    u32 moduleEventSize = moduleWord - dynamicSpan.begin + 1;
+                    u32 moduleEventSize = moduleWord - dynamicSpan.begin;
                     moduleSubeventSizes[mi] = moduleEventSize;
 
                     LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=false, searchedSize=%u",
