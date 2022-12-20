@@ -245,11 +245,11 @@ void MVMEContextPrivate::stopDAQReadout()
     QProgressDialog progressDialog("Stopping Data Acquisition", QString(), 0, 0);
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setCancelButton(nullptr);
-    progressDialog.show();
 
 
     if (m_q->m_readoutWorker->isRunning())
     {
+        progressDialog.show();
         QEventLoop localLoop;
         QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped,
                          &localLoop, &QEventLoop::quit);
@@ -265,6 +265,7 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_streamWorker->getState() != AnalysisWorkerState::Idle)
     {
+        progressDialog.show();
         QEventLoop localLoop;
         QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                          &localLoop, &QEventLoop::quit);
@@ -323,7 +324,6 @@ void MVMEContextPrivate::stopDAQReplay()
     QProgressDialog progressDialog("Stopping Replay", QString(), 0, 0);
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setCancelButton(nullptr);
-    progressDialog.show();
 
     QEventLoop localLoop;
 
@@ -336,6 +336,7 @@ void MVMEContextPrivate::stopDAQReplay()
     if (listfileReplayWorker->getState() == DAQState::Running
         || listfileReplayWorker->getState() == DAQState::Paused)
     {
+        progressDialog.show();
         auto con = QObject::connect(
             listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             &localLoop, &QEventLoop::quit);
@@ -357,6 +358,7 @@ void MVMEContextPrivate::stopDAQReplay()
     // as we enter the event loop.
     if (m_q->m_streamWorker->getState() != AnalysisWorkerState::Idle)
     {
+        progressDialog.show();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                                     &localLoop, &QEventLoop::quit);
 
