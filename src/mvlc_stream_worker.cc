@@ -340,7 +340,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
                       reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
         mvme::multi_event_splitter::event_data(
-            m_multiEventSplitter.access().ref(), m_multiEventSplitterCallbacks,
+            m_multiEventSplitter, m_multiEventSplitterCallbacks,
             userContext, ei, moduleDataList, moduleCount);
     };
 
@@ -472,7 +472,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         logInfo("enabling multi_event_splitter");
 
         std::error_code ec;
-        std::tie(m_multiEventSplitter.access().ref(), ec) = multi_event_splitter::make_splitter(filterStrings);
+        std::tie(m_multiEventSplitter, ec) = multi_event_splitter::make_splitter(filterStrings);
 
         if (ec)
             throw std::runtime_error(fmt::format("multi_event_splitter: {}", ec.message()));
@@ -582,8 +582,7 @@ void MVLC_StreamWorker::start()
         auto sanitizedReadoutStacks = mvme_mvlc::sanitize_readout_stacks(
             mvlcCrateConfig.stacks);
 
-        m_parser = mesytec::mvlc::readout_parser::make_readout_parser(
-            sanitizedReadoutStacks);
+        m_parser = mesytec::mvlc::readout_parser::make_readout_parser(sanitizedReadoutStacks);
 
         if (logger->level() == spdlog::level::trace)
         {
@@ -608,7 +607,7 @@ void MVLC_StreamWorker::start()
 
         // Reset the parser counters and the snapshot copy
         m_parserCounters = {};
-        m_parserCountersSnapshot.access().ref() = m_parserCounters;
+        m_parserCountersSnapshot.access().ref() = {};
         logParserInfo(m_parser);
     }
     catch (const vme_script::ParseError &e)
@@ -676,7 +675,6 @@ void MVLC_StreamWorker::start()
                 {
                     processBuffer(buffer, vmeConfig, analysis);
                     empty.enqueue(buffer);
-                    m_parserCountersSnapshot.access().ref() = m_parserCounters;
                 }
                 catch (...)
                 {
@@ -720,7 +718,6 @@ void MVLC_StreamWorker::start()
                 {
                     processBuffer(buffer, vmeConfig, analysis);
                     empty.enqueue(buffer);
-                    m_parserCountersSnapshot.access().ref() = m_parserCounters;
                 }
                 catch (...)
                 {
@@ -968,6 +965,10 @@ void MVLC_StreamWorker::processBuffer(
         auto view = buffer->viewU32();
         c->processBuffer(buffer->type(), buffer->bufferNumber(), view.data(), view.size());
     }
+
+    // Copy counters to the guarded member variables.
+    m_parserCountersSnapshot.access().ref() = m_parserCounters;
+    m_multiEventSplitterCounters.access().ref() = m_multiEventSplitter.counters;
 
     {
         UniqueLock guard(m_countersMutex);
