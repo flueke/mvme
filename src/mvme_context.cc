@@ -265,7 +265,6 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_streamWorker->getState() != AnalysisWorkerState::Idle)
     {
-
         QEventLoop localLoop;
         QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                          &localLoop, &QEventLoop::quit);
@@ -374,6 +373,7 @@ void MVMEContextPrivate::stopDAQReplay()
     {
         mvmeStreamWorker->setListFileVersion(CurrentListfileVersion);
     }
+
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 

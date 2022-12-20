@@ -45,6 +45,9 @@ void DAQControl::startDAQ(
     if (m_context->getDAQState() != DAQState::Idle)
         return;
 
+    if (m_context->getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
+        return;
+
     if (m_context->getMode() == GlobalMode::DAQ)
     {
         if (runDuration != std::chrono::milliseconds::zero())
@@ -68,25 +71,16 @@ void DAQControl::startDAQ(
 
 void DAQControl::stopDAQ()
 {
-    if (m_context->getDAQState() == DAQState::Idle)
-        return;
-
     m_context->stopDAQ();
 }
 
 void DAQControl::pauseDAQ()
 {
-    if (m_context->getDAQState() != DAQState::Running)
-        return;
-
     m_context->pauseDAQ();
 }
 
 void DAQControl::resumeDAQ(u32 nCycles)
 {
-    if (m_context->getDAQState() != DAQState::Paused)
-        return;
-
     m_context->resumeDAQ(nCycles);
 }
 
