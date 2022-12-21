@@ -206,7 +206,7 @@ Out &format_counters(Out &out, const Counters &counters)
 template<typename Out>
 Out &format_counters_tabular(Out &out, const Counters &counters)
 {
-    out << fmt::format("{: <12} {: >12} {: >12} {: >12}\n", "type", "inputCount", "outputCount", "out/in");
+    out << fmt::format("{: <12} {: >12} {: >12} {: >12}\n", "Type", "InputCount", "OutputCount", "Out/In");
 
     for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
     {
@@ -230,6 +230,10 @@ Out &format_counters_tabular(Out &out, const Counters &counters)
                 );
         }
     }
+
+    out << fmt::format("\n{: <22} {: >12}\n", "ErrorType", "ErrorCount");
+    out << fmt::format("{: <22} {: >12}\n", "eventIndexOutOfRange", counters.eventIndexOutOfRange);
+    out << fmt::format("{: <22} {: >12}\n", "moduleIndexOutOfRange", counters.moduleIndexOutOfRange);
 
     return out;
 }
