@@ -212,7 +212,7 @@ struct DataBuffer
     u8 *data;
     size_t size; // size in bytes
     size_t used; // bytes used
-    u32 id = 0u; // id value for external use
+    u32 id = 0u; // id value for external use (e.g. buffer number)
     s32 tag = 0; // tag allowing to distinguish buffer types
 };
 

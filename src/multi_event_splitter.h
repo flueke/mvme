@@ -23,8 +23,11 @@
 
 #include <bitset>
 #include <functional>
+#include <map>
+#include <sstream>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 #include <mesytec-mvlc/mvlc_readout_parser.h>
 
@@ -70,9 +73,8 @@ namespace multi_event_splitter
  * readout cycle is split into three separate events. Prefix and suffix data of
  * the modules are only yielded for the first event.
  *
- * The splitter is steered via the begin_event, module_prefix, module_data,
- * module_suffix and end_event functions. Output data is made available via the
- * functions in the Callback structure passed to end_event().
+ * The splitter is driven via the event_data() function. Output data is made
+ * available through the Callbacks:eventData callback passed to event_data().
  *
  * Data splitting is performed by using analysis DataFilters to look for module
  * header words. If the filter contains the matching character 'S' it is used
@@ -91,22 +93,8 @@ namespace multi_event_splitter
  *   |m0_e1_word1|
  *   |m0_e1_word2|
  *   +-----------+
- *
- * IMPORTANT: The multi_event_splitter requires that the pointers passed to the
- * module_prefix(), module_data() and module_suffix() calls are still valid
- * when end_event is called. The code stores the pointers and sizes and then
- * performs event splitting and invocation of callbacks in end_event(). No
- * copies of the data are made.
  */
 
-
-// Callbacks for the multi event splitter to hand module data to consumers.
-// All module data callbacks are contained between calls to beginEvent and
-// endEvent.
-// Event splitting is performed on the dynamic part of incoming module data.
-// Prefix and suffix data are not split. The prefix and suffix callbacks are
-// only called once per incoming event whereas the dynamic part is called once
-// for every split.
 
 using ModuleData = mesytec::mvlc::readout_parser::ModuleData;
 
@@ -114,6 +102,16 @@ struct Callbacks
 {
     std::function<void (void *userContext, int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)>
         eventData = [] (void *, int, int, const ModuleData *, unsigned) {};
+};
+
+struct Counters
+{
+    std::vector<size_t> inputEvents; // number of input events by zero based event index
+    std::vector<size_t> outputEvents; // numer of output events by zero based event index
+    std::vector<std::vector<size_t>> inputModules; // [eventIndex, moduleIndex] -> number of input events per module
+    std::vector<std::vector<size_t>> outputModules; // [eventIndex, moduleIndex] -> number of output events per module
+    size_t eventIndexOutOfRange = 0;
+    size_t moduleIndexOutOfRange = 0;
 };
 
 struct State
@@ -145,7 +143,9 @@ struct State
     std::vector<ModuleDataSpans> dataSpans;
 
     // Bit N is set if splitting is enabled for corresponding event index.
-    std::bitset<MaxVMEEvents> enabledForEvent;
+    std::bitset<MaxVMEEvents+1> enabledForEvent;
+
+    Counters counters;
 };
 
 // Creates an initial splitter state. The input are lists of per event and
@@ -159,13 +159,16 @@ struct State
 // of the first event doesn't have the 'S' match character so repeated
 // matching will be performed to find the next header. For the other modules
 // the event size can be directly extracted using the filter.
-State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
+std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
 
-enum class ErrorCode: u8
+enum class ErrorCode : u8
 {
     Ok,
+    // event_data() was called with an event index >= the number of events in the splitFilterString vector
     EventIndexOutOfRange,
     ModuleIndexOutOfRange,
+    MaxVMEEventsExceeded,
+    MaxVMEModulesExceeded,
 };
 
 std::error_code LIBMVME_EXPORT event_data(
@@ -174,6 +177,8 @@ std::error_code LIBMVME_EXPORT event_data(
 
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
+
+std::ostringstream &format_counters(std::ostringstream &out, const Counters &counters);
 
 } // end namespace multi_event_splitter
 } // end namespace mvme

@@ -25,7 +25,7 @@
 #include "mvme_stream_processor.h"
 #include <QHostAddress>
 
-class LIBMVME_EXPORT EventServer: public QObject, public IMVMEStreamModuleConsumer
+class LIBMVME_EXPORT EventServer: public QObject, public IStreamModuleConsumer
 {
     Q_OBJECT
     signals:

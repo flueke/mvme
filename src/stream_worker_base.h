@@ -26,7 +26,7 @@
 #include "libmvme_export.h"
 #include "globals.h"
 #include "stream_processor_counters.h"
-#include "stream_processor_module_consumer.h"
+#include "stream_processor_consumers.h"
 #include "util/leaky_bucket.h"
 
 class LIBMVME_EXPORT StreamWorkerBase: public QObject
@@ -54,8 +54,11 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         virtual void setStartPaused(bool startPaused) = 0;
         virtual bool getStartPaused() const = 0;
 
-        virtual void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) = 0;
-        virtual void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) = 0;
+        virtual void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) = 0;
+        virtual void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) = 0;
+
+        virtual void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) = 0;
+        virtual void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) = 0;
 
         virtual MVMEStreamProcessorCounters getCounters() const = 0;
 

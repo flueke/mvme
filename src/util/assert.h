@@ -29,6 +29,6 @@
     #define DO_AND_ASSERT(x) assert(x)
 #endif
 
-#define UNUSED_IF_ASSERT_DISABLED(x) ((void)(x))
+#define UNUSED_IF_ASSERT_DISABLED(x) do { (void)sizeof(x); } while (0)
 
 #endif /* __MVME_UTIL_ASSERT_H__ */

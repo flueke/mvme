@@ -462,6 +462,9 @@ void HistoStatsWidget::Private::handleActionExport()
     if (filename.isEmpty())
         return;
 
+    if (QFileInfo(filename).completeSuffix().isEmpty())
+        filename += ".txt";
+
     QFile outfile(filename);
 
     if (!outfile.open(QIODevice::WriteOnly))

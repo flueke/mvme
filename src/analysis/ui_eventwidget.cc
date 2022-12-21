@@ -3856,6 +3856,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                 auto eventConfig = m_q->getVMEConfig()->getEventConfig(obj->getEventId());
 
                 qDebug() << __PRETTY_FUNCTION__ << "click on object: id =" << obj->getId()
+                    << ", name =" << obj->objectName()
                     << ", class =" << obj->metaObject()->className()
                     << ", flags =" << to_string(obj->getObjectFlags())
                     << ", ulvl  =" << obj->getUserLevel()

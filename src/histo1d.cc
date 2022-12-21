@@ -115,9 +115,9 @@ s32 Histo1D::fill(double x, double weight)
                 m_maxValue = value;
                 m_maxBin = bin;
             }
-        }
 
-        ++m_entryCount;
+            ++m_entryCount;
+        }
 
         return static_cast<s32>(bin);
     }
@@ -218,7 +218,6 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
     Histo1DStatistics result = {};
 
     result.rrf = rrf;
-    result.entryCount = getEntryCount();
     result.minValue = std::numeric_limits<double>::max();
     result.maxValue = std::numeric_limits<double>::lowest();
 
@@ -250,6 +249,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
     {
         double v = getBinContent(bin, rrf);
         result.mean += v * getBinLowEdge(bin, rrf);
+        result.entryCount += v; // This assumes weights of 1.0!
 
         if (v > result.maxValue)
         {

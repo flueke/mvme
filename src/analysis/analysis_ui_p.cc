@@ -3903,7 +3903,9 @@ void MVLCParserDebugHandler::handleDebugInfo(
     }
 
     using ModuleData = mesytec::mvme::multi_event_splitter::ModuleData;
-    const bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
+    bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
+    std::error_code multiEventSplitterError;
+    mesytec::mvme::multi_event_splitter::State multiEventSplitter;
     QString parserText;
     QString splitterText;
 
@@ -3913,7 +3915,6 @@ void MVLCParserDebugHandler::handleDebugInfo(
         QTextStream parserOut(&parserText);
         QTextStream splitterOut(&splitterText);
 
-        mesytec::mvme::multi_event_splitter::State multiEventSplitter;
         mesytec::mvme::multi_event_splitter::Callbacks splitterCallbacks;
         readout_parser::ReadoutParserCallbacks parserCallbacks;
 
@@ -3926,40 +3927,48 @@ void MVLCParserDebugHandler::handleDebugInfo(
             auto filterStrings = collect_multi_event_splitter_filter_strings(
                 *vmeConfig, *analysis);
 
-            multiEventSplitter = mesytec::mvme::multi_event_splitter::make_splitter(filterStrings);
+            std::tie(multiEventSplitter, multiEventSplitterError) = mesytec::mvme::multi_event_splitter::make_splitter(filterStrings);
 
-            // Factory function for module callbacks which log their input data.
-            auto make_module_callback = [&splitterOut] (const QString &typeString)
+            if (multiEventSplitterError)
             {
-                return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
+                splitterOut << QString("Error setting up multi event splitting: %1").arg(
+                    multiEventSplitterError.message().c_str()) << endl;
+            }
+            else
+            {
+                // Factory function for module callbacks which log their input data.
+                auto make_module_callback = [&splitterOut] (const QString &typeString)
                 {
-                    splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
-                        .arg(typeString).arg(ei).arg(mi).arg(size)
-                        << endl;
+                    return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
+                    {
+                        splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
+                            .arg(typeString).arg(ei).arg(mi).arg(size)
+                            << endl;
 
-                    ::logBuffer(BufferIterator(const_cast<u32 *>(data), size),
-                                [&splitterOut] (const QString &str)
-                                {
-                                    splitterOut << "    " << str << endl;
-                                });
+                        ::logBuffer(BufferIterator(const_cast<u32 *>(data), size),
+                                    [&splitterOut] (const QString &str)
+                                    {
+                                        splitterOut << "    " << str << endl;
+                                    });
+                    };
                 };
-            };
 
-            splitterCallbacks.eventData = [&splitterOut, make_module_callback] (
-                void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
-            {
-                splitterOut << "beginEvent(ei=" << ei << ")" << endl;
-
-                for (unsigned mi=0; mi<moduleCount; ++mi)
+                splitterCallbacks.eventData = [&splitterOut, make_module_callback] (
+                    void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
                 {
-                    auto &moduleData = moduleDataList[mi];
+                    splitterOut << "beginEvent(ei=" << ei << ")" << endl;
 
-                    make_module_callback("Data")(
-                        ei, mi, moduleData.data.data, moduleData.data.size);
-                }
+                    for (unsigned mi=0; mi<moduleCount; ++mi)
+                    {
+                        auto &moduleData = moduleDataList[mi];
 
-                splitterOut << "endEvent(ei=" << ei << ")" << endl;
-            };
+                        make_module_callback("Data")(
+                            ei, mi, moduleData.data.data, moduleData.data.size);
+                    }
+
+                    splitterOut << "endEvent(ei=" << ei << ")" << endl;
+                };
+            }
         }
 
         //
@@ -3995,7 +4004,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
             parserOut << "endEvent(ei=" << ei << ")" << endl;
 
-            if (usesMultiEventSplitting)
+            if (usesMultiEventSplitting && !multiEventSplitterError)
             {
                 mesytec::mvme::multi_event_splitter::event_data(
                     multiEventSplitter, splitterCallbacks,
@@ -4060,7 +4069,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
     };
 
     // Display the buffer contents and the parser results side-by-side in two
-    // (or three for multievent) QTextBrowsers.
+    // (or three if multievent splitting is enabled) QTextBrowsers.
     {
         auto widget = new QWidget;
         widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -4088,6 +4097,11 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
         if (usesMultiEventSplitting)
         {
+            std::ostringstream ss;
+            mesytec::mvme::multi_event_splitter::format_counters(ss, multiEventSplitter.counters);
+            QString countersText = "Multi Event Splitter Counters:\n" + QString::fromStdString(ss.str());
+            countersText += "\n========================================\n";
+            splitterText.prepend(countersText);
             auto tb_splitterResult = new QTextBrowser;
             tb_splitterResult->setText(splitterText);
             auto splitterResultWidget = make_searchable_text_widget(tb_splitterResult).first;

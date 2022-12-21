@@ -4352,6 +4352,7 @@ void Analysis::setListFilterExtractors(const QUuid &eventId,
         lfe->setEventId(eventId);
         lfe->setModuleId(moduleId);
         lfe->setObjectFlags(ObjectFlags::NeedsRebuild);
+        lfe->setAnalysis(shared_from_this());
         m_sources.push_back(lfe);
     }
 

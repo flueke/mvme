@@ -165,7 +165,7 @@ struct MVMEContextPrivate
 
     std::unique_ptr<RemoteControl> m_remoteControl;
     // owned by the MVMEStreamWorker
-    EventServer *m_eventServer = nullptr;
+    std::shared_ptr<EventServer> m_eventServer;
 
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
@@ -245,11 +245,11 @@ void MVMEContextPrivate::stopDAQReadout()
     QProgressDialog progressDialog("Stopping Data Acquisition", QString(), 0, 0);
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setCancelButton(nullptr);
-    progressDialog.show();
 
 
     if (m_q->m_readoutWorker->isRunning())
     {
+        progressDialog.show();
         QEventLoop localLoop;
         QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped,
                          &localLoop, &QEventLoop::quit);
@@ -265,7 +265,7 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_streamWorker->getState() != AnalysisWorkerState::Idle)
     {
-
+        progressDialog.show();
         QEventLoop localLoop;
         QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                          &localLoop, &QEventLoop::quit);
@@ -324,7 +324,6 @@ void MVMEContextPrivate::stopDAQReplay()
     QProgressDialog progressDialog("Stopping Replay", QString(), 0, 0);
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setCancelButton(nullptr);
-    progressDialog.show();
 
     QEventLoop localLoop;
 
@@ -337,6 +336,7 @@ void MVMEContextPrivate::stopDAQReplay()
     if (listfileReplayWorker->getState() == DAQState::Running
         || listfileReplayWorker->getState() == DAQState::Paused)
     {
+        progressDialog.show();
         auto con = QObject::connect(
             listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             &localLoop, &QEventLoop::quit);
@@ -358,6 +358,7 @@ void MVMEContextPrivate::stopDAQReplay()
     // as we enter the event loop.
     if (m_q->m_streamWorker->getState() != AnalysisWorkerState::Idle)
     {
+        progressDialog.show();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                                     &localLoop, &QEventLoop::quit);
 
@@ -374,6 +375,7 @@ void MVMEContextPrivate::stopDAQReplay()
     {
         mvmeStreamWorker->setListFileVersion(CurrentListfileVersion);
     }
+
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 
@@ -894,7 +896,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     // EventServer setup
     {
-        m_d->m_eventServer = new EventServer(m_streamWorker.get());; // Note: this is a non-owning pointer
+        m_d->m_eventServer = std::make_shared<EventServer>(m_streamWorker.get()); // Note: this is a non-owning pointer
         m_streamWorker->attachModuleConsumer(m_d->m_eventServer);
 
         auto eventServer = m_d->m_eventServer;
@@ -919,7 +921,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
-        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer.get(),
                                                  "setEnabled",
                                                  Qt::QueuedConnection,
                                                  Q_ARG(bool, enabled));
@@ -2715,7 +2717,7 @@ void MVMEContext::reapplyWorkspaceSettings()
             m_d->m_eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
-        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer.get(),
                                                  "setEnabled",
                                                  Qt::QueuedConnection,
                                                  Q_ARG(bool, enabled));
