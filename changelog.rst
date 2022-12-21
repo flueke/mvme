@@ -4,9 +4,8 @@
 Changelog
 ##################################################
 
-Version 1.6.0-rc1
------------------
-* TODO: listfile writer buffer queue level display in DAQ mode
+Version 1.6.0
+-------------
 
 * [analysis]
 
@@ -16,6 +15,25 @@ Version 1.6.0-rc1
   - Reworked the 1d histogram statistics window: it now uses a table to display
     the data and the statistics are synchronized to the zoomed area of the
     histogram widget.
+
+  - Add multi_event_splitter counter output to the analysis info widget.
+
+* [vme_script]
+
+  - VME amod parsing is not case-sensitive anymore. By default the
+    user/non-privileged VME amods are used but numeric amod arguments are now
+    also accepted to allow full control of the amod.
+
+  - The effective vme amod value is now logged in the output of script commands.
+
+  - read and readabs now accept "late" in addition to "slow"
+
+  - Improve the script level accumulator commands to make them similar to the
+    MVLC accu stack commands.
+
+* Fix VME Debug Widget block reads not working anymore (wrong VME amod was used)
+
+* mvme now requires c++17!
 
 
 Version 1.5.0
