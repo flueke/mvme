@@ -4098,7 +4098,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         if (usesMultiEventSplitting)
         {
             std::ostringstream ss;
-            mesytec::mvme::multi_event_splitter::format_counters(ss, multiEventSplitter.counters);
+            mesytec::mvme::multi_event_splitter::format_counters_tabular(ss, multiEventSplitter.counters);
             QString countersText = "Multi Event Splitter Counters:\n" + QString::fromStdString(ss.str());
             countersText += "\n========================================\n";
             splitterText.prepend(countersText);

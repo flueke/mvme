@@ -30,6 +30,8 @@
 #include <utility>
 #include <vector>
 #include <mesytec-mvlc/mvlc_readout_parser.h>
+#include <mesytec-mvlc/util/fmt.h>
+
 
 #include "libmvme_export.h"
 
@@ -178,7 +180,60 @@ std::error_code LIBMVME_EXPORT event_data(
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 
-std::ostringstream &format_counters(std::ostringstream &out, const Counters &counters);
+template<typename Out>
+Out &format_counters(Out &out, const Counters &counters)
+{
+    for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
+    {
+        auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
+        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}, out/in={:.2f}\n",
+            ei, counters.inputEvents[ei], counters.outputEvents[ei], eventRatio);
+
+        for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
+        {
+            auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
+            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}, out/in={:.2f}\n",
+                mi, counters.inputModules[ei][mi], counters.outputModules[ei][mi], moduleRatio);
+        }
+    }
+
+    out << fmt::format("* Error Counts: eventIndexOutOfRange={}, moduleIndexOutOfRange={}\n",
+        counters.eventIndexOutOfRange, counters.moduleIndexOutOfRange);
+
+    return out;
+}
+
+template<typename Out>
+Out &format_counters_tabular(Out &out, const Counters &counters)
+{
+    out << fmt::format("{: <12} {: >12} {: >12} {: >12}\n", "type", "inputCount", "outputCount", "out/in");
+
+    for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
+    {
+        auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
+
+        out << fmt::format("{: <12} {: >12L} {: >12L} {: >12.2Lf}\n",
+            fmt::format("event{}", ei),
+            counters.inputEvents[ei],
+            counters.outputEvents[ei],
+            eventRatio
+            );
+
+        for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
+        {
+            auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
+            out << fmt::format("{: <12} {: >12L} {: >12L} {: >12.2Lf}\n",
+                fmt::format("module{}", mi),
+                counters.inputModules[ei][mi],
+                counters.outputModules[ei][mi],
+                moduleRatio
+                );
+        }
+    }
+
+    return out;
+}
+
 
 } // end namespace multi_event_splitter
 } // end namespace mvme

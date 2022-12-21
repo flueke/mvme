@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <QDebug>
+#include <iostream>
 #include "multi_event_splitter.h"
 #include "typedefs.h"
 
@@ -436,4 +437,8 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     ASSERT_EQ(splitEvents[1].size(), 2);
     { std::vector<u32> expected = { 0x0200, 0x2011, 0x2012 }; ASSERT_EQ(splitEvents[1][0], expected); }
     { std::vector<u32> expected = { 0x0200, 0x2021, 0x2022 }; ASSERT_EQ(splitEvents[1][1], expected); }
+
+    format_counters(std::cout, splitter.counters);
+    std::cout << std::endl;
+    format_counters_tabular(std::cout, splitter.counters);
 }

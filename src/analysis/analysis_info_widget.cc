@@ -31,6 +31,7 @@
 #include <QTimer>
 
 #include "util/counters.h"
+#include "util/qt_font.h"
 #include "util/strings.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_stream_worker.h"
@@ -198,6 +199,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
         auto &w = m_d->multiEventSplitterInfoWidget;
         w->setReadOnly(true);
         w->setTabChangesFocus(true);
+        w->setFont(make_monospace_font());
     }
 
     //m_d->eventBuilderWidget = new QGroupBox("Event Builder");
@@ -442,7 +444,7 @@ void AnalysisInfoWidget::update()
 
         auto splitterCounters = mvlcWorker->getMultiEventSplitterCounters();
         std::ostringstream ss;
-        mesytec::mvme::multi_event_splitter::format_counters(ss, splitterCounters);
+        mesytec::mvme::multi_event_splitter::format_counters_tabular(ss, splitterCounters);
         m_d->multiEventSplitterInfoWidget->setPlainText(QString::fromStdString(ss.str()));
     }
     else
