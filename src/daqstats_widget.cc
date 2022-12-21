@@ -319,10 +319,15 @@ struct DAQStatsWidgetPrivate
         mvlcUSBWidget->setVisible(is_MVLC_USB);
         mvlcETHWidget->setVisible(is_MVLC_ETH);
         mvlcStackErrorsWidget->setVisible(mvlc != nullptr);
-        listfileQueueFillLevel->setVisible(mvlc != nullptr);
+#if 0
+        listfileQueueFillLevel->setVisible(mvlc != nullptr
+            && context->getDAQState() != DAQState::Idle
+            && context->getListFileOutputInfo().enabled);
+#else
+        listfileQueueFillLevel->setVisible(false);
+#endif
 
-
-        auto daqStats  = context->getDAQStats();
+        auto daqStats = context->getDAQStats();
         auto startTime = daqStats.startTime;
         auto endTime   = (context->getDAQState() == DAQState::Idle
                           ? daqStats.endTime
