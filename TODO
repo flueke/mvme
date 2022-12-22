@@ -2,9 +2,6 @@
 TODO list
 ==================================================
 
-readout parser
---------------
-
 - When generating histograms for an output pipe the source operator could be
   examined to determine the resolution for the histogram.
 
