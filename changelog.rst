@@ -4,6 +4,38 @@
 Changelog
 ##################################################
 
+Version 1.6.0
+-------------
+
+* [analysis]
+
+  - Add plot grid views: configurable window for showing multiple plots in a
+    grid layout.
+
+  - Reworked the 1d histogram statistics window: it now uses a table to display
+    the data and the statistics are synchronized to the zoomed area of the
+    histogram widget.
+
+  - Add multi_event_splitter counter output to the analysis info widget.
+
+* [vme_script]
+
+  - VME amod parsing is not case-sensitive anymore. By default the
+    user/non-privileged VME amods are used but numeric amod arguments are now
+    also accepted to allow full control of the amod.
+
+  - The effective vme amod value is now logged in the output of script commands.
+
+  - read and readabs now accept "late" in addition to "slow"
+
+  - Improve the script level accumulator commands to make them similar to the
+    MVLC accu stack commands.
+
+* Fix VME Debug Widget block reads not working anymore (wrong VME amod was used)
+
+* mvme now requires c++17!
+
+
 Version 1.5.0
 -------------
 
@@ -21,6 +53,8 @@ Version 1.5.0
     *privileged* value, while uppercase specifiers where converted to the *user*
     value. Now by default the user amods are used but numeric amod arguments can
     be given to single and block read commands for full control over the amod.
+
+  - Add the raw VME amod value to the log output of vme script commands.
 
   - Add new commands for the fast 2eSST VME transfer modes:
     :ref:`2esst <vme-command-2esst>` and the word swapped version

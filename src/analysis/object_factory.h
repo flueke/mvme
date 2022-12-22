@@ -60,6 +60,13 @@ SinkInterface *createSink()
     return result;
 }
 
+template<typename T>
+AnalysisObject *createGeneric()
+{
+    auto result = new T;
+    return result;
+}
+
 class LIBMVME_EXPORT ObjectFactory
 {
     public:
@@ -117,10 +124,29 @@ class LIBMVME_EXPORT ObjectFactory
             return registerSink<T>(className);
         }
 
+        template<typename T>
+        bool registerGeneric(const QString &name)
+        {
+            if (m_genericRegistry.contains(name))
+                return false;
+
+            m_genericRegistry.insert(name, &createGeneric<T>);
+
+            return true;
+        }
+
+        template<typename T>
+        bool registerGeneric()
+        {
+            QString className = T::staticMetaObject.className();
+            return registerGeneric<T>(className);
+        }
+
         AnalysisObject *makeObject(const QString &name) const;
         SourceInterface *makeSource(const QString &name) const;
         OperatorInterface *makeOperator(const QString &name) const;
         SinkInterface *makeSink(const QString &name) const;
+        AnalysisObject *makeGeneric(const QString &name) const;
 
         QStringList getSourceNames() const
         {
@@ -137,10 +163,16 @@ class LIBMVME_EXPORT ObjectFactory
             return m_sinkRegistry.keys();
         }
 
+        QStringList getGenericNames() const
+        {
+            return m_genericRegistry.keys();
+        }
+
     private:
         QMap<QString, SourceInterface *(*)()> m_sourceRegistry;
         QMap<QString, OperatorInterface *(*)()> m_operatorRegistry;
         QMap<QString, SinkInterface *(*)()> m_sinkRegistry;
+        QMap<QString, AnalysisObject *(*)()> m_genericRegistry;
 };
 
 } // end namespace analysis

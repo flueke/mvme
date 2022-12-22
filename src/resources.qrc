@@ -42,6 +42,7 @@
     <file alias="hist1d.png">resources/office-chart-bar.png</file>
     <file alias="hist2d.png">resources/hist2d.png</file>
     <file alias="histo_resolution.png">resources/grid.png</file>
+    <file alias="grid.png">resources/grid.png</file>
     <file alias="histo_subrange.png">resources/selection-resize.png</file>
     <file alias="info.png">resources/dialog-information.png</file>
     <file alias="list_add.png">resources/list-add.png</file>
@@ -70,6 +71,10 @@
     <file alias="code-function.png">resources/code-function.png</file>
     <file alias="interval_condition.png">resources/layer-resize-replicate.png</file>
     <file alias="polygon_condition.png">resources/layer-shape-polygon.png</file>
+    <file alias="hand.png">resources/hand.png</file>
+    <file alias="map.png">resources/map.png</file>
+    <file alias="map-medium.png">resources/map-medium.png</file>
+    <file alias="arrow-out.png">resources/arrow-out.png</file>
 
     <file>resources/layer-visible-off.png</file>
     <file>resources/layer-visible-on.png</file>

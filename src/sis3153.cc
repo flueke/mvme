@@ -666,8 +666,6 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
 
     dest->resize(wordsRead);
 
-    // TODO: add a BlockReadFlag arg to VMEController::blockRead() and then
-    // remove this hardcoded swap.
     if (isMBLT)
     {
         fix_word_order(*dest);

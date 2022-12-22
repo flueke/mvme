@@ -667,6 +667,56 @@ class LIBMVME_EXPORT Directory: public AnalysisObject
 bool check_directory_consistency(const DirectoryVector &dirs,
                                  const Analysis *analysis = nullptr);
 
+class LIBMVME_EXPORT PlotGridView: public AnalysisObject
+{
+    Q_OBJECT
+    public:
+        struct Entry
+        {
+            QUuid sinkId;
+            int elementIndex = -1;
+            QString customTitle;
+            QRectF zoomRect;
+        };
+
+        Q_INVOKABLE explicit PlotGridView(QObject *parent = nullptr);
+
+        const std::vector<Entry> &entries() const { return entries_; }
+        void setEntries(const std::vector<Entry> &entries) { entries_ = entries; }
+        void setEntries(std::vector<Entry> &&entries) { entries_ = entries; }
+
+        size_t getMaxVisibleResolution() const { return maxVisibleRes_; }
+        void setMaxVisibleResolution(size_t maxres) { maxVisibleRes_ = maxres; }
+
+        int getAxisScaleType() const { return axisScaleType_; }
+        void setAxisScaleType(int scaleType) { axisScaleType_ = scaleType; }
+
+        int getMaxColumns() const { return maxColumns_; }
+        void setMaxColumns(int maxcols) { maxColumns_ = maxcols; }
+
+        QSize getMinTileSize() const { return minTileSize_; }
+        void setMinTileSize(const QSize &sz) { minTileSize_ = sz; }
+
+        bool getCombinedZoom() const { return combinedZoom_; }
+        void setCombinedZoom(bool b) { combinedZoom_ = b; }
+
+        bool isGaussEnabled() const { return gaussEnabled_; }
+        void setGaussEnabled(bool b) { gaussEnabled_ = b; }
+
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+        void accept(ObjectVisitor &visitor) override;
+
+    private:
+        std::vector<Entry> entries_;
+        size_t maxVisibleRes_ = 1u << 10;
+        int axisScaleType_ = {};
+        int maxColumns_ = {};
+        QSize minTileSize_ = {};
+        bool combinedZoom_ = {};
+        bool gaussEnabled_ = {};
+};
+
 } // end namespace analysis
 
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"
@@ -849,9 +899,13 @@ class LIBMVME_EXPORT DataSourceCopy: public SourceInterface
         Q_INVOKABLE DataSourceCopy(QObject *parent = nullptr);
 
         virtual s32 getNumberOfOutputs() const override { return 1; }
-        virtual QString getOutputName(s32 index) const override
+
+        virtual QString getOutputName([[maybe_unused]] s32 index) const override
         { assert(index == 0); return QSL("Output"); }
-        virtual Pipe *getOutput(s32 index) override { assert(index == 0); return &m_output; }
+
+        virtual Pipe *getOutput([[maybe_unused]] s32 index) override
+        { assert(index == 0); return &m_output; }
+
         virtual QString getDisplayName() const override { return QSL("DataSourceCopy"); }
         virtual QString getShortName() const override { return QSL("DSC"); }
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
@@ -2054,16 +2108,19 @@ class LIBMVME_EXPORT Analysis:
         void conditionLinkAdded(const OperatorPtr &op, const ConditionPtr &cond);
         void conditionLinkRemoved(const OperatorPtr &op, const ConditionPtr &cond);
 
+        void objectAdded(const AnalysisObjectPtr &obj);
+        void objectRemoved(const AnalysisObjectPtr &obj);
+
 
     public:
         explicit Analysis(QObject *parent = nullptr);
-        virtual ~Analysis();
+        ~Analysis() override;
 
         //
         // Data Sources
         //
-        const SourceVector &getSources() const { return m_sources; }
-        SourceVector &getSources() { return m_sources; }
+        const SourceVector &getSources() const;
+        SourceVector &getSources();
         SourceVector getSources(const QUuid &eventId, const QUuid &moduleId) const;
         SourceVector getSourcesByModule(const QUuid &moduleId) const;
         SourceVector getSourcesByEvent(const QUuid &eventId) const;
@@ -2074,7 +2131,7 @@ class LIBMVME_EXPORT Analysis:
         void removeSource(SourceInterface *source);
         void setSourceEdited(const SourcePtr &source);
 
-        s32 getNumberOfSources() const { return m_sources.size(); }
+        s32 getNumberOfSources() const;
 
         // Special handling for listfilter extractors as they only make sense when grouped
         // up as each consumes a certain amount of input words and the next filter
@@ -2092,8 +2149,8 @@ class LIBMVME_EXPORT Analysis:
         //
         // Operators
         //
-        const OperatorVector &getOperators() const { return m_operators; }
-        OperatorVector &getOperators() { return m_operators; }
+        const OperatorVector &getOperators() const;
+        OperatorVector &getOperators();
         OperatorVector getOperators(const QUuid &eventId) const;
         OperatorVector getOperators(const QUuid &eventId, s32 userLevel) const;
         OperatorVector getOperators(s32 userLevel) const;
@@ -2106,7 +2163,7 @@ class LIBMVME_EXPORT Analysis:
         {
             QVector<T> result;
 
-            for (const auto &op: m_operators)
+            for (const auto &op: getOperators())
             {
                 if (qobject_cast<SinkInterface *>(op.get()))
                 {
@@ -2123,7 +2180,7 @@ class LIBMVME_EXPORT Analysis:
         void removeOperator(OperatorInterface *op);
         void setOperatorEdited(const OperatorPtr &op);
 
-        s32 getNumberOfOperators() const { return m_operators.size(); }
+        s32 getNumberOfOperators() const;
 
         //
         // Conditions
@@ -2136,17 +2193,6 @@ class LIBMVME_EXPORT Analysis:
 
         QSet<ConditionPtr> getActiveConditions(const OperatorPtr &op) const;
         QSet<ConditionPtr> getActiveConditions(const OperatorInterface *op) const;
-
-        //ConditionPtr getCondition(const OperatorPtr &op) const;
-        //ConditionPtr getCondition(OperatorInterface *op) const;
-        //ConditionLink getConditionLink(const OperatorPtr &op) const;
-        //ConditionLink getConditionLink(const OperatorInterface *op) const;
-
-
-        /* Links the given operator to the given condition and subindex. Any
-         * existing condition link will be replaced. */
-        //bool setConditionLink(const OperatorPtr &op, ConditionInterface *cond, int subIndex);
-        //bool setConditionLink(const OperatorPtr &op, const ConditionPtr &cond);
 
         // Adds a condition link from operator to cond. At runtime the operator
         // will only be evaluated if all its linked conditions are true.
@@ -2175,8 +2221,8 @@ class LIBMVME_EXPORT Analysis:
         //
         // Directory Objects
         //
-        const DirectoryVector &getDirectories() const { return m_directories; }
-        DirectoryVector &getDirectories() { return m_directories; }
+        const DirectoryVector &getDirectories() const;
+        DirectoryVector &getDirectories();
 
         const DirectoryVector getDirectories(const QUuid &eventId,
                                              const DisplayLocation &loc = DisplayLocation::Any) const;
@@ -2199,7 +2245,7 @@ class LIBMVME_EXPORT Analysis:
         void removeDirectory(const DirectoryPtr &dir);
         void removeDirectory(int index);
 
-        int directoryCount() const { return m_directories.size(); }
+        int directoryCount() const;
 
         DirectoryPtr getParentDirectory(const AnalysisObjectPtr &obj) const;
         QVector<DirectoryPtr> getParentDirectories(const AnalysisObjectPtr &obj) const;
@@ -2217,7 +2263,15 @@ class LIBMVME_EXPORT Analysis:
         // Untyped Object access
         //
 
+        // Adds a generic object
+        void addObject(const AnalysisObjectPtr &obj);
         AnalysisObjectPtr getObject(const QUuid &id) const;
+
+        template<typename T> std::shared_ptr<T> getObject(const QUuid &id) const
+        {
+            return std::dynamic_pointer_cast<T>(getObject(id));
+        }
+
         int removeObjectsRecursively(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllObjects() const;
         int objectCount() const;
@@ -2287,12 +2341,9 @@ class LIBMVME_EXPORT Analysis:
         void write(QJsonObject &json) const;
 
         /* Object flags containing system internal information. */
-        ObjectFlags::Flags getObjectFlags() const { return m_flags; }
-        void setObjectFlags(ObjectFlags::Flags flags) { m_flags = flags; }
-        void clearObjectFlags(ObjectFlags::Flags flagsToClear)
-        {
-            m_flags &= (~flagsToClear);
-        }
+        ObjectFlags::Flags getObjectFlags() const;
+        void setObjectFlags(ObjectFlags::Flags flags);
+        void clearObjectFlags(ObjectFlags::Flags flagsToClear);
 
         //
         // Misc
@@ -2305,14 +2356,14 @@ class LIBMVME_EXPORT Analysis:
         void clear();
         bool isEmpty() const;
 
-        bool isModified() const { return m_modified; }
+        bool isModified() const;
         void setModified(bool b = true);
 
-        A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
-        const A2AdapterState *getA2AdapterState() const { return m_a2State.get(); }
+        A2AdapterState *getA2AdapterState();
+        const A2AdapterState *getA2AdapterState() const;
 
-        RunInfo getRunInfo() const { return m_runInfo; }
-        void setRunInfo(const RunInfo &ri) { m_runInfo = ri; }
+        RunInfo getRunInfo() const;
+        void setRunInfo(const RunInfo &ri);
 
         /* Additional settings tied to VME objects but stored in the analysis
          * due to logical and convenience reasons.
@@ -2330,7 +2381,7 @@ class LIBMVME_EXPORT Analysis:
         void setVMEObjectSettings(const VMEObjectSettings &settings);
         VMEObjectSettings getVMEObjectSettings() const;
 
-        ObjectFactory &getObjectFactory() { return m_objectFactory; }
+        ObjectFactory &getObjectFactory();
 
         bool anyObjectNeedsRebuild() const;
 
@@ -2339,19 +2390,20 @@ class LIBMVME_EXPORT Analysis:
         void setUserLevelsHidden(const QVector<bool> &hidden);
         QVector<bool> getUserLevelsHidden() const;
 
-        vme_analysis_common::VMEIdToIndex getVMEIdToIndexMapping() const
-        {
-            return m_vmeMap;
-        }
+        vme_analysis_common::VMEIdToIndex getVMEIdToIndexMapping() const;
 
     private:
         void updateRank(OperatorPtr op,
                         QSet<OperatorPtr> &updated,
                         QSet<OperatorPtr> &visited);
 
+        struct Private;
+        std::unique_ptr<Private> d;
+
         SourceVector m_sources;
         OperatorVector m_operators;
         DirectoryVector m_directories;
+        AnalysisObjectVector m_genericObjects;
         VMEObjectSettings m_vmeObjectSettings;
         ObjectFlags::Flags m_flags = ObjectFlags::None;
         ConditionLinks m_conditionLinks;

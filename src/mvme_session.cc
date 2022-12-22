@@ -20,6 +20,7 @@
  */
 #include "mvme_session.h"
 
+#include <mesytec-mvlc/util/logging.h>
 #include <QCoreApplication>
 #include <QDebug>
 #include <QLibraryInfo>
@@ -56,8 +57,10 @@ void mvme_init(const QString &appName)
 
 #ifndef NDEBUG
     spdlog::set_level(spdlog::level::debug);
+    mesytec::mvlc::set_global_log_level(spdlog::level::debug);
 #else
-    spdlog::set_level(spdlog::level::warn);
+    spdlog::set_level(spdlog::level::info);
+    mesytec::mvlc::set_global_log_level(spdlog::level::info);
 #endif
 }
 

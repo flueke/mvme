@@ -1809,30 +1809,29 @@ VMEScript parse(
     }
 }
 
-// TODO: maybe merge commandTypeToString and commandParser
 static const QMap<CommandType, QString> commandTypeToString =
 {
-    { CommandType::Read,                QSL("read") },
-    { CommandType::ReadAbs,             QSL("readabs") },
-    { CommandType::Write,               QSL("write") },
-    { CommandType::WriteAbs,            QSL("writeabs") },
-    { CommandType::Wait,                QSL("wait") },
-    { CommandType::Marker,              QSL("marker") },
-    { CommandType::BLT,                 QSL("blt") },
-    { CommandType::BLTFifo,             QSL("bltfifo") },
-    { CommandType::MBLT,                QSL("mblt") },
-    { CommandType::MBLTFifo,            QSL("mbltfifo") },
-    { CommandType::MBLTSwapped,         QSL("mblts") },
-    { CommandType::Blk2eSST64,          QSL("2esst") },
-    { CommandType::Blk2eSST64Swapped,   QSL("2essts") },
-    { CommandType::SetBase,             QSL("setbase") },
-    { CommandType::ResetBase,           QSL("resetbase") },
-    { CommandType::VMUSB_WriteRegister, QSL("vmusb_write_reg") },
-    { CommandType::VMUSB_ReadRegister,  QSL("vmusb_read_reg") },
-    { CommandType::MVLC_WriteSpecial,   QSL("mvlc_writespecial") },
-    { CommandType::MetaBlock,           QSL("meta_block") },
-    { CommandType::SetVariable,         QSL("set_variable") },
-    { CommandType::Print,               QSL("print") },
+    { CommandType::Read,                    QSL("read") },
+    { CommandType::ReadAbs,                 QSL("readabs") },
+    { CommandType::Write,                   QSL("write") },
+    { CommandType::WriteAbs,                QSL("writeabs") },
+    { CommandType::Wait,                    QSL("wait") },
+    { CommandType::Marker,                  QSL("marker") },
+    { CommandType::BLT,                     QSL("blt") },
+    { CommandType::BLTFifo,                 QSL("bltfifo") },
+    { CommandType::MBLT,                    QSL("mblt") },
+    { CommandType::MBLTFifo,                QSL("mbltfifo") },
+    { CommandType::MBLTSwapped,             QSL("mblts") },
+    { CommandType::Blk2eSST64,              QSL("2esst") },
+    { CommandType::Blk2eSST64Swapped,       QSL("2essts") },
+    { CommandType::SetBase,                 QSL("setbase") },
+    { CommandType::ResetBase,               QSL("resetbase") },
+    { CommandType::VMUSB_WriteRegister,     QSL("vmusb_write_reg") },
+    { CommandType::VMUSB_ReadRegister,      QSL("vmusb_read_reg") },
+    { CommandType::MVLC_WriteSpecial,       QSL("mvlc_writespecial") },
+    { CommandType::MetaBlock,               QSL("meta_block") },
+    { CommandType::SetVariable,             QSL("set_variable") },
+    { CommandType::Print,                   QSL("print") },
     { CommandType::MVLC_SetAddressIncMode,  QSL("mvlc_set_address_inc_mode") },
     { CommandType::MVLC_Wait,               QSL("mvlc_wait") },
     { CommandType::MVLC_SignalAccu,         QSL("mvlc_signal_accu") },
@@ -1872,7 +1871,7 @@ CommandType commandType_from_string(const QString &str)
     return stringToCommandType.value(str.toLower(), CommandType::Invalid);
 }
 
-QString to_string(u8 addressMode)
+QString amod_to_string(u8 addressMode)
 {
     static const QMap<u8, QString> addressModeToString =
     {
@@ -1961,7 +1960,7 @@ QString to_string(const Command &cmd)
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
-                    .arg(to_string(cmd.addressMode))
+                    .arg(amod_to_string(cmd.addressMode))
                     .arg(to_string(cmd.dataWidth))
                     .arg(format_hex(cmd.address));
             } break;
@@ -1971,7 +1970,7 @@ QString to_string(const Command &cmd)
             {
                 buffer = QString(QSL("%1 %2 %3 %4 %5"))
                     .arg(cmdStr)
-                    .arg(to_string(cmd.addressMode))
+                    .arg(amod_to_string(cmd.addressMode))
                     .arg(to_string(cmd.dataWidth))
                     .arg(format_hex(cmd.address))
                     .arg(format_hex(cmd.value));
@@ -1997,7 +1996,7 @@ QString to_string(const Command &cmd)
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
-                    .arg(to_string(cmd.addressMode))
+                    .arg(amod_to_string(cmd.addressMode))
                     .arg(format_hex(cmd.address))
                     .arg(cmd.transfers);
             } break;

@@ -107,7 +107,7 @@ class ExpressionOperatorPipeView: public QWidget
         void setDataEditable(bool b) { m_dataEditable = b; refresh(); }
         bool isDataEditable() const  { return m_dataEditable; }
 
-        virtual bool eventFilter(QObject *watched, QEvent *event) override;
+        virtual bool eventFilter([[maybe_unused]] QObject *watched, QEvent *event) override;
 
     public slots:
         void refresh();

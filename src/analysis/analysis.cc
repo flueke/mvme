@@ -36,9 +36,13 @@
 #include "analysis/analysis_util.h"
 #include "analysis/exportsink_codegen.h"
 #include "analysis/object_visitor.h"
+#include "analysis/analysis_json_util.h"
 #include "util/algo.h"
 #include "util/qt_metaobject.h"
+#include "util/qt_json.h"
 #include "vme_config.h"
+
+using namespace mesytec::mvme::util;
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
@@ -81,79 +85,6 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     return result;
 }
 
-a2::data_filter::DataFilter a2_datafilter_from_json(const QJsonObject &json)
-{
-    return a2::data_filter::make_filter(
-        json["filterString"].toString().toStdString(),
-        json["wordIndex"].toInt());
-}
-
-QJsonObject to_json(const a2::data_filter::DataFilter &filter)
-{
-    QJsonObject result;
-    result["filterString"] = QString::fromStdString(to_string(filter));
-    result["wordIndex"] = filter.matchWordIndex;
-    return result;
-}
-
-QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
-{
-    QJsonObject result;
-
-    QJsonArray subFilterArray;
-
-    for (s32 i = 0; i < filter.filterCount; i++)
-    {
-        const auto &subfilter = filter.filters[i];
-        auto filterJson = to_json(subfilter);
-        subFilterArray.append(filterJson);
-    }
-
-    result["subFilters"] = subFilterArray;
-
-
-    return result;
-}
-
-a2::data_filter::MultiWordFilter a2_multiwordfilter_from_json(const QJsonObject &json)
-{
-    a2::data_filter::MultiWordFilter result = {};
-
-    auto subFilterArray = json["subFilters"].toArray();
-
-    for (auto it = subFilterArray.begin();
-         it != subFilterArray.end();
-         it++)
-    {
-        add_subfilter(&result, a2_datafilter_from_json(it->toObject()));
-    }
-
-    return result;
-}
-
-QJsonObject to_json(const a2::data_filter::ListFilter &filter)
-{
-    QJsonObject result;
-
-    result["extractionFilter"] = to_json(filter.extractionFilter);
-    result["flags"] = static_cast<qint64>(filter.flags);
-    result["wordCount"] = static_cast<qint64>(filter.wordCount);
-
-    return result;
-}
-
-a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
-{
-    using a2::data_filter::ListFilter;
-
-    ListFilter result = {};
-
-    result.extractionFilter = a2_multiwordfilter_from_json(json["extractionFilter"].toObject());
-    result.flags = static_cast<ListFilter::Flag>(json["flags"].toInt());
-    result.wordCount = static_cast<u8>(json["wordCount"].toInt());
-
-    return result;
-}
 
 class AnalysisReadResultErrorCategory: public std::error_category
 {
@@ -558,9 +489,14 @@ void Directory::accept(ObjectVisitor &visitor)
     visitor.visit(this);
 }
 
+#ifdef QT_NO_DEBUG
+bool check_directory_consistency(const DirectoryVector &, const Analysis *)
+{
+    return true;
+}
+#else
 bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *analysis)
 {
-#ifndef QT_NO_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
 
     QHash<DirectoryPtr, Directory::MemberSet> memberSets;
@@ -604,11 +540,89 @@ bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *an
 
         allMembers.unite(set);
     }
-#endif
 
     return true;
 }
+#endif
 
+//
+// Support functions
+//
+
+namespace
+{
+template<typename It>
+void normalize_intervals(It first, It onePastEnd)
+{
+    while (first != onePastEnd)
+    {
+        *first = first->normalized();
+        first++;
+    }
+}
+}
+
+//
+// PlotGridView
+//
+
+PlotGridView::PlotGridView(QObject *parent)
+    : AnalysisObject(parent)
+{
+}
+
+void PlotGridView::read(const QJsonObject &json)
+{
+    entries_.clear();
+
+    for (auto jo: json["entries"].toArray())
+    {
+        auto je = jo.toObject();
+
+        Entry e;
+        e.sinkId = je["sinkId"].toString();
+        e.elementIndex = je["elementIndex"].toInt();
+        e.customTitle = je["customTitle"].toString();
+        e.zoomRect = qrectf_from_json(je["zoomRect"].toObject());
+        entries_.emplace_back(std::move(e));
+    }
+
+    setMaxVisibleResolution(json["maxVisibleResolution"].toInt());
+    setAxisScaleType(json["axisScaleType"].toInt());
+    setMaxColumns(json["maxColumns"].toInt());
+    setMinTileSize(qsize_from_json(json["minTileSize"].toObject()));
+    setCombinedZoom(json["combinedZoom"].toBool());
+    setGaussEnabled(json["gaussEnabled"].toBool());
+}
+
+void PlotGridView::write(QJsonObject &json) const
+{
+    QJsonArray jEntries;
+
+    for (const auto &e: entries_)
+    {
+        QJsonObject jEntry;
+        jEntry["sinkId"] = e.sinkId.toString();
+        jEntry["elementIndex"] = e.elementIndex;
+        jEntry["customTitle"] = e.customTitle;
+        jEntry["zoomRect"] = to_json(e.zoomRect);
+
+        jEntries.append(jEntry);
+    }
+
+    json["entries"] = jEntries;
+    json["maxVisibleResolution"] = static_cast<qint64>(getMaxVisibleResolution());
+    json["axisScaleType"] = axisScaleType_;
+    json["maxColumns"] = maxColumns_;
+    json["minTileSize"] = to_json(minTileSize_);
+    json["combinedZoom"] = combinedZoom_;
+    json["gaussEnabled"] = gaussEnabled_;
+}
+
+void PlotGridView::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
 
 //
 // Extractor
@@ -3740,92 +3754,6 @@ QString ExportSink::getExportFileBasename() const
 }
 
 //
-// Condition Support
-//
-
-template<typename It>
-void normalize_intervals(It first, It onePastEnd)
-{
-    while (first != onePastEnd)
-    {
-        *first = first->normalized();
-        first++;
-    }
-}
-
-QJsonObject to_json(const QwtInterval &interval)
-{
-    QJsonObject result;
-    result["min"] = interval.minValue();
-    result["max"] = interval.maxValue();
-    return result;
-}
-
-QwtInterval interval_from_json(const QJsonObject &json)
-{
-    QwtInterval result;
-    result.setMinValue(json["min"].toDouble(make_quiet_nan()));
-    result.setMaxValue(json["max"].toDouble(make_quiet_nan()));
-    return result;
-}
-
-QJsonObject to_json(const QPointF &point)
-{
-    QJsonObject result;
-    result["x"] = point.x();
-    result["y"] = point.y();
-    return result;
-}
-
-QPointF qpointf_from_json(const QJsonObject &json)
-{
-    return { json["x"].toDouble(), json["y"].toDouble() };
-}
-
-QJsonObject to_json(const QRectF &rect)
-{
-    QJsonObject result;
-
-    result["topLeft"] = to_json(rect.topLeft());
-    result["bottomRight"] = to_json(rect.bottomRight());
-
-    return result;
-}
-
-QRectF qrectf_from_json(const QJsonObject &json)
-{
-    QRectF result(qpointf_from_json(json["topLeft"].toObject()),
-                  qpointf_from_json(json["bottomRight"].toObject()));
-
-    return result;
-}
-
-QJsonArray to_json(const QPolygonF &poly)
-{
-    QJsonArray points;
-
-    for (const auto &point: poly)
-    {
-        points.append(to_json(point));
-    }
-
-    return points;
-}
-
-QPolygonF qpolygonf_from_json(const QJsonArray &points)
-{
-    QPolygonF result;
-    result.reserve(points.size());
-
-    for (auto it = points.begin(); it != points.end(); it++)
-    {
-        result.append(qpointf_from_json(it->toObject()));
-    }
-
-    return result;
-}
-
-//
 // IntervalCondition
 //
 
@@ -4154,8 +4082,13 @@ void ExpressionCondition::beginRun(const RunInfo &, Logger)
 
 static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
+struct Analysis::Private
+{
+};
+
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
+    , d(std::make_unique<Private>())
     , m_modified(false)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
@@ -4194,10 +4127,14 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerSink<RateMonitorSink>();
     m_objectFactory.registerSink<ExportSink>();
 
-#if 0
+    // generics
+    m_objectFactory.registerGeneric<PlotGridView>();
+
+#ifndef QT_NO_DEBUG
     qDebug() << "Registered Sources:   " << m_objectFactory.getSourceNames();
     qDebug() << "Registered Operators: " << m_objectFactory.getOperatorNames();
     qDebug() << "Registered Sinks:     " << m_objectFactory.getSinkNames();
+    qDebug() << "Registered Generics:  " << m_objectFactory.getGenericNames();
 #endif
 
     // create a2 arenas
@@ -4215,6 +4152,16 @@ Analysis::~Analysis()
 //
 // Data Sources
 //
+
+const SourceVector &Analysis::getSources() const
+{
+    return m_sources;
+}
+
+SourceVector &Analysis::getSources()
+{
+    return m_sources;
+}
 
 SourceVector Analysis::getSources(const QUuid &eventId, const QUuid &moduleId) const
 {
@@ -4331,6 +4278,11 @@ void Analysis::setSourceEdited(const SourcePtr &source)
     emit dataSourceEdited(source);
 }
 
+s32 Analysis::getNumberOfSources() const
+{
+    return m_sources.size();
+}
+
 ListFilterExtractorVector Analysis::getListFilterExtractors(const QUuid &eventId,
                                                             const QUuid &moduleId) const
 {
@@ -4400,6 +4352,7 @@ void Analysis::setListFilterExtractors(const QUuid &eventId,
         lfe->setEventId(eventId);
         lfe->setModuleId(moduleId);
         lfe->setObjectFlags(ObjectFlags::NeedsRebuild);
+        lfe->setAnalysis(shared_from_this());
         m_sources.push_back(lfe);
     }
 
@@ -4425,6 +4378,16 @@ void Analysis::setListFilterExtractors(const QUuid &eventId,
 //
 // Operators
 //
+
+const OperatorVector &Analysis::getOperators() const
+{
+    return m_operators;
+}
+
+OperatorVector &Analysis::getOperators()
+{
+    return m_operators;
+}
 
 OperatorVector Analysis::getOperators(const QUuid &eventId) const
 {
@@ -4588,6 +4551,11 @@ void Analysis::setOperatorEdited(const OperatorPtr &op)
     emit operatorEdited(op);
 }
 
+s32 Analysis::getNumberOfOperators() const
+{
+    return m_operators.size();
+}
+
 ConditionLinks Analysis::getConditionLinks() const
 {
     return m_conditionLinks;
@@ -4689,6 +4657,17 @@ void Analysis::clearConditionLinksUsing(const ConditionPtr &cond)
 //
 // Directories
 //
+
+const DirectoryVector &Analysis::getDirectories() const
+{
+    return m_directories;
+}
+
+DirectoryVector &Analysis::getDirectories()
+{
+    return m_directories;
+}
+
 const DirectoryVector Analysis::getDirectories(const QUuid &eventId,
                                                const DisplayLocation &loc) const
 {
@@ -4799,6 +4778,11 @@ void Analysis::removeDirectory(int index)
     m_directories.removeAt(index);
     setModified();
     emit directoryRemoved(dir);
+}
+
+int Analysis::directoryCount() const
+{
+    return m_directories.size();
 }
 
 DirectoryPtr Analysis::getParentDirectory(const AnalysisObjectPtr &obj) const
@@ -4943,30 +4927,23 @@ class IdComparator
 
 } // end anon namespace
 
+void Analysis::addObject(const AnalysisObjectPtr &obj)
+{
+    obj->setObjectFlags(ObjectFlags::NeedsRebuild);
+    obj->setAnalysis(this->shared_from_this());
+    m_genericObjects.push_back(obj);
+    setModified();
+    emit objectAdded(obj);
+}
+
 AnalysisObjectPtr Analysis::getObject(const QUuid &id) const
 {
     IdComparator cmp(id);
+    auto allObjects = getAllObjects();
 
-    {
-        auto it = std::find_if(m_sources.begin(), m_sources.end(), cmp);
-
-        if (it != m_sources.end())
-            return *it;
-    }
-
-    {
-        auto it = std::find_if(m_operators.begin(), m_operators.end(), cmp);
-
-        if (it != m_operators.end())
-            return *it;
-    }
-
-    {
-        auto it = std::find_if(m_directories.begin(), m_directories.end(), cmp);
-
-        if (it != m_directories.end())
-            return *it;
-    }
+    if (auto it = std::find_if(std::begin(allObjects), std::end(allObjects), cmp);
+        it != std::end(allObjects))
+        return *it;
 
     return nullptr;
 }
@@ -4993,6 +4970,13 @@ int Analysis::removeObjectsRecursively(const AnalysisObjectVector &objects)
         {
             removed += removeDirectoryRecursively(dir);
         }
+        else if (auto it = std::find(m_genericObjects.begin(), m_genericObjects.end(), obj);
+                 it != m_genericObjects.end())
+        {
+            m_genericObjects.erase(it);
+            setModified();
+            emit objectRemoved(obj);
+        }
     }
 
     return removed;
@@ -5015,6 +4999,9 @@ AnalysisObjectVector Analysis::getAllObjects() const
     for (const auto &obj: m_directories)
         result.append(obj);
 
+    for (const auto &obj: m_genericObjects)
+        result.append(obj);
+
     return result;
 }
 
@@ -5025,6 +5012,7 @@ int Analysis::objectCount() const
     result += m_sources.size();
     result += m_operators.size();
     result += m_directories.size();
+    result += m_genericObjects.size();
 
     return result;
 }
@@ -5032,19 +5020,16 @@ int Analysis::objectCount() const
 void Analysis::addObjects(const AnalysisObjectStore &store)
 {
     for (auto &obj: store.sources)
-    {
         addSource(obj);
-    }
 
     for (auto &obj: store.operators)
-    {
         addOperator(obj);
-    }
 
     for (auto &obj: store.directories)
-    {
         addDirectory(obj);
-    }
+
+    for (auto &obj: store.generics)
+        addObject(obj);
 }
 
 void Analysis::addObjects(const AnalysisObjectVector &objects)
@@ -5063,6 +5048,8 @@ void Analysis::addObjects(const AnalysisObjectVector &objects)
         {
             addDirectory(dir);
         }
+        else
+            addObject(obj);
     }
 }
 
@@ -5405,9 +5392,9 @@ void Analysis::beginRun(const RunInfo &runInfo,
                 assert(savedStaticVars.size() == data->static_vars.size());
                 assert(map_keys(savedStaticVars) == map_keys(data->static_vars));
 
+#ifndef NDEBUG
                 using StaticVar = a2::ExpressionOperatorData::StaticVar;
 
-#ifndef NDEBUG
                 // Return the address of the actual data stored in the StaticVar.
                 auto get_var_address = [] (const StaticVar &staticVar) -> const void *
                 {
@@ -5591,6 +5578,12 @@ std::error_code Analysis::read(const QJsonObject &inputJson, const VMEConfig *vm
             obj->setAnalysis(this->shared_from_this());
         }
 
+        for (const auto &obj: objectStore.generics)
+        {
+            m_genericObjects.push_back(obj);
+            obj->setAnalysis(this->shared_from_this());
+        }
+
         m_vmeObjectSettings = objectStore.objectSettingsById;
         m_conditionLinks = objectStore.conditionLinks;
         loadDynamicProperties(objectStore.dynamicQObjectProperties, this);
@@ -5637,6 +5630,21 @@ void Analysis::write(QJsonObject &json) const
 //
 // Misc
 //
+ObjectFlags::Flags Analysis::getObjectFlags() const
+{
+    return m_flags;
+}
+
+void Analysis::setObjectFlags(ObjectFlags::Flags flags)
+{
+    m_flags = flags;
+}
+
+void Analysis::clearObjectFlags(ObjectFlags::Flags flagsToClear)
+{
+    m_flags &= (~flagsToClear);
+}
+
 s32 Analysis::getNumberOfSinks() const
 {
     return std::count_if(m_operators.begin(), m_operators.end(), [](const OperatorPtr &op) {
@@ -5657,26 +5665,35 @@ size_t Analysis::getTotalSinkStorageSize() const
     });
 }
 
+namespace
+{
+    bool userlevel_compare(const AnalysisObjectPtr &a, const AnalysisObjectPtr &b)
+    {
+        return a->getUserLevel() < b->getUserLevel();
+    };
+};
+
 s32 Analysis::getMaxUserLevel() const
 {
-    auto it = std::max_element(m_operators.begin(), m_operators.end(),
-                               [](const auto &a, const auto &b) {
-        return a->getUserLevel() < b->getUserLevel();
-    });
+    auto allObjects = getAllObjects();
 
-    return (it != m_operators.end() ? (*it)->getUserLevel() : 0);
+    auto it = std::max_element(std::begin(allObjects), std::end(allObjects),
+                               userlevel_compare);
+
+    return (it != std::end(allObjects)) ? (*it)->getUserLevel() : 0;
 }
 
 s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
 {
-    auto ops = getOperators(eventId);
+    s32 result = 0;
 
-    auto it = std::max_element(ops.begin(), ops.end(),
-                               [](const auto &a, const auto &b) {
-        return a->getUserLevel() < b->getUserLevel();
-    });
+    for (const auto &obj: getAllObjects())
+    {
+        if (obj->getEventId() == eventId)
+            result = std::max(result, obj->getUserLevel());
+    }
 
-    return (it != ops.end() ? (*it)->getUserLevel() : 0);
+    return result;
 }
 
 void Analysis::clear()
@@ -5696,6 +5713,10 @@ bool Analysis::isEmpty() const
             );
 }
 
+bool Analysis::isModified() const
+{
+    return m_modified;
+}
 
 void Analysis::setModified(bool b)
 {
@@ -5706,6 +5727,26 @@ void Analysis::setModified(bool b)
         m_modified = b;
         emit modifiedChanged(b);
     }
+}
+
+A2AdapterState *Analysis::getA2AdapterState()
+{
+    return m_a2State.get();
+}
+
+const A2AdapterState *Analysis::getA2AdapterState() const
+{
+    return m_a2State.get();
+}
+
+RunInfo Analysis::getRunInfo() const
+{
+    return m_runInfo;
+}
+
+void Analysis::setRunInfo(const RunInfo &ri)
+{
+    m_runInfo = ri;
 }
 
 void Analysis::setVMEObjectSettings(const QUuid &objectId, const QVariantMap &settings)
@@ -5730,6 +5771,11 @@ void Analysis::setVMEObjectSettings(const VMEObjectSettings &settings)
 Analysis::VMEObjectSettings Analysis::getVMEObjectSettings() const
 {
     return m_vmeObjectSettings;
+}
+
+ObjectFactory &Analysis::getObjectFactory()
+{
+    return m_objectFactory;
 }
 
 bool Analysis::anyObjectNeedsRebuild() const
@@ -5782,6 +5828,11 @@ QVector<bool> Analysis::getUserLevelsHidden() const
 {
     return from_qvariantlist<QVector<bool>>(
         property("HiddenUserLevels").value<QVariantList>());
+}
+
+vme_analysis_common::VMEIdToIndex Analysis::getVMEIdToIndexMapping() const
+{
+    return m_vmeMap;
 }
 
 static const double maxRawHistoBins = (1 << 16);

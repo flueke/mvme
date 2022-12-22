@@ -221,7 +221,7 @@ StreamIterator::Result &StreamIterator::nextEvent()
 
     auto &lfc(m_result.lfc);
     const u32 sectionHeader = *streamBuffer()->indexU32(m_result.sectionOffset);
-    const u32 sectionType   = lfc.getSectionType(sectionHeader);
+    [[maybe_unused]] const u32 sectionType   = lfc.getSectionType(sectionHeader);
     const u32 eventIndex    = lfc.getEventIndex(sectionHeader);
     const u32 *ptrToLastWord = reinterpret_cast<const u32 *>(m_eventIter.data + m_eventIter.size);
 

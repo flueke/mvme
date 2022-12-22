@@ -50,14 +50,15 @@
 #include "analysis/listfilter_extractor_dialog.h"
 #include "analysis/object_info_widget.h"
 
+#include "graphicsview_util.h"
+#include "graphviz_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
-#include "graphicsview_util.h"
+#include "multiplot_widget.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
 #include "util/algo.h"
-#include "../graphviz_util.h"
 
 namespace analysis
 {
@@ -85,6 +86,7 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Histo2DSink:
         case NodeType_Sink:
         case NodeType_Directory:
+        case NodeType_PlotGridView:
             {
                 auto qo = get_qobject(node, dataRole);
                 if (qo == nullptr)
@@ -147,42 +149,6 @@ std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
 //
 // ObjectTree and subclasses
 //
-
-// MIME types for drag and drop operations
-
-// SourceInterface objects only
-static const QString DataSourceIdListMIMEType = QSL("application/x-mvme-analysis-datasource-id-list");
-
-// Non datasource operators and directories
-static const QString OperatorIdListMIMEType = QSL("application/x-mvme-analysis-operator-id-list");
-
-// Sink-type operators and directories
-static const QString SinkIdListMIMEType = QSL("application/x-mvme-analysis-sink-id-list");
-
-// Generic, untyped analysis objects
-static const QString ObjectIdListMIMEType = QSL("application/x-mvme-analysis-object-id-list");
-
-namespace
-{
-
-QVector<QUuid> decode_id_list(QByteArray data)
-{
-    QDataStream stream(&data, QIODevice::ReadOnly);
-    QVector<QByteArray> sourceIds;
-    stream >> sourceIds;
-
-    QVector<QUuid> result;
-    result.reserve(sourceIds.size());
-
-    for (const auto &idData: sourceIds)
-    {
-        result.push_back(QUuid(idData));
-    }
-
-    return result;
-}
-
-} // end anon namespace
 
 ObjectTree::~ObjectTree()
 {
@@ -637,19 +603,10 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
             case NodeType_Histo1DSink:
             case NodeType_Histo2DSink:
             case NodeType_Sink:
+            case NodeType_PlotGridView:
+                if (auto obj = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
                 {
-                    if (auto op = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject))
-                    {
-                        idData.push_back(op->getId().toByteArray());
-                    }
-                } break;
-
-            case NodeType_Directory:
-                {
-                    if (auto dir = get_pointer<Directory>(node, DataRole_AnalysisObject))
-                    {
-                        idData.push_back(dir->getId().toByteArray());
-                    }
+                    idData.push_back(obj->getId().toByteArray());
                 } break;
 
             default:
@@ -708,6 +665,13 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
     for (auto &id: ids)
     {
         auto obj = analysis->getObject(id);
+
+        if (!obj)
+        {
+            assert(!"unepxected null object in dropped mime data id list");
+            continue;
+        }
+
         droppedObjects.append(obj);
 
         if (auto sourceDir = analysis->getParentDirectory(obj))
@@ -1231,6 +1195,24 @@ QWidget *open_or_raise_histo1dsink_widget(
     return {};
 }
 
+QWidget *open_or_raise_multiplot_widget(
+    AnalysisServiceProvider *asp,
+    std::shared_ptr<PlotGridView> &gridView)
+{
+    if (!asp->getWidgetRegistry()->hasObjectWidget(gridView.get())
+        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+    {
+        return open_new_gridview_widget(asp, gridView);
+    }
+    else if (auto widget = asp->getWidgetRegistry()->getObjectWidget(gridView.get()))
+    {
+        show_and_activate(widget);
+        return widget;
+    }
+
+    return {};
+}
+
 static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 
 } // end anon namespace
@@ -1398,18 +1380,29 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
 
-        tb->addAction(
-            QSL("Repopulate"), this, [this]() {
-                m_d->repopulate();
-            });
+        tb->addAction(QSL("Repopulate"), this, [this]() { m_d->repopulate(); });
 
-        tb->addAction(
-            QSL("Print ModuleProperties"), this, [this] () {
-                auto analysis = getAnalysis();
-                auto modPropsList = analysis->property("ModuleProperties").toList();
-                for (const auto &modProps: modPropsList)
-                    qDebug() << modProps;
-            });
+        tb->addAction(QSL("Print ModuleProperties"), this, [this] ()
+        {
+            auto analysis = getAnalysis();
+            auto modPropsList = analysis->property("ModuleProperties").toList();
+            for (const auto &modProps: modPropsList)
+                qDebug() << modProps;
+        });
+
+        tb->addAction(QSL("Open MultiPlotWidget"), this, [this]
+        {
+
+            auto w = new MultiPlotWidget(getServiceProvider());
+            //w->setAttribute(Qt::WA_DeleteOnClose);
+            // FIXME: keyboard activation of the close action does not work here
+            // for some reason. The action is there as can be seen by the debug
+            // output in the destructor.
+            auto closeAction = add_widget_close_action(w);
+            connect(closeAction, &QAction::triggered, w, [w] { w->deleteLater(); });
+            w->resize(800, 600);
+            w->show();
+        });
 #endif
     }
 
@@ -1849,36 +1842,23 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
 
 void EventWidgetPrivate::createView()
 {
-    auto analysis = m_serviceProvider->getAnalysis();
-    s32 maxUserLevel = 0;
-
-    for (const auto &op: analysis->getOperators())
-    {
-        maxUserLevel = std::max(maxUserLevel, op->getUserLevel());
-    }
-
-    for (const auto &dir: analysis->getDirectories())
-    {
-        maxUserLevel = std::max(maxUserLevel, dir->getUserLevel());
-    }
-
-    for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
-    {
-        auto trees = createTrees(userLevel);
-        m_levelTrees.push_back(trees);
-    }
-
+    // check state handler
     auto csh = [this] (ObjectTree *tree, QTreeWidgetItem *node, const QVariant &prev)
     {
         this->onNodeCheckStateChanged(tree, node, prev);
     };
 
-    for (auto &trees: m_levelTrees)
+    auto analysis = m_serviceProvider->getAnalysis();
+    auto maxUserLevel = analysis->getMaxUserLevel();
+
+    for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
     {
+        auto trees = createTrees(userLevel);
+
         for (auto &tree: trees.getObjectTrees())
-        {
             tree->setCheckStateChangeHandler(csh);
-        }
+
+        m_levelTrees.push_back(trees);
     }
 }
 
@@ -2214,7 +2194,6 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
         {
             result.operatorTree->addTopLevelItem(opNode.release());
         }
-
     }
 
     // Populate the SinkTree
@@ -2257,6 +2236,31 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
                 {
                     result.sinkTree->addTopLevelItem(theNode.release());
                 }
+            }
+        }
+
+        // generic sink objects. FIXME: refactor all object handling code. keep
+        // a single object vector in the analysis.
+        for (const auto &obj: analysis->getAllObjects())
+        {
+            if (auto view = std::dynamic_pointer_cast<PlotGridView>(obj);
+                view && obj->getUserLevel() == level)
+            {
+                std::unique_ptr<TreeNode> node(
+                    make_node(view.get(), NodeType_PlotGridView, DataRole_AnalysisObject));
+
+                node->setData(0, Qt::DisplayRole, QSL("<b>PlotGrid</b> %1").arg(view->objectName()));
+                node->setData(0, Qt::EditRole, view->objectName());
+                node->setFlags(node->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
+                node->setIcon(0, QIcon(":/grid.png"));
+
+                if (auto dir = analysis->getParentDirectory(view))
+                {
+                    if (auto dirNode = dirNodes.value(dir))
+                        dirNode->addChild(node.release());
+                }
+                else
+                    result.sinkTree->addTopLevelItem(node.release());
             }
         }
     }
@@ -2452,8 +2456,8 @@ void EventWidgetPrivate::repopulate()
     m_objectMap.clear();
 
     // populate
-        // This populates m_d->m_levelTrees
-        createView();
+    // This populates m_d->m_levelTrees
+    createView();
 
     for (auto trees: m_levelTrees)
     {
@@ -2819,7 +2823,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 }
 
 void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
-    ObjectTree *tree, QPoint pos, s32 userLevel)
+    ObjectTree *tree, QPoint pos, [[maybe_unused]] s32 userLevel)
 {
     /* Context menu for the top-left tree which contains modules and their
      * datasources. */
@@ -3204,14 +3208,19 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 }
             });
 
-#if 0
-            menu.addAction(QSL("Open in new histosink widget"), m_q, [this, activeNode]() {
+            menu.addAction(QSL("Open in Plot Grid"), m_q, [this, activeNode]() {
                 auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-                auto widget = make_h1dsink_widget(widgetInfo.sink);
-                widget->setAttribute(Qt::WA_DeleteOnClose);
-                widget->show();
+
+                if (widgetInfo.histos.size())
+                {
+                    auto widget = new MultiPlotWidget(m_serviceProvider);
+                    widget->addSink(widgetInfo.sink);
+                    widget->setWindowTitle("PlotGrid " + widgetInfo.sink->objectName());
+                    m_serviceProvider->getWidgetRegistry()->addWidget(
+                        widget,
+                        widgetInfo.sink->getId().toString() + QSL("_plotgrid"));
+                }
             });
-#endif
         }
 
         if (activeNode->type() == NodeType_Histo2DSink)
@@ -3290,6 +3299,18 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                             m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(),
                                                        sinkPtr->getId().toString());
+                        });
+
+                    menu.addAction(
+                        QSL("Open in Plot Grid"), m_q,
+                        [this, histo, sinkPtr, userLevel]
+                        {
+                            auto widget = new MultiPlotWidget(m_serviceProvider);
+                            widget->addSink(sinkPtr);
+                            widget->setWindowTitle("PlotGrid " + sinkPtr->objectName());
+                            m_serviceProvider->getWidgetRegistry()->addWidget(
+                                widget,
+                                sinkPtr->getId().toString() + QSL("_plotgrid"));
                         });
                 }
             }
@@ -3835,6 +3856,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                 auto eventConfig = m_q->getVMEConfig()->getEventConfig(obj->getEventId());
 
                 qDebug() << __PRETTY_FUNCTION__ << "click on object: id =" << obj->getId()
+                    << ", name =" << obj->objectName()
                     << ", class =" << obj->metaObject()->className()
                     << ", flags =" << to_string(obj->getObjectFlags())
                     << ", ulvl  =" << obj->getUserLevel()
@@ -4230,6 +4252,12 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         }
                     }
                 } break;
+
+            case NodeType_PlotGridView:
+                if (auto gridView = get_shared_analysis_object<PlotGridView>(node, DataRole_AnalysisObject))
+                {
+                    open_or_raise_multiplot_widget(m_serviceProvider, gridView);
+                } break;
         }
     }
 }
@@ -4250,6 +4278,7 @@ void EventWidgetPrivate::onNodeChanged(TreeNode *node, int column, s32 userLevel
         case NodeType_Histo2DSink:
         case NodeType_Sink:
         case NodeType_Directory:
+        case NodeType_PlotGridView:
             break;
 
         default:
@@ -4654,7 +4683,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     entryCounts.reserve(sinkData->histos.size);
                     std::transform(std::begin(sinkData->histos), std::end(sinkData->histos),
                                    std::back_inserter(entryCounts),
-                                   [] (const auto &histo) { return histo.entryCount; });
+                                   [] (const auto &histo) { return *histo.entryCount; });
                 }
 
                 auto &prevEntryCounts = m_histo1DSinkCounters[histoSink].hitCounts;
@@ -4957,14 +4986,14 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
 
     if (!cond || std::dynamic_pointer_cast<ExpressionCondition>(cond))
     {
-        // Use the standard edit action
+        // Not a condition or an ExpressionCondition: use the standard edit action
         auto result = new QAction(QIcon(":/pencil.png"), QSL("Edit"));
         QObject::connect(result, &QAction::triggered, m_q, [=] { editOperator(op); });
         return result;
     }
 
-    // Special handling to figure out which sinks are available for graphical
-    // editing.
+    // The operator is a condition: special handling to figure out which sinks
+    // are available for graphical editing.
     if (auto ana = cond->getAnalysis())
     {
         auto sinks = find_sinks_for_condition(cond, ana->getSinkOperators<std::shared_ptr<SinkInterface>>());
@@ -4977,6 +5006,23 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
             // run the dialog without using a plot widget or the controller.
             return {};
         }
+
+        // Sort the sinks: sinks without an active condition get priority => The
+        // first entries in the list of sinks won't have an active condition.
+        std::sort(std::begin(sinks), std::end(sinks),
+                  [&cond](const auto &a, const auto &b)
+                  {
+                      bool aHasConditions = !cond->getAnalysis()->getActiveConditions(a).isEmpty();
+                      bool bHasConditions = !cond->getAnalysis()->getActiveConditions(b).isEmpty();
+
+                      if (!aHasConditions && bHasConditions)
+                          return true;
+
+                      if (aHasConditions && !bHasConditions)
+                          return false;
+
+                      return a->objectName() < b->objectName();
+                  });
 
         auto menu = std::make_unique<QMenu>();
 
@@ -5174,7 +5220,7 @@ void EventWidgetPrivate::actionGenerateHistograms(
     assert(!nodes.empty());
 
     const s32 userLevel = tree->getUserLevel();
-    constexpr size_t bins = 1u << 16;
+    constexpr size_t bins = 1u << 13;
     auto analysis = m_serviceProvider->getAnalysis();
 
     assert(analysis);

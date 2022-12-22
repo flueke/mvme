@@ -32,7 +32,7 @@
 #define QSL(str) QStringLiteral(str)
 #endif
 
-using vme_address_modes::is_block_amod;
+using vme_address_modes::is_block_mode;
 
 namespace mesytec
 {
@@ -541,7 +541,7 @@ static const u8 DefaultOffset = 0;
 
 void MVLCCommandListBuilder::addVMERead(u32 address, u8 amod, mvlc::VMEDataWidth dataWidth)
 {
-    if (is_block_amod(amod))
+    if (is_block_mode(amod))
         throw std::runtime_error("Invalid address modifier for single read operation");
 
     vme_script::Command command;
@@ -555,7 +555,7 @@ void MVLCCommandListBuilder::addVMERead(u32 address, u8 amod, mvlc::VMEDataWidth
 
 void MVLCCommandListBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransfers)
 {
-    if (!is_block_amod(amod))
+    if (!is_block_mode(amod))
         throw std::runtime_error("Invalid address modifier for block read operation");
 
     vme_script::Command command;
@@ -589,7 +589,7 @@ void MVLCCommandListBuilder::addVMEBlockRead(u32 address, u8 amod, u16 maxTransf
 void MVLCCommandListBuilder::addVMEWrite(u32 address, u32 value, u8 amod,
                                          mvlc::VMEDataWidth dataWidth)
 {
-    if (is_block_amod(amod))
+    if (is_block_mode(amod))
         throw std::runtime_error("Invalid address modifier for single write operation");
 
     const u32 Mask = (dataWidth == mvlc::VMEDataWidth::D16 ? 0x0000FFFF : 0xFFFFFFFF);

@@ -8,7 +8,7 @@
 #   dependency chain for CMake: the command specifies the output, the target
 #   depends on the output.
 
-find_package(Sphinx)
+find_package(Sphinx REQUIRED)
 find_program(LATEXMK latexmk)
 find_program(QCOLLECTIONGENERATOR qcollectiongenerator)
 

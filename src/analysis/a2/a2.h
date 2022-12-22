@@ -588,7 +588,7 @@ struct H1D: public ParamVec
     Binning binning;
     // binningFactor = binCount / binning.range
     double binningFactor;
-    double entryCount;
+    size_t *entryCount;
     double *underflow;
     double *overflow;
 };

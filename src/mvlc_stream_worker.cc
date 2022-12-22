@@ -322,10 +322,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         {
             analysis->processTimetick();
 
-            for (auto c: m_moduleConsumers)
-            {
+            for (auto &c: m_moduleConsumers)
                 c->processTimetick();
-            }
         }
     };
 
@@ -460,6 +458,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         m_eventBuilder = mesytec::mvlc::EventBuilder({});
     }
 
+    bool multiEventSplitterEnabled = false;
+
     // multi event splitter setup
     // if used the chain is splitter [-> event_builder] -> analysis
     if (uses_multi_event_splitting(*vmeConfig, *analysis))
@@ -471,7 +471,13 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
         logInfo("enabling multi_event_splitter");
 
-        m_multiEventSplitter = multi_event_splitter::make_splitter(filterStrings);
+        std::error_code ec;
+        std::tie(m_multiEventSplitter, ec) = multi_event_splitter::make_splitter(filterStrings);
+
+        if (ec)
+            throw std::runtime_error(fmt::format("multi_event_splitter: {}", ec.message()));
+
+        multiEventSplitterEnabled = true;
 
         if (uses_event_builder(*vmeConfig, *analysis))
         {
@@ -499,7 +505,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         m_parserCallbacks.systemEvent = systemEvent_analysis;
     }
 
-    if (uses_multi_event_splitting(*vmeConfig, *analysis))
+    if (multiEventSplitterEnabled)
     {
         // parser -> splitter
         m_parserCallbacks.eventData = eventData_splitter;
@@ -554,11 +560,11 @@ void MVLC_StreamWorker::start()
         m_counters.startTime = QDateTime::currentDateTime();
     }
 
-    fillModuleIndexMaps(vmeConfig);
-    setupParserCallbacks(runInfo, vmeConfig, analysis);
-
     try
     {
+        fillModuleIndexMaps(vmeConfig);
+        setupParserCallbacks(runInfo, vmeConfig, analysis);
+
         auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
 
         auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
@@ -576,8 +582,7 @@ void MVLC_StreamWorker::start()
         auto sanitizedReadoutStacks = mvme_mvlc::sanitize_readout_stacks(
             mvlcCrateConfig.stacks);
 
-        m_parser = mesytec::mvlc::readout_parser::make_readout_parser(
-            sanitizedReadoutStacks);
+        m_parser = mesytec::mvlc::readout_parser::make_readout_parser(sanitizedReadoutStacks);
 
         if (logger->level() == spdlog::level::trace)
         {
@@ -602,19 +607,19 @@ void MVLC_StreamWorker::start()
 
         // Reset the parser counters and the snapshot copy
         m_parserCounters = {};
-        m_parserCountersSnapshot.access().ref() = m_parserCounters;
+        m_parserCountersSnapshot.access().ref() = {};
         logParserInfo(m_parser);
     }
     catch (const vme_script::ParseError &e)
     {
-        logError(QSL("Error setting up MVLC stream parser: %1")
+        logError(QSL("Error setting up MVLC stream worker: %1")
                  .arg(e.toString()));
         emit stopped();
         return;
     }
     catch (const std::exception &e)
     {
-        logError(QSL("Error setting up MVLC stream parser: %1")
+        logError(QSL("Error setting up MVLC stream worker: %1")
                  .arg(e.what()));
         emit stopped();
         return;
@@ -659,11 +664,17 @@ void MVLC_StreamWorker::start()
                 break;
             else if (buffer)
             {
+                // Do this at some point in the future and pass the shared ptr
+                // to threads and be happy until one thread outlives this stream
+                // worker instance! :)
+                //auto bufferPtr = std::shared_ptr<mesytec::mvlc::ReadoutBuffer>(
+                //    buffer, [this](mesytec::mvlc::ReadoutBuffer *b)
+                //    { m_snoopQueues.emptyBufferQueue().enqueue(b); });
+
                 try
                 {
                     processBuffer(buffer, vmeConfig, analysis);
                     empty.enqueue(buffer);
-                    m_parserCountersSnapshot.access().ref() = m_parserCounters;
                 }
                 catch (...)
                 {
@@ -707,7 +718,6 @@ void MVLC_StreamWorker::start()
                 {
                     processBuffer(buffer, vmeConfig, analysis);
                     empty.enqueue(buffer);
-                    m_parserCountersSnapshot.access().ref() = m_parserCounters;
                 }
                 catch (...)
                 {
@@ -737,10 +747,8 @@ void MVLC_StreamWorker::start()
             {
                 analysis->processTimetick();
 
-                for (auto c: m_moduleConsumers)
-                {
+                for (auto &c: m_moduleConsumers)
                     c->processTimetick();
-                }
 
                 elapsedSeconds--;
             }
@@ -879,8 +887,6 @@ void MVLC_StreamWorker::processBuffer(
     }
 
     bool processingOk = false;
-    bool exceptionSeen = false;
-
     auto bufferView = buffer->viewU32();
     const bool useLogThrottle = true;
 
@@ -904,13 +910,14 @@ void MVLC_StreamWorker::processBuffer(
         else
             qDebug() << __PRETTY_FUNCTION__ << (int)pr << get_parse_result_name(pr);
     }
+    // TODO: check which of these can actually escape parse_readout_buffer().
+    // Seems like code duplication between here and the parser.
     catch (const end_of_buffer &e)
     {
         logWarn(QSL("end_of_buffer (%1) when parsing buffer #%2")
                 .arg(e.what())
                 .arg(buffer->bufferNumber()),
                 useLogThrottle);
-        exceptionSeen = true;
     }
     catch (const std::exception &e)
     {
@@ -918,18 +925,13 @@ void MVLC_StreamWorker::processBuffer(
                 .arg(e.what())
                 .arg(buffer->bufferNumber()),
                 useLogThrottle);
-        exceptionSeen = true;
     }
     catch (...)
     {
         logWarn(QSL("unknown exception when parsing buffer #%1")
                 .arg(buffer->bufferNumber()),
                 useLogThrottle);
-        exceptionSeen = true;
     }
-
-    if (exceptionSeen)
-        qDebug() << __PRETTY_FUNCTION__ << "exception seen";
 
     if (debugRequest == DebugInfoRequest::OnNextBuffer
         || (debugRequest == DebugInfoRequest::OnNextBufferIgnoreTimeticks
@@ -957,6 +959,16 @@ void MVLC_StreamWorker::processBuffer(
             vmeConfig,
             analysis);
     }
+
+    for (auto &c: m_bufferConsumers)
+    {
+        auto view = buffer->viewU32();
+        c->processBuffer(buffer->type(), buffer->bufferNumber(), view.data(), view.size());
+    }
+
+    // Copy counters to the guarded member variables.
+    m_parserCountersSnapshot.access().ref() = m_parserCounters;
+    m_multiEventSplitterCounters.access().ref() = m_multiEventSplitter.counters;
 
     {
         UniqueLock guard(m_countersMutex);
@@ -1015,16 +1027,18 @@ void MVLC_StreamWorker::singleStep()
 
 void MVLC_StreamWorker::startupConsumers()
 {
-    for (auto c: m_moduleConsumers)
-    {
+    for (auto &c: m_moduleConsumers)
         c->startup();
-    }
+
+    for (auto &c: m_bufferConsumers)
+        c->startup();
 }
 
 void MVLC_StreamWorker::shutdownConsumers()
 {
-    for (auto c: m_moduleConsumers)
-    {
+    for (auto &c: m_moduleConsumers)
         c->shutdown();
-    }
+
+    for (auto &c: m_bufferConsumers)
+        c->shutdown();
 }

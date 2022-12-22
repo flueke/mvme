@@ -225,7 +225,7 @@ endif()
 add_subdirectory(src)
 add_subdirectory(extras)
 
-option(MVME_BUILD_DOCS "Build the documentation (if Sphinx is present)" OFF)
+option(MVME_BUILD_DOCS "Build the mvme documentation (requires Sphinx)" OFF)
 
 if (MVME_BUILD_DOCS)
     add_subdirectory(doc)

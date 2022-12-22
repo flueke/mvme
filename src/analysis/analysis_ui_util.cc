@@ -2,9 +2,11 @@
 
 #include <QGuiApplication>
 #include <QApplication>
+
 #include "analysis.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "multiplot_widget.h"
 #include "rate_monitor_widget.h"
 
 #include "analysis_ui_p.h"
@@ -12,6 +14,23 @@
 
 namespace analysis::ui
 {
+
+QVector<QUuid> decode_id_list(QByteArray data)
+{
+    QDataStream stream(&data, QIODevice::ReadOnly);
+    QVector<QByteArray> sourceIds;
+    stream >> sourceIds;
+
+    QVector<QUuid> result;
+    result.reserve(sourceIds.size());
+
+    for (const auto &idData: sourceIds)
+    {
+        result.push_back(QUuid(idData));
+    }
+
+    return result;
+}
 
 QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkInterface *sink, bool newWindow)
 {
@@ -153,6 +172,16 @@ QWidget *open_new_ratemonitor_widget(AnalysisServiceProvider *asp, const std::sh
     asp->getWidgetRegistry()->addObjectWidget(widget, rms.get(), rms->getId().toString());
 
     return widget;
+}
+
+QWidget *open_new_gridview_widget(
+    AnalysisServiceProvider *asp,
+    const std::shared_ptr<PlotGridView> &gridView)
+{
+    auto widget = std::make_unique<MultiPlotWidget>(asp);
+    widget->loadView(gridView);
+    asp->getWidgetRegistry()->addObjectWidget(widget.get(), gridView.get(), gridView->getId().toString());
+    return widget.release();
 }
 
 EventWidget *find_event_widget(const Analysis *analysis)

@@ -51,7 +51,7 @@ Histo1DPtr read_indian_style_histo_from_file(const QString &filepath, Logger log
     histo->setTitle(fn);
 
     for (auto & [bin, val]: binsAndValues)
-        histo->setBinContent(bin, val);
+        histo->setBinContent(bin, val, val);
 
     return histo;
 }

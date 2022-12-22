@@ -215,11 +215,11 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
     /* NOTE: using connect with the c++ pointer-to-member syntax with these qwt signals does
      * not work for some reason. */
     // TODO: use casts to select specific overloads of these signals
-    TRY_ASSERT(connect(d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+    DO_AND_ASSERT(connect(d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
-    TRY_ASSERT(connect(d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+    DO_AND_ASSERT(connect(d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &RateMonitorPlotWidget::mouseCursorMovedToPlotCoord));
-    TRY_ASSERT(connect(d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+    DO_AND_ASSERT(connect(d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &RateMonitorPlotWidget::mouseCursorLeftPlot));
 
     // layout

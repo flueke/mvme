@@ -62,6 +62,7 @@ enum NodeType
     NodeType_Histo1D,
 
     NodeType_Directory,
+    NodeType_PlotGridView,
 
     NodeType_MaxNodeType
 };

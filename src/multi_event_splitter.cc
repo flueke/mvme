@@ -22,7 +22,6 @@
 
 #include <algorithm>
 
-
 #define LOG_LEVEL_OFF     0
 #define LOG_LEVEL_WARN  100
 #define LOG_LEVEL_INFO  200
@@ -73,6 +72,12 @@ class TheMultiEventSplitterErrorCategory: public std::error_category
 
             case ErrorCode::ModuleIndexOutOfRange:
                 return "Module index out of range";
+
+            case ErrorCode::MaxVMEEventsExceeded:
+                return fmt::format("Maximum number of VME events ({}) exceeded", MaxVMEEvents);
+
+            case ErrorCode::MaxVMEModulesExceeded:
+                return fmt::format("Maximum number of VME modules ({}) exceeded", MaxVMEModules);
         }
 
         return "unrecognized multi_event_splitter error";
@@ -90,9 +95,49 @@ namespace mvme
 namespace multi_event_splitter
 {
 
-State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings)
+namespace
 {
-    State result;
+    Counters make_counters(const std::vector<std::vector<std::string>> &splitFilterStrings)
+    {
+        const size_t eventCount = splitFilterStrings.size();
+
+        Counters counters;
+        counters.inputEvents.resize(eventCount);
+        counters.outputEvents.resize(eventCount);
+        counters.inputModules.resize(eventCount);
+        counters.outputModules.resize(eventCount);
+
+        for (size_t ei=0; ei<splitFilterStrings.size(); ++ei)
+        {
+            const size_t moduleCount = splitFilterStrings[ei].size();
+            counters.inputModules[ei].resize(moduleCount);
+            counters.outputModules[ei].resize(moduleCount);
+        }
+
+        return counters;
+    }
+}
+
+std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings)
+{
+    auto result = std::pair<State, std::error_code>();
+    auto &state = result.first;
+    auto &ec = result.second;
+
+    if (splitFilterStrings.size() > MaxVMEEvents)
+    {
+        ec = make_error_code(ErrorCode::MaxVMEEventsExceeded);
+        return result;
+    }
+
+    for (size_t ei=0; ei<splitFilterStrings.size(); ++ei)
+    {
+        if (splitFilterStrings[ei].size() > MaxVMEModules)
+        {
+            ec == make_error_code(ErrorCode::MaxVMEModulesExceeded);
+            return result;
+        }
+    }
 
     size_t eventMaxModules = 0u;
 
@@ -110,18 +155,18 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
             moduleFilters.emplace_back(fc);
         }
 
-        result.splitFilters.emplace_back(moduleFilters);
+        state.splitFilters.emplace_back(moduleFilters);
 
         eventMaxModules = std::max(moduleStrings.size(), eventMaxModules);
     }
 
     // Allocate space for the module data spans for each event
-    result.dataSpans.resize(eventMaxModules);
+    state.dataSpans.resize(eventMaxModules);
 
     // For each event determine if splitting should be enabled. This is the
     // case if any of the events modules has a non-zero header filter.
     size_t eventIndex = 0;
-    for (const auto &filters: result.splitFilters)
+    for (const auto &filters: state.splitFilters)
     {
         bool hasNonZeroFilter = std::any_of(
             filters.begin(), filters.end(),
@@ -130,50 +175,18 @@ State make_splitter(const std::vector<std::vector<std::string>> &splitFilterStri
                 return fc.filter.matchMask != 0;
             });
 
-        result.enabledForEvent[eventIndex++] = hasNonZeroFilter;
+        state.enabledForEvent[eventIndex++] = hasNonZeroFilter;
     }
 
-    assert(result.enabledForEvent.size() >= result.splitFilters.size());
+    assert(state.enabledForEvent.size() >= state.splitFilters.size());
 
-    return result;
+    state.counters = make_counters(splitFilterStrings);
+
+    return std::make_pair(std::move(state), ec);
 }
 
 namespace
 {
-
-inline std::error_code begin_event(State &state, int ei)
-{
-    LOG_TRACE("state=%p, ei=%d", &state, ei);
-
-    if (ei >= static_cast<int>(state.splitFilters.size()))
-        return make_error_code(ErrorCode::EventIndexOutOfRange);
-
-    auto &spans = state.dataSpans;
-
-    std::fill(spans.begin(), spans.end(), State::ModuleDataSpans{});
-
-    return {};
-}
-
-// The module_data() function records the data pointer and size in the
-// splitters state structure for later use in the end_event function.
-inline std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
-{
-    if (ei >= static_cast<int>(state.splitFilters.size()))
-        return make_error_code(ErrorCode::EventIndexOutOfRange);
-
-    auto &spans = state.dataSpans;
-
-    if (mi >= static_cast<int>(spans.size()))
-        return make_error_code(ErrorCode::ModuleIndexOutOfRange);
-
-    spans[mi].dataSpan = { data, data + size };
-
-    LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
-              &state, ei, mi, data, size);
-
-    return {};
-}
 
 // Returns the number of words in the span or 0 in case any of the pointers is
 // null or begin >= end.
@@ -185,13 +198,62 @@ inline size_t words_in_span(const State::DataSpan &span)
     return 0u;
 }
 
-std::error_code end_event(State &state, Callbacks &callbacks, void *userContext, int ei, unsigned moduleCount)
+inline std::error_code begin_event(State &state, int ei)
+{
+    LOG_TRACE("state=%p, ei=%d", &state, ei);
+
+    if (ei >= static_cast<int>(state.splitFilters.size()))
+        return make_error_code(ErrorCode::EventIndexOutOfRange);
+
+    auto &spans = state.dataSpans;
+
+    std::fill(spans.begin(), spans.end(), State::ModuleDataSpans{});
+    ++state.counters.inputEvents[ei];
+
+    return {};
+}
+
+// The module_data() function records the data pointer and size in the
+// splitters state structure for later use in the end_event function.
+inline std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
+{
+    if (ei >= static_cast<int>(state.splitFilters.size()))
+    {
+        ++state.counters.eventIndexOutOfRange;
+        return make_error_code(ErrorCode::EventIndexOutOfRange);
+    }
+
+    auto &spans = state.dataSpans;
+
+    if (mi >= static_cast<int>(spans.size()))
+    {
+        ++state.counters.moduleIndexOutOfRange;
+        return make_error_code(ErrorCode::ModuleIndexOutOfRange);
+    }
+
+    spans[mi].dataSpan = { data, data + size };
+
+    LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
+              &state, ei, mi, data, size);
+
+    ++state.counters.inputModules[ei][mi];
+
+    return {};
+}
+
+std::error_code end_event(State &state, Callbacks &callbacks, void *userContext, const int ei, const unsigned moduleCount)
 {
     // This is called after prefix, suffix and the dynamic part of all modules for
     // the given event have been recorded in the ModuleDataSpans. Now walk the data
     // and yield the subevents.
 
     LOG_TRACE("state=%p, ei=%d", &state, ei);
+
+    if (ei > MaxVMEEvents)
+        return make_error_code(ErrorCode::MaxVMEEventsExceeded);
+
+    if (moduleCount > MaxVMEModules)
+        return make_error_code(ErrorCode::MaxVMEModulesExceeded);
 
     if (ei >= static_cast<int>(state.splitFilters.size()))
         return make_error_code(ErrorCode::EventIndexOutOfRange);
@@ -208,8 +270,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
                   &state, ei);
 
+        ++state.counters.outputEvents[ei];
 
-        std::array<ModuleData, MaxVMEModules> moduleDataList;
+        std::array<ModuleData, MaxVMEModules+1> moduleDataList;
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
@@ -219,6 +282,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
             moduleData.data = {
                 spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan))
             };
+            ++state.counters.outputModules[ei][mi];
         }
 
         const int crateIndex = 0;
@@ -229,16 +293,16 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
     assert(moduleFilters.size() == moduleSpans.size());
 
-    std::array<s64, MaxVMEModules> moduleSubeventSizes;
+    std::array<s64, MaxVMEModules+1> moduleSubeventSizes;
 
     // Space to record filter matches per module during the splitting phase.
-    std::bitset<MaxVMEModules> moduleFilterMatches;
+    std::bitset<MaxVMEModules+1> moduleFilterMatches;
 
     // ModuleData structures used when invoking the eventData callback.
-    std::array<ModuleData, MaxVMEModules> moduleDataList;
+    std::array<ModuleData, MaxVMEModules+1> moduleDataList;
 
-    assert(moduleSubeventSizes.size() >= moduleCount);
-    assert(moduleFilterMatches.size() >= moduleCount);
+    assert(moduleSubeventSizes.size() > moduleCount);
+    assert(moduleFilterMatches.size() > moduleCount);
 
     while (true)
     {
@@ -283,18 +347,22 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
                     while (moduleWord < dynamicSpan.end)
                     {
-                        if (a2::data_filter::matches(
-                                moduleFilters[mi].filter, *moduleWord))
-                        {
+                        if (a2::data_filter::matches(moduleFilters[mi].filter, *moduleWord))
                             break;
-                        }
+                        ++moduleWord;
                     }
 
-                    u32 moduleEventSize = moduleWord - dynamicSpan.begin + 1;
+                    u32 moduleEventSize = moduleWord - dynamicSpan.begin;
                     moduleSubeventSizes[mi] = moduleEventSize;
 
                     LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=false, searchedSize=%u",
                               &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize)
+                }
+                else
+                {
+                    auto hasSizeMask = moduleFilters[mi].cache.extractMask;
+                    LOG_WARN("state=%p, ei=%d, mi=%lu, checked header '0x%08x', no match!, hasSizeMask=%s",
+                             &state, ei, mi, *dynamicSpan.begin, hasSizeMask ? "true" : "false");
                 }
             }
         }
@@ -303,9 +371,6 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         // data left or the header filter did not match for any of them.
         if (moduleFilterMatches.none())
             break;
-
-        //LOG_TRACE("state=%p, callbacks.beginEvent(%d)", &state, ei);
-        //callbacks.beginEvent(ei);
 
         // Yield one split subevent for each of the modules.
         for (size_t mi = 0; mi < moduleCount; ++mi)
@@ -336,6 +401,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     // in the dynamic span. Move the span begin pointer forward
                     // so that the span has size 0 and the module filter test
                     // above will fail on the next iteration.
+                    //++state.counters.moduleEventSizeExceeded[ei][mi];
                     spans.dataSpan.begin = spans.dataSpan.end;
                     moduleData.data = {};
                 }
@@ -360,14 +426,24 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                                   &state, *spans.dataSpan.begin);
                     }
                 }
+
+                ++state.counters.outputModules[ei][mi];
             }
+        }
+
+        ++state.counters.outputEvents[ei];
+
+        if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE)
+        {
+            auto inEvents = state.counters.inputEvents[ei];
+            auto outEvents =state.counters.outputEvents[ei];
+            auto ratio = outEvents * 1.0 / inEvents;
+
+            LOG_TRACE("event out/in ratio=%f, outEvents=%lu, inEvents=%lu", ratio, outEvents, inEvents);
         }
 
         int crateIndex = 0;
         callbacks.eventData(nullptr, crateIndex, ei, moduleDataList.data(), moduleCount);
-
-        LOG_TRACE("state=%p, callbacks.endEvent(%d)", &state, ei);
-        //callbacks.endEvent(ei);
     }
 
     return {};

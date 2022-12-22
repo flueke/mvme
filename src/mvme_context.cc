@@ -165,7 +165,7 @@ struct MVMEContextPrivate
 
     std::unique_ptr<RemoteControl> m_remoteControl;
     // owned by the MVMEStreamWorker
-    EventServer *m_eventServer = nullptr;
+    std::shared_ptr<EventServer> m_eventServer;
 
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
@@ -245,11 +245,11 @@ void MVMEContextPrivate::stopDAQReadout()
     QProgressDialog progressDialog("Stopping Data Acquisition", QString(), 0, 0);
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setCancelButton(nullptr);
-    progressDialog.show();
 
 
     if (m_q->m_readoutWorker->isRunning())
     {
+        progressDialog.show();
         QEventLoop localLoop;
         QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped,
                          &localLoop, &QEventLoop::quit);
@@ -265,7 +265,7 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_streamWorker->getState() != AnalysisWorkerState::Idle)
     {
-
+        progressDialog.show();
         QEventLoop localLoop;
         QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                          &localLoop, &QEventLoop::quit);
@@ -324,7 +324,6 @@ void MVMEContextPrivate::stopDAQReplay()
     QProgressDialog progressDialog("Stopping Replay", QString(), 0, 0);
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setCancelButton(nullptr);
-    progressDialog.show();
 
     QEventLoop localLoop;
 
@@ -337,6 +336,7 @@ void MVMEContextPrivate::stopDAQReplay()
     if (listfileReplayWorker->getState() == DAQState::Running
         || listfileReplayWorker->getState() == DAQState::Paused)
     {
+        progressDialog.show();
         auto con = QObject::connect(
             listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             &localLoop, &QEventLoop::quit);
@@ -358,6 +358,7 @@ void MVMEContextPrivate::stopDAQReplay()
     // as we enter the event loop.
     if (m_q->m_streamWorker->getState() != AnalysisWorkerState::Idle)
     {
+        progressDialog.show();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
                                     &localLoop, &QEventLoop::quit);
 
@@ -374,6 +375,7 @@ void MVMEContextPrivate::stopDAQReplay()
     {
         mvmeStreamWorker->setListFileVersion(CurrentListfileVersion);
     }
+
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 
@@ -456,8 +458,8 @@ void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOp
             runOption, m_q->getVMEConfig(),
             [this] (const QString &msg) { m_q->logMessage(msg); });
 
-        bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
-                                                 Qt::QueuedConnection);
+        [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
+                                                                  Qt::QueuedConnection);
 
         assert(invoked);
 
@@ -894,7 +896,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     // EventServer setup
     {
-        m_d->m_eventServer = new EventServer(m_streamWorker.get());; // Note: this is a non-owning pointer
+        m_d->m_eventServer = std::make_shared<EventServer>(m_streamWorker.get()); // Note: this is a non-owning pointer
         m_streamWorker->attachModuleConsumer(m_d->m_eventServer);
 
         auto eventServer = m_d->m_eventServer;
@@ -919,7 +921,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
-        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer.get(),
                                                  "setEnabled",
                                                  Qt::QueuedConnection,
                                                  Q_ARG(bool, enabled));
@@ -937,7 +939,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     // connect to the service.
     // TODO: add a way to wait for completion of the startup.
     {
-        bool invoked = QMetaObject::invokeMethod(
+        [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(
             m_streamWorker.get(), "startupConsumers", Qt::QueuedConnection);
         assert(invoked);
     }
@@ -1663,8 +1665,8 @@ bool MVMEContext::prepareStart()
             m_streamWorker.get(), &MVMEStreamWorker::stopped,
             &localLoop, &QEventLoop::quit);
 
-        bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "start",
-                                                 Qt::QueuedConnection);
+        [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(m_streamWorker.get(), "start",
+                                                                  Qt::QueuedConnection);
         assert(invoked);
 
         localLoop.exec();
@@ -1770,7 +1772,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     qDebug() << __PRETTY_FUNCTION__ << "starting readout worker";
 
-    bool invoked = QMetaObject::invokeMethod(
+    [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(
         m_readoutWorker, "start", Qt::QueuedConnection,
         Q_ARG(quint32, nCycles));
     assert(invoked);
@@ -1837,7 +1839,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 
     qDebug() << __PRETTY_FUNCTION__ << "starting listfile reader";
 
-    bool invoked = QMetaObject::invokeMethod(
+    [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(
         m_d->listfileReplayWorker.get(), "start", Qt::QueuedConnection);
     assert(invoked);
 
@@ -2018,7 +2020,7 @@ MVMEContext::runScript(
     // cannot so the DAQ has to be paused and resumed if needed.
     if (is_mvlc_controller(m_controller->getType()))
     {
-        auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller);
+        [[maybe_unused]] auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller);
         assert(mvlc);
 
         // The below code should be equivalent to
@@ -2456,8 +2458,16 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
             if (fi.exists())
             {
-                //logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
-                load_analysis_session(fi.filePath(), getAnalysis());
+                try
+                {
+                    load_analysis_session(fi.filePath(), getAnalysis());
+                    logMessage(QSL("Loaded analysis session auto save from %1").arg(fi.filePath()));
+                }
+                catch (const std::runtime_error &e)
+                {
+                    logMessage(QSL("Failed loading analysis session auto save from '%1': %2")
+                        .arg(fi.filePath()).arg(e.what()));
+                }
             }
         }
 
@@ -2707,7 +2717,7 @@ void MVMEContext::reapplyWorkspaceSettings()
             m_d->m_eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
-        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer,
+        bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer.get(),
                                                  "setEnabled",
                                                  Qt::QueuedConnection,
                                                  Q_ARG(bool, enabled));

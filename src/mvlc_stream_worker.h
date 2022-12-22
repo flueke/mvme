@@ -25,6 +25,7 @@
 #include "stream_worker_base.h"
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/mesy_vme_format_checker.h>
 
 #include "libmvme_export.h"
 #include "data_buffer_queue.h"
@@ -90,14 +91,32 @@ class MVLC_StreamWorker: public StreamWorkerBase
             return m_startPaused;
         }
 
-        void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer) override
+        void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) override
         {
             m_moduleConsumers.push_back(consumer);
         }
 
-        void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer) override
+        void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) override
         {
-            m_moduleConsumers.removeAll(consumer);
+            if (auto it = std::remove(std::begin(m_moduleConsumers), std::end(m_moduleConsumers), consumer);
+                it != std::end(m_moduleConsumers))
+            {
+                m_moduleConsumers.erase(it);
+            }
+        }
+
+        void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) override
+        {
+            m_bufferConsumers.push_back(consumer);
+        }
+
+        void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) override
+        {
+            if (auto it = std::remove(std::begin(m_bufferConsumers), std::end(m_bufferConsumers), consumer);
+                it != std::end(m_bufferConsumers))
+            {
+                m_bufferConsumers.erase(it);
+            }
         }
 
         virtual MVMEStreamProcessorCounters getCounters() const override
@@ -109,6 +128,11 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mesytec::mvlc::readout_parser::ReadoutParserCounters getReadoutParserCounters() const
         {
             return m_parserCountersSnapshot.copy();
+        }
+
+        mesytec::mvme::multi_event_splitter::Counters getMultiEventSplitterCounters() const
+        {
+            return m_multiEventSplitterCounters.copy();
         }
 
         mesytec::mvlc::EventBuilder::EventBuilderCounters getEventBuilderCounters() const
@@ -192,7 +216,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         MVMEContext *m_context = nullptr;
 
-        QVector<IMVMEStreamModuleConsumer *> m_moduleConsumers;
+        std::vector<std::shared_ptr<IStreamModuleConsumer>> m_moduleConsumers;
+        std::vector<std::shared_ptr<IStreamBufferConsumer>> m_bufferConsumers;
 
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
@@ -221,9 +246,11 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         std::atomic<DebugInfoRequest> m_debugInfoRequest;
         mesytec::mvme::multi_event_splitter::State m_multiEventSplitter;
+        mutable mesytec::mvlc::Protected<mesytec::mvme::multi_event_splitter::Counters> m_multiEventSplitterCounters;
         mesytec::mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
         mesytec::mvlc::EventBuilder m_eventBuilder;
         mesytec::mvlc::Callbacks m_eventBuilderCallbacks;
+        std::unique_ptr<mesytec::mvlc::FormatCheckerState> m_formatCheckerState;
 
         EventRecord m_singleStepEventRecord = {};
 

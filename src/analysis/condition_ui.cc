@@ -35,18 +35,19 @@
 #include <qwt_plot_shapeitem.h>
 
 #include "analysis/analysis.h"
-#include "analysis/analysis_util.h"
 #include "analysis/analysis_ui_util.h"
+#include "analysis/analysis_util.h"
 #include "analysis/ui_lib.h"
 #include "gui_util.h"
+#include "histo1d_widget.h"
+#include "histo_ui.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "mvme_qthelp.h"
 #include "qt_util.h"
 #include "treewidget_utils.h"
 #include "ui_interval_condition_dialog.h"
 #include "ui_polygon_condition_dialog.h"
-#include "histo_ui.h"
-#include "histo1d_widget.h"
 
 namespace analysis
 {
@@ -101,22 +102,6 @@ TreeNode *make_node(T *data, int type = QTreeWidgetItem::Type, int dataRole = Da
     return ret;
 }
 
-#if 0
-TreeNode *make_condition_node(ConditionInterface *cond)
-{
-    auto ret = make_node(cond, NodeType_Condition, DataRole_AnalysisObject);
-
-    ret->setData(0, Qt::EditRole, cond->objectName());
-    ret->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
-            cond->getShortName(),
-            cond->objectName()));
-
-    ret->setFlags(ret->flags() | Qt::ItemIsEditable);
-
-    return ret;
-}
-#endif
-
 } // end anon namespace
 
 using namespace histo_ui;
@@ -147,6 +132,8 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
     tb_frameLayout->addWidget(d->toolbar_);
     auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
     auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Apply");
+    d->toolbar_->addAction(QIcon(":/help.png"), QSL("Help"),
+                           this, mesytec::mvme::make_help_keyword_handler("Condition System"));
 
     d->ui->tw_intervals->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
@@ -1220,6 +1207,8 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     auto actionDelete = toolbar->addAction(QIcon(":/list_remove.png"), "Delete");
     toolbar->addAction(actionUndo);
     toolbar->addAction(actionRedo);
+    toolbar->addAction(QIcon(":/help.png"), QSL("Help"),
+                       this, mesytec::mvme::make_help_keyword_handler("Condition System"));
 
     d->newPicker_ = new PlotPicker(
         QwtPlot::xBottom, QwtPlot::yLeft,
@@ -1257,7 +1246,7 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     connect(actionDelete, &QAction::triggered,
             this, [this] () { d->onActionDeleteCond(); });
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 
 #ifdef Q_OS_WIN
     // Working around an issue where connecting QwtPicker/QwtPlotPicker signals
@@ -1425,6 +1414,23 @@ bool edit_condition_in_first_available_sink(AnalysisServiceProvider *asp, const 
 
     const auto allSinks = cond->getAnalysis()->getSinkOperators<std::shared_ptr<SinkInterface>>();
     auto sinks = find_sinks_for_condition(cond, allSinks);
+
+    // Sort the sinks: sinks without an active condition get priority => choses
+    // the first sinks without any active condition for editing.
+    std::sort(std::begin(sinks), std::end(sinks),
+              [&cond](const auto &a, const auto &b)
+              {
+                  bool aHasConditions = !cond->getAnalysis()->getActiveConditions(a).isEmpty();
+                  bool bHasConditions = !cond->getAnalysis()->getActiveConditions(b).isEmpty();
+
+                  if (!aHasConditions && bHasConditions)
+                      return true;
+
+                  if (aHasConditions && !bHasConditions)
+                      return false;
+
+                  return a->objectName() < b->objectName();
+              });
 
     for (auto &sink: sinks)
     {

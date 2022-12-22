@@ -70,7 +70,8 @@ struct MVMEStreamProcessorPrivate
     std::array<EventConfig *, MaxVMEEvents> eventConfigs;  // initialized in beginRun()
     std::array<bool, MaxVMEEvents> doMultiEventProcessing; // initialized in beginRun()
 
-    QVector<IMVMEStreamModuleConsumer *> moduleConsumers;
+    QVector<std::shared_ptr<IStreamModuleConsumer>> moduleConsumers;
+    QVector<std::shared_ptr<IStreamBufferConsumer>> bufferConsumers;
 
     MVMEStreamProcessorPrivate();
 
@@ -111,18 +112,20 @@ MVMEStreamProcessor::~MVMEStreamProcessor()
 
 void MVMEStreamProcessor::startup()
 {
-    for (auto c: m_d->moduleConsumers)
-    {
+    for (auto &c: m_d->moduleConsumers)
         c->startup();
-    }
+
+    for (auto &c: m_d->bufferConsumers)
+        c->startup();
 }
 
 void MVMEStreamProcessor::shutdown()
 {
-    for (auto c: m_d->moduleConsumers)
-    {
+    for (auto &c: m_d->moduleConsumers)
         c->shutdown();
-    }
+
+    for (auto &c: m_d->bufferConsumers)
+        c->shutdown();
 }
 
 void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
@@ -224,20 +227,22 @@ void MVMEStreamProcessorPrivate::consumersBeginRun()
 {
     qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
 
-    for (auto c: moduleConsumers)
-    {
+    for (auto &c: moduleConsumers)
         c->beginRun(runInfo, vmeConfig, analysis);
-    }
+
+    for (auto &c: bufferConsumers)
+        c->beginRun(runInfo, vmeConfig, analysis);
 }
 
 void MVMEStreamProcessor::endRun(const DAQStats &stats)
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
-    for (auto c: m_d->moduleConsumers)
-    {
+    for (auto &c: m_d->moduleConsumers)
         c->endRun(stats);
-    }
+
+    for (auto &c: m_d->bufferConsumers)
+        c->endRun(stats);
 
     m_d->analysis->endRun();
 
@@ -292,10 +297,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                  * encountered during replay. */
                 Q_ASSERT(m_d->runInfo.isReplay);
 
-                for (auto c: m_d->moduleConsumers)
-                {
+                for (auto &c: m_d->moduleConsumers)
                     c->processTimetick();
-                }
             }
 
             if (likely(sectionType == ListfileSections::SectionType_Event))
@@ -334,6 +337,9 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
             m_d->diag->beginRun();
         }
     }
+
+    for (auto &c: m_d->bufferConsumers)
+        c->processBuffer(buffer->tag, buffer->id, buffer->asU32(), buffer->usedU32());
 }
 
 void MVMEStreamProcessor::processExternalTimetick()
@@ -342,10 +348,8 @@ void MVMEStreamProcessor::processExternalTimetick()
 
     m_d->analysis->processTimetick();
 
-    for (auto c: m_d->moduleConsumers)
-    {
+    for (auto &c: m_d->moduleConsumers)
         c->processTimetick();
-    }
 }
 
 void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
@@ -517,7 +521,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
             this->analysis->beginEvent(eventIndex);
         }
 
-        for (auto c: this->moduleConsumers)
+        for (auto &c: this->moduleConsumers)
         {
             c->beginEvent(eventIndex);
         }
@@ -868,7 +872,8 @@ MVMEStreamProcessor::singleStepNextStep(ProcessingState &procState)
 
                 m_d->analysis->processTimetick();
 
-                for (auto c: m_d->moduleConsumers) c->processTimetick();
+                for (auto &c: m_d->moduleConsumers)
+                    c->processTimetick();
 
                 m_d->counters.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
             }
@@ -1325,12 +1330,22 @@ bool MVMEStreamProcessor::hasDiagnostics() const
     return (bool)m_d->diag;
 }
 
-void MVMEStreamProcessor::attachModuleConsumer(IMVMEStreamModuleConsumer *c)
+void MVMEStreamProcessor::attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &c)
 {
     m_d->moduleConsumers.push_back(c);
 }
 
-void MVMEStreamProcessor::removeModuleConsumer(IMVMEStreamModuleConsumer *c)
+void MVMEStreamProcessor::removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &c)
 {
     m_d->moduleConsumers.removeAll(c);
+}
+
+void MVMEStreamProcessor::attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &c)
+{
+    m_d->bufferConsumers.push_back(c);
+}
+
+void MVMEStreamProcessor::removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &c)
+{
+    m_d->bufferConsumers.removeAll(c);
 }

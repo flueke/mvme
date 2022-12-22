@@ -3430,7 +3430,8 @@ inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
         s32 bin = static_cast<s32>(get_bin_unchecked(x, histo->binning.min, histo->binningFactor));
 
         histo->data[bin]++;
-        histo->entryCount++;
+        if (histo->entryCount)
+            ++(*histo->entryCount);
     }
 }
 
@@ -3510,7 +3511,7 @@ void flush(H1D *histo, FillBuffer &buffer)
         histo->data[bin]++;
     }
 
-    histo->entryCount += buffer.used;
+    (*histo->entryCount) += buffer.used;
     buffer.used = 0;
 }
 
@@ -3601,7 +3602,9 @@ inline double get_value(H1D histo, double x)
 void clear_histo(H1D *histo)
 {
     histo->binningFactor = 0.0;
-    histo->entryCount = 0.0;
+
+    if (histo->entryCount)
+        *histo->entryCount = 0.0;
 
     if (histo->underflow)
         *histo->underflow = 0.0;
@@ -3609,10 +3612,7 @@ void clear_histo(H1D *histo)
     if (histo->overflow)
         *histo->overflow = 0.0;
 
-    for (s32 i = 0; i < histo->size; i++)
-    {
-        histo->data[i] = 0.0;
-    }
+    std::fill(histo->data, histo->data + histo->size, 0.0);
 }
 
 /* Note: The H1D instances in the 'histos' variable are copied. This means
@@ -4715,7 +4715,7 @@ void a2_end_event(A2 *a2, int eventIndex)
 
         if (is_condition_operator(*op))
         {
-            auto d = reinterpret_cast<ConditionBaseData *>(op->d);
+            [[maybe_unused]] auto d = reinterpret_cast<ConditionBaseData *>(op->d);
 
             assert(d->bitIndex >= 0); // bitIndex must have been assigned when the runtime was built
             assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());

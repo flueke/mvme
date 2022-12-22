@@ -22,13 +22,14 @@
 
 #include <boost/range/adaptor/indexed.hpp>
 #include <cmath>
-#include <QLabel>
 #include <QFormLayout>
+#include <QLabel>
+#include <QProgressBar>
 #include <QTimer>
+
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_readout.h>
-
-#include "mesytec-mvlc/mvlc_eth_interface.h"
+#include <mesytec-mvlc/mvlc_eth_interface.h>
 #include "mvlc_readout_worker.h"
 #include "mvme_context.h"
 #include "qt_util.h"
@@ -79,6 +80,9 @@ struct DAQStatsWidgetPrivate
             *mvlcUSBWidget,
             *mvlcETHWidget,
             *mvlcStackErrorsWidget;
+
+    QProgressBar *listfileQueueFillLevel;
+    QColor fillLevelBarDefaultColor;
 
     void update_generic(const DAQStats &stats, const DAQStats &prevStats,
                         double dt_s, double elapsed_s)
@@ -315,8 +319,15 @@ struct DAQStatsWidgetPrivate
         mvlcUSBWidget->setVisible(is_MVLC_USB);
         mvlcETHWidget->setVisible(is_MVLC_ETH);
         mvlcStackErrorsWidget->setVisible(mvlc != nullptr);
+#if 0
+        listfileQueueFillLevel->setVisible(mvlc != nullptr
+            && context->getDAQState() != DAQState::Idle
+            && context->getListFileOutputInfo().enabled);
+#else
+        listfileQueueFillLevel->setVisible(false);
+#endif
 
-        auto daqStats  = context->getDAQStats();
+        auto daqStats = context->getDAQStats();
         auto startTime = daqStats.startTime;
         auto endTime   = (context->getDAQState() == DAQState::Idle
                           ? daqStats.endTime
@@ -367,6 +378,38 @@ struct DAQStatsWidgetPrivate
 
             if (mvlc)
                 updateMVLCStackErrors(mvlc->getMVLC().getStackErrorCounters());
+
+            {
+                auto rangeMin = 0;
+                auto rangeMax = mvlcReadoutCounters.listfileWriterCounters.bufferQueueCapacity;
+                auto value = mvlcReadoutCounters.listfileWriterCounters.bufferQueueSize;
+
+                // Subtract 1 from rangeMax to account for the buffer that's
+                // currently being processed by the listfile writer. If not done
+                // the display will show 9/10 all the time while in reality all
+                // buffers are used and we want 9/9 being shown.
+                //rangeMax -= 1;
+
+                // Same as above but adjust the value so instead of 0/10 we get 1/10
+                if (context->getDAQState() != DAQState::Idle)
+                {
+                    if (value < rangeMax)
+                        value += 1;
+                }
+                else
+                    value = 0; // daq is idle -> always show 0 buffers in use
+
+                QColor color(fillLevelBarDefaultColor);
+
+                if (value == rangeMax && rangeMax > 0)
+                    color = Qt::red;
+
+                listfileQueueFillLevel->setRange(rangeMin, rangeMax);
+                listfileQueueFillLevel->setValue(value);
+                auto pal = listfileQueueFillLevel->palette();
+                pal.setColor(QPalette::Highlight, color);
+                listfileQueueFillLevel->setPalette(pal);
+            }
 
             prevCounters.mvlcReadoutCounters = mvlcReadoutCounters;
         }
@@ -424,18 +467,27 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->mvlcUSBWidget = new QWidget;
     m_d->mvlcETHWidget = new QWidget;
     m_d->mvlcStackErrorsWidget = new QWidget;
+    m_d->listfileQueueFillLevel = new QProgressBar;
+    m_d->listfileQueueFillLevel->setAlignment(Qt::AlignCenter);
+    m_d->listfileQueueFillLevel->setFormat("Listfile queue fill level: %p% (%v of %m buffers in use)");
+    m_d->listfileQueueFillLevel->setRange(0, 10);
+    m_d->listfileQueueFillLevel->setValue(0);
+    m_d->fillLevelBarDefaultColor = m_d->listfileQueueFillLevel->palette().highlight().color();
 
     auto genericLayout = make_layout<QFormLayout, 0, 2>(m_d->genericWidget);
     auto sisLayout = make_layout<QFormLayout, 0, 2>(m_d->sisWidget);
     auto mvlcUSBLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcUSBWidget);
     auto mvlcETHLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcETHWidget);
     auto mvlcStackErrorsLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcStackErrorsWidget);
+    auto listfileQueueLayout = make_layout<QFormLayout, 0, 2>();
+    listfileQueueLayout->addRow(m_d->listfileQueueFillLevel);
 
     auto vboxLayout = make_layout<QVBoxLayout, 0, 0>(this);
     vboxLayout->addWidget(m_d->genericWidget);
     vboxLayout->addWidget(m_d->sisWidget);
     vboxLayout->addWidget(m_d->mvlcUSBWidget);
     vboxLayout->addWidget(m_d->mvlcETHWidget);
+    vboxLayout->addLayout(listfileQueueLayout);
     vboxLayout->addWidget(m_d->mvlcStackErrorsWidget);
 
     genericLayout->addRow("Running time:", m_d->label_daqDuration);

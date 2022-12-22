@@ -21,13 +21,17 @@
 #include "analysis_info_widget.h"
 
 #include <cmath>
+#include <sstream>
+
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QTabWidget>
 #include <QTimer>
 
 #include "util/counters.h"
+#include "util/qt_font.h"
 #include "util/strings.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_stream_worker.h"
@@ -80,6 +84,8 @@ struct AnalysisInfoWidgetPrivate
     QWidget *mvlcInfoWidget;
     QVector<QLabel *> mvlcLabels;
     mesytec::mvlc::readout_parser::ReadoutParserCounters prevMVLCCounters;
+
+    QPlainTextEdit *multiEventSplitterInfoWidget;
 
     QWidget *eventBuilderWidget;
     QVector<QLabel *> eventBuilderLabels;
@@ -188,6 +194,14 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
         mvlcLayout->addRow(noteLabel);
     }
 
+    m_d->multiEventSplitterInfoWidget = new QPlainTextEdit;
+    {
+        auto &w = m_d->multiEventSplitterInfoWidget;
+        w->setReadOnly(true);
+        w->setTabChangesFocus(true);
+        w->setFont(make_monospace_font());
+    }
+
     //m_d->eventBuilderWidget = new QGroupBox("Event Builder");
     m_d->eventBuilderWidget = new QWidget;
     {
@@ -229,6 +243,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
     m_d->tabbedWidget = new QTabWidget;
     auto tabWidget = m_d->tabbedWidget;
     tabWidget->addTab(m_d->mvlcInfoWidget, "MVLC Readout Parser Counters");
+    tabWidget->addTab(m_d->multiEventSplitterInfoWidget, "Multi Event Splitter Counters");
     tabWidget->addTab(m_d->eventBuilderWidget, "Event Builder Counters");
 
     // outer widget layout
@@ -426,6 +441,11 @@ void AnalysisInfoWidget::update()
             .arg(totalBuffers)
             .arg(seenPercent)
             ;
+
+        auto splitterCounters = mvlcWorker->getMultiEventSplitterCounters();
+        std::ostringstream ss;
+        mesytec::mvme::multi_event_splitter::format_counters_tabular(ss, splitterCounters);
+        m_d->multiEventSplitterInfoWidget->setPlainText(QString::fromStdString(ss.str()));
     }
     else
     {

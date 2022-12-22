@@ -84,7 +84,7 @@ struct Context
     u32 listfileVersion;
     MVMEStreamProcessor::Logger logger;
     MVMEStreamProcessor streamProcessor;
-    std::unique_ptr<EventServer> eventServer;
+    std::shared_ptr<EventServer> eventServer;
 };
 
 void process_listfile(Context &context, ListfileReplayHandle &input)
@@ -236,9 +236,9 @@ int main(int argc, char *argv[])
 
         if (enableAnalysisServer)
         {
-            context.eventServer = std::make_unique<EventServer>();
+            context.eventServer = std::make_shared<EventServer>();
             context.eventServer->setLogger(logger);
-            context.streamProcessor.attachModuleConsumer(context.eventServer.get());
+            context.streamProcessor.attachModuleConsumer(context.eventServer);
         }
 
         context.streamProcessor.startup();

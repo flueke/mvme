@@ -79,7 +79,7 @@ class ModuleConfigDialog: public QDialog
     Q_OBJECT
     public:
         ModuleConfigDialog(
-            ModuleConfig *module,
+            ModuleConfig *module_,
             const EventConfig *parentEvent,
             const VMEConfig *vmeConfig,
             QWidget *parent = 0);

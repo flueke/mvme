@@ -25,70 +25,73 @@
 
 using namespace a2::data_filter;
 
-static void TEST_combine(benchmark::State &)
+static void TEST_combine(benchmark::State &s)
 {
-    // 4 u16 words, not reversed
+    while (s.KeepRunning())
     {
-        const u32 data[] =
+        // 4 u16 words, not reversed
         {
-            0x0101u,
-            0x2020u,
-            0x0303u,
-            0x4040u,
-        };
+            const u32 data[] =
+            {
+                0x0101u,
+                0x2020u,
+                0x0303u,
+                0x4040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::NoFlag, 4, {});
+            auto cf = make_listfilter(ListFilter::NoFlag, 4, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+            [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
-        assert(result == 0x4040030320200101u);
-    }
+            assert(result == 0x4040030320200101u);
+        }
 
-    // 4 u16 words, reversed
-    {
-        const u32 data[] =
+        // 4 u16 words, reversed
         {
-            0x0101u,
-            0x2020u,
-            0x0303u,
-            0x4040u,
-        };
+            const u32 data[] =
+            {
+                0x0101u,
+                0x2020u,
+                0x0303u,
+                0x4040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::ReverseCombine, 4, {});
+            auto cf = make_listfilter(ListFilter::ReverseCombine, 4, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+            [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
-        assert(result == 0x0101202003034040u);
-    }
+            assert(result == 0x0101202003034040u);
+        }
 
-    // 2 u32 words, not reversed
-    {
-        const u32 data[] =
+        // 2 u32 words, not reversed
         {
-            0x01012020u,
-            0x03034040u,
-        };
+            const u32 data[] =
+            {
+                0x01012020u,
+                0x03034040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::WordSize32, 2, {});
+            auto cf = make_listfilter(ListFilter::WordSize32, 2, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+            [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
-        assert(result == 0x0303404001012020u);
-    }
+            assert(result == 0x0303404001012020u);
+        }
 
-    // 2 u32 words, reversed
-    {
-        const u32 data[] =
+        // 2 u32 words, reversed
         {
-            0x01012020u,
-            0x03034040u,
-        };
+            const u32 data[] =
+            {
+                0x01012020u,
+                0x03034040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::ReverseCombine | ListFilter::WordSize32, 2, {});
+            auto cf = make_listfilter(ListFilter::ReverseCombine | ListFilter::WordSize32, 2, {});
 
-        u64 result = combine(&cf, data, ArrayCount(data));
+            [[maybe_unused]] u64 result = combine(&cf, data, ArrayCount(data));
 
-        assert(result == 0x0101202003034040u);
+            assert(result == 0x0101202003034040u);
+        }
     }
 }
 BENCHMARK(TEST_combine);
@@ -117,248 +120,254 @@ static void BM_combine(benchmark::State &state)
 }
 BENCHMARK(BM_combine);
 
-static void TEST_combine_and_extract_max_words(benchmark::State &)
+static void TEST_combine_and_extract_max_words(benchmark::State &s)
 {
-    // 4 u16 words, not reversed
+    while (s.KeepRunning())
     {
-        const u32 data[] =
+        // 4 u16 words, not reversed
         {
-            0x0101u,
-            0x2020u,
-            0x0303u,
-            0x4040u,
-        };
+            const u32 data[] =
+            {
+                0x0101u,
+                0x2020u,
+                0x0303u,
+                0x4040u,
+            };
 
-        const std::vector<std::string> filters =
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
+                "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
+            };
+
+            auto cf = make_listfilter(ListFilter::NoFlag, 4, filters);
+
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
+
+            assert(combined == 0x4040030320200101u);
+
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
+
+            assert(value   == 0x200101u);
+            assert(address == 0x400303u);
+        }
+
+        // 4 u16 words, reversed
         {
-            "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
-            "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
-        };
+            const u32 data[] =
+            {
+                0x0101u,
+                0x2020u,
+                0x0303u,
+                0x4040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::NoFlag, 4, filters);
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
+                "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
+            };
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+            auto cf = make_listfilter(ListFilter::ReverseCombine, 4, filters);
 
-        assert(combined == 0x4040030320200101u);
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
+            assert(combined == 0x0101202003034040u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
 
-        assert(value   == 0x200101u);
-        assert(address == 0x400303u);
-    }
+            assert(value   == 0x034040u);
+            assert(address == 0x012020u);
+        }
 
-    // 4 u16 words, reversed
-    {
-        const u32 data[] =
+        // 2 u32 words, not reversed
         {
-            0x0101u,
-            0x2020u,
-            0x0303u,
-            0x4040u,
-        };
+            const u32 data[] =
+            {
+                0x01012020u,
+                0x03034040u,
+            };
 
-        const std::vector<std::string> filters =
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
+                "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
+            };
+
+            auto cf = make_listfilter(ListFilter::WordSize32, 2, filters);
+
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
+
+            assert(combined == 0x0303404001012020u);
+
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
+
+            assert(value   == 0x012020u);
+            assert(address == 0x034040u);
+        }
+
+        // 2 u32 words, reversed
         {
-            "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
-            "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
-        };
+            const u32 data[] =
+            {
+                0x01012020u,
+                0x03034040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::ReverseCombine, 4, filters);
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
+                "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
+            };
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
-        assert(combined == 0x0101202003034040u);
+            auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 2, filters);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
+            assert(combined == 0x0101202003034040u);
 
-        assert(value   == 0x034040u);
-        assert(address == 0x012020u);
-    }
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
-    // 2 u32 words, not reversed
-    {
-        const u32 data[] =
-        {
-            0x01012020u,
-            0x03034040u,
-        };
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
 
-        const std::vector<std::string> filters =
-        {
-            "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
-            "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
-        };
-
-        auto cf = make_listfilter(ListFilter::WordSize32, 2, filters);
-
-        u64 combined = combine(&cf, data, ArrayCount(data));
-
-        assert(combined == 0x0303404001012020u);
-
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
-
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
-
-        assert(value   == 0x012020u);
-        assert(address == 0x034040u);
-    }
-
-    // 2 u32 words, reversed
-    {
-        const u32 data[] =
-        {
-            0x01012020u,
-            0x03034040u,
-        };
-
-        const std::vector<std::string> filters =
-        {
-            "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
-            "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
-        };
-
-        auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 2, filters);
-
-        u64 combined = combine(&cf, data, ArrayCount(data));
-
-        assert(combined == 0x0101202003034040u);
-
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
-
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
-
-        assert(value   == 0x034040u);
-        assert(address == 0x012020u);
+            assert(value   == 0x034040u);
+            assert(address == 0x012020u);
+        }
     }
 }
 BENCHMARK(TEST_combine_and_extract_max_words);
 
-static void TEST_combine_and_extract_non_max_words(benchmark::State &)
+static void TEST_combine_and_extract_non_max_words(benchmark::State &s)
 {
-    // 3 u16 words, not reversed
+    while (s.KeepRunning())
     {
-        const u32 data[] =
+        // 3 u16 words, not reversed
         {
-            0x0101u,
-            0x2020u,
-            0x0303u,
-            0x4040u,
-        };
+            const u32 data[] =
+            {
+                0x0101u,
+                0x2020u,
+                0x0303u,
+                0x4040u,
+            };
 
-        const std::vector<std::string> filters =
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
+                "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
+            };
+
+            auto cf = make_listfilter(ListFilter::NoFlag, 3, filters);
+
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
+
+            assert(combined == 0x030320200101u);
+
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
+
+            assert(value   == 0x200101u);
+            assert(address == 0x0303u);
+        }
+
+        // 3 u16 words, reversed
         {
-            "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
-            "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
-        };
+            const u32 data[] =
+            {
+                0x0101u,
+                0x2020u,
+                0x0303u,
+                0x4040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::NoFlag, 3, filters);
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD",
+                "AAAA AAAA AAAA AAAA AAAA AAAA",
+            };
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+            auto cf = make_listfilter(ListFilter::ReverseCombine, 3, filters);
 
-        assert(combined == 0x030320200101u);
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
+            assert(combined == 0x010120200303u);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
 
-        assert(value   == 0x200101u);
-        assert(address == 0x0303u);
-    }
+            assert(value   == 0x200303u);
+            assert(address == 0x0101u);
+        }
 
-    // 3 u16 words, reversed
-    {
-        const u32 data[] =
+        // 1 u32 words, not reversed
         {
-            0x0101u,
-            0x2020u,
-            0x0303u,
-            0x4040u,
-        };
+            const u32 data[] =
+            {
+                0x01012020u,
+                0x03034040u,
+            };
 
-        const std::vector<std::string> filters =
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
+                "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
+            };
+
+            auto cf = make_listfilter(ListFilter::WordSize32, 1, filters);
+
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
+
+            assert(combined == 0x01012020u);
+
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
+
+            assert(value   == 0x012020u);
+            assert(address == 0x0u);
+        }
+
+        // 1 u32 words, reversed
         {
-            "DDDD DDDD DDDD DDDD DDDD DDDD",
-            "AAAA AAAA AAAA AAAA AAAA AAAA",
-        };
+            const u32 data[] =
+            {
+                0x01012020u,
+                0x03034040u,
+            };
 
-        auto cf = make_listfilter(ListFilter::ReverseCombine, 3, filters);
+            const std::vector<std::string> filters =
+            {
+                "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
+                "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
+            };
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
-        assert(combined == 0x010120200303u);
+            auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 1, filters);
 
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
+            [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
 
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
+            assert(combined == 0x01012020u);
 
-        assert(value   == 0x200303u);
-        assert(address == 0x0101u);
-    }
+            [[maybe_unused]] u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
+            [[maybe_unused]] u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
 
-    // 1 u32 words, not reversed
-    {
-        const u32 data[] =
-        {
-            0x01012020u,
-            0x03034040u,
-        };
+            //printf("address=0x%08x, value=0x%08x\n", address, value);
 
-        const std::vector<std::string> filters =
-        {
-            "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
-            "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
-        };
-
-        auto cf = make_listfilter(ListFilter::WordSize32, 1, filters);
-
-        u64 combined = combine(&cf, data, ArrayCount(data));
-
-        assert(combined == 0x01012020u);
-
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
-
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
-
-        assert(value   == 0x012020u);
-        assert(address == 0x0u);
-    }
-
-    // 1 u32 words, reversed
-    {
-        const u32 data[] =
-        {
-            0x01012020u,
-            0x03034040u,
-        };
-
-        const std::vector<std::string> filters =
-        {
-            "DDDD DDDD DDDD DDDD DDDD DDDD", // 24 bits of the low word of the combined result
-            "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
-        };
-
-        auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 1, filters);
-
-        u64 combined = combine(&cf, data, ArrayCount(data));
-
-        assert(combined == 0x01012020u);
-
-        u64 address = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheA).first;
-        u64 value   = combine_and_extract(&cf, data, ArrayCount(data), MultiWordFilter::CacheD).first;
-
-        //printf("address=0x%08x, value=0x%08x\n", address, value);
-
-        assert(value   == 0x012020u);
-        assert(address == 0x0u);
+            assert(value   == 0x012020u);
+            assert(address == 0x0u);
+        }
     }
 }
 BENCHMARK(TEST_combine_and_extract_non_max_words);
@@ -383,7 +392,7 @@ static void BM_combine_and_extract(benchmark::State &state)
 
         auto cf = make_listfilter(ListFilter::ReverseCombine, 4, filters);
 
-        u64 combined = combine(&cf, data, ArrayCount(data));
+        [[maybe_unused]] u64 combined = combine(&cf, data, ArrayCount(data));
         assert(combined == 0x0101202003034040u);
 
         while (state.KeepRunning())

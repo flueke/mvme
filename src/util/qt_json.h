@@ -3,14 +3,17 @@
 
 #include <QJsonArray>
 #include <QJsonValue>
+#include <QPointF>
+#include <QPolygonF>
+#include <QSize>
 #include <QVector>
 #include <vector>
 
-namespace mesytec
-{
-namespace mvme
-{
-namespace util
+#include <qwt_interval.h>
+
+#include "analysis/a2/a2_data_filter.h"
+
+namespace mesytec::mvme::util
 {
 
 template<typename C>
@@ -50,13 +53,97 @@ auto stdvector_from_json_array(const QJsonArray &a, Converter conv)
     return ret;
 }
 
-double json_value_to_double(const QJsonValue &jv)
+inline double json_value_to_double(const QJsonValue &jv)
 {
     return jv.toDouble();
 }
 
-} // end namespace util
-} // end namespace mvme
-} // end namespace mesytec
+inline QJsonObject to_json(const QwtInterval &interval)
+{
+    QJsonObject result;
+    result["min"] = interval.minValue();
+    result["max"] = interval.maxValue();
+    return result;
+}
+
+inline QwtInterval interval_from_json(const QJsonObject &json)
+{
+    QwtInterval result;
+    result.setMinValue(json["min"].toDouble(make_quiet_nan()));
+    result.setMaxValue(json["max"].toDouble(make_quiet_nan()));
+    return result;
+}
+
+inline QJsonObject to_json(const QPointF &point)
+{
+    QJsonObject result;
+    result["x"] = point.x();
+    result["y"] = point.y();
+    return result;
+}
+
+inline QPointF qpointf_from_json(const QJsonObject &json)
+{
+    return { json["x"].toDouble(), json["y"].toDouble() };
+}
+
+inline QJsonObject to_json(const QRectF &rect)
+{
+    QJsonObject result;
+
+    result["topLeft"] = to_json(rect.topLeft());
+    result["bottomRight"] = to_json(rect.bottomRight());
+
+    return result;
+}
+
+inline QRectF qrectf_from_json(const QJsonObject &json)
+{
+    QRectF result(qpointf_from_json(json["topLeft"].toObject()),
+                  qpointf_from_json(json["bottomRight"].toObject()));
+
+    return result;
+}
+
+inline QJsonArray to_json(const QPolygonF &poly)
+{
+    QJsonArray points;
+
+    for (const auto &point: poly)
+    {
+        points.append(to_json(point));
+    }
+
+    return points;
+}
+
+inline QPolygonF qpolygonf_from_json(const QJsonArray &points)
+{
+    QPolygonF result;
+    result.reserve(points.size());
+
+    for (auto it = points.begin(); it != points.end(); it++)
+    {
+        result.append(qpointf_from_json(it->toObject()));
+    }
+
+    return result;
+}
+
+inline QJsonObject to_json(const QSize &sz)
+{
+    QJsonObject result;
+    result["width"] = sz.width();
+    result["height"] = sz.height();
+    return result;
+}
+
+inline QSize qsize_from_json(const QJsonObject &json)
+{
+    QSize result(json["width"].toInt(), json["height"].toInt());
+    return result;
+}
+
+} // end namespace mesytec::mvlc::util
 
 #endif /* __MVME_UTIL_QT_JSON_H__ */

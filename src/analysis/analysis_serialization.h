@@ -41,11 +41,12 @@ QJsonObject LIBMVME_EXPORT serialize(Directory *dir);
 
 struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
 {
-    virtual void visit(SourceInterface *source) override;
-    virtual void visit(OperatorInterface *op) override;
-    virtual void visit(SinkInterface *sink) override;
-    virtual void visit(ConditionInterface *cond) override;
-    virtual void visit(Directory *dir) override;
+    void visit(SourceInterface *source) override;
+    void visit(OperatorInterface *op) override;
+    void visit(SinkInterface *sink) override;
+    void visit(ConditionInterface *cond) override;
+    void visit(Directory *dir) override;
+    void visit(PlotGridView *view) override;
 
     QJsonArray serializeConnections() const;
     QJsonObject serializeConditionLinks(const ConditionLinks &links) const;
@@ -55,6 +56,7 @@ struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
     QJsonArray sourcesArray;
     QJsonArray operatorsArray;
     QJsonArray directoriesArray;
+    QJsonArray genericObjectsArray;
     AnalysisObjectVector visitedObjects;
 };
 
@@ -93,6 +95,7 @@ struct LIBMVME_EXPORT AnalysisObjectStore
     SourceVector sources;
     OperatorVector operators;
     DirectoryVector directories;
+    AnalysisObjectVector generics;
     QSet<Connection> connections;
     QHash<QUuid, AnalysisObjectPtr> objectsById;
     QHash<QUuid, QVariantMap> objectSettingsById;

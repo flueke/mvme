@@ -2,13 +2,16 @@
 TODO list
 ==================================================
 
+- When generating histograms for an output pipe the source operator could be
+  examined to determine the resolution for the histogram.
+
 - Analysis errors and highlighting
   * Histo sinks without an allocated histo should have an error highlight
     (something is wrong with the inputs).
   * Operators having a zero output size should be highlighted too. Operator should
     have at least one non-zero sized output.
   * Expr Cond (maybe a general issue): setting the "Parent Event" to unspecified
-    does not mark the operator as having an issue (need two VME events to repdocue
+    does not mark the operator as having an issue (need two VME events to reproduce
     as otherwise the only existing event is used as the parent).
   * ExprCond: having an expression compile error is not visible in the analysis ui
     (operator is not highlighted in red)
@@ -16,6 +19,10 @@ TODO list
 * doc: describe listfile formats and ZMQ transport
 
 * Multi plot window
+  - Support RateMonitors
+    serving as a plot gallery
+  - react to sink modifications after beginRun() was called: have to update the
+    histo list as otherwise we might display state histograms kept alive by our copy
 
 * move module templates to JSON format
 * add GSI VFTX module template (JSON format if possible, otherwise the old template format)

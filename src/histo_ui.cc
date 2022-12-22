@@ -185,11 +185,11 @@ PlotPicker::PlotPicker(QWidget *canvas)
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 #ifdef Q_OS_WIN
-    bool b = connect(this, SIGNAL(removed(const QPoint &)),
-                     this, SLOT(onPointRemoved(const QPoint &)));
+    [[maybe_unused]] bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                                      this, SLOT(onPointRemoved(const QPoint &)));
 #else
-    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
-                     this, &PlotPicker::onPointRemoved);
+    [[maybe_unused]] bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                                      this, &PlotPicker::onPointRemoved);
 #endif
     assert(b);
 }
@@ -202,11 +202,11 @@ PlotPicker::PlotPicker(int xAxis, int yAxis,
 {
     qDebug() << __PRETTY_FUNCTION__ << this;
 #ifdef Q_OS_WIN
-    bool b = connect(this, SIGNAL(removed(const QPoint &)),
-                     this, SLOT(onPointRemoved(const QPoint &)));
+    [[maybe_unused]] bool b = connect(this, SIGNAL(removed(const QPoint &)),
+                                      this, SLOT(onPointRemoved(const QPoint &)));
 #else
-    bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
-                     this, &PlotPicker::onPointRemoved);
+    [[maybe_unused]] bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
+                                      this, &PlotPicker::onPointRemoved);
 #endif
     assert(b);
 }
@@ -296,7 +296,7 @@ NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 
 #ifdef Q_OS_WIN
     b = connect(this, SIGNAL(selected(const QPointF &)),
@@ -502,7 +502,7 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 
 #ifdef Q_OS_WIN
     b = connect(this, SIGNAL(moved(const QPointF &)),
@@ -823,7 +823,7 @@ PolygonEditorPicker::PolygonEditorPicker(QwtPlot *plot)
 
     setStateMachine(new AutoBeginClickPointMachine);
 
-    bool b = false;
+    [[maybe_unused]] bool b = false;
 #ifdef Q_OS_WIN
     b = connect(this, SIGNAL(moved(const QPointF &)),
                 this, SLOT(onPointMoved(const QPointF &)));
@@ -1108,6 +1108,70 @@ void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &
                 scaleChanger->setLogarithmic();
             w->replot();
         });
+}
+
+// from http://stackoverflow.com/a/9021841
+class LogarithmicColorMap : public QwtLinearColorMap
+{
+    public:
+        LogarithmicColorMap(const QColor &from, const QColor &to)
+            : QwtLinearColorMap(from, to)
+        {
+        }
+
+        QRgb rgb(const QwtInterval &interval, double value) const
+        {
+            /* XXX: Hack for log scale. Is this the right place? Limit the
+             * interval somewhere else so that it is bounded to (1, X) when
+             * this function is called? */
+            double minValue = interval.minValue();
+            if (interval.minValue() <= 0)
+            {
+                minValue = 1.0;
+            }
+            return QwtLinearColorMap::rgb(QwtInterval(std::log(minValue),
+                                                      std::log(interval.maxValue())),
+                                          std::log(value));
+        }
+};
+
+std::unique_ptr<QwtLinearColorMap> make_histo2d_color_map(AxisScaleType scaleType)
+{
+    auto colorFrom = Qt::darkBlue;
+    auto colorTo   = Qt::darkRed;
+
+    std::unique_ptr<QwtLinearColorMap> colorMap{};
+
+    switch (scaleType)
+    {
+        case AxisScaleType::Linear:
+            colorMap = std::make_unique<QwtLinearColorMap>(colorFrom, colorTo);
+            break;
+
+        case AxisScaleType::Logarithmic:
+            colorMap = std::make_unique<LogarithmicColorMap>(colorFrom, colorTo);
+            break;
+    }
+
+    assert(colorMap);
+
+    colorMap->addColorStop(0.2, Qt::blue);
+    colorMap->addColorStop(0.4, Qt::cyan);
+    colorMap->addColorStop(0.6, Qt::yellow);
+    colorMap->addColorStop(0.8, Qt::red);
+
+    colorMap->setMode(QwtLinearColorMap::ScaledColors);
+
+    return colorMap;
+}
+
+QwtText make_qwt_text(const QString &str, int fontPointSize)
+{
+    QwtText txt(str);
+    auto font = txt.font();
+    font.setPointSize(fontPointSize);
+    txt.setFont(font);
+    return txt;
 }
 
 }

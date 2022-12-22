@@ -234,7 +234,10 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
             }
         }
 
-        result->setBinContent(destBin++, value);
+        // Using 'value' for the entry count too, assuming that the bin value in
+        // the original histogram resulted from incrementing that bins 'value'
+        // times.
+        result->setBinContent(destBin++, value, value);
     }
 
     return result;
@@ -317,7 +320,7 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
             }
         }
 
-        result->setBinContent(destBin++, value);
+        result->setBinContent(destBin++, value, value);
     }
 
     return result;

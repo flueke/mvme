@@ -19,8 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo2d_widget.h"
-#include "analysis/analysis_fwd.h"
-#include "analysis/condition_ui.h"
 #include "histo2d_widget_p.h"
 
 #include <qwt_color_map.h>
@@ -31,7 +29,6 @@
 #include <qwt_plot_shapeitem.h>
 #include <qwt_plot_spectrogram.h>
 #include <qwt_plot_textlabel.h>
-#include <qwt_matrix_raster_data.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
 
@@ -50,167 +47,32 @@
 #include <QToolBar>
 
 #include "analysis/a2_adapter.h"
-#include "analysis/analysis.h"
+#include "analysis/analysis_fwd.h"
 #include "analysis/analysis_graphs.h"
+#include "analysis/analysis.h"
+#include "analysis/condition_ui.h"
 #include "git_sha1.h"
 #include "histo1d_widget.h"
 #include "histo_gui_util.h"
+#include "histo_ui.h"
 #include "mvme_context_lib.h"
 #include "mvme_qwt.h"
 #include "qt_util.h"
 #include "scrollzoomer.h"
 #include "util.h"
 
+using namespace histo_ui;
+
 static const s32 ReplotPeriod_ms = 1000;
-
-using Intervals = Histo2DStatistics::Intervals;
-
-struct RasterDataBase: public QwtMatrixRasterData
-{
-    ResolutionReductionFactors m_rrf;
-
-#ifndef QT_NO_DEBUG
-    /* Counts the number of samples obtained by qwt when doing a replot. Has to be atomic
-     * as QwtPlotSpectrogram::renderImage() uses threaded rendering internally.
-     * The number of samples heavily depends on the result of the pixelHint() method and
-     * is performance critical. */
-    mutable std::atomic<u64> m_sampledValuesForLastReplot;
-#endif
-
-    RasterDataBase()
-#ifndef QT_NO_DEBUG
-        : m_sampledValuesForLastReplot(0u)
-#endif
-    {}
-
-    void setResolutionReductionFactors(u32 rrfX, u32 rrfY) { m_rrf = { rrfX, rrfY }; }
-    void setResolutionReductionFactors(const ResolutionReductionFactors &rrf) { m_rrf = rrf; }
-
-    virtual void initRaster(const QRectF &area, const QSize &raster) override
-    {
-        preReplot();
-        QwtRasterData::initRaster(area, raster);
-    }
-
-    virtual void discardRaster() override
-    {
-        postReplot();
-        QwtRasterData::discardRaster();
-    }
-
-    void preReplot()
-    {
-#ifndef QT_NO_DEBUG
-        //qDebug() << __PRETTY_FUNCTION__ << this;
-        m_sampledValuesForLastReplot = 0u;
-#endif
-    }
-
-    void postReplot()
-    {
-#ifndef QT_NO_DEBUG
-        //qDebug() << __PRETTY_FUNCTION__ << this
-        //    << "sampled values for last replot: " << m_sampledValuesForLastReplot;
-#endif
-    }
-};
-
-struct Histo2DRasterData: public RasterDataBase
-{
-    Histo2D *m_histo;
-
-    explicit Histo2DRasterData(Histo2D *histo)
-        : RasterDataBase()
-        , m_histo(histo)
-    {
-    }
-
-    virtual double value(double x, double y) const override
-    {
-#ifndef QT_NO_DEBUG
-        m_sampledValuesForLastReplot++;
-#endif
-        //qDebug() << __PRETTY_FUNCTION__ << this
-        //    << "x" << x << ", y" << y;
-
-        double v = m_histo->getValue(x, y, m_rrf);
-        double r = (v > 0.0 ? v : make_quiet_nan());
-        return r;
-    }
-
-    virtual QRectF pixelHint(const QRectF &) const override
-    {
-        QRectF result
-        {
-            0.0, 0.0,
-            m_histo->getAxisBinning(Qt::XAxis).getBinWidth(m_rrf.x),
-            m_histo->getAxisBinning(Qt::YAxis).getBinWidth(m_rrf.y)
-        };
-
-        //qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << result;
-
-        return result;
-    }
-
-};
-
-using HistoList = QVector<std::shared_ptr<Histo1D>>;
-
-struct Histo1DListRasterData: public RasterDataBase
-{
-    HistoList m_histos;
-
-    explicit Histo1DListRasterData(const HistoList &histos)
-        : RasterDataBase()
-        , m_histos(histos)
-    {}
-
-    virtual double value(double x, double y) const override
-    {
-#ifndef QT_NO_DEBUG
-        m_sampledValuesForLastReplot++;
-#endif
-        int histoIndex = x;
-
-        if (histoIndex < 0 || histoIndex >= m_histos.size())
-            return make_quiet_nan();
-
-        double v = m_histos[histoIndex]->getValue(y, m_rrf.y);
-        double r = (v > 0.0 ? v : make_quiet_nan());
-        return r;
-    }
-
-    virtual QRectF pixelHint(const QRectF &/*area*/) const override
-    {
-        double sizeX = 1.0;
-        double sizeY = 1.0;
-
-        if (!m_histos.isEmpty())
-        {
-            sizeY = m_histos[0]->getBinWidth(m_rrf.y);
-        }
-
-        QRectF result
-        {
-            0.0, 0.0, sizeX, sizeY
-        };
-
-        //qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << result;
-
-        return result;
-    }
-};
 
 using Histo1DSinkPtr = Histo2DWidget::Histo1DSinkPtr;
 
 static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &sink,
                                                          AxisInterval xInterval,
                                                          AxisInterval yInterval,
-                                                         analysis::A2AdapterState *a2State,
                                                          const u32 rrfY)
 {
     assert(sink);
-    assert(a2State);
     Histo2DStatistics result;
 
     /* Counts: sum of all histo counts
@@ -255,31 +117,6 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
 
     return result;
 }
-
-// from http://stackoverflow.com/a/9021841
-class LogarithmicColorMap : public QwtLinearColorMap
-{
-    public:
-        LogarithmicColorMap(const QColor &from, const QColor &to)
-            : QwtLinearColorMap(from, to)
-        {
-        }
-
-        QRgb rgb(const QwtInterval &interval, double value) const
-        {
-            /* XXX: Hack for log scale. Is this the right place? Limit the
-             * interval somewhere else so that it is bounded to (1, X) when
-             * this function is called? */
-            double minValue = interval.minValue();
-            if (interval.minValue() <= 0)
-            {
-                minValue = 1.0;
-            }
-            return QwtLinearColorMap::rgb(QwtInterval(std::log(minValue),
-                                                      std::log(interval.maxValue())),
-                                          std::log(value));
-        }
-};
 
 struct Histo2DWidgetPrivate
 {
@@ -399,12 +236,6 @@ struct Histo2DWidgetPrivate
     void updatePlotStatsTextBox(const Histo2DStatistics &stats);
 };
 
-enum class AxisScaleType
-{
-    Linear,
-    Logarithmic
-};
-
 /* The private constructor doing most of the object creation and initialization. To be
  * invoked by all other, more specific constructors. */
 Histo2DWidget::Histo2DWidget(QWidget *parent)
@@ -426,13 +257,13 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
     m_d->m_zoomer->setObjectName("zoomer");
 
-    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+    DO_AND_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
 
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo2DWidget::mouseCursorMovedToPlotCoord));
 
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo2DWidget::mouseCursorLeftPlot));
 
 
@@ -593,7 +424,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         m_d->m_cutPolyPicker->setStateMachine(new QwtPickerPolygonMachine);
         m_d->m_cutPolyPicker->setEnabled(false);
 
-        TRY_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
+        DO_AND_ASSERT(connect(m_d->m_cutPolyPicker, &QwtPicker::activated, this, [this](bool on) {
             m_d->onCutPolyPickerActivated(on);
         }));
 #endif
@@ -898,7 +729,6 @@ void Histo2DWidget::replot()
             m_d->m_histo1DSink,
             { visibleXInterval.minValue(), visibleXInterval.maxValue() },
             { visibleYInterval.minValue(), visibleYInterval.maxValue() },
-            m_d->m_serviceProvider->getAnalysis()->getA2AdapterState(),
             rrf.y);
     }
 
@@ -933,7 +763,7 @@ void Histo2DWidget::replot()
     //       __PRETTY_FUNCTION__, zInterval.minValue(), zInterval.maxValue(), zInterval.isValid(), zInterval.width());
 
     // Set the intervals on the interal raster data object.
-    auto rasterData = reinterpret_cast<RasterDataBase *>(m_d->m_plotItem->data());
+    auto rasterData = reinterpret_cast<BasicRasterData *>(m_d->m_plotItem->data());
     for (size_t axis = 0; axis < intervals.size(); ++axis)
         rasterData->setInterval(static_cast<Qt::Axis>(axis), intervals[axis]);
 
@@ -1183,27 +1013,9 @@ bool Histo2DWidget::zAxisIsLin() const
 
 QwtLinearColorMap *Histo2DWidget::getColorMap() const
 {
-    auto colorFrom = Qt::darkBlue;
-    auto colorTo   = Qt::darkRed;
-    QwtLinearColorMap *colorMap = nullptr;
-
     if (zAxisIsLin())
-    {
-        colorMap = new QwtLinearColorMap(colorFrom, colorTo);
-    }
-    else
-    {
-        colorMap = new LogarithmicColorMap(colorFrom, colorTo);
-    }
-
-    colorMap->addColorStop(0.2, Qt::blue);
-    colorMap->addColorStop(0.4, Qt::cyan);
-    colorMap->addColorStop(0.6, Qt::yellow);
-    colorMap->addColorStop(0.8, Qt::red);
-
-    colorMap->setMode(QwtLinearColorMap::ScaledColors);
-
-    return colorMap;
+        return make_histo2d_color_map(AxisScaleType::Linear).release();
+    return make_histo2d_color_map(AxisScaleType::Logarithmic).release();
 }
 
 void Histo2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)

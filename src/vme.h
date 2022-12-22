@@ -21,73 +21,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+#include <mesytec-mvlc/vme_constants.h>
 #include "typedefs.h"
 
-// Constants for the known privileged and user vme address modifiers.
-namespace vme_address_modes
-{
-    // a16
-    static const uint8_t a16User   = 0x29;
-    static const uint8_t a16Priv   = 0x2D;
-
-    // a32
-    static const u8 a32UserData    = 0x09;
-    static const u8 a32UserProgram = 0x0A;
-    static const u8 a32UserBlock   = 0x0B;
-    static const u8 a32UserBlock64 = 0x08;
-
-    static const u8 a32PrivData    = 0x0D;
-    static const u8 a32PrivProgram = 0x0E;
-    static const u8 a32PrivBlock   = 0x0F;
-    static const u8 a32PrivBlock64 = 0x0C;
-
-    // a24
-    static const u8 a24UserData    = 0x39;
-    static const u8 a24UserProgram = 0x3A;
-    static const u8 a24UserBlock   = 0x3B;
-
-    static const u8 a24PrivData    = 0x3D;
-    static const u8 a24PrivProgram = 0x3E;
-    static const u8 a24PrivBlock   = 0x3F;
-
-    static const u8 cr             = 0x2F;
-
-    // default modes
-    static const u8 A16         = a16User;
-    static const u8 A24         = a24UserData;
-    static const u8 A32         = a32UserData;
-    static const u8 BLT32       = a32UserBlock;
-    static const u8 MBLT64      = a32UserBlock64;
-    static const u8 Blk2eSST64  = 0x20;
-
-    inline bool is_block_amod(u8 amod)
-    {
-        switch (amod)
-        {
-            case a32UserBlock:
-            case a32UserBlock64:
-            case a32PrivBlock:
-            case a32PrivBlock64:
-            case a24UserBlock:
-            case Blk2eSST64:
-                return true;
-        }
-
-        return false;
-    }
-
-    inline bool is_mblt_mode(u8 amod)
-    {
-        switch (amod)
-        {
-            case a32UserBlock64:
-            case a32PrivBlock64:
-                return true;
-        }
-
-        return false;
-    }
-}
+// The vme constants are now defined in the mesytec-mvlc library. The namespace
+// alias is used to stay compatible with the existing mvme code.
+namespace vme_address_modes = mesytec::mvlc::vme_amods;
 
 namespace vme
 {

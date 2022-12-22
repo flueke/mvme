@@ -102,30 +102,21 @@ s32 Histo1D::fill(double x, double weight)
         s64 bin = m_xAxisBinning.getBin(x);
 
         if (bin == AxisBinning::Underflow)
-        {
             m_underflow += weight;
-        }
         else if (bin == AxisBinning::Overflow)
-        {
             m_overflow += weight;
-        }
         else
         {
-            /* If clear to nan
-            if (std::isnan(m_data[bin]))
-            {
-                m_data[bin] = 0.0;
-            }
-            */
+            double &value = m_data[bin];
+            value += weight;
 
-            m_data[bin] += weight;
-            m_count += weight;
-            double value = m_data[bin];
             if (value >= m_maxValue)
             {
                 m_maxValue = value;
                 m_maxBin = bin;
             }
+
+            ++m_entryCount;
         }
 
         return static_cast<s32>(bin);
@@ -151,7 +142,7 @@ std::pair<double, double> Histo1D::getValueAndBinLowEdge(double x, u32 rrf) cons
 
 void Histo1D::clear()
 {
-    m_count = 0.0;
+    m_entryCount = 0;
     m_maxValue = 0;
     m_maxBin = 0;
     m_underflow = 0.0;
@@ -163,13 +154,14 @@ void Histo1D::clear()
     }
 }
 
-bool Histo1D::setBinContent(u32 bin, double value)
+bool Histo1D::setBinContent(u32 bin, double value, size_t entryCount)
 {
     bool result = false;
 
     if (bin < getNumberOfBins())
     {
         m_data[bin] = value;
+        m_entryCount += entryCount;
         result = true;
     }
 
@@ -223,9 +215,11 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         << ", rrf =" << rrf;
 #endif
 
-    Histo1DStatistics result;
+    Histo1DStatistics result = {};
 
     result.rrf = rrf;
+    result.minValue = std::numeric_limits<double>::max();
+    result.maxValue = std::numeric_limits<double>::lowest();
 
     if (startBin > onePastEndBin)
         std::swap(startBin, onePastEndBin);
@@ -239,16 +233,34 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         getBinLowEdge(onePastEndBin, rrf)
     };
 
+    if (startBin >= onePastEndBin)
+    {
+        // No bins to calculate actual min/max values
+        result.minValue = 0.0;
+        result.maxValue = 0.0;
+    }
+    else
+    {
+        result.minValue = std::numeric_limits<double>::max();
+        result.maxValue = std::numeric_limits<double>::lowest();
+    }
+
     for (u32 bin = startBin; bin < onePastEndBin; ++bin)
     {
         double v = getBinContent(bin, rrf);
         result.mean += v * getBinLowEdge(bin, rrf);
-        result.entryCount += v; // This assumes weights of 1.0!!
+        result.entryCount += v; // This assumes weights of 1.0!
 
         if (v > result.maxValue)
         {
             result.maxValue = v;
             result.maxBin = bin;
+        }
+
+        if (v < result.minValue)
+        {
+            result.minValue = v;
+            result.minBin = bin;
         }
     }
 
@@ -334,23 +346,23 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         double rightLowEdge = binning.getBinLowEdgeFractional(rightBinFraction, rrf);
         double leftLowEdge = binning.getBinLowEdgeFractional(leftBinFraction, rrf);
         result.fwhm = std::abs(rightLowEdge - leftLowEdge);
-        double binWidth_2 = binning.getBinWidth(rrf) * 0.5;
+        double halfbinWidth = binning.getBinWidth(rrf) * 0.5;
         // moves the fwhm center by half a bin width to the right
-        result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + binWidth_2;
+        result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + halfbinWidth;
     }
 
     return result;
 }
 
 /* The Histo1D text format is
- * 1st line: bins xMin xMax underflow overflow
+ * 1st line: bins xMin xMax underflow overflow entryCount
  * subsequent lines: one double per line representing the bin content starting at bin=0
  */
 
 QTextStream &writeHisto1D(QTextStream &out, Histo1D *histo)
 {
     out << histo->getNumberOfBins() << " " << histo->getXMin() << " " << histo->getXMax()
-        << " " << histo->getUnderflow() << " " << histo->getOverflow() << endl;
+        << " " << histo->getUnderflow() << " " << histo->getOverflow() << histo->getEntryCount() << endl;
 
     for (u32 bin = 0; bin < histo->getNumberOfBins(); ++bin)
     {
@@ -364,8 +376,9 @@ Histo1D *readHisto1D(QTextStream &in)
 {
     double xMin, xMax, underflow, overflow;
     u32 nBins;
+    size_t entryCount;
 
-    in >> nBins >> xMin >> xMax >> underflow >> overflow;
+    in >> nBins >> xMin >> xMax >> underflow >> overflow >> entryCount;
 
     if (in.status() != QTextStream::Ok)
         return nullptr;
@@ -382,8 +395,10 @@ Histo1D *readHisto1D(QTextStream &in)
         if (in.status() != QTextStream::Ok)
             break;
 
-        result->setBinContent(bin, value);
+        result->setBinContent(bin, value, 1);
     }
+
+    result->setEntryCount(entryCount);
 
     return result;
 }

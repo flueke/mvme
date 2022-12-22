@@ -19,8 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "histo1d_widget.h"
-#include "analysis/analysis_fwd.h"
-#include "analysis/condition_ui.h"
 #include "histo1d_widget_p.h"
 
 #include <qwt_interval.h>
@@ -65,20 +63,24 @@
 #include <QPrinter>
 #include <QPrintDialog>
 
-#include "analysis/analysis.h"
+#include "analysis/analysis_fwd.h"
 #include "analysis/analysis_graphs.h"
+#include "analysis/analysis.h"
+#include "analysis/condition_ui.h"
 #include "histo1d_util.h"
 #include "histo_gui_util.h"
+#include "histo_stats_widget.h"
+#include "histo_ui.h"
 #include "mvme_context_lib.h"
 #include "mvme_qwt.h"
 #include "scrollzoomer.h"
 #include "util.h"
 #include "util/qt_monospace_textedit.h"
-#include "histo_ui.h"
 
 #include "git_sha1.h"
 
 using namespace histo_ui;
+using namespace mvme_qwt;
 
 // TODO Mon Nov 26 2018
 // 1) Combine sink, calibration, context, etc. Having those set on the widget
@@ -270,6 +272,9 @@ struct Histo1DWidgetPrivate
 
     analysis::ui::IntervalConditionEditorController *m_intervalConditionEditorController = nullptr;
 
+    int histoStyle_ = QwtPlotHistogram::Outline;
+    HistoStatsWidget *histoStatsWidget_ = nullptr;
+
     void setCalibUiVisible(bool b)
     {
         auto window = m_calibUi.window;
@@ -337,12 +342,6 @@ struct Histo1DWidgetPrivate
     }
 };
 
-enum class AxisScaleType
-{
-    Linear,
-    Logarithmic
-};
-
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
     : Histo1DWidget(HistoList{ histo }, parent)
 {
@@ -370,14 +369,19 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_d->m_zoomer->setZoomBase();
 
-    TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
-                       this, SLOT(zoomerZoomed(const QRectF &))));
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+    DO_AND_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(onZoomerZoomed(const QRectF &))));
+
+    DO_AND_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SIGNAL(zoomerZoomed(const QRectF &))));
+
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
-    TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+
+    DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo1DWidget::mouseCursorLeftPlot));
 
-    TRY_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
+    DO_AND_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
                        this, [this] (Qt::Axis) {
         // Handle axis changes by zooming out fully. This will make sure
         // possible axis scale changes are immediately visible and the zoomer
@@ -516,7 +520,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     m_d->m_actionHistoListStats = tb->addAction(
         QIcon(QSL(":/document-text.png")),
-        QSL("Print Stats"));
+        QSL("Statistics"));
 
     connect(m_d->m_actionHistoListStats, &QAction::triggered,
             this, [this] () { m_d->onActionHistoListStats(); });
@@ -560,10 +564,25 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");
     connect(actionShowDependencyGraph, &QAction::triggered,
-            this, [this] ()
+            this, [this]
             {
-                analysis::graph::show_dependency_graph(getServiceProvider(), getSink());
+                if (auto asp = getServiceProvider())
+                    analysis::graph::show_dependency_graph(asp, getSink());
             });
+
+#ifndef QT_NO_DEBUG
+    auto combo_histoStyle = new QComboBox;
+    combo_histoStyle->addItem("Outline", QwtPlotHistogram::Outline);
+    combo_histoStyle->addItem("Columns", QwtPlotHistogram::Columns);
+    combo_histoStyle->addItem("Lines", QwtPlotHistogram::Lines);
+    tb->addWidget(combo_histoStyle);
+    connect(combo_histoStyle, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this, combo_histoStyle]
+            {
+                 m_d->histoStyle_ = combo_histoStyle->currentData().toInt();
+                 replot();
+            });
+#endif
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -587,6 +606,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     //
     m_d->m_globalStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
     m_d->m_globalStatsTextItem = new mvme_qwt::TextLabelItem();
+    m_d->m_globalStatsTextItem->setZ(PlotTextLayerZ);
     /* Margin added to contentsMargins() of the canvas. This is (mis)used to
      * not clip the top scrollbar. */
     //m_d->m_globalStatsTextItem->setMargin(25);
@@ -598,6 +618,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     m_d->m_gaussStatsTextItem = new mvme_qwt::TextLabelItem();
     m_d->m_gaussStatsTextItem->setVisible(false);
+    m_d->m_gaussStatsTextItem->setZ(PlotTextLayerZ);
 
     m_d->m_textLabelLayout.addTextLabel(m_d->m_globalStatsTextItem);
     m_d->m_textLabelLayout.addTextLabel(m_d->m_gaussStatsTextItem);
@@ -717,33 +738,17 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_rateEstimationPointPicker->setStateMachine(new AutoBeginClickPointMachine);
     m_d->m_rateEstimationPointPicker->setEnabled(false);
 
-    TRY_ASSERT(connect(m_d->m_rateEstimationPointPicker, SIGNAL(selected(const QPointF &)),
+    DO_AND_ASSERT(connect(m_d->m_rateEstimationPointPicker, SIGNAL(selected(const QPointF &)),
                        this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
 
-    auto make_plot_curve = [](QColor penColor, double penWidth,
-                              double zLayer, QwtPlot *plot = nullptr, bool hide = true)
-    {
-        auto result = new QwtPlotCurve;
-
-        result->setZ(zLayer);
-        result->setPen(penColor, penWidth);
-        result->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-
-        if (plot)
-            result->attach(plot);
-
-        if (hide)
-            result->hide();
-
-        return result;
-    };
-
     m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
+    m_d->m_rateEstimationCurve->hide();
 
     //
     // Gauss Curve
     //
     m_d->m_gaussCurve = make_plot_curve(Qt::green, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
+    m_d->m_gaussCurve->hide();
 
     //
     // Watermark text when exporting
@@ -834,6 +839,8 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 Histo1DWidget::~Histo1DWidget()
 {
     delete m_d->m_plotHisto;
+    if (m_d->histoStatsWidget_)
+        m_d->histoStatsWidget_->close();
 }
 
 void Histo1DWidget::setHistogram(const Histo1DPtr &histo)
@@ -850,39 +857,38 @@ void Histo1DWidget::setHistogram(const Histo1DPtr &histo)
 
 void Histo1DWidgetPrivate::updateAxisScales()
 {
-    // Scale the y axis using the currently visible max value plus 20%
+    double minValue = m_stats.minValue;
     double maxValue = m_stats.maxValue;
-
-    // force a minimum of 10 units in y
-    if (maxValue <= 1.0)
-        maxValue = 10.0;
-
-    double base;
 
     if (yAxisIsLog())
     {
-        base = 1.0;
-        maxValue = std::pow(maxValue, 1.2);
-    }
-    else
-    {
-        base = 0.0;
-        maxValue = maxValue * 1.2;
+        // Force log scale to go from [1.0, something >= 1.0).
+        minValue = 1.0;
+        maxValue = std::max(minValue, maxValue);
     }
 
-    // This sets a fixed y axis scale effectively overriding any changes made
-    // by the scrollzoomer.
-    m_plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
+    // Scale the y-axis by 5% to have some margin to the top and bottom of the
+    // widget. Mostly to make the top scrollbar not overlap the plotted graph.
+    minValue *= (minValue < 0.0) ? 1.05 : 0.95;
+    maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
+
+    //qDebug() << "y scale min" << minValue << "max" << maxValue;
+
+    // This sets a fixed y-axis scale effectively overriding any changes made by
+    // the scrollzoomer.
+    m_plot->setAxisScale(QwtPlot::yLeft, minValue, maxValue);
 
     // xAxis
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        m_plot->setAxisScale(QwtPlot::xBottom, getCurrentHisto()->getXMin(),
+        m_plot->setAxisScale(QwtPlot::xBottom,
+                             getCurrentHisto()->getXMin(),
                              getCurrentHisto()->getXMax());
         m_zoomer->setZoomBase();
     }
 
+    m_plotHisto->setBaseline(minValue);
     m_plot->updateAxes();
 }
 
@@ -890,6 +896,8 @@ void Histo1DWidget::replot()
 {
     if (!m_d->getCurrentHisto())
         return;
+
+    m_d->m_plotHisto->setStyle(static_cast<QwtPlotHistogram::HistogramStyle>(m_d->histoStyle_));
 
     // ResolutionReduction
     const u32 rrf = m_d->m_rrf;
@@ -1048,15 +1056,11 @@ void Histo1DWidget::replot()
         //qDebug() << __PRETTY_FUNCTION__ << "rate estimation formula marker x,y =" << x1 << plotY;
     }
 
-    // window and axis titles
+    // window and axis titles. If no sink is set the window title is left
+    // untouched, so can be set externally, e.g. when creating the widget.
+    if (auto sink = getSink())
     {
-        QStringList pathParts;
-
-        if (auto sink = getSink())
-        {
-            pathParts = analysis::make_parent_path_list(sink);
-        }
-
+        auto pathParts = analysis::make_parent_path_list(sink);
         pathParts.push_back(m_d->getCurrentHisto()->objectName());
         setWindowTitle(pathParts.join('/'));
     }
@@ -1094,7 +1098,7 @@ void Histo1DWidgetPrivate::displayChanged()
     m_q->replot();
 }
 
-void Histo1DWidget::zoomerZoomed(const QRectF &)
+void Histo1DWidget::onZoomerZoomed(const QRectF &)
 {
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
@@ -1612,6 +1616,8 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
 
         m_d->m_rrSlider->setValue(sliderValue);
     }
+
+    replot();
 }
 
 Histo1DWidget::SinkPtr Histo1DWidget::getSink() const
@@ -1745,85 +1751,47 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 
 void Histo1DWidgetPrivate::onActionHistoListStats()
 {
-    if (m_histos.isEmpty() || !getCurrentHisto())
-        return;
-
-    double lowerBound = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
-    double upperBound = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
-
-    QString title = m_sink ? m_sink->objectName() : getCurrentHisto()->objectName();
-
-    QString buffer;
-    QTextStream stream(&buffer);
-    mvme::HistolistStatsOptions statOpts = {};
-    statOpts.printGaussStats = m_actionGaussFit->isChecked();
-    mvme::print_histolist_stats(
-        stream, m_histos, lowerBound, upperBound, m_rrf, title, statOpts);
-
-    // actions
-    auto action_save = [buffer] ()
+    if (!histoStatsWidget_)
     {
-        // FIXME: default filename based on histo name
-        auto dest = QFileDialog::getSaveFileName(
-            nullptr, // widget
-            "Save Histo Stats", // caption
-            QString(), // dir
-            "*.txt" // filter
-            );
+        auto statsWidget = new HistoStatsWidget;
+        statsWidget->setAttribute(Qt::WA_DeleteOnClose);
+        statsWidget->show();
+        add_widget_close_action(statsWidget);
+        (new WidgetGeometrySaver(statsWidget))->addAndRestore(
+            statsWidget, QSL("WindowGeometries/HistoStatsWidget"));
+        QObject::connect(statsWidget, &QObject::destroyed,
+                         m_q, [this] { histoStatsWidget_ = nullptr; });
+        histoStatsWidget_ = statsWidget;
 
-        // TODO: error handling
-        if (!dest.isEmpty())
+        auto update_scale_div = [this, statsWidget]
         {
-            QFile outFile(dest);
-            if (outFile.open(QIODevice::WriteOnly))
-            {
-                outFile.write(buffer.toUtf8());
-            }
-        }
-    };
+            statsWidget->setXScaleDiv(m_plot->axisScaleDiv(QwtPlot::xBottom));
+        };
 
-    auto action_print = [buffer] ()
-    {
-#if 1
-        QPrinter printer;
-        QPrintDialog printDialog(&printer);
+        update_scale_div();
 
-        if (printDialog.exec() == QDialog::Accepted)
+        QObject::connect(m_plot->axisWidget(QwtPlot::xBottom), &QwtScaleWidget::scaleDivChanged,
+                         statsWidget, update_scale_div);
+
+        QString title;
+        if (m_sink)
         {
-            // FIXME: set monospace font!
-            // FIXME: default filename based on histo name
-            QTextDocument doc;
-            doc.setPlainText(buffer);
-            doc.print(&printer);
+            statsWidget->addSink(m_sink);
+            title = QSL("Statistics for histogram array '%1'").arg(m_sink->objectName());
+
         }
-#endif
-    };
+        else if (auto histo = getCurrentHisto())
+        {
+            statsWidget->addHistogram(histo);
+            title = QSL("Statistics for histogram '%1'").arg(histo->getTitle());
+        }
+        statsWidget->setWindowTitle(title);
+        // Set the initial resolution for stats calculation based on the visible
+        // resolution set here. Unlike zooming this is not currently synced.
+        statsWidget->setEffectiveResolution(1u << m_rrSlider->value());
+    }
 
-    // toolbar
-    auto tb = new QToolBar;
-    tb->addAction(QIcon(":/document-save.png"), "Save", action_save);
-    tb->addAction(QIcon(":/printer.png"), "Print", action_print);
-
-    // textedit
-    auto te = mesytec::mvme::util::make_monospace_plain_textedit().release();
-    te->setPlainText(buffer);
-
-    // parent widget
-    auto pw = new QWidget;
-    auto l = make_vbox(pw);
-    l->addWidget(tb);
-    l->addWidget(te);
-    l->setStretch(1, 1);
-
-    pw->setWindowTitle(QSL("Stats for histogram array '%1'").arg(title));
-    pw->setAttribute(Qt::WA_DeleteOnClose);
-    pw->resize(1100, 600);
-    pw->show();
-    pw->raise();
-
-    add_widget_close_action(pw);
-    auto geometrySaver = new WidgetGeometrySaver(pw);
-    geometrySaver->addAndRestore(pw, QSL("WindowGeometries/HistoListStats"));
+    show_and_activate(histoStatsWidget_);
 }
 
 QwtPlot *Histo1DWidget::getPlot()

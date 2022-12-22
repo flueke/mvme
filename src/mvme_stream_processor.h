@@ -24,7 +24,7 @@
 #include "globals.h"
 #include "libmvme_export.h"
 #include "stream_processor_counters.h"
-#include "stream_processor_module_consumer.h"
+#include "stream_processor_consumers.h"
 
 #include <QDateTime>
 #include <QString>
@@ -137,8 +137,10 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void removeDiagnostics();
         bool hasDiagnostics() const;
 
-        void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer);
-        void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer);
+        void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer);
+        void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer);
+        void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer);
+        void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer);
 
     private:
         std::unique_ptr<MVMEStreamProcessorPrivate> m_d;

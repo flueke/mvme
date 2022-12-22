@@ -619,11 +619,11 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
     // NOTE: Using the c++11 pointer-to-member syntax for the connections does
     // not work with qwt signals for some reason.
     auto zoomer = m_d->m_plotWidget->getZoomer();
-    TRY_ASSERT(connect(zoomer, SIGNAL(zoomed(const QRectF &)),
+    DO_AND_ASSERT(connect(zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
-    TRY_ASSERT(connect(zoomer, &ScrollZoomer::mouseCursorMovedTo,
+    DO_AND_ASSERT(connect(zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &RateMonitorWidget::mouseCursorMovedToPlotCoord));
-    TRY_ASSERT(connect(zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+    DO_AND_ASSERT(connect(zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &RateMonitorWidget::mouseCursorLeftPlot));
 
     // Main Widget Layout

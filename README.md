@@ -2,10 +2,10 @@
 
 ## Building mvme
 ### Dependencies
-* gcc/clang with c++14 support
+* gcc/clang with c++17 support
 * cmake
 * Qt >= 5.15
-* qwt >= 6.2.0
+* qwt >= 6.1.3
 * quazip
 * libusb-0.1
 * zlib

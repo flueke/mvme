@@ -57,11 +57,18 @@ class CountingVisitor: public ObjectVisitor
             nDirs++;
         }
 
+        void visit(PlotGridView *view) override
+        {
+            Q_UNUSED(view);
+            nObjects++;
+        }
+
         int nSources = 0,
             nOperators = 0,
             nConditions = 0,
             nSinks = 0,
-            nDirs = 0;
+            nDirs = 0,
+            nObjects = 0;
 };
 
 TEST(objectVisitor, BasicVisitation)
