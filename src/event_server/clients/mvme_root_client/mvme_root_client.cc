@@ -925,7 +925,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
         // where the incoming data will be written to.
         auto userStorage = event->GetDataSourceStorage(dsIndex);
         assert(userStorage.ptr);
-        assert(userStorage.size = edd.dataSources.at(dsIndex).size);
+        assert(userStorage.size == edd.dataSources.at(dsIndex).size);
 
         // Fill the data array with NaN values. This way when replaying we know
         // if a hit was recorded or not.
