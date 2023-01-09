@@ -41,7 +41,20 @@ if (SPHINX_EXECUTABLE)
         "${CMAKE_CURRENT_BINARY_DIR}/ext"
         )
 
+    # Copy changelog.rst from the root of the tree into the sphinx source
+    # directory. This is pretty ugly but the workaround of having an
+    # 'include_changelog.rst' file with a relative include path to the
+    # changelog file does not work on windows. See
+    # https://github.com/sphinx-doc/sphinx/issues/701 for more info.
+    add_custom_target(mvme_doc_sphinx_copy_changelog
+        ${CMAKE_COMMAND} -E copy
+        "${CMAKE_SOURCE_DIR}/changelog.rst"
+        "${SPHINX_SOURCE_DIR}/"
+        )
+
     add_custom_target(mvme_doc ALL)
+
+    add_dependencies(mvme_doc mvme_doc_sphinx_copy_changelog)
 
     # html
     # ==================================================
