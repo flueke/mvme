@@ -1781,7 +1781,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
         // FIXME: move to private vars
         QVector<std::shared_ptr<Histo1D>> m_histos;
-        s32 m_bins = 0;
+        s32 m_bins = 1u << 13;
         QString m_xAxisTitle;
 
         // Subrange limits
@@ -1832,8 +1832,8 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         Histo2DPtr getHisto() const { return m_histo; }
 
         std::shared_ptr<Histo2D> m_histo; // FIXME: move to private
-        s32 m_xBins = 0;
-        s32 m_yBins = 0;
+        s32 m_xBins = 1u << 10;
+        s32 m_yBins = 1u << 10;
 
         // For subrange selection. Makes it possible to get a high resolution
         // view of a rectangular part of the input without having to add a cut
