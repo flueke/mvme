@@ -3080,54 +3080,6 @@ void interval_condition_step(Operator *op, A2 *a2)
     set_condition_output(op, result);
 }
 
-Operator make_rectangle_condition(
-    memory::Arena *arena,
-    PipeVectors xInput,
-    PipeVectors yInput,
-    s32 xIndex,
-    s32 yIndex,
-    Interval xInterval,
-    Interval yInterval)
-{
-    auto result = make_condition_operator(arena, Operator_RectangleCondition, 2);
-
-    assign_input(&result, xInput, 0);
-    assign_input(&result, yInput, 1);
-
-    auto d = arena->pushStruct<ConditionRectangleData>();
-    result.d = d;
-
-    d->bitIndex = ConditionBaseData::InvalidBitIndex;
-    d->xIndex = xIndex;
-    d->yIndex = yIndex;
-    d->xInterval = xInterval;
-    d->yInterval = yInterval;
-
-    return result;
-}
-
-void rectangle_condition_step(Operator *op, A2 *a2)
-{
-    a2_trace("\n");
-    assert(op->type == Operator_RectangleCondition);
-    assert(op->inputCount == 2);
-    assert(op->outputCount == 1);
-
-    auto d = reinterpret_cast<ConditionRectangleData *>(op->d);
-
-    assert(0 <= d->bitIndex);
-    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
-    assert(d->xIndex < op->inputs[0].size);
-    assert(d->yIndex < op->inputs[1].size);
-
-    bool xInside = in_range(d->xInterval, op->inputs[0][d->xIndex]);
-    bool yInside = in_range(d->yInterval, op->inputs[1][d->yIndex]);
-    bool result = xInside && yInside;
-
-    a2->conditionBits.set(d->bitIndex, result);
-    set_condition_output(op, result);
-}
-
 Operator make_polygon_condition(
     memory::Arena *arena,
     PipeVectors xInput,
@@ -3177,84 +3129,6 @@ void polygon_condition_step(Operator *op, A2 *a2)
     Point p = { op->inputs[0][d->xIndex], op->inputs[1][d->yIndex] };
 
     bool result = bg::within(p, d->polygon);
-
-    a2->conditionBits.set(d->bitIndex, result);
-    set_condition_output(op, result);
-}
-
-// LutCondition
-
-struct LutConditionData: public ConditionBaseData
-{
-    TypedBlock<s32> inputParamIndexes;
-    boost::dynamic_bitset<unsigned long> lut;
-};
-
-Operator make_lut_condition(
-    memory::Arena *arena,
-    const std::vector<PipeVectors> &inputs,
-    const std::vector<s32> &inputParamIndexes,
-    const std::vector<bool> &lut)
-{
-    assert(inputs.size() == inputParamIndexes.size());
-    assert(lut.size() == 1u << inputs.size());
-
-    auto result = make_condition_operator(arena, Operator_LutCondition, inputs.size());
-
-    // assign the inputs
-    for (size_t in_idx = 0; in_idx < inputs.size(); ++in_idx)
-    {
-        const auto &input = inputs[in_idx];
-        assign_input(&result, input, in_idx);
-    }
-
-    // prepare the specific data object
-    auto d = arena->pushObject<LutConditionData>();
-    result.d = d;
-
-    d->inputParamIndexes = push_copy_typed_block<s32>(arena, inputParamIndexes);
-    d->lut.resize(lut.size());
-
-    for (size_t lutIndex = 0; lutIndex < lut.size(); ++lutIndex)
-    {
-        bool bitValue = lut[lutIndex];
-        d->lut.set(lutIndex, bitValue);
-    }
-
-    return result;
-}
-
-void lut_condition_step(Operator *op, A2 *a2)
-{
-    a2_trace("\n");
-    assert(op->type == Operator_LutCondition);
-    assert(op->inputCount > 0);
-    assert(op->outputCount == 1);
-
-    auto d = reinterpret_cast<LutConditionData *>(op->d);
-
-    assert(0 <= d->bitIndex);
-    assert(static_cast<size_t>(d->bitIndex) < a2->conditionBits.size());
-    assert(op->inputCount == d->inputParamIndexes.size);
-
-
-    // calculate the lut index from the input values
-    u32 lutIndex = 0u;
-
-    for (unsigned inputIndex = 0; inputIndex < op->inputCount; ++inputIndex)
-    {
-        const auto &input = op->inputs[inputIndex];
-        const auto &paramIndex = d->inputParamIndexes[inputIndex];
-        auto paramValue = input[paramIndex];
-
-        if (is_param_valid(paramValue))
-            lutIndex |= 1u << inputIndex;
-    }
-
-    assert(lutIndex < d->lut.size());
-
-    // retrieve the result and set it on the central bitset and the output pipe
-    bool result = d->lut[lutIndex];
 
     a2->conditionBits.set(d->bitIndex, result);
     set_condition_output(op, result);
@@ -4404,9 +4278,7 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_ScalerOverflow_idx] = { scaler_overflow_step_idx };
 
     result[Operator_IntervalCondition] = { interval_condition_step };
-    result[Operator_RectangleCondition] = { rectangle_condition_step };
     result[Operator_PolygonCondition] = { polygon_condition_step };
-    result[Operator_LutCondition] = { lut_condition_step };
     result[Operator_ExpressionCondition] = { expression_condition_step };
 
     return result;

@@ -3836,57 +3836,6 @@ QwtInterval IntervalCondition::getInterval(s32 address) const
 }
 
 //
-// RectangleCondition
-//
-RectangleCondition::RectangleCondition(QObject *parent)
-    : ConditionInterface(parent)
-    , m_inputX(this, 0, QSL("X Input"), InputType::Value)
-    , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
-{
-}
-
-void RectangleCondition::write(QJsonObject &json) const
-{
-    json["rectangle"] = to_json(m_rectangle);
-}
-
-void RectangleCondition::read(const QJsonObject &json)
-{
-    m_rectangle = qrectf_from_json(json["rectangle"].toObject());
-}
-
-s32 RectangleCondition::getNumberOfSlots() const
-{
-    return 2;
-}
-
-Slot *RectangleCondition::getSlot(s32 slotIndex)
-{
-    switch (slotIndex)
-    {
-        case 0: return &m_inputX;
-        case 1: return &m_inputY;
-        default: break;
-    }
-
-    return nullptr;
-}
-
-void RectangleCondition::beginRun(const RunInfo &, Logger)
-{
-}
-
-void RectangleCondition::setRectangle(const QRectF &rect)
-{
-    m_rectangle = rect;
-}
-
-QRectF RectangleCondition::getRectangle() const
-{
-    return m_rectangle;
-}
-
-//
 // PolygonCondition
 //
 PolygonCondition::PolygonCondition(QObject *parent)
@@ -3935,76 +3884,6 @@ void PolygonCondition::setPolygon(const QPolygonF &polygon)
 QPolygonF PolygonCondition::getPolygon() const
 {
     return m_polygon;
-}
-
-//
-// LutCondition
-//
-LutCondition::LutCondition(QObject *parent)
-    : ConditionInterface(parent)
-{
-}
-
-bool LutCondition::addSlot()
-{
-    if (getNumberOfSlots() >= MaxInputSlots)
-        return false;
-
-    auto inputName = QSL("input%1").arg(getNumberOfSlots());
-    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), inputName, InputType::Value);
-    m_inputs.push_back(slot);
-    m_lut.resize(1u << m_inputs.size());
-    return true;
-}
-
-bool LutCondition::removeLastSlot()
-{
-    if (getNumberOfSlots() == 0)
-        return false;
-
-    auto slot = m_inputs.back();
-    assert(slot);
-    slot->disconnectPipe();
-    m_inputs.pop_back();
-    m_lut.resize(1u << m_inputs.size());
-    return true;
-}
-
-void LutCondition::write(QJsonObject &json) const
-{
-    json["numberOfInputs"] = getNumberOfSlots();
-    QJsonArray jlut;
-
-    for (bool outVal: m_lut)
-        jlut.append(outVal);
-
-    json["lut"] = jlut;
-}
-
-void LutCondition::read(const QJsonObject &json)
-{
-    while (removeLastSlot()) {};
-
-    s32 inputCount = json["numberOfInputs"].toInt();
-
-    for (s32 inputIndex = 0; inputIndex < inputCount; ++inputIndex)
-        addSlot();
-
-    m_lut.clear();
-
-    auto jlut = json["lut"].toArray();
-
-    for (auto it = jlut.begin(); it != jlut.end(); ++it)
-    {
-        bool outVal = it->toBool();
-        m_lut.push_back(outVal);
-    }
-
-    m_lut.resize(1u << m_inputs.size());
-}
-
-void LutCondition::beginRun(const RunInfo &, Logger)
-{
 }
 
 //
@@ -4115,9 +3994,7 @@ Analysis::Analysis(QObject *parent)
 #if 1
     // conditions
     m_objectFactory.registerOperator<IntervalCondition>();
-    //m_objectFactory.registerOperator<RectangleCondition>(); // TODO: create a proper gui for this
     m_objectFactory.registerOperator<PolygonCondition>();
-    m_objectFactory.registerOperator<LutCondition>(); // TODO: disabled for now, remove the code
     m_objectFactory.registerOperator<ExpressionCondition>();
 #endif
 

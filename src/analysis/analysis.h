@@ -1606,33 +1606,6 @@ class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
         QVector<QwtInterval> m_intervals;
 };
 
-class LIBMVME_EXPORT RectangleCondition: public ConditionInterface
-{
-    Q_OBJECT
-    Q_INTERFACES(analysis::ConditionInterface)
-    public:
-        Q_INVOKABLE RectangleCondition(QObject *parent = 0);
-
-        virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
-        virtual QString getShortName() const override { return QSL("RectCond"); }
-
-        virtual void read(const QJsonObject &json) override;
-        virtual void write(QJsonObject &json) const override;
-
-        virtual s32 getNumberOfSlots() const override;
-        virtual Slot *getSlot(s32 slotIndex) override;
-
-        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-
-        void setRectangle(const QRectF &rect);
-        QRectF getRectangle() const;
-
-    private:
-        Slot m_inputX;
-        Slot m_inputY;
-        QRectF m_rectangle;
-};
-
 class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
 {
     Q_OBJECT
@@ -1658,55 +1631,6 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
         Slot m_inputX;
         Slot m_inputY;
         QPolygonF m_polygon;
-};
-
-/* Compound condition with multiple inputs and a LUT defining the output
- * function.
- *
- * Each input specifies a bit used for lookups into the LUT, with input0
- * supplying the lowest bit. Invalid input parameters produce a 'false' value,
- * all valid inputs produce a 'true' value.
- *
- * The idea is to restrict the GUI to only offer other conditions as inputs but
- * in theory it is possible to connect any output pipe to the inputs.
- *
- * Note: the tests on the inputs could be skipped and instead the bit indexes
- * of the input conditions could be used to form the value for the LUT lookup.
- * This implementation would then restrict the inputs to only be other
- * conditions.
- */
-class LIBMVME_EXPORT LutCondition: public ConditionInterface
-{
-    Q_OBJECT
-    Q_INTERFACES(analysis::ConditionInterface)
-
-    public:
-        static const int MaxInputSlots = 8;
-
-        Q_INVOKABLE LutCondition(QObject *parent = 0);
-
-        QString getDisplayName() const override { return QSL("LUT Condition"); }
-        QString getShortName() const override { return QSL("LutCond"); }
-
-        // serialization
-        void read(const QJsonObject &json) override;
-        void write(QJsonObject &json) const override;
-
-        // input slots
-        bool hasVariableNumberOfSlots() const override { return true; }
-        bool addSlot() override;
-        bool removeLastSlot() override;
-        s32 getNumberOfSlots() const override { return m_inputs.size(); }
-        Slot *getSlot(s32 slotIndex) override { return m_inputs.value(slotIndex).get(); }
-
-        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-
-        std::vector<bool> getLUT() const { return m_lut; }
-        void setLUT(const std::vector<bool> &lut) { m_lut = lut; }
-
-    private:
-        QVector<std::shared_ptr<Slot>> m_inputs;
-        std::vector<bool> m_lut;
 };
 
 class LIBMVME_EXPORT ExpressionCondition: public ConditionInterface

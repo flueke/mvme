@@ -888,32 +888,6 @@ DEF_OP_MAGIC(interval_condition_magic)
     return result;
 }
 
-DEF_OP_MAGIC(rectangle_condition_magic)
-{
-    OP_MAGIC_NOWARN;
-    LOG("");
-
-    auto cond = qobject_cast<analysis::RectangleCondition *>(op.get());
-    assert(cond);
-    assert(inputSlots.size() == 2);
-
-    const auto rect = cond->getRectangle();
-
-    a2::Interval xInterval = { rect.left(), rect.right() };
-    a2::Interval yInterval = { rect.bottom(), rect.top() };
-
-    a2::Operator result = make_rectangle_condition(
-        arena,
-        find_output_pipe(adapterState, inputSlots[0]).first,
-        find_output_pipe(adapterState, inputSlots[1]).first,
-        inputSlots[0]->paramIndex,
-        inputSlots[1]->paramIndex,
-        xInterval,
-        yInterval);
-
-    return result;
-}
-
 DEF_OP_MAGIC(polygon_condition_magic)
 {
     OP_MAGIC_NOWARN;
@@ -940,32 +914,6 @@ DEF_OP_MAGIC(polygon_condition_magic)
         inputSlots[0]->paramIndex,
         inputSlots[1]->paramIndex,
         a2_polygon);
-
-    return result;
-}
-
-DEF_OP_MAGIC(lut_condition_magic)
-{
-    OP_MAGIC_NOWARN;
-    LOG("");
-
-    auto cond = qobject_cast<analysis::LutCondition *>(op.get());
-    assert(cond);
-
-    std::vector<a2::PipeVectors> inputs;
-    std::vector<s32> inputIndexes;
-
-    for (s32 si = 0; si < inputSlots.size(); si++)
-    {
-        inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]).first);
-        inputIndexes.emplace_back(inputSlots[si]->paramIndex);
-    }
-
-    a2::Operator result = make_lut_condition(
-        arena,
-        inputs,
-        inputIndexes,
-        cond->getLUT());
 
     return result;
 }
@@ -1017,9 +965,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ScalerOverflow::staticMetaObject,          scaler_overflow_magic },
 
     { &analysis::IntervalCondition::staticMetaObject,       interval_condition_magic },
-    { &analysis::RectangleCondition::staticMetaObject,      rectangle_condition_magic },
     { &analysis::PolygonCondition::staticMetaObject,        polygon_condition_magic },
-    { &analysis::LutCondition::staticMetaObject,            lut_condition_magic },
     { &analysis::ExpressionCondition::staticMetaObject,     expression_condition_magic },
 
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
