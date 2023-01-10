@@ -2675,6 +2675,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
     auto globalSelectedObjects = getAllSelectedObjects();
     auto activeNode = tree->itemAt(pos);
+    // Global pos calculated here and stored for later because if an on-the-fly
+    // sink needs to be created to edit a condition and the globalPos is
+    // calculated later on, then the coordinates are wrong for some unknown
+    // reason.
+    auto globalPos = tree->mapToGlobal(pos);
     QMenu menu;
 
     if (activeNode)
@@ -2818,7 +2823,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
     if (!menu.isEmpty())
     {
-        menu.exec(tree->mapToGlobal(pos));
+        menu.exec(globalPos);
     }
 }
 
@@ -5000,11 +5005,20 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
 
         if (sinks.isEmpty())
         {
-            // TODO(maybe): could create the correct sink type on the fly and
-            // display that or error out and show an error message that no one
-            // will understand. Or offer a non-plot based way of editing, e.g.
-            // run the dialog without using a plot widget or the controller.
-            return {};
+            // No matching sink was found. Create one on the fly, add it to the
+            // analysis and the vector of sinks, then continue down the normal
+            // path.
+            if (auto sink = create_edit_sink_for_condition(cond))
+            {
+                ana->addOperator(sink);
+                sinks.push_back(sink);
+            }
+            else
+            {
+                // No sink could be created. Should not happen.
+                assert(!"condition editing: on-the-fly sink creation failed");
+                return {};
+            }
         }
 
         // Sort the sinks: sinks without an active condition get priority => The

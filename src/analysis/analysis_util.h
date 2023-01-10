@@ -214,6 +214,9 @@ SinkVector LIBMVME_EXPORT
 ConditionVector LIBMVME_EXPORT
     find_conditions_for_sink(const SinkPtr &sink, const ConditionVector &conditions);
 
+SinkPtr LIBMVME_EXPORT
+    create_edit_sink_for_condition(const ConditionPtr &cond);
+
 // Disconnects the Slots connected to the outputs of the given
 // PipeSourceInterface. Returns number of Slots that have been disconnected.
 size_t LIBMVME_EXPORT disconnect_outputs(PipeSourceInterface *pipeSource);

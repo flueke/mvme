@@ -495,6 +495,59 @@ ConditionVector find_conditions_for_sink(const SinkPtr &sink, const ConditionVec
     return result;
 }
 
+/* Purpose is to create a sink for graphically editing the given condition.
+   The sink type depends on the type of the condition:
+   - polygon cond    -> 2d histogram
+   - interval cond   -> 1d histogram
+   - expression cond -> no sink, is edited via its own widget
+*/
+SinkPtr create_edit_sink_for_condition(const ConditionPtr &condPtr)
+{
+    assert(condPtr);
+
+    SinkPtr result;
+
+    if (auto cond = std::dynamic_pointer_cast<IntervalCondition>(condPtr))
+    {
+        assert(cond->getSlot(0));
+
+        if (cond->getSlot(0)->inputPipe && cond->getSlot(0)->inputPipe->source)
+        {
+            auto sink = std::make_shared<Histo1DSink>();
+            // Connect the histo sink to input array, not to a specific index.
+            // This is the same way interval conditions are created from the UI.
+            sink->connectInputSlot(0, cond->getSlot(0)->inputPipe, -1);
+            sink->setObjectName(cond->getSlot(0)->inputPipe->source->objectName());
+            result = sink;
+        }
+    }
+    else if (auto cond = std::dynamic_pointer_cast<PolygonCondition>(condPtr))
+    {
+        auto slotX = cond->getSlot(0);
+        auto slotY = cond->getSlot(1);
+
+        if (slotX && slotY
+            && slotX->inputPipe && slotY->inputPipe
+            && slotX->inputPipe->source && slotY->inputPipe->source)
+        {
+            // Same as for the 1d case but connect the x and y slots.
+            auto sink = std::make_shared<Histo2DSink>();
+            sink->connectInputSlot(0, slotX->inputPipe, slotX->paramIndex);
+            sink->connectInputSlot(1, slotY->inputPipe, slotY->paramIndex);
+            sink->setObjectName(QSL("%1 vs %2").arg(
+                slotX->inputPipe->source->objectName(),
+                slotY->inputPipe->source->objectName()));
+            result = sink;
+        }
+    }
+
+    result->setUserLevel(condPtr->getUserLevel());
+    result->setEventId(condPtr->getEventId());
+    result->beginRun({}, {});
+
+    return result;
+}
+
 size_t disconnect_outputs(PipeSourceInterface *pipeSource)
 {
     size_t result = 0u;
