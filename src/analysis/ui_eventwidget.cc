@@ -2587,8 +2587,6 @@ static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
-    //auto localSelectedObjects  = objects_from_nodes(tree->selectedItems());
-    //auto activeObject = get_shared_analysis_object<AnalysisObject>(activeNode);
     Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
     if (find_object_editor_dialog())
