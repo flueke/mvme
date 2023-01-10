@@ -6,6 +6,7 @@ compile_commands.json
 doc/doxygen/html/
 doc/mvme.qch
 doc/mvme.qhc
+doc/sphinx/source/changelog.rst
 .clangd/
 build*/
 .vscode/

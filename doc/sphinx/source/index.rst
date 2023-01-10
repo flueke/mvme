@@ -19,7 +19,7 @@ mvme - mesytec VME Data Acquisition
    quickstart
    reference
    howto
-   include_changelog
+   changelog
 
 
 .. only:: html
