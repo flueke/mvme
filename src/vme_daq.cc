@@ -325,7 +325,15 @@ vme_daq_init(
     QVector<ScriptWithResults> ret;
 
     ret += vme_daq_run_global_daq_start_scripts(config, controller, logger, errorLogger, opts);
+
+    if ((opts & AbortOnError) && has_errors(ret))
+        return ret;
+
     ret += vme_daq_run_init_modules(config, controller, logger, errorLogger, opts);
+
+    if ((opts & AbortOnError) && has_errors(ret))
+        return ret;
+
     ret += vme_daq_run_event_daq_start_scripts(config, controller, logger, errorLogger, opts);
 
 #if __WIN32
