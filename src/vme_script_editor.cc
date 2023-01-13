@@ -44,6 +44,7 @@
 #include "vme_config_scripts.h"
 #include "vme_script.h"
 #include "vme_script_util.h"
+#include "vme_config_util.h"
 
 static const int TabStop = 4;
 
@@ -444,42 +445,7 @@ void VMEScriptEditor::loadFromTemplate()
 
 void VMEScriptEditor::saveToFile()
 {
-    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    QSettings settings;
-    if (settings.contains("Files/LastVMEScriptDirectory"))
-    {
-        path = settings.value("Files/LastVMEScriptDirectory").toString();
-    }
-
-    QString fileName = QFileDialog::getSaveFileName(this, QSL("Save vme script file"), path,
-                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
-
-    if (fileName.isEmpty())
-        return;
-
-    QFileInfo fi(fileName);
-    if (fi.completeSuffix().isEmpty())
-    {
-        fileName += ".vmescript";
-    }
-
-    QFile file(fileName);
-    if (!file.open(QIODevice::WriteOnly))
-    {
-        QMessageBox::critical(this, "File error", QString("Error opening \"%1\" for writing").arg(fileName));
-        return;
-    }
-
-    QTextStream stream(&file);
-    stream << m_d->m_editor->toPlainText();
-
-    if (stream.status() != QTextStream::Ok)
-    {
-        QMessageBox::critical(this, "File error", QString("Error writing to \"%1\"").arg(fileName));
-        return;
-    }
-
-    settings.setValue("Files/LastVMEScriptDirectory", fi.absolutePath());
+    mvme::vme_config::gui_save_vme_script_to_file(m_d->m_editor->toPlainText(), m_d->m_script->objectName(), this);
 }
 
 void VMEScriptEditor::apply()
