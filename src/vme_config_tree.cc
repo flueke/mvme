@@ -1210,7 +1210,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QIcon(QSL(":/pencil.png")), QSL("Edit Script"),
                        this, &VMEConfigTreeWidget::editScript);
 
-#ifndef NDEBUG
         try
         {
             // For scripts that have a meta tag and thus probably open up in a unique-widget (e.g.
@@ -1224,7 +1223,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                                this, &VMEConfigTreeWidget::editScriptInEditor);
         }
         catch (const vme_script::ParseError &e) { }
-#endif
     }
 
     //
@@ -1376,6 +1374,12 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                        this, &VMEConfigTreeWidget::addScriptDirectory);
     }
 
+    if (auto script = qobject_cast<const VMEScriptConfig *>(obj))
+    {
+        menu.addAction(QIcon(":/document-save-as.png"), QSL("Save script"),
+            this, [this, script] { mvme::vme_config::gui_save_vme_script_config_to_file(script, this); });
+    }
+
     // - Rename for scripts if they are under any of the global nodes.
     // - Rename for directories if they are under any of the global nodes.
     // - Recursive enable/disable of trees if they are under any of the global
@@ -1482,7 +1486,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             removeFunc = [this] () { removeModule(); };
         }
 
-        if (qobject_cast<VMEScriptConfig *>(obj) && obj->parent())
+        if (qobject_cast<VMEScriptConfig *>(obj) && obj->parent() && node != m_nodeMVLCTriggerIO)
         {
             if (auto parentContainer = qobject_cast<ContainerObject *>(obj->parent()))
             {
