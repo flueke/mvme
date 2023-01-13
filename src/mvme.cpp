@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -768,7 +768,7 @@ void MVMEMainWindow::displayAbout()
     layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
     layout->addWidget(new QLabel(versionString));
     layout->addWidget(new QLabel(buildInfo));
-    layout->addWidget(new QLabel(QSL("© 2015-2020 mesytec GmbH & Co. KG")));
+    layout->addWidget(new QLabel(QSL("© 2015-2023 mesytec GmbH & Co. KG")));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
 
     {
