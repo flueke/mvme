@@ -20,8 +20,11 @@
  */
 #include "vme_config_util.h"
 
+#include <QFileDialog>
 #include <QJsonDocument>
+#include <QMessageBox>
 #include <QSet>
+#include <QStandardPaths>
 
 #include "vme.h"
 
@@ -340,6 +343,59 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
         var.comment = varJ["comment"].toString();
         mod.setVariable(varName, var);
     }
+}
+
+bool gui_save_vme_script_config_to_file(const VMEScriptConfig *script, QWidget *dialogParent)
+{
+    assert(script);
+    return gui_save_vme_script_to_file(
+        script->getScriptContents(),
+        script->objectName(),
+        dialogParent);
+}
+
+bool gui_save_vme_script_to_file(const QString &scriptText, const QString &proposedFilename, QWidget *dialogParent)
+{
+    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    QSettings settings;
+
+    if (settings.contains("Files/LastVMEScriptDirectory"))
+        path = settings.value("Files/LastVMEScriptDirectory").toString();
+
+    if (!proposedFilename.isEmpty())
+        path += "/" + proposedFilename;
+
+    if (QFileInfo(path).completeSuffix().isEmpty())
+        path += ".vmescript";
+
+    QString fileName = QFileDialog::getSaveFileName(
+        dialogParent,
+        QSL("Save vme script file"),
+        path,
+        QSL("VME scripts (*.vmescript);; All Files (*)"));
+
+    if (fileName.isEmpty())
+        return false;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(dialogParent, "File error", QString("Error opening \"%1\" for writing").arg(fileName));
+        return false;
+    }
+
+    QTextStream stream(&file);
+    stream << scriptText;
+
+    if (stream.status() != QTextStream::Ok)
+    {
+        QMessageBox::critical(dialogParent, "File error", QString("Error writing to \"%1\"").arg(fileName));
+        return false;
+    }
+
+    settings.setValue("Files/LastVMEScriptDirectory", QFileInfo(fileName).absolutePath());
+
+    return true;
 }
 
 } // end namespace vme_config
