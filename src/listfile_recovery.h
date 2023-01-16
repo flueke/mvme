@@ -2,7 +2,7 @@
 #define SRC_LISTFILE_RECOVERY_H_
 
 #include <atomic>
-#include <QString>
+#include <string>
 #include <QWizard>
 #include "libmvme_export.h"
 #include "util/typedefs.h"
@@ -10,35 +10,42 @@
 namespace mesytec::mvme::listfile_recovery
 {
 
-struct EntryInfo
+struct LIBMVME_EXPORT EntryFindResult
 {
-    size_t startOffset;     // offset in bytes to the file header from the start of the zip file
+    size_t headerOffset;    // offset in bytes to the file header from the start of the zip file
+    size_t dataStartOffset; // offset in byytes to the start of the data of the found entry
     u16 compressionType;    // MZ_COMPRESS: 0=store, 8=deflate
     std::string entryName;  // filename of the entry
 };
 
-EntrySearchResult LIBMVME_EXPORT
-    find_first_entry(const QString &zipFilename);
-
-struct RecoveryProgress
+struct LIBMVME_EXPORT RecoveryProgress
 {
     size_t bytesProcessed;
     size_t totalBytes;
+    std::vector<std::string> logBuffer;
 };
 
-struct RecoveryResult
+struct LIBMVME_EXPORT RecoveryResult
 {
-    std::error_code ec;
     size_t bytesRead;
     size_t bytesWritten;
+    std::vector<std::string> logBuffer;
 };
 
 
-RecoverResult LIBMVME_EXPORT
-    recover_listfile(const QString &inputFilename, const QString &outputFilename, const EntryInfo &entryInfo, std::atomic<RecoveryProgress> &progress);
+EntryFindResult LIBMVME_EXPORT
+    find_first_entry(const std::string &zipFilename);
 
 
-class ListfileRecoveryWizard: public QWizard
+RecoveryResult LIBMVME_EXPORT
+    recover_listfile(
+        const std::string &inputFilename,
+        const std::string &outputFilename,
+        const EntryFindResult &entryInfo,
+        std::atomic<RecoveryProgress> &progress);
+
+
+class LIBMVME_EXPORT ListfileRecoveryWizard: public QWizard
 {
 };
 
