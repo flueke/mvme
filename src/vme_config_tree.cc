@@ -1839,15 +1839,15 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
 
     path += "/" + meta.typeName + ".mvmemodule";
 
-    auto filename = QFileDialog::getSaveFileName(
-        this, "Save Module As", path, VMEModuleConfigFileFilter);
+    QFileDialog fd(this, "Save Module As", path, VMEModuleConfigFileFilter);
 
-    if (filename.isEmpty())
+    fd.setDefaultSuffix(".mvmemodule");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return;
 
-    QFileInfo fi(filename);
-    if (fi.completeSuffix().isEmpty())
-        filename += ".mvmemodule";
+    auto filename = fd.selectedFiles().front();
 
     // Serialize the module config to json
     QJsonObject modJ;

@@ -1058,16 +1058,14 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
         path += "/" + filename;
     }
 
-    QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path, VMEConfigFileFilter);
+    QFileDialog fd(this, "Save Config As", path, VMEConfigFileFilter);
+    fd.setDefaultSuffix(".vme");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
 
-    if (fileName.isEmpty())
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return false;
 
-    QFileInfo fi(fileName);
-    if (fi.completeSuffix().isEmpty())
-    {
-        fileName += QSL(".vme");
-    }
+    auto fileName = fd.selectedFiles().front();
 
     QFile outFile(fileName);
     if (!outFile.open(QIODevice::WriteOnly))
@@ -1112,9 +1110,6 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
 
     if (fileName.isEmpty())
         return false;
-
-    if (QFileInfo(fileName).completeSuffix().isEmpty())
-        fileName += QSL(".yaml");
 
     QFile outfile(fileName);
 

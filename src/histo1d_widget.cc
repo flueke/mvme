@@ -1322,19 +1322,20 @@ void Histo1DWidgetPrivate::saveHistogram()
         .arg(path)
         .arg(name);
 
-    qDebug() << fileName;
+    QFileDialog fd(m_q, "Save Histogram", fileName, "Text Files (*.txt);; All Files (*.*)");
+    fd.setDefaultSuffix(".txt");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+    fd.selectFile(fileName);
 
-    fileName = QFileDialog::getSaveFileName(
-        m_q, "Save Histogram", fileName, "Text Files (*.histo1d);; All Files (*.*)");
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
+        return;
+
+    fileName = fd.selectedFiles().front();
+
+    qDebug() << fileName;
 
     if (fileName.isEmpty())
         return;
-
-    QFileInfo fi(fileName);
-    if (fi.completeSuffix().isEmpty())
-    {
-        fileName += ".histo1d";
-    }
 
     QFile outFile(fileName);
     if (!outFile.open(QIODevice::WriteOnly))
@@ -1348,8 +1349,7 @@ void Histo1DWidgetPrivate::saveHistogram()
 
     if (out.status() == QTextStream::Ok)
     {
-        fi.setFile(fileName);
-        QSettings().setValue("Files/LastHistogramExportDirectory", fi.absolutePath());
+        QSettings().setValue("Files/LastHistogramExportDirectory", QFileInfo(fileName).absolutePath());
     }
 }
 

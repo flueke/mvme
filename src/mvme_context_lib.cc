@@ -116,16 +116,14 @@ QPair<bool, QString> gui_save_analysis_config_as(
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"),
-                                                    path, fileFilter);
+    QFileDialog fd(nullptr, QSL("Save analysis config"), path, fileFilter);
+    fd.setDefaultSuffix(".analysis");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
 
-    if (fileName.isEmpty())
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return qMakePair(false, QString());
 
-    QFileInfo fi(fileName);
-
-    if (fi.completeSuffix().isEmpty())
-        fileName += QSL(".analysis");
+    auto fileName = fd.selectedFiles().front();
 
     if (gui_save_analysis_impl(analysis, fileName))
         return qMakePair(true, fileName);
@@ -208,12 +206,6 @@ QPair<bool, QString> gui_save_vme_config_as(
 
     if (filename.isEmpty())
         return qMakePair(false, QString());
-
-    QFileInfo fi(filename);
-    if (fi.completeSuffix().isEmpty())
-    {
-        filename += QSL(".vme");
-    }
 
     if (gui_save_vmeconfig_impl(vmeConfig, filename))
         return qMakePair(true, filename);

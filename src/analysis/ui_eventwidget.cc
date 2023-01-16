@@ -5101,16 +5101,14 @@ void EventWidgetPrivate::actionExport()
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getSaveFileName(m_q, QSL("Select file to export to"),
-                                                    path, AnalysisLibraryFileFilter);
+    QFileDialog fd(m_q, QSL("Select file to export to"), path, AnalysisLibraryFileFilter);
+    fd.setDefaultSuffix(AnalysisLibraryFileExtension);
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
 
-    if (fileName.isEmpty())
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return;
 
-    QFileInfo fi(fileName);
-
-    if (fi.completeSuffix().isEmpty())
-        fileName += AnalysisLibraryFileExtension;
+    auto fileName = fd.selectedFiles().front();
 
     // Step 1) Collect all objects that have to be written out
     auto analysis = m_serviceProvider->getAnalysis();

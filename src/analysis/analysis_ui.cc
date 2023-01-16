@@ -462,8 +462,6 @@ void handle_session_error(const QString &title, const QString &message)
 
 void AnalysisWidgetPrivate::actionSaveSession()
 {
-    qDebug() << __PRETTY_FUNCTION__;
-
     using ResultType = QPair<bool, QString>;
 
     ResultType result;
@@ -471,22 +469,16 @@ void AnalysisWidgetPrivate::actionSaveSession()
     auto sessionPath = m_serviceProvider->getWorkspacePath(QSL("SessionDirectory"));
 
     if (sessionPath.isEmpty())
-    {
         sessionPath = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    }
 
-    QString filename = QFileDialog::getSaveFileName(
-        m_q, QSL("Save session"), sessionPath, SessionFileFilter);
+    QFileDialog fd(m_q, QSL("Save session data"), sessionPath, SessionFileFilter);
+    fd.setDefaultSuffix(SessionFileExtension);
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
 
-    if (filename.isEmpty())
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return;
 
-    QFileInfo fileInfo(filename);
-
-    if (fileInfo.completeSuffix().isEmpty())
-    {
-        filename += SessionFileExtension;
-    }
+    auto filename = fd.selectedFiles().front();
 
     AnalysisPauser pauser(m_serviceProvider);
 

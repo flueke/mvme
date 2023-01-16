@@ -1123,12 +1123,6 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         if (fileName.isEmpty())
             return;
 
-        QFileInfo fi(fileName);
-        if (fi.completeSuffix().isEmpty())
-        {
-            fileName += ".mvlcscript";
-        }
-
         QFile file(fileName);
         if (!file.open(QIODevice::WriteOnly))
         {
@@ -1147,7 +1141,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             return;
         }
 
-        settings.setValue(Key_LastMVLCScriptDirectory, fi.absolutePath());
+        settings.setValue(Key_LastMVLCScriptDirectory, QFileInfo(fileName).absolutePath());
     });
 
     connect(ui->pb_clearScript, &QPushButton::clicked,
