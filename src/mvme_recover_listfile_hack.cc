@@ -21,6 +21,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <zlib.h>
+#include <limits>
 
 typedef struct {
 	uint32_t sig __attribute__ ((packed));
@@ -162,9 +163,8 @@ int main(int argc, char *argv[])
 
         //printf("Got header compression=%u, crc=0x%08x, csize=%u, usize=%u\n",
         //        header.compression, header.crc32, header.compressedsize, header.uncompressedsize);
-        printf("Got header compression=%u, crc=0x%08x\n",
-                header.compression, header.crc32);
-        printf("startloc=%llu\n", startloc);
+        printf("Got header compression=%u, crc=0x%08x, compressedsize=%u, startloc=%llu\n",
+                header.compression, header.crc32, header.compressedsize, startloc);
 
         if (header.compression != 8)
         {
@@ -172,13 +172,19 @@ int main(int argc, char *argv[])
             return 1;
         }
 
+		// HACK: set compressedSize to the max value so that we do extract all
+		// available data. This assumes a single file in the archive. It's
+		// exactly what is needed to recover .mvlclst from archvies where mvme
+		// crashed or the computer shutdown.
+		header.compressedsize = std::numeric_limits<uint32_t>::max();
+
 		fseek(fh, startloc, SEEK_SET);
 
 		if (!header.compressedsize) {
-			printf("Making directory %s\n", filename);
 			for (i = 0; i < strlen(filename); ++i) {
 				if (filename[i] == '/') {
 					filename[i] = 0;
+					printf("Making directory %s\n", filename);
 					mkdir(filename, S_IRWXU);
 					filename[i] = '/';
 				}

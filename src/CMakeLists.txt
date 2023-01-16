@@ -609,7 +609,7 @@ add_subdirectory(event_server)
 #
 if (NOT WIN32)
     find_library(ZLIB z)
-    add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
+    add_executable(mvme_recover_listfile mvme_recover_listfile_hack.cc)
     target_link_libraries(mvme_recover_listfile ${ZLIB})
 
     install(TARGETS mvme_recover_listfile
