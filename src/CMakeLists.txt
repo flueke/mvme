@@ -549,6 +549,7 @@ add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
 add_mvme_dev_exe(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
 add_mvme_dev_exe(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
 add_mvme_dev_exe(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
+add_mvme_dev_exe(dev_qfiledialog_save_test "dev_qfiledialog_save_test.cc")
 
 if (NOT WIN32)
     add_mvme_dev_exe(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
