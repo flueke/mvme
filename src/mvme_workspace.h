@@ -28,6 +28,9 @@
 
 static const char *WorkspaceIniName = "mvmeworkspace.ini";
 
+// TODO: fix this, it's horrible. why shared_ptr? why does it require a
+// workspaceDirPath? mvme does change to the workspace directory when opening
+// the workspace
 inline std::shared_ptr<QSettings> make_workspace_settings(const QString &workspaceDirPath)
 {
     if (workspaceDirPath.isEmpty())

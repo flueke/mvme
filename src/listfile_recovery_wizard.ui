@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Wizard</class>
+ <widget class="QWizard" name="Wizard">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Wizard</string>
+  </property>
+  <widget class="IntroPage" name="introPage">
+   <property name="title">
+    <string>Listfile Recovery</string>
+   </property>
+   <property name="subTitle">
+    <string>Intro</string>
+   </property>
+   <attribute name="pageId">
+    <string notr="true">IntroPageId</string>
+   </attribute>
+  </widget>
+  <widget class="InputsPage" name="inputsPage">
+   <property name="title">
+    <string>Listfile Recovery</string>
+   </property>
+   <property name="subTitle">
+    <string>Input Selection</string>
+   </property>
+   <attribute name="pageId">
+    <string notr="true">InputsPageId</string>
+   </attribute>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="2">
+     <widget class="QPushButton" name="pb_selInputFile">
+      <property name="text">
+       <string>Browse</string>
+      </property>
+      <property name="icon">
+       <iconset resource="resources.qrc">
+        <normaloff>:/document-open.png</normaloff>:/document-open.png</iconset>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="2">
+     <widget class="QPushButton" name="pb_selAnalysis">
+      <property name="text">
+       <string>Browse</string>
+      </property>
+      <property name="icon">
+       <iconset resource="resources.qrc">
+        <normaloff>:/document-open.png</normaloff>:/document-open.png</iconset>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="label_2">
+      <property name="text">
+       <string>Optional Analysis</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string>Input Listfile</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QLineEdit" name="le_inputFIle"/>
+    </item>
+    <item row="1" column="1">
+     <widget class="QLineEdit" name="le_analysisFile"/>
+    </item>
+    <item row="2" column="0">
+     <widget class="QLabel" name="label_3">
+      <property name="text">
+       <string>Output Listfile</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QLineEdit" name="le_outputFile"/>
+    </item>
+    <item row="2" column="2">
+     <widget class="QPushButton" name="pb_selOutputFile">
+      <property name="text">
+       <string>Browse</string>
+      </property>
+      <property name="icon">
+       <iconset resource="resources.qrc">
+        <normaloff>:/document-open.png</normaloff>:/document-open.png</iconset>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="InputInfoPage" name="inputInfoPage">
+   <property name="title">
+    <string>Listfile Recovery</string>
+   </property>
+   <property name="subTitle">
+    <string>Input Info</string>
+   </property>
+  </widget>
+  <widget class="RunPage" name="runPage">
+   <property name="title">
+    <string>Listfile Recovery</string>
+   </property>
+   <property name="subTitle">
+    <string>Recovering</string>
+   </property>
+   <attribute name="pageId">
+    <string notr="true">RunPageId</string>
+   </attribute>
+  </widget>
+  <widget class="ResultPage" name="resultPage">
+   <property name="title">
+    <string>Listfile Recovery</string>
+   </property>
+   <property name="subTitle">
+    <string>Result</string>
+   </property>
+   <attribute name="pageId">
+    <string notr="true">ResultPageId</string>
+   </attribute>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>IntroPage</class>
+   <extends>QWizardPage</extends>
+   <header>listfile_recovery_wizard_p.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>InputsPage</class>
+   <extends>QWizardPage</extends>
+   <header>listfile_recovery_wizard_p.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>RunPage</class>
+   <extends>QWizardPage</extends>
+   <header>listfile_recovery_wizard_p.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ResultPage</class>
+   <extends>QWizardPage</extends>
+   <header>listfile_recovery_wizard_p.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>InputInfoPage</class>
+   <extends>QWizardPage</extends>
+   <header>listfile_recovery_wizard_p.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="resources.qrc"/>
+  <include location="resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

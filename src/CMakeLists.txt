@@ -313,6 +313,7 @@ add_library(libmvme SHARED
     histo_util.cc
     listfile_browser.cc
     listfile_recovery.cc
+    listfile_recovery_wizard.cc
     listfile_replay.cc
     listfile_replay_worker.cc
     logfile_helper.cc
@@ -607,21 +608,12 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
 #add_subdirectory(listfile_reader)
 
-#
-# listfile recovery tool
-#
-if (NOT WIN32)
-    find_library(ZLIB z)
-    add_executable(mvme_recover_listfile mvme_recover_listfile_hack.cc)
-    target_link_libraries(mvme_recover_listfile ${ZLIB})
-
-    install(TARGETS mvme_recover_listfile
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib)
-endif (NOT WIN32)
-
 add_mvme_exe(mvme_histo_viewer mvme_histo_viewer_main.cc)
 install(TARGETS mvme_histo_viewer RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+# listfile recovery tool
+add_mvme_exe(mvme_listfile_recovery_gui mvme_listfile_recovery_gui.cc)
+install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # automated gtests
 if(MVME_BUILD_TESTS)

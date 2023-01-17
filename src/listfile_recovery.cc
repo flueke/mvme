@@ -2,8 +2,6 @@
  * a crash or power outage or similar.
  *
  * Based on BruteZip by Jason A. Donenfeld, https://git.zx2c4.com/BruteZip/about/
- *
- * See mvme_recover_listfile_hack.cc for the full version
  */
 
 #include "listfile_recovery.h"
