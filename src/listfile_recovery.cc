@@ -11,6 +11,7 @@
 #include <system_error>
 #include <spdlog/spdlog.h>
 #include <zlib.h>
+#include <mesytec-mvlc/mvlc_listfile_zip.h>
 
 namespace
 {
@@ -84,6 +85,8 @@ EntryFindResult
 
 			filename[header.filenamelength] = '\0';
 
+			fseek(fh, header.extrafieldlength, SEEK_CUR);
+
 			result.dataStartOffset = ftell(fh);
 			result.compressionType = header.compression;
 			result.entryName = filename;
@@ -95,12 +98,12 @@ EntryFindResult
 	return result;
 }
 
-RecoveryResult
+RecoveryProgress
     recover_listfile(
         const std::string &inputFilename,
         const std::string &outputFilename,
         const EntryFindResult &entryInfo,
-        std::atomic<RecoveryProgress> &progress)
+        mesytec::mvlc::Protected<RecoveryProgress> &progress_)
 {
 	// open input file
 	// seek to dataStartOffset in the input file
@@ -111,6 +114,7 @@ RecoveryResult
 	// 		inflate/read from the input stream into a buffer
 	//		deflate/write the buffer to the output stream
 
+    using namespace mesytec::mvlc;
 	RecoveryProgress progress = {};
 	FILE *inputFile = nullptr;
 
@@ -121,51 +125,75 @@ RecoveryResult
 		if (!inputFile)
 			throw make_errno_exception("opening input file");
 
+		if (fseek(inputFile, 0, SEEK_END) != 0)
+			throw make_errno_exception("determining input file size (fseek)");
+
+		if (auto pos = ftell(inputFile); pos < 0)
+			throw make_errno_exception("determining input file size (ftell)");
+		else
+			progress.inputFileSize = static_cast<size_t>(pos);
+
 		if (fseek(inputFile, entryInfo.dataStartOffset, SEEK_SET) != 0)
 			throw make_errno_exception("seeking to data start offset in the input file");
+
+		progress.inputBytesRead += entryInfo.dataStartOffset;
+		progress_.access().ref() = progress;
+
+        listfile::ZipCreator zipCreator;
+        zipCreator.createArchive(outputFilename);
+        auto writeHandle = zipCreator.createZIPEntry(
+            entryInfo.entryName,
+            entryInfo.compressionType == Z_DEFLATED ? 1 : 0); // compression level
 
 		z_stream strm = {};
 		inflateInit2(&strm, -MAX_WBITS);
 		std::array<u8, 0x10000> buffer;
 		std::array<u8, 0x10000> zbuffer;
 
-		while (!feof(inputFile))
-		{
-			auto len = fread(buffer.data(), 1, buffer.size(), inputFile);
+        while (!feof(inputFile))
+        {
+            auto len = fread(buffer.data(), 1, buffer.size(), inputFile);
+			progress.inputBytesRead += len;
 
-			if (entryInfo.compressionType == Z_DEFLATED)
-			{
-				strm.avail_in = len;
-				strm.next_in = buffer.data();
-				do
-				{
-					strm.avail_out = zbuffer.size();
-					strm.next_out = zbuffer.data();
+            if (entryInfo.compressionType == Z_DEFLATED)
+            {
+                strm.avail_in = len;
+                strm.next_in = buffer.data();
+                do
+                {
+                    strm.avail_out = zbuffer.size();
+                    strm.next_out = zbuffer.data();
 
-					auto res = inflate(&strm, Z_SYNC_FLUSH);
+                    auto res = inflate(&strm, Z_SYNC_FLUSH);
 
-					if (res != Z_OK && res != Z_STREAM_END && res != Z_BUF_ERROR)
-						throw std::runtime_error("inflate() failed");
+                    if (res != Z_OK && res != Z_STREAM_END && res != Z_BUF_ERROR)
+                        throw std::runtime_error(fmt::format("inflate() failed (zlib error {})", res));
 
-					len = zbuffer.size() - strm.avail_out;
+                    len = zbuffer.size() - strm.avail_out;
+                    writeHandle->write(zbuffer.data(), len);
 
-					// TODO: write the output file
-					//of_size += fwrite(zbuffer, 1, len, ofh);
-				} while (strm.avail_out == 0);
-			}
-			else
-			{
-			}
-		}
+					progress.outputBytesWritten += len;
+                } while (strm.avail_out == 0);
+            }
+            else
+            {
+                writeHandle->write(buffer.data(), len);
+				progress.outputBytesWritten += len;
+            }
 
-	}
+			progress_.access().ref() = progress;
+        }
+
+		inflateEnd(&strm);
+		fclose(inputFile);
+    }
 	catch(const std::exception& e)
 	{
 		fclose(inputFile);
 		throw;
 	}
 
-	return result;
+	return progress;
 }
 
-}
+} // namespace mesytec::mvme::listfile_recovery

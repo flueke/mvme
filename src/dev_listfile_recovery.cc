@@ -32,9 +32,22 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    auto outputFilename = std::filesystem::path(findResult.entryName).filename().stem().string() + ".zip";
+    auto outputFilename = std::filesystem::path(findResult.entryName).filename().stem().string() + "-recovered.zip";
 
     spdlog::info("Attempting recovery. Output filename: {}", outputFilename);
+
+    mesytec::mvlc::Protected<RecoveryProgress> recoveryProgress;
+
+    auto recoveryResult = recover_listfile(
+        argv[1],
+        outputFilename,
+        findResult,
+        recoveryProgress);
+
+    auto p = recoveryResult;
+
+    spdlog::info("Recovery attempt completed. inputFileSize={}, inputBytesRead={}, outputBytesWritten={}",
+                 p.inputBytesRead, p.inputFileSize, p.outputBytesWritten);
 
     return 0;
 }

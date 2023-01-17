@@ -1,11 +1,11 @@
 #ifndef SRC_LISTFILE_RECOVERY_H_
 #define SRC_LISTFILE_RECOVERY_H_
 
-#include <atomic>
 #include <string>
 #include <QWizard>
 #include "libmvme_export.h"
 #include "util/typedefs.h"
+#include <mesytec-mvlc/util/protected.h>
 
 namespace mesytec::mvme::listfile_recovery
 {
@@ -20,29 +20,21 @@ struct LIBMVME_EXPORT EntryFindResult
 
 struct LIBMVME_EXPORT RecoveryProgress
 {
-    size_t bytesProcessed;
-    size_t totalBytes;
-    std::vector<std::string> logBuffer;
+    size_t inputBytesRead;
+    size_t inputFileSize;
+    size_t outputBytesWritten;
 };
-
-struct LIBMVME_EXPORT RecoveryResult
-{
-    size_t bytesRead;
-    size_t bytesWritten;
-    std::vector<std::string> logBuffer;
-};
-
 
 EntryFindResult LIBMVME_EXPORT
     find_first_entry(const std::string &zipFilename);
 
-
-RecoveryResult LIBMVME_EXPORT
+RecoveryProgress LIBMVME_EXPORT
     recover_listfile(
         const std::string &inputFilename,
         const std::string &outputFilename,
         const EntryFindResult &entryInfo,
-        std::atomic<RecoveryProgress> &progress);
+        mesytec::mvlc::Protected<RecoveryProgress> &progress
+        );
 
 
 class LIBMVME_EXPORT ListfileRecoveryWizard: public QWizard

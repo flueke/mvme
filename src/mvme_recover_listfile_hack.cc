@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 
         // Note (flueke): For the broken listfile I got compression=8, crc=0,
         // and sizes both set to 4GB which was not the correct size. In the end
-        // it didn't matter as the deflate code stopped producing data once the
+        // it didn't matter as the inflate code stopped producing data once the
         // input was fully decompressed (I noticed the output file size not
         // growing anymore after a certain max size was reached. At that point
         // I just killed the process.
