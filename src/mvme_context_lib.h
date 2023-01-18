@@ -68,6 +68,14 @@ LIBMVME_EXPORT const ListfileReplayHandle &context_open_listfile(
     const QString &filename,
     OpenListfileOptions options = {});
 
+// Returns true if the given listfile zip archive contains a file called
+// "analysis.analysis".
+bool LIBMVME_EXPORT
+    listfile_contains_analysis(const QString &listfileArchivePath);
+
+bool LIBMVME_EXPORT
+    listfile_is_archive_corrupted(const QString &listfileArchivePath);
+
 struct AnalysisPauser
 {
     explicit AnalysisPauser(AnalysisServiceProvider *context);

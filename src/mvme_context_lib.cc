@@ -278,6 +278,30 @@ const ListfileReplayHandle &context_open_listfile(
     return context->getReplayFileHandle();
 }
 
+// Returns true if the given listfile zip archive contains a file called
+// "analysis.analysis".
+bool listfile_contains_analysis(const QString &listfileArchivePath)
+{
+    auto handle = open_listfile(listfileArchivePath);
+    return !handle.analysisBlob.isEmpty();
+}
+
+bool listfile_is_archive_corrupted(const QString &listfileArchivePath)
+{
+    QFileInfo fi(listfileArchivePath);
+    const bool isFile = fi.isFile();
+    const bool isReadable = fi.isReadable();
+
+    if (isFile && isReadable)
+    {
+        // assume the zip is corrupted if quazip cannot open it
+        return !QuaZip(listfileArchivePath).open(QuaZip::mdUnzip);
+    }
+
+    // Cannot determine anything.
+    return false;
+}
+
 //
 // AnalysisPauser
 //
