@@ -27,7 +27,8 @@ class InputsPage: public QWizardPage
     Q_OBJECT
     public:
         InputsPage(QWidget *parent = nullptr);
-        //bool isComplete() const override;
+
+        void cleanupPage() override;
 };
 
 class InputInfoPage: public QWizardPage

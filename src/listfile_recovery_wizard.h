@@ -18,6 +18,7 @@ class LIBMVME_EXPORT ListfileRecoveryWizard: public QWizard
 
         // The user selected input listfile archive
         QString inputFilePath() const { return field("inputFile").toString(); };
+        void setInputFilePath(const QString &fp) { setField("inputFile", fp); }
 
         // The user selected path to the output archive.
         QString outputFilePath() const { return field("outputFile").toString(); }

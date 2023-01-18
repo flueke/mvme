@@ -157,6 +157,12 @@ InputsPage::InputsPage(QWidget *parent)
             });
 }
 
+void InputsPage::cleanupPage()
+{
+    // Do nothing here so that field values are kept on going back one page. The
+    // default implementation would reset the values.
+}
+
 InputInfoPage::InputInfoPage(QWidget *parent)
     : QWizardPage(parent)
 {
