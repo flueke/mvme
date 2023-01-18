@@ -32,6 +32,7 @@
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
 #include "listfile_browser.h"
+#include "listfile_recovery_wizard.h"
 #include "mesytec_diagnostics.h"
 #include "mvlc/mvlc_dev_gui.h"
 #include "mvlc/mvlc_trigger_io_editor.h"
@@ -1221,16 +1222,42 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
         if (fileName.endsWith(".zip"))
         {
-            QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
-                            QSL("Do you want to load the analysis configuration from the ZIP archive?"),
-                            QMessageBox::Yes | QMessageBox::No);
+            if (listfile_is_archive_corrupted(fileName))
+            {
+                QMessageBox box(QMessageBox::Question, QSL("Attempt listfile recovery?"),
+                    QSL("The listfile archive seems to be corrupted. Attempt recovery?"),
+                    QMessageBox::Yes | QMessageBox::No);
+                box.button(QMessageBox::Yes)->setText(QSL("Attempt recovery"));
+                box.button(QMessageBox::No)->setText(QSL("Abort opening the file"));
+                box.setDefaultButton(QMessageBox::Yes);
 
-            box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
-            box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
-            box.setDefaultButton(QMessageBox::No);
+                if (box.exec() == QMessageBox::No)
+                    return;
 
-            if (box.exec() == QMessageBox::Yes)
-                opts.loadAnalysis = true;
+                mesytec::mvme::listfile_recovery::ListfileRecoveryWizard rw(this);
+                rw.setInputFilePath(fileName);
+                if (rw.exec() == QDialog::Accepted && rw.recoveryCompleted())
+                {
+                    // Just replace the selected filename with the one created
+                    // by the recovery process.
+                    fileName = rw.outputFilePath();
+                }
+            }
+
+            if (listfile_contains_analysis(fileName))
+            {
+
+                QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
+                                QSL("Do you want to load the analysis configuration from the ZIP archive?"),
+                                QMessageBox::Yes | QMessageBox::No);
+
+                box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
+                box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
+                box.setDefaultButton(QMessageBox::No);
+
+                if (box.exec() == QMessageBox::Yes)
+                    opts.loadAnalysis = true;
+            }
         }
 
         const auto &replayHandle = context_open_listfile(
