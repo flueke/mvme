@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QDebug>
 #include "mvme_session.h"
 #include "listfile_recovery_wizard.h"
 
@@ -13,5 +14,12 @@ int main(int argc, char **argv)
     ListfileRecoveryWizard wizard;
     wizard.show();
 
-    return app.exec();
+    int ret = app.exec();
+
+    qDebug() << "inputFilePath" << wizard.inputFilePath();
+    qDebug() << "outputFilePath" << wizard.outputFilePath();
+    qDebug() << "analysisFilePath" << wizard.analysisFilePath();
+    qDebug() << "recoveryCompleted" << wizard.recoveryCompleted();
+
+    return ret;
 }

@@ -2,6 +2,8 @@
 #include "listfile_recovery_wizard_p.h"
 
 #include <mesytec-mvlc/util/fmt.h>
+#include <mesytec-mvlc/util/storage_sizes.h>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFuture>
@@ -13,10 +15,15 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QtConcurrent>
+#include <quazipfile.h>
+#include <quazip.h>
 #include <sstream>
 
-#include "util/qt_str.h"
 #include "listfile_recovery.h"
+#include "util/qt_str.h"
+#include "util/qt_threading.h"
+
+// FIXME: failed recovery will leave the output zip file behind!
 
 namespace mesytec::mvme::listfile_recovery
 {
@@ -27,17 +34,39 @@ QSettings make_workspace_settings()
     return QSettings("mvmeworkspace.ini", QSettings::IniFormat);
 }
 
+enum Pages
+{
+    IntroPageId,
+    InputsPageId,
+    InputInfoPageId,
+    RunPageId,
+    ResultPageId,
+};
+
 IntroPage::IntroPage(QWidget *parent)
     : QWizardPage(parent)
 {
     setTitle("Listfile Recovery");
     setSubTitle("Intro");
-}
+    auto infoLabel = new QLabel;
+    auto l = new QHBoxLayout(this);
+    l->addWidget(infoLabel);
 
-//bool IntroPage::isComplete() const
-//{
-//    return true;
-//}
+    infoLabel->setWordWrap(true);
+    infoLabel->setText(
+        "This dialog runs the mvme listfile recovery procedure, trying to " \
+        "recover recorded DAQ data from corrupted listfile ZIP archives.\n\n" \
+
+        "In case of a DAQ crash or unexpected computer shutdown, the corrupted ZIP "
+        "will contain a single file: the raw listmode file (.mvmelst or " \
+        ".mvlclst). The recovery procedure tries to detect the file name, the " \
+        "compression type and the start of the file. The following data is then " \
+        "unpacked and written to a new output ZIP archive.\n\n" \
+
+        "Optionally an analysis file can be selected which will be added to the " \
+        "newly created output ZIP file." \
+        );
+}
 
 InputsPage::InputsPage(QWidget *parent)
     : QWizardPage(parent)
@@ -133,6 +162,7 @@ InputInfoPage::InputInfoPage(QWidget *parent)
 {
     setTitle("Listfile Recovery");
     setSubTitle("Input Info");
+    setCommitPage(true);
     infoLabel_ = new QLabel;
     auto l = new QHBoxLayout(this);
     l->addWidget(infoLabel_);
@@ -145,6 +175,7 @@ bool InputInfoPage::isComplete() const
 
 void InputInfoPage::initializePage()
 {
+    wizard()->setButtonText(QWizard::CommitButton, "Start Recovery");
     try
     {
         entryInfo_ = {};
@@ -157,7 +188,7 @@ void InputInfoPage::initializePage()
             ss << fmt::format("  Filename: {}\n", foundEntry.entryName);
             ss << fmt::format("  Header Offset: {} bytes\n", foundEntry.headerOffset);
             ss << fmt::format("  Data Offset: {} bytes\n", foundEntry.dataStartOffset);
-            ss << "\nIf the above looks sensible press the 'Next' button to start the recovery process.\n";
+            ss << "\nIf the above looks sensible press the 'Start Recovery' button to start the recovery process.\n";
 
             infoLabel_->setText(QString::fromStdString(ss.str()));
             entryInfo_ = foundEntry;
@@ -182,7 +213,8 @@ RunPage::RunPage(QWidget *parent)
     : QWizardPage(parent)
 {
     setTitle("Listfile Recovery");
-    setSubTitle("Working");
+    setSubTitle("Recovering listfile data");
+    setCommitPage(true);
     progressBar_ = new QProgressBar;
     auto l = new QHBoxLayout(this);
     l->addWidget(progressBar_);
@@ -197,13 +229,11 @@ RunPage::RunPage(QWidget *parent)
                 progressBar_->setRange(0, p.inputFileSize);
                 progressBar_->setValue(p.inputBytesRead);
             });
-
-    updateTimer_.setInterval(500);
-    updateTimer_.start();
 }
 
 bool RunPage::isComplete() const
 {
+    return future_.isFinished();
 }
 
 void RunPage::initializePage()
@@ -213,56 +243,143 @@ void RunPage::initializePage()
     // setup future watcher, once the future is done emit completeChanged()
     // setup a timer callback to peridocally update the progressbar with the info from recover_listfile()
 
-    auto inputFilename = field("inputFile").toString().toStdString();
-    auto outputFilename = field("outputFile").toString().toStdString();
-    auto analysisFilename = field("analysisFile").toString().toStdString();
+    wizard()->button(QWizard::CancelButton)->setEnabled(false);
+
+    auto inputFilename = field("inputFile").toString();
+    auto outputFilename = field("outputFile").toString();
+    auto analysisFilename = field("analysisFile").toString();
     auto entryInfo = qobject_cast<InputInfoPage *>(wizard()->page(InputInfoPageId))->entryInfo();
 
     auto perform_recovery = [=] () -> RecoveryProgress
     {
-        // TODO: try catch block and return an object containing possible exception info
-        auto result = recover_listfile(
-            inputFilename,
-            outputFilename,
-            entryInfo,
-            progress_);
+        try
+        {
+            auto result = recover_listfile(
+                inputFilename.toStdString(),
+                outputFilename.toStdString(),
+                entryInfo,
+                progress_);
 
-        // TODO: reopen the output zip archive and add the analysis file to it.
+            if (!analysisFilename.isEmpty())
+            {
+                // Add the user selected analysis file to the archive. Pretty
+                // hacky solution: the output zip is reopened again using the
+                // QuaZip API and the analysis file is added. An alternative
+                // solution would be to provide a different version of
+                // recover_listfile() taking in a ZipCreator as an argument or
+                // returning the internally created ZipCreator instance, then
+                // using the creator to add the analysis file.
+                QFile analysisFile(analysisFilename);
+                if (!analysisFile.open(QIODevice::ReadOnly))
+                    throw std::runtime_error(fmt::format("Error opening analysis file for reading: {}",
+                        analysisFile.errorString().toStdString()));
 
-        return result;
+                auto analysisData = analysisFile.readAll();
+
+                QuaZip archive;
+                archive.setZipName(outputFilename);
+                archive.setZip64Enabled(true);
+
+                if (!archive.open(QuaZip::mdAdd))
+                    throw std::runtime_error(fmt::format("Error opening output archive: error={}", archive.getZipError()));
+
+                QuaZipFile out(&archive);
+                QuaZipNewInfo zipFileInfo("analysis.analysis");
+                zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
+
+                if (!out.open(QIODevice::WriteOnly, zipFileInfo,
+                            nullptr, 0,   // password, crc
+                            0,            // method (Z_DEFLATED or 0 for no compression)
+                            0             // compression level
+                            ))
+                {
+                    throw std::runtime_error(fmt::format("Error adding analysis to output file: {}", archive.getZipError()));
+                }
+
+                out.write(analysisData);
+            }
+
+            return result;
+        } catch (...)
+        {
+            throw QtExceptionPtr(std::current_exception());
+        }
     };
-
-    // XXX: leftoff here somewhere
 
     progressBar_->setRange(0, 0);
     progressBar_->setValue(0);
     future_ = QtConcurrent::run(perform_recovery);
     watcher_.setFuture(future_);
+    updateTimer_.setInterval(500);
+    updateTimer_.start();
 }
+
+void RunPage::onRecoveryFinished()
+{
+    updateTimer_.stop();
+    emit completeChanged();
+    wizard()->next();
+}
+
+struct ListfileRecoveryWizard::Private
+{
+    bool recoveryCompleted_ = false;
+};
 
 ResultPage::ResultPage(QWidget *parent)
     : QWizardPage(parent)
 {
     setTitle("Listfile Recovery");
     setSubTitle("Recovery Results");
+
+    infoLabel_ = new QLabel;
+    auto l = new QHBoxLayout(this);
+    l->addWidget(infoLabel_);
 }
 
 bool ResultPage::isComplete() const
 {
+    return true;
 }
 
-struct ListfileRecoveryWizard::Private
+void ResultPage::initializePage()
 {
-};
+    auto inputFilename = field("inputFile").toString();
+    auto outputFilename = field("outputFile").toString();
+    auto analysisFilename = field("analysisFile").toString();
+    auto entryInfo = qobject_cast<InputInfoPage *>(wizard()->page(InputInfoPageId))->entryInfo();
 
-enum Pages
-{
-    IntroPageId,
-    InputsPageId,
-    InputInfoPageId,
-    RunPageId,
-    ResultPageId,
-};
+    std::stringstream ss;
+
+    ss << "Recovery Info:\n\n";
+    ss << fmt::format("  Input archive: {}\n", inputFilename.toStdString());
+    ss << fmt::format("  Input entry name: {}\n", entryInfo.entryName);
+    ss << fmt::format("  Output archive: {}\n", outputFilename.toStdString());
+    if (!analysisFilename.isEmpty())
+        ss << fmt::format("  Additional analysis file: {}\n", analysisFilename.toStdString());
+
+    ss << "\nRecovery Result:\n\n";
+
+    try
+    {
+        auto recoveryResult = qobject_cast<RunPage *>(wizard()->page(RunPageId))->future_.result();
+        auto recoveredMB = static_cast<double>(recoveryResult.inputBytesRead)/mesytec::mvlc::util::Megabytes(1);
+        ss << fmt::format("  Recovered {:.2f} MB from input archive.\n", recoveredMB);
+        qobject_cast<ListfileRecoveryWizard *>(wizard())->d->recoveryCompleted_ = true;
+    }
+    catch (const std::exception &e)
+    {
+        ss << fmt::format("  Error from the recovery procedure: {}\n", e.what());
+        qobject_cast<ListfileRecoveryWizard *>(wizard())->d->recoveryCompleted_ = false;
+
+        // Cleanup the output file
+        QFile outputFile(outputFilename);
+        if (outputFile.exists())
+            outputFile.remove();
+    }
+
+    infoLabel_->setText(QString::fromStdString(ss.str()));
+}
 
 ListfileRecoveryWizard::ListfileRecoveryWizard(QWidget *parent)
     : QWizard(parent)
@@ -277,6 +394,11 @@ ListfileRecoveryWizard::ListfileRecoveryWizard(QWidget *parent)
 
 ListfileRecoveryWizard::~ListfileRecoveryWizard()
 {
+}
+
+bool ListfileRecoveryWizard::recoveryCompleted() const
+{
+    return d->recoveryCompleted_;
 }
 
 }

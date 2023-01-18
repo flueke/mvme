@@ -54,12 +54,12 @@ class RunPage: public QWizardPage
         void initializePage() override;
 
     private:
+        friend class ResultPage;
         void onRecoveryFinished();
         QProgressBar *progressBar_ = {};
         mesytec::mvlc::Protected<RecoveryProgress> progress_;
         QFutureWatcher<RecoveryProgress> watcher_;
         QFuture<RecoveryProgress> future_;
-        RecoveryProgress recoveryResult_;
         QTimer updateTimer_;
 
 };
@@ -70,6 +70,11 @@ class ResultPage: public QWizardPage
     public:
         ResultPage(QWidget *parent = nullptr);
         bool isComplete() const override;
+        void initializePage() override;
+
+    private:
+        QLabel *infoLabel_ = {};
+        RecoveryProgress recoveryResult_;
 };
 
 }
