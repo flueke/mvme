@@ -36,7 +36,6 @@ RecoveryProgress LIBMVME_EXPORT
         mesytec::mvlc::Protected<RecoveryProgress> &progress
         );
 
-
 }
 
 #endif // SRC_LISTFILE_RECOVERY_H_

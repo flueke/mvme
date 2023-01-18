@@ -7,9 +7,9 @@
 #include "listfile_recovery.h"
 #include <QtEndian>
 #include <system_error>
-#include <spdlog/spdlog.h>
 #include <zlib.h>
 #include <mesytec-mvlc/mvlc_listfile_zip.h>
+#include <mesytec-mvlc/util/logging.h>
 
 namespace
 {
@@ -42,8 +42,6 @@ namespace mesytec::mvme::listfile_recovery
 EntryFindResult
     find_first_entry(const std::string &zipFilename)
 {
-	auto logger = spdlog::get("listfile_recovery");
-
 	EntryFindResult result = {};
 
 	FILE *fh = fopen(zipFilename.c_str(), "rb");
@@ -113,8 +111,10 @@ RecoveryProgress
 	//		deflate/write the buffer to the output stream
 
     using namespace mesytec::mvlc;
+	auto logger = mesytec::mvlc::get_logger("listfile_recovery");
 	RecoveryProgress progress = {};
 	FILE *inputFile = nullptr;
+	z_stream strm = {};
 
 	try
 	{
@@ -138,12 +138,11 @@ RecoveryProgress
 		progress_.access().ref() = progress;
 
         listfile::ZipCreator zipCreator;
-        zipCreator.createArchive(outputFilename);
+        zipCreator.createArchive(outputFilename, listfile::OverwriteMode::Overwrite);
         auto writeHandle = zipCreator.createZIPEntry(
             entryInfo.entryName,
             entryInfo.compressionType == Z_DEFLATED ? 1 : 0); // compression level
 
-		z_stream strm = {};
 		inflateInit2(&strm, -MAX_WBITS);
 		std::array<u8, 0x10000> buffer;
 		std::array<u8, 0x10000> zbuffer;
@@ -180,14 +179,19 @@ RecoveryProgress
             }
 
 			progress_.access().ref() = progress;
+
         }
 
 		inflateEnd(&strm);
 		fclose(inputFile);
+		inputFile = nullptr;
     }
-	catch(const std::exception& e)
+	catch(const std::exception &e)
 	{
-		fclose(inputFile);
+		logger->error("exception caught: '{}', rethrowing", e.what());
+		inflateEnd(&strm);
+		if (inputFile)
+			fclose(inputFile);
 		throw;
 	}
 
