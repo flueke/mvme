@@ -350,17 +350,22 @@ bool ResultPage::isComplete() const
 
 void ResultPage::initializePage()
 {
+    using mesytec::mvlc::util::Megabytes;
+
     auto inputFilename = field("inputFile").toString();
     auto outputFilename = field("outputFile").toString();
     auto analysisFilename = field("analysisFile").toString();
     auto entryInfo = qobject_cast<InputInfoPage *>(wizard()->page(InputInfoPageId))->entryInfo();
+    auto inputSizeMiB = static_cast<double>(QFileInfo(inputFilename).size()) / Megabytes(1);
 
     std::stringstream ss;
 
     ss << "Recovery Info:\n\n";
     ss << fmt::format("  Input archive: {}\n", inputFilename.toStdString());
+    ss << fmt::format("  Input archive size: {:.2f} MB\n", inputSizeMiB);
     ss << fmt::format("  Input entry name: {}\n", entryInfo.entryName);
     ss << fmt::format("  Output archive: {}\n", outputFilename.toStdString());
+
     if (!analysisFilename.isEmpty())
         ss << fmt::format("  Additional analysis file: {}\n", analysisFilename.toStdString());
 
@@ -369,8 +374,8 @@ void ResultPage::initializePage()
     try
     {
         auto recoveryResult = qobject_cast<RunPage *>(wizard()->page(RunPageId))->future_.result();
-        auto recoveredMB = static_cast<double>(recoveryResult.inputBytesRead)/mesytec::mvlc::util::Megabytes(1);
-        ss << fmt::format("  Recovered {:.2f} MB from input archive.\n", recoveredMB);
+        auto recoveredMiB = static_cast<double>(recoveryResult.inputBytesRead) / Megabytes(1);
+        ss << fmt::format("  Recovered {:.2f} MB from input archive.\n", recoveredMiB);
         qobject_cast<ListfileRecoveryWizard *>(wizard())->d->recoveryCompleted_ = true;
     }
     catch (const std::exception &e)
