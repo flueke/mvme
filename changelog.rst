@@ -4,6 +4,41 @@
 Changelog
 ##################################################
 
+Version 1.6.1-rc
+----------------
+
+* [gui]
+
+  - New feature: recover corrupted listfiles.
+
+    If a listfile ZIP archive is corrupted due to a crash/power outage the UI
+    now offers a way to attempt to recover the data when opening the corrupted
+    archive.
+
+    Recovery works by searching for the first local file header in the zip
+    archive and attempting to unpack the following data. The recovery process
+    also works for listfile archives containing LZ4 compressed readout data.
+
+  - add "Save Script" to vme tree context menu
+
+  - Do not allow deleting the MVLC Trigger/IO script
+
+  - Fix file saving logic across the GUI. The logic was flawed and could lead to
+    files being overwritten.
+
+* [vme/readout]
+
+  - Return earlier if errors occur during the DAQ start sequence. Return points
+    are: after global start scripts, after VME module init scripts and after event
+    start scripts.
+
+* [analysis]
+
+  - Implement on-the-fly histogram creation when attempting to graphically edit
+    a condition that does not have a matching histogram.
+
+* [doc] Changelog was missing from PDF file in windows builds.
+
 Version 1.6.0
 -------------
 
