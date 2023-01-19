@@ -1228,13 +1228,13 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
                     QSL("The listfile archive seems to be corrupted. Attempt recovery?"),
                     QMessageBox::Yes | QMessageBox::No);
                 box.button(QMessageBox::Yes)->setText(QSL("Attempt recovery"));
-                box.button(QMessageBox::No)->setText(QSL("Abort opening the file"));
+                box.button(QMessageBox::No)->setText(QSL("Cancel opening the file"));
                 box.setDefaultButton(QMessageBox::Yes);
 
                 if (box.exec() == QMessageBox::No)
                     return;
 
-                mesytec::mvme::listfile_recovery::ListfileRecoveryWizard rw(this);
+                mesytec::mvme::listfile_recovery::ListfileRecoveryWizard rw;
                 rw.setInputFilePath(fileName);
                 if (rw.exec() == QDialog::Accepted && rw.recoveryCompleted())
                 {
@@ -1242,6 +1242,8 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
                     // by the recovery process.
                     fileName = rw.outputFilePath();
                 }
+                else
+                    return;
             }
 
             if (listfile_contains_analysis(fileName))
