@@ -365,7 +365,7 @@ struct CrateReadout
     // by an instance of BlockingBufferQueuesWriteHandle, emptied by the
     // readout parser.
     std::unique_ptr<mvlc::ReadoutBufferQueues> readoutBufferQueues;
-    std::unique_ptr<BlockingBufferQueuesWriteHandle> readoutWriteHandle;
+    std::shared_ptr<BlockingBufferQueuesWriteHandle> readoutWriteHandle;
 
     mvlc::readout_parser::ReadoutParserState parserState;
     std::unique_ptr<ProtectedParserCounters> parserCounters;

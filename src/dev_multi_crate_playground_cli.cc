@@ -331,7 +331,7 @@ int main(int argc, char *argv[])
             crdo->mvlc,
             stackTriggers,
             *crdo->readoutSnoopQueues,
-            crdo->readoutWriteHandle.get());
+            crdo->readoutWriteHandle);
 
         crdo->readoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
         crdo->readoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);
