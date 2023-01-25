@@ -1959,7 +1959,7 @@ void MVMEMainWindow::runAddVMEEventDialog()
     auto vmeConfig = m_d->m_context->getVMEConfig();
     auto eventConfig = mvme::vme_config::make_new_event_config(vmeConfig);
 
-    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig.get(), vmeConfig, this);
+    EventConfigDialog dialog(vmeConfig->getControllerType(), eventConfig.get(), vmeConfig, this);
     dialog.setWindowTitle(QSL("Add Event"));
     int result = dialog.exec();
 
@@ -1992,7 +1992,10 @@ void MVMEMainWindow::runAddVMEEventDialog()
 
 void MVMEMainWindow::runEditVMEEventDialog(EventConfig *eventConfig)
 {
-    EventConfigDialog dialog(m_d->m_context->getVMEController(), eventConfig, eventConfig->getVMEConfig(), this);
+    if (!eventConfig->getVMEConfig())
+        return;
+
+    EventConfigDialog dialog(eventConfig->getVMEConfig()->getControllerType(), eventConfig, eventConfig->getVMEConfig(), this);
     dialog.setWindowTitle(QSL("Edit Event"));
     dialog.exec();
 }

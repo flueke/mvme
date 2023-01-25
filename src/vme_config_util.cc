@@ -318,7 +318,7 @@ bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
     return out.write(doc.toJson()) >= 0;
 }
 
-std::unique_ptr<ModuleConfig> LIBMVME_EXPORT moduleconfig_from_modulejson(const QJsonObject &json)
+std::unique_ptr<ModuleConfig> moduleconfig_from_modulejson(const QJsonObject &json)
 {
     auto mod = std::make_unique<ModuleConfig>();
     load_moduleconfig_from_modulejson(*mod, json);
@@ -334,6 +334,8 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
     mod.setObjectName(mm.typeName);
 
     // Restore the variables on the module instance.
+    // FIXME: why is this needed? the variables should have been stored when the
+    // module was saved and reloaded when mod.read() was called.
     for (auto it=mm.variables.begin(); it!=mm.variables.end(); ++it)
     {
         auto varJ = it->toObject();
@@ -343,6 +345,19 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
         var.comment = varJ["comment"].toString();
         mod.setVariable(varName, var);
     }
+}
+
+std::unique_ptr<EventConfig> eventconfig_from_eventjson(const QJsonObject &json)
+{
+    auto ev = std::make_unique<EventConfig>();
+    load_eventconfig_from_eventjson(*ev, json);
+    return ev;
+}
+
+void load_eventconfig_from_eventjson(EventConfig &ev, const QJsonObject &json)
+{
+    ev.read(json["EventConfig"].toObject());
+    mvme::vme_config::generate_new_object_ids(&ev);
 }
 
 bool gui_save_vme_script_config_to_file(const VMEScriptConfig *script, QWidget *dialogParent)

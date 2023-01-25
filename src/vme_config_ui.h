@@ -22,8 +22,6 @@
 #define __CONFIG_WIDGETS_H__
 
 #include "vme_config.h"
-//#include "util.h"
-//#include "template_system.h"
 #include <QDialog>
 #include <memory>
 
@@ -49,7 +47,7 @@ class EventConfigDialog: public QDialog
     Q_OBJECT
     public:
         EventConfigDialog(
-            VMEController *controller,
+            VMEControllerType vmeControllerType,
             EventConfig *config,
             const VMEConfig *vmeConfig,
             QWidget *parent = 0);
@@ -66,7 +64,7 @@ class EventConfigDialog: public QDialog
 
         EventConfigDialogPrivate *m_d;
         MVMEContext *m_context;
-        VMEController *m_controller;
+        VMEControllerType m_vmeControllerType;
         EventConfig *m_config;
 };
 

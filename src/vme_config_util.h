@@ -87,6 +87,9 @@ bool LIBMVME_EXPORT serialize_vme_config_to_device(QIODevice &out, const VMEConf
 std::unique_ptr<ModuleConfig> LIBMVME_EXPORT moduleconfig_from_modulejson(const QJsonObject &json);
 void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &dest, const QJsonObject &json);
 
+std::unique_ptr<EventConfig> LIBMVME_EXPORT eventconfig_from_eventjson(const QJsonObject &json);
+void LIBMVME_EXPORT load_eventconfig_from_eventjson(EventConfig &ev, const QJsonObject &json);
+
 bool LIBMVME_EXPORT gui_save_vme_script_config_to_file(const VMEScriptConfig *script, QWidget *dialogParent = nullptr);
 bool LIBMVME_EXPORT gui_save_vme_script_to_file(const QString &scriptText, const QString &proposedFilename = {}, QWidget *dialogParent = nullptr);
 

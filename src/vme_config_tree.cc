@@ -59,6 +59,7 @@ using namespace vats;
 using namespace mvme::vme_config;
 
 static const QString VMEModuleConfigFileFilter = QSL("MVME Module Configs (*.mvmemodule *.json);; All Files (*.*)");
+static const QString VMEEventConfigFileFilter = QSL("MVME Event Configs (*.mvmeevent *.json);; All Files (*.*)");
 
 enum NodeType
 {
@@ -1231,12 +1232,16 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (node == m_nodeEvents)
     {
         if (isIdle)
-            menu.addAction(QSL("Add Event"), this, &VMEConfigTreeWidget::addEvent);
+        {
+            menu.addAction(QIcon(":/vme_event.png"), QSL("Add Event"), this, &VMEConfigTreeWidget::addEvent);
+            menu.addAction(QIcon(":/vme_event.png"), QSL("Add Event from file"), this, &VMEConfigTreeWidget::loadEventFromFile);
+        }
     }
 
     if (node && node->type() == NodeType_Event)
     {
-        Q_ASSERT(obj);
+        auto eventConfig = dynamic_cast<EventConfig *>(obj);
+        assert(eventConfig);
 
         action = menu.addAction(QIcon(QSL(":/gear.png")), QSL("Edit Event Settings"),
                                 this, &VMEConfigTreeWidget::editEventImpl);
@@ -1257,6 +1262,14 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
         menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename Event"),
                        this, &VMEConfigTreeWidget::editName);
+
+        menu.addAction(QIcon(":/vme_event.png"), QSL("Merge with Event from file"),
+                       this, &VMEConfigTreeWidget::loadEventFromFile);
+
+        menu.addAction(QIcon(QSL(":/document-save.png")), "Save Event to file",
+                       [this, eventConfig]
+                       { saveEventToFile(eventConfig); });
+
         menu.addSeparator();
 
         action = menu.addAction(QIcon(QSL(":/vme_module.png")), QSL("Add Module"),
@@ -1775,6 +1788,11 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
     // vmmr_monitor/module_info.json file.
     auto vars = mod->getVariables();
 
+    // Note(230125): the special variable handling here is only done so that the
+    // variables and their values can be stored in the ModuleMeta data in the
+    // output json file. Check if this is actually needed as this information is
+    // also written out with the module config itself via the default
+    // ConfigObject::write() mechanism.
     QJsonArray varsArray;
 
     for (const auto &varName: vars.symbols.keys())
@@ -1830,7 +1848,7 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
     }
 
     // Run a file save dialog
-    auto path = QSettings().value("LastModuleSaveDirectory").toString();
+    auto path = QSettings().value("LastObjectSaveDirectory").toString();
 
     if (path.isEmpty())
     {
@@ -1885,7 +1903,7 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod)
         return;
     }
 
-    QSettings().setValue("LastModuleSaveDirectory", QFileInfo(filename).absolutePath());
+    QSettings().setValue("LastObjectSaveDirectory", QFileInfo(filename).absolutePath());
 }
 
 // TODO: merge with VMEConfigTreeWidget::addModule()
@@ -1908,7 +1926,7 @@ void VMEConfigTreeWidget::addModuleFromFile()
     bool doExpand = (event->getModuleConfigs().size() == 0);
 
     // Load the module from JSON file
-    auto path = QSettings().value("LastModuleSaveDirectory").toString();
+    auto path = QSettings().value("LastObjectSaveDirectory").toString();
 
     if (path.isEmpty())
     {
@@ -1921,26 +1939,10 @@ void VMEConfigTreeWidget::addModuleFromFile()
     if (filename.isEmpty())
         return;
 
-    QFile input(filename);
-    if (!input.open(QIODevice::ReadOnly))
-    {
-        QMessageBox::critical(0, "Error", QSL("Error opening %1 for reading").arg(filename));
+    auto doc = gui_read_json_file(filename);
+
+    if (doc.isNull())
         return;
-    }
-
-    auto data = input.readAll();
-
-    QJsonParseError parseError;
-    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
-
-    if (parseError.error != QJsonParseError::NoError)
-    {
-        QMessageBox::critical(0, "Error", QSL("Error parsing JSON data: file=%1, error=%2, offset=%3")
-                              .arg(filename)
-                              .arg(parseError.errorString())
-                              .arg(parseError.offset));
-        return;
-    }
 
     auto mod = moduleconfig_from_modulejson(doc.object());
 
@@ -1956,6 +1958,122 @@ void VMEConfigTreeWidget::addModuleFromFile()
 
     if (doExpand)
         static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
+}
+
+void VMEConfigTreeWidget::saveEventToFile(const EventConfig *ev)
+{
+    // Run a file save dialog
+    auto path = QSettings().value("LastObjectSaveDirectory").toString();
+
+    if (path.isEmpty())
+    {
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    path += "/" + ev->objectName() + ".mvmeevent";
+
+    QFileDialog fd(this, "Save Event Config As", path, VMEEventConfigFileFilter);
+
+    fd.setDefaultSuffix(".mvmeevent");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
+        return;
+
+    auto filename = fd.selectedFiles().front();
+
+    // Serialize the module config to json
+    QJsonObject eventJ;
+    ev->write(eventJ);
+
+    // Outer container for both the module and the meta
+    QJsonObject containerJ;
+    containerJ["EventConfig"] = eventJ;
+
+    QJsonDocument doc(containerJ);
+
+    QFile out(filename);
+
+    if (!out.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QSL("Error opening %1 for writing").arg(filename));
+        return;
+    }
+
+    if (out.write(doc.toJson()) < 0)
+    {
+        QMessageBox::critical(0, "Error", QSL("Error writing to %1: %2")
+                              .arg(filename).arg(out.errorString()));
+        return;
+    }
+
+    QSettings().setValue("LastObjectSaveDirectory", QFileInfo(filename).absolutePath());
+}
+
+void VMEConfigTreeWidget::loadEventFromFile()
+{
+    // Two cases:
+    // * if the global 'Events' node is the target then just add the loaded event to the vme config
+    // * if an existing event config is the target then:
+    //   - merge in the event variables overwriting existing variables (do not overwrite system variables, e.g. sys_irq!)
+    //   - add each of the events child modules to the existing event
+
+    auto node = m_tree->currentItem();
+
+    if (!node)
+        return;
+
+    EventConfig *targetEvent = nullptr;
+
+    if (node->type() == NodeType_Event)
+    {
+        if (!(targetEvent = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer))))
+            return;
+    }
+
+    // Load the event from JSON file
+    auto path = QSettings().value("LastObjectSaveDirectory").toString();
+
+    if (path.isEmpty())
+    {
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    auto filename = QFileDialog::getOpenFileName(
+        this, "Load Event from file", path, VMEEventConfigFileFilter);
+
+    if (filename.isEmpty())
+        return;
+
+    auto doc = gui_read_json_file(filename);
+
+    if (doc.isNull())
+        return;
+
+    auto eventConfig = eventconfig_from_eventjson(doc.object());
+
+    if (!targetEvent)
+    {
+        EventConfigDialog dialog(m_config->getControllerType(), eventConfig.get(), m_config, this);
+        dialog.setWindowTitle("Add Event");
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+        m_config->addEventConfig(eventConfig.release());
+        return;
+    }
+
+    auto sourceVariables = eventConfig->getVariables();
+
+    for (const auto &varName: sourceVariables.symbolNameSet())
+        targetEvent->setVariable(varName, sourceVariables[varName]);
+
+    auto childModules = eventConfig->getModuleConfigs();
+
+    for (auto moduleConfig: childModules)
+    {
+        eventConfig->removeModuleConfig(moduleConfig);
+        targetEvent->addModuleConfig(moduleConfig);
+    }
 }
 
 void VMEConfigTreeWidget::addGlobalScript()
