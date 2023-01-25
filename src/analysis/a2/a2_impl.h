@@ -113,9 +113,7 @@ enum OperatorType
     Operator_ScalerOverflow_idx,
 
     Operator_IntervalCondition,
-    Operator_RectangleCondition,
     Operator_PolygonCondition,
-    Operator_LutCondition,
     Operator_ExpressionCondition,
 
     OperatorTypeCount

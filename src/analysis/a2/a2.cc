@@ -3002,9 +3002,7 @@ bool is_condition_operator(const Operator &op)
     switch (op.type)
     {
         case Operator_IntervalCondition:
-        case Operator_RectangleCondition:
         case Operator_PolygonCondition:
-        case Operator_LutCondition:
         case Operator_ExpressionCondition:
             return true;
 
