@@ -114,6 +114,7 @@ add_library(libmvme_core STATIC
     #${LIBMVME_CORE_RC_OUT}
     CVMUSBReadoutList.cpp
     qt_util.cc
+    util/qt_gui_io.cc
     vme_controller.cpp
     vme_script.cc
     vme_script_exec.cc
