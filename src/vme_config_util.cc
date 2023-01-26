@@ -374,8 +374,8 @@ bool gui_save_vme_script_to_file(const QString &scriptText, const QString &propo
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     QSettings settings;
 
-    if (settings.contains("Files/LastVMEScriptDirectory"))
-        path = settings.value("Files/LastVMEScriptDirectory").toString();
+    if (settings.contains("LastObjectSaveDirectory"))
+        path = settings.value("LastObjectSaveDirectory").toString();
 
     if (!proposedFilename.isEmpty())
         path += "/" + proposedFilename;
@@ -408,7 +408,7 @@ bool gui_save_vme_script_to_file(const QString &scriptText, const QString &propo
         return false;
     }
 
-    settings.setValue("Files/LastVMEScriptDirectory", QFileInfo(fileName).absolutePath());
+    settings.setValue("LastObjectSaveDirectory", QFileInfo(fileName).absolutePath());
 
     return true;
 }

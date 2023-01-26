@@ -2164,7 +2164,7 @@ void VMEConfigTreeWidget::loadScriptFromFile()
     auto destContainer = Var2Ptr<ContainerObject>(node->data(0, DataRole_Pointer));
     if (!destContainer) return;
 
-    auto path = QSettings().value("Files/LastVMEScriptDirectory").toString();
+    auto path = QSettings().value("LastObjectSaveDirectory").toString();
 
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);

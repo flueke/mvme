@@ -396,9 +396,9 @@ void VMEScriptEditor::loadFromFile()
 {
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     QSettings settings;
-    if (settings.contains("Files/LastVMEScriptDirectory"))
+    if (settings.contains("LastObjectSaveDirectory"))
     {
-        path = settings.value("Files/LastVMEScriptDirectory").toString();
+        path = settings.value("LastObjectSaveDirectory").toString();
     }
 
     QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
@@ -412,7 +412,7 @@ void VMEScriptEditor::loadFromFile()
             m_d->m_editor->setPlainText(stream.readAll());
             m_d->m_editor->document()->setModified(true);
             QFileInfo fi(fileName);
-            settings.setValue("Files/LastVMEScriptDirectory", fi.absolutePath());
+            settings.setValue("LastObjectSaveDirectory", fi.absolutePath());
         }
     }
 }
