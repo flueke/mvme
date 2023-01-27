@@ -274,7 +274,7 @@ struct LIBMVME_EXPORT EventBuilderOutputBufferWriter
     {
         if (auto dest = getOutputBuffer())
         {
-            mvlc::listfile::write_module_data(
+            mvlc::listfile::write_event_data(
                 *dest, ci, ei, moduleDataList, moduleCount);
             maybeFlushOutputBuffer();
         }
