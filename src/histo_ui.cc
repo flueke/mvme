@@ -92,7 +92,7 @@ PlotWidget::PlotWidget(QWidget *parent)
     d->layout->addWidget(d->statusbar);
     d->layout->setStretch(1, 1);
 
-    resize(600, 400);
+    resize(1000, 562);
 }
 
 PlotWidget::~PlotWidget()

@@ -2,6 +2,10 @@
 TODO list
 ==================================================
 
+- plot widgets:
+  * move index selector to the very left of the toolbar
+  * replace resolution slider with a drop down box like in the plot grid
+
 - When generating histograms for an output pipe the source operator could be
   examined to determine the resolution for the histogram.
 

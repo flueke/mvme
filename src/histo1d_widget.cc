@@ -832,7 +832,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     mainLayout->addWidget(m_d->m_statusBar);
     mainLayout->setStretch(1, 1);
 
-    resize(600, 400);
+    resize(1000, 562);
     selectHistogram(0);
 }
 
