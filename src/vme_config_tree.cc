@@ -2070,7 +2070,13 @@ void VMEConfigTreeWidget::loadEventFromFile()
     auto sourceVariables = eventConfig->getVariables();
 
     for (const auto &varName: sourceVariables.symbolNameSet())
-        targetEvent->setVariable(varName, sourceVariables[varName]);
+    {
+        if (!vme_script::is_system_variable_name(varName)
+            && !vme_script::is_mesytec_variable_name(varName))
+        {
+            targetEvent->setVariable(varName, sourceVariables[varName]);
+        }
+    }
 
     auto childModules = eventConfig->getModuleConfigs();
 
