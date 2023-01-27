@@ -2,6 +2,11 @@
 TODO list
 ==================================================
 
+- when creating an new event config from file let the existing logic figure out
+  variable values for sys_irq and and mesy_mcst. This way the existing setup won't
+  be broken as easily. More generally do not import system and mesytec variables,
+  only user defined ones.
+
 - plot widgets:
   * move index selector to the very left of the toolbar
   * replace resolution slider with a drop down box like in the plot grid
