@@ -635,6 +635,23 @@ void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
     assert(m_d->m_runInProgress);
 }
 
+#if 0
+void EventServer::processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
+{
+    Q_UNUSED(crateIndex);
+    Q_UNUSED(eventIndex);
+    Q_UNUSED(moduleDataList);
+    Q_UNUSED(moduleCount);
+
+    if (!m_d->m_enabled) return;
+    // Noop for this server case. We're interested in the endEvent() call as at
+    // that point all data from all modules has been processed by the a2
+    // analysis system and is available at the output pipes of the data
+    // sources.
+    assert(m_d->m_runInProgress);
+}
+#endif
+
 void EventServer::processTimetick()
 {
     if (!m_d->m_enabled) return;

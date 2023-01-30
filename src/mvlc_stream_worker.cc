@@ -263,7 +263,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
     // Last part of the systemEvent callback chain, calling into the analysis.
     auto systemEvent_analysis = [this, runInfo, analysis, logger](
-        void *, int /*crateIndex*/, const u32 *header, u32 size)
+        void *, int crateIndex, const u32 *header, u32 size)
     {
         static const char *lambdaName = "systemEvent_analysis"; (void) lambdaName;
         logger->trace("f={}, header={}, size={}", lambdaName,
@@ -294,6 +294,9 @@ void MVLC_StreamWorker::setupParserCallbacks(
             for (auto &c: m_moduleConsumers)
                 c->processTimetick();
         }
+
+        for (auto &c: m_moduleConsumers)
+            c->processSystemEvent(crateIndex, header, size);
     };
 
     // Potential middle part of the eventData chain. Calls into to multi event splitter.

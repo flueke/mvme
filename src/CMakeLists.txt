@@ -313,6 +313,7 @@ add_library(libmvme SHARED
     histo_ui.cc
     histo_util.cc
     listfile_browser.cc
+    listfile_filtering.cc
     listfile_recovery.cc
     listfile_recovery_wizard.cc
     listfile_replay.cc
