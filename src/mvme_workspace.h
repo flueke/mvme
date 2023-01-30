@@ -43,4 +43,12 @@ inline std::shared_ptr<QSettings> make_workspace_settings(const QString &workspa
     return result;
 }
 
+// Note: this only works if the current directory has been changed to the
+// workspace directory.
+inline QSettings make_workspace_settings()
+{
+    return QSettings("mvmeworkspace.ini", QSettings::IniFormat);
+}
+
+
 #endif /* __MVME_WORKSPACE_H__ */

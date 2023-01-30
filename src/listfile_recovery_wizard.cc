@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "listfile_recovery.h"
+#include "mvme_workspace.h"
 #include "util/qt_str.h"
 #include "util/qt_threading.h"
 
@@ -27,12 +28,6 @@
 
 namespace mesytec::mvme::listfile_recovery
 {
-
-// FIXME: move this into mvme_workspace.h and fix the awful function in there
-QSettings make_workspace_settings()
-{
-    return QSettings("mvmeworkspace.ini", QSettings::IniFormat);
-}
 
 enum Pages
 {
