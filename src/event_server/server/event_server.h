@@ -36,24 +36,27 @@ class LIBMVME_EXPORT EventServer: public QObject, public IStreamModuleConsumer
         static const uint16_t Default_ListenPort = 13801;
 
         explicit EventServer(QObject *parent = nullptr);
-        virtual ~EventServer();
+        ~EventServer();
 
-        virtual void startup() override;
-        virtual void shutdown() override;
+        void startup() override;
+        void shutdown() override;
 
-        virtual void beginRun(const RunInfo &runInfo,
+        void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
                               const analysis::Analysis *analysis) override;
 
-        virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) override;
+        void endRun(const DAQStats &stats, const std::exception *e = nullptr) override;
 
-        virtual void beginEvent(s32 eventIndex) override;
-        virtual void endEvent(s32 eventIndex) override;
-        void processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size) override;
-        void processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount) override;
-        virtual void processTimetick() override;
+        void beginEvent(s32 eventIndex) override;
+        void endEvent(s32 eventIndex) override;
+        void processModuleData(s32 eventIndex, s32 moduleIndex,
+                                       const u32 *data, u32 size) override;
+        void processModuleData(s32 crateIndex, s32 eventIndex,
+                               const ModuleData *moduleDataList, unsigned moduleCount) override;
+        void processTimetick() override;
         void processSystemEvent(s32 /*crateIndex*/, const u32 */*header*/, u32 /*size*/) override {} // noop
-        virtual void setLogger(Logger logger) override;
+        void setLogger(Logger logger) override;
+        Logger &getLogger() override;
 
         // Server specific settings and info
         void setListeningInfo(const QHostAddress &address,

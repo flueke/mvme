@@ -327,6 +327,11 @@ void EventServer::setLogger(Logger logger)
     m_d->m_logger = logger;
 }
 
+StreamConsumerBase::Logger &EventServer::getLogger()
+{
+    return m_d->m_logger;
+}
+
 void EventServer::setListeningInfo(const QHostAddress &address, quint16 port)
 {
     if (address != m_d->m_listenAddress || port != m_d->m_listenPort)

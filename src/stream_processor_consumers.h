@@ -18,7 +18,15 @@ class LIBMVME_EXPORT StreamConsumerBase
         using Logger = std::function<void (const QString &)>;
         virtual ~StreamConsumerBase() {}
         virtual void setLogger(Logger logger) = 0;
-};
+        virtual Logger &getLogger() = 0;
+
+    protected:
+        void logMessage(const QString &msg)
+        {
+            if (auto &logger = getLogger())
+                logger(msg);
+        }
+ };
 
 /* Interface for consumers of raw module data. */
 class LIBMVME_EXPORT IStreamModuleConsumer: public StreamConsumerBase

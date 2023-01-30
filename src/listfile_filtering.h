@@ -11,6 +11,7 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         ~ListfileFilterStreamConsumer() override;
 
         void setLogger(Logger logger) override;
+        Logger &getLogger() override;
 
         void startup() override {}
         void shutdown() override {}
