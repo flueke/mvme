@@ -1996,6 +1996,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             connect(this, &AbstractOpConfigWidget::validityMayHaveChanged, this, [this]() {
                 pb_generateCode->setEnabled(isValid());
+                pb_openOutputDir->setEnabled(isValid());
             });
 
             connect(pb_openOutputDir, &QPushButton::clicked, this, [this, ex, logger] () {
