@@ -117,6 +117,16 @@ class TimetickGenerator
 
 };
 
+// Module index mappings are used to handle modules that are disabled in the VME
+// config. Readout data produced by VME controllers is "missing" any disabled
+// modules, thus module indexes need to be adjusted for the analysis to work
+// correctly.
+using ModuleIndexMap = std::array<int, MaxVMEModules>;
+using EventModuleIndexMaps = std::array<ModuleIndexMap, MaxVMEEvents>;
+
+EventModuleIndexMaps make_module_index_mappings(const VMEConfig &vmeConfig);
+QString debug_format_module_index_mappings(const EventModuleIndexMaps &mappings, const VMEConfig &vmeConfig);
+
 }
 
 #endif /* __VME_ANALYSIS_COMMON_H__ */

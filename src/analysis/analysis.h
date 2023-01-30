@@ -21,6 +21,8 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#include <mesytec-mvlc/mvlc_readout_parser.h>
+
 #include "analysis/a2/a2.h"
 #include "analysis/a2/memory.h"
 #include "analysis/a2/multiword_datafilter.h"
@@ -2227,13 +2229,6 @@ class LIBMVME_EXPORT Analysis:
                       const VMEConfig *vmeConfig,
                       Logger logger = {});
 
-    private:
-        void beginRun(const RunInfo &runInfo,
-                      const vme_analysis_common::VMEIdToIndex &vmeMap,
-                      Logger logger = {});
-
-    public:
-
         enum BeginRunOption
         {
             ClearState,
@@ -2251,6 +2246,10 @@ class LIBMVME_EXPORT Analysis:
         // Processing
         //
         void beginEvent(int eventIndex);
+        // The new (as of 230130) primary method to pass event data to the analysis.
+        void processModuleData(int crateIndex, int eventIndex,
+                               const mesytec::mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
+        // The old variant, requiring one call per module.
         void processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
@@ -2315,6 +2314,8 @@ class LIBMVME_EXPORT Analysis:
         QVector<bool> getUserLevelsHidden() const;
 
         vme_analysis_common::VMEIdToIndex getVMEIdToIndexMapping() const;
+
+        vme_analysis_common::EventModuleIndexMaps getModuleIndexMappings() const;
 
     private:
         void updateRank(OperatorPtr op,

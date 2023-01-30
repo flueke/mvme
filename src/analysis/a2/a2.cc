@@ -4552,6 +4552,8 @@ void a2_end_event(A2 *a2, int eventIndex)
 
             bool stepOperator = true;
 
+            // Figure out if the operator should be run or skipped by AND'ing
+            // together all the condition bits referenced by the operator.
             for (auto bitIndex: op->conditionBitIndexes)
             {
                 assert(bitIndex < a2->conditionBits.size());

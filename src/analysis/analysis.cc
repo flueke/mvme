@@ -3963,6 +3963,7 @@ static const size_t A2ArenaSegmentSize = Kilobytes(256);
 
 struct Analysis::Private
 {
+    vme_analysis_common::EventModuleIndexMaps eventModuleIndexMaps_;
 };
 
 Analysis::Analysis(QObject *parent)
@@ -5072,23 +5073,17 @@ void Analysis::beginRun(const RunInfo &runInfo,
                         const VMEConfig *vmeConfig,
                         Logger logger)
 {
-    beginRun(runInfo,
-             vme_analysis_common::build_id_to_index_mapping(vmeConfig),
-             logger);
-}
+    assert(vmeConfig);
 
-void Analysis::beginRun(const RunInfo &runInfo,
-                        const vme_analysis_common::VMEIdToIndex &vmeMap,
-                        Logger logger)
-{
     using ClockType = std::chrono::high_resolution_clock;
     auto tStart = ClockType::now();
 
+    auto newVmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
 
     const bool fullBuild = (
         m_runInfo.runId != runInfo.runId
         || m_runInfo.isReplay != runInfo.isReplay
-        || m_vmeMap != vmeMap
+        || m_vmeMap != newVmeMap
         || getObjectFlags() & ObjectFlags::NeedsRebuild);
 
 #if 1 // ENABLE_ANALYSIS_DEBUG
@@ -5101,7 +5096,8 @@ void Analysis::beginRun(const RunInfo &runInfo,
 #endif
 
     m_runInfo = runInfo;
-    m_vmeMap = vmeMap;
+    m_vmeMap = newVmeMap;
+    d->eventModuleIndexMaps_ = vme_analysis_common::make_module_index_mappings(*vmeConfig);
 
     if (!runInfo.keepAnalysisState)
     {
@@ -5373,6 +5369,21 @@ void Analysis::endRun()
 void Analysis::beginEvent(int eventIndex)
 {
     a2_begin_event(m_a2State->a2, eventIndex);
+}
+
+void Analysis::processModuleData(int crateIndex, int eventIndex,
+                                 const mesytec::mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+{
+    for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
+    {
+        auto &moduleData = moduleDataList[parserModuleIndex];
+        int moduleIndex = d->eventModuleIndexMaps_[eventIndex][parserModuleIndex];
+
+        if (moduleData.data.size)
+        {
+            this->processModuleData(eventIndex, moduleIndex, moduleData.data.data, moduleData.data.size);
+        }
+    }
 }
 
 void Analysis::processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size)

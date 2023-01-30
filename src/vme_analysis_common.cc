@@ -441,4 +441,58 @@ VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig)
     return result;
 }
 
+EventModuleIndexMaps make_module_index_mappings(const VMEConfig &vmeConfig)
+{
+    EventModuleIndexMaps result;
+
+    for (auto &indexMap: result)
+        indexMap.fill(-1);
+
+    auto events = vmeConfig.getEventConfigs();
+
+    for (int ei=0; ei<events.size(); ++ei)
+    {
+        auto &indexMap = result[ei];
+        auto modules = events[ei]->getModuleConfigs();
+
+        auto mapIter = indexMap.begin();
+        const auto mapEnd = indexMap.end();
+
+        for (int mi=0; mi<modules.size(); ++mi)
+        {
+            if (modules.at(mi)->isEnabled() && mapIter != mapEnd)
+                *mapIter++ = mi;
+        }
+    }
+
+    return result;
+}
+
+QString debug_format_module_index_mappings(const EventModuleIndexMaps &mappings, const VMEConfig &vmeConfig)
+{
+    QString buf;
+    QTextStream out(&buf);
+
+    auto events = vmeConfig.getEventConfigs();
+
+    for (int ei=0; ei<events.size(); ++ei)
+    {
+        out << "moduleIndexMap for event " << ei << ":\n";
+        auto &indexMap = mappings[ei];
+        auto modules = events[ei]->getModuleConfigs();
+
+        for (unsigned pim=0; pim<indexMap.size(); ++pim)
+        {
+            if (auto analysisIndex = indexMap[pim];
+                analysisIndex >= 0)
+            {
+                out << "parserModuleIndex=" << pim << " -> analysisModuleIndex=" << indexMap[pim]
+                 << " " << modules[indexMap[pim]]->objectName() << "\n";
+            }
+        }
+    }
+
+    return buf;
+}
+
 }
