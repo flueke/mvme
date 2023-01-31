@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        auto doc = analysis::analysis_to_json_doc(*analysis);
+        auto doc = analysis::serialize_analysis_to_json_document(*analysis);
 
         if (outFile.write(doc.toJson()) < 0)
         {

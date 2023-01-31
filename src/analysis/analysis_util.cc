@@ -671,22 +671,6 @@ void add_default_filters(Analysis *analysis, ModuleConfig *module)
     analysis->addObjects(objectStore);
 }
 
-QJsonObject analysis_to_json_object(const Analysis &analysis)
-{
-    QJsonObject innerJson;
-    analysis.write(innerJson);
-
-    QJsonObject outerJson;
-    outerJson["AnalysisNG"] = innerJson;
-
-    return outerJson;
-}
-
-QJsonDocument analysis_to_json_doc(const Analysis &analysis)
-{
-    return QJsonDocument(analysis_to_json_object(analysis));
-}
-
 std::pair<std::shared_ptr<Analysis>, std::error_code> read_analysis(const QJsonDocument &doc)
 {
     auto json = doc.object();

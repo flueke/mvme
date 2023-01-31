@@ -2966,11 +2966,9 @@ void MVMEContext::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 
 QJsonDocument MVMEContext::getAnalysisJsonDocument() const
 {
-    QJsonObject dest, json;
-    getAnalysis()->write(dest);
-    json[QSL("AnalysisNG")] = dest;
-    QJsonDocument doc(json);
-    return doc;
+    if (auto ana = getAnalysis())
+        return analysis::serialize_analysis_to_json_document(*ana);
+    return {};
 }
 
 void MVMEContext::addAnalysisOperator(QUuid eventId,

@@ -22,6 +22,14 @@
 #define __ANALYSIS_H__
 
 #include <mesytec-mvlc/mvlc_readout_parser.h>
+#include <fstream>
+#include <memory>
+#include <pcg_random.hpp>
+#include <QDir>
+#include <QUuid>
+#include <qwt_interval.h>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include "analysis/a2/a2.h"
 #include "analysis/a2/memory.h"
@@ -39,13 +47,6 @@
 #include "../globals.h"
 #include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
-
-#include <fstream>
-#include <memory>
-#include <pcg_random.hpp>
-#include <QDir>
-#include <QUuid>
-#include <qwt_interval.h>
 
 class QJsonObject;
 class VMEConfig;
@@ -2429,7 +2430,8 @@ LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
 QStringList LIBMVME_EXPORT
 make_parent_path_list(const AnalysisObjectPtr &obj);
 
-QJsonDocument serialize_analysis_to_json_document(const Analysis &analysis);
+QJsonObject LIBMVME_EXPORT serialize_analysis_to_json_object(const Analysis &analysis);
+QJsonDocument LIBMVME_EXPORT serialize_analysis_to_json_document(const Analysis &analysis);
 
 } // end namespace analysis
 
