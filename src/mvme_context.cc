@@ -1833,6 +1833,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
     m_d->m_runInfo.isReplay = true;
     m_d->m_runInfo.infoDict["replaySourceFile"] = fi.fileName();
+    m_d->m_runInfo.infoDict["listfileLogBuffer"] = m_d->listfileReplayHandle.messages;
 
     m_d->listfileReplayWorker->setEventsToRead(nEvents);
 
