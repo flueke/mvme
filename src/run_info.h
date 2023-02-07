@@ -48,7 +48,9 @@ inline bool operator==(const RunInfo &a, const RunInfo &b)
 {
     return a.runId == b.runId
         && a.keepAnalysisState == b.keepAnalysisState
-        && a.isReplay == b.isReplay;
+        && a.isReplay == b.isReplay
+        && a.ignoreStartupErrors == b.ignoreStartupErrors
+        && a.infoDict == b.infoDict;
 }
 
 inline bool operator!=(const RunInfo &a, const RunInfo &b)
