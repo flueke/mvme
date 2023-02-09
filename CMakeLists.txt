@@ -122,6 +122,7 @@ find_path(QUAZIP_INCLUDE_DIR
     PATH_SUFFIXES quazip quazip-qt5 quazip5
     QuaZip-Qt5-1.1/quazip
     QuaZip-Qt5-1.3/quazip
+    QuaZip-Qt5-1.4/quazip
     )
 
 #include_directories(${QUAZIP_INCLUDE_DIR})
