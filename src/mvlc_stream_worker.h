@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -21,17 +21,19 @@
 #ifndef __MVLC_STREAM_WORKERS_H__
 #define __MVLC_STREAM_WORKERS_H__
 
-#include "mesytec-mvlc/mvlc_readout_parser.h"
+#include <mesytec-mvlc/mvlc_readout_parser.h>
 #include "stream_worker_base.h"
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mesy_vme_format_checker.h>
 
 #include "libmvme_export.h"
+
 #include "data_buffer_queue.h"
-#include "multi_event_splitter.h"
 #include "mesytec_diagnostics.h"
+#include "multi_event_splitter.h"
 #include "mvlc/readout_parser_support.h"
+#include "vme_analysis_common.h"
 
 class MVMEContext;
 
@@ -174,10 +176,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
     private:
         using UniqueLock = mesytec::mvlc::UniqueLock;
 
-        // Used for mapping mvlc::readout_parser module indexes to mvme module
-        // indexes so that "disabled" modules are handled correctly.
-        using ModuleIndexMap = std::array<int, MaxVMEModules>;
-
         void setState(AnalysisWorkerState newState);
 
         // Used for the transition from non-Idle state to Idle state.
@@ -223,7 +221,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         MVMEStreamProcessorCounters m_counters = {};
 
         // Per event mappings of readout_parser -> mvme module indexes.
-        std::array<ModuleIndexMap, MaxVMEEvents> m_eventModuleIndexMaps;
+        vme_analysis_common::EventModuleIndexMaps m_eventModuleIndexMaps;
         mesytec::mvlc::ReadoutBufferQueues &m_snoopQueues;
         mesytec::mvlc::readout_parser::ReadoutParserCallbacks m_parserCallbacks;
         mesytec::mvlc::readout_parser::ReadoutParserState m_parser;

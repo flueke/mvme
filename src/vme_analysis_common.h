@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -116,6 +116,16 @@ class TimetickGenerator
         double remainder_ms = 0.0;
 
 };
+
+// Module index mappings are used to handle modules that are disabled in the VME
+// config. Readout data produced by VME controllers is "missing" any disabled
+// modules, thus module indexes need to be adjusted for the analysis to work
+// correctly.
+using ModuleIndexMap = std::array<int, MaxVMEModules>;
+using EventModuleIndexMaps = std::array<ModuleIndexMap, MaxVMEEvents>;
+
+EventModuleIndexMaps make_module_index_mappings(const VMEConfig &vmeConfig);
+QString debug_format_module_index_mappings(const EventModuleIndexMaps &mappings, const VMEConfig &vmeConfig);
 
 }
 

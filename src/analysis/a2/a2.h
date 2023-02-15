@@ -542,15 +542,6 @@ Operator make_interval_condition(
     PipeVectors input,
     const std::vector<Interval> &intervals);
 
-Operator make_rectangle_condition(
-    memory::Arena *arena,
-    PipeVectors xInput,
-    PipeVectors yInput,
-    s32 xIndex,
-    s32 yIndex,
-    Interval xInterval,
-    Interval yInterval);
-
 Operator make_polygon_condition(
     memory::Arena *arena,
     PipeVectors xInput,
@@ -558,12 +549,6 @@ Operator make_polygon_condition(
     s32 xIndex,
     s32 yIndex,
     const std::vector<std::pair<double, double>> &polygon);
-
-Operator make_lut_condition(
-    memory::Arena *arena,
-    const std::vector<PipeVectors> &inputs,
-    const std::vector<s32> &inputParamIndexes,
-    const std::vector<bool> &lut);
 
 Operator make_expression_condition(
     memory::Arena *arena,

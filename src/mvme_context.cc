@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -22,6 +22,16 @@
 // Includes winsock2.h so it's placed at the top to avoid warnings.
 #include "mvme_context.h"
 
+#include <QHostAddress>
+#include <QMessageBox>
+#include <QProgressDialog>
+#include <QtConcurrent>
+#include <QThread>
+#include <tuple>
+
+#include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/mvlc_impl_eth.h>
+
 #include "analysis/a2_adapter.h"
 #include "analysis/a2/memory.h"
 #include "analysis/analysis.h"
@@ -29,18 +39,17 @@
 #include "analysis/analysis_ui.h"
 #include "event_server/server/event_server.h"
 #include "file_autosaver.h"
+#include "listfile_filtering.h"
 #include "logfile_helper.h"
-#include <mesytec-mvlc/mesytec-mvlc.h>
-#include <mesytec-mvlc/mvlc_impl_eth.h>
-#include "mvme_mvlc_listfile.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_readout_worker.h"
 #include "mvlc_stream_worker.h"
-#include "mvme_context_lib.h"
 #include "mvmecontext_analysis_service_provider.h"
+#include "mvme_context_lib.h"
 #include "mvme.h"
 #include "mvme_listfile_worker.h"
+#include "mvme_mvlc_listfile.h"
 #include "mvme_stream_worker.h"
 #include "mvme_workspace.h"
 #include "remote_control.h"
@@ -56,14 +65,6 @@
 #include "vmusb_readout_worker.h"
 
 #include "git_sha1.h"
-
-#include <QHostAddress>
-#include <QMessageBox>
-#include <QProgressDialog>
-#include <QtConcurrent>
-#include <QThread>
-#include <qnamespace.h>
-#include <tuple>
 
 namespace
 {
@@ -928,6 +929,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         assert(invoked);
         (void) invoked;
     }
+
+    // FIXME: test code!
+    m_streamWorker->attachModuleConsumer(std::make_shared<ListfileFilterStreamConsumer>());
 
     // Moves the StreamWorker and its EventServer child
     m_streamWorker->moveToThread(m_analysisThread);
@@ -2962,11 +2966,9 @@ void MVMEContext::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
 
 QJsonDocument MVMEContext::getAnalysisJsonDocument() const
 {
-    QJsonObject dest, json;
-    getAnalysis()->write(dest);
-    json[QSL("AnalysisNG")] = dest;
-    QJsonDocument doc(json);
-    return doc;
+    if (auto ana = getAnalysis())
+        return analysis::serialize_analysis_to_json_document(*ana);
+    return {};
 }
 
 void MVMEContext::addAnalysisOperator(QUuid eventId,

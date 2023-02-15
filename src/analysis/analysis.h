@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -21,6 +21,16 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#include <mesytec-mvlc/mvlc_readout_parser.h>
+#include <fstream>
+#include <memory>
+#include <pcg_random.hpp>
+#include <QDir>
+#include <QUuid>
+#include <qwt_interval.h>
+#include <QJsonDocument>
+#include <QJsonObject>
+
 #include "analysis/a2/a2.h"
 #include "analysis/a2/memory.h"
 #include "analysis/a2/multiword_datafilter.h"
@@ -37,13 +47,6 @@
 #include "../globals.h"
 #include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
-
-#include <fstream>
-#include <memory>
-#include <pcg_random.hpp>
-#include <QDir>
-#include <QUuid>
-#include <qwt_interval.h>
 
 class QJsonObject;
 class VMEConfig;
@@ -1606,33 +1609,6 @@ class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
         QVector<QwtInterval> m_intervals;
 };
 
-class LIBMVME_EXPORT RectangleCondition: public ConditionInterface
-{
-    Q_OBJECT
-    Q_INTERFACES(analysis::ConditionInterface)
-    public:
-        Q_INVOKABLE RectangleCondition(QObject *parent = 0);
-
-        virtual QString getDisplayName() const override { return QSL("Rectangle Condition"); }
-        virtual QString getShortName() const override { return QSL("RectCond"); }
-
-        virtual void read(const QJsonObject &json) override;
-        virtual void write(QJsonObject &json) const override;
-
-        virtual s32 getNumberOfSlots() const override;
-        virtual Slot *getSlot(s32 slotIndex) override;
-
-        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-
-        void setRectangle(const QRectF &rect);
-        QRectF getRectangle() const;
-
-    private:
-        Slot m_inputX;
-        Slot m_inputY;
-        QRectF m_rectangle;
-};
-
 class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
 {
     Q_OBJECT
@@ -1658,55 +1634,6 @@ class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
         Slot m_inputX;
         Slot m_inputY;
         QPolygonF m_polygon;
-};
-
-/* Compound condition with multiple inputs and a LUT defining the output
- * function.
- *
- * Each input specifies a bit used for lookups into the LUT, with input0
- * supplying the lowest bit. Invalid input parameters produce a 'false' value,
- * all valid inputs produce a 'true' value.
- *
- * The idea is to restrict the GUI to only offer other conditions as inputs but
- * in theory it is possible to connect any output pipe to the inputs.
- *
- * Note: the tests on the inputs could be skipped and instead the bit indexes
- * of the input conditions could be used to form the value for the LUT lookup.
- * This implementation would then restrict the inputs to only be other
- * conditions.
- */
-class LIBMVME_EXPORT LutCondition: public ConditionInterface
-{
-    Q_OBJECT
-    Q_INTERFACES(analysis::ConditionInterface)
-
-    public:
-        static const int MaxInputSlots = 8;
-
-        Q_INVOKABLE LutCondition(QObject *parent = 0);
-
-        QString getDisplayName() const override { return QSL("LUT Condition"); }
-        QString getShortName() const override { return QSL("LutCond"); }
-
-        // serialization
-        void read(const QJsonObject &json) override;
-        void write(QJsonObject &json) const override;
-
-        // input slots
-        bool hasVariableNumberOfSlots() const override { return true; }
-        bool addSlot() override;
-        bool removeLastSlot() override;
-        s32 getNumberOfSlots() const override { return m_inputs.size(); }
-        Slot *getSlot(s32 slotIndex) override { return m_inputs.value(slotIndex).get(); }
-
-        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
-
-        std::vector<bool> getLUT() const { return m_lut; }
-        void setLUT(const std::vector<bool> &lut) { m_lut = lut; }
-
-    private:
-        QVector<std::shared_ptr<Slot>> m_inputs;
-        std::vector<bool> m_lut;
 };
 
 class LIBMVME_EXPORT ExpressionCondition: public ConditionInterface
@@ -1781,7 +1708,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
         // FIXME: move to private vars
         QVector<std::shared_ptr<Histo1D>> m_histos;
-        s32 m_bins = 0;
+        s32 m_bins = 1u << 13;
         QString m_xAxisTitle;
 
         // Subrange limits
@@ -1832,8 +1759,8 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         Histo2DPtr getHisto() const { return m_histo; }
 
         std::shared_ptr<Histo2D> m_histo; // FIXME: move to private
-        s32 m_xBins = 0;
-        s32 m_yBins = 0;
+        s32 m_xBins = 1u << 10;
+        s32 m_yBins = 1u << 10;
 
         // For subrange selection. Makes it possible to get a high resolution
         // view of a rectangular part of the input without having to add a cut
@@ -2303,13 +2230,6 @@ class LIBMVME_EXPORT Analysis:
                       const VMEConfig *vmeConfig,
                       Logger logger = {});
 
-    private:
-        void beginRun(const RunInfo &runInfo,
-                      const vme_analysis_common::VMEIdToIndex &vmeMap,
-                      Logger logger = {});
-
-    public:
-
         enum BeginRunOption
         {
             ClearState,
@@ -2327,6 +2247,10 @@ class LIBMVME_EXPORT Analysis:
         // Processing
         //
         void beginEvent(int eventIndex);
+        // The new (as of 230130) primary method to pass event data to the analysis.
+        void processModuleData(int crateIndex, int eventIndex,
+                               const mesytec::mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
+        // The old variant, requiring one call per module.
         void processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
@@ -2391,6 +2315,8 @@ class LIBMVME_EXPORT Analysis:
         QVector<bool> getUserLevelsHidden() const;
 
         vme_analysis_common::VMEIdToIndex getVMEIdToIndexMapping() const;
+
+        vme_analysis_common::EventModuleIndexMaps getModuleIndexMappings() const;
 
     private:
         void updateRank(OperatorPtr op,
@@ -2504,7 +2430,8 @@ LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
 QStringList LIBMVME_EXPORT
 make_parent_path_list(const AnalysisObjectPtr &obj);
 
-QJsonDocument serialize_analysis_to_json_document(const Analysis &analysis);
+QJsonObject LIBMVME_EXPORT serialize_analysis_to_json_object(const Analysis &analysis);
+QJsonDocument LIBMVME_EXPORT serialize_analysis_to_json_document(const Analysis &analysis);
 
 } // end namespace analysis
 

@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -1996,6 +1996,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             connect(this, &AbstractOpConfigWidget::validityMayHaveChanged, this, [this]() {
                 pb_generateCode->setEnabled(isValid());
+                pb_openOutputDir->setEnabled(isValid());
             });
 
             connect(pb_openOutputDir, &QPushButton::clicked, this, [this, ex, logger] () {

@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -51,7 +51,9 @@ class LIBMVME_EXPORT EventServer: public QObject, public IStreamModuleConsumer
         virtual void endEvent(s32 eventIndex) override;
         virtual void processModuleData(s32 eventIndex, s32 moduleIndex,
                                        const u32 *data, u32 size) override;
+        //void processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount) override;
         virtual void processTimetick() override;
+        void processSystemEvent(s32 /*crateIndex*/, const u32 */*header*/, u32 /*size*/) override {} // noop
         virtual void setLogger(Logger logger) override;
 
         // Server specific settings and info

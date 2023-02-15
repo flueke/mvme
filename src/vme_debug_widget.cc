@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -399,17 +399,16 @@ void VMEDebugWidget::on_saveScript_clicked()
         path = settings.value(scriptFileSetting).toString();
     }
 
-    QString fileName = QFileDialog::getSaveFileName(this, QSL("Save vme script"), path,
-                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
+    QFileDialog fd(this, QSL("Save vme script"), path,
+                   QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
 
-    if (fileName.isEmpty())
+    fd.setDefaultSuffix(".vmescript");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return;
 
-    QFileInfo fi(fileName);
-    if (fi.completeSuffix().isEmpty())
-    {
-        fileName += ".vmescript";
-    }
+    auto fileName = fd.selectedFiles().front();
 
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly))
@@ -427,7 +426,7 @@ void VMEDebugWidget::on_saveScript_clicked()
         return;
     }
 
-    settings.setValue(scriptFileSetting, fi.absolutePath());
+    settings.setValue(scriptFileSetting, QFileInfo(fileName).absolutePath());
 }
 
 void VMEDebugWidget::on_loadScript_clicked()

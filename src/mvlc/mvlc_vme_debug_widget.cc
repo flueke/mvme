@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -398,12 +398,6 @@ void VMEDebugWidget::slt_saveScript()
     if (fileName.isEmpty())
         return;
 
-    QFileInfo fi(fileName);
-    if (fi.completeSuffix().isEmpty())
-    {
-        fileName += ".vmescript";
-    }
-
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly))
     {
@@ -422,7 +416,7 @@ void VMEDebugWidget::slt_saveScript()
         return;
     }
 
-    settings.setValue(Key_LastScriptDirectory, fi.absolutePath());
+    settings.setValue(Key_LastScriptDirectory, QFileInfo(fileName).absolutePath());
 }
 
 void VMEDebugWidget::slt_loadScript()

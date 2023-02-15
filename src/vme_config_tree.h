@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -112,11 +112,15 @@ class LIBMVME_EXPORT VMEConfigTreeWidget: public QWidget
         void editModule();
         void saveModuleToFile(const ModuleConfig *mod);
         void addModuleFromFile();
+        void saveEventToFile(const EventConfig *ev);
+        void loadEventFromFile();
 
         void addGlobalScript();
+        void loadScriptFromFile();
         void addScriptDirectory();
         void removeDirectoryRecursively();
         void removeGlobalScript();
+
         void runScripts();
         void editName();
         void initModule();

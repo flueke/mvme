@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -586,6 +586,7 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
 
     displayChanged();
+    resize(1000, 562);
 }
 
 Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceProvider *serviceProvider, QWidget *parent)

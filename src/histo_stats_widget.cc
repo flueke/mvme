@@ -457,13 +457,18 @@ QTextStream &HistoStatsWidget::Private::makeStatsText(QTextStream &out) const
 void HistoStatsWidget::Private::handleActionExport()
 {
     auto startdir = QSettings().value("LastHistoStatsSaveDirectory").toString();
-    auto filename = QFileDialog::getSaveFileName(q, "Save histo stats to file", startdir, "*.txt");
+
+    QFileDialog fd(q, "Save histo stats to file", startdir, "*.txt");
+    fd.setDefaultSuffix(".txt");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
+        return;
+
+    auto filename = fd.selectedFiles().front();
 
     if (filename.isEmpty())
         return;
-
-    if (QFileInfo(filename).completeSuffix().isEmpty())
-        filename += ".txt";
 
     QFile outfile(filename);
 

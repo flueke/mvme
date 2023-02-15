@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -150,7 +150,7 @@ struct MVLCReadoutWorker::Private
 
     std::unique_ptr<mesytec::mvlc::ReadoutWorker> mvlcReadoutWorker;
     std::unique_ptr<mesytec::mvlc::listfile::SplitZipCreator> mvlcZipCreator;
-    std::unique_ptr<mesytec::mvlc::listfile::WriteHandle> listfileWriteHandle;
+    std::shared_ptr<mesytec::mvlc::listfile::WriteHandle> listfileWriteHandle;
     mvlc::ReadoutBufferQueues *snoopQueues = nullptr;
 
     // lots of mvlc api layers
@@ -573,13 +573,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
                 // This call writes out the preamble. The same happens if listfile splitting is
                 // enabled and a new archive is started by the SplitZipCreator.
-                d->listfileWriteHandle = std::unique_ptr<mvlc::listfile::WriteHandle>(
+                d->listfileWriteHandle = std::shared_ptr<mvlc::listfile::WriteHandle>(
                     d->mvlcZipCreator->createListfileEntry());
             }
 #ifdef MVLC_HAVE_ZMQ
             else if (outInfo.format == ListFileFormat::ZMQ_Ganil)
             {
-                d->listfileWriteHandle = std::make_unique<mvlc::listfile::ZmqGanilWriteHandle>();
+                d->listfileWriteHandle = std::make_shared<mvlc::listfile::ZmqGanilWriteHandle>();
                 // Note: intentionally not sending the listfile preamble as the GANIL receiver
                 // code does not expect it.
             }
@@ -595,7 +595,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             d->mvlcCtrl->getMVLC(),
             d->stackTriggers,
             *d->snoopQueues,
-            d->listfileWriteHandle.get());
+            d->listfileWriteHandle);
 
         d->mvlcReadoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
         d->mvlcReadoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);

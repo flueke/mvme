@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -116,16 +116,14 @@ QPair<bool, QString> gui_save_analysis_config_as(
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"),
-                                                    path, fileFilter);
+    QFileDialog fd(nullptr, QSL("Save analysis config"), path, fileFilter);
+    fd.setDefaultSuffix(".analysis");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
 
-    if (fileName.isEmpty())
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return qMakePair(false, QString());
 
-    QFileInfo fi(fileName);
-
-    if (fi.completeSuffix().isEmpty())
-        fileName += QSL(".analysis");
+    auto fileName = fd.selectedFiles().front();
 
     if (gui_save_analysis_impl(analysis, fileName))
         return qMakePair(true, fileName);
@@ -209,12 +207,6 @@ QPair<bool, QString> gui_save_vme_config_as(
     if (filename.isEmpty())
         return qMakePair(false, QString());
 
-    QFileInfo fi(filename);
-    if (fi.completeSuffix().isEmpty())
-    {
-        filename += QSL(".vme");
-    }
-
     if (gui_save_vmeconfig_impl(vmeConfig, filename))
         return qMakePair(true, filename);
 
@@ -284,6 +276,30 @@ const ListfileReplayHandle &context_open_listfile(
     }
 
     return context->getReplayFileHandle();
+}
+
+// Returns true if the given listfile zip archive contains a file called
+// "analysis.analysis".
+bool listfile_contains_analysis(const QString &listfileArchivePath)
+{
+    auto handle = open_listfile(listfileArchivePath);
+    return !handle.analysisBlob.isEmpty();
+}
+
+bool listfile_is_archive_corrupted(const QString &listfileArchivePath)
+{
+    QFileInfo fi(listfileArchivePath);
+    const bool isFile = fi.isFile();
+    const bool isReadable = fi.isReadable();
+
+    if (isFile && isReadable)
+    {
+        // assume the zip is corrupted if quazip cannot open it
+        return !QuaZip(listfileArchivePath).open(QuaZip::mdUnzip);
+    }
+
+    // Cannot determine anything.
+    return false;
 }
 
 //

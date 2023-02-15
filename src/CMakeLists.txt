@@ -114,6 +114,7 @@ add_library(libmvme_core STATIC
     #${LIBMVME_CORE_RC_OUT}
     CVMUSBReadoutList.cpp
     qt_util.cc
+    util/qt_gui_io.cc
     vme_controller.cpp
     vme_script.cc
     vme_script_exec.cc
@@ -312,6 +313,9 @@ add_library(libmvme SHARED
     histo_ui.cc
     histo_util.cc
     listfile_browser.cc
+    listfile_filtering.cc
+    listfile_recovery.cc
+    listfile_recovery_wizard.cc
     listfile_replay.cc
     listfile_replay_worker.cc
     logfile_helper.cc
@@ -549,6 +553,8 @@ add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
 add_mvme_dev_exe(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
 add_mvme_dev_exe(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
 add_mvme_dev_exe(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
+add_mvme_dev_exe(dev_qfiledialog_save_test "dev_qfiledialog_save_test.cc")
+add_mvme_dev_exe(dev_listfile_recovery "dev_listfile_recovery.cc")
 
 if (NOT WIN32)
     add_mvme_dev_exe(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)
@@ -604,21 +610,12 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
 #add_subdirectory(listfile_reader)
 
-#
-# listfile recovery tool
-#
-if (NOT WIN32)
-    find_library(ZLIB z)
-    add_executable(mvme_recover_listfile mvme_recover_listfile_hack.c)
-    target_link_libraries(mvme_recover_listfile ${ZLIB})
-
-    install(TARGETS mvme_recover_listfile
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib)
-endif (NOT WIN32)
-
 add_mvme_exe(mvme_histo_viewer mvme_histo_viewer_main.cc)
 install(TARGETS mvme_histo_viewer RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+# listfile recovery tool
+add_mvme_exe(mvme_listfile_recovery_gui mvme_listfile_recovery_gui.cc)
+install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # automated gtests
 if(MVME_BUILD_TESTS)

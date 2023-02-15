@@ -6,6 +6,9 @@
 namespace mesytec::vme_modules
 {
 
+static const u32 FirmwareRegister = 0x600eu;
+static const u32 HardwareIdRegister = 0x6008u;
+
 // Full 16 bit values of the hardware id register (0x6008).
 struct HardwareIds
 {
@@ -14,7 +17,7 @@ struct HardwareIds
     u16 MTDC_32 = 0x5004;
     u16 MDPP_16 = 0x5005;
     // The VMMRs use the exact same software, so the hardware ids are equal.
-    // VMMR-8 is a VMMR-16 with 8 busses missing.
+    // VMMR-8 is a VMMR-16 with the 8 high busses not yielding data.
     u16 VMMR_8  = 0x5006;
     u16 VMMR_16 = 0x5006;
     u16 MDPP_32 = 0x5007;

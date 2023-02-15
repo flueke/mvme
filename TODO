@@ -2,6 +2,20 @@
 TODO list
 ==================================================
 
+- figure out the vme -> analysis module index mapping stuff. why is it needed?
+  the analysis does see the vmeconfig in beginRun() so it could/should create the
+  index mappings itself. Don't forget IStreamModuleConsumers, they also need the
+  correct indices.
+
+- when creating an new event config from file let the existing logic figure out
+  variable values for sys_irq and and mesy_mcst. This way the existing setup won't
+  be broken as easily. More generally do not import system and mesytec variables,
+  only user defined ones.
+
+- plot widgets:
+  * move index selector to the very left of the toolbar
+  * replace resolution slider with a drop down box like in the plot grid
+
 - When generating histograms for an output pipe the source operator could be
   examined to determine the resolution for the histogram.
 

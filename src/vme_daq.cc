@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -325,7 +325,15 @@ vme_daq_init(
     QVector<ScriptWithResults> ret;
 
     ret += vme_daq_run_global_daq_start_scripts(config, controller, logger, errorLogger, opts);
+
+    if ((opts & AbortOnError) && has_errors(ret))
+        return ret;
+
     ret += vme_daq_run_init_modules(config, controller, logger, errorLogger, opts);
+
+    if ((opts & AbortOnError) && has_errors(ret))
+        return ret;
+
     ret += vme_daq_run_event_daq_start_scripts(config, controller, logger, errorLogger, opts);
 
 #if __WIN32

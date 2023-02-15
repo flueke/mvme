@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -28,6 +28,9 @@
 
 static const char *WorkspaceIniName = "mvmeworkspace.ini";
 
+// TODO: fix this, it's horrible. why shared_ptr? why does it require a
+// workspaceDirPath? mvme does change to the workspace directory when opening
+// the workspace
 inline std::shared_ptr<QSettings> make_workspace_settings(const QString &workspaceDirPath)
 {
     if (workspaceDirPath.isEmpty())
@@ -39,5 +42,13 @@ inline std::shared_ptr<QSettings> make_workspace_settings(const QString &workspa
 
     return result;
 }
+
+// Note: this only works if the current directory has been changed to the
+// workspace directory.
+inline QSettings make_workspace_settings()
+{
+    return QSettings("mvmeworkspace.ini", QSettings::IniFormat);
+}
+
 
 #endif /* __MVME_WORKSPACE_H__ */

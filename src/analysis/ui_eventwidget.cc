@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -2587,8 +2587,6 @@ static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
-    //auto localSelectedObjects  = objects_from_nodes(tree->selectedItems());
-    //auto activeObject = get_shared_analysis_object<AnalysisObject>(activeNode);
     Q_ASSERT(0 <= userLevel && userLevel < m_levelTrees.size());
 
     if (find_object_editor_dialog())
@@ -2675,6 +2673,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
     auto globalSelectedObjects = getAllSelectedObjects();
     auto activeNode = tree->itemAt(pos);
+    // Global pos calculated here and stored for later because if an on-the-fly
+    // sink needs to be created to edit a condition and the globalPos is
+    // calculated later on, then the coordinates are wrong for some unknown
+    // reason.
+    auto globalPos = tree->mapToGlobal(pos);
     QMenu menu;
 
     if (activeNode)
@@ -2818,7 +2821,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
 
     if (!menu.isEmpty())
     {
-        menu.exec(tree->mapToGlobal(pos));
+        menu.exec(globalPos);
     }
 }
 
@@ -5000,11 +5003,20 @@ QAction *EventWidgetPrivate::createEditAction(const OperatorPtr &op)
 
         if (sinks.isEmpty())
         {
-            // TODO(maybe): could create the correct sink type on the fly and
-            // display that or error out and show an error message that no one
-            // will understand. Or offer a non-plot based way of editing, e.g.
-            // run the dialog without using a plot widget or the controller.
-            return {};
+            // No matching sink was found. Create one on the fly, add it to the
+            // analysis and the vector of sinks, then continue down the normal
+            // path.
+            if (auto sink = create_edit_sink_for_condition(cond))
+            {
+                ana->addOperator(sink);
+                sinks.push_back(sink);
+            }
+            else
+            {
+                // No sink could be created. Should not happen.
+                assert(!"condition editing: on-the-fly sink creation failed");
+                return {};
+            }
         }
 
         // Sort the sinks: sinks without an active condition get priority => The
@@ -5089,16 +5101,14 @@ void EventWidgetPrivate::actionExport()
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getSaveFileName(m_q, QSL("Select file to export to"),
-                                                    path, AnalysisLibraryFileFilter);
+    QFileDialog fd(m_q, QSL("Select file to export to"), path, AnalysisLibraryFileFilter);
+    fd.setDefaultSuffix(AnalysisLibraryFileExtension);
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
 
-    if (fileName.isEmpty())
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return;
 
-    QFileInfo fi(fileName);
-
-    if (fi.completeSuffix().isEmpty())
-        fileName += AnalysisLibraryFileExtension;
+    auto fileName = fd.selectedFiles().front();
 
     // Step 1) Collect all objects that have to be written out
     auto analysis = m_serviceProvider->getAnalysis();

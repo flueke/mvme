@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -214,6 +214,9 @@ SinkVector LIBMVME_EXPORT
 ConditionVector LIBMVME_EXPORT
     find_conditions_for_sink(const SinkPtr &sink, const ConditionVector &conditions);
 
+SinkPtr LIBMVME_EXPORT
+    create_edit_sink_for_condition(const ConditionPtr &cond);
+
 // Disconnects the Slots connected to the outputs of the given
 // PipeSourceInterface. Returns number of Slots that have been disconnected.
 size_t LIBMVME_EXPORT disconnect_outputs(PipeSourceInterface *pipeSource);
@@ -226,9 +229,6 @@ collect_multi_event_splitter_filter_strings(
     const VMEConfig &vmeConfig, const Analysis &analysis);
 
 void LIBMVME_EXPORT add_default_filters(Analysis *analysis, ModuleConfig *module);
-
-QJsonObject LIBMVME_EXPORT analysis_to_json_object(const Analysis &analysis);
-QJsonDocument LIBMVME_EXPORT analysis_to_json_doc(const Analysis &analysis);
 
 std::pair<std::shared_ptr<Analysis>, std::error_code> LIBMVME_EXPORT read_analysis(const QJsonDocument &doc);
 

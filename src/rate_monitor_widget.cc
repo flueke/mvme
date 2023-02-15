@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -421,7 +421,7 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<RateMonitorWidgetPrivate>())
 {
-    resize(600, 400);
+    resize(1000, 562);
     setWindowTitle(QSL("Rate Monitor"));
 
     m_d->m_q = this;

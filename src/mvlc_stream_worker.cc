@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -162,45 +162,10 @@ void MVLC_StreamWorker::setState(AnalysisWorkerState newState)
 
 void MVLC_StreamWorker::fillModuleIndexMaps(const VMEConfig *vmeConfig)
 {
-    // Clear, then update the mapping of readout_parser module indexes to analysis module indexes.
-    // This is done to handle VME modules that are disabled in the configuration.
+    m_eventModuleIndexMaps = vme_analysis_common::make_module_index_mappings(*vmeConfig);
 
-    for (auto &indexMap: m_eventModuleIndexMaps)
-        indexMap.fill(-1);
-
-    auto events = vmeConfig->getEventConfigs();
-
-    for (int ei=0; ei<events.size(); ++ei)
-    {
-        auto &indexMap = m_eventModuleIndexMaps[ei];
-        auto modules = events[ei]->getModuleConfigs();
-
-        auto mapIter = indexMap.begin();
-        const auto mapEnd = indexMap.end();
-
-        for (int mi=0; mi<modules.size(); ++mi)
-        {
-            if (modules.at(mi)->isEnabled() && mapIter != mapEnd)
-                *mapIter++ = mi;
-        }
-    }
-
-#if 1
-    for (int ei=0; ei<events.size(); ++ei)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "moduleIndexMap for event" << ei << ":";
-        auto &indexMap = m_eventModuleIndexMaps[ei];
-        auto modules = events[ei]->getModuleConfigs();
-
-        for (unsigned pim=0; pim<indexMap.size(); ++pim)
-        {
-            auto analysisIndex = indexMap[pim];
-            if (analysisIndex >= 0)
-                qDebug() << "   " << __PRETTY_FUNCTION__ << "parserModuleIndex=" << pim
-                    << " -> analysisModuleIndex=" << indexMap[pim] << modules[indexMap[pim]]->objectName();
-        }
-    }
-#endif
+    qDebug().noquote() << __PRETTY_FUNCTION__
+        << vme_analysis_common::debug_format_module_index_mappings(m_eventModuleIndexMaps, *vmeConfig);
 }
 
 void MVLC_StreamWorker::setupParserCallbacks(
@@ -213,88 +178,92 @@ void MVLC_StreamWorker::setupParserCallbacks(
     // Last part of the eventData callback chain, calling into the analysis.
     auto eventData_analysis = [this, analysis, logger] (
         void * /*userContext*/,
-        int /*crateIndex*/,
-        int ei,
+        int crateIndex,
+        int eventIndex,
         const mesytec::mvlc::readout_parser::ModuleData *moduleDataList,
         unsigned moduleCount)
     {
         static const char *lambdaName = "eventData_analysis"; (void) lambdaName;
-        logger->trace("f={}, ei={}, moduleData={}, moduleCount={}", lambdaName, ei,
-                      reinterpret_cast<const void *>(moduleDataList), moduleCount);
+        logger->trace("f={}, eventIndex={}, moduleData={}, moduleCount={}",
+                      lambdaName, eventIndex, reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
         // beginEvent
         {
             this->blockIfPaused();
 
-            analysis->beginEvent(ei);
+            analysis->beginEvent(eventIndex);
 
             for (auto c: m_moduleConsumers)
-                c->beginEvent(ei);
+                c->beginEvent(eventIndex);
 
             if (m_state == WorkerState::SingleStepping)
-                begin_event_record(m_singleStepEventRecord, ei);
+                begin_event_record(m_singleStepEventRecord, eventIndex);
 
             if (m_diag)
-                m_diag->beginEvent(ei);
+                m_diag->beginEvent(eventIndex);
         }
 
         // eventData
+        analysis->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
+
         for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
         {
             auto &moduleData = moduleDataList[parserModuleIndex];
-            int mi = m_eventModuleIndexMaps[ei][parserModuleIndex];
+            int moduleIndex = m_eventModuleIndexMaps[eventIndex][parserModuleIndex];
 
             if (moduleData.data.size)
             {
-                analysis->processModuleData(
-                    ei, mi, moduleData.data.data, moduleData.data.size);
-
                 for (auto c: m_moduleConsumers)
                     c->processModuleData(
-                        ei, mi, moduleData.data.data, moduleData.data.size);
+                        eventIndex, moduleIndex, moduleData.data.data, moduleData.data.size);
 
                 if (m_diag)
                     m_diag->processModuleData(
-                        ei, mi, moduleData.data.data, moduleData.data.size);
+                        eventIndex, moduleIndex, moduleData.data.data, moduleData.data.size);
 
                 UniqueLock guard(m_countersMutex);
-                m_counters.moduleCounters[ei][mi]++;
+                m_counters.moduleCounters[eventIndex][moduleIndex]++;
             }
 
             if (m_state == WorkerState::SingleStepping)
             {
                 record_module_part(
-                    m_singleStepEventRecord, mi,
+                    m_singleStepEventRecord, moduleIndex,
                     moduleData.data.data, moduleData.data.size);
             }
         }
 
         // endEvent
         {
-            analysis->endEvent(ei);
+            analysis->endEvent(eventIndex);
 
             for (auto c: m_moduleConsumers)
             {
-                c->endEvent(ei);
+                c->endEvent(eventIndex);
             }
 
             if (m_diag)
-                m_diag->endEvent(ei);
+                m_diag->endEvent(eventIndex);
 
-            if (0 <= ei && ei < MaxVMEEvents)
+            if (0 <= eventIndex && eventIndex < MaxVMEEvents)
             {
                 UniqueLock guard(m_countersMutex);
                 m_counters.totalEvents++;
-                m_counters.eventCounters[ei]++;
+                m_counters.eventCounters[eventIndex]++;
             }
 
             this->publishStateIfSingleStepping();
+        }
+
+        {
+            // Is module index mapping required when writing out the data?
+            //write_event_data(outputBuffer, crateIndex, ei, moduleDataList, moduleCount);
         }
     };
 
     // Last part of the systemEvent callback chain, calling into the analysis.
     auto systemEvent_analysis = [this, runInfo, analysis, logger](
-        void *, int /*crateIndex*/, const u32 *header, u32 size)
+        void *, int crateIndex, const u32 *header, u32 size)
     {
         static const char *lambdaName = "systemEvent_analysis"; (void) lambdaName;
         logger->trace("f={}, header={}, size={}", lambdaName,
@@ -325,6 +294,9 @@ void MVLC_StreamWorker::setupParserCallbacks(
             for (auto &c: m_moduleConsumers)
                 c->processTimetick();
         }
+
+        for (auto &c: m_moduleConsumers)
+            c->processSystemEvent(crateIndex, header, size);
     };
 
     // Potential middle part of the eventData chain. Calls into to multi event splitter.

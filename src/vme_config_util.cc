@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -20,8 +20,11 @@
  */
 #include "vme_config_util.h"
 
+#include <QFileDialog>
 #include <QJsonDocument>
+#include <QMessageBox>
 #include <QSet>
+#include <QStandardPaths>
 
 #include "vme.h"
 
@@ -315,7 +318,7 @@ bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
     return out.write(doc.toJson()) >= 0;
 }
 
-std::unique_ptr<ModuleConfig> LIBMVME_EXPORT moduleconfig_from_modulejson(const QJsonObject &json)
+std::unique_ptr<ModuleConfig> moduleconfig_from_modulejson(const QJsonObject &json)
 {
     auto mod = std::make_unique<ModuleConfig>();
     load_moduleconfig_from_modulejson(*mod, json);
@@ -331,6 +334,8 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
     mod.setObjectName(mm.typeName);
 
     // Restore the variables on the module instance.
+    // FIXME: why is this needed? the variables should have been stored when the
+    // module was saved and reloaded when mod.read() was called.
     for (auto it=mm.variables.begin(); it!=mm.variables.end(); ++it)
     {
         auto varJ = it->toObject();
@@ -340,6 +345,72 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
         var.comment = varJ["comment"].toString();
         mod.setVariable(varName, var);
     }
+}
+
+std::unique_ptr<EventConfig> eventconfig_from_eventjson(const QJsonObject &json)
+{
+    auto ev = std::make_unique<EventConfig>();
+    load_eventconfig_from_eventjson(*ev, json);
+    return ev;
+}
+
+void load_eventconfig_from_eventjson(EventConfig &ev, const QJsonObject &json)
+{
+    ev.read(json["EventConfig"].toObject());
+    mvme::vme_config::generate_new_object_ids(&ev);
+}
+
+bool gui_save_vme_script_config_to_file(const VMEScriptConfig *script, QWidget *dialogParent)
+{
+    assert(script);
+    return gui_save_vme_script_to_file(
+        script->getScriptContents(),
+        script->objectName(),
+        dialogParent);
+}
+
+bool gui_save_vme_script_to_file(const QString &scriptText, const QString &proposedFilename, QWidget *dialogParent)
+{
+    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    QSettings settings;
+
+    if (settings.contains("LastObjectSaveDirectory"))
+        path = settings.value("LastObjectSaveDirectory").toString();
+
+    if (!proposedFilename.isEmpty())
+        path += "/" + proposedFilename;
+
+    if (QFileInfo(path).completeSuffix().isEmpty())
+        path += ".vmescript";
+
+    QString fileName = QFileDialog::getSaveFileName(
+        dialogParent,
+        QSL("Save vme script file"),
+        path,
+        QSL("VME scripts (*.vmescript);; All Files (*)"));
+
+    if (fileName.isEmpty())
+        return false;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(dialogParent, "File error", QString("Error opening \"%1\" for writing").arg(fileName));
+        return false;
+    }
+
+    QTextStream stream(&file);
+    stream << scriptText;
+
+    if (stream.status() != QTextStream::Ok)
+    {
+        QMessageBox::critical(dialogParent, "File error", QString("Error writing to \"%1\"").arg(fileName));
+        return false;
+    }
+
+    settings.setValue("LastObjectSaveDirectory", QFileInfo(fileName).absolutePath());
+
+    return true;
 }
 
 } // end namespace vme_config

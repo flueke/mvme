@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
 #endif
 
 
-        mvlc::listfile::write_module_data(ebOutputBuffer, ci, ei, moduleDataList, moduleCount);
+        mvlc::listfile::write_event_data(ebOutputBuffer, ci, ei, moduleDataList, moduleCount);
 
         if (ebOutputBuffer.used() >= Megabytes(1))
         {
@@ -331,7 +331,7 @@ int main(int argc, char *argv[])
             crdo->mvlc,
             stackTriggers,
             *crdo->readoutSnoopQueues,
-            crdo->readoutWriteHandle.get());
+            crdo->readoutWriteHandle);
 
         crdo->readoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
         crdo->readoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);

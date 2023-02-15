@@ -1,6 +1,6 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016-2020 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
@@ -101,13 +101,13 @@ struct EventConfigDialogPrivate
 };
 
 EventConfigDialog::EventConfigDialog(
-    VMEController *controller,
+    VMEControllerType vmeControllerType,
     EventConfig *config,
     const VMEConfig *vmeConfig,
     QWidget *parent)
     : QDialog(parent)
     , m_d(new EventConfigDialogPrivate{})
-    , m_controller(controller)
+    , m_vmeControllerType(vmeControllerType)
     , m_config(config)
 {
     resize(700, 600);
@@ -173,7 +173,7 @@ EventConfigDialog::EventConfigDialog(
 
     QVector<TriggerCondition> conditions;
 
-    switch (controller->getType())
+    switch (m_vmeControllerType)
     {
         case VMEControllerType::VMUSB:
             {
@@ -340,7 +340,7 @@ void EventConfigDialog::loadFromConfig()
     m_d->cb_irqUseIACK->setChecked(config->triggerOptions["IRQUseIACK"].toBool());
     m_d->variableEditor->setVariables(config->getVariables());
 
-    switch (m_controller->getType())
+    switch (m_vmeControllerType)
     {
         case VMEControllerType::VMUSB:
             {
@@ -376,7 +376,7 @@ void EventConfigDialog::saveToConfig()
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
     config->setVariables(m_d->variableEditor->getVariables());
 
-    switch (m_controller->getType())
+    switch (m_vmeControllerType)
     {
         case VMEControllerType::VMUSB:
             {
