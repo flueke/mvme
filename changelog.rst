@@ -19,7 +19,20 @@ Version 1.6.1-rc
     archive and attempting to unpack the following data. The recovery process
     also works for listfile archives containing LZ4 compressed readout data.
 
-  - add "Save Script" to vme tree context menu
+  - New feature: can now save/load VME event configs  to/from file
+
+    Saving is done via the events context menu entry "Save Event to file".
+
+    To load an event and add it as a new event use the top-level "Events" node
+    context menu and select "Add Event from file".
+
+    Saved events can also be merged into existing events: Use "Merge with Event
+    from file" from the destination events context menu. This will add all
+    modules from the source event to the target event. Non-system and
+    non-mesytec VME Script variables defined in the source event will be added
+    to the destination event. Existing variables are overwritten.
+
+  - add "Save Script" to the VME tree context menu
 
   - Do not allow deleting the MVLC Trigger/IO script
 
@@ -37,7 +50,17 @@ Version 1.6.1-rc
   - Implement on-the-fly histogram creation when attempting to graphically edit
     a condition that does not have a matching histogram.
 
+  - Increase initial size of plot windows so that all toolbar buttons are
+    visible (hopefully).
+
+  - Crash fix in the ExportSink operator UI.
+
 * [doc] Changelog was missing from PDF file in windows builds.
+
+* [mesytec-mvlc]
+
+  - Add a command line vme-scan-bus tool. This is in its early stages and needs
+    more polish.
 
 Version 1.6.0
 -------------
