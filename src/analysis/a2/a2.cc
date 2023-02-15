@@ -43,8 +43,12 @@
  * https://www.boost.org/doc/libs/1_68_0/libs/math/doc/html/math_toolkit/config_macros.html
  * for details. */
 #define BOOST_MATH_DISABLE_FLOAT128
+/* boost::geometry internally includes deprecated headers. The following define
+ * disables the warnings caused by including these headers. */
+#define BOOST_ALLOW_DEPRECATED_HEADERS
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
+#undef BOOST_ALLOW_DEPRECATED_HEADERS
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
