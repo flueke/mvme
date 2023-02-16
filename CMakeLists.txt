@@ -93,7 +93,7 @@ SET(CMAKE_SKIP_BUILD_RPATH FALSE)
 # Enable $ORIGIN in the rpath if supported by the target platform.
 SET(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
-SET(CMAKE_INSTALL_RPATH "$$ORIGIN/../lib:$$ORIGIN/")
+SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 
 ## add the automatically determined parts of the RPATH
 ## which point to directories outside the build tree to the install RPATH
