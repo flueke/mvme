@@ -555,6 +555,7 @@ void MVMEStreamWorker::start()
 
         // reload the possibly modified atomic
         internalState = m_d->internalState;
+        QCoreApplication::processEvents();
     }
 
     counters.stopTime = QDateTime::currentDateTime();

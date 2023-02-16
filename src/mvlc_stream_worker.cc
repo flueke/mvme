@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <QCoreApplication>
 #include <QThread>
 
 #include "analysis/a2/a2_data_filter.h"
@@ -725,6 +726,8 @@ void MVLC_StreamWorker::start()
                 elapsedSeconds--;
             }
         }
+
+        QCoreApplication::processEvents();
     }
 
     for (auto c: m_moduleConsumers)
