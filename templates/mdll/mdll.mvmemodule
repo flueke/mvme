@@ -2,11 +2,11 @@
     "ModuleConfig": {
         "baseAddress": 4294901760,
         "enabled": true,
-        "id": "{5fbcb147-0875-4c03-9f79-9f0148846ef9}",
+        "id": "{28dd54ed-1144-4e01-b8b4-6fc69037af37}",
         "initScripts": [
             {
                 "enabled": true,
-                "id": "{cd3eee97-44de-44f2-bd06-49f0e598fa4e}",
+                "id": "{d3819fef-486a-4f71-ad46-51a1157d67cb}",
                 "name": "Module Init QDC",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -16,11 +16,11 @@
                     "variables": {
                     }
                 },
-                "vme_script": "## Parameters for MDLL_QDC\n\n# Operation Mode\n# ############################################################################\n# tdc_resolution\n0x6042  0           # 0 ->  24 ps = 25 ns / 1024\n                    # 1 ->  49 ps = 25 ns / 512\n                    # 2 ->  98 ps = 25 ns / 256\n                    # 3 -> 195 ps = 25 ns / 128\n                    # 4 -> 391 ps = 25 ns / 64\n                    # 5 -> 781 ps = 25 ns / 32\n# ADC resolution\n0x6046\t0\t\t\t# 0 = 16 bit ... 4 = 12Bit (starting from FW3020, before alway 12Bit)\n\n# output_format\n0x6044  3           # 0 -> time and long integral\n                    # 1 -> long integral only (QDC-mode)\n                    # 2 -> time only (TDC mode)\n                    # 3 -> long integral, short integral and time\n\n# first_hit\n0x605C  1           # 0 -> transmit all hits per channel in the window\n                    # 1 -> only transmit first hit per channel in the window\n\n# Trigger Setup\n# ############################################################################\n# win_start\n0x6050  $(16384 - 100 / 1.56) # second term: offset in ns, positive or negative\n                    # Window of interest start time relative to trigger.\n                    # Window start   = 16384  + delay[ns] / 1.56;\n                    # Delay can be negative to register hits before the trigger.\n                    # Delay may be in the range [-25560 ns, +25560 ns].\n                    # < 0 -> window starts before trigger\n                    # > 0 -> window is delayed\n\n# win_width (14 bit value)\n0x6054  $(600 / 1.56)    # first term in ns;\n                    # win_width = (win_width[ns] / 25ns * 16)\n                    # max value 16383; (Hex notation: 0x3FFF)\n                    # Range: [0, 25560 ns]\n\n# trig_source\n# Defines the trigger which creates the window of interest.\n0x6058  128 # =channel 0 Anode  #0x100       # 0x001 -> trigger 0 input\n                    # 0x002 -> trigger 1 input\n                    # 0x100 -> whole bank (self trigger; all channels)\n                    # single channel: trig_source = 128 + (chan * 4)\n                    #                 with channel in 0..15\n                    # +-------------+--------------------+---------+\n                    # | Whole bank  |     16_channels    |  trig   |\n                    # |   2 bits    |       6 bits       | 2 bits  |\n                    # +============================================|\n                    # |      0 | B0 | active | 0 | Chan  | T1 | T0 |\n                    # |        |    |        |   | [3:0] |    |    |\n                    # +--------+----+--------+---+-------+----+----+\n\n# trig_source_2\n0x605A  0           # When trig_source == 0, this register allows to set any\n                    # number of individual channels to create the trigger.\n                    # Bit 0 corresponds to channel 0, bit 15 corresponds to channel 15.\n                    # Setting a bit uses the channel as a trigger source.\n\n\n# Internal Test Pulser\n# ############################################################################\n# pulser_status\n0x6070  0           # 0 -> off, 1 -> on\n\n# pulser_amplitude\n0x6072  1400         # maximum amplitude: 0xFFF = 4095\n\n\n"
+                "vme_script": "## Parameters for MDLL_QDC\n\n# Operation Mode\n# ############################################################################\n# tdc_resolution\n0x6042  0           # 0 ->  24 ps = 25 ns / 1024\n                    # 1 ->  49 ps = 25 ns / 512\n                    # 2 ->  98 ps = 25 ns / 256\n                    # 3 -> 195 ps = 25 ns / 128\n                    # 4 -> 391 ps = 25 ns / 64\n                    # 5 -> 781 ps = 25 ns / 32\n\n# output_format\n0x6044  3           # 0 -> time and long integral\n                    # 1 -> long integral only (QDC-mode)\n                    # 2 -> time only (TDC mode)\n                    # 3 -> long integral, short integral and time\n\n# first_hit\n0x605C  1           # 0 -> transmit all hits per channel in the window\n                    # 1 -> only transmit first hit per channel in the window\n\n# Trigger Setup\n# ############################################################################\n# win_start\n0x6050  $(16384 - 100 / 1.56) # second term: offset in ns, positive or negative\n                    # Window of interest start time relative to trigger.\n                    # Window start   = 16384  + delay[ns] / 1.56;\n                    # Delay can be negative to register hits before the trigger.\n                    # Delay may be in the range [-25560 ns, +25560 ns].\n                    # < 0 -> window starts before trigger\n                    # > 0 -> window is delayed\n\n# win_width (14 bit value)\n0x6054  $(600 / 1.56)    # first term in ns;\n                    # win_width = (win_width[ns] / 25ns * 16)\n                    # max value 16383; (Hex notation: 0x3FFF)\n                    # Range: [0, 25560 ns]\n\n# trig_source\n# Defines the trigger which creates the window of interest.\n0x6058  128 \t\t# =channel 0 Anode  #0x100       # 0x001 -> trigger 0 input\n                    # 0x002 -> trigger 1 input\n                    # 0x100 -> whole bank (self trigger; all channels)\n                    # single channel: trig_source = 128 + (chan * 4)\n                    #                 with channel in 0..15\n                    # +-------------+--------------------+---------+\n                    # | Whole bank  |     16_channels    |  trig   |\n                    # |   2 bits    |       6 bits       | 2 bits  |\n                    # +============================================|\n                    # |      0 | B0 | active | 0 | Chan  | T1 | T0 |\n                    # |        |    |        |   | [3:0] |    |    |\n                    # +--------+----+--------+---+-------+----+----+\n\n# trig_source_2\n0x605A  0           # When trig_source == 0, this register allows to set any\n                    # number of individual channels to create the trigger.\n                    # Bit 0 corresponds to channel 0, bit 15 corresponds to channel 15.\n                    # Setting a bit uses the channel as a trigger source.\n\n\n# Internal Test Pulser\n# ############################################################################\n# pulser_status\n0x6070  ${PulserOn}           # 0 -> off, 1 -> on\n\n# pulser_amplitude\n0x6072  ${PulserAmpl}# 1400 # maximum amplitude: 0xFFF = 4095\n\n\n"
             },
             {
                 "enabled": true,
-                "id": "{a62f64d5-bfab-4f14-abb3-9a4e9af3b293}",
+                "id": "{578e9509-c2d8-4bfe-b0e5-6da57515e91a}",
                 "name": "Frontend Settings QDC",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -30,11 +30,11 @@
                     "variables": {
                     }
                 },
-                "vme_script": "# Front end settings\n# ############################################################################\n# select_chan_pair ____>>>> Catodes\n0x6100  8       # 0 -> channel 0, 1\n                # 1 -> channel 2, 3\n                # ...\n                # 8 -> all channels (set to common values)\n\n# signal_width (10 bit value)\n0x6110  20      # FWHM in ns\n\n# input_amplitude (16 bit value)\n0x6112  1000    # maximum required input amplitude: 0 to peak in mV\n\n# jumper_range\n0x6114  2000    # range printed on jumper top in mV\n\n# integration_long\n0x6118  $(250 / 12.5)  # first term in ns\n\t\t\t\t# 2..128 in multiples of 12.5 ns\n\n# integration_short\n0x611A  2#$(25 / 12.5)  # first term in ns\n\t\t       # 1..31 in multiples of 12.5 ns,\n                # must be < integration_long.\n\n# threshold0 (15 bit value for the even channel)\n0x611C  0x0FFF   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n# threshold1 (15 bit value for the odd channel)\n0x611E  0x0FFF   # 1..0xFFFF, example: 0x200 -> 0.8%\n###################################################################\n# select_chan_pair ------>>>>>> ANODE\n0x6100  0       # 0 -> channel 0, 1\n                # 1 -> channel 2, 3\n                # ...\n                # 8 -> all channels (set to common values)\n\n# signal_width (10 bit value)\n0x6110  20      # FWHM in ns\n\n# input_amplitude (16 bit value)\n0x6112  1000    # maximum required input amplitude: 0 to peak in mV\n\n# jumper_range\n0x6114  2000    # range printed on jumper top in mV\n\n# integration_long\n0x6118  $(250 / 12.5)  # first term in ns\n\t\t\t\t# 2..128 in multiples of 12.5 ns\n\n# integration_short\n0x611A  2#$(25 / 12.5)  # first term in ns\n\t\t       # 1..31 in multiples of 12.5 ns,\n                # must be < integration_long.\n\n# threshold0 (15 bit value for the even channel)\n0x611C  0x0FF2   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n# threshold1 (15 bit value for the odd channel)\n0x611E  0x0FF0   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n\n### Expert settings, usually the default settings are fine ####\n# qdc_jumper\n#0x6116  0      # 0 -> no, 1 -> yes\n# reset_time (common for both selected channels)\n0x6100  8\n0x6128  0     # multiple of 12.5 ns\n\n# long_gain_correction\n#0x612A  1024   #  256 -> divide by 4\n                # 4096 -> multiply by 4\n                # 1024 -> neutral\n\n# tf_gain_correction\n#0x612C  1024   #  256 -> divide by 4\n                # 4096 -> multiply by 4\n                # 1024 -> neutral\n\n# short_gain_correction\n#0x612E  1024   #  256 -> divide by 4\n                # 4096 -> multiply by 4\n                # 1024 -> neutral\n\n# Channel / Channel Pair Front end settings\n# ############################################################################\n\n/*\n# channels (0, 1)\n0x6100       0\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n# channels (2, 3)\n0x6100       1\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n# channels (4, 5)\n0x6100       2\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n*/"
+                "vme_script": "# Front end settings\n# ############################################################################\n# select_chan_pair ____>>>> Cathodes\n0x6100  8       # 0 -> channel 0, 1\n                # 1 -> channel 2, 3\n                # ...\n                # 8 -> all channels (set to common values)\n\n# signal_width (10 bit value)\n0x6110  50      # FWHM in ns\n\n# input_amplitude (16 bit value)\n0x6112  1000    # maximum required input amplitude: 0 to peak in mV\n\n# jumper_range\n0x6114  3000    # range printed on jumper top in mV\n\n# integration_long\n0x6118  $(100 / 12.5)  # first term in ns\n\t\t\t\t# 2..128 in multiples of 12.5 ns\n\n# integration_short\n0x611A  $(25 / 12.5) # first term in ns\n\t\t       \t# 1..31 in multiples of 12.5 ns,\n                # must be < integration_long.\n\n# threshold0 (15 bit value for the even channel)\n0x611C  ${CathodeThreshold}   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n# threshold1 (15 bit value for the odd channel)\n0x611E  ${CathodeThreshold}   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n###################################################################\n# overwrites previous setting of all channels to specific Anode values for chan 0,1\n# select_chan_pair ------>>>>>> ANODE\n0x6100  0       # 0 -> channel 0, 1\n                # 1 -> channel 2, 3\n                # ...\n                # 8 -> all channels (set to common values)\n\n# signal_width (10 bit value)\n0x6110  50      # FWHM in ns\n\n# input_amplitude (16 bit value)\n0x6112  1000    # maximum required input amplitude: 0 to peak in mV\n\n# jumper_range\n0x6114  3000    # range printed on jumper top in mV\n\n# integration_long\n0x6118  $(100 / 12.5)  # first term in ns\n\t\t\t\t# 2..128 in multiples of 12.5 ns\n\n# integration_short\n0x611A  $(25 / 12.5)  # first term in ns\n\t\t       # 1..31 in multiples of 12.5 ns,\n                # must be < integration_long.\n\n# threshold0 (15 bit value for the even channel)\n0x611C ${AnodeThreshold}   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n# threshold1 (15 bit value for the odd channel)\n0x611E  ${AnodeThreshold}   # 1..0xFFFF, example: 0x200 -> 0.8%\n\n\n# Channel / Channel Pair Front end settings\n# ############################################################################\n\n/*\n# channels (0, 1)\n0x6100       0\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n# channels (2, 3)\n0x6100       1\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n# channels (4, 5)\n0x6100       2\n0x6110      16    # signal_width\n0x6112    1024    # input_amplitude\n0x6114    3072    # jumper_range\n0x6116       0    # qdc_jumper\n0x6118      16    # integration_long\n0x611A       2    # integration_short\n0x611C  0x00ff    # threshold0\n0x611E  0x00ff    # threshold1\n0x6128      32    # reset_time\n0x612A    1024    # long_gain_correction\n0x612C    1024    # tf_gain_correction\n0x612E    1024    # short_gain_correction\n*/"
             },
             {
                 "enabled": true,
-                "id": "{3cd9880c-e2ed-44fc-972a-0da848771d28}",
+                "id": "{1b2d6d8e-2ef8-4eec-afc3-fa95fbffeefd}",
                 "name": "VME Interface Settings QDC",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -44,11 +44,11 @@
                     "variables": {
                     }
                 },
-                "vme_script": "# Settings related to the readout loop\n# #####################################\n# Trigger output via IRQ-lines at Backplane; MDPP-16\n# Implemented since March 2021.\n# 0x6300 0b1111'1111'1111'1111  IRQ 1\n# 0x6304 0b1111'1111'1111'1111  IRQ 2 ; example: all channels add their triggers to this IRQ line\n# 0x6308 0b1111'1111'1111'1111  IRQ 3\n# 0x630C 0b1111'1111'1111'1111  IRQ 4\n# 0x6310 0b1111'1111'1111'1111  IRQ 5\n# 0x6314 0b1111'1111'1111'1111  IRQ 6\n# 0x6318 0b1111'1111'1111'1111  IRQ 7\n#######################################\n\n0x6010  ${sys_irq}                          # irq level\n\n# IRQ_source and thresholds\n#0x601C 1                               # 1 -> specifies number of words\n#0x6018  100                            # IRQ-FIFO threshold, words\n0x601C 0                                # 0 -> the following register specifies the number of events\n0x601E $(${mesy_readout_num_events} + 2)    # IRQ-FIFO threshold, events\n\n# marking_type\n0x6038 ${mesy_eoe_marker}                              # End Of Event marking\n                                        # 0 -> event counter\n                                        # 1 -> time stamp\n                                        # 3 -> extended time stamp\n\n# multi event mode:\n0x6036 0xb                              # 0x0 -> single event\n                                        # 0x3 -> multi event, number of words\n                                        # 0xb -> multievent, transmits number of events specified\n\n# max_transfer_data\n0x601A ${mesy_readout_num_events}            # multi event mode == 0x3 -> Berr is emitted when more or equal the\n                                        #   specified number of words have been sent and \"End Of Event\" is detected.\n                                        # multi event mode == 0xb -> Berr is emitted when the specified number\n                                        #   of events has been transmitted.\n\n# Stop the module from accepting triggers and clear the readout FIFO.\n# Acquisition will be started simultaneously for all modules in the parent\n# event by the \"Multicast DAQ Start\" script.\n0x603a 0   # stop acq\n0x603c 1   # FIFO reset\n0x6034 1   # readout reset\n\n# MCST - Multicast Setup\n# #####################################\n0x6020 0x80                             # Enable multicast\n0x6024 0x${mesy_mcst}                        # Set 8 high bits of MCST address\n"
+                "vme_script": "# Settings related to the readout loop\n\n0x6010  ${sys_irq}                          # irq level\n\n# IRQ_source and thresholds\n#0x601C 1                               # 1 -> specifies number of words\n#0x6018  100                            # IRQ-FIFO threshold, words\n0x601C 0                                # 0 -> the following register specifies the number of events\n0x601E $(${mesy_readout_num_events} + 2)    # IRQ-FIFO threshold, events\n\n# marking_type\n0x6038 ${mesy_eoe_marker}                              # End Of Event marking\n                                        # 0 -> event counter\n                                        # 1 -> time stamp\n                                        # 3 -> extended time stamp\n\n# multi event mode:\n0x6036 0xb                              # 0x0 -> single event\n                                        # 0x3 -> multi event, number of words\n                                        # 0xb -> multievent, transmits number of events specified\n\n# max_transfer_data\n0x601A ${mesy_readout_num_events}            # multi event mode == 0x3 -> Berr is emitted when more or equal the\n                                        #   specified number of words have been sent and \"End Of Event\" is detected.\n                                        # multi event mode == 0xb -> Berr is emitted when the specified number\n                                        #   of events has been transmitted.\n\n# Stop the module from accepting triggers and clear the readout FIFO.\n# Acquisition will be started simultaneously for all modules in the parent\n# event by the \"Multicast DAQ Start\" script.\n0x603a 0   # stop acq\n0x603c 1   # FIFO reset\n0x6034 1   # readout reset\n\n# MCST - Multicast Setup\n# #####################################\n0x6020 0x80                             # Enable multicast\n0x6024 0x${mesy_mcst}                        # Set 8 high bits of MCST address\n"
             },
             {
                 "enabled": true,
-                "id": "{cd3eee97-44de-44g2-bd07-49f0e598fa4e}",
+                "id": "{b871c96c-20fc-4d8b-bda2-abef900212e8}",
                 "name": "Module Init MDLL",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -57,11 +57,12 @@
                     "name": "",
                     "variables": {
                     }
-                }
+                },
+                "vme_script": ""
             },
             {
                 "enabled": true,
-                "id": "{87cfdf51-c64b-4d01-8872-fca760372d5d}",
+                "id": "{0b7aa620-35ab-4ee9-bebb-9ebee21f3062}",
                 "name": "Counters Setup MDLL",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -79,11 +80,31 @@
         "variable_table": {
             "name": "",
             "variables": {
+                "AnodeThreshold": {
+                    "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
+                    "definitionLocation": "",
+                    "value": "0x0FFF"
+                },
+                "CathodeThreshold": {
+                    "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
+                    "definitionLocation": "",
+                    "value": "0x0FFF"
+                },
+                "PulserAmpl": {
+                    "comment": "0 to 4000",
+                    "definitionLocation": "",
+                    "value": "3000"
+                },
+                "PulserOn": {
+                    "comment": "1= on, 0= off",
+                    "definitionLocation": "",
+                    "value": "1"
+                }
             }
         },
         "vmeReadout": {
             "enabled": true,
-            "id": "{232ce629-eef2-4879-a34e-5e79fd373e28}",
+            "id": "{235cd20f-c55e-4daf-9bc5-2102c32606f7}",
             "name": "Module Readout",
             "properties": {
                 "icon": ":/vme_script.png"
@@ -97,7 +118,7 @@
         },
         "vmeReset": {
             "enabled": true,
-            "id": "{e310cb01-34b0-4185-989d-697cd368fceb}",
+            "id": "{b75e12f2-90b5-4d93-a15f-a48b5b580fdf}",
             "name": "Module Reset",
             "properties": {
                 "icon": ":/vme_script.png"
@@ -111,11 +132,31 @@
         }
     },
     "ModuleMeta": {
-        "typeId": 22,
         "displayName": "MDLL",
         "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
+        "typeId": 22,
         "typeName": "mdll",
         "variables": [
+            {
+                "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
+                "name": "AnodeThreshold",
+                "value": "0x0FFF"
+            },
+            {
+                "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
+                "name": "CathodeThreshold",
+                "value": "0x0FFF"
+            },
+            {
+                "comment": "0 to 4000",
+                "name": "PulserAmpl",
+                "value": "3000"
+            },
+            {
+                "comment": "1= on, 0= off",
+                "name": "PulserOn",
+                "value": "1"
+            }
         ],
         "vendorName": "mesytec",
         "vmeAddress": 4294901760
