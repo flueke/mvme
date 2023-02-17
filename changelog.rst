@@ -45,6 +45,9 @@ Version 1.6.1-rc
     are: after global start scripts, after VME module init scripts and after event
     start scripts.
 
+  - Update module template for the MDLL: init script udpates and analaysis
+    filter and naming fixes.
+
 * [analysis]
 
   - Implement on-the-fly histogram creation when attempting to graphically edit
