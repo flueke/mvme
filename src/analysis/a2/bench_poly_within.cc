@@ -26,8 +26,10 @@
  * https://www.boost.org/doc/libs/1_68_0/libs/math/doc/html/math_toolkit/config_macros.html
  * for details. */
 #define BOOST_MATH_DISABLE_FLOAT128
+#define BOOST_ALLOW_DEPRECATED_HEADERS
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
+#undef BOOST_ALLOW_DEPRECATED_HEADERS
 
 namespace bg = boost::geometry;
 using Point   = bg::model::d2::point_xy<double>;
