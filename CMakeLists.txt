@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.15)
 
 # Add the local cmake directory module path.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -263,22 +263,24 @@ if (WIN32)
 
     set(CPACK_SOURCE_GENERATOR "ZIP")
 else()
-    if (MVME_INSTALL_DEPLOY_FILES)
-        if (EXISTS "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/")
-            # Install additional deployment files: shared objects, qt plugins, etc.
-            install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
-                DESTINATION .
-                USE_SOURCE_PERMISSIONS)
-        endif()
-    endif()
+    #if (MVME_INSTALL_DEPLOY_FILES)
+    #    if (EXISTS "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/")
+    #        # Install additional deployment files: shared objects, qt plugins, etc.
+    #        install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
+    #            DESTINATION .
+    #            USE_SOURCE_PERMISSIONS)
+    #    endif()
+    #endif()
 
-    set(CPACK_GENERATOR "TBZ2")
+    #set(CPACK_GENERATOR "TBZ2")
+    set(CPACK_GENERATOR "External")
     set(CPACK_SOURCE_GENERATOR "TBZ2")
+    set(CPACK_EXTERNAL_PACKAGE_SCRIPT "${CMAKE_SOURCE_DIR}/CPackExternal_mvme.cmake")
+    set(CPACK_EXTERNAL_ENABLE_STAGING TRUE)
 endif()
 
 configure_file("CPackOptions.cmake.in" "${PROJECT_BINARY_DIR}/CPackOptions.cmake" @ONLY)
 set(CPACK_PROJECT_CONFIG_FILE "${PROJECT_BINARY_DIR}/CPackOptions.cmake")
 
 include(CPack)
-
 # vim:tw=0
