@@ -229,24 +229,29 @@ endif()
 # the target system: shared objects, Qt plugins, Qt configuration, shell
 # scripts, etc.
 #
-# These files are handled using an external deploy directory which is added via
-# the install() command.
-option(MVME_INSTALL_DEPLOY_FILES "Install additional library files from a special deploy directory." OFF)
+# Under windows These files are handled using an external deploy directory
+# which is added via the install() command.
+#
+# Under linux the `linuxdeployqt` tool and a custom cmake script for the cpack
+# `External` generator are used.
 
 set(CPACK_PACKAGE_VERSION ${VERSION})
 set(CPACK_PACKAGE_VENDOR "mesytec")
 
 if (WIN32)
-    if (MVME_INSTALL_DEPLOY_FILES)
-        # C:\src\deploy\mvme-x64-libusb-0.1-Debug
-        # C:\src\deploy\mvme-x64-libusb-0.1-Release
-        #set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
-        set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-Release/")
+    option(MVME_CPACK_INSTALL_DEPLOY_FILES
+        "Install additional library files from a special deploy directory." OFF)
 
-        install(DIRECTORY "${DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
+    set(MVME_CPACK_DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-Release/"
+        CACHE PATH "Directory containing additional files to be deployed."
+    )
+
+    if (MVME_CPACK_INSTALL_DEPLOY_FILES)
+        install(DIRECTORY "${MVME_CPACK_DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
     endif()
 
-    set(CPACK_GENERATOR "NSIS") # "NSIS;ZIP"
+    set(CPACK_GENERATOR "NSIS;ZIP")
+    set(CPACK_SOURCE_GENERATOR "ZIP")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
     set(CPACK_NSIS_PACKAGE_NAME "mvme")
     set(CPACK_NSIS_MUI_FINISHPAGE_RUN "bin\\\\mvme.exe")
@@ -259,24 +264,20 @@ if (WIN32)
         "doc/mvme.pdf"                          "mvme Documentation (PDF)"
         "doc/html/index.html"                   "mvme Documentation (HTML)"
         "extras/vm-usb/Manual_VM-USB_A00.pdf"   "VM-USB Manual"
-        )
-
-    set(CPACK_SOURCE_GENERATOR "ZIP")
+    )
 else()
-    #if (MVME_INSTALL_DEPLOY_FILES)
-    #    if (EXISTS "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/")
-    #        # Install additional deployment files: shared objects, qt plugins, etc.
-    #        install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
-    #            DESTINATION .
-    #            USE_SOURCE_PERMISSIONS)
-    #    endif()
-    #endif()
+    option(MVME_CPACK_USE_LINUXDEPLOYQT
+        "Use 'linuxdeployqt' to create universal binary packages." OFF)
 
-    #set(CPACK_GENERATOR "TBZ2")
-    set(CPACK_GENERATOR "External")
     set(CPACK_SOURCE_GENERATOR "TBZ2")
-    set(CPACK_EXTERNAL_PACKAGE_SCRIPT "${CMAKE_SOURCE_DIR}/CPackExternal_mvme.cmake")
-    set(CPACK_EXTERNAL_ENABLE_STAGING TRUE)
+
+    if (MVME_CPACK_USE_LINUXDEPLOYQT)
+        set(CPACK_GENERATOR "External")
+        set(CPACK_EXTERNAL_PACKAGE_SCRIPT "${CMAKE_SOURCE_DIR}/CPackExternal_mvme.cmake")
+        set(CPACK_EXTERNAL_ENABLE_STAGING TRUE)
+    else()
+        set(CPACK_GENERATOR "TBZ2")
+    endif()
 endif()
 
 configure_file("CPackOptions.cmake.in" "${PROJECT_BINARY_DIR}/CPackOptions.cmake" @ONLY)
