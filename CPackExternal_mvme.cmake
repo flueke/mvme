@@ -1,4 +1,4 @@
-message("external: Hello, World!")
+message("++ CPack external: Hello, World!")
 include(CMakePrintHelpers)
 cmake_print_variables(CPACK_TEMPORARY_DIRECTORY)
 cmake_print_variables(CPACK_TOPLEVEL_DIRECTORY)
@@ -36,8 +36,13 @@ file(COPY ${MVME_ADDITIONAL_LIBS}
     DESTINATION "${CPACK_TEMPORARY_DIRECTORY}/lib"
     FOLLOW_SYMLINK_CHAIN
 )
+
+set(PACKAGE_OUTPUT_DIR ${CPACK_PACKAGE_DIRECTORY}/packages)
+
+file(MAKE_DIRECTORY ${PACKAGE_OUTPUT_DIR})
+
 execute_process(
-    COMMAND tar -cjvf "${CPACK_PACKAGE_DIRECTORY}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2" "${CPACK_PACKAGE_FILE_NAME}"
+    COMMAND tar -cjvf "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2" "${CPACK_PACKAGE_FILE_NAME}"
     WORKING_DIRECTORY  ${CPACK_TOPLEVEL_DIRECTORY}
     COMMAND_ERROR_IS_FATAL ANY
 )
