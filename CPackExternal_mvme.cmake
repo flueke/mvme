@@ -23,9 +23,13 @@ execute_process(
     COMMAND_ERROR_IS_FATAL ANY
 )
 
+# Add additional shared objects that are excluded by linuxdeployqt. An
+# alternative would be to pass "-unsupported-bundle-everything" to
+# linuxdeployqt but that would also bundle glibc.
+
 file(GET_RUNTIME_DEPENDENCIES
     RESOLVED_DEPENDENCIES_VAR MVME_ADDITIONAL_LIBS
-    POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*"
+    POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*" ".*libz\\.so.*"
     POST_EXCLUDE_REGEXES ".*"
     EXECUTABLES ${MVME_EXECUTABLE}
 )
@@ -37,12 +41,16 @@ file(COPY ${MVME_ADDITIONAL_LIBS}
     FOLLOW_SYMLINK_CHAIN
 )
 
-set(PACKAGE_OUTPUT_DIR ${CPACK_PACKAGE_DIRECTORY}/packages)
+set(PACKAGE_OUTPUT_DIR "${CPACK_PACKAGE_DIRECTORY}/packages")
+set(PACKAGE_ARCHIVE_FILE "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2")
 
 file(MAKE_DIRECTORY ${PACKAGE_OUTPUT_DIR})
 
+
 execute_process(
-    COMMAND tar -cjvf "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2" "${CPACK_PACKAGE_FILE_NAME}"
+    COMMAND tar -cjvf ${PACKAGE_ARCHIVE_FILE} "${CPACK_PACKAGE_FILE_NAME}"
     WORKING_DIRECTORY  ${CPACK_TOPLEVEL_DIRECTORY}
     COMMAND_ERROR_IS_FATAL ANY
 )
+
+message("CPackExternal_mvme: created archive ${PACKAGE_ARCHIVE_FILE}")
