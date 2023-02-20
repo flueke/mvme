@@ -1,17 +1,17 @@
-message("++ CPack external: Hello, World!")
-include(CMakePrintHelpers)
-cmake_print_variables(CPACK_TEMPORARY_DIRECTORY)
-cmake_print_variables(CPACK_TOPLEVEL_DIRECTORY)
-cmake_print_variables(CPACK_PACKAGE_DIRECTORY)
-cmake_print_variables(CPACK_PACKAGE_FILE_NAME)
-cmake_print_variables(CPACK_GENERATOR)
+message("-- CPackExternal_mvme: creating package archive for '${CPACK_PACKAGE_FILE_NAME}'")
+
+#include(CMakePrintHelpers)
+#cmake_print_variables(CPACK_TEMPORARY_DIRECTORY)
+#cmake_print_variables(CPACK_TOPLEVEL_DIRECTORY)
+#cmake_print_variables(CPACK_PACKAGE_DIRECTORY)
+#cmake_print_variables(CPACK_PACKAGE_FILE_NAME)
+#cmake_print_variables(CPACK_GENERATOR)
 
 #-- CPACK_TEMPORARY_DIRECTORY="/home/florian/src/mvme2/build/_CPack_Packages/Linux/External/mvme-1.6.1-rc2-10-Linux-x64"
 #-- CPACK_TOPLEVEL_DIRECTORY="/home/florian/src/mvme2/build/_CPack_Packages/Linux/External"
 #-- CPACK_PACKAGE_DIRECTORY="/home/florian/src/mvme2/build"
 #-- CPACK_PACKAGE_FILE_NAME="mvme-1.6.1-rc2-10-Linux-x64"
 #-- CPACK_GENERATOR="External"
-
 
 set(MVME_EXECUTABLE "${CPACK_TEMPORARY_DIRECTORY}/bin/mvme")
 
@@ -26,10 +26,13 @@ execute_process(
 # Add additional shared objects that are excluded by linuxdeployqt. An
 # alternative would be to pass "-unsupported-bundle-everything" to
 # linuxdeployqt but that would also bundle glibc.
+# FIXME: libz is not included for some reason. Problem with the regex? Internal
+# CMake thing? So the packages will come without libz included... Should still
+# work everywhere once libz is installed.
 
 file(GET_RUNTIME_DEPENDENCIES
     RESOLVED_DEPENDENCIES_VAR MVME_ADDITIONAL_LIBS
-    POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*" ".*libz\\.so.*"
+    POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*" ".*libz\\.so*"
     POST_EXCLUDE_REGEXES ".*"
     EXECUTABLES ${MVME_EXECUTABLE}
 )
@@ -53,4 +56,4 @@ execute_process(
     COMMAND_ERROR_IS_FATAL ANY
 )
 
-message("CPackExternal_mvme: created archive ${PACKAGE_ARCHIVE_FILE}")
+message("-- CPackExternal_mvme: created package archive ${PACKAGE_ARCHIVE_FILE}")
