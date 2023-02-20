@@ -242,12 +242,12 @@ if (WIN32)
     option(MVME_CPACK_INSTALL_DEPLOY_FILES
         "Install additional library files from a special deploy directory." OFF)
 
-    set(MVME_CPACK_DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-Release/"
+    set(MVME_CPACK_DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-Release"
         CACHE PATH "Directory containing additional files to be deployed."
     )
 
     if (MVME_CPACK_INSTALL_DEPLOY_FILES)
-        install(DIRECTORY "${MVME_CPACK_DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
+        install(DIRECTORY "${MVME_CPACK_DEPLOY_DIR}/" DESTINATION . USE_SOURCE_PERMISSIONS)
     endif()
 
     set(CPACK_GENERATOR "NSIS;ZIP")
