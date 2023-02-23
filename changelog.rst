@@ -4,8 +4,8 @@
 Changelog
 ##################################################
 
-Version 1.6.1-rc
-----------------
+Version 1.6.1
+-------------
 
 * [gui]
 
@@ -64,6 +64,16 @@ Version 1.6.1-rc
 
   - Add a command line vme-scan-bus tool. This is in its early stages and needs
     more polish.
+
+* Updated build system for linux binaries: Debian Stretch with glibc-2.24 is
+  used with custom built gcc-10.4 and Qt-5.15.8 libraries. Deployment is done
+  using 'linuxdeployqt'.
+
+  The binaries should now run on a wider range of systems (all using
+  glibc>=2.24) while still containing a modern version of Qt. A detailed list
+  of glibc versions used in common distributions can be found here:
+  https://repology.org/project/glibc/versions
+
 
 Version 1.6.0
 -------------
