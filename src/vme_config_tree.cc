@@ -288,6 +288,12 @@ inline QObject *get_qobject(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
     return get_pointer<QObject>(node, dataRole);
 }
 
+template<typename T>
+T *get_qobject(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
+{
+    return qobject_cast<T *>(get_qobject(node, dataRole));
+}
+
 static const QString VMEConfigObjectIdListMIMEType = QSL("application/x-mvme-vmeconfig-object-id-list");
 
 VMEConfigTree::VMEConfigTree(VMEConfigTreeWidget *configWidget)
@@ -678,6 +684,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(QWidget *parent)
     connect(m_tree, &QTreeWidget::itemDoubleClicked, this, &VMEConfigTreeWidget::onItemDoubleClicked);
     connect(m_tree, &QTreeWidget::itemChanged, this, &VMEConfigTreeWidget::onItemChanged);
     connect(m_tree, &QTreeWidget::itemExpanded, this, &VMEConfigTreeWidget::onItemExpanded);
+    connect(m_tree, &QTreeWidget::itemCollapsed, this, &VMEConfigTreeWidget::onItemCollapsed);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &VMEConfigTreeWidget::treeContextMenu);
 
     action_editVariables = new QAction(
@@ -799,6 +806,7 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
         onVMEControllerTypeSet(cfg->getControllerType());
     }
 
+    restoreTreeExpansionState();
     m_tree->resizeColumnToContents(0);
     updateConfigLabel();
 }
@@ -1155,8 +1163,47 @@ void VMEConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
     }
 }
 
-void VMEConfigTreeWidget::onItemExpanded(QTreeWidgetItem * /*item*/)
+void store_configobject_expanded_state(const QUuid &objectId, bool isExpanded)
 {
+    QSettings settings("vme_tree_ui_state.ini", QSettings::IniFormat);
+    auto expandedObjects = settings.value("ExpandedObjects").toMap();
+
+    if (isExpanded)
+    {
+        qDebug() << "ConfigObject expanded, id =" << objectId;
+        expandedObjects.insert(objectId.toString(), true);
+    }
+    else
+    {
+        qDebug() << "ConfigObject collapsed, id =" << objectId;
+        expandedObjects.remove(objectId.toString());
+    }
+
+    settings.setValue("ExpandedObjects", expandedObjects);
+}
+
+bool was_configobject_expanded(const QUuid &objectId)
+{
+    QSettings settings("vme_tree_ui_state.ini", QSettings::IniFormat);
+    auto expandedObjects = settings.value("ExpandedObjects").toMap();
+    return expandedObjects.value(objectId.toString(), false).toBool();
+}
+
+void VMEConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
+{
+    if (auto obj = get_qobject<ConfigObject>(item))
+    {
+        store_configobject_expanded_state(obj->getId(), true);
+    }
+    m_tree->resizeColumnToContents(0);
+}
+
+void VMEConfigTreeWidget::onItemCollapsed(QTreeWidgetItem *item)
+{
+    if (auto obj = get_qobject<ConfigObject>(item))
+    {
+        store_configobject_expanded_state(obj->getId(), false);
+    }
     m_tree->resizeColumnToContents(0);
 }
 
@@ -2374,6 +2421,19 @@ void VMEConfigTreeWidget::updateConfigLabel()
     le_fileName->setText(fileName);
     le_fileName->setToolTip(fileName);
     le_fileName->setStatusTip(fileName);
+}
+
+void VMEConfigTreeWidget::restoreTreeExpansionState()
+{
+    for (const auto &qobj: m_treeMap.keys())
+    {
+        if (auto obj = qobject_cast<const ConfigObject *>(qobj);
+            was_configobject_expanded(obj->getId()))
+        {
+            if (auto node = m_treeMap.value(qobj))
+                node->setExpanded(true);
+        }
+    }
 }
 
 bool VMEConfigTreeWidget::canCopy(const ConfigObject *obj) const

@@ -96,6 +96,7 @@ class LIBMVME_EXPORT VMEConfigTreeWidget: public QWidget
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
         void onItemChanged(QTreeWidgetItem *item, int column);
         void onItemExpanded(QTreeWidgetItem *item);
+        void onItemCollapsed(QTreeWidgetItem *item);
         void treeContextMenu(const QPoint &pos);
 
         void onEventAdded(EventConfig *config, bool expandNode);
@@ -133,6 +134,7 @@ class LIBMVME_EXPORT VMEConfigTreeWidget: public QWidget
         bool isObjectEnabled(QTreeWidgetItem *node, int expectedNodeType) const;
 
         void updateConfigLabel();
+        void restoreTreeExpansionState();
 
         ConfigObject *getCurrentConfigObject() const;
         void copyToClipboard(const ConfigObject *obj);
