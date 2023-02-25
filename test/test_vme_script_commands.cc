@@ -352,15 +352,15 @@ TEST(vme_script_commands, SingleLineCommandInVariable)
 {
     SymbolTables symtabs =
     {
-        { "first", {{ QSL("mycmd"), Variable("mbltfifo a32 0x4321 12345") }}},
+        { "first", {{ QSL("myCmd"), Variable("mbltfifo a32 0x4321 12345") }}},
         { "second", {{ QSL("myvar"), Variable("a32") }}},
         { "third", {{ QSL("mycmd2"), Variable("mbltfifo ${myvar} 0x1234 54321") }}},
     };
 
-    qDebug() << symtabs[0].value("mycmd").value;
+    //qDebug() << symtabs[0].value("myCmd").value;
 
     {
-        QString input = "${mycmd}";
+        QString input = "${myCmd}";
 
         try
         {

@@ -615,6 +615,12 @@ TEST(vme_script_parsing, SetVariableCommand)
         ASSERT_EQ(symtab0.value("var2").value, QSL("things"));
         ASSERT_TRUE(script.isEmpty());
         ASSERT_TRUE(symtab1.isEmpty());
+
+        input = "SeT case insensitive";
+        script = parse(input, symtabs);
+        ASSERT_EQ(symtab0.value("case").value, QSL("insensitive"));
+        ASSERT_TRUE(script.isEmpty());
+        ASSERT_TRUE(symtab1.isEmpty());
     }
 }
 

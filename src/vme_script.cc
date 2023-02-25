@@ -1267,10 +1267,6 @@ PreparsedLine pre_parse_single_line(QString line, int lineNumber)
 
     auto parts = to_qstrlist_from_std(stlParts);
 
-    // Lowercase the first part (the command name or for the shortcut form
-    // of the write command the address value).
-    parts[0] = parts[0].toLower();
-
     PreparsedLine ppl{ line, parts, lineNumber, {} };
     return ppl;
 }
@@ -1781,6 +1777,10 @@ VMEScript parse(
                 expand_variables(preparsed, symtabs);
                 evaluate_expressions(preparsed);
                 //qDebug() << "re-preparsed.part (after expansions)" << preparsed.parts;
+
+                // Lowercase the first part (the command name or for the shortcut form
+                // of the write command the address value).
+                preparsed.parts[0] = preparsed.parts[0].toLower();
 
                 if (preparsed.parts[0] == "set")
                 {
