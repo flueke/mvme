@@ -176,6 +176,12 @@ struct VariableNameValidator: public QValidator
 
         QValidator::State validate(QString &input, int &/*pos*/) const override
         {
+            if (input.contains(' '))
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "contains spaces -> Invalid";
+                return QValidator::Invalid;
+            }
+
             if (vme_script::is_system_variable_name(input))
             {
                 qDebug() << __PRETTY_FUNCTION__ << "is_system_variable_name -> Invalid";
