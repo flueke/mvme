@@ -25,6 +25,7 @@
 #include "util.h"
 #include "vme_config.h"
 #include "vme_script.h"
+#include "vme_config_scripts.h"
 
 class QCloseEvent;
 
@@ -35,7 +36,7 @@ class VMEScriptEditor: public MVMEWidget
     Q_OBJECT
     signals:
         void logMessage(const QString &msg);
-        void runScript(const vme_script::VMEScript &script);
+        void runScript(const vme_script::VMEScript &script, const mesytec::mvme::ScriptConfigRunner::Options &options = {});
 #if 0
         void runScriptWritesBatched(const vme_script::VMEScript &script);
         void loopScript(const vme_script::VMEScript &script, bool enableLooping);
@@ -65,7 +66,7 @@ class VMEScriptEditor: public MVMEWidget
         void onEditorTextChanged();
         void onScriptModified(bool isModified);
 
-        void runScript_();
+        void runScript_(const mesytec::mvme::ScriptConfigRunner::Options &options);
 #if 0
         void loopScript_(bool enableLooping);
         void runScriptWritesBatched_();

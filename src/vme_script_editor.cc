@@ -167,7 +167,15 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     QAction *action = {};
 
     // Run script
-    action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript_);
+    action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"),
+        this, [this] { this->runScript_( {} ); });
+    action->setStatusTip(QSL("Run the VME script"));
+    action->setShortcut(QSL("Ctrl+R"));
+
+    // Run script, ignore errors
+    action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run (ignore errors)"),
+        this, [this] { this->runScript_( { .ContinueOnVMEError = true, .AggregateResults = false} ); });
+
     action->setStatusTip(QSL("Run the VME script"));
     action->setShortcut(QSL("Ctrl+R"));
 
@@ -309,7 +317,7 @@ void VMEScriptEditor::onEditorTextChanged()
 }
 
 // TODO: factor out common code between runScript()_ and loopScript()_
-void VMEScriptEditor::runScript_()
+void VMEScriptEditor::runScript_(const mesytec::mvme::ScriptConfigRunner::Options &options)
 {
     try
     {
@@ -327,7 +335,7 @@ void VMEScriptEditor::runScript_()
 
         auto script = vme_script::parse(scriptText, symtabs, baseAddress);
 
-        emit runScript(script);
+        emit runScript(script, options);
     }
     catch (const vme_script::ParseError &e)
     {

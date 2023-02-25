@@ -1841,10 +1841,12 @@ void MVMEMainWindow::editVMEScript(VMEScriptConfig *scriptConfig, const QString 
         connect(widget, &VMEScriptEditor::logMessage, m_d->m_context, &MVMEContext::logMessage);
 
         connect(widget, &VMEScriptEditor::runScript,
-                this, [this, widget] (const vme_script::VMEScript &script)
+                this, [this, widget] (
+                    const vme_script::VMEScript &script,
+                    const mesytec::mvme::ScriptConfigRunner::Options &options)
         {
             auto scriptConf = widget->getScriptConfig();
-            runScriptConfigs({ { scriptConf, script }});
+            runScriptConfigs({ { scriptConf, script }}, options);
         });
 
         connect(widget, &VMEScriptEditor::addApplicationWidget,
