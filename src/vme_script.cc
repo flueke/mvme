@@ -1232,6 +1232,49 @@ QVector<PreparsedLine> pre_parse(const QString &input)
     return pre_parse(stream);
 }
 
+QStringList split_into_atomic_parts_q(const QString &str, int lineNumber)
+{
+    auto stlParts = split_into_atomic_parts(str.toStdString(), lineNumber);
+
+    if (stlParts.empty())
+        return {};
+
+    auto parts = to_qstrlist_from_std(stlParts);
+
+    return parts;
+}
+
+// Pre-parse step for a single line that's not part of a multiline comment
+// (passing the result of handle_multiline_comment() is ok).
+// Returns the atomic parts contained in the input line. May return an empty
+// list if the input is empty after handling single line ('#') comments.
+PreparsedLine pre_parse_single_line(QString line, int lineNumber)
+{
+    int startOfComment = line.indexOf('#');
+
+    if (startOfComment >= 0)
+        line.resize(startOfComment);
+
+    auto trimmed = line.trimmed();
+
+    if (trimmed.isEmpty())
+        return {};
+
+    auto stlParts = split_into_atomic_parts(trimmed.toStdString(), lineNumber);
+
+    if (stlParts.empty())
+        return {};
+
+    auto parts = to_qstrlist_from_std(stlParts);
+
+    // Lowercase the first part (the command name or for the shortcut form
+    // of the write command the address value).
+    parts[0] = parts[0].toLower();
+
+    PreparsedLine ppl{ line, parts, lineNumber, {} };
+    return ppl;
+}
+
 // Get rid of comment parts and empty lines and split each of the remaining
 // lines into space separated (quoted string) parts while keeping track of the
 // correct input line numbers.
@@ -1250,29 +1293,11 @@ QVector<PreparsedLine> pre_parse(QTextStream &input)
             break;
 
         line = handle_multiline_comment(line, in_multiline_comment);
+        auto ppl = pre_parse_single_line(line, lineNumber);
 
-        int startOfComment = line.indexOf('#');
-
-        if (startOfComment >= 0)
-            line.resize(startOfComment);
-
-        auto trimmed = line.trimmed();
-
-        if (trimmed.isEmpty())
+        if (ppl.parts.isEmpty())
             continue;
 
-        auto stlParts = split_into_atomic_parts(trimmed.toStdString(), lineNumber);
-
-        if (stlParts.empty())
-            continue;
-
-        auto parts = to_qstrlist_from_std(stlParts);
-
-        // Lowercase the first part (the command name or for the shortcut form
-        // of the write command the address value).
-        parts[0] = parts[0].toLower();
-
-        PreparsedLine ppl{line, parts, lineNumber, {} };
         collect_variable_references(ppl);
 
         result.push_back(ppl);
@@ -1741,6 +1766,21 @@ VMEScript parse(
             {
                 expand_variables(preparsed, symtabs);
                 evaluate_expressions(preparsed);
+
+                // To allow parsing of full command lines which were
+                // expanded from a single variable a second parsing pass has to happen.
+                // Example: set ${myvar} "mbltfifo a32 0x4321 12345"
+                //          -> preparsed_parts: ("mbltfifo a32 0x4321 12345")
+                // This string has to be split into atomics parts again.
+                //qDebug() << "preparsed.parts" << preparsed.parts;
+                QStringList reparsedParts;
+                for (auto &part: preparsed.parts)
+                    reparsedParts.append(split_into_atomic_parts_q(part, preparsed.lineNumber));
+                preparsed.parts = reparsedParts;
+                //qDebug() << "re-preparsed.parts (before expansions)" << preparsed.parts;
+                expand_variables(preparsed, symtabs);
+                evaluate_expressions(preparsed);
+                //qDebug() << "re-preparsed.part (after expansions)" << preparsed.parts;
 
                 if (preparsed.parts[0] == "set")
                 {

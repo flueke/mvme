@@ -625,11 +625,18 @@ TEST(vme_script_parsing, SetWithExpressions)
         symtabs.resize(1);
         SymbolTable &symtab0 = symtabs[0];
 
-        QString input = "set foo \"$( 7 * 6 )\"\nset \"the var\" ${foo}";
+        QString input = "set foo \"$( 7 * 6 )\"\nset \"the_var\" ${foo}";
+        try
+        {
         auto script = parse(input, symtabs);
+        } catch (const vme_script::ParseError &e)
+        {
+            qDebug() << e.toString();
+            throw;
+        }
 
         ASSERT_EQ(symtab0.value("foo").value, QSL("42"));
-        ASSERT_EQ(symtab0.value("the var").value, QSL("42"));
+        ASSERT_EQ(symtab0.value("the_var").value, QSL("42"));
     }
 
     {
@@ -637,10 +644,10 @@ TEST(vme_script_parsing, SetWithExpressions)
         symtabs.resize(1);
         SymbolTable &symtab0 = symtabs[0];
 
-        QString input = "set foo $( 7 * 6 )\nset \"the var\" ${foo}";
+        QString input = "set foo $( 7 * 6 )\nset \"the_var\" ${foo}";
         auto script = parse(input, symtabs);
 
         ASSERT_EQ(symtab0.value("foo").value, QSL("42"));
-        ASSERT_EQ(symtab0.value("the var").value, QSL("42"));
+        ASSERT_EQ(symtab0.value("the_var").value, QSL("42"));
     }
 }

@@ -348,6 +348,54 @@ TEST(vme_script_commands, BlockRead2eSST)
     }
 }
 
+TEST(vme_script_commands, SingleLineCommandInVariable)
+{
+    SymbolTables symtabs =
+    {
+        { "first", {{ QSL("mycmd"), Variable("mbltfifo a32 0x4321 12345") }}},
+        { "second", {{ QSL("myvar"), Variable("a32") }}},
+        { "third", {{ QSL("mycmd2"), Variable("mbltfifo ${myvar} 0x1234 54321") }}},
+    };
+
+    qDebug() << symtabs[0].value("mycmd").value;
+
+    {
+        QString input = "${mycmd}";
+
+        try
+        {
+        auto script = vme_script::parse(input, symtabs);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
+        ASSERT_EQ(cmd.address, 0x4321);
+        ASSERT_EQ(cmd.transfers, 12345);
+        } catch (const vme_script::ParseError &e)
+        {
+            qDebug() << e.toString();
+            throw;
+        }
+    }
+
+    {
+        QString input = "${mycmd2}";
+
+        try
+        {
+        auto script = vme_script::parse(input, symtabs);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.transfers, 54321);
+        } catch (const vme_script::ParseError &e)
+        {
+            qDebug() << e.toString();
+            throw;
+        }
+    }
+}
+
 TEST(vme_script_commands, ParseVMEAddressModes)
 {
     namespace vme_amods = vme_address_modes;
