@@ -4,6 +4,29 @@
 Changelog
 ##################################################
 
+dev
+---
+
+* [vme_script]
+
+  - Breaking change: spaces are not allowed in variables names anymore. The UI
+    now also rejects attempts to uses spaces in variable names.
+
+  - Can now place complete vme_script command lines in variables, e.g.: ::
+
+        set readout_cmd "mbltfifo a32 0x0100 65535"
+        ${readout_cmd}
+
+    The second line above is now correctly parsed as a **mbltfifo** command.
+
+    Variable references can also be used on the right-hand side: ::
+
+        set my_addr 0x1234
+        set readout_cmd "mbltfifo a32 ${my_addr} 65535"
+        ${readout_cmd} # Will be expanded to "mbltfifo a32 0x1234 65535"
+
+    This process is not recursive.
+
 Version 1.6.3
 -------------
 
