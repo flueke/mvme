@@ -54,8 +54,6 @@ if (SPHINX_EXECUTABLE)
 
     add_custom_target(mvme_doc ALL)
 
-    add_dependencies(mvme_doc mvme_doc_sphinx_copy_changelog)
-
     # html
     # ==================================================
 
@@ -75,7 +73,7 @@ if (SPHINX_EXECUTABLE)
         COMMENT "Building HTML documentation with Sphinx"
         )
 
-    add_dependencies(mvme_doc_html mvme_doc_sphinx_copy_ext)
+    add_dependencies(mvme_doc_html mvme_doc_sphinx_copy_ext mvme_doc_sphinx_copy_changelog)
     add_dependencies(mvme_doc mvme_doc_html)
 
     install(DIRECTORY "${SPHINX_HTML_DIR}" DESTINATION doc)
@@ -98,7 +96,7 @@ if (SPHINX_EXECUTABLE)
             "${SPHINX_LATEX_DIR}"
             COMMENT "Building latex documentation with Sphinx"
             )
-        add_dependencies(mvme_doc_latex mvme_doc_sphinx_copy_ext)
+        add_dependencies(mvme_doc_latex mvme_doc_sphinx_copy_ext mvme_doc_sphinx_copy_changelog)
 
         # latex -> pdf
         # Trap here: as I'm using ninja for most builds ${CMAKE_MAKE_PROGRAM} is
@@ -148,7 +146,7 @@ if (SPHINX_EXECUTABLE)
                 "${SPHINX_QTHELP_DIR}/mvme.qhp"
                 "${SPHINX_QTHELP_DIR}/mvme.qhcp"
             )
-        add_dependencies(mvme_doc_qthelp mvme_doc_sphinx_copy_ext)
+        add_dependencies(mvme_doc_qthelp mvme_doc_sphinx_copy_ext mvme_doc_sphinx_copy_changelog)
 
         # qthelp collection
         # Produces mvme.qhc and mvme.qch
