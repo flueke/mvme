@@ -634,7 +634,7 @@ TEST(vme_script_parsing, SetWithExpressions)
         QString input = "set foo \"$( 7 * 6 )\"\nset \"the_var\" ${foo}";
         try
         {
-        auto script = parse(input, symtabs);
+            auto script = parse(input, symtabs);
         } catch (const vme_script::ParseError &e)
         {
             qDebug() << e.toString();
@@ -656,4 +656,35 @@ TEST(vme_script_parsing, SetWithExpressions)
         ASSERT_EQ(symtab0.value("foo").value, QSL("42"));
         ASSERT_EQ(symtab0.value("the_var").value, QSL("42"));
     }
+
+    {
+        try
+        {
+            QString input = "set readout_cmd \"mbltfifo a32 0x0100 65535\"\n${readout_cmd}";
+            auto script = parse(input);
+            ASSERT_EQ(script.size(), 1);
+            auto &cmd = script[0];
+            ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
+            ASSERT_EQ(cmd.address, 0x0100);
+            ASSERT_EQ(cmd.transfers, 65535);
+        } catch (const vme_script::ParseError &e)
+        {
+            qDebug() << e.toString();
+            throw;
+        }
+    }
+
+    {
+        try
+        {
+            QString input = "set my_addr 0x1234\nset readout_cmd \"mbltfifo a32 ${my_addr} 65535\"\n${readout_cmd}";
+            auto script = parse(input);
+        } catch (const vme_script::ParseError &e)
+        {
+            qDebug() << e.toString();
+            throw;
+        }
+    }
+
+
 }

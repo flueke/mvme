@@ -364,12 +364,12 @@ TEST(vme_script_commands, SingleLineCommandInVariable)
 
         try
         {
-        auto script = vme_script::parse(input, symtabs);
-        ASSERT_EQ(script.size(), 1);
-        auto &cmd = script.first();
-        ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
-        ASSERT_EQ(cmd.address, 0x4321);
-        ASSERT_EQ(cmd.transfers, 12345);
+            auto script = vme_script::parse(input, symtabs);
+            ASSERT_EQ(script.size(), 1);
+            auto &cmd = script.first();
+            ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
+            ASSERT_EQ(cmd.address, 0x4321);
+            ASSERT_EQ(cmd.transfers, 12345);
         } catch (const vme_script::ParseError &e)
         {
             qDebug() << e.toString();
@@ -382,12 +382,12 @@ TEST(vme_script_commands, SingleLineCommandInVariable)
 
         try
         {
-        auto script = vme_script::parse(input, symtabs);
-        ASSERT_EQ(script.size(), 1);
-        auto &cmd = script.first();
-        ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
-        ASSERT_EQ(cmd.address, 0x1234);
-        ASSERT_EQ(cmd.transfers, 54321);
+            auto script = vme_script::parse(input, symtabs);
+            ASSERT_EQ(script.size(), 1);
+            auto &cmd = script.first();
+            ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
+            ASSERT_EQ(cmd.address, 0x1234);
+            ASSERT_EQ(cmd.transfers, 54321);
         } catch (const vme_script::ParseError &e)
         {
             qDebug() << e.toString();

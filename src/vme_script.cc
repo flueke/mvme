@@ -21,6 +21,7 @@
 #include "vme_script.h"
 #include "vme_script_p.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <iomanip>
@@ -1763,24 +1764,30 @@ VMEScript parse(
                 expand_variables(preparsed, symtabs);
                 evaluate_expressions(preparsed);
 
+                // Lowercase the first part (the command name or for the shortcut form
+                // of the write command the address value).
+                preparsed.parts[0] = preparsed.parts[0].toLower();
+
                 // To allow parsing of full command lines which were
                 // expanded from a single variable a second parsing pass has to happen.
                 // Example: set ${myvar} "mbltfifo a32 0x4321 12345"
                 //          -> preparsed_parts: ("mbltfifo a32 0x4321 12345")
                 // This string has to be split into atomics parts again.
-                //qDebug() << "preparsed.parts" << preparsed.parts;
-                QStringList reparsedParts;
-                for (auto &part: preparsed.parts)
-                    reparsedParts.append(split_into_atomic_parts_q(part, preparsed.lineNumber));
-                preparsed.parts = reparsedParts;
-                //qDebug() << "re-preparsed.parts (before expansions)" << preparsed.parts;
-                expand_variables(preparsed, symtabs);
-                evaluate_expressions(preparsed);
-                //qDebug() << "re-preparsed.part (after expansions)" << preparsed.parts;
-
-                // Lowercase the first part (the command name or for the shortcut form
-                // of the write command the address value).
-                preparsed.parts[0] = preparsed.parts[0].toLower();
+                //
+                // Do not perform this step for the 'set' command as it would
+                // break quoted string variable values!
+                if (preparsed.parts[0] != "set")
+                {
+                    qDebug() << "preparsed.parts" << preparsed.parts;
+                    QStringList reparsedParts;
+                    for (auto &part: preparsed.parts)
+                        reparsedParts.append(split_into_atomic_parts_q(part, preparsed.lineNumber));
+                    preparsed.parts = reparsedParts;
+                    qDebug() << "re-preparsed.parts (before expansions)" << preparsed.parts;
+                    expand_variables(preparsed, symtabs);
+                    evaluate_expressions(preparsed);
+                    qDebug() << "re-preparsed.part (after expansions)" << preparsed.parts;
+                }
 
                 if (preparsed.parts[0] == "set")
                 {
