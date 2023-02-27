@@ -5,7 +5,7 @@ mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(dir $(mkfile_path))
 
 CXXFLAGS   +=	-I$(MVME)/include -I$(MVME)/include/mvme -I.
-CXXFLAGS   +=	-std=c++14 -O3
+CXXFLAGS   +=	-O3
 
 .PHONY: all clean
 
