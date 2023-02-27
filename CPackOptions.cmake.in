@@ -12,9 +12,9 @@ set(PACKAGE_VERSION     "@GIT_VERSION_SHORT@")
 set(SOURCE_DIR          "@CMAKE_SOURCE_DIR@")
 set(GIT_BRANCH          "@GIT_BRANCH@")
 
-set(CPACK_PACKAGE_FILE_NAME
-    "${PROJECT_NAME}-${PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}-${PACKAGE_ARCH_STRING}"
-)
+set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}-${PACKAGE_ARCH_STRING}")
+set(CPACK_RESOURCE_FILE_LICENSE "${SOURCE_DIR}/LICENSE-SHORT.TXT")
+set(CPACK_STRIP_FILES TRUE)
 
 # Include the branch name in the package if it's not the main branch.
 if (GIT_BRANCH AND NOT "${GIT_BRANCH}" STREQUAL "main")
@@ -35,7 +35,8 @@ if (WIN32)
     set(CPACK_NSIS_DISPLAY_NAME "mesytec mvme")
     set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\mvme.exe")
     #set(CPACK_MONOLITHIC_INSTALL 1)
+else()
+    # Sadly can only specifiy a single binary here which then dictates which
+    # libraries linuxdeployqt picks up.
+    set(DEPLOY_BINARY "bin/mvme")
 endif()
-
-set(CPACK_RESOURCE_FILE_LICENSE "${SOURCE_DIR}/LICENSE-SHORT.TXT")
-set(CPACK_STRIP_FILES TRUE)
