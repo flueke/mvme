@@ -1774,19 +1774,22 @@ VMEScript parse(
                 //          -> preparsed_parts: ("mbltfifo a32 0x4321 12345")
                 // This string has to be split into atomics parts again.
                 //
-                // Do not perform this step for the 'set' command as it would
-                // break quoted string variable values!
+                // Do not perform this step for commands taking a fixed number
+                // of arguments where one is a string potentially containing
+                // quotes. This is the big drawback of performing double
+                // evaluation. Maybe need to introduce single quoted strings
+                // which are not double evaluated.
                 if (preparsed.parts[0] != "set" && preparsed.parts[0] != "accu_test")
                 {
-                    qDebug() << "preparsed.parts" << preparsed.parts;
+                    //qDebug() << "preparsed.parts" << preparsed.parts;
                     QStringList reparsedParts;
                     for (auto &part: preparsed.parts)
                         reparsedParts.append(split_into_atomic_parts_q(part, preparsed.lineNumber));
                     preparsed.parts = reparsedParts;
-                    qDebug() << "re-preparsed.parts (before expansions)" << preparsed.parts;
+                    //qDebug() << "re-preparsed.parts (before expansions)" << preparsed.parts;
                     expand_variables(preparsed, symtabs);
                     evaluate_expressions(preparsed);
-                    qDebug() << "re-preparsed.part (after expansions)" << preparsed.parts;
+                    //qDebug() << "re-preparsed.part (after expansions)" << preparsed.parts;
                 }
 
                 if (preparsed.parts[0] == "set")
