@@ -1776,7 +1776,7 @@ VMEScript parse(
                 //
                 // Do not perform this step for the 'set' command as it would
                 // break quoted string variable values!
-                if (preparsed.parts[0] != "set")
+                if (preparsed.parts[0] != "set" && preparsed.parts[0] != "accu_test")
                 {
                     qDebug() << "preparsed.parts" << preparsed.parts;
                     QStringList reparsedParts;
