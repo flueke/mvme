@@ -47,34 +47,6 @@ message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} (mvme)")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-#set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
-#set(WARNING_FLAGS "-Wall -Wextra")
-
-#if (WIN32)
-#    set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-format")
-#endif(WIN32)
-
-#set(CMAKE_CXX_FLAGS "-pipe ${WARNING_FLAGS}")
-
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
-
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
-
-#set(MARCH_FLAG "nocona")
-#set(MTUNE_FLAG "core2")
-#set(MARCH_FLAG "haswell")
-#set(MTUNE_FLAG "haswell")
-#set(MARCH_FLAG "skylake")
-#set(MTUNE_FLAG "skylake")
-
-#set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb -Og")
-#set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
-#set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
-
 # Explicitly set the required c++ standard (CMake >= 3.1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -94,22 +66,6 @@ SET(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
 SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 
-## add the automatically determined parts of the RPATH
-## which point to directories outside the build tree to the install RPATH
-#SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-#
-## the RPATH to be used when installing, but only if it's not a system directory
-#LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
-#IF("${isSystemDir}" STREQUAL "-1")
-#   SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-#ENDIF("${isSystemDir}" STREQUAL "-1")
-
-#if (WIN32)
-#    string(APPEND CMAKE_CXX_FLAGS " -flto")
-#    string(APPEND CMAKE_C_FLAGS " -flto")
-#    string(APPEND CMAKE_EXE_LINKER_FLAGS " -flto")
-#endif(WIN32)
-
 set(not-msvc $<NOT:$<CXX_COMPILER_ID:MSVC>>)
 
 # externals
@@ -123,8 +79,6 @@ find_path(QUAZIP_INCLUDE_DIR
     QuaZip-Qt5-1.3/quazip
     QuaZip-Qt5-1.4/quazip
 )
-
-#include_directories(${QUAZIP_INCLUDE_DIR})
 
 find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5 quazip1-qt5)
 find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)
@@ -158,13 +112,11 @@ if (WIN32 OR QWT_LIBRARY_DEBUG)
             optimized ${QWT_LIBRARY_RELEASE}
             debug ${QWT_LIBRARY_DEBUG}
             )
-        #set(QWT_LIBRARY ${QWT_LIBRARY_DEBUG})
     else()
         set(QWT_LIBRARY
             optimized ${QWT_LIBRARY_RELEASE}
             debug ${QWT_LIBRARY_RELEASE}
             )
-        #set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
     endif()
 else()
     set(QWT_LIBRARY ${QWT_LIBRARY_RELEASE})
@@ -210,12 +162,6 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates" DESTINATION .)
 file(COPY templates DESTINATION .)
 
 # CPack configuration used for 'make package'
-
-# CPACK_PROJECT_CONFIG_FILE
-# File included at cpack time, once per generator after setting CPACK_GENERATOR
-# to the actual generator being used; allows per-generator setting of CPACK_*
-# variables at cpack time.
-# Default: ${PROJECT_BINARY_DIR}/CPackOptions.cmake
 
 if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
     set(PACKAGE_ARCH_STRING "x64")
@@ -270,6 +216,8 @@ else()
     set(CPACK_SOURCE_GENERATOR "TBZ2")
 
     if (MVME_CPACK_USE_LINUXDEPLOYQT)
+        # Find linuxdeployqt here to error out early in case it's missing.
+        find_program(LINUXDEPLOYQT_EXECUTABLE linuxdeployqt REQUIRED)
         set(CPACK_GENERATOR "External")
         set(CPACK_EXTERNAL_PACKAGE_SCRIPT "${CMAKE_SOURCE_DIR}/cmake/CPackExternal_linuxdeployqt.cmake")
         set(CPACK_EXTERNAL_ENABLE_STAGING TRUE)
@@ -278,6 +226,11 @@ else()
     endif()
 endif()
 
+# CPACK_PROJECT_CONFIG_FILE
+# File included at cpack time, once per generator after setting CPACK_GENERATOR
+# to the actual generator being used; allows per-generator setting of CPACK_*
+# variables at cpack time.
+# Default: ${PROJECT_BINARY_DIR}/CPackOptions.cmake
 configure_file("CPackOptions.cmake.in" "${PROJECT_BINARY_DIR}/CPackOptions.cmake" @ONLY)
 set(CPACK_PROJECT_CONFIG_FILE "${PROJECT_BINARY_DIR}/CPackOptions.cmake")
 
