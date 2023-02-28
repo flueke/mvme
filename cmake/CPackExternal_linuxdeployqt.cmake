@@ -1,3 +1,5 @@
+# Author: f.lueke@mesytec.com (2023)
+
 message("-- CPackExternal_mvme: creating package archive for '${CPACK_PACKAGE_FILE_NAME}'")
 
 #include(CMakePrintHelpers)

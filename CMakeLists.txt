@@ -271,7 +271,7 @@ else()
 
     if (MVME_CPACK_USE_LINUXDEPLOYQT)
         set(CPACK_GENERATOR "External")
-        set(CPACK_EXTERNAL_PACKAGE_SCRIPT "${CMAKE_SOURCE_DIR}/CPackExternal_mvme.cmake")
+        set(CPACK_EXTERNAL_PACKAGE_SCRIPT "${CMAKE_SOURCE_DIR}/cmake/CPackExternal_linuxdeployqt.cmake")
         set(CPACK_EXTERNAL_ENABLE_STAGING TRUE)
     else()
         set(CPACK_GENERATOR "TBZ2")
