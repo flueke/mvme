@@ -1,6 +1,15 @@
 # Author: f.lueke@mesytec.com (2023)
+#
+# Requires the following variables to be set:
 
-message("-- CPackExternal_mvme: creating package archive for '${CPACK_PACKAGE_FILE_NAME}'")
+# * LINUXDEPLOYQT_EXECUTABLE:
+#   Path to the linuxdeployqt binary
+# * DEPLOY_BINARY:
+#   Path to the binary that's should be analyzed by linuxdeployqt. Relative
+#   installation path. ${CPACK_TEMPORARY_DIRECTORY} will be prepended to
+#   calculate the full path.
+
+message("-- CPackExternal_linuxdeployqt: creating package archive for '${CPACK_PACKAGE_FILE_NAME}'")
 
 #include(CMakePrintHelpers)
 #cmake_print_variables(CPACK_TEMPORARY_DIRECTORY)
@@ -19,8 +28,6 @@ message("-- CPackExternal_mvme: creating package archive for '${CPACK_PACKAGE_FI
 # Turn the relative binary path into an absolute one.
 set(DEPLOY_BINARY ${CPACK_TEMPORARY_DIRECTORY}/${DEPLOY_BINARY})
 
-find_program(LINUXDEPLOYQT_EXECUTABLE linuxdeployqt REQUIRED)
-
 execute_process(
     COMMAND ${LINUXDEPLOYQT_EXECUTABLE} ${DEPLOY_BINARY}
     -unsupported-allow-new-glibc -bundle-non-qt-libs -no-translations -no-copy-copyright-files -no-strip
@@ -28,34 +35,39 @@ execute_process(
     COMMAND_ECHO STDOUT
 )
 
+message("-- CPackExternal_linuxdeployqt: linuxdeployqt step done")
+
 # Add additional shared objects that are excluded by linuxdeployqt. An
 # alternative would be to pass "-unsupported-bundle-everything" to
 # linuxdeployqt but that would also bundle glibc.
-
 file(GET_RUNTIME_DEPENDENCIES
-    RESOLVED_DEPENDENCIES_VAR MVME_ADDITIONAL_LIBS
+    RESOLVED_DEPENDENCIES_VAR DEPLOY_ADDITIONAL_LIBS
     POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*"
     POST_EXCLUDE_REGEXES ".*"
     EXECUTABLES ${DEPLOY_BINARY}
 )
 
-message("Copying additional libraries into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
+message("-- CPackExternal_linuxdeployqt: Copying additional libraries into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
 
 file(COPY ${DEPLOY_ADDITIONAL_LIBS}
     DESTINATION "${CPACK_TEMPORARY_DIRECTORY}/lib"
     FOLLOW_SYMLINK_CHAIN
 )
 
-set(PACKAGE_OUTPUT_DIR "${CPACK_PACKAGE_DIRECTORY}/packages")
+set(PACKAGE_OUTPUT_DIR "${CPACK_TOPLEVEL_DIRECTORY}/packages")
 set(PACKAGE_ARCHIVE_FILE "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2")
 
 file(MAKE_DIRECTORY ${PACKAGE_OUTPUT_DIR})
 
+message("-- CPackExternal_linuxdeployqt: Creating package archive with 'tar'...")
 
 execute_process(
-    COMMAND tar -cjvf ${PACKAGE_ARCHIVE_FILE} "${CPACK_PACKAGE_FILE_NAME}"
+    COMMAND tar -cjf ${PACKAGE_ARCHIVE_FILE} "${CPACK_PACKAGE_FILE_NAME}"
     WORKING_DIRECTORY  ${CPACK_TOPLEVEL_DIRECTORY}
     COMMAND_ERROR_IS_FATAL ANY
+    COMMAND_ECHO STDOUT
 )
 
-message("-- CPackExternal_mvme: created package archive ${PACKAGE_ARCHIVE_FILE}")
+message("-- CPackExternal_linuxdeployqt: created package archive ${PACKAGE_ARCHIVE_FILE}")
+
+set(CPACK_EXTERNAL_BUILT_PACKAGES ${PACKAGE_ARCHIVE_FILE})
