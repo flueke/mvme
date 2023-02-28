@@ -21,6 +21,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
+string(REGEX REPLACE "^v" "" GIT_VERSION ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*)?(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
@@ -36,10 +37,7 @@ message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 message("-- GIT_BRANCH=${GIT_BRANCH}")
 
 
-project(mvme
-    DESCRIPTION "mesytec VME Data Acquisition"
-    VERSION ${GIT_VERSION_TAG}
-)
+project(mvme DESCRIPTION "mesytec VME Data Acquisition" VERSION ${GIT_VERSION_TAG})
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug")
@@ -124,7 +122,7 @@ find_path(QUAZIP_INCLUDE_DIR
     QuaZip-Qt5-1.1/quazip
     QuaZip-Qt5-1.3/quazip
     QuaZip-Qt5-1.4/quazip
-    )
+)
 
 #include_directories(${QUAZIP_INCLUDE_DIR})
 
@@ -284,4 +282,5 @@ configure_file("CPackOptions.cmake.in" "${PROJECT_BINARY_DIR}/CPackOptions.cmake
 set(CPACK_PROJECT_CONFIG_FILE "${PROJECT_BINARY_DIR}/CPackOptions.cmake")
 
 include(CPack)
+
 # vim:tw=0
