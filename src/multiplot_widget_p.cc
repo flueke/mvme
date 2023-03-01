@@ -177,6 +177,7 @@ void Histo1DSinkPlotEntry::refresh()
 
     textRows << "<table>";
     textRows << RowTemplate.arg("Counts").arg(histoStats.entryCount);
+    textRows << RowTemplate.arg("RMS").arg(histoStats.sigma);
 
     if (gaussCurve->isVisible())
         textRows << RowTemplate.arg("FWHM").arg(histoStats.fwhm, 0, 'g', 4);
