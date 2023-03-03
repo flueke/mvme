@@ -1,0 +1,17 @@
+{
+    "auxiliary_vme_scripts": [
+        {
+            "fileName": "mvhv-4_hv-off.vmescript",
+            "scriptName": "MVHV-4: HV OFF",
+            "vendorName": "mesytec",
+            "moduleName": "MVHV-4"
+        },
+        {
+            "fileName": "mvhv-4_hv-on.vmescript",
+            "scriptName": "MVHV-4: HV ON",
+            "vendorName": "mesytec",
+            "moduleName": "MVHV-4"
+        }
+    ]
+}
+

@@ -1,0 +1,12 @@
+# Switch MVHV-4 channels OFF.
+#
+# Script can be placed in 'DAQ Stop' to automatically disable HV
+# or in 'Manual' if manual control is desired.
+
+# Base address of the MVHV-4. The onboard address encoders set the 4 high hex digits.
+setbase 0x00000000
+
+0x000a 0		# channel_enable0
+0x000c 0		# channel_enable0
+0x000e 0		# channel_enable0
+0x0010 0		# channel_enable0

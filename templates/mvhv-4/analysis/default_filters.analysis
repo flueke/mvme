@@ -1,0 +1,178 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+            "{bd36ee5a-8931-4f5c-ae4c-baaa9b5a242e}": {
+                "MultiEventProcessing": true
+            }
+        },
+        "conditionLinks": {
+        },
+        "connections": [
+            {
+                "dstId": "{6f40404f-885b-4a22-9342-910d07c40cbc}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{0d0dfc58-a6b2-4192-a447-986d4da0f906}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{1d1f78f0-0188-42bd-8f36-340d99db1ce1}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{21de7b90-1029-4ba3-8939-fad87fc430f8}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "dynamicProperties": {
+                    },
+                    "members": [
+                        "{1d1f78f0-0188-42bd-8f36-340d99db1ce1}",
+                        "{6f40404f-885b-4a22-9342-910d07c40cbc}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{453aed81-45e6-4e15-93f9-cca8d7377f32}",
+                "name": "mvhv-4 readings",
+                "userLevel": 0
+            }
+        ],
+        "genericObjects": [
+        ],
+        "operators": [
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 0.1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "V",
+                    "useCombinedView": true,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{cb6b939a-0c82-4ce8-9bca-4bed44705900}",
+                "id": "{6f40404f-885b-4a22-9342-910d07c40cbc}",
+                "name": "voltage",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "nA",
+                    "useCombinedView": true,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{cb6b939a-0c82-4ce8-9bca-4bed44705900}",
+                "id": "{1d1f78f0-0188-42bd-8f36-340d99db1ce1}",
+                "name": "current",
+                "userLevel": 0
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{4af7e702-a856-4d9c-acf3-b738bb7d4462}",
+                    "moduleName": "caen_v1190a",
+                    "moduleTypeName": "caen_v1190a"
+                },
+                {
+                    "moduleId": "{97015bbe-6278-420d-bb12-57a248dce9ba}",
+                    "moduleName": "mdpp16_scp",
+                    "moduleTypeName": "mdpp16_scp"
+                },
+                {
+                    "moduleId": "{e34b9d8f-4ff3-422c-a3cb-69e26a55a3c6}",
+                    "moduleName": "mvhv-4_usermodule",
+                    "moduleTypeName": "user01"
+                },
+                {
+                    "moduleId": "{92d01c82-96bc-4060-a66f-d99961dcae80}",
+                    "moduleName": "mvhv-4",
+                    "moduleTypeName": "mvhv-4"
+                },
+                {
+                    "moduleId": "{c009dc5f-0616-4dd6-ad57-d581f5fc38b8}",
+                    "moduleName": "mvhv-4_1",
+                    "moduleTypeName": "mvhv-4"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 1,
+                        "wordCount": 1
+                    },
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "repetitions": 4,
+                    "rngSeed": "13dacc587c7d893d"
+                },
+                "eventId": "{cb6b939a-0c82-4ce8-9bca-4bed44705900}",
+                "id": "{0d0dfc58-a6b2-4192-a447-986d4da0f906}",
+                "moduleId": "{92d01c82-96bc-4060-a66f-d99961dcae80}",
+                "name": "voltage"
+            },
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 1,
+                        "wordCount": 1
+                    },
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "repetitions": 4,
+                    "rngSeed": "a73e5fcd7db26505"
+                },
+                "eventId": "{cb6b939a-0c82-4ce8-9bca-4bed44705900}",
+                "id": "{21de7b90-1029-4ba3-8939-fad87fc430f8}",
+                "moduleId": "{92d01c82-96bc-4060-a66f-d99961dcae80}",
+                "name": "current"
+            }
+        ]
+    }
+}
