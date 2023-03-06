@@ -1,23 +1,26 @@
 {
     "ModuleConfig": {
-        "baseAddress": 16777216,
+        "baseAddress": 0,
         "enabled": true,
-        "id": "{e34b9d8f-4ff3-422c-a3cb-69e26a55a3c6}",
+        "id": "{92d01c82-96bc-4060-a66f-d99961dcae80}",
         "initScripts": [
             {
                 "enabled": true,
-                "id": "{ba6f40b2-ec07-4c5d-b3dd-8ad75bd67c95}",
+                "id": "{c6149cf8-5c63-4228-b354-81312b07ab66}",
                 "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
                 "variable_table": {
                     "name": "",
                     "variables": {
                     }
                 },
-                "vme_script": "# Parameters for MVHV-4\n\n# standard precision voltage setting\n0x0002 0                # set_voltage0, range 0..8000 == 0..800V\n0x0004 0                # set_voltage1, range 0..8000 == 0..800V\n0x0006 0                # set_voltage2, range 0..8000 == 0..800V\n0x0008 0                # set_voltage3, range 0..8000 == 0..800V\n\n# current limit (set to 0 to disable auto shutdown)\n0x0012 1000             # set_current_limit0, range 0..20000 == 0..20000nA (0..20µA)\n0x0014 1000             # set_current_limit1, range 0..20000 == 0..20000nA (0..20µA)\n0x0016 1000             # set_current_limit2, range 0..20000 == 0..20000nA (0..20µA)\n0x0018 1000             # set_current_limit3, range 0..20000 == 0..20000nA (0..20µA)\n\n# polarity\n0x001e 1                # polarity0, 0==negative, 1==positive\n0x0020 1                # polarity1, 0==negative, 1==positive\n0x0022 1                # polarity2, 0==negative, 1==positive\n0x0024 1                # polarity3, 0==negative, 1==positive\n\n# high precision voltage setting\n#0x004c 0               # set_voltage_prec0, 0..64000 == 0..800V, 1 unit == 12.5mV\n#0x004e 0               # set_voltage_prec1, 0..64000 == 0..800V, 1 unit == 12.5mV\n#0x0050 0               # set_voltage_prec2, 0..64000 == 0..800V, 1 unit == 12.5mV\n#0x0052 0               # set_voltage_prec3, 0..64000 == 0..800V, 1 unit == 12.5mV\n\n0x0054 0                # ramp_speed, 0==5V/s, 1==25V/s, 2=100V/s, 3=500V/s\n"
+                "vme_script": "# Parameters for MVHV-4\n\n0x0052 0                # ramp_speed, 0==5V/s, 1==25V/s, 2=100V/s, 3=500V/s\n\n# polarity\n0x001c 1                # polarity0, 0==negative, 1==positive\n0x001e 1                # polarity1, 0==negative, 1==positive\n0x0020 1                # polarity2, 0==negative, 1==positive\n0x0022 1                # polarity3, 0==negative, 1==positive\n\n# standard precision voltage setting\n0x0000 0                # set_voltage0, range 0..8000 == 0..800V\n0x0002 0                # set_voltage1, range 0..8000 == 0..800V\n0x0004 0                # set_voltage2, range 0..8000 == 0..800V\n0x0006 0                # set_voltage3, range 0..8000 == 0..800V\n\n# current limit (set to 0 to disable auto shutdown)\n0x0010 1000             # set_current_limit0, range 0..20000 == 0..20000nA (0..20µA)\n0x0012 1000             # set_current_limit1, range 0..20000 == 0..20000nA (0..20µA)\n0x0014 1000             # set_current_limit2, range 0..20000 == 0..20000nA (0..20µA)\n0x0016 1000             # set_current_limit3, range 0..20000 == 0..20000nA (0..20µA)\n\n\n# high precision voltage setting\n#0x004a 0               # set_voltage_prec0, 0..64000 == 0..800V, 1 unit == 12.5mV\n#0x004c 0               # set_voltage_prec1, 0..64000 == 0..800V, 1 unit == 12.5mV\n#0x004e 0               # set_voltage_prec2, 0..64000 == 0..800V, 1 unit == 12.5mV\n#0x0050 0               # set_voltage_prec3, 0..64000 == 0..800V, 1 unit == 12.5mV"
             }
         ],
         "name": "mvhv-4",
-        "type": "user01",
+        "type": "mvhv-4",
         "variable_table": {
             "name": "",
             "variables": {
@@ -25,7 +28,7 @@
         },
         "vmeReadout": {
             "enabled": true,
-            "id": "{3b947c41-bd66-4e7b-93d7-f815166c6ed4}",
+            "id": "{a463fffb-6c76-4f25-9061-0baa52ac8a42}",
             "name": "Module Readout",
             "properties": {
                 "icon": ":/vme_script.png"
@@ -35,11 +38,11 @@
                 "variables": {
                 }
             },
-            "vme_script": "# Readout of MVHV-4 voltages and currents.\n# Intended to be used in a 'periodic' VME readout event.\n\n# Voltage readout\nread a32 d16 0x0002\nread a32 d16 0x0004\nread a32 d16 0x0006\nread a32 d16 0x0008\n\n# Current readout\nread a32 d16 0x0026\nread a32 d16 0x0028\nread a32 d16 0x002a\nread a32 d16 0x002c"
+            "vme_script": "# Readout of MVHV-4 voltages and currents.\n# Intended to be used in a 'periodic' VME readout event.\n\n# Voltage readout\nread a32 d16 0x0000\nread a32 d16 0x0002\nread a32 d16 0x0004\nread a32 d16 0x0006\n\n# Current readout\nread a32 d16 0x0024\nread a32 d16 0x0026\nread a32 d16 0x0028\nread a32 d16 0x002a"
         },
         "vmeReset": {
             "enabled": true,
-            "id": "{3a573e7e-fc3d-40ab-baf8-c3a7e9b529b5}",
+            "id": "{8bb41b48-77a7-4912-beba-365dc80e71c7}",
             "name": "Module Reset",
             "properties": {
                 "icon": ":/vme_script.png"
@@ -49,7 +52,7 @@
                 "variables": {
                 }
             },
-            "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\nprint \"Hardware Revision:\"\nread a32 d16 0x0056\n\nprint \"CPU Firmware:\"\nread a32 d16 0x0058\n\nprint \"CPLD Firmware:\"\nread a32 d16 0x005a"
+            "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\n\n/*\nprint \"Hardware Revision:\"\nread a32 d16 0x0054\n\nprint \"CPU Firmware:\"\nread a32 d16 0x0056\n\nprint \"CPLD Firmware:\"\nread a32 d16 0x0058\n*/\n\nprint \"Hardware ID:\"\nread a32 d16 0x0108\n\nprint \"Firmware Rev.:\"\nread a32 d16 0x010e"
         }
     },
     "ModuleMeta": {
