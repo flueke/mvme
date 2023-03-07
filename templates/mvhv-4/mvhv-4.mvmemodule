@@ -1,12 +1,12 @@
 {
     "ModuleConfig": {
-        "baseAddress": 0,
+        "baseAddress": 18874368,
         "enabled": true,
-        "id": "{92d01c82-96bc-4060-a66f-d99961dcae80}",
+        "id": "{0f7983d9-645d-4935-9bd2-4a83f9778e4b}",
         "initScripts": [
             {
                 "enabled": true,
-                "id": "{c6149cf8-5c63-4228-b354-81312b07ab66}",
+                "id": "{8ba7d14f-a7d3-4f29-90fe-e77b53847f6a}",
                 "name": "Module Init",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -28,7 +28,7 @@
         },
         "vmeReadout": {
             "enabled": true,
-            "id": "{a463fffb-6c76-4f25-9061-0baa52ac8a42}",
+            "id": "{366fb03c-8498-4ac0-97d9-e6ccbfb318d6}",
             "name": "Module Readout",
             "properties": {
                 "icon": ":/vme_script.png"
@@ -42,7 +42,7 @@
         },
         "vmeReset": {
             "enabled": true,
-            "id": "{8bb41b48-77a7-4912-beba-365dc80e71c7}",
+            "id": "{0fe54148-f2d6-419d-9ad9-8b6ecfd0b47d}",
             "name": "Module Reset",
             "properties": {
                 "icon": ":/vme_script.png"
@@ -52,7 +52,7 @@
                 "variables": {
                 }
             },
-            "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\n\n/*\nprint \"Hardware Revision:\"\nread a32 d16 0x0054\n\nprint \"CPU Firmware:\"\nread a32 d16 0x0056\n\nprint \"CPLD Firmware:\"\nread a32 d16 0x0058\n*/\n\nprint \"Hardware ID:\"\nread a32 d16 0x0108\n\nprint \"Firmware Rev.:\"\nread a32 d16 0x010e"
+            "vme_script": "print \"Hardware ID:\"\nread a32 d16 0x0108\n\nprint \"Hardware Rev:\"\nread a32 d16 0x0054\n\nprint \"CPLD Firmware:\"\nread a32 d16 0x0058\n\nprint \"CPU Firmware:\"\nread a32 d16 0x0056\n"
         }
     },
     "ModuleMeta": {
