@@ -7,6 +7,6 @@
 setbase 0x00000000
 
 0x0008 0		# channel_enable0
-0x000a 0		# channel_enable0
-0x000c 0		# channel_enable0
-0x000e 0		# channel_enable0
+0x000a 0		# channel_enable1
+0x000c 0		# channel_enable2
+0x000e 0		# channel_enable3

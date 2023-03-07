@@ -1,6 +1,6 @@
 {
     "ModuleConfig": {
-        "baseAddress": 18874368,
+        "baseAddress": 0,
         "enabled": true,
         "id": "{0f7983d9-645d-4935-9bd2-4a83f9778e4b}",
         "initScripts": [
@@ -38,7 +38,7 @@
                 "variables": {
                 }
             },
-            "vme_script": "# Readout of MVHV-4 voltages and currents.\n# Intended to be used in a 'periodic' VME readout event.\n\n# Voltage readout\nread a32 d16 0x0000\nread a32 d16 0x0002\nread a32 d16 0x0004\nread a32 d16 0x0006\n\n# Current readout\nread a32 d16 0x0024\nread a32 d16 0x0026\nread a32 d16 0x0028\nread a32 d16 0x002a"
+            "vme_script": "# Readout of MVHV-4 voltages and currents.\n# Intended to be used in a 'periodic' VME readout event.\n\n# Voltage readout\nread a32 d16 0x0000\nread a32 d16 0x0002\nread a32 d16 0x0004\nread a32 d16 0x0006\n\n# Current readout, positive currents\nread a32 d16 0x0024\nread a32 d16 0x0026\nread a32 d16 0x0028\nread a32 d16 0x002a\n\n# Current readout, signed currents\nread a32 d16 0x0034\nread a32 d16 0x0036\nread a32 d16 0x0038\nread a32 d16 0x003a"
         },
         "vmeReset": {
             "enabled": true,
