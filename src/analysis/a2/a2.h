@@ -109,6 +109,10 @@ struct DataSourceOptions
      * the final address value. By default the repetition number contributes to
      * the high address bits. */
     static const opt_t RepetitionContributesLowAddressBits  = 1u << 1;
+
+    /* Used for extracting signed values. Treats the highest bit as the sign bit.
+       For a 16 bit filter the signed data range is [-32768, 32768). */
+    static const opt_t HighestBitIsSignBit                  = 1u << 2;
 };
 
 struct Extractor

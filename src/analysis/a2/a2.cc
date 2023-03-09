@@ -321,6 +321,29 @@ void extractor_begin_event(DataSource *ds)
     invalidate_all(ds->outputs[0]);
 }
 
+inline double convert_to_signed(u64 value, unsigned numDataBits)
+{
+    const u64 signMask = 1u << (numDataBits - 1);  // isolate the sign bit
+    const u64 bitsMask = signMask - 1;             // has all bits lower than the sign bit set
+
+    double valueMult = (value & signMask) ? -1.0 : 1.0;
+    value &= bitsMask;
+    return static_cast<double>(value) * valueMult;
+}
+
+inline double extract_signed_data(Extractor *ex)
+{
+    u64 value = extract(&ex->filter, MultiWordFilter::CacheD);
+
+    if (ex->options & DataSourceOptions::HighestBitIsSignBit)
+    {
+        const u64 numDataBits = get_extract_bits(&ex->filter, MultiWordFilter::CacheD);
+        return convert_to_signed(value, numDataBits);
+    }
+
+    return value;
+}
+
 void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
 {
     assert(memory::is_aligned(data, ModuleDataAlignment));
@@ -341,17 +364,18 @@ void extractor_process_module_data(DataSource *ds, const u32 *data, u32 size)
             if (ex->currentCompletions >= ex->requiredCompletions)
             {
                 ex->currentCompletions = 0;
-                u64  address = extract(&ex->filter, MultiWordFilter::CacheA);
-                double value = static_cast<double>(extract(&ex->filter, MultiWordFilter::CacheD));
+                u64 address = extract(&ex->filter, MultiWordFilter::CacheA);
 
                 assert(address < static_cast<u64>(ds->outputs[0].size));
 
                 if (!is_param_valid(ds->outputs[0][address]))
                 {
-                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
-                        value += RealDist01(ex->rng);
+                    double dValue = extract_signed_data(ex);
 
-                    ds->outputs[0][address] = value;
+                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                        dValue += RealDist01(ex->rng);
+
+                    ds->outputs[0][address] = dValue;
                     ds->hitCounts[0][address]++;
                 }
             }
@@ -440,8 +464,8 @@ const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *d
         if (!result.matched)
             continue;
 
-        u64  address = result.address;
-        double value = result.value;
+        u64 address = result.address;
+        u64 uvalue = result.value;
 
         // Make the address bits from the repetition number contribute to the
         // final address value.
@@ -458,6 +482,12 @@ const u32 *listfilter_extractor_process_module_data(DataSource *ds, const u32 *d
 
         if (!is_param_valid(ds->outputs[0][address]))
         {
+            const bool isSigned = (ex->options & DataSourceOptions::HighestBitIsSignBit);
+
+            double value = isSigned
+                ? convert_to_signed(uvalue, get_extract_bits(&ex->listFilter.extractionFilter, MultiWordFilter::CacheD))
+                : static_cast<double>(uvalue);
+
             if (!(ex->options & DataSourceOptions::NoAddedRandom))
                 value += RealDist01(ex->rng);
 
@@ -603,7 +633,11 @@ inline void multihit_extractor_process_module_data_array_per_hit(
             {
                 if (!is_param_valid(ds->outputs[outIndex][address]))
                 {
-                    double value = extract(ex->cacheD, dataWord);
+                    const bool isSigned = (ex->options & DataSourceOptions::HighestBitIsSignBit);
+                    const auto uvalue = extract(ex->cacheD, dataWord);
+                    double value = isSigned
+                        ? convert_to_signed(uvalue, ex->cacheD.extractBits)
+                        : static_cast<double>(uvalue);
 
                     if (!(ex->options & DataSourceOptions::NoAddedRandom))
                         value += RealDist01(ex->rng);
@@ -649,7 +683,11 @@ inline void multihit_extractor_process_module_data_array_per_address(
             {
                 if (!is_param_valid(output[paramIndex]))
                 {
-                    double value = extract(ex->cacheD, dataWord);
+                    const bool isSigned = (ex->options & DataSourceOptions::HighestBitIsSignBit);
+                    const auto uvalue = extract(ex->cacheD, dataWord);
+                    double value = isSigned
+                        ? convert_to_signed(uvalue, ex->cacheD.extractBits)
+                        : static_cast<double>(uvalue);
 
                     if (!(ex->options & DataSourceOptions::NoAddedRandom))
                         value += RealDist01(ex->rng);
