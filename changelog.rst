@@ -27,6 +27,22 @@ dev
 
     This process is not recursive.
 
+* [ui]
+
+  - Save/restore node expansion state of the VME Config tree.
+
+  - VME script editor: add new "Run (ignore errors)" action. Useful for
+    temporarily ignoring errors from VME scripts and running the script to the
+    end.
+
+  - Remove *BerrMarker* and *EoMMarker* text from buffer debut output. These
+    values were only added for the VM-USB and are misleading when looking at MVLC
+    buffers.
+
+  - Show RMS value in 1d plot grid tiles.
+
+* Fix *mvme_root_client* not compiling against ROOT built with c++17 support.
+
 Version 1.6.3
 -------------
 
