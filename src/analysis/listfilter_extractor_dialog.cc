@@ -107,7 +107,8 @@ struct ListFilterEditor
     QComboBox *combo_wordSize;
 
     QCheckBox *cb_swapWords,
-              *cb_addRandom;
+              *cb_addRandom,
+              *cb_highestBitIsSignBit;
 };
 
 static a2::data_filter::ListFilter listfilter_editor_make_a2_listfilter(ListFilterEditor e)
@@ -140,6 +141,9 @@ static a2::ListFilterExtractor listfilter_editor_make_a2_extractor(ListFilterEdi
 
     if (!e.cb_addRandom->isChecked())
         options |= a2::DataSourceOptions::NoAddedRandom;
+
+    if (e.cb_highestBitIsSignBit->isChecked())
+        options |= a2::DataSourceOptions::HighestBitIsSignBit;
 
     a2::ListFilterExtractor ex_a2 = a2::make_listfilter_extractor(
         listFilter,
@@ -193,6 +197,9 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.combo_wordSize = new QComboBox;
     e.cb_swapWords = new QCheckBox;
     e.cb_addRandom = new QCheckBox;
+    e.cb_highestBitIsSignBit = new QCheckBox;
+
+    e.cb_highestBitIsSignBit->setToolTip("If checked the highest data bit ('D') is treated as a sign bit.");
 
     e.spin_repetitions->setMinimum(1);
     e.spin_repetitions->setMaximum(std::numeric_limits<u8>::max());
@@ -289,6 +296,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         layout_extraction->addRow("Second word", e.filter_highWord);
         layout_extraction->addRow("First word", e.filter_lowWord);
         layout_extraction->addRow("Add Random in [0, 1)", e.cb_addRandom);
+        layout_extraction->addRow("Highest data bit is sign bit", e.cb_highestBitIsSignBit);
 
         layout->addRow(gb_extraction);
     }
@@ -322,6 +330,7 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
     e.spin_wordCount->setValue(listfilter.wordCount);
     e.cb_swapWords->setChecked(listfilter.flags & ListFilter::ReverseCombine);
     e.cb_addRandom->setChecked(!(ex_a2.options & a2::DataSourceOptions::NoAddedRandom));
+    e.cb_highestBitIsSignBit->setChecked(ex_a2.options & a2::DataSourceOptions::HighestBitIsSignBit);
 
     auto lo = QString::fromStdString(to_string(listfilter.extractionFilter.filters[0]));
     auto hi = QString::fromStdString(to_string(listfilter.extractionFilter.filters[1]));

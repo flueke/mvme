@@ -811,7 +811,15 @@ void ListFilterExtractor::beginRun(const RunInfo &, Logger)
 {
     u32 addressCount = get_address_count(&m_a2Extractor);
     u32 dataBits = get_extract_bits(&m_a2Extractor.listFilter, a2::data_filter::MultiWordFilter::CacheD);
+
+    double lowerLimit = 0.0;
     double upperLimit = std::pow(2.0, dataBits);
+
+    if (getOptions() & a2::DataSourceOptions::HighestBitIsSignBit)
+    {
+        lowerLimit = -(upperLimit / 2.0);
+        upperLimit = upperLimit / 2.0 - 1;
+    }
 
     auto &params(m_output.getParameters());
     params.resize(addressCount);
@@ -819,7 +827,7 @@ void ListFilterExtractor::beginRun(const RunInfo &, Logger)
     for (s32 i=0; i<params.size(); ++i)
     {
         auto &param(params[i]);
-        param.lowerLimit = 0.0;
+        param.lowerLimit = lowerLimit;
         param.upperLimit = upperLimit;
     }
 
