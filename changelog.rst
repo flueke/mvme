@@ -4,6 +4,13 @@
 Changelog
 ##################################################
 
+Version 1.6.2
+-------------
+
+* [vme_templates]
+
+  - Add templates for the MVHV-4 VME High Voltage Bias Supply
+
 Version 1.6.1
 -------------
 
