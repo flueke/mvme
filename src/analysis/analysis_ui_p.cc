@@ -195,11 +195,15 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
     cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
     cb_noAddedRandom->setChecked(m_ex->getOptions() & Extractor::Options::NoAddedRandom);
 
+    cb_isSignedValue = new QCheckBox("Extract signed data values (two's complement, highest data bit is sign bit)");
+    cb_isSignedValue->setChecked(m_ex->getOptions() & Extractor::Options::HighestBitIsSignBit);
+
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
     m_optionsLayout->addRow(QSL("Parameter Names"), pb_editNameList);
     m_optionsLayout->addRow(QSL("No Added Random"), cb_noAddedRandom);
+    m_optionsLayout->addRow(QSL("Signed Value"), cb_isSignedValue);
 
     connect(pb_editNameList, &QPushButton::clicked,
             this, &AddEditExtractorDialog::editNameList);
@@ -354,9 +358,16 @@ void AddEditExtractorDialog::accept()
     m_ex->getFilter().setSubFilters(m_filterEditor->m_subFilters);
     m_ex->setRequiredCompletionCount(m_spinCompletionCount->value());
     m_ex->setParameterNames(m_parameterNames);
-    m_ex->setOptions(cb_noAddedRandom->isChecked()
-                     ? Extractor::Options::NoAddedRandom
-                     : Extractor::Options::NoOption);
+
+    Extractor::Options::opt_t options = 0;
+
+    if (cb_noAddedRandom->isChecked())
+        options |= Extractor::Options::NoAddedRandom;
+
+    if(cb_isSignedValue->isChecked())
+        options |= Extractor::Options::HighestBitIsSignBit;
+
+    m_ex->setOptions(options);
 
     auto analysis = m_eventWidget->getServiceProvider()->getAnalysis();
 
@@ -454,7 +465,8 @@ struct MultiHitExtractorDialog::Private
     QLineEdit *le_name;
     DataFilterEdit *le_filterEdit;
     QSpinBox *spin_maxHits;
-    QCheckBox *cb_noAddedRandom;
+    QCheckBox *cb_noAddedRandom,
+              *cb_isSignedValue;
     QLabel *label_info;
 
     std::vector<std::shared_ptr<Extractor>> getTemplateExtractors()
@@ -487,9 +499,16 @@ struct MultiHitExtractorDialog::Private
         dest.setShape(static_cast<MultiHitExtractor::Shape>(combo_shape->currentData().toInt()));
         dest.setFilter(le_filterEdit->getFilter());
         dest.setMaxHits(spin_maxHits->value());
-        dest.setOptions(cb_noAddedRandom->isChecked()
-                        ? MultiHitExtractor::Options::NoAddedRandom
-                        : MultiHitExtractor::Options::NoOption);
+
+        MultiHitExtractor::Options::opt_t options = 0;
+
+        if (cb_noAddedRandom->isChecked())
+            options |= MultiHitExtractor::Options::NoAddedRandom;
+
+        if (cb_isSignedValue->isChecked())
+            options |= MultiHitExtractor::Options::HighestBitIsSignBit;
+
+        dest.setOptions(options);
     }
 };
 
@@ -537,6 +556,9 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     d->cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
     d->cb_noAddedRandom->setChecked(d->ex->getOptions() & Extractor::Options::NoAddedRandom);
 
+    d->cb_isSignedValue = new QCheckBox("Extract signed data values (two's complement, highest data bit is sign bit)");
+    d->cb_isSignedValue->setChecked(d->ex->getOptions() & Extractor::Options::HighestBitIsSignBit);
+
     d->label_info = new QLabel;
 
     auto label_compat = new QLabel(QSL("<b>Note</b>: MultiHit extractors are currently"
@@ -551,6 +573,7 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     l->addRow("Max hits per address", d->spin_maxHits);
     l->addRow("Output Shape", d->combo_shape);
     l->addRow("No Added Random", d->cb_noAddedRandom);
+    l->addRow(QSL("Signed Value"), d->cb_isSignedValue);
     l->addRow("Info", d->label_info);
     l->addRow(label_compat);
     l->addRow(bb);

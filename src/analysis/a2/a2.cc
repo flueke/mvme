@@ -306,9 +306,16 @@ DataSource make_datasource_extractor(
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
     // (2^bits).
+    double lowerLimit = 0.0;
     double upperLimit = std::pow(2.0, get_extract_bits(&ex->filter, MultiWordFilter::CacheD));
 
-    push_output_vectors(arena, &result, 0, addrCount, 0.0, upperLimit);
+    if (options & a2::DataSourceOptions::HighestBitIsSignBit)
+    {
+        lowerLimit = -(upperLimit / 2.0);
+        upperLimit = upperLimit / 2.0 - 1;
+    }
+
+    push_output_vectors(arena, &result, 0, addrCount, lowerLimit, upperLimit);
 
     return  result;
 }
@@ -537,7 +544,14 @@ DataSource make_datasource_multihit_extractor(
     *ex = make_multihit_extractor(shape, filter, maxHits, rngSeed, options);
     size_t addressCount = get_address_count(ex);
     size_t dataBits = get_extract_bits(filter, 'D');
+    double lowerLimit = 0.0;
     double upperLimit = std::pow(2.0, dataBits);
+
+    if (options & a2::DataSourceOptions::HighestBitIsSignBit)
+    {
+        lowerLimit = -(upperLimit / 2.0);
+        upperLimit = upperLimit / 2.0 - 1;
+    }
 
     DataSource result = {};
 
@@ -551,7 +565,7 @@ DataSource make_datasource_multihit_extractor(
 
                 // Output arrays
                 for (u16 hit=0; hit<maxHits; ++hit)
-                    push_output_vectors(arena, &result, hit, addressCount, 0.0, upperLimit);
+                    push_output_vectors(arena, &result, hit, addressCount, lowerLimit, upperLimit);
 
                 // TotalHits output
                 push_output_vectors(arena, &result, maxHits, addressCount, 0.0, TotalHitsUpperLimit);
@@ -568,7 +582,7 @@ DataSource make_datasource_multihit_extractor(
 
                 // Output arrays
                 for (size_t addr=0; addr<addressCount; ++addr)
-                    push_output_vectors(arena, &result, addr, maxHits, 0.0, upperLimit);
+                    push_output_vectors(arena, &result, addr, maxHits, lowerLimit, upperLimit);
 
                 // TotalHits output
                 push_output_vectors(arena, &result, addressCount, addressCount, 0.0, TotalHitsUpperLimit);

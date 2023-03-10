@@ -110,6 +110,7 @@ class AddEditExtractorDialog: public ObjectEditorDialog
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
         QCheckBox *cb_noAddedRandom = nullptr;
+        QCheckBox *cb_isSignedValue = nullptr;
 
         QVector<std::shared_ptr<Extractor>> m_defaultExtractors;
 
