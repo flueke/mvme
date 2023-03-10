@@ -1,7 +1,6 @@
 #ifndef SRC_ANALYSIS_A2_A2_SUPPORT_H
 #define SRC_ANALYSIS_A2_A2_SUPPORT_H
 
-#include "util/nan.h"
 #include "util/typedefs.h"
 
 namespace a2
