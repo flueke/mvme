@@ -21,6 +21,7 @@
 #include "a2_exprtk.h"
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
+#include "a2_support.h"
 #include "util/assert.h"
 #include "util/perf.h"
 #include <boost/dynamic_bitset/dynamic_bitset.hpp>
@@ -321,16 +322,6 @@ void extractor_begin_event(DataSource *ds)
     invalidate_all(ds->outputs[0]);
 }
 
-inline double convert_to_signed(u64 value, unsigned numDataBits)
-{
-    const u64 signMask = 1u << (numDataBits - 1);  // isolate the sign bit
-    const u64 bitsMask = signMask - 1;             // has all bits lower than the sign bit set
-
-    double valueMult = (value & signMask) ? -1.0 : 1.0;
-    value &= bitsMask;
-    return static_cast<double>(value) * valueMult;
-}
-
 inline double extract_signed_data(Extractor *ex)
 {
     u64 value = extract(&ex->filter, MultiWordFilter::CacheD);
@@ -418,14 +409,22 @@ DataSource make_datasource_listfilter_extractor(
 
     // This call works because listFilter and repetitionAddressCache have been
     // initialzed at this point.
+    // FIXME: this is the same code as in ListFilterExtractor::beginRun()
     size_t addressCount = get_address_count(&result);
 
-    auto databits = get_extract_bits(&listFilter.extractionFilter,
+    auto dataBits = get_extract_bits(&listFilter.extractionFilter,
                                      MultiWordFilter::CacheD);
 
-    double upperLimit = std::pow(2.0, databits);
+    double lowerLimit = 0.0;
+    double upperLimit = std::pow(2.0, dataBits);
 
-    push_output_vectors(arena, &result, 0, addressCount, 0.0, upperLimit);
+    if (options & a2::DataSourceOptions::HighestBitIsSignBit)
+    {
+        lowerLimit = -(upperLimit / 2.0);
+        upperLimit = upperLimit / 2.0 - 1;
+    }
+
+    push_output_vectors(arena, &result, 0, addressCount, lowerLimit, upperLimit);
 
     return result;
 }
