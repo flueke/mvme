@@ -170,6 +170,20 @@ if(MVME_BUILD_TESTS)
     target_link_libraries(test_a2_expression_operator ${A2_TEST_LIBRARY} gtest gtest_main)
     add_test(NAME test_a2_expression_operator COMMAND $<TARGET_FILE:test_a2_expression_operator>)
 
+    function(add_a2_gtest exe_name exe_source)
+        add_executable(${exe_name} ${exe_source})
+
+        target_link_libraries(${exe_name}
+            PRIVATE mesytec-mvlc
+            PRIVATE gtest
+            PRIVATE gtest_main
+            )
+
+        add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    endfunction(add_a2_gtest)
+
+    add_a2_gtest(test_a2_filter_datasources test_a2_filter_datasources.cc)
+
 endif(MVME_BUILD_TESTS)
 
 file(COPY env DESTINATION ${CMAKE_BINARY_DIR})
