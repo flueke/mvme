@@ -31,5 +31,4 @@ TEST(a2_filter_datasources, convert_to_signed)
     ASSERT_EQ(convert_to_signed(0x0000000000000000u, 64), 0);
     ASSERT_EQ(convert_to_signed(0x0000000000000001u, 64), 1);
     ASSERT_EQ(convert_to_signed(0x7fffffffffffffffu, 64), std::numeric_limits<s64>::max());
-
 }

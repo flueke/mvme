@@ -807,6 +807,7 @@ u32 ListFilterExtractor::getDataBits() const
     return bits;
 }
 
+    // FIXME: this is the same code as in a2::make_datasource_listfilter_extractor()
 void ListFilterExtractor::beginRun(const RunInfo &, Logger)
 {
     u32 addressCount = get_address_count(&m_a2Extractor);

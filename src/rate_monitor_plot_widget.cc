@@ -166,8 +166,8 @@ class RateMonitorPlotCurve: public QwtPlotCurve
 
             auto dt = std::chrono::steady_clock::now() - tStart;
 
-            qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
-                std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
+            //qDebug() << __PRETTY_FUNCTION__ << "dt =" <<
+            //    std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() << "ms";
         }
 };
 
