@@ -7,7 +7,7 @@ ROOTLIBS	=	$(shell root-config --libs)
 MVMELIBS    =   -L. -L$(MVME) -L$(MVME)/lib -lmvme_root_event
 INCLUDES    =	-I$(MVME)/include
 
-CXXFLAGS   +=	-std=c++14 -fPIC
+CXXFLAGS   +=	-fPIC
 CXXFLAGS   +=   $(INCLUDES)
 
 EXP_LIB		= lib{{exp_name}}_mvme.so
