@@ -26,13 +26,10 @@ execute_process(
 # Add additional shared objects that are excluded by linuxdeployqt. An
 # alternative would be to pass "-unsupported-bundle-everything" to
 # linuxdeployqt but that would also bundle glibc.
-# FIXME: libz is not included for some reason. Problem with the regex? Internal
-# CMake thing? So the packages will come without libz included... Should still
-# work everywhere once libz is installed.
 
 file(GET_RUNTIME_DEPENDENCIES
     RESOLVED_DEPENDENCIES_VAR MVME_ADDITIONAL_LIBS
-    POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*" ".*libz\\.so*"
+    POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*"
     POST_EXCLUDE_REGEXES ".*"
     EXECUTABLES ${MVME_EXECUTABLE}
 )
