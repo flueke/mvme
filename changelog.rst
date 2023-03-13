@@ -7,9 +7,12 @@ Changelog
 Version 1.6.2
 -------------
 
-* [vme_templates]
+* vme_templates: Add support for the MVHV-4 VME High Voltage Bias Supply
 
-  - Add templates for the MVHV-4 VME High Voltage Bias Supply
+* Fix mvme_root_client compilation issue: do not set c++ standard in the Makefile.
+
+* Packaging: do not package libz.so anymore.
+
 
 Version 1.6.1
 -------------
