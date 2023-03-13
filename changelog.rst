@@ -41,7 +41,16 @@ dev
 
   - Show RMS value in 1d plot grid tiles.
 
-* Fix *mvme_root_client* not compiling against ROOT built with c++17 support.
+* [mvme_root_client]
+
+  Breaking change: improve handling of TTrees split across multiple files.
+
+  The *TTree::SetMaxTreeSize()* can now be specified on the command line when
+  recording.
+
+  Replay mode is now enabled via *--replay* and accepts a list of filenames
+  instead of a single name. The filenames are used to create a TChain object
+  which becomes the source for the replay data.
 
 Version 1.6.3
 -------------
