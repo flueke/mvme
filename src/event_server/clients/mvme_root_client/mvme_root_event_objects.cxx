@@ -136,6 +136,39 @@ std::vector<TTree *> MVMEExperiment::InitTrees(TFile *inputFile)
     return result;
 }
 
+std::vector<TChain *> MVMEExperiment::InitChains(const std::vector<std::string> &inputFilenames)
+{
+    std::vector<TChain *> result;
+
+    for (auto event: GetEvents())
+    {
+        auto chain = new TChain(event->GetName());
+
+        for (const auto &fn: inputFilenames)
+            chain->AddFile(fn.c_str());
+
+        cout << "Initializing tree chain for event " << event->GetName() << "\n";
+
+        for (auto module: event->GetModules())
+        {
+            if (auto branch = chain->GetBranch(module->GetName()))
+            {
+                cout << "  Found branch for module " << module->GetName() << endl;
+                module->InitBranch(branch);
+            }
+            else
+            {
+                cout << "Error: Did not find branch for module "
+                    << module->GetName() << endl;
+            }
+        }
+
+        result.emplace_back(chain);
+    }
+
+    return result;
+}
+
 MVMEEvent *MVMEExperiment::GetEvent(int eventIndex) const
 {
     if (0 <= eventIndex && eventIndex < static_cast<int>(fEvents.size()))

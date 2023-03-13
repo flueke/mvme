@@ -59,6 +59,7 @@
 
 #include <fstream>
 #include <string>
+#include <sstream>
 
 #include <dlfcn.h> // dlopen, dlsym, dlclose
 #include <getopt.h>
@@ -213,6 +214,7 @@ struct Options
     static const Opt_t ShowStreamInfo   = 1u << 1;
     static const Opt_t NoAddedRandom    = 1u << 2;
     static const Opt_t SingleRun        = 1u << 3;
+    static const Opt_t ReplayMode       = 1u << 4;
 };
 
 class ClientContext: public mvme::event_server::Client
@@ -242,6 +244,11 @@ class ClientContext: public mvme::event_server::Client
             m_analysisInitArgs = args;
         }
 
+        void setRootMaxTreeSize(const ssize_t maxTreeSize)
+        {
+            m_rootMaxTreeSize = maxTreeSize;
+        }
+
         std::vector<std::string> getAnalysisInitArgs() const
         {
             return m_analysisInitArgs;
@@ -262,7 +269,6 @@ class ClientContext: public mvme::event_server::Client
         Options::Opt_t m_options;
         std::unique_ptr<MVMEExperiment> m_exp;
 
-        std::unique_ptr<TFile> m_treeOutFile;
         std::vector<TTree *> m_eventTrees;
 
         std::unique_ptr<TFile> m_histoOutFile;
@@ -276,6 +282,7 @@ class ClientContext: public mvme::event_server::Client
         std::string m_host;
         std::string m_port;
         std::vector<std::string> m_analysisInitArgs;
+        ssize_t m_rootMaxTreeSize = 100000000000LL;
 };
 
 ClientContext::ClientContext(const Options::Opt_t &options)
@@ -555,6 +562,8 @@ inline double make_quiet_nan()
     return result;
 }
 
+using MVMERunInfo = std::map<std::string, std::string>;
+
 void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
     if (m_options & Options::ShowStreamInfo)
@@ -709,7 +718,6 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
         {
             cout << "Error creating an instance of the experiment class '"
                 << expStructName << "'" << endl;
-            m_treeOutFile = {};
             m_eventTrees = {};
             m_quit = true;
             return;
@@ -809,25 +817,50 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     }
 
     cout << "Opening output file " << filename << endl;
-    m_treeOutFile = std::make_unique<TFile>(filename.c_str(), "recreate");
+    auto treeOutFile = new TFile(filename.c_str(), "recreate");
 
-    if (m_treeOutFile->IsZombie() || !m_treeOutFile->IsOpen())
+    if (treeOutFile->IsZombie() || !treeOutFile->IsOpen())
     {
         cout << "Error opening output file " << filename << " for writing: "
-            << strerror(m_treeOutFile->GetErrno()) << endl;
+            << strerror(treeOutFile->GetErrno()) << endl;
         m_quit = true;
         return;
     }
 
     cout << "Creating output trees" << endl;
     m_eventTrees = m_exp->MakeTrees();
+
     for (auto &tree: m_eventTrees)
     {
         assert(tree);
         cout << "  " << tree << " " << tree->GetName() << "\t" << tree->GetTitle() << endl;
+        tree->SetMaxTreeSize(m_rootMaxTreeSize);
     }
+
     assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
 
+    // Note: this used to be in ClientContext::endRun() but for replays from
+    // automatically split TTrees we need the info in the _first_ file of the
+    // TChain.
+    if (treeOutFile && !treeOutFile->IsZombie() && treeOutFile->IsOpen())
+    {
+        cout << "  Writing additional mvme info to output file..." << endl;
+
+        MVMERunInfo info;
+
+        info["ExperimentName"] = m_exp->GetName();
+        info["RunID"] = getStreamInfo().runId;
+        // TODO: use a TDirectory to hold mvme stuff
+        // also try a TMap to hold either TStrings or more TMaps
+        // figure out how freeing that memory then works
+        // FIXME: this does have the title "object title" in rootls
+        treeOutFile->WriteObject(&info, "MVMERunInfo");
+        treeOutFile->Write();
+
+        // Once writing tree data starts ROOT can close the file at any time due to
+        // TTree::SetMaxTreeSize(). Just nulling it here to catch bugs...
+        treeOutFile = {};
+    }
 
     //
     // Raw histogram output
@@ -1012,8 +1045,6 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
     }
 }
 
-using MVMERunInfo = std::map<std::string, std::string>;
-
 void ClientContext::endRun(const Message &msg, const json &info)
 {
     cout << __FUNCTION__ << ": endRun info:" << endl << info.dump(2) << endl;
@@ -1021,29 +1052,11 @@ void ClientContext::endRun(const Message &msg, const json &info)
     if (m_analysis.endRun)
         m_analysis.endRun();
 
-    // FIXME: TTrees are automatically split across files if they (by default)
-    // exceed 100GB. This means the original output file may no longer be open
-    // for writing. Fix this by somehow getting the currently open file and
-    // writing into that.
-    if (m_treeOutFile && !m_treeOutFile->IsZombie() && m_treeOutFile->IsOpen())
+    auto treeOutFile = m_eventTrees.front()->GetCurrentFile();
+
+    if (treeOutFile && !treeOutFile->IsZombie() && treeOutFile->IsOpen())
     {
-        cout << "  Writing additional info to output file..." << endl;
-
-        MVMERunInfo info;
-
-        info["ExperimentName"] = m_exp->GetName();
-        info["RunID"] = getStreamInfo().runId;
-        // TODO: store analysis efficiency data this needs to be transferred
-        // with the endRun message.
-        // TODO: use a TDirectory to hold mvme stuff
-        // also try a TMap to hold either TStrings or more TMaps
-        // figure out how freeing that memory then works
-        // FIXME: this does have the title "object title" in rootls
-        m_treeOutFile->WriteObject(&info, "MVMERunInfo");
-
-        cout << "  Closing output file " << m_treeOutFile->GetName() << "..." << endl;
-        m_treeOutFile->Write();
-        m_treeOutFile = {};
+        treeOutFile->Write();
     }
 
     if (m_histoOutFile)
@@ -1085,11 +1098,12 @@ void ClientContext::error(const Message &msg, const std::exception &e)
 {
     cout << "A protocol error occured: " << e.what() << endl;
 
-    if (m_treeOutFile)
+    auto treeOutFile = m_eventTrees.front()->GetCurrentFile();
+
+    if (treeOutFile && !treeOutFile->IsZombie() && treeOutFile->IsOpen())
     {
-        cout << "Closing output file " << m_treeOutFile->GetName() << "..." << endl;
-        m_treeOutFile->Write();
-        m_treeOutFile = {};
+        cout << "Closing output file " << treeOutFile->GetName() << "..." << endl;
+        treeOutFile->Write();
         m_rawHistos = {};
     }
 
@@ -1127,7 +1141,8 @@ int client_main(
     const std::string &host,
     const std::string &port,
     const Options::Opt_t &clientOpts,
-    const std::vector<std::string> &additionalArgs)
+    const std::vector<std::string> &additionalArgs,
+    const ssize_t rootMaxTreeSize)
 {
     // Act as a client to the mvme event_server. This code tries to connect
     // to mvme, receive run data and produce ROOT files until canceled via
@@ -1137,6 +1152,7 @@ int client_main(
 
     ClientContext ctx(clientOpts);
     ctx.setAnalysisInitArgs(additionalArgs);
+    ctx.setRootMaxTreeSize(rootMaxTreeSize);
 
     // A single message object, whose buffer is reused for each incoming
     // message.
@@ -1224,25 +1240,32 @@ int client_main(
 // replay from ROOT file
 //
 int replay_main(
-    const std::string &inputFilename,
+    const std::vector<std::string> &replayFilenames,
     const std::vector<std::string> &additionalArgs)
 {
-    // Replay from ROOT file.
-    TFile f(inputFilename.c_str(), "read");
+    if (replayFilenames.empty())
+    {
+        cerr << "Replay error: no input file given.\n";
+        return 1;
+    }
 
-    cout << ">>> Reading MVMERunInfo from " << inputFilename << endl;
+    const auto &firstFilename = replayFilenames.front();
+
+    // Replay from ROOT file.
+    TFile f(firstFilename.c_str(), "read");
+
+    cout << ">>> Reading MVMERunInfo from " << firstFilename << endl;
 
     auto runInfoPtr = reinterpret_cast<MVMERunInfo *>(f.Get("MVMERunInfo"));
 
     if (!runInfoPtr)
     {
-        cout << "Error: input file " << inputFilename << " does not contain an MVMERunInfo object"
+        cout << "Error: input file " << firstFilename << " does not contain an MVMERunInfo object"
             << endl;
         return 1;
     }
 
     auto runInfo = *runInfoPtr;
-
 
     std::string expName = runInfo["ExperimentName"];
     std::string expStructName = expName;
@@ -1260,6 +1283,7 @@ int replay_main(
         return 1;
     }
 
+#if 0
     // Setup tree branch addresses to point to the experiment subobjects.
     auto eventTrees = exp->InitTrees(&f);
 
@@ -1269,6 +1293,16 @@ int replay_main(
             << inputFilename << endl;
         return 1;
     }
+#else
+    auto eventTrees = exp->InitChains(replayFilenames);
+
+    if (eventTrees.size() != exp->GetNumberOfEvents())
+    {
+        cout << "Error: could not read experiment eventTrees from input file "
+            << firstFilename << endl;
+        return 1;
+    }
+#endif
 
     // Load analysis
     void *handle = nullptr;
@@ -1313,7 +1347,7 @@ int replay_main(
     if (analysis.beginRun)
     {
         bool isReplay = true;
-        analysis.beginRun(inputFilename, runId, isReplay);
+        analysis.beginRun(firstFilename, runId, isReplay);
     }
 
     // Replay tree data
@@ -1372,7 +1406,8 @@ int main(int argc, char *argv[])
 {
     std::string host = "localhost";
     std::string port = "13801";
-    std::string inputFilename;
+    std::string analysisArg;
+    ssize_t rootMaxTreeSize = 100000000000LL;
     bool showHelp = false;
 
     using Opts = Options;
@@ -1387,7 +1422,9 @@ int main(int argc, char *argv[])
             { "help", no_argument, nullptr, 0 },
             { "host", required_argument, nullptr, 0 },
             { "port", required_argument, nullptr, 0 },
-            { "file", required_argument, nullptr, 0 },
+            { "root-max-tree-size", required_argument, nullptr, 0 },
+            { "replay", no_argument, nullptr, 0 },
+            { "analysis-args", required_argument, nullptr, 0 },
             { nullptr, 0, nullptr, 0 },
         };
 
@@ -1411,8 +1448,19 @@ int main(int argc, char *argv[])
                     else if (opt_name == "show-stream-info") clientOpts |= Opts::ShowStreamInfo;
                     else if (opt_name == "host") host = optarg;
                     else if (opt_name == "port") port = optarg;
-                    else if (opt_name == "file") inputFilename = optarg;
                     else if (opt_name == "help") showHelp = true;
+                    else if (opt_name == "replay") clientOpts |= Opts::ReplayMode;
+                    else if (opt_name == "analysis-args") analysisArg = optarg;
+                    else if (opt_name == "root-max-tree-size")
+                    {
+                        rootMaxTreeSize = std::atoll(optarg);
+
+                        if (rootMaxTreeSize <= 0)
+                        {
+                            cerr << "Error: invalid value given to --root-max-tree-size\n";
+                            return 1;
+                        }
+                    }
                     else
                     {
                         assert(!"unhandled long option");
@@ -1423,30 +1471,60 @@ int main(int argc, char *argv[])
 
     if (showHelp)
     {
-        cout << "Usage as a mvme client: " << argv[0] << " [--single-run] [--host=localhost] [--port=13801]" << endl << endl;
+        cout << "Usage as a mvme client: " << argv[0] << " [--single-run] [--root-max-tree-size=<bytes>] [--host=localhost] [--port=13801] [--analysis-args=<args>]" << endl << endl;
 
         cout << "  In this mode the program connects to and receives data from a mvme process." << endl
              << endl
              << "  If 'single-run' is set the program will exit after receiving" << endl
              << "  data from one run. Otherwise it will wait for the next run to" << endl
              << "  start." << endl
+             << endl
+             << "  --root-max-tree-size can be used to specify the maximum number of bytes per output ROOT file.\n"
+             << "  The argument is passed to TTree::SetMaxTreeSize(). Default is 100000000000LL (100GB).\n"
              << endl;
 
-        cout << "Usage when replaying from ROOT file: " << argv[0] << " --file=<input ROOT file>"<< endl << endl;
+        cout << "Usage when replaying from ROOT file: " << argv[0] << " --replay <input ROOT file...> [--analysis-args=<args>]"<< endl << endl;
 
-        cout << "  In this mode data is read from a previously recorded 'raw' ROOT file." << endl
-            << endl;
+        cout << "  In this mode data is read from previously recorded 'raw' ROOT files.\n"
+             << "  Example usage to replay from a list of files: mvme_root_client --replay $(ls -tr *raw*.root)\n\n"
+             << "  Using 'ls' to sort the files by modification time ensures that the first file in the list\n"
+             << "  contains the MVMERunInfo data required for the replay.\n"
+             << endl;
+
+        cout << "The optional '--analysis-args' can be used to pass arguments to the user analysis code." << endl
+             << "It is interpreted as a space-separated list of arguments." << endl
+             << endl;
 
         return 0;
     }
 
-    // Collect command line arguments. These will be passed to the user
-    // analysis init function.
-    // Note: optind is set by getopt_long().
-    std::vector<std::string> additionalArgs;
+    // Split the --analysis-args string into whitespace separated parts and
+    // collect them.
 
-    for (int i = optind; i < argc; i++)
-        additionalArgs.emplace_back(argv[i]);
+    std::vector<std::string> analysisArgs;
+
+    {
+        std::istringstream ss(analysisArg);
+        std::string arg;
+        while (ss >> arg)
+            analysisArgs.emplace_back(arg);
+    }
+
+    std::vector<std::string> replayFilenames;
+
+    // Collect files to replay from.
+    // Note: optind is set by getopt_long().
+    if (clientOpts & Opts::ReplayMode)
+    {
+        for (int i = optind; i < argc; i++)
+            replayFilenames.emplace_back(argv[i]);
+
+        if (replayFilenames.empty())
+        {
+            cerr << "Error: replay mode requested but no input files specified.\n";
+            return 1;
+        }
+    }
 
     //
     // More setup and client lib init
@@ -1461,13 +1539,13 @@ int main(int argc, char *argv[])
 
     int retval = 0;
 
-    if (inputFilename.empty())
+    if (!(clientOpts & Opts::ReplayMode))
     {
-        retval = client_main(host, port, clientOpts, additionalArgs);
+        retval = client_main(host, port, clientOpts, analysisArgs, rootMaxTreeSize);
     }
     else
     {
-        retval = replay_main(inputFilename, additionalArgs);
+        retval = replay_main(replayFilenames, analysisArgs);
     }
 
     mvme::event_server::lib_shutdown();

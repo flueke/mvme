@@ -2,6 +2,7 @@
 #define __MVME_ROOT_EXPORT_OBJECTS_H__
 
 #include <string>
+#include <TChain.h>
 #include <TFile.h>
 #include <TNamed.h>
 #include <TTree.h>
@@ -76,6 +77,7 @@ class MVMEExperiment: public TNamed
 
         std::vector<TTree *> MakeTrees();
         std::vector<TTree *> InitTrees(TFile *inputFile);
+        std::vector<TChain *> InitChains(const std::vector<std::string> &inputFilenames);
 
     protected:
         void AddEvent(MVMEEvent *event);
