@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.6.3
+-------------
+
+* Another mvme_root_client compilation fix.
+
 Version 1.6.2
 -------------
 
