@@ -22,7 +22,7 @@ include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
 string(REGEX REPLACE "^v" "" GIT_VERSION ${GIT_VERSION})
-string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*)?(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
+string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*|-dev[0-9]*)?(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
 execute_process(
