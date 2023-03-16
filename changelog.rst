@@ -4,8 +4,8 @@
 Changelog
 ##################################################
 
-dev
----
+Version 1.7.0
+-------------
 
 * [vme_script]
 
@@ -35,7 +35,7 @@ dev
     temporarily ignoring errors from VME scripts and running the script to the
     end.
 
-  - Remove *BerrMarker* and *EoMMarker* text from buffer debut output. These
+  - Remove **BerrMarker** and **EoMMarker** text from buffer debut output. These
     values were only added for the VM-USB and are misleading when looking at MVLC
     buffers.
 
@@ -46,11 +46,12 @@ dev
   Breaking change: improve handling of TTrees split across multiple files.
 
   The *TTree::SetMaxTreeSize()* can now be specified on the command line when
-  recording.
+  recording: *--root-max-tree-size=<maxBytesPerFile>*. The default value is set
+  to the ROOT default of 100000000000LL.
 
-  Replay mode is now enabled via *--replay* and accepts a list of filenames
-  instead of a single name. The filenames are used to create a TChain object
-  which becomes the source for the replay data.
+  Replay mode is now enabled via *--replay*. In this mode mvme_root_client now
+  accepts a list of filenames instead of a single file. The filenames are used
+  to create a TChain object which becomes the source for the replay data.
 
 Version 1.6.3
 -------------
