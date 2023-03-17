@@ -931,7 +931,7 @@
                     "rngSeed": "23f973fa9cd137f8",
                     "subFilters": [
                         {
-                            "filterString": "001XAAAA00000000DDDDDDDDDDDDDDDD",
+                            "filterString": "0010AAAA00000000DDDDDDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
