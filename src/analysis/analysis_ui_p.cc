@@ -3895,11 +3895,12 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 int moduleIndex = moduleIter.index();
                 const auto &moduleParts = moduleIter.value();
 
-                out << "  ei=" << eventIndex
-                    << ", mi=" << moduleIndex
+                out << "  eventIndex=" << eventIndex
+                    << ", moduleIndex=" << moduleIndex
                     << ": prefixLen=" << static_cast<unsigned>(moduleParts.prefixLen)
                     << ", hasDynamic=" << moduleParts.hasDynamic
                     << ", suffixLen=" << static_cast<unsigned>(moduleParts.suffixLen)
+                    << ", name=" << moduleParts.name.c_str()
                     << endl;
 #endif
             }
