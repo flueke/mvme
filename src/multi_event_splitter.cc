@@ -291,7 +291,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         return {};
     }
 
-    assert(moduleFilters.size() == moduleSpans.size());
+    assert(moduleFilters.size() <= moduleSpans.size());
 
     std::array<s64, MaxVMEModules+1> moduleSubeventSizes;
 
