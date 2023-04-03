@@ -395,11 +395,8 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
 
 HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAggregateStats(int col) const
 {
-    AggregateStats result{};
-
-    result.min = std::numeric_limits<double>::max();
-    result.max = std::numeric_limits<double>::lowest();
-    size_t validRows = 0;
+    std::vector<double> values;
+    values.reserve(statsRowCount());
 
     for (int row = 0; row < statsRowCount(); ++row)
     {
@@ -407,30 +404,33 @@ HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAg
             !data.isNull())
         {
             auto value = itemModel_->item(row, col)->data(Qt::DisplayRole).toDouble();
-            result.min = std::min(result.min, value);
-            result.max = std::max(result.max, value);
-            result.mean += value;
-            ++validRows;
+            values.emplace_back(value);
         }
     }
 
-    if (validRows)
-    {
-        result.mean /= validRows;
+    AggregateStats result{};
 
-        for (int row = 0; row < statsRowCount(); ++row)
+    result.min = std::numeric_limits<double>::max();
+    result.max = std::numeric_limits<double>::lowest();
+
+    for (const auto &value: values)
+    {
+        result.min = std::min(result.min, value);
+        result.max = std::max(result.max, value);
+        result.mean += value;
+    }
+
+    if (!values.empty())
+    {
+        result.mean /= values.size();
+
+        for (auto value: values)
         {
-            if (auto data = itemModel_->item(row, col)->data(Qt::DisplayRole);
-                !data.isNull())
-            {
-                auto value = itemModel_->item(row, col)->data(Qt::DisplayRole).toDouble();
-                value -= result.mean;
-                value *= value;
-                result.rms += value;
-            }
+            value -= result.mean;
+            result.rms += value * value;
         }
 
-        result.rms = std::sqrt(result.rms / validRows);
+        result.rms = std::sqrt(result.rms / values.size());
     }
 
     return result;
