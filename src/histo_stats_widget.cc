@@ -1,11 +1,13 @@
 #include "histo_stats_widget.h"
 #include "histo_stats_widget_p.h"
 
+#include <QClipboard>
 #include <QComboBox>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QHeaderView>
 #include <QMenu>
 #include <QMessageBox>
@@ -64,6 +66,7 @@ struct HistoStatsWidget::Private
     void refresh(); // Recalculates the statistics and fills the table view with data.
     void handleTableContextMenu(const QPoint &pos);
     void showColumnHistogram(const int col);
+    void copyFromTableToClipboard();
     // Number of rows containing histo statistics values. The additional rows
     // contain aggregate values.
     int statsRowCount() const { return itemModel_->rowCount() - AdditionalTableRows; }
@@ -363,8 +366,12 @@ void HistoStatsWidget::Private::handleTableContextMenu(const QPoint &pos)
     auto colTitle = columnTitle(col);
 
     QMenu menu;
+    QAction *a = nullptr;
 
-    auto a = menu.addAction(QIcon(":/hist1d.png"), QSL("Histogram data in column '%1'").arg(colTitle));
+    a = menu.addAction(QIcon::fromTheme("edit-copy"), QSL("&Copy selected values"));
+    connect(a, &QAction::triggered, q, [this] { copyFromTableToClipboard(); });
+
+    a = menu.addAction(QIcon(":/hist1d.png"), QSL("&Histogram data in column '%1'").arg(colTitle));
     connect(a, &QAction::triggered, q, [this, col] { showColumnHistogram(col); });
 
     menu.exec(tableView_->mapToGlobal(pos));
@@ -393,6 +400,43 @@ void HistoStatsWidget::Private::showColumnHistogram(const int col)
     widget->show();
 }
 
+void HistoStatsWidget::Private::copyFromTableToClipboard()
+{
+    auto indexes = tableView_->selectionModel()->selectedIndexes();
+
+    std::sort(std::begin(indexes), std::end(indexes), [] (const QModelIndex &a, const QModelIndex &b)
+    {
+        if (a.row() == b.row())
+            return a.column() < b.column();
+
+        return a.row() < b.row();
+    });
+
+    QString text;
+    int prevRow = -1;
+
+    for (const auto &idx: indexes)
+    {
+        if (auto data = itemModel_->item(idx.row(), idx.column())->data(Qt::DisplayRole);
+            !data.isNull())
+        {
+            if (!text.isEmpty())
+            {
+                if (prevRow >= 0 && prevRow != idx.row())
+                    text += "\n";
+                else
+                    text += "\t";
+            }
+
+            auto value = data.toString();
+            text += value;
+            prevRow = idx.row();
+        }
+    }
+
+    QGuiApplication::clipboard()->setText(text);
+}
+
 HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAggregateStats(int col) const
 {
     std::vector<double> values;
@@ -403,7 +447,7 @@ HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAg
         if (auto data = itemModel_->item(row, col)->data(Qt::DisplayRole);
             !data.isNull())
         {
-            auto value = itemModel_->item(row, col)->data(Qt::DisplayRole).toDouble();
+            auto value = data.toDouble();
             values.emplace_back(value);
         }
     }
