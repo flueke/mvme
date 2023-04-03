@@ -29,10 +29,21 @@ HistoStatsTableModel::~HistoStatsTableModel()
 
 struct HistoStatsWidget::Private
 {
-    static const int AdditionalTableRows = 3; // min, max mean for each of the columns
+    static const int AdditionalTableRows = 4; // rms, min, max mean for each of the columns
+
+    // Indexes for the bottom rows containing aggrregate values. The index value
+    // is subtracted from model->rowCount() to calculate the final row index.
+    enum SpecialRowIndexes
+    {
+        Rms = 4,
+        Min = 3,
+        Max = 2,
+        Mean = 1,
+    };
 
     struct AggregateStats
     {
+        double rms;
         double min;
         double max;
         double mean;
@@ -192,10 +203,21 @@ void HistoStatsWidget::Private::repopulate()
         }
     }
 
+    // Bold font for the
+    auto boldFont = tableView_->font();
+    boldFont.setBold(true);
+
+    for (int row=model->rowCount()-AdditionalTableRows; row<model->rowCount(); ++row)
+    {
+        for (int col=0; col<model->columnCount(); ++col)
+            model->item(row, col)->setData(boldFont, Qt::FontRole);
+    }
+
     // Aggregate statistics in the additional bottom rows
-    model->item(model->rowCount() - 3, 0)->setData("min", Qt::DisplayRole);
-    model->item(model->rowCount() - 2, 0)->setData("max", Qt::DisplayRole);
-    model->item(model->rowCount() - 1, 0)->setData("mean", Qt::DisplayRole);
+    model->item(model->rowCount() - SpecialRowIndexes::Rms, 0)->setData("rms", Qt::DisplayRole);
+    model->item(model->rowCount() - SpecialRowIndexes::Min, 0)->setData("min", Qt::DisplayRole);
+    model->item(model->rowCount() - SpecialRowIndexes::Max, 0)->setData("max", Qt::DisplayRole);
+    model->item(model->rowCount() - SpecialRowIndexes::Mean, 0)->setData("mean", Qt::DisplayRole);
 
     auto sm = tableView_->selectionModel();
     tableView_->setModel(model.get());
@@ -319,9 +341,10 @@ void HistoStatsWidget::Private::refresh()
     for (int col = 1; col < itemModel_->columnCount(); ++col)
     {
         auto aggs = calculateAggregateStats(col);
-        itemModel_->item(itemModel_->rowCount() - 3, col)->setData(aggs.min, Qt::DisplayRole);
-        itemModel_->item(itemModel_->rowCount() - 2, col)->setData(aggs.max, Qt::DisplayRole);
-        itemModel_->item(itemModel_->rowCount() - 1, col)->setData(aggs.mean, Qt::DisplayRole);
+        itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Rms, col)->setData(aggs.rms, Qt::DisplayRole);
+        itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Min, col)->setData(aggs.min, Qt::DisplayRole);
+        itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Max, col)->setData(aggs.max, Qt::DisplayRole);
+        itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Mean, col)->setData(aggs.mean, Qt::DisplayRole);
     }
 
     tableView_->resizeColumnsToContents();
@@ -392,7 +415,23 @@ HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAg
     }
 
     if (validRows)
+    {
         result.mean /= validRows;
+
+        for (int row = 0; row < statsRowCount(); ++row)
+        {
+            if (auto data = itemModel_->item(row, col)->data(Qt::DisplayRole);
+                !data.isNull())
+            {
+                auto value = itemModel_->item(row, col)->data(Qt::DisplayRole).toDouble();
+                value -= result.mean;
+                value *= value;
+                result.rms += value;
+            }
+        }
+
+        result.rms = std::sqrt(result.rms / validRows);
+    }
 
     return result;
 }
