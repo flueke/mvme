@@ -562,7 +562,24 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
                 }
 
                 if (m_d->m_intervalConditionEditorController)
+                {
+                    if (!on && m_d->m_intervalConditionEditorController->hasUnsavedChanges())
+                    {
+                        auto choice = QMessageBox::warning(this, "Discarding condition changes",
+                            "There are unsaved condition changes! Continue?",
+                            QMessageBox::Cancel | QMessageBox::Ok,
+                            QMessageBox::Cancel);
+
+                        if (choice == QMessageBox::Cancel)
+                        {
+                            QSignalBlocker sb(actionIntervalConditions);
+                            actionIntervalConditions->setChecked(true);
+                            return;
+                        }
+                    }
+
                     m_d->m_intervalConditionEditorController->setEnabled(on);
+                }
             });
 
     auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");

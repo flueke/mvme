@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QTimer>
@@ -118,7 +119,7 @@ ConditionDialogBase::~ConditionDialogBase()
 struct IntervalConditionDialog::Private
 {
     std::unique_ptr<Ui::IntervalConditionDialog> ui;
-    QToolBar *toolbar_;
+    QToolBar *toolbar_ = nullptr;
 };
 
 IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
@@ -209,10 +210,21 @@ void IntervalConditionDialog::setIntervals(const QVector<QwtInterval> &intervals
     int row = 0;
     for (const auto &interval: intervals)
     {
-        auto x1Item = new QTableWidgetItem(QString::number(interval.minValue()));
-        auto x2Item = new QTableWidgetItem(QString::number(interval.maxValue()));
+        auto x1Item = new QTableWidgetItem;
+        auto x2Item = new QTableWidgetItem;
+
+        if (interval.isValid())
+        {
+            x1Item->setText(QString::number(interval.minValue()));
+            x2Item->setText(QString::number(interval.maxValue()));
+        }
+
         d->ui->tw_intervals->setItem(row, 0, x1Item);
         d->ui->tw_intervals->setItem(row, 1, x2Item);
+
+        auto cb_ignore = new QCheckBox;
+        cb_ignore->setChecked(!interval.isValid());
+        d->ui->tw_intervals->setCellWidget(row, 2, cb_ignore);
 
         auto headerItem = new QTableWidgetItem(QString::number(row));
         d->ui->tw_intervals->setVerticalHeaderItem(row, headerItem);
@@ -232,11 +244,19 @@ QVector<QwtInterval> IntervalConditionDialog::getIntervals() const
     {
         auto x1Item = d->ui->tw_intervals->item(row, 0);
         auto x2Item = d->ui->tw_intervals->item(row, 1);
+        auto cb_ignore = qobject_cast<QCheckBox *>(d->ui->tw_intervals->cellWidget(row, 2));
+        bool ignored = cb_ignore && cb_ignore->isChecked();
 
-        double x1 = x1Item->data(Qt::EditRole).toDouble();
-        double x2 = x2Item->data(Qt::EditRole).toDouble();
+        QwtInterval interval;
 
-        ret.push_back(QwtInterval{x1, x2}.normalized());
+        if (!ignored)
+        {
+            double x1 = x1Item->data(Qt::EditRole).toDouble();
+            double x2 = x2Item->data(Qt::EditRole).toDouble();
+            interval = QwtInterval{x1, x2}.normalized();
+        }
+
+        ret.push_back(interval);
     }
 
     return ret;
@@ -310,12 +330,14 @@ struct IntervalConditionEditorController::Private
 
     NewIntervalPicker *newPicker_ = nullptr;
     IntervalEditorPicker *editPicker_ = nullptr;
+    bool hasUnsavedChanges_ = false;
 
     void repopulateDialogFromAnalysis()
     {
         auto conditions = getEditableConditions();
         auto condInfos = getConditionInfos(conditions);
         dialog_->setConditionList(condInfos);
+        hasUnsavedChanges_ = false;
     }
 
     void transitionState(State newState)
@@ -359,7 +381,14 @@ struct IntervalConditionEditorController::Private
                         zoomAction->setChecked(false);
 
                     dialog_->setInfoText("Drag interval borders or edit table cells to modify. "
-                                         "Use the \"Histogram #\" box to cycle through histograms.");
+                                         "When evaluating the condition at least one interval test "
+                                         "must succeed for the condition to become true "
+                                         "(OR over all interval checks).\n"
+                                         "Checking \"ignore\" excludes the entry from affecting "
+                                         "the result of the condition evaluation."
+                                         );
+
+                    hasUnsavedChanges_ = true;
                 } break;
         }
 
@@ -379,6 +408,8 @@ struct IntervalConditionEditorController::Private
             return;
 
         AnalysisPauser pauser(asp_);
+
+        intervals_ = dialog_->getIntervals();
 
         cond->setObjectName(dialog_->getConditionName());
         cond->setIntervals(intervals_);
@@ -400,6 +431,7 @@ struct IntervalConditionEditorController::Private
         newCond_ = {};
         repopulateDialogFromAnalysis();
         dialog_->selectCondition(cond->getId());
+        hasUnsavedChanges_ = false;
     }
 
     void onDialogAccepted()
@@ -415,6 +447,7 @@ struct IntervalConditionEditorController::Private
         newCond_ = {};
         intervals_ = {};
         currentConditionId_ = QUuid();
+        hasUnsavedChanges_ = false;
     }
 
     // Keeps the dialog_ at the top right of the histo widget.
@@ -428,6 +461,17 @@ struct IntervalConditionEditorController::Private
 
     void onNewConditionRequested()
     {
+        if (newCond_ || hasUnsavedChanges_)
+        {
+            auto choice = QMessageBox::warning(dialog_, "Discarding condition",
+                "Creating a new condition will discard unsaved changes! Continue?",
+                QMessageBox::Cancel | QMessageBox::Ok,
+                QMessageBox::Cancel);
+
+            if (choice == QMessageBox::Cancel)
+                return;
+        }
+
         auto analysis = asp_->getAnalysis();
         newCond_ = std::make_shared<IntervalCondition>();
         newCond_->setObjectName(make_unique_operator_name(analysis, "interval", ""));
@@ -485,6 +529,7 @@ struct IntervalConditionEditorController::Private
             }
 
             dialog_->setIntervals(intervals_);
+            hasUnsavedChanges_ = true;
         }
         else
             assert(false);
@@ -503,6 +548,8 @@ struct IntervalConditionEditorController::Private
 
             if (intervalIndex < intervals_.size())
                 editPicker_->setInterval(intervals_[intervalIndex]);
+
+            hasUnsavedChanges_ = true;
         }
         else
             assert(false);
@@ -693,6 +740,11 @@ void IntervalConditionEditorController::setEnabled(bool on)
 IntervalConditionDialog *IntervalConditionEditorController::getDialog() const
 {
     return d->dialog_;
+}
+
+bool IntervalConditionEditorController::hasUnsavedChanges() const
+{
+    return d->hasUnsavedChanges_;
 }
 
 //

@@ -546,23 +546,6 @@ bool check_directory_consistency(const DirectoryVector &dirs, const Analysis *an
 #endif
 
 //
-// Support functions
-//
-
-namespace
-{
-template<typename It>
-void normalize_intervals(It first, It onePastEnd)
-{
-    while (first != onePastEnd)
-    {
-        *first = first->normalized();
-        first++;
-    }
-}
-}
-
-//
 // PlotGridView
 //
 
@@ -3819,7 +3802,6 @@ Slot *IntervalCondition::getSlot(s32 slotIndex)
 void IntervalCondition::setIntervals(const QVector<QwtInterval> &intervals)
 {
     m_intervals = intervals;
-    normalize_intervals(m_intervals.begin(), m_intervals.end());
 }
 
 QVector<QwtInterval> IntervalCondition::getIntervals() const
@@ -3834,8 +3816,6 @@ void IntervalCondition::setInterval(s32 address, const QwtInterval &interval)
         m_intervals.resize(std::max(m_intervals.size(), address+1));
 
         assert(address < m_intervals.size());
-
-        m_intervals[address] = interval.normalized();
     }
 }
 

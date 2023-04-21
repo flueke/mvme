@@ -97,6 +97,7 @@ class IntervalConditionEditorController: public QObject
 
         void setEnabled(bool on);
         IntervalConditionDialog *getDialog() const;
+        bool hasUnsavedChanges() const;
 
     private:
         struct Private;
