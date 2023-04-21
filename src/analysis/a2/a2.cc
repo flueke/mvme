@@ -3119,17 +3119,21 @@ void interval_condition_step(Operator *op, A2 *a2)
 
     const s32 maxIdx = op->inputs[0].size;
 
-    // Calculate the OR of the individual interval range checks.
+    // Calculate the OR of the individual interval range checks. Consider valid
+    // intervals only, invalid ones are used to ignore specific array elements
+    // from the condition evalution.
     bool result = false;
 
     for (s32 idx = 0; idx < maxIdx && !result; idx++)
-        result |= in_range(d->intervals[idx], op->inputs[0][idx]);
+    {
+        if (const auto &interval = d->intervals[idx]; is_valid(interval))
+            result |= in_range(interval, op->inputs[0][idx]);
+    }
 
     // Write the result to the central condition bit set
     a2->conditionBits.set(d->bitIndex, result);
 
     // Also write the result to the output vector.
-    op->outputs[0][0] = result;
     set_condition_output(op, result);
 }
 

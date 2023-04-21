@@ -59,6 +59,11 @@ inline bool in_range(Thresholds t, double v)
     return (t.min <= v && v < t.max);
 }
 
+inline bool is_valid(const Interval &interval)
+{
+    return interval.min < interval.max;
+}
+
 struct PipeVectors
 {
     ParamVec data;
