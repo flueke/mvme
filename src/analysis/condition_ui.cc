@@ -171,6 +171,17 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
                 if (auto newItem = d->ui->tw_intervals->item(row, col))
                     d->ui->tw_intervals->setCurrentItem(newItem, QItemSelectionModel::Select);
             });
+
+    connect(d->ui->tw_intervals, &QTableWidget::currentCellChanged,
+            this, [this] (int curRow, int curCol, int prevRow, int prevCol) {
+
+                if (const auto &intervals = getIntervals();
+                    0 <= curRow && curRow < intervals.size())
+                {
+                    const auto &interval = intervals[curRow];
+                    emit intervalSelected(curRow);
+                }
+            });
 }
 
 IntervalConditionDialog::~IntervalConditionDialog()
@@ -192,6 +203,7 @@ void IntervalConditionDialog::setConditionList(const QVector<ConditionInfo> &con
 void IntervalConditionDialog::setIntervals(const QVector<QwtInterval> &intervals)
 {
     QSignalBlocker sb(d->ui->tw_intervals); // block itemChanged() from the table widget
+    int curRow = d->ui->tw_intervals->currentRow();
     d->ui->tw_intervals->clearContents();
     d->ui->tw_intervals->setRowCount(intervals.size());
     int row = 0;
@@ -208,6 +220,7 @@ void IntervalConditionDialog::setIntervals(const QVector<QwtInterval> &intervals
         ++row;
     }
     d->ui->tw_intervals->resizeRowsToContents();
+    d->ui->tw_intervals->setCurrentCell(curRow, 0);
 }
 
 
@@ -495,6 +508,14 @@ struct IntervalConditionEditorController::Private
             assert(false);
     }
 
+    void onIntervalSelectedInEditorTable(int index)
+    {
+        if (auto w = qobject_cast<Histo1DWidget *>(histoWidget_))
+        {
+            w->selectHistogram(index);
+        }
+    }
+
     void onHistogramSelected(int histoIndex)
     {
         if (state_ == State::EditInterval && histoIndex < intervals_.size())
@@ -606,6 +627,9 @@ IntervalConditionEditorController::IntervalConditionEditorController(
 
     connect(d->dialog_, &IntervalConditionDialog::intervalsEdited,
             this, [this] (const QVector<QwtInterval> &intervals) { d->onIntervalsEditedInDialog(intervals); });
+
+    connect(d->dialog_, &IntervalConditionDialog::intervalSelected,
+            this, [this] (int index) { d->onIntervalSelectedInEditorTable(index); });
 
     connect(d->newPicker_, &NewIntervalPicker::intervalSelected,
             this, [this] (const QwtInterval &interval) { d->onNewIntervalSelected(interval); });

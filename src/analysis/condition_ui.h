@@ -57,6 +57,7 @@ class IntervalConditionDialog: public ConditionDialogBase
     Q_OBJECT
     signals:
         void intervalsEdited(const QVector<QwtInterval> &intervals);
+        void intervalSelected(int index);
 
     public:
         IntervalConditionDialog(QWidget *parent = nullptr);
