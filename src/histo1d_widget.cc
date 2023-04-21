@@ -391,6 +391,9 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         replot();
     }));
 
+    DO_AND_ASSERT(connect(m_d->m_plot->axisWidget(QwtPlot::xBottom), SIGNAL(scaleDivChanged()),
+                          this, SLOT(onPlotBottomScaleDivChanged())));
+
     // Toolbar and actions
     m_d->m_toolBar = new QToolBar();
     auto tb = m_d->m_toolBar;
@@ -1763,22 +1766,13 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
                          m_q, [this] { histoStatsWidget_ = nullptr; });
         histoStatsWidget_ = statsWidget;
 
-        auto update_scale_div = [this, statsWidget]
-        {
-            statsWidget->setXScaleDiv(m_plot->axisScaleDiv(QwtPlot::xBottom));
-        };
-
-        update_scale_div();
-
-        QObject::connect(m_plot->axisWidget(QwtPlot::xBottom), &QwtScaleWidget::scaleDivChanged,
-                         statsWidget, update_scale_div);
+        m_q->onPlotBottomScaleDivChanged(); // force an initial update of the stats range
 
         QString title;
         if (m_sink)
         {
             statsWidget->addSink(m_sink);
             title = QSL("Statistics for histogram array '%1'").arg(m_sink->objectName());
-
         }
         else if (auto histo = getCurrentHisto())
         {
@@ -1792,6 +1786,14 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
     }
 
     show_and_activate(histoStatsWidget_);
+}
+
+void Histo1DWidget::onPlotBottomScaleDivChanged()
+{
+    if (m_d->histoStatsWidget_)
+    {
+        m_d->histoStatsWidget_->setXScaleDiv(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom));
+    }
 }
 
 QwtPlot *Histo1DWidget::getPlot()

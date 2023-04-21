@@ -94,6 +94,8 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
          * connections did not work. */
         // TODO 10/2018: recheck this. It might have just been an issue with
         // missing casts of overloaded signals.
+        // UPDATE 4/2023: Again ran into this issue this time with
+        // QwtScaleWidget::scaleDivChanged() and of course under windows only.
         void onZoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();
@@ -104,6 +106,7 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
         void on_tb_test_clicked();
         void on_ratePointerPicker_selected(const QPointF &);
         void onHistoSpinBoxValueChanged(int index);
+        void onPlotBottomScaleDivChanged();
 
     private:
         std::unique_ptr<Histo1DWidgetPrivate> m_d;
