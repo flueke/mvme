@@ -240,13 +240,21 @@ reach the controller.
 
     ``arp -s 192.168.100.42 04-85-46-d2-00-15``
 
-To verify that the connection is working you can try to ping the controller:
+At this point mvme should be able to connect to the controller using the
+IP-address specified above.
 
-  ``ping 192.168.100.42``
+To further diagnose connection issues the following commands can be used to ping
+the MVLC: ::
 
-If everything is setup correctly the controller should answer the ping
-requests.
+  echo -ne '\xF3\x00\x00\x00' | nc -uq0 192.168.100.42 32768
+  ping 192.168.100.42
 
-.. TODO: add some troubleshooting hints
+In the first line ``echo`` and ``netcat`` (``nc``) are used to send an empty but
+valid command frame to the MVLC. This is required to make the MVLC leave the
+DHCP phase and accept the supplied destination IP-address. The second command
+attempts to ping the controller. If everything is setup correctly the ping
+command should receive responses from the controller.
+
+For the SIS3153 only the ping command is needed.
 
 .. vim:ft=rst
