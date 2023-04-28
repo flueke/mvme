@@ -1089,7 +1089,14 @@ void show_dso_buffer_debug_widget(
 
             line += QString("0x%1").arg(word, 8, 16, QLatin1Char('0'));
 
-            if (3 <= i && i < dsoBuffer.size() - 1
+            // The magic 4 is to skip over the framing and header words, e.g.:
+            //   0: 0xf38000fe
+            //   1: 0x00000311
+            //   2: 0xf58000fc
+            //   3: 0x40000000
+            // The -1 offset is to skip the 0xc0000000 footer word.
+
+            if (4 <= i && i < dsoBuffer.size() - 1
                 && ! (ft == mvlc::frame_headers::StackFrame
                       || ft == mvlc::frame_headers::StackContinuation
                       || ft == mvlc::frame_headers::BlockRead)
