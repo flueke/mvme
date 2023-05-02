@@ -40,7 +40,7 @@ QWidget *sink_widget_factory(const SinkPtr &sink, AnalysisServiceProvider *servi
         w->setServiceProvider(serviceProvider);
 
         w->setSink(h1dSink, [serviceProvider] (const std::shared_ptr<Histo1DSink> &sink) {
-            serviceProvider->analysisOperatorEdited(sink);
+            serviceProvider->setAnalysisOperatorEdited(sink);
         });
 
         // Check if the histosinks input is a CalibrationMinMax and if so set
@@ -72,7 +72,7 @@ QWidget *sink_widget_factory(const SinkPtr &sink, AnalysisServiceProvider *servi
             },
             // sinkModifiedCallback
             [serviceProvider] (const std::shared_ptr<Histo2DSink> &sink) {
-                serviceProvider->analysisOperatorEdited(sink);
+                serviceProvider->setAnalysisOperatorEdited(sink);
             },
             // makeUniqueOperatorNameFunction
             [serviceProvider] (const QString &name) {

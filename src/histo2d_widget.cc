@@ -217,7 +217,7 @@ struct Histo2DWidgetPrivate
                 sink->m_xBins = xBins;
                 sink->m_yBins = yBins;
                 sink->setResolutionReductionFactors({});
-                m_serviceProvider->analysisOperatorEdited(sink);
+                m_serviceProvider->setAnalysisOperatorEdited(sink);
 
                 m_rrSliderX->setMaximum(std::log2(xBins));
                 m_rrSliderX->setValue(m_rrSliderX->maximum());

@@ -307,7 +307,7 @@ struct Histo1DWidgetPrivate
                 AnalysisPauser pauser(m_serviceProvider);
                 m_sink->m_bins = combo_xBins->currentData().toInt();
                 m_sink->setResolutionReductionFactor(Histo1D::NoRR);
-                m_serviceProvider->analysisOperatorEdited(m_sink);
+                m_serviceProvider->setAnalysisOperatorEdited(m_sink);
 
                 qDebug() << __PRETTY_FUNCTION__ << "setting rrSlider to max";
                 m_rrSlider->setMaximum(std::log2(getCurrentHisto()->getNumberOfBins()));

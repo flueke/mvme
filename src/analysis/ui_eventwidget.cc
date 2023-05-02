@@ -3256,7 +3256,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                 },
                                 // sinkModifiedCallback
                                 [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                                    context->analysisOperatorEdited(sink);
+                                    context->setAnalysisOperatorEdited(sink);
                                 },
                                 // makeUniqueOperatorNameFunction
                                 [context] (const QString &name) {
@@ -3291,7 +3291,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                 },
                                 // sinkModifiedCallback
                                 [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                                    context->analysisOperatorEdited(sink);
+                                    context->setAnalysisOperatorEdited(sink);
                                 },
                                 // makeUniqueOperatorNameFunction
                                 [context] (const QString &name) {
@@ -4123,7 +4123,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                             },
                             // sinkModifiedCallback
                             [serviceProvider] (const std::shared_ptr<Histo2DSink> &sink) {
-                                serviceProvider->analysisOperatorEdited(sink);
+                                serviceProvider->setAnalysisOperatorEdited(sink);
                             },
                             // makeUniqueOperatorNameFunction
                             [serviceProvider] (const QString &name) {
@@ -4154,7 +4154,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                         auto sinkModifiedCallback = [serviceProvider] (const std::shared_ptr<RateMonitorSink> &sink)
                         {
-                            serviceProvider->analysisOperatorEdited(sink);
+                            serviceProvider->setAnalysisOperatorEdited(sink);
                         };
 
                         auto widget = new RateMonitorWidget(rms, sinkModifiedCallback);
