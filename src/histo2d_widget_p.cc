@@ -129,24 +129,38 @@ void Histo2DSubRangeDialog::accept()
         targetSink = m_histoSink;
     }
 
+    bool doClear = false;
+
     if (limits_x.rb_limited->isChecked())
     {
+        doClear |= (targetSink->m_xLimitMin != limits_x.spin_min->value()
+            || targetSink->m_xLimitMax != limits_x.spin_max->value());
+
         targetSink->m_xLimitMin = limits_x.spin_min->value();
         targetSink->m_xLimitMax = limits_x.spin_max->value();
     }
     else
     {
+        doClear |= (!std::isnan(targetSink->m_xLimitMin)
+            || !std::isnan(targetSink->m_xLimitMax));
+
         targetSink->m_xLimitMin = make_quiet_nan();
         targetSink->m_xLimitMax = make_quiet_nan();
     }
 
     if (limits_y.rb_limited->isChecked())
     {
+        doClear |= (targetSink->m_yLimitMin != limits_y.spin_min->value()
+            || targetSink->m_yLimitMax != limits_y.spin_max->value());
+
         targetSink->m_yLimitMin = limits_y.spin_min->value();
         targetSink->m_yLimitMax = limits_y.spin_max->value();
     }
     else
     {
+        doClear |= (!std::isnan(targetSink->m_yLimitMin)
+            || !std::isnan(targetSink->m_yLimitMax));
+
         targetSink->m_yLimitMin = make_quiet_nan();
         targetSink->m_yLimitMax = make_quiet_nan();
     }
@@ -157,6 +171,9 @@ void Histo2DSubRangeDialog::accept()
     }
     else
     {
+        if (doClear)
+            targetSink->clearState();
+
         m_sinkModifiedCallback(targetSink);
     }
 
