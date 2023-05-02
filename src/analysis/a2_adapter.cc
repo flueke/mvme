@@ -873,9 +873,15 @@ DEF_OP_MAGIC(interval_condition_magic)
     std::vector<a2::Interval> a2_intervals;
     a2_intervals.reserve(cond->getIntervals().size());
 
-    for (const auto &interval: cond->getIntervals())
+    for (const auto &intervalData: cond->getIntervals())
     {
-        a2_intervals.push_back({ interval.minValue(), interval.maxValue() });
+        if (intervalData.ignored)
+            a2_intervals.push_back({ make_quiet_nan(), make_quiet_nan() });
+        else
+        {
+            auto interval = intervalData.interval.normalized();
+            a2_intervals.push_back({ interval.minValue(), interval.maxValue() });
+        }
     }
 
     auto a2_input = find_output_pipe(adapterState, inputSlots[0]).first;

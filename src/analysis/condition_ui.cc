@@ -19,7 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "condition_ui.h"
-#include "condition_ui_p.h"
 
 #include <algorithm>
 #include <QMenu>
@@ -179,7 +178,6 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
                 if (const auto &intervals = getIntervals();
                     0 <= curRow && curRow < intervals.size())
                 {
-                    const auto &interval = intervals[curRow];
                     emit intervalSelected(curRow);
                 }
             });
@@ -201,29 +199,27 @@ void IntervalConditionDialog::setConditionList(const QVector<ConditionInfo> &con
     d->ui->combo_cond->setEditable(d->ui->combo_cond->count() > 0);
 }
 
-void IntervalConditionDialog::setIntervals(const QVector<QwtInterval> &intervals)
+void IntervalConditionDialog::setIntervals(const QVector<IntervalData> &intervals)
 {
     QSignalBlocker sb(d->ui->tw_intervals); // block itemChanged() from the table widget
     int curRow = d->ui->tw_intervals->currentRow();
     d->ui->tw_intervals->clearContents();
     d->ui->tw_intervals->setRowCount(intervals.size());
     int row = 0;
-    for (const auto &interval: intervals)
+    for (const auto &intervalData: intervals)
     {
+        const auto &interval = intervalData.interval;
         auto x1Item = new QTableWidgetItem;
         auto x2Item = new QTableWidgetItem;
 
-        if (interval.isValid())
-        {
-            x1Item->setText(QString::number(interval.minValue()));
-            x2Item->setText(QString::number(interval.maxValue()));
-        }
+        x1Item->setText(QString::number(interval.minValue()));
+        x2Item->setText(QString::number(interval.maxValue()));
 
         d->ui->tw_intervals->setItem(row, 0, x1Item);
         d->ui->tw_intervals->setItem(row, 1, x2Item);
 
         auto cb_ignore = new QCheckBox;
-        cb_ignore->setChecked(!interval.isValid());
+        cb_ignore->setChecked(intervalData.ignored);
         d->ui->tw_intervals->setCellWidget(row, 2, cb_ignore);
 
         auto headerItem = new QTableWidgetItem(QString::number(row));
@@ -236,27 +232,27 @@ void IntervalConditionDialog::setIntervals(const QVector<QwtInterval> &intervals
 }
 
 
-QVector<QwtInterval> IntervalConditionDialog::getIntervals() const
+QVector<IntervalConditionDialog::IntervalData> IntervalConditionDialog::getIntervals() const
 {
-    QVector<QwtInterval> ret;
+    QVector<IntervalData> ret;
 
     for (int row=0; row<d->ui->tw_intervals->rowCount(); ++row)
     {
         auto x1Item = d->ui->tw_intervals->item(row, 0);
         auto x2Item = d->ui->tw_intervals->item(row, 1);
         auto cb_ignore = qobject_cast<QCheckBox *>(d->ui->tw_intervals->cellWidget(row, 2));
+
+        double x1 = x1Item->data(Qt::EditRole).toDouble();
+        double x2 = x2Item->data(Qt::EditRole).toDouble();
         bool ignored = cb_ignore && cb_ignore->isChecked();
 
-        QwtInterval interval;
-
-        if (!ignored)
+        IntervalData intervalData
         {
-            double x1 = x1Item->data(Qt::EditRole).toDouble();
-            double x2 = x2Item->data(Qt::EditRole).toDouble();
-            interval = QwtInterval{x1, x2}.normalized();
-        }
+            QwtInterval{x1, x2},
+            ignored
+        };
 
-        ret.push_back(interval);
+        ret.push_back(intervalData);
     }
 
     return ret;
@@ -325,7 +321,7 @@ struct IntervalConditionEditorController::Private
     std::shared_ptr<IntervalCondition> newCond_;
 
     // Intervals currently being edited.
-    QVector<QwtInterval> intervals_;
+    QVector<IntervalConditionDialog::IntervalData> intervals_;
 
     // Interval edit state
     State state_ = State::Inactive;
@@ -496,7 +492,7 @@ struct IntervalConditionEditorController::Private
         {
             // Set all intervals to the same, newly selected value.
             intervals_.resize(sink_->getNumberOfHistos());
-            intervals_.fill(interval);
+            intervals_.fill({interval, false});
 
             dialog_->setIntervals(intervals_);
 
@@ -517,7 +513,7 @@ struct IntervalConditionEditorController::Private
         {
             if (dialog_->shouldEditAllIntervals())
             {
-                intervals_.fill(interval);
+                intervals_.fill({interval, false});
             }
             else
             {
@@ -527,7 +523,7 @@ struct IntervalConditionEditorController::Private
                     intervalIndex = w->currentHistoIndex();
 
                 if (intervalIndex < intervals_.size())
-                    intervals_[intervalIndex] = interval;
+                    intervals_[intervalIndex] = { interval, false };
             }
 
             dialog_->setIntervals(intervals_);
@@ -543,7 +539,7 @@ struct IntervalConditionEditorController::Private
             zoomAction->setChecked(!wouldGrab);
     }
 
-    void onIntervalsEditedInDialog(const QVector<QwtInterval> &intervals)
+    void onIntervalsEditedInDialog(const QVector<IntervalConditionDialog::IntervalData> &intervals)
     {
         if (state_ == State::EditInterval)
         {
@@ -555,7 +551,7 @@ struct IntervalConditionEditorController::Private
             intervals_ = intervals;
 
             if (intervalIndex < intervals_.size())
-                editPicker_->setInterval(intervals_[intervalIndex]);
+                editPicker_->setInterval(intervals_[intervalIndex].interval.normalized());
 
             hasUnsavedChanges_ = true;
         }
@@ -575,7 +571,7 @@ struct IntervalConditionEditorController::Private
     {
         if (state_ == State::EditInterval && histoIndex < intervals_.size())
         {
-            editPicker_->setInterval(intervals_[histoIndex]);
+            editPicker_->setInterval(intervals_[histoIndex].interval.normalized());
             dialog_->selectInterval(histoIndex);
         }
     }
@@ -613,7 +609,7 @@ struct IntervalConditionEditorController::Private
         return condInfos;
     }
 
-    QVector<QwtInterval> getIntervals(const QUuid &id)
+    QVector<IntervalCondition::IntervalData> getIntervals(const QUuid &id)
     {
         if (auto intervalCond = getCondition(id))
             return intervalCond->getIntervals();
@@ -640,7 +636,7 @@ struct IntervalConditionEditorController::Private
 
                 if (intervalIndex < intervals_.size())
                 {
-                    editPicker_->setInterval(intervals_[intervalIndex]);
+                    editPicker_->setInterval(intervals_[intervalIndex].interval);
                     dialog_->selectInterval(intervalIndex);
                 }
             }
@@ -681,7 +677,8 @@ IntervalConditionEditorController::IntervalConditionEditorController(
             this, [this] (const QUuid &id) { d->onConditionSelected(id); });
 
     connect(d->dialog_, &IntervalConditionDialog::intervalsEdited,
-            this, [this] (const QVector<QwtInterval> &intervals) { d->onIntervalsEditedInDialog(intervals); });
+            this, [this] (const QVector<IntervalConditionDialog::IntervalData> &intervals)
+            { d->onIntervalsEditedInDialog(intervals); });
 
     connect(d->dialog_, &IntervalConditionDialog::intervalSelected,
             this, [this] (int index) { d->onIntervalSelectedInEditorTable(index); });

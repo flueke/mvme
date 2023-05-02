@@ -3753,6 +3753,8 @@ IntervalCondition::IntervalCondition(QObject *parent)
     : ConditionInterface(parent)
     , m_input(this, 0, QSL("Input"), InputType::Array)
 {
+    qRegisterMetaType<analysis::IntervalCondition::IntervalData>(
+        "analysis::IntervalCondition::IntervalData");
 }
 
 void IntervalCondition::beginRun(const RunInfo &, Logger)
@@ -3768,13 +3770,16 @@ void IntervalCondition::beginRun(const RunInfo &, Logger)
 void IntervalCondition::write(QJsonObject &json) const
 {
     QJsonArray jsonIntervals;
+    QJsonArray jsonIntervalIgnores;
 
-    for (const auto &interval: m_intervals)
+    for (const auto &intervalData: m_intervals)
     {
-        jsonIntervals.append(to_json(interval));
+        jsonIntervals.append(to_json(intervalData.interval));
+        jsonIntervalIgnores.append(intervalData.ignored);
     }
 
     json["intervals"] = jsonIntervals;
+    json["intervalIgnores"] = jsonIntervalIgnores;
 }
 
 void IntervalCondition::read(const QJsonObject &json)
@@ -3782,11 +3787,21 @@ void IntervalCondition::read(const QJsonObject &json)
     m_intervals.clear();
 
     auto jsonIntervals = json["intervals"].toArray();
+    auto jsonIntervalIgnores = json["intervalIgnores"].toArray();
 
-    for (auto it = jsonIntervals.begin(); it != jsonIntervals.end(); it++)
+    for (auto it = jsonIntervals.begin(), jt = jsonIntervalIgnores.begin();
+         it != jsonIntervals.end(), jt != jsonIntervalIgnores.end();
+         it++, jt++)
     {
-        m_intervals.append(interval_from_json(it->toObject()));
+        IntervalData intervalData
+        {
+            interval_from_json(it->toObject()),
+            jt->toBool(),
+        };
+
+        m_intervals.push_back(intervalData);
     }
+
 }
 
 s32 IntervalCondition::getNumberOfSlots() const
@@ -3799,29 +3814,40 @@ Slot *IntervalCondition::getSlot(s32 slotIndex)
     return slotIndex == 0 ? &m_input : nullptr;
 }
 
-void IntervalCondition::setIntervals(const QVector<QwtInterval> &intervals)
+void IntervalCondition::setIntervals(const QVector<IntervalData> &intervals)
 {
     m_intervals = intervals;
 }
 
-QVector<QwtInterval> IntervalCondition::getIntervals() const
+QVector<IntervalCondition::IntervalData> IntervalCondition::getIntervals() const
 {
     return m_intervals;
 }
 
-void IntervalCondition::setInterval(s32 address, const QwtInterval &interval)
+void IntervalCondition::setInterval(s32 address, const IntervalData &intervalData)
 {
     if (address >= 0)
     {
         m_intervals.resize(std::max(m_intervals.size(), address+1));
 
         assert(address < m_intervals.size());
+
+        m_intervals[address] = intervalData;
     }
 }
 
-QwtInterval IntervalCondition::getInterval(s32 address) const
+IntervalCondition::IntervalData IntervalCondition::getInterval(s32 address) const
 {
-    return m_intervals.value(address, { make_quiet_nan(), make_quiet_nan() });
+    if (0 <= address && address < m_intervals.size())
+    {
+        return m_intervals[address];
+    }
+
+    return IntervalData
+    {
+        QwtInterval{ make_quiet_nan(), make_quiet_nan() },
+        false,
+    };
 }
 
 //

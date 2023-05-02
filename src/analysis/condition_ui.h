@@ -55,21 +55,24 @@ class ConditionDialogBase: public QDialog
 class IntervalConditionDialog: public ConditionDialogBase
 {
     Q_OBJECT
+    public:
+        using IntervalData = IntervalCondition::IntervalData;
+
     signals:
-        void intervalsEdited(const QVector<QwtInterval> &intervals);
+        void intervalsEdited(const QVector<IntervalData> &intervals);
         void intervalSelected(int index);
 
     public:
         IntervalConditionDialog(QWidget *parent = nullptr);
         ~IntervalConditionDialog() override;
 
-        QVector<QwtInterval> getIntervals() const;
+        QVector<IntervalData> getIntervals() const;
         QString getConditionName() const;
         bool shouldEditAllIntervals() const;
 
     public slots:
         void setConditionList(const QVector<ConditionInfo> &condInfos);
-        void setIntervals(const QVector<QwtInterval> &intervals);
+        void setIntervals(const QVector<IntervalData> &intervals);
         void setInfoText(const QString &txt);
         void selectCondition(const QUuid &objectId);
         void selectInterval(int index);

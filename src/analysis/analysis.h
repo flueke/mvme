@@ -1585,6 +1585,14 @@ class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
     Q_OBJECT
     Q_INTERFACES(analysis::ConditionInterface)
     public:
+        struct IntervalData
+        {
+            QwtInterval interval;
+            // True if the interval should not contribute to the result of the
+            // condition evaluation.
+            bool ignored;
+        };
+
         Q_INVOKABLE IntervalCondition(QObject *parent = 0);
 
         virtual QString getDisplayName() const override { return QSL("Interval Condition"); }
@@ -1598,15 +1606,15 @@ class LIBMVME_EXPORT IntervalCondition: public ConditionInterface
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
-        void setIntervals(const QVector<QwtInterval> &intervals);
-        QVector<QwtInterval> getIntervals() const;
+        void setIntervals(const QVector<IntervalData> &intervals);
+        QVector<IntervalData> getIntervals() const;
 
-        void setInterval(s32 address, const QwtInterval &interval);
-        QwtInterval getInterval(s32 address) const;
+        void setInterval(s32 address, const IntervalData &intervalData);
+        IntervalData getInterval(s32 address) const;
 
     private:
         Slot m_input;
-        QVector<QwtInterval> m_intervals;
+        QVector<IntervalData> m_intervals;
 };
 
 class LIBMVME_EXPORT PolygonCondition: public ConditionInterface
