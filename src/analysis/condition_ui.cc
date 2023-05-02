@@ -535,6 +535,12 @@ struct IntervalConditionEditorController::Private
             assert(false);
     }
 
+    void handleMouseWouldGrabBorder(bool wouldGrab)
+    {
+        if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
+            zoomAction->setChecked(!wouldGrab);
+    }
+
     void onIntervalsEditedInDialog(const QVector<QwtInterval> &intervals)
     {
         if (state_ == State::EditInterval)
@@ -683,6 +689,10 @@ IntervalConditionEditorController::IntervalConditionEditorController(
 
     connect(d->editPicker_, &IntervalEditorPicker::intervalModified,
             this, [this] (const QwtInterval &interval) { d->onIntervalModified(interval); });
+
+    connect(d->editPicker_, &IntervalEditorPicker::mouseWouldGrabIntervalBorder,
+            this, [this] (bool wouldGrab) { d->handleMouseWouldGrabBorder(wouldGrab); });
+
 
     if (auto histo1DWidget = qobject_cast<Histo1DWidget *>(histoWidget))
     {

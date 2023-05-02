@@ -134,6 +134,11 @@ class LIBMVME_EXPORT IntervalEditorPicker: public PlotPicker
     signals:
         void intervalModified(const QwtInterval &interval);
 
+        // Emitted in reaction to mouse move events. If the cursor is close
+        // enough to grab a border 'wouldGrab' is true, otherwise if moving away
+        // from a border it is set to false.
+        void mouseWouldGrabIntervalBorder(bool wouldGrab);
+
     public:
         IntervalEditorPicker(QwtPlot *plot);
         ~IntervalEditorPicker() override;

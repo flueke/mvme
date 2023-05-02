@@ -452,8 +452,8 @@ struct IntervalEditorPicker::Private
         plot->replot(); // force replot to make marker movement smooth
     }
 
-    // Returns the point index (0 or 1) if pixelX is within
-    // CanStartDragDistancePixels
+    // Returns the point index (0 or 1) of the point closest to pixelX if pixelX
+    // is within CanStartDragDistancePixels or -1 if not in range.
     int getClosestPointIndex(int pixelX)
     {
         auto interval = getInterval();
@@ -567,9 +567,15 @@ void IntervalEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
     if (d->getInterval().isValid() && d->dragPointIndex_ < 0)
     {
         if (d->getClosestPointIndex(ev->pos().x()) >= 0)
+        {
             canvas()->setCursor(Qt::SplitHCursor);
+            emit mouseWouldGrabIntervalBorder(true);
+        }
         else
+        {
             canvas()->setCursor(Qt::CrossCursor);
+            emit mouseWouldGrabIntervalBorder(false);
+        }
     }
     else
         PlotPicker::widgetMouseMoveEvent(ev);
