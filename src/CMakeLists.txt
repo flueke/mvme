@@ -278,7 +278,6 @@ add_library(libmvme SHARED
     analysis/analysis_ui_util.cc
     analysis/code_editor.cc
     analysis/condition_ui.cc
-    analysis/condition_ui_p.cc
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
