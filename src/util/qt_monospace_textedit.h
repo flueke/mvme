@@ -39,19 +39,15 @@ namespace util
 {
 
 // These functions create a QPlainTextEdit or a QTextEdit respectively. The
-// textedit is setup to use a monospace font, a tabstop width of 4 characters
-// and it doesn't allow to wrap long lines.
-// The pointSizeDelta argument can be used to add/subtract to/from the default
-// font point size.
-// Alternatively the font to use can be dircetly passed in.
+// textedit is setup to use a monospace font (unless a font is directly
+// specified), a tabstop width of 4 characters and it doesn't allow to wrap long
+// lines.
 
 std::unique_ptr<QPlainTextEdit> LIBMVME_EXPORT make_monospace_plain_textedit();
-std::unique_ptr<QPlainTextEdit> LIBMVME_EXPORT make_monospace_plain_textedit(qreal pointSizeDelta);
-std::unique_ptr<QPlainTextEdit> LIBMVME_EXPORT make_monospace_plain_textedit(const QFont &font);
+std::unique_ptr<QPlainTextEdit> LIBMVME_EXPORT make_plain_textedit(const QFont &font);
 
 std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_monospace_textedit();
-std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_monospace_textedit(qreal pointSizeDelta);
-std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_monospace_textedit(const QFont &font);
+std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_textedit(const QFont &font);
 
 namespace plain_textedit_detail
 {
@@ -67,11 +63,9 @@ namespace plain_textedit_detail
         }
 
     template<typename T>
-        std::unique_ptr<T> impl(qreal pointSizeDelta)
+        std::unique_ptr<T> impl()
         {
             auto font = make_monospace_font();
-            font.setPointSizeF(font.pointSizeF() + pointSizeDelta);
-
             return impl<T>(font);
         }
 }

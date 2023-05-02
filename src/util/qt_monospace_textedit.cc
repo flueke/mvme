@@ -40,30 +40,20 @@ namespace util
 
 std::unique_ptr<QPlainTextEdit> make_monospace_plain_textedit()
 {
-    return plain_textedit_detail::impl<QPlainTextEdit>(0.0);
+    return plain_textedit_detail::impl<QPlainTextEdit>();
 }
 
-std::unique_ptr<QPlainTextEdit> make_monospace_plain_textedit(qreal pointSizeDelta)
-{
-    return plain_textedit_detail::impl<QPlainTextEdit>(pointSizeDelta);
-}
-
-std::unique_ptr<QPlainTextEdit> make_monospace_plain_textedit(const QFont &font)
+std::unique_ptr<QPlainTextEdit> make_plain_textedit(const QFont &font)
 {
     return plain_textedit_detail::impl<QPlainTextEdit>(font);
 }
 
 std::unique_ptr<QTextEdit> make_monospace_textedit()
 {
-    return plain_textedit_detail::impl<QTextEdit>(0.0);
+    return plain_textedit_detail::impl<QTextEdit>();
 }
 
-std::unique_ptr<QTextEdit> make_monospace_textedit(qreal pointSizeDelta)
-{
-    return plain_textedit_detail::impl<QTextEdit>(pointSizeDelta);
-}
-
-std::unique_ptr<QTextEdit> make_monospace_textedit(const QFont &font)
+std::unique_ptr<QTextEdit> make_textedit(const QFont &font)
 {
     return plain_textedit_detail::impl<QTextEdit>(font);
 }

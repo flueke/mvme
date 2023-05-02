@@ -28,7 +28,7 @@ std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
 {
     using namespace mesytec::mvme::util;
 
-    auto result = mesytec::mvme::util::plain_textedit_detail::impl<PlainTextEdit>(0.0);
+    auto result = mesytec::mvme::util::plain_textedit_detail::impl<PlainTextEdit>();
 
     result->setAttribute(Qt::WA_DeleteOnClose);
     result->setReadOnly(true);
