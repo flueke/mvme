@@ -183,7 +183,7 @@ namespace
 PlotPicker::PlotPicker(QWidget *canvas)
     : QwtPlotPicker(canvas)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 #ifdef Q_OS_WIN
     [[maybe_unused]] bool b = connect(this, SIGNAL(removed(const QPoint &)),
                                       this, SLOT(onPointRemoved(const QPoint &)));
@@ -200,7 +200,7 @@ PlotPicker::PlotPicker(int xAxis, int yAxis,
                        QWidget *canvas)
     : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 #ifdef Q_OS_WIN
     [[maybe_unused]] bool b = connect(this, SIGNAL(removed(const QPoint &)),
                                       this, SLOT(onPointRemoved(const QPoint &)));
@@ -327,7 +327,7 @@ NewIntervalPicker::NewIntervalPicker(QwtPlot *plot)
 
 NewIntervalPicker::~NewIntervalPicker()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void NewIntervalPicker::reset()
@@ -345,8 +345,8 @@ void NewIntervalPicker::cancel()
 
 void NewIntervalPicker::onPointSelected(const QPointF &p)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "#points=" << d->selectedPoints.size()
-        << "x=" << p.x();
+    //qDebug() << __PRETTY_FUNCTION__ << "#points=" << d->selectedPoints.size()
+    //    << "x=" << p.x();
 
     // Update the latest point with the selection position
     if (d->selectedPoints.size())
@@ -372,8 +372,8 @@ void NewIntervalPicker::onPointMoved(const QPointF &p)
 
 void NewIntervalPicker::onPointAppended(const QPointF &p)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "#points=" << d->selectedPoints.size()
-        << "x=" << p.x();
+    //qDebug() << __PRETTY_FUNCTION__ << "#points=" << d->selectedPoints.size()
+    //    << "x=" << p.x();
 
     // start/restart the interval selection process
     if (d->selectedPoints.size() >= 2)
@@ -391,7 +391,7 @@ void NewIntervalPicker::transition(const QEvent *event)
             if (mouseMatch(QwtEventPattern::MouseSelect2,
                            static_cast<const QMouseEvent *>(event)))
             {
-                qDebug() << __PRETTY_FUNCTION__ << "canceled";
+                //qDebug() << __PRETTY_FUNCTION__ << "canceled";
                 cancel();
             }
             else
@@ -432,7 +432,7 @@ struct IntervalEditorPicker::Private
 
         if (getInterval().isValid())
         {
-            qDebug() << __PRETTY_FUNCTION__ << "got valid interval, showing plot items";
+            //qDebug() << __PRETTY_FUNCTION__ << "got valid interval, showing plot items";
             auto interval = getInterval();
             double x1 = interval.minValue();
             double x2 = interval.maxValue();
@@ -517,7 +517,7 @@ IntervalEditorPicker::IntervalEditorPicker(QwtPlot *plot)
 
 IntervalEditorPicker::~IntervalEditorPicker()
 {
-    qDebug() << __PRETTY_FUNCTION__ << this;
+    //qDebug() << __PRETTY_FUNCTION__ << this;
 }
 
 void IntervalEditorPicker::setInterval(const QwtInterval &interval)
@@ -542,7 +542,7 @@ void IntervalEditorPicker::widgetMousePressEvent(QMouseEvent *ev)
     if (mouseMatch(QwtEventPattern::MouseSelect1, static_cast<const QMouseEvent *>(ev))
         && d->getInterval().isValid())
     {
-        qDebug() << __PRETTY_FUNCTION__ << "dragPointIndex_=" << d->dragPointIndex_;
+        //qDebug() << __PRETTY_FUNCTION__ << "dragPointIndex_=" << d->dragPointIndex_;
         d->dragPointIndex_ = d->getClosestPointIndex(ev->pos().x());
     }
     else
@@ -583,7 +583,7 @@ void IntervalEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
 
 void IntervalEditorPicker::onPointMoved(const QPointF &p)
 {
-    qDebug() << __PRETTY_FUNCTION__ << p;
+    //qDebug() << __PRETTY_FUNCTION__ << p;
     if (d->dragPointIndex_ >= 0)
     {
         assert(d->dragPointIndex_ < d->selectedPoints.size());
@@ -843,7 +843,7 @@ PolygonEditorPicker::PolygonEditorPicker(QwtPlot *plot)
 
 PolygonEditorPicker::~PolygonEditorPicker()
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
 }
 
 void PolygonEditorPicker::setPolygon(const QPolygonF &poly)
