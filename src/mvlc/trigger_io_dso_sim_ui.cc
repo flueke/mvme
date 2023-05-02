@@ -1487,15 +1487,9 @@ DSOSimWidget::DSOSimWidget(
     auto l_traceSelect = make_hbox<0, 0>(gb_traceSelect);
     l_traceSelect->addWidget(d->traceSelectWidget);
 
-    QFont smallFont;
-    smallFont.setPointSizeF(smallFont.pointSizeF() - 2.0);
-
     d->label_status = new QLabel;
     auto pb_debugNext = new QPushButton("Debug next buffer");
     auto pb_debugOnError = new QPushButton("Debug on error");
-
-    for (auto widget: std::vector<QWidget *>{ d->label_status, pb_debugNext, pb_debugOnError })
-        widget->setFont(smallFont);
 
     auto l_status = make_hbox();
     l_status->addWidget(d->label_status, 1);
