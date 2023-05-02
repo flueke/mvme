@@ -1225,7 +1225,6 @@ struct DSOSimWidget::Private
     {
         None,
         Next,
-        OnError
     };
 
     const char *GUIStateFileName = "mvlc_dso_sim_gui_state.yaml";
@@ -1489,13 +1488,10 @@ DSOSimWidget::DSOSimWidget(
 
     d->label_status = new QLabel;
     auto pb_debugNext = new QPushButton("Debug next buffer");
-    auto pb_debugOnError = new QPushButton("Debug on error");
 
     auto l_status = make_hbox();
     l_status->addWidget(d->label_status, 1);
     l_status->addWidget(pb_debugNext);
-    l_status->addWidget(pb_debugOnError);
-    pb_debugOnError->hide();
 
     auto w_left = new QWidget;
     auto l_left = make_vbox<0, 0>(w_left);
@@ -1552,11 +1548,6 @@ DSOSimWidget::DSOSimWidget(
     connect(pb_debugNext, &QPushButton::clicked,
             this, [this] () {
                 d->debugAction = Private::DebugAction::Next;
-            });
-
-    connect(pb_debugOnError, &QPushButton::clicked,
-            this, [this] () {
-                d->debugAction = Private::DebugAction::OnError;
             });
 
     connect(d->dsoPlotWidget, &DSOPlotWidget::traceClicked,
