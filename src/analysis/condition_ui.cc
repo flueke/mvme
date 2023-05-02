@@ -287,9 +287,11 @@ void IntervalConditionDialog::selectCondition(const QUuid &objectId)
 
 void IntervalConditionDialog::selectInterval(int index)
 {
-    if (auto item = d->ui->tw_intervals->item(index, 0))
+    auto col = d->ui->tw_intervals->currentColumn();
+
+    if (auto item = d->ui->tw_intervals->item(index, col))
     {
-        d->ui->tw_intervals->setCurrentItem(item, QItemSelectionModel::Rows | QItemSelectionModel::ClearAndSelect);
+        d->ui->tw_intervals->setCurrentItem(item, QItemSelectionModel::ClearAndSelect);
     }
 }
 
