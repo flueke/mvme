@@ -132,7 +132,7 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
     auto tb_frameLayout = make_hbox<0, 0>(d->ui->tb_frame);
     tb_frameLayout->addWidget(d->toolbar_);
     auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
-    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Apply");
+    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Save Changes");
     d->toolbar_->addAction(QIcon(":/help.png"), QSL("Help"),
                            this, mesytec::mvme::make_help_keyword_handler("Condition System"));
 
