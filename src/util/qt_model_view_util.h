@@ -1,6 +1,9 @@
 #ifndef __MVME_UTIL_QT_MODEL_VIEW_UTIL_H__
 #define __MVME_UTIL_QT_MODEL_VIEW_UTIL_H__
 
+#include <QHeaderView>
+#include <QMouseEvent>
+#include <QPainter>
 #include <QStandardItem>
 #include <QTreeView>
 #include <vector>
@@ -81,5 +84,52 @@ inline void set_expansion_state(QTreeView *view, const TreeViewExpansionState &s
 
 }
 }
+
+// Found here: https://forum.qt.io/post/662401
+class MyHeader : public QHeaderView
+{
+public:
+    using QHeaderView::QHeaderView;
+
+protected:
+
+    void paintSection(QPainter* painter, const QRect &rect, int logicalIndex) const override
+    {
+        painter->save();
+        QHeaderView::paintSection(painter, rect, logicalIndex);
+        painter->restore();
+
+        if (model() && logicalIndex >= 0)
+        {
+            QStyleOptionButton option;
+            option.init(this);
+
+            QRect checkbox_rect = style()->subElementRect(QStyle::SubElement::SE_CheckBoxIndicator, &option, this);
+            checkbox_rect.moveCenter(rect.center());
+
+            bool checked = model()->headerData(logicalIndex, orientation(), Qt::CheckStateRole).toBool();
+
+            option.rect = checkbox_rect;
+            option.state = checked ? QStyle::State_On : QStyle::State_Off;
+
+            style()->drawPrimitive(QStyle::PE_IndicatorCheckBox, &option, painter);
+        }
+    }
+
+    void mouseReleaseEvent(QMouseEvent* event) override
+    {
+        QHeaderView::mouseReleaseEvent(event);
+        if(model())
+        {
+            int section = logicalIndexAt(event->pos());
+            if (section >= 0)
+            {
+                bool checked = model()->headerData(section, orientation(), Qt::CheckStateRole).toBool();
+                model()->setHeaderData(section, orientation(), !checked, Qt::CheckStateRole);
+                viewport()->update();
+            }
+        }
+    }
+};
 
 #endif /* __MVME_UTIL_QT_MODEL_VIEW_UTIL_H__ */
