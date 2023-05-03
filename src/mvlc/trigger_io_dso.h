@@ -65,6 +65,10 @@ set_combined_triggers(DSOSetup &setup, const CombinedTriggers &combinedTriggers)
 
 namespace data_format
 {
+    // Valid DSO data words have the following structure:
+    // 00 | unused | addr | edge | time |
+    //  2 |    7   |   6  |  1   |  16  |
+
     static const u32 MatchBitsMask = 0b00;
     static const u32 MatchBitsShift = 30;
     static const u32 AddressMask = 0b111111;
@@ -113,14 +117,6 @@ acquire_dso_sample(
 // Fill a snapshot from a DSO buffer obtained via acquire_dso_sample().
 LIBMVME_EXPORT Snapshot
 fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer);
-
-#if 0
-// Extend traces to the given SampleTime. If a trace starts with an overflow
-// marker it is extended using Edge::Unknown, otherwise the last edges value in
-// the trace is used to extend to postTriggerTime.
-LIBMVME_EXPORT void
-extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo);
-#endif
 
 // Jitter correction and extending of traces up to the post trigger time.
 LIBMVME_EXPORT void

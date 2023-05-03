@@ -210,7 +210,7 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
         const u32 word = *it;
         auto ft = mvlc::get_frame_type(word);
 
-        // Skipper over embedded stack and block frames
+        // Skip over embedded stack and block frames
         if (ft == mvlc::frame_headers::StackFrame
             || ft == mvlc::frame_headers::StackContinuation
             || ft == mvlc::frame_headers::BlockRead)
@@ -233,56 +233,6 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
     return result;
 }
 
-/* Jitter elimination:
- * - Look through the traces that are in the set of triggers.
- * - In each trigger trace find the time of the Rising sample that's
- *   closest to the preTriggerTime. Assume that this is the trace that was
- *   the trigger.
- * - From that closest time extract the 3 low bits. This is the jitter
- *   value of the snapshot.
- * - Subtract the jitter value from all samples of all traces in the snapshot.
- */
-#if 0
-s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup)
-{
-    auto combinedTriggers = combined_triggers(dsoSetup);
-
-    // Adjusted by dsoSetup.preTriggerTime so a non-jittered trigger should
-    // have a value of 0.
-    s32 triggerTime = std::numeric_limits<s32>::max();
-
-    for (size_t traceIdx=0;
-         traceIdx<snapshot.size() && traceIdx < combinedTriggers.size();
-         traceIdx++)
-    {
-        if (!combinedTriggers.test(traceIdx))
-            continue;
-
-        auto &trace = snapshot[traceIdx];
-
-        for (auto &sample: trace)
-        {
-            if (sample.edge == Edge::Rising)
-            {
-                s32 tt = sample.time.count() - dsoSetup.preTriggerTime;
-                qDebug() << __PRETTY_FUNCTION__
-                    << "tt=" << tt
-                    << std::abs(triggerTime);
-                if (std::abs(tt) < std::abs(triggerTime))
-                    triggerTime = tt;
-            }
-        }
-    }
-
-    s32 jitterValue = (std::abs(triggerTime) & 0b111) * mvme::util::sgn(triggerTime);
-
-    qDebug() << __PRETTY_FUNCTION__
-        << "triggerTime:" << triggerTime
-        << ", jitterValue:" << jitterValue;
-
-    return jitterValue;
-}
-#else
 /* Korrektur des Flankenjitters der Triggerflanke:
  * Von der pretrigger_time werden die untersten 3 Bits nicht verwendet. Sie
  * darf aber schon auf jeden Wert gesetzt werden, es spielt keine Rolle.Also
@@ -324,7 +274,6 @@ std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const
 
     return std::make_pair(0u, false);
 }
-#endif
 
 namespace
 {
