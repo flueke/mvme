@@ -142,10 +142,13 @@ class ScopeCurve: public QwtPlotCurve
             int to
             ) const override
         {
-            auto sd = scopeData();
+            assert(from <= to);
 
+            auto sd = scopeData();
             int unknownSamples = 0;
 
+            #if 0
+            // This version draws a red line at the end of traces if the sample value is "Unknown".
             for (int i=to; i>=from; --i)
             {
                 if (sd->sampleEdge(i) == Edge::Unknown)
@@ -161,6 +164,21 @@ class ScopeCurve: public QwtPlotCurve
             painter->setPen(Qt::darkRed);
 
             QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, (to-unknownSamples)+1, to);
+            #else
+
+            // This version draws a red line at the front of traces if the sample value is "Unknown".
+            for (int i=from; i<=to; ++i)
+            {
+                if (sd->sampleEdge(i) == Edge::Unknown)
+                    ++unknownSamples;
+            }
+
+            painter->save();
+            painter->setPen(Qt::darkRed);
+            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, from+unknownSamples-1);
+            painter->restore();
+            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from+unknownSamples-1, to);
+            #endif
         }
 };
 
