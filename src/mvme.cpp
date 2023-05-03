@@ -385,8 +385,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     m_d->menuHelp->addAction(m_d->actionHelpMVMEManual);
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
     m_d->menuHelp->addSeparator();
-    m_d->menuHelp->addAction(m_d->actionHelpAbout);
     m_d->menuHelp->addAction(m_d->actionHelpAboutQt);
+    m_d->menuHelp->addAction(m_d->actionHelpAbout);
 
     m_d->menuBar->addMenu(m_d->menuFile);
     m_d->menuBar->addMenu(m_d->menuWindow);
