@@ -45,7 +45,6 @@
 #include "mvme_context_lib.h"
 #include "mvme_qthelp.h"
 #include "qt_util.h"
-#include "util/qt_model_view_util.h"
 #include "treewidget_utils.h"
 #include "ui_interval_condition_dialog.h"
 #include "ui_polygon_condition_dialog.h"
@@ -181,6 +180,27 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
                     emit intervalSelected(curRow);
                 }
             });
+
+    auto ignore_all = [this]
+    {
+        for (int row = 0; row < d->ui->tw_intervals->rowCount(); ++row)
+        {
+            if (auto cb_ignore = qobject_cast<QCheckBox *>(d->ui->tw_intervals->cellWidget(row, 2)))
+                cb_ignore->setChecked(true);
+        }
+    };
+
+    auto ignore_none = [this]
+    {
+        for (int row = 0; row < d->ui->tw_intervals->rowCount(); ++row)
+        {
+            if (auto cb_ignore = qobject_cast<QCheckBox *>(d->ui->tw_intervals->cellWidget(row, 2)))
+                cb_ignore->setChecked(false);
+        }
+    };
+
+    connect(d->ui->pb_ignoreAll, &QPushButton::clicked, this, ignore_all);
+    connect(d->ui->pb_ignoreNone, &QPushButton::clicked, this, ignore_none);
 }
 
 IntervalConditionDialog::~IntervalConditionDialog()

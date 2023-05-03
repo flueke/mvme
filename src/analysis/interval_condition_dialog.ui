@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>288</width>
-    <height>409</height>
+    <width>298</width>
+    <height>454</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Interval Condition Editor</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
     <widget class="QFrame" name="tb_frame">
      <property name="minimumSize">
@@ -66,20 +66,33 @@
      <property name="title">
       <string>Condition Intervals</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <property name="leftMargin">
-       <number>4</number>
-      </property>
-      <property name="topMargin">
-       <number>4</number>
-      </property>
-      <property name="rightMargin">
-       <number>4</number>
-      </property>
-      <property name="bottomMargin">
-       <number>4</number>
-      </property>
-      <item row="1" column="0">
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <layout class="QGridLayout" name="gridLayout_2">
+        <item row="0" column="1">
+         <widget class="QPushButton" name="pb_ignoreAll">
+          <property name="text">
+           <string>Ignore all</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QCheckBox" name="cb_editAll">
+          <property name="text">
+           <string>Edit all intervals</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QPushButton" name="pb_ignoreNone">
+          <property name="text">
+           <string>Ignore none</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
        <widget class="QTableWidget" name="tw_intervals">
         <property name="editTriggers">
          <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed</set>
@@ -120,13 +133,6 @@
           <string>ignore</string>
          </property>
         </column>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="cb_editAll">
-        <property name="text">
-         <string>Edit all intervals</string>
-        </property>
        </widget>
       </item>
      </layout>
