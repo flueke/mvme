@@ -1,0 +1,10 @@
+{
+    "auxiliary_vme_scripts": [
+        {
+            "fileName": "mdpp_boot_with_firmware_check.vmescript",
+            "scriptName": "MDPP-16/32: boot into firmware",
+            "vendorName": "mesytec",
+            "moduleName": "MDPP"
+        }
+    ]
+}

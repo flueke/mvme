@@ -1,0 +1,66 @@
+# Script to boot MDPP-16/32 modules into a specific firmware area and ensure
+# the desired firmware type is loaded.
+
+# MDPP-16 firmware ids (fixed values independent of where the specific firmware
+# was flashed to):
+#    RCP  = 1
+#    SCP  = 2
+#    QDC  = 3
+#    PADC = 4
+#    CSI  = 5
+
+# On which area a specific firmware type resides depends on the firmware
+# package. These values can change, firmware types can be flashed to different
+# areas.
+
+# MDPP16_CSI_SCP_RCP_QDC_SP0037.mvp area usage:
+#    0 = CSI
+#    1 = SCP
+#    2 = RCP
+#    3 = QDC
+
+# MDPP16_PADC_FW4034.mvp area usage:
+#    0 = PADC
+
+# MDPP-32 firmware ids:
+#    SCP  = 2,
+#    QDC  = 3,
+#    PADC = 4,
+
+# MDPP32_SCP_QDC_PADC_SP0014.mvp area usage:
+#    0 = SCP
+#    1 = QDC
+#    2 = PADC
+
+# These variables need to be changed, the rest of the script works without modification.
+set fw_area 1       # Area to boot into.
+set fw_id   2       # Firmware id to test for.
+setbase 0x00000000  # Full base address of the module to boot.
+
+
+print "1) Booting module into area ${fw_area} for firmware ${fw_id}"
+
+write a32 d16 0x6200 1          # switch on interface to flash; also reset
+write a32 d16 0x6202 0x70       # const uchar BFP = 0x70; // set FPGA boot area index and boot
+write a32 d16 0x6202 0xCD       # access0
+write a32 d16 0x6202 0xAB       # access1
+write a32 d16 0x6202 ${fw_area} # area index to boot
+# Note: at this point the modules will not have an MCST address anymore.
+wait 2000ms                     # give the module time to reboot (1000ms is not enough for the MDPP-32!)
+print
+
+print "2) Resetting module"
+# Note: Modules will lose their MCST address when being reset.
+write a32 d16 0x6008 1
+wait 1000ms
+print "  Hardware ID:"
+read a32 d16 0x6008	# hardware ID
+print "  Firmware Revision:"
+read a32 d16 0x600E # firmware revision
+print
+
+print "3) Checking module firmware type"
+read a32 d16 0x600e
+accu_mask_rotate 0x0000f000 20
+accu_test eq ${fw_id} "check firmware_id==${fw_id}"
+print
