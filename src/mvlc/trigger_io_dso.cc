@@ -307,7 +307,7 @@ void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
 // removed from the trace. Then Edge::Unknown is inserted at time 0 and at the
 // first actual sample time in the trace. This way plotting works without much
 // additional effort.
-void extend_traces(Snapshot &snapshot)
+void front_extend_traces(Snapshot &snapshot)
 {
     for (auto &trace: snapshot)
     {
@@ -355,8 +355,8 @@ pre_process_dso_snapshot(
 
     auto postTrigger = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
 
+    front_extend_traces(snapshot);
     //extend_traces_to(snapshot, postTrigger);
-    extend_traces(snapshot);
 }
 
 Edge edge_at(const Trace &trace, const SampleTime &t)
