@@ -136,20 +136,7 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
     d->toolbar_->addAction(QIcon(":/help.png"), QSL("Help"),
                            this, mesytec::mvme::make_help_keyword_handler("Condition System"));
 
-    // Note: this makes the headerview sizing non-interactive. It's up to Qt to
-    // size each section.
-    //d->ui->tw_intervals->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-
-    // Draws checkboxes in every column. The boxes are centered horizontally. Setting the Checked
-    d->ui->tw_intervals->setHorizontalHeader(new MyHeader(Qt::Horizontal));
-
-    //qDebug() << __PRETTY_FUNCTION__ << d->ui->tw_intervals->model();
-    //auto ignoreAllItem = new QTableWidgetItem("ignore (foobar)");
-    //ignoreAllItem->setFlags(ignoreAllItem->flags() | Qt::ItemIsUserCheckable);
-    //ignoreAllItem->setCheckState(Qt::Checked);
-    //d->ui->tw_intervals->setHorizontalHeaderItem(2, ignoreAllItem);
-    d->ui->tw_intervals->model()->setHeaderData(2, Qt::Horizontal, true, Qt::CheckStateRole);
-
+    d->ui->tw_intervals->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
     connect(actionNew, &QAction::triggered,
             this, &IntervalConditionDialog::newConditionButtonClicked);
