@@ -277,6 +277,9 @@ std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const
 
 namespace
 {
+#if 0
+// Extends all non-empty traces which did overflow to the given extendTo time.
+// The value in the extended time period is set to Edge::Unknown.
 void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
 {
     for (auto &trace: snapshot)
@@ -294,6 +297,29 @@ void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
             else
             {
                 trace.push_back({ extendTo, trace.back().edge });
+            }
+        }
+    }
+}
+#endif
+
+// Front-extend traces that overflowed. First the overflow marker itself is
+// removed from the trace. Then Edge::Unknown is inserted at time 0 and at the
+// first actual sample time in the trace. This way plotting works without much
+// additional effort.
+void extend_traces(Snapshot &snapshot)
+{
+    for (auto &trace: snapshot)
+    {
+        if (has_overflow_marker(trace))
+        {
+            trace.pop_front();
+            if (!trace.empty())
+            {
+                auto firstRealSampleTime = trace.front().time;
+                // Note: order is backwards here as we push_front()!
+                trace.push_front({ firstRealSampleTime, Edge::Unknown });
+                trace.push_front({ SampleTime(0.0), Edge::Unknown });
             }
         }
     }
@@ -329,7 +355,8 @@ pre_process_dso_snapshot(
 
     auto postTrigger = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
 
-    extend_traces_to(snapshot, postTrigger);
+    //extend_traces_to(snapshot, postTrigger);
+    extend_traces(snapshot);
 }
 
 Edge edge_at(const Trace &trace, const SampleTime &t)

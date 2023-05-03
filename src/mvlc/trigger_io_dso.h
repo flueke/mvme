@@ -2,6 +2,8 @@
 #define __MVME_MVLC_TRIGGER_IO_DSO_H__
 
 #include <chrono>
+#include <deque>
+#include <vector>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "libmvme_export.h"
 #include "mvlc/mvlc_trigger_io.h"
@@ -96,7 +98,7 @@ struct LIBMVME_EXPORT Sample
 };
 
 // Samples over time for one signal/pin.
-using Trace = std::vector<Sample>;
+using Trace = std::deque<Sample>;
 // Collection of traces representing e.g. a snapshot acquired from the DSO.
 using Snapshot = std::vector<Trace>;
 
