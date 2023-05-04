@@ -275,9 +275,6 @@ std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const
     return std::make_pair(0u, false);
 }
 
-namespace
-{
-#if 0
 // Extends all non-empty traces which did overflow to the given extendTo time.
 // The value in the extended time period is set to Edge::Unknown.
 void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
@@ -301,7 +298,6 @@ void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
         }
     }
 }
-#endif
 
 // Front-extend traces that overflowed. First the overflow marker itself is
 // removed from the trace. Then Edge::Unknown is inserted at time 0 and at the
@@ -324,10 +320,9 @@ void front_extend_traces(Snapshot &snapshot)
         }
     }
 }
-}
 
 void
-pre_process_dso_snapshot(
+jitter_correct_dso_snapshot(
     Snapshot &snapshot,
     const DSOSetup &dsoSetup)
 {
@@ -352,10 +347,19 @@ pre_process_dso_snapshot(
             }
         }
     }
+}
 
-    auto postTrigger = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
+void
+pre_process_dso_snapshot(
+    Snapshot &snapshot,
+    const DSOSetup &dsoSetup)
+{
+    jitter_correct_dso_snapshot(snapshot, dsoSetup);
 
+    // To handle the overflow case where earlier samples have been pushed off the trace.
     front_extend_traces(snapshot);
+
+    //auto postTrigger = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
     //extend_traces_to(snapshot, postTrigger);
 }
 

@@ -338,7 +338,7 @@ struct TraceSelectWidget::Private
             qDeleteAll(rowItems);
         }
 
-        qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
+        //qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
         emit q->selectionChanged(q->getSelection());
     }
 
@@ -923,7 +923,8 @@ DSO_Sim_Result run_dso_and_sim(
         if (sampledTraces.empty())
             return result;
 
-        pre_process_dso_snapshot(sampledTraces, dsoSetup);
+        //pre_process_dso_snapshot(sampledTraces, dsoSetup);
+        jitter_correct_dso_snapshot(sampledTraces, dsoSetup);
 
         result.sim.sampledTraces = sampledTraces;
         result.wasTriggered = true;
@@ -965,6 +966,7 @@ DSO_Sim_Result run_dso_and_sim(
     try
     {
         simulate(result.sim, simMaxTime);
+        front_extend_traces(result.sim.sampledTraces);
     }
     catch (const std::system_error &e)
     {

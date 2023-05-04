@@ -21,11 +21,13 @@ using namespace std::chrono_literals;
 
 // Extend the timeline to toTime using the last input samples edge.
 // Does nothing if input is empty or the last sample time in input is >= toTime.
+#if 0
 inline void extend(Trace &input, const SampleTime &toTime)
 {
     if (!input.empty() && input.back().time < toTime)
         input.push_back({ toTime, input.back().edge });
 }
+#endif
 
 // Simulate a gate generator.
 LIBMVME_EXPORT void simulate_gg(

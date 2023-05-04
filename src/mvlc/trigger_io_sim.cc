@@ -252,7 +252,7 @@ void simulate_gg(
     }
 
     // Apply the internal GG delay to the output trace
-    apply_delay(output, GateGeneratorDelay);
+    apply_delay(output, GateGeneratorDelay); // FIXME 230504: this should probably only happen in the io.width==0 case!
 }
 
 void simulate_lut(
@@ -354,7 +354,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
         sim.sampledTraces.resize(DSOExpectedSampledTraces);
 
     // L0 utilities: No simulation for now, just copy from the sampled traces
-    // to the L0 output traces
+    // to the L0 utility output traces
     for (unsigned utilIndex=0; utilIndex<Level0::UtilityUnitCount; ++utilIndex)
     {
         UnitAddress ua{0, utilIndex};

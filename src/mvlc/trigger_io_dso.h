@@ -120,6 +120,14 @@ acquire_dso_sample(
 LIBMVME_EXPORT Snapshot
 fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer);
 
+void LIBMVME_EXPORT extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo);
+void LIBMVME_EXPORT front_extend_traces(Snapshot &snapshot);
+
+LIBMVME_EXPORT void
+jitter_correct_dso_snapshot(
+    Snapshot &snapshot,
+    const DSOSetup &dsoSetup);
+
 // Jitter correction and extending of traces up to the post trigger time.
 LIBMVME_EXPORT void
 pre_process_dso_snapshot(
