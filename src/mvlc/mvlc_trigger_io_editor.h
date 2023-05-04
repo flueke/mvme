@@ -36,7 +36,6 @@ class LIBMVME_EXPORT MVLCTriggerIOEditor: public QWidget
     signals:
         void logMessage(const QString &msg);
         void runScriptConfig(VMEScriptConfig *setupScript);
-        void runWritesBatched(VMEScriptConfig *setupScript);
         void addApplicationWidget(QWidget *widget);
 
     public:
