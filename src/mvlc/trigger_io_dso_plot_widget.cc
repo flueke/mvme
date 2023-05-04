@@ -101,7 +101,9 @@ struct ScopeData: public QwtSeriesData<QPointF>
             return { time, value + yOffset };
         }
 
-        return {};
+
+        assert(i < trace.size()); // TODO: figure out/decide if it's ok to hit this case
+        return { 0.0, yOffset };
     }
 
     Edge sampleEdge(size_t i) const
@@ -173,11 +175,20 @@ class ScopeCurve: public QwtPlotCurve
                     ++unknownSamples;
             }
 
-            painter->save();
-            painter->setPen(Qt::darkRed);
-            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, from+unknownSamples-1);
-            painter->restore();
-            QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from+unknownSamples-1, to);
+            if (unknownSamples > 0)
+            {
+                painter->save();
+                painter->setPen(Qt::darkRed);
+                QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, from+unknownSamples-1);
+                painter->restore();
+                QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from+unknownSamples-1, to);
+            }
+            else
+            {
+                QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, to);
+            }
+
+
             #endif
         }
 };
