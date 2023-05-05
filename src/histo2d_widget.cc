@@ -40,6 +40,7 @@
 #include <QDir>
 #include <QFormLayout>
 #include <QMenu>
+#include <QMessageBox>
 #include <QStack>
 #include <QStatusBar>
 #include <QStatusTipEvent>
@@ -404,7 +405,24 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
                 }
 
                 if (m_d->m_polygonConditionEditorController)
+                {
+                    if (!on && m_d->m_polygonConditionEditorController->hasUnsavedChanges())
+                    {
+                        auto choice = QMessageBox::warning(this, "Discarding condition changes",
+                            "There are unsaved condition changes! Continue?",
+                            QMessageBox::Cancel | QMessageBox::Ok,
+                            QMessageBox::Cancel);
+
+                        if (choice == QMessageBox::Cancel)
+                        {
+                            QSignalBlocker sb(actionPolyConditions);
+                            actionPolyConditions->setChecked(true);
+                            return;
+                        }
+                    }
+
                     m_d->m_polygonConditionEditorController->setEnabled(on);
+                }
             });
 
     // XXX: cut test
