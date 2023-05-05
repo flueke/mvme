@@ -175,6 +175,8 @@ class LIBMVME_EXPORT PolygonEditorPicker: public PlotPicker
         // inserted/removed, or the polygon has been panned.
         void polygonModified(const QPolygonF &poly);
 
+        void mouseWouldGrabSomething(bool wouldGrab);
+
         // Emitted when a drag/pan operation starts/ends
         void beginModification();
         void endModification();

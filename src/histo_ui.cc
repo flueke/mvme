@@ -878,6 +878,7 @@ void PolygonEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
             // Arrows top, left, right, bottom
             // Can start to drag this point with mouse button 1.
             canvas()->setCursor(Qt::SizeAllCursor);
+            emit mouseWouldGrabSomething(true);
         }
         // Edge drag detection
         else if (ed.isValid() && ed.distance <= CanStartDragDistancePixels)
@@ -920,14 +921,19 @@ void PolygonEditorPicker::widgetMouseMoveEvent(QMouseEvent *ev)
                 cursor = Qt::SizeVerCursor;
 
             canvas()->setCursor(cursor);
+            emit mouseWouldGrabSomething(true);
         }
         // Pan detection
         else if (d->poly_.containsPoint(invTransform(ev->pos()), Qt::WindingFill))
         {
             canvas()->setCursor(Qt::OpenHandCursor);
+            emit mouseWouldGrabSomething(true);
         }
         else
+        {
             canvas()->setCursor(Qt::CrossCursor);
+            emit mouseWouldGrabSomething(false);
+        }
     }
 
     PlotPicker::widgetMouseMoveEvent(ev);
