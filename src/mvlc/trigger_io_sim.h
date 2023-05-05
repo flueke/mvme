@@ -85,6 +85,10 @@ struct LIBMVME_EXPORT Sim
     // 0-13 are the NIMs, 14-19 the IRQ inputs.
     Snapshot sampledTraces;
 
+    // True if the trace stored in sampledTraces had the overflow marker set.
+    // Must be the same size as the snapshot.
+    std::vector<bool> traceOverflows;
+
     // L0 - simulated 'output' traces of the NIMs, IRQs and simulated utility
     // traces (timers, sysclock)
     std::array<Trace, Level0::OutputCount> l0_traces;

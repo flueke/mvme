@@ -233,6 +233,47 @@ Snapshot fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer)
     return result;
 }
 
+std::vector<bool> remove_trace_overflow_markers(Snapshot &sampledTraces)
+{
+    std::vector<bool> result;
+    result.reserve(sampledTraces.size());
+
+    for (auto &trace: sampledTraces)
+    {
+        if (has_overflow_marker(trace))
+        {
+            result.emplace_back(true);
+            trace.pop_front();
+        }
+        else
+        {
+            result.emplace_back(false);
+        }
+    }
+
+    assert(result.size() == sampledTraces.size());
+
+    return result;
+}
+
+void pre_extend_traces(Snapshot &snapshot, const std::vector<bool> &traceOverflows)
+{
+    auto it_trace = snapshot.begin();
+    auto it_over = traceOverflows.begin();
+
+    for (; it_trace != snapshot.end(), it_over != traceOverflows.end();
+        ++it_trace, ++it_over)
+    {
+        if (!it_trace->empty() && *it_over)
+        {
+            auto firstRealSampleTime = it_trace->front().time;
+            // Note: order is backwards here as we push_front()!
+            it_trace->push_front({ firstRealSampleTime, Edge::Unknown });
+            it_trace->push_front({ SampleTime(0.0), Edge::Unknown });
+        }
+    }
+}
+
 /* Korrektur des Flankenjitters der Triggerflanke:
  * Von der pretrigger_time werden die untersten 3 Bits nicht verwendet. Sie
  * darf aber schon auf jeden Wert gesetzt werden, es spielt keine Rolle.Also
@@ -275,52 +316,6 @@ std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const
     return std::make_pair(0u, false);
 }
 
-// Extends all non-empty traces which did overflow to the given extendTo time.
-// The value in the extended time period is set to Edge::Unknown.
-void extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo)
-{
-    for (auto &trace: snapshot)
-    {
-        if (trace.empty())
-            continue;
-
-        if (trace.back().time < extendTo)
-        {
-            if (has_overflow_marker(trace))
-            {
-                trace.push_back({ trace.back().time, Edge::Unknown });
-                trace.push_back({ extendTo, Edge::Unknown });
-            }
-            else
-            {
-                trace.push_back({ extendTo, trace.back().edge });
-            }
-        }
-    }
-}
-
-// Front-extend traces that overflowed. First the overflow marker itself is
-// removed from the trace. Then Edge::Unknown is inserted at time 0 and at the
-// first actual sample time in the trace. This way plotting works without much
-// additional effort.
-void front_extend_traces(Snapshot &snapshot)
-{
-    for (auto &trace: snapshot)
-    {
-        if (has_overflow_marker(trace))
-        {
-            trace.pop_front();
-            if (!trace.empty())
-            {
-                auto firstRealSampleTime = trace.front().time;
-                // Note: order is backwards here as we push_front()!
-                trace.push_front({ firstRealSampleTime, Edge::Unknown });
-                trace.push_front({ SampleTime(0.0), Edge::Unknown });
-            }
-        }
-    }
-}
-
 void
 jitter_correct_dso_snapshot(
     Snapshot &snapshot,
@@ -336,31 +331,18 @@ jitter_correct_dso_snapshot(
         {
             // Never correct the first sample: it is either 0 or 1 (the latter
             // to indicate overflow).
-            bool isFirstSample = true;
+            //bool isFirstSample = true;
 
             for (auto &sample: trace)
             {
-                if (!isFirstSample && sample.time != SampleTime::zero())
+                //if (!isFirstSample && sample.time != SampleTime::zero())
+                if (sample.time.count() >= jitter)
                     sample.time = SampleTime(sample.time.count() - jitter);
 
-                isFirstSample = false;
+                //isFirstSample = false;
             }
         }
     }
-}
-
-void
-pre_process_dso_snapshot(
-    Snapshot &snapshot,
-    const DSOSetup &dsoSetup)
-{
-    jitter_correct_dso_snapshot(snapshot, dsoSetup);
-
-    // To handle the overflow case where earlier samples have been pushed off the trace.
-    front_extend_traces(snapshot);
-
-    //auto postTrigger = SampleTime(dsoSetup.preTriggerTime + dsoSetup.postTriggerTime);
-    //extend_traces_to(snapshot, postTrigger);
 }
 
 Edge edge_at(const Trace &trace, const SampleTime &t)

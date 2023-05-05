@@ -120,20 +120,34 @@ acquire_dso_sample(
 LIBMVME_EXPORT Snapshot
 fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer);
 
-void LIBMVME_EXPORT extend_traces_to(Snapshot &snapshot, const SampleTime &extendTo);
-void LIBMVME_EXPORT front_extend_traces(Snapshot &snapshot);
+// Removes overflow markers from the front of each of the given traces. Returns
+// an evil vector<bool> where indexes of overflowed traces are set to true.
+LIBMVME_EXPORT std::vector<bool>
+    remove_trace_overflow_markers(Snapshot &sampledTraces);
+
+// Edge::Uknown is prepended to each trace up to the first sample time if the
+// respective traceOverflows value is true.
+void LIBMVME_EXPORT pre_extend_traces(Snapshot &snapshot, const std::vector<bool> &traceOverflows);
+
+inline void post_extend_trace_to(Trace &trace, const SampleTime &extendTo)
+{
+    if (!trace.empty() && trace.back().time < extendTo)
+        trace.push_back({ extendTo, trace.back().edge });
+}
+
+// Extends non-empty traces to the given time using the last known edge value in
+// the trace.
+template<typename C>
+void post_extend_traces_to(C &traceContainer, const SampleTime &extendTo)
+{
+    for (auto &trace: traceContainer)
+        post_extend_trace_to(trace, extendTo);
+}
 
 LIBMVME_EXPORT void
 jitter_correct_dso_snapshot(
     Snapshot &snapshot,
     const DSOSetup &dsoSetup);
-
-// Jitter correction and extending of traces up to the post trigger time.
-LIBMVME_EXPORT void
-pre_process_dso_snapshot(
-    Snapshot &snapshot,
-    const DSOSetup &dsoSetup);
-    //SampleTime extendToTime = SampleTime::zero());
 
 //s32 calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup);
 std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const DSOSetup &dsoSetup);

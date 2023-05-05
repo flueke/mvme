@@ -908,7 +908,7 @@ DSO_Sim_Result run_dso_and_sim(
     try
     {
         // Immediately copy the trigIO config into the result. The widget reuses
-        // that copy for it's internal state once this function returns.
+        // that copy for its internal state once this function returns.
         result.sim.trigIO = trigIO;
 
         if (auto ec = acquire_dso_sample(mvlc, dsoSetup, result.dsoBuffer, cancel))
@@ -923,12 +923,14 @@ DSO_Sim_Result run_dso_and_sim(
         if (sampledTraces.empty())
             return result;
 
-        //pre_process_dso_snapshot(sampledTraces, dsoSetup);
+        auto traceOverflows = remove_trace_overflow_markers(sampledTraces);
         jitter_correct_dso_snapshot(sampledTraces, dsoSetup);
 
         result.sim.sampledTraces = sampledTraces;
+        result.sim.traceOverflows = std::move(traceOverflows);
         result.wasTriggered = true;
     }
+    // uglyness begins
     catch (const std::system_error &e)
     {
         qDebug() << __PRETTY_FUNCTION__ << "!!! system_error in run_dso_and_sim: " << e.what()
@@ -958,6 +960,7 @@ DSO_Sim_Result run_dso_and_sim(
         result.ex = std::current_exception();
     }
 
+    // Exit point to save on simulating even if cancelation was requested.
     if (cancel)
         return result;
 
@@ -966,8 +969,12 @@ DSO_Sim_Result run_dso_and_sim(
     try
     {
         simulate(result.sim, simMaxTime);
-        front_extend_traces(result.sim.sampledTraces);
+        pre_extend_traces(result.sim.sampledTraces, result.sim.traceOverflows);
+        auto postTrigger = SampleTime(dsoSetup.postTriggerTime + dsoSetup.preTriggerTime);
+        post_extend_traces_to(result.sim.sampledTraces, postTrigger);
+        // TODO:  pre and post extend all simulated traces too!
     }
+    // uglyness begins once more
     catch (const std::system_error &e)
     {
         qDebug() << __PRETTY_FUNCTION__ << "!!! system_error from simulate: " << e.what()
