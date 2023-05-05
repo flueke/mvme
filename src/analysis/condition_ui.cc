@@ -1001,9 +1001,6 @@ struct PolygonConditionEditorController::Private
                     editPicker_->reset();
                     editPicker_->setEnabled(false);
 
-                    if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
-                        zoomAction->setChecked(true);
-
                     dialog_->setInfoText("Click the \"New\" button to create a new polygon condition using the histograms inputs.");
 
                     if (polyPlotItem_)
@@ -1016,9 +1013,6 @@ struct PolygonConditionEditorController::Private
                     newPicker_->setEnabled(true);
                     editPicker_->reset();
                     editPicker_->setEnabled(false);
-
-                    if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
-                        zoomAction->setChecked(false);
 
                     dialog_->setInfoText("Left-click to add polygon points, right-click to select the final point and close the polygon."
                                          " Middle-click to remove the last placed point.");
@@ -1033,9 +1027,6 @@ struct PolygonConditionEditorController::Private
                     newPicker_->setEnabled(false);
                     editPicker_->reset();
                     editPicker_->setEnabled(true);
-
-                    if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
-                        zoomAction->setChecked(false);
 
                     auto editText = QSL(
                         "Polygon Editing:\n"
@@ -1115,6 +1106,12 @@ struct PolygonConditionEditorController::Private
             auto command = std::make_unique<ModifyPolygonCommand>(this, polyPreModification_, poly_);
             undoStack_.push(command.release());
         }
+    }
+
+    void handleMouseWouldGrabSomething(bool wouldGrab)
+    {
+        if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
+            zoomAction->setChecked(!wouldGrab);
     }
 
     void onPolygonModified(const QVector<QPointF> &points)
@@ -1347,6 +1344,9 @@ PolygonConditionEditorController::PolygonConditionEditorController(
 
     connect(d->editPicker_, &PolygonEditorPicker::endModification,
             this, [this] { d->onEndModifyCondition(); });
+
+    connect(d->editPicker_, &PolygonEditorPicker::mouseWouldGrabSomething,
+            this, [this] (bool wouldGrab) { d->handleMouseWouldGrabSomething(wouldGrab); });
 
     connect(actionDelete, &QAction::triggered,
             this, [this] () { d->onActionDeleteCond(); });
