@@ -151,6 +151,8 @@ class PolygonConditionEditorController: public QObject
 
         void setEnabled(bool on);
         PolygonConditionDialog *getDialog() const;
+        bool hasUnsavedChanges() const;
+        void setHasUnsavedChanges(bool b);
 
     private slots:
         void onPointsSelected(const QVector<QPointF> &points);

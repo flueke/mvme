@@ -395,9 +395,6 @@ struct IntervalConditionEditorController::Private
                     editPicker_->reset();
                     editPicker_->setEnabled(true);
 
-                    if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
-                        zoomAction->setChecked(false);
-
                     dialog_->setInfoText("Drag interval borders or edit table cells to modify. "
                                          "When evaluating the condition at least one interval test "
                                          "must succeed for the condition to become true "
@@ -974,12 +971,25 @@ struct PolygonConditionEditorController::Private
 
     QUndoStack undoStack_;
     QPolygonF polyPreModification_;
+    bool hasUnsavedChanges_ = false;
 
     void repopulateDialogFromAnalysis()
     {
         auto conditions = getEditableConditions();
         auto condInfos = getConditionInfos(conditions);
         dialog_->setConditionList(condInfos);
+        setHasUnsavedChanges(false);
+    }
+
+    bool hasUnsavedChanges() const
+    {
+        return hasUnsavedChanges_;
+    }
+
+    void setHasUnsavedChanges(bool b)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "old =" << hasUnsavedChanges() << ", new =" << b;
+        hasUnsavedChanges_ = b;
     }
 
     std::shared_ptr<PolygonCondition> getCondition(const QUuid &objectId)
@@ -1064,6 +1074,7 @@ struct PolygonConditionEditorController::Private
                 poly_.push_back(poly_.first());
 
             transitionState(State::EditPolygon);
+            setHasUnsavedChanges(true);
         }
     }
 
@@ -1073,6 +1084,7 @@ struct PolygonConditionEditorController::Private
         {
             poly_.append(p);
             dialog_->setPolygon(poly_);
+            setHasUnsavedChanges(true);
         }
     }
 
@@ -1082,6 +1094,7 @@ struct PolygonConditionEditorController::Private
         {
             poly_.last() = p;
             dialog_->setPolygon(poly_);
+            setHasUnsavedChanges(true);
         }
     }
 
@@ -1091,6 +1104,7 @@ struct PolygonConditionEditorController::Private
         {
             poly_.pop_back();
             dialog_->setPolygon(poly_);
+            setHasUnsavedChanges(true);
         }
     }
 
@@ -1105,6 +1119,7 @@ struct PolygonConditionEditorController::Private
         {
             auto command = std::make_unique<ModifyPolygonCommand>(this, polyPreModification_, poly_);
             undoStack_.push(command.release());
+            setHasUnsavedChanges(true); // TODO: can this one be removed?
         }
     }
 
@@ -1123,6 +1138,7 @@ struct PolygonConditionEditorController::Private
             dialog_->setPolygon(poly_);
             editPicker_->setPolygon(poly_);
             histoWidget_->replot();
+            setHasUnsavedChanges(true); // TODO: or can this one be removed?
         }
     }
 
@@ -1176,6 +1192,7 @@ struct PolygonConditionEditorController::Private
         newCond_ = {};
         poly_ = {};
         currentConditionId_ = QUuid();
+        setHasUnsavedChanges(false);
     }
 
     // Keeps the dialog_ at the top right of the histo widget.
@@ -1189,6 +1206,17 @@ struct PolygonConditionEditorController::Private
 
     void onNewConditionRequested()
     {
+        if (newCond_ || hasUnsavedChanges_)
+        {
+            auto choice = QMessageBox::warning(dialog_, "Discarding condition",
+                "Creating a new condition will discard unsaved changes! Continue?",
+                QMessageBox::Cancel | QMessageBox::Ok,
+                QMessageBox::Cancel);
+
+            if (choice == QMessageBox::Cancel)
+                return;
+        }
+
         auto analysis = asp_->getAnalysis();
         newCond_ = std::make_shared<PolygonCondition>();
         newCond_->setObjectName(make_unique_operator_name(analysis, "poly", ""));
@@ -1409,9 +1437,6 @@ PolygonConditionEditorController::~PolygonConditionEditorController()
 {
     qDebug() << __PRETTY_FUNCTION__;
     delete d->dialog_;
-
-    if (auto zoomAction = d->histoWidget_->findChild<QAction *>("zoomAction"))
-        zoomAction->setChecked(true);
 }
 
 bool PolygonConditionEditorController::eventFilter(QObject *watched, QEvent *event)
@@ -1446,6 +1471,17 @@ PolygonConditionDialog *PolygonConditionEditorController::getDialog() const
 {
     return d->dialog_;
 }
+
+bool PolygonConditionEditorController::hasUnsavedChanges() const
+{
+    return d->hasUnsavedChanges();
+}
+
+void PolygonConditionEditorController::setHasUnsavedChanges(bool b)
+{
+    d->setHasUnsavedChanges(b);
+}
+
 
 // Note: these forwarding methods have only been added because of the QwtPicker
 // signal problems described above. If not for these issues lambdas would have
