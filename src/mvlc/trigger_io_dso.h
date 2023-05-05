@@ -125,20 +125,47 @@ fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer);
 LIBMVME_EXPORT std::vector<bool>
     remove_trace_overflow_markers(Snapshot &sampledTraces);
 
-// Edge::Uknown is prepended to each trace up to the first sample time if the
-// respective traceOverflows value is true.
-void LIBMVME_EXPORT pre_extend_traces(Snapshot &snapshot, const std::vector<bool> &traceOverflows);
+// Edge::Uknown is prepended to the trace up to the first sample time if
+// traceOverflowed is true.
+inline void pre_extend_trace(Trace &trace)
+{
+    if (!trace.empty())
+    {
+        auto firstRealSampleTime = trace.front().time;
+        // Note: order is backwards here as we push_front()!
+        trace.push_front({firstRealSampleTime, Edge::Unknown});
+        trace.push_front({SampleTime(0.0), Edge::Unknown});
+    }
+}
 
+template<typename TraceContainer, typename OverflowsContainer>
+void pre_extend_traces(TraceContainer &traces, const OverflowsContainer &overflows)
+{
+    auto ti = std::begin(traces);
+    auto oi = std::begin(overflows);
+
+    for (; ti!=std::end(traces) && oi!=std::end(overflows); ++ti, ++oi)
+        if (*oi)
+            pre_extend_trace(*ti);
+}
+
+template<typename TraceContainer>
+void pre_extend_traces(TraceContainer &traces)
+{
+    for (auto ti = std::begin(traces); ti!=std::end(traces); ++ti)
+        pre_extend_trace(*ti);
+}
+
+// If the trace is non-empty extend it to the given time using the last known
+// edge value in the trace.
 inline void post_extend_trace_to(Trace &trace, const SampleTime &extendTo)
 {
     if (!trace.empty() && trace.back().time < extendTo)
         trace.push_back({ extendTo, trace.back().edge });
 }
 
-// Extends non-empty traces to the given time using the last known edge value in
-// the trace.
-template<typename C>
-void post_extend_traces_to(C &traceContainer, const SampleTime &extendTo)
+template<typename TraceContainer>
+void post_extend_traces_to(TraceContainer &traceContainer, const SampleTime &extendTo)
 {
     for (auto &trace: traceContainer)
         post_extend_trace_to(trace, extendTo);

@@ -256,24 +256,6 @@ std::vector<bool> remove_trace_overflow_markers(Snapshot &sampledTraces)
     return result;
 }
 
-void pre_extend_traces(Snapshot &snapshot, const std::vector<bool> &traceOverflows)
-{
-    auto it_trace = snapshot.begin();
-    auto it_over = traceOverflows.begin();
-
-    for (; it_trace != snapshot.end(), it_over != traceOverflows.end();
-        ++it_trace, ++it_over)
-    {
-        if (!it_trace->empty() && *it_over)
-        {
-            auto firstRealSampleTime = it_trace->front().time;
-            // Note: order is backwards here as we push_front()!
-            it_trace->push_front({ firstRealSampleTime, Edge::Unknown });
-            it_trace->push_front({ SampleTime(0.0), Edge::Unknown });
-        }
-    }
-}
-
 /* Korrektur des Flankenjitters der Triggerflanke:
  * Von der pretrigger_time werden die untersten 3 Bits nicht verwendet. Sie
  * darf aber schon auf jeden Wert gesetzt werden, es spielt keine Rolle.Also
