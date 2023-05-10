@@ -4966,6 +4966,9 @@ void EventWidgetPrivate::showDependencyGraphWidget(const AnalysisObjectPtr &obj)
                                 else
                                     editOperator(op);
                             }
+                            else if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
+                            {
+                            }
                          });
     }
 }
