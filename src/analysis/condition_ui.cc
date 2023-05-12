@@ -118,7 +118,6 @@ ConditionDialogBase::~ConditionDialogBase()
 struct IntervalConditionDialog::Private
 {
     std::unique_ptr<Ui::IntervalConditionDialog> ui;
-    QToolBar *toolbar_ = nullptr;
 };
 
 IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
@@ -127,21 +126,26 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
 {
     d->ui = std::make_unique<Ui::IntervalConditionDialog>();
     d->ui->setupUi(this);
-    d->toolbar_ = make_toolbar();
-    auto tb_frameLayout = make_hbox<0, 0>(d->ui->tb_frame);
-    tb_frameLayout->addWidget(d->toolbar_);
-    auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
-    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Save Changes");
-    d->toolbar_->addAction(QIcon(":/help.png"), QSL("Help"),
-                           this, mesytec::mvme::make_help_keyword_handler("Condition System"));
-
     d->ui->tw_intervals->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    auto toolbar = make_toolbar();
+    auto tb_layout = make_hbox<0, 0>(d->ui->tb_frame);
+    tb_layout->setSizeConstraint(QLayout::SetMinimumSize);
+    tb_layout->addWidget(toolbar);
+
+    auto actionNew  = toolbar->addAction(QIcon(":/document-new.png"), "New");
+    auto actionSave = toolbar->addAction(QIcon(":/document-save.png"), "Save Changes");
+    auto actionHelp = toolbar->addAction(QIcon(":/help.png"), QSL("Help"));
 
     connect(actionNew, &QAction::triggered,
             this, &IntervalConditionDialog::newConditionButtonClicked);
 
     connect(actionSave, &QAction::triggered,
             this, &IntervalConditionDialog::applied);
+
+    connect(actionHelp, &QAction::triggered,
+            this, mesytec::mvme::make_help_keyword_handler("Condition System"));
+
 
     connect(d->ui->combo_cond, qOverload<int>(&QComboBox::currentIndexChanged),
             this, [this] (int /*index*/) {
@@ -168,7 +172,7 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
                 emit intervalsEdited(intervals);
 
                 if (auto newItem = d->ui->tw_intervals->item(row, col))
-                    d->ui->tw_intervals->setCurrentItem(newItem, QItemSelectionModel::Select);
+                    d->ui->tw_intervals->setCurrentItem(newItem, QItemSelectionModel::ClearAndSelect);
             });
 
     connect(d->ui->tw_intervals, &QTableWidget::currentCellChanged,
@@ -181,23 +185,17 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
                 }
             });
 
-    auto ignore_all = [this]
+    auto set_ignore_state = [this](bool ignore)
     {
+        auto curRow = d->ui->tw_intervals->currentRow();
         for (int row = 0; row < d->ui->tw_intervals->rowCount(); ++row)
-        {
-            if (auto cb_ignore = qobject_cast<QCheckBox *>(d->ui->tw_intervals->cellWidget(row, 2)))
-                cb_ignore->setChecked(true);
-        }
+            d->ui->tw_intervals->item(row, 2)->setCheckState(
+                ignore ? Qt::Checked : Qt::Unchecked);
+        selectInterval(curRow);
     };
 
-    auto ignore_none = [this]
-    {
-        for (int row = 0; row < d->ui->tw_intervals->rowCount(); ++row)
-        {
-            if (auto cb_ignore = qobject_cast<QCheckBox *>(d->ui->tw_intervals->cellWidget(row, 2)))
-                cb_ignore->setChecked(false);
-        }
-    };
+    auto ignore_all = [set_ignore_state] { set_ignore_state(true); };
+    auto ignore_none = [set_ignore_state] { set_ignore_state(false); };
 
     connect(d->ui->pb_ignoreAll, &QPushButton::clicked, this, ignore_all);
     connect(d->ui->pb_ignoreNone, &QPushButton::clicked, this, ignore_none);
@@ -229,28 +227,29 @@ void IntervalConditionDialog::setIntervals(const QVector<IntervalData> &interval
     for (const auto &intervalData: intervals)
     {
         const auto &interval = intervalData.interval;
+
         auto x1Item = new QTableWidgetItem;
         auto x2Item = new QTableWidgetItem;
+        auto ignoreItem = new QTableWidgetItem;
 
         x1Item->setText(QString::number(interval.minValue()));
         x2Item->setText(QString::number(interval.maxValue()));
+        ignoreItem->setFlags(ignoreItem->flags() | Qt::ItemIsUserCheckable);
+        ignoreItem->setCheckState(intervalData.ignored ? Qt::Checked : Qt::Unchecked);
 
         d->ui->tw_intervals->setItem(row, 0, x1Item);
         d->ui->tw_intervals->setItem(row, 1, x2Item);
-
-        auto cb_ignore = new QCheckBox;
-        cb_ignore->setChecked(intervalData.ignored);
-        d->ui->tw_intervals->setCellWidget(row, 2, cb_ignore);
+        d->ui->tw_intervals->setItem(row, 2, ignoreItem);
 
         auto headerItem = new QTableWidgetItem(QString::number(row));
         d->ui->tw_intervals->setVerticalHeaderItem(row, headerItem);
 
         ++row;
     }
+    d->ui->tw_intervals->resizeColumnsToContents();
     d->ui->tw_intervals->resizeRowsToContents();
     d->ui->tw_intervals->setCurrentCell(curRow, 0);
 }
-
 
 QVector<IntervalConditionDialog::IntervalData> IntervalConditionDialog::getIntervals() const
 {
@@ -260,11 +259,11 @@ QVector<IntervalConditionDialog::IntervalData> IntervalConditionDialog::getInter
     {
         auto x1Item = d->ui->tw_intervals->item(row, 0);
         auto x2Item = d->ui->tw_intervals->item(row, 1);
-        auto cb_ignore = qobject_cast<QCheckBox *>(d->ui->tw_intervals->cellWidget(row, 2));
+        auto ignoreItem = d->ui->tw_intervals->item(row, 2);
 
         double x1 = x1Item->data(Qt::EditRole).toDouble();
         double x2 = x2Item->data(Qt::EditRole).toDouble();
-        bool ignored = cb_ignore && cb_ignore->isChecked();
+        bool ignored = ignoreItem->data(Qt::CheckStateRole) == Qt::Checked;
 
         IntervalData intervalData
         {
