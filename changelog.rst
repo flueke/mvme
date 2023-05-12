@@ -4,6 +4,42 @@
 Changelog
 ##################################################
 
+Version 1.7.1-rc1
+-----------------
+
+* [analysis]
+
+  - Show module/group names in readout parser debug.
+
+  - Improve histo stats widget table formatting and show the RMS value of each
+    column.
+
+  - Fix 1D histo statistics not following the zoom under Windows.
+
+  - Clear 2D histograms when their subrange was modified.
+
+  - Interval condition can now exclude/ignore specific intervals from affecting
+    the conditions result.
+
+  - Many improvements to graphical interval/polygon condition editing.
+
+  - Dependency Graph View now starts editing data sources on double-click.
+
+  - Fix a source of frequent crashes when modifying the analysis (periodic histo
+    counter updates).
+
+* [vme_templates]
+
+  - Slightly improve the bus_time filters for VMMR modules
+
+* [mvlc]
+
+  - DSO plot and logic updates (recommended to use MVLC Firmware FW0031 or later)
+
+* [doc]
+
+  - Update to the "Manual ARP setup" section for the MVLC
+
 Version 1.7.0
 -------------
 
