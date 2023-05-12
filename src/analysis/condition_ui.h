@@ -159,6 +159,7 @@ class PolygonConditionEditorController: public QObject
         void onPointAppended(const QPointF &p);
         void onPointMoved(const QPointF &p);
         void onPointRemoved(const QPointF &p);
+        void onNewPickerActivated(bool on);
 
     private:
         struct Private;

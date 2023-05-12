@@ -146,7 +146,6 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
     connect(actionHelp, &QAction::triggered,
             this, mesytec::mvme::make_help_keyword_handler("Condition System"));
 
-
     connect(d->ui->combo_cond, qOverload<int>(&QComboBox::currentIndexChanged),
             this, [this] (int /*index*/) {
                 emit conditionSelected(d->ui->combo_cond->currentData().toUuid());
@@ -176,7 +175,7 @@ IntervalConditionDialog::IntervalConditionDialog(QWidget *parent)
             });
 
     connect(d->ui->tw_intervals, &QTableWidget::currentCellChanged,
-            this, [this] (int curRow, int curCol, int prevRow, int prevCol) {
+            this, [this] (int curRow) {
 
                 if (const auto &intervals = getIntervals();
                     0 <= curRow && curRow < intervals.size())
@@ -787,13 +786,15 @@ PolygonConditionDialog::PolygonConditionDialog(QWidget *parent)
 {
     d->ui = std::make_unique<Ui::PolygonConditionDialog>();
     d->ui->setupUi(this);
-    d->toolbar_ = make_toolbar();
-    auto tb_frameLayout = make_hbox<0, 0>(d->ui->tb_frame);
-    tb_frameLayout->addWidget(d->toolbar_);
-    auto actionNew = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
-    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Apply");
-
     d->ui->tw_coords->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    d->toolbar_ = make_toolbar();
+    auto tb_layout = make_hbox<0, 0>(d->ui->tb_frame);
+    tb_layout->setSizeConstraint(QLayout::SetMinimumSize);
+    tb_layout->addWidget(d->toolbar_);
+
+    auto actionNew  = d->toolbar_->addAction(QIcon(":/document-new.png"), "New");
+    auto actionSave = d->toolbar_->addAction(QIcon(":/document-save.png"), "Save Changes");
 
     connect(actionNew, &QAction::triggered,
             this, &PolygonConditionDialog::newConditionButtonClicked);
@@ -1107,6 +1108,12 @@ struct PolygonConditionEditorController::Private
         }
     }
 
+    void onNewPickerActivated(bool on)
+    {
+        if (auto zoomAction = histoWidget_->findChild<QAction *>("zoomAction"))
+            zoomAction->setChecked(!on);
+    }
+
     void onBeginModifyCondition()
     {
         polyPreModification_ = poly_;
@@ -1118,7 +1125,7 @@ struct PolygonConditionEditorController::Private
         {
             auto command = std::make_unique<ModifyPolygonCommand>(this, polyPreModification_, poly_);
             undoStack_.push(command.release());
-            setHasUnsavedChanges(true); // TODO: can this one be removed?
+            setHasUnsavedChanges(true);
         }
     }
 
@@ -1137,7 +1144,8 @@ struct PolygonConditionEditorController::Private
             dialog_->setPolygon(poly_);
             editPicker_->setPolygon(poly_);
             histoWidget_->replot();
-            setHasUnsavedChanges(true); // TODO: or can this one be removed?
+            if (poly_.isEmpty())
+                transitionState(State::NewPolygon);
         }
     }
 
@@ -1251,7 +1259,10 @@ struct PolygonConditionEditorController::Private
         }
         else
         {
-            transitionState(State::EditPolygon);
+            if (poly_.isEmpty())
+                transitionState(State::NewPolygon);
+            else
+                transitionState(State::EditPolygon);
         }
 
         undoStack_.clear();
@@ -1351,7 +1362,7 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     d->editPicker_ = new PolygonEditorPicker(histoWidget->getPlot());
     d->editPicker_->setEnabled(false);
 
-    connect(d->dialog_, &IntervalConditionDialog::applied,
+    connect(d->dialog_, &PolygonConditionDialog::applied,
             this, [this] () { d->onDialogApplied(); });
 
     connect(d->dialog_, &QDialog::accepted,
@@ -1360,10 +1371,10 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     connect(d->dialog_, &QDialog::rejected,
             this, [this] () { d->onDialogRejected(); });
 
-    connect(d->dialog_, &IntervalConditionDialog::newConditionButtonClicked,
+    connect(d->dialog_, &PolygonConditionDialog::newConditionButtonClicked,
             this, [this] () { d->onNewConditionRequested(); });
 
-    connect(d->dialog_, &IntervalConditionDialog::conditionSelected,
+    connect(d->dialog_, &PolygonConditionDialog::conditionSelected,
            this, [this] (const QUuid &id) { d->onConditionSelected(id); });
 
     connect(d->editPicker_, &PolygonEditorPicker::beginModification,
@@ -1400,6 +1411,10 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     b = connect(d->newPicker_, SIGNAL(removed(const QPointF &)),
                 this, SLOT(onPointRemoved(const QPointF &)));
     assert(b);
+
+    b = connect(d->newPicker_, SIGNAL(activated(bool)),
+                this, SLOT(onNewPickerActivated(bool)));
+    assert(b);
 #else
     b = connect(d->newPicker_, qOverload<const QVector<QPointF> &>(&QwtPlotPicker::selected),
                 this, &PolygonConditionEditorController::onPointsSelected);
@@ -1415,6 +1430,9 @@ PolygonConditionEditorController::PolygonConditionEditorController(
 
     b = connect(d->newPicker_, qOverload<const QPointF &>(&PlotPicker::removed),
                 this, &PolygonConditionEditorController::onPointRemoved);
+
+    b = connect(d->newPicker_, &PlotPicker::activated,
+                this, &PolygonConditionEditorController::onNewPickerActivated);
     assert(b);
 #endif
 
@@ -1481,7 +1499,6 @@ void PolygonConditionEditorController::setHasUnsavedChanges(bool b)
     d->setHasUnsavedChanges(b);
 }
 
-
 // Note: these forwarding methods have only been added because of the QwtPicker
 // signal problems described above. If not for these issues lambdas would have
 // been used instead.
@@ -1504,6 +1521,11 @@ void PolygonConditionEditorController::onPointMoved(const QPointF &p)
 void PolygonConditionEditorController::onPointRemoved(const QPointF &p)
 {
     d->onPointRemoved(p);
+}
+
+void PolygonConditionEditorController::onNewPickerActivated(bool on)
+{
+    d->onNewPickerActivated(on);
 }
 
 bool edit_condition_in_sink(AnalysisServiceProvider *asp, const ConditionPtr &cond, const SinkPtr &sink)
