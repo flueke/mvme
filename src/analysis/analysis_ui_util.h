@@ -68,6 +68,13 @@ ObjectEditorDialog *operator_editor_factory(
 ObjectEditorDialog *find_object_editor_dialog();
 
 ObjectEditorDialog *edit_operator(const OperatorPtr &op);
+
+ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
+                                              ObjectEditorMode mode,
+                                              ModuleConfig *moduleConfig,
+                                              EventWidget *eventWidget);
+
+void *edit_datasource(const SourcePtr &src);
 }
 
 #endif // __MNT_DATA_SRC_MVME2_SRC_ANALYSIS_ANALYSIS_UI_UTIL_H_

@@ -1017,48 +1017,6 @@ void add_directory_nodes(ObjectTree *tree, const DirectoryVector &dirs,
     }
 }
 
-
-
-ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
-                                              ObjectEditorMode mode,
-                                              ModuleConfig *moduleConfig,
-                                              EventWidget *eventWidget)
-{
-    ObjectEditorDialog *result = nullptr;
-
-    if (auto ex = std::dynamic_pointer_cast<Extractor>(src))
-    {
-        result = new AddEditExtractorDialog(ex, moduleConfig, mode, eventWidget);
-    }
-    else if (auto ex = std::dynamic_pointer_cast<ListFilterExtractor>(src))
-    {
-        auto serviceProvider = eventWidget->getServiceProvider();
-        auto analysis = serviceProvider->getAnalysis();
-
-        auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, serviceProvider, eventWidget);
-        if (mode == ObjectEditorMode::New)
-            lfe_dialog->newFilter();
-        else
-            lfe_dialog->editListFilterExtractor(ex);
-        result = lfe_dialog;
-    }
-    else if (auto ex = std::dynamic_pointer_cast<MultiHitExtractor>(src))
-    {
-        result = new MultiHitExtractorDialog(ex, moduleConfig, mode, eventWidget);
-    }
-
-    QObject::connect(result, &ObjectEditorDialog::applied,
-                     eventWidget, &EventWidget::objectEditorDialogApplied);
-
-    QObject::connect(result, &QDialog::accepted,
-                     eventWidget, &EventWidget::objectEditorDialogAccepted);
-
-    QObject::connect(result, &QDialog::rejected,
-                     eventWidget, &EventWidget::objectEditorDialogRejected);
-
-    return result;
-}
-
 bool may_move_into(const AnalysisObject *obj, const Directory *destDir)
 {
     assert(obj);
@@ -4968,9 +4926,15 @@ void EventWidgetPrivate::showDependencyGraphWidget(const AnalysisObjectPtr &obj)
                             }
                             else if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
                             {
+                                editSource(src);
                             }
                          });
     }
+}
+
+void EventWidgetPrivate::editSource(const SourcePtr &src)
+{
+    edit_datasource(src);
 }
 
 void EventWidgetPrivate::editOperator(const OperatorPtr &op)

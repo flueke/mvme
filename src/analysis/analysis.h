@@ -2251,6 +2251,11 @@ class LIBMVME_EXPORT Analysis:
 
         void endRun();
 
+        // Returns the pointer to VMEConfig that was passed to the last
+        // beginRun() call. Be careful with this, it's a raw pointer... which
+        // needs to be fixed. Weakref something, something.
+        const VMEConfig *getVMEConfig() const;
+
         //
         // Processing
         //

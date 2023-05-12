@@ -11,6 +11,7 @@
 
 #include "analysis_ui_p.h"
 #include "expression_operator_dialog.h"
+#include "listfilter_extractor_dialog.h"
 
 namespace analysis::ui
 {
@@ -273,6 +274,87 @@ ObjectEditorDialog *edit_operator(const OperatorPtr &op)
             eventWidget->clearAllToDefaultNodeHighlights();
             return dialog;
         }
+    }
+
+    return {};
+}
+
+ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
+                                              ObjectEditorMode mode,
+                                              ModuleConfig *moduleConfig,
+                                              EventWidget *eventWidget)
+{
+    ObjectEditorDialog *result = nullptr;
+
+    if (auto ex = std::dynamic_pointer_cast<Extractor>(src))
+    {
+        result = new AddEditExtractorDialog(ex, moduleConfig, mode, eventWidget);
+    }
+    else if (auto ex = std::dynamic_pointer_cast<ListFilterExtractor>(src))
+    {
+        auto serviceProvider = eventWidget->getServiceProvider();
+        auto analysis = serviceProvider->getAnalysis();
+
+        auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, analysis, serviceProvider, eventWidget);
+        if (mode == ObjectEditorMode::New)
+            lfe_dialog->newFilter();
+        else
+            lfe_dialog->editListFilterExtractor(ex);
+        result = lfe_dialog;
+    }
+    else if (auto ex = std::dynamic_pointer_cast<MultiHitExtractor>(src))
+    {
+        result = new MultiHitExtractorDialog(ex, moduleConfig, mode, eventWidget);
+    }
+
+    QObject::connect(result, &ObjectEditorDialog::applied,
+                     eventWidget, &EventWidget::objectEditorDialogApplied);
+
+    QObject::connect(result, &QDialog::accepted,
+                     eventWidget, &EventWidget::objectEditorDialogAccepted);
+
+    QObject::connect(result, &QDialog::rejected,
+                     eventWidget, &EventWidget::objectEditorDialogRejected);
+
+    return result;
+}
+
+
+void *edit_datasource(const SourcePtr &src)
+{
+    if (auto oed = find_object_editor_dialog())
+    {
+        // Raise the editor and abort.
+        oed->show();
+        oed->showNormal();
+        oed->raise();
+        return {};
+    }
+
+    auto eventWidget = find_event_widget(src);
+    auto ana = src->getAnalysis();
+
+    if (!eventWidget || !ana)
+        return {};
+
+    auto vmeConfig = ana->getVMEConfig();
+
+    if (!vmeConfig)
+        return {};
+
+    auto moduleConfig = vmeConfig->getModuleConfig(src->getModuleId());
+
+    if (!moduleConfig)
+        return {};
+
+    if (auto dialog = datasource_editor_factory(
+        src, ObjectEditorMode::Edit, moduleConfig, eventWidget))
+    {
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+        eventWidget->clearAllTreeSelections();
+        eventWidget->clearAllToDefaultNodeHighlights();
+        return dialog;
     }
 
     return {};

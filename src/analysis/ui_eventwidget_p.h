@@ -355,6 +355,7 @@ struct EventWidgetPrivate
     void periodicUpdateHistoCounters(double dt_s);
     void updateActions();
     void showDependencyGraphWidget(const AnalysisObjectPtr &obj);
+    void editSource(const SourcePtr &src);
     void editOperator(const OperatorPtr &op);
     void editConditionInFirstAvailableSink(const ConditionPtr &cond);
     bool editConditionInSink(const ConditionPtr &cond, const SinkPtr &sink);
