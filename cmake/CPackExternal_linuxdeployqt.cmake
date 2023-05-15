@@ -41,15 +41,26 @@ message("-- CPackExternal_linuxdeployqt: linuxdeployqt step done")
 # alternative would be to pass "-unsupported-bundle-everything" to
 # linuxdeployqt but that would also bundle glibc.
 file(GET_RUNTIME_DEPENDENCIES
-    RESOLVED_DEPENDENCIES_VAR DEPLOY_ADDITIONAL_LIBS
+    RESOLVED_DEPENDENCIES_VAR DEPLOY_ADDITIONAL_FILES
     POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*"
     POST_EXCLUDE_REGEXES ".*"
     EXECUTABLES ${DEPLOY_BINARY}
 )
 
-message("-- CPackExternal_linuxdeployqt: Copying additional libraries into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
+# Find and copy graphviz plugins and config file.
+find_library(GV_DOT_PLUGIN gvplugin_dot_layout PATH_SUFFIXES graphviz x86_64-linux-gnu/graphviz REQUIRED)
+get_filename_component(GV_PLUGIN_PATH ${GV_DOT_PLUGIN} DIRECTORY)
 
-file(COPY ${DEPLOY_ADDITIONAL_LIBS}
+message("-- Found graphviz dot plugin: ${GV_DOT_PLUGIN}")
+file(GLOB GV_FILES ${GV_PLUGIN_PATH}/libgvplugin*.so ${GV_PLUGIN_PATH}/config*)
+message("-- Found additional graphviz files: ${GV_FILES}")
+
+list(APPEND DEPLOY_ADDITIONAL_FILES  ${GV_FILES})
+
+message("-- CPackExternal_linuxdeployqt: Copying additional libraries and files
+            into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
+
+file(COPY ${DEPLOY_ADDITIONAL_FILES}
     DESTINATION "${CPACK_TEMPORARY_DIRECTORY}/lib"
     FOLLOW_SYMLINK_CHAIN
 )
