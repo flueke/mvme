@@ -48,15 +48,17 @@ file(GET_RUNTIME_DEPENDENCIES
 )
 
 # Find and copy graphviz plugins and config file.
+find_library(GV_CORE_PLUGIN gvplugin_core PATH_SUFFIXES graphviz x86_64-linux-gnu/graphviz REQUIRED)
 find_library(GV_DOT_PLUGIN gvplugin_dot_layout PATH_SUFFIXES graphviz x86_64-linux-gnu/graphviz REQUIRED)
 get_filename_component(GV_PLUGIN_PATH ${GV_DOT_PLUGIN} DIRECTORY)
 
 message("-- Found graphviz dot plugin: ${GV_DOT_PLUGIN}")
-file(GLOB GV_FILES ${GV_PLUGIN_PATH}/libgvplugin*.so* ${GV_PLUGIN_PATH}/config*)
+file(GLOB GV_FILES ${GV_PLUGIN_PATH}/config*)
+
+list(APPEND GV_FILES ${GV_CORE_PLUGIN} ${GV_DOT_PLUGIN})
 message("-- Found additional graphviz files: ${GV_FILES}")
 
 list(APPEND DEPLOY_ADDITIONAL_FILES  ${GV_FILES})
-
 message("-- CPackExternal_linuxdeployqt: Copying additional libraries and files
             into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
 
