@@ -538,6 +538,10 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
                 {
                     auto d = m_d.get();
                     d->maxVisibleBins_ = d->combo_maxRes_->currentData().toUInt();
+                    if (m_d->histoStatsWidget_)
+                    {
+                        m_d->histoStatsWidget_->setEffectiveResolution(d->maxVisibleBins_);
+                    }
                     replot();
                 });
     }
