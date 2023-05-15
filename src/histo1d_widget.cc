@@ -521,17 +521,10 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     // Resolution Reduction
     {
         auto d = m_d.get();
-        d->combo_maxRes_ = new QComboBox;
+        d->combo_maxRes_ = make_res_selection_combo().release();
         auto boxStruct = make_vbox_container(QSL("Max Visible Resolution"), d->combo_maxRes_, 0, -2);
         set_widget_font_pointsize(boxStruct.label, 7);
         tb->addWidget(boxStruct.container.release());
-
-        for (u32 bits=4; bits<=16; ++bits)
-        {
-            u32 value = 1u << bits;
-            auto text = QSL("%1 (%2 bit)").arg(value).arg(bits);
-            d->combo_maxRes_->addItem(text, value);
-        }
 
         connect(d->combo_maxRes_, qOverload<int>(&QComboBox::currentIndexChanged),
                 this, [this]

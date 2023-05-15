@@ -23,6 +23,7 @@
 #include <QPen>
 
 #include "typedefs.h"
+#include "util/qt_str.h"
 
 static const u32 RRFMin = 2;
 
@@ -35,6 +36,20 @@ QSlider *make_res_reduction_slider(QWidget *parent)
     result->setMinimum(RRFMin);
 
     return result;
+}
+
+std::unique_ptr<QComboBox> make_res_selection_combo()
+{
+    auto ret = std::make_unique<QComboBox>();
+
+    for (u32 bits=2; bits<=16; ++bits)
+    {
+        u32 value = 1u << bits;
+        auto text = QSL("%1 (%2 bit)").arg(value).arg(bits);
+        ret->addItem(text, value);
+    }
+
+    return ret;
 }
 
 std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags, int fontPixelSize)
