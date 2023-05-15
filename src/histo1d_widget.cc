@@ -304,12 +304,7 @@ struct Histo1DWidgetPrivate
                 m_sink->m_bins = combo_xBins->currentData().toInt();
                 m_sink->setResolutionReductionFactor(Histo1D::NoRR);
                 m_serviceProvider->setAnalysisOperatorEdited(m_sink);
-
-                if (int idx = combo_maxRes_->findData(m_sink->m_bins);
-                    idx >= 0)
-                {
-                    combo_maxRes_->setCurrentIndex(idx);
-                }
+                select_resolution_in_combo(combo_maxRes_, m_sink->m_bins);
             }
         }
     }
@@ -531,10 +526,17 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
                 {
                     auto d = m_d.get();
                     d->maxVisibleBins_ = d->combo_maxRes_->currentData().toUInt();
-                    if (m_d->histoStatsWidget_)
+
+                    if (auto histo = d->getCurrentHisto())
                     {
-                        m_d->histoStatsWidget_->setEffectiveResolution(d->maxVisibleBins_);
+                        auto physBins = histo->getAxisBinning(Qt::XAxis).getBinCount();
+                        if (d->maxVisibleBins_ > physBins)
+                            select_resolution_in_combo(d->combo_maxRes_, physBins);
                     }
+
+                    if (m_d->histoStatsWidget_)
+                        m_d->histoStatsWidget_->setEffectiveResolution(d->maxVisibleBins_);
+
                     replot();
                 });
     }
