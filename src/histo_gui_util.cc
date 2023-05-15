@@ -38,11 +38,11 @@ QSlider *make_res_reduction_slider(QWidget *parent)
     return result;
 }
 
-std::unique_ptr<QComboBox> make_res_selection_combo()
+std::unique_ptr<QComboBox> make_res_selection_combo(int minBits, int maxBits)
 {
     auto ret = std::make_unique<QComboBox>();
 
-    for (u32 bits=2; bits<=16; ++bits)
+    for (u32 bits=minBits; bits<=maxBits; ++bits)
     {
         u32 value = 1u << bits;
         auto text = QSL("%1 (%2 bit)").arg(value).arg(bits);
@@ -50,6 +50,20 @@ std::unique_ptr<QComboBox> make_res_selection_combo()
     }
 
     return ret;
+}
+
+int select_resolution_in_combo(QComboBox *combo, int res)
+{
+    if (combo)
+    {
+        if (auto idx = combo->findData(res); idx >= 0)
+        {
+            combo->setCurrentIndex(idx);
+            return idx;
+        }
+    }
+
+    return -1;
 }
 
 std::unique_ptr<QwtText> make_qwt_text_box(int renderFlags, int fontPixelSize)

@@ -31,8 +31,8 @@
 
 QSlider *make_res_reduction_slider(QWidget *parent = nullptr);
 
-std::unique_ptr<QComboBox> make_res_selection_combo();
-int select_resolution_in_combo(int res);
+std::unique_ptr<QComboBox> make_res_selection_combo(int minBits=1, int maxBits=16);
+int select_resolution_in_combo(QComboBox *combo, int res);
 
 /* A picker machine that starts a point selection as soon as the mouse moves
  * inside the canvas. On releasing mouse button 1 the point is selected and

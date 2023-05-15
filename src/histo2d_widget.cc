@@ -150,13 +150,8 @@ struct Histo2DWidgetPrivate
     QwtPlotTextLabel *m_waterMarkLabel;
 
     // Resolution Reduction
-    QSlider *m_rrSliderX;
-    QSlider *m_rrSliderY;
-
-    QLabel *m_rrLabelX;
-    QLabel *m_rrLabelY;
-
-    QWidget *m_rrSliderXContainer;
+    QComboBox *combo_maxResX_ = {};
+    QComboBox *combo_maxResY_ = {};
 
     ResolutionReductionFactors m_rrf = {};
 
@@ -220,17 +215,17 @@ struct Histo2DWidgetPrivate
                 sink->setResolutionReductionFactors({});
                 m_serviceProvider->setAnalysisOperatorEdited(sink);
 
-                m_rrSliderX->setMaximum(std::log2(xBins));
-                m_rrSliderX->setValue(m_rrSliderX->maximum());
+                if (int idx = combo_maxResX_->findData(xBins); idx >= 0)
+                    combo_maxResX_->setCurrentIndex(idx);
 
-                m_rrSliderY->setMaximum(std::log2(yBins));
-                m_rrSliderY->setValue(m_rrSliderY->maximum());
+                if (int idx = combo_maxResY_->findData(yBins); idx >= 0)
+                    combo_maxResY_->setCurrentIndex(idx);
             }
         }
     }
 
-    void onRRSliderXValueChanged(int sliderValue);
-    void onRRSliderYValueChanged(int sliderValue);
+    void onMaxResXChanged();
+    void onMaxResYChanged();
 
     void onCutPolyPickerActivated(bool on);
 
@@ -348,27 +343,26 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     // Resolution Reduction X
     {
-        m_d->m_rrSliderX = make_res_reduction_slider();
-        auto boxStruct = make_vbox_container(QSL("Visible X Resolution"), m_d->m_rrSliderX, 0, -2);
-        m_d->m_rrLabelX = boxStruct.label;
-        m_d->m_rrSliderXContainer = boxStruct.container.get();
+        auto d = m_d.get();
+        d->combo_maxResX_ = make_res_selection_combo().release();
+        auto boxStruct = make_vbox_container(QSL("Visible X Resolution"), d->combo_maxResX_, 0, -2);
+        set_widget_font_pointsize(boxStruct.label, 7);
         tb->addWidget(boxStruct.container.release());
 
-        connect(m_d->m_rrSliderX, &QSlider::valueChanged, this, [this] (int sliderValue) {
-            m_d->onRRSliderXValueChanged(sliderValue);
-        });
+        connect(d->combo_maxResX_, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this, d] { d->onMaxResXChanged(); });
     }
 
     // Resolution Reduction Y
     {
-        m_d->m_rrSliderY = make_res_reduction_slider();
-        auto boxStruct = make_vbox_container(QSL("Visible Y Resolution"), m_d->m_rrSliderY, 0, -2);
-        m_d->m_rrLabelY = boxStruct.label;
+        auto d = m_d.get();
+        d->combo_maxResY_ = make_res_selection_combo().release();
+        auto boxStruct = make_vbox_container(QSL("Visible Y Resolution"), d->combo_maxResY_, 0, -2);
+        set_widget_font_pointsize(boxStruct.label, 7);
         tb->addWidget(boxStruct.container.release());
 
-        connect(m_d->m_rrSliderY, &QSlider::valueChanged, this, [this] (int sliderValue) {
-            m_d->onRRSliderYValueChanged(sliderValue);
-        });
+        connect(d->combo_maxResY_, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this, d] { d->onMaxResYChanged(); });
     }
 
     auto actionPolyConditions = tb->addAction(QIcon(":/scissors.png"), "Polygon Conditions");
@@ -597,12 +591,6 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
         replot();
     });
 
-    m_d->m_rrSliderX->setMaximum(std::log2(m_d->m_histo->getAxisBinning(Qt::XAxis).getBinCount()));
-    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
-
-    m_d->m_rrSliderY->setMaximum(std::log2(m_d->m_histo->getAxisBinning(Qt::YAxis).getBinCount()));
-    m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
-
     displayChanged();
     resize(1000, 562);
 }
@@ -617,27 +605,7 @@ Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceP
     m_d->m_histo1DSink = histo1DSink;
     auto histData = new Histo1DListRasterData(m_d->m_histo1DSink->m_histos);
     m_d->m_plotItem->setData(histData);
-
-    m_d->m_rrSliderX->setMaximum(histo1DSink->getNumberOfHistos());
-    m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
-    m_d->m_rrSliderX->setEnabled(false);
-    m_d->m_rrSliderXContainer->setVisible(false);
-    for (auto childWidget: m_d->m_rrSliderXContainer->findChildren<QWidget *>())
-    {
-        childWidget->setVisible(false);
-    }
-
-    if (m_d->m_histo1DSink->getNumberOfHistos())
-    {
-        auto histo = m_d->m_histo1DSink->getHisto(0);
-        m_d->m_rrSliderY->setMaximum(std::log2(histo->getNumberOfBins()));
-        m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
-    }
-    else
-    {
-        m_d->m_rrSliderY->setMinimum(0);
-        m_d->m_rrSliderY->setMaximum(0);
-    }
+    m_d->combo_maxResX_->setEnabled(false);
 
     connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
         for (auto &histo: m_d->m_histo1DSink->m_histos)
@@ -1241,27 +1209,27 @@ void Histo2DWidget::setSink(const SinkPtr &sink,
     m_d->m_actionConditions->setEnabled(sink->getUserLevel() > 0);
 
     auto rrf = sink->getResolutionReductionFactors();
+    auto xBins = sink->m_xBins;
+    auto yBins = sink->m_yBins;
 
     if (rrf.x == AxisBinning::NoResolutionReduction)
     {
-        m_d->m_rrSliderX->setValue(m_d->m_rrSliderX->maximum());
+        select_resolution_in_combo(m_d->combo_maxResX_, xBins);
     }
     else
     {
         u32 visBins = m_d->m_histo->getAxisBinning(Qt::XAxis).getBinCount(rrf.x);
-        int sliderValue = std::log2(visBins);
-        m_d->m_rrSliderX->setValue(sliderValue);
+        select_resolution_in_combo(m_d->combo_maxResX_, visBins);
     }
 
     if (rrf.y == AxisBinning::NoResolutionReduction)
     {
-        m_d->m_rrSliderY->setValue(m_d->m_rrSliderY->maximum());
+        select_resolution_in_combo(m_d->combo_maxResY_, yBins);
     }
     else
     {
-        u32 visBins = m_d->m_histo->getAxisBinning(Qt::YAxis).getBinCount(rrf.x);
-        int sliderValue = std::log2(visBins);
-        m_d->m_rrSliderY->setValue(sliderValue);
+        u32 visBins = m_d->m_histo->getAxisBinning(Qt::YAxis).getBinCount(rrf.y);
+        select_resolution_in_combo(m_d->combo_maxResY_, visBins);
     }
 }
 
@@ -1447,26 +1415,24 @@ QwtPlot *Histo2DWidget::getQwtPlot()
     return m_d->m_plot;
 }
 
-void Histo2DWidgetPrivate::onRRSliderXValueChanged(int sliderValue)
+void Histo2DWidgetPrivate::onMaxResXChanged()
 {
     if (m_histo)
     {
+        u32 maxVisBins = combo_maxResX_->currentData().toUInt();
         u32 physBins = m_histo->getAxisBinning(Qt::XAxis).getBinCount();
-        u32 visBins  = 1u << sliderValue;
-        m_rrf.x = physBins / visBins;
 
-        m_rrLabelX->setText(QSL("Visible X Resolution: %1, %2 bit")
-                            .arg(visBins)
-                            .arg(std::log2(visBins), 2)
-                           );
+        u32 rrf = 0;
 
-        //qDebug() << __PRETTY_FUNCTION__
-        //    << "rrx adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
+        if (physBins > maxVisBins && maxVisBins > 0)
+            rrf = physBins / maxVisBins;
+        else if (maxVisBins > physBins)
+            select_resolution_in_combo(combo_maxResX_, physBins);
+
+        m_rrf.x = rrf;
 
         if (m_sink)
-        {
             m_sink->setResolutionReductionFactors(m_rrf);
-        }
     }
     else if (m_histo1DSink)
     {
@@ -1476,43 +1442,39 @@ void Histo2DWidgetPrivate::onRRSliderXValueChanged(int sliderValue)
     m_q->replot();
 }
 
-void Histo2DWidgetPrivate::onRRSliderYValueChanged(int sliderValue)
+void Histo2DWidgetPrivate::onMaxResYChanged()
 {
     if (m_histo)
     {
+        u32 maxVisBins = combo_maxResY_->currentData().toUInt();
         u32 physBins = m_histo->getAxisBinning(Qt::YAxis).getBinCount();
-        u32 visBins  = 1u << sliderValue;
-        m_rrf.y = physBins / visBins;
 
-        m_rrLabelY->setText(QSL("Visible Y Resolution: %1, %2 bit")
-                            .arg(visBins, 5)
-                            .arg(std::log2(visBins), 2)
-                           );
+        u32 rrf = 0;
 
-        //qDebug() << __PRETTY_FUNCTION__
-        //    << "rry adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
+        if (physBins > maxVisBins && maxVisBins > 0)
+            rrf = physBins / maxVisBins;
+        else if (maxVisBins > physBins)
+            select_resolution_in_combo(combo_maxResY_, physBins);
+
+        m_rrf.y = rrf;
 
         if (m_sink)
-        {
             m_sink->setResolutionReductionFactors(m_rrf);
-        }
 
     }
     else if (m_histo1DSink && m_histo1DSink->getNumberOfHistos() > 0)
     {
         auto histo = m_histo1DSink->getHisto(0);
 
+        u32 maxVisBins = combo_maxResY_->currentData().toUInt();
         u32 physBins = histo->getAxisBinning(Qt::XAxis).getBinCount();
-        u32 visBins  = 1u << sliderValue;
-        m_rrf.y = physBins / visBins;
 
-        m_rrLabelY->setText(QSL("Visible Y Resolution: %1, %2 bit")
-                            .arg(visBins, 5)
-                            .arg(std::log2(visBins))
-                           );
+        u32 rrf = 0;
 
-        //qDebug() << __PRETTY_FUNCTION__
-        //    << "rry adjust: sliderValue =" << sliderValue << "new rrf =" << m_rrf;
+        if (physBins > maxVisBins && maxVisBins > 0)
+            rrf = physBins / maxVisBins;
+
+        m_rrf.y = rrf;
     }
 
     m_q->replot();
