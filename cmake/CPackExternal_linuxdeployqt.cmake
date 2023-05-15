@@ -52,7 +52,7 @@ find_library(GV_DOT_PLUGIN gvplugin_dot_layout PATH_SUFFIXES graphviz x86_64-lin
 get_filename_component(GV_PLUGIN_PATH ${GV_DOT_PLUGIN} DIRECTORY)
 
 message("-- Found graphviz dot plugin: ${GV_DOT_PLUGIN}")
-file(GLOB GV_FILES ${GV_PLUGIN_PATH}/libgvplugin*.so ${GV_PLUGIN_PATH}/config*)
+file(GLOB GV_FILES ${GV_PLUGIN_PATH}/libgvplugin*.so* ${GV_PLUGIN_PATH}/config*)
 message("-- Found additional graphviz files: ${GV_FILES}")
 
 list(APPEND DEPLOY_ADDITIONAL_FILES  ${GV_FILES})
