@@ -1322,7 +1322,6 @@ void Histo2DWidget::doXProjection()
         m_d->m_xProjWidget = new Histo1DWidget(histo);
         m_d->m_xProjWidget->setServiceProvider(m_d->m_serviceProvider);
         m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
-        m_d->m_xProjWidget->setResolutionReductionSliderEnabled(false);
         m_d->m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_d->m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_d->m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
@@ -1387,7 +1386,6 @@ void Histo2DWidget::doYProjection()
     {
         m_d->m_yProjWidget = new Histo1DWidget(histo);
         m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
-        m_d->m_yProjWidget->setResolutionReductionSliderEnabled(false);
         m_d->m_yProjWidget->setServiceProvider(m_d->m_serviceProvider);
         m_d->m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_d->m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);

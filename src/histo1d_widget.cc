@@ -114,10 +114,6 @@ Gauss
   */
 
 static const s32 ReplotPeriod_ms = 1000;
-static const u32 RRFMin = 2;
-
-
-
 
 struct CalibUi
 {
@@ -242,9 +238,9 @@ struct Histo1DWidgetPrivate
     QwtPlotTextLabel *m_waterMarkLabel;
 
     QComboBox *m_yScaleCombo;
-    QSlider *m_rrSlider;
+    QComboBox *combo_maxRes_ = {};
+    u32 maxVisibleBins_ = 1u << 16;
     QLabel *m_rrLabel;
-    u32 m_rrf = Histo1D::NoRR;
 
     CalibUi m_calibUi;
 
@@ -309,9 +305,11 @@ struct Histo1DWidgetPrivate
                 m_sink->setResolutionReductionFactor(Histo1D::NoRR);
                 m_serviceProvider->setAnalysisOperatorEdited(m_sink);
 
-                qDebug() << __PRETTY_FUNCTION__ << "setting rrSlider to max";
-                m_rrSlider->setMaximum(std::log2(getCurrentHisto()->getNumberOfBins()));
-                m_rrSlider->setValue(m_rrSlider->maximum());
+                if (int idx = combo_maxRes_->findData(m_sink->m_bins);
+                    idx >= 0)
+                {
+                    combo_maxRes_->setCurrentIndex(idx);
+                }
             }
         }
     }
@@ -330,6 +328,20 @@ struct Histo1DWidgetPrivate
     void exportPlotToClipboard();
     void saveHistogram();
     void onActionHistoListStats();
+
+    u32 getRRF()
+    {
+        auto xBinning = getCurrentHisto()->getAxisBinning(Qt::XAxis);
+        u32 rrf = 0;
+
+        if (auto bins = xBinning.getBinCount();
+            bins > maxVisibleBins_ && maxVisibleBins_ > 0)
+        {
+            rrf = bins / maxVisibleBins_;
+        }
+
+        return rrf;
+    }
 
     Histo1DPtr getCurrentHisto()
     {
@@ -508,17 +520,26 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     // Resolution Reduction
     {
-        m_d->m_rrSlider = make_res_reduction_slider();
-        set_widget_font_pointsize_relative(m_d->m_rrSlider, -2);
-        //m_d->m_rrSlider->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Maximum);
-        auto boxStruct = make_vbox_container(QSL("Res"), m_d->m_rrSlider, 0, -2);
-        m_d->m_rrLabel = boxStruct.label;
-        set_widget_font_pointsize_relative(m_d->m_rrLabel, -2);
+        auto d = m_d.get();
+        d->combo_maxRes_ = new QComboBox;
+        auto boxStruct = make_vbox_container(QSL("Max Visible Resolution"), d->combo_maxRes_, 0, -2);
+        set_widget_font_pointsize(boxStruct.label, 7);
         tb->addWidget(boxStruct.container.release());
 
-        connect(m_d->m_rrSlider, &QSlider::valueChanged, this, [this] (int sliderValue) {
-            m_d->onRRSliderValueChanged(sliderValue);
-        });
+        for (u32 bits=4; bits<=16; ++bits)
+        {
+            u32 value = 1u << bits;
+            auto text = QSL("%1 (%2 bit)").arg(value).arg(bits);
+            d->combo_maxRes_->addItem(text, value);
+        }
+
+        connect(d->combo_maxRes_, qOverload<int>(&QComboBox::currentIndexChanged),
+                this, [this]
+                {
+                    auto d = m_d.get();
+                    d->maxVisibleBins_ = d->combo_maxRes_->currentData().toUInt();
+                    replot();
+                });
     }
 
     m_d->m_actionHistoListStats = tb->addAction(
@@ -620,29 +641,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     m_d->m_plot->canvas()->setMouseTracking(true);
 
-
-    //
-    // Global stats box
-    //
-    m_d->m_globalStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
-    m_d->m_globalStatsTextItem = new mvme_qwt::TextLabelItem();
-    m_d->m_globalStatsTextItem->setZ(PlotTextLayerZ);
-    /* Margin added to contentsMargins() of the canvas. This is (mis)used to
-     * not clip the top scrollbar. */
-    //m_d->m_globalStatsTextItem->setMargin(25);
-
-    //
-    // Gauss stats box
-    //
-    m_d->m_gaussStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
-
-    m_d->m_gaussStatsTextItem = new mvme_qwt::TextLabelItem();
-    m_d->m_gaussStatsTextItem->setVisible(false);
-    m_d->m_gaussStatsTextItem->setZ(PlotTextLayerZ);
-
-    m_d->m_textLabelLayout.addTextLabel(m_d->m_globalStatsTextItem);
-    m_d->m_textLabelLayout.addTextLabel(m_d->m_gaussStatsTextItem);
-    m_d->m_textLabelLayout.attachAll(m_d->m_plot);
 
     //
     // Calib Ui
@@ -854,6 +852,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     resize(1000, 562);
     selectHistogram(0);
+    m_d->combo_maxRes_->setCurrentIndex(6);
 }
 
 Histo1DWidget::~Histo1DWidget()
@@ -920,8 +919,8 @@ void Histo1DWidget::replot()
     m_d->m_plotHisto->setStyle(static_cast<QwtPlotHistogram::HistogramStyle>(m_d->histoStyle_));
 
     // ResolutionReduction
-    const u32 rrf = m_d->m_rrf;
 
+    auto rrf = m_d->getRRF();
     m_d->updateStatistics(rrf);
     m_d->updateAxisScales();
     m_d->updateCursorInfoLabel(rrf);
@@ -1167,13 +1166,13 @@ void Histo1DWidget::onZoomerZoomed(const QRectF &)
 void Histo1DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
     m_d->m_cursorPosition = pos;
-    m_d->updateCursorInfoLabel(m_d->m_rrf);
+    m_d->updateCursorInfoLabel(m_d->getRRF());
 }
 
 void Histo1DWidget::mouseCursorLeftPlot()
 {
     m_d->m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
-    m_d->updateCursorInfoLabel(m_d->m_rrf);
+    m_d->updateCursorInfoLabel(m_d->getRRF());
 }
 
 void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
@@ -1213,6 +1212,13 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         .arg(m_stats.entryCount, fieldWidth, 'f', 0)
         ;
 
+    if (!m_globalStatsText)
+    {
+        m_globalStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
+        m_globalStatsTextItem = new mvme_qwt::TextLabelItem();
+        m_globalStatsTextItem->setZ(PlotTextLayerZ);
+    }
+
     m_globalStatsText->setText(buffer, QwtText::RichText);
     m_globalStatsTextItem->setText(*m_globalStatsText);
 
@@ -1247,6 +1253,19 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         .arg(m_stats.fwhmCenter)
         .arg(thingsBelowGauss)
         ;
+
+    if (!m_gaussStatsText)
+    {
+        m_gaussStatsText = make_qwt_text_box(Qt::AlignTop | Qt::AlignRight);
+
+        m_gaussStatsTextItem = new mvme_qwt::TextLabelItem();
+        m_gaussStatsTextItem->setVisible(false);
+        m_gaussStatsTextItem->setZ(PlotTextLayerZ);
+
+        m_textLabelLayout.addTextLabel(m_globalStatsTextItem);
+        m_textLabelLayout.addTextLabel(m_gaussStatsTextItem);
+        m_textLabelLayout.attachAll(m_plot);
+    }
 
     m_gaussStatsText->setText(buffer, QwtText::RichText);
     m_gaussStatsTextItem->setText(*m_gaussStatsText);
@@ -1517,7 +1536,7 @@ void Histo1DWidgetPrivate::calibFillMax()
     // The values in m_stats are calculated in terms of the current res
     // reduction factor in replot(). This means m_stats.maxBin can be used
     // unmodified in the call to getBinLowEdge().
-    double maxAt = getCurrentHisto()->getBinLowEdge(m_stats.maxBin, m_rrf);
+    double maxAt = getCurrentHisto()->getBinLowEdge(m_stats.maxBin, getRRF());
     m_calibUi.lastFocusedActual->setValue(maxAt);
 }
 
@@ -1545,63 +1564,6 @@ bool Histo1DWidget::event(QEvent *e)
     return QWidget::event(e);
 }
 
-void Histo1DWidgetPrivate::onRRSliderValueChanged(int sliderValue)
-{
-#if 0
-    qDebug() << __PRETTY_FUNCTION__
-        << "rrS min/max =" << m_rrSlider->minimum() << m_rrSlider->maximum()
-        << ", new rrS value =" << sliderValue
-        << ", current rrf =" << m_rrf
-        ;
-#endif
-
-    u32 physBins = 0;
-    u32 visBins  = 1u << sliderValue;
-
-    if (auto histo = getCurrentHisto())
-        physBins = histo->getNumberOfBins();
-
-    // (phys number of bins) / (res reduction number of bins)
-    m_rrf = physBins / visBins;
-
-    m_rrLabel->setText(QSL("Res: %1, %2 bit")
-                       .arg(visBins)
-                       .arg(std::log2(visBins))
-                      );
-
-#if 0
-    qDebug() << __PRETTY_FUNCTION__
-        << "physBins =" << physBins
-        << ", visBins =" << visBins
-        << ", new rrf =" << m_rrf;
-#endif
-
-    if (m_sink)
-    {
-        //qDebug() << "  updating sink" << m_sink.get();
-
-        m_sink->setResolutionReductionFactor(m_rrf);
-
-        // FIXME: this code results in the analysis being marked modified on opening a
-        // histogram for the first time as the rrf changes from 0 (NoRR) to 1 (physBins ==
-        // visBins)
-        // Also invoking the callback here rebuilds the analysis immediately. This is not
-        // needed at all as the res reduction is a display only thing and doesn't interact
-        // with the a2 runtime in any way.
-#if 0
-        if (m_sinkModifiedCallback)
-        {
-            qDebug() << "  invoking sinkModifiedCallback";
-            m_sinkModifiedCallback(m_sink);
-        }
-#endif
-    }
-
-    m_q->replot();
-
-    //qDebug() << __PRETTY_FUNCTION__ << "<<<<< end of function";
-}
-
 void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
 {
     Q_ASSERT(sink);
@@ -1612,29 +1574,18 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     m_d->m_actionChangeRes->setEnabled(true);
     m_d->m_actionConditions->setEnabled(sink->getUserLevel() > 0);
 
-    auto rrf = sink->getResolutionReductionFactor();
-
-    if (rrf == Histo1D::NoRR)
+    // update the rrf combo box
+    if (auto histo = m_d->getCurrentHisto())
     {
-#if 0
-        qDebug() << __PRETTY_FUNCTION__
-            << "setting rrSlider value to max" << m_d->m_rrSlider->maximum();
-#endif
+        u32 visibleBins = histo->getAxisBinning(Qt::XAxis).getBinCount(
+            sink->getResolutionReductionFactor());
 
-        m_d->m_rrSlider->setValue(m_d->m_rrSlider->maximum());
-    }
-    else
-    {
-        u32 visBins = m_d->getCurrentHisto()->getNumberOfBins(rrf);
-        int sliderValue = std::log2(visBins);
-
-#if 0
-        qDebug() << __PRETTY_FUNCTION__
-            << "sink rrf =" << rrf
-            << ", -> setting slider value to" << sliderValue;
-#endif
-
-        m_d->m_rrSlider->setValue(sliderValue);
+        // Select the active max resolution in the combo box
+        if (int idx = m_d->combo_maxRes_->findData(visibleBins);
+            idx >= 0)
+        {
+            m_d->combo_maxRes_->setCurrentIndex(idx);
+        }
     }
 
     replot();
@@ -1651,13 +1602,12 @@ void Histo1DWidget::setResolutionReductionFactor(u32 rrf)
         rrf = 1;
     u32 physBins = m_d->getCurrentHisto()->getNumberOfBins();
     u32 visBins  = physBins / rrf;
-    int sliderValue = std::log2(visBins);
-    m_d->m_rrSlider->setValue(sliderValue);
-}
-
-void Histo1DWidget::setResolutionReductionSliderEnabled(bool b)
-{
-    m_d->m_rrSlider->setEnabled(b);
+    // Select the active max resolution in the combo box
+    if (int idx = m_d->combo_maxRes_->findData(visBins);
+        idx >= 0)
+    {
+        m_d->combo_maxRes_->setCurrentIndex(idx);
+    }
 }
 
 void Histo1DWidget::on_tb_subRange_clicked()
@@ -1727,7 +1677,7 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
         m_d->m_rateEstimationData.x1 = pos.x();
 
         double x1 = m_d->getCurrentHisto()->getValueAndBinLowEdge(
-            m_d->m_rateEstimationData.x1, m_d->m_rrf).first;
+            m_d->m_rateEstimationData.x1, m_d->getRRF()).first;
 
         m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);
         m_d->m_rateEstimationX1Marker->setLabel(QString("    x1=%1").arg(x1));
@@ -1748,10 +1698,10 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
         m_d->m_actionZoom->setChecked(true);
 
         double x1 = m_d->getCurrentHisto()->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1,
-                                                                  m_d->m_rrf).first;
+                                                                  m_d->getRRF()).first;
 
         double x2 = m_d->getCurrentHisto()->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2,
-                                                                  m_d->m_rrf).first;
+                                                                  m_d->getRRF()).first;
 
         // set both x1 and x2 as they might have been swapped above
         m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);
@@ -1799,7 +1749,7 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
         statsWidget->setWindowTitle(title);
         // Set the initial resolution for stats calculation based on the visible
         // resolution set here. Unlike zooming this is not currently synced.
-        statsWidget->setEffectiveResolution(1u << m_rrSlider->value());
+        statsWidget->setEffectiveResolution(combo_maxRes_->currentData().toUInt());
     }
 
     show_and_activate(histoStatsWidget_);
@@ -1845,13 +1795,6 @@ void Histo1DWidget::selectHistogram(int index)
                                                                     &m_d->m_rateEstimationData);
         // ownership goes to qwt
         m_d->m_rateEstimationCurve->setData(m_d->m_plotRateEstimationData);
-
-        m_d->m_rrSlider->setMaximum(std::log2(m_d->getCurrentHisto()->getNumberOfBins()));
-
-        if (m_d->m_rrf == Histo1D::NoRR)
-            m_d->m_rrSlider->setValue(m_d->m_rrSlider->maximum());
-
-        //qDebug() << __PRETTY_FUNCTION__ << "new RRSlider max" << m_d->m_rrSlider->maximum();
 
         m_d->displayChanged();
 

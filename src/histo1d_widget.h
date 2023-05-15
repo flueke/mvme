@@ -77,7 +77,6 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
         void selectHistogram(int histoIndex);
 
         void setResolutionReductionFactor(u32 rrf);
-        void setResolutionReductionSliderEnabled(bool b);
 
         QwtPlot *getPlot() override;
         const QwtPlot *getPlot() const override;
