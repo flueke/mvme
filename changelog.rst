@@ -18,6 +18,8 @@ Version 1.7.1-rc1
 
   - Clear 2D histograms when their subrange was modified.
 
+  - Replace the histo resolution slider with a combo box.
+
   - Interval condition can now exclude/ignore specific intervals from affecting
     the conditions result.
 
@@ -34,11 +36,15 @@ Version 1.7.1-rc1
 
 * [mvlc]
 
-  - DSO plot and logic updates (recommended to use MVLC Firmware FW0031 or later)
+  - DSO plot and logic updates (recommended to use MVLC Firmware FW0031 or later).
 
 * [doc]
 
-  - Update to the "Manual ARP setup" section for the MVLC
+  - Update to the "Manual ARP setup" section for the MVLC.
+
+* [packaging]
+
+  - Add missing graphviz dependencies to the linux packages.
 
 Version 1.7.0
 -------------
