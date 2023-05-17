@@ -25,47 +25,35 @@ bool is_fatal(const std::error_code &ec)
             || ec == mvlc::ErrorType::ProtocolError);
 }
 
-void self_write_throw(mvlc::MVLC &mvlc, u32 addr, u16 value)
+void add_self_write(mvlc::StackCommandBuilder &sb, u32 address, u16 value)
 {
-    if (auto ec = mvlc.vmeWrite(
-            mvlc::SelfVMEAddress + addr, value,
-            mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16))
-        throw ec;
+    sb.addVMEWrite(mvlc::SelfVMEAddress + address, value,
+        mvlc::vme_amods::A32, mvlc::VMEDataWidth::D16);
 }
 
 std::error_code start_dso(mvlc::MVLC &mvlc, DSOSetup setup)
 {
-    try
-    {
-        self_write_throw(mvlc, 0x0200, UnitNumber); // select DSO unit
-        self_write_throw(mvlc, 0x0300, setup.preTriggerTime);
-        self_write_throw(mvlc, 0x0302, setup.postTriggerTime);
-        self_write_throw(mvlc, 0x0304, setup.nimTriggers.to_ulong());
-        self_write_throw(mvlc, 0x0308, setup.irqTriggers.to_ulong());
-        self_write_throw(mvlc, 0x030A, setup.utilTriggers.to_ulong());
-        self_write_throw(mvlc, 0x0306, 1); // start capturing
-    }
-    catch (const std::error_code &ec)
-    {
-        return ec;
-    }
-
-    return {};
+    mvlc::StackCommandBuilder sb;
+    sb.addWriteMarker(0xabcdef00);
+    add_self_write(sb, 0x0200, UnitNumber); // select DSO unit
+    add_self_write(sb, 0x0300, setup.preTriggerTime);
+    add_self_write(sb, 0x0302, setup.postTriggerTime);
+    add_self_write(sb, 0x0304, setup.nimTriggers.to_ulong());
+    add_self_write(sb, 0x0308, setup.irqTriggers.to_ulong());
+    add_self_write(sb, 0x030A, setup.utilTriggers.to_ulong());
+    add_self_write(sb, 0x0306, 1); // start capturing
+    std::vector<u32> dest;
+    return mvlc.stackTransaction(sb, dest);
 }
 
 std::error_code stop_dso(mvlc::MVLC &mvlc)
 {
-    try
-    {
-        self_write_throw(mvlc, 0x0200, UnitNumber); // select DSO unit
-        self_write_throw(mvlc, 0x0306, 0); // stop the DSO
-    }
-    catch (const std::error_code &ec)
-    {
-        return ec;
-    }
-
-    return {};
+    mvlc::StackCommandBuilder sb;
+    sb.addWriteMarker(0xabcdef01);
+    add_self_write(sb, 0x0200, UnitNumber); // select DSO unit
+    add_self_write(sb, 0x0306, 0); // stop the DSO
+    std::vector<u32> dest;
+    return mvlc.stackTransaction(sb, dest);
 }
 
 std::error_code read_dso(mvlc::MVLC &mvlc, std::vector<u32> &dest)
