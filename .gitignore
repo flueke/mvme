@@ -9,6 +9,5 @@ doc/mvme.qhc
 doc/sphinx/source/changelog.rst
 .clangd/
 build*/
-.vscode/
 .cmake/
 .cache/
