@@ -38,7 +38,7 @@ QSlider *make_res_reduction_slider(QWidget *parent)
     return result;
 }
 
-std::unique_ptr<QComboBox> make_res_selection_combo(int minBits, int maxBits)
+std::unique_ptr<QComboBox> make_res_selection_combo(unsigned minBits, unsigned maxBits)
 {
     auto ret = std::make_unique<QComboBox>();
 
