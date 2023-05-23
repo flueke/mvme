@@ -192,7 +192,7 @@
             <item>
              <widget class="QFrame" name="frame_playMode">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>

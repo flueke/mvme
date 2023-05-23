@@ -6,7 +6,6 @@
 
 #include "qt_util.h"
 #include "ui_replay_widget.h"
-#include "util/qt_str.h"
 
 namespace mesytec::mvme
 {
@@ -17,6 +16,7 @@ struct ReplayWidget::Private
     std::unique_ptr<Ui::ReplayWidget> ui;
     QFileSystemModel *model_browseFs_ = nullptr;
     BrowseFilterModel *model_browseFsProxy_ = nullptr;
+    QueueTableModel *model_queue_ = nullptr;
 };
 
 ReplayWidget::ReplayWidget(QWidget *parent)
@@ -46,8 +46,6 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     d->ui->tree_filesystem->setDragEnabled(true);
 
     // queue
-    //d->ui->stack_playToolbarsReplay->setLayout(
-    //d->ui->stack_playToolbarsReplay->addAction(new QAction("foobar"));
     {
         auto layout = make_hbox<0,0>(d->ui->stack_playToolbarsReplay);
         auto tb = make_toolbar();
@@ -55,8 +53,21 @@ ReplayWidget::ReplayWidget(QWidget *parent)
         tb->addAction("start");
         tb->addAction("pause");
         tb->addAction("stop");
-        //tb->addAction("start");
+        tb->addAction("skip");
     }
+
+    d->model_queue_ = new QueueTableModel(this);
+    d->model_queue_->setQueueContents({ "Foo", "Bar", "Blob" });
+
+    d->ui->table_queue->setModel(d->model_queue_);
+    d->ui->table_queue->setAcceptDrops(true);
+    d->ui->table_queue->setDefaultDropAction(Qt::MoveAction);
+    d->ui->table_queue->setDragDropMode(QAbstractItemView::DragDrop);
+    d->ui->table_queue->setDragEnabled(true);
+    d->ui->table_queue->setSelectionBehavior(QAbstractItemView::SelectRows);
+    d->ui->table_queue->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    d->ui->table_queue->setDragDropOverwriteMode(false);
+    d->ui->table_queue->setStyle(new FullWidthDropIndicatorStyle(style()));
 }
 
 ReplayWidget::~ReplayWidget()
