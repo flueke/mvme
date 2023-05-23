@@ -261,6 +261,7 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
     daq_run_settings_dialog.ui
     analysis/interval_condition_dialog.ui
     analysis/polygon_condition_dialog.ui
+    replay_widget.ui
     )
 
 add_library(libmvme SHARED
@@ -346,6 +347,8 @@ add_library(libmvme SHARED
     rate_monitor_widget.cc
     realtimedata.cpp
     remote_control.cc
+    replay_ui.cc
+    replay_ui_p.cc
     scrollbar.cpp
     scrollzoomer.cpp
     sis3153.cc
@@ -548,6 +551,7 @@ add_mvme_dev_exe(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 add_mvme_dev_exe(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
 add_mvme_dev_exe(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
+add_mvme_dev_exe(dev_replay_ui dev_replay_ui_main.cc)
 
 add_mvme_dev_exe(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
 add_mvme_dev_exe(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
