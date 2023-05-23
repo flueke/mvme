@@ -209,7 +209,7 @@ QToolBar *make_toolbar(QWidget *parent)
     auto tb = new QToolBar(parent);
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     tb->setIconSize(QSize(16, 16));
-    set_widget_font_pointsize(tb, 7);
+    //set_widget_font_pointsize(tb, 7);
     return tb;
 }
 
