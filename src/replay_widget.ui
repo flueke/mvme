@@ -190,57 +190,24 @@
              <number>2</number>
             </property>
             <item>
-             <widget class="QFrame" name="frame_playMode">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>Mode</string>
               </property>
-              <property name="frameShape">
-               <enum>QFrame::StyledPanel</enum>
-              </property>
-              <property name="frameShadow">
-               <enum>QFrame::Raised</enum>
-              </property>
-              <layout class="QHBoxLayout" name="horizontalLayout_4">
-               <property name="spacing">
-                <number>2</number>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="combo_playMode">
+              <item>
+               <property name="text">
+                <string>Replay</string>
                </property>
-               <property name="leftMargin">
-                <number>2</number>
+              </item>
+              <item>
+               <property name="text">
+                <string>Merge</string>
                </property>
-               <property name="topMargin">
-                <number>2</number>
-               </property>
-               <property name="rightMargin">
-                <number>2</number>
-               </property>
-               <property name="bottomMargin">
-                <number>2</number>
-               </property>
-               <item>
-                <widget class="QLabel" name="label">
-                 <property name="text">
-                  <string>Mode</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QComboBox" name="combo_playMode">
-                 <item>
-                  <property name="text">
-                   <string>Replay</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>Merge</string>
-                  </property>
-                 </item>
-                </widget>
-               </item>
-              </layout>
+              </item>
              </widget>
             </item>
             <item>

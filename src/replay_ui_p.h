@@ -9,6 +9,7 @@
 #include <QProxyStyle>
 #include <QSortFilterProxyModel>
 #include <QStyleOption>
+#include <QUrl>
 #include <vector>
 
 #include "util/qt_str.h"
@@ -168,8 +169,22 @@ class QueueTableModel: public QAbstractTableModel
         bool dropMimeData(const QMimeData *data, Qt::DropAction action,
                           int row, int column, const QModelIndex &parent) override
         {
+            qDebug() << __PRETTY_FUNCTION__ << data << action << "row =" << row << ", col =" << column << parent;
+
             if (data->hasUrls())
             {
+                qDebug() << __PRETTY_FUNCTION__ << "url =" << data->urls();
+                for (const auto &url: data->urls())
+                {
+                    if (!url.isLocalFile())
+                        continue;
+                    auto filename = url.fileName();
+                    if (row < 0)
+                    {
+                        entries_.emplace_back(QueueEntry{ QFileInfo(filename) });
+                    }
+                    qDebug() << "would drop file" << filename;
+                }
             }
             else if (data->hasFormat("application/x-qabstractitemmodeldatalist"))
             {
@@ -181,7 +196,6 @@ class QueueTableModel: public QAbstractTableModel
 
             bool result = QAbstractTableModel::dropMimeData(data, action, row, column, parent);
             qDebug() << __PRETTY_FUNCTION__ << "result would be" << result;
-            qDebug() << __PRETTY_FUNCTION__ << data << action << row << column << parent;
             qDebug() << __PRETTY_FUNCTION__ << data->formats();
 
             QByteArray encoded = data->data("application/x-qabstractitemmodeldatalist");
@@ -208,7 +222,7 @@ class QueueTableModel: public QAbstractTableModel
             entries_.reserve(paths.size());
             std::transform(std::begin(paths), std::end(paths), std::back_inserter(entries_),
                            [](const QString &path)
-                           { return QueueEntry { QFileInfo(path) }; });
+                           { return QueueEntry{ QFileInfo(path) }; });
             endResetModel();
 
         }
