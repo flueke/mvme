@@ -5,10 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/src",
-                "/home/florian/Qt/5.15.2/gcc_64/include/**"
+                "/usr/include/x86_64-linux-gnu/qt5/**"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang-11",
             "cStandard": "c17",
             "cppStandard": "c++14",
             "intelliSenseMode": "linux-clang-x64",
