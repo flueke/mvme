@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QFileDialog>
 #include <spdlog/spdlog.h>
 
 #include "mvme_session.h"
@@ -12,14 +13,53 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     mvme_init("dev_replay_ui");
 
-    mvme::ReplayWidget replayWidget;
-    add_widget_close_action(&replayWidget);
-    replayWidget.show();
+    auto browsePath = QSettings().value("LastBrowsePath", QSL(".")).toString();
 
     if (auto args = app.arguments(); args.size() > 1)
-        replayWidget.browsePath(args.at(1));
-    else
-        replayWidget.browsePath(".");
+        browsePath = args.at(1);
+
+    mvme::ReplayWidget replayWidget;
+    replayWidget.browsePath(browsePath);
+
+    QWidget toolsWidget;
+    auto tb = make_toolbar(&toolsWidget);
+    auto l = make_hbox(&toolsWidget);
+    l->addWidget(tb);
+
+    add_widget_close_action(&replayWidget);
+    add_widget_close_action(&toolsWidget);
+    replayWidget.show();
+    toolsWidget.show();
+
+    WidgetGeometrySaver geoSaver;
+    geoSaver.addAndRestore(&replayWidget, "ReplayWidget");
+    geoSaver.addAndRestore(&toolsWidget, "ToolsWidget");
+
+    auto actionBrowse = tb->addAction("browse");
+    auto actionGetQueue = tb->addAction("queue");
+    auto actionQuit = tb->addAction("quit");
+
+    QObject::connect(actionBrowse, &QAction::triggered,
+        &replayWidget, [&]
+        {
+            if (auto path = QFileDialog::getExistingDirectory(); !path.isEmpty())
+            {
+                replayWidget.browsePath(path);
+                QSettings().setValue("LastBrowsePath", path);
+            }
+        });
+
+    QObject::connect(actionGetQueue, &QAction::triggered,
+        &replayWidget, [&]
+        {
+            qDebug() << replayWidget.getQueueContents();
+        });
+
+    actionQuit->setShortcut(QSL("Ctrl+Q"));
+    actionQuit->setShortcutContext(Qt::ApplicationShortcut);
+
+    QObject::connect(actionQuit, &QAction::triggered,
+        &app, QApplication::quit);
 
     return app.exec();
 }

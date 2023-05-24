@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1028</width>
-    <height>512</height>
+    <width>1016</width>
+    <height>482</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -45,8 +45,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>1022</width>
-        <height>506</height>
+        <width>1010</width>
+        <height>476</height>
        </rect>
       </property>
       <property name="minimumSize">
@@ -153,7 +153,7 @@
                <widget class="QTreeView" name="tree_filesystem">
                 <property name="minimumSize">
                  <size>
-                  <width>225</width>
+                  <width>300</width>
                   <height>0</height>
                  </size>
                 </property>
@@ -306,7 +306,7 @@
            <widget class="QTableView" name="table_queue">
             <property name="minimumSize">
              <size>
-              <width>225</width>
+              <width>300</width>
               <height>0</height>
              </size>
             </property>

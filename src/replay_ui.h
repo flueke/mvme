@@ -16,6 +16,8 @@ class ReplayWidget: public QWidget
 
     public slots:
         void browsePath(const QString &path);
+        QString getBrowsePath() const;
+        std::vector<QUrl> getQueueContents() const;
 
     private:
         struct Private;

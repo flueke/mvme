@@ -8,6 +8,7 @@
 #include <QMimeData>
 #include <QProxyStyle>
 #include <QSortFilterProxyModel>
+#include <QStandardItemModel>
 #include <QStyleOption>
 #include <QUrl>
 #include <vector>
@@ -103,113 +104,75 @@ class FullWidthDropIndicatorStyle: public QProxyStyle
         }
 };
 
-class QueueTableModel: public QAbstractTableModel
+class QueueTableItem: public QStandardItem
+{
+    public:
+        using QStandardItem::QStandardItem;
+        QueueTableItem(const QString &text = {})
+            : QStandardItem(text)
+        {
+            setEditable(false);
+            setDropEnabled(false);
+        }
+
+        QStandardItem *clone() const override
+        {
+            auto ret = new QueueTableItem;
+            *ret = *this;
+            return ret;
+        }
+};
+
+class QueueTableModel: public QStandardItemModel
 {
     Q_OBJECT
     public:
-        struct QueueEntry
-        {
-            QFileInfo fileInfo;
-        };
-
         QueueTableModel(QObject *parent = nullptr)
-            : QAbstractTableModel(parent)
-        {}
+            : QStandardItemModel(parent)
+        {
+            setColumnCount(4);
+            setHeaderData(0, Qt::Horizontal, QSL("Name"));
+            setHeaderData(1, Qt::Horizontal, QSL("Date Modified"));
+            setHeaderData(2, Qt::Horizontal, QSL("Info0"));
+            setHeaderData(3, Qt::Horizontal, QSL("Info1"));
+            setItemPrototype(new QueueTableItem);
+        }
 
         ~QueueTableModel() override;
-
-        int rowCount(const QModelIndex &parent = QModelIndex()) const override
-        {
-            return static_cast<int>(entries_.size());
-        }
-
-        int columnCount(const QModelIndex &parent = QModelIndex()) const override
-        {
-            return Headers.size();
-        }
-
-        QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override
-        {
-            if (index.row() >= static_cast<int>(entries_.size()))
-                return {};
-
-            if (index.column() == 0 && role == Qt::DisplayRole)
-                return entries_.at(index.row()).fileInfo.fileName();
-
-            return {};
-        }
-
-        QVariant headerData(int section, Qt::Orientation orientation,
-                            int role = Qt::DisplayRole) const override
-        {
-            if (role == Qt::DisplayRole && orientation == Qt::Horizontal && 0 <= section && section < Headers.size())
-                return Headers.at(section);
-            return {};
-        }
-
-        Qt::ItemFlags flags(const QModelIndex &index) const override
-        {
-            auto result = QAbstractTableModel::flags(index) | Qt::ItemIsDragEnabled;
-
-            if (!index.isValid())
-                result |= Qt::ItemIsDropEnabled;
-
-            return result;
-        }
 
         bool canDropMimeData(const QMimeData *data, Qt::DropAction action,
                              int row, int column, const QModelIndex &parent) const override
         {
-            bool result = false;
-            result = data->hasUrls() || data->hasFormat("application/x-qabstractitemmodeldatalist");
-            qDebug() << __PRETTY_FUNCTION__ << data->formats() << "result =" << result;
-            return true;
+            Q_UNUSED(action); Q_UNUSED(row); Q_UNUSED(column); Q_UNUSED(parent);
+            return data->hasUrls() || data->hasFormat("application/x-qabstractitemmodeldatalist");
         }
 
         bool dropMimeData(const QMimeData *data, Qt::DropAction action,
-                          int row, int column, const QModelIndex &parent) override
+                          int row, int /*column*/, const QModelIndex &parent) override
         {
-            qDebug() << __PRETTY_FUNCTION__ << data << action << "row =" << row << ", col =" << column << parent;
-
-            if (data->hasUrls())
+            if (!data->hasUrls())
             {
-                qDebug() << __PRETTY_FUNCTION__ << "url =" << data->urls();
-                for (const auto &url: data->urls())
-                {
-                    if (!url.isLocalFile())
-                        continue;
-                    auto filename = url.fileName();
-                    if (row < 0)
-                    {
-                        entries_.emplace_back(QueueEntry{ QFileInfo(filename) });
-                    }
-                    qDebug() << "would drop file" << filename;
-                }
+                // Pretend to always move column 0 to prevent QStandardItemModel
+                // from adding columns.
+                return QStandardItemModel::dropMimeData(data, action, row, 0, parent);
             }
-            else if (data->hasFormat("application/x-qabstractitemmodeldatalist"))
+
+            auto urls = data->urls();
+
+            if (row >= 0)
+                std::reverse(std::begin(urls), std::end(urls));
+
+            for (const auto &url: urls)
             {
-            }
-            else
-                return false;
+                if (!url.isLocalFile() || !(QFileInfo(url.fileName()).suffix() == QSL("zip")))
+                    continue;
 
-            return true;
+                auto rowItems = makeRow(url);
 
-            bool result = QAbstractTableModel::dropMimeData(data, action, row, column, parent);
-            qDebug() << __PRETTY_FUNCTION__ << "result would be" << result;
-            qDebug() << __PRETTY_FUNCTION__ << data->formats();
-
-            QByteArray encoded = data->data("application/x-qabstractitemmodeldatalist");
-            QDataStream stream(&encoded, QIODevice::ReadOnly);
-
-            while (!stream.atEnd())
-            {
-                int row, col;
-                QMap<int, QVariant> roleDataMap;
-                stream >> row >> col >> roleDataMap;
-
-                qDebug() << __PRETTY_FUNCTION__ << row << col << roleDataMap;
-
-                /* do something with the data */
+                if (row >= 0)
+                    insertRow(row, rowItems);
+                else
+                    appendRow(rowItems);
             }
 
             return true;
@@ -218,18 +181,53 @@ class QueueTableModel: public QAbstractTableModel
         void setQueueContents(const QStringList &paths)
         {
             beginResetModel();
-            entries_.clear();
-            entries_.reserve(paths.size());
-            std::transform(std::begin(paths), std::end(paths), std::back_inserter(entries_),
-                           [](const QString &path)
-                           { return QueueEntry{ QFileInfo(path) }; });
+            for (const auto &path: paths)
+            {
+                auto rowItems = makeRow(path);
+                invisibleRootItem()->appendRow(rowItems);
+            }
             endResetModel();
+        }
 
+        void clearQueueContents()
+        {
+            removeRows(0, rowCount());
+        }
+
+        std::vector<QUrl> getQueueContents() const
+        {
+            const auto rows = rowCount();
+
+            std::vector<QUrl> result;
+            result.reserve(rows);
+
+            for (int row = 0; row < rows; ++row)
+            {
+                auto item0 = item(row, 0);
+                result.emplace_back(item0->data().toUrl());
+            }
+
+            return result;
         }
 
     private:
         static const QStringList Headers;
-        std::vector<QueueEntry> entries_;
+
+        // Note: this is dangerous. Add the returned row to the model asap,
+        // manually delete the items or leak memory.
+        QList<QStandardItem *> makeRow(const QUrl &url = {})
+        {
+            auto item0 = new QueueTableItem;
+            item0->setData(url.fileName(), Qt::DisplayRole);
+            item0->setData(url);
+
+            QList<QStandardItem *> rowItems = { item0 };
+
+            for (auto i=Headers.size()-1; i>0; --i)
+                rowItems.append(new QueueTableItem);
+
+           return rowItems;
+        }
 };
 
 }
