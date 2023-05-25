@@ -38,6 +38,10 @@ Version 1.7.1-rc1
 
   - DSO plot and logic updates (recommended to use MVLC Firmware FW0031 or later).
 
+  - Start/stop the DSO using a single stack transaction instead of multiple individual
+    commands. Fixes issues when the DSO is running while the Triger IO script is being
+    written to the MVLC.
+
 * [doc]
 
   - Update to the "Manual ARP setup" section for the MVLC.
