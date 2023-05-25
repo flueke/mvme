@@ -108,7 +108,7 @@ using VMEConfigConverter = std::function<QJsonObject (
  */
 static QJsonObject v1_to_v2(QJsonObject json, Logger /*logger*/, const SchemaUpdateOptions & /*options*/)
 {
-    qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
+    //qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
     auto eventsArray = json["events"].toArray();
 
@@ -149,7 +149,7 @@ static QJsonObject v1_to_v2(QJsonObject json, Logger /*logger*/, const SchemaUpd
  * stored. */
 static QJsonObject v2_to_v3(QJsonObject json, Logger /*logger*/, const SchemaUpdateOptions & /*options*/)
 {
-    qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
+    //qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
     auto eventsArray = json["events"].toArray();
 
@@ -354,7 +354,7 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger, const SchemaUpdateO
 {
     auto fix_mdpp16_module_typename = [logger] (QJsonObject json) -> QJsonObject
     {
-        qDebug() << __PRETTY_FUNCTION__ << "changing 'mdpp16' module type name to 'mdpp16_scp'";
+        //qDebug() << __PRETTY_FUNCTION__ << "changing 'mdpp16' module type name to 'mdpp16_scp'";
 
         auto eventsArray = json["events"].toArray();
 
@@ -486,7 +486,7 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger, const SchemaUpdateO
     // correctly. The drawback is that the code is slightly more complex.
     auto add_event_variables = [logger] (QJsonObject json)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "adding event variables";
+        //qDebug() << __PRETTY_FUNCTION__ << "adding event variables";
 
         auto eventsArray = json["events"].toArray();
 
@@ -552,7 +552,7 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger, const SchemaUpdateO
 
     auto update_event_scripts = [logger] (QJsonObject json)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "updating vme event scripts";
+        //qDebug() << __PRETTY_FUNCTION__ << "updating vme event scripts";
 
         auto eventsArray = json["events"].toArray();
 
@@ -588,7 +588,7 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger, const SchemaUpdateO
 
     auto update_module_scripts = [logger] (QJsonObject json)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "updating vme module scripts";
+        //qDebug() << __PRETTY_FUNCTION__ << "updating vme module scripts";
 
         auto eventsArray = json["events"].toArray();
 
@@ -629,7 +629,7 @@ static QJsonObject v3_to_v4(QJsonObject json, Logger logger, const SchemaUpdateO
         return json;
     };
 
-    qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
+    //qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
 
     json = fix_mdpp16_module_typename(json);
 
@@ -675,7 +675,7 @@ int get_vmeconfig_version(const QJsonObject &json)
 QJsonObject convert_vmeconfig_to_current_version(
     QJsonObject json, Logger logger, const SchemaUpdateOptions &options)
 {
-    qDebug() << "<<<<<<<<<<<<< begin vme config json conversion <<<<<<<<<<<<<<<<<";
+    //qDebug() << "<<<<<<<<<<<<< begin vme config json conversion <<<<<<<<<<<<<<<<<";
 
     if (!logger)
         logger = [] (const QString &) {};
@@ -692,11 +692,11 @@ QJsonObject convert_vmeconfig_to_current_version(
         json = converter(json, logger, options);
         set_vmeconfig_version(json, version + 1);
 
-        qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version"
-            << version << "to version" << version+1;
+        //qDebug() << __PRETTY_FUNCTION__ << "converted VMEConfig from version"
+        //    << version << "to version" << version+1;
     }
 
-    qDebug() << ">>>>>>>>>>>>> end vme config json conversion >>>>>>>>>>>>>>>>>";
+    //qDebug() << ">>>>>>>>>>>>> end vme config json conversion >>>>>>>>>>>>>>>>>";
 
     return json;
 }

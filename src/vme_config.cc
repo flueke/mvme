@@ -29,7 +29,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
-#include <spdlog/spdlog.h>
 
 #include "CVMUSBReadoutList.h"
 #include "mvlc/mvlc_trigger_io_script.h"
@@ -375,7 +374,6 @@ void VMEScriptConfig::addToScript(const QString &str)
 std::error_code VMEScriptConfig::read_impl(const QJsonObject &json)
 {
     m_script = json["vme_script"].toString();
-    spdlog::info("VMEScriptConfig::read_impl(): objectName()={}", objectName().toStdString());
 
     return {};
 }

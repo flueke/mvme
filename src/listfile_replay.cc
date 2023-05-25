@@ -204,11 +204,13 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
                 auto lfh = zipReader.openEntry(handle.listfileFilename.toStdString());
                 auto preamble = mvlc::listfile::read_preamble(*lfh);
 
+                #if 0
                 for (const auto &sysEvent: preamble.systemEvents)
                 {
                     qDebug() << __PRETTY_FUNCTION__ << "found preamble sysEvent type"
                         << mvlc::system_event_type_to_string(sysEvent.type).c_str();
                 }
+                #endif
 
                 auto it = std::find_if(
                     std::begin(preamble.systemEvents),
@@ -224,7 +226,7 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
                 if (it == std::end(preamble.systemEvents))
                     throw std::runtime_error("No MVMEConfig found in listfile");
 
-                qDebug() << __PRETTY_FUNCTION__ << "found MVMEConfig in listfile preamble, size =" << it->contents.size();
+                //qDebug() << __PRETTY_FUNCTION__ << "found MVMEConfig in listfile preamble, size =" << it->contents.size();
 
                 QByteArray qbytes(
                     reinterpret_cast<const char *>(it->contents.data()),
