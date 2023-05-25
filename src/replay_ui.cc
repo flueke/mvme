@@ -3,8 +3,15 @@
 
 #include <QtConcurrent>
 #include <QFutureWatcher>
+#include <QSet>
+#include <QStatusBar>
 #include <QTableView>
+#include <QThread>
 #include <QTreeView>
+
+#include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include "qt_util.h"
 #include "listfile_replay.h"
@@ -24,6 +31,7 @@ struct FileInfo
     QString errorString;
     std::error_code errorCode;
     std::exception_ptr exceptionPtr;
+    std::chrono::steady_clock::time_point updateTime;
 };
 
 FileInfo gather_fileinfo(QUrl url)
@@ -33,11 +41,12 @@ FileInfo gather_fileinfo(QUrl url)
     try
     {
         result.fileUrl = url;
-        qDebug() << __PRETTY_FUNCTION__ << url.path();
-        //result.handle = std::move(open_listfile(url.path()));
-        //auto [vmeConfig, ec] = read_vme_config_from_listfile(result.handle);
-        //result.vmeConfig = std::move(vmeConfig);
-        //result.errorCode = ec;
+        result.handle = open_listfile(url.path());
+        auto [vmeConfig, ec] = read_vme_config_from_listfile(result.handle);
+        result.vmeConfig = std::move(vmeConfig);
+        result.errorCode = ec;
+        result.updateTime = std::chrono::steady_clock::now();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2500));
     }
     catch(const QString &e)
     {
@@ -51,75 +60,84 @@ FileInfo gather_fileinfo(QUrl url)
     return result;
 }
 
+// FileInfo is not copyable but only movable so a shared_ptr to FileInfo is used
+// which can be copied freely.
 using FileInfoPtr = std::shared_ptr<FileInfo>;
 
 FileInfoPtr gather_fileinfo_p(const QUrl &url)
 {
-    qDebug() << __PRETTY_FUNCTION__ << url.path();
-    return std::make_shared<FileInfo>(std::move(gather_fileinfo(url)));
+    //qDebug() << __PRETTY_FUNCTION__ << url.path();
+    return std::make_shared<FileInfo>(gather_fileinfo(url));
 }
 
-struct GatherFunc
+// Parallel gather of file infos. Blocks until all gather results are available.
+QVector<FileInfoPtr> gather_fileinfos(const QVector<QUrl> &urls)
 {
-    using result_type = FileInfoPtr;
-
-    result_type operator() (const QUrl &url)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << url.path();
-        return std::make_shared<FileInfo>(std::move(gather_fileinfo(url)));
-    }
-};
-
-QFuture<FileInfoPtr> gather_fileinfos(std::vector<QUrl> urls)
-{
-    auto wrap = []
-    {
-        std::vector<QUrl> urls = { QUrl("foo"), QUrl("bar") };
-        qDebug() << __PRETTY_FUNCTION__ << urls;
-        return QtConcurrent::mapped(urls, GatherFunc());
-    };
-
-    qDebug() << __PRETTY_FUNCTION__ << urls;
-    auto result = wrap();
-
-    return result;
+    return QtConcurrent::blockingMapped(urls, gather_fileinfo_p);
 }
 
 }
 
 struct ReplayWidget::Private
 {
+    static const int ModeIndex_Replay = 0;
+    static const int ModeIndex_Merge = 1;
+    static const int ModeIndex_Split = 2;
+    static const int ModeIndex_Filter = 3;
+
     ReplayWidget *q = nullptr;
     std::unique_ptr<Ui::ReplayWidget> ui;
+    QStatusBar *statusbar_ = nullptr;
+
     QFileSystemModel *model_browseFs_ = nullptr;
     BrowseFilterModel *model_browseFsProxy_ = nullptr;
     QueueTableModel *model_queue_ = nullptr;
-    QFutureWatcher<replay::FileInfoPtr> gatherFileInfoWatcher_;
+
+    QFutureWatcher<QVector<replay::FileInfoPtr>> gatherFileInfoWatcher_;
     QMap<QUrl, replay::FileInfoPtr> fileInfoCache_;
 
-    void startFileInfoGather()
+    void startFileInfoGather(const QVector<QUrl> &urls)
     {
-        gatherFileInfoWatcher_.cancel();
-        gatherFileInfoWatcher_.setFuture(replay::gather_fileinfos(q->getQueueContents()));
+        if (gatherFileInfoWatcher_.isFinished())
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "start new gather for" << urls.size() << "urls";
+            // Wrap the blocking call to gater_fileinfos() in
+            // QtConcurrent::run(). This works and does not have the memory
+            // management issues QtConcurrent::mapped() has, as all arguments to
+            // run() are copied to the target thread.
+            auto f = QtConcurrent::run(replay::gather_fileinfos, urls);
+            gatherFileInfoWatcher_.setFuture(f);
+            statusbar_->showMessage("gathering file info...");
+        }
     }
 
     void onQueueChanged()
     {
-        qDebug() << __PRETTY_FUNCTION__ << q->getQueueContents();
-        startFileInfoGather();
+        QTimer::singleShot(std::chrono::milliseconds(500), q, [this] { startFileInfoGather(q->getQueueContents()); });
     }
 
     void onGatherFileInfoFinished()
     {
-        auto f = gatherFileInfoWatcher_.future();
+        statusbar_->clearMessage();
 
-        for (int i=0; i<f.resultCount(); ++i)
-        {
-            auto fileInfo = f.resultAt(i);
+        auto results = gatherFileInfoWatcher_.future().result();
+
+        for (const auto &fileInfo: results)
             fileInfoCache_[fileInfo->fileUrl] = fileInfo;
-        }
 
-        qDebug() << __PRETTY_FUNCTION__ << fileInfoCache_.keys();
+        qDebug() << __PRETTY_FUNCTION__ << "new cache size =" << fileInfoCache_.size();
+
+        QVector<QUrl> stillMissing;
+
+        for (const auto &url: q->getQueueContents())
+            if (!fileInfoCache_.contains(url))
+                stillMissing.push_back(url);
+
+        if (!stillMissing.isEmpty())
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "starting new gather for" << stillMissing.size() << "missing items";
+            startFileInfoGather(stillMissing);
+        }
     }
 };
 
@@ -130,6 +148,8 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     d->q = this;
     d->ui = std::make_unique<Ui::ReplayWidget>();
     d->ui->setupUi(this);
+    d->statusbar_ = new QStatusBar;
+    d->ui->outerLayout->addWidget(d->statusbar_);
 
     // browsing
     d->model_browseFs_ = new QFileSystemModel(this);
@@ -177,6 +197,7 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     tb_queueReplay->addAction(action_queuePause);
     tb_queueReplay->addAction(action_queueStop);
     tb_queueReplay->addAction(action_queueSkip);
+    tb_queueReplay->addSeparator();
     tb_queueReplay->addAction(action_queueClear);
 
     auto tb_queueMerge = make_toolbar();
@@ -184,7 +205,14 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     tb_queueMerge->addAction(action_queueStart);
     tb_queueMerge->addAction(action_queuePause);
     tb_queueMerge->addAction(action_queueStop);
+    tb_queueMerge->addSeparator();
     tb_queueMerge->addAction(action_queueClear);
+
+    connect(action_queueStart, &QAction::triggered, this, &ReplayWidget::start);
+    connect(action_queueStop, &QAction::triggered, this, &ReplayWidget::stop);
+    connect(action_queuePause, &QAction::triggered, this, &ReplayWidget::pause);
+    //connect(action_queueClear, &QAction::triggered, this, &ReplayWidget::resume);
+    connect(action_queueSkip, &QAction::triggered, this, &ReplayWidget::skip);
 
     connect(action_queueClear, &QAction::triggered,
             this, [this] { d->model_queue_->clearQueueContents(); });
@@ -215,9 +243,42 @@ QString ReplayWidget::getBrowsePath() const
     return d->model_browseFs_->rootPath();
 }
 
-std::vector<QUrl> ReplayWidget::getQueueContents() const
+QVector<QUrl> ReplayWidget::getQueueContents() const
 {
     return d->model_queue_->getQueueContents();
+}
+
+void ReplayWidget::clearFileInfoCache()
+{
+    d->fileInfoCache_.clear();
+}
+
+replay::CommandHolder ReplayWidget::getCommand() const
+{
+    int modeIndex = d->ui->combo_playMode->currentIndex();
+
+    #if 0
+    if (modeIndex == Private::ModeIndex_Replay)
+    {
+        replay::ReplayCommand ret;
+        ret.queue = getQueueContents();
+        // FIXME: loads the analysis from the first file. only do this in case no user analysis has been specified.
+        if (!ret.queue.isEmpty() && d->fileInfoCache_.contains(ret.queue.front()))
+            ret.analysisBlob = d->fileInfoCache_[ret.queue.front()]->handle.analysisBlob;
+        return ret;
+    }
+    else if (modeIndex == Private::ModeIndex_Merge)
+    {
+        replay::MergeCommand ret;
+        return ret;
+    }
+    #endif
+
+    return {};
+}
+
+void ReplayWidget::setCurrentFilename(const QString &filename)
+{
 }
 
 }

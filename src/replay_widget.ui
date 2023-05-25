@@ -19,7 +19,7 @@
   <property name="windowTitle">
    <string>ReplayWidget</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
+  <layout class="QVBoxLayout" name="outerLayout">
    <property name="spacing">
     <number>4</number>
    </property>
@@ -198,6 +198,9 @@
             </item>
             <item>
              <widget class="QComboBox" name="combo_playMode">
+              <property name="sizeAdjustPolicy">
+               <enum>QComboBox::AdjustToContents</enum>
+              </property>
               <item>
                <property name="text">
                 <string>Replay</string>

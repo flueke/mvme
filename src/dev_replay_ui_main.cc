@@ -36,7 +36,8 @@ int main(int argc, char *argv[])
     geoSaver.addAndRestore(&toolsWidget, "ToolsWidget");
 
     auto actionBrowse = tb->addAction("browse");
-    auto actionGetQueue = tb->addAction("queue");
+    auto actionGetQueue = tb->addAction("get_queue");
+    auto actionClearCache = tb->addAction("clear cache");
     auto actionQuit = tb->addAction("quit");
 
     QObject::connect(actionBrowse, &QAction::triggered,
@@ -55,11 +56,24 @@ int main(int argc, char *argv[])
             qDebug() << replayWidget.getQueueContents();
         });
 
+    QObject::connect(actionClearCache, &QAction::triggered,
+        &replayWidget, [&]
+        {
+            replayWidget.clearFileInfoCache();
+        });
+
     actionQuit->setShortcut(QSL("Ctrl+Q"));
     actionQuit->setShortcutContext(Qt::ApplicationShortcut);
 
     QObject::connect(actionQuit, &QAction::triggered,
         &app, QApplication::quit);
+
+    QObject::connect(&replayWidget, &mvme::ReplayWidget::start,
+        &replayWidget, [&]
+        {
+            auto cmd = replayWidget.getCommand();
+            qDebug() << "start requested, cmd idx =" << cmd.index();
+        });
 
     return app.exec();
 }

@@ -11,7 +11,7 @@
 #include <QStandardItemModel>
 #include <QStyleOption>
 #include <QUrl>
-#include <vector>
+#include <QVector>
 
 #include "util/qt_str.h"
 
@@ -194,17 +194,17 @@ class QueueTableModel: public QStandardItemModel
             removeRows(0, rowCount());
         }
 
-        std::vector<QUrl> getQueueContents() const
+        QVector<QUrl> getQueueContents() const
         {
             const auto rows = rowCount();
 
-            std::vector<QUrl> result;
+            QVector<QUrl> result;
             result.reserve(rows);
 
             for (int row = 0; row < rows; ++row)
             {
                 auto item0 = item(row, 0);
-                result.emplace_back(item0->data().toUrl());
+                result.push_back(item0->data().toUrl());
             }
 
             return result;
