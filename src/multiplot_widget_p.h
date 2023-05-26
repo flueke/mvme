@@ -71,7 +71,7 @@ class TilePlot: public QwtPlot
         QwtPlot::Axis yTitleAxis_ = QwtPlot::Axis::yLeft;
 };
 
-class PlotEntryVisitor;
+struct PlotEntryVisitor;
 
 class PlotEntry
 {
