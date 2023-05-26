@@ -93,14 +93,26 @@ struct ReplayWidget::Private
     BrowseFilterModel *model_browseFsProxy_ = nullptr;
     QueueTableModel *model_queue_ = nullptr;
 
+    QTimer startGatherFileInfoTimer_;
     QFutureWatcher<QVector<replay::FileInfoPtr>> gatherFileInfoWatcher_;
     QMap<QUrl, replay::FileInfoPtr> fileInfoCache_;
 
-    void startFileInfoGather(const QVector<QUrl> &urls)
+    QVector<QUrl> urlsMissingFromInfoCache(const QVector<QUrl> &inputUrls)
+    {
+        QVector<QUrl> stillMissing;
+
+        for (const auto &url: inputUrls)
+            if (!fileInfoCache_.contains(url))
+                stillMissing.push_back(url);
+
+        return stillMissing;
+    }
+
+    void startGatherFileInfo(const QVector<QUrl> &urls)
     {
         if (gatherFileInfoWatcher_.isFinished())
         {
-            qDebug() << __PRETTY_FUNCTION__ << "start new gather for" << urls.size() << "urls";
+            //qDebug() << __PRETTY_FUNCTION__ << "start new gather for" << urls.size() << "urls";
             // Wrap the blocking call to gater_fileinfos() in
             // QtConcurrent::run(). This works and does not have the memory
             // management issues QtConcurrent::mapped() has, as all arguments to
@@ -111,13 +123,16 @@ struct ReplayWidget::Private
         }
     }
 
-    void onQueueChanged()
+    void startGatherMissingFileInfos()
     {
-        QTimer::singleShot(std::chrono::milliseconds(500), q, [this] { startFileInfoGather(q->getQueueContents()); });
+        if (auto missing = urlsMissingFromInfoCache(q->getQueueContents()); !missing.isEmpty())
+            startGatherFileInfo(missing);
     }
 
     void onGatherFileInfoFinished()
     {
+        //qDebug() << __PRETTY_FUNCTION__;
+
         statusbar_->clearMessage();
 
         auto results = gatherFileInfoWatcher_.future().result();
@@ -125,19 +140,14 @@ struct ReplayWidget::Private
         for (const auto &fileInfo: results)
             fileInfoCache_[fileInfo->fileUrl] = fileInfo;
 
-        qDebug() << __PRETTY_FUNCTION__ << "new cache size =" << fileInfoCache_.size();
+        //qDebug() << __PRETTY_FUNCTION__ << "new cache size =" << fileInfoCache_.size();
 
-        QVector<QUrl> stillMissing;
+        startGatherMissingFileInfos();
+    }
 
-        for (const auto &url: q->getQueueContents())
-            if (!fileInfoCache_.contains(url))
-                stillMissing.push_back(url);
-
-        if (!stillMissing.isEmpty())
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "starting new gather for" << stillMissing.size() << "missing items";
-            startFileInfoGather(stillMissing);
-        }
+    void onQueueChanged()
+    {
+        startGatherFileInfoTimer_.start(std::chrono::milliseconds(500));
     }
 };
 
@@ -183,6 +193,7 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     d->ui->table_queue->setStyle(new FullWidthDropIndicatorStyle(style()));
     d->ui->table_queue->verticalHeader()->hide();
     d->ui->table_queue->horizontalHeader()->setHighlightSections(false);
+    d->ui->table_queue->horizontalHeader()->setStretchLastSection(true);
 
     // queue actions and toolbars
     auto action_queueStart = new QAction("start", this);
@@ -217,11 +228,18 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     connect(action_queueClear, &QAction::triggered,
             this, [this] { d->model_queue_->clearQueueContents(); });
 
+    // react to queue changes
     connect(d->model_queue_, &QAbstractItemModel::rowsInserted,
             this, [this] { d->onQueueChanged(); });
 
     connect(d->model_queue_, &QAbstractItemModel::modelReset,
             this, [this] { d->onQueueChanged(); });
+
+    // file info gather
+    d->startGatherFileInfoTimer_.setSingleShot(true);
+
+    connect(&d->startGatherFileInfoTimer_, &QTimer::timeout,
+            this, [this] { d->startGatherMissingFileInfos(); });
 
     connect(&d->gatherFileInfoWatcher_, &QFutureWatcher<replay::FileInfoPtr>::finished,
             this, [this] { d->onGatherFileInfoFinished(); });
