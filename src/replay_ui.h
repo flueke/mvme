@@ -8,9 +8,12 @@
 #include <memory>
 #include <variant>
 
+#include "libmvme_export.h"
+
 namespace mesytec::mvme
 {
 
+// Logic part to be moved into separate files.
 namespace replay
 {
 
@@ -20,6 +23,14 @@ namespace replay
 // split    split rules, e.g. timetick or event count based; output filename; produces MVLC_USB format
 // filter   analysis and condition(s) to use for filtering. output filename; produces MVLC_USB format
 
+enum ReplayCommandType
+{
+    Replay,
+    Merge,
+    Split,
+    Filter,
+};
+
 struct ReplayCommandBase
 {
     QVector<QUrl> queue;
@@ -27,34 +38,39 @@ struct ReplayCommandBase
 
 struct ReplayCommand: public ReplayCommandBase
 {
-    // XXX: better store the analysisblob or directly pass a loaded analysis instance here?
-    // FIXME: how to specify "load from listfile"? don't! instead pass the blob loaded from the listfile by default.
+    const ReplayCommandType type = ReplayCommandType::Replay;
     QByteArray analysisBlob;
-    QString analysisFilename;
+    QString analysisFilename; // For info purposes only. Data is kept in the blob.
 };
 
 struct MergeCommand: public ReplayCommandBase
 {
+    const ReplayCommandType type = ReplayCommandType::Merge;
     QString outputFilename;
 };
 
 struct SplitCommand: public ReplayCommandBase
 {
-    struct SplitRules
+    enum SplitCondition
     {
-        // time
-        // size
+        Duration,
+        CompressedSize,
+        UncompressedSize
     };
 
-    QString analysisFilename;
-    QString outputFilename;
-    SplitRules rules;
+    const ReplayCommandType type = ReplayCommandType::Split;
+    SplitCondition condition;
+    std::chrono::seconds splitInterval;
+    size_t splitSize;
+    QString outputBasename;
 };
 
 struct FilterCommand: public ReplayCommandBase
 {
-    QString analysisFilename;
-    QUuid filterCondition;
+    const ReplayCommandType type = ReplayCommandType::Filter;
+    QByteArray analysisBlob;
+    QString analysisFilename; // For info purposes only. Data is kept in the blob.
+    QUuid filterCondition; // Id of the analysis condition to use for filtering.
     QString outputFilename;
 };
 
@@ -62,7 +78,7 @@ using CommandHolder = std::variant<ReplayCommand, MergeCommand, SplitCommand, Fi
 
 }
 
-class ReplayWidget: public QWidget
+class LIBMVME_EXPORT ReplayWidget: public QWidget
 {
     Q_OBJECT
     signals:

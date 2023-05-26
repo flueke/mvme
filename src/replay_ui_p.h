@@ -3,6 +3,7 @@
 
 #include <QDebug>
 #include <QAbstractTableModel>
+#include <QtConcurrent>
 #include <QFileInfo>
 #include <QFileSystemModel>
 #include <QMimeData>
@@ -13,10 +14,75 @@
 #include <QUrl>
 #include <QVector>
 
+#include "listfile_replay.h"
 #include "util/qt_str.h"
 
 namespace mesytec::mvme
 {
+
+namespace replay
+{
+
+struct FileInfo
+{
+    QUrl fileUrl;
+    ListfileReplayHandle handle;
+    std::unique_ptr<VMEConfig> vmeConfig;
+    QString errorString;
+    std::error_code errorCode;
+    std::exception_ptr exceptionPtr;
+    std::chrono::steady_clock::time_point updateTime;
+
+    bool hasError() const
+    {
+        return !errorString.isEmpty() || errorCode || exceptionPtr;
+    }
+};
+
+inline FileInfo gather_fileinfo(QUrl url)
+{
+    FileInfo result = {};
+
+    try
+    {
+        result.fileUrl = url;
+        result.handle = open_listfile(url.path());
+        auto [vmeConfig, ec] = read_vme_config_from_listfile(result.handle);
+        result.vmeConfig = std::move(vmeConfig);
+        result.errorCode = ec;
+        result.updateTime = std::chrono::steady_clock::now();
+    }
+    catch(const QString &e)
+    {
+        result.errorString = e;
+    }
+    catch(const std::exception &)
+    {
+        result.exceptionPtr = std::current_exception();
+    }
+
+    return result;
+}
+
+// FileInfo is not copyable but only movable so a shared_ptr to FileInfo is used
+// which can be copied freely.
+using FileInfoPtr = std::shared_ptr<FileInfo>;
+
+inline FileInfoPtr gather_fileinfo_p(const QUrl &url)
+{
+    //qDebug() << __PRETTY_FUNCTION__ << url.path();
+    return std::make_shared<FileInfo>(gather_fileinfo(url));
+}
+
+// Parallel gather of file infos. Blocks until all gather results are available.
+inline QVector<FileInfoPtr> gather_fileinfos(const QVector<QUrl> &urls)
+{
+    return QtConcurrent::blockingMapped(urls, gather_fileinfo_p);
+}
+
+using FileInfoCache = QMap<QUrl, replay::FileInfoPtr>;
+
+}
 
 class BrowseFilterModel: public QSortFilterProxyModel
 {
@@ -126,6 +192,12 @@ class QueueTableItem: public QStandardItem
 class QueueTableModel: public QStandardItemModel
 {
     Q_OBJECT
+    private:
+        static const int Col_Name = 0;
+        static const int Col_Modified = 1;
+        static const int Col_Info0 = 2;
+        static const int Col_Info1 = 3;
+
     public:
         QueueTableModel(QObject *parent = nullptr)
             : QStandardItemModel(parent)
@@ -175,6 +247,7 @@ class QueueTableModel: public QStandardItemModel
                     appendRow(rowItems);
             }
 
+            updateModelData();
             return true;
         }
 
@@ -187,6 +260,7 @@ class QueueTableModel: public QStandardItemModel
                 invisibleRootItem()->appendRow(rowItems);
             }
             endResetModel();
+            updateModelData();
         }
 
         void clearQueueContents()
@@ -210,8 +284,15 @@ class QueueTableModel: public QStandardItemModel
             return result;
         }
 
+        void setFileInfoCache(const std::shared_ptr<replay::FileInfoCache> &cache)
+        {
+            fileInfoCache_ = cache;
+            updateModelData();
+        }
+
     private:
         static const QStringList Headers;
+        std::shared_ptr<replay::FileInfoCache> fileInfoCache_;
 
         // Note: this is dangerous. Add the returned row to the model asap,
         // manually delete the items or leak memory.
@@ -227,6 +308,51 @@ class QueueTableModel: public QStandardItemModel
                 rowItems.append(new QueueTableItem);
 
            return rowItems;
+        }
+
+        void updateModelData()
+        {
+            const auto rows = rowCount();
+
+            for (int row=0; row<rows; ++row)
+            {
+                auto url = item(row, 0)->data().toUrl();
+                QString info0;
+
+                if (fileInfoCache_ && fileInfoCache_->contains(url))
+                {
+                    const auto &fileInfo = fileInfoCache_->value(url);
+
+                    if (fileInfo->hasError())
+                    {
+                        if (!fileInfo->errorString.isEmpty())
+                            info0 = QSL("Error: ") + fileInfo->errorString;
+                        else if (fileInfo->errorCode)
+                            info0 = QSL("Error: ") + QString::fromStdString(fileInfo->errorCode.message());
+                        else if (fileInfo->exceptionPtr)
+                        {
+                            try
+                            {
+                                std::rethrow_exception(fileInfo->exceptionPtr);
+                            }
+                            catch (const std::exception &e)
+                            {
+                                info0 = QSL("Error: ") + e.what();
+                            }
+                            catch (...)
+                            {
+                                info0 = QSL("Error: unknown exception");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        info0 = QSL("Format: ") + to_string(fileInfo->handle.format);
+                    }
+                }
+
+                item(row, Col_Info0)->setText(info0);
+            }
         }
 };
 

@@ -1,7 +1,6 @@
 #include "replay_ui.h"
 #include "replay_ui_p.h"
 
-#include <QtConcurrent>
 #include <QFutureWatcher>
 #include <QSet>
 #include <QStatusBar>
@@ -11,72 +10,12 @@
 
 #include <algorithm>
 #include <chrono>
-#include <thread>
 
 #include "qt_util.h"
-#include "listfile_replay.h"
 #include "ui_replay_widget.h"
 
 namespace mesytec::mvme
 {
-
-namespace replay
-{
-
-struct FileInfo
-{
-    QUrl fileUrl;
-    ListfileReplayHandle handle;
-    std::unique_ptr<VMEConfig> vmeConfig;
-    QString errorString;
-    std::error_code errorCode;
-    std::exception_ptr exceptionPtr;
-    std::chrono::steady_clock::time_point updateTime;
-};
-
-FileInfo gather_fileinfo(QUrl url)
-{
-    FileInfo result = {};
-
-    try
-    {
-        result.fileUrl = url;
-        result.handle = open_listfile(url.path());
-        auto [vmeConfig, ec] = read_vme_config_from_listfile(result.handle);
-        result.vmeConfig = std::move(vmeConfig);
-        result.errorCode = ec;
-        result.updateTime = std::chrono::steady_clock::now();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2500));
-    }
-    catch(const QString &e)
-    {
-        result.errorString = e;
-    }
-    catch(const std::exception &)
-    {
-        result.exceptionPtr = std::current_exception();
-    }
-
-    return result;
-}
-
-// FileInfo is not copyable but only movable so a shared_ptr to FileInfo is used
-// which can be copied freely.
-using FileInfoPtr = std::shared_ptr<FileInfo>;
-
-FileInfoPtr gather_fileinfo_p(const QUrl &url)
-{
-    //qDebug() << __PRETTY_FUNCTION__ << url.path();
-    return std::make_shared<FileInfo>(gather_fileinfo(url));
-}
-
-// Parallel gather of file infos. Blocks until all gather results are available.
-QVector<FileInfoPtr> gather_fileinfos(const QVector<QUrl> &urls)
-{
-    return QtConcurrent::blockingMapped(urls, gather_fileinfo_p);
-}
-
-}
 
 struct ReplayWidget::Private
 {
@@ -95,14 +34,14 @@ struct ReplayWidget::Private
 
     QTimer startGatherFileInfoTimer_;
     QFutureWatcher<QVector<replay::FileInfoPtr>> gatherFileInfoWatcher_;
-    QMap<QUrl, replay::FileInfoPtr> fileInfoCache_;
+    std::shared_ptr<replay::FileInfoCache> fileInfoCache_;
 
     QVector<QUrl> urlsMissingFromInfoCache(const QVector<QUrl> &inputUrls)
     {
         QVector<QUrl> stillMissing;
 
         for (const auto &url: inputUrls)
-            if (!fileInfoCache_.contains(url))
+            if (!fileInfoCache_->contains(url))
                 stillMissing.push_back(url);
 
         return stillMissing;
@@ -131,18 +70,18 @@ struct ReplayWidget::Private
 
     void onGatherFileInfoFinished()
     {
-        //qDebug() << __PRETTY_FUNCTION__;
-
         statusbar_->clearMessage();
 
         auto results = gatherFileInfoWatcher_.future().result();
 
         for (const auto &fileInfo: results)
-            fileInfoCache_[fileInfo->fileUrl] = fileInfo;
+            (*fileInfoCache_)[fileInfo->fileUrl] = fileInfo;
 
-        //qDebug() << __PRETTY_FUNCTION__ << "new cache size =" << fileInfoCache_.size();
+        //qDebug() << __PRETTY_FUNCTION__ << "new cache size =" << fileInfoCache_->size();
 
         startGatherMissingFileInfos();
+
+        model_queue_->setFileInfoCache(fileInfoCache_);
     }
 
     void onQueueChanged()
@@ -160,6 +99,7 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     d->ui->setupUi(this);
     d->statusbar_ = new QStatusBar;
     d->ui->outerLayout->addWidget(d->statusbar_);
+    d->fileInfoCache_ = std::make_shared<replay::FileInfoCache>();
 
     // browsing
     d->model_browseFs_ = new QFileSystemModel(this);
@@ -235,6 +175,13 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     connect(d->model_queue_, &QAbstractItemModel::modelReset,
             this, [this] { d->onQueueChanged(); });
 
+    connect(d->model_queue_, &QStandardItemModel::itemChanged,
+            this, [this]
+            {
+                d->ui->table_queue->resizeColumnsToContents();
+                d->ui->table_queue->resizeRowsToContents();
+            });
+
     // file info gather
     d->startGatherFileInfoTimer_.setSingleShot(true);
 
@@ -268,29 +215,46 @@ QVector<QUrl> ReplayWidget::getQueueContents() const
 
 void ReplayWidget::clearFileInfoCache()
 {
-    d->fileInfoCache_.clear();
+    d->fileInfoCache_->clear();
 }
 
 replay::CommandHolder ReplayWidget::getCommand() const
 {
-    int modeIndex = d->ui->combo_playMode->currentIndex();
+     const auto modeIndex = static_cast<replay::ReplayCommandType>(d->ui->combo_playMode->currentIndex());
 
-    #if 0
-    if (modeIndex == Private::ModeIndex_Replay)
+    switch (modeIndex)
     {
-        replay::ReplayCommand ret;
-        ret.queue = getQueueContents();
-        // FIXME: loads the analysis from the first file. only do this in case no user analysis has been specified.
-        if (!ret.queue.isEmpty() && d->fileInfoCache_.contains(ret.queue.front()))
-            ret.analysisBlob = d->fileInfoCache_[ret.queue.front()]->handle.analysisBlob;
-        return ret;
+        case replay::ReplayCommandType::Replay:
+        {
+            replay::ReplayCommand ret;
+            ret.queue = getQueueContents();
+            // FIXME: loads the analysis from the first file. only do this in case no user analysis has been specified.
+            if (!ret.queue.isEmpty() && d->fileInfoCache_->contains(ret.queue.front()))
+            {
+                ret.analysisBlob = d->fileInfoCache_->value(ret.queue.front())->handle.analysisBlob;
+                ret.analysisFilename = "<from " + ret.queue.front().fileName() + ">";
+            }
+            return ret;
+        } break;
+
+        case replay::ReplayCommandType::Merge:
+        {
+            replay::MergeCommand ret;
+            return ret;
+        } break;
+
+        case replay::ReplayCommandType::Split:
+        {
+            replay::SplitCommand ret;
+            return ret;
+        } break;
+
+        case replay::ReplayCommandType::Filter:
+        {
+            replay::FilterCommand ret;
+            return ret;
+        } break;
     }
-    else if (modeIndex == Private::ModeIndex_Merge)
-    {
-        replay::MergeCommand ret;
-        return ret;
-    }
-    #endif
 
     return {};
 }
