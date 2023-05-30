@@ -1,11 +1,37 @@
 #include <QApplication>
 #include <QFileDialog>
+#include <QThread>
 #include <spdlog/spdlog.h>
 
+#include "mvlc_listfile_worker.h"
+#include "mvme_listfile_worker.h"
 #include "mvme_session.h"
 #include "replay_ui.h"
 
 using namespace mesytec;
+
+struct ReplayContext
+{
+    enum State
+    {
+        Idle,
+        Running
+    };
+
+    struct MvmeQueues
+    {
+        ThreadSafeDataBufferQueue m_freeBuffers;
+        ThreadSafeDataBufferQueue m_fullBuffers;
+    };
+
+    State state;
+    std::unique_ptr<ListfileReplayWorker> replayWorker;
+    std::unique_ptr<mesytec::mvlc::ReadoutBufferQueues> mvlcQueues;
+    std::unique_ptr<MvmeQueues> mvmeQueues;
+
+    QThread replayThread;
+    QThread anaThread;
+};
 
 int main(int argc, char *argv[])
 {
