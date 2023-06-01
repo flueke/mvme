@@ -2,9 +2,12 @@
 #include <QFileDialog>
 #include <QThread>
 #include <spdlog/spdlog.h>
+#include <thread>
+#include <memory>
 
-#include "mvlc_listfile_worker.h"
-#include "mvme_listfile_worker.h"
+//#include "mvlc_listfile_worker.h"
+//#include "mvme_listfile_worker.h"
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mvme_session.h"
 #include "replay_ui.h"
 
@@ -18,19 +21,21 @@ struct ReplayContext
         Running
     };
 
-    struct MvmeQueues
-    {
-        ThreadSafeDataBufferQueue m_freeBuffers;
-        ThreadSafeDataBufferQueue m_fullBuffers;
-    };
+    //struct MvmeQueues
+    //{
+    //    ThreadSafeDataBufferQueue m_freeBuffers;
+    //    ThreadSafeDataBufferQueue m_fullBuffers;
+    //};
+    //std::unique_ptr<MvmeQueues> mvmeQueues;
+
+    //std::unique_ptr<ListfileReplayWorker> replayWorker;
+    //std::unique_ptr<mesytec::mvlc::ReadoutBufferQueues> mvlcQueues;
 
     State state;
-    std::unique_ptr<ListfileReplayWorker> replayWorker;
-    std::unique_ptr<mesytec::mvlc::ReadoutBufferQueues> mvlcQueues;
-    std::unique_ptr<MvmeQueues> mvmeQueues;
+    mvme::replay::CommandHolder cmd;
 
-    QThread replayThread;
-    QThread anaThread;
+    std::unique_ptr<mvlc::ReplayWorker> replayWorker;
+    std::thread anaThread;
 };
 
 int main(int argc, char *argv[])
