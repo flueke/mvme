@@ -656,10 +656,10 @@ read_config_from_listfile(
 {
     auto json = listfile->getVMEConfigJSON();
 
-    mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
+    mesytec::mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
     updateOptions.skip_v4_VMEScriptVariableUpdate = true;
 
-    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
+    json = mesytec::mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
 
     auto vmeConfig = std::make_unique<VMEConfig>();
     auto ec = vmeConfig->read(json);

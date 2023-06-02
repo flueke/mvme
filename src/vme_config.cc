@@ -929,7 +929,7 @@ std::error_code VMEConfig::write_impl(QJsonObject &json) const
     controllerJson["type"] = to_string(m_controllerType);
     controllerJson["settings"] = QJsonObject::fromVariantMap(m_controllerSettings);
     json["vme_controller"] = controllerJson;
-    mvme::vme_config::json_schema::set_vmeconfig_version(json, GetCurrentVMEConfigVersion());
+    mesytec::mvme::vme_config::json_schema::set_vmeconfig_version(json, GetCurrentVMEConfigVersion());
 
     return {};
 }
@@ -939,7 +939,7 @@ std::error_code VMEConfig::read_impl(const QJsonObject &json)
     // Version check before trying to load. The json schema should have been
     // updated on the outside.
     {
-        int version = mvme::vme_config::json_schema::get_vmeconfig_version(json);
+        int version = mesytec::mvme::vme_config::json_schema::get_vmeconfig_version(json);
 
         if (version < GetCurrentVMEConfigVersion())
             return make_error_code(VMEConfigReadResult::VersionTooOld);
@@ -1126,7 +1126,7 @@ std::pair<std::unique_ptr<VMEConfig>, QString>
         return result;
     }
 
-    QJsonObject json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(
+    QJsonObject json = mesytec::mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(
         doc.object()["DAQConfig"].toObject(), logger, {});
 
     auto vmeConfig = std::make_unique<VMEConfig>();

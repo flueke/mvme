@@ -24,11 +24,7 @@
 #include <functional>
 #include <QJsonObject>
 
-namespace mvme
-{
-namespace vme_config
-{
-namespace json_schema
+namespace mesytec::mvme::vme_config::json_schema
 {
 using Logger = std::function<void (const QString &msg)>;
 
@@ -48,8 +44,6 @@ QJsonObject convert_vmeconfig_to_current_version(
 void set_vmeconfig_version(QJsonObject &json, int version);
 int get_vmeconfig_version(const QJsonObject &json);
 
-} // end namespace json_schema
-} // end namespace vme_config
-} // end namespace mvme
+}
 
 #endif /* __MVME_VME_CONFIG_JSON_CONFIG_CONVERSIONS_H__ */

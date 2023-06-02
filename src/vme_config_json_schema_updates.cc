@@ -64,11 +64,7 @@ u32 guess_module_readout_num_events(const QString &vmeSettingsScript)
 
 } // end anon namespace
 
-namespace mvme
-{
-namespace vme_config
-{
-namespace json_schema
+namespace mvme::vme_config::json_schema
 {
 
 u8 guess_event_mcst(const QString &eventScript)
@@ -89,13 +85,11 @@ u8 guess_event_mcst(const QString &eventScript)
 }
 
 } // end namespace json_schema
-} // end namespace vme_config
-} // end namespace mvme
 
 namespace
 {
 
-using namespace mvme::vme_config::json_schema;
+using namespace mesytec::mvme::vme_config::json_schema;
 
 using VMEConfigConverter = std::function<QJsonObject (
     QJsonObject oldJson, Logger logger, const SchemaUpdateOptions & options)>;
@@ -655,11 +649,7 @@ static QVector<VMEConfigConverter> VMEConfigConverters =
 
 } // end anon namespace
 
-namespace mvme
-{
-namespace vme_config
-{
-namespace json_schema
+namespace mesytec::mvme::vme_config::json_schema
 {
 
 void set_vmeconfig_version(QJsonObject &json, int version)
@@ -702,5 +692,3 @@ QJsonObject convert_vmeconfig_to_current_version(
 }
 
 } // end namespace json_schema
-} // end namespace vme_config_json
-} // end namespace mvme
