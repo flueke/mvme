@@ -60,7 +60,7 @@ static const QMap<InternalState, QString> InternalState_StringTable =
     { PausedAfterSingleStep,            QSL("InternalState::PausedAfterSingleStep") },
 };
 
-static const u32 FilledBufferWaitTimeout_ms = 125;
+constexpr auto FilledBufferWaitTimeout_ms = std::chrono::milliseconds(100);
 static const u32 ProcessEventsMinInterval_ms = 500;
 static const double PauseMaxSleep_ms = 125.0;
 
@@ -86,27 +86,10 @@ struct MVMEStreamWorkerPrivate
 
 DataBuffer *MVMEStreamWorkerPrivate::dequeueNextBuffer()
 {
-    DataBuffer *buffer = nullptr;
+    if (internalState == StopIfQueueEmpty && fullBuffers->empty())
+        return nullptr;
 
-    {
-        QMutexLocker lock(&fullBuffers->mutex);
-
-        if (fullBuffers->queue.isEmpty())
-        {
-            if (internalState == StopIfQueueEmpty)
-            {
-                //internalState = StopImmediately;
-                return buffer;
-            }
-
-            fullBuffers->wc.wait(&fullBuffers->mutex, FilledBufferWaitTimeout_ms);
-        }
-
-        if (!fullBuffers->queue.isEmpty())
-        {
-            buffer = fullBuffers->queue.dequeue();
-        }
-    }
+    auto buffer = fullBuffers->dequeue(FilledBufferWaitTimeout_ms);
 
     // Set increasing buffer number for MVMELST buffers only. MVLC buffers have
     // a buffer  number assigned by the readout side.
@@ -438,7 +421,7 @@ void MVMEStreamWorker::start()
                     if (auto buffer = m_d->dequeueNextBuffer())
                     {
                         m_d->streamProcessor.processDataBuffer(buffer);
-                        enqueue(m_d->freeBuffers, buffer);
+                        m_d->freeBuffers->enqueue(buffer);
                     }
                     else if (internalState == StopIfQueueEmpty)
                         m_d->internalState = StopImmediately;
@@ -497,7 +480,7 @@ void MVMEStreamWorker::start()
                         if (singleStepProcState.stepResult == ProcessingState::StepResult_AtEnd
                             || singleStepProcState.stepResult == ProcessingState::StepResult_Error)
                         {
-                            enqueue(m_d->freeBuffers, singleStepProcState.buffer);
+                            m_d->freeBuffers->enqueue(singleStepProcState.buffer);
                             singleStepProcState = MVMEStreamProcessor::ProcessingState();
                         }
                     }
@@ -527,7 +510,7 @@ void MVMEStreamWorker::start()
                             if (singleStepProcState.stepResult == ProcessingState::StepResult_AtEnd
                                 || singleStepProcState.stepResult == ProcessingState::StepResult_Error)
                             {
-                                enqueue(m_d->freeBuffers, singleStepProcState.buffer);
+                                m_d->freeBuffers->enqueue(singleStepProcState.buffer);
                                 singleStepProcState = MVMEStreamProcessor::ProcessingState();
                                 break;
                             }

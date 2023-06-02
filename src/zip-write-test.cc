@@ -38,7 +38,7 @@ void reader(QIODevice &input, Context &ctx)
 {
     while (!input.atEnd())
     {
-        auto buffer = dequeue(&ctx.emptyBuffers, 100);
+        auto buffer = ctx.emptyBuffers.dequeue(std::chrono::milliseconds(100));
 
         if (!buffer)
             continue;
@@ -51,7 +51,7 @@ void reader(QIODevice &input, Context &ctx)
         ctx.bytesRead += readLen;
         ctx.readCount++;
 
-        enqueue_and_wakeOne(&ctx.filledBuffers, buffer);
+        ctx.filledBuffers.enqueue(buffer);
 
         if (readLen == 0)
             break;
@@ -65,9 +65,9 @@ void writer(QIODevice *outdev, Context &ctx)
 {
     DataBuffer *buffer = nullptr;
 
-    while (!(ctx.quit && is_empty(&ctx.filledBuffers)))
+    while (!(ctx.quit && ctx.filledBuffers.empty()))
     {
-        if ((buffer = dequeue(&ctx.filledBuffers, 100)))
+        if ((buffer = ctx.filledBuffers.dequeue(std::chrono::milliseconds(100))))
         {
             if (buffer->used == 0)
                 break;
@@ -84,7 +84,7 @@ void writer(QIODevice *outdev, Context &ctx)
                 ctx.writeCount++;
             }
 
-            enqueue_and_wakeOne(&ctx.emptyBuffers, buffer);
+            ctx.emptyBuffers.enqueue(buffer);
         }
         else
         {
@@ -93,7 +93,7 @@ void writer(QIODevice *outdev, Context &ctx)
     }
 
     if (buffer)
-        enqueue_and_wakeOne(&ctx.emptyBuffers, buffer);
+        ctx.emptyBuffers.enqueue(buffer);
 }
 
 int main(int argc, char *argv[])
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
     for (size_t i=0; i<BufferCount;i++)
     {
         ctx.bufferStore.emplace_back(std::make_unique<DataBuffer>(BufferSize));
-        enqueue(&ctx.emptyBuffers, ctx.bufferStore.back().get());
+        ctx.emptyBuffers.enqueue(ctx.bufferStore.back().get());
     }
 
     auto tStart = std::chrono::steady_clock::now();
@@ -156,4 +156,3 @@ int main(int argc, char *argv[])
     cout << "Writing took " << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() <<  " ms" << endl;
     cout << "rate: " << megaBytesPerSecond << " MB/s" << endl;
 }
-

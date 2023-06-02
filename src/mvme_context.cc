@@ -573,7 +573,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
 
     for (size_t i=0; i<ReadoutBufferCount; ++i)
     {
-        enqueue(&m_freeBuffers, new DataBuffer(ReadoutBufferSize));
+        m_freeBuffers.enqueue(new DataBuffer(ReadoutBufferSize));
     }
 
 #if 0
@@ -680,9 +680,10 @@ MVMEContext::~MVMEContext()
     delete m_controller;
     delete m_readoutWorker;
 
-    Q_ASSERT(queue_size(&m_freeBuffers) + queue_size(&m_fullBuffers) == ReadoutBufferCount);
-    qDeleteAll(m_freeBuffers.queue);
-    qDeleteAll(m_fullBuffers.queue);
+    Q_ASSERT(m_freeBuffers.size() + m_fullBuffers.size() == ReadoutBufferCount);
+
+    while (auto buffer = m_freeBuffers.dequeue()) delete buffer;
+    while (auto buffer = m_fullBuffers.dequeue()) delete buffer;
 
     m_d->workspaceClosingCleanup();
 
@@ -1635,17 +1636,17 @@ bool MVMEContext::prepareStart()
 #endif
 
     qDebug() << __PRETTY_FUNCTION__
-        << "free buffers:" << queue_size(&m_freeBuffers)
-        << "filled buffers:" << queue_size(&m_fullBuffers);
+        << "free buffers:" << m_freeBuffers.size()
+        << "filled buffers:" << m_fullBuffers.size();
 
     // Discard any filled buffers from a previous run, moving them back to the
     // free queue. This way the analysis side won't get stale data in case it
     // previously quit without consuming all enqueued buffers.
-    while (auto buffer = dequeue(&m_fullBuffers))
-        enqueue(&m_freeBuffers, buffer);
+    while (auto buffer = m_fullBuffers.dequeue())
+        m_freeBuffers.enqueue(buffer);
 
-    assert(queue_size(&m_freeBuffers) == ReadoutBufferCount);
-    assert(queue_size(&m_fullBuffers) == 0);
+    assert(m_freeBuffers.size() == ReadoutBufferCount);
+    assert(m_fullBuffers.empty());
 
     assert(m_streamWorker->getState() == AnalysisWorkerState::Idle);
 

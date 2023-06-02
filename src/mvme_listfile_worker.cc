@@ -90,7 +90,7 @@ void MVMEListfileWorker::resume()
     m_desiredState = DAQState::Running;
 }
 
-static const u32 FreeBufferWaitTimeout_ms = 250;
+constexpr auto FreeBufferWaitTimeout_ms = std::chrono::milliseconds(100);
 static const double PauseSleep_ms = 250;
 
 void MVMEListfileWorker::mainLoop()
@@ -123,21 +123,7 @@ void MVMEListfileWorker::mainLoop()
         // stay in running state
         else if (m_state == DAQState::Running)
         {
-            DataBuffer *buffer = nullptr;
-
-            {
-                QMutexLocker lock(&getEmptyQueue()->mutex);
-                while (getEmptyQueue()->queue.isEmpty() && m_desiredState == DAQState::Running)
-                {
-                    getEmptyQueue()->wc.wait(&getEmptyQueue()->mutex, FreeBufferWaitTimeout_ms);
-                }
-
-                if (!getEmptyQueue()->queue.isEmpty())
-                {
-                    buffer = getEmptyQueue()->queue.dequeue();
-                }
-            }
-            // The mutex is unlocked again at this point
+            auto buffer = getEmptyQueue()->dequeue(FreeBufferWaitTimeout_ms);
 
             if (buffer)
             {
@@ -215,9 +201,7 @@ void MVMEListfileWorker::mainLoop()
                     // Reading did not succeed. Put the previously acquired buffer
                     // back into the free queue. No need to notfiy the wait
                     // condition as there's no one else waiting on it.
-                    QMutexLocker lock(&getEmptyQueue()->mutex);
-                    getEmptyQueue()->queue.enqueue(buffer);
-
+                    getEmptyQueue()->enqueue(buffer);
                     setState(DAQState::Stopping);
                 }
                 else
@@ -230,10 +214,7 @@ void MVMEListfileWorker::mainLoop()
                         logMessage("<<< End buffer");
                     }
                     // Push the valid buffer onto the output queue.
-                    getFilledQueue()->mutex.lock();
-                    getFilledQueue()->queue.enqueue(buffer);
-                    getFilledQueue()->mutex.unlock();
-                    getFilledQueue()->wc.wakeOne();
+                    getFilledQueue()->enqueue(buffer);
                 }
             }
         }

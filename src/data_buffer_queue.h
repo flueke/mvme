@@ -20,9 +20,10 @@
  */
 #ifndef __DATA_BUFFER_QUEUE_H__
 #define __DATA_BUFFER_QUEUE_H__
-#include "databuffer.h"
-#include "threading.h"
 
-using ThreadSafeDataBufferQueue = ThreadSafeQueue<DataBuffer *>;
+#include <mesytec-mvlc/util/threadsafequeue.h>
+#include "databuffer.h"
+
+using ThreadSafeDataBufferQueue = mesytec::mvlc::ThreadSafeQueue<DataBuffer *>;
 
 #endif /* __DATA_BUFFER_QUEUE_H__ */

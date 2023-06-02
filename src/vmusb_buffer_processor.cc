@@ -179,7 +179,7 @@ void VMUSBBufferProcessor::endRun()
     if (m_d->m_outputBuffer && m_d->m_outputBuffer != &m_localEventBuffer)
     {
         // Return buffer to the free queue
-        enqueue(m_freeBufferQueue, m_d->m_outputBuffer);
+        m_freeBufferQueue->enqueue(m_d->m_outputBuffer);
         m_d->m_outputBuffer = nullptr;
     }
 
@@ -359,7 +359,7 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 if (outputBuffer != &m_localEventBuffer)
                 {
                     // It's not the local buffer -> put it into the queue of filled buffers
-                    enqueue_and_wakeOne(m_filledBufferQueue, outputBuffer);
+                    m_filledBufferQueue->enqueue(outputBuffer);
                 }
                 else
                 {
@@ -466,7 +466,7 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     if (outputBuffer && outputBuffer != &m_localEventBuffer)
     {
         // Put the buffer back onto the free queue
-        enqueue(m_freeBufferQueue, outputBuffer);
+        m_freeBufferQueue->enqueue(outputBuffer);
         m_d->m_outputBuffer = nullptr;
     }
 }
@@ -838,7 +838,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 {
-    return dequeue(m_freeBufferQueue);
+    return m_freeBufferQueue->dequeue();
 }
 
 DAQStats *VMUSBBufferProcessor::getStats()

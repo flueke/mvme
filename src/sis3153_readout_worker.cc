@@ -2460,7 +2460,7 @@ void SIS3153ReadoutWorker::flushCurrentOutputBuffer()
 
         if (outputBuffer != &m_localEventBuffer)
         {
-            enqueue_and_wakeOne(m_workerContext.fullBuffers, outputBuffer);
+            m_workerContext.fullBuffers->enqueue(outputBuffer);
         }
         else
         {
@@ -2548,7 +2548,7 @@ DataBuffer *SIS3153ReadoutWorker::getOutputBuffer()
 
     if (!outputBuffer)
     {
-        outputBuffer = dequeue(m_workerContext.freeBuffers);
+        outputBuffer = m_workerContext.freeBuffers->dequeue();
 
         if (!outputBuffer)
         {
@@ -2570,7 +2570,7 @@ void SIS3153ReadoutWorker::maybePutBackBuffer()
         // We still hold onto one of the buffers obtained from the free queue.
         // This can happen for the SkipInput case. Put the buffer back into the
         // free queue.
-        enqueue(m_workerContext.freeBuffers, m_outputBuffer);
+        m_workerContext.freeBuffers->enqueue(m_outputBuffer);
         sis_trace("resetting current output buffer");
     }
 
