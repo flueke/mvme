@@ -11,19 +11,96 @@
 #include <algorithm>
 #include <chrono>
 
+#include <mesytec-mvlc/util/protected.h>
+
 #include "qt_util.h"
 #include "ui_replay_widget.h"
+
+using mesytec::mvlc::WaitableProtected;
 
 namespace mesytec::mvme
 {
 
+namespace replay
+{
+
+struct ListfileCommandExecutor::Private
+{
+    WaitableProtected<State> state_ = State::Idle;
+    CommandHolder cmd_;
+
+    std::thread runThread_;
+    void run();
+};
+
+ListfileCommandExecutor::ListfileCommandExecutor(QObject *parent)
+    : QObject(parent)
+    , d(std::make_unique<Private>())
+{}
+
+ListfileCommandExecutor::~ListfileCommandExecutor()
+{}
+
+ListfileCommandExecutor::State ListfileCommandExecutor::state() const
+{
+    return d->state_.copy();
+}
+
+bool ListfileCommandExecutor::setCommand(const CommandHolder &cmd)
+{
+    if (auto access = d->state_.access(); access.ref() == State::Idle)
+    {
+        d->cmd_ = cmd;
+        return true;
+    }
+
+    return false;
+}
+
+void ListfileCommandExecutor::start()
+{
+    if (auto access = d->state_.access();
+        access.ref() == State::Idle && d->cmd_.index() != std::variant_npos)
+    {
+        d->runThread_ = std::thread(&Private::run, d.get());
+        access.ref() = State::Running;
+    }
+}
+
+void ListfileCommandExecutor::cancel()
+{
+}
+
+void ListfileCommandExecutor::pause()
+{
+}
+
+void ListfileCommandExecutor::resume()
+{
+}
+
+void ListfileCommandExecutor::skip()
+{
+}
+
+void ListfileCommandExecutor::Private::run()
+{
+    if (cmd_.index() == ReplayCommandType::Replay)
+    {
+        auto cmd = std::get<0>(cmd_);
+        const auto queueSize = cmd.queue.size();
+
+        for (int i=0; i<queueSize; ++i)
+        {
+            auto url = cmd.queue[i];
+        }
+    }
+}
+
+}
+
 struct ReplayWidget::Private
 {
-    static const int ModeIndex_Replay = 0;
-    static const int ModeIndex_Merge = 1;
-    static const int ModeIndex_Split = 2;
-    static const int ModeIndex_Filter = 3;
-
     ReplayWidget *q = nullptr;
     std::unique_ptr<Ui::ReplayWidget> ui;
     QStatusBar *statusbar_ = nullptr;
@@ -220,9 +297,9 @@ void ReplayWidget::clearFileInfoCache()
 
 replay::CommandHolder ReplayWidget::getCommand() const
 {
-     const auto modeIndex = static_cast<replay::ReplayCommandType>(d->ui->combo_playMode->currentIndex());
+    const auto mode = static_cast<replay::ReplayCommandType>(d->ui->combo_playMode->currentIndex());
 
-    switch (modeIndex)
+    switch (mode)
     {
         case replay::ReplayCommandType::Replay:
         {
@@ -240,18 +317,21 @@ replay::CommandHolder ReplayWidget::getCommand() const
         case replay::ReplayCommandType::Merge:
         {
             replay::MergeCommand ret;
+            ret.queue = getQueueContents();
             return ret;
         } break;
 
         case replay::ReplayCommandType::Split:
         {
             replay::SplitCommand ret;
+            ret.queue = getQueueContents();
             return ret;
         } break;
 
         case replay::ReplayCommandType::Filter:
         {
             replay::FilterCommand ret;
+            ret.queue = getQueueContents();
             return ret;
         } break;
     }
@@ -261,6 +341,21 @@ replay::CommandHolder ReplayWidget::getCommand() const
 
 void ReplayWidget::setCurrentFilename(const QString &filename)
 {
+}
+
+void ReplayWidget::setRunning()
+{
+    d->statusbar_->showMessage(QSL("Running"));
+}
+
+void ReplayWidget::setIdle()
+{
+    d->statusbar_->showMessage(QSL("Idle"));
+}
+
+void ReplayWidget::setPaused()
+{
+    d->statusbar_->showMessage(QSL("Paused"));
 }
 
 }

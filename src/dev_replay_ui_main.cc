@@ -99,12 +99,42 @@ int main(int argc, char *argv[])
     QObject::connect(actionQuit, &QAction::triggered,
         &app, QApplication::quit);
 
+    mvme::replay::ListfileCommandExecutor cmdExecutor;
+
+    QObject::connect(&cmdExecutor, &mvme::replay::ListfileCommandExecutor::started,
+                     &replayWidget, &mvme::ReplayWidget::setRunning);
+
+    QObject::connect(&cmdExecutor, &mvme::replay::ListfileCommandExecutor::finished,
+                     &replayWidget, &mvme::ReplayWidget::setIdle);
+
+    QObject::connect(&cmdExecutor, &mvme::replay::ListfileCommandExecutor::canceled,
+                     &replayWidget, &mvme::ReplayWidget::setIdle);
+
+    QObject::connect(&cmdExecutor, &mvme::replay::ListfileCommandExecutor::paused,
+                     &replayWidget, &mvme::ReplayWidget::setPaused);
+
+    QObject::connect(&cmdExecutor, &mvme::replay::ListfileCommandExecutor::resumed,
+                     &replayWidget, &mvme::ReplayWidget::setRunning);
+
     QObject::connect(&replayWidget, &mvme::ReplayWidget::start,
         &replayWidget, [&]
         {
             auto cmd = replayWidget.getCommand();
-            qDebug() << "start requested, cmd idx =" << cmd.index();
+            if (cmdExecutor.setCommand(cmd))
+                cmdExecutor.start();
         });
+
+    QObject::connect(&replayWidget, &mvme::ReplayWidget::stop,
+        &cmdExecutor, &mvme::replay::ListfileCommandExecutor::cancel);
+
+    QObject::connect(&replayWidget, &mvme::ReplayWidget::pause,
+        &cmdExecutor, &mvme::replay::ListfileCommandExecutor::pause);
+
+    QObject::connect(&replayWidget, &mvme::ReplayWidget::resume,
+        &cmdExecutor, &mvme::replay::ListfileCommandExecutor::resume);
+
+    QObject::connect(&replayWidget, &mvme::ReplayWidget::skip,
+        &cmdExecutor, &mvme::replay::ListfileCommandExecutor::skip);
 
     return app.exec();
 }
