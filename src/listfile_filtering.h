@@ -12,8 +12,8 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
 
         void setLogger(Logger logger) override;
 
-        void startup() {}
-        void shutdown() {}
+        void startup() override {}
+        void shutdown() override {}
 
         void beginRun(const RunInfo &runInfo,
                       const VMEConfig *vmeConfig,
