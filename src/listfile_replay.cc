@@ -386,82 +386,6 @@ QMap<QUrl, std::shared_ptr<FileInfo>> FileInfoCache::cache() const
     return d->cache_;
 }
 
-struct ListfileCommandExecutor::Private
-{
-    WaitableProtected<State> state_ = State::Idle;
-    CommandHolder cmd_;
-
-    std::thread runThread_;
-    void run();
-
-    void operator()(const ReplayCommand &cmd);
-    void operator()(const MergeCommand &cmd);
-    void operator()(const SplitCommand &cmd);
-    void operator()(const FilterCommand &cmd);
-};
-
-ListfileCommandExecutor::ListfileCommandExecutor(QObject *parent)
-    : QObject(parent)
-    , d(std::make_unique<Private>())
-{}
-
-ListfileCommandExecutor::~ListfileCommandExecutor()
-{
-    if (d->runThread_.joinable())
-        d->runThread_.join();
-}
-
-ListfileCommandExecutor::State ListfileCommandExecutor::state() const
-{
-    return d->state_.copy();
-}
-
-bool ListfileCommandExecutor::setCommand(const CommandHolder &cmd)
-{
-    if (auto access = d->state_.access(); access.ref() == State::Idle)
-    {
-        d->cmd_ = cmd;
-        return true;
-    }
-
-    return false;
-}
-
-void ListfileCommandExecutor::start()
-{
-    if (auto access = d->state_.access();
-        access.ref() == State::Idle && d->cmd_.index() != std::variant_npos)
-    {
-        d->runThread_ = std::thread(&Private::run, d.get());
-        access.ref() = State::Running;
-    }
-}
-
-void ListfileCommandExecutor::cancel()
-{
-}
-
-void ListfileCommandExecutor::pause()
-{
-}
-
-void ListfileCommandExecutor::resume()
-{
-}
-
-void ListfileCommandExecutor::skip()
-{
-}
-
-void ListfileCommandExecutor::Private::run()
-{
-    std::visit(*this, cmd_);
-}
-
-struct MVMEQueues
-{
-};
-
 struct ReplayQueues
 {
     mesytec::mvlc::ReadoutBufferQueues mvlcQueues;
@@ -511,6 +435,82 @@ static std::unique_ptr<StreamWorkerBase> make_analysis_worker(
     return {};
 }
 
+struct ListfileCommandExecutor::Private
+{
+    WaitableProtected<State> state_ = State::Idle;
+    CommandHolder cmd_;
+
+    std::atomic<bool> canceled_;
+    std::thread runThread_;
+    void run();
+
+    void operator()(const ReplayCommand &cmd);
+    void operator()(const MergeCommand &cmd);
+    void operator()(const SplitCommand &cmd);
+    void operator()(const FilterCommand &cmd);
+};
+
+ListfileCommandExecutor::ListfileCommandExecutor(QObject *parent)
+    : QObject(parent)
+    , d(std::make_unique<Private>())
+{
+}
+
+ListfileCommandExecutor::~ListfileCommandExecutor()
+{
+    if (d->runThread_.joinable())
+        d->runThread_.join();
+}
+
+ListfileCommandExecutor::State ListfileCommandExecutor::state() const
+{
+    return d->state_.copy();
+}
+
+bool ListfileCommandExecutor::setCommand(const CommandHolder &cmd)
+{
+    if (auto access = d->state_.access(); access.ref() == State::Idle)
+    {
+        d->cmd_ = cmd;
+        return true;
+    }
+
+    return false;
+}
+
+void ListfileCommandExecutor::start()
+{
+    if (auto access = d->state_.access();
+        access.ref() == State::Idle && d->cmd_.index() != std::variant_npos)
+    {
+        d->canceled_ = false;
+        d->runThread_ = std::thread(&Private::run, d.get());
+        access.ref() = State::Running;
+    }
+}
+
+void ListfileCommandExecutor::cancel()
+{
+    d->canceled_ = true;
+}
+
+void ListfileCommandExecutor::pause()
+{
+}
+
+void ListfileCommandExecutor::resume()
+{
+}
+
+void ListfileCommandExecutor::skip()
+{
+}
+
+void ListfileCommandExecutor::Private::run()
+{
+    std::visit(*this, cmd_);
+}
+
 void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
 {
     // TODO: things that need to be accessed from outside while the operation is
@@ -521,7 +521,7 @@ void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
     auto [ana, ec] = analysis::read_analysis(QJsonDocument::fromJson(cmd.analysisBlob));
 
     RunInfo runInfo;
-    runInfo.keepAnalysisState = true;
+    runInfo.keepAnalysisState = false;
     runInfo.isReplay = true;
 
     if (ec)
@@ -547,7 +547,30 @@ void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
         analysisWorker->setVMEConfig(info.vmeConfig.get());
         // TODO: setWorkspaceDirectory() for the analysis session saving :(
         analysisWorker->setRunInfo(runInfo);
-        // XXX leftoff here!
+        ana->beginRun(runInfo, info.vmeConfig.get()); // FIXME: really call this for each file?
+
+        auto fReplay = QtConcurrent::run([&] { replayWorker->start(); }); // returns when done
+        auto fAnalysis = QtConcurrent::run([&] { analysisWorker->start(); }); // does not return unless stopped
+
+        while (!fReplay.isFinished() && !canceled_)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        if (canceled_)
+        {
+            replayWorker->stop();
+            analysisWorker->stop(false);
+        }
+
+        fReplay.waitForFinished();
+
+        if (!canceled_)
+            analysisWorker->stop(true);
+
+        fAnalysis.waitForFinished();
+
+        qDebug() << "done" << i << queueSize << canceled_.load();
     }
 }
 
