@@ -20,70 +20,6 @@
 namespace mesytec::mvme
 {
 
-namespace replay
-{
-
-struct FileInfo
-{
-    QUrl fileUrl;
-    ListfileReplayHandle handle;
-    std::unique_ptr<VMEConfig> vmeConfig;
-    QString errorString;
-    std::error_code errorCode;
-    std::exception_ptr exceptionPtr;
-    std::chrono::steady_clock::time_point updateTime;
-
-    bool hasError() const
-    {
-        return !errorString.isEmpty() || errorCode || exceptionPtr;
-    }
-};
-
-inline FileInfo gather_fileinfo(QUrl url)
-{
-    FileInfo result = {};
-
-    try
-    {
-        result.fileUrl = url;
-        result.handle = open_listfile(url.path());
-        auto [vmeConfig, ec] = read_vme_config_from_listfile(result.handle);
-        result.vmeConfig = std::move(vmeConfig);
-        result.errorCode = ec;
-        result.updateTime = std::chrono::steady_clock::now();
-    }
-    catch(const QString &e)
-    {
-        result.errorString = e;
-    }
-    catch(const std::exception &)
-    {
-        result.exceptionPtr = std::current_exception();
-    }
-
-    return result;
-}
-
-// FileInfo is not copyable but only movable so a shared_ptr to FileInfo is used
-// which can be copied freely.
-using FileInfoPtr = std::shared_ptr<FileInfo>;
-
-inline FileInfoPtr gather_fileinfo_p(const QUrl &url)
-{
-    //qDebug() << __PRETTY_FUNCTION__ << url.path();
-    return std::make_shared<FileInfo>(gather_fileinfo(url));
-}
-
-// Parallel gather of file infos. Blocks until all gather results are available.
-inline QVector<FileInfoPtr> gather_fileinfos(const QVector<QUrl> &urls)
-{
-    return QtConcurrent::blockingMapped(urls, gather_fileinfo_p);
-}
-
-using FileInfoCache = QMap<QUrl, replay::FileInfoPtr>;
-
-}
-
 class BrowseFilterModel: public QSortFilterProxyModel
 {
     Q_OBJECT
@@ -284,7 +220,7 @@ class QueueTableModel: public QStandardItemModel
             return result;
         }
 
-        void setFileInfoCache(const std::shared_ptr<replay::FileInfoCache> &cache)
+        void setFileInfoCache(const QMap<QUrl, std::shared_ptr<replay::FileInfo>> &cache)
         {
             fileInfoCache_ = cache;
             updateModelData();
@@ -292,7 +228,7 @@ class QueueTableModel: public QStandardItemModel
 
     private:
         static const QStringList Headers;
-        std::shared_ptr<replay::FileInfoCache> fileInfoCache_;
+        QMap<QUrl, std::shared_ptr<replay::FileInfo>> fileInfoCache_;
 
         // Note: this is dangerous. Add the returned row to the model asap,
         // manually delete the items or leak memory.
@@ -319,9 +255,9 @@ class QueueTableModel: public QStandardItemModel
                 auto url = item(row, 0)->data().toUrl();
                 QString info0;
 
-                if (fileInfoCache_ && fileInfoCache_->contains(url))
+                if (fileInfoCache_.contains(url))
                 {
-                    const auto &fileInfo = fileInfoCache_->value(url);
+                    const auto &fileInfo = fileInfoCache_.value(url);
 
                     if (fileInfo->hasError())
                     {

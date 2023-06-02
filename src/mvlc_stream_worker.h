@@ -143,7 +143,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void startupConsumers() override;
         void shutdownConsumers() override;
 
-        void start() override;
+        void start() override; // blocking!
 
         void stop(bool whenQueueEmpty = true) override;
         void pause() override;

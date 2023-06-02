@@ -11,93 +11,12 @@
 #include <algorithm>
 #include <chrono>
 
-#include <mesytec-mvlc/util/protected.h>
 
 #include "qt_util.h"
 #include "ui_replay_widget.h"
 
-using mesytec::mvlc::WaitableProtected;
-
 namespace mesytec::mvme
 {
-
-namespace replay
-{
-
-struct ListfileCommandExecutor::Private
-{
-    WaitableProtected<State> state_ = State::Idle;
-    CommandHolder cmd_;
-
-    std::thread runThread_;
-    void run();
-};
-
-ListfileCommandExecutor::ListfileCommandExecutor(QObject *parent)
-    : QObject(parent)
-    , d(std::make_unique<Private>())
-{}
-
-ListfileCommandExecutor::~ListfileCommandExecutor()
-{}
-
-ListfileCommandExecutor::State ListfileCommandExecutor::state() const
-{
-    return d->state_.copy();
-}
-
-bool ListfileCommandExecutor::setCommand(const CommandHolder &cmd)
-{
-    if (auto access = d->state_.access(); access.ref() == State::Idle)
-    {
-        d->cmd_ = cmd;
-        return true;
-    }
-
-    return false;
-}
-
-void ListfileCommandExecutor::start()
-{
-    if (auto access = d->state_.access();
-        access.ref() == State::Idle && d->cmd_.index() != std::variant_npos)
-    {
-        d->runThread_ = std::thread(&Private::run, d.get());
-        access.ref() = State::Running;
-    }
-}
-
-void ListfileCommandExecutor::cancel()
-{
-}
-
-void ListfileCommandExecutor::pause()
-{
-}
-
-void ListfileCommandExecutor::resume()
-{
-}
-
-void ListfileCommandExecutor::skip()
-{
-}
-
-void ListfileCommandExecutor::Private::run()
-{
-    if (cmd_.index() == ReplayCommandType::Replay)
-    {
-        auto cmd = std::get<0>(cmd_);
-        const auto queueSize = cmd.queue.size();
-
-        for (int i=0; i<queueSize; ++i)
-        {
-            auto url = cmd.queue[i];
-        }
-    }
-}
-
-}
 
 struct ReplayWidget::Private
 {
@@ -110,55 +29,16 @@ struct ReplayWidget::Private
     QueueTableModel *model_queue_ = nullptr;
 
     QTimer startGatherFileInfoTimer_;
-    QFutureWatcher<QVector<replay::FileInfoPtr>> gatherFileInfoWatcher_;
-    std::shared_ptr<replay::FileInfoCache> fileInfoCache_;
-
-    QVector<QUrl> urlsMissingFromInfoCache(const QVector<QUrl> &inputUrls)
-    {
-        QVector<QUrl> stillMissing;
-
-        for (const auto &url: inputUrls)
-            if (!fileInfoCache_->contains(url))
-                stillMissing.push_back(url);
-
-        return stillMissing;
-    }
+    replay::FileInfoCache fileInfoCache_;
 
     void startGatherFileInfo(const QVector<QUrl> &urls)
     {
-        if (gatherFileInfoWatcher_.isFinished())
-        {
-            //qDebug() << __PRETTY_FUNCTION__ << "start new gather for" << urls.size() << "urls";
-            // Wrap the blocking call to gater_fileinfos() in
-            // QtConcurrent::run(). This works and does not have the memory
-            // management issues QtConcurrent::mapped() has, as all arguments to
-            // run() are copied to the target thread.
-            auto f = QtConcurrent::run(replay::gather_fileinfos, urls);
-            gatherFileInfoWatcher_.setFuture(f);
-            statusbar_->showMessage("gathering file info...");
-        }
+        fileInfoCache_.requestInfos(urls);
     }
 
-    void startGatherMissingFileInfos()
+    void onFileInfoCachedUpdated()
     {
-        if (auto missing = urlsMissingFromInfoCache(q->getQueueContents()); !missing.isEmpty())
-            startGatherFileInfo(missing);
-    }
-
-    void onGatherFileInfoFinished()
-    {
-        statusbar_->clearMessage();
-
-        auto results = gatherFileInfoWatcher_.future().result();
-
-        for (const auto &fileInfo: results)
-            (*fileInfoCache_)[fileInfo->fileUrl] = fileInfo;
-
-        //qDebug() << __PRETTY_FUNCTION__ << "new cache size =" << fileInfoCache_->size();
-
-        startGatherMissingFileInfos();
-
-        model_queue_->setFileInfoCache(fileInfoCache_);
+        model_queue_->setFileInfoCache(fileInfoCache_.cache());
     }
 
     void onQueueChanged()
@@ -176,7 +56,6 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     d->ui->setupUi(this);
     d->statusbar_ = new QStatusBar;
     d->ui->outerLayout->addWidget(d->statusbar_);
-    d->fileInfoCache_ = std::make_shared<replay::FileInfoCache>();
 
     // browsing
     d->model_browseFs_ = new QFileSystemModel(this);
@@ -263,10 +142,10 @@ ReplayWidget::ReplayWidget(QWidget *parent)
     d->startGatherFileInfoTimer_.setSingleShot(true);
 
     connect(&d->startGatherFileInfoTimer_, &QTimer::timeout,
-            this, [this] { d->startGatherMissingFileInfos(); });
+            this, [this] { d->startGatherFileInfo(getQueueContents()); });
 
-    connect(&d->gatherFileInfoWatcher_, &QFutureWatcher<replay::FileInfoPtr>::finished,
-            this, [this] { d->onGatherFileInfoFinished(); });
+    connect(&d->fileInfoCache_, &replay::FileInfoCache::cacheUpdated,
+        this, [this] { d->onFileInfoCachedUpdated(); });
 }
 
 ReplayWidget::~ReplayWidget()
@@ -292,7 +171,7 @@ QVector<QUrl> ReplayWidget::getQueueContents() const
 
 void ReplayWidget::clearFileInfoCache()
 {
-    d->fileInfoCache_->clear();
+    d->fileInfoCache_.clear();
 }
 
 replay::CommandHolder ReplayWidget::getCommand() const
@@ -306,9 +185,9 @@ replay::CommandHolder ReplayWidget::getCommand() const
             replay::ReplayCommand ret;
             ret.queue = getQueueContents();
             // FIXME: loads the analysis from the first file. only do this in case no user analysis has been specified.
-            if (!ret.queue.isEmpty() && d->fileInfoCache_->contains(ret.queue.front()))
+            if (!ret.queue.isEmpty() && d->fileInfoCache_.contains(ret.queue.front()))
             {
-                ret.analysisBlob = d->fileInfoCache_->value(ret.queue.front())->handle.analysisBlob;
+                ret.analysisBlob = d->fileInfoCache_.value(ret.queue.front())->handle.analysisBlob;
                 ret.analysisFilename = "<from " + ret.queue.front().fileName() + ">";
             }
             return ret;

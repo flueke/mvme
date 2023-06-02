@@ -80,12 +80,152 @@ struct LIBMVME_EXPORT ListfileReplayHandle
     ListfileReplayHandle &operator=(const ListfileReplayHandle &) = delete;
 };
 
-// IMPORTANT: throws QString on error :-(
+// IMPORTANT/FIXME: throws QString on error :-(
 ListfileReplayHandle LIBMVME_EXPORT open_listfile(const QString &filename);
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code>
 LIBMVME_EXPORT read_vme_config_from_listfile(
         ListfileReplayHandle &handle,
         std::function<void (const QString &msg)> logger = {});
+
+namespace mesytec::mvme::replay
+{
+
+struct FileInfo
+{
+    QUrl fileUrl;
+    ListfileReplayHandle handle;
+    std::unique_ptr<VMEConfig> vmeConfig;
+    QString errorString;
+    std::error_code errorCode;
+    std::exception_ptr exceptionPtr;
+    std::chrono::steady_clock::time_point updateTime;
+
+    bool hasError() const
+    {
+        return !errorString.isEmpty() || errorCode || exceptionPtr;
+    }
+};
+
+FileInfo gather_fileinfo(const QUrl &url);
+QVector<std::shared_ptr<FileInfo>> gather_fileinfos(const QVector<QUrl> &urls);
+//using FileInfoCache = QMap<QUrl, std::shared_ptr<FileInfo>>;
+
+class FileInfoCache: public QObject
+{
+    Q_OBJECT
+    signals:
+        void cacheUpdated();
+
+    public:
+        FileInfoCache(QObject *parent = nullptr);
+        ~FileInfoCache() override;
+
+        bool contains(const QUrl &url);
+        std::shared_ptr<FileInfo> operator[](const QUrl &url) const;
+        std::shared_ptr<FileInfo> value(const QUrl &url) const;
+        QMap<QUrl, std::shared_ptr<FileInfo>> cache() const;
+
+    public slots:
+        void requestInfo(const QUrl &url);
+        void requestInfos(const QVector<QUrl> &urls);
+        void clear();
+
+    private:
+       struct Private;
+       std::unique_ptr<Private> d;
+};
+
+// Commands:
+// replay   analysis
+// merge    output filename + optional analysis to append
+// split    split rules, e.g. timetick or event count based; output filename; produces MVLC_USB format
+// filter   analysis and condition(s) to use for filtering. output filename; produces MVLC_USB format
+struct ListfileCommandBase
+{
+    QVector<QUrl> queue;
+};
+
+struct ReplayCommand: public ListfileCommandBase
+{
+    QByteArray analysisBlob;
+    QString analysisFilename; // For info purposes only. Data is kept in the blob.
+};
+
+struct MergeCommand: public ListfileCommandBase
+{
+    QString outputFilename;
+};
+
+struct SplitCommand: public ListfileCommandBase
+{
+    enum SplitCondition
+    {
+        Duration,
+        CompressedSize,
+        UncompressedSize
+    };
+
+    SplitCondition condition;
+    std::chrono::seconds splitInterval;
+    size_t splitSize;
+    QString outputBasename;
+};
+
+struct FilterCommand: public ListfileCommandBase
+{
+    QByteArray analysisBlob;
+    QString analysisFilename; // For info purposes only. Data is kept in the blob.
+    QUuid filterCondition; // Id of the analysis condition to use for filtering.
+    QString outputFilename;
+};
+
+enum ReplayCommandType
+{
+    Replay,
+    Merge,
+    Split,
+    Filter,
+};
+
+using CommandHolder = std::variant<ReplayCommand, MergeCommand, SplitCommand, FilterCommand>;
+
+class ListfileCommandExecutor: public QObject
+{
+    Q_OBJECT
+    signals:
+        void globalProgressChanged(int cur, int max);
+        void subProgressChanged(int cur, int max);
+        void listfileChanged(const QString &filename);
+
+        // This part of the interface is very similar to that of QFutureWatcher
+        void started();
+        void finished();
+        void canceled();
+        void paused();
+        void resumed();
+
+    public:
+        enum State { Idle, Running, Paused };
+        ListfileCommandExecutor(QObject *parent = nullptr);
+        ~ListfileCommandExecutor() override;
+
+        State state() const;
+
+        bool setCommand(const CommandHolder &cmd); // Returns false if not idle.
+
+    public slots:
+        void start();
+        void cancel();
+        void pause();
+        void resume();
+        void skip(); // skip to the next listfile in the queue
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+}
 
 #endif /* __MVME_LISTFILE_REPLAY_H__ */

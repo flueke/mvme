@@ -23,15 +23,23 @@
 #include <array>
 #include <cstring>
 #include <QJsonDocument>
+#include <QtConcurrent>
+#include <QFutureWatcher>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
+#include "analysis/analysis_util.h"
+#include "mvlc_listfile_worker.h"
+#include "mvlc_stream_worker.h"
+#include "mvme_listfile_utils.h"
+#include "mvme_listfile_worker.h"
+#include "mvme_mvlc_listfile.h"
+#include "mvme_stream_worker.h"
 #include "qt_util.h"
 #include "util_zip.h"
-#include "mvme_listfile_utils.h"
-#include "mvme_mvlc_listfile.h"
 #include "vme_config_json_schema_updates.h"
 
 using namespace mesytec;
+using mesytec::mvlc::WaitableProtected;
 
 namespace
 {
@@ -249,4 +257,314 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
     }
 
     return {};
+}
+
+namespace mesytec::mvme::replay
+{
+
+FileInfo gather_fileinfo(const QUrl &url)
+{
+    FileInfo result = {};
+
+    try
+    {
+        result.fileUrl = url;
+        result.handle = open_listfile(url.path());
+        auto [vmeConfig, ec] = read_vme_config_from_listfile(result.handle);
+        result.vmeConfig = std::move(vmeConfig);
+        result.errorCode = ec;
+        result.updateTime = std::chrono::steady_clock::now();
+    }
+    catch(const QString &e)
+    {
+        result.errorString = e;
+    }
+    catch(const std::exception &)
+    {
+        result.exceptionPtr = std::current_exception();
+    }
+
+    return result;
+}
+
+static std::shared_ptr<FileInfo> gather_fileinfo_p(const QUrl &url)
+{
+    return std::make_shared<FileInfo>(gather_fileinfo(url));
+}
+
+QVector<std::shared_ptr<FileInfo>> gather_fileinfos(const QVector<QUrl> &urls)
+{
+    return QtConcurrent::blockingMapped(urls, gather_fileinfo_p);
+}
+
+struct FileInfoCache::Private
+{
+    FileInfoCache *q = nullptr;
+    QMap<QUrl, std::shared_ptr<FileInfo>> cache_;
+    QFutureWatcher<QVector<std::shared_ptr<FileInfo>>> gatherWatcher_;
+    QSet<QUrl> gatherQueue_;
+
+    void onGatherFinished()
+    {
+        auto results = gatherWatcher_.future().result();
+
+        for (const auto &fileInfo: results)
+            cache_.insert(fileInfo->fileUrl, fileInfo);
+
+        emit q->cacheUpdated();
+
+        startGatherMissing();
+    }
+
+    void startGatherMissing()
+    {
+        auto known = QSet<QUrl>::fromList(cache_.keys());
+        gatherQueue_.subtract(known);
+
+        if (!gatherQueue_.isEmpty())
+            startGatherFileInfos(QVector<QUrl>::fromList(gatherQueue_.toList()));
+
+    }
+
+    void startGatherFileInfos(const QVector<QUrl> &urls)
+    {
+        if (gatherWatcher_.isFinished())
+            gatherWatcher_.setFuture(QtConcurrent::run(gather_fileinfos, urls));
+    }
+};
+
+FileInfoCache::FileInfoCache(QObject *parent)
+    : QObject(parent)
+    , d(std::make_unique<Private>())
+{
+    d->q = this;
+
+    connect(&d->gatherWatcher_, &QFutureWatcher<std::shared_ptr<FileInfo>>::finished,
+            this, [this] { d->onGatherFinished(); });
+}
+
+FileInfoCache::~FileInfoCache()
+{
+    d->gatherWatcher_.waitForFinished();
+}
+
+bool FileInfoCache::contains(const QUrl &url)
+{
+    return d->cache_.contains(url);
+}
+
+std::shared_ptr<FileInfo> FileInfoCache::operator[](const QUrl &url) const
+{
+    return value(url);
+}
+
+std::shared_ptr<FileInfo> FileInfoCache::value(const QUrl &url) const
+{
+    return d->cache_.value(url);
+}
+
+void FileInfoCache::requestInfo(const QUrl &url)
+{
+    d->gatherQueue_.insert(url);
+    d->startGatherMissing();
+}
+
+void FileInfoCache::requestInfos(const QVector<QUrl> &urls)
+{
+    for (const auto &url: urls)
+        d->gatherQueue_.insert(url);
+    d->startGatherMissing();
+}
+
+void FileInfoCache::clear()
+{
+    d->cache_.clear();
+}
+
+QMap<QUrl, std::shared_ptr<FileInfo>> FileInfoCache::cache() const
+{
+    return d->cache_;
+}
+
+struct ListfileCommandExecutor::Private
+{
+    WaitableProtected<State> state_ = State::Idle;
+    CommandHolder cmd_;
+
+    std::thread runThread_;
+    void run();
+
+    void operator()(const ReplayCommand &cmd);
+    void operator()(const MergeCommand &cmd);
+    void operator()(const SplitCommand &cmd);
+    void operator()(const FilterCommand &cmd);
+};
+
+ListfileCommandExecutor::ListfileCommandExecutor(QObject *parent)
+    : QObject(parent)
+    , d(std::make_unique<Private>())
+{}
+
+ListfileCommandExecutor::~ListfileCommandExecutor()
+{
+    if (d->runThread_.joinable())
+        d->runThread_.join();
+}
+
+ListfileCommandExecutor::State ListfileCommandExecutor::state() const
+{
+    return d->state_.copy();
+}
+
+bool ListfileCommandExecutor::setCommand(const CommandHolder &cmd)
+{
+    if (auto access = d->state_.access(); access.ref() == State::Idle)
+    {
+        d->cmd_ = cmd;
+        return true;
+    }
+
+    return false;
+}
+
+void ListfileCommandExecutor::start()
+{
+    if (auto access = d->state_.access();
+        access.ref() == State::Idle && d->cmd_.index() != std::variant_npos)
+    {
+        d->runThread_ = std::thread(&Private::run, d.get());
+        access.ref() = State::Running;
+    }
+}
+
+void ListfileCommandExecutor::cancel()
+{
+}
+
+void ListfileCommandExecutor::pause()
+{
+}
+
+void ListfileCommandExecutor::resume()
+{
+}
+
+void ListfileCommandExecutor::skip()
+{
+}
+
+void ListfileCommandExecutor::Private::run()
+{
+    std::visit(*this, cmd_);
+}
+
+struct MVMEQueues
+{
+};
+
+struct ReplayQueues
+{
+    mesytec::mvlc::ReadoutBufferQueues mvlcQueues;
+    mesytec::mvlc::ReadoutBufferQueues_<DataBuffer> mvmelstQueues;
+};
+
+static std::unique_ptr<ListfileReplayWorker> make_replay_worker(
+    const ListfileReplayHandle &h, ReplayQueues &queues)
+{
+    switch (h.format)
+    {
+        case ListfileBufferFormat::MVLC_ETH:
+        case ListfileBufferFormat::MVLC_USB:
+            {
+                auto result = std::make_unique<MVLCListfileWorker>();
+                result->setSnoopQueues(&queues.mvlcQueues);
+                return result;
+            }
+
+        case ListfileBufferFormat::MVMELST:
+            {
+                auto result = std::make_unique<MVMEListfileWorker>(
+                    &queues.mvmelstQueues.emptyBufferQueue(),
+                    &queues.mvmelstQueues.filledBufferQueue());
+                return result;
+            }
+    }
+
+    return {};
+}
+
+static std::unique_ptr<StreamWorkerBase> make_analysis_worker(
+    const ListfileReplayHandle &h, ReplayQueues &queues)
+{
+    switch (h.format)
+    {
+        case ListfileBufferFormat::MVLC_ETH:
+        case ListfileBufferFormat::MVLC_USB:
+            return std::make_unique<MVLC_StreamWorker>(queues.mvlcQueues);
+
+        case ListfileBufferFormat::MVMELST:
+            return std::make_unique<MVMEStreamWorker>(
+                &queues.mvmelstQueues.emptyBufferQueue(),
+                &queues.mvmelstQueues.filledBufferQueue());
+    }
+
+    return {};
+}
+
+void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
+{
+    // TODO: things that need to be accessed from outside while the operation is
+    // ongoing:
+    // - errors
+    // - analysis, streamworkerr
+
+    auto [ana, ec] = analysis::read_analysis(QJsonDocument::fromJson(cmd.analysisBlob));
+
+    RunInfo runInfo;
+    runInfo.keepAnalysisState = true;
+    runInfo.isReplay = true;
+
+    if (ec)
+        return;
+
+    ReplayQueues bufferQueues;
+
+    const auto queueSize = cmd.queue.size();
+
+    for (int i=0; i<queueSize; ++i)
+    {
+        const auto &url = cmd.queue[i];
+        auto info = gather_fileinfo(url);
+
+        if (info.hasError())
+            return;
+
+        auto replayWorker = make_replay_worker(info.handle, bufferQueues);
+        replayWorker->setListfile(&info.handle);
+
+        auto analysisWorker = make_analysis_worker(info.handle, bufferQueues);
+        analysisWorker->setAnalysis(ana.get());
+        analysisWorker->setVMEConfig(info.vmeConfig.get());
+        // TODO: setWorkspaceDirectory() for the analysis session saving :(
+        analysisWorker->setRunInfo(runInfo);
+        // XXX leftoff here!
+    }
+}
+
+void ListfileCommandExecutor::Private::operator()(const MergeCommand &cmd)
+{
+    (void) cmd;
+}
+
+void ListfileCommandExecutor::Private::operator()(const SplitCommand &cmd)
+{
+    (void) cmd;
+}
+
+void ListfileCommandExecutor::Private::operator()(const FilterCommand &cmd)
+{
+    (void) cmd;
+}
+
+
 }
