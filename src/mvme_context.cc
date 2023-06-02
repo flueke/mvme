@@ -274,6 +274,9 @@ void MVMEContextPrivate::stopDAQReadout()
         qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
             << "pre streamWorker->stop";
 
+        // Set the DAQStats prior to stopping the stream worker. This way it has
+        // the most up-to-date values when leaving its processing loop.
+        m_q->m_streamWorker->setDAQStats(m_q->getDAQStats());
         m_q->m_streamWorker->stop(false);
 
         localLoop.exec();
@@ -881,14 +884,12 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     {
         case VMEControllerType::SIS3153:
         case VMEControllerType::VMUSB:
-            m_streamWorker = std::make_unique<MVMEStreamWorker>(
-                this, &m_freeBuffers, &m_fullBuffers);
+            m_streamWorker = std::make_unique<MVMEStreamWorker>(&m_freeBuffers, &m_fullBuffers);
             break;
 
         case VMEControllerType::MVLC_ETH:
         case VMEControllerType::MVLC_USB:
-            m_streamWorker = std::make_unique<MVLC_StreamWorker>(
-                this, m_d->mvlcSnoopQueues);
+            m_streamWorker = std::make_unique<MVLC_StreamWorker>(m_d->mvlcSnoopQueues);
             break;
     }
 
@@ -1657,6 +1658,18 @@ bool MVMEContext::prepareStart()
                            [this] (const QString &msg) { logMessage(msg); });
 
         qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
+
+        {
+            // Before refactoring the streamworker pulled this info from the
+            // MVMEContext instance. Now it does not know about MVMEContext
+            // anymore so the info has to be set externally.
+            auto streamWorker = m_streamWorker.get();
+            streamWorker->setAnalysis(analysis);
+            streamWorker->setVMEConfig(getVMEConfig());
+            streamWorker->setRunInfo(getRunInfo());
+            streamWorker->setWorkspaceDirectory(getWorkspaceDirectory());
+            streamWorker->setDAQStats(getDAQStats());
+        }
 
         // Use a local event loop to wait here until the stream worker thread
         // signals that startup is complete.

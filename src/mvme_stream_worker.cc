@@ -25,8 +25,8 @@
 #include "analysis/analysis_session.h"
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
-#include "mvme_context.h"
 #include "mvme_listfile.h"
+#include "mvme_workspace.h"
 #include "timed_block.h"
 #include "vme_analysis_common.h"
 
@@ -69,7 +69,6 @@ static const double PauseMaxSleep_ms = 125.0;
 struct MVMEStreamWorkerPrivate
 {
     MVMEStreamProcessor streamProcessor;
-    MVMEContext *context = nullptr;
     u32 m_listFileVersion = CurrentListfileVersion;
     bool m_startPaused = false;
 
@@ -119,13 +118,14 @@ DataBuffer *MVMEStreamWorkerPrivate::dequeueNextBuffer()
     return buffer;
 }
 
-MVMEStreamWorker::MVMEStreamWorker(MVMEContext *context,
-                                   ThreadSafeDataBufferQueue *freeBuffers,
-                                   ThreadSafeDataBufferQueue *fullBuffers)
-    : m_d(new MVMEStreamWorkerPrivate)
+MVMEStreamWorker::MVMEStreamWorker(
+    ThreadSafeDataBufferQueue *freeBuffers,
+    ThreadSafeDataBufferQueue *fullBuffers,
+    QObject *parent)
+    : StreamWorkerBase(parent)
+    , m_d(new MVMEStreamWorkerPrivate)
 {
     m_d->internalState = KeepRunning;
-    m_d->context = context;
     m_d->freeBuffers = freeBuffers;
     m_d->fullBuffers = fullBuffers;
 }
@@ -170,7 +170,7 @@ void MVMEStreamWorker::setState(AnalysisWorkerState newState)
 
 void MVMEStreamWorker::logMessage(const QString &msg)
 {
-    m_d->context->logMessage(msg);
+    StreamWorkerBase::logMessage(MessageSeverity::Info, msg, false);
 }
 
 namespace
@@ -378,16 +378,16 @@ void MVMEStreamWorker::start()
     Q_ASSERT(m_d->freeBuffers);
     Q_ASSERT(m_d->fullBuffers);
     Q_ASSERT(m_d->state == AnalysisWorkerState::Idle);
-    Q_ASSERT(m_d->context->getAnalysis());
+    Q_ASSERT(getAnalysis());
 
-    m_d->runInfo = m_d->context->getRunInfo();
+    m_d->runInfo = getRunInfo();
 
     m_d->streamProcessor.beginRun(
         m_d->runInfo,
-        m_d->context->getAnalysis(),
-        m_d->context->getVMEConfig(),
+        getAnalysis(),
+        getVMEConfig(),
         m_d->m_listFileVersion,
-        [this](const QString &msg) { m_d->context->logMessage(msg); });
+        [this](const QString &msg) { logMessage(msg); });
 
     m_d->nextBufferNumber = 0;
 
@@ -492,7 +492,7 @@ void MVMEStreamWorker::start()
                         QString logBuffer;
                         QTextStream logStream(&logBuffer);
                         log_processing_step(logStream, singleStepProcState, vatsTemplates, lfc);
-                        m_d->context->logMessageRaw(logBuffer);
+                        logMessage(logBuffer); // FIXME: was logMessageRaw()
 
                         if (singleStepProcState.stepResult == ProcessingState::StepResult_AtEnd
                             || singleStepProcState.stepResult == ProcessingState::StepResult_Error)
@@ -560,15 +560,15 @@ void MVMEStreamWorker::start()
 
     counters.stopTime = QDateTime::currentDateTime();
 
-    m_d->streamProcessor.endRun(m_d->context->getDAQStats());
+    m_d->streamProcessor.endRun(getDAQStats());
 
     // analysis session auto save
-    auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));
+    auto sessionPath = make_workspace_settings(getWorkspaceDir())->value(QSL("SessionDirectory")).toString();
 
     if (!sessionPath.isEmpty())
     {
         auto filename = sessionPath + "/last_session" + analysis::SessionFileExtension;
-        auto result   = save_analysis_session(filename, m_d->context->getAnalysis());
+        auto result   = save_analysis_session(filename, getAnalysis());
 
         if (result.first)
         {

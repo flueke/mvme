@@ -31,11 +31,12 @@
 #include "databuffer.h"
 #include "mesytec-mvlc/mvlc_command_builders.h"
 #include "mvlc_daq.h"
-#include "mvme_context.h"
+#include "mvme_workspace.h"
 #include "vme_config_scripts.h"
 #include "vme_analysis_common.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "vme_script.h"
+#include "util/perf.h"
 
 using namespace vme_analysis_common;
 using namespace mesytec;
@@ -97,21 +98,17 @@ bool is_empty(const EventRecord::ModuleData &moduleData)
 //
 // MVLC_StreamWorker
 //
-MVLC_StreamWorker::MVLC_StreamWorker(
-    MVMEContext *context,
-    mesytec::mvlc::ReadoutBufferQueues &snoopQueues,
-    QObject *parent)
-: StreamWorkerBase(parent)
-, m_context(context)
-, m_snoopQueues(snoopQueues)
-, m_parserCounters({})
-, m_parserCountersSnapshot()
-, m_state(AnalysisWorkerState::Idle)
-, m_desiredState(AnalysisWorkerState::Idle)
-, m_startPaused(false)
-, m_stopFlag(StopWhenQueueEmpty)
-, m_debugInfoRequest(DebugInfoRequest::None)
-, m_eventBuilder({})
+MVLC_StreamWorker::MVLC_StreamWorker(mesytec::mvlc::ReadoutBufferQueues &snoopQueues, QObject *parent)
+    : StreamWorkerBase(parent)
+    , m_snoopQueues(snoopQueues)
+    , m_parserCounters({})
+    , m_parserCountersSnapshot()
+    , m_state(AnalysisWorkerState::Idle)
+    , m_desiredState(AnalysisWorkerState::Idle)
+    , m_startPaused(false)
+    , m_stopFlag(StopWhenQueueEmpty)
+    , m_debugInfoRequest(DebugInfoRequest::None)
+    , m_eventBuilder({})
 {
     qRegisterMetaType<mesytec::mvlc::readout_parser::ReadoutParserState>(
         "mesytec::mvlc::readout_parser::ReadoutParserState");
@@ -523,9 +520,9 @@ void MVLC_StreamWorker::start()
         }
     }
 
-    const auto runInfo = m_context->getRunInfo();
-    const auto vmeConfig = m_context->getVMEConfig();
-    auto analysis = m_context->getAnalysis();
+    const auto runInfo = getRunInfo();
+    const auto vmeConfig = getVMEConfig();
+    auto analysis = getAnalysis();
 
     {
         UniqueLock guard(m_countersMutex);
@@ -730,10 +727,10 @@ void MVLC_StreamWorker::start()
         QCoreApplication::processEvents();
     }
 
+    const auto daqStats = getDAQStats();
+
     for (auto c: m_moduleConsumers)
-    {
-        c->endRun(m_context->getDAQStats());
-    }
+        c->endRun(daqStats);
 
     analysis->endRun();
 
@@ -743,12 +740,12 @@ void MVLC_StreamWorker::start()
     }
 
     // analysis session auto save
-    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+    auto sessionPath = make_workspace_settings(getWorkspaceDir())->value(QSL("SessionDirectory")).toString();
 
     if (!sessionPath.isEmpty())
     {
         auto filename = sessionPath + "/last_session" + analysis::SessionFileExtension;
-        auto result   = save_analysis_session(filename, m_context->getAnalysis());
+        auto result   = save_analysis_session(filename, getAnalysis());
 
         if (result.first)
         {

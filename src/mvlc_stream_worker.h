@@ -35,8 +35,6 @@
 #include "mvlc/readout_parser_support.h"
 #include "vme_analysis_common.h"
 
-class MVMEContext;
-
 struct EventRecord
 {
     struct ModuleData
@@ -70,11 +68,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void singleStepResultReady(const EventRecord &eventRecord);
 
     public:
-        MVLC_StreamWorker(
-            MVMEContext *context,
-            mesytec::mvlc::ReadoutBufferQueues &snoopQueues,
-            QObject *parent = nullptr);
-
+        MVLC_StreamWorker(mesytec::mvlc::ReadoutBufferQueues &snoopQueues, QObject *parent = nullptr);
         ~MVLC_StreamWorker() override;
 
         AnalysisWorkerState getState() const override
@@ -211,8 +205,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void publishStateIfSingleStepping();
 
         void logParserInfo(const mesytec::mvlc::readout_parser::ReadoutParserState &parser);
-
-        MVMEContext *m_context = nullptr;
 
         std::vector<std::shared_ptr<IStreamModuleConsumer>> m_moduleConsumers;
         std::vector<std::shared_ptr<IStreamBufferConsumer>> m_bufferConsumers;

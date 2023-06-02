@@ -33,7 +33,6 @@
 #include <QVector>
 
 class MesytecDiagnostics;
-class MVMEContext;
 class VMEConfig;
 struct MVMEStreamWorkerPrivate;
 
@@ -41,11 +40,12 @@ class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
 {
     Q_OBJECT
     public:
-        MVMEStreamWorker(MVMEContext *context,
-                         ThreadSafeDataBufferQueue *freeBuffers,
-                         ThreadSafeDataBufferQueue *fullBuffers);
+        MVMEStreamWorker(
+            ThreadSafeDataBufferQueue *freeBuffers,
+            ThreadSafeDataBufferQueue *fullBuffers,
+            QObject *parent = nullptr);
 
-        ~MVMEStreamWorker();
+        ~MVMEStreamWorker() override;
 
         MVMEStreamProcessor *getStreamProcessor() const;
 

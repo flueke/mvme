@@ -22,6 +22,7 @@
 #define __STREAM_WORKER_BASE_H__
 
 #include <QObject>
+#include <mesytec-mvlc/util/protected.h>
 
 #include "libmvme_export.h"
 #include "globals.h"
@@ -62,6 +63,12 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
 
         virtual MVMEStreamProcessorCounters getCounters() const = 0;
 
+        void setAnalysis(analysis::Analysis *analysis) { ctx_.access().ref().analysis = analysis; }
+        void setVMEConfig(VMEConfig *vmeConfig) { ctx_.access().ref().vmeConfig = vmeConfig; }
+        void setRunInfo(const RunInfo &runInfo) { ctx_.access().ref().runInfo = runInfo; }
+        void setWorkspaceDirectory(const QString &dir) { ctx_.access().ref().workspaceDir = dir; }
+        void setDAQStats(const DAQStats &daqStats) { ctx_.access().ref().daqStats = daqStats; }
+
     public slots:
         // Blocking call. Returns after stop() has been invoked from the outside.
         virtual void start() = 0;
@@ -97,10 +104,26 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
             return logMessage(MessageSeverity::Error, msg, useThrottle);
         }
 
+        analysis::Analysis *getAnalysis() const { return ctx_.access()->analysis; }
+        VMEConfig *getVMEConfig() const { return ctx_.access()->vmeConfig; }
+        RunInfo getRunInfo() const { return ctx_.access()->runInfo; }
+        QString getWorkspaceDir() const { return ctx_.access()->workspaceDir; }
+        DAQStats getDAQStats() const { return ctx_.access()->daqStats; }
+
     private:
         static const int MaxLogMessagesPerSecond = 5;
         LeakyBucketMeter m_logThrottle;
 
+        struct ContextHolder
+        {
+            analysis::Analysis *analysis = nullptr;
+            VMEConfig *vmeConfig = nullptr;
+            RunInfo runInfo;
+            QString workspaceDir;
+            DAQStats daqStats;
+        };
+
+        mutable mesytec::mvlc::Protected<ContextHolder> ctx_;
 };
 
 #endif /* __STREAM_WORKER_BASE_H__ */
