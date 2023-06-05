@@ -262,9 +262,9 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
 namespace mesytec::mvme::replay
 {
 
-FileInfo gather_fileinfo(const QUrl &url)
+ListfileInfo gather_fileinfo(const QUrl &url)
 {
-    FileInfo result = {};
+    ListfileInfo result = {};
 
     try
     {
@@ -272,27 +272,27 @@ FileInfo gather_fileinfo(const QUrl &url)
         result.handle = open_listfile(url.path());
         auto [vmeConfig, ec] = read_vme_config_from_listfile(result.handle);
         result.vmeConfig = std::move(vmeConfig);
-        result.errorCode = ec;
+        result.err.errorCode = ec;
         result.updateTime = std::chrono::steady_clock::now();
     }
     catch(const QString &e)
     {
-        result.errorString = e;
+        result.err.errorString = e;
     }
     catch(const std::exception &)
     {
-        result.exceptionPtr = std::current_exception();
+        result.err.exceptionPtr = std::current_exception();
     }
 
     return result;
 }
 
-static std::shared_ptr<FileInfo> gather_fileinfo_p(const QUrl &url)
+static std::shared_ptr<ListfileInfo> gather_fileinfo_p(const QUrl &url)
 {
-    return std::make_shared<FileInfo>(gather_fileinfo(url));
+    return std::make_shared<ListfileInfo>(gather_fileinfo(url));
 }
 
-QVector<std::shared_ptr<FileInfo>> gather_fileinfos(const QVector<QUrl> &urls)
+QVector<std::shared_ptr<ListfileInfo>> gather_fileinfos(const QVector<QUrl> &urls)
 {
     return QtConcurrent::blockingMapped(urls, gather_fileinfo_p);
 }
@@ -300,8 +300,8 @@ QVector<std::shared_ptr<FileInfo>> gather_fileinfos(const QVector<QUrl> &urls)
 struct FileInfoCache::Private
 {
     FileInfoCache *q = nullptr;
-    QMap<QUrl, std::shared_ptr<FileInfo>> cache_;
-    QFutureWatcher<QVector<std::shared_ptr<FileInfo>>> gatherWatcher_;
+    QMap<QUrl, std::shared_ptr<ListfileInfo>> cache_;
+    QFutureWatcher<QVector<std::shared_ptr<ListfileInfo>>> gatherWatcher_;
     QSet<QUrl> gatherQueue_;
 
     void onGatherFinished()
@@ -339,7 +339,7 @@ FileInfoCache::FileInfoCache(QObject *parent)
 {
     d->q = this;
 
-    connect(&d->gatherWatcher_, &QFutureWatcher<std::shared_ptr<FileInfo>>::finished,
+    connect(&d->gatherWatcher_, &QFutureWatcher<std::shared_ptr<ListfileInfo>>::finished,
             this, [this] { d->onGatherFinished(); });
 }
 
@@ -353,12 +353,12 @@ bool FileInfoCache::contains(const QUrl &url)
     return d->cache_.contains(url);
 }
 
-std::shared_ptr<FileInfo> FileInfoCache::operator[](const QUrl &url) const
+std::shared_ptr<ListfileInfo> FileInfoCache::operator[](const QUrl &url) const
 {
     return value(url);
 }
 
-std::shared_ptr<FileInfo> FileInfoCache::value(const QUrl &url) const
+std::shared_ptr<ListfileInfo> FileInfoCache::value(const QUrl &url) const
 {
     return d->cache_.value(url);
 }
@@ -381,21 +381,15 @@ void FileInfoCache::clear()
     d->cache_.clear();
 }
 
-QMap<QUrl, std::shared_ptr<FileInfo>> FileInfoCache::cache() const
+QMap<QUrl, std::shared_ptr<ListfileInfo>> FileInfoCache::cache() const
 {
     return d->cache_;
 }
 
-struct ReplayQueues
+std::unique_ptr<ListfileReplayWorker> make_replay_worker(
+    const ListfileBufferFormat &fmt, ReplayQueues &queues)
 {
-    mesytec::mvlc::ReadoutBufferQueues mvlcQueues;
-    mesytec::mvlc::ReadoutBufferQueues_<DataBuffer> mvmelstQueues;
-};
-
-static std::unique_ptr<ListfileReplayWorker> make_replay_worker(
-    const ListfileReplayHandle &h, ReplayQueues &queues)
-{
-    switch (h.format)
+    switch (fmt)
     {
         case ListfileBufferFormat::MVLC_ETH:
         case ListfileBufferFormat::MVLC_USB:
@@ -417,10 +411,16 @@ static std::unique_ptr<ListfileReplayWorker> make_replay_worker(
     return {};
 }
 
-static std::unique_ptr<StreamWorkerBase> make_analysis_worker(
+std::unique_ptr<ListfileReplayWorker> make_replay_worker(
     const ListfileReplayHandle &h, ReplayQueues &queues)
 {
-    switch (h.format)
+    return make_replay_worker(h.format, queues);
+}
+
+std::unique_ptr<StreamWorkerBase> make_analysis_worker(
+    const ListfileBufferFormat &fmt, ReplayQueues &queues)
+{
+    switch (fmt)
     {
         case ListfileBufferFormat::MVLC_ETH:
         case ListfileBufferFormat::MVLC_USB:
@@ -435,13 +435,25 @@ static std::unique_ptr<StreamWorkerBase> make_analysis_worker(
     return {};
 }
 
+std::unique_ptr<StreamWorkerBase> make_analysis_worker(
+    const ListfileReplayHandle &h, ReplayQueues &queues)
+{
+    return make_analysis_worker(h.format, queues);
+}
+
 struct ListfileCommandExecutor::Private
 {
-    WaitableProtected<State> state_ = State::Idle;
+    WaitableProtected<State> state_;
     CommandHolder cmd_;
+    WaitableProtected<CommandStateHolder> cmdState_;
 
     std::atomic<bool> canceled_;
     std::thread runThread_;
+
+    explicit Private()
+        : state_{State::Idle}
+    {}
+
     void run();
 
     void operator()(const ReplayCommand &cmd);
@@ -518,36 +530,52 @@ void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
     // - errors
     // - analysis, streamworkerr
 
+    cmdState_.access().ref() = ReplayCommandState{};
+
     auto [ana, ec] = analysis::read_analysis(QJsonDocument::fromJson(cmd.analysisBlob));
 
-    RunInfo runInfo;
-    runInfo.keepAnalysisState = false;
-    runInfo.isReplay = true;
-
     if (ec)
+    {
+        std::get<ReplayCommandState>(cmdState_.access().ref()).err.errorCode = ec;
         return;
+    }
+
+    RunInfo runInfo;
+    runInfo.keepAnalysisState = true;
+    runInfo.isReplay = true;
 
     ReplayQueues bufferQueues;
 
     const auto queueSize = cmd.queue.size();
 
-    for (int i=0; i<queueSize; ++i)
+    for (int queueIndex = 0; queueIndex < queueSize; ++queueIndex)
     {
-        const auto &url = cmd.queue[i];
+        const auto &url = cmd.queue[queueIndex];
         auto info = gather_fileinfo(url);
 
-        if (info.hasError())
-            return;
+        #if 0 // FIXME: leftoff here because of a side-quest
+        {
+            auto cmdStateGuard = cmdState_.access();
+            auto &cmdState = std::get<ReplayCommandState>(cmdStateGuard.ref());
 
-        auto replayWorker = make_replay_worker(info.handle, bufferQueues);
-        replayWorker->setListfile(&info.handle);
+            if (info.hasError())
+            {
+                cmdState.err = info.err;
+                return;
+            }
 
-        auto analysisWorker = make_analysis_worker(info.handle, bufferQueues);
-        analysisWorker->setAnalysis(ana.get());
-        analysisWorker->setVMEConfig(info.vmeConfig.get());
-        // TODO: setWorkspaceDirectory() for the analysis session saving :(
-        analysisWorker->setRunInfo(runInfo);
-        ana->beginRun(runInfo, info.vmeConfig.get()); // FIXME: really call this for each file?
+            auto replayWorker = make_replay_worker(info.handle, bufferQueues);
+            replayWorker->setListfile(&info.handle);
+
+            auto analysisWorker = make_analysis_worker(info.handle, bufferQueues);
+            analysisWorker->setAnalysis(ana.get());
+            analysisWorker->setVMEConfig(info.vmeConfig.get());
+            // TODO / FIXME: setWorkspaceDirectory() for the analysis session saving :(
+            analysisWorker->setRunInfo(runInfo);
+            ana->beginRun(runInfo, info.vmeConfig.get());
+
+            std::get<ReplayCommandState>(cmdStateGuard.ref()).err = info.err;
+        }
 
         auto fReplay = QtConcurrent::run([&] { replayWorker->start(); }); // returns when done
         auto fAnalysis = QtConcurrent::run([&] { analysisWorker->start(); }); // does not return unless stopped
@@ -569,8 +597,9 @@ void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
             analysisWorker->stop(true);
 
         fAnalysis.waitForFinished();
+        #endif
 
-        qDebug() << "done" << i << queueSize << canceled_.load();
+        qDebug() << "done" << queueIndex << queueSize << canceled_.load();
     }
 }
 

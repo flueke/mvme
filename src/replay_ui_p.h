@@ -220,7 +220,7 @@ class QueueTableModel: public QStandardItemModel
             return result;
         }
 
-        void setFileInfoCache(const QMap<QUrl, std::shared_ptr<replay::FileInfo>> &cache)
+        void setFileInfoCache(const QMap<QUrl, std::shared_ptr<replay::ListfileInfo>> &cache)
         {
             fileInfoCache_ = cache;
             updateModelData();
@@ -228,7 +228,7 @@ class QueueTableModel: public QStandardItemModel
 
     private:
         static const QStringList Headers;
-        QMap<QUrl, std::shared_ptr<replay::FileInfo>> fileInfoCache_;
+        QMap<QUrl, std::shared_ptr<replay::ListfileInfo>> fileInfoCache_;
 
         // Note: this is dangerous. Add the returned row to the model asap,
         // manually delete the items or leak memory.
@@ -261,15 +261,15 @@ class QueueTableModel: public QStandardItemModel
 
                     if (fileInfo->hasError())
                     {
-                        if (!fileInfo->errorString.isEmpty())
-                            info0 = QSL("Error: ") + fileInfo->errorString;
-                        else if (fileInfo->errorCode)
-                            info0 = QSL("Error: ") + QString::fromStdString(fileInfo->errorCode.message());
-                        else if (fileInfo->exceptionPtr)
+                        if (!fileInfo->err.errorString.isEmpty())
+                            info0 = QSL("Error: ") + fileInfo->err.errorString;
+                        else if (fileInfo->err.errorCode)
+                            info0 = QSL("Error: ") + QString::fromStdString(fileInfo->err.errorCode.message());
+                        else if (fileInfo->err.exceptionPtr)
                         {
                             try
                             {
-                                std::rethrow_exception(fileInfo->exceptionPtr);
+                                std::rethrow_exception(fileInfo->err.exceptionPtr);
                             }
                             catch (const std::exception &e)
                             {

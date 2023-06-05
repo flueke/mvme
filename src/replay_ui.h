@@ -33,8 +33,8 @@ class LIBMVME_EXPORT ReplayWidget: public QWidget
         replay::CommandHolder getCommand() const;
 
     public slots:
-        void browsePath(const QString &path);
         void clearFileInfoCache(); // TODO: get rid of this. was added for debugging.
+        void browsePath(const QString &path);
         void setCurrentFilename(const QString &filename);
 
         // Communicate system state to the widget.

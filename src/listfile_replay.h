@@ -26,9 +26,15 @@
 #include <memory>
 #include <quazip.h>
 #include <QDebug>
+#include <mesytec-mvlc/readout_buffer_queues.h>
+#include <mesytec-mvlc/util/protected.h>
 
+#include "databuffer.h"
 #include "globals.h"
 #include "vme_config.h"
+
+class ListfileReplayWorker;
+class StreamWorkerBase;
 
 struct LIBMVME_EXPORT ListfileReplayHandle
 {
@@ -91,15 +97,12 @@ LIBMVME_EXPORT read_vme_config_from_listfile(
 namespace mesytec::mvme::replay
 {
 
-struct FileInfo
+// Messy error mess
+struct ErrorInfo
 {
-    QUrl fileUrl;
-    ListfileReplayHandle handle;
-    std::unique_ptr<VMEConfig> vmeConfig;
     QString errorString;
     std::error_code errorCode;
     std::exception_ptr exceptionPtr;
-    std::chrono::steady_clock::time_point updateTime;
 
     bool hasError() const
     {
@@ -107,8 +110,22 @@ struct FileInfo
     }
 };
 
-FileInfo gather_fileinfo(const QUrl &url);
-QVector<std::shared_ptr<FileInfo>> gather_fileinfos(const QVector<QUrl> &urls);
+struct ListfileInfo
+{
+    QUrl fileUrl;
+    ListfileReplayHandle handle;
+    std::unique_ptr<VMEConfig> vmeConfig;
+    std::chrono::steady_clock::time_point updateTime;
+    ErrorInfo err; // error mess number 1
+
+    bool hasError() const
+    {
+        return err.hasError();
+    }
+};
+
+ListfileInfo gather_fileinfo(const QUrl &url);
+QVector<std::shared_ptr<ListfileInfo>> gather_fileinfos(const QVector<QUrl> &urls);
 //using FileInfoCache = QMap<QUrl, std::shared_ptr<FileInfo>>;
 
 class FileInfoCache: public QObject
@@ -122,9 +139,9 @@ class FileInfoCache: public QObject
         ~FileInfoCache() override;
 
         bool contains(const QUrl &url);
-        std::shared_ptr<FileInfo> operator[](const QUrl &url) const;
-        std::shared_ptr<FileInfo> value(const QUrl &url) const;
-        QMap<QUrl, std::shared_ptr<FileInfo>> cache() const;
+        std::shared_ptr<ListfileInfo> operator[](const QUrl &url) const;
+        std::shared_ptr<ListfileInfo> value(const QUrl &url) const;
+        QMap<QUrl, std::shared_ptr<ListfileInfo>> cache() const;
 
     public slots:
         void requestInfo(const QUrl &url);
@@ -135,6 +152,18 @@ class FileInfoCache: public QObject
        struct Private;
        std::unique_ptr<Private> d;
 };
+
+struct ReplayQueues
+{
+    mesytec::mvlc::ReadoutBufferQueues mvlcQueues;
+    mesytec::mvlc::ReadoutBufferQueues_<DataBuffer> mvmelstQueues;
+};
+
+std::unique_ptr<ListfileReplayWorker> LIBMVME_EXPORT make_replay_worker(const ListfileBufferFormat &fmt, ReplayQueues &queues);
+std::unique_ptr<ListfileReplayWorker> LIBMVME_EXPORT make_replay_worker(const ListfileReplayHandle &h, ReplayQueues &queues);
+
+std::unique_ptr<StreamWorkerBase> LIBMVME_EXPORT make_analysis_worker(const ListfileReplayHandle &fmt, ReplayQueues &queues);
+std::unique_ptr<StreamWorkerBase> LIBMVME_EXPORT make_analysis_worker(const ListfileReplayHandle &h, ReplayQueues &queues);
 
 // Commands:
 // replay   analysis
@@ -190,6 +219,37 @@ enum ReplayCommandType
 
 using CommandHolder = std::variant<ReplayCommand, MergeCommand, SplitCommand, FilterCommand>;
 
+struct ListfileCommandState
+{
+    int currentQueueIndex;
+    ErrorInfo err; // error mess number 2
+
+    bool hasError() const
+    {
+        return err.hasError();
+    }
+};
+
+struct ReplayCommandState: public ListfileCommandState
+{
+    std::unique_ptr<ListfileReplayWorker> replayWorker;
+    std::unique_ptr<StreamWorkerBase> analysisWorker;
+};
+
+struct MergeCommandState: public ListfileCommandState
+{
+};
+
+struct SplitCommandState: public ListfileCommandState
+{
+};
+
+struct FilterCommandState: public ListfileCommandState
+{
+};
+
+using CommandStateHolder = std::variant<ReplayCommandState, MergeCommandState, SplitCommandState, FilterCommandState>;
+
 class ListfileCommandExecutor: public QObject
 {
     Q_OBJECT
@@ -213,6 +273,7 @@ class ListfileCommandExecutor: public QObject
         State state() const;
 
         bool setCommand(const CommandHolder &cmd); // Returns false if not idle.
+        mesytec::mvlc::WaitableProtected<CommandStateHolder> &commandState();
 
     public slots:
         void start();
