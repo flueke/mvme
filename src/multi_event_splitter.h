@@ -114,6 +114,11 @@ struct Counters
     std::vector<std::vector<size_t>> outputModules; // [eventIndex, moduleIndex] -> number of output events per module
     size_t eventIndexOutOfRange = 0;
     size_t moduleIndexOutOfRange = 0;
+
+    // [eventIndex, moduleIndex] -> number of times the header filter used for
+    // splitting did not match.
+    std::vector<std::vector<size_t>> moduleHeaderMismatches;
+    std::vector<std::vector<size_t>> moduleEventSizeExceedsBuffer;
 };
 
 struct State
@@ -234,6 +239,30 @@ Out &format_counters_tabular(Out &out, const Counters &counters)
     out << fmt::format("\n{: <22} {: >12}\n", "ErrorType", "ErrorCount");
     out << fmt::format("{: <22} {: >12}\n", "eventIndexOutOfRange", counters.eventIndexOutOfRange);
     out << fmt::format("{: <22} {: >12}\n", "moduleIndexOutOfRange", counters.moduleIndexOutOfRange);
+
+    out << "\nModule header mismatches:\n";
+    for (size_t ei=0; ei<counters.moduleHeaderMismatches.size(); ++ei)
+    {
+        const auto &mismatches = counters.moduleHeaderMismatches[ei];
+        for (size_t mi=0; mi<mismatches.size(); ++mi)
+        {
+            out << fmt::format("  {} {}\n",
+                               fmt::format("event{}, module{}", ei, mi),
+                               mismatches[mi]);
+        }
+    }
+
+    out << "\nModule size exceeds input event size:\n";
+    for (size_t ei=0; ei<counters.moduleEventSizeExceedsBuffer.size(); ++ei)
+    {
+        const auto &exceeds = counters.moduleEventSizeExceedsBuffer[ei];
+        for (size_t mi=0; mi<exceeds.size(); ++mi)
+        {
+            out << fmt::format("  {} {}\n",
+                               fmt::format("event{}, module{}", ei, mi),
+                               exceeds[mi]);
+        }
+    }
 
     return out;
 }

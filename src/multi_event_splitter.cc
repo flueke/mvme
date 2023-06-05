@@ -106,12 +106,16 @@ namespace
         counters.outputEvents.resize(eventCount);
         counters.inputModules.resize(eventCount);
         counters.outputModules.resize(eventCount);
+        counters.moduleHeaderMismatches.resize(eventCount);
+        counters.moduleEventSizeExceedsBuffer.resize(eventCount);
 
         for (size_t ei=0; ei<splitFilterStrings.size(); ++ei)
         {
             const size_t moduleCount = splitFilterStrings[ei].size();
             counters.inputModules[ei].resize(moduleCount);
             counters.outputModules[ei].resize(moduleCount);
+            counters.moduleHeaderMismatches[ei].resize(moduleCount);
+            counters.moduleEventSizeExceedsBuffer[ei].resize(moduleCount);
         }
 
         return counters;
@@ -363,6 +367,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     auto hasSizeMask = moduleFilters[mi].cache.extractMask;
                     LOG_WARN("state=%p, ei=%d, mi=%lu, checked header '0x%08x', no match!, hasSizeMask=%s",
                              &state, ei, mi, *dynamicSpan.begin, hasSizeMask ? "true" : "false");
+                    ++state.counters.moduleHeaderMismatches[ei][mi];
                 }
             }
         }
@@ -401,9 +406,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     // in the dynamic span. Move the span begin pointer forward
                     // so that the span has size 0 and the module filter test
                     // above will fail on the next iteration.
-                    //++state.counters.moduleEventSizeExceeded[ei][mi];
                     spans.dataSpan.begin = spans.dataSpan.end;
                     moduleData.data = {};
+                    ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
                 }
                 else
                 {
