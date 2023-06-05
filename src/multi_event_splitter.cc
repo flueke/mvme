@@ -138,7 +138,7 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
     {
         if (splitFilterStrings[ei].size() > MaxVMEModules)
         {
-            ec == make_error_code(ErrorCode::MaxVMEModulesExceeded);
+            ec = make_error_code(ErrorCode::MaxVMEModulesExceeded);
             return result;
         }
     }
