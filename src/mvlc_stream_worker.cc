@@ -862,6 +862,8 @@ void MVLC_StreamWorker::processBuffer(
     auto bufferView = buffer->viewU32();
     const bool useLogThrottle = true;
 
+    m_multiEventSplitter.processingFlags = {};
+
     try
     {
         ParseResult pr = readout_parser::parse_readout_buffer(
@@ -873,14 +875,14 @@ void MVLC_StreamWorker::processBuffer(
             bufferView.data(),
             bufferView.size());
 
-        if (pr == ParseResult::Ok)
+        if (pr == ParseResult::Ok && !m_multiEventSplitter.processingFlags)
         {
             // No exception was thrown and the parse result for the buffer is
             // ok.
             processingOk = true;
         }
         else
-            qDebug() << __PRETTY_FUNCTION__ << (int)pr << get_parse_result_name(pr);
+            qDebug() << __PRETTY_FUNCTION__ << (int)pr << get_parse_result_name(pr) << m_multiEventSplitter.processingFlags;
     }
     // TODO: check which of these can actually escape parse_readout_buffer().
     // Seems like code duplication between here and the parser.

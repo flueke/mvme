@@ -142,6 +142,17 @@ struct State
         DataSpan dataSpan;
     };
 
+    struct ProcessingFlags
+    {
+        // Set if the next expected module header word did not match the modules
+        // header filter.
+        static const u32 ModuleHeaderMismatch = 1u << 0;
+
+        // Set if the extracted or calculated module data size exceeds the input
+        // buffer size.
+        static const u32 ModuleSizeExceedsBuffer = 1u << 1;
+    };
+
     // DataFilters used for module header matching and size extraction grouped
     // by event and module indexes.
     std::vector<std::vector<FilterWithSizeCache>> splitFilters;
@@ -153,6 +164,11 @@ struct State
     std::bitset<MaxVMEEvents+1> enabledForEvent;
 
     Counters counters;
+
+    // Used to communicate non-fatal error/warning conditions to the outside.
+    // Reset this before calling event_data(), then examine the value to
+    // determine if error/warning cases occured.
+    u32 processingFlags = {};
 };
 
 // Creates an initial splitter state. The input are lists of per event and

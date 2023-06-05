@@ -21,6 +21,8 @@
 #include "multi_event_splitter.h"
 
 #include <algorithm>
+#include <mesytec-mvlc/util/io_util.h>
+#include <spdlog/spdlog.h>
 
 #define LOG_LEVEL_OFF     0
 #define LOG_LEVEL_WARN  100
@@ -364,10 +366,21 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                 }
                 else
                 {
-                    auto hasSizeMask = moduleFilters[mi].cache.extractMask;
+                    auto hasSizeMask = moduleFilters[mi].cache.extractMask != 0;
                     LOG_WARN("state=%p, ei=%d, mi=%lu, checked header '0x%08x', no match!, hasSizeMask=%s",
                              &state, ei, mi, *dynamicSpan.begin, hasSizeMask ? "true" : "false");
                     ++state.counters.moduleHeaderMismatches[ei][mi];
+                    state.processingFlags |= State::ProcessingFlags::ModuleHeaderMismatch;
+
+                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE || true)
+                    {
+                        auto spanLen = dynamicSpan.end - dynamicSpan.begin;
+                        mesytec::mvlc::util::log_buffer(
+                            std::cout,
+                            dynamicSpan.begin, spanLen,
+                            fmt::format("module header mismatch: ei={}, mi={}, len={}", ei, mi,
+                                spanLen));
+                    }
                 }
             }
         }
@@ -409,6 +422,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     spans.dataSpan.begin = spans.dataSpan.end;
                     moduleData.data = {};
                     ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
+                    state.processingFlags |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
                 }
                 else
                 {
@@ -459,13 +473,15 @@ std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
     void *userContext, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
 {
-    begin_event(state, ei);
+    if (auto ec = begin_event(state, ei))
+        return ec;
 
     for (unsigned mi=0; mi<moduleCount; ++mi)
     {
         auto &moduleData = moduleDataList[mi];
 
-        module_data(state, ei, mi, moduleData.data.data, moduleData.data.size);
+        if (auto ec = module_data(state, ei, mi, moduleData.data.data, moduleData.data.size))
+            return ec;
     }
 
     return end_event(state, callbacks, userContext, ei, moduleCount);

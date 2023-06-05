@@ -4031,6 +4031,8 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
             if (usesMultiEventSplitting && !multiEventSplitterError)
             {
+                auto countersPrecall = multiEventSplitter.counters;
+                multiEventSplitter.processingFlags = {};
                 mesytec::mvme::multi_event_splitter::event_data(
                     multiEventSplitter, splitterCallbacks,
                     nullptr, ei, moduleDataList, moduleCount);
