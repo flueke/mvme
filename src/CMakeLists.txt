@@ -540,7 +540,9 @@ add_mvme_dev_exe(dev_qtconcurrent dev_qtconcurrent.cc)
 
 if (WIN32)
     add_mvme_dev_exe(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
-    target_link_libraries(dev_timeBeginPeriod_test PRIVATE winmm)
+    if (TARGET dev_timeBeginPeriod_test)
+        target_link_libraries(dev_timeBeginPeriod_test PRIVATE winmm)
+    endif()
 endif(WIN32)
 
 add_mvme_dev_exe(mvme_to_mvlc mvme_to_mvlc.cc)
