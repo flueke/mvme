@@ -372,7 +372,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     ++state.counters.moduleHeaderMismatches[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleHeaderMismatch;
 
-                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE || true)
+                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE)
                     {
                         auto spanLen = dynamicSpan.end - dynamicSpan.begin;
                         mesytec::mvlc::util::log_buffer(
