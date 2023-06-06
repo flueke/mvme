@@ -37,6 +37,7 @@
 #include <QWidget>
 
 #include "globals.h"
+#include "libmvme_export.h"
 #include "mvme_stream_worker.h"
 
 class QFormLayout;
@@ -46,7 +47,7 @@ namespace Ui
     class DaqRunSettingsDialog;
 };
 
-class DAQControlWidget: public QWidget
+class LIBMVME_EXPORT DAQControlWidget: public QWidget
 {
     Q_OBJECT
     signals:
@@ -124,7 +125,7 @@ class DAQControlWidget: public QWidget
         QSpinBox *spin_runDuration;
 };
 
-class DAQRunSettingsDialog: public QDialog
+class LIBMVME_EXPORT DAQRunSettingsDialog: public QDialog
 {
     Q_OBJECT
     public:
@@ -143,7 +144,7 @@ class DAQRunSettingsDialog: public QDialog
         ListFileOutputInfo m_settings;
 };
 
-class WorkspaceSettingsDialog: public QDialog
+class LIBMVME_EXPORT WorkspaceSettingsDialog: public QDialog
 {
     Q_OBJECT
     public:

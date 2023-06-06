@@ -98,7 +98,7 @@ namespace mesytec::mvme::replay
 {
 
 // Messy error mess
-struct ErrorInfo
+struct LIBMVME_EXPORT ErrorInfo
 {
     QString errorString;
     std::error_code errorCode;
@@ -110,7 +110,7 @@ struct ErrorInfo
     }
 };
 
-struct ListfileInfo
+struct LIBMVME_EXPORT ListfileInfo
 {
     QUrl fileUrl;
     ListfileReplayHandle handle;
@@ -124,11 +124,11 @@ struct ListfileInfo
     }
 };
 
-ListfileInfo gather_fileinfo(const QUrl &url);
-QVector<std::shared_ptr<ListfileInfo>> gather_fileinfos(const QVector<QUrl> &urls);
+ListfileInfo LIBMVME_EXPORT gather_fileinfo(const QUrl &url);
+QVector<std::shared_ptr<ListfileInfo>> LIBMVME_EXPORT gather_fileinfos(const QVector<QUrl> &urls);
 //using FileInfoCache = QMap<QUrl, std::shared_ptr<FileInfo>>;
 
-class FileInfoCache: public QObject
+class LIBMVME_EXPORT FileInfoCache: public QObject
 {
     Q_OBJECT
     signals:
@@ -153,7 +153,7 @@ class FileInfoCache: public QObject
        std::unique_ptr<Private> d;
 };
 
-struct ReplayQueues
+struct LIBMVME_EXPORT ReplayQueues
 {
     mesytec::mvlc::ReadoutBufferQueues mvlcQueues;
     mesytec::mvlc::ReadoutBufferQueues_<DataBuffer> mvmelstQueues;
@@ -170,23 +170,23 @@ std::unique_ptr<StreamWorkerBase> LIBMVME_EXPORT make_analysis_worker(const List
 // merge    output filename + optional analysis to append
 // split    split rules, e.g. timetick or event count based; output filename; produces MVLC_USB format
 // filter   analysis and condition(s) to use for filtering. output filename; produces MVLC_USB format
-struct ListfileCommandBase
+struct LIBMVME_EXPORT ListfileCommandBase
 {
     QVector<QUrl> queue;
 };
 
-struct ReplayCommand: public ListfileCommandBase
+struct LIBMVME_EXPORT ReplayCommand: public ListfileCommandBase
 {
     QByteArray analysisBlob;
     QString analysisFilename; // For info purposes only. Data is kept in the blob.
 };
 
-struct MergeCommand: public ListfileCommandBase
+struct LIBMVME_EXPORT MergeCommand: public ListfileCommandBase
 {
     QString outputFilename;
 };
 
-struct SplitCommand: public ListfileCommandBase
+struct LIBMVME_EXPORT SplitCommand: public ListfileCommandBase
 {
     enum SplitCondition
     {
@@ -201,7 +201,7 @@ struct SplitCommand: public ListfileCommandBase
     QString outputBasename;
 };
 
-struct FilterCommand: public ListfileCommandBase
+struct LIBMVME_EXPORT FilterCommand: public ListfileCommandBase
 {
     QByteArray analysisBlob;
     QString analysisFilename; // For info purposes only. Data is kept in the blob.
@@ -219,7 +219,7 @@ enum ReplayCommandType
 
 using CommandHolder = std::variant<ReplayCommand, MergeCommand, SplitCommand, FilterCommand>;
 
-struct ListfileCommandState
+struct LIBMVME_EXPORT ListfileCommandState
 {
     int currentQueueIndex;
     ErrorInfo err; // error mess number 2
@@ -230,27 +230,27 @@ struct ListfileCommandState
     }
 };
 
-struct ReplayCommandState: public ListfileCommandState
+struct LIBMVME_EXPORT ReplayCommandState: public ListfileCommandState
 {
     std::unique_ptr<ListfileReplayWorker> replayWorker;
     std::unique_ptr<StreamWorkerBase> analysisWorker;
 };
 
-struct MergeCommandState: public ListfileCommandState
+struct LIBMVME_EXPORT MergeCommandState: public ListfileCommandState
 {
 };
 
-struct SplitCommandState: public ListfileCommandState
+struct LIBMVME_EXPORT SplitCommandState: public ListfileCommandState
 {
 };
 
-struct FilterCommandState: public ListfileCommandState
+struct LIBMVME_EXPORT FilterCommandState: public ListfileCommandState
 {
 };
 
 using CommandStateHolder = std::variant<ReplayCommandState, MergeCommandState, SplitCommandState, FilterCommandState>;
 
-class ListfileCommandExecutor: public QObject
+class LIBMVME_EXPORT ListfileCommandExecutor: public QObject
 {
     Q_OBJECT
     signals:
