@@ -150,7 +150,7 @@ target_compile_options(libmvme_core
     )
 
 if (WIN32)
-    target_link_libraries(libmvme_core PRIVATE ws2_32)
+    target_link_libraries(libmvme_core PUBLIC ws2_32)
     target_compile_options(libmvme_core PRIVATE $<${not-msvc}:-Wno-format>)
 endif()
 
@@ -540,6 +540,7 @@ add_mvme_dev_exe(dev_qtconcurrent dev_qtconcurrent.cc)
 
 if (WIN32)
     add_mvme_dev_exe(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
+    target_link_libraries(dev_timeBeginPeriod_test PRIVATE winmm)
 endif(WIN32)
 
 add_mvme_dev_exe(mvme_to_mvlc mvme_to_mvlc.cc)
