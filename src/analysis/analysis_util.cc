@@ -616,6 +616,9 @@ std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_string
 
         for (const auto &moduleConfig: eventConfig->getModuleConfigs())
         {
+            if (!moduleConfig->isEnabled())
+                continue;
+
             auto moduleSettings = analysis.getVMEObjectSettings(moduleConfig->getId());
             auto filterString = moduleSettings.value("MultiEventHeaderFilter").toString();
 
