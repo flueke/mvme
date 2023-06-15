@@ -350,7 +350,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         tb->addWidget(boxStruct.container.release());
 
         connect(d->combo_maxResX_, qOverload<int>(&QComboBox::currentIndexChanged),
-                this, [this, d] { d->onMaxResXChanged(); });
+                this, [d] { d->onMaxResXChanged(); });
     }
 
     // Resolution Reduction Y
@@ -362,7 +362,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         tb->addWidget(boxStruct.container.release());
 
         connect(d->combo_maxResY_, qOverload<int>(&QComboBox::currentIndexChanged),
-                this, [this, d] { d->onMaxResYChanged(); });
+                this, [d] { d->onMaxResYChanged(); });
     }
 
     auto actionPolyConditions = tb->addAction(QIcon(":/scissors.png"), "Polygon Conditions");
@@ -606,6 +606,7 @@ Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceP
     auto histData = new Histo1DListRasterData(m_d->m_histo1DSink->m_histos);
     m_d->m_plotItem->setData(histData);
     m_d->combo_maxResX_->setEnabled(false);
+    select_by_resolution(m_d->combo_maxResY_, m_d->m_histo1DSink->m_bins);
 
     connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
         for (auto &histo: m_d->m_histo1DSink->m_histos)
