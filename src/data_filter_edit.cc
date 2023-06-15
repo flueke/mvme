@@ -27,7 +27,6 @@
 // DataFilterEdit
 //
 
-static const int DataFilterEditWidthPadding = 6;
 static const int DataFilterMaxBits = 32;
 
 DataFilterEdit::DataFilterEdit(QWidget *parent)
