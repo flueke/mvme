@@ -3790,7 +3790,7 @@ void IntervalCondition::read(const QJsonObject &json)
     auto jsonIntervalIgnores = json["intervalIgnores"].toArray();
 
     for (auto it = jsonIntervals.begin(), jt = jsonIntervalIgnores.begin();
-         it != jsonIntervals.end(), jt != jsonIntervalIgnores.end();
+         it != jsonIntervals.end() && jt != jsonIntervalIgnores.end();
          it++, jt++)
     {
         IntervalData intervalData
