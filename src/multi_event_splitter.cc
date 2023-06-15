@@ -31,7 +31,7 @@
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MULTI_EVENT_SPLITTER_LOG_LEVEL
-#define MULTI_EVENT_SPLITTER_LOG_LEVEL LOG_LEVEL_OFF
+#define MULTI_EVENT_SPLITTER_LOG_LEVEL LOG_LEVEL_WARN
 #endif
 
 #define LOG_LEVEL_SETTING MULTI_EVENT_SPLITTER_LOG_LEVEL
@@ -372,7 +372,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     ++state.counters.moduleHeaderMismatches[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleHeaderMismatch;
 
-                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_TRACE)
+                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN)
                     {
                         auto spanLen = dynamicSpan.end - dynamicSpan.begin;
                         mesytec::mvlc::util::log_buffer(
@@ -423,6 +423,16 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     moduleData.data = {};
                     ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
+
+                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN)
+                    {
+                        auto spanLen = spans.dataSpan.end - spans.dataSpan.begin;
+                        mesytec::mvlc::util::log_buffer(
+                            std::cout,
+                            spans.dataSpan.begin, spanLen,
+                            fmt::format("module header mismatch: ei={}, mi={}, len={}", ei, mi,
+                                spanLen));
+                    }
                 }
                 else
                 {
