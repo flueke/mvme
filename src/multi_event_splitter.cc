@@ -376,7 +376,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     {
                         auto spanLen = dynamicSpan.end - dynamicSpan.begin;
                         mesytec::mvlc::util::log_buffer(
-                            std::cout,
+                            std::cerr,
                             dynamicSpan.begin, spanLen,
                             fmt::format("module header mismatch: ei={}, mi={}, len={}", ei, mi,
                                 spanLen));
@@ -428,7 +428,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     {
                         auto spanLen = spans.dataSpan.end - spans.dataSpan.begin;
                         mesytec::mvlc::util::log_buffer(
-                            std::cout,
+                            std::cerr,
                             spans.dataSpan.begin, spanLen,
                             fmt::format("module header mismatch: ei={}, mi={}, len={}", ei, mi,
                                 spanLen));
