@@ -11,7 +11,13 @@
             "{8e96a726-881b-4884-ab34-13c00c541a18}": {
                 "MultiEventProcessing": true
             },
+            "{9519291c-cb50-4504-a646-79a9d7d37b20}": {
+                "MultiEventHeaderFilter": "1010 SSSS SSSS SSSS SSSS SSSS SSSS SSSS"
+            },
             "{a45645d8-d847-4de8-80de-34aa7f69b1a0}": {
+                "MultiEventProcessing": false
+            },
+            "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}": {
                 "MultiEventProcessing": false
             }
         },
@@ -19,49 +25,71 @@
         },
         "connections": [
             {
-                "dstId": "{3d9bf3e6-e4e1-41bb-bdac-0bf818cc2591}",
+                "dstId": "{2c9c454e-1dab-4d33-b0f7-afef8ab0c6eb}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{e02b7399-ec46-4154-9bfc-1f171d463fcd}",
+                "srcId": "{33e86999-3f49-418b-9083-5822ba2d6e44}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{d67bb953-144c-4ace-a558-39b23a2eff50}",
+                "dstId": "{71f86984-2c7b-485a-bcf3-106aaca556ec}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{7f3a8f31-582e-439c-95c1-e65ba8f53a2d}",
+                "srcId": "{06d325ab-dadc-4fa6-9ae4-07a5472b99f3}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{a6def51d-13dc-4887-9b95-c59d7205d9aa}",
+                "dstId": "{9ce9a169-bd00-4a56-a60d-8fa831d8ae89}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{f4c7c485-431b-4d8a-b521-86b6d130ee3c}",
+                "srcId": "{06d325ab-dadc-4fa6-9ae4-07a5472b99f3}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{47537ecb-7707-4e4a-a057-0ed546fec565}",
+                "dstId": "{1037d983-260b-4f47-acc6-a0e00683173b}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{481de156-c11d-43f9-a86b-a9a78bb8a3c0}",
+                "srcId": "{33e86999-3f49-418b-9083-5822ba2d6e44}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{8f71c862-4360-443b-879b-37fa62d61c39}",
+                "dstId": "{d33349c8-6a6a-4fa7-bf5d-1b3e101d8e0b}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{417dcd34-20a1-4556-80a9-5f2a0188c14f}",
+                "srcId": "{c1a0a828-990f-4675-84be-139adbf20e3b}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{da876d13-110f-4f9a-bf31-17f5cf0b2855}",
+                "dstId": "{3b194a2a-996b-477c-b66f-abba087c38f3}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{f1972dbf-6db0-47bd-b389-67f8befa6ff3}",
+                "srcId": "{1dfda27d-6c61-4c4e-8fa1-100f3e3aa39f}",
                 "srcIndex": 0
             }
         ],
         "directories": [
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "dynamicProperties": {
+                    },
+                    "members": [
+                        "{3b194a2a-996b-477c-b66f-abba087c38f3}",
+                        "{d33349c8-6a6a-4fa7-bf5d-1b3e101d8e0b}",
+                        "{9ce9a169-bd00-4a56-a60d-8fa831d8ae89}",
+                        "{2c9c454e-1dab-4d33-b0f7-afef8ab0c6eb}",
+                        "{71f86984-2c7b-485a-bcf3-106aaca556ec}",
+                        "{1037d983-260b-4f47-acc6-a0e00683173b}",
+                        "{745624b6-4ccc-46d3-a391-c61e50d877c6}"
+                    ]
+                },
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{0d61338d-56dc-42e1-b940-c64dced7ff1c}",
+                "name": "caen_v1742 header info",
+                "userLevel": 0
+            }
+        ],
+        "genericObjects": [
         ],
         "operators": [
             {
@@ -69,93 +97,17 @@
                 "data": {
                     "calibrationFactor": 1,
                     "calibrationOffset": 0,
-                    "capacity": 86400,
+                    "capacity": 100000,
                     "numberOfInputs": 1,
                     "samplingInterval": 1,
                     "type": "PrecalculatedRate",
-                    "unitLabel": "",
+                    "unitLabel": "Event Counter",
                     "useCombinedView": false,
-                    "xScaleType": "Time"
+                    "xScaleType": "Samples"
                 },
                 "enabled": true,
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{a6def51d-13dc-4887-9b95-c59d7205d9aa}",
-                "name": "header0_len",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::RateMonitorSink",
-                "data": {
-                    "calibrationFactor": 1,
-                    "calibrationOffset": 0,
-                    "capacity": 86400,
-                    "numberOfInputs": 1,
-                    "samplingInterval": 1,
-                    "type": "PrecalculatedRate",
-                    "unitLabel": "",
-                    "useCombinedView": false,
-                    "xScaleType": "Time"
-                },
-                "enabled": true,
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{da876d13-110f-4f9a-bf31-17f5cf0b2855}",
-                "name": "reg_data_ready",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::RateMonitorSink",
-                "data": {
-                    "calibrationFactor": 1,
-                    "calibrationOffset": 0,
-                    "capacity": 86400,
-                    "numberOfInputs": 1,
-                    "samplingInterval": 1,
-                    "type": "PrecalculatedRate",
-                    "unitLabel": "",
-                    "useCombinedView": false,
-                    "xScaleType": "Time"
-                },
-                "enabled": true,
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{3d9bf3e6-e4e1-41bb-bdac-0bf818cc2591}",
-                "name": "reg_event_len",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::RateMonitorSink",
-                "data": {
-                    "calibrationFactor": 1,
-                    "calibrationOffset": 0,
-                    "capacity": 86400,
-                    "numberOfInputs": 1,
-                    "samplingInterval": 1,
-                    "type": "PrecalculatedRate",
-                    "unitLabel": "",
-                    "useCombinedView": false,
-                    "xScaleType": "Time"
-                },
-                "enabled": true,
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{d67bb953-144c-4ace-a558-39b23a2eff50}",
-                "name": "header1_boardId",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::RateMonitorSink",
-                "data": {
-                    "calibrationFactor": 1,
-                    "calibrationOffset": 0,
-                    "capacity": 86400,
-                    "numberOfInputs": 1,
-                    "samplingInterval": 1,
-                    "type": "PrecalculatedRate",
-                    "unitLabel": "",
-                    "useCombinedView": false,
-                    "xScaleType": "Time"
-                },
-                "enabled": true,
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{47537ecb-7707-4e4a-a057-0ed546fec565}",
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{71f86984-2c7b-485a-bcf3-106aaca556ec}",
                 "name": "header2_eventCounter",
                 "userLevel": 0
             },
@@ -164,17 +116,77 @@
                 "data": {
                     "calibrationFactor": 1,
                     "calibrationOffset": 0,
-                    "capacity": 86400,
+                    "capacity": 100000,
                     "numberOfInputs": 1,
                     "samplingInterval": 1,
                     "type": "PrecalculatedRate",
-                    "unitLabel": "",
+                    "unitLabel": "Timetag",
                     "useCombinedView": false,
-                    "xScaleType": "Time"
+                    "xScaleType": "Samples"
                 },
                 "enabled": true,
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{8f71c862-4360-443b-879b-37fa62d61c39}",
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{1037d983-260b-4f47-acc6-a0e00683173b}",
+                "name": "header3_eventTimeTag",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "header0_eventSize",
+                    "xLimitMax": 20000,
+                    "xLimitMin": 0
+                },
+                "enabled": true,
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{3b194a2a-996b-477c-b66f-abba087c38f3}",
+                "name": "header0_eventSize",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "header1_boardId",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{d33349c8-6a6a-4fa7-bf5d-1b3e101d8e0b}",
+                "name": "header1_boardId",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "header2_eventCounter",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{9ce9a169-bd00-4a56-a60d-8fa831d8ae89}",
+                "name": "header2_eventCounter",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "header3_eventTimeTag",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{2c9c454e-1dab-4d33-b0f7-afef8ab0c6eb}",
                 "name": "header3_eventTimeTag",
                 "userLevel": 0
             }
@@ -182,133 +194,13 @@
         "properties": {
             "ModuleProperties": [
                 {
-                    "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
+                    "moduleId": "{f6b17ab9-a6fa-43fd-b1e9-6fdb4642fa0f}",
                     "moduleName": "caen_v1742",
                     "moduleTypeName": "caen_v1742"
                 }
             ]
         },
         "sources": [
-            {
-                "class": "analysis::ListFilterExtractor",
-                "data": {
-                    "listFilter": {
-                        "extractionFilter": {
-                            "subFilters": [
-                                {
-                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXD",
-                                    "wordIndex": -1
-                                },
-                                {
-                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                                    "wordIndex": -1
-                                }
-                            ]
-                        },
-                        "flags": 1,
-                        "wordCount": 1
-                    },
-                    "options": 1,
-                    "parameterNames": [
-                    ],
-                    "repetitions": 1,
-                    "rngSeed": "cf5c8f3835fa5229"
-                },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{f1972dbf-6db0-47bd-b389-67f8befa6ff3}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
-                "name": "reg_data_ready"
-            },
-            {
-                "class": "analysis::ListFilterExtractor",
-                "data": {
-                    "listFilter": {
-                        "extractionFilter": {
-                            "subFilters": [
-                                {
-                                    "filterString": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
-                                    "wordIndex": -1
-                                },
-                                {
-                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                                    "wordIndex": -1
-                                }
-                            ]
-                        },
-                        "flags": 1,
-                        "wordCount": 1
-                    },
-                    "options": 1,
-                    "parameterNames": [
-                    ],
-                    "repetitions": 1,
-                    "rngSeed": "1ae0569f557102d3"
-                },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{e02b7399-ec46-4154-9bfc-1f171d463fcd}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
-                "name": "reg_event_len"
-            },
-            {
-                "class": "analysis::ListFilterExtractor",
-                "data": {
-                    "listFilter": {
-                        "extractionFilter": {
-                            "subFilters": [
-                                {
-                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                                    "wordIndex": -1
-                                },
-                                {
-                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                                    "wordIndex": -1
-                                }
-                            ]
-                        },
-                        "flags": 0,
-                        "wordCount": 1
-                    },
-                    "options": 1,
-                    "parameterNames": [
-                    ],
-                    "repetitions": 1,
-                    "rngSeed": "6774fffa88df39b2"
-                },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{4b3bbe2e-3f4a-4006-bbda-124ccd61e9b6}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
-                "name": "marker_skip (0xb..b)"
-            },
-            {
-                "class": "analysis::ListFilterExtractor",
-                "data": {
-                    "listFilter": {
-                        "extractionFilter": {
-                            "subFilters": [
-                                {
-                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                                    "wordIndex": -1
-                                },
-                                {
-                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                                    "wordIndex": -1
-                                }
-                            ]
-                        },
-                        "flags": 1,
-                        "wordCount": 1
-                    },
-                    "options": 1,
-                    "parameterNames": [
-                    ],
-                    "repetitions": 1,
-                    "rngSeed": "63d703f4969a203"
-                },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{efd43b90-3d43-4c96-a3f7-74e1b7784ca0}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
-                "name": "header_skip (unknow data)"
-            },
             {
                 "class": "analysis::ListFilterExtractor",
                 "data": {
@@ -332,12 +224,12 @@
                     "parameterNames": [
                     ],
                     "repetitions": 1,
-                    "rngSeed": "8474c038f81efd56"
+                    "rngSeed": "af5cfb701e583586"
                 },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{f4c7c485-431b-4d8a-b521-86b6d130ee3c}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
-                "name": "header0_len"
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{1dfda27d-6c61-4c4e-8fa1-100f3e3aa39f}",
+                "moduleId": "{f6b17ab9-a6fa-43fd-b1e9-6fdb4642fa0f}",
+                "name": "header0_eventSize"
             },
             {
                 "class": "analysis::ListFilterExtractor",
@@ -346,7 +238,7 @@
                         "extractionFilter": {
                             "subFilters": [
                                 {
-                                    "filterString": "DDDDXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "filterString": "DDDDDXXXXXXXXXXXXXXXXXXXXXXXXXXX",
                                     "wordIndex": -1
                                 },
                                 {
@@ -364,9 +256,9 @@
                     "repetitions": 1,
                     "rngSeed": "7acf5c2b0bac9bcb"
                 },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{7f3a8f31-582e-439c-95c1-e65ba8f53a2d}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{c1a0a828-990f-4675-84be-139adbf20e3b}",
+                "moduleId": "{f6b17ab9-a6fa-43fd-b1e9-6fdb4642fa0f}",
                 "name": "header1_boardId"
             },
             {
@@ -394,9 +286,9 @@
                     "repetitions": 1,
                     "rngSeed": "23eccd0e12a4cb18"
                 },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{481de156-c11d-43f9-a86b-a9a78bb8a3c0}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{06d325ab-dadc-4fa6-9ae4-07a5472b99f3}",
+                "moduleId": "{f6b17ab9-a6fa-43fd-b1e9-6fdb4642fa0f}",
                 "name": "header2_eventCounter"
             },
             {
@@ -406,7 +298,7 @@
                         "extractionFilter": {
                             "subFilters": [
                                 {
-                                    "filterString": "XDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                                    "filterString": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
                                     "wordIndex": -1
                                 },
                                 {
@@ -424,9 +316,9 @@
                     "repetitions": 1,
                     "rngSeed": "7631e2f709205e3"
                 },
-                "eventId": "{e2b913bb-c50f-4be7-a898-1a46bf4739bb}",
-                "id": "{417dcd34-20a1-4556-80a9-5f2a0188c14f}",
-                "moduleId": "{d4c9f541-64d1-4225-b945-b524453889dc}",
+                "eventId": "{041c32d2-0813-4f82-b17b-3e35cdf89308}",
+                "id": "{33e86999-3f49-418b-9083-5822ba2d6e44}",
+                "moduleId": "{f6b17ab9-a6fa-43fd-b1e9-6fdb4642fa0f}",
                 "name": "header3_eventTimeTag"
             }
         ]
