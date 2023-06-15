@@ -231,4 +231,6 @@ class LIBMVME_CORE_EXPORT TextEditSearchWidget: public QWidget
         QTextEdit *m_textEdit;
 };
 
+QWidget *find_top_level_widget(const QString &objectName);
+
 #endif /* __QT_UTIL_H__ */
