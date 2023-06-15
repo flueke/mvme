@@ -9,33 +9,8 @@
 #include <spdlog/spdlog.h>
 
 #include "analysis/analysis.h"
-#include "analysis/object_visitor.h"
 
 using namespace analysis;
-
-class DotVisitor: public analysis::ObjectVisitor
-{
-    public:
-        void visit(SourceInterface *source) override
-        {
-        }
-
-        void visit(OperatorInterface *op) override
-        {
-        }
-
-        void visit(SinkInterface *sink) override
-        {
-        }
-
-        void visit(ConditionInterface *cond) override
-        {
-        }
-
-        void visit(Directory *dir) override
-        {
-        }
-};
 
 void analysis_to_dot(std::ostream &out, const analysis::Analysis &ana)
 {
