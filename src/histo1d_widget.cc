@@ -412,6 +412,17 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     QAction *action = nullptr;
 
+    //
+    // Histo selection spinbox
+    //
+    connect(m_d->m_histoSpin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, &Histo1DWidget::onHistoSpinBoxValueChanged);
+
+    m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"),
+                                                  m_d->m_histoSpin, 2, -2)
+                      .container.release());
+    m_d->m_toolBar->addSeparator();
+
     // Y-Scale Selection
     {
         m_d->m_yScaleCombo = new QComboBox;
@@ -788,16 +799,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         m_d->m_waterMarkLabel->attach(m_d->m_plot);
         m_d->m_waterMarkLabel->hide();
     }
-
-    //
-    // Histo selection spinbox
-    //
-    connect(m_d->m_histoSpin, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &Histo1DWidget::onHistoSpinBoxValueChanged);
-
-    m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"),
-                                                  m_d->m_histoSpin, 2, -2)
-                      .container.release());
 
     //
     // StatusBar and info widgets
