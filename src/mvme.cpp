@@ -1334,6 +1334,7 @@ void MVMEMainWindow::onActionLog_Window_triggered()
     if (!m_d->m_logView)
     {
         m_d->m_logView = make_logview().release();
+        m_d->m_logView->setObjectName("logview");
 
         add_widget_close_action(m_d->m_logView);
 

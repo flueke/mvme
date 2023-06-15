@@ -22,6 +22,7 @@
 
 #include <cassert>
 #include <QAction>
+#include <QApplication>
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDebug>
@@ -381,4 +382,12 @@ void TextEditSearchWidget::focusSearchInput()
         m_searchInput->selectAll();
     else
         m_searchInput->setFocus();
+}
+
+QWidget *find_top_level_widget(const QString &objectName)
+{
+    for (auto &w: QApplication::topLevelWidgets())
+        if (w->objectName() == objectName)
+            return w;
+    return {};
 }

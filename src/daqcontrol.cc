@@ -20,6 +20,7 @@
  */
 #include "daqcontrol.h"
 #include <QTimer>
+#include "qt_util.h"
 
 DAQControl::DAQControl(MVMEContext *context, QObject *parent)
     : QObject(parent)
@@ -56,6 +57,11 @@ void DAQControl::startDAQ(
         else
             m_timedRunControl = {};
 
+        if (auto logview = find_top_level_widget("logview"))
+        {
+            logview->raise();
+            logview->show();
+        }
         m_context->startDAQReadout(nCycles, keepHistoContents);
     }
     else if (m_context->getMode() == GlobalMode::ListFile)
