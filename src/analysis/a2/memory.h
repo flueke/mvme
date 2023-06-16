@@ -254,7 +254,7 @@ class Arena
 
             std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
 
-            m_deleters.emplace_back([result, this] () {
+            m_deleters.emplace_back([result] () {
                 //fprintf(stderr, "%s deleter for %p (arena=%p)\n", __PRETTY_FUNCTION__, result, this);
                 result->~T();
             });
