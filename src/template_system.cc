@@ -205,8 +205,7 @@ VMEModuleMeta modulemeta_from_json(const QJsonObject &json)
     mm.displayName = json["displayName"].toString();
     mm.vendorName = json["vendorName"].toString();
     mm.eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
-    //mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
-    mm.vmeAddress = static_cast<u32>(json["vmeAddress"].toDouble());
+    mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
     mm.variables = json["variables"].toArray();
     return mm;
 }
