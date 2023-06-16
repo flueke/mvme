@@ -210,8 +210,7 @@ QToolBar *make_toolbar(QWidget *parent)
     auto tb = new QToolBar(parent);
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     tb->setIconSize(QSize(16, 16));
-    set_widget_font_pointsize_relative(tb, -2.0);
-    //set_widget_font_pointsize(tb, 7);
+    set_widget_font_pointsize_relative(tb, -1.0);
     return tb;
 }
 
@@ -220,7 +219,6 @@ QStatusBar *make_statusbar(QWidget *parent)
     auto result = new QStatusBar(parent);
     result->setSizeGripEnabled(false);
     set_widget_font_pointsize_relative(result, -2.0);
-    //set_widget_font_pointsize(result, 7);
     return result;
 }
 
