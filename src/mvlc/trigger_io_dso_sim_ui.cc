@@ -970,12 +970,13 @@ DSO_Sim_Result run_dso_and_sim(
     {
         simulate(result.sim, simMaxTime);
 
-        pre_extend_traces(result.sim.sampledTraces, result.sim.traceOverflows);
         const auto postTrigger = SampleTime(dsoSetup.postTriggerTime + dsoSetup.preTriggerTime);
+
+        // sampled traces
+        pre_extend_traces(result.sim.sampledTraces, result.sim.traceOverflows);
         post_extend_traces_to(result.sim.sampledTraces, postTrigger);
 
         // simulated traces
-
         pre_extend_traces(result.sim.l0_traces);
         post_extend_traces_to(result.sim.l0_traces, postTrigger);
 
@@ -993,7 +994,6 @@ DSO_Sim_Result run_dso_and_sim(
 
         pre_extend_traces(result.sim.l3_traces);
         post_extend_traces_to(result.sim.l3_traces, postTrigger);
-
     }
     // uglyness begins once more
     catch (const std::system_error &e)

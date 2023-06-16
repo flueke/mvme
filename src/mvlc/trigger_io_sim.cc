@@ -76,10 +76,12 @@ SampleTime find_sample_time_after(SampleTime t0, const C &traces)
 
         auto tTrace = find_sample_time_after(t0, tracePtr);
 
-        if (result == SampleTime::min() || tTrace < result)
+        if (result == SampleTime::min() ||
+            (tTrace != SampleTime::min() && tTrace < result))
+        {
             result = tTrace;
+        }
     }
-
 
     return result;
 }
@@ -140,8 +142,6 @@ void simulate_single_lut_output(
 
         SampleTime t0(0);
 
-        outputTrace->push_back({ t0, Edge::Falling });
-
         while (true)
         {
             if (strobeTrace)
@@ -161,18 +161,23 @@ void simulate_single_lut_output(
                     auto edge = edge_at(t0, inputs[inIdx]);
 
                     if (edge == Edge::Unknown)
-                        return;
+                    {
+                        inputCombination = LUT::InvalidInputCombination;
+                        break; // no need to check the other input traces
+                    }
 
                     inputCombination |= static_cast<unsigned>(edge) << inIdx;
                 }
             }
 
-            assert(inputCombination < LUT::InputCombinations);
+            assert(inputCombination <= LUT::InputCombinations);
 
             if (!strobeTrace || edge_at(t0 + LutInternalDelay, strobeTrace) == Edge::Rising)
             {
-                auto outEdge = (mapping.test(inputCombination)
-                                ? Edge::Rising : Edge::Falling);
+                auto outEdge = Edge::Unknown;
+
+                if (inputCombination < LUT::InputCombinations)
+                    outEdge = (mapping.test(inputCombination) ? Edge::Rising : Edge::Falling);
 
                 outputTrace->push_back({ t0 + LutInternalDelay, outEdge });
 
@@ -365,6 +370,8 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 
         std::copy(std::begin(*inputTrace), std::end(*inputTrace),
                   std::back_inserter(*outputTrace));
+
+        assert(inputTrace && outputTrace && (inputTrace != outputTrace));
     }
 
     // L0 NIMs
