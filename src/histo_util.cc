@@ -173,10 +173,10 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
                                          double startX, double endX,
                                          double startY, double endY)
 {
-    qDebug() << __PRETTY_FUNCTION__
-        << axis
-        << "startX" << startX << "endX" << endX
-        << "startY" << startY << "endY" << endY;
+    //qDebug() << __PRETTY_FUNCTION__
+    //    << axis
+    //    << "startX" << startX << "endX" << endX
+    //    << "startY" << startY << "endY" << endY;
 
 
     double projStart = (axis == Qt::XAxis ? startX : startY);
@@ -196,10 +196,10 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
 
     s64 nProjBins = (projEndBin - projStartBin);
 
-    qDebug() << __PRETTY_FUNCTION__
-        << "projEndBin" << projEndBin
-        << "otherEndBin" << otherEndBin
-        << "nProjBins" << nProjBins;
+    //qDebug() << __PRETTY_FUNCTION__
+    //    << "projEndBin" << projEndBin
+    //    << "otherEndBin" << otherEndBin
+    //    << "nProjBins" << nProjBins;
 
 
     // adjust start and end to low edge of corresponding bin
@@ -282,9 +282,9 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     s64 otherStartBin = otherBinning.getBinBounded(otherStart);
     s64 otherEndBin   = otherBinning.getBinBounded(otherEnd);
 
-    qDebug() << __PRETTY_FUNCTION__
-        << "projEndBin" << projEndBin
-        << "otherEndBin" << otherEndBin;
+    //qDebug() << __PRETTY_FUNCTION__
+    //    << "projEndBin" << projEndBin
+    //    << "otherEndBin" << otherEndBin;
 
     s64 nProjBins = (projEndBin - projStartBin) + 1;
 
