@@ -986,6 +986,18 @@ a2::Operator a2_adapter_magic(
     analysis::OperatorPtr op,
     const RunInfo &runInfo)
 {
+    #if 0
+    if (op.get() && qobject_cast<analysis::ExportSink *>(op.get()))
+    {
+        qDebug() << "got an ExportSink: #slots=" << op->getNumberOfSlots();
+        for (int i=0; i<op->getNumberOfSlots(); ++i)
+        {
+            qDebug() << "  slot" << i << ": optional=" << op->getSlot(i)->isOptional
+                << ", isConnected=" << op->getSlot(i)->isConnected();
+        }
+    }
+    #endif
+
     a2::Operator result = {};
     result.type = a2::Invalid_OperatorType;
 
@@ -1004,10 +1016,13 @@ a2::Operator a2_adapter_magic(
 
         // Check if the a2 pipe connected to the current inputSlot exists in
         // the A2AdapterState. If it doesn't it means that the DataSource or
-        // Operator owning the pipe was not build for some reason (e.g.
+        // Operator owning the pipe was not built for some reason (e.g.
         // DataSource was filtered out due to being unassigned).
         if (!find_output_pipe(state, inputSlots[slotIndex]).second)
+        {
+            //auto debugPipe = find_output_pipe(state, inputSlots[slotIndex]);
             return result;
+        }
     }
 
     OutputPipes outputPipes(op->getNumberOfOutputs());
