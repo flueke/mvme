@@ -502,11 +502,11 @@
                 "data": {
                     "calibrations": [
                         {
-                            "unitMax": 1073741824,
+                            "unitMax": 67108864,
                             "unitMin": 0
                         }
                     ],
-                    "unitLabel": ""
+                    "unitLabel": "us"
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{380e29e4-4993-45d8-8dca-cbfd1cbc7a4e}",
