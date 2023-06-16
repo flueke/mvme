@@ -765,11 +765,11 @@
                 "data": {
                     "calibrations": [
                         {
-                            "unitMax": 1073741824,
+                            "unitMax": 67108864,
                             "unitMin": 0
                         }
                     ],
-                    "unitLabel": ""
+                    "unitLabel": "us"
                 },
                 "eventId": "{00000000-0000-0000-0000-000000000000}",
                 "id": "{bd756e30-0b5c-4aa7-89e9-1728a339c241}",
