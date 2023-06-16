@@ -125,19 +125,22 @@ fill_snapshot_from_dso_buffer(const std::vector<u32> &buffer);
 LIBMVME_EXPORT std::vector<bool>
     remove_trace_overflow_markers(Snapshot &sampledTraces);
 
-// Edge::Uknown is prepended to the trace up to the first sample time if
-// traceOverflowed is true.
 inline void pre_extend_trace(Trace &trace)
 {
     if (!trace.empty())
     {
-        auto firstRealSampleTime = trace.front().time;
-        // Note: order is backwards here as we push_front()!
-        trace.push_front({firstRealSampleTime, Edge::Unknown});
-        trace.push_front({SampleTime(0.0), Edge::Unknown});
+        if (auto firstRealSampleTime = trace.front().time;
+            firstRealSampleTime != SampleTime(0.0))
+        {
+            // Note: order is backwards here as we push_front()!
+            trace.push_front({firstRealSampleTime, Edge::Unknown});
+            trace.push_front({SampleTime(0.0), Edge::Unknown});
+        }
     }
 }
 
+// Edge::Unknown is prepended to the trace up to the first sample time if
+// traceOverflowed is true.
 template<typename TraceContainer, typename OverflowsContainer>
 void pre_extend_traces(TraceContainer &traces, const OverflowsContainer &overflows)
 {

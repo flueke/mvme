@@ -78,6 +78,10 @@ struct LIBMVME_EXPORT LUT
     static const u16 InputBits = 6;
     static const u16 OutputBits = 3;
     static const u16 InputCombinations = 1u << InputBits;
+    // Used to communicate that at least one of the LUT inputs used to form the
+    // input combination has an Unknown edge value. In this case the LUT output
+    // should also be set to Unknown.
+    static const u16 InvalidInputCombination = InputCombinations;
     static const u16 StrobeGGDefaultWidth = 8;
 
     // This value is used to refer to the LUTs strobe gate generator, e.g
