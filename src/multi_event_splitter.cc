@@ -372,14 +372,14 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     ++state.counters.moduleHeaderMismatches[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleHeaderMismatch;
 
-                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN)
+                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN && callbacks.logger)
                     {
-                        auto spanLen = dynamicSpan.end - dynamicSpan.begin;
+                        const auto spanLen = dynamicSpan.end - dynamicSpan.begin;
+                        std::ostringstream os;
                         mesytec::mvlc::util::log_buffer(
-                            std::cerr,
-                            dynamicSpan.begin, spanLen,
-                            fmt::format("module header mismatch: ei={}, mi={}, len={}", ei, mi,
-                                spanLen));
+                            os, dynamicSpan.begin, spanLen,
+                            fmt::format("module header mismatch: ei={}, mi={}, len={}", ei, mi, spanLen));
+                        callbacks.logger(userContext, os.str());
                     }
                 }
             }
@@ -404,15 +404,13 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                 // indicating a match should not have been set.
                 assert(words_in_span(spans.dataSpan));
 
-                // Add one to the extracted module event size to account for
-                // the header word itself (the extracted size is the number of
-                // words following the header word).
                 u32 moduleEventSize = moduleSubeventSizes[mi];
 
                 LOG_TRACE("state=%p, ei=%d, mi=%lu, words in dataSpan=%lu, moduleEventSize=%u",
                           &state, ei, mi, words_in_span(spans.dataSpan), moduleEventSize);
 
 
+                // TODO: change this so that all the available data is yielded in one eventData callback if possible
                 if (moduleEventSize > words_in_span(spans.dataSpan))
                 {
                     // The extracted event size exceeds the amount of data left
@@ -424,14 +422,13 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
 
-                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN)
+                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN && callbacks.logger)
                     {
-                        auto spanLen = spans.dataSpan.end - spans.dataSpan.begin;
+                        const auto spanLen = spans.dataSpan.end - spans.dataSpan.begin;
+                        std::ostringstream os;
                         mesytec::mvlc::util::log_buffer(
-                            std::cerr,
-                            spans.dataSpan.begin, spanLen,
-                            fmt::format("module header mismatch: ei={}, mi={}, len={}", ei, mi,
-                                spanLen));
+                            os, spans.dataSpan.begin, spanLen,
+                            fmt::format("module data size exceeds buffer: ei={}, mi={}, len={}", ei, mi, spanLen));
                     }
                 }
                 else
@@ -472,7 +469,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         }
 
         int crateIndex = 0;
-        callbacks.eventData(nullptr, crateIndex, ei, moduleDataList.data(), moduleCount);
+        callbacks.eventData(userContext, crateIndex, ei, moduleDataList.data(), moduleCount);
     }
 
     return {};
