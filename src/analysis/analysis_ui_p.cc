@@ -3993,6 +3993,11 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
                     splitterOut << "endEvent(ei=" << ei << ")" << endl;
                 };
+
+                splitterCallbacks.logger = [&splitterOut] (void *, const std::string &msg)
+                {
+                    splitterOut << QSL("Error: ") <<  msg.c_str();
+                };
             }
         }
 
