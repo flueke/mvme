@@ -64,8 +64,9 @@ file(COPY ${DEPLOY_ADDITIONAL_FILES}
 )
 
 # Copy our custom graphviz plugin config file directly into the lib directory.
-file(COPY_FILE ${CMAKE_SOURCE_DIR}/cmake/graphviz-config6a
-    ${CPACK_TEMPORARY_DIRECTORY}/lib/config6a)
+configure_file(${CMAKE_SOURCE_DIR}/cmake/graphviz-config6a
+               ${CPACK_TEMPORARY_DIRECTORY}/lib/config6a
+               COPYONLY)
 
 set(PACKAGE_OUTPUT_DIR "${CPACK_TOPLEVEL_DIRECTORY}/packages")
 set(PACKAGE_ARCHIVE_FILE "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2")
