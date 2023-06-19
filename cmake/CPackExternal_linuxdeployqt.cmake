@@ -50,15 +50,11 @@ file(GET_RUNTIME_DEPENDENCIES
 # Find and copy graphviz plugins and config file.
 find_library(GV_CORE_PLUGIN gvplugin_core PATH_SUFFIXES graphviz x86_64-linux-gnu/graphviz REQUIRED)
 find_library(GV_DOT_PLUGIN gvplugin_dot_layout PATH_SUFFIXES graphviz x86_64-linux-gnu/graphviz REQUIRED)
-get_filename_component(GV_PLUGIN_PATH ${GV_DOT_PLUGIN} DIRECTORY)
 
+message("-- Found graphviz core plugin: ${GV_CORE_PLUGIN}")
 message("-- Found graphviz dot plugin: ${GV_DOT_PLUGIN}")
-file(GLOB GV_FILES ${GV_PLUGIN_PATH}/config*)
 
-list(APPEND GV_FILES ${GV_CORE_PLUGIN} ${GV_DOT_PLUGIN})
-message("-- Found additional graphviz files: ${GV_FILES}")
-
-list(APPEND DEPLOY_ADDITIONAL_FILES  ${GV_FILES})
+list(APPEND DEPLOY_ADDITIONAL_FILES ${GV_CORE_PLUGIN} ${GV_DOT_PLUGIN})
 message("-- CPackExternal_linuxdeployqt: Copying additional libraries and files
             into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
 
@@ -66,6 +62,10 @@ file(COPY ${DEPLOY_ADDITIONAL_FILES}
     DESTINATION "${CPACK_TEMPORARY_DIRECTORY}/lib"
     FOLLOW_SYMLINK_CHAIN
 )
+
+# Copy our custom graphviz plugin config file directly into the lib directory.
+file(COPY_FILE ${CMAKE_SOURCE_DIR}/cmake/graphviz-config6a
+    ${CPACK_TEMPORARY_DIRECTORY}/lib/config6a)
 
 set(PACKAGE_OUTPUT_DIR "${CPACK_TOPLEVEL_DIRECTORY}/packages")
 set(PACKAGE_ARCHIVE_FILE "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2")
