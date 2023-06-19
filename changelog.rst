@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 1.7.1-rc1
+Version 1.7.1-rc2
 -----------------
 
 * [analysis]
@@ -33,6 +33,8 @@ Version 1.7.1-rc1
 * [vme_templates]
 
   - Slightly improve the bus_time filters for VMMR modules
+
+  - Calibrate mesytec vme module timestamps to µs.
 
 * [mvlc]
 
