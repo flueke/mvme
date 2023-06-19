@@ -472,7 +472,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         }
 
         int crateIndex = 0;
-        callbacks.eventData(nullptr, crateIndex, ei, moduleDataList.data(), moduleCount);
+        callbacks.eventData(userContext, crateIndex, ei, moduleDataList.data(), moduleCount);
     }
 
     return {};
