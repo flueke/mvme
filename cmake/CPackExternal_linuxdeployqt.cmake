@@ -8,6 +8,8 @@
 #   Path to the binary that's should be analyzed by linuxdeployqt. Relative
 #   installation path. ${CPACK_TEMPORARY_DIRECTORY} will be prepended to
 #   calculate the full path.
+#
+# Note: DEPLOY_BINARY and other variables are set in CPackOptions.cmake.in
 
 message("-- CPackExternal_linuxdeployqt: creating package archive for '${CPACK_PACKAGE_FILE_NAME}'")
 
@@ -64,7 +66,7 @@ file(COPY ${DEPLOY_ADDITIONAL_FILES}
 )
 
 # Copy our custom graphviz plugin config file directly into the lib directory.
-configure_file(${CMAKE_SOURCE_DIR}/cmake/graphviz-config6a
+configure_file(${SOURCE_DIR}/cmake/graphviz-config6a
                ${CPACK_TEMPORARY_DIRECTORY}/lib/config6a
                COPYONLY)
 
