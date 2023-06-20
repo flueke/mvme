@@ -36,11 +36,6 @@ struct ReplayWidget::Private
         fileInfoCache_.requestInfos(urls);
     }
 
-    void onFileInfoCachedUpdated()
-    {
-        model_queue_->setFileInfoCache(fileInfoCache_.cache());
-    }
-
     void onQueueChanged()
     {
         startGatherFileInfoTimer_.start(std::chrono::milliseconds(500));
@@ -77,6 +72,7 @@ ReplayWidget::ReplayWidget(QWidget *parent)
 
     // queue
     d->model_queue_ = new QueueTableModel(this);
+    d->model_queue_->setFileInfoCache(&d->fileInfoCache_);
 
     d->ui->table_queue->setModel(d->model_queue_);
     d->ui->table_queue->setAcceptDrops(true);
@@ -143,9 +139,6 @@ ReplayWidget::ReplayWidget(QWidget *parent)
 
     connect(&d->startGatherFileInfoTimer_, &QTimer::timeout,
             this, [this] { d->startGatherFileInfo(getQueueContents()); });
-
-    connect(&d->fileInfoCache_, &replay::FileInfoCache::cacheUpdated,
-        this, [this] { d->onFileInfoCachedUpdated(); });
 }
 
 ReplayWidget::~ReplayWidget()
