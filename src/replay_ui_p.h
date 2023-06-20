@@ -220,15 +220,20 @@ class QueueTableModel: public QStandardItemModel
             return result;
         }
 
-        void setFileInfoCache(const QMap<QUrl, std::shared_ptr<replay::ListfileInfo>> &cache)
+        // Does not take ownership of the cache! The cache could be parented to
+        // 'this' though.
+        void setFileInfoCache(replay::FileInfoCache *cache)
         {
             fileInfoCache_ = cache;
             updateModelData();
+
+            connect(fileInfoCache_, &replay::FileInfoCache::cacheUpdated,
+                this, [this] { updateModelData(); });
         }
 
     private:
         static const QStringList Headers;
-        QMap<QUrl, std::shared_ptr<replay::ListfileInfo>> fileInfoCache_;
+        replay::FileInfoCache *fileInfoCache_ = nullptr;
 
         // Note: this is dangerous. Add the returned row to the model asap,
         // manually delete the items or leak memory.
@@ -248,6 +253,7 @@ class QueueTableModel: public QStandardItemModel
 
         void updateModelData()
         {
+            bool isMissingFileInfo = false;
             const auto rows = rowCount();
 
             for (int row=0; row<rows; ++row)
@@ -255,9 +261,9 @@ class QueueTableModel: public QStandardItemModel
                 auto url = item(row, 0)->data().toUrl();
                 QString info0;
 
-                if (fileInfoCache_.contains(url))
+                if (fileInfoCache_->contains(url))
                 {
-                    const auto &fileInfo = fileInfoCache_.value(url);
+                    const auto &fileInfo = fileInfoCache_->value(url);
 
                     if (fileInfo->hasError())
                     {
@@ -286,9 +292,14 @@ class QueueTableModel: public QStandardItemModel
                         info0 = QSL("Format: ") + to_string(fileInfo->handle.format);
                     }
                 }
+                else
+                    isMissingFileInfo = true;
 
                 item(row, Col_Info0)->setText(info0);
             }
+
+            if (isMissingFileInfo)
+                fileInfoCache_->requestInfos(getQueueContents());
         }
 };
 

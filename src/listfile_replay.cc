@@ -379,6 +379,7 @@ void FileInfoCache::requestInfos(const QVector<QUrl> &urls)
 void FileInfoCache::clear()
 {
     d->cache_.clear();
+    emit cacheUpdated();
 }
 
 QMap<QUrl, std::shared_ptr<ListfileInfo>> FileInfoCache::cache() const
