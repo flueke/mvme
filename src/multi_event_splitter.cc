@@ -31,7 +31,7 @@
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MULTI_EVENT_SPLITTER_LOG_LEVEL
-#define MULTI_EVENT_SPLITTER_LOG_LEVEL LOG_LEVEL_WARN
+#define MULTI_EVENT_SPLITTER_LOG_LEVEL LOG_LEVEL_OFF
 #endif
 
 #define LOG_LEVEL_SETTING MULTI_EVENT_SPLITTER_LOG_LEVEL
@@ -372,7 +372,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     ++state.counters.moduleHeaderMismatches[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleHeaderMismatch;
 
-                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN && callbacks.logger)
+                    if (callbacks.logger)
                     {
                         const auto spanLen = dynamicSpan.end - dynamicSpan.begin;
                         std::ostringstream os;
@@ -422,7 +422,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
 
-                    if (LOG_LEVEL_SETTING >= LOG_LEVEL_WARN && callbacks.logger)
+                    if (callbacks.logger)
                     {
                         const auto spanLen = spans.dataSpan.end - spans.dataSpan.begin;
                         std::ostringstream os;
