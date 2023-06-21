@@ -124,6 +124,13 @@ int main(int argc, char *argv[])
                 cmdExecutor.start();
         });
 
+    auto logger = [] (const QString &msg)
+    {
+        qDebug() << msg;
+    };
+
+    cmdExecutor.setLogger(logger);
+
     QObject::connect(&replayWidget, &mvme::ReplayWidget::stop,
         &cmdExecutor, &mvme::replay::ListfileCommandExecutor::cancel);
 

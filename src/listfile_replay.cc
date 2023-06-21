@@ -441,14 +441,29 @@ std::unique_ptr<StreamWorkerBase> make_analysis_worker(
     return make_analysis_worker(h.format, queues);
 }
 
+void ReplayCommandState::pause()
+{
+        if (replayWorker) replayWorker->pause();
+        if (analysisWorker) analysisWorker->pause();
+}
+
+void ReplayCommandState::resume()
+{
+        if (replayWorker) replayWorker->resume();
+        if (analysisWorker) analysisWorker->resume();
+}
+
 struct ListfileCommandExecutor::Private
 {
+    ListfileCommandExecutor *q = nullptr;
     WaitableProtected<State> state_;
     CommandHolder cmd_;
     WaitableProtected<CommandStateHolder> cmdState_;
 
     std::atomic<bool> canceled_;
     std::thread runThread_;
+
+    std::function<void (const QString &)> logger_;
 
     explicit Private()
         : state_{State::Idle}
@@ -466,10 +481,12 @@ ListfileCommandExecutor::ListfileCommandExecutor(QObject *parent)
     : QObject(parent)
     , d(std::make_unique<Private>())
 {
+    d->q = this;
 }
 
 ListfileCommandExecutor::~ListfileCommandExecutor()
 {
+    d->canceled_ = true;
     if (d->runThread_.joinable())
         d->runThread_.join();
 }
@@ -490,14 +507,37 @@ bool ListfileCommandExecutor::setCommand(const CommandHolder &cmd)
     return false;
 }
 
+mesytec::mvlc::WaitableProtected<CommandStateHolder> &ListfileCommandExecutor::commandState()
+{
+    return d->cmdState_;
+}
+
+void ListfileCommandExecutor::setLogger(const std::function<void (const QString &)> &logger)
+{
+    d->logger_ = logger;
+}
+
 void ListfileCommandExecutor::start()
 {
-    if (auto access = d->state_.access();
-        access.ref() == State::Idle && d->cmd_.index() != std::variant_npos)
+    auto stateAccess = d->state_.access();
+    auto &state = stateAccess.ref();
+
+    if (state == State::Idle && d->cmd_.index() != std::variant_npos)
     {
+        if (d->runThread_.joinable())
+            d->runThread_.join();
         d->canceled_ = false;
         d->runThread_ = std::thread(&Private::run, d.get());
-        access.ref() = State::Running;
+        state = State::Running;
+        emit started();
+    }
+    else if (state != State::Idle)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "Error: state != Idle, aborting";
+    }
+    else if (d->cmd_.index() == std::variant_npos)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "Error: ReplayCommand not set";
     }
 }
 
@@ -508,10 +548,24 @@ void ListfileCommandExecutor::cancel()
 
 void ListfileCommandExecutor::pause()
 {
+    auto cmdStateAccess = d->cmdState_.access();
+    if (cmdStateAccess.ref().index() != std::variant_npos)
+    {
+        std::visit([] (auto &cmdState) { cmdState.pause(); }, cmdStateAccess.ref());
+        d->state_.access().ref() = State::Paused;
+        emit paused();
+    }
 }
 
 void ListfileCommandExecutor::resume()
 {
+    auto cmdStateAccess = d->cmdState_.access();
+    if (cmdStateAccess.ref().index() != std::variant_npos)
+    {
+        std::visit([] (auto &cmdState) { cmdState.resume(); }, cmdStateAccess.ref());
+        d->state_.access().ref() = State::Running;
+        emit resumed();
+    }
 }
 
 void ListfileCommandExecutor::skip()
@@ -521,6 +575,12 @@ void ListfileCommandExecutor::skip()
 void ListfileCommandExecutor::Private::run()
 {
     std::visit(*this, cmd_);
+    state_.access().ref() = State::Idle;
+
+    if (canceled_)
+        emit q->canceled();
+    else
+        emit q->finished();
 }
 
 void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
@@ -553,37 +613,40 @@ void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
         const auto &url = cmd.queue[queueIndex];
         auto info = gather_fileinfo(url);
 
-        #if 0 // FIXME: leftoff here because of a side-quest
+        if (info.hasError())
         {
-            auto cmdStateGuard = cmdState_.access();
-            auto &cmdState = std::get<ReplayCommandState>(cmdStateGuard.ref());
-
-            if (info.hasError())
-            {
-                cmdState.err = info.err;
-                return;
-            }
-
-            auto replayWorker = make_replay_worker(info.handle, bufferQueues);
-            replayWorker->setListfile(&info.handle);
-
-            auto analysisWorker = make_analysis_worker(info.handle, bufferQueues);
-            analysisWorker->setAnalysis(ana.get());
-            analysisWorker->setVMEConfig(info.vmeConfig.get());
-            // TODO / FIXME: setWorkspaceDirectory() for the analysis session saving :(
-            analysisWorker->setRunInfo(runInfo);
-            ana->beginRun(runInfo, info.vmeConfig.get());
-
-            std::get<ReplayCommandState>(cmdStateGuard.ref()).err = info.err;
+            std::get<ReplayCommandState>(cmdState_.access().ref()).err = info.err;
+            return;
         }
+
+        auto replayWorker = make_replay_worker(info.handle, bufferQueues);
+
+        if (!replayWorker)
+        {
+            std::get<ReplayCommandState>(cmdState_.access().ref()).err.errorString =
+                QSL("Could not create replay worker for %1").arg(url.toString());
+            return;
+        }
+
+        qDebug() << "replayWorker=" << replayWorker.get();
+
+        replayWorker->setLogger(logger_);
+        replayWorker->setListfile(&info.handle);
+
+        auto analysisWorker = make_analysis_worker(info.handle, bufferQueues);
+        analysisWorker->setAnalysis(ana.get());
+        analysisWorker->setVMEConfig(info.vmeConfig.get());
+        // TODO / FIXME: setWorkspaceDirectory() for the analysis session saving :(
+        analysisWorker->setRunInfo(runInfo);
+        ana->beginRun(runInfo, info.vmeConfig.get());
+
+        std::get<ReplayCommandState>(cmdState_.access().ref()).err = info.err;
 
         auto fReplay = QtConcurrent::run([&] { replayWorker->start(); }); // returns when done
         auto fAnalysis = QtConcurrent::run([&] { analysisWorker->start(); }); // does not return unless stopped
 
         while (!fReplay.isFinished() && !canceled_)
-        {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
 
         if (canceled_)
         {
@@ -597,9 +660,11 @@ void ListfileCommandExecutor::Private::operator()(const ReplayCommand &cmd)
             analysisWorker->stop(true);
 
         fAnalysis.waitForFinished();
-        #endif
 
         qDebug() << "done" << queueIndex << queueSize << canceled_.load();
+
+        if (canceled_)
+            break;
     }
 }
 
