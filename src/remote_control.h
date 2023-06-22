@@ -64,6 +64,12 @@ class RemoteControl: public QObject
         std::unique_ptr<Private> m_d;
 };
 
+// GlobalControlService to switch between DAQ and Replay modes.
+// Could also load listfiles and analysis files.
+// ReplayService or extend the existing DAQControlService to allow starting
+// replays. Also need to control if analysis contents should be kept or not
+// between replays.
+
 class DAQControlService: public QObject
 {
     Q_OBJECT

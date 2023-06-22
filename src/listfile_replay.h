@@ -39,10 +39,10 @@ class StreamWorkerBase;
 struct LIBMVME_EXPORT ListfileReplayHandle
 {
     // The actual listfile. This is a file inside the archive if replaying from
-    // ZIP. As long as this file is open no other file member of the archive
-    // can be opened. This is a restriction of the ZIP library.
-    // If replaying from flat file this is a plain QFile instance.
-    // XXX: Not used for MVLC listfiles stored inside ZIP archives. Still used
+    // ZIP. As long as this file is open no other file member of the archive can
+    // be opened through the same QuaZip instance. This is a restriction of the
+    // ZIP library.  If replaying from flat file this is a plain QFile instance.
+    // Note: Not used for MVLC listfiles stored inside ZIP archives. Still used
     // for flat MVLC listfiles.
     std::unique_ptr<QIODevice> listfile;
 
@@ -126,7 +126,6 @@ struct LIBMVME_EXPORT ListfileInfo
 
 ListfileInfo LIBMVME_EXPORT gather_fileinfo(const QUrl &url);
 QVector<std::shared_ptr<ListfileInfo>> LIBMVME_EXPORT gather_fileinfos(const QVector<QUrl> &urls);
-//using FileInfoCache = QMap<QUrl, std::shared_ptr<FileInfo>>;
 
 class LIBMVME_EXPORT FileInfoCache: public QObject
 {
@@ -283,7 +282,6 @@ class LIBMVME_EXPORT ListfileCommandExecutor: public QObject
 
         bool setCommand(const CommandHolder &cmd); // Returns false if not idle.
         mesytec::mvlc::WaitableProtected<CommandStateHolder> &commandState();
-
         void setLogger(const std::function<void (const QString &)> &logger);
 
     public slots:
