@@ -624,6 +624,10 @@ install(TARGETS mvme_histo_viewer RUNTIME DESTINATION bin LIBRARY DESTINATION li
 add_mvme_exe(mvme_listfile_recovery_gui mvme_listfile_recovery_gui.cc)
 install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
+# mvlc vmeconfig -> crateconfig debug tool
+add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
+install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
 # automated gtests
 if(MVME_BUILD_TESTS)
 
