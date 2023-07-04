@@ -1,5 +1,4 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
-#include <mesytec-mvlc/mvlc_command_recorder.h>
 #include <QCoreApplication>
 
 #include "mvlc_daq.h"
