@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
                             ci, err.toString().toStdString()));
         }
 
-        if (!run_daq_start_sequence(
+        if (!mesytec::mvme::run_daq_start_sequence(
             crdo->mvlcController.get(),
             conf,
             false, // ignoreStartupErrors

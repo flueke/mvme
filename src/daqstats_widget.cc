@@ -39,6 +39,7 @@
 #include "mvlc/mvlc_util.h"
 
 using boost::adaptors::indexed;
+using namespace mesytec::mvme;
 
 static const int UpdateInterval_ms = 1000;
 

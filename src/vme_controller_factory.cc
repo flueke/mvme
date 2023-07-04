@@ -153,7 +153,7 @@ VMEReadoutWorker *VMEControllerFactory::makeReadoutWorker()
 
         case VMEControllerType::MVLC_USB:
         case VMEControllerType::MVLC_ETH:
-            return new MVLCReadoutWorker;
+            return new mesytec::mvme::MVLCReadoutWorker;
     }
 
     return nullptr;
