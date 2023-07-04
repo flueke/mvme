@@ -148,6 +148,14 @@ OwningPacketReadResult::OwningPacketReadResult(const OwningPacketReadResult &oth
     prr.buffer = buffer.data(); // pointer adjustment
 }
 
+OwningPacketReadResult &OwningPacketReadResult::operator=(const OwningPacketReadResult &other)
+{
+    buffer = other.buffer;
+    prr = other.prr;
+    prr.buffer = buffer.data(); // pointer adjustment
+    return *this;
+}
+
 //
 // MVLCDataReader
 //
