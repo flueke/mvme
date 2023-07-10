@@ -11,6 +11,7 @@ using namespace mesytec;
 
 int main(int argc, char *argv[])
 {
+    std::cerr << "Warning: this tool is unfinished!\n\n";
     spdlog::set_level(spdlog::level::debug);
     mvme_init("mvme_crateconfig_tool");
     QCoreApplication app(argc, argv);
