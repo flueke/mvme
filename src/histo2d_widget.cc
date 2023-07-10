@@ -622,6 +622,11 @@ Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceP
 
 Histo2DWidget::~Histo2DWidget()
 {
+    if (m_d->m_xProjWidget)
+        m_d->m_xProjWidget->close();
+
+    if (m_d->m_yProjWidget)
+        m_d->m_yProjWidget->close();
 }
 
 void Histo2DWidget::setServiceProvider(AnalysisServiceProvider *asp)
