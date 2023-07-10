@@ -20,11 +20,12 @@
  */
 #include "remote_control.h"
 
-#include "git_sha1.h"
-#include "sis3153_readout_worker.h"
-
 #include <jcon/json_rpc_logger.h>
 #include <jcon/json_rpc_tcp_server.h>
+
+#include "git_sha1.h"
+#include "sis3153_readout_worker.h"
+#include "mvme_context_lib.h"
 
 namespace
 {
@@ -271,6 +272,48 @@ QString DAQControlService::reconnectVMEController()
     m_context->reconnectVMEController();
 
     return QSL("Reconnection attempt initiated");
+}
+
+QString DAQControlService::getGlobalMode()
+{
+    return (m_context->getMode() == GlobalMode::DAQ
+        ? QSL("daq")
+        : QSL("replay"));
+}
+
+bool DAQControlService::loadAnalysis(const QString &filepath)
+{
+    return m_context->loadAnalysisConfig(filepath);
+}
+
+bool DAQControlService::loadListfile(const QString &filepath)
+{
+    const auto &handle = context_open_listfile(m_context, filepath);
+    if (handle.listfile)
+        return true;
+    return false;
+}
+
+bool DAQControlService::startReplay(const QVariantMap &options)
+{
+    if (m_context->getMode() != GlobalMode::Replay)
+    {
+        throw make_error_info(ErrorCodes::NotInReplayMode, "Not in Replay mode");
+    }
+
+    if (m_context->getDAQState() != DAQState::Idle)
+    {
+        throw make_error_info(ErrorCodes::ReadoutWorkerBusy, "DAQ replay worker busy");
+    }
+
+    if (m_context->getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
+    {
+        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker busy");
+    }
+
+    m_context->startDAQReplay();
+
+    return true;
 }
 
 //

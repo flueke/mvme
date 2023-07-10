@@ -34,6 +34,7 @@ enum ErrorCodes: s32
     ReadoutWorkerBusy           = 102,
     AnalysisWorkerBusy          = 103,
     ControllerNotConnected      = 104,
+    NotInReplayMode             = 105,
 
     NoVMEControllerFound        = 201,
 };
@@ -81,6 +82,11 @@ class DAQControlService: public QObject
         bool startDAQ();
         bool stopDAQ();
         QString reconnectVMEController();
+
+        QString getGlobalMode(); // daq|listfile
+        bool loadAnalysis(const QString &filepath);
+        bool loadListfile(const QString &filepath);
+        bool startReplay(const QVariantMap &options);
 
     private:
         MVMEContext *m_context;
