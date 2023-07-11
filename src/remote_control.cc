@@ -65,7 +65,7 @@ class RpcLogger: public jcon::JsonRpcLogger
         //MVMEContext *m_context;
 };
 
-QVariant make_error_info(int code, const QString &msg)
+QVariantMap make_error_info(int code, const QString &msg)
 {
     return QVariantMap
     {
@@ -307,7 +307,7 @@ QVariantMap DAQControlService::loadListfile(const QString &filepath)
     try
     {
         const auto &handle = context_open_listfile(m_context, filepath);
-        return { {"result", static_cast<bool>(handle.listfile)} };
+        return { {"result", true } };
     }
     catch (const QString &err)
     {
@@ -317,7 +317,7 @@ QVariantMap DAQControlService::loadListfile(const QString &filepath)
     return { {"result", true} };
 }
 
-bool DAQControlService::startReplay(const QVariantMap &options)
+QVariantMap DAQControlService::startReplay(const QVariantMap &options)
 {
     if (m_context->getMode() != GlobalMode::Replay)
     {
@@ -338,7 +338,7 @@ bool DAQControlService::startReplay(const QVariantMap &options)
 
     m_context->startDAQReplay(0, keepHistoContents);
 
-    return true;
+    return { {"result", true} };
 }
 
 //

@@ -86,7 +86,7 @@ class DAQControlService: public QObject
         QString getGlobalMode(); // daq|listfile
         QVariantMap loadAnalysis(const QString &filepath);
         QVariantMap loadListfile(const QString &filepath);
-        bool startReplay(const QVariantMap &options);
+        QVariantMap startReplay(const QVariantMap &options = {});
 
     private:
         MVMEContext *m_context;
