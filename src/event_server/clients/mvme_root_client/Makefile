@@ -9,6 +9,12 @@ current_dir := $(dir $(mkfile_path))
 CXXFLAGS   +=	-I$(MVME)/include -I$(MVME)/include/mvme -I.
 CXXFLAGS   +=	-O3
 
+# If -std=c++11 is set by root-config force c++14 here. Newer ROOT versions set
+# c++14 or c++17 depending on how they were built.
+ifneq "$(findstring -std=c++11, ${ROOTCFLAGS})" ""
+CXXFLAGS += -std=c++14
+endif
+
 .PHONY: all clean print_root_version
 
 all: print_root_version libmvme_root_event.so mvme_root_client
