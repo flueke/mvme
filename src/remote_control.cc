@@ -256,9 +256,19 @@ bool DAQControlService::stopDAQ()
     return true;
 }
 
+QString DAQControlService::getSystemState()
+{
+    return to_string(m_context->getMVMEState());
+}
+
 QString DAQControlService::getDAQState()
 {
     return DAQStateStrings.value(m_context->getDAQState());
+}
+
+QString DAQControlService::getAnalysisState()
+{
+    return to_string(m_context->getMVMEStreamWorkerState());
 }
 
 QString DAQControlService::reconnectVMEController()
@@ -281,44 +291,43 @@ QString DAQControlService::getGlobalMode()
         : QSL("replay"));
 }
 
-QVariantMap DAQControlService::loadAnalysis(const QString &filepath)
+bool DAQControlService::loadAnalysis(const QString &filepath)
 {
     QFile f(filepath);
 
     if (!f.open(QIODevice::ReadOnly))
-        return { {"result", false}, {"error", f.errorString()} };
+        throw QVariantMap{{"code", "42"}, { "message", f.errorString()}};
 
     QJsonParseError parseError;
     auto doc = QJsonDocument::fromJson(f.readAll(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError)
-        return {
-            {"result", false},
-            {"error", parseError.errorString()},
-            {"errorOffset", parseError.offset}
-        };
+        throw QVariantMap{{"code", "42"}, { "message", parseError.errorString()}};
 
     auto result = m_context->loadAnalysisConfig(doc, filepath);
-    return { {"result", result} };
+    if (result)
+    {
+        m_context->setAnalysisConfigFilename(filepath);
+    }
+    return result;
 }
 
-QVariantMap DAQControlService::loadListfile(const QString &filepath)
+bool DAQControlService::loadListfile(const QString &filepath)
 {
     try
     {
         // FIXME: context_open_listfile() uses the gui to display error messages
         const auto &handle = context_open_listfile(m_context, filepath);
-        return { {"result", true } };
     }
     catch (const QString &err)
     {
-        return { {"result", false}, {"error", err} };
+        throw QVariantMap{{"code", "42"}, { "message", err}};
     }
 
-    return { {"result", true} };
+    return true;
 }
 
-QVariantMap DAQControlService::startReplay(const QVariantMap &options)
+bool DAQControlService::startReplay(const QVariantMap &options)
 {
     if (m_context->getMode() != GlobalMode::Replay)
     {
@@ -339,7 +348,7 @@ QVariantMap DAQControlService::startReplay(const QVariantMap &options)
 
     m_context->startDAQReplay(0, keepHistoContents);
 
-    return { {"result", true} };
+    return true;
 }
 
 //

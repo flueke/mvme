@@ -78,15 +78,21 @@ class DAQControlService: public QObject
         explicit DAQControlService(MVMEContext *context);
 
     public slots:
+        // combined system state: to_string(MVMEState)
+        QString getSystemState();
+
+        // subsystem states
         QString getDAQState();
+        QString getAnalysisState();
+
         bool startDAQ();
         bool stopDAQ();
         QString reconnectVMEController();
 
         QString getGlobalMode(); // daq|listfile
-        QVariantMap loadAnalysis(const QString &filepath);
-        QVariantMap loadListfile(const QString &filepath);
-        QVariantMap startReplay(const QVariantMap &options = {});
+        bool loadAnalysis(const QString &filepath);
+        bool loadListfile(const QString &filepath);
+        bool startReplay(const QVariantMap &options = {});
 
     private:
         MVMEContext *m_context;
