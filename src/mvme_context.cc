@@ -2327,6 +2327,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // VME config
         //
         auto lastVMEConfig = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+        bool vmeConfigLoaded = false;
 
         if (dir.exists(VMEConfigAutoSaveFilename))
         {
@@ -2363,32 +2364,39 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
                     InvalidDefaultCase;
                 }
+
+                vmeConfigLoaded = true;
             }
         }
-        else
+        else if (!lastVMEConfig.isEmpty() && QFileInfo::exists(lastVMEConfig))
         {
-            // Load the last used vme config
-            if (!lastVMEConfig.isEmpty())
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig
-                    << " (filename from mvmeworkspace.ini)";
+            auto [vmeConfig, errString] = read_vme_config_from_file(lastVMEConfig);
 
-                loadVMEConfig(dir.filePath(lastVMEConfig));
-
-                // If it's the special temporary name for configs from the
-                // listfile set the filename to an empty string. This way the
-                // user has to pick a new filename when saving.
-                if (lastVMEConfig == ListfileTempVMEConfigFilename)
-                    setVMEConfigFilename({}, false);
-            }
-            else
+            if (vmeConfig)
             {
-                // No VME config to load in the newly opened workspace. Create
-                // a new one and set an empty filename.
-                setVMEConfig(new VMEConfig(this));
-                setVMEConfigFilename({}, false);
-                getVMEConfig()->setModified(false);
+                setVMEConfig(vmeConfig.release());
+                setVMEConfigFilename(lastVMEConfig);
+                setMode(GlobalMode::DAQ);
+                if (m_d->m_vmeConfigAutoSaver)
+                {
+                    // Config load was successful. If an autosave exists it will contain the
+                    // (now obsolete) contents of the previous vme config so we remove it
+                    // and then restart the autosaver.
+                    m_d->m_vmeConfigAutoSaver->removeOutputFile();
+                    m_d->m_vmeConfigAutoSaver->start();
+                }
+                vmeConfigLoaded = true;
             }
+        }
+
+        if (!vmeConfigLoaded)
+        {
+            // No VME config to load in the newly opened workspace. Create
+            // a new one and set an empty filename.
+            setVMEConfig(new VMEConfig(this));
+            setVMEConfigFilename({}, false);
+            getVMEConfig()->setModified(false);
+            vmeConfigLoaded = true;
         }
 
         //
