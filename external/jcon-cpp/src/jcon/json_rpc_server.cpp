@@ -377,6 +377,12 @@ bool JsonRpcServer::doCall(QObject* object,
 
         return false;
     }
+    catch (const QVariantMap &exception_info)
+    {
+        error_info = exception_info;
+        logInfo(logInvoke(meta_method, converted_args, return_value, exception_info));
+        return false;
+    }
     catch (const std::exception &e)
     {
         //qDebug() << "Error: calling" << meta_method.methodSignature()
