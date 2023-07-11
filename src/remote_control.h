@@ -84,7 +84,7 @@ class DAQControlService: public QObject
         QString reconnectVMEController();
 
         QString getGlobalMode(); // daq|listfile
-        bool loadAnalysis(const QString &filepath);
+        QVariantMap loadAnalysis(const QString &filepath);
         bool loadListfile(const QString &filepath);
         bool startReplay(const QVariantMap &options);
 

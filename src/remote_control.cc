@@ -33,8 +33,8 @@ namespace
 class RpcLogger: public jcon::JsonRpcLogger
 {
     public:
-        explicit RpcLogger(MVMEContext *context)
-            : m_context(context)
+        explicit RpcLogger(MVMEContext */*context*/)
+            //: m_context(context)
         { }
 
         virtual void logDebug(const QString& message) override
@@ -62,7 +62,7 @@ class RpcLogger: public jcon::JsonRpcLogger
         }
 
     private:
-        MVMEContext *m_context;
+        //MVMEContext *m_context;
 };
 
 QVariant make_error_info(int code, const QString &msg)
@@ -281,17 +281,31 @@ QString DAQControlService::getGlobalMode()
         : QSL("replay"));
 }
 
-bool DAQControlService::loadAnalysis(const QString &filepath)
+QVariantMap DAQControlService::loadAnalysis(const QString &filepath)
 {
-    return m_context->loadAnalysisConfig(filepath);
+    QFile f(filepath);
+
+    if (!f.open(QIODevice::ReadOnly))
+        return { {"result", false}, {"error", f.errorString()} };
+
+    QJsonParseError parseError;
+    auto doc = QJsonDocument::fromJson(f.readAll(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError)
+        return {
+            {"result", false},
+            {"error", parseError.errorString()},
+            {"errorOffset", parseError.offset}
+        };
+
+    auto result = m_context->loadAnalysisConfig(doc, filepath);
+    return { {"result", result} };
 }
 
 bool DAQControlService::loadListfile(const QString &filepath)
 {
     const auto &handle = context_open_listfile(m_context, filepath);
-    if (handle.listfile)
-        return true;
-    return false;
+    return static_cast<bool>(handle.listfile);
 }
 
 bool DAQControlService::startReplay(const QVariantMap &options)
@@ -311,7 +325,9 @@ bool DAQControlService::startReplay(const QVariantMap &options)
         throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker busy");
     }
 
-    m_context->startDAQReplay();
+    bool keepHistoContents = options.value("keepHistoContents", true).toBool();
+
+    m_context->startDAQReplay(0, keepHistoContents);
 
     return true;
 }
