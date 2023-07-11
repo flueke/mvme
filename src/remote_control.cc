@@ -302,10 +302,19 @@ QVariantMap DAQControlService::loadAnalysis(const QString &filepath)
     return { {"result", result} };
 }
 
-bool DAQControlService::loadListfile(const QString &filepath)
+QVariantMap DAQControlService::loadListfile(const QString &filepath)
 {
-    const auto &handle = context_open_listfile(m_context, filepath);
-    return static_cast<bool>(handle.listfile);
+    try
+    {
+        const auto &handle = context_open_listfile(m_context, filepath);
+        return { {"result", static_cast<bool>(handle.listfile)} };
+    }
+    catch (const QString &err)
+    {
+        return { {"result", false}, {"error", err} };
+    }
+
+    return { {"result", true} };
 }
 
 bool DAQControlService::startReplay(const QVariantMap &options)
