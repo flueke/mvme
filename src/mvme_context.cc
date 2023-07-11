@@ -1465,6 +1465,8 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
         getVMEConfig(), getAnalysis(),
         getAnalysisUi());
 
+    emit listfileOpened(handle.inputFilename);
+
     return true;
 }
 

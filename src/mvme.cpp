@@ -556,6 +556,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         connect(m_d->m_context, &MVMEContext::sniffedReadoutBufferReady,
                 this, &MVMEMainWindow::handleSniffedReadoutBuffer);
 
+        connect(m_d->m_context, &MVMEContext::listfileOpened,
+                this, &MVMEMainWindow::updateWindowTitle);
+
         static const int DAQControlWidgetUpdateInterval_ms = 500;
 
 

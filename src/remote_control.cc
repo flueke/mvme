@@ -306,6 +306,7 @@ QVariantMap DAQControlService::loadListfile(const QString &filepath)
 {
     try
     {
+        // FIXME: context_open_listfile() uses the gui to display error messages
         const auto &handle = context_open_listfile(m_context, filepath);
         return { {"result", true } };
     }
