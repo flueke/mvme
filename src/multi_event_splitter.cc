@@ -410,26 +410,29 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                           &state, ei, mi, words_in_span(spans.dataSpan), moduleEventSize);
 
 
-                // TODO: change this so that all the available data is yielded in one eventData callback if possible
                 if (moduleEventSize > words_in_span(spans.dataSpan))
                 {
-                    // The extracted event size exceeds the amount of data left
-                    // in the dynamic span. Move the span begin pointer forward
-                    // so that the span has size 0 and the module filter test
-                    // above will fail on the next iteration.
-                    spans.dataSpan.begin = spans.dataSpan.end;
-                    moduleData.data = {};
+                    // The extracted size exceeds the actual amount of data left
+                    // in the buffer. Yield all available data and record the
+                    // error.
+                    moduleData.data = { spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan)) };
+
                     ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
 
                     if (callbacks.logger)
                     {
-                        const auto spanLen = spans.dataSpan.end - spans.dataSpan.begin;
+                        const auto spanLen = words_in_span(spans.dataSpan);
                         std::ostringstream os;
                         mesytec::mvlc::util::log_buffer(
                             os, spans.dataSpan.begin, spanLen,
-                            fmt::format("module data size exceeds buffer: ei={}, mi={}, len={}", ei, mi, spanLen));
+                            fmt::format("module data size ({}) exceeds buffer size: ei={}, mi={}, bufferSize={}",
+                                moduleEventSize, ei, mi, spanLen));
+                        callbacks.logger(userContext, os.str());
                     }
+
+                    // Move the spans begin pointer forward by the amount of data used.
+                    spans.dataSpan.begin += words_in_span(spans.dataSpan);
                 }
                 else
                 {
