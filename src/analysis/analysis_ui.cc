@@ -1,4 +1,4 @@
-/* nvme - Mesytec VME Data Acquisition
+/* mvme - Mesytec VME Data Acquisition
  *
  * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
  *

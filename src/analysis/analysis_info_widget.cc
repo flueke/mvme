@@ -52,6 +52,7 @@ static const QVector<const char *> LabelTexts =
     "counts by module",
     "rate by event ",
     "rate by module",
+    "multievent: module size exceeds buffer",
 };
 
 static const QVector<const char *> MVLC_LabelTexts =
@@ -328,9 +329,9 @@ void AnalysisInfoWidget::update()
     {
         for (u32 mi = 0; mi < MaxVMEModules; mi++)
         {
-            double count = counters.moduleCounters[ei][mi];
+            auto count = counters.moduleCounters[ei][mi];
 
-            if (count > 0.0)
+            if (count > 0)
             {
                 if (!mcText.isEmpty()) mcText += "\n";
                 mcText += (QString("event=%1, module=%2, count=%3")
@@ -375,7 +376,7 @@ void AnalysisInfoWidget::update()
 
             if (rate > 0.0)
             {
-                auto rateString =format_number(rate, QSL("cps"), UnitScaling::Decimal);
+                auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal);
 
                 if (!mrText.isEmpty()) mrText += "\n";
 
@@ -388,11 +389,28 @@ void AnalysisInfoWidget::update()
 
         if (rate > 0.0)
         {
-            auto rateString =format_number(rate, QSL("cps"), UnitScaling::Decimal);
+            auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal);
 
             if (!erText.isEmpty()) erText += "\n";
 
             erText += QString("event=%1, rate=%2").arg(ei).arg(rateString);
+        }
+    }
+
+    QString multiEventSizeExceededText;
+
+    for (size_t ei=0; ei<counters.moduleEventSizeExceedsBuffer.size(); ++ei)
+    {
+        auto &moduleCounts = counters.moduleEventSizeExceedsBuffer.at(ei);
+        for (size_t mi=0; mi<moduleCounts.size(); ++mi)
+        {
+            if (auto count = moduleCounts[mi])
+            {
+                if (!multiEventSizeExceededText.isEmpty())
+                    multiEventSizeExceededText += "\n";
+                multiEventSizeExceededText += QSL("event=%1, module=%2: sizeExceeded=%3")
+                    .arg(ei).arg(mi).arg(count);
+            }
         }
     }
 
@@ -482,6 +500,9 @@ void AnalysisInfoWidget::update()
 
     // system event types
     //m_d->labels[ii++]->setText(sysEventCountsText);
+
+    // multievent: module size exceeds buffer
+    m_d->labels[ii++]->setText(multiEventSizeExceededText);
 
     if (mvlcWorker)
     {
