@@ -15,9 +15,6 @@ if (sys.version_info.major < required_python_version[0]
     print("This script requires Python version >= %d.%d" % required_python_version)
     sys.exit(1)
 
-MaxWaitTime_s = 10.0    # Maximum time to wait for DAQ to start/stop/etc
-PollSleepTime_s = 0.25  # Time between polling for state changes
-
 MaxResponseSize   = 1024 * 256
 SocketReceiveSize = 4096
 

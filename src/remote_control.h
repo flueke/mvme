@@ -92,6 +92,7 @@ class DAQControlService: public QObject
         QString getGlobalMode(); // daq|listfile
         bool loadAnalysis(const QString &filepath);
         bool loadListfile(const QString &filepath);
+        // TODO: implement closeListfile() to go back to DAQ() mode. Or setGlobalMode()?
         bool startReplay(const QVariantMap &options = {});
 
     private:
