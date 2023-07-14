@@ -150,13 +150,25 @@ immediately returns the result or any errors that occured.
 
   **String** - "Reconnection attempt initiated"
 
+getSystemState
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Combined system state for both the readout/replay side and the analysis/data
+consumer side.
+
+* Returns
+  String - "Idle", "Starting", "Running", "Stopping" or "Paused"
+
+
 getDAQState
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Returns the current state of the DAQ.
+Returns the current state of the DAQ/replay side.
 
-* Parameters
+* Returns
+  String - "Idle", "Starting", "Running", "Stopping" or "Paused"
 
-  None
+getAnalysisState
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Returns the current state of the analysis/data consumer side.
 
 * Returns
   String - "Idle", "Starting", "Running", "Stopping" or "Paused"
@@ -187,3 +199,27 @@ Stops the current DAQ run.
 * Returns
 
   **true** on success, error status and additional information otherwise.
+
+getGlobalMode() -> string
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Returns the global mode mvme is in. Either  "daq" or "replay".
+
+loadAnalysis(string: filepath) -> bool
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Attempts to load a mvme analysis from the given file (\*.analysis).
+
+
+loadListfile(string: filepath)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Attempts to open the specified file as a mvme listfile (\*.zip).
+
+startReplay([dict: options])
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Attempts to replay from the currently open listfile.
+
+* Parameters:
+
+  - options: dictionary, default: { "keepHistoContents": true }
+
+  Options for the analysis system. "keepHistoContents" allows to keep or clear
+  the histogram contents from a previous run.

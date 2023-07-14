@@ -52,6 +52,26 @@ std::error_code reset_stack_offsets(MVLCObject &mvlc)
     return {};
 }
 
+mvlc::StackCommandBuilder get_readout_commands(const EventConfig &event)
+{
+    auto readoutScript = build_event_readout_script(
+        &event, EventReadoutBuildFlags::NoModuleEndMarker);
+    return build_mvlc_stack(readoutScript);
+}
+
+// Builds the readout stack in the form of a StackCommandBuilder for each
+// readout event in the vme config. Returns a list of StackCommandBuilder
+// instances, one builder per event.
+std::vector<mvlc::StackCommandBuilder> get_readout_stacks(const VMEConfig &vmeConfig)
+{
+    std::vector<mvlc::StackCommandBuilder> stacks;
+
+    for (const auto &event: vmeConfig.getEventConfigs())
+        stacks.emplace_back(get_readout_commands(*event));
+
+    return stacks;
+}
+
 // Builds, uploads and sets up the readout stack for each event in the vme
 // config.
 // FIXME: multiple stack conversions. Pretty hacky now
@@ -71,10 +91,7 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
         if (stackId >= mvlc::stacks::StackCount)
             return make_error_code(mvlc::MVLCErrorCode::StackCountExceeded);
 
-        auto readoutScript = build_event_readout_script(
-            event, EventReadoutBuildFlags::NoModuleEndMarker);
-
-        auto stackBuilder = build_mvlc_stack(readoutScript);
+        auto stackBuilder = get_readout_commands(*event);
         auto stackBuffer = make_stack_buffer(stackBuilder);
 
         u16 uploadAddress = uploadWordOffset * mvlc::AddressIncrement;
@@ -198,14 +215,10 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 
                     bool useIACK = event->triggerOptions["IRQUseIACK"].toBool();
 
-                    u32 triggerVal = (useIACK
-                                      ? mvlc::stacks::IRQWithIACK
-                                      : mvlc::stacks::IRQNoIACK
-                                      ) << mvlc::stacks::TriggerTypeShift;
-
-                    triggerVal |= (event->irqLevel - 1) & mvlc::stacks::TriggerBitsMask;
-
-                    triggers.push_back(triggerVal);
+                    mvlc::StackTrigger st;
+                    st.triggerType = (useIACK ? mvlc::stacks::IRQWithIACK : mvlc::stacks::IRQNoIACK);
+                    st.irqLevel = event->irqLevel;
+                    triggers.push_back(mvlc::trigger_value(st));
                 } break;
 
             case TriggerCondition::Periodic:
@@ -222,8 +235,9 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                     // Set the stack trigger to 'External'. The actual setup of
                     // the timer and the connection between the Timer and
                     // StackStart units is done in setup_trigger_io().
-                    u32 triggerVal = mvlc::stacks::External << mvlc::stacks::TriggerTypeShift;
-                    triggers.push_back(triggerVal);
+                    mvlc::StackTrigger st{ mvlc::stacks::External, 0 };
+                    st.triggerType = mvlc::stacks::External;
+                    triggers.push_back(mvlc::trigger_value(st));
                     ++timersInUse;
                 } break;
 
@@ -234,8 +248,9 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 
                     // Set the stack trigger to 'External'. The actual trigger
                     // setup is done by the user via the trigger io gui.
-                    u32 triggerVal = mvlc::stacks::External << mvlc::stacks::TriggerTypeShift;
-                    triggers.push_back(triggerVal);
+                    mvlc::StackTrigger st{ mvlc::stacks::External, 0 };
+                    st.triggerType = mvlc::stacks::External;
+                    triggers.push_back(mvlc::trigger_value(st));
                 }
                 break;
 
@@ -257,74 +272,6 @@ std::error_code setup_trigger_io(
     assert(scriptConfig);
     if (!scriptConfig)
         return make_error_code(mvlc::MVLCErrorCode::ReadoutSetupError);
-
-#if 0
-    auto ioCfg = trigger_io::parse_trigger_io_script_text(
-        scriptConfig->getScriptContents());
-
-
-    // First disable all of the StackStart units. This is to avoid any side
-    // effects from vme events that have been removed or any other sort of
-    // stack triggering.
-#if 0
-    // FIXME
-    // Disabled for now as it conflicts with user-defined StackStart
-    // configurations. It basically disables them and undoes the changes done
-    // in the GUI. A fix would be to regnerate and execute the trigger io
-    // script at this point so that the units are disabled but the
-    // modifications are not written back to the trigger io config.
-    // Even better would be a way to create a snippet containing only the units
-    // that should be reset and execute that.
-    for (auto &ss: ioCfg.l3.stackStart)
-        ss.activate = false;
-#endif
-
-    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
-    u16 timersInUse = 0u;
-
-    for (const auto &event: vmeConfig.getEventConfigs())
-    {
-        if (event->triggerCondition == TriggerCondition::Periodic)
-        {
-            if (timersInUse >= mvlc::stacks::TimerCount)
-            {
-                logger("No more timers available");
-                return make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
-            }
-
-            // Setup the l0 timer unit
-            auto &timer = ioCfg.l0.timers[timersInUse];
-            timer.period = event->triggerOptions["mvlc.timer_period"].toUInt();
-
-            timer.range = mvlc::timer_base_unit_from_string(
-                    event->triggerOptions["mvlc.timer_base"].toString().toStdString());
-
-            timer.softActivate = true;
-
-            ioCfg.l0.unitNames[timersInUse] = QString("t_%1").arg(event->objectName());
-
-            // Setup the l3 StackStart unit
-            auto &ss = ioCfg.l3.stackStart[timersInUse];
-
-            ss.activate = true;
-            ss.stackIndex = stackId;
-
-            ioCfg.l3.unitNames[timersInUse] = QString("ss_%1").arg(event->objectName());
-
-            // Connect StackStart to the Timer
-            auto choices = ioCfg.l3.DynamicInputChoiceLists[timersInUse][0];
-            auto it = std::find(
-                choices.begin(), choices.end(),
-                trigger_io::UnitAddress{0, timersInUse});
-
-            ioCfg.l3.connections[timersInUse][0] = it - choices.begin();
-
-            ++timersInUse;
-        }
-
-        ++stackId;
-    }
-#endif
 
     auto ioCfg = update_trigger_io(vmeConfig);
     auto ioCfgText = trigger_io::generate_trigger_io_script_text(ioCfg);

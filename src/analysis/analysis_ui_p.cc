@@ -3371,7 +3371,7 @@ EventSettingsDialog::EventSettingsDialog(
 
         if (!hasEventBuilder)
         {
-            table->cellWidget(ei, 0)->setEnabled(false);
+            //table->cellWidget(ei, 0)->setEnabled(false);
             table->cellWidget(ei, 1)->setEnabled(false);
         }
 

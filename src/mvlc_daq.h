@@ -52,7 +52,7 @@ std::error_code LIBMVME_EXPORT
 #endif
 
 std::pair<std::vector<u32>, std::error_code> LIBMVME_EXPORT get_trigger_values(
-    const VMEConfig &vmeConfig, Logger logger);
+    const VMEConfig &vmeConfig, Logger logger = [] (const QString &) {});
 
 std::error_code LIBMVME_EXPORT
     enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
@@ -63,13 +63,14 @@ std::error_code LIBMVME_EXPORT
 std::error_code LIBMVME_EXPORT
     reset_stack_offsets(MVLCObject &mvlc);
 
-std::error_code LIBMVME_EXPORT
-    setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig,
-                         Logger logger);
+mvlc::StackCommandBuilder LIBMVME_EXPORT get_readout_commands(const EventConfig &event);
+std::vector<mvlc::StackCommandBuilder> LIBMVME_EXPORT get_readout_stacks(const VMEConfig &vmeConfig);
 
 std::error_code LIBMVME_EXPORT
-    setup_trigger_io(MVLCObject &mvlc, VMEConfig &vmeConfig,
-                     Logger logger);
+    setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
+
+std::error_code LIBMVME_EXPORT
+    setup_trigger_io(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger);
 
 // Parses the trigger io contained in the vmeconfig, updates it to handle
 // periodic and externally triggered events and returns the updated TriggerIO

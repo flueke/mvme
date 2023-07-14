@@ -556,6 +556,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         connect(m_d->m_context, &MVMEContext::sniffedReadoutBufferReady,
                 this, &MVMEMainWindow::handleSniffedReadoutBuffer);
 
+        connect(m_d->m_context, &MVMEContext::listfileOpened,
+                this, &MVMEMainWindow::updateWindowTitle);
+
         static const int DAQControlWidgetUpdateInterval_ms = 500;
 
 
@@ -810,7 +813,7 @@ void MVMEMainWindow::displayAbout()
         tb_info->setText(build_infos.join('\n'));
 
         auto button = new QPushButton(QSL("&Info"));
-        connect(button, &QPushButton::clicked, this, [this, tb_info]() {
+        connect(button, &QPushButton::clicked, this, [tb_info]() {
             auto sz = tb_info->size();
             sz = sz.expandedTo(QSize(500, 300));
             tb_info->resize(sz);

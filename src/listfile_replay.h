@@ -154,8 +154,8 @@ class LIBMVME_EXPORT FileInfoCache: public QObject
 
 struct LIBMVME_EXPORT ReplayQueues
 {
-    mesytec::mvlc::ReadoutBufferQueues mvlcQueues;
-    mesytec::mvlc::ReadoutBufferQueues_<DataBuffer> mvmelstQueues;
+    mesytec::mvlc::ReadoutBufferQueues mvlcQueues; // the MVLC replays
+    mesytec::mvlc::ReadoutBufferQueues_<DataBuffer> mvmelstQueues; // for the old mvmelst format used by VMUSB and SIS3153 controllers
 };
 
 std::unique_ptr<ListfileReplayWorker> LIBMVME_EXPORT make_replay_worker(const ListfileBufferFormat &fmt, ReplayQueues &queues);
@@ -231,20 +231,29 @@ struct LIBMVME_EXPORT ListfileCommandState
 
 struct LIBMVME_EXPORT ReplayCommandState: public ListfileCommandState
 {
-    std::unique_ptr<ListfileReplayWorker> replayWorker;
-    std::unique_ptr<StreamWorkerBase> analysisWorker;
+    std::shared_ptr<ListfileReplayWorker> replayWorker;
+    std::shared_ptr<StreamWorkerBase> analysisWorker;
+
+    void pause();
+    void resume();
 };
 
 struct LIBMVME_EXPORT MergeCommandState: public ListfileCommandState
 {
+    void pause() {}
+    void resume() {}
 };
 
 struct LIBMVME_EXPORT SplitCommandState: public ListfileCommandState
 {
+    void pause() {}
+    void resume() {}
 };
 
 struct LIBMVME_EXPORT FilterCommandState: public ListfileCommandState
 {
+    void pause() {}
+    void resume() {}
 };
 
 using CommandStateHolder = std::variant<ReplayCommandState, MergeCommandState, SplitCommandState, FilterCommandState>;
@@ -273,6 +282,7 @@ class LIBMVME_EXPORT ListfileCommandExecutor: public QObject
 
         bool setCommand(const CommandHolder &cmd); // Returns false if not idle.
         mesytec::mvlc::WaitableProtected<CommandStateHolder> &commandState();
+        void setLogger(const std::function<void (const QString &)> &logger);
 
     public slots:
         void start();

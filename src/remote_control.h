@@ -34,6 +34,7 @@ enum ErrorCodes: s32
     ReadoutWorkerBusy           = 102,
     AnalysisWorkerBusy          = 103,
     ControllerNotConnected      = 104,
+    NotInReplayMode             = 105,
 
     NoVMEControllerFound        = 201,
 };
@@ -64,6 +65,12 @@ class RemoteControl: public QObject
         std::unique_ptr<Private> m_d;
 };
 
+// GlobalControlService to switch between DAQ and Replay modes.
+// Could also load listfiles and analysis files.
+// ReplayService or extend the existing DAQControlService to allow starting
+// replays. Also need to control if analysis contents should be kept or not
+// between replays.
+
 class DAQControlService: public QObject
 {
     Q_OBJECT
@@ -71,10 +78,22 @@ class DAQControlService: public QObject
         explicit DAQControlService(MVMEContext *context);
 
     public slots:
+        // combined system state: to_string(MVMEState)
+        QString getSystemState();
+
+        // subsystem states
         QString getDAQState();
+        QString getAnalysisState();
+
         bool startDAQ();
         bool stopDAQ();
         QString reconnectVMEController();
+
+        QString getGlobalMode(); // daq|listfile
+        bool loadAnalysis(const QString &filepath);
+        bool loadListfile(const QString &filepath);
+        // TODO: implement closeListfile() to go back to DAQ() mode. Or setGlobalMode()?
+        bool startReplay(const QVariantMap &options = {});
 
     private:
         MVMEContext *m_context;

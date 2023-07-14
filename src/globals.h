@@ -35,7 +35,8 @@
 enum class GlobalMode
 {
     DAQ,
-    ListFile
+    ListFile,
+    Replay = ListFile,
 };
 
 enum class DAQState

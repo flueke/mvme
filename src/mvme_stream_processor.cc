@@ -138,6 +138,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     Q_ASSERT(vmeConfig);
 
     m_d->counters = {};
+
     m_d->runInfo = runInfo;
     m_d->analysis = analysis;
     m_d->vmeConfig = vmeConfig;
@@ -602,13 +603,13 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
             // Multievent splitting is possible. Check for a header match and extract the data size.
             else if (a2::data_filter::matches(mi.moduleHeaderFilter, *mi.moduleHeader))
             {
-
                 u32 moduleEventSize = a2::data_filter::extract(
                     mi.filterCacheModuleSectionSize, *mi.moduleHeader);
 
                 if (unlikely(mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord))
                 {
                     this->counters.buffersWithErrors++;
+                    ++counters.moduleEventSizeExceedsBuffer[eventIndex][moduleIndex];
 
                     QString msg = (QString("Error (mvme stream, buffer#%1): extracted module event size (%2) exceeds buffer size!"
                                            " eventIndex=%3, moduleIndex=%4, moduleHeader=0x%5, skipping event")

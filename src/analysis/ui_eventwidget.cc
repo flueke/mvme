@@ -2284,7 +2284,7 @@ void EventWidgetPrivate::appendTreesToView(UserLevelTrees trees)
         });
 
         QObject::connect(tree, &QTreeWidget::itemActivated,
-                         m_q, [this] (QTreeWidgetItem *node, int column) {
+                         m_q, [] (QTreeWidgetItem *node, int column) {
             qDebug() << "### tree itemActivated:" << node << column;
         });
 
@@ -3264,7 +3264,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                     menu.addAction(
                         QSL("Open in Plot Grid"), m_q,
-                        [this, histo, sinkPtr, userLevel]
+                        [this, histo, sinkPtr]
                         {
                             auto widget = new MultiPlotWidget(m_serviceProvider);
                             widget->addSink(sinkPtr);

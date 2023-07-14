@@ -84,6 +84,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void daqStateChanged(const DAQState &state);
         void mvmeStreamWorkerStateChanged(AnalysisWorkerState);
         void controllerStateChanged(ControllerState state);
+        void listfileOpened(const QString &filename);
 
         void vmeControllerAboutToBeChanged();
         void vmeControllerSet(VMEController *controller);

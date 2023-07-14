@@ -20,11 +20,12 @@
  */
 #include "remote_control.h"
 
-#include "git_sha1.h"
-#include "sis3153_readout_worker.h"
-
 #include <jcon/json_rpc_logger.h>
 #include <jcon/json_rpc_tcp_server.h>
+
+#include "git_sha1.h"
+#include "sis3153_readout_worker.h"
+#include "mvme_context_lib.h"
 
 namespace
 {
@@ -32,8 +33,8 @@ namespace
 class RpcLogger: public jcon::JsonRpcLogger
 {
     public:
-        explicit RpcLogger(MVMEContext *context)
-            : m_context(context)
+        explicit RpcLogger(MVMEContext */*context*/)
+            //: m_context(context)
         { }
 
         virtual void logDebug(const QString& message) override
@@ -61,10 +62,10 @@ class RpcLogger: public jcon::JsonRpcLogger
         }
 
     private:
-        MVMEContext *m_context;
+        //MVMEContext *m_context;
 };
 
-QVariant make_error_info(int code, const QString &msg)
+QVariantMap make_error_info(int code, const QString &msg)
 {
     return QVariantMap
     {
@@ -255,9 +256,19 @@ bool DAQControlService::stopDAQ()
     return true;
 }
 
+QString DAQControlService::getSystemState()
+{
+    return to_string(m_context->getMVMEState());
+}
+
 QString DAQControlService::getDAQState()
 {
     return DAQStateStrings.value(m_context->getDAQState());
+}
+
+QString DAQControlService::getAnalysisState()
+{
+    return to_string(m_context->getMVMEStreamWorkerState());
 }
 
 QString DAQControlService::reconnectVMEController()
@@ -271,6 +282,73 @@ QString DAQControlService::reconnectVMEController()
     m_context->reconnectVMEController();
 
     return QSL("Reconnection attempt initiated");
+}
+
+QString DAQControlService::getGlobalMode()
+{
+    return (m_context->getMode() == GlobalMode::DAQ
+        ? QSL("daq")
+        : QSL("replay"));
+}
+
+bool DAQControlService::loadAnalysis(const QString &filepath)
+{
+    QFile f(filepath);
+
+    if (!f.open(QIODevice::ReadOnly))
+        throw QVariantMap{{"code", "42"}, { "message", f.errorString()}};
+
+    QJsonParseError parseError;
+    auto doc = QJsonDocument::fromJson(f.readAll(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError)
+        throw QVariantMap{{"code", "42"}, { "message", parseError.errorString()}};
+
+    auto result = m_context->loadAnalysisConfig(doc, filepath);
+    if (result)
+    {
+        m_context->setAnalysisConfigFilename(filepath);
+    }
+    return result;
+}
+
+bool DAQControlService::loadListfile(const QString &filepath)
+{
+    try
+    {
+        // FIXME: context_open_listfile() uses the gui to display error messages
+        const auto &handle = context_open_listfile(m_context, filepath);
+    }
+    catch (const QString &err)
+    {
+        throw QVariantMap{{"code", "42"}, { "message", err}};
+    }
+
+    return true;
+}
+
+bool DAQControlService::startReplay(const QVariantMap &options)
+{
+    if (m_context->getMode() != GlobalMode::Replay)
+    {
+        throw make_error_info(ErrorCodes::NotInReplayMode, "Not in Replay mode");
+    }
+
+    if (m_context->getDAQState() != DAQState::Idle)
+    {
+        throw make_error_info(ErrorCodes::ReadoutWorkerBusy, "DAQ replay worker busy");
+    }
+
+    if (m_context->getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
+    {
+        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker busy");
+    }
+
+    bool keepHistoContents = options.value("keepHistoContents", true).toBool();
+
+    m_context->startDAQReplay(0, keepHistoContents);
+
+    return true;
 }
 
 //

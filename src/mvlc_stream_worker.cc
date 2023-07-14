@@ -881,8 +881,8 @@ void MVLC_StreamWorker::processBuffer(
             // ok.
             processingOk = true;
         }
-        else
-            qDebug() << __PRETTY_FUNCTION__ << (int)pr << get_parse_result_name(pr) << m_multiEventSplitter.processingFlags;
+        //else
+        //    qDebug() << __PRETTY_FUNCTION__ << (int)pr << get_parse_result_name(pr) << m_multiEventSplitter.processingFlags;
     }
     // TODO: check which of these can actually escape parse_readout_buffer().
     // Seems like code duplication between here and the parser.

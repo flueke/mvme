@@ -170,7 +170,7 @@ struct LIBMVME_EXPORT EventReadoutBuildFlags
  * - event readout end ("cycle end" in the GUI)
  */
 vme_script::VMEScript LIBMVME_EXPORT build_event_readout_script(
-    EventConfig *eventConfig,
+    const EventConfig *eventConfig,
     u8 flags = EventReadoutBuildFlags::None);
 
 struct DAQReadoutListfileHelperPrivate;
@@ -208,7 +208,28 @@ class LIBMVME_EXPORT DAQReadoutListfileHelper
  */
 QString LIBMVME_EXPORT make_new_listfile_name(ListFileOutputInfo *outInfo);
 
+// global daq start scripts
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_global_daq_start_scripts(const VMEConfig *vmeConfig);
+
+// global daq stop scripts
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_global_daq_stop_scripts(const VMEConfig *vmeConfig);
+
+// module init scripts
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_module_daq_start_scripts(const VMEConfig *vmeConfig);
+
+// mcst daq start scripts for all events
 QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_event_mcst_daq_start_scripts(const VMEConfig *vmeConfig);
+
+// mcst daq stop scripts for all events
 QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_event_mcst_daq_stop_scripts(const VMEConfig *vmeConfig);
+
+// Returns the readout scripts for the given EventConfig. The first script is
+// the event-wide "readout_start" script, the last one the event-widget
+// "readout_stop" script.
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_module_readout_scripts(const EventConfig *ev, bool includeDisabledModules = false);
+
+// Returns the readout scripts for each event, e.g. [1] contains the module
+// readout scripts for event=1
+QVector<QVector<VMEScriptConfig *>> LIBMVME_EXPORT collect_module_readout_scripts(const VMEConfig *vmeConfig);
 
 #endif /* __VME_DAQ_H__ */

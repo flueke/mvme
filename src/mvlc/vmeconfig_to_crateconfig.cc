@@ -1,5 +1,6 @@
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "vme_config_scripts.h"
+#include "mvlc_daq.h"
 
 namespace mesytec
 {
@@ -312,38 +313,8 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
         dstConfig.stacks.emplace_back(readoutStack);
     }
 
-    // triggers
-    for (const auto &eventConfig: eventConfigs)
-    {
-        using namespace mesytec::mvlc;
-
-        switch (eventConfig->triggerCondition)
-        {
-            case TriggerCondition::Interrupt:
-                {
-                    auto triggerType = (eventConfig->triggerOptions["IRQUseIACK"].toBool()
-                                        ? stacks::IRQWithIACK
-                                        : stacks::IRQNoIACK);
-                    dstConfig.triggers.push_back(trigger_value(triggerType, eventConfig->irqLevel));
-                }
-                break;
-
-            // Note: periodic triggers are implement via the TriggerIO system.
-            // This happens as soon as the periodic event is created.
-            case TriggerCondition::TriggerIO:
-            case TriggerCondition::Periodic:
-                dstConfig.triggers.push_back(trigger_value(stacks::External));
-                break;
-
-            default:
-                std::cerr << "Warning: unhandled trigger type for event '"
-                    << eventConfig->objectName().toStdString()
-                    << "'. Defaulting to 'TriggerIO'."
-                    << std::endl;
-                dstConfig.triggers.push_back(trigger_value(stacks::External));
-                break;
-        }
-    }
+    // trigger values
+    dstConfig.triggers = mvme_mvlc::get_trigger_values(*vmeConfig).first;
 
     // init_trigger_io
     {

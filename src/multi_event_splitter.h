@@ -123,6 +123,10 @@ struct Counters
     // [eventIndex, moduleIndex] -> number of times the header filter used for
     // splitting did not match.
     std::vector<std::vector<size_t>> moduleHeaderMismatches;
+
+    // [eventIndex, moduleIndex] -> number of times the module data size
+    // extracted from the module header exceeds the amount of data in the input
+    // buffer.
     std::vector<std::vector<size_t>> moduleEventSizeExceedsBuffer;
 };
 
@@ -199,6 +203,7 @@ enum class ErrorCode : u8
     MaxVMEModulesExceeded,
 };
 
+// The main multi_event_splitter entry point taking a parsed module data list.
 std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
     void *userContext, int ei, const ModuleData *moduleDataList, unsigned moduleCount);

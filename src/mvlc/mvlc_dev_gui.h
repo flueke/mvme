@@ -103,6 +103,8 @@ struct LIBMVME_MVLC_EXPORT OwningPacketReadResult
     OwningPacketReadResult(): buffer{}, prr{} {}
     explicit OwningPacketReadResult(const mesytec::mvlc::eth::PacketReadResult &prr);
     explicit OwningPacketReadResult(const OwningPacketReadResult &other);
+
+    OwningPacketReadResult &operator=(const OwningPacketReadResult &other);
 };
 
 using EthDebugBuffer = boost::circular_buffer<OwningPacketReadResult>;

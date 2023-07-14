@@ -406,8 +406,9 @@ mvlc_daq_shutdown(
 //
 // build_event_readout_script
 //
+#if 0
 vme_script::VMEScript build_event_readout_script(
-    EventConfig *eventConfig,
+    const EventConfig *eventConfig,
     u8 flags)
 {
     using namespace vme_script;
@@ -439,6 +440,39 @@ vme_script::VMEScript build_event_readout_script(
 
     return result;
 }
+#else
+vme_script::VMEScript build_event_readout_script(
+    const EventConfig *eventConfig,
+    u8 flags)
+{
+    using namespace vme_script;
+    VMEScript result;
+
+    const bool addModuleEndMarkers = !(flags & EventReadoutBuildFlags::NoModuleEndMarker);
+
+    for (auto &scriptConf: collect_module_readout_scripts(eventConfig, addModuleEndMarkers))
+    {
+        u32 baseAddress = 0u;
+
+        if (auto moduleConf = qobject_cast<ModuleConfig *>(scriptConf->parent()))
+            baseAddress = moduleConf->getBaseAddress();
+
+        result += parse(scriptConf, baseAddress);
+
+        // For old non-mvlc controllers: optionally add a special marker between
+        // modules.
+        if (qobject_cast<ModuleConfig *>(scriptConf->parent()) && addModuleEndMarkers)
+        {
+            Command marker;
+            marker.type = CommandType::Marker;
+            marker.value = EndMarker;
+            result += marker;
+        }
+    }
+
+    return result;
+}
+#endif
 
 struct DAQReadoutListfileHelperPrivate
 {
@@ -808,8 +842,50 @@ void log_errors(const QVector<ScriptWithResults> &results,
     }
 }
 
+QVector<VMEScriptConfig *> collect_global_daq_start_scripts(const VMEConfig *vmeConfig)
+{
+    QVector<VMEScriptConfig *> result;
+
+    // global daq start scripts (not event mcst scripts!)
+    auto startScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_start")->findChildren<VMEScriptConfig *>();
+    for (auto s: startScripts) result.push_back(s);
+    return result;
+}
+
+QVector<VMEScriptConfig *> collect_global_daq_stop_scripts(const VMEConfig *vmeConfig)
+{
+    QVector<VMEScriptConfig *> result;
+
+    // global daq start scripts (not event mcst scripts!)
+    auto stopScripts = vmeConfig->getGlobalObjectRoot().findChild<ContainerObject *>(
+        "daq_stop")->findChildren<VMEScriptConfig *>();
+    for (auto s: stopScripts) result.push_back(s);
+    return result;
+}
+
+QVector<VMEScriptConfig *> collect_module_daq_start_scripts(const VMEConfig *vmeConfig)
+{
+    QVector<VMEScriptConfig *> result;
+
+    for (const auto &ev: vmeConfig->getEventConfigs())
+    {
+        for (const  auto &mod: ev->getModuleConfigs())
+        {
+            if (!mod->isEnabled())
+                continue;
+
+            result.push_back(mod->getResetScript());
+            for (auto s: mod->getInitScripts()) result.push_back(s);
+        }
+    }
+
+    return result;
+}
+
 QVector<VMEScriptConfig *> collect_event_mcst_daq_start_scripts(const VMEConfig *vmeConfig)
 {
+    // daq_start scripts from all events
     QVector<VMEScriptConfig *> result;
 
     for (const auto &eventConfig: vmeConfig->getEventConfigs())
@@ -823,6 +899,7 @@ QVector<VMEScriptConfig *> collect_event_mcst_daq_start_scripts(const VMEConfig 
 
 QVector<VMEScriptConfig *> collect_event_mcst_daq_stop_scripts(const VMEConfig *vmeConfig)
 {
+    // daq stop scripts from all events
     QVector<VMEScriptConfig *> result;
 
     for (const auto &eventConfig: vmeConfig->getEventConfigs())
@@ -830,6 +907,35 @@ QVector<VMEScriptConfig *> collect_event_mcst_daq_stop_scripts(const VMEConfig *
         if (auto script = eventConfig->vmeScripts["daq_stop"])
             result.push_back(script);
     }
+
+    return result;
+}
+
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_module_readout_scripts(const EventConfig *ev, bool includeDisabledModules)
+{
+    QVector<VMEScriptConfig *> result;
+
+        if (auto rdoStart = ev->vmeScripts["readout_start"])
+            result.push_back(rdoStart);
+
+        for (auto &mod: ev->getModuleConfigs())
+        {
+            if (mod->isEnabled() || includeDisabledModules)
+                result.push_back(mod->getReadoutScript());
+        }
+
+        if (auto rdoEnd = ev->vmeScripts["readout_end"])
+            result.push_back(rdoEnd);
+
+    return result;
+}
+
+QVector<QVector<VMEScriptConfig *>> LIBMVME_EXPORT collect_module_readout_scripts(const VMEConfig *vmeConfig)
+{
+    QVector<QVector<VMEScriptConfig *>> result;
+
+    for (auto &ev: vmeConfig->getEventConfigs())
+        result.push_back(collect_module_readout_scripts(ev));
 
     return result;
 }

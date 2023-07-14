@@ -232,7 +232,7 @@ void HistoStatsWidget::Private::repopulate()
 
     s32 maxBins = std::accumulate(
         std::begin(entries_), std::end(entries_), 0,
-        [this] (s32 accu, const auto &entry)
+        [] (s32 accu, const auto &entry)
         { return std::max(accu, std::visit(BinCountVisitor(), entry)); });
 
 
