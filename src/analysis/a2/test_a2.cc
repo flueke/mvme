@@ -139,7 +139,7 @@ static void BM_a2(benchmark::State &state)
 
     //std::cout << "testdata: " << dataSize << ", " << sizeof(testdata) << " bytes" << std::endl;
 
-    if (state.thread_index() == 0)
+    if (state.thread_index == 0)
     {
         //print_param_vector(ex.output);
     }

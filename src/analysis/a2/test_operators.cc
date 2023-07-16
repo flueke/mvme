@@ -1286,7 +1286,7 @@ static void BM_h1d_sink_step(benchmark::State &state)
     state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
     //state.counters["mT"] = Counter(moduleCounter);
 
-    if (state.thread_index() == 0)
+    if (state.thread_index == 0)
     {
 #if 0
         auto histo = d->histos[0];
