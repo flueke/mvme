@@ -41,4 +41,16 @@ if (MVME_BUILD_TESTS)
     endif()
 endif()
 
+# qgv - qt graphviz library
 add_subdirectory(qgv)
+
+# nng - networking library
+find_package(nng QUIET)
+
+if(NOT nng)
+    message("-- Using nng from external/nng")
+    option(NNG_SETSTACKSIZE "Use rlimit for thread stack size" ON)
+    set(NNG_TESTS OFF)
+    set(NNG_ENABLE_NNGCAT OFF)
+    add_subdirectory(nng)
+endif()
