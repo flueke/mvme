@@ -26,6 +26,7 @@ endif()
 
 #set(CPACK_PACKAGE_EXECUTABLES "mvme;mvme")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "mvme")
+set(CPACK_MONOLITHIC_INSTALL ON)
 
 if (WIN32)
     # https://cmake.org/cmake/help/v3.10/module/CPackNSIS.html
@@ -42,5 +43,4 @@ else()
     # Sadly can only specifiy a single binary here which then dictates which
     # libraries linuxdeployqt picks up.
     set(DEPLOY_BINARY "bin/mvme")
-    set(CPACK_MONOLITHIC_INSTALL ON)
 endif()
