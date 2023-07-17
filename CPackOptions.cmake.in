@@ -35,7 +35,6 @@ if (WIN32)
     set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "mesytec-mvme")
     set(CPACK_NSIS_DISPLAY_NAME "mesytec mvme")
     set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\mvme.exe")
-    #set(CPACK_MONOLITHIC_INSTALL 1)
     file(MAKE_DIRECTORY ${CPACK_OUTPUT_FILE_PREFIX})
 else()
     set(CPACK_OUTPUT_FILE_PREFIX "packages")
@@ -43,4 +42,5 @@ else()
     # Sadly can only specifiy a single binary here which then dictates which
     # libraries linuxdeployqt picks up.
     set(DEPLOY_BINARY "bin/mvme")
+    set(CPACK_MONOLITHIC_INSTALL ON)
 endif()
