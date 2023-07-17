@@ -57,7 +57,9 @@
  * - the analysis code could be reloaded for each run/file.
  */
 
+#include <cctype>
 #include <fstream>
+#include <regex>
 #include <string>
 #include <sstream>
 
@@ -210,11 +212,12 @@ static MakeRawHistosResult make_raw_histograms(const MVMEExperiment *exp, TFile 
 //
 struct Options
 {
-    using Opt_t = unsigned;
+    using Opt_t = uint32_t;
     static const Opt_t ShowStreamInfo   = 1u << 1;
     static const Opt_t NoAddedRandom    = 1u << 2;
     static const Opt_t SingleRun        = 1u << 3;
     static const Opt_t ReplayMode       = 1u << 4;
+    static const Opt_t DetectSplitRuns  = 1u << 5;
 };
 
 class ClientContext: public mvme::event_server::Client
@@ -273,6 +276,10 @@ class ClientContext: public mvme::event_server::Client
 
         std::unique_ptr<TFile> m_histoOutFile;
         MakeRawHistosResult m_rawHistos;
+
+        // Set to true if the output TTree and histogram instances have been
+        // created.
+        bool m_outputTreesAndHistosCreated = false;
 
         RunStats m_stats;
         bool m_quit = false;
@@ -564,6 +571,27 @@ inline double make_quiet_nan()
 
 using MVMERunInfo = std::map<std::string, std::string>;
 
+static const std::regex SplitRunIdRegex("^(.+)part[0-9a-fA-F]+$");
+
+inline bool is_split_run_id(const std::string &runId)
+{
+    return std::regex_match(runId, SplitRunIdRegex);
+}
+
+inline std::string get_split_run_name(const std::string &runId)
+{
+    std::smatch matches;
+    std::regex_match(runId, matches, SplitRunIdRegex);
+
+    if (matches.size() < 2)
+        return runId;
+
+    auto runName = matches[1].str();
+    while (!runName.empty() && !std::isalnum(runName.back()))
+        runName.pop_back();
+    return runName;
+}
+
 void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 {
     if (m_options & Options::ShowStreamInfo)
@@ -802,94 +830,112 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
     }
 
     //
-    // Per VME event TTree output.
+    // Create output files, TTrees and histograms.
     //
-    std::string filename;
+
+    bool isSplitRun = false;
+    static const std::regex SplitRunIdRegex("^(.+)[_]*part[0-9]+$");
+
+    if (m_options & Options::DetectSplitRuns)
+        isSplitRun = is_split_run_id(streamInfo.runId);
+
+    std::string treeOutFilename;
+    std::string histoOutFilename;
 
     if (streamInfo.runId.empty())
     {
         cout << __FUNCTION__ << ": Warning: got an empty runId!" << endl;
-        filename = "unknown_run_raw.root";
+        treeOutFilename = "unknown_run_raw.root";
+        histoOutFilename = "unknown_run_histos.root";
+    }
+    else if (isSplitRun)
+    {
+        auto runName = get_split_run_name(streamInfo.runId);
+
+        treeOutFilename  = runName + "_raw.root";
+        histoOutFilename = runName + "_histos.root";
     }
     else
     {
-        filename = streamInfo.runId + "_raw.root";
+        treeOutFilename = streamInfo.runId + "_raw.root";
+        histoOutFilename = streamInfo.runId + "_histos.root";
     }
 
-    cout << "Opening output file " << filename << endl;
-    auto treeOutFile = new TFile(filename.c_str(), "recreate");
-
-    if (treeOutFile->IsZombie() || !treeOutFile->IsOpen())
+    if (!isSplitRun || !m_outputTreesAndHistosCreated)
     {
-        cout << "Error opening output file " << filename << " for writing: "
-            << strerror(treeOutFile->GetErrno()) << endl;
-        m_quit = true;
-        return;
-    }
+        //
+        // Per VME event TTree output.
+        //
+        cout << "Opening output file " << treeOutFilename << endl;
+        auto treeOutFile = new TFile(treeOutFilename.c_str(), "recreate");
 
-    cout << "Creating output trees" << endl;
-    m_eventTrees = m_exp->MakeTrees();
-
-    for (auto &tree: m_eventTrees)
-    {
-        assert(tree);
-        cout << "  " << tree << " " << tree->GetName() << "\t" << tree->GetTitle() << endl;
-        tree->SetMaxTreeSize(m_rootMaxTreeSize);
-    }
-
-    assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
-
-    // Note: this used to be in ClientContext::endRun() but for replays from
-    // automatically split TTrees we need the info in the _first_ file of the
-    // TChain.
-    if (treeOutFile && !treeOutFile->IsZombie() && treeOutFile->IsOpen())
-    {
-        cout << "  Writing additional mvme info to output file..." << endl;
-
-        MVMERunInfo info;
-
-        info["ExperimentName"] = m_exp->GetName();
-        info["RunID"] = getStreamInfo().runId;
-        // TODO: use a TDirectory to hold mvme stuff
-        // also try a TMap to hold either TStrings or more TMaps
-        // figure out how freeing that memory then works
-        // FIXME: this does have the title "object title" in rootls
-        treeOutFile->WriteObject(&info, "MVMERunInfo");
-        treeOutFile->Write();
-
-        // Once writing tree data starts ROOT can close the file at any time due to
-        // TTree::SetMaxTreeSize(). Just nulling it here to catch bugs...
-        treeOutFile = {};
-    }
-
-    //
-    // Raw histogram output
-    //
-    {
-        std::string histoOutFilename;
-
-        if (streamInfo.runId.empty())
-            histoOutFilename = "unknown_run_histos.root";
-        else
-            histoOutFilename = streamInfo.runId + "_histos.root";
-
-        cout << "Opening histo output file " << histoOutFilename << endl;
-        m_histoOutFile = std::make_unique<TFile>(histoOutFilename.c_str(), "recreate");
-
-        if (m_histoOutFile->IsZombie() || !m_histoOutFile->IsOpen())
+        if (treeOutFile->IsZombie() || !treeOutFile->IsOpen())
         {
-            cout << "Error opening histo output file " << histoOutFilename
-                << " for writing: " << strerror(m_histoOutFile->GetErrno()) << endl;
+            cout << "Error opening output file " << treeOutFilename << " for writing: "
+                << strerror(treeOutFile->GetErrno()) << endl;
             m_quit = true;
             return;
         }
 
-        cout << "Creating raw histograms... ";
-        m_rawHistos = make_raw_histograms(m_exp.get(), m_histoOutFile.get());
+        cout << "Creating output trees" << endl;
+        m_eventTrees = m_exp->MakeTrees();
 
-        cout << "created " << m_rawHistos.histoCount << " histograms."
-            << " Total raw histo memory: " << (m_rawHistos.histoMem / (1024.0 * 1024.0))
-            << " MB" << endl;
+        for (auto &tree: m_eventTrees)
+        {
+            assert(tree);
+            cout << "  " << tree << " " << tree->GetName() << "\t" << tree->GetTitle() << endl;
+            tree->SetMaxTreeSize(m_rootMaxTreeSize);
+        }
+
+        assert(m_eventTrees.size() == m_exp->GetNumberOfEvents());
+
+        // Note: this used to be in ClientContext::endRun() but for replays from
+        // automatically split TTrees we need the info in the _first_ file of the
+        // TChain.
+        if (treeOutFile && !treeOutFile->IsZombie() && treeOutFile->IsOpen())
+        {
+            cout << "  Writing additional mvme info to output file..." << endl;
+
+            MVMERunInfo info;
+
+            info["ExperimentName"] = m_exp->GetName();
+            info["RunID"] = getStreamInfo().runId;
+            // TODO: use a TDirectory to hold mvme stuff
+            // also try a TMap to hold either TStrings or more TMaps
+            // figure out how freeing that memory then works
+            // FIXME: this does have the title "object title" in rootls
+            treeOutFile->WriteObject(&info, "MVMERunInfo");
+            treeOutFile->Write();
+
+            // Once writing tree data starts ROOT can close the file at any time due to
+            // TTree::SetMaxTreeSize(). Just nulling it here to catch bugs...
+            treeOutFile = nullptr;
+        }
+
+        //
+        // Raw histogram output
+        //
+        {
+            cout << "Opening histo output file " << histoOutFilename << endl;
+            m_histoOutFile = std::make_unique<TFile>(histoOutFilename.c_str(), "recreate");
+
+            if (m_histoOutFile->IsZombie() || !m_histoOutFile->IsOpen())
+            {
+                cout << "Error opening histo output file " << histoOutFilename
+                    << " for writing: " << strerror(m_histoOutFile->GetErrno()) << endl;
+                m_quit = true;
+                return;
+            }
+
+            cout << "Creating raw histograms... ";
+            m_rawHistos = make_raw_histograms(m_exp.get(), m_histoOutFile.get());
+
+            cout << "created " << m_rawHistos.histoCount << " histograms."
+                << " Total raw histo memory: " << (m_rawHistos.histoMem / (1024.0 * 1024.0))
+                << " MB" << endl;
+        }
+
+        m_outputTreesAndHistosCreated = true;
     }
 
     // call custom user analysis code
@@ -1061,10 +1107,11 @@ void ClientContext::endRun(const Message &msg, const json &info)
 
     if (m_histoOutFile)
     {
-        cout << "  Closing histo output file " << m_histoOutFile->GetName() << "..." << endl;
+        //cout << "  Closing histo output file " << m_histoOutFile->GetName() << "..." << endl;
+        cout << "  Flushing histo output file " << m_histoOutFile->GetName() << "..." << endl;
 
         m_histoOutFile->Write();
-        m_histoOutFile = {};
+        //m_histoOutFile = {};
     }
     m_rawHistos = {};
 
@@ -1419,6 +1466,7 @@ int main(int argc, char *argv[])
         {
             { "single-run", no_argument, nullptr, 0 },
             { "show-stream-info", no_argument, nullptr, 0 },
+            { "detect-split-runs", no_argument, nullptr, 0 },
             { "help", no_argument, nullptr, 0 },
             { "host", required_argument, nullptr, 0 },
             { "port", required_argument, nullptr, 0 },
@@ -1446,6 +1494,7 @@ int main(int argc, char *argv[])
 
                     if (opt_name == "single-run") clientOpts |= Opts::SingleRun;
                     else if (opt_name == "show-stream-info") clientOpts |= Opts::ShowStreamInfo;
+                    else if (opt_name == "detect-split-runs") clientOpts |= Opts::DetectSplitRuns;
                     else if (opt_name == "host") host = optarg;
                     else if (opt_name == "port") port = optarg;
                     else if (opt_name == "help") showHelp = true;
@@ -1471,17 +1520,28 @@ int main(int argc, char *argv[])
 
     if (showHelp)
     {
-        cout << "Usage as a mvme client: " << argv[0] << " [--single-run] [--root-max-tree-size=<bytes>] [--host=localhost] [--port=13801] [--analysis-args=<args>]" << endl << endl;
+        cout << "* Usage as a mvme client:\n"
+                "  mvme_root_client [--single-run] [--root-max-tree-size=<bytes>] [--host=localhost] [--port=13801]\n"
+                "                   [--analysis-args=<args>] [--show-stream-info] [--detect-split-runs]\n"
+                "\n"
+            ;
 
         cout << "  In this mode the program connects to and receives data from a mvme process." << endl
              << endl
-             << "  If 'single-run' is set the program will exit after receiving" << endl
-             << "  data from one run. Otherwise it will wait for the next run to" << endl
-             << "  start." << endl
-             << endl
-             << "  --root-max-tree-size can be used to specify the maximum number of bytes per output ROOT file.\n"
-             << "  The argument is passed to TTree::SetMaxTreeSize(). Default is 100000000000LL (100GB).\n"
-             << endl;
+             << "  If 'single-run' is set the program will exit after receiving\n"
+             << "  data from one run. Otherwise it will wait for the next run to\n"
+             << "  start.\n"
+             << "\n"
+             << "  --root-max-tree-size Can be used to specify the maximum number of bytes per output ROOT file.\n"
+             << "                       The argument is passed to TTree::SetMaxTreeSize(). Default is 100000000000LL (100GB).\n"
+             << "\n"
+             << "  --show-stream-info   If present detailed information about the structure of the incoming data stream\n"
+                "                       is shown at the start of each run.\n"
+                "\n"
+                "  --detect-split-runs  If enabled the client will try to detect if data from multiple listfiles belongs to\n"
+                "                       the same DAQ run. If true the data will be accumulated into the same output ROOT files.\n"
+                "\n"
+            ;
 
         cout << "Usage when replaying from ROOT file: " << argv[0] << " --replay <input ROOT file...> [--analysis-args=<args>]"<< endl << endl;
 

@@ -111,17 +111,17 @@ std::vector<TTree *> MVMEExperiment::InitTrees(TFile *inputFile)
         if (tree)
         {
             cout << "Found tree for event " << event->GetName() << endl;
-            for (auto module: event->GetModules())
+            for (auto mod: event->GetModules())
             {
-                if (auto branch = tree->GetBranch(module->GetName()))
+                if (auto branch = tree->GetBranch(mod->GetName()))
                 {
-                    cout << "  Found branch for module " << module->GetName() << endl;
-                    module->InitBranch(branch);
+                    cout << "  Found branch for module " << mod->GetName() << endl;
+                    mod->InitBranch(branch);
                 }
                 else
                 {
                     cout << "Error: Did not find branch for module "
-                        << module->GetName() << endl;
+                        << mod->GetName() << endl;
                 }
             }
         }
@@ -149,17 +149,17 @@ std::vector<TChain *> MVMEExperiment::InitChains(const std::vector<std::string> 
 
         cout << "Initializing tree chain for event " << event->GetName() << "\n";
 
-        for (auto module: event->GetModules())
+        for (auto mod: event->GetModules())
         {
-            if (auto branch = chain->GetBranch(module->GetName()))
+            if (auto branch = chain->GetBranch(mod->GetName()))
             {
-                cout << "  Found branch for module " << module->GetName() << endl;
-                module->InitBranch(branch);
+                cout << "  Found branch for module " << mod->GetName() << endl;
+                mod->InitBranch(branch);
             }
             else
             {
                 cout << "Error: Did not find branch for module "
-                    << module->GetName() << endl;
+                    << mod->GetName() << endl;
             }
         }
 

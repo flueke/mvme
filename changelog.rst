@@ -4,6 +4,24 @@
 Changelog
 ##################################################
 
+Version 1.8.0-rc1
+-----------------
+
+* [mvme_root_client]
+
+  - Fix mvme_root_client compilation issue against root 6.22.06
+
+  - Can now accumulate incoming data into the same raw and histo root files.
+    Useful when replaying from split listfiles archives.
+
+* New JSON-RPC remote control methods for loading analysis configs and opening
+  listfiles.
+
+  extras/mvme_jsonrpc_replay.py shows how to replay from a list of input
+  listmode files while accumulating into the same analysis.
+
+* Close projection plots when the parent h2d plot is closed.
+
 Version 1.7.1
 -------------
 
