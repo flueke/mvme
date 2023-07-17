@@ -36,7 +36,6 @@ message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
 message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 message("-- GIT_BRANCH=${GIT_BRANCH}")
 
-
 project(mvme DESCRIPTION "mesytec VME Data Acquisition" VERSION ${GIT_VERSION_TAG})
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -229,7 +228,7 @@ else()
         find_program(LINUXDEPLOYQT_EXECUTABLE linuxdeployqt REQUIRED)
         set(CPACK_GENERATOR "External")
         set(CPACK_EXTERNAL_PACKAGE_SCRIPT "${CMAKE_SOURCE_DIR}/cmake/CPackExternal_linuxdeployqt.cmake")
-        set(CPACK_EXTERNAL_ENABLE_STAGING TRUE)
+        set(CPACK_EXTERNAL_ENABLE_STAGING ON)
     else()
         set(CPACK_GENERATOR "TBZ2")
     endif()

@@ -58,7 +58,7 @@ message("-- Found graphviz dot plugin: ${GV_DOT_PLUGIN}")
 
 list(APPEND DEPLOY_ADDITIONAL_FILES ${GV_CORE_PLUGIN} ${GV_DOT_PLUGIN})
 message("-- CPackExternal_linuxdeployqt: Copying additional libraries and files
-            into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
+            into staging directory: ${DEPLOY_ADDITIONAL_FILES}")
 
 file(COPY ${DEPLOY_ADDITIONAL_FILES}
     DESTINATION "${CPACK_TEMPORARY_DIRECTORY}/lib"
