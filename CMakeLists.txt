@@ -132,10 +132,14 @@ message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 option(MVME_BUILD_TESTS "Build test binaries" OFF)
 
 if (MVME_BUILD_TESTS)
-    message("-- Building test binaries")
+    if (NOT TARGET gtest)
+        option(INSTALL_GTEST "Enable installation of googletest." OFF)
+        add_subdirectory(external/googletest)
+    endif()
+
+    message("-- mvme: Building tests")
     include(CTest)
     enable_testing()
-    add_subdirectory(test)
 endif()
 
 # Subdirectories containing build targets
