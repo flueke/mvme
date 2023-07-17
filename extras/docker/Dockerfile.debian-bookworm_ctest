@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1.5
+# vim:ft=dockerfile
+
+
+# Dockerfile containing instructions to build mvme and run the unit tests.
+
+# Example docker build invocation from the root of the source tree:
+#   DOCKER_BUILDKIT=1 docker build  -f ./extras/docker/Dockerfile.debian-bookworm_ctest .
+
+FROM debian:bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash build-essential git cmake ninja-build ca-certificates \
+    qtbase5-dev qtbase5-dev-tools libqt5websockets5-dev libqt5opengl5-dev libqt5svg5-dev \
+    libqwt-qt5-dev libquazip5-dev libusb-dev zlib1g-dev libgraphviz-dev libboost-dev \
+    sphinx-common sphinx-rtd-theme-common python3-sphinx python3-sphinxcontrib.qthelp \
+    texlive-latex-base texlive-latex-extra texlive-latex-recommended latexmk texlive-fonts-recommended
+
+COPY . /sources
+WORKDIR /build
+
+# Installation is just to try it out, it's not required to run the test cases.
+RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
+          -DMVME_BUILD_TESTS=ON /sources \
+    && ninja && ninja install && ctest .
