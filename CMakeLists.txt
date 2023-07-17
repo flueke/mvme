@@ -137,6 +137,11 @@ if (MVME_BUILD_TESTS)
         add_subdirectory(external/googletest)
     endif()
 
+    if (NOT TARGET benchmark)
+        option(BENCHMARK_ENABLE_TESTING "Enable testing of the benchmark library." OFF)
+        add_subdirectory(external/benchmark)
+    endif()
+
     message("-- mvme: Building tests")
     include(CTest)
     enable_testing()

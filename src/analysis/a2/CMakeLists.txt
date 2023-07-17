@@ -129,8 +129,6 @@ function(add_a2_test exe_name exe_sources)
 endfunction(add_a2_test)
 
 if(MVME_BUILD_TESTS)
-    find_package(benchmark REQUIRED)
-
     function(add_a2_bench exe_name exe_sources)
         add_executable(${exe_name} ${exe_sources})
         add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
