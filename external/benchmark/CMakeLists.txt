@@ -99,17 +99,18 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 
 # Read the git tags to determine the project version
-include(GetGitVersion)
-get_git_version(GIT_VERSION)
-
-# If no git version can be determined, use the version
-# from the project() command
-if ("${GIT_VERSION}" STREQUAL "0.0.0")
-  set(VERSION "${benchmark_VERSION}")
-else()
-  set(VERSION "${GIT_VERSION}")
-endif()
+#include(GetGitVersion)
+#get_git_version(GIT_VERSION)
+#
+## If no git version can be determined, use the version
+## from the project() command
+#if ("${GIT_VERSION}" STREQUAL "0.0.0")
+#  set(VERSION "${benchmark_VERSION}")
+#else()
+#  set(VERSION "${GIT_VERSION}")
+#endif()
 # Tell the user what versions we are using
+set(VERSION "${benchmark_VERSION}")
 message(STATUS "Google Benchmark version: ${VERSION}")
 
 # The version of the libraries
