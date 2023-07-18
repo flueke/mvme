@@ -266,6 +266,7 @@ const ListfileReplayHandle &context_open_listfile(
                          && context->getDAQState() == DAQState::Running);
 
     auto handle = open_listfile(filename);
+    handle.options = options;
 
     // Transfers ownership to the context.
     context->setReplayFileHandle(std::move(handle), options);
