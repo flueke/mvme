@@ -75,6 +75,7 @@ struct MVLCListfileWorker::Private
 
     std::unique_ptr<mesytec::mvlc::ReplayWorker> mvlcReplayWorker;
     std::unique_ptr<mesytec::mvlc::listfile::ZipReader> mvlcZipReader;
+    std::unique_ptr<mesytec::mvlc::listfile::SplitZipReader> mvlcSplitZipReader;
 
     explicit Private(MVLCListfileWorker *q_)
         : q(q_)
@@ -204,14 +205,26 @@ void MVLCListfileWorker::start()
 
     try
     {
-
         logMessage(QString("Starting replay from %1:%2")
                    .arg(d->replayHandle->inputFilename)
                    .arg(d->replayHandle->listfileFilename));
 
-        d->mvlcZipReader = std::make_unique<mvlc::listfile::ZipReader>();
-        d->mvlcZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
-        auto readHandle = d->mvlcZipReader->openEntry(d->replayHandle->listfileFilename.toStdString());
+        mvlc::listfile::ReadHandle *readHandle = nullptr;
+
+        if (!d->replayHandle->options.replayAllParts)
+        {
+            d->mvlcZipReader = std::make_unique<mvlc::listfile::ZipReader>();
+            d->mvlcZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
+            readHandle = d->mvlcZipReader->openEntry(d->replayHandle->listfileFilename.toStdString());
+        }
+        else
+        {
+            // TODO: set the callback to be able to log when the archive changes.
+            // FIXME: it does not work for the test run from india
+            d->mvlcSplitZipReader = std::make_unique<mvlc::listfile::SplitZipReader>();
+            d->mvlcSplitZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
+            readHandle = d->mvlcSplitZipReader->openEntry(d->replayHandle->listfileFilename.toStdString());
+        }
 
         d->mvlcReplayWorker = std::make_unique<mvlc::ReplayWorker>(
             *d->snoopQueues,

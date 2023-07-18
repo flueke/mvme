@@ -1426,6 +1426,8 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
     m_d->maybeSaveDAQNotes();
 
     setMode(GlobalMode::ListFile);
+    // setVMEConfig() calls setVMEController() which may change the type of the
+    // readout and replay worker depending on the controller type.
     setVMEConfig(vmeConfig.release());
 
     m_d->listfileReplayHandle = std::move(handle);
