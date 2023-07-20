@@ -24,13 +24,15 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QThread>
+#include <QDir>
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <stdexcept>
 
-#include "mvme_mvlc_listfile.h"
 #include "mvlc/mvlc_util.h"
+#include "mvme_mvlc_listfile.h"
+#include "util/qt_fs.h"
 #include "util_zip.h"
 
 using namespace mesytec;
@@ -205,9 +207,8 @@ void MVLCListfileWorker::start()
 
     try
     {
-        logMessage(QString("Starting replay from %1:%2")
-                   .arg(d->replayHandle->inputFilename)
-                   .arg(d->replayHandle->listfileFilename));
+        auto inputFilename = filepath_relative_to_cwd(d->replayHandle->inputFilename);
+        logMessage(QSL("Starting replay from %1").arg(inputFilename));
 
         mvlc::listfile::ReadHandle *readHandle = nullptr;
 
@@ -219,11 +220,17 @@ void MVLCListfileWorker::start()
         }
         else
         {
-            // TODO: set the callback to be able to log when the archive changes.
-            // FIXME: it does not work for the test run from india
+            auto on_archive_changed = [this] (mvlc::listfile::SplitZipReader *, const std::string &archiveName)
+            {
+                // Note: do not touch the reader here, it's not thread-safe!
+                auto inputFilename = filepath_relative_to_cwd(QString::fromStdString(archiveName));
+                logMessage(QSL("Now replaying from %1").arg(inputFilename));
+            };
+
             d->mvlcSplitZipReader = std::make_unique<mvlc::listfile::SplitZipReader>();
+            d->mvlcSplitZipReader->setArchiveChangedCallback(on_archive_changed);
             d->mvlcSplitZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
-            readHandle = d->mvlcSplitZipReader->openEntry(d->replayHandle->listfileFilename.toStdString());
+            readHandle = d->mvlcSplitZipReader->openFirstListfileEntry();
         }
 
         d->mvlcReplayWorker = std::make_unique<mvlc::ReplayWorker>(
