@@ -316,6 +316,8 @@ bool DAQControlService::loadListfile(const QString &filepath)
 {
     try
     {
+        // TODO: allow to pass OpenListfileOptions here. Both "loadAnalysis" and
+        // "replayAllParts" are interesting!
         // FIXME: context_open_listfile() uses the gui to display error messages
         const auto &handle = context_open_listfile(m_context, filepath);
     }

@@ -7,20 +7,33 @@ Changelog
 Version 1.8.0-rc1
 -----------------
 
-* [mvme_root_client]
+* Fix mvme_root_client compilation issue against root 6.22.06
 
-  - Fix mvme_root_client compilation issue against root 6.22.06
-
-  - Can now accumulate incoming data into the same raw and histo root files.
-    Useful when replaying from split listfiles archives.
-
-* New JSON-RPC remote control methods for loading analysis configs and opening
-  listfiles.
+* New JSON-RPC remote control methods for loading analysis configs, opening
+  listfiles and starting replays.
 
   extras/mvme_jsonrpc_replay.py shows how to replay from a list of input
   listmode files while accumulating into the same analysis.
 
-* Close projection plots when the parent h2d plot is closed.
+* Close any open projection plots when their parent h2d plot is closed.
+
+* Do not automatically connect to the VME controller when a listfile is opened.
+
+* [mesytec-mvlc]
+
+  - Fixes for the vmeconfig to crateconfig conversion (read_to_accu was missing
+    the 'late' flag).
+
+  - mvlc_eth: Do not send a frame to the data pipe when connecting. This way
+    ongoing readouts won't be redirected when a second process connects to the
+    MVLC.
+
+  - eth and usb: Do not reset the stack trigger registers when connecting. It
+    made reading back the last trigger configuration impossible. Now only the DAQ
+    mode registe is written when requested via disableTriggersOnConnect().
+
+  - New SplitZipReader to replay from split listfiles stored across multiple zip
+    archives. To consumers it looks like the data came from a single file.
 
 Version 1.7.1
 -------------
