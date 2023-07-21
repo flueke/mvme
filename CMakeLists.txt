@@ -234,6 +234,8 @@ else()
     endif()
 endif()
 
+message("-- PROJECT_NAME=${PROJECT_NAME}, PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}, PROJECT_IS_TOP_LEVEL=${PROJECT_IS_TOP_LEVEL}")
+
 # CPACK_PROJECT_CONFIG_FILE
 # File included at cpack time, once per generator after setting CPACK_GENERATOR
 # to the actual generator being used; allows per-generator setting of CPACK_*

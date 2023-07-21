@@ -31,7 +31,6 @@ set(CPACK_MONOLITHIC_INSTALL ON)
 if (WIN32)
     # https://cmake.org/cmake/help/v3.10/module/CPackNSIS.html
 
-    set(CPACK_OUTPUT_FILE_PREFIX "c:\\src\\mvme-packages")
     set(CPACK_CMAKE_GENERATOR "MSYS Makefiles")
     set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "mesytec-mvme")
     set(CPACK_NSIS_DISPLAY_NAME "mesytec mvme")
