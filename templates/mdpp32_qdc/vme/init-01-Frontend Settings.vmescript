@@ -17,11 +17,11 @@
 
 # integration_long
 0x6118  $(200 / 12.5)  # first term in ns
-				# 2..510 in multiples of 12.5 ns
+				# 2..508 in multiples of 12.5 ns
 
 # integration_short
 0x611A  $(25 / 12.5)  # first term in ns
-				# 1..125 in multiples of 12.5 ns,
+				# 1..120 in multiples of 12.5 ns,
                 # must be < integration_long.
 
 # threshold0 (15 bit value for the 1st selected channel)
