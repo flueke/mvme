@@ -71,13 +71,21 @@ configure_file(${SOURCE_DIR}/cmake/graphviz-config6a
                COPYONLY)
 
 # Find and copy the qt assistant binary. The mvme help system uses assistant to
-# display the documentation.
+# display the documentation. After copying run linuxdeployqt on the assistant
+# binary aswell.
 find_program(QT_ASSISTANT_BINARY assistant REQUIRED)
 file (COPY ${QT_ASSISTANT_BINARY}
     DESTINATION ${CPACK_TEMPORARY_DIRECTORY}/bin
     FOLLOW_SYMLINK_CHAIN
 )
+execute_process(
+    COMMAND ${LINUXDEPLOYQT_EXECUTABLE} ${CPACK_TEMPORARY_DIRECTORY}/bin/assistant
+    -unsupported-allow-new-glibc -bundle-non-qt-libs -no-translations -no-copy-copyright-files -no-strip
+    COMMAND_ERROR_IS_FATAL ANY
+    COMMAND_ECHO STDOUT
+)
 
+# Package archive creation
 set(PACKAGE_OUTPUT_DIR "${CPACK_TOPLEVEL_DIRECTORY}/packages")
 set(PACKAGE_ARCHIVE_FILE "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2")
 
