@@ -43,7 +43,7 @@ message("-- CPackExternal_linuxdeployqt: linuxdeployqt step done")
 # alternative would be to pass "-unsupported-bundle-everything" to
 # linuxdeployqt but that would also bundle glibc.
 file(GET_RUNTIME_DEPENDENCIES
-    RESOLVED_DEPENDENCIES_VAR DEPLOY_ADDITIONAL_FILES
+    RESOLVED_DEPENDENCIES_VAR DEPLOY_ADDITIONAL_LIBS
     POST_INCLUDE_REGEXES ".*libgcc_s\\.so*" ".*libstdc\\+\\+\\.so*"
     POST_EXCLUDE_REGEXES ".*"
     EXECUTABLES ${DEPLOY_BINARY}
@@ -56,12 +56,12 @@ find_library(GV_DOT_PLUGIN gvplugin_dot_layout PATH_SUFFIXES graphviz x86_64-lin
 message("-- Found graphviz core plugin: ${GV_CORE_PLUGIN}")
 message("-- Found graphviz dot plugin: ${GV_DOT_PLUGIN}")
 
-list(APPEND DEPLOY_ADDITIONAL_FILES ${GV_CORE_PLUGIN} ${GV_DOT_PLUGIN})
-message("-- CPackExternal_linuxdeployqt: Copying additional libraries and files
-            into staging directory: ${DEPLOY_ADDITIONAL_FILES}")
+list(APPEND DEPLOY_ADDITIONAL_LIBS ${GV_CORE_PLUGIN} ${GV_DOT_PLUGIN})
+message("-- CPackExternal_linuxdeployqt: Copying additional libraries
+            into staging directory: ${DEPLOY_ADDITIONAL_LIBS}")
 
-file(COPY ${DEPLOY_ADDITIONAL_FILES}
-    DESTINATION "${CPACK_TEMPORARY_DIRECTORY}/lib"
+file(COPY ${DEPLOY_ADDITIONAL_LIBS}
+    DESTINATION ${CPACK_TEMPORARY_DIRECTORY}/lib
     FOLLOW_SYMLINK_CHAIN
 )
 
@@ -69,6 +69,14 @@ file(COPY ${DEPLOY_ADDITIONAL_FILES}
 configure_file(${SOURCE_DIR}/cmake/graphviz-config6a
                ${CPACK_TEMPORARY_DIRECTORY}/lib/config6a
                COPYONLY)
+
+# Find and copy the qt assistant binary. The mvme help system uses assistant to
+# display the documentation.
+find_program(QT_ASSISTANT_BINARY assistant REQUIRED)
+file (COPY ${QT_ASSISTANT_BINARY}
+    DESTINATION ${CPACK_TEMPORARY_DIRECTORY}/bin
+    FOLLOW_SYMLINK_CHAIN
+)
 
 set(PACKAGE_OUTPUT_DIR "${CPACK_TOPLEVEL_DIRECTORY}/packages")
 set(PACKAGE_ARCHIVE_FILE "${PACKAGE_OUTPUT_DIR}/${CPACK_PACKAGE_FILE_NAME}.tar.bz2")
