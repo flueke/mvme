@@ -41,6 +41,11 @@ Version 1.7.2
 * Fix 'read_to_accu' missing the 'late' flag when exporting a VMEConfig to
   mesytec-mvlc CrateConfig.
 
+* Better error logging in multi_event_splitter
+
+* Fix 'read_to_accu' missing the 'late' flag when exporting a VMEConfig to
+  mesytec-mvlc CrateConfig
+
 Version 1.7.1
 -------------
 
