@@ -7,7 +7,7 @@ Changelog
 Version 1.8.0
 -------------
 
-* Do not automatically connect to the VME controller when a listfile is opened.
+* When a listfile is opened to not try to auto connect to the VME controller.
 
 * [mesytec-mvlc]
 
@@ -22,6 +22,9 @@ Version 1.8.0
   - New SplitZipReader to replay from split listfiles stored across multiple zip
     archives. To consumers it looks like the data came from a single file.
 
+    Replaying all parts from a split listfile is done in the 'listfile browser
+    (ctrl+4)' by checking 'replay all parts' before opening the first part that
+    should be replayed.
 
 Version 1.7.2
 -------------
