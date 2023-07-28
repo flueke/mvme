@@ -193,6 +193,10 @@ set(CPACK_PACKAGE_EXECUTABLES mvme;mvme)
 set(CPACK_THREADS 0)
 
 if (WIN32)
+    # Note: CPack NSIS does automatically use the cmake/NSIS.template.in file!
+    # This is important because currently not all standard settings are used in
+    # the custom script, e.g. CPACK_NSIS_MUI_FINISHPAGE_RUN
+
     option(MVME_CPACK_INSTALL_DEPLOY_FILES
         "Install additional library files from a special deploy directory." OFF)
 
@@ -208,7 +212,6 @@ if (WIN32)
     set(CPACK_SOURCE_GENERATOR "ZIP")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
     set(CPACK_NSIS_PACKAGE_NAME "mvme")
-    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "mvme.exe")
     set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
     set(CPACK_NSIS_CONTACT "info@mesytec.com")
 
