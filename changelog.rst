@@ -26,6 +26,12 @@ Version 1.8.0
     (ctrl+4)' by checking 'replay all parts' before opening the first part that
     should be replayed.
 
+Version 1.7.2-1
+---------------
+
+* Use current workspace directory as the starting point for MVLC CrateConfig
+  exports.
+
 Version 1.7.2
 -------------
 
@@ -43,11 +49,6 @@ Version 1.7.2
 
 * Fix 'read_to_accu' missing the 'late' flag when exporting a VMEConfig to
   mesytec-mvlc CrateConfig.
-
-* Better error logging in multi_event_splitter
-
-* Fix 'read_to_accu' missing the 'late' flag when exporting a VMEConfig to
-  mesytec-mvlc CrateConfig
 
 Version 1.7.1
 -------------
