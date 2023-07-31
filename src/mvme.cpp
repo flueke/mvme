@@ -1101,7 +1101,7 @@ static const QString yamlOrAnyFileFilter = QSL("YAML Files (*.yaml);; All Files 
 bool MVMEMainWindow::onActionExportToMVLC_triggered()
 {
     auto basename = QFileInfo(m_d->m_context->getVMEConfigFilename()).completeBaseName();
-    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    auto path = QSettings().value("LastWorkspaceDirectory").toString();
 
     if (!basename.isEmpty())
     {
