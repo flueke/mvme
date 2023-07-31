@@ -4,6 +4,12 @@
 Changelog
 ##################################################
 
+Version 1.7.2-1
+---------------
+
+* Use current workspace directory as the starting point for MVLC CrateConfig
+  exports.
+
 Version 1.7.2
 -------------
 
