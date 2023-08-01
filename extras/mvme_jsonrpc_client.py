@@ -13,8 +13,10 @@ if (sys.version_info.major < 3
 
 # Command line arguments:
 #   mvme_jsonrpc_client.py [options] host port command [params]
-# Example:
-#   mvme_jsonrpc_client.py localhost 13800 getDAQState
+# Examples:
+#   mvme_jsonrpc_client.py localhost 13800 getSystemState
+#   mvme_jsonrpc_client.py localhost 13800 loadListfile listfiles/myrun001.zip
+#   mvme_jsonrpc_client.py localhost 13800 startReplay True
 
 MaxResponseSize   = 1024 * 256
 SocketReceiveSize = 4096

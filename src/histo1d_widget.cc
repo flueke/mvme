@@ -791,7 +791,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         font.setBold(true);
         m_d->m_waterMarkText.setFont(font);
 
-        m_d->m_waterMarkText.setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
+        m_d->m_waterMarkText.setText(QString("mvme-%1").arg(GIT_VERSION_SHORT));
 
         m_d->m_waterMarkLabel = new QwtPlotTextLabel;
         m_d->m_waterMarkLabel->setMargin(10);

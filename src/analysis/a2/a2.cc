@@ -4510,8 +4510,6 @@ struct OperatorRangeWork
     Operator *end = nullptr;
 };
 
-static const s32 WorkQueueSize = 32;
-
 struct OperatorRangeWorkQueue
 {
     mpmc_bounded_queue<OperatorRangeWork> queue;

@@ -78,6 +78,8 @@ class DAQControlService: public QObject
         explicit DAQControlService(MVMEContext *context);
 
     public slots:
+        QString getGlobalMode(); // daq|listfile
+
         // combined system state: to_string(MVMEState)
         QString getSystemState();
 
@@ -89,11 +91,13 @@ class DAQControlService: public QObject
         bool stopDAQ();
         QString reconnectVMEController();
 
-        QString getGlobalMode(); // daq|listfile
         bool loadAnalysis(const QString &filepath);
-        bool loadListfile(const QString &filepath);
-        // TODO: implement closeListfile() to go back to DAQ() mode. Or setGlobalMode()?
-        bool startReplay(const QVariantMap &options = {});
+
+        bool loadListfile(const QString &filepath, bool loadAnalysis = false, bool replayAllParts = true);
+        bool closeListfile(); // Closes the current listfile and goes back to 'DAQ' mode.
+        bool startReplay(bool keepHistoContents = false);
+        bool stopReplay(); // alias for stopDAQ
+
 
     private:
         MVMEContext *m_context;

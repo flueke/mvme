@@ -82,9 +82,22 @@ if __name__ == "__main__":
     argparser.add_argument('--analysis', metavar='<filename>', type=str,
                            help='analysis file to load for the replay')
 
+    argparser.add_argument('--loadAnalysis', action='store_true',
+                           help='if true load the analysis from the zipfile archive')
+
+    argparser.add_argument('--keepHistoContents', action='store_true',
+                           help='on replay start keep analysis histogram contents')
+
+    argparser.add_argument('--replayAllParts', action='store_true',
+                           help='if the input is a split listfile (ending in "partNNN.zip") replay data from all parts')
+
     argparser.add_argument("listfiles", nargs='+')
 
     args = argparser.parse_args()
+
+    loadAnalysis = args.loadAnalysis
+    replayAllParts = args.replayAllParts
+    keepHistoContents = args.keepHistoContents
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((args.host, args.port))
@@ -98,15 +111,22 @@ if __name__ == "__main__":
                 sys.exit(1)
 
         filecount = len(args.listfiles)
+
+        # Iterate through the listfiles passed on the command line. Call
+        # 'loadListfile' and 'startReplay' for each of the files then poll until
+        # the mvme system state is 'Idle', meaning the replay has finished (or
+        # an error occured).
         for fileidx, filepath in enumerate(args.listfiles):
             try:
-                transaction(s, "loadListfile", [filepath])
-                transaction(s, "startReplay")
+                transaction(s, "loadListfile", [filepath, loadAnalysis, replayAllParts])
+                transaction(s, "startReplay", [keepHistoContents])
+
                 print(f"File {fileidx+1}/{filecount}: started replay from {filepath}")
                 mvmeState = "Running"
                 while mvmeState != "Idle":
                     time.sleep(1)
                     mvmeState = transaction(s, "getSystemState")
+
                 print(f"File {fileidx+1}/{filecount}: finished replay from {filepath}")
 
             except Exception as e:

@@ -129,26 +129,19 @@ function(add_a2_test exe_name exe_sources)
 endfunction(add_a2_test)
 
 if(MVME_BUILD_TESTS)
-    enable_testing()
-
-    find_library(GOOGLE_BENCHMARK benchmark)
-    find_path(GOOGLE_BENCHMARK_INCLUDE_DIR "benchmark/benchmark.h")
-    include_directories(${GOOGLE_BENCHMARK_INCLUDE_DIR})
-    find_package(Threads)
-
     function(add_a2_bench exe_name exe_sources)
         add_executable(${exe_name} ${exe_sources})
         add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
         if (WIN32)
             target_link_libraries(${exe_name}
                 PRIVATE ${A2_TEST_LIBRARY}
-                PRIVATE ${GOOGLE_BENCHMARK}
+                PRIVATE benchmark::benchmark
                 PRIVATE Threads::Threads
                 PRIVATE shlwapi.lib)
         else(WIN32)
             target_link_libraries(${exe_name}
                 PRIVATE ${A2_TEST_LIBRARY}
-                PRIVATE ${GOOGLE_BENCHMARK}
+                PRIVATE benchmark::benchmark
                 PRIVATE Threads::Threads)
         endif(WIN32)
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)

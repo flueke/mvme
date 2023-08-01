@@ -22,6 +22,7 @@
 #define __MVME_LISTFILE_BROWSER_H__
 
 #include <QComboBox>
+#include <QCheckBox>
 #include <QFileSystemModel>
 #include <QTableView>
 
@@ -47,6 +48,7 @@ class ListfileBrowser: public QWidget
         QFileSystemModel *m_fsModel;
         QTableView *m_fsView;
         QComboBox *m_analysisLoadActionCombo;
+        QCheckBox *m_cb_replayAllParts;
 };
 
 #endif /* __LISTFILE_BROWSER_H__ */

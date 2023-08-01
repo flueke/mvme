@@ -15,15 +15,16 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # the last commits hash.
 # Example GIT_VERSION_SHORT: 0.7-371
 
-# GIT_VERSION_TAG contains only the tag part of the version
-# Example GIT_VERSION_TAG: 0.7
-
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
-string(REGEX REPLACE "^v" "" GIT_VERSION ${GIT_VERSION})
-string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*|-dev[0-9]*)?(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
-string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
+
+if (GIT_VERSION MATCHES v[^-]*-)
+    string(REGEX REPLACE "v([^-]*)-([0-9]+)-.*" "\\1.\\2"  GIT_VERSION_SHORT ${GIT_VERSION})
+else()
+    string(REGEX REPLACE "v(.*)" "\\1" GIT_VERSION_SHORT ${GIT_VERSION})
+endif()
+#string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*|-dev[0-9]*)?" GIT_VERSION_SHORT ${GIT_VERSION})
 
 execute_process(
     COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
@@ -33,10 +34,9 @@ execute_process(
 
 message("-- GIT_VERSION=${GIT_VERSION}")
 message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
-message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 message("-- GIT_BRANCH=${GIT_BRANCH}")
 
-project(mvme DESCRIPTION "mesytec VME Data Acquisition" VERSION ${GIT_VERSION_TAG})
+project(mvme DESCRIPTION "mesytec VME Data Acquisition" VERSION ${GIT_VERSION_SHORT})
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug")
@@ -131,10 +131,19 @@ message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 option(MVME_BUILD_TESTS "Build test binaries" OFF)
 
 if (MVME_BUILD_TESTS)
-    message("-- Building test binaries")
+    if (NOT TARGET gtest)
+        option(INSTALL_GTEST "Enable installation of googletest." OFF)
+        add_subdirectory(external/googletest)
+    endif()
+
+    if (NOT TARGET benchmark)
+        option(BENCHMARK_ENABLE_TESTING "Enable testing of the benchmark library." OFF)
+        add_subdirectory(external/benchmark)
+    endif()
+
+    message("-- mvme: Building tests")
     include(CTest)
     enable_testing()
-    add_subdirectory(test)
 endif()
 
 # Subdirectories containing build targets
@@ -184,6 +193,10 @@ set(CPACK_PACKAGE_EXECUTABLES mvme;mvme)
 set(CPACK_THREADS 0)
 
 if (WIN32)
+    # Note: CPack NSIS does automatically use the cmake/NSIS.template.in file!
+    # This is important because currently not all standard settings are used in
+    # the custom script, e.g. CPACK_NSIS_MUI_FINISHPAGE_RUN
+
     option(MVME_CPACK_INSTALL_DEPLOY_FILES
         "Install additional library files from a special deploy directory." OFF)
 
@@ -199,7 +212,6 @@ if (WIN32)
     set(CPACK_SOURCE_GENERATOR "ZIP")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
     set(CPACK_NSIS_PACKAGE_NAME "mvme")
-    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "bin\\\\mvme.exe")
     set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
     set(CPACK_NSIS_CONTACT "info@mesytec.com")
 

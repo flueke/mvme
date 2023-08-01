@@ -42,6 +42,7 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
     , m_fsModel(new QFileSystemModel(this))
     , m_fsView(new QTableView(this))
     , m_analysisLoadActionCombo(new QComboBox(this))
+    , m_cb_replayAllParts(new QCheckBox(this))
 {
     setWindowTitle(QSL("Listfile Browser"));
 
@@ -61,15 +62,15 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
 
     // On listfile load
     {
-        auto label = new QLabel(QSL("On listfile load"));
-        auto combo = m_analysisLoadActionCombo;
-        combo->addItem(QSL("keep current analysis"),        false);
-        combo->addItem(QSL("load analysis from listfile"),  true);
+        m_analysisLoadActionCombo->addItem(QSL("keep current analysis"),        false);
+        m_analysisLoadActionCombo->addItem(QSL("load analysis from listfile"),  true);
 
-        auto layout = new QHBoxLayout;
-        layout->addWidget(label);
-        layout->addWidget(combo);
-        layout->addStretch();
+        m_cb_replayAllParts->setText("replay all parts");
+        m_cb_replayAllParts->setChecked(true);
+
+        auto layout = new QFormLayout;
+        layout->addRow(QSL("On listfile load"), m_analysisLoadActionCombo);
+        layout->addRow(QSL("Split Listfiles"),  m_cb_replayAllParts);
 
         widgetLayout->addLayout(layout);
     }
@@ -162,6 +163,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
     OpenListfileOptions opts = {};
 
     opts.loadAnalysis = m_analysisLoadActionCombo->currentData().toBool();
+    opts.replayAllParts = m_cb_replayAllParts->isChecked();
 
     if (opts.loadAnalysis && m_context->getAnalysis()->isModified())
     {

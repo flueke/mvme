@@ -28,11 +28,9 @@
  * Example GIT_VERSION: 0.7-371-g12d9678
  *
  * GIT_VERSION_SHORT contains the same as GIT_VERSION but without the start of
- * the last commits hash.
- * Example GIT_VERSION_SHORT: 0.7-371
- *
- * GIT_VERSION_TAG contains only the tag part of the version
- * Example GIT_VERSION_TAG: 0.7
+ * the last commits hash. Also the dash between the tag and number of commits
+ * is replaced by a dot.
+ * Example GIT_VERSION_SHORT: 0.7.371
  */
 
 #include "libmvme_core_export.h"
@@ -40,9 +38,7 @@
 #define DEF_GIT_SHA1 "@GIT_SHA1@"
 #define DEF_GIT_VERSION "@GIT_VERSION@"
 #define DEF_GIT_VERSION_SHORT "@GIT_VERSION_SHORT@"
-#define DEF_GIT_VERSION_TAG "@GIT_VERSION_TAG@"
 
 extern const char LIBMVME_CORE_EXPORT GIT_SHA1[]            = DEF_GIT_SHA1;
 extern const char LIBMVME_CORE_EXPORT GIT_VERSION[]         = DEF_GIT_VERSION;
 extern const char LIBMVME_CORE_EXPORT GIT_VERSION_SHORT[]   = DEF_GIT_VERSION_SHORT;
-extern const char LIBMVME_CORE_EXPORT GIT_VERSION_TAG[]     = DEF_GIT_VERSION_TAG;

@@ -24,13 +24,15 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QThread>
+#include <QDir>
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <stdexcept>
 
-#include "mvme_mvlc_listfile.h"
 #include "mvlc/mvlc_util.h"
+#include "mvme_mvlc_listfile.h"
+#include "util/qt_fs.h"
 #include "util_zip.h"
 
 using namespace mesytec;
@@ -75,6 +77,7 @@ struct MVLCListfileWorker::Private
 
     std::unique_ptr<mesytec::mvlc::ReplayWorker> mvlcReplayWorker;
     std::unique_ptr<mesytec::mvlc::listfile::ZipReader> mvlcZipReader;
+    std::unique_ptr<mesytec::mvlc::listfile::SplitZipReader> mvlcSplitZipReader;
 
     explicit Private(MVLCListfileWorker *q_)
         : q(q_)
@@ -204,14 +207,31 @@ void MVLCListfileWorker::start()
 
     try
     {
+        auto inputFilename = filepath_relative_to_cwd(d->replayHandle->inputFilename);
+        logMessage(QSL("Starting replay from %1").arg(inputFilename));
 
-        logMessage(QString("Starting replay from %1:%2")
-                   .arg(d->replayHandle->inputFilename)
-                   .arg(d->replayHandle->listfileFilename));
+        mvlc::listfile::ReadHandle *readHandle = nullptr;
 
-        d->mvlcZipReader = std::make_unique<mvlc::listfile::ZipReader>();
-        d->mvlcZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
-        auto readHandle = d->mvlcZipReader->openEntry(d->replayHandle->listfileFilename.toStdString());
+        if (!d->replayHandle->options.replayAllParts)
+        {
+            d->mvlcZipReader = std::make_unique<mvlc::listfile::ZipReader>();
+            d->mvlcZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
+            readHandle = d->mvlcZipReader->openEntry(d->replayHandle->listfileFilename.toStdString());
+        }
+        else
+        {
+            auto on_archive_changed = [this] (mvlc::listfile::SplitZipReader *, const std::string &archiveName)
+            {
+                // Note: do not touch the reader here, it's not thread-safe!
+                auto inputFilename = filepath_relative_to_cwd(QString::fromStdString(archiveName));
+                logMessage(QSL("Now replaying from %1").arg(inputFilename));
+            };
+
+            d->mvlcSplitZipReader = std::make_unique<mvlc::listfile::SplitZipReader>();
+            d->mvlcSplitZipReader->setArchiveChangedCallback(on_archive_changed);
+            d->mvlcSplitZipReader->openArchive(d->replayHandle->inputFilename.toStdString());
+            readHandle = d->mvlcSplitZipReader->openFirstListfileEntry();
+        }
 
         d->mvlcReplayWorker = std::make_unique<mvlc::ReplayWorker>(
             *d->snoopQueues,

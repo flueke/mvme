@@ -36,14 +36,21 @@
 class ListfileReplayWorker;
 class StreamWorkerBase;
 
+// listfile opening/replay
+struct OpenListfileOptions
+{
+    bool loadAnalysis = false;
+    // MVLC only: if true the given file and all following parts of split-file
+    // listfiles will be replayed.
+    bool replayAllParts = false;
+};
+
 struct LIBMVME_EXPORT ListfileReplayHandle
 {
     // The actual listfile. This is a file inside the archive if replaying from
     // ZIP. As long as this file is open no other file member of the archive can
     // be opened through the same QuaZip instance. This is a restriction of the
     // ZIP library.  If replaying from flat file this is a plain QFile instance.
-    // Note: Not used for MVLC listfiles stored inside ZIP archives. Still used
-    // for flat MVLC listfiles.
     std::unique_ptr<QIODevice> listfile;
 
     // The ZIP archive containing the listfile or nullptr if playing directly
@@ -66,6 +73,7 @@ struct LIBMVME_EXPORT ListfileReplayHandle
     QByteArray messages;        // Contents of messages.log if found.
     QByteArray analysisBlob;    // Analysis config contents if present in the archive.
     QString runNotes;           // Contents of the mvme_run_notes.txt file stored in the archive.
+    OpenListfileOptions options;
 
     ListfileReplayHandle() = default;
 

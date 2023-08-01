@@ -160,7 +160,6 @@ struct MVMEContextPrivate
 
     RunInfo m_runInfo;
     u32 m_ctrlOpenRetryCount = 0;
-    bool m_isFirstConnectionAttempt = false;
     mesytec::mvme::TicketMutex tryOpenControllerMutex;
 
     std::unique_ptr<FileAutoSaver> m_vmeConfigAutoSaver;
@@ -1094,7 +1093,6 @@ void MVMEContext::onControllerOpenFinished()
         {
             if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
             {
-                //if (!m_d->m_isFirstConnectionAttempt)
                 {
                     auto msg = QSL(
                         "The MVLC controller seems to be in use (at least one of the"
@@ -1110,14 +1108,12 @@ void MVMEContext::onControllerOpenFinished()
         if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
         {
 
-            //if (!m_d->m_isFirstConnectionAttempt)
             {
                 logMessage(QString("Could not open VME controller %1: %2")
                            .arg(m_controller->getIdentifyingString())
                            .arg(result.toString())
                           );
             }
-            m_d->m_isFirstConnectionAttempt = false;
         }
     }
 }
@@ -1155,7 +1151,6 @@ void MVMEContext::reconnectVMEController()
 
     m_controller->close();
     m_d->m_ctrlOpenRetryCount = 0;
-    m_d->m_isFirstConnectionAttempt = true; // FIXME: add a note on why this is done
 
     qDebug() << __PRETTY_FUNCTION__ << "after m_controller->close()";
 }
@@ -1210,6 +1205,7 @@ void MVMEContext::tryOpenController()
     std::unique_lock<mesytec::mvme::TicketMutex> guard(m_d->tryOpenControllerMutex);
 
     if (!m_d->m_options.offlineMode
+        && getMode() == GlobalMode::DAQ
         && m_controller
         && !m_ctrlOpenFuture.isRunning()
         && m_d->m_ctrlOpenRetryCount < VMECtrlConnectMaxRetryCount)
@@ -1429,7 +1425,9 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
     // save the current run notes to disk if in DAQ mode
     m_d->maybeSaveDAQNotes();
 
-    m_d->m_isFirstConnectionAttempt = true;
+    setMode(GlobalMode::ListFile);
+    // setVMEConfig() calls setVMEController() which may change the type of the
+    // readout and replay worker depending on the controller type.
     setVMEConfig(vmeConfig.release());
 
     m_d->listfileReplayHandle = std::move(handle);
@@ -1437,7 +1435,6 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
 
     setVMEConfigFilename(QString(), false);
     setRunNotes(m_d->listfileReplayHandle.runNotes);
-    setMode(GlobalMode::ListFile);
 
     // Write the vme config loaded from the listfile to disk and update the
     // LastVMEConfig entry in the workspace ini. This way we'll be able to keep
@@ -1488,7 +1485,6 @@ void MVMEContext::closeReplayFileHandle()
     stopDAQ();
 
     m_d->listfileReplayHandle = {};
-    m_d->m_isFirstConnectionAttempt = true;
 
     // Reload the "Run Notes" from the workspace file
     {
@@ -1777,7 +1773,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     // Log mvme version and bitness and runtime cpu architecture
     logMessage(QString(QSL("mvme %1 (%2) running on %3 (%4)\n"))
-               .arg(GIT_VERSION)
+               .arg(GIT_VERSION_SHORT)
                .arg(get_bitness_string())
                .arg(QSysInfo::prettyProductName())
                .arg(QSysInfo::currentCpuArchitecture()));

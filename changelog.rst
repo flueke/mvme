@@ -4,6 +4,37 @@
 Changelog
 ##################################################
 
+Version 1.8.0
+-------------
+
+* [mesytec-mvlc]
+
+  - mvlc_eth: Do not send a frame to the data pipe when connecting. This way
+    ongoing readouts won't be redirected when a second process connects to the
+    MVLC.
+
+  - eth and usb: Do not reset the stack trigger registers when connecting. It
+    made reading back the last trigger configuration impossible. Now only the DAQ
+    mode registe is written when requested via disableTriggersOnConnect().
+
+  - New SplitZipReader to replay from split listfiles stored across multiple zip
+    archives. To consumers it looks like the data came from a single file.
+
+    Replaying all parts from a split listfile is done in the 'listfile browser
+    (ctrl+4)' by checking 'replay all parts' before opening the first part that
+    should be replayed.
+
+* [vme_templates] Update integration parameter ranges for MDPP-16/32-QDC
+
+* When a listfile is opened do not try to auto connect to the VME controller.
+
+* Updates to the JSON-RPC listfile handling methods: 'loadAnalyis',
+  'keepHistoContents' and 'replayAllParts' are now explicit parameters to the
+  respective methods.
+
+* The Qt Assistant binary is now again contained with the linux package.
+
+
 Version 1.7.2-1
 ---------------
 
@@ -13,9 +44,7 @@ Version 1.7.2-1
 Version 1.7.2
 -------------
 
-* [mvme_root_client]
-
-  - Fix mvme_root_client compilation issue against root 6.22.06
+* Fix mvme_root_client compilation issue against root 6.22.06
 
 * New JSON-RPC remote control methods for loading analysis configs and opening
   listfiles.
@@ -25,10 +54,10 @@ Version 1.7.2
 
 * Close projection plots when the parent h2d plot is closed.
 
-* Better error logging in multi_event_splitter
+* Better error logging in multi_event_splitter.
 
 * Fix 'read_to_accu' missing the 'late' flag when exporting a VMEConfig to
-  mesytec-mvlc CrateConfig
+  mesytec-mvlc CrateConfig.
 
 Version 1.7.1
 -------------

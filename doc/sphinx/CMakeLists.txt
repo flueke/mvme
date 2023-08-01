@@ -153,7 +153,7 @@ if (SPHINX_EXECUTABLE)
         add_custom_command(
             DEPENDS "${SPHINX_QTHELP_DIR}/mvme.qhp"
             OUTPUT "${SPHINX_QCH_OUT}" "${SPHINX_QHC_OUT}"
-            COMMAND qcollectiongenerator "${SPHINX_QTHELP_DIR}/mvme.qhcp"
+            COMMAND ${QCOLLECTIONGENERATOR} "${SPHINX_QTHELP_DIR}/mvme.qhcp"
             COMMENT "Generating qthelp collection"
             )
 

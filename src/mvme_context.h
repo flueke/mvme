@@ -64,12 +64,6 @@ namespace ui
 
 struct MVMEContextPrivate;
 
-// listfile opening
-struct OpenListfileOptions
-{
-    bool loadAnalysis = false;
-};
-
 // Filenames used for the temporary vme and analysis configs created when
 // opening a listfile.
 static const QString ListfileTempVMEConfigFilename = QSL(".vmeconfig_from_listfile.vme");
