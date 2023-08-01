@@ -98,6 +98,11 @@ if __name__ == "__main__":
                 sys.exit(1)
 
         filecount = len(args.listfiles)
+
+        # Iterate through the listfiles passed on the command line. Call
+        # 'loadListfile' and 'startReplay' for each of the files then poll until
+        # the mvme system state is 'Idle', meaning the replay has finished (or
+        # an error occured).
         for fileidx, filepath in enumerate(args.listfiles):
             try:
                 transaction(s, "loadListfile", [filepath])
