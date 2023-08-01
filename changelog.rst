@@ -7,8 +7,6 @@ Changelog
 Version 1.8.0
 -------------
 
-* When a listfile is opened do not try to auto connect to the VME controller.
-
 * [mesytec-mvlc]
 
   - mvlc_eth: Do not send a frame to the data pipe when connecting. This way
@@ -25,6 +23,17 @@ Version 1.8.0
     Replaying all parts from a split listfile is done in the 'listfile browser
     (ctrl+4)' by checking 'replay all parts' before opening the first part that
     should be replayed.
+
+* [vme_templates] Update integration parameter ranges for MDPP-16/32-QDC
+
+* When a listfile is opened do not try to auto connect to the VME controller.
+
+* Updates to the JSON-RPC listfile handling methods: 'loadAnalyis',
+  'keepHistoContents' and 'replayAllParts' are now explicit parameters to the
+  respective methods.
+
+* The Qt Assistant binary is now again contained with the linux package.
+
 
 Version 1.7.2-1
 ---------------
