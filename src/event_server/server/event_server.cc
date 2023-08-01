@@ -193,7 +193,7 @@ void EventServer::Private::handleNewConnection()
 
         json serverInfo;
 
-        serverInfo["mvme_version"] = std::string(GIT_VERSION);
+        serverInfo["mvme_version"] = std::string(GIT_VERSION_SHORT);
         serverInfo["protocol_version"] = ProtocolVersion;
 
         auto jsonString = QByteArray::fromStdString(serverInfo.dump());

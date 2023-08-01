@@ -254,7 +254,7 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
     result["struct_name"]           = struct_name.toStdString();
     result["array_count"]           = QString::number(dataInputs.size()).toStdString();
     result["array_info"]            = mu::data{array_info_list};
-    result["mvme_version"]          = GIT_VERSION;
+    result["mvme_version"]          = GIT_VERSION_SHORT;
     result["export_date"]           = QDateTime::currentDateTime().toString().toStdString();
     result["sparse?"]               = sink->getFormat() == ExportSink::Format::Sparse;
     result["full?"]                 = sink->getFormat() == ExportSink::Format::Full;

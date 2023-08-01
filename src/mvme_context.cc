@@ -1773,7 +1773,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     // Log mvme version and bitness and runtime cpu architecture
     logMessage(QString(QSL("mvme %1 (%2) running on %3 (%4)\n"))
-               .arg(GIT_VERSION)
+               .arg(GIT_VERSION_SHORT)
                .arg(get_bitness_string())
                .arg(QSysInfo::prettyProductName())
                .arg(QSysInfo::currentCpuArchitecture()));

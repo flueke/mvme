@@ -373,7 +373,7 @@ InfoService::InfoService(MVMEContext *context)
 
 QString InfoService::getVersion()
 {
-    QString versionString = QString("mvme-%1").arg(GIT_VERSION);
+    QString versionString = QString("mvme-%1").arg(GIT_VERSION_SHORT);
 
     auto bitness = get_bitness_string();
 

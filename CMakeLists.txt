@@ -15,15 +15,16 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # the last commits hash.
 # Example GIT_VERSION_SHORT: 0.7-371
 
-# GIT_VERSION_TAG contains only the tag part of the version
-# Example GIT_VERSION_TAG: 0.7
-
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
-string(REGEX REPLACE "^v" "" GIT_VERSION ${GIT_VERSION})
-string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*|-dev[0-9]*)?(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
-string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
+
+if (GIT_VERSION MATCHES v[^-]*-)
+    string(REGEX REPLACE "v([^-]*)-([0-9]+)-.*" "\\1.\\2"  GIT_VERSION_SHORT ${GIT_VERSION})
+else()
+    string(REGEX REPLACE "v(.*)" "\\1" GIT_VERSION_SHORT ${GIT_VERSION})
+endif()
+#string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*|-dev[0-9]*)?" GIT_VERSION_SHORT ${GIT_VERSION})
 
 execute_process(
     COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
@@ -33,10 +34,9 @@ execute_process(
 
 message("-- GIT_VERSION=${GIT_VERSION}")
 message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
-message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 message("-- GIT_BRANCH=${GIT_BRANCH}")
 
-project(mvme DESCRIPTION "mesytec VME Data Acquisition" VERSION ${GIT_VERSION_TAG})
+project(mvme DESCRIPTION "mesytec VME Data Acquisition" VERSION ${GIT_VERSION_SHORT})
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug")
