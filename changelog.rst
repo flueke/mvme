@@ -7,7 +7,7 @@ Changelog
 Version 1.8.0
 -------------
 
-* When a listfile is opened to not try to auto connect to the VME controller.
+* When a listfile is opened do not try to auto connect to the VME controller.
 
 * [mesytec-mvlc]
 
