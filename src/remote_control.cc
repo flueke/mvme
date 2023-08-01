@@ -312,14 +312,15 @@ bool DAQControlService::loadAnalysis(const QString &filepath)
     return result;
 }
 
-bool DAQControlService::loadListfile(const QString &filepath)
+bool DAQControlService::loadListfile(const QString &filepath, const QVariantMap &options)
 {
     try
     {
-        // TODO: allow to pass OpenListfileOptions here. Both "loadAnalysis" and
-        // "replayAllParts" are interesting!
+        OpenListfileOptions opts;
+        opts.loadAnalysis = options.value("loadAnalysis", false).toBool();
+        opts.replayAllParts = options.value("replayAllParts", false).toBool();
         // FIXME: context_open_listfile() uses the gui to display error messages
-        const auto &handle = context_open_listfile(m_context, filepath);
+        context_open_listfile(m_context, filepath, opts);
     }
     catch (const QString &err)
     {
@@ -350,6 +351,12 @@ bool DAQControlService::startReplay(const QVariantMap &options)
 
     m_context->startDAQReplay(0, keepHistoContents);
 
+    return true;
+}
+
+bool DAQControlService::closeListfile()
+{
+    m_context->closeReplayFileHandle();
     return true;
 }
 
