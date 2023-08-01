@@ -229,11 +229,6 @@ bool DAQControlService::startDAQ()
 
 bool DAQControlService::stopDAQ()
 {
-    if (m_context->getMode() != GlobalMode::DAQ)
-    {
-        throw make_error_info(ErrorCodes::NotInDAQMode, "Not in DAQ mode");
-    }
-
     qDebug() << __PRETTY_FUNCTION__ << QDateTime::currentDateTime()
         << "pre stopDAQ";
     m_context->stopDAQ();
@@ -312,13 +307,16 @@ bool DAQControlService::loadAnalysis(const QString &filepath)
     return result;
 }
 
-bool DAQControlService::loadListfile(const QString &filepath, const QVariantMap &options)
+bool DAQControlService::loadListfile(const QString &filepath, bool loadAnalysis, bool replayAllParts)
 {
     try
     {
-        OpenListfileOptions opts;
-        opts.loadAnalysis = options.value("loadAnalysis", false).toBool();
-        opts.replayAllParts = options.value("replayAllParts", false).toBool();
+        OpenListfileOptions opts =
+        {
+            .loadAnalysis = loadAnalysis,
+            .replayAllParts = replayAllParts,
+        };
+
         // FIXME: context_open_listfile() uses the gui to display error messages
         context_open_listfile(m_context, filepath, opts);
     }
@@ -330,28 +328,31 @@ bool DAQControlService::loadListfile(const QString &filepath, const QVariantMap 
     return true;
 }
 
-bool DAQControlService::startReplay(const QVariantMap &options)
+bool DAQControlService::startReplay(bool keepHistoContents)
 {
     if (m_context->getMode() != GlobalMode::Replay)
     {
-        throw make_error_info(ErrorCodes::NotInReplayMode, "Not in Replay mode");
+        throw make_error_info(ErrorCodes::NotInReplayMode, "Not in Replay mode (load a listfile to switch)");
     }
 
     if (m_context->getDAQState() != DAQState::Idle)
     {
-        throw make_error_info(ErrorCodes::ReadoutWorkerBusy, "DAQ replay worker busy");
+        throw make_error_info(ErrorCodes::ReadoutWorkerBusy, "Replay worker busy");
     }
 
     if (m_context->getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
     {
-        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "DAQ analysis worker busy");
+        throw make_error_info(ErrorCodes::AnalysisWorkerBusy, "Analysis worker busy");
     }
-
-    bool keepHistoContents = options.value("keepHistoContents", true).toBool();
 
     m_context->startDAQReplay(0, keepHistoContents);
 
     return true;
+}
+
+bool DAQControlService::stopReplay()
+{
+    return stopDAQ();
 }
 
 bool DAQControlService::closeListfile()

@@ -92,11 +92,12 @@ class DAQControlService: public QObject
         QString reconnectVMEController();
 
         bool loadAnalysis(const QString &filepath);
-        bool loadListfile(const QString &filepath, const QVariantMap &options = {});
-        bool startReplay(const QVariantMap &options = {});
 
-        // Closes any open listfiles and goes back to 'DAQ' mode.
-        bool closeListfile();
+        bool loadListfile(const QString &filepath, bool loadAnalysis = false, bool replayAllParts = true);
+        bool closeListfile(); // Closes the current listfile and goes back to 'DAQ' mode.
+        bool startReplay(bool keepHistoContents = false);
+        bool stopReplay(); // alias for stopDAQ
+
 
     private:
         MVMEContext *m_context;
