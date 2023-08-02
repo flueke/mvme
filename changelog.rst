@@ -15,7 +15,7 @@ Version 1.8.0
 
   - eth and usb: Do not reset the stack trigger registers when connecting. It
     made reading back the last trigger configuration impossible. Now only the DAQ
-    mode registe is written when requested via disableTriggersOnConnect().
+    mode register is written when requested via disableTriggersOnConnect().
 
   - New SplitZipReader to replay from split listfiles stored across multiple zip
     archives. To consumers it looks like the data came from a single file.
