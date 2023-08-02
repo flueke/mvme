@@ -72,6 +72,7 @@
 #include "histo_stats_widget.h"
 #include "histo_ui.h"
 #include "mvme_context_lib.h"
+#include "mvme_session.h"
 #include "mvme_qwt.h"
 #include "scrollzoomer.h"
 #include "util.h"
@@ -791,7 +792,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
         font.setBold(true);
         m_d->m_waterMarkText.setFont(font);
 
-        m_d->m_waterMarkText.setText(QString("mvme-%1").arg(GIT_VERSION_SHORT));
+        m_d->m_waterMarkText.setText(QString("mvme-%1").arg(mvme_git_version()));
 
         m_d->m_waterMarkLabel = new QwtPlotTextLabel;
         m_d->m_waterMarkLabel->setMargin(10);

@@ -37,6 +37,7 @@
 #include <qwt_scale_widget.h>
 
 #include "git_sha1.h"
+#include "mvme_session.h"
 #include "qt_util.h"
 #include "rate_monitor_plot_widget.h"
 #include "scrollzoomer.h"
@@ -606,7 +607,7 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         font.setPixelSize(16);
         font.setBold(true);
         m_d->m_waterMarkText.setFont(font);
-        m_d->m_waterMarkText.setText(QString("mvme-%1").arg(GIT_VERSION_SHORT));
+        m_d->m_waterMarkText.setText(QString("mvme-%1").arg(mvme_git_version()));
 
         m_d->m_waterMarkLabel = new QwtPlotTextLabel;
         m_d->m_waterMarkLabel->setMargin(10);

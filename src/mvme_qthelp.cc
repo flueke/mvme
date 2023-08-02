@@ -29,7 +29,7 @@ namespace mvme
 QString get_mvme_qthelp_index_url()
 {
     return (QStringLiteral("qthelp://com.mesytec.mvme.%1/doc/index.html")
-            .arg(GIT_VERSION_SHORT));
+            .arg(mvme_git_version()));
 }
 
 }

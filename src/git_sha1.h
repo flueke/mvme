@@ -21,8 +21,13 @@
 #ifndef UUID_95ae9604_91dd_48c3_9152_7bf911c38ce7
 #define UUID_95ae9604_91dd_48c3_9152_7bf911c38ce7
 
-extern const char GIT_SHA1[];
-extern const char GIT_VERSION[];
-extern const char GIT_VERSION_SHORT[];
+#include "libmvme_core_export.h"
+
+extern const char LIBMVME_CORE_EXPORT GIT_SHA1[];
+extern const char LIBMVME_CORE_EXPORT GIT_VERSION[];
+extern const char LIBMVME_CORE_EXPORT GIT_VERSION_SHORT[];
+
+const char * LIBMVME_CORE_EXPORT mvme_git_version();
+const char * LIBMVME_CORE_EXPORT mvme_git_version_describe();
 
 #endif

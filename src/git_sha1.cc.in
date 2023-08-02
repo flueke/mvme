@@ -19,21 +19,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-/*
- * GIT_SHA1 contains the complete git hash
- *
- * GIT_VERSION contains the name of the latest git tag, the number of commits
- * since that tag was created and the start of the git hash if there have been
- * changes since the tag was created.
- * Example GIT_VERSION: 0.7-371-g12d9678
- *
- * GIT_VERSION_SHORT contains the same as GIT_VERSION but without the start of
- * the last commits hash. Also the dash between the tag and number of commits
- * is replaced by a dot.
- * Example GIT_VERSION_SHORT: 0.7.371
- */
+// See the main CMakeLists.txt for a description of the variables.
 
-#include "libmvme_core_export.h"
+#include "git_sha1.h"
 
 #define DEF_GIT_SHA1 "@GIT_SHA1@"
 #define DEF_GIT_VERSION "@GIT_VERSION@"
@@ -42,3 +30,13 @@
 extern const char LIBMVME_CORE_EXPORT GIT_SHA1[]            = DEF_GIT_SHA1;
 extern const char LIBMVME_CORE_EXPORT GIT_VERSION[]         = DEF_GIT_VERSION;
 extern const char LIBMVME_CORE_EXPORT GIT_VERSION_SHORT[]   = DEF_GIT_VERSION_SHORT;
+
+const char *mvme_git_version()
+{
+    return GIT_VERSION_SHORT;
+}
+
+const char *mvme_git_version_describe()
+{
+    return GIT_VERSION;
+}

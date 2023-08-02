@@ -12,19 +12,20 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Example GIT_VERSION: 0.7-371-g12d9678
 
 # GIT_VERSION_SHORT contains the same as GIT_VERSION but without the start of
-# the last commits hash.
-# Example GIT_VERSION_SHORT: 0.7-371
+# the last commits hash. Also the trailing commit number is added as another
+# version number component, separated by a dot.
+# Example GIT_VERSION_SHORT: 0.7.371
 
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
+#string(REGEX REPLACE "^v" "" GIT_VERSION ${GIT_VERSION}) # strip leavind 'v' from tags
 
-if (GIT_VERSION MATCHES v[^-]*-)
+if(GIT_VERSION MATCHES v[^-]*-)
     string(REGEX REPLACE "v([^-]*)-([0-9]+)-.*" "\\1.\\2"  GIT_VERSION_SHORT ${GIT_VERSION})
 else()
     string(REGEX REPLACE "v(.*)" "\\1" GIT_VERSION_SHORT ${GIT_VERSION})
 endif()
-#string(REGEX MATCH "^[0-9.]+(-beta[0-9]*|-rc[0-9]*|-dev[0-9]*)?" GIT_VERSION_SHORT ${GIT_VERSION})
 
 execute_process(
     COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD

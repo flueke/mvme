@@ -760,7 +760,7 @@ void MVMEMainWindow::displayAbout()
 
     auto bitness = get_bitness_string();
 
-    QString versionString = QString("Version %1").arg(GIT_VERSION_SHORT);
+    QString versionString = QString("Version %1").arg(mvme_git_version());
     if (!bitness.isEmpty())
     {
         versionString += QString(" (%1)").arg(bitness);
@@ -804,7 +804,6 @@ void MVMEMainWindow::displayAbout()
     {
         QStringList build_infos;
         build_infos << versionString;
-        build_infos << QSL("Full version: ") + GIT_VERSION;
         build_infos << QSL("Build Type: ") + BUILD_TYPE;
         build_infos << QSL("Build Flags:") + BUILD_CXX_FLAGS;
 

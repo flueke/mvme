@@ -44,15 +44,14 @@ void mvme_init(const QString &appName)
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
     QCoreApplication::setOrganizationName("mesytec");
     QCoreApplication::setApplicationName(appName);
-    QCoreApplication::setApplicationVersion(GIT_VERSION_SHORT);
+    QCoreApplication::setApplicationVersion(mvme_git_version());
 
     QLocale::setDefault(QLocale::c());
 
     qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
-    qDebug() << "GIT_VERSION =" << GIT_VERSION;
-    qDebug() << "GIT_VERSION_SHORT =" << GIT_VERSION_SHORT;
+    qDebug() << "mvme_git_version = " << mvme_git_version();
     qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
     qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
 
