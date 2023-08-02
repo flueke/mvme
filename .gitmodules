@@ -4,6 +4,3 @@
 [submodule "external/qgv"]
 	path = external/qgv
 	url = ../qgv.git
-[submodule "external/nng/extern/nng-wolfssl"]
-	path = external/nng/extern/nng-wolfssl
-	url = https://github.com/staysail/nng-wolfssl
