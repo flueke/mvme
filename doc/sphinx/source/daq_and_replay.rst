@@ -59,9 +59,17 @@ components.
 Replaying data from listfiles
 -----------------------------
 
-To replay data from a listfile use **File -> Open listfile** and choose a *.zip*
+To replay data from a single listfile use **File -> Open listfile** and choose a *.zip*
 or *.mvmelst* file.
 
 When opening a listfile the VME config included inside the file is loaded and
 will replace the current config. The global mode will be switched to
 *Listfile*. To go back to DAQ mode use *File -> Close Listfile*.
+
+There is also a dedicated 'Listfile Browser' window which can be opened via
+``Window -> Listfile Browser (Ctrl+4)``. In addition to replaying from single
+files the listfile browser allows to replay data from split listfiles (ending in
+``partNNN.zip``). Make sure ``replay all parts`` is checked before opening the
+first part of a split listfile, then start the replay normally. The partial
+listfile archive currently being read is printed to the log window. To the
+analysis it looks like the data stream is coming from a single file.
