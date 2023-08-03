@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     args = argparser.parse_args()
 
-    loadAnalysis = args.loadAnalysis
+    loadAnalysisFromListfile = args.loadAnalysis
     replayAllParts = args.replayAllParts
     keepHistoContents = args.keepHistoContents
 
@@ -118,7 +118,7 @@ if __name__ == "__main__":
         # an error occured).
         for fileidx, filepath in enumerate(args.listfiles):
             try:
-                transaction(s, "loadListfile", [filepath, loadAnalysis, replayAllParts])
+                transaction(s, "loadListfile", [filepath, loadAnalysisFromListfile, replayAllParts])
                 transaction(s, "startReplay", [keepHistoContents])
 
                 print(f"File {fileidx+1}/{filecount}: started replay from {filepath}")
