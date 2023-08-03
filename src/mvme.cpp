@@ -804,6 +804,7 @@ void MVMEMainWindow::displayAbout()
     {
         QStringList build_infos;
         build_infos << versionString;
+        build_infos << QSL("Git Version: %1").arg(mvme_git_describe_version());
         build_infos << QSL("Build Type: ") + BUILD_TYPE;
         build_infos << QSL("Build Flags:") + BUILD_CXX_FLAGS;
 

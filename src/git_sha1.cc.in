@@ -36,7 +36,7 @@ const char *mvme_git_version()
     return GIT_VERSION_SHORT;
 }
 
-const char *mvme_git_version_describe()
+const char *mvme_git_describe_version()
 {
     return GIT_VERSION;
 }

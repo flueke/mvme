@@ -52,6 +52,7 @@ void mvme_init(const QString &appName)
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
     qDebug() << "mvme_git_version = " << mvme_git_version();
+    qDebug() << "mvme_git_describe_version = " << mvme_git_describe_version();
     qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
     qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
 
