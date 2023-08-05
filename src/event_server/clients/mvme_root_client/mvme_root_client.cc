@@ -215,6 +215,7 @@ struct Options
     static const Opt_t NoAddedRandom    = 1u << 2;
     static const Opt_t SingleRun        = 1u << 3;
     static const Opt_t ReplayMode       = 1u << 4;
+    static const Opt_t RunInProgressOk  = 1u << 5;
 };
 
 class ClientContext: public mvme::event_server::Client
@@ -574,6 +575,18 @@ void ClientContext::beginRun(const Message &msg, const StreamInfo &streamInfo)
 
     cout << __FUNCTION__ << ": runId=" << streamInfo.runId
         << endl;
+
+    if (streamInfo.infoJson.count("runInProgress")
+        && static_cast<bool>(streamInfo.infoJson["runInProgress"]))
+    {
+        if (m_options & Options::RunInProgressOk)
+            cout << "Warning: DAQ run/replay already in progress!\n";
+        else
+        {
+            cout << "Error: DAQ run/replay already in progress!\n";
+            std::abort();
+        }
+    }
 
     std::string expName = streamInfo.infoJson["ExperimentName"];
     std::string expTitle = streamInfo.infoJson["ExperimentTitle"];
@@ -1419,6 +1432,7 @@ int main(int argc, char *argv[])
         {
             { "single-run", no_argument, nullptr, 0 },
             { "show-stream-info", no_argument, nullptr, 0 },
+            { "run-in-progress-is-ok", no_argument, nullptr, 0 },
             { "help", no_argument, nullptr, 0 },
             { "host", required_argument, nullptr, 0 },
             { "port", required_argument, nullptr, 0 },
@@ -1446,6 +1460,7 @@ int main(int argc, char *argv[])
 
                     if (opt_name == "single-run") clientOpts |= Opts::SingleRun;
                     else if (opt_name == "show-stream-info") clientOpts |= Opts::ShowStreamInfo;
+                    else if (opt_name == "run-in-progress-is-ok") clientOpts |= Opts::RunInProgressOk;
                     else if (opt_name == "host") host = optarg;
                     else if (opt_name == "port") port = optarg;
                     else if (opt_name == "help") showHelp = true;
@@ -1471,7 +1486,7 @@ int main(int argc, char *argv[])
 
     if (showHelp)
     {
-        cout << "Usage as a mvme client: " << argv[0] << " [--single-run] [--root-max-tree-size=<bytes>] [--host=localhost] [--port=13801] [--analysis-args=<args>]" << endl << endl;
+        cout << "Usage as a mvme client: " << argv[0] << " [--single-run] [--root-max-tree-size=<bytes>] [--host=localhost] [--port=13801] [--analysis-args=<args>] [--show-stream-info]" << endl << endl;
 
         cout << "  In this mode the program connects to and receives data from a mvme process." << endl
              << endl
@@ -1494,6 +1509,9 @@ int main(int argc, char *argv[])
         cout << "The optional '--analysis-args' can be used to pass arguments to the user analysis code." << endl
              << "It is interpreted as a space-separated list of arguments." << endl
              << endl;
+
+        cout << "--show-stream-info: Print additional information about the incoming data stream.\n";
+        cout << "--run-in-progress-is-ok: Do not abort if the DAQ run/replay is already in progress.\n";
 
         return 0;
     }
