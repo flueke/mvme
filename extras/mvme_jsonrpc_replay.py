@@ -119,6 +119,7 @@ if __name__ == "__main__":
         for fileidx, filepath in enumerate(args.listfiles):
             try:
                 transaction(s, "loadListfile", [filepath, loadAnalysisFromListfile, replayAllParts])
+                time.sleep(1.0) # Hack to give EventServer clients (e.g. mvme_root_client) a chance to reconnect.
                 transaction(s, "startReplay", [keepHistoContents])
 
                 print(f"File {fileidx+1}/{filecount}: started replay from {filepath}")
