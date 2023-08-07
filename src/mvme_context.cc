@@ -166,7 +166,6 @@ struct MVMEContextPrivate
     std::unique_ptr<FileAutoSaver> m_analysisAutoSaver;
 
     std::unique_ptr<RemoteControl> m_remoteControl;
-    // owned by the MVMEStreamWorker
     std::shared_ptr<EventServer> m_eventServer;
 
     ListfileReplayHandle listfileReplayHandle;
@@ -571,6 +570,8 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
 {
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
     m_d->analysisServiceProvider = new MVMEContextServiceProvider(this, this);
+    m_d->m_eventServer = std::make_shared<EventServer>();
+    m_d->m_eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
 
     for (size_t i=0; i<ReadoutBufferCount; ++i)
     {
@@ -871,14 +872,11 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     // Create a stream worker (analysis side). The concrete type depends on the
     // VME controller type.
-    //
-    // Delete the streamWorker in the event loop. This will also delete the
-    // EventServer child.
     if (m_streamWorker)
     {
+        m_streamWorker->removeModuleConsumer(m_d->m_eventServer);
         auto streamWorker = m_streamWorker.release();
-        streamWorker->deleteLater(); // Will also delete the current EventServer instance
-        m_d->m_eventServer = nullptr;
+        streamWorker->deleteLater();
         processQtEvents();
     }
 
@@ -900,12 +898,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 
     // EventServer setup
     {
-        m_d->m_eventServer = std::make_shared<EventServer>(m_streamWorker.get()); // Note: this is a non-owning pointer
         m_streamWorker->attachModuleConsumer(m_d->m_eventServer);
 
         auto eventServer = m_d->m_eventServer;
-
-        eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
 
         auto settings = makeWorkspaceSettings();
         bool enabled = false;
@@ -934,10 +929,11 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     }
 
     // FIXME: test code!
-    m_streamWorker->attachModuleConsumer(std::make_shared<ListfileFilterStreamConsumer>());
+    //m_streamWorker->attachModuleConsumer(std::make_shared<ListfileFilterStreamConsumer>());
 
-    // Moves the StreamWorker and its EventServer child
+    // Move objects to the analysis thread.
     m_streamWorker->moveToThread(m_analysisThread);
+    m_d->m_eventServer->moveToThread(m_analysisThread);
 
     // Run the StreamWorkerBase::startupConsumers in the worker thread. This is
     // used to e.g. get the EventServer to accept client connections while the

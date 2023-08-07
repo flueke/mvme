@@ -1060,7 +1060,7 @@ void ClientContext::eventData(const Message &msg, int eventIndex,
 
 void ClientContext::endRun(const Message &msg, const json &info)
 {
-    cout << __FUNCTION__ << ": endRun info:" << endl << info.dump(2) << endl;
+    //cout << __FUNCTION__ << ": endRun info:" << endl << info.dump(2) << endl;
 
     if (m_analysis.endRun)
         m_analysis.endRun();
@@ -1084,7 +1084,7 @@ void ClientContext::endRun(const Message &msg, const json &info)
     cout << "  HitCounts by event:" << endl;
     for (size_t ei=0; ei < m_stats.eventHits.size(); ei++)
     {
-        cout << "    ei=" << ei << ", hits=" << m_stats.eventHits[ei] << endl;
+        cout << "    eventIndex=" << ei << ", hits=" << m_stats.eventHits[ei] << endl;
     }
 
     cout << endl;

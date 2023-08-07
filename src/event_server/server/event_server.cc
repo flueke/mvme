@@ -77,6 +77,7 @@ struct EventServer::Private
     std::vector<u8> m_outBuf;
     QHostAddress m_listenAddress = QHostAddress::Any;
     quint16 m_listenPort = EventServer::Default_ListenPort;
+    bool m_needRestart = false; // set to true if listening host and/or port are changed
     EventServer::Logger m_logger;
     std::vector<ClientInfo> m_clients;
     bool m_runInProgress = false;
@@ -328,6 +329,9 @@ void EventServer::setLogger(Logger logger)
 
 void EventServer::setListeningInfo(const QHostAddress &address, quint16 port)
 {
+    if (address != m_d->m_listenAddress || port != m_d->m_listenPort)
+        m_d->m_needRestart = true;
+
     m_d->m_listenAddress = address;
     m_d->m_listenPort = port;
 }
@@ -344,9 +348,13 @@ size_t EventServer::getNumberOfClients() const
 
 void EventServer::setEnabled(bool b)
 {
-    shutdown();
-    m_d->m_enabled = b;
-    startup();
+    if (b != m_d->m_enabled || m_d->m_needRestart)
+    {
+        shutdown();
+        m_d->m_enabled = b;
+        m_d->m_needRestart = false;
+        startup();
+    }
 }
 
 // Build a description of the datastream that is going to be produced by the
