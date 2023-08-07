@@ -4,6 +4,12 @@
 Changelog
 ##################################################
 
+Version 1.8.2
+-------------
+* Better fix for the EventServer reconnect race: client are not disconnected
+  anymore when loading listfiles or switching VME controllers. Also remove the
+  sleep from mvme_jsonrpc_replay.py
+
 Version 1.8.1
 -------------
 
