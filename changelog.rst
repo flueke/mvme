@@ -4,6 +4,17 @@
 Changelog
 ##################################################
 
+Version 1.8.1
+-------------
+
+* mvme_root_client: Abort if the DAQ run/replay is already in progress whenn
+  connecting. Can be disabled by passing "run-in-progress-is-ok" on the command
+  line.
+
+* mvme_jsonrpc_replay.py: Sleep between loading a listfile and starting the
+  replay. This works around a race where the mvme_root_client was not connected
+  yet but the replay was already running.
+
 Version 1.8.0
 -------------
 
