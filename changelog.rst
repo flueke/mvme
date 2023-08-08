@@ -6,9 +6,12 @@ Changelog
 
 Version 1.8.2
 -------------
-* Better fix for the EventServer reconnect race: client are not disconnected
+* Better fix for the EventServer reconnect race: clients are not disconnected
   anymore when loading listfiles or switching VME controllers. Also remove the
   sleep from mvme_jsonrpc_replay.py
+
+* Readd the ``mvme.sh`` to directly start mvme with the correct env variables
+  set. Note: mvme.sh sources the ``initMVME`` script to setup the environment.
 
 Version 1.8.1
 -------------
