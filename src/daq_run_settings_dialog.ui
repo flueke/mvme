@@ -200,7 +200,7 @@
    <item>
     <widget class="QGroupBox" name="gb_splitting">
      <property name="title">
-      <string>Listfile Splitting</string>
+      <string>Listfile Splitting (MVLC only)</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="0">
