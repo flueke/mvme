@@ -764,8 +764,6 @@ static std::tuple<bool, QHostInfo, int> get_event_server_listen_info(const QSett
 bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
     //qDebug() << __PRETTY_FUNCTION__ << "begin";
-    Q_ASSERT(getDAQState() == DAQState::Idle);
-    Q_ASSERT(getMVMEStreamWorkerState() == AnalysisWorkerState::Idle);
 
     if (getDAQState() != DAQState::Idle
         || getMVMEStreamWorkerState() != AnalysisWorkerState::Idle)
