@@ -89,7 +89,7 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 #
 # libmvme_resources
 #
-qt5_add_resources(LIBMVME_RES_RC_OUT resources.qrc)
+qt5_add_resources(LIBMVME_RES_RC_OUT mvme_resources.qrc)
 add_library(libmvme_resources SHARED
     ${LIBMVME_RES_RC_OUT})
 

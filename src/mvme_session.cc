@@ -37,7 +37,7 @@
 
 void mvme_init(const QString &appName)
 {
-    Q_INIT_RESOURCE(resources);
+    Q_INIT_RESOURCE(mvme_resources);
 
     register_mvme_qt_metatypes();
 
