@@ -325,3 +325,52 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
 
     return result;
 }
+
+inline constexpr Qt::Axis opposite(Qt::Axis axis)
+{
+    return axis == Qt::XAxis ? Qt::YAxis : Qt::XAxis;
+}
+
+Histo1DList slice_x(Histo2D *histo, u32 rrfX, u32 rrfY)
+{
+    return slice(histo, Qt::XAxis, rrfX, rrfY);
+}
+
+Histo1DList slice_y(Histo2D *histo, u32 rrfX, u32 rrfY)
+{
+    return slice(histo, Qt::YAxis, rrfX, rrfY);
+}
+
+Histo1DList slice(Histo2D *histo, Qt::Axis axis, u32 rrfX, u32 rrfY)
+{
+    const Qt::Axis main_axis  = axis;
+    const Qt::Axis slice_axis = opposite(axis);
+
+    const u32 main_rrf  = axis == Qt::XAxis ? rrfX : rrfY;
+    const u32 slice_rrf = axis == Qt::XAxis ? rrfY : rrfX;
+
+    const u32 main_bins  = histo->getNumberOfBins(axis, main_rrf);
+    const u32 slice_bins = histo->getNumberOfBins(opposite(axis), slice_rrf);
+
+    const auto slice_binning = histo->getAxisBinning(slice_axis);
+
+    Histo1DList result;
+    result.reserve(main_bins);
+
+    for (u32 bin = 0; bin < main_bins; ++bin)
+    {
+        auto h1d = std::make_shared<Histo1D>(slice_bins, slice_binning.getMin(), slice_binning.getMax());
+
+        for (u32 slice_bin = 0; slice_bin < slice_bins; ++slice_bin)
+        {
+            u32 xBin = axis == Qt::XAxis ? bin : slice_bin;
+            u32 yBin = axis == Qt::XAxis ? slice_bin : bin;
+            double value = histo->getBinContent(xBin, yBin, { rrfX, rrfY });
+            h1d->setBinContent(slice_bin, value, value);
+        }
+
+        result.push_back(h1d);
+    }
+
+    return result;
+}
