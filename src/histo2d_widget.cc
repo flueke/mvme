@@ -306,6 +306,12 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
                   this, &Histo2DWidget::on_tb_projX_clicked);
     tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Y-Proj"),
                   this, &Histo2DWidget::on_tb_projY_clicked);
+
+    tb->addAction(QIcon(":/"), QSL("Slice X"),
+                  this, &Histo2DWidget::on_tb_sliceX_clicked);
+    tb->addAction(QIcon(":/"), QSL("Slice Y"),
+                  this, &Histo2DWidget::on_tb_sliceY_clicked);
+
     // Connected by other constructors
     m_d->m_actionClear = tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"));
 
@@ -1404,6 +1410,28 @@ void Histo2DWidget::on_tb_projY_clicked()
 
     m_d->m_yProjWidget->show();
     m_d->m_yProjWidget->raise();
+}
+
+void Histo2DWidget::on_tb_sliceX_clicked()
+{
+    doSlice(Qt::XAxis);
+}
+
+void Histo2DWidget::on_tb_sliceY_clicked()
+{
+    doSlice(Qt::YAxis);
+}
+
+void Histo2DWidget::doSlice(Qt::Axis axis)
+{
+    auto slices = slice(m_d->m_histo, axis, m_d->m_rrf.x, m_d->m_rrf.y);
+    auto w = new Histo1DWidget(slices);
+    w->setServiceProvider(m_d->m_serviceProvider);
+    w->setWindowIcon(QIcon(":/window_icon.png"));
+    w->setAttribute(Qt::WA_DeleteOnClose);
+    add_widget_close_action(w);
+    w->show();
+    w->raise();
 }
 
 bool Histo2DWidget::event(QEvent *e)

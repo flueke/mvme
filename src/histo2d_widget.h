@@ -86,6 +86,9 @@ class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
         void on_tb_subRange_clicked();
         void on_tb_projX_clicked();
         void on_tb_projY_clicked();
+        void on_tb_sliceX_clicked();
+        void on_tb_sliceY_clicked();
+        void doSlice(Qt::Axis axis);
 
     private:
         explicit Histo2DWidget(QWidget *parent = 0);
