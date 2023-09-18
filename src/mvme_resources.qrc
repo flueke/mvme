@@ -8,6 +8,7 @@
     <file alias="arrow_right.png">resources/arrow.png</file>
     <file alias="arrow-switch.png">resources/arrow-switch.png</file>
     <file alias="binocular--arrow.png">resources/binocular--arrow.png</file>
+    <file alias="chart-pie-separate.png">resources/chart-pie-separate.png</file>
     <file alias="clear_histos.png">resources/user-trash.png</file>
     <file alias="config_category.png">resources/folder-orange.png</file>
     <file alias="control_pause.png">resources/control-pause.png</file>
