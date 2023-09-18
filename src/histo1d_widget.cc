@@ -853,7 +853,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
 
     resize(1000, 562);
     selectHistogram(0);
-    m_d->combo_maxRes_->setCurrentIndex(6);
+    m_d->combo_maxRes_->setCurrentIndex(m_d->combo_maxRes_->count() - 1);
 }
 
 Histo1DWidget::~Histo1DWidget()
