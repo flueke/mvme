@@ -67,8 +67,6 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
         virtual bool eventFilter(QObject *watched, QEvent *e) override;
         virtual bool event(QEvent *event) override;
 
-        friend class Histo1DListWidget;
-
         void setServiceProvider(AnalysisServiceProvider *asp);
         AnalysisServiceProvider *getServiceProvider() const;
         void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);

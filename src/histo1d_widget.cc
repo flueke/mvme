@@ -1742,6 +1742,11 @@ void Histo1DWidgetPrivate::onActionHistoListStats()
             statsWidget->addSink(m_sink);
             title = QSL("Statistics for histogram array '%1'").arg(m_sink->objectName());
         }
+        else if (!m_histos.empty())
+        {
+            statsWidget->addHistograms(m_histos);
+            title = QSL("Statistics for '%1'").arg(m_q->windowTitle());
+        }
         else if (auto histo = getCurrentHisto())
         {
             statsWidget->addHistogram(histo);
