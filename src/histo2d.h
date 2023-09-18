@@ -29,28 +29,6 @@
 
 #include "libmvme_export.h"
 
-struct ResolutionReductionFactors
-{
-    u32 x = AxisBinning::NoResolutionReduction;
-    u32 y = AxisBinning::NoResolutionReduction;
-
-    inline bool isNoReduction() const
-    {
-        return (x == AxisBinning::NoResolutionReduction
-                && y == AxisBinning::NoResolutionReduction);
-    }
-
-    inline u32 getXFactor() const
-    {
-        return x == AxisBinning::NoResolutionReduction ? 1u : x;
-    }
-
-    inline u32 getYFactor() const
-    {
-        return y == AxisBinning::NoResolutionReduction ? 1u : y;
-    }
-};
-
 struct Histo2DStatistics
 {
     using Intervals = std::array<AxisInterval, 3>;
