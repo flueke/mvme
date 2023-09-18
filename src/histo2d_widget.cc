@@ -307,9 +307,9 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Y-Proj"),
                   this, &Histo2DWidget::on_tb_projY_clicked);
 
-    tb->addAction(QIcon(":/"), QSL("Slice X"),
+    tb->addAction(QIcon(":/chart-pie-separate.png"), QSL("Slice X"),
                   this, &Histo2DWidget::on_tb_sliceX_clicked);
-    tb->addAction(QIcon(":/"), QSL("Slice Y"),
+    tb->addAction(QIcon(":/chart-pie-separate.png"), QSL("Slice Y"),
                   this, &Histo2DWidget::on_tb_sliceY_clicked);
 
     // Connected by other constructors
@@ -1424,8 +1424,25 @@ void Histo2DWidget::on_tb_sliceY_clicked()
 
 void Histo2DWidget::doSlice(Qt::Axis axis)
 {
-    auto slices = slice(m_d->m_histo, axis, m_d->m_rrf.x, m_d->m_rrf.y);
+    // This is the currently visible area.
+    double minX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    double minY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+    double maxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+
+    // Now bound the visible coordinates to their respective axis. Otherwise the
+    // H1D slices will contain bogus data.
+    auto xBinning = m_d->m_histo->getAxisBinning(Qt::XAxis);
+    minX = qBound(xBinning.getMin(), minX, xBinning.getMax());
+    maxX = qBound(xBinning.getMin(), maxX, xBinning.getMax());
+
+    auto yBinning = m_d->m_histo->getAxisBinning(Qt::YAxis);
+    minY = qBound(yBinning.getMin(), minY, yBinning.getMax());
+    maxY = qBound(yBinning.getMin(), maxY, yBinning.getMax());
+
+    auto slices = slice(m_d->m_histo, axis, minX, maxX, minY, maxY, m_d->m_rrf);
     auto w = new Histo1DWidget(slices);
+    w->setWindowTitle(QSL("%1 (%2)").arg(windowTitle()).arg(axis == Qt::XAxis ? "X Slices" : "Y Slices"));
     w->setServiceProvider(m_d->m_serviceProvider);
     w->setWindowIcon(QIcon(":/window_icon.png"));
     w->setAttribute(Qt::WA_DeleteOnClose);

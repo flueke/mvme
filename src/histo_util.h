@@ -386,8 +386,8 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
                            double startX, double endX,
                            double startY, double endY);
 
-Histo1DList slice_x(Histo2D *histo, u32 rrfX = 0, u32 rrfY = 0);
-Histo1DList slice_y(Histo2D *histo, u32 rrfX = 0, u32 rrfY = 0);
-Histo1DList slice(Histo2D *histo, Qt::Axis axis, u32 rrfX = 0, u32 rrfY = 0);
+Histo1DList slice(Histo2D *histo, Qt::Axis axis,
+    double startX, double endX, double startY, double endY,
+    ResolutionReductionFactors rrfs = {});
 
 #endif /* __HISTO_UTIL_H__ */

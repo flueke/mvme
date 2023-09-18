@@ -331,42 +331,63 @@ inline constexpr Qt::Axis opposite(Qt::Axis axis)
     return axis == Qt::XAxis ? Qt::YAxis : Qt::XAxis;
 }
 
-Histo1DList slice_x(Histo2D *histo, u32 rrfX, u32 rrfY)
-{
-    return slice(histo, Qt::XAxis, rrfX, rrfY);
-}
-
-Histo1DList slice_y(Histo2D *histo, u32 rrfX, u32 rrfY)
-{
-    return slice(histo, Qt::YAxis, rrfX, rrfY);
-}
-
-Histo1DList slice(Histo2D *histo, Qt::Axis axis, u32 rrfX, u32 rrfY)
+Histo1DList slice(Histo2D *histo, Qt::Axis axis,
+    double startX, double endX, double startY, double endY,
+    ResolutionReductionFactors rrfs)
 {
     const Qt::Axis main_axis  = axis;
     const Qt::Axis slice_axis = opposite(axis);
 
-    const u32 main_rrf  = axis == Qt::XAxis ? rrfX : rrfY;
-    const u32 slice_rrf = axis == Qt::XAxis ? rrfY : rrfX;
+    const u32 main_rrf  = axis == Qt::XAxis ? rrfs.x : rrfs.y;
+    const u32 slice_rrf = axis == Qt::XAxis ? rrfs.y : rrfs.x;
 
-    const u32 main_bins  = histo->getNumberOfBins(axis, main_rrf);
-    const u32 slice_bins = histo->getNumberOfBins(opposite(axis), slice_rrf);
+    const double main_start = axis == Qt::XAxis ? startX : startY;
+    const double main_end   = axis == Qt::XAxis ? endX : endY;
 
+    const double slice_start = axis == Qt::XAxis ? startY : startX;
+    const double slice_end   = axis == Qt::XAxis ? endY : endX;
+
+    const auto main_binning  = histo->getAxisBinning(main_axis);
     const auto slice_binning = histo->getAxisBinning(slice_axis);
+
+    const u32 main_startBin = main_binning.getBinBounded(main_start, main_rrf);
+    const u32 main_endBin   = main_binning.getBinBounded(main_end, main_rrf) + 1;
+
+    const u32 slice_startBin = slice_binning.getBinBounded(slice_start, slice_rrf);
+    const u32 slice_endBin   = slice_binning.getBinBounded(slice_end, slice_rrf) + 1;
+
+    const auto main_bins = main_endBin - main_startBin;
+    const auto slice_bins = slice_endBin - slice_startBin;
+
+    qDebug("slice: main_start=%lf, main_end=%lf, main_startBin=%u, main_endBin=%u, main_bins=%u",
+        main_start, main_end, main_startBin, main_endBin, main_bins);
+    qDebug("slice: slice_start=%lf, slice_end=%lf, slice_startBin=%u, slice_endBin=%u, slice_bins=%u",
+        slice_start, slice_end, slice_startBin, slice_endBin, slice_bins);
 
     Histo1DList result;
     result.reserve(main_bins);
 
-    for (u32 bin = 0; bin < main_bins; ++bin)
+    for (u32 bin = main_startBin; bin < main_endBin; ++bin)
     {
-        auto h1d = std::make_shared<Histo1D>(slice_bins, slice_binning.getMin(), slice_binning.getMax());
+        auto h1d = std::make_shared<Histo1D>(slice_bins, slice_start, slice_end);
 
-        for (u32 slice_bin = 0; slice_bin < slice_bins; ++slice_bin)
+        h1d->setTitle(QSL("%1 [%2 slice %3/%4, start=%5, end=%6")
+            .arg(histo->getTitle())
+            .arg(main_axis == Qt::XAxis ? "X" : "Y")
+            .arg(1 + bin - main_startBin)
+            .arg(main_bins)
+            .arg(main_binning.getBinLowEdge(bin, main_rrf))
+            .arg(main_binning.getBinLowEdge(bin+1, main_rrf))
+        );
+
+        for (u32 slice_bin = slice_startBin, dest_bin=0; slice_bin < slice_endBin; ++slice_bin, ++dest_bin)
         {
             u32 xBin = axis == Qt::XAxis ? bin : slice_bin;
             u32 yBin = axis == Qt::XAxis ? slice_bin : bin;
-            double value = histo->getBinContent(xBin, yBin, { rrfX, rrfY });
-            h1d->setBinContent(slice_bin, value, value);
+            double value = histo->getBinContent(xBin, yBin, rrfs);
+            bool ok = h1d->setBinContent(dest_bin, value, value);
+            if (!ok)
+                qDebug("slice: warning, could not write to dest_bin=%u", dest_bin);
         }
 
         result.push_back(h1d);
