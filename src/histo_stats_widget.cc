@@ -153,6 +153,16 @@ void HistoStatsWidget::addSink(const SinkPtr &sink)
     d->repopulate();
 }
 
+void HistoStatsWidget::addHistograms(const Histo1DList &histos)
+{
+    for (const auto &histo: histos)
+    {
+        HistoEntry e{histo};
+        d->entries_.emplace_back(e);
+    }
+    d->repopulate();
+}
+
 void HistoStatsWidget::addHistogram(const std::shared_ptr<Histo1D> &histo)
 {
     HistoEntry e{histo};
@@ -190,7 +200,7 @@ void HistoStatsWidget::Private::repopulate()
 
     rowCount += Private::AdditionalTableRows;
 
-    QStringList hLabels{ "Histo", "EntryCount", "Mean", "RMS", "Gauss Mean", "FWHM"};
+    QStringList hLabels{ "Histo#", "EntryCount", "Mean", "RMS", "Gauss Mean", "FWHM" };
     auto model = std::make_unique<QStandardItemModel>(rowCount, hLabels.size());
     model->setHorizontalHeaderLabels(hLabels);
 
@@ -206,7 +216,7 @@ void HistoStatsWidget::Private::repopulate()
         }
     }
 
-    // Bold font for the
+    // Bold font for the additional bottom rows with aggregate statistics.
     auto boldFont = tableView_->font();
     boldFont.setBold(true);
 

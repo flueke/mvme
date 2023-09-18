@@ -17,6 +17,7 @@ class HistoStatsWidget: public QWidget
 
     public slots:
         void addSink(const SinkPtr &sink);
+        void addHistograms(const Histo1DList &histos);
         void addHistogram(const std::shared_ptr<Histo1D> &histo);
         void setXScaleDiv(const QwtScaleDiv &scaleDiv);
         void setEffectiveResolution(s32 binCount);
