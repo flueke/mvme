@@ -139,9 +139,9 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         }
 
         std::error_code vmeBlockReadSwapped(
-            u32 address, u16 maxTransfers, std::vector<u32> &dest, bool fifo = true)
+            u32 address, u8 amod, u16 maxTransfers, std::vector<u32> &dest, bool fifo = true)
         {
-            return updateState(m_mvlc.vmeBlockReadSwapped(address, maxTransfers, dest, fifo));
+            return updateState(m_mvlc.vmeBlockReadSwapped(address, amod, maxTransfers, dest, fifo));
         }
 
         std::error_code vmeBlockReadSwapped(

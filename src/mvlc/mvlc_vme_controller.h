@@ -77,8 +77,9 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         VMEError blockRead(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 transfers,
                            QVector<u32> *dest, bool fifo = true);
 
-        // Same as the above but the two 32-bit words for 64-bit reads are swapped.
-        VMEError blockReadSwapped(u32 address, u16 transfers,
+        // Same as the above but the two 32-bit words for 64-bit reads are
+        // swapped. amod must be an MBLT amod.
+        VMEError blockReadSwapped(u32 address, u8 amod, u16 transfers,
                                   QVector<u32> *dest, bool fifo = true);
 
         VMEError blockReadSwapped(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 transfers,

@@ -162,7 +162,7 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
                 result.error = mvlc->blockReadSwapped(
-                    cmd.address, cmd.transfers, &result.valueVector, false);
+                    cmd.address, cmd.addressMode, cmd.transfers, &result.valueVector, false);
             }
             else
             {
@@ -173,7 +173,7 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
                 result.error = mvlc->blockReadSwapped(
-                    cmd.address, cmd.transfers, &result.valueVector, true);
+                    cmd.address, cmd.addressMode, cmd.transfers, &result.valueVector, true);
             }
             else
             {
