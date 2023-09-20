@@ -331,10 +331,10 @@ VMEError MVLC_VMEController::read16(u32 address, u16 *value, u8 amod)
 
 
 VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
-                                       QVector<u32> *dest, u8 amod, bool /*fifo*/)
+                                       QVector<u32> *dest, u8 amod, bool fifo)
 {
     std::vector<u32> buffer;
-    auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, buffer);
+    auto ec = m_mvlc->vmeBlockRead(address, amod, transfers, buffer, fifo);
 
     dest->clear();
     dest->reserve(buffer.size());
@@ -344,10 +344,10 @@ VMEError MVLC_VMEController::blockRead(u32 address, u32 transfers,
 }
 
 VMEError MVLC_VMEController::blockRead(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate,
-                                       u16 transfers, QVector<u32> *dest)
+                                       u16 transfers, QVector<u32> *dest, bool fifo)
 {
     std::vector<u32> buffer;
-    auto ec = m_mvlc->vmeBlockRead(address, rate, transfers, buffer);
+    auto ec = m_mvlc->vmeBlockRead(address, rate, transfers, buffer, fifo);
 
     dest->clear();
     dest->reserve(buffer.size());
@@ -356,10 +356,10 @@ VMEError MVLC_VMEController::blockRead(u32 address, const mesytec::mvlc::Blk2eSS
     return error_wrap(*m_mvlc, ec);
 }
 
-VMEError MVLC_VMEController::blockReadSwapped(u32 address, u16 transfers, QVector<u32> *dest)
+VMEError MVLC_VMEController::blockReadSwapped(u32 address, u16 transfers, QVector<u32> *dest, bool fifo)
 {
     std::vector<u32> buffer;
-    auto ec = m_mvlc->vmeBlockReadSwapped(address, transfers, buffer);
+    auto ec = m_mvlc->vmeBlockReadSwapped(address, transfers, buffer, fifo);
 
     dest->clear();
     dest->reserve(buffer.size());
@@ -369,10 +369,10 @@ VMEError MVLC_VMEController::blockReadSwapped(u32 address, u16 transfers, QVecto
 }
 
 VMEError MVLC_VMEController::blockReadSwapped(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate,
-                                              u16 transfers, QVector<u32> *dest)
+                                              u16 transfers, QVector<u32> *dest, bool fifo)
 {
     std::vector<u32> buffer;
-    auto ec = m_mvlc->vmeBlockReadSwapped(address, rate, transfers, buffer);
+    auto ec = m_mvlc->vmeBlockReadSwapped(address, rate, transfers, buffer, fifo);
 
     dest->clear();
     dest->reserve(buffer.size());

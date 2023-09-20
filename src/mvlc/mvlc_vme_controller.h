@@ -59,6 +59,7 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         VMEError read32(u32 address, u32 *value, u8 amod) override;
         VMEError read16(u32 address, u16 *value, u8 amod) override;
 
+        // BLT and MBLT block reads.
         // Note: The MVLC does not use the FIFO flag, instead it does something
         // "somewhat illegal": it doesn't interrupt the block transfer after 256
         // cycles and instead just keeps on reading. This means it's up to the
@@ -66,13 +67,22 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         // only makes a difference if the controller interrupts the block
         // transfer and then starts a new one until the desired max cycles are
         // reached.
+        // Update for FW0036: VME reads are now split into FIFO and Mem modes,
+        // where Mem increments the read address, FIFO does not. This change was
+        // required to make the stack accu based "D-reads" work.
         VMEError blockRead(u32 address, u32 transfers,
-                           QVector<u32> *dest, u8 amod, bool /*fifo*/) override;
+                           QVector<u32> *dest, u8 amod, bool fifo = true) override;
 
-        VMEError blockRead(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 transfers, QVector<u32> *dest);
+        // 2eSST block read
+        VMEError blockRead(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 transfers,
+                           QVector<u32> *dest, bool fifo = true);
 
-        VMEError blockReadSwapped(u32 address, u16 transfers, QVector<u32> *dest);
-        VMEError blockReadSwapped(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 transfers, QVector<u32> *dest);
+        // Same as the above but the two 32-bit words for 64-bit reads are swapped.
+        VMEError blockReadSwapped(u32 address, u16 transfers,
+                                  QVector<u32> *dest, bool fifo = true);
+
+        VMEError blockReadSwapped(u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 transfers,
+                                  QVector<u32> *dest, bool fifo = true);
 
         //
         // MVLC specific methods
@@ -82,12 +92,6 @@ class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
         mvlc::ConnectionType connectionType() const { return m_mvlc->connectionType(); }
         mvlc::MVLCBasicInterface *getImpl() { return m_mvlc->getImpl(); }
         mvlc::Locks &getLocks() { return m_mvlc->getLocks(); }
-
-#if 0
-    public slots:
-        void enableNotificationPolling() { m_notificationPoller.enablePolling(); }
-        void disableNotificationPolling() { m_notificationPoller.disablePolling(); }
-#endif
 
     private slots:
         void onMVLCStateChanged(const MVLCObject::State &oldState,

@@ -127,27 +127,27 @@ class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
         }
 
         std::error_code vmeBlockRead(
-            u32 address, u8 amod, u16 maxTransfers, std::vector<u32> &dest)
+            u32 address, u8 amod, u16 maxTransfers, std::vector<u32> &dest, bool fifo = true)
         {
-            return updateState(m_mvlc.vmeBlockRead(address, amod, maxTransfers, dest));
+            return updateState(m_mvlc.vmeBlockRead(address, amod, maxTransfers, dest, fifo));
         }
 
         std::error_code vmeBlockRead(
-            u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 maxTransfers, std::vector<u32> &dest)
+            u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 maxTransfers, std::vector<u32> &dest, bool fifo = true)
         {
-            return updateState(m_mvlc.vmeBlockRead(address, rate, maxTransfers, dest));
+            return updateState(m_mvlc.vmeBlockRead(address, rate, maxTransfers, dest, fifo));
         }
 
         std::error_code vmeBlockReadSwapped(
-            u32 address, u16 maxTransfers, std::vector<u32> &dest)
+            u32 address, u16 maxTransfers, std::vector<u32> &dest, bool fifo = true)
         {
-            return updateState(m_mvlc.vmeBlockReadSwapped(address, maxTransfers, dest));
+            return updateState(m_mvlc.vmeBlockReadSwapped(address, maxTransfers, dest, fifo));
         }
 
         std::error_code vmeBlockReadSwapped(
-            u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 maxTransfers, std::vector<u32> &dest)
+            u32 address, const mesytec::mvlc::Blk2eSSTRate &rate, u16 maxTransfers, std::vector<u32> &dest, bool fifo = true)
         {
-            return updateState(m_mvlc.vmeBlockReadSwapped(address, rate, maxTransfers, dest));
+            return updateState(m_mvlc.vmeBlockReadSwapped(address, rate, maxTransfers, dest, fifo));
         }
 
         // stack uploading
