@@ -102,7 +102,6 @@
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>
     <file alias="splash-screen.png">resources/Splash_Screen.png</file>
-    <file alias="vme-script-help.html">resources/vme-script-help.html</file>
 
     <file alias="default_run_notes.txt">resources/default_run_notes.txt</file>
 
