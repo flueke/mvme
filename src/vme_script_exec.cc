@@ -162,12 +162,22 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
                 result.error = mvlc->blockReadSwapped(
-                    cmd.address, cmd.transfers, &result.valueVector);
+                    cmd.address, cmd.transfers, &result.valueVector, false);
             }
             else
             {
-                result.error = VMEError(VMEError::WrongControllerType,
-                                        QSL("MVLC controller required"));
+                result.error = VMEError(VMEError::WrongControllerType, QSL("MVLC controller required"));
+            } break;
+
+        case CommandType::MBLTSwappedFifo:
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
+            {
+                result.error = mvlc->blockReadSwapped(
+                    cmd.address, cmd.transfers, &result.valueVector, true);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType, QSL("MVLC controller required"));
             } break;
 
         case CommandType::Blk2eSST64:
@@ -175,7 +185,23 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             {
                 result.error = mvlc->blockRead(
                     cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate),
-                    cmd.transfers, &result.valueVector);
+                    cmd.transfers, &result.valueVector, false);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType, QSL("MVLC controller required"));
+            } break;
+
+        case CommandType::Blk2eSST64Fifo:
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
+            {
+                result.error = mvlc->blockRead(
+                    cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate),
+                    cmd.transfers, &result.valueVector, true);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType, QSL("MVLC controller required"));
             } break;
 
         case CommandType::Blk2eSST64Swapped:
@@ -183,7 +209,23 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             {
                 result.error = mvlc->blockReadSwapped(
                     cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate),
-                    cmd.transfers, &result.valueVector);
+                    cmd.transfers, &result.valueVector, false);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType, QSL("MVLC controller required"));
+            } break;
+
+        case CommandType::Blk2eSST64SwappedFifo:
+            if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
+            {
+                result.error = mvlc->blockReadSwapped(
+                    cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate),
+                    cmd.transfers, &result.valueVector, true);
+            }
+            else
+            {
+                result.error = VMEError(VMEError::WrongControllerType, QSL("MVLC controller required"));
             } break;
 
         case CommandType::VMUSB_WriteRegister:
@@ -428,8 +470,11 @@ QString format_result(const Result &result)
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
         case CommandType::MBLTSwapped:
+        case CommandType::MBLTSwappedFifo:
         case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Fifo:
         case CommandType::Blk2eSST64Swapped:
+        case CommandType::Blk2eSST64SwappedFifo:
         case CommandType::MVLC_Custom:
         case CommandType::MVLC_InlineStack:
             {

@@ -71,32 +71,57 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
                 } break;
 
             case CommandType::BLT:
+                {
+                    result.addVMEBlockRead(cmd.address, vme_address_modes::BLT32, cmd.transfers, false);
+                } break;
+
             case CommandType::BLTFifo:
                 {
-                    result.addVMEBlockRead(cmd.address, vme_address_modes::BLT32, cmd.transfers);
+                    result.addVMEBlockRead(cmd.address, vme_address_modes::BLT32, cmd.transfers, true);
                 } break;
 
             case CommandType::MBLT:
+                {
+                    result.addVMEBlockRead(cmd.address, vme_address_modes::MBLT64, cmd.transfers, false);
+                } break;
+
             case CommandType::MBLTFifo:
                 {
-                    result.addVMEBlockRead(cmd.address, vme_address_modes::MBLT64, cmd.transfers);
+                    result.addVMEBlockRead(cmd.address, vme_address_modes::MBLT64, cmd.transfers, true);
                 } break;
 
             case CommandType::MBLTSwapped:
                 {
-                    result.addVMEBlockReadSwapped(cmd.address, cmd.transfers);
+                    result.addVMEBlockReadSwapped(cmd.address, cmd.transfers, false);
+                } break;
+
+            case CommandType::MBLTSwappedFifo:
+                {
+                    result.addVMEBlockReadSwapped(cmd.address, cmd.transfers, true);
                 } break;
 
             case CommandType::Blk2eSST64:
                 {
                     result.addVMEBlockRead(
-                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers);
+                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers, false);
+                } break;
+
+            case CommandType::Blk2eSST64Fifo:
+                {
+                    result.addVMEBlockRead(
+                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers, true);
                 } break;
 
             case CommandType::Blk2eSST64Swapped:
                 {
                     result.addVMEBlockReadSwapped(
-                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers);
+                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers, false);
+                } break;
+
+            case CommandType::Blk2eSST64SwappedFifo:
+                {
+                    result.addVMEBlockReadSwapped(
+                        cmd.address, static_cast<mesytec::mvlc::Blk2eSSTRate>(cmd.blk2eSSTRate), cmd.transfers, true);
                 } break;
 
             case CommandType::Marker:

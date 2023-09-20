@@ -842,8 +842,11 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("mblt"),                  parseBlockTransfer },
     { QSL("mbltfifo"),              parseBlockTransfer },
     { QSL("mblts"),                 parseBlockTransfer },
+    { QSL("mbltsfifo"),             parseBlockTransfer },
     { QSL("2esst"),                 parse2esstTransfer },
+    { QSL("2esstfifo"),             parse2esstTransfer },
     { QSL("2essts"),                parse2esstTransfer },
+    { QSL("2esstsfifo"),            parse2esstTransfer },
 
     { QSL("setbase"),               parseSetBase },
     { QSL("resetbase"),             parseResetBase },
@@ -1872,8 +1875,11 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MBLT,                    QSL("mblt") },
     { CommandType::MBLTFifo,                QSL("mbltfifo") },
     { CommandType::MBLTSwapped,             QSL("mblts") },
+    { CommandType::MBLTSwappedFifo,         QSL("mbltsfifo") },
     { CommandType::Blk2eSST64,              QSL("2esst") },
+    { CommandType::Blk2eSST64Fifo,          QSL("2esstfifo") },
     { CommandType::Blk2eSST64Swapped,       QSL("2essts") },
+    { CommandType::Blk2eSST64SwappedFifo,   QSL("2esstsfifo") },
     { CommandType::SetBase,                 QSL("setbase") },
     { CommandType::ResetBase,               QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister,     QSL("vmusb_write_reg") },
@@ -2043,6 +2049,7 @@ QString to_string(const Command &cmd)
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
         case CommandType::MBLTSwapped:
+        case CommandType::MBLTSwappedFifo:
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
@@ -2052,7 +2059,9 @@ QString to_string(const Command &cmd)
             } break;
 
         case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Fifo:
         case CommandType::Blk2eSST64Swapped:
+        case CommandType::Blk2eSST64SwappedFifo:
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
@@ -2224,8 +2233,11 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
         case CommandType::MBLTSwapped:
+        case CommandType::MBLTSwappedFifo:
         case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Fifo:
         case CommandType::Blk2eSST64Swapped:
+        case CommandType::Blk2eSST64SwappedFifo:
         case CommandType::MVLC_ReadToAccu:
             cmd.address += baseAddress;
             break;

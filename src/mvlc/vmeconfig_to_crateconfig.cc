@@ -49,6 +49,12 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         case CommandType::BLT:
+            dstCmd.type = mvlcCT::VMEReadMem;
+            dstCmd.amod = mesytec::mvlc::vme_amods::BLT32;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
         case CommandType::BLTFifo:
             dstCmd.type = mvlcCT::VMERead;
             dstCmd.amod = mesytec::mvlc::vme_amods::BLT32;
@@ -57,6 +63,12 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         case CommandType::MBLT:
+            dstCmd.type = mvlcCT::VMEReadMem;
+            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
         case CommandType::MBLTFifo:
             dstCmd.type = mvlcCT::VMERead;
             dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
@@ -65,13 +77,28 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         case CommandType::MBLTSwapped:
-            dstCmd.type = mvlcCT::VMEMBLTSwapped;
+            dstCmd.type = mvlcCT::VMEReadMemSwapped;
+            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
+        case CommandType::MBLTSwappedFifo:
+            dstCmd.type = mvlcCT::VMEReadSwapped;
             dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
 
         case CommandType::Blk2eSST64:
+            dstCmd.type = mvlcCT::VMEReadMem;
+            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
+        case CommandType::Blk2eSST64Fifo:
             dstCmd.type = mvlcCT::VMERead;
             dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
             dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
@@ -80,7 +107,15 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             break;
 
         case CommandType::Blk2eSST64Swapped:
-            dstCmd.type = mvlcCT::VMEMBLTSwapped;
+            dstCmd.type = mvlcCT::VMEReadMemSwapped;
+            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
+            dstCmd.address = srcCmd.address;
+            dstCmd.transfers = srcCmd.transfers;
+            break;
+
+        case CommandType::Blk2eSST64SwappedFifo:
+            dstCmd.type = mvlcCT::VMEReadSwapped;
             dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
             dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
             dstCmd.address = srcCmd.address;
@@ -141,6 +176,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.value = srcCmd.value; // clocks
             break;
 
+        case CommandType::Invalid:
         case CommandType::SetBase:
         case CommandType::ResetBase:
         case CommandType::MetaBlock:
@@ -149,8 +185,12 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
         case CommandType::Accu_Set:
         case CommandType::Accu_MaskAndRotate:
         case CommandType::Accu_Test:
+        case CommandType::MVLC_InlineStack:
+        case CommandType::VMUSB_ReadRegister:
+        case CommandType::VMUSB_WriteRegister:
             break;
 
+        #if 0
         default:
             spdlog::warn("{}: unhandled source command type {} ({})",
                          __PRETTY_FUNCTION__,
@@ -162,6 +202,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
                  to_string(srcCmd.type).toStdString(),
                  static_cast<int>(srcCmd.type)));
             //break;
+        #endif
     }
 
     return dstCmd;

@@ -40,7 +40,7 @@ widths:
   | a32                          |
   +------------------------------+
 
-Additionally raw numeric amod values (e.g. 0x39) are also accepted.
+Additionally raw numeric amode values (e.g. 0x39) are also accepted.
 
 .. only:: html
 
@@ -57,7 +57,7 @@ Additionally raw numeric amod values (e.g. 0x39) are also accepted.
   | d32                         |
   +-----------------------------+
 
-The combination of amode, dwidth and BLT/MBLT yields a VME address modifier to be sent over the bus.
+The combination of amode, dwidth and BLT/MBLT/2eSST yields a VME address modifier to be sent over the bus.
 Internally these non-privileged (aka user) address modifiers will be used:
 
 .. table:: VME address modifiers used by mvme
@@ -146,8 +146,11 @@ mvme supports the following read-only block transfer commands:
 * **mblt** *<amode> <address> <count>*
 * **mbltfifo** *<amode> <address> <count>*
 * **mblts** *<amode> <address> <count>* (**MVLC only**)
+* **mbltsfifo** *<amode> <address> <count>* (**MVLC only**)
 * **2esst** *<address> <rate> <count>* (**MVLC only**)
+* **2esstfifo** *<address> <rate> <count>* (**MVLC only**)
 * **2essts** *<address> <rate> <count>* (**MVLC only**)
+* **2esstsfifo** *<address> <rate> <count>* (**MVLC only**)
 
 **blt** and **bltfifo** transfer *<count>* number of 32-bit words, **mblt** and **mbltfifo**
 transfer 64-bit words. **2esst** uses the 2eSST protocol for data transfer.

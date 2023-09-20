@@ -108,10 +108,13 @@ enum class CommandType
     MBLT,
     MBLTFifo,
     MBLTSwapped,
+    MBLTSwappedFifo,
 
     // fast source synchronous block transfers
     Blk2eSST64,
+    Blk2eSST64Fifo,
     Blk2eSST64Swapped,
+    Blk2eSST64SwappedFifo,
 
     // Meta commands to temporarily use a different base address for the
     // following commands and then reset back to the default base address.
