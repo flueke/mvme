@@ -7,9 +7,12 @@
 namespace vme_script
 {
 
+using AddressIncrementMode = mesytec::mvlc::AddressIncrementMode;
+
 struct RunState
 {
     u32 accu = {};
+    AddressIncrementMode addrIncMode = AddressIncrementMode::Memory;
 };
 
 struct LIBMVME_CORE_EXPORT Result
