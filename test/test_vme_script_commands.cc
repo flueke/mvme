@@ -262,10 +262,47 @@ TEST(vme_script_commands, BlockReads)
         ASSERT_EQ(cmd.addressMode, 0x42);
         ASSERT_EQ(cmd.transfers, 1000);
     }
+
+    // mbltfifo a32
+    {
+        auto input = QSL("mbltfifo a32 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::MBLTFifo);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::MBLT64);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // mblts a32 - swapped mblt
+    {
+        auto input = QSL("mblts a32 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::MBLTSwapped);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::MBLT64);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // mbltsfifo a32 - swapped mblt
+    {
+        auto input = QSL("mbltsfifo a32 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::MBLTSwappedFifo);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::MBLT64);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
 }
 
 TEST(vme_script_commands, BlockRead2eSST)
 {
+    // 2eSST 160Mb/s
     {
         QStringList inputs =
         {
@@ -286,6 +323,7 @@ TEST(vme_script_commands, BlockRead2eSST)
         }
     }
 
+    // 2eSST 276Mb/s
     {
         QStringList inputs =
         {
@@ -306,6 +344,7 @@ TEST(vme_script_commands, BlockRead2eSST)
         }
     }
 
+    // 2eSST 320Mb/s
     {
         QStringList inputs =
         {
@@ -324,6 +363,42 @@ TEST(vme_script_commands, BlockRead2eSST)
             ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
             ASSERT_EQ(cmd.transfers, 54323);
         }
+    }
+
+    // 2esst fifo
+    {
+        auto input = QSL("2esstfifo 0x1236 320mb 54323");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Fifo);
+        ASSERT_EQ(cmd.address, 0x1236);
+        ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+        ASSERT_EQ(cmd.transfers, 54323);
+    }
+
+    // 2essts
+    {
+        auto input = QSL("2essts 0x1236 320mb 54323");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Swapped);
+        ASSERT_EQ(cmd.address, 0x1236);
+        ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+        ASSERT_EQ(cmd.transfers, 54323);
+    }
+
+    // 2esstsfifo
+    {
+        auto input = QSL("2esstsfifo 0x1236 320mb 54323");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::Blk2eSST64SwappedFifo);
+        ASSERT_EQ(cmd.address, 0x1236);
+        ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+        ASSERT_EQ(cmd.transfers, 54323);
     }
 }
 
