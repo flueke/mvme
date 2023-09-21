@@ -2,7 +2,7 @@
 #
 # The MVLC provides 8 64-bit counters available via the internal VME interface.
 # The value of each counter is split across 4 16-bit registers.
-# Counter unit addresses go from 0x0308 to 0x0310. To read out a counter the
+# Counter unit addresses go from 0x0308 to 0x030f. To read out a counter the
 # corresponding unit has to be selected first, then the counter has to be
 # latched and finally the 4 16-bit registers can be read out.
 #
