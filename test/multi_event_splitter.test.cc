@@ -244,14 +244,15 @@ TEST(MultiEventSplitter, WithSizeExceeded)
 
     ASSERT_TRUE(splitEvents.size() == 2);
 
-    ASSERT_TRUE(splitEvents[0].size() == 3);
+    ASSERT_EQ(splitEvents[0].size(), 3);
     { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(splitEvents[0][0], expected); }
     { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(splitEvents[0][1], expected); }
     { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(splitEvents[0][2], expected); }
 
-    ASSERT_TRUE(splitEvents[1].size() == 2);
+    ASSERT_EQ(splitEvents[1].size(), 3);
     { std::vector<u32> expected = { 0x0201, 0x2221 }; ASSERT_EQ(splitEvents[1][0], expected); }
     { std::vector<u32> expected = { 0x0201, 0x2222 }; ASSERT_EQ(splitEvents[1][1], expected); }
+    { std::vector<u32> expected = { 0x0202, 0x2223 }; ASSERT_EQ(splitEvents[1][2], expected); }
 }
 
 TEST(MultiEventSplitter, NoSizeSameCount)
