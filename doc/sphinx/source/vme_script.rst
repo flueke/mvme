@@ -113,20 +113,26 @@ Example: ``0x6070 3`` is the same as ``write a32 d16 0x6070 3``
 
 Reading
 ~~~~~~~
-* **read** *<amode> <dwidth> <address> ['slow'|'late']*
-* **readabs** *<amode> <dwidth> <address> ['slow'|'late']*
+* **read** *<amode> <dwidth> <address> ['slow'|'late'] ['fifo', 'mem']*
+* **readabs** *<amode> <dwidth> <address> ['slow'|'late'] ['fifo', 'mem']*
 
 Reads a single value from the given *<address>*.
 
-**readabs** uses the given *<address>* unmodified, meaning the module base address will not be added.
+**readabs** uses the given *<address>* unmodified, meaning the module base
+address will not be added.
 
-The optional last argument 'slow'/'late' is implemented for the MVLC only. It
-causes the VME read to be carried out on the trailing edge of the modules DTACK
-signal instead of at the leading edge. This is a workaround for VME modules
-which do signal DTACK while not having the actual data ready yet.
+The optional argument 'slow'|'late' is implemented for the MVLC only. It causes
+the VME read to be carried out on the trailing edge of the modules DTACK signal
+instead of at the leading edge. This is a workaround for VME modules which do
+signal DTACK while not having the actual data ready yet.
+
+The second optional argument 'fifo'|'mem' is also MVLC only. It controls if the
+read address is kept as is (fifo) or incremented (mem) for VME reads that are
+turned into block reads due to the MVLC stack accumulator being set.
 
 During manual script execution the value read from the VME bus is stored in the
-script local accumulator. The accumulator can be modified and tested using
+script local software accumulator. The accumulator can be modified and tested
+using
 :ref:`accu_mask_rotate <vme-command-accu-mask-rotate>` and
 :ref:`accu_test <vme-command-accu-test>`.
 
@@ -339,16 +345,6 @@ and prints a message containing the result.
 MVLC special commands
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. _vme_command-mvlc_set_address_inc_mode:
-
-mvlc_set_address_inc_mode
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **mvlc_set_address_inc_mode** *('fifo'|'mem')*
-
-Sets the address increment mode for subsequent VME block reads. If *fifo* is
-selected the read address will not be incremented.
-
 .. _vme_command-mvlc_wait:
 
 mvlc_wait
@@ -431,10 +427,10 @@ allows making use of features that require a stack context, e.g. the MVLC stack
 accumulator logic.
 
 mvlc_stack_begin/end only has an effect when manually executing the VME Script,
-e.g. via *Run* in the VME Script Editor. During the DAQ initialization phase,
-if a script that is part of a MVCL readout stack (e.g. module readout) is
-processed, the mvlc_stack_begin/end lines do not have any effect (the commands
-inside the block still do!).
+e.g. via *Run* in the VME Script Editor. During the DAQ initialization phase, if
+a script that is part of a MVLC readout stack (e.g. module readout) is
+processed, the mvlc_stack_begin/end lines are ignored and the block contents are
+used normally as part of the resulting readout stack.
 
 .. _vme_command-mvlc_custom_begin:
 
