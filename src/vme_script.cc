@@ -334,6 +334,7 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
         case CommandType::MBLT:
         case CommandType::MBLTFifo:
         case CommandType::MBLTSwapped:
+        case CommandType::MBLTSwappedFifo:
             if (amod == vme_amods::A32)
                 amod = vme_amods::a32UserBlock64;
             break;
