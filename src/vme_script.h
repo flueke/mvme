@@ -195,7 +195,14 @@ struct Command
     std::vector<u32> mvlcCustomStack;
     // vme script parsed from a mvlc_stack_begin block
     std::vector<std::shared_ptr<Command>> mvlcInlineStack;
+
+    // 'late' flag for read, readabs and mvlc_read_to_accu.
     bool mvlcSlowRead = false;
+
+    // 'mem' mode if false, 'fifo' mode otherwise. Only used for the 'read' and
+    // 'readabs' commands to control the address increments for fake block reads
+    // resulting from MVLC stack accumulator use.
+    bool mvlcFifoMode = true;
 
     // for the internal accu_test function
     AccuTestOp accuTestOp = {};

@@ -67,7 +67,7 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::Read:
             case CommandType::ReadAbs:
                 {
-                    result.addVMERead(cmd.address, cmd.addressMode, cmd.dataWidth, cmd.mvlcSlowRead);
+                    result.addVMERead(cmd.address, cmd.addressMode, cmd.dataWidth, cmd.mvlcSlowRead, cmd.mvlcFifoMode);
                 } break;
 
             case CommandType::BLT:

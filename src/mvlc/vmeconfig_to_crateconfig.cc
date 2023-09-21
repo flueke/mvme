@@ -18,7 +18,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
     {
         case CommandType::Read:
         case CommandType::ReadAbs:
-            dstCmd.type = mvlcCT::VMERead;
+            dstCmd.type = srcCmd.mvlcFifoMode ? mvlcCT::VMERead : mvlcCT::VMEReadMem;
             dstCmd.address = srcCmd.address;
             dstCmd.amod = srcCmd.addressMode;
             dstCmd.dataWidth = (srcCmd.dataWidth == vme_script::DataWidth::D16

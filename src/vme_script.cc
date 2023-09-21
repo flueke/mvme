@@ -202,30 +202,34 @@ QString parseValue(const QString &str)
 
 Command parseRead(const QStringList &args, int lineNumber)
 {
-    auto usage = QSL("read <address_mode> <data_width> <address> ['slow'|'late']");
+    auto usage = QSL("read/readabs <address_mode> <data_width> <address> ['slow'|'late'] ['fifo'|'mem']");
 
-    if (args.size() < 4 || args.size() > 5)
+    if (args.size() < 4 || args.size() > 6)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
+    auto argIter = std::begin(args);
+
     Command result;
-    result.type = commandType_from_string(args[0]);
-    result.addressMode = parseAddressMode(args[1]);
-    result.dataWidth = parseDataWidth(args[2]);
-    result.address = parseAddress(args[3]);
-
-    if (args.size() == 5)
-    {
-        if (auto mode = args[4].toLower();
-            mode != "slow" && mode != "late")
-        {
-            throw ParseError(QSL("Unknown argument '%1', expected 'slow'|'late' or no argument")
-                             .arg(args[4]));
-        }
-
-        result.mvlcSlowRead = true;
-    }
-
+    result.type = commandType_from_string(*argIter++);
+    result.addressMode = parseAddressMode(*argIter++);
+    result.dataWidth = parseDataWidth(*argIter++);
+    result.address = parseAddress(*argIter++);
     result.lineNumber = lineNumber;
+
+    while (argIter != std::end(args))
+    {
+        auto arg = argIter->toLower();
+
+        if (arg == "slow" || arg == "late")
+            result.mvlcSlowRead = true;
+        else if (arg == "fifo")
+            result.mvlcFifoMode = true;
+        else if (arg == "mem")
+            result.mvlcFifoMode = false;
+        else
+            throw ParseError(QSL("Unknown argument to '%1': '%2'. Expected 'slow'|'late'|'fifo'|'mem' or no extra argument")
+                .arg(to_string(result.type)).arg(arg));
+    }
 
     return result;
 }
@@ -670,7 +674,7 @@ Command parse_mvlc_set_accu(const QStringList &args, int lineNumber)
 Command parse_mvlc_read_to_accu(const QStringList &args, int lineNumber)
 {
     // same as parseRead()
-    auto usage = QSL("mvlc_read_to_accu <address_mode> <data_width> <address> ['slow']");
+    auto usage = QSL("mvlc_read_to_accu <address_mode> <data_width> <address> ['slow'|'late']");
 
     if (args.size() < 4 || args.size() > 5)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
@@ -683,9 +687,9 @@ Command parse_mvlc_read_to_accu(const QStringList &args, int lineNumber)
 
     if (args.size() == 5)
     {
-        if (args[4].toLower() != "slow")
+        if (args[4].toLower() != "slow" && args[4].toLower() != "late")
         {
-            throw ParseError(QSL("Unknown argument '%1', expected 'slow' or no argument")
+            throw ParseError(QSL("Unknown argument '%1', expected 'slow'|'late' or no argument")
                              .arg(args[4]));
         }
 
@@ -1997,6 +2001,10 @@ QString to_string(const Command &cmd)
                     .arg(amod_to_string(cmd.addressMode))
                     .arg(to_string(cmd.dataWidth))
                     .arg(format_hex(cmd.address));
+                if (cmd.mvlcSlowRead)
+                    buffer += " late";
+                if (!cmd.mvlcFifoMode)
+                    buffer += " mem";
             } break;
 
         case CommandType::Write:
