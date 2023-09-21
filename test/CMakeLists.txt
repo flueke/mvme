@@ -1,5 +1,3 @@
-if (MVME_BUILD_TESTS)
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5Gui REQUIRED)
@@ -31,16 +29,13 @@ target_link_libraries(test_data_filter PRIVATE liba2_static)
 add_mvme_test(test_leaky_bucket test_leaky_bucket.cc)
 
 # google/benchmark based tests
-find_library(GOOGLE_BENCHMARK benchmark)
-find_path(GOOGLE_BENCHMARK_INCLUDE_DIR "benchmark/benchmark.h")
-include_directories(${GOOGLE_BENCHMARK_INCLUDE_DIR})
 find_package(Threads)
 
 function(add_mvme_bench exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
     target_link_libraries(${exe_name}
         PRIVATE libmvme
-        PRIVATE ${GOOGLE_BENCHMARK}
+        PRIVATE benchmark::benchmark
         PRIVATE Threads::Threads)
     if (WIN32)
         target_link_libraries(${exe_name}
@@ -84,5 +79,3 @@ add_mvme_core_gtest(test_vme_script_commands "test_vme_script_commands.cc")
 add_mvme_gtest(test_logfile_helper "logfile_helper.test.cc")
 add_mvme_gtest(test_multi_event_splitter "multi_event_splitter.test.cc")
 add_mvme_gtest(test_analysis_v3_to_v4_migration "analysis_v3_to_v4_migration.test.cc")
-
-endif(MVME_BUILD_TESTS)
