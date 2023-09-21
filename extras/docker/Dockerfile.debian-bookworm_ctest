@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . /sources
 WORKDIR /build
 
+ENV QT_QPA_PLATFORM=minimal
+
 # Installation is just to try it out, it's not required to run the test cases.
 RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
           -DMVME_BUILD_TESTS=ON /sources \
