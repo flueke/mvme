@@ -25,7 +25,6 @@
 #include "stream_worker_base.h"
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
-#include <mesytec-mvlc/mesy_vme_format_checker.h>
 
 #include "libmvme_export.h"
 
@@ -240,7 +239,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mesytec::mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
         mesytec::mvlc::EventBuilder m_eventBuilder;
         mesytec::mvlc::Callbacks m_eventBuilderCallbacks;
-        std::unique_ptr<mesytec::mvlc::FormatCheckerState> m_formatCheckerState;
 
         EventRecord m_singleStepEventRecord = {};
 
