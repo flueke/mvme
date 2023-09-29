@@ -300,105 +300,251 @@ TEST(vme_script_commands, BlockReads)
     }
 }
 
-TEST(vme_script_commands, BlockRead2eSST)
+TEST(vme_script_commands, BlockRead2eSstFifo)
 {
-    // 2eSST 160Mb/s
-    {
-        QStringList inputs =
-        {
-            "2esst 0x1234 0 54321",
-            "2esst 0x1234 160 54321",
-            "2esst 0x1234 160mb 54321",
-        };
+    const auto commands = { "2esst", "2esstfifo" };
 
-        for (const auto &input: inputs)
+    {
+        const auto rates = { "0", "160", "160mb" };
+
+        for (const auto &cmd: commands)
         {
-            auto script = vme_script::parse(input);
-            ASSERT_EQ(script.size(), 1);
-            auto &cmd = script.first();
-            ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
-            ASSERT_EQ(cmd.address, 0x1234);
-            ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate160MB);
-            ASSERT_EQ(cmd.transfers, 54321);
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Fifo);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate160MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
         }
     }
 
-    // 2eSST 276Mb/s
     {
-        QStringList inputs =
-        {
-            "2esst 0x1235 1 54322",
-            "2esst 0x1235 276 54322",
-            "2esst 0x1235 276mb 54322",
-        };
+        const auto rates = { "1", "276", "276mb" };
 
-        for (const auto &input: inputs)
+        for (const auto &cmd: commands)
         {
-            auto script = vme_script::parse(input);
-            ASSERT_EQ(script.size(), 1);
-            auto &cmd = script.first();
-            ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
-            ASSERT_EQ(cmd.address, 0x1235);
-            ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate276MB);
-            ASSERT_EQ(cmd.transfers, 54322);
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Fifo);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate276MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
         }
     }
 
-    // 2eSST 320Mb/s
     {
-        QStringList inputs =
-        {
-            "2esst 0x1236 2 54323",
-            "2esst 0x1236 320 54323",
-            "2esst 0x1236 320mb 54323",
-        };
+        const auto rates = { "2", "320", "320mb" };
 
-        for (const auto &input: inputs)
+        for (const auto &cmd: commands)
         {
-            auto script = vme_script::parse(input);
-            ASSERT_EQ(script.size(), 1);
-            auto &cmd = script.first();
-            ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
-            ASSERT_EQ(cmd.address, 0x1236);
-            ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
-            ASSERT_EQ(cmd.transfers, 54323);
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Fifo);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
+    }
+}
+
+TEST(vme_script_commands, BlockRead2eSstSwappedFifo)
+{
+    const auto commands = { "2essts", "2esstsfifo" };
+
+    {
+        const auto rates = { "0", "160", "160mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64SwappedFifo);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate160MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
         }
     }
 
-    // 2esst fifo
     {
-        auto input = QSL("2esstfifo 0x1236 320mb 54323");
-        auto script = vme_script::parse(input);
-        ASSERT_EQ(script.size(), 1);
-        auto &cmd = script.first();
-        ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Fifo);
-        ASSERT_EQ(cmd.address, 0x1236);
-        ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
-        ASSERT_EQ(cmd.transfers, 54323);
+        const auto rates = { "1", "276", "276mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64SwappedFifo);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate276MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
     }
 
-    // 2essts
     {
-        auto input = QSL("2essts 0x1236 320mb 54323");
-        auto script = vme_script::parse(input);
-        ASSERT_EQ(script.size(), 1);
-        auto &cmd = script.first();
-        ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Swapped);
-        ASSERT_EQ(cmd.address, 0x1236);
-        ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
-        ASSERT_EQ(cmd.transfers, 54323);
+        const auto rates = { "2", "320", "320mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64SwappedFifo);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
+    }
+}
+
+TEST(vme_script_commands, BlockRead2eSstMem)
+{
+    const auto commands = { "2esstmem" };
+
+    {
+        const auto rates = { "0", "160", "160mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate160MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
     }
 
-    // 2esstsfifo
     {
-        auto input = QSL("2esstsfifo 0x1236 320mb 54323");
-        auto script = vme_script::parse(input);
-        ASSERT_EQ(script.size(), 1);
-        auto &cmd = script.first();
-        ASSERT_EQ(cmd.type, CommandType::Blk2eSST64SwappedFifo);
-        ASSERT_EQ(cmd.address, 0x1236);
-        ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
-        ASSERT_EQ(cmd.transfers, 54323);
+        const auto rates = { "1", "276", "276mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate276MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
+    }
+
+    {
+        const auto rates = { "2", "320", "320mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
+    }
+}
+
+TEST(vme_script_commands, BlockRead2eSstSwappedMem)
+{
+    const auto commands = { "2esstsmem" };
+
+    {
+        const auto rates = { "0", "160", "160mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Swapped);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate160MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
+    }
+
+    {
+        const auto rates = { "1", "276", "276mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Swapped);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate276MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
+    }
+
+    {
+        const auto rates = { "2", "320", "320mb" };
+
+        for (const auto &cmd: commands)
+        {
+            for (const auto &rate: rates)
+            {
+                auto input = QSL("%1 0x1234 %2 54321").arg(cmd).arg(rate);
+                auto script = vme_script::parse(input);
+                ASSERT_EQ(script.size(), 1);
+                auto &cmd = script.first();
+                ASSERT_EQ(cmd.type, CommandType::Blk2eSST64Swapped);
+                ASSERT_EQ(cmd.address, 0x1234);
+                ASSERT_EQ(cmd.blk2eSSTRate, Blk2eSSTRate::Rate320MB);
+                ASSERT_EQ(cmd.transfers, 54321);
+            }
+        }
     }
 }
 

@@ -830,8 +830,10 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("mbltsfifo"),             parseBlockTransfer },
     { QSL("2esst"),                 parse2esstTransfer },
     { QSL("2esstfifo"),             parse2esstTransfer },
+    { QSL("2esstmem"),              parse2esstTransfer },
     { QSL("2essts"),                parse2esstTransfer },
     { QSL("2esstsfifo"),            parse2esstTransfer },
+    { QSL("2esstsmem"),             parse2esstTransfer },
 
     { QSL("setbase"),               parseSetBase },
     { QSL("resetbase"),             parseResetBase },
@@ -1846,7 +1848,7 @@ VMEScript parse(
     }
 }
 
-static const QMap<CommandType, QString> commandTypeToString =
+static const QMultiMap<CommandType, QString> commandTypeToString =
 {
     { CommandType::Read,                    QSL("read") },
     { CommandType::ReadAbs,                 QSL("readabs") },
@@ -1860,10 +1862,12 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MBLTFifo,                QSL("mbltfifo") },
     { CommandType::MBLTSwapped,             QSL("mblts") },
     { CommandType::MBLTSwappedFifo,         QSL("mbltsfifo") },
-    { CommandType::Blk2eSST64,              QSL("2esst") },
+    { CommandType::Blk2eSST64Fifo,          QSL("2esst") },
     { CommandType::Blk2eSST64Fifo,          QSL("2esstfifo") },
-    { CommandType::Blk2eSST64Swapped,       QSL("2essts") },
+    { CommandType::Blk2eSST64,              QSL("2esstmem") },
+    { CommandType::Blk2eSST64SwappedFifo,   QSL("2essts") },
     { CommandType::Blk2eSST64SwappedFifo,   QSL("2esstsfifo") },
+    { CommandType::Blk2eSST64Swapped,       QSL("2esstsmem") },
     { CommandType::SetBase,                 QSL("setbase") },
     { CommandType::ResetBase,               QSL("resetbase") },
     { CommandType::VMUSB_WriteRegister,     QSL("vmusb_write_reg") },
