@@ -142,6 +142,10 @@ using
 .. _vme-command-mbltfifo:
 .. _vme-command-2esst:
 .. _vme-command-2essts:
+.. _vme-command-2esstfifo:
+.. _vme-command-2esstsfifo:
+.. _vme-command-2esstmem:
+.. _vme-command-2esstsmem:
 
 Block Transfers
 ~~~~~~~~~~~~~~~
@@ -581,8 +585,9 @@ Example
 Example Script
 --------------
 ::
-    # BLT readout from VME address (module specific base address + 0x0000)
-    # maximum number of transfers = 10000. Readout stops at BERR or when the
+
+    # BLT readout from VME address (module specific base address + 0x0000).
+    # Maximum number of transfers = 10000. Readout stops at BERR or when the
     # number of transfers is reached.
     bltfifo a32 0x0000 10000
 

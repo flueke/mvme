@@ -4,6 +4,31 @@
 Changelog
 ##################################################
 
+Version 1.9.0
+-------------
+
+* Major mesytec-mvlc update for MVLC FW0036 and later:
+
+  - MVLC now supports the FIFO flag for block reads. In earlier firmware
+    revisions FIFO was always used and memory reads with incrementing addresses
+    were not possible.
+
+  - Larger command stack uploads are now possible. The stack is uploaded in
+    parts which size depends on the transport being used (ETH is limited by the
+    max UDP packet size).
+
+* Implement 2D Histogram slicing. Works for X and Y and uses the currently
+  visible area. The slices are opened in a new 1D histogram window.
+
+* Merge PR from wvonseeg to make the sparse ExportSink python code work with
+  python-3.10.
+
+* vme_templates: Add hardware id checks for mesytec modules similar to MDPP-16
+  firmware type checks.
+
+* vme_script: Implement new commands for 2eSST fifo and memory block reads:
+  ``2esstfifo``, ``2esstsfifo``, ``2esstmem``, ``2esstsmem``.
+
 Version 1.8.2
 -------------
 * Better fix for the EventServer reconnect race: clients are not disconnected
