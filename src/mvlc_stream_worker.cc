@@ -204,6 +204,9 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // eventData
         analysis->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
 
+        for (auto c: m_moduleConsumers)
+            c->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
+
         for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
         {
             auto &moduleData = moduleDataList[parserModuleIndex];
@@ -211,10 +214,6 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
             if (moduleData.data.size)
             {
-                for (auto c: m_moduleConsumers)
-                    c->processModuleData(
-                        eventIndex, moduleIndex, moduleData.data.data, moduleData.data.size);
-
                 if (m_diag)
                     m_diag->processModuleData(
                         eventIndex, moduleIndex, moduleData.data.data, moduleData.data.size);

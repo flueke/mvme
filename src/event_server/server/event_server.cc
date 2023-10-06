@@ -643,7 +643,6 @@ void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
     assert(m_d->m_runInProgress);
 }
 
-#if 0
 void EventServer::processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
 {
     Q_UNUSED(crateIndex);
@@ -658,7 +657,6 @@ void EventServer::processModuleData(s32 crateIndex, s32 eventIndex, const Module
     // sources.
     assert(m_d->m_runInProgress);
 }
-#endif
 
 void EventServer::processTimetick()
 {

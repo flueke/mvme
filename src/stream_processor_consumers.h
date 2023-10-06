@@ -37,12 +37,19 @@ class LIBMVME_EXPORT IStreamModuleConsumer: public StreamConsumerBase
 
         virtual void beginEvent(s32 eventIndex) = 0;
         virtual void endEvent(s32 eventIndex) = 0;
-        virtual void processModuleData(s32 eventIndex,
-                                       s32 moduleIndex,
-                                       const u32 *data, u32 size) = 0;
-        // FIXME: use this one vme -> analysis index mapping has been figured out
-        //virtual void processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount) = 0;
-        // FIXME: Having both system event and timetick methods is somewhat redundant.
+
+        // Old interface still used by MVMEStreamProcessor.
+        virtual void processModuleData(s32 eventIndex, s32 moduleIndex,
+            const u32 *data, u32 size) = 0;
+
+        // New interface used by the MVLC code. Requires only one call per event
+        // instead of one per module.
+        virtual void processModuleData(s32 crateIndex, s32 eventIndex,
+            const ModuleData *moduleDataList, unsigned moduleCount) = 0;
+
+        // Note: Having both system event and timetick methods is not redunant:
+        // during live DAQ runs the latter method is called while during replays
+        // timeticks are extracted from incoming system event buffers.
         virtual void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) = 0;
         virtual void processTimetick() = 0;
 };

@@ -24,8 +24,7 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         void beginEvent(s32 eventIndex) override;
         void endEvent(s32 eventIndex) override;
         void processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size) override;
-        // FIXME: use this one vme -> analysis index mapping has been figured out
-        //void processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount) override;
+        void processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount) override;
         void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) override;
         void processTimetick() override {}; // noop
 
