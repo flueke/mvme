@@ -283,7 +283,6 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             } break;
 
         case CommandType::MVLC_WriteSpecial:
-        case CommandType::MVLC_SetAddressIncMode:
         case CommandType::MVLC_Wait:
         case CommandType::MVLC_SignalAccu:
         case CommandType::MVLC_MaskShiftAccu:
@@ -439,7 +438,6 @@ QString format_result(const Result &result)
         case CommandType::MetaBlock:
         case CommandType::SetVariable:
         case CommandType::MVLC_WriteSpecial:
-        case CommandType::MVLC_SetAddressIncMode:
         case CommandType::MVLC_Wait:
         case CommandType::MVLC_SignalAccu:
         case CommandType::MVLC_MaskShiftAccu:

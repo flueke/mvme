@@ -148,7 +148,6 @@ namespace
                 case CommandType::SetVariable:
                 case CommandType::Print:
                 case CommandType::MVLC_Custom:
-                case CommandType::MVLC_SetAddressIncMode:
                 case CommandType::MVLC_Wait:
                 case CommandType::MVLC_SignalAccu:
                 case CommandType::MVLC_MaskShiftAccu:
@@ -412,7 +411,6 @@ namespace
                 case CommandType::SetVariable:
                 case CommandType::Print:
                 case CommandType::MVLC_Custom:
-                case CommandType::MVLC_SetAddressIncMode:
                 case CommandType::MVLC_Wait:
                 case CommandType::MVLC_SignalAccu:
                 case CommandType::MVLC_MaskShiftAccu:

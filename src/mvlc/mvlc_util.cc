@@ -150,10 +150,6 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
                 }
                 break;
 
-            case CommandType::MVLC_SetAddressIncMode:
-                result.addSetAddressIncMode(static_cast<mvlc::AddressIncrementMode>(cmd.value));
-                break;
-
             case CommandType::MVLC_Wait:
                 result.addWait(cmd.value);
                 break;

@@ -145,7 +145,6 @@ enum class CommandType
 
     MVLC_Custom,
     MVLC_InlineStack,
-    MVLC_SetAddressIncMode,
     MVLC_Wait,
     MVLC_SignalAccu,
     MVLC_MaskShiftAccu,

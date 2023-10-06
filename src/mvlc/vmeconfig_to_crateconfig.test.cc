@@ -17,15 +17,6 @@ TEST(vmeconfig_to_crateconfig, ConvertCommand_Types)
 
     {
         vme_script::Command vCmd = {};
-        vCmd.type = vme_script::CommandType::MVLC_SetAddressIncMode;
-
-        auto mCmd = mesytec::mvme::convert_command(vCmd);
-
-        ASSERT_EQ(mCmd.type, mesytec::mvlc::StackCommand::CommandType::SetAddressIncMode);
-    }
-
-    {
-        vme_script::Command vCmd = {};
         vCmd.type = vme_script::CommandType::MVLC_MaskShiftAccu;
 
         auto mCmd = mesytec::mvme::convert_command(vCmd);

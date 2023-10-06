@@ -611,26 +611,6 @@ Command parse_print(const QStringList &args, int lineNumber)
     return result;
 }
 
-Command parse_mvlc_set_address_inc_mode(const QStringList &args, int lineNumber)
-{
-    auto usage = QSL("mvlc_set_address_inc_mode ('fifo'|'mem')");
-
-    if (args.size() != 2)
-        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
-
-    try
-    {
-        Command result;
-        result.type = commandType_from_string(args[0]);
-        result.value = static_cast<u32>(mvlc::address_inc_mode_from_string(args[1].toStdString()));
-        result.lineNumber = lineNumber;
-        return result;
-    } catch (const std::runtime_error &e)
-    {
-        throw ParseError(e.what(), lineNumber);
-    }
-}
-
 Command parse_mvlc_wait(const QStringList &args, int lineNumber)
 {
     auto usage = QSL("mvlc_wait <clocks>");
@@ -860,7 +840,6 @@ static const QMap<QString, CommandParser> commandParsers =
 
     { QSL("print"),                 parse_print },
 
-    { QSL("mvlc_set_address_inc_mode"), parse_mvlc_set_address_inc_mode },
     { QSL("mvlc_wait"),                 parse_mvlc_wait },
     { QSL("mvlc_signal_accu"),          parse_mvlc_signal_accu },
     { QSL("mvlc_mask_shift_accu"),      parse_mvlc_mask_shift_accu},
@@ -1888,7 +1867,6 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::MetaBlock,               QSL("meta_block") },
     { CommandType::SetVariable,             QSL("set_variable") },
     { CommandType::Print,                   QSL("print") },
-    { CommandType::MVLC_SetAddressIncMode,  QSL("mvlc_set_address_inc_mode") },
     { CommandType::MVLC_Wait,               QSL("mvlc_wait") },
     { CommandType::MVLC_SignalAccu,         QSL("mvlc_signal_accu") },
     { CommandType::MVLC_MaskShiftAccu,      QSL("mvlc_mask_shift_accu") },
@@ -2121,13 +2099,6 @@ QString to_string(const Command &cmd)
                 .arg(cmd.mvlcCustomStack.size());
             break;
 
-        case CommandType::MVLC_SetAddressIncMode:
-            buffer = QSL("%1 %2")
-                .arg(cmdStr)
-                .arg(address_inc_mode_to_string(
-                        static_cast<mvlc::AddressIncrementMode>(cmd.value)).c_str());
-            break;
-
         case CommandType::MVLC_Wait:
             buffer = QSL("%1 %2")
                 .arg(cmdStr)
@@ -2214,7 +2185,6 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::SetVariable:
         case CommandType::Print:
         case CommandType::MVLC_Custom:
-        case CommandType::MVLC_SetAddressIncMode:
         case CommandType::MVLC_Wait:
         case CommandType::MVLC_SignalAccu:
         case CommandType::MVLC_MaskShiftAccu:

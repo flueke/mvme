@@ -101,27 +101,6 @@ TEST(vme_script_commands, WriteFloatWord)
     }
 }
 
-TEST(vme_script_commands, MVLC_SetAddressIncMode)
-{
-    QStringList inputs =
-    {
-        R"_(mvlc_set_address_inc_mode fifo)_",
-        R"_(mvlc_set_address_inc_mode mem)_",
-    };
-
-    for (const auto input: inputs)
-    {
-        auto script = vme_script::parse(input);
-        ASSERT_EQ(script.size(), 1);
-        auto &cmd = script.first();
-        ASSERT_EQ(cmd.type, CommandType::MVLC_SetAddressIncMode);
-        ASSERT_EQ(to_string(cmd), input);
-    }
-
-    QString input = R"_(mvlc_set_address_inc_mode foobar)_";
-    ASSERT_THROW(vme_script::parse(input), ParseError);
-}
-
 TEST(vme_script_commands, MVLC_Wait)
 {
     QString input = "mvlc_wait 42";

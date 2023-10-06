@@ -166,11 +166,6 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
             dstCmd.address = srcCmd.address; // compare value
             break;
 
-        case CommandType::MVLC_SetAddressIncMode:
-            dstCmd.type = mvlcCT::SetAddressIncMode;
-            dstCmd.value = srcCmd.value; // increment mode (fifo / mem)
-            break;
-
         case CommandType::MVLC_Wait:
             dstCmd.type = mvlcCT::Wait;
             dstCmd.value = srcCmd.value; // clocks
