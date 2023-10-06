@@ -229,6 +229,8 @@ Command parseRead(const QStringList &args, int lineNumber)
         else
             throw ParseError(QSL("Unknown argument to '%1': '%2'. Expected 'slow'|'late'|'fifo'|'mem' or no extra argument")
                 .arg(to_string(result.type)).arg(arg));
+
+        ++argIter;
     }
 
     return result;
