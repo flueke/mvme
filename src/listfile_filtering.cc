@@ -92,7 +92,13 @@ void ListfileFilterStreamConsumer::beginEvent(s32 eventIndex)
 {
 }
 
-void ListfileFilterStreamConsumer::processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size)
+void ListfileFilterStreamConsumer::processModuleData(s32 eventIndex, s32 moduleIndex,
+    const u32 *data, u32 size)
+{
+}
+
+void ListfileFilterStreamConsumer::processModuleData(s32 crateIndex, s32 eventIndex,
+    const ModuleData *moduleDataList, unsigned moduleCount)
 {
 }
 
