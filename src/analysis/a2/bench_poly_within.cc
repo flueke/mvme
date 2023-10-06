@@ -305,7 +305,7 @@ static void BM_pip_test(benchmark::State &state)
     {
         for (const auto &par: pars)
         {
-            const bool is_within = bg::within(par.point, polygon);
+            bool is_within = bg::within(par.point, polygon);
             benchmark::DoNotOptimize(is_within);
             assert(is_within == par.result);
             pipCount++;
@@ -348,7 +348,7 @@ static void BM_pip_test_with_correction(benchmark::State &state)
     {
         for (const auto &par: pars)
         {
-            const bool is_within = bg::within(par.point, polygon);
+            bool is_within = bg::within(par.point, polygon);
             benchmark::DoNotOptimize(is_within);
             assert(is_within == par.result);
             pipCount++;

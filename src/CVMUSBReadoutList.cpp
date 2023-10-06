@@ -202,6 +202,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
         case CommandType::SetVariable:
         case CommandType::Print:
         case CommandType::MBLTSwapped:
+        case CommandType::MBLTSwappedFifo:
         case CommandType::MVLC_Custom:
         case CommandType::MVLC_Wait:
         case CommandType::MVLC_SignalAccu:
@@ -216,7 +217,9 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
             break;
 
         case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Fifo:
         case CommandType::Blk2eSST64Swapped:
+        case CommandType::Blk2eSST64SwappedFifo:
         case CommandType::MVLC_WriteSpecial:
         case CommandType::MetaBlock:
             break;
