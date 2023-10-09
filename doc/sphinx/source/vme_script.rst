@@ -2,7 +2,7 @@
 .. _vme-script-reference:
 
 .. TODO: difference between uploading script to the controller and running them.
-.. TODO: where do reads go? how is waiting handled. MVLC does not support waiting!
+.. TODO: where do reads go?
 
 ==================================================
 VME Scripts

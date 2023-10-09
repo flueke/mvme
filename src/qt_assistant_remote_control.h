@@ -21,8 +21,10 @@
 #ifndef __MVME_QT_ASSISTANT_REMOTE_CONTROL_H__
 #define __MVME_QT_ASSISTANT_REMOTE_CONTROL_H__
 
+#include <chrono>
 #include <memory>
 #include <QObject>
+#include <thread>
 
 namespace mesytec
 {
@@ -41,7 +43,21 @@ class QtAssistantRemoteControl: public QObject
 
         bool activateKeyword(const QString &keyword)
         {
-            return sendCommand(QStringLiteral("activateKeyword ") + keyword);
+            // TODO: remove the sleeps. They don't fix the Qt Assistant issues
+            auto sleep = [] { std::this_thread::sleep_for(std::chrono::milliseconds(500)); };
+
+            sendCommand(QStringLiteral("activateKeyword ") + keyword);
+            sleep();
+            showContents();
+            sleep();
+            syncContents();
+
+            return true;
+        }
+
+        bool activateIdentifier(const QString &id)
+        {
+            return sendCommand(QStringLiteral("activateIdentifier ") + id);
         }
 
         bool showContents()

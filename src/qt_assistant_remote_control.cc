@@ -71,6 +71,7 @@ bool QtAssistantRemoteControl::Private::startAssistant()
         QSL("-enableRemoteControl"),
     };
 
+    // Attempt to start the assistant binary stored besides the mvme binary.
     QString cmd = QCoreApplication::applicationDirPath() + QDir::separator() + QSL("assistant");
 
     cout << "Starting Qt Assistant: cmd=" << cmd.toStdString()
@@ -78,17 +79,20 @@ bool QtAssistantRemoteControl::Private::startAssistant()
 
     //qDebug() << __PRETTY_FUNCTION__ << "Starting assistant: cmd=" << cmd << ", args=" << args;
 
-    process->start(cmd, args);
+    auto startFlags = QIODevice::WriteOnly | QIODevice::Text | QIODevice::Unbuffered;
+    process->start(cmd, args, startFlags);
 
     if (!process->waitForStarted())
     {
         cout << "Failed to start Qt Assistant: " << process->errorString().toStdString() << endl;
 
+        // Now try to start assistant from PATH.
         cmd = QSL("assistant");
+        //cmd = QSL("/usr/lib/qt6/bin/assistant");
 
         cout << "Trying again with cmd=" << cmd.toStdString() << endl;
 
-        process->start(cmd, args);
+        process->start(cmd, args, startFlags);
 
         if (!process->waitForStarted())
         {
@@ -96,6 +100,11 @@ bool QtAssistantRemoteControl::Private::startAssistant()
             return false;
         }
     }
+
+    // Wait a bit for assistant to start. Otherwise the first few commands sent
+    // to the process will not have an effect and the last opened page is still
+    // displayed.
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     cout << "Qt Assistant is now running" << endl;
 
@@ -163,7 +172,7 @@ bool QtAssistantRemoteControl::sendCommand(const QString &cmd)
     if (d->startAssistant())
     {
         qDebug() << __PRETTY_FUNCTION__ << "sending cmd" << cmd << "to QtAssistant";
-        int res = d->process->write(cmd.toLocal8Bit() + '\n');
+        int res = d->process->write(cmd.toLocal8Bit() + "\n");
 
         if (res != -1)
             return true;

@@ -255,4 +255,5 @@ texinfo_documents = [
 
 # -- Options for QtHelp output --------------------------------------------
 qthelp_namespace = "com.mesytec.mvme." + release
-qthelp_theme = 'nonav'
+qthelp_theme = 'alabaster' # default: 'nonav'
+qthelp_theme_options = { 'nosidebar': True }
