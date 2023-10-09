@@ -43,13 +43,8 @@ class QtAssistantRemoteControl: public QObject
 
         bool activateKeyword(const QString &keyword)
         {
-            // TODO: remove the sleeps. They don't fix the Qt Assistant issues
-            auto sleep = [] { std::this_thread::sleep_for(std::chrono::milliseconds(500)); };
-
             sendCommand(QStringLiteral("activateKeyword ") + keyword);
-            sleep();
             showContents();
-            sleep();
             syncContents();
 
             return true;
