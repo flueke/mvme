@@ -9,13 +9,20 @@ Version 1.9.0
 
 * Major mesytec-mvlc update for MVLC FW0036 and later:
 
-  - MVLC now supports the FIFO flag for block reads. In earlier firmware
-    revisions FIFO was always used and memory reads with incrementing addresses
-    were not possible.
+  - Breaking change: ``mvlc_set_address_inc_mode`` has been removed. Instead
+    MVLC now supports the FIFO flag for block read commands. New vme script
+    commands for memory reads with incrementing read addresses have been added.
 
   - Larger command stack uploads are now possible. The stack is uploaded in
-    parts which size depends on the transport being used (ETH is limited by the
-    max UDP packet size).
+    smaller parts. The part size depends on the transport being used: ETH is
+    limited by the max UDP packet size, USB by the processing speed of the MVLC.
+
+* vme_script: Implement new commands for 2eSST fifo and memory block reads:
+  ``2esstfifo``, ``2esstsfifo``, ``2esstmem``, ``2esstsmem``.
+
+* vme_script: Single value VME reads can now take a new argument: 'fifo'|'mem'
+  to control address increment handling when the MVLC accu is used to turn the
+  single read into a block read.
 
 * Implement 2D Histogram slicing. Works for X and Y and uses the currently
   visible area. The slices are opened in a new 1D histogram window.
@@ -23,11 +30,9 @@ Version 1.9.0
 * Merge PR from wvonseeg to make the sparse ExportSink python code work with
   python-3.10.
 
-* vme_templates: Add hardware id checks for mesytec modules similar to MDPP-16
+* vme_templates: Add hardware id checks for mesytec modules similar to MDPP
   firmware type checks.
 
-* vme_script: Implement new commands for 2eSST fifo and memory block reads:
-  ``2esstfifo``, ``2esstsfifo``, ``2esstmem``, ``2esstsmem``.
 
 Version 1.8.2
 -------------
