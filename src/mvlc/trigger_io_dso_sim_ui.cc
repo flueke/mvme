@@ -464,7 +464,7 @@ TraceSelectWidget::TraceSelectWidget(QWidget *parent)
                 }
                 d->tableView->resizeColumnToContents(0);
                 d->tableView->resizeRowsToContents();
-                qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
+                //qDebug() << __PRETTY_FUNCTION__ << "emitting selectionChanged()";
                 emit selectionChanged(getSelection());
             });
         });
@@ -610,7 +610,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     auto setupLayout = new QFormLayout(d->setupWidget);
     setupLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
     setupLayout->addRow("Post Trigger Time",d->spin_postTriggerTime);
-    setupLayout->addRow("Read Interval", d->spin_interval);
+    setupLayout->addRow("Min. Read Interval", d->spin_interval);
 
     d->pb_start = new QPushButton("Start DSO");
     d->pb_stop = new QPushButton("Stop DSO");
@@ -629,13 +629,18 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
 
     setLayout(widgetLayout);
 
-    connect(d->pb_start, &QPushButton::clicked, this, [this] () {
-        emit startDSO();
-    });
 
-    connect(d->pb_stop, &QPushButton::clicked, this, [this] () {
-        emit stopDSO();
-    });
+    connect(d->pb_start, &QPushButton::clicked,
+        this, &DSOControlWidget::startDSO);
+
+    connect(d->pb_stop, &QPushButton::clicked,
+        this, &DSOControlWidget::stopDSO);
+
+    connect(d->spin_preTriggerTime, qOverload<int>(&QSpinBox::valueChanged),
+        this, &DSOControlWidget::restartDSO);
+
+    connect(d->spin_postTriggerTime, qOverload<int>(&QSpinBox::valueChanged),
+        this, &DSOControlWidget::restartDSO);
 
     setDSOActive(false);
 }
@@ -665,7 +670,7 @@ void DSOControlWidget::dsoTriggered()
     }
 }
 
-unsigned DSOControlWidget::getPreTrigerTime()
+unsigned DSOControlWidget::getPreTriggerTime()
 {
     return d->spin_preTriggerTime->value();
 }
@@ -680,6 +685,7 @@ std::chrono::milliseconds DSOControlWidget::getInterval() const
     return std::chrono::milliseconds(d->spin_interval->value());
 }
 
+// fill gui with settings values
 void DSOControlWidget::setDSOSettings(
     unsigned preTriggerTime,
     unsigned postTriggerTime,
@@ -885,9 +891,10 @@ struct DSO_Sim_Result
     std::error_code ec;
     // Copy of the caught exception if any.
     std::exception_ptr ex;
-    std::vector<u32> dsoBuffer;
+    std::vector<u32> dsoBuffer; // Raw DSO data
     Sim sim;
     bool wasTriggered = false;
+    std::chrono::microseconds acquireDuration;
 };
 
 // XXX: this is so ulgy and sim.sampledTraces can diverge from what was last
@@ -911,12 +918,16 @@ DSO_Sim_Result run_dso_and_sim(
         // that copy for its internal state once this function returns.
         result.sim.trigIO = trigIO;
 
+        auto acqStart = std::chrono::steady_clock::now();
+
         if (auto ec = acquire_dso_sample(mvlc, dsoSetup, result.dsoBuffer, cancel))
         {
-            if (ec != make_error_code(std::errc::timed_out))
-                result.ec = ec;
+            result.ec = ec;
             return result;
         }
+
+        result.acquireDuration = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - acqStart);
 
         auto sampledTraces = fill_snapshot_from_dso_buffer(result.dsoBuffer);
 
@@ -1264,7 +1275,8 @@ struct DSOSimWidget::Private
 
     VMEScriptConfig *trigIOScript;
     mvlc::MVLC mvlc;
-    std::atomic<bool> cancelDSO;
+    std::atomic<bool> cancelDSO; // to communicate with the acquire thread
+    bool dsoStoppedByUser = true; // true if the "stop" button has been clicked
     DSO_Sim_Result lastResult;
     Stats stats = {};
     DebugAction debugAction;
@@ -1291,7 +1303,7 @@ struct DSOSimWidget::Private
     DSOSetup buildDSOSetup() const
     {
         DSOSetup dsoSetup;
-        dsoSetup.preTriggerTime = dsoControlWidget->getPreTrigerTime();
+        dsoSetup.preTriggerTime = dsoControlWidget->getPreTriggerTime();
         dsoSetup.postTriggerTime = dsoControlWidget->getPostTriggerTime();
         auto combinedTriggers = traceSelectWidget->getTriggers();
         set_combined_triggers(dsoSetup, combinedTriggers);
@@ -1348,6 +1360,7 @@ struct DSOSimWidget::Private
         if (this->resultWatcher.isRunning())
             return;
 
+        this->dsoStoppedByUser = false;
         this->cancelDSO = false;
         this->dsoControlWidget->setDSOActive(true);
         this->stats = {};
@@ -1358,11 +1371,26 @@ struct DSOSimWidget::Private
 
     void stopDSO()
     {
+        this->dsoStoppedByUser = true;
+        this->cancelDSO = true;
+    }
+
+    void restartDSO()
+    {
+        if (this->dsoStoppedByUser)
+            return;
+
         this->cancelDSO = true;
     }
 
     void runDSO()
     {
+        if (this->resultWatcher.isRunning())
+        {
+            qDebug() << "runDSO: returning because DSO is running!";
+            return;
+        }
+
         auto future = QtConcurrent::run(
             run_dso_and_sim,
             this->mvlc,
@@ -1402,10 +1430,16 @@ struct DSOSimWidget::Private
 
         auto interval = this->dsoControlWidget->getInterval();
 
-        if (!this->cancelDSO && interval != std::chrono::milliseconds::zero())
-            QTimer::singleShot(interval, q, [this] () { runDSO(); });
+        if (!this->dsoStoppedByUser && interval != std::chrono::milliseconds::zero())
+        {
+            QTimer::singleShot(interval, q, [this] () {
+                this->cancelDSO = false;
+                runDSO();
+            });
+        }
         else
         {
+            qDebug() << "onDSOSimRunFinished: stopping DSO, no new timer enqueued";
             this->cancelDSO = true;
             this->dsoControlWidget->setDSOActive(false);
         }
@@ -1552,6 +1586,7 @@ DSOSimWidget::DSOSimWidget(
 
     connect(d->traceSelectWidget, &TraceSelectWidget::triggersChanged,
             this, [this] () {
+                d->restartDSO();
                 d->updatePlotTraces();
             });
 
@@ -1568,6 +1603,11 @@ DSOSimWidget::DSOSimWidget(
     connect(d->dsoControlWidget, &DSOControlWidget::stopDSO,
             this, [this] () {
                 d->stopDSO();
+            });
+
+    connect(d->dsoControlWidget, &DSOControlWidget::restartDSO,
+            this, [this] () {
+                d->restartDSO();
             });
 
     connect(&d->resultWatcher, &QFutureWatcher<DSO_Sim_Result>::finished,

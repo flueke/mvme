@@ -118,11 +118,14 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
         // Emitted on pressing the stop button.
         void stopDSO();
 
+        // Emitted when the user changes the pre or post trigger times.
+        void restartDSO();
+
     public:
         DSOControlWidget(QWidget *parent = nullptr);
         ~DSOControlWidget() override;
 
-        unsigned getPreTrigerTime();
+        unsigned getPreTriggerTime();
         unsigned getPostTriggerTime();
         std::chrono::milliseconds getInterval() const;
 
