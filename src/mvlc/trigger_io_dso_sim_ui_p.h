@@ -138,8 +138,12 @@ class LIBMVME_EXPORT DSOControlWidget: public QWidget
 
         // Notify the widget about the current state of the DSO sampler.
         void setDSOActive(bool active);
+
         // Use this to indicate that the DSO was triggered and data arrived.
         void dsoTriggered();
+
+        // Set the time of the last trigger. Displayed near the trigger LED.
+        void setLastTriggerTime(const QTime &t);
 
     private:
         struct Private;

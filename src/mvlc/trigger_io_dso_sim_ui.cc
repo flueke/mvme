@@ -573,6 +573,7 @@ struct DSOControlWidget::Private
     QPushButton *pb_start,
                 *pb_stop;
     QLedIndicator *triggerLed;
+    QLabel *l_lastTriggerTime;
 
     const QColor ledActiveOffColor1 = QColor(0,28,0);
     const QColor ledActiveOffColor2 = QColor(0,128,0);
@@ -615,13 +616,16 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->pb_start = new QPushButton("Start DSO");
     d->pb_stop = new QPushButton("Stop DSO");
     d->triggerLed = new QLedIndicator;
+    d->l_lastTriggerTime = new QLabel("Last Trigger");
 
     auto controlLayout = make_hbox();
     controlLayout->addWidget(d->pb_start);
     controlLayout->addWidget(d->pb_stop);
     controlLayout->addWidget(d->triggerLed);
+    controlLayout->addWidget(d->l_lastTriggerTime);
     controlLayout->setStretch(0, 1);
     controlLayout->setStretch(1, 1);
+    controlLayout->setStretch(3, 0);
 
     auto widgetLayout = make_vbox<4, 4>();
     widgetLayout->addWidget(d->setupWidget);
@@ -696,6 +700,11 @@ void DSOControlWidget::setDSOSettings(
     d->spin_interval->setValue(interval.count());
 }
 
+void DSOControlWidget::setLastTriggerTime(const QTime &t)
+{
+    auto tStr = t.isValid() ? t.toString() : QSL("N/A");
+    d->l_lastTriggerTime->setText(QSL("Last Trigger: %1").arg(tStr));
+}
 
 namespace
 {
@@ -1366,7 +1375,7 @@ struct DSOSimWidget::Private
         this->stats = {};
 
         runDSO();
-        updateStatusLabel();
+        updateStatusInfo();
     }
 
     void stopDSO()
@@ -1444,7 +1453,7 @@ struct DSOSimWidget::Private
             this->dsoControlWidget->setDSOActive(false);
         }
 
-        updateStatusLabel();
+        updateStatusInfo();
     }
 
     SampleTime getSimMaxTime() const
@@ -1497,7 +1506,7 @@ struct DSOSimWidget::Private
         }
     }
 
-    void updateStatusLabel()
+    void updateStatusInfo()
     {
         QString str = QSL("Status: %1, Triggers: %2, Last Trigger: %3")
             .arg(cancelDSO ? "inactive" : "active")
@@ -1509,6 +1518,8 @@ struct DSOSimWidget::Private
             str += QSL(", Errors: %1").arg(stats.errorCount);
 
         label_status->setText(str);
+
+        dsoControlWidget->setLastTriggerTime(stats.lastSampleTime);
     }
 
     void debugOnTraceClicked(const PinAddress &pa)
@@ -1627,7 +1638,7 @@ DSOSimWidget::DSOSimWidget(
 
     connect(&d->statusUpdateTimer, &QTimer::timeout,
             this, [this] () {
-                d->updateStatusLabel();
+                d->updateStatusInfo();
             });
     d->statusUpdateTimer.setInterval(500);
     d->statusUpdateTimer.start();
