@@ -103,18 +103,14 @@ using Trace = std::deque<Sample>;
 using Snapshot = std::vector<Trace>;
 
 // Starts, reads and stops the DSO. Puts the first valid sample into the dest
-// buffer, other samples are discarded.
-// This function internally suspends the MVLCs stack error poller and locks the
-// command pipe. This way no other communication can take place while the DSO
-// is active.
-// If no valid sample is received within the timeout std::errc::timed_out is
-// returned. The timeout is needed as the DSO may never receive a trigger.
+// buffer, other samples are discarded. Returns on fatal error, e.g. on MVLC
+// disconnect or when a valid DSO buffer has been received.
+// Set cancel=true to force the function to return std::errc::operation_canceled.
 LIBMVME_EXPORT std::error_code
 acquire_dso_sample(
     mvlc::MVLC mvlc, DSOSetup setup,
     std::vector<u32> &dest,
-    std::atomic<bool> &cancel,
-    const std::chrono::milliseconds &timeout = std::chrono::milliseconds(3000));
+    std::atomic<bool> &cancel);
 
 // Fill a snapshot from a DSO buffer obtained via acquire_dso_sample().
 LIBMVME_EXPORT Snapshot

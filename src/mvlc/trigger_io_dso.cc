@@ -116,13 +116,11 @@ set_combined_triggers(DSOSetup &setup, const CombinedTriggers &combinedTriggers)
 std::error_code acquire_dso_sample(
     mvlc::MVLC mvlc, DSOSetup setup,
     std::vector<u32> &dest,
-    std::atomic<bool> &cancel,
-    const std::chrono::milliseconds &timeout)
+    std::atomic<bool> &cancel)
 {
     // Minimum size of a DSO buffer containing data.
     // Static data from read_dso(): 0xF3 Stack, StackReferenceMarker, 0xF5 Block
     static const size_t DSOBufferMinSize = 4;
-    auto tStart = std::chrono::steady_clock::now();
 
     // start, then read until we get a sample or time out, then stop
 
@@ -130,47 +128,24 @@ std::error_code acquire_dso_sample(
         return ec;
 
     dest.clear();
-    bool timed_out = false;
 
-    while (!cancel && dest.size() < DSOBufferMinSize && !timed_out)
+    while (!cancel && dest.size() < DSOBufferMinSize)
     {
         dest.clear();
         auto ec = read_dso(mvlc, dest);
 
         if (is_fatal(ec))
             return ec;
-
-        auto elapsed = std::chrono::steady_clock::now() - tStart;
-
-        if (elapsed >= timeout)
-            timed_out = true;
     }
 
     if (auto ec = stop_dso(mvlc))
         return ec;
 
-#if 0
-
-    // FIXME: this is not needed. The DSO has its own buffer now.
-    // Read and throw away any additional samples (needed to clear the command
-    // pipe). Do this even if we got canceled as a sample might have become
-    // available in the meantime.
-    std::vector<u32> tmpBuffer;
-
-    do
+    if (dest.size() < DSOBufferMinSize)
     {
-        tmpBuffer.clear();
-
-        auto ec = read_dso(mvlc, tmpBuffer);
-
-        if (is_fatal(ec))
-            return ec;
-
-    } while (tmpBuffer.size() > 2);
-#endif
-
-    if (timed_out && dest.size() < DSOBufferMinSize)
-        return make_error_code(std::errc::timed_out);
+        if (cancel)
+            return make_error_code(std::errc::operation_canceled);
+    }
 
     return {};
 }
