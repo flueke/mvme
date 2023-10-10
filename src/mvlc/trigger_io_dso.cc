@@ -41,6 +41,7 @@ std::error_code start_dso(mvlc::MVLC &mvlc, DSOSetup setup)
     add_self_write(sb, 0x0304, setup.nimTriggers.to_ulong());
     add_self_write(sb, 0x0308, setup.irqTriggers.to_ulong());
     add_self_write(sb, 0x030A, setup.utilTriggers.to_ulong());
+    add_self_write(sb, 0x0306, 0); // stop capturing
     add_self_write(sb, 0x0306, 1); // start capturing
     std::vector<u32> dest;
     return mvlc.stackTransaction(sb, dest);
@@ -118,9 +119,12 @@ std::error_code acquire_dso_sample(
     std::atomic<bool> &cancel,
     const std::chrono::milliseconds &timeout)
 {
+    // Minimum size of a DSO buffer containing data.
+    // Static data from read_dso(): 0xF3 Stack, StackReferenceMarker, 0xF5 Block
+    static const size_t DSOBufferMinSize = 4;
     auto tStart = std::chrono::steady_clock::now();
 
-    // start, then read until we get a sample, stop
+    // start, then read until we get a sample or time out, then stop
 
     if (auto ec = start_dso(mvlc, setup))
         return ec;
@@ -128,7 +132,7 @@ std::error_code acquire_dso_sample(
     dest.clear();
     bool timed_out = false;
 
-    while (!cancel && dest.size() <= 2 && !timed_out)
+    while (!cancel && dest.size() < DSOBufferMinSize && !timed_out)
     {
         dest.clear();
         auto ec = read_dso(mvlc, dest);
@@ -165,7 +169,7 @@ std::error_code acquire_dso_sample(
     } while (tmpBuffer.size() > 2);
 #endif
 
-    if (timed_out && dest.size() <= 2)
+    if (timed_out && dest.size() < DSOBufferMinSize)
         return make_error_code(std::errc::timed_out);
 
     return {};
