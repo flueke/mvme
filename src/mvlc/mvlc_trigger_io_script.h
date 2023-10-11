@@ -36,12 +36,19 @@ static const QString MetaTagMVLCTriggerIO = "mvlc_trigger_io";
 namespace gen_flags
 {
     using Flag = u8;
-    static const Flag Default = 0u;
 
     // If this flag is set the meta_block and the end of the generated script
     // will contain all unit names even if the name is equal to the default
     // name. Otherwise only modified names will be included in the block.
     static const Flag MetaIncludeDefaultUnitNames = 1u << 0;
+
+    // Group the TriggerIO init commands into mvlc_stack_begin/end blocks. The
+    // init sequence for units is not split across stacks, meaning it is
+    // atomically executed by the MVLC. This way the DSO init will not be
+    // interrupted/corrupted by any active readout stacks that also use the DSO.
+    static const Flag GroupIntoStackTransaction = 1u << 1;
+
+    static const Flag DefaultFlags = MetaIncludeDefaultUnitNames | GroupIntoStackTransaction;
 };
 
 LIBMVME_EXPORT QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr);
@@ -50,7 +57,7 @@ LIBMVME_EXPORT QString lookup_name(const TriggerIO &cfg, const UnitAddress &addr
 // MVLCs Trigger I/O module into the state described by the TriggerIO structure.
 LIBMVME_EXPORT QString generate_trigger_io_script_text(
     const TriggerIO &ioCfg,
-    const gen_flags::Flag &flags = gen_flags::MetaIncludeDefaultUnitNames);
+    const gen_flags::Flag &flags = gen_flags::DefaultFlags);
 
 LIBMVME_EXPORT TriggerIO parse_trigger_io_script_text(const QString &text);
 

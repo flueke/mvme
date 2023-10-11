@@ -79,14 +79,34 @@ struct Write
     {}
 };
 
-// Variant containing either a register write or a block comment. If the 2nd
-// type is set it indicates the start of a new block in the generated script
-// text. The following writes will be preceded by and empty line and a comment
-// containing the string value on a separate line.
-using ScriptPart = boost::variant<Write, QString>;
+// Basic part of the script: either a register write or a block comment.
+using BasicPart = boost::variant<Write, QString>;
+using BasicParts = QVector<BasicPart>;
+
+// Represents a single DSO unit in the script. In the output script this is
+// enclosed mvlc_stack_begin/end so that the unit setup is atomic (happening in
+// a single stack transaction).
+struct UnitBlock
+{
+    QString comment;
+    QVector<BasicPart> parts;
+
+    void operator+=(const BasicPart &part)
+    {
+        parts.push_back(part);
+    }
+
+    void operator+=(const BasicParts &parts_)
+    {
+        parts.append(parts_);
+    }
+};
+
+// Top level parts of the script: basic parts or unit blocks.
+using ScriptPart = boost::variant<Write, QString, UnitBlock>;
 using ScriptParts = QVector<ScriptPart>;
 
-ScriptPart select_unit(int level, int unit, const QString &unitName = {})
+BasicPart select_unit(int level, int unit, const QString &unitName = {})
 {
     auto ret = Write{ 0x0200,  static_cast<u16>(((level << 8) | unit)), Write::Opt_HexValue };
 
@@ -101,20 +121,20 @@ ScriptPart select_unit(int level, int unit, const QString &unitName = {})
 };
 
 // Note: the desired unit must be selected prior to calling this function.
-ScriptPart write_unit_reg(u16 reg, u16 value, const QString &comment, unsigned writeOpts = 0u)
+BasicPart write_unit_reg(u16 reg, u16 value, const QString &comment, unsigned writeOpts = 0u)
 {
     auto ret = Write { static_cast<u16>(0x0300u + reg), value, comment, writeOpts };
 
     return ret;
 }
 
-ScriptPart write_unit_reg(u16 reg, u16 value, unsigned writeOpts = 0u)
+BasicPart write_unit_reg(u16 reg, u16 value, unsigned writeOpts = 0u)
 {
     return write_unit_reg(reg, value, {}, writeOpts);
 }
 
 // Note: the desired unit must be selected prior to calling this function.
-ScriptPart write_connection(u16 offset, u16 value, const QString &sourceName = {})
+BasicPart write_connection(u16 offset, u16 value, const QString &sourceName = {})
 {
     auto ret = Write { static_cast<u16>(0x0380u + offset), value };
 
@@ -125,7 +145,7 @@ ScriptPart write_connection(u16 offset, u16 value, const QString &sourceName = {
     return ret;
 }
 
-ScriptPart write_strobe_connection(u16 offset, u16 value, const QString &sourceName = {})
+BasicPart write_strobe_connection(u16 offset, u16 value, const QString &sourceName = {})
 {
     auto ret = Write { static_cast<u16>(0x0380u + offset), value };
 
@@ -135,11 +155,11 @@ ScriptPart write_strobe_connection(u16 offset, u16 value, const QString &sourceN
     return ret;
 }
 
-ScriptParts generate(const trigger_io::Timer &unit, int index)
+BasicParts generate(const trigger_io::Timer &unit, int index)
 {
     (void) index;
 
-    ScriptParts ret;
+    BasicParts ret;
     ret += write_unit_reg(2, static_cast<u16>(unit.range), "range (0:ns, 1:us, 2:ms, 3:s)");
     ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
     ret += write_unit_reg(6, unit.period, "period [in range units]");
@@ -163,9 +183,9 @@ namespace io_flags
  * respective io_flags bit is set. The offset value is added to all base
  * register addresses.
  */
-ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags, u16 offset = 0)
+BasicParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags, u16 offset = 0)
 {
-    ScriptParts ret;
+    BasicParts ret;
 
     ret += write_unit_reg(offset + 0, io.delay, "delay [ns]");
     ret += write_unit_reg(offset + 2, io.width, "width [ns]");
@@ -182,9 +202,9 @@ ScriptParts generate(const trigger_io::IO &io, const io_flags::Flags &ioFlags, u
     return ret;
 }
 
-ScriptParts generate(const trigger_io::TriggerResource &unit, int /*index*/)
+BasicParts generate(const trigger_io::TriggerResource &unit, int /*index*/)
 {
-    ScriptParts ret;
+    BasicParts ret;
 
     ret += write_unit_reg(0x80u, static_cast<u16>(unit.type),
                           "type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger");
@@ -210,11 +230,11 @@ ScriptParts generate(const trigger_io::TriggerResource &unit, int /*index*/)
     return ret;
 }
 
-ScriptParts generate(const trigger_io::StackBusy &unit, int index)
+BasicParts generate(const trigger_io::StackBusy &unit, int index)
 {
     (void) index;
 
-    ScriptParts ret;
+    BasicParts ret;
     ret += write_unit_reg(0, unit.stackIndex, "stack_index");
     return ret;
 }
@@ -244,9 +264,9 @@ trigger_io::LUT_RAM make_lut_ram(const LUT &lut)
     return ram;
 }
 
-ScriptParts write_lut_ram(const trigger_io::LUT_RAM &ram)
+BasicParts write_lut_ram(const trigger_io::LUT_RAM &ram)
 {
-    ScriptParts ret;
+    BasicParts ret;
 
     for (const auto &kv: ram | indexed(0))
     {
@@ -259,36 +279,36 @@ ScriptParts write_lut_ram(const trigger_io::LUT_RAM &ram)
     return ret;
 }
 
-ScriptParts write_lut(const LUT &lut)
+BasicParts write_lut(const LUT &lut)
 {
     return write_lut_ram(make_lut_ram(lut));
 }
 
-ScriptParts generate(const trigger_io::StackStart &unit, int index)
+BasicParts generate(const trigger_io::StackStart &unit, int index)
 {
     (void) index;
 
-    ScriptParts ret;
+    BasicParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
     ret += write_unit_reg(2, unit.stackIndex, "stack index");
     ret += write_unit_reg(4, unit.delay_ns, "delay [ns]");
     return ret;
 }
 
-ScriptParts generate(const trigger_io::MasterTrigger &unit, int index)
+BasicParts generate(const trigger_io::MasterTrigger &unit, int index)
 {
     (void) index;
 
-    ScriptParts ret;
+    BasicParts ret;
     ret += write_unit_reg(0, static_cast<u16>(unit.activate), "activate");
     return ret;
 }
 
-ScriptParts generate(const trigger_io::Counter &unit, int index)
+BasicParts generate(const trigger_io::Counter &unit, int index)
 {
     (void) index;
 
-    ScriptParts ret;
+    BasicParts ret;
     ret += write_unit_reg(14, static_cast<u16>(unit.clearOnLatch), "clear on latch");
     return ret;
 }
@@ -305,37 +325,47 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
 
     for (const auto &kv: ioCfg.l0.timers | indexed(0))
     {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index()];
-        ret += select_unit(0, kv.index());
-        ret += generate(kv.value(), kv.index());
+        UnitBlock ub;
+        ub.comment = ioCfg.l0.DefaultUnitNames[kv.index()];
+        ub += select_unit(0, kv.index());
+        ub += generate(kv.value(), kv.index());
+        ret += ub;
     }
 
     for (const auto &kv: ioCfg.l0.triggerResources | indexed(0))
     {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.TriggerResourceOffset];
-        ret += select_unit(0, kv.index() + ioCfg.l0.TriggerResourceOffset);
-        ret += generate(kv.value(), kv.index());
+        UnitBlock ub;
+        ub.comment = ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.TriggerResourceOffset];
+        ub += select_unit(0, kv.index() + ioCfg.l0.TriggerResourceOffset);
+        ub += generate(kv.value(), kv.index());
+        ret += ub;
     }
 
     for (const auto &kv: ioCfg.l0.stackBusy | indexed(0))
     {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.StackBusyOffset];
-        ret += select_unit(0, kv.index() + ioCfg.l0.StackBusyOffset);
-        ret += generate(kv.value(), kv.index());
+        UnitBlock ub;
+        ub.comment = ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.StackBusyOffset];
+        ub += select_unit(0, kv.index() + ioCfg.l0.StackBusyOffset);
+        ub += generate(kv.value(), kv.index());
+        ret += ub;
     }
 
     for (const auto &kv: ioCfg.l0.ioNIM | indexed(0))
     {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.NIM_IO_Offset];
-        ret += select_unit(0, kv.index() + ioCfg.l0.NIM_IO_Offset);
-        ret += generate(kv.value(), io_flags::NIM_IO_Flags);
+        UnitBlock ub;
+        ub.comment = ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.NIM_IO_Offset];
+        ub += select_unit(0, kv.index() + ioCfg.l0.NIM_IO_Offset);
+        ub += generate(kv.value(), io_flags::NIM_IO_Flags);
+        ret += ub;
     }
 
     for (const auto &kv: ioCfg.l0.ioIRQ | indexed(0))
     {
-        ret += ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.IRQ_Inputs_Offset];
-        ret += select_unit(0, kv.index() + ioCfg.l0.IRQ_Inputs_Offset);
-        ret += generate(kv.value(), io_flags::None);
+        UnitBlock ub;
+        ub.comment = ioCfg.l0.DefaultUnitNames[kv.index() + ioCfg.l0.IRQ_Inputs_Offset];
+        ub += select_unit(0, kv.index() + ioCfg.l0.IRQ_Inputs_Offset);
+        ub += generate(kv.value(), io_flags::None);
+        ret += ub;
     }
 
     //
@@ -347,9 +377,10 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
     for (const auto &kv: ioCfg.l1.luts | indexed(0))
     {
         unsigned unitIndex = kv.index();
-        ret += QString("L1.LUT%1").arg(unitIndex);
-        ret += select_unit(1, unitIndex);
-        ret += write_lut(kv.value());
+        UnitBlock ub;
+        ub.comment = QString("L1.LUT%1").arg(unitIndex);
+        ub += select_unit(1, unitIndex);
+        ub += write_lut(kv.value());
 
         if (unitIndex == 2)
         {
@@ -361,9 +392,11 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
                 UnitAddress conAddress = inputChoices[input][conValue];
                 u16 regOffset = input * 2;
 
-                ret += write_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
+                ub += write_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
             }
         }
+
+        ret += ub;
     }
 
     //
@@ -375,10 +408,11 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
     for (const auto &kv: ioCfg.l2.luts | indexed(0))
     {
         unsigned unitIndex = kv.index();
-        ret += QString("L2.LUT%1").arg(unitIndex);
-        ret += select_unit(2, unitIndex);
-        ret += write_lut(kv.value());
-        ret += write_unit_reg(0x20, kv.value().strobedOutputs.to_ulong(),
+        UnitBlock ub;
+        ub.comment = QString("L2.LUT%1").arg(unitIndex);
+        ub += select_unit(2, unitIndex);
+        ub += write_lut(kv.value());
+        ub += write_unit_reg(0x20, kv.value().strobedOutputs.to_ulong(),
                               "strobed_outputs", Write::Opt_BinValue);
 
         const auto &l2InputChoices = Level2::DynamicInputChoices[unitIndex];
@@ -389,12 +423,12 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
             UnitAddress conAddress = l2InputChoices.lutChoices[input][conValue];
             u16 regOffset = input * 2;
 
-            ret += write_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
+            ub += write_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
         }
 
         // strobe GG
-        ret += QString("L2.LUT%1 strobe gate generator").arg(unitIndex);
-        ret += generate(kv.value().strobeGG, io_flags::None, StrobeGGIOOffset);
+        ub += QString("L2.LUT%1 strobe gate generator").arg(unitIndex);
+        ub += generate(kv.value().strobeGG, io_flags::None, StrobeGGIOOffset);
 
         // strobe_input
         {
@@ -402,8 +436,10 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
             UnitAddress conAddress = l2InputChoices.strobeChoices[conValue];
             u16 regOffset = 6;
 
-            ret += write_strobe_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
+            ub += write_strobe_connection(regOffset, conValue, lookup_name(ioCfg, conAddress));
         }
+
+        ret += ub;
     }
 
     //
@@ -416,49 +452,55 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
     {
         unsigned unitIndex = kv.index();
 
-        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
-        ret += select_unit(3, unitIndex);
-        ret += generate(kv.value(), unitIndex);
+        UnitBlock ub;
+        ub.comment = ioCfg.l3.DefaultUnitNames[unitIndex];
+        ub += select_unit(3, unitIndex);
+        ub += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
-        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ub += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ret += ub;
     }
 
     for (const auto &kv: ioCfg.l3.masterTriggers | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.MasterTriggersOffset;
 
-        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
-        ret += select_unit(3, unitIndex);
-        ret += generate(kv.value(), unitIndex);
+        UnitBlock ub;
+        ub.comment = ioCfg.l3.DefaultUnitNames[unitIndex];
+        ub += select_unit(3, unitIndex);
+        ub += generate(kv.value(), unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
-        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ub += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ret += ub;
     }
 
     for (const auto &kv: ioCfg.l3.counters | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.CountersOffset;
 
-        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
-        ret += select_unit(3, unitIndex);
-        ret += generate(kv.value(), unitIndex);
+        UnitBlock ub;
+        ub.comment = ioCfg.l3.DefaultUnitNames[unitIndex];
+        ub += select_unit(3, unitIndex);
+        ub += generate(kv.value(), unitIndex);
 
         // counter input
         unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
-        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ub += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
 
         // latch input
         conValue = ioCfg.l3.connections[unitIndex][1];
         conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][1][conValue];
 
-        ret += write_connection(2, conValue, lookup_name(ioCfg, conAddress));
+        ub += write_connection(2, conValue, lookup_name(ioCfg, conAddress));
+        ret += ub;
     }
 
     // Level3 NIM connections
@@ -467,28 +509,31 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
     {
         unsigned unitIndex = nim + ioCfg.l3.NIM_IO_Unit_Offset;
 
-        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
-        ret += select_unit(3, unitIndex);
+        UnitBlock ub;
+        ub.comment = ioCfg.l3.DefaultUnitNames[unitIndex];
+        ub += select_unit(3, unitIndex);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
-        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
-
+        ub += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ret += ub;
     }
 
     for (const auto &kv: ioCfg.l3.ioECL | indexed(0))
     {
         unsigned unitIndex = kv.index() + ioCfg.l3.ECL_Unit_Offset;
 
-        ret += ioCfg.l3.DefaultUnitNames[unitIndex];
-        ret += select_unit(3, unitIndex);
-        ret += generate(kv.value(), io_flags::ECL_IO_Flags);
+        UnitBlock ub;
+        ub.comment = ioCfg.l3.DefaultUnitNames[unitIndex];
+        ub += select_unit(3, unitIndex);
+        ub += generate(kv.value(), io_flags::ECL_IO_Flags);
 
         unsigned conValue = ioCfg.l3.connections[unitIndex][0];
         UnitAddress conAddress = ioCfg.l3.DynamicInputChoiceLists[unitIndex][0][conValue];
 
-        ret += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ub += write_connection(0, conValue, lookup_name(ioCfg, conAddress));
+        ret += ub;
     }
 
     return ret;
@@ -497,11 +542,12 @@ ScriptParts generate_trigger_io_script(const TriggerIO &ioCfg)
 class ScriptGenPartVisitor: public boost::static_visitor<>
 {
     public:
-        explicit ScriptGenPartVisitor(QStringList &lineBuffer)
+        explicit ScriptGenPartVisitor(QStringList &lineBuffer, const gen_flags::Flag &flags)
             : m_lineBuffer(lineBuffer)
+            , m_flags(flags)
         { }
 
-        void operator()(const Write &write)
+        QString make_line(const Write &write)
         {
             QString prefix;
             int width = 6;
@@ -531,7 +577,12 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
             if (!write.comment.isEmpty())
                 line += "    # " + write.comment;
 
-            m_lineBuffer.push_back(line);
+            return line;
+        }
+
+        void operator()(const Write &write)
+        {
+            m_lineBuffer.push_back(make_line(write));
         }
 
         void operator() (const QString &blockComment)
@@ -543,8 +594,39 @@ class ScriptGenPartVisitor: public boost::static_visitor<>
             }
         }
 
+        void operator()(const UnitBlock &ub)
+        {
+            m_lineBuffer.push_back({});
+            m_lineBuffer.push_back(QSL("# %1").arg(ub.comment));
+
+            if (m_flags & gen_flags::GroupIntoStackTransaction)
+                m_lineBuffer.push_back("mvlc_stack_begin");
+
+            for (const auto &unitPart: ub.parts)
+            {
+                if (auto write = boost::get<Write>(&unitPart))
+                {
+                    auto line = make_line(*write);
+                    if (m_flags & gen_flags::GroupIntoStackTransaction)
+                        line = QSL("  %1").arg(line);
+                    m_lineBuffer.push_back(line);
+                }
+                else if (auto comment = boost::get<QString>(&unitPart))
+                {
+                    auto line = QSL("# %1").arg(*comment);
+                    if (m_flags & gen_flags::GroupIntoStackTransaction)
+                        line = QSL("  %1").arg(line);
+                    m_lineBuffer.push_back(line);
+                }
+            }
+
+            if (m_flags & gen_flags::GroupIntoStackTransaction)
+                m_lineBuffer.push_back("mvlc_stack_end");
+        }
+
     private:
         QStringList &m_lineBuffer;
+        const gen_flags::Flag m_flags;
 };
 
 static QString generate_mvlc_meta_block(
@@ -757,7 +839,7 @@ QString generate_trigger_io_script_text(
         QString("setbase 0x%1").arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))
     };
 
-    ScriptGenPartVisitor visitor(lines);
+    ScriptGenPartVisitor visitor(lines, flags);
     auto parts = generate_trigger_io_script(ioCfg);
 
     for (const auto &part: parts)
@@ -1179,10 +1261,9 @@ TriggerIO parse_trigger_io_script_text(const QString &text)
     u16 level = 0;
     u16 unit  = 0;
 
-    for (const auto &cmd: commands)
+    auto handle_command = [&] (const vme_script::Command &cmd)
     {
-        if (!(cmd.type == vme_script::CommandType::Write))
-            continue;
+        assert(cmd.type == vme_script::CommandType::Write);
 
         u32 address = cmd.address;
 
@@ -1202,6 +1283,19 @@ TriggerIO parse_trigger_io_script_text(const QString &text)
             // write address to get the plain register address.
             address -= UnitRegisterBase;
             levelWrites[level][unit][address] = cmd.value;
+        }
+    };
+
+    for (const auto &cmd: commands)
+    {
+        if (cmd.type == vme_script::CommandType::MVLC_InlineStack)
+        {
+            for (auto innerCmd: cmd.mvlcInlineStack)
+                handle_command(*innerCmd);
+        }
+        else if (cmd.type == vme_script::CommandType::Write)
+        {
+            handle_command(cmd);
         }
     }
 
