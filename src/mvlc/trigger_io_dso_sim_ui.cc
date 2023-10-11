@@ -702,7 +702,8 @@ void DSOControlWidget::setDSOSettings(
 
 void DSOControlWidget::setLastTriggerTime(const QTime &t)
 {
-    auto tStr = t.isValid() ? t.toString() : QSL("N/A");
+    auto deltaSeconds = t.secsTo(QTime::currentTime());
+    auto tStr = t.isValid() ? QSL("%1s ago").arg(deltaSeconds) : QSL("N/A");
     d->l_lastTriggerTime->setText(QSL("Last Trigger: %1").arg(tStr));
 }
 
