@@ -385,10 +385,10 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     connect(d->zoomer, &QwtPlotZoomer::zoomed,
             this, [this] (const QRectF &) { d->replot(); });
 
-    auto add_time_marker = [this] (const QString &label)
+    auto add_time_marker = [this] (const QString &label, bool alignLeft = true)
     {
         auto marker = std::make_unique<QwtPlotMarker>();
-        marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignTop );
+        marker->setLabelAlignment((alignLeft ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignTop);
         marker->setLabelOrientation( Qt::Horizontal );
         marker->setLineStyle( QwtPlotMarker::VLine );
         marker->setLinePen(QColor("black"), 0, Qt::DashDotLine );
@@ -400,7 +400,7 @@ DSOPlotWidget::DSOPlotWidget(QWidget *parent)
     // Start with a newline to hopefully render the label below the zoomers
     // scrollbar.
     d->triggerTimeMarker = add_time_marker("\nTrigger");
-    d->preTriggerTimeMarker = add_time_marker("\nPre Trigger");
+    d->preTriggerTimeMarker = add_time_marker("\nPre Trigger", false);
     d->preTriggerTimeMarker->hide();
     d->postTriggerTimeMarker = add_time_marker("\nPost Trigger");
     d->postTriggerTimeMarker->hide();
