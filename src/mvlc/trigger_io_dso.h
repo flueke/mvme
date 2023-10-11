@@ -44,6 +44,10 @@ enum class Edge
     Unknown = 2,
 };
 
+// Max measurement duration of the DSO in ns. Going over this value leads to
+// overflows in the MVLC and in turn to garbage data.
+static const unsigned DsoMaxMeasureTime = 65500;
+
 struct LIBMVME_EXPORT DSOSetup
 {
     u16 preTriggerTime = 0u;
