@@ -206,8 +206,8 @@ void VMEDebugWidget::on_readRead1_clicked()
     else
     {
         Command cmd;
-        cmd.type = ui->readModeBLT->isChecked() ? CommandType::BLT : CommandType::MBLT;
-        cmd.addressMode = (cmd.type == CommandType::BLT) ? vme_address_modes::BLT32 : vme_address_modes::MBLT64;
+        cmd.type = ui->readModeBLT->isChecked() ? CommandType::BLTFifo : CommandType::MBLTFifo;
+        cmd.addressMode = (cmd.type == CommandType::BLTFifo) ? vme_address_modes::BLT32 : vme_address_modes::MBLT64;
         cmd.address = address;
         cmd.transfers = static_cast<u32>(ui->blockReadCount->value());
 
