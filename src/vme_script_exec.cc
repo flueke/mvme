@@ -306,6 +306,8 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
         case CommandType::MVLC_InlineStack:
             if (auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(controller))
             {
+                using namespace mesytec;
+
                 // Build the inline stack (it needs to start with a marker
                 // command for the logic to be able to correctly identify the
                 // resulting data).
@@ -319,10 +321,28 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                     stackScript.push_back(*cmd);
                 }
 
-                auto stack = mesytec::mvme_mvlc::build_mvlc_stack(stackScript);
+                auto stack = mvme_mvlc::build_mvlc_stack(stackScript);
                 std::vector<u32> destBuffer;
                 auto ec = mvlc->getMVLC().stackTransaction(stack, destBuffer);
-                result.error = VMEError(ec);
+
+                if (ec)
+                {
+                    result.error = VMEError(ec);
+                }
+                else if (!destBuffer.empty())
+                {
+                    // Check the stack header for error flags. Translate the
+                    // flags to MVLCErrorCodes and store in the result.
+                    auto frameHeader = destBuffer[0];
+                    auto frameFlags = mvlc::extract_frame_flags(frameHeader);
+
+                    if (frameFlags & mvlc::frame_flags::SyntaxError)
+                        result.error = VMEError(mvlc::make_error_code(mvlc::MVLCErrorCode::StackSyntaxError));
+                    else if (frameFlags & mesytec::mvlc::frame_flags::Timeout)
+                        result.error = VMEError(mvlc::make_error_code(mvlc::MVLCErrorCode::NoVMEResponse));
+                    else if (frameFlags & mesytec::mvlc::frame_flags::BusError)
+                        result.error = VMEError(mvlc::make_error_code(mvlc::MVLCErrorCode::VMEBusError));
+                }
                 std::copy(destBuffer.begin(), destBuffer.end(), std::back_inserter(result.valueVector));
             }
             else
@@ -488,14 +508,29 @@ QString format_result(const Result &result)
                 ret += "\n";
                 for (int i=0; i<result.valueVector.size(); ++i)
                 {
-                    if (i == 1 && secondWordIsReference)
+                    if (i == 0 && secondWordIsReference)
+                    {
+                        u32 stackFrameHeader = result.valueVector[i];
+                        auto frameFlags = mesytec::mvlc::extract_frame_flags(stackFrameHeader);
+                        auto flagsString = mesytec::mvlc::format_frame_flags(frameFlags);
+                        ret += QString(QSL("%1: 0x%2 (Stack Frame (flags=%3))\n"))
+                            .arg(i, 2, 10, QChar(' '))
+                            .arg(stackFrameHeader, 8, 16, QChar('0'))
+                            .arg(QString::fromStdString(flagsString))
+                            ;
+                    }
+                    else if (i == 1 && secondWordIsReference)
+                    {
                         ret += QString(QSL("%1: 0x%2 (reference marker)\n"))
                             .arg(i, 2, 10, QChar(' '))
                             .arg(result.valueVector[i], 8, 16, QChar('0'));
+                    }
                     else
+                    {
                         ret += QString(QSL("%1: 0x%2\n"))
                             .arg(i, 2, 10, QChar(' '))
                             .arg(result.valueVector[i], 8, 16, QChar('0'));
+                    }
                 }
             } break;
 
