@@ -10,7 +10,6 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
-find_package(Qt5Help REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5OpenGL REQUIRED)
 find_package(Qt5PrintSupport REQUIRED)
@@ -302,7 +301,6 @@ add_library(libmvme SHARED
     graphicsview_util.cc
     graphviz_util.cc
     gui_util.cc
-    help_widget.cc
     histo1d.cc
     histo1d_util.cc
     histo1d_widget.cc
@@ -404,7 +402,6 @@ target_link_libraries(libmvme
     PUBLIC libmvme_core
     PUBLIC ${QWT_LIBRARY}
     PUBLIC cpp11-on-multicore
-    PUBLIC Qt5::Help
     PUBLIC Qt5::PrintSupport
     PRIVATE nlohmann-json
     PRIVATE liba2_static
@@ -559,7 +556,7 @@ add_mvme_dev_exe(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
 add_mvme_dev_exe(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
 add_mvme_dev_exe(dev_replay_ui dev_replay_ui_main.cc)
-add_mvme_dev_exe(dev_qthelpengine_test dev_qthelpengine_test.cc)
+#add_mvme_dev_exe(dev_qthelpengine_test dev_qthelpengine_test.cc)
 
 add_mvme_dev_exe(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
 add_mvme_dev_exe(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
