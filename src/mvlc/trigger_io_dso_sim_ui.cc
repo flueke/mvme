@@ -563,6 +563,7 @@ void TraceSelectWidget::setTreeExpansionState(const TreeViewExpansionState &expa
 struct DSOControlWidget::Private
 {
     QSpinBox *spin_preTriggerTime,
+             *spin_measureDuration,
              *spin_postTriggerTime,
              *spin_interval;
 
@@ -587,17 +588,22 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
 {
     setWindowTitle("DSOControlWidget");
     d->spin_preTriggerTime = new QSpinBox;
+    d->spin_measureDuration = new QSpinBox;
     d->spin_postTriggerTime = new QSpinBox;
 
-    for (auto spin: { d->spin_preTriggerTime, d->spin_postTriggerTime })
+    for (auto spin: { d->spin_preTriggerTime, d->spin_measureDuration, d->spin_postTriggerTime })
     {
         spin->setMinimum(0);
         spin->setMaximum(std::numeric_limits<u16>::max());
         spin->setSuffix(" ns");
     }
 
-    d->spin_preTriggerTime->setValue(200);
-    d->spin_postTriggerTime->setValue(500);
+    d->spin_postTriggerTime->setReadOnly(true);
+    {
+        auto pal = d->spin_postTriggerTime->palette();
+        pal.setColor(QPalette::Base, Qt::lightGray);
+        d->spin_postTriggerTime->setPalette(pal);
+    }
 
     d->spin_interval = new QSpinBox;
     d->spin_interval->setMinimum(0);
@@ -610,6 +616,7 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     d->setupWidget = new QWidget;
     auto setupLayout = new QFormLayout(d->setupWidget);
     setupLayout->addRow("Pre Trigger Time", d->spin_preTriggerTime);
+    setupLayout->addRow("Measure Duration", d->spin_measureDuration);
     setupLayout->addRow("Post Trigger Time",d->spin_postTriggerTime);
     setupLayout->addRow("Min. Read Interval", d->spin_interval);
 
@@ -640,11 +647,29 @@ DSOControlWidget::DSOControlWidget(QWidget *parent)
     connect(d->pb_stop, &QPushButton::clicked,
         this, &DSOControlWidget::stopDSO);
 
-    connect(d->spin_preTriggerTime, qOverload<int>(&QSpinBox::valueChanged),
-        this, &DSOControlWidget::restartDSO);
+    auto update_post_trigger_time = [this]
+    {
+        auto postTime = std::abs(d->spin_measureDuration->value() - d->spin_preTriggerTime->value());
+        d->spin_postTriggerTime->setValue(postTime);
+    };
 
-    connect(d->spin_postTriggerTime, qOverload<int>(&QSpinBox::valueChanged),
-        this, &DSOControlWidget::restartDSO);
+    connect(d->spin_preTriggerTime, qOverload<int>(&QSpinBox::valueChanged),
+        this, [=]
+    {
+        d->spin_measureDuration->setMinimum(d->spin_preTriggerTime->value());
+        update_post_trigger_time();
+        emit restartDSO();
+    });
+
+    connect(d->spin_measureDuration, qOverload<int>(&QSpinBox::valueChanged),
+        this, [=]
+    {
+        update_post_trigger_time();
+        emit restartDSO();
+    });
+
+    d->spin_preTriggerTime->setValue(500);
+    d->spin_measureDuration->setValue(1000);
 
     setDSOActive(false);
 }
@@ -696,6 +721,8 @@ void DSOControlWidget::setDSOSettings(
     const std::chrono::milliseconds &interval)
 {
     d->spin_preTriggerTime->setValue(preTriggerTime);
+    auto duration = postTriggerTime + preTriggerTime;
+    d->spin_measureDuration->setValue(duration);
     d->spin_postTriggerTime->setValue(postTriggerTime);
     d->spin_interval->setValue(interval.count());
 }
