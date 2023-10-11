@@ -35,7 +35,7 @@
 #include "util/qt_container.h"
 #include "vmusb.h"
 
-// FIXME: the exprtk abstration should be moved to a standalone library. also
+// FIXME: the exprtk abstraction should be moved to a standalone library. also
 // the a2 structure as a standalone project is useless.
 #include "analysis/a2/a2_exprtk.h"
 
