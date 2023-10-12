@@ -183,12 +183,9 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
     d->listfileWriteHandle_.reset();
     d->mvlcZipCreator_->closeCurrentEntry();
 
-    // FIXME: duplicate in mvlc_readout_worker.cc
-    auto do_write = [&zipCreator = d->mvlcZipCreator_] (const std::string &filename, const QByteArray &data)
+    auto do_write = [zipCreator = d->mvlcZipCreator_.get()] (const std::string &filename, const QByteArray &data)
     {
-        auto writeHandle = zipCreator->createZIPEntry(filename, 0); // uncompressed zip entry
-        writeHandle->write(reinterpret_cast<const u8 *>(data.data()), data.size());
-        zipCreator->closeCurrentEntry();
+        listfile::add_file_to_archive(zipCreator, filename, data);
     };
 
     // Copy the log buffer from the input archive. TODO: add info that this file

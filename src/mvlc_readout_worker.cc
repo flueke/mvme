@@ -430,9 +430,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
                     auto do_write = [zipCreator] (const std::string &filename, const QByteArray &data)
                     {
-                        auto writeHandle = zipCreator->createZIPEntry(filename, 0); // uncompressed zip entry
-                        writeHandle->write(reinterpret_cast<const u8 *>(data.data()), data.size());
-                        zipCreator->closeCurrentEntry();
+                        add_file_to_archive(zipCreator, filename, data);
                     };
 
                     do_write("messages.log", m_workerContext.getLogBuffer().join('\n').toUtf8());
