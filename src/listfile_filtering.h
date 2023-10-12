@@ -4,6 +4,14 @@
 #include "stream_processor_consumers.h"
 #include "stream_processor_counters.h"
 #include <memory>
+#include <QUuid>
+
+class ListfileFilterConfig
+{
+    // Ids of analysis condition operators used to filter the respective VME
+    // event.
+    std::vector<QUuid> filterConditionsByEvent;
+};
 
 class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
 {
@@ -37,6 +45,5 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         struct Private;
         std::unique_ptr<Private> d;
 };
-
 
 #endif // _MVME_LISTFILE_FILTERING_H_
