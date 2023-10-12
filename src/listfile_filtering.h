@@ -2,6 +2,7 @@
 #define _MVME_LISTFILE_FILTERING_H_
 
 #include "stream_processor_consumers.h"
+#include "stream_processor_counters.h"
 #include <memory>
 
 class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
@@ -28,6 +29,9 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         void processModuleData(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount) override;
         void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) override;
         void processTimetick() override {}; // noop
+
+        // Thread-safe, returns a copy of the counters.
+        MVMEStreamProcessorCounters getCounters() const;
 
     private:
         struct Private;

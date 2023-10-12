@@ -3,12 +3,15 @@
 
 #include <QDateTime>
 #include <array>
+#include <mesytec-mvlc/mvlc_readout_parser.h>
 #include "libmvme_export.h"
 #include "typedefs.h"
 #include "vme_config_limits.h"
 
 struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 {
+    using SystemEventCounts = mesytec::mvlc::readout_parser::ReadoutParserCounters::SystemEventCounts;
+
     QDateTime startTime;
     QDateTime stopTime;
 
@@ -23,6 +26,7 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 
     std::array<u32, MaxVMEEvents> eventCounters;
     std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
+    SystemEventCounts systemEventCounters;
 
     // [eventIndex, moduleIndex] -> number of times the module data size
     // extracted from the module header exceeds the amount of data in the input

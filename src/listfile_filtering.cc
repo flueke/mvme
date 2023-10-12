@@ -5,6 +5,7 @@
 #include <mesytec-mvlc/mvlc_listfile_util.h>
 #include <mesytec-mvlc/mvlc_listfile_zip.h>
 #include <mesytec-mvlc/util/logging.h>
+#include <mesytec-mvlc/util/protected.h>
 #include <QDebug>
 
 #include "analysis/analysis.h"
@@ -57,11 +58,14 @@ struct ListfileFilterStreamConsumer::Private
 
     std::shared_ptr<spdlog::logger> logger_;
     Logger qtLogger_;
+
     RunInfo runInfo_;
+    VMEControllerType inputControllerType_;
     const analysis::Analysis *analysis_ = nullptr; // FIXME: make this a shared_ptr or something at some point :-(
     std::unique_ptr<listfile::SplitZipCreator> mvlcZipCreator_;
     std::shared_ptr<listfile::WriteHandle> listfileWriteHandle_;
     ReadoutBuffer outputBuffer_;
+    mutable mesytec::mvlc::Protected<MVMEStreamProcessorCounters> counters_;
 
     void maybeFlushOutputBuffer();
 };
@@ -105,16 +109,20 @@ StreamConsumerBase::Logger &ListfileFilterStreamConsumer::getLogger()
 runId is "00-mdpp_trig"
 #endif
 
-void ListfileFilterStreamConsumer::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
+void ListfileFilterStreamConsumer::beginRun(
+    const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
 {
     d->logger_->debug("@{}: beginRun", fmt::ptr(this));
 
     // Note: cannot write a mvlc CrateConfig to the output stream as the input
-    // may come from a VMUSB or SIS controlle in which case the VMEConfig to
+    // may come from a VMUSB or SIS controller in which case the VMEConfig to
     // CrateConfig conversion is undefined.
     // TODO: check what happens if trying to convert a non MVLC VMEConfig to CrateConfig
     // Also the fact that the config and the listfile have been converted needs
     // to be recorded somewhere and shown to the user.
+    // FIXME: why write the vme config? it should be streamed via the first
+    // system event from the source listfile. But the system event header will
+    // not be compatible when the source listfile is non-mvlc! Have to fixup the headers.
     auto make_listfile_preamble = [&vmeConfig]() -> std::vector<u8>
     {
         listfile::BufferedWriteHandle bwh;
@@ -125,6 +133,7 @@ void ListfileFilterStreamConsumer::beginRun(const RunInfo &runInfo, const VMECon
     };
 
     d->runInfo_ = runInfo;
+    d->inputControllerType_ = vmeConfig->getControllerType();
     d->analysis_ = analysis;
 
     qDebug() << runInfo.runId;
@@ -221,6 +230,8 @@ void ListfileFilterStreamConsumer::processModuleData(
 
 void ListfileFilterStreamConsumer::processSystemEvent(s32 crateIndex, const u32 *header, u32 size)
 {
+    // FIXME: this is just wrong if the input controller type is not MVLC which
+    // means the listfile type is not mvlclst
     listfile::write_system_event(d->outputBuffer_, crateIndex, header, size);
     d->maybeFlushOutputBuffer();
 }
@@ -229,4 +240,9 @@ void ListfileFilterStreamConsumer::processModuleData(s32 eventIndex, s32 moduleI
 {
     assert(!"don't call me please!");
     throw std::runtime_error(fmt::format("{}: don't call me please!", __PRETTY_FUNCTION__));
+}
+
+MVMEStreamProcessorCounters ListfileFilterStreamConsumer::getCounters() const
+{
+    return d->counters_.copy();
 }

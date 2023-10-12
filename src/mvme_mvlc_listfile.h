@@ -45,6 +45,16 @@ void LIBMVME_EXPORT listfile_write_mvme_config(
     mesytec::mvlc::listfile::WriteHandle &lf_out,
     const VMEConfig &vmeConfig);
 
+// Works for ZipCreator and SplitZipCreator
+
+template<typename ZipCreatorType>
+void add_file_to_archive(ZipCreatorType &zipCreator, const QString &filename, const QByteArray &fileData)
+{
+    auto writeHandle = zipCreator->createZIPEntry(filename, 0); // uncompressed zip entry
+    writeHandle->write(reinterpret_cast<const u8 *>(fileData.data()), fileData.size());
+    zipCreator->closeCurrentEntry();
+}
+
 }
 
 #endif /* __MVME_MVLC_LISTFILE_H__ */
