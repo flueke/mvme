@@ -9,29 +9,46 @@ Version 1.9.0
 
 * Major mesytec-mvlc update for MVLC FW0036 and later:
 
-  - Breaking change: ``mvlc_set_address_inc_mode`` has been removed. Instead
-    MVLC now supports the FIFO flag for block read commands. New vme script
-    commands for memory reads with incrementing read addresses have been added.
+  - MVLC now supports the FIFO flag for block reads. The
+    ``mvlc_set_address_inc_mode`` command has been removed. New VME Script
+    commands have been added instead (see below).
 
   - Larger command stack uploads are now possible. The stack is uploaded in
-    smaller parts. The part size depends on the transport being used: ETH is
-    limited by the max UDP packet size, USB by the processing speed of the MVLC.
+    parts. The max size of each part depends on the transport being used: ETH is
+    limited by the max UDP packet size, USB by MVLC internal buffer sizes.
 
 * vme_script: Implement new commands for 2eSST fifo and memory block reads:
   ``2esstfifo``, ``2esstsfifo``, ``2esstmem``, ``2esstsmem``.
 
-* vme_script: Single value VME reads can now take a new argument: 'fifo'|'mem'
-  to control address increment handling when the MVLC accu is used to turn the
-  single read into a block read.
+* vme_script: Better error handling and log output for MVLC inline stacks.
+
+* MVLC Trigger IO: unit initialization is now wrapped in mvlc_stack_begin/end
+  blocks to get atomic init behavior. This means executing the Trigger IO script
+  won't interfere with the DSO or active readouts that are also using the
+  Trigger IO system. This change also speeds up execution of the Trigger IO init
+  script.  Note: the Trigger IO script has to be regenerated via the GUI for
+  this change to take effect!
+
+* MVLC DSO
+
+  - Fix DSO readout returning early before having received a trigger.
+
+  - DSO readout does not use an internal timeout anymore. This means
+    pulses with very long interval times can now be reliably sampled.
+
+  - Rework the UI: can now enter measurement duration instead of post-trigger
+    time. Max measurement duration is limited to 65500 ns by the MVLC.
 
 * Implement 2D Histogram slicing. Works for X and Y and uses the currently
   visible area. The slices are opened in a new 1D histogram window.
 
+* vme_templates: Add hardware id checks for mesytec modules similar to MDPP-16
+  firmware type checks.
+
 * Merge PR from wvonseeg to make the sparse ExportSink python code work with
   python-3.10.
 
-* vme_templates: Add hardware id checks for mesytec modules similar to MDPP
-  firmware type checks.
+* Use FIFO block reads in VME Debug Widget.
 
 
 Version 1.8.2
