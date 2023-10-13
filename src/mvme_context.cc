@@ -167,6 +167,7 @@ struct MVMEContextPrivate
 
     std::unique_ptr<RemoteControl> m_remoteControl;
     std::shared_ptr<EventServer> m_eventServer;
+    std::shared_ptr<ListfileFilterStreamConsumer> m_listfileFilter;
 
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
@@ -572,6 +573,8 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     m_d->analysisServiceProvider = new MVMEContextServiceProvider(this, this);
     m_d->m_eventServer = std::make_shared<EventServer>();
     m_d->m_eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
+    m_d->m_listfileFilter = std::make_shared<ListfileFilterStreamConsumer>();
+    m_d->m_listfileFilter->setLogger([this](const QString &msg) { this->logMessage(msg); });
 
     for (size_t i=0; i<ReadoutBufferCount; ++i)
     {
@@ -873,6 +876,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     if (m_streamWorker)
     {
         m_streamWorker->removeModuleConsumer(m_d->m_eventServer);
+        m_streamWorker->removeModuleConsumer(m_d->m_listfileFilter);
         auto streamWorker = m_streamWorker.release();
         streamWorker->deleteLater();
         processQtEvents();
@@ -918,6 +922,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             eventServer->setListeningInfo(hostInfo.addresses().first(), port);
         }
 
+        // This wants to run in the event servers thread.
         bool invoked = QMetaObject::invokeMethod(m_d->m_eventServer.get(),
                                                  "setEnabled",
                                                  Qt::QueuedConnection,
@@ -926,8 +931,10 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         (void) invoked;
     }
 
-    // FIXME: test code!
-    //m_streamWorker->attachModuleConsumer(std::make_shared<ListfileFilterStreamConsumer>());
+    // ListfileFilter
+    {
+        m_streamWorker->attachModuleConsumer(m_d->m_listfileFilter);
+    }
 
     // Move objects to the analysis thread.
     m_streamWorker->moveToThread(m_analysisThread);

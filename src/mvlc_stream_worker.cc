@@ -192,7 +192,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
             analysis->beginEvent(eventIndex);
 
             for (auto c: m_moduleConsumers)
-                c->beginEvent(eventIndex);
+                c->beginEvent(eventIndex); // TODO: not needed for consumers with the newer ModuleDataList interface
 
             if (m_state == WorkerState::SingleStepping)
                 begin_event_record(m_singleStepEventRecord, eventIndex);
@@ -235,9 +235,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
             analysis->endEvent(eventIndex);
 
             for (auto c: m_moduleConsumers)
-            {
-                c->endEvent(eventIndex);
-            }
+                c->endEvent(eventIndex); // TODO: not needed for consumers with the newer ModuleDataList interface
 
             if (m_diag)
                 m_diag->endEvent(eventIndex);

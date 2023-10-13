@@ -60,6 +60,8 @@ class LIBMVME_EXPORT IStreamModuleConsumer: public StreamConsumerBase
         // timeticks are extracted from incoming system event buffers.
         virtual void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) = 0;
         virtual void processTimetick() = 0;
+
+        virtual void setEnabled(bool enabled) = 0;
 };
 
 /* Interface for consumers of raw readout data. The bufferType argument to

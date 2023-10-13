@@ -1,16 +1,23 @@
 #ifndef _MVME_LISTFILE_FILTERING_H_
 #define _MVME_LISTFILE_FILTERING_H_
 
-#include "stream_processor_consumers.h"
-#include "stream_processor_counters.h"
 #include <memory>
 #include <QUuid>
+
+#include "globals.h"
+#include "stream_processor_consumers.h"
+#include "stream_processor_counters.h"
+
+// Note: to keep things simple this works for the MVLC only for now.  Also the
+// output is limited to zip files. Support for other output formats, e.g.
+// zmq_ganil, can be added later.
 
 class ListfileFilterConfig
 {
     // Ids of analysis condition operators used to filter the respective VME
     // event.
     std::vector<QUuid> filterConditionsByEvent;
+    ListFileOutputInfo outputInfo;
 };
 
 class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
@@ -38,8 +45,13 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) override;
         void processTimetick() override {}; // noop
 
+        void setEnabled(bool b) override;
+
         // Thread-safe, returns a copy of the counters.
         MVMEStreamProcessorCounters getCounters() const;
+
+        // Not thread-safe. Needs to be called prior to starting a run.
+        void setConfig(const ListfileFilterConfig &config);
 
     private:
         struct Private;

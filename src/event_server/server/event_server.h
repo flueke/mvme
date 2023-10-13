@@ -66,7 +66,7 @@ class LIBMVME_EXPORT EventServer: public QObject, public IStreamModuleConsumer
         size_t getNumberOfClients() const;
 
     public slots:
-        void setEnabled(bool b);
+        void setEnabled(bool b) override;
 
     private:
         struct Private;

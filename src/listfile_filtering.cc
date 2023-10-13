@@ -56,12 +56,19 @@ struct ListfileFilterStreamConsumer::Private
     static const size_t OutputBufferInitialCapacity = mesytec::mvlc::util::Megabytes(1);
     static const size_t OutputBufferFlushSize = OutputBufferInitialCapacity;
 
+    bool enabled_ = false;
+    ListfileFilterConfig config_;
+
+
+    // TODO: why two loggers? what's going on here?
     std::shared_ptr<spdlog::logger> logger_;
     Logger qtLogger_;
 
     RunInfo runInfo_;
     VMEControllerType inputControllerType_;
-    const analysis::Analysis *analysis_ = nullptr; // FIXME: make this a shared_ptr or something at some point :-(
+    // TODO: make this a shared_ptr or something at some point. It's passed in
+    // beginRun() and must stay valid during the run.
+    const analysis::Analysis *analysis_ = nullptr;
     std::unique_ptr<listfile::SplitZipCreator> mvlcZipCreator_;
     std::shared_ptr<listfile::WriteHandle> listfileWriteHandle_;
     ReadoutBuffer outputBuffer_;
@@ -82,7 +89,7 @@ ListfileFilterStreamConsumer::ListfileFilterStreamConsumer()
 
 ListfileFilterStreamConsumer::~ListfileFilterStreamConsumer()
 {
-    d->logger_->debug("destroying @{]", fmt::ptr(this));
+    d->logger_->debug("destroying @{}", fmt::ptr(this));
 }
 
 void ListfileFilterStreamConsumer::setLogger(Logger logger)
@@ -93,6 +100,11 @@ void ListfileFilterStreamConsumer::setLogger(Logger logger)
 StreamConsumerBase::Logger &ListfileFilterStreamConsumer::getLogger()
 {
     return d->qtLogger_;
+}
+
+void ListfileFilterStreamConsumer::setEnabled(bool b)
+{
+    d->enabled_ = b;
 }
 
 #if 0
@@ -112,17 +124,23 @@ runId is "00-mdpp_trig"
 void ListfileFilterStreamConsumer::beginRun(
     const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
 {
+    if (!d->enabled_) return;
+
     d->logger_->debug("@{}: beginRun", fmt::ptr(this));
 
     // Note: cannot write a mvlc CrateConfig to the output stream as the input
     // may come from a VMUSB or SIS controller in which case the VMEConfig to
     // CrateConfig conversion is undefined.
+    // Still do it for MVLC configs though!
+
     // TODO: check what happens if trying to convert a non MVLC VMEConfig to CrateConfig
     // Also the fact that the config and the listfile have been converted needs
     // to be recorded somewhere and shown to the user.
+
     // FIXME: why write the vme config? it should be streamed via the first
     // system event from the source listfile. But the system event header will
     // not be compatible when the source listfile is non-mvlc! Have to fixup the headers.
+
     auto make_listfile_preamble = [&vmeConfig]() -> std::vector<u8>
     {
         listfile::BufferedWriteHandle bwh;
@@ -136,7 +154,6 @@ void ListfileFilterStreamConsumer::beginRun(
     d->inputControllerType_ = vmeConfig->getControllerType();
     d->analysis_ = analysis;
 
-    qDebug() << runInfo.runId;
     printMe(runInfo.infoDict);
 
     auto workspaceSettings = make_workspace_settings();
@@ -179,6 +196,7 @@ void ListfileFilterStreamConsumer::beginRun(
 
 void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exception *e)
 {
+    if (!d->enabled_) return;
     d->logger_->debug("@{}: endRun", fmt::ptr(this));
     d->listfileWriteHandle_.reset();
     d->mvlcZipCreator_->closeCurrentEntry();
@@ -200,7 +218,9 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
 
 void ListfileFilterStreamConsumer::Private::maybeFlushOutputBuffer()
 {
-    // TODO: Use a writer thread like in mesytec::mvlc::MVLCReadoutWorker
+    // TODO: Use a writer thread like in mesytec::mvlc::MVLCReadoutWorker. This
+    // way we could return and the next events could be processed by the
+    // analysis.
     if (const auto used = outputBuffer_.used();
         used >= Private::OutputBufferFlushSize)
     {
@@ -212,21 +232,25 @@ void ListfileFilterStreamConsumer::Private::maybeFlushOutputBuffer()
 
 void ListfileFilterStreamConsumer::beginEvent(s32 eventIndex)
 {
+    if (!d->enabled_) return;
 }
 
 void ListfileFilterStreamConsumer::endEvent(s32 eventIndex)
 {
+    if (!d->enabled_) return;
 }
 
 void ListfileFilterStreamConsumer::processModuleData(
     s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
 {
+    if (!d->enabled_) return;
     listfile::write_event_data(d->outputBuffer_, crateIndex, eventIndex, moduleDataList, moduleCount);
     d->maybeFlushOutputBuffer();
 }
 
 void ListfileFilterStreamConsumer::processSystemEvent(s32 crateIndex, const u32 *header, u32 size)
 {
+    if (!d->enabled_) return;
     // FIXME: this is just wrong if the input controller type is not MVLC which
     // means the listfile type is not mvlclst
     listfile::write_system_event(d->outputBuffer_, crateIndex, header, size);
@@ -242,4 +266,9 @@ void ListfileFilterStreamConsumer::processModuleData(s32 eventIndex, s32 moduleI
 MVMEStreamProcessorCounters ListfileFilterStreamConsumer::getCounters() const
 {
     return d->counters_.copy();
+}
+
+void ListfileFilterStreamConsumer::setConfig(const ListfileFilterConfig &config)
+{
+    d->config_ = config;
 }
