@@ -1363,9 +1363,13 @@ struct DSOSimWidget::Private
 
         this->dsoPlotWidget->setXInterval(
             -1.0 * dsoSetup.preTriggerTime, getSimMaxTime().count() - dsoSetup.preTriggerTime);
-
-        this->dsoPlotWidget->setTraces(traces, dsoSetup.preTriggerTime, traceNames);
-        this->dsoPlotWidget->setPreTriggerTime(-1.0 * dsoSetup.preTriggerTime);
+        // Have to use the masked pre trigger time here, otherwise the triggered
+        // rising edge does not align with the plots 0 time point. Reason: the
+        // MVLC scope is not accurate enough for the lowest 3-bits. Also see
+        // calculate_jitter_value().
+        const auto maskedPreTrig = dsoSetup.preTriggerTime & ~0b111;
+        this->dsoPlotWidget->setTraces(traces, maskedPreTrig, traceNames);
+        this->dsoPlotWidget->setPreTriggerTime(-1.0 * maskedPreTrig);
         this->dsoPlotWidget->setPostTriggerTime(dsoSetup.postTriggerTime);
         this->dsoPlotWidget->setTriggerTraceInfo(isTriggerTrace);
     }
