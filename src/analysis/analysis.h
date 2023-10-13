@@ -47,6 +47,7 @@
 #include "../globals.h"
 #include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
+#include "../listfile_filtering.h"
 
 class QJsonObject;
 class VMEConfig;

@@ -8,11 +8,11 @@
 #include "stream_processor_consumers.h"
 #include "stream_processor_counters.h"
 
-// Note: to keep things simple this works for the MVLC only for now.  Also the
-// output is limited to zip files. Support for other output formats, e.g.
-// zmq_ganil, can be added later.
+// Note: to keep things simple this works for the MVLC only for now. Also the
+// output is limited to zip and lz4 files. Support for other output formats,
+// e.g.  zmq_ganil, could be added later.
 
-class ListfileFilterConfig
+struct ListfileFilterConfig
 {
     // Ids of analysis condition operators used to filter the respective VME
     // event.
@@ -45,7 +45,7 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) override;
         void processTimetick() override {}; // noop
 
-        void setEnabled(bool b) override;
+        //void setEnabled(bool b) override;
 
         // Thread-safe, returns a copy of the counters.
         MVMEStreamProcessorCounters getCounters() const;

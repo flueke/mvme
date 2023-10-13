@@ -948,7 +948,7 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     // TODO: add a way to wait for completion of the startup.
     {
         [[maybe_unused]] bool invoked = QMetaObject::invokeMethod(
-            m_streamWorker.get(), "startupConsumers", Qt::QueuedConnection);
+            m_streamWorker.get(), &StreamWorkerBase::startupConsumers, Qt::QueuedConnection);
         assert(invoked);
     }
 
