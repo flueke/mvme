@@ -931,10 +931,9 @@ struct DSO_Sim_Result
     std::vector<u32> dsoBuffer; // Raw DSO data
     Sim sim;
     bool wasTriggered = false;
-    std::chrono::microseconds acquireDuration;
 };
 
-// XXX: this is so ulgy and sim.sampledTraces can diverge from what was last
+// This is a bit ugly: sim.sampledTraces can diverge from what was last
 // read into dsoBuffer. It has to as otherwise the whole gui will be populated
 // with the sim calculated from a possibly empty dsoBuffer instead of happily
 // displaying the previous good state. Handle the whole thing in a better way
@@ -955,16 +954,11 @@ DSO_Sim_Result run_dso_and_sim(
         // that copy for its internal state once this function returns.
         result.sim.trigIO = trigIO;
 
-        auto acqStart = std::chrono::steady_clock::now();
-
         if (auto ec = acquire_dso_sample(mvlc, dsoSetup, result.dsoBuffer, cancel))
         {
             result.ec = ec;
             return result;
         }
-
-        result.acquireDuration = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now() - acqStart);
 
         auto sampledTraces = fill_snapshot_from_dso_buffer(result.dsoBuffer);
 
@@ -1008,7 +1002,7 @@ DSO_Sim_Result run_dso_and_sim(
         result.ex = std::current_exception();
     }
 
-    // Exit point to save on simulating even if cancelation was requested.
+    // Exit point to save on simulating if cancelation was requested.
     if (cancel)
         return result;
 
@@ -1079,22 +1073,6 @@ DSO_Sim_Result run_dso_and_sim(
 
 bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
 {
-#if 0
-    if (pa.unit[0] == 0 && pa.pos == PinPosition::Input)
-    {
-        int nimTraceIndex = pa.unit[1] - Level0::NIM_IO_Offset;
-
-        if (0 <= nimTraceIndex && nimTraceIndex < static_cast<int>(dsoSetup.nimTriggers.size()))
-            return dsoSetup.nimTriggers.test(nimTraceIndex);
-
-        int irqTraceIndex = pa.unit[1] - Level0::IRQ_Inputs_Offset;
-
-        if (0 <= irqTraceIndex && irqTraceIndex < static_cast<int>(dsoSetup.irqTriggers.size()))
-            return dsoSetup.irqTriggers.test(irqTraceIndex);
-    }
-
-    return false;
-#else
     auto combinedTriggers = get_combined_triggers(dsoSetup);
     int idx = get_trace_index(pa);
 
@@ -1102,7 +1080,6 @@ bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
         return false;
 
     return combinedTriggers.test(idx);
-#endif
 }
 
 void show_dso_buffer_debug_widget(
@@ -1113,9 +1090,10 @@ void show_dso_buffer_debug_widget(
     QTextStream out(&text);
 
     {
-        const auto &dsoBuffer = dsoSimResult.dsoBuffer;
         auto combinedTriggers = get_combined_triggers(dsoSetup);
-        auto jitter = calculate_jitter_value(dsoSimResult.sim.sampledTraces, dsoSetup).first;
+        const auto &dsoBuffer = dsoSimResult.dsoBuffer;
+        auto sampledTraces = fill_snapshot_from_dso_buffer(dsoBuffer);
+        auto jitter = calculate_jitter_value(sampledTraces, dsoSetup).first;
 
         out << "<html><body><pre>";
 

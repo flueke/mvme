@@ -92,8 +92,6 @@ namespace data_format
 // are used for the simulation code. This could be changed to signed integers
 // (signed to make time based calculations behave properly) if needed.
 using SampleTime = std::chrono::duration<float, std::chrono::nanoseconds::period>;
-// TODO: try
-// using SampleTime = std::chrono::duration<s64, std::chrono::nanoseconds::period>;
 
 struct LIBMVME_EXPORT Sample
 {
@@ -109,7 +107,8 @@ using Snapshot = std::vector<Trace>;
 // Starts, reads and stops the DSO. Puts the first valid sample into the dest
 // buffer, other samples are discarded. Returns on fatal error, e.g. on MVLC
 // disconnect or when a valid DSO buffer has been received.
-// Set cancel=true to force the function to return std::errc::operation_canceled.
+// Set cancel=true to force the function to return std::errc::operation_canceled
+// if no valid sample has been received yet.
 LIBMVME_EXPORT std::error_code
 acquire_dso_sample(
     mvlc::MVLC mvlc, DSOSetup setup,
