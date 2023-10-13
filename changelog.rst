@@ -22,12 +22,22 @@ Version 1.9.0
 
 * vme_script: Better error handling and log output for MVLC inline stacks.
 
-* MVLC Trigger IO: unit initialization is now wrapped in mvlc_stack_begin/end
+* MVLC Trigger IO: unit initialization is now wrapped in ``mvlc_stack_begin/end``
   blocks to get atomic init behavior. This means executing the Trigger IO script
-  won't interfere with the DSO or active readouts that are also using the
-  Trigger IO system. This change also speeds up execution of the Trigger IO init
-  script.  Note: the Trigger IO script has to be regenerated via the GUI for
-  this change to take effect!
+  won't interfere with the DSO or active readouts that are using the Trigger IO
+  system. This change also speeds up execution of the Trigger IO init script.
+  Note: the Trigger IO script has to be regenerated via the GUI for this change
+  to take effect!
+
+* vme_script: Better error handling and log output for MVLC inline stacks
+  (``mvlc_stack_begin/end``).
+
+* MVLC Trigger IO: unit initialization is now wrapped in ``mvlc_stack_begin/end``
+  blocks to get atomic init behavior. This means executing the Trigger IO script
+  won't interfere with the DSO or active readouts that are using the Trigger IO
+  system. This change also speeds up execution of the Trigger IO init script.
+  Note: the Trigger IO script has to be regenerated via the GUI for this change
+  to take effect!
 
 * MVLC DSO
 
@@ -38,6 +48,9 @@ Version 1.9.0
 
   - Rework the UI: can now enter measurement duration instead of post-trigger
     time. Max measurement duration is limited to 65500 ns by the MVLC.
+
+  - Plot: Fix issue where the trigger edge was not aligned with the 0
+    coordinate.
 
 * Implement 2D Histogram slicing. Works for X and Y and uses the currently
   visible area. The slices are opened in a new 1D histogram window.

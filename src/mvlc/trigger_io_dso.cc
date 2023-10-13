@@ -256,7 +256,14 @@ std::pair<unsigned, bool> calculate_jitter_value(const Snapshot &snapshot, const
 
                 if (maskedPreTrig == maskedSampleTime)
                 {
-                    return std::make_pair(static_cast<unsigned>(sample.time.count()) & 0b111, true);
+                    const auto jitter = static_cast<unsigned>(sample.time.count()) & 0b111;
+                    //qDebug() << "calculate_jitter_value: preTrig =" << dsoSetup.preTriggerTime
+                    //    << ", maskedPreTrig =" << maskedPreTrig
+                    //    << ", sampleTime =" << sample.time.count()
+                    //    << ", maskedSampleTime =" << maskedSampleTime
+                    //    << ", resulting jitter =" << jitter
+                    //    ;
+                    return std::make_pair(jitter, true);
                 }
             }
         }

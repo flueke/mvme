@@ -934,7 +934,7 @@ struct DSO_Sim_Result
     std::chrono::microseconds acquireDuration;
 };
 
-// XXX: this is so ulgy and sim.sampledTraces can diverge from what was last
+// This is a bit ugly: sim.sampledTraces can diverge from what was last
 // read into dsoBuffer. It has to as otherwise the whole gui will be populated
 // with the sim calculated from a possibly empty dsoBuffer instead of happily
 // displaying the previous good state. Handle the whole thing in a better way
@@ -1008,7 +1008,7 @@ DSO_Sim_Result run_dso_and_sim(
         result.ex = std::current_exception();
     }
 
-    // Exit point to save on simulating even if cancelation was requested.
+    // Exit point to save on simulating if cancelation was requested.
     if (cancel)
         return result;
 
@@ -1079,22 +1079,6 @@ DSO_Sim_Result run_dso_and_sim(
 
 bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
 {
-#if 0
-    if (pa.unit[0] == 0 && pa.pos == PinPosition::Input)
-    {
-        int nimTraceIndex = pa.unit[1] - Level0::NIM_IO_Offset;
-
-        if (0 <= nimTraceIndex && nimTraceIndex < static_cast<int>(dsoSetup.nimTriggers.size()))
-            return dsoSetup.nimTriggers.test(nimTraceIndex);
-
-        int irqTraceIndex = pa.unit[1] - Level0::IRQ_Inputs_Offset;
-
-        if (0 <= irqTraceIndex && irqTraceIndex < static_cast<int>(dsoSetup.irqTriggers.size()))
-            return dsoSetup.irqTriggers.test(irqTraceIndex);
-    }
-
-    return false;
-#else
     auto combinedTriggers = get_combined_triggers(dsoSetup);
     int idx = get_trace_index(pa);
 
@@ -1102,7 +1086,6 @@ bool is_trigger_pin(const PinAddress &pa, const DSOSetup &dsoSetup)
         return false;
 
     return combinedTriggers.test(idx);
-#endif
 }
 
 void show_dso_buffer_debug_widget(
@@ -1113,9 +1096,10 @@ void show_dso_buffer_debug_widget(
     QTextStream out(&text);
 
     {
-        const auto &dsoBuffer = dsoSimResult.dsoBuffer;
         auto combinedTriggers = get_combined_triggers(dsoSetup);
-        auto jitter = calculate_jitter_value(dsoSimResult.sim.sampledTraces, dsoSetup).first;
+        const auto &dsoBuffer = dsoSimResult.dsoBuffer;
+        auto sampledTraces = fill_snapshot_from_dso_buffer(dsoBuffer);
+        auto jitter = calculate_jitter_value(sampledTraces, dsoSetup).first;
 
         out << "<html><body><pre>";
 
@@ -1385,9 +1369,13 @@ struct DSOSimWidget::Private
 
         this->dsoPlotWidget->setXInterval(
             -1.0 * dsoSetup.preTriggerTime, getSimMaxTime().count() - dsoSetup.preTriggerTime);
-
-        this->dsoPlotWidget->setTraces(traces, dsoSetup.preTriggerTime, traceNames);
-        this->dsoPlotWidget->setPreTriggerTime(-1.0 * dsoSetup.preTriggerTime);
+        // Have to use the masked pre trigger time here, otherwise the triggered
+        // rising edge does not align with the plots 0 time point. Reason: the
+        // MVLC scope is not accurate enough for the lowest 3-bits. Also see
+        // calculate_jitter_value().
+        const auto maskedPreTrig = dsoSetup.preTriggerTime & ~0b111;
+        this->dsoPlotWidget->setTraces(traces, maskedPreTrig, traceNames);
+        this->dsoPlotWidget->setPreTriggerTime(-1.0 * maskedPreTrig);
         this->dsoPlotWidget->setPostTriggerTime(dsoSetup.postTriggerTime);
         this->dsoPlotWidget->setTriggerTraceInfo(isTriggerTrace);
     }
