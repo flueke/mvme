@@ -260,7 +260,7 @@ class DSOPlotMouseTracker: public QwtPlotPicker
             if (rubberBand() != QwtPicker::VLineRubberBand)
                 return QwtPlotPicker::trackerTextF(pos);
 
-            return QwtText(QSL("t=%1").arg(QString::number(std::floor(pos.x()))));
+            return QwtText(QSL("t=%1").arg(QString::number(std::floor(pos.x()) + 0.5)));
         }
 };
 
