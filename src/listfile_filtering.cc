@@ -163,10 +163,8 @@ void ListfileFilterStreamConsumer::beginRun(
         listfile::BufferedWriteHandle bwh;
         listfile::listfile_write_magic(bwh, ConnectionType::USB);
         listfile::listfile_write_endian_marker(bwh);
-        // FIXME: why write the vme config? it should be streamed via the first
-        // system event from the source listfile. But the system event header will
-        // not be compatible when the source listfile is non-mvlc! Have to fixup the headers.
-        //mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
+        // To add the vme config data to every part of the output listfile.
+        mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
         return bwh.getBuffer();
     };
 
