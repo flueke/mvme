@@ -214,6 +214,12 @@ QString generate_output_basename(const ListFileOutputInfo &info);
 // same as above but with .zip or .mvmelst extension
 QString generate_output_filename(const ListFileOutputInfo &info);
 
+void write_listfile_output_info_to_qsettings(const ListFileOutputInfo &info, QSettings &settings);
+ListFileOutputInfo read_listfile_output_info_from_qsettings(QSettings &settings);
+
+QVariant listfile_output_info_to_variant(const ListFileOutputInfo &info);
+ListFileOutputInfo listfile_output_info_from_variant(const QVariant &var);
+
 enum class ControllerState
 {
     Disconnected,

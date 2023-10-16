@@ -111,6 +111,80 @@ QString generate_output_filename(const ListFileOutputInfo &info)
     return result;
 }
 
+static const int DefaultListFileCompression = 1;
+
+void set_value(QSettings &dest, const QString &name, const QVariant &value)
+{
+    dest.setValue(name, value);
+}
+
+void set_value(QVariantMap &dest, const QString &name, const QVariant &value)
+{
+    dest[name] = value;
+}
+
+template<typename Target>
+void serialize_listfile_output_info(Target &target, const ListFileOutputInfo &info)
+{
+    set_value(target, QSL("WriteListFile"),             info.enabled);
+    set_value(target, QSL("ListFileFormat"),            toString(info.format));
+    if (!info.directory.isEmpty())
+        set_value(target, QSL("ListFileDirectory"),     info.directory);
+    set_value(target, QSL("ListFileCompressionLevel"),  info.compressionLevel);
+    set_value(target, QSL("ListFilePrefix"),            info.prefix);
+    set_value(target, QSL("ListFileSuffix"),            info.suffix);
+    set_value(target, QSL("ListFileFormatString"),      info.fmtStr);
+    set_value(target, QSL("ListFileRunNumber"),         info.runNumber);
+    set_value(target, QSL("ListFileOutputFlags"),       info.flags);
+    set_value(target, QSL("ListFileSplitSize"),         static_cast<quint64>(info.splitSize));
+    set_value(target, QSL("ListFileSplitTime"),         static_cast<quint64>(info.splitTime.count()));
+}
+
+template<typename Source>
+void deserialize_listfile_output_info(const Source &source, ListFileOutputInfo &dest)
+{
+    dest.enabled          = source.value(QSL("WriteListFile"), QSL("true")).toBool();
+    dest.format           = listFileFormat_fromString(source.value(QSL("ListFileFormat")).toString());
+    if (dest.format == ListFileFormat::Invalid)
+        dest.format = ListFileFormat::ZIP;
+    dest.directory        = source.value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
+    dest.compressionLevel = source.value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
+    dest.prefix           = source.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();
+    dest.suffix           = source.value(QSL("ListFileSuffix")).toString();
+    dest.fmtStr           = source.value(QSL("ListFileFormatString"), dest.fmtStr).toString();
+    dest.runNumber        = source.value(QSL("ListFileRunNumber"), 1u).toUInt();
+    dest.flags            = source.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseRunNumber).toUInt();
+    dest.splitSize        = source.value(QSL("ListFileSplitSize"), static_cast<quint64>(dest.splitSize)).toUInt();
+    dest.splitTime        = std::chrono::seconds(
+        source.value(QSL("ListFileSplitTime"), static_cast<quint64>(dest.splitTime.count())).toUInt());
+}
+
+void write_listfile_output_info_to_qsettings(const ListFileOutputInfo &info, QSettings &settings)
+{
+    serialize_listfile_output_info(settings, info);
+}
+
+QVariant listfile_output_info_to_variant(const ListFileOutputInfo &info)
+{
+    QVariantMap result;
+    serialize_listfile_output_info(result, info);
+    return result;
+}
+
+ListFileOutputInfo read_listfile_output_info_from_qsettings(QSettings &settings)
+{
+    ListFileOutputInfo result;
+    deserialize_listfile_output_info(settings, result);
+    return result;
+}
+
+ListFileOutputInfo listfile_output_info_from_variant(const QVariant &var)
+{
+    ListFileOutputInfo result;
+    deserialize_listfile_output_info(var.toMap(), result);
+    return result;
+}
+
 double DAQStats::getAnalysisEfficiency() const
 {
     double efficiency = getAnalyzedBuffers() / static_cast<double>(totalBuffersRead);

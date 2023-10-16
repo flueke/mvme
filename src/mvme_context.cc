@@ -78,8 +78,6 @@ static const size_t ReadoutBufferSize = Megabytes(1);
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 
-static const int DefaultListFileCompression = 1;
-
 static const QString RunNotesFilename = QSL("mvme_run_notes.txt");
 
 static const QString VMEConfigAutoSaveFilename = QSL(".vme_autosave.vme");
@@ -516,43 +514,6 @@ void MVMEContextPrivate::clearLog()
     {
         m_q->m_mainwin->clearLog();
     }
-}
-
-static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
-{
-    settings.setValue(QSL("WriteListFile"),             info.enabled);
-    settings.setValue(QSL("ListFileFormat"),            toString(info.format));
-    if (!info.directory.isEmpty())
-        settings.setValue(QSL("ListFileDirectory"),     info.directory);
-    settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
-    settings.setValue(QSL("ListFilePrefix"),            info.prefix);
-    settings.setValue(QSL("ListFileSuffix"),            info.suffix);
-    settings.setValue(QSL("ListFileFormatString"),      info.fmtStr);
-    settings.setValue(QSL("ListFileRunNumber"),         info.runNumber);
-    settings.setValue(QSL("ListFileOutputFlags"),       info.flags);
-    settings.setValue(QSL("ListFileSplitSize"),         static_cast<quint64>(info.splitSize));
-    settings.setValue(QSL("ListFileSplitTime"),         static_cast<quint64>(info.splitTime.count()));
-}
-
-static ListFileOutputInfo readFromSettings(QSettings &settings)
-{
-    ListFileOutputInfo result;
-    result.enabled          = settings.value(QSL("WriteListFile"), QSL("true")).toBool();
-    result.format           = listFileFormat_fromString(settings.value(QSL("ListFileFormat")).toString());
-    if (result.format == ListFileFormat::Invalid)
-        result.format = ListFileFormat::ZIP;
-    result.directory        = settings.value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
-    result.compressionLevel = settings.value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
-    result.prefix           = settings.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();
-    result.suffix           = settings.value(QSL("ListFileSuffix")).toString();
-    result.fmtStr           = settings.value(QSL("ListFileFormatString"), result.fmtStr).toString();
-    result.runNumber        = settings.value(QSL("ListFileRunNumber"), 1u).toUInt();
-    result.flags            = settings.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseRunNumber).toUInt();
-    result.splitSize        = settings.value(QSL("ListFileSplitSize"), static_cast<quint64>(result.splitSize)).toUInt();
-    result.splitTime        = std::chrono::seconds(
-        settings.value(QSL("ListFileSplitTime"), static_cast<quint64>(result.splitTime.count())).toUInt());
-
-    return result;
 }
 
 MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOptions &options)
@@ -1299,7 +1260,7 @@ void MVMEContext::onDAQDone()
     {
         qDebug() << __PRETTY_FUNCTION__ << "writing listfile output info to mvmeworkspace.ini";
         auto rdoWorkerContext = m_readoutWorker->getContext();
-        writeToSettings(rdoWorkerContext.listfileOutputInfo, *makeWorkspaceSettings());
+        write_listfile_output_info_to_qsettings(rdoWorkerContext.listfileOutputInfo, *makeWorkspaceSettings());
     }
 }
 
@@ -2943,13 +2904,13 @@ void MVMEContext::analysisWasSaved()
 void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 {
     auto settings = makeWorkspaceSettings();
-    writeToSettings(info, *settings);
+    write_listfile_output_info_to_qsettings(info, *settings);
     emit ListFileOutputInfoChanged(info);
 }
 
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
 {
-    auto info = readFromSettings(*makeWorkspaceSettings());
+    auto info = read_listfile_output_info_from_qsettings(*makeWorkspaceSettings());
     info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
     return info;
 }
