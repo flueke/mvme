@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.analysis": "json",
+        "*.mvmemodule": "json",
+        "*.tcc": "cpp"
+    }
+}
