@@ -755,7 +755,7 @@ void DAQRunSettingsDialog::updateSettings()
     s.fmtStr = ui->le_formatString->text();
     s.runNumber = ui->spin_runNumber->value();
     s.splitSize = ui->spin_splitSize->value() * Megabytes(1);
-    s.splitTime = std::chrono::seconds(ui->spin_splitSize->value());
+    s.splitTime = std::chrono::seconds(ui->spin_splitTime->value());
 
     s.flags &= ~(ListFileOutputInfo::UseRunNumber | ListFileOutputInfo::UseTimestamp);
 
