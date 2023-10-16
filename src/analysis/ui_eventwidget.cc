@@ -1311,6 +1311,26 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
         }
     });
 
+    // Listfile Filtering Settings
+    QAction *actionListfileFilterSettings = new QAction(
+        QIcon(QSL(":/data_filter.png")), "Listfile Filtering", this);
+
+    connect(actionListfileFilterSettings, &QAction::triggered, this, [this] {
+        ListfileFilterDialog dialog(m_d->m_serviceProvider, this);
+        dialog.exec();
+    });
+
+    auto update_listfile_filter_action = [actionListfileFilterSettings] (GlobalMode mode)
+    {
+        actionListfileFilterSettings->setEnabled(mode == GlobalMode::Replay);
+    };
+
+    connect(m_d->m_serviceProvider, &AnalysisServiceProvider::modeChanged,
+        actionListfileFilterSettings, update_listfile_filter_action);
+
+    update_listfile_filter_action(m_d->m_serviceProvider->getGlobalMode());
+
+
     m_d->m_eventRateLabel = new QLabel;
 
     // create the lower toolbar
@@ -1327,6 +1347,7 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
         tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addAction(actionEventSettings);
+        tb->addAction(actionListfileFilterSettings);
 
         tb->addSeparator();
 

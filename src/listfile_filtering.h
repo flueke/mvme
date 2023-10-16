@@ -4,11 +4,11 @@
 #include <memory>
 #include <QUuid>
 #include <QDialog>
+#include <QMap>
 
 #include "globals.h"
 #include "stream_processor_consumers.h"
 #include "stream_processor_counters.h"
-#include "analysis/analysis_fwd.h"
 
 // Note: to keep things simple this works for the MVLC only for now. Also the
 // output is limited to zip and lz4 files. Support for other output formats,
@@ -16,11 +16,25 @@
 
 struct ListfileFilterConfig
 {
+    struct FilterEventEntry
+    {
+        QUuid eventId;      // The vme config event to be filtered.
+        QUuid conditionId;  // The analysis condition to use for filtering.
+    };
+
     // Ids of analysis condition operators used to filter the respective VME
     // event.
-    std::vector<QUuid> filterConditionsByEvent;
+    // VME event id -> analysis condition id
+    QMap<QUuid, QUuid> eventEntries;
+
+    // Configuration for the output listfile to be written.
     ListFileOutputInfo outputInfo;
+
+    bool enabled = false;
 };
+
+QVariant listfile_filter_config_to_variant(const ListfileFilterConfig &cfg);
+ListfileFilterConfig listfile_filter_config_from_variant(const QVariant &var);
 
 class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
 {
@@ -36,7 +50,7 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
 
         void beginRun(const RunInfo &runInfo,
                       const VMEConfig *vmeConfig,
-                      const analysis::Analysis *analysis) override;
+                      analysis::Analysis *analysis) override;
 
         void endRun(const DAQStats &stats, const std::exception *e = nullptr) override;
 
@@ -52,24 +66,27 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         // Thread-safe, returns a copy of the counters.
         MVMEStreamProcessorCounters getCounters() const;
 
-        // Not thread-safe. Needs to be called prior to starting a run.
-        void setConfig(const ListfileFilterConfig &config);
+        //// Not thread-safe. Needs to be called prior to starting a run.
+        //void setConfig(const ListfileFilterConfig &config);
 
     private:
         struct Private;
         std::unique_ptr<Private> d;
 };
 
+class AnalysisServiceProvider;
+
 class ListfileFilterDialog: public QDialog
 {
     Q_OBJECT
     public:
-        EventSettingsDialog(
-            const VMEConfig *vmeConfig,
-            const analaysis::Analysis* *analysis,
+        ListfileFilterDialog(
+            AnalysisServiceProvider *asp,
             QWidget *parent = nullptr);
 
-        ~EventSettingsDialog() override;
+        ~ListfileFilterDialog() override;
+
+        void accept() override;
 
     private:
         struct Private;

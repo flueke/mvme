@@ -39,7 +39,7 @@ class LIBMVME_EXPORT IStreamModuleConsumer: public StreamConsumerBase
 
         virtual void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
-                              const analysis::Analysis *analysis) = 0;
+                              analysis::Analysis *analysis) = 0;
 
         virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) = 0;
 

@@ -43,7 +43,7 @@ class LIBMVME_EXPORT EventServer: public QObject, public IStreamModuleConsumer
 
         void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
-                              const analysis::Analysis *analysis) override;
+                              analysis::Analysis *analysis) override;
 
         void endRun(const DAQStats &stats, const std::exception *e = nullptr) override;
 

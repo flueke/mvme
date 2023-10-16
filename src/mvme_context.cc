@@ -2911,7 +2911,7 @@ void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
 {
     auto info = read_listfile_output_info_from_qsettings(*makeWorkspaceSettings());
-    info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
+    //info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
     return info;
 }
 

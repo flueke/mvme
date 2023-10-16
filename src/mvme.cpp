@@ -1201,7 +1201,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
     if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
-    QString path = m_d->m_context->getListFileOutputInfo().fullDirectory;
+    QString path = m_d->m_context->getListFileOutputInfo().directory;
 
     if (path.isEmpty())
     {

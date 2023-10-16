@@ -366,7 +366,7 @@ void EventServer::setEnabled(bool b)
 // analysis datasources. Send this description out to clients.
 void EventServer::beginRun(const RunInfo &runInfo,
               const VMEConfig *vmeConfig,
-              const analysis::Analysis *analysis)
+              analysis::Analysis *analysis)
 {
     if (!m_d->m_enabled) return;
 

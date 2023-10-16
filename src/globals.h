@@ -190,8 +190,8 @@ struct ListFileOutputInfo
     QString directory;          // Path to the output directory. If it's not a
                                 // full path it's relative to the workspace directory.
                                 //
-    QString fullDirectory;      // Always the full path to the listfile output directory.
-                                // This is transient and not stored in the workspace settings.
+    //QString fullDirectory;      // Always the full path to the listfile output directory.
+    //                            // This is transient and not stored in the workspace settings.
 
     int compressionLevel = 1;   // zlib/lz4 compression level
 

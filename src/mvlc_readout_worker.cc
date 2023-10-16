@@ -384,8 +384,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
             if (outInfo.format == ListFileFormat::ZIP
                 || outInfo.format == ListFileFormat::LZ4)
             {
-                if (outInfo.fullDirectory.isEmpty())
-                    throw std::runtime_error("Error: listfile output directory is not set");
+                //if (outInfo.fullDirectory.isEmpty())
+                //    throw std::runtime_error("Error: listfile output directory is not set");
 
                 listfile::SplitListfileSetup lfSetup;
                 lfSetup.entryType = (outInfo.format == ListFileFormat::ZIP
