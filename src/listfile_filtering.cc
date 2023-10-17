@@ -93,7 +93,7 @@ ListfileFilterConfig listfile_filter_config_from_variant(const QVariant &var)
 struct ListfileFilterStreamConsumer::Private
 {
     static const size_t OutputBufferInitialCapacity = mesytec::mvlc::util::Megabytes(1);
-    static const size_t OutputBufferFlushSize = OutputBufferInitialCapacity;
+    static const size_t OutputBufferFlushSize = OutputBufferInitialCapacity-256;
 
     ListfileFilterConfig config_;
 
@@ -251,6 +251,10 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
         return;
 
     d->logger_->debug("@{}: endRun", fmt::ptr(this));
+
+    // Flush remaining data.
+    d->maybeFlushOutputBuffer(0);
+
     d->listfileWriteHandle_.reset();
     d->config_.enabled = false; // disable it after each run. User has to re-enable manually again.
     d->analysis_->setProperty("ListfileFilterConfig", listfile_filter_config_to_variant(d->config_));
@@ -276,10 +280,10 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
     d->logger_->debug("@{}: endRun is done", fmt::ptr(this));
 }
 
-void ListfileFilterStreamConsumer::Private::maybeFlushOutputBuffer()
+void ListfileFilterStreamConsumer::Private::maybeFlushOutputBuffer(size_t flushSize)
 {
     if (const auto used = outputBuffer_.used();
-        used >= Private::OutputBufferFlushSize)
+        used > flushSize)
     {
         logger_->debug("@{}: flushing output buffer, used={}, capacity={}", fmt::ptr(this), used, outputBuffer_.capacity());
         listfileWriteHandle_->write(outputBuffer_.data(), used);
