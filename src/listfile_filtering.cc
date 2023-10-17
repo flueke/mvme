@@ -96,6 +96,9 @@ struct ListfileFilterStreamConsumer::Private
     static const size_t OutputBufferFlushSize = OutputBufferInitialCapacity-256;
 
     ListfileFilterConfig config_;
+    // Indexes into the a2 condition bitset. In increasing event order, e.g [0]
+    // is the bit index for event 0. Filled in beginRun().
+    std::vector<int> eventConditionBitIndexes_;
 
     std::shared_ptr<spdlog::logger> logger_;
     Logger qtLogger_;
@@ -110,7 +113,7 @@ struct ListfileFilterStreamConsumer::Private
     ReadoutBuffer outputBuffer_;
     mutable mesytec::mvlc::Protected<MVMEStreamProcessorCounters> counters_;
 
-    void maybeFlushOutputBuffer();
+    void maybeFlushOutputBuffer(size_t flushSize = OutputBufferFlushSize);
 };
 
 ListfileFilterStreamConsumer::ListfileFilterStreamConsumer()
@@ -168,6 +171,7 @@ void ListfileFilterStreamConsumer::beginRun(
     if (!is_mvlc_controller(vmeConfig->getControllerType()))
     {
         getLogger()("Listfile Filter Error: listfile filtering is only implemented for the MVLC controller");
+        d->config_.enabled = false;
         return;
     }
 
@@ -175,18 +179,50 @@ void ListfileFilterStreamConsumer::beginRun(
         format != ListFileFormat::ZIP && format != ListFileFormat::LZ4)
     {
         getLogger()("Listfile Filter Error: listfile filter can only output ZIP or LZ4 archives");
+        d->config_.enabled = false;
         return;
     }
 
     d->runInfo_ = runInfo;
     d->inputControllerType_ = vmeConfig->getControllerType();
     d->analysis_ = analysis;
+    //printMe(runInfo.infoDict);
 
-    printMe(runInfo.infoDict);
+    // Build the event -> condition bit index lookup table.
+    {
+        d->eventConditionBitIndexes_.clear();
+        auto eventConfigs = vmeConfig->getEventConfigs();
+        auto conditionBitIndexes = d->analysis_->getA2AdapterState()->conditionBitIndexes;
 
-    auto workspaceSettings = make_workspace_settings();
+        for (int ei=0; ei<eventConfigs.size(); ++ei)
+        {
+            auto eventConfig = eventConfigs[ei];
+
+            if (auto condId = d->config_.eventEntries.value(eventConfig->getId());
+                !condId.isNull())
+            {
+                if (auto a1_cond = d->analysis_->getObject<analysis::ConditionInterface>(condId))
+                {
+                    if (auto bitIndex = conditionBitIndexes.value(a1_cond.get(), -1);
+                        bitIndex >= 0)
+                    {
+                        d->eventConditionBitIndexes_.push_back(bitIndex);
+                        continue;
+                    }
+                }
+            }
+            else
+            {
+                getLogger()(QSL("Listfile Filter Error: Condition for event %1 not found. Check config!")
+                    .arg(ei));
+            }
+
+            d->eventConditionBitIndexes_.push_back(-1);
+        }
+    }
 
 #if 0
+    auto workspaceSettings = make_workspace_settings();
     // for make_new_listfile_name()
     ListFileOutputInfo lfOutInfo{};
     lfOutInfo.format = ListFileFormat::ZIP;
@@ -308,6 +344,7 @@ void ListfileFilterStreamConsumer::processModuleData(
 {
     if (!d->config_.enabled)
         return;
+
     #if 0
     if (eventIndex < static_cast<s32>(d->config_.filterConditionsByEvent.size()))
     {
@@ -332,16 +369,37 @@ void ListfileFilterStreamConsumer::processModuleData(
             }
         }
     }
+#else
+    if (eventIndex < static_cast<signed>(d->eventConditionBitIndexes_.size()))
+    {
+        if (auto bitIndex = d->eventConditionBitIndexes_[eventIndex]; bitIndex >= 0)
+        {
+            auto condResult = d->analysis_->getA2AdapterState()->a2->conditionBits.test(bitIndex);
+
+            if (!condResult)
+                return;
+        }
+    }
+#endif
 
     listfile::write_event_data(d->outputBuffer_, crateIndex, eventIndex, moduleDataList, moduleCount);
     d->maybeFlushOutputBuffer();
-#endif
 }
 
 void ListfileFilterStreamConsumer::processSystemEvent(s32 crateIndex, const u32 *header, u32 size)
 {
     if (!d->config_.enabled)
         return;
+    if (size)
+    {
+        auto info = mesytec::mvlc::extract_frame_info(*header);
+        if (info.type == mesytec::mvlc::frame_headers::SystemEvent
+            && (info.sysEventSubType == mesytec::mvlc::system_event::subtype::BeginRun
+                || info.sysEventSubType == mesytec::mvlc::system_event::subtype::EndRun))
+        {
+            d->logger_->info("system event: {}", mesytec::mvlc::decode_frame_header(*header));
+        }
+    }
     // Note: works for MVLC inputs only, as otherwise the system event header won't be compatible.
     listfile::write_system_event(d->outputBuffer_, crateIndex, header, size);
     d->maybeFlushOutputBuffer();
