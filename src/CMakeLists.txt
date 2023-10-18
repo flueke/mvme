@@ -121,7 +121,9 @@ add_library(libmvme_core STATIC
     vme_script_util.cc
     vme_script_variables.cc
     vmusb.cpp
-    util.cc)
+    util.cc
+    util/version_compare.cc
+    )
 
 set_target_properties(libmvme_core PROPERTIES OUTPUT_NAME mvme_core)
 generate_export_header(libmvme_core)
@@ -366,7 +368,6 @@ add_library(libmvme SHARED
     util/qwt_scalepicker.cpp
     util/strings.cc
     util/variablify.cc
-    util/version_compare.cc
     util/qledindicator.cpp
     util_zip.cc
     vme_analysis_common.cc

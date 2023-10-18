@@ -813,6 +813,22 @@ Command parse_accu_test(const QStringList &args, int lineNumber)
     }
 }
 
+Command parse_mvme_require_version(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("%1 <min_version>").arg(args[0]);
+
+    if (args.size() != 2)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = CommandType::MvmeRequireVersion;
+    result.stringData = args[1];
+    //if (args.size() >= 3) // optional <message> arg
+    //    result.printArgs.push_back(args[2]);
+    result.lineNumber = lineNumber;
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
@@ -859,6 +875,8 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("accu_set"),          parse_accu_set },
     { QSL("accu_mask_rotate"),  parse_accu_mask_and_rotate },
     { QSL("accu_test"),         parse_accu_test },
+
+    { QSL("mvme_require_version"), parse_mvme_require_version },
 };
 
 static QString handle_multiline_comment(QString line, bool &in_multiline_comment)
@@ -1890,6 +1908,7 @@ static const QMultiMap<CommandType, QString> commandTypeToString =
     { CommandType::Accu_Set,                QSL("accu_set") },
     { CommandType::Accu_MaskAndRotate,      QSL("accu_mask_rotate") },
     { CommandType::Accu_Test,               QSL("accu_test") },
+    { CommandType::MvmeRequireVersion,      QSL("mvme_require_version") },
 };
 
 QString to_string(CommandType commandType)
@@ -2172,6 +2191,10 @@ QString to_string(const Command &cmd)
                 .arg(cmd.accuTestValue, 8, 16, QLatin1Char('0'))
                 .arg(cmd.accuTestMessage);
             break;
+
+        case CommandType::MvmeRequireVersion:
+            buffer = QSL("%1 %2").arg(cmdStr).arg(cmd.stringData);
+            break;
     }
 
     return buffer;
@@ -2209,6 +2232,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Accu_Set:
         case CommandType::Accu_MaskAndRotate:
         case CommandType::Accu_Test:
+        case CommandType::MvmeRequireVersion:
             break;
 
         case CommandType::Read:
