@@ -286,7 +286,8 @@ std::error_code setup_trigger_io(
 
     // Parse the trigger io script and run the writes contained within.
     auto commands = vme_script::parse(ioCfgText);
-    auto results = vme_script::run_script(mvlc, commands);
+    auto results = vme_script::run_script(mvlc, commands, logger,
+        vme_script::run_script_options::AbortOnError);
 
     if (vme_script::has_errors(results))
     {
