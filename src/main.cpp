@@ -18,6 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include "git_sha1.h"
 #include "mvme.h"
 #include "mvme_options.h"
 #include "mvme_session.h"
@@ -45,6 +46,12 @@ int main(int argc, char *argv[])
         std::cout << "  --offline       Start in offline mode. Connecting to a" << std::endl
                   << "                  VME controller will not be possible. Useful for replays."
                   << std::endl;
+        return 0;
+    }
+
+    if (args.contains("--version"))
+    {
+        std::cout << "mvme - mesytec VME DAQ - version " << mvme_git_version() << "\n";
         return 0;
     }
 

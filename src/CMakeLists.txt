@@ -366,6 +366,7 @@ add_library(libmvme SHARED
     util/qwt_scalepicker.cpp
     util/strings.cc
     util/variablify.cc
+    util/version_compare.cc
     util/qledindicator.cpp
     util_zip.cc
     vme_analysis_common.cc
@@ -656,6 +657,7 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_trigger_io_sim mvlc/test/test_trigger_io_sim.cc)
     add_mvme_gtest(test_vmeconfig_to_crateconfig mvlc/vmeconfig_to_crateconfig.test.cc)
     add_mvme_gtest(test_multi_crate multi_crate.test.cc)
+    add_mvme_gtest(test_util_version_compare util/version_compare.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
