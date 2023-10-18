@@ -817,7 +817,7 @@ static QString generate_mvlc_meta_block(
 }
 
 static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
-static const char *TriggerIoMvmeMinVersion = "1.9";
+static const char *TriggerIoMvmeMinVersion = "1.9.1";
 
 QString generate_trigger_io_script_text(
     const TriggerIO &ioCfg,
