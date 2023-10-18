@@ -344,6 +344,18 @@ and prints a message containing the result.
   | gte | >= |
   +-----+----+
 
+mvme_require_version
+^^^^^^^^^^^^^^^^^^^^
+
+* **mvme_require_version** *<min version string>*
+
+Runtime check for minimum mvme version required to run the current script.
+
+* Example: ``mvme_require_version 1.9.0``
+
+  Will error out if the current mvme version is less than 1.9.0.
+
+
 .. index:: MVLC VME Script Commands
 .. _vme_script_mvlc_commands:
 
