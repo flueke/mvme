@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.9.1
+-------------
+
+* mvlc: Fix bogus value of ``moduleData.hasDynamic`` in mvlc_readout_parser.
+
 Version 1.9.0
 -------------
 
