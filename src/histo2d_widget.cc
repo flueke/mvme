@@ -675,7 +675,7 @@ void Histo2DWidget::replot()
     // If fully zoomed out set axis scales to full size and use that as the zoomer base.
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
-        if (m_d->m_histo)
+        if (m_d->m_histo) // single h2d
         {
             visibleXInterval =
             {
@@ -689,7 +689,7 @@ void Histo2DWidget::replot()
                 m_d->m_histo->getAxisBinning(Qt::YAxis).getMax()
             };
         }
-        else if (m_d->m_histo1DSink)
+        else if (m_d->m_histo1DSink) // list of h1d, view from "top"
         {
             // x is [0, num histos)
             visibleXInterval =

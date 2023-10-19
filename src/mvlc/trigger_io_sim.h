@@ -62,6 +62,13 @@ inline void simulate_lut(
     simulate_lut(lut, inputs, outputs, nullptr, maxtime);
 }
 
+void simulate_single_lut_output(
+    const LUT::Bitmap &mapping,
+    const LutInputTraces &inputs,
+    Trace *outputTrace,
+    const Trace *strobeTrace,      // set to nullptr if the output being simulated is not strobed
+    const SampleTime &maxtime);
+
 struct LIBMVME_EXPORT Sim
 {
     // +1 for the strobe output trace
