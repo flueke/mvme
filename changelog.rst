@@ -4,6 +4,13 @@
 Changelog
 ##################################################
 
+Version 1.9.2
+-------------
+
+* mvlc: abort daq start sequence on error in trigger io init.
+
+* histo2d: enable slicing only for 2d histos, not for 1d array views
+
 Version 1.9.1
 -------------
 
