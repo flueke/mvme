@@ -277,7 +277,7 @@ void simulate_gg(
         {
             const auto inSample = *it;
 
-            if (inSample.time <= holdoffUntil)
+            if (inSample.time < holdoffUntil)
                 continue;
 
             if ((inSample.edge == Edge::Rising && !io.invert)
