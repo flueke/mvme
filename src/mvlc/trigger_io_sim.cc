@@ -168,41 +168,26 @@ void simulate_single_lut_output(
             apply_delay(*outputTrace, LutInternalDelay);
         }
     }
-    #if 0
-    else if (!strobeTrace) // simple case first: no strobe => output immediately follows input
-    {
-        assert(usedInputs.any());
-        SampleTime t0(0);
-        u32 inputCombination = calculate_lut_input_combination(t0, inputs, usedInputs);
-        auto outEdge = (mapping.test(inputCombination) ? Edge::Rising : Edge::Falling);
-        outputTrace->push_back({ t0 , outEdge });
-
-        while (true)
-        {
-            t0 = find_sample_time_after(t0, inputs);
-
-            if (t0 == SampleTime::min())
-                return;
-
-            inputCombination = calculate_lut_input_combination(t0, inputs, usedInputs);
-            outEdge = Edge::Unknown;
-
-            if (inputCombination < LUT::InputCombinations)
-                outEdge = (mapping.test(inputCombination) ? Edge::Rising : Edge::Falling);
-
-            outputTrace->push_back({ t0 + LutInternalDelay, outEdge });
-        }
-    }
-    #elif 1 // old code
     else // At least one input affects the output -> simulate.
     {
         assert(usedInputs.any());
 
+        // Calculate the initial output at t0.
         SampleTime t0(0);
-        u32 inputCombination = calculate_lut_input_combination(t0, inputs, usedInputs);
         auto outEdge = Edge::Unknown;
-        if (inputCombination < LUT::InputCombinations)
+        u32 inputCombination = calculate_lut_input_combination(t0, inputs, usedInputs);
+
+        if (strobeTrace)
+        {
+            // Assumption with strobe: initial output state is 0 (strobe not
+            // active at the time the sample was taken by the DSO).
+            outEdge = Edge::Falling;
+        }
+        else if (inputCombination < LUT::InputCombinations)
+        {
             outEdge = (mapping.test(inputCombination) ? Edge::Rising : Edge::Falling);
+        }
+
         outputTrace->push_back({ t0 , outEdge });
 
         while (true)
@@ -217,7 +202,7 @@ void simulate_single_lut_output(
 
             inputCombination = calculate_lut_input_combination(t0, inputs, usedInputs);
 
-            if (!strobeTrace || edge_at(t0 + LutInternalDelay, strobeTrace) == Edge::Rising)
+            if (!strobeTrace || edge_at(t0, strobeTrace) == Edge::Rising)
             {
                 outEdge = Edge::Unknown;
 
@@ -236,7 +221,6 @@ void simulate_single_lut_output(
 
         }
     }
-    #endif
 }
 
 
