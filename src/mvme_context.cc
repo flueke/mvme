@@ -50,6 +50,7 @@
 #include "mvme.h"
 #include "mvme_listfile_worker.h"
 #include "mvme_mvlc_listfile.h"
+#include "mvme_prometheus.h"
 #include "mvme_stream_worker.h"
 #include "mvme_workspace.h"
 #include "remote_control.h"
@@ -166,6 +167,9 @@ struct MVMEContextPrivate
     std::unique_ptr<RemoteControl> m_remoteControl;
     std::shared_ptr<EventServer> m_eventServer;
     std::shared_ptr<ListfileFilterStreamConsumer> m_listfileFilter;
+#ifdef MVME_ENABLE_PROMETHEUS
+    std::shared_ptr<StreamProcCountersPromExporter> m_streamCountersPromExporter;
+#endif
 
     ListfileReplayHandle listfileReplayHandle;
     std::unique_ptr<ListfileReplayWorker> listfileReplayWorker;
@@ -536,6 +540,10 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     m_d->m_eventServer->setLogger([this](const QString &msg) { this->logMessage(msg); });
     m_d->m_listfileFilter = std::make_shared<ListfileFilterStreamConsumer>();
     m_d->m_listfileFilter->setLogger([this](const QString &msg) { this->logMessage(msg); });
+#ifdef MVME_ENABLE_PROMETHEUS
+    m_d->m_streamCountersPromExporter = std::make_shared<StreamProcCountersPromExporter>();
+    m_d->m_streamCountersPromExporter->setLogger([this](const QString &msg) { this->logMessage(msg); });
+#endif
 
     for (size_t i=0; i<ReadoutBufferCount; ++i)
     {
@@ -838,6 +846,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     {
         m_streamWorker->removeModuleConsumer(m_d->m_eventServer);
         m_streamWorker->removeModuleConsumer(m_d->m_listfileFilter);
+#ifdef MVME_ENABLE_PROMETHEUS
+        m_streamWorker->removeBufferConsumer(m_d->m_streamCountersPromExporter);
+#endif
         auto streamWorker = m_streamWorker.release();
         streamWorker->deleteLater();
         processQtEvents();
@@ -895,6 +906,9 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     // ListfileFilter
     {
         m_streamWorker->attachModuleConsumer(m_d->m_listfileFilter);
+#ifdef MVME_ENABLE_PROMETHEUS
+        m_streamWorker->attachBufferConsumer(m_d->m_streamCountersPromExporter);
+#endif
     }
 
     // Move objects to the analysis thread.

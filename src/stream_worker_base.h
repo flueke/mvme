@@ -76,6 +76,9 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
             consumer->setStreamWorker(nullptr);
         }
 
+        const QVector<std::shared_ptr<IStreamModuleConsumer>> &moduleConsumers() const { return moduleConsumers_; }
+        const QVector<std::shared_ptr<IStreamBufferConsumer>> &bufferConsumers() const { return bufferConsumers_; }
+
         void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
         {
             bufferConsumers_.push_back(consumer);

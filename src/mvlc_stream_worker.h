@@ -177,9 +177,6 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         void logParserInfo(const mesytec::mvlc::readout_parser::ReadoutParserState &parser);
 
-        std::vector<std::shared_ptr<IStreamModuleConsumer>> m_moduleConsumers;
-        std::vector<std::shared_ptr<IStreamBufferConsumer>> m_bufferConsumers;
-
         mutable mesytec::mvlc::TicketMutex m_countersMutex;
         MVMEStreamProcessorCounters m_counters = {};
 

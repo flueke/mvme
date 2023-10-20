@@ -156,6 +156,15 @@ if (WIN32)
     target_compile_options(libmvme_core PRIVATE $<${not-msvc}:-Wno-format>)
 endif()
 
+find_package(prometheus-cpp CONFIG)
+
+if (PROMETHEUS_CPP_ENABLE_PULL)
+    message(">>> mvme: Found prometheus-cpp with PULL support. Enabling prometheus support.")
+    target_link_libraries(libmvme_core PRIVATE prometheus-cpp::pull)
+    target_sources(libmvme_core PRIVATE mvme_prometheus.cc)
+    target_compile_definitions(libmvme_core PUBLIC -DMVME_ENABLE_PROMETHEUS)
+endif()
+
 
 install(TARGETS libmvme_core
     RUNTIME DESTINATION bin
