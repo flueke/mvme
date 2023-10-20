@@ -58,12 +58,6 @@ class LIBMVME_EXPORT MVMEStreamWorker: public StreamWorkerBase
         void setStartPaused(bool startPaused) override;
         bool getStartPaused() const override;
 
-        void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) override;
-        void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) override;
-
-        void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) override;
-        void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) override;
-
         MVMEStreamProcessorCounters getCounters() const override;
 
     public slots:
