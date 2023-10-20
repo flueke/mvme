@@ -183,6 +183,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
         case CommandType::MVLC_InlineStack:
         case CommandType::VMUSB_ReadRegister:
         case CommandType::VMUSB_WriteRegister:
+        case CommandType::MvmeRequireVersion:
             break;
 
         #if 0

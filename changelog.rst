@@ -4,6 +4,31 @@
 Changelog
 ##################################################
 
+Version 1.9.2
+-------------
+
+* mvlc: abort daq start sequence on error in trigger io init.
+
+* histo2d: enable slicing only for 2d histos, not for 1d array views
+
+Version 1.9.1
+-------------
+
+* vme_script: Add new ``mvme_require_version`` command: software side check of
+  minimum mvme version required to run the script.
+
+* MVLC Trigger IO
+
+  - Add ``mvme_require_version 1.9.1`` at the top of the script.
+    Older versions cannot parse the updated format (``mvlc_stack_begin/end``
+    blocks) correctly. They will now error out due to the unknown
+    ``mvme_require_version`` command.
+
+  - Trigger IO script exec fixes: the standard ``run_script`` function is now
+    used to run the script.
+
+* mvlc: Fix bogus value of ``moduleData.hasDynamic`` in mvlc_readout_parser.
+
 Version 1.9.0
 -------------
 

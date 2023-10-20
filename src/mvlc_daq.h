@@ -32,6 +32,8 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
+class MVLC_VMEController;
+
 using Logger = std::function<void (const QString &)>;
 
 #if 0
@@ -70,7 +72,7 @@ std::error_code LIBMVME_EXPORT
     setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
 
 std::error_code LIBMVME_EXPORT
-    setup_trigger_io(MVLCObject &mvlc, VMEConfig &vmeConfig, Logger logger);
+    setup_trigger_io(MVLC_VMEController *mvlc, VMEConfig &vmeConfig, Logger logger);
 
 // Parses the trigger io contained in the vmeconfig, updates it to handle
 // periodic and externally triggered events and returns the updated TriggerIO

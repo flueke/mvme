@@ -121,7 +121,9 @@ add_library(libmvme_core STATIC
     vme_script_util.cc
     vme_script_variables.cc
     vmusb.cpp
-    util.cc)
+    util.cc
+    util/version_compare.cc
+    )
 
 set_target_properties(libmvme_core PROPERTIES OUTPUT_NAME mvme_core)
 generate_export_header(libmvme_core)
@@ -656,6 +658,7 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_trigger_io_sim mvlc/test/test_trigger_io_sim.cc)
     add_mvme_gtest(test_vmeconfig_to_crateconfig mvlc/vmeconfig_to_crateconfig.test.cc)
     add_mvme_gtest(test_multi_crate multi_crate.test.cc)
+    add_mvme_gtest(test_util_version_compare util/version_compare.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 

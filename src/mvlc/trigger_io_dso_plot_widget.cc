@@ -179,9 +179,11 @@ class ScopeCurve: public QwtPlotCurve
             {
                 painter->save();
                 painter->setPen(Qt::darkRed);
-                QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, from+unknownSamples-1);
+                //QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, from+unknownSamples-1); // does not color the transition from unknown to known
+                QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from, from+unknownSamples); // does color the transition
                 painter->restore();
-                QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from+unknownSamples-1, to);
+                //QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from+unknownSamples-1, to);
+                QwtPlotCurve::drawSteps(painter, xMap, yMap, canvasRect, from+unknownSamples, to);
             }
             else
             {

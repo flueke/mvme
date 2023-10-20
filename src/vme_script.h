@@ -157,6 +157,10 @@ enum class CommandType
     Accu_Set,               // Set the accu to a constant value.
     Accu_MaskAndRotate,     // Mask, then left rotate the accu value.
     Accu_Test,              // Compare against constant value and error out on failure.
+
+    // Meta command checking the mvme version against a supplied version number.
+    // The check succeeds if the running mvme version is >= the supplied version.
+    MvmeRequireVersion
 };
 
 using DataWidth = mesytec::mvlc::VMEDataWidth;
@@ -210,6 +214,7 @@ struct Command
     QString accuTestMessage;
     u32 accuMask = 0;
     u32 accuRotate = 0;
+    QString stringData;
 
     #if 0
     struct AccuTest

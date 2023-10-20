@@ -23,9 +23,9 @@
 
 #include <QDebug>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollBar>
-#include <qnamespace.h>
 
 #include "mvlc/trigger_io_dso_sim_ui.h"
 #include "mvlc/mvlc_trigger_io_script.h"
@@ -1001,7 +1001,17 @@ void MVLCTriggerIOEditor::regenerateScript()
 void MVLCTriggerIOEditor::reload()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+    try
+    {
+        d->ioCfg = parse_trigger_io_script_text(d->scriptConfig->getScriptContents());
+    }
+    catch(const vme_script::ParseError &e)
+    {
+        QMessageBox::critical(this, "Script Parse Error",
+            QSL("Internal Error: could not parse generated trigger io script: %1")
+            .arg(e.toString()));
+    }
+
     d->scene->setTriggerIOConfig(d->ioCfg);
 }
 

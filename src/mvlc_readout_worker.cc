@@ -776,7 +776,7 @@ bool run_daq_start_sequence(
 
     logger("  Applying MVLC Trigger & I/O setup");
 
-    if (auto ec = setup_trigger_io(mvlc, vmeConfig, logger))
+    if (auto ec = setup_trigger_io(mvlcCtrl, vmeConfig, logger))
     {
         logger(QSL("Error applying MVLC Trigger & I/O setup: %1").arg(ec.message().c_str()));
         return false;

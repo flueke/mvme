@@ -22,6 +22,7 @@
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "mesytec-mvlc/mvlc_command_builders.h"
+#include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
@@ -264,7 +265,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 }
 
 std::error_code setup_trigger_io(
-    MVLCObject &mvlc, VMEConfig &vmeConfig, Logger /*logger*/)
+    MVLC_VMEController *mvlc, VMEConfig &vmeConfig, Logger logger)
 {
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(
         vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
@@ -285,23 +286,16 @@ std::error_code setup_trigger_io(
 
     // Parse the trigger io script and run the writes contained within.
     auto commands = vme_script::parse(ioCfgText);
-    size_t cmdIndex = 0;
+    auto results = vme_script::run_script(mvlc, commands, logger,
+        vme_script::run_script_options::AbortOnError);
 
-    for (auto &cmd: commands)
+    if (vme_script::has_errors(results))
     {
-        if (cmd.type != vme_script::CommandType::Write)
-            continue;
-
-        //logger(QSL("  setup_trigger_io(): running VME Write %1").arg(cmdIndex));
-
-        if (auto ec = mvlc.vmeWrite(
-                cmd.address, cmd.value,
-                cmd.addressMode, cmd.dataWidth))
-        {
-            return ec;
-        }
-
-        ++cmdIndex;
+        auto firstError = std::find_if(std::begin(results), std::end(results),
+            [] (const vme_script::Result &r) { return r.error.isError(); });
+        if (firstError != std::end(results))
+            logger(firstError->error.toString());
+        return mvlc::MVLCErrorCode::ReadoutSetupError;
     }
 
     return {};

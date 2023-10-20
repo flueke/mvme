@@ -817,6 +817,7 @@ static QString generate_mvlc_meta_block(
 }
 
 static const u32 MVLC_VME_InterfaceAddress = 0xffff0000u;
+static const char *TriggerIoMvmeMinVersion = "1.9.1";
 
 QString generate_trigger_io_script_text(
     const TriggerIO &ioCfg,
@@ -834,6 +835,9 @@ QString generate_trigger_io_script_text(
         "# structure, like adding new write or read commands, are not",
         "# allowed. These changes will be lost the next time the file",
         "# is modified by mvme.",
+        "",
+        "# Check for minimum required mvme version",
+        QString("mvme_require_version %1").arg(TriggerIoMvmeMinVersion),
         "",
         "# Internal MVLC VME interface address",
         QString("setbase 0x%1").arg(MVLC_VME_InterfaceAddress, 8, 16, QLatin1Char('0'))

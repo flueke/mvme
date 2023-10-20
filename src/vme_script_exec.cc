@@ -3,9 +3,11 @@
 #include <QDebug>
 #include <QThread>
 
+#include "git_sha1.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc/mvlc_util.h"
 #include "vmusb.h"
+#include "util/version_compare.h"
 
 namespace vme_script
 {
@@ -408,6 +410,20 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                 }
 
             } break;
+
+        case CommandType::MvmeRequireVersion:
+            {
+                auto requiredVersion = cmd.stringData.toStdString();
+                auto currentVersion = std::string(mvme_git_version());
+                bool notOk = mesytec::mvme::util::version_less_than(currentVersion, requiredVersion);
+
+                if (notOk)
+                {
+                    result.error = VMEError(QSL("mvme version requirement not met: current=%1, min required=%2")
+                        .arg(currentVersion.c_str())
+                        .arg(requiredVersion.c_str()));
+                }
+            }
     }
 
     result.state = state;
@@ -465,6 +481,7 @@ QString format_result(const Result &result)
         case CommandType::MVLC_ReadToAccu:
         case CommandType::MVLC_CompareLoopAccu:
         case CommandType::Accu_Set:
+        case CommandType::MvmeRequireVersion:
             break;
 
         case CommandType::Write:
@@ -559,7 +576,6 @@ QString format_result(const Result &result)
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
                 ;
             break;
-
     }
 
     return ret;

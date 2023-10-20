@@ -97,6 +97,15 @@ struct LIBMVME_EXPORT Sample
 {
     SampleTime time;
     Edge edge;
+
+    Sample() {}
+    Sample(SampleTime t, Edge e): time(t), edge(e) {}
+    Sample(float t, Edge e): time(t), edge(e) {}
+
+    bool operator==(const Sample &o)
+    {
+        return time == o.time && edge == o.edge;
+    }
 };
 
 // Samples over time for one signal/pin.

@@ -182,3 +182,56 @@ TEST(TriggerIOSim, LookupL3OutputTraces)
         outputTraces.insert(trace);
     }
 }
+
+void set_trace_pointers(const std::vector<Trace> &traces, LutInputTraces &tracePointers)
+{
+    for (size_t i=0; i<std::min(traces.size(), tracePointers.size()); ++i)
+        tracePointers[i] = &traces[i];
+}
+
+std::ostream &print_trace(std::ostream &out, const Trace &trace)
+{
+    for (const auto &sample: trace)
+        out << "(" << sample.time.count() << ", " << to_string(sample.edge) << "), ";
+    out << "\n";
+    return out;
+}
+
+TEST(TriggerIOSim, LutOutputStatic)
+{
+    LUT::Bitmap mapping;
+    std::vector<Trace> inputTraces(LUT::InputBits);
+    LutInputTraces inputTracePointers;
+    Trace outputTrace;
+    SampleTime maxTime(100);
+
+    // Assign pointers. Should be ok at this point as inputTraces won't grow and
+    // thus won't be reallocated.
+    set_trace_pointers(inputTraces, inputTracePointers);
+
+    // Add a single sample at t=0 to each trace. Otherwise the LUT input
+    // calculation will return InvalidInputCombination because the traces state
+    // is unknown.
+    for (auto &trace: inputTraces) trace = { {0, Edge::Falling} };
+
+    // input combination -> output value
+    mapping.set(1, 1);
+    inputTraces[0] = {
+        { 0, Edge::Falling },
+        { 50, Edge::Rising }, { 60, Edge::Falling },
+        { 70, Edge::Rising }, { 80, Edge::Falling }
+    };
+
+    simulate_single_lut_output(mapping, inputTracePointers, &outputTrace, nullptr, maxTime);
+
+    std::cout << "input[0]: "; print_trace(std::cout, inputTraces[0]);
+    std::cout << "output:   "; print_trace(std::cout, outputTrace);
+
+    Trace expected = {
+        { 0, Edge::Falling },
+        { 58, Edge::Rising }, { 68, Edge::Falling },
+        { 78, Edge::Rising }, { 88, Edge::Falling }
+    };
+
+    ASSERT_EQ(outputTrace, expected);
+}

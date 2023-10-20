@@ -141,7 +141,9 @@ struct Histo2DWidgetPrivate
             *m_actionChangeRes,
             *m_actionInfo,
             *m_actionCreateCut,
-            *m_actionConditions;
+            *m_actionConditions,
+            *m_actionSliceX,
+            *m_actionSliceY;
 
     QComboBox *m_zScaleCombo;
 
@@ -307,9 +309,9 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Y-Proj"),
                   this, &Histo2DWidget::on_tb_projY_clicked);
 
-    tb->addAction(QIcon(":/chart-pie-separate.png"), QSL("Slice X"),
+    m_d->m_actionSliceX = tb->addAction(QIcon(":/chart-pie-separate.png"), QSL("Slice X"),
                   this, &Histo2DWidget::on_tb_sliceX_clicked);
-    tb->addAction(QIcon(":/chart-pie-separate.png"), QSL("Slice Y"),
+    m_d->m_actionSliceY = tb->addAction(QIcon(":/chart-pie-separate.png"), QSL("Slice Y"),
                   this, &Histo2DWidget::on_tb_sliceY_clicked);
 
     // Connected by other constructors
@@ -614,6 +616,8 @@ Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceP
     m_d->m_plotItem->setData(histData);
     m_d->combo_maxResX_->setEnabled(false);
     select_by_resolution(m_d->combo_maxResY_, m_d->m_histo1DSink->m_bins);
+    m_d->m_actionSliceX->setEnabled(false); // can only slice real 2d histos
+    m_d->m_actionSliceY->setEnabled(false);
 
     connect(m_d->m_actionClear, &QAction::triggered, this, [this]() {
         for (auto &histo: m_d->m_histo1DSink->m_histos)
@@ -671,7 +675,7 @@ void Histo2DWidget::replot()
     // If fully zoomed out set axis scales to full size and use that as the zoomer base.
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
-        if (m_d->m_histo)
+        if (m_d->m_histo) // single h2d
         {
             visibleXInterval =
             {
@@ -685,22 +689,33 @@ void Histo2DWidget::replot()
                 m_d->m_histo->getAxisBinning(Qt::YAxis).getMax()
             };
         }
-        else if (m_d->m_histo1DSink)
+        else if (m_d->m_histo1DSink) // list of h1d, view from "top"
         {
-            auto firstHisto   = m_d->m_histo1DSink->m_histos.at(0);
-            auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
-
+            // x is [0, num histos)
             visibleXInterval =
             {
                 0.0,
                 static_cast<double>(m_d->m_histo1DSink->m_histos.size())
             };
 
+            // y is [histos min x, histos max x)
             visibleYInterval =
             {
-                firstBinning.getMin(),
-                firstBinning.getMax(),
+                std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::min(),
             };
+
+            for (const auto &histo: m_d->m_histo1DSink->m_histos)
+            {
+                auto histoBinning = histo->getAxisBinning(Qt::XAxis);
+                visibleYInterval.setMinValue(std::min(histoBinning.getMin(), visibleYInterval.minValue()));
+                visibleYInterval.setMaxValue(std::max(histoBinning.getMax(), visibleYInterval.maxValue()));
+                qDebug() << __PRETTY_FUNCTION__ << "visYInterval: min=" << visibleYInterval.minValue()
+                    << ", max=" << visibleYInterval.maxValue();
+            }
+
+            qDebug() << __PRETTY_FUNCTION__ << "final visYInterval: min" << visibleYInterval.minValue()
+                    << ", max=" << visibleYInterval.maxValue();
         }
 
         m_d->m_plot->setAxisScale(QwtPlot::xBottom,
@@ -1424,6 +1439,9 @@ void Histo2DWidget::on_tb_sliceY_clicked()
 
 void Histo2DWidget::doSlice(Qt::Axis axis)
 {
+    // Can only slice real 2d histos, not combined views of 1d histos.
+    if (!m_d->m_histo)
+        return;
     // This is the currently visible area.
     double minX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
