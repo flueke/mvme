@@ -175,18 +175,17 @@ StreamConsumerBase::Logger &StreamProcCountersPromExporter::getLogger()
 
 void StreamProcCountersPromExporter::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
 {
-    #if 0
-    // TODO: not sure if the counters should be reset or not. For monitoring the
-    // rate seems to be the more interesting metric anyways.
-    d->bytes_processed_.Set(0);
-    d->buffers_processed_.Set(0);
-    d->events_processed_.Set(0);
-    #endif
+    (void) runInfo;
+    (void) analysis;
+
     d->recreateMetrics(vmeConfig);
 }
 
 void StreamProcCountersPromExporter::endRun(const DAQStats &stats, const std::exception *e)
 {
+    (void) stats;
+    (void) e;
+
     if (auto streamWorker = getStreamWorker())
     {
         d->update(streamWorker->getCounters());
@@ -195,6 +194,11 @@ void StreamProcCountersPromExporter::endRun(const DAQStats &stats, const std::ex
 
 void StreamProcCountersPromExporter::processBuffer(s32 bufferType, u32 bufferNumber, const u32 *buffer, size_t bufferSize)
 {
+    (void) bufferType;
+    (void) bufferNumber;
+    (void) buffer;
+    (void) bufferSize;
+
     if (auto streamWorker = getStreamWorker())
     {
         d->update(streamWorker->getCounters());
