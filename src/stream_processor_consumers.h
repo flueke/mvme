@@ -23,6 +23,8 @@ class LIBMVME_EXPORT StreamConsumerBase
         void setStreamWorker(StreamWorkerBase *worker) { worker_ = worker; }
         StreamWorkerBase *getStreamWorker() const { return worker_; }
 
+        virtual void reloadConfiguration() {};
+
     protected:
         void logMessage(const QString &msg)
         {

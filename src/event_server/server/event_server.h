@@ -40,6 +40,7 @@ class LIBMVME_EXPORT EventServer: public QObject, public IStreamModuleConsumer
 
         void startup() override;
         void shutdown() override;
+        void reloadConfiguration() override;
 
         void beginRun(const RunInfo &runInfo,
                               const VMEConfig *vmeConfig,
