@@ -207,74 +207,11 @@ struct DAQStatsWidgetPrivate
             .arg(counters.maxDelay));
     }
 
-    // FIXME: this is broken and displays a pile of garbage
     void updateMVLCStackErrors(const mesytec::mvlc::StackErrorCounters &counters)
     {
         QString text;
         bool needNewline = false;
 
-#if 0
-        for (const auto &kv: counters.stackErrors | indexed(0))
-        {
-            unsigned stackId = kv.index();
-            const auto &counts = kv.value();
-
-            if (counts.empty())
-                continue;
-
-            // Timeout, BusError, SyntaxError
-            using ErrorAccu = std::array<size_t, 3>;
-            using namespace mesytec::mvlc;
-
-            ErrorAccu errorAccu = {0,0,0};
-
-            for (auto it=counts.begin(); it!=counts.end(); it++)
-            {
-                const auto &errorInfo = it->first;
-                const auto &count = it->second;
-
-                // errorInfo records a hit for each distinct combination of
-                // error flags. This code builds per flag counts from these
-                // combinations. Confusing.
-                for (size_t flag=0; flag<errorAccu.size(); ++flag)
-                    if (errorInfo.flags & flag)
-                        errorAccu[flag] += count;
-            }
-
-            // If we have any errors for this stack add a new line to the label text.
-            if (std::accumulate(std::begin(errorAccu), std::end(errorAccu), 0u))
-            {
-                if (needNewline)
-                    text += QSL("\n");
-
-                text += QSL("stack=%1, ").arg(stackId);
-                bool needComma = false;
-
-                if (errorAccu[frame_flags::shifts::Timeout])
-                {
-                    text += QSL("timeouts=%1").arg(errorAccu[frame_flags::shifts::Timeout]);
-                    needComma = true;
-                }
-
-                if (errorAccu[frame_flags::shifts::BusError])
-                {
-                    if (needComma)
-                        text += QSL(", ");
-                    text += QSL("busErrors=%1").arg(errorAccu[frame_flags::shifts::BusError]);
-                    needComma = true;
-                }
-
-                if (errorAccu[frame_flags::shifts::SyntaxError])
-                {
-                    if (needComma)
-                        text += QSL(", ");
-                    text += QSL("syntaxErrors=%1").arg(errorAccu[frame_flags::shifts::SyntaxError]);
-                }
-
-                needNewline = true;
-            }
-        }
-#else
         for (const auto &kv: counters.stackErrors | indexed(0))
         {
             unsigned stackId = kv.index();
@@ -296,7 +233,6 @@ struct DAQStatsWidgetPrivate
                          .arg(count));
             }
         }
-#endif
 
         if (counters.nonErrorFrames)
         {

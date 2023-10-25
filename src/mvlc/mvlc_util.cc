@@ -56,6 +56,7 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
             case CommandType::Accu_Set:
             case CommandType::Accu_MaskAndRotate:
             case CommandType::Accu_Test:
+            case CommandType::MvmeRequireVersion:
                 break;
 
             case CommandType::Write:
