@@ -358,6 +358,7 @@ add_library(libmvme SHARED
     sis3153/sis3153ETH_vme_class.cpp
     sis3153_util.cc
     stream_worker_base.cc
+    stream_processor_consumers.cc
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
