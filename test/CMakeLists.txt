@@ -51,16 +51,6 @@ add_mvme_bench(test_misc test_misc.cc)
 
 # gtest tests
 
-# For tests depending on libmvme_core
-function(add_mvme_core_gtest exe_name exe_source)
-    add_executable(${exe_name} ${exe_source})
-    target_link_libraries(${exe_name}
-        PRIVATE libmvme_core
-        PRIVATE gtest
-        PRIVATE gtest_main)
-    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
-endfunction(add_mvme_core_gtest)
-
 # For tests depending on libmvme
 function(add_mvme_gtest exe_name exe_source)
     add_executable(${exe_name} ${exe_source})
@@ -71,11 +61,11 @@ function(add_mvme_gtest exe_name exe_source)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_gtest)
 
-add_mvme_core_gtest(test_util_databuffer "test_util_databuffer.cc")
-add_mvme_core_gtest(test_util_ticketmutex "test_util_ticketmutex.cc")
-add_mvme_core_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
-add_mvme_core_gtest(test_vme_script_variables "test_vme_script_variables.cc")
-add_mvme_core_gtest(test_vme_script_commands "test_vme_script_commands.cc")
+add_mvme_gtest(test_util_databuffer "test_util_databuffer.cc")
+add_mvme_gtest(test_util_ticketmutex "test_util_ticketmutex.cc")
+add_mvme_gtest(test_vme_script_parsing "test_vme_script_parsing.cc")
+add_mvme_gtest(test_vme_script_variables "test_vme_script_variables.cc")
+add_mvme_gtest(test_vme_script_commands "test_vme_script_commands.cc")
 add_mvme_gtest(test_logfile_helper "logfile_helper.test.cc")
 add_mvme_gtest(test_multi_event_splitter "multi_event_splitter.test.cc")
 add_mvme_gtest(test_analysis_v3_to_v4_migration "analysis_v3_to_v4_migration.test.cc")

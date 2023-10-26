@@ -4,7 +4,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <vector>
 
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 
 #include "vme_script.h"
 

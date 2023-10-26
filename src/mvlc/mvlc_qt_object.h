@@ -28,7 +28,7 @@
 #include <QVector>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 #include "sis3153.h"
 #include "typedefs.h"
 #include "util.h"

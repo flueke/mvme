@@ -21,7 +21,7 @@
 #ifndef __MVME_MVLC_VME_DEBUG_WIDGET_H__
 #define __MVME_MVLC_VME_DEBUG_WIDGET_H__
 
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 
 #include <QWidget>
 #include <memory>

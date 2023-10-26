@@ -107,8 +107,6 @@ install(TARGETS libmvme_resources
 # libmvme
 #
 
-qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
-
 qt5_wrap_ui(LIBMVME_UIC_OUT
     analysis/interval_condition_dialog.ui
     analysis/polygon_condition_dialog.ui
@@ -121,7 +119,6 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
     )
 
 add_library(libmvme SHARED
-    ${LIBMVME_RC_OUT}
     ${LIBMVME_UIC_OUT}
     "${CMAKE_SOURCE_DIR}/external/qt-collapsible-section/Section.cpp"
     "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"

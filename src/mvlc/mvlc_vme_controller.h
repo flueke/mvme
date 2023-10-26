@@ -22,7 +22,7 @@
 #define __MVME_MVLC_VME_CONTROLLER_H__
 
 #include <QTimer>
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 #include "vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
 

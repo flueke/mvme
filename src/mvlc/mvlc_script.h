@@ -23,7 +23,7 @@
 
 #include <mesytec-mvlc/mvlc_constants.h>
 #include "vme_script.h"
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 
 class QTextStream;
 

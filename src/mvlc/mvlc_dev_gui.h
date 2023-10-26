@@ -32,7 +32,7 @@
 #include <QPushButton>
 #include <QString>
 
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
 
