@@ -456,7 +456,7 @@ add_mvme_dev_exe(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
 add_mvme_dev_exe(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
 add_mvme_dev_exe(dev_qfiledialog_save_test "dev_qfiledialog_save_test.cc")
 add_mvme_dev_exe(dev_listfile_recovery "dev_listfile_recovery.cc")
-add_mvme_dev_exe(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
+add_mvme_exe(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
 install(TARGETS mvlc_dev_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 add_mvme_dev_exe(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
 
