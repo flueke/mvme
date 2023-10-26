@@ -27,8 +27,21 @@ The special 'event' directory should contain 4 vmescript files:
 
 These files are loaded when the user creates a new event via the GUI.
 
+
 Module Templates
 ----------------
+
+Version 2 (single .mvmemodule file)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Newer way of storing module and meta information. Uses a single .mvmemodule
+json file with two root keys: 'ModuleConfig' containing the serialized json
+data and 'ModuleMeta' containing module meta information stored in a json
+object. Compatible files can be created via the 'Save Module to File' context
+menu entry in the vme config tree.
+
+Multiple .mvmemodule files can be put in the same module subdirectory.
+
 
 Version 1 (script files in subdirectory)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -87,29 +100,26 @@ Description of the per module files and directories:
       module. The part after the second '-' and before the filename extension is used in the GUI as
       the script title.
 
-Version 2 (single .mvmemodule file)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Newer way of storing module and meta information. Uses a single .mvmemodule
-json file with two root keys: 'ModuleConfig' containing the serialized json
-data and 'ModuleMeta' containing module meta information stored in a json
-object. Compatible files can be created via the 'Save Module to File' context
-menu entry in the vme config tree.
-
-Multiple .mvmemodule files can be put in the same module subdirectory.
-
 Analysis filter templates
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * analysis/
   - default_filters.analysis:
-    An analysis file created via the GUI which is used when choosing the 'Generate default filters'
-    action and when adding a new filter: The file is loaded as a standard analysis file and the
-    Extractor (aka data filter) entries contained within are used to generate the filters or
-    populate the filter GUI. Other analysis elements are ignored.
+    An analysis file created via the GUI which is used when choosing the
+    'Generate default filters' action and when adding a new filter: The file is
+    loaded as a standard analysis file and new internal object ids are
+    generated. Then all objects are moved to the target modules event context
+    and all data sources are assigned to the target module.
+
+Obsolete  Module Type IDs
+-------------------------
+
+Removed Module Type IDs
+^^^^^^^^^^^^^^^^^^^^^^^
+* 21    vmmr_1ns (consolidated with the vmmr module)
 
 Previous Module Type Enum
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 Before adding the VATS a hardcoded enum was used to hold the module type IDs. The original values
 are included for reference:
 
