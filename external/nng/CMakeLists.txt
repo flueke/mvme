@@ -132,8 +132,6 @@ endif ()
 
 # Expire threads. This runs the timeout handling, and having more of them
 # reduces contention on the common locks used for aio expiration.
-# The default is to allocate up to max(8, ncpu).  The upper limit can be
-# overridden here.
 set(NNG_MAX_EXPIRE_THREADS 8 CACHE STRING "Upper bound on expire threads, 0 for no limit")
 mark_as_advanced(NNG_MAX_EXPIRE_THREADS)
 if (NNG_MAX_EXPIRE_THREADS)
