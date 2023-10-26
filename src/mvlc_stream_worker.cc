@@ -191,7 +191,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
             analysis->beginEvent(eventIndex);
 
-            for (auto c: m_moduleConsumers)
+            for (auto c: moduleConsumers())
                 c->beginEvent(eventIndex); // TODO: not needed for consumers with the newer ModuleDataList interface
 
             if (m_state == WorkerState::SingleStepping)
@@ -204,7 +204,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // eventData
         analysis->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
 
-        for (auto c: m_moduleConsumers)
+        for (auto c: moduleConsumers())
             c->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
 
         for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
@@ -234,7 +234,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         {
             analysis->endEvent(eventIndex);
 
-            for (auto c: m_moduleConsumers)
+            for (auto c: moduleConsumers())
                 c->endEvent(eventIndex); // TODO: not needed for consumers with the newer ModuleDataList interface
 
             if (m_diag)
@@ -286,11 +286,11 @@ void MVLC_StreamWorker::setupParserCallbacks(
         {
             analysis->processTimetick();
 
-            for (auto &c: m_moduleConsumers)
+            for (auto &c: moduleConsumers())
                 c->processTimetick();
         }
 
-        for (auto &c: m_moduleConsumers)
+        for (auto &c: moduleConsumers())
             c->processSystemEvent(crateIndex, header, size);
     };
 
@@ -592,10 +592,11 @@ void MVLC_StreamWorker::start()
         return;
     }
 
-    for (auto c: m_moduleConsumers)
-    {
+    for (auto c: moduleConsumers())
         c->beginRun(runInfo, vmeConfig, analysis);
-    }
+
+    for (auto c: bufferConsumers())
+        c->beginRun(runInfo, vmeConfig, analysis);
 
     // Notify the world that we're up and running.
     setState(WorkerState::Running);
@@ -714,7 +715,7 @@ void MVLC_StreamWorker::start()
             {
                 analysis->processTimetick();
 
-                for (auto &c: m_moduleConsumers)
+                for (auto &c: moduleConsumers())
                     c->processTimetick();
 
                 elapsedSeconds--;
@@ -726,7 +727,10 @@ void MVLC_StreamWorker::start()
 
     const auto daqStats = getDAQStats();
 
-    for (auto c: m_moduleConsumers)
+    for (auto c: moduleConsumers())
+        c->endRun(daqStats);
+
+    for (auto c: bufferConsumers())
         c->endRun(daqStats);
 
     analysis->endRun();
@@ -931,7 +935,7 @@ void MVLC_StreamWorker::processBuffer(
             analysis);
     }
 
-    for (auto &c: m_bufferConsumers)
+    for (auto &c: bufferConsumers())
     {
         auto view = buffer->viewU32();
         c->processBuffer(buffer->type(), buffer->bufferNumber(), view.data(), view.size());
@@ -998,18 +1002,18 @@ void MVLC_StreamWorker::singleStep()
 
 void MVLC_StreamWorker::startupConsumers()
 {
-    for (auto &c: m_moduleConsumers)
+    for (auto &c: moduleConsumers())
         c->startup();
 
-    for (auto &c: m_bufferConsumers)
+    for (auto &c: bufferConsumers())
         c->startup();
 }
 
 void MVLC_StreamWorker::shutdownConsumers()
 {
-    for (auto &c: m_moduleConsumers)
+    for (auto &c: moduleConsumers())
         c->shutdown();
 
-    for (auto &c: m_bufferConsumers)
+    for (auto &c: bufferConsumers())
         c->shutdown();
 }

@@ -55,11 +55,6 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         virtual void setStartPaused(bool startPaused) = 0;
         virtual bool getStartPaused() const = 0;
 
-        virtual void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) = 0;
-        virtual void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer) = 0;
-
-        virtual void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) = 0;
-        virtual void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer) = 0;
 
         virtual MVMEStreamProcessorCounters getCounters() const = 0;
 
@@ -68,6 +63,33 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         void setRunInfo(const RunInfo &runInfo) { ctx_.access().ref().runInfo = runInfo; }
         void setWorkspaceDirectory(const QString &dir) { ctx_.access().ref().workspaceDir = dir; }
         void setDAQStats(const DAQStats &daqStats) { ctx_.access().ref().daqStats = daqStats; }
+
+        void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer)
+        {
+            moduleConsumers_.push_back(consumer);
+            consumer->setStreamWorker(this);
+        }
+
+        void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer)
+        {
+            moduleConsumers_.removeAll(consumer);
+            consumer->setStreamWorker(nullptr);
+        }
+
+        const QVector<std::shared_ptr<IStreamModuleConsumer>> &moduleConsumers() const { return moduleConsumers_; }
+        const QVector<std::shared_ptr<IStreamBufferConsumer>> &bufferConsumers() const { return bufferConsumers_; }
+
+        void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
+        {
+            bufferConsumers_.push_back(consumer);
+            consumer->setStreamWorker(this);
+        }
+
+        void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
+        {
+            bufferConsumers_.removeAll(consumer);
+            consumer->setStreamWorker(nullptr);
+        }
 
     public slots:
         // Blocking call. Returns after stop() has been invoked from the outside.
@@ -124,6 +146,8 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         };
 
         mutable mesytec::mvlc::Protected<ContextHolder> ctx_;
+        QVector<std::shared_ptr<IStreamModuleConsumer>> moduleConsumers_;
+        QVector<std::shared_ptr<IStreamBufferConsumer>> bufferConsumers_;
 };
 
 #endif /* __STREAM_WORKER_BASE_H__ */

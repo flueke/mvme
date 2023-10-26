@@ -27,9 +27,9 @@
 #define DEF_GIT_VERSION "@GIT_VERSION@"
 #define DEF_GIT_VERSION_SHORT "@GIT_VERSION_SHORT@"
 
-extern const char LIBMVME_CORE_EXPORT GIT_SHA1[]            = DEF_GIT_SHA1;
-extern const char LIBMVME_CORE_EXPORT GIT_VERSION[]         = DEF_GIT_VERSION;
-extern const char LIBMVME_CORE_EXPORT GIT_VERSION_SHORT[]   = DEF_GIT_VERSION_SHORT;
+extern const char LIBMVME_EXPORT GIT_SHA1[]            = DEF_GIT_SHA1;
+extern const char LIBMVME_EXPORT GIT_VERSION[]         = DEF_GIT_VERSION;
+extern const char LIBMVME_EXPORT GIT_VERSION_SHORT[]   = DEF_GIT_VERSION_SHORT;
 
 const char *mvme_git_version()
 {

@@ -24,7 +24,7 @@
 #include <QMultiMap>
 #include <QSyntaxHighlighter>
 #include "vme_script.h"
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 
 namespace vme_script
 {
@@ -70,7 +70,7 @@ inline WritesCollection collect_writes(const QString &scriptText, SymbolTables &
     return collect_writes(parse(scriptText, symtabs, baseAddress));
 }
 
-class LIBMVME_CORE_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
+class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {
     using QSyntaxHighlighter::QSyntaxHighlighter;
 

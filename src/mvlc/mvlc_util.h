@@ -21,9 +21,8 @@
 #ifndef __MVME_MVLC_UTIL_H__
 #define __MVME_MVLC_UTIL_H__
 
-#include <iomanip>
-#include "libmvme_mvlc_export.h"
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include "libmvme_export.h"
 #include "vme_script.h"
 
 namespace mesytec
@@ -31,13 +30,13 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
+LIBMVME_EXPORT mvlc::StackCommandBuilder
     build_mvlc_stack(const vme_script::VMEScript &script);
 
-LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
+LIBMVME_EXPORT mvlc::StackCommandBuilder
     build_mvlc_stack(const std::vector<vme_script::Command> &script);
 
-LIBMVME_MVLC_EXPORT void log_buffer(const QVector<u32> &buffer, const QString &info = {});
+LIBMVME_EXPORT void log_buffer(const QVector<u32> &buffer, const QString &info = {});
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec

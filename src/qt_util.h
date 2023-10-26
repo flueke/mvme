@@ -35,7 +35,7 @@
 #include <QToolBar>
 #include <QToolButton>
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 #include "typedefs.h"
 #include "util/qt_str.h"
 
@@ -43,7 +43,7 @@ class QAction;
 class QEvent;
 class QWidget;
 
-class LIBMVME_CORE_EXPORT WidgetGeometrySaver: public QObject
+class LIBMVME_EXPORT WidgetGeometrySaver: public QObject
 {
     public:
         explicit WidgetGeometrySaver(QObject *parent = 0);
@@ -61,19 +61,19 @@ class LIBMVME_CORE_EXPORT WidgetGeometrySaver: public QObject
         QHash<QWidget *, QString> m_widgetKeys;
 };
 
-LIBMVME_CORE_EXPORT QAction *
+LIBMVME_EXPORT QAction *
 add_widget_close_action(QWidget *widget,
                         const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
                         Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
 
 
-QJsonObject LIBMVME_CORE_EXPORT storeDynamicProperties(const QObject *object);
-void LIBMVME_CORE_EXPORT loadDynamicProperties(const QJsonObject &json, QObject *dest);
-void LIBMVME_CORE_EXPORT loadDynamicProperties(const QVariantMap &properties, QObject *dest);
+QJsonObject LIBMVME_EXPORT storeDynamicProperties(const QObject *object);
+void LIBMVME_EXPORT loadDynamicProperties(const QJsonObject &json, QObject *dest);
+void LIBMVME_EXPORT loadDynamicProperties(const QVariantMap &properties, QObject *dest);
 
 
 // VerticalLabel source: https://stackoverflow.com/a/18515898
-class LIBMVME_CORE_EXPORT VerticalLabel : public QLabel
+class LIBMVME_EXPORT VerticalLabel : public QLabel
 {
     Q_OBJECT
 
@@ -87,20 +87,20 @@ protected:
     QSize minimumSizeHint() const;
 };
 
-void LIBMVME_CORE_EXPORT set_widget_font_pointsize(QWidget *widget, float pointSize);
-void LIBMVME_CORE_EXPORT set_widget_font_pointsize_relative(QWidget *widget, float relPointSize);
+void LIBMVME_EXPORT set_widget_font_pointsize(QWidget *widget, float pointSize);
+void LIBMVME_EXPORT set_widget_font_pointsize_relative(QWidget *widget, float relPointSize);
 
-LIBMVME_CORE_EXPORT QToolBar *make_toolbar(QWidget *parent = nullptr);
-LIBMVME_CORE_EXPORT QStatusBar *make_statusbar(QWidget *parent = nullptr);
+LIBMVME_EXPORT QToolBar *make_toolbar(QWidget *parent = nullptr);
+LIBMVME_EXPORT QStatusBar *make_statusbar(QWidget *parent = nullptr);
 
-LIBMVME_CORE_EXPORT void show_and_activate(QWidget *widget);
+LIBMVME_EXPORT void show_and_activate(QWidget *widget);
 
-LIBMVME_CORE_EXPORT QString get_bitness_string();
+LIBMVME_EXPORT QString get_bitness_string();
 
-LIBMVME_CORE_EXPORT
+LIBMVME_EXPORT
 void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 
-LIBMVME_CORE_EXPORT
+LIBMVME_EXPORT
 void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 
 inline QFrame *make_separator_frame(Qt::Orientation orientation = Qt::Horizontal)
@@ -118,7 +118,7 @@ inline QLabel *make_aligned_label(const QString &text,
     return label;
 }
 
-struct LIBMVME_CORE_EXPORT VBoxContainerWithLabel
+struct LIBMVME_EXPORT VBoxContainerWithLabel
 {
     std::unique_ptr<QWidget> container;
     QVBoxLayout *layout;
@@ -126,19 +126,19 @@ struct LIBMVME_CORE_EXPORT VBoxContainerWithLabel
     QWidget *widget;
 };
 
-LIBMVME_CORE_EXPORT VBoxContainerWithLabel make_vbox_container(
+LIBMVME_EXPORT VBoxContainerWithLabel make_vbox_container(
     const QString &labelText, QWidget *widget,
     int spacing = 2, int labelRelativeFontPointSize = 0);
 
-LIBMVME_CORE_EXPORT QWidget *make_spacer_widget(QWidget *parent = nullptr);
-LIBMVME_CORE_EXPORT QToolButton *make_toolbutton(const QString &icon, const QString &text);
-LIBMVME_CORE_EXPORT QToolButton *make_action_toolbutton(QAction *action = nullptr);
+LIBMVME_EXPORT QWidget *make_spacer_widget(QWidget *parent = nullptr);
+LIBMVME_EXPORT QToolButton *make_toolbutton(const QString &icon, const QString &text);
+LIBMVME_EXPORT QToolButton *make_action_toolbutton(QAction *action = nullptr);
 
-LIBMVME_CORE_EXPORT int get_widget_row(QFormLayout *layout, QWidget *widget);
+LIBMVME_EXPORT int get_widget_row(QFormLayout *layout, QWidget *widget);
 
 /* Helper class for QLabel which makes the label only grow but never shrink
  * when a new text is set. */
-class LIBMVME_CORE_EXPORT NonShrinkingLabelHelper
+class LIBMVME_EXPORT NonShrinkingLabelHelper
 {
     public:
         explicit NonShrinkingLabelHelper(QLabel *label = nullptr)
@@ -207,7 +207,7 @@ class QTextEdit;
 class QPushButton;
 class QLineEdit;
 
-class LIBMVME_CORE_EXPORT TextEditSearchWidget: public QWidget
+class LIBMVME_EXPORT TextEditSearchWidget: public QWidget
 {
     Q_OBJECT
     public:

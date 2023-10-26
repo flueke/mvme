@@ -21,16 +21,16 @@
 #ifndef UUID_95ae9604_91dd_48c3_9152_7bf911c38ce7
 #define UUID_95ae9604_91dd_48c3_9152_7bf911c38ce7
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 
-extern const char LIBMVME_CORE_EXPORT GIT_SHA1[];
-extern const char LIBMVME_CORE_EXPORT GIT_VERSION[];
-extern const char LIBMVME_CORE_EXPORT GIT_VERSION_SHORT[];
+extern const char LIBMVME_EXPORT GIT_SHA1[];
+extern const char LIBMVME_EXPORT GIT_VERSION[];
+extern const char LIBMVME_EXPORT GIT_VERSION_SHORT[];
 
 // Digits only, e.g. "1.8.0.42"
-const char * LIBMVME_CORE_EXPORT mvme_git_version();
+const char * LIBMVME_EXPORT mvme_git_version();
 
 // Includes the abbreviated git hash, e.g. "v1.8.0-1-g42663342".
-const char * LIBMVME_CORE_EXPORT mvme_git_describe_version();
+const char * LIBMVME_EXPORT mvme_git_describe_version();
 
 #endif

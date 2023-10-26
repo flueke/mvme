@@ -653,23 +653,3 @@ void MVMEStreamWorker::removeDiagnostics()
 {
     m_d->streamProcessor.removeDiagnostics();
 }
-
-void MVMEStreamWorker::attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer)
-{
-    m_d->streamProcessor.attachModuleConsumer(consumer);
-}
-
-void MVMEStreamWorker::removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer)
-{
-    m_d->streamProcessor.removeModuleConsumer(consumer);
-}
-
-void MVMEStreamWorker::attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
-{
-    m_d->streamProcessor.attachBufferConsumer(consumer);
-}
-
-void MVMEStreamWorker::removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
-{
-    m_d->streamProcessor.removeBufferConsumer(consumer);
-}

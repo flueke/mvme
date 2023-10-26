@@ -24,7 +24,7 @@
 #include <QObject>
 #include <system_error>
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 
 #include "globals.h"
 #include "vme_error.h"
@@ -38,7 +38,7 @@ enum class VMEControllerType
     MVLC_ETH,
 };
 
-class LIBMVME_CORE_EXPORT VMEController: public QObject
+class LIBMVME_EXPORT VMEController: public QObject
 {
     Q_OBJECT
     signals:
@@ -69,10 +69,10 @@ class LIBMVME_CORE_EXPORT VMEController: public QObject
         virtual QString getIdentifyingString() const = 0;
 };
 
-QString LIBMVME_CORE_EXPORT to_string(VMEControllerType type);
-VMEControllerType LIBMVME_CORE_EXPORT from_string(const QString &str);
+QString LIBMVME_EXPORT to_string(VMEControllerType type);
+VMEControllerType LIBMVME_EXPORT from_string(const QString &str);
 
-QString LIBMVME_CORE_EXPORT to_string(ControllerState state);
+QString LIBMVME_EXPORT to_string(ControllerState state);
 
 inline bool is_mvlc_controller(const VMEControllerType &type)
 {

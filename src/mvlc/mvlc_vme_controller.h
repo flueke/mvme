@@ -22,7 +22,7 @@
 #define __MVME_MVLC_VME_CONTROLLER_H__
 
 #include <QTimer>
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 #include "vme_controller.h"
 #include "mvlc/mvlc_qt_object.h"
 
@@ -34,7 +34,7 @@ namespace mvme_mvlc
 // Implementation of the VMEController interface for the MVLC.
 // Note: MVLC_VMEController does not take ownership of the MVLCObject but
 // ownership can be transferred via QObject::setParent() if desired.
-class LIBMVME_MVLC_EXPORT MVLC_VMEController: public VMEController
+class LIBMVME_EXPORT MVLC_VMEController: public VMEController
 {
     Q_OBJECT
     signals:

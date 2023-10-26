@@ -32,6 +32,10 @@
 
 #include <spdlog/sinks/basic_file_sink.h>
 
+#ifdef MVME_ENABLE_PROMETHEUS
+#include "mvme_prometheus.h"
+#endif
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -58,7 +62,7 @@ int main(int argc, char *argv[])
     if (args.contains("--offline"))
         options.offlineMode = true;
 
-    mvme_init();
+    mvme_init(); // QSettings pick up the correct settings after this line.
 
     if (args.contains("--debug"))
         spdlog::set_level(spdlog::level::debug);
@@ -73,8 +77,10 @@ int main(int argc, char *argv[])
         mesytec::mvlc::get_logger("cmd_pipe_reader")->set_level(spdlog::level::debug);
     }
 
-    // FIXME: debug code here
+    // debug code here: write output of some mvlc loggers to mvlc_trace.log
     if (args.contains("--trace-mvlc"))
+
+
     {
         mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::trace);
         mesytec::mvlc::get_logger("mvlc")->set_level(spdlog::level::trace);
@@ -85,7 +91,18 @@ int main(int argc, char *argv[])
         mesytec::mvlc::get_logger("cmd_pipe_reader")->sinks().push_back(fs);
     }
 
-    //mesytec::mvlc::get_logger("readout")->set_level(spdlog::level::trace);
+#ifdef MVME_ENABLE_PROMETHEUS
+    try
+    {
+        auto promBindAddress = QSettings().value("PrometheusBindAddress", "0.0.0.0:13802").toString().toStdString();
+        mesytec::mvme::set_prometheus_instance(std::make_shared<mesytec::mvme::PrometheusContext>(promBindAddress));
+        std::cout << "Prometheus server listening on port " << mesytec::mvme::get_prometheus_instance()->exposer().GetListeningPorts().front() << "\n";
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error creating prometheus context: " << e.what() << ". Prometheus metrics not available!\n";
+    }
+#endif
 
 #ifdef QT_NO_DEBUG
     QSplashScreen splash(QPixmap(":/splash-screen.png"),

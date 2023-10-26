@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 
 namespace vme_script
 {
@@ -34,13 +34,13 @@ namespace vme_script
 // Internal vme_script parser support functions.
 // Kept in a separate header to make them available for automatic tests.
 
-std::pair<std::string, bool> LIBMVME_CORE_EXPORT read_atomic_variable_reference(std::istringstream &in);
-std::pair<std::string, bool> LIBMVME_CORE_EXPORT read_atomic_variable_reference(const std::string &str);
+std::pair<std::string, bool> LIBMVME_EXPORT read_atomic_variable_reference(std::istringstream &in);
+std::pair<std::string, bool> LIBMVME_EXPORT read_atomic_variable_reference(const std::string &str);
 
-std::pair<std::string, bool> LIBMVME_CORE_EXPORT read_atomic_expression(std::istringstream &in);
-std::pair<std::string, bool> LIBMVME_CORE_EXPORT read_atomic_expression(const std::string &str);
+std::pair<std::string, bool> LIBMVME_EXPORT read_atomic_expression(std::istringstream &in);
+std::pair<std::string, bool> LIBMVME_EXPORT read_atomic_expression(const std::string &str);
 
-std::vector<std::string> LIBMVME_CORE_EXPORT split_into_atomic_parts(const std::string &line, int lineNumber);
+std::vector<std::string> LIBMVME_EXPORT split_into_atomic_parts(const std::string &line, int lineNumber);
 
 } // end namespace vme_script
 

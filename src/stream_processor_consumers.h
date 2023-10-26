@@ -11,6 +11,7 @@ class VMEConfig;
 namespace analysis { class Analysis; }
 struct DAQStats;
 struct RunInfo;
+class StreamWorkerBase;
 
 class LIBMVME_EXPORT StreamConsumerBase
 {
@@ -19,6 +20,10 @@ class LIBMVME_EXPORT StreamConsumerBase
         virtual ~StreamConsumerBase() {}
         virtual void setLogger(Logger logger) = 0;
         virtual Logger &getLogger() = 0;
+        void setStreamWorker(StreamWorkerBase *worker) { worker_ = worker; }
+        StreamWorkerBase *getStreamWorker() const { return worker_; }
+
+        virtual void reloadConfiguration() {};
 
     protected:
         void logMessage(const QString &msg)
@@ -26,6 +31,9 @@ class LIBMVME_EXPORT StreamConsumerBase
             if (auto &logger = getLogger())
                 logger(msg);
         }
+
+    private:
+        StreamWorkerBase *worker_;
  };
 
 /* Interface for consumers of raw module data. */

@@ -5,7 +5,7 @@
 #include <system_error>
 #include "typedefs.h"
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 
 /* VME Controller errors and results
  * ---------------------------------
@@ -17,7 +17,7 @@
  *
  */
 
-class LIBMVME_CORE_EXPORT VMEError
+class LIBMVME_EXPORT VMEError
 {
     public:
         enum ErrorType

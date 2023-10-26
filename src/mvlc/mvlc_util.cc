@@ -36,7 +36,7 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
+mvlc::StackCommandBuilder
     build_mvlc_stack(const vme_script::VMEScript &script)
 {
     mvlc::StackCommandBuilder result;
@@ -200,7 +200,7 @@ LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
     return result;
 }
 
-LIBMVME_MVLC_EXPORT mvlc::StackCommandBuilder
+ mvlc::StackCommandBuilder
     build_mvlc_stack(const std::vector<vme_script::Command> &script)
 {
     return build_mvlc_stack(QVector<vme_script::Command>::fromStdVector(script));

@@ -28,7 +28,7 @@
 #include <QVector>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
-#include "libmvme_mvlc_export.h"
+#include "libmvme_export.h"
 #include "sis3153.h"
 #include "typedefs.h"
 #include "util.h"
@@ -38,7 +38,7 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
+class LIBMVME_EXPORT MVLCObject: public QObject
 {
     Q_OBJECT
     public:

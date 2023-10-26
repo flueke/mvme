@@ -12,7 +12,7 @@ struct RunState
     u32 accu = {};
 };
 
-struct LIBMVME_CORE_EXPORT Result
+struct LIBMVME_EXPORT Result
 {
     VMEError error;
     uint32_t value = 0u;
@@ -33,14 +33,14 @@ namespace run_script_options
 
 // Classic version of run_script taking a single logger function which handles
 // both normal and error messages.
-ResultList LIBMVME_CORE_EXPORT run_script(
+ResultList LIBMVME_EXPORT run_script(
     VMEController *controller,
     const VMEScript &script,
     LoggerFun logger = LoggerFun(),
     const run_script_options::Flag &options = 0);
 
 // Updated version taking a second logger to handle error messages.
-ResultList LIBMVME_CORE_EXPORT run_script(
+ResultList LIBMVME_EXPORT run_script(
     VMEController *controller,
     const VMEScript &script,
     LoggerFun logger,
@@ -54,12 +54,12 @@ inline bool has_errors(const ResultList &results)
         [] (const Result &r) { return r.error.isError(); });
 }
 
-LIBMVME_CORE_EXPORT Result run_command(VMEController *controller,
+LIBMVME_EXPORT Result run_command(VMEController *controller,
                                   const Command &cmd,
                                   RunState &state,
                                   LoggerFun logger = LoggerFun());
 
-LIBMVME_CORE_EXPORT QString format_result(const Result &result);
+LIBMVME_EXPORT QString format_result(const Result &result);
 
 } // end namespace vme_script
 

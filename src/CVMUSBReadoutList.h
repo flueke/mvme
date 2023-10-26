@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <iostream>
 #include <QVector>
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 #include "vme_script.h"
 
 /*!
@@ -32,12 +32,12 @@
    by the VM-USB with no computer intervention.
 
    This class allows application programs to painlessly build a stack.
-   Stacks are built up by creating an instance of this class, 
-   invoking menber functions  to add list elements, and then 
+   Stacks are built up by creating an instance of this class,
+   invoking menber functions  to add list elements, and then
    passing the list to either CVMUSB::loadList or CVMUSB::executeList
 
    There is nothing sacred about a list with respect to copy construction,
-   assignment, or comparison.  Those operations are simply delegated to 
+   assignment, or comparison.  Those operations are simply delegated to
    member data.
 
    This class is also wrapped by SWIG.  To make the wrapping easier to use
@@ -48,7 +48,7 @@
 
 */
 
-class LIBMVME_CORE_EXPORT CVMUSBReadoutList
+class LIBMVME_EXPORT CVMUSBReadoutList
 {
 private:
   std::vector<uint32_t> m_list; // Stack lines are all 32 bits wide.
@@ -60,26 +60,26 @@ public:
   CVMUSBReadoutList(const CVMUSBReadoutList& rhs);
 
   virtual ~CVMUSBReadoutList();
-  
+
   CVMUSBReadoutList& operator=(const CVMUSBReadoutList& rhs);
   int operator==(const CVMUSBReadoutList& rhs) const;
   int operator!=(const CVMUSBReadoutList& rhs) const;
-  
-  
+
+
   // Operations on the list as a whole:
-  
+
   virtual void                  clear();
   virtual size_t                size() const;
   std::vector<uint32_t> get()  const;
-  
+
 
   // Append readout list
   virtual void append(const CVMUSBReadoutList& list);
 
   void addScriptCommand(const vme_script::Command &cmd);
 
-  // Register operations 
-  
+  // Register operations
+
 public:
   virtual void addRegisterRead(unsigned int address);
   virtual void addRegisterWrite(unsigned int address, uint32_t data);
@@ -90,7 +90,7 @@ public:
     // Single shot VME operations.  Note that these are only supported
     // in natural alignments, as otherwise it is not so easy to let the
     // application know how to marshall the multiple transers appropriately.
-    
+
 public:
   // Writes:
 
@@ -119,18 +119,18 @@ public:
 //  }
 //  void addRead16(int address, int amod) { // SWIG
 //    addRead16((uint32_t)address, (uint8_t)amod);
-//  }  
+//  }
 //  void addRead8(int address, int amod) { // SWIG
 //    addRead8((uint32_t)address, (uint8_t)amod);
 //  }
 
 
-  // Block transfer operations. 
+  // Block transfer operations.
   // These must meet the restrictions of the VMUSB on block transfers.
   //
   virtual void addBlockRead32(uint32_t baseAddress, uint8_t amod, size_t transfers);
   virtual void addFifoRead32(uint32_t  baseAddress, uint8_t amod, size_t transfers);
-  virtual void addBlockWrite32(uint32_t baseAddresss, uint8_t amod, void* data, 
+  virtual void addBlockWrite32(uint32_t baseAddresss, uint8_t amod, void* data,
 		       size_t transfers);
 //  void addBlockRead32(int base, int amod, int transfers) { // SWIG
 //    addBlockRead32((uint32_t)base, (uint8_t)amod, (size_t)transfers);
@@ -148,7 +148,7 @@ public:
 
   // VMEUSB supports getting the block readout count from a constant mask and
   // a count read from a VME module.  This is supported in this software by
-  // providing functions to set the mask from a list, 
+  // providing functions to set the mask from a list,
   // to specify the readout of the count (8,16 or 32 bits).
   // and to initiate the block transfer:
   // as with all block reads, only 32 bit transfers are supported.
@@ -221,7 +221,7 @@ public:
   static const uint8_t a24UserData;
   static const uint8_t a24UserProgram;
   static const uint8_t a24UserBlock;
-  
+
   static const uint8_t a24PrivData;
   static const uint8_t a24PrivProgram ;
   static const uint8_t a24PrivBlock ;
@@ -257,7 +257,7 @@ inline std::vector<uint32_t>* vecuint32_create(int size)
 
 inline void vecuint32_pushback(std::vector<uint32_t>* vec, uint32_t val)
 {
-  vec->push_back(val); 
+  vec->push_back(val);
 }
 
 #if 0
