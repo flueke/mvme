@@ -23,10 +23,10 @@ using VMEConfReadoutScripts = std::vector<std::vector<vme_script::VMEScript>>;
 // ModuleReadoutParts indexed by event and module
 using VMEConfReadoutInfo    = std::vector<std::vector<ModuleReadoutParts>>;
 
-LIBMVME_MVLC_EXPORT ModuleReadoutParts parse_module_readout_script(
+LIBMVME_EXPORT ModuleReadoutParts parse_module_readout_script(
     const vme_script::VMEScript &readoutScript);
 
-LIBMVME_MVLC_EXPORT VMEConfReadoutInfo parse_vme_readout_info(
+LIBMVME_EXPORT VMEConfReadoutInfo parse_vme_readout_info(
     const VMEConfReadoutScripts &rdoScripts);
 #endif
 

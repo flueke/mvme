@@ -26,7 +26,7 @@
 #include <QMutex>
 #include <functional>
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 #include "util.h"
 #include "vme_controller.h"
 #include "vmusb_constants.h"
@@ -48,7 +48,7 @@ struct LIBMVME_CORE_EXPORT VMUSBDeviceInfo
 struct usb_dev_handle;
 struct usb_device;
 
-struct LIBMVME_CORE_EXPORT VMUSBDeviceInfo
+struct LIBMVME_EXPORT VMUSBDeviceInfo
 {
     usb_device *device = nullptr;
     char serial[7] = {};
@@ -70,7 +70,7 @@ represents vm_usb controller
 
   @author Gregor Montermann <g.montermann@mesytec.com>
 */
-class LIBMVME_CORE_EXPORT VMUSB: public VMEController
+class LIBMVME_EXPORT VMUSB: public VMEController
 {
     Q_OBJECT
     public:
@@ -300,13 +300,13 @@ namespace GlobalModeRegister
     static const uint32_t NoIRQHandshake = 0x80000;
 }
 
-LIBMVME_CORE_EXPORT uint16_t* listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
+LIBMVME_EXPORT uint16_t* listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
                                               size_t* outSize, off_t offset = 0);
 
-QString LIBMVME_CORE_EXPORT getRegisterName(u32 registerAddress);
-QList<u32> LIBMVME_CORE_EXPORT getRegisterAddresses();
+QString LIBMVME_EXPORT getRegisterName(u32 registerAddress);
+QList<u32> LIBMVME_EXPORT getRegisterAddresses();
 
 typedef std::function<void (const QString &)> Dumper;
-void LIBMVME_CORE_EXPORT dump_registers(VMUSB *vmusb, Dumper dumper);
+void LIBMVME_EXPORT dump_registers(VMUSB *vmusb, Dumper dumper);
 
 #endif /* MVME_VMUSB_H */

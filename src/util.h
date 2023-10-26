@@ -32,7 +32,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 #include "typedefs.h"
 #include "qt_util.h"
 #include "util/assert.h"
@@ -44,34 +44,34 @@ Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;
 
-LIBMVME_CORE_EXPORT void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
-LIBMVME_CORE_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT void qDebugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
 
-LIBMVME_CORE_EXPORT QVector<u32> parseStackFile(QTextStream &input);
-LIBMVME_CORE_EXPORT QVector<u32> parseStackFile(const QString &input);
+LIBMVME_EXPORT QVector<u32> parseStackFile(QTextStream &input);
+LIBMVME_EXPORT QVector<u32> parseStackFile(const QString &input);
 
 typedef QPair<u32, QVariant> RegisterSetting; // (addr, value)
 typedef QVector<RegisterSetting> RegisterList;
 
-LIBMVME_CORE_EXPORT RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
-LIBMVME_CORE_EXPORT RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
+LIBMVME_EXPORT RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
+LIBMVME_EXPORT RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
 
 inline bool isFloat(const QVariant &var)
 {
     return (static_cast<QMetaType::Type>(var.type()) == QMetaType::Float);
 }
 
-LIBMVME_CORE_EXPORT QString toString(const RegisterList &registerList);
-LIBMVME_CORE_EXPORT QStringList toStringList(const RegisterList &registerList);
+LIBMVME_EXPORT QString toString(const RegisterList &registerList);
+LIBMVME_EXPORT QStringList toStringList(const RegisterList &registerList);
 
-class LIBMVME_CORE_EXPORT end_of_buffer: public std::runtime_error
+class LIBMVME_EXPORT end_of_buffer: public std::runtime_error
 {
     public:
         explicit end_of_buffer(const char *arg): std::runtime_error(arg) {}
         end_of_buffer(): std::runtime_error("end_of_buffer") {}
 };
 
-struct LIBMVME_CORE_EXPORT BufferIterator
+struct LIBMVME_EXPORT BufferIterator
 {
     enum Alignment { Align16, Align32 };
 
@@ -267,7 +267,7 @@ struct LIBMVME_CORE_EXPORT BufferIterator
     }
 };
 
-LIBMVME_CORE_EXPORT QString readStringFile(const QString &filename);
+LIBMVME_EXPORT QString readStringFile(const QString &filename);
 
 template<typename T>
 T *Var2Ptr(const QVariant &variant)
@@ -287,10 +287,10 @@ QVariant Ptr2Var(T *ptr)
     return QVariant::fromValue(static_cast<void *>(ptr));
 }
 
-LIBMVME_CORE_EXPORT QString makeDurationString(qint64 durationSeconds);
+LIBMVME_EXPORT QString makeDurationString(qint64 durationSeconds);
 
 /** Emits aboutToClose() before returning from closeEvent() */
-class LIBMVME_CORE_EXPORT MVMEWidget: public QWidget
+class LIBMVME_EXPORT MVMEWidget: public QWidget
 {
     Q_OBJECT
     signals:
@@ -303,7 +303,7 @@ class LIBMVME_CORE_EXPORT MVMEWidget: public QWidget
         void closeEvent(QCloseEvent *event) override;
 };
 
-class LIBMVME_CORE_EXPORT TemplateLoader: public QObject
+class LIBMVME_EXPORT TemplateLoader: public QObject
 {
     Q_OBJECT
     signals:
@@ -317,19 +317,19 @@ class LIBMVME_CORE_EXPORT TemplateLoader: public QObject
         QString m_templatePath;
 };
 
-LIBMVME_CORE_EXPORT QJsonDocument gui_read_json(QIODevice *input);
-LIBMVME_CORE_EXPORT QJsonDocument gui_read_json_file(const QString &fileName);
+LIBMVME_EXPORT QJsonDocument gui_read_json(QIODevice *input);
+LIBMVME_EXPORT QJsonDocument gui_read_json_file(const QString &fileName);
 
 // Writes the JSON data to the output file. Error reporting is done using
 // QMessageBoxes.
-LIBMVME_CORE_EXPORT bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
+LIBMVME_EXPORT bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
 
-LIBMVME_CORE_EXPORT QPair<double, QString> byte_unit(size_t bytes);
+LIBMVME_EXPORT QPair<double, QString> byte_unit(size_t bytes);
 
 //QString format_memory_size(size_t bytes);
 
-LIBMVME_CORE_EXPORT void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
-LIBMVME_CORE_EXPORT void logBuffer(const QVector<u32> &data, std::function<void (const QString &)> loggerFun);
+LIBMVME_EXPORT void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
+LIBMVME_EXPORT void logBuffer(const QVector<u32> &data, std::function<void (const QString &)> loggerFun);
 
 static constexpr double make_quiet_nan()
 {

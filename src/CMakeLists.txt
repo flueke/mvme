@@ -104,75 +104,10 @@ install(TARGETS libmvme_resources
     LIBRARY DESTINATION lib)
 
 #
-# libmvme_core
-#
-#qt5_add_resources(LIBMVME_CORE_RC_OUT resources.qrc)
-
-add_library(libmvme_core SHARED
-    "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
-    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
-    #${LIBMVME_CORE_RC_OUT}
-    CVMUSBReadoutList.cpp
-    qt_util.cc
-    util/qt_gui_io.cc
-    vme_controller.cpp
-    vme_script.cc
-    vme_script_exec.cc
-    vme_script_util.cc
-    vme_script_variables.cc
-    vmusb.cpp
-    util.cc
-    util/version_compare.cc
-    )
-
-set_target_properties(libmvme_core PROPERTIES OUTPUT_NAME mvme_core)
-generate_export_header(libmvme_core)
-
-target_include_directories(libmvme_core PRIVATE ${QUAZIP_INCLUDE_DIR})
-target_include_directories(libmvme_core PRIVATE ${LIBUSB_INCLUDE_PATH})
-
-target_link_libraries(libmvme_core
-    PRIVATE liba2_static
-    PRIVATE ${LIBUSB_LIBRARY}
-    PUBLIC mesytec-mvlc
-    PUBLIC ${QUAZIP_QT5}
-    PUBLIC Qt5::Concurrent
-    PUBLIC Qt5::Gui
-    PUBLIC Qt5::Network
-    PUBLIC Qt5::OpenGL
-    PUBLIC Qt5::Svg
-    PUBLIC Qt5::Widgets
-    PUBLIC Qt5::Xml
-    PUBLIC libmvme_resources
-    )
-
-target_compile_options(libmvme_core
-    PRIVATE $<${not-msvc}:-Wall -Wextra>
-    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
-    )
-
-if (WIN32)
-    target_link_libraries(libmvme_core PUBLIC ws2_32)
-    target_compile_options(libmvme_core PRIVATE $<${not-msvc}:-Wno-format>)
-endif()
-
-find_package(prometheus-cpp CONFIG)
-
-if (PROMETHEUS_CPP_ENABLE_PULL)
-    message(">>> mvme: Found prometheus-cpp with PULL support. Enabling prometheus support.")
-    target_link_libraries(libmvme_core PUBLIC prometheus-cpp::pull)
-    target_sources(libmvme_core PRIVATE mvme_prometheus.cc)
-    target_compile_definitions(libmvme_core PUBLIC -DMVME_ENABLE_PROMETHEUS)
-endif()
-
-install(TARGETS libmvme_core
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib)
-
-#
 # libmvme
 #
+
+qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
 qt5_wrap_ui(LIBMVME_UIC_OUT
     analysis/interval_condition_dialog.ui
@@ -186,8 +121,13 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
     )
 
 add_library(libmvme SHARED
-    "${CMAKE_SOURCE_DIR}/external/qt-collapsible-section/Section.cpp"
+    ${LIBMVME_RC_OUT}
     ${LIBMVME_UIC_OUT}
+    "${CMAKE_SOURCE_DIR}/external/qt-collapsible-section/Section.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    #${LIBMVME_CORE_RC_OUT}
+    CVMUSBReadoutList.cpp
     analysis/a2_adapter.cc
     analysis/analysis.cc
     analysis/analysis_graphs.cc
@@ -198,7 +138,6 @@ add_library(libmvme SHARED
     analysis/analysis_ui_p.cc
     analysis/analysis_ui_util.cc
     analysis/analysis_util.cc
-    analysis_bench.cc
     analysis/code_editor.cc
     analysis/condition_ui.cc
     analysis/data_extraction_widget.cc
@@ -208,10 +147,11 @@ add_library(libmvme SHARED
     analysis/object_editor_dialog.cc
     analysis/object_factory.cc
     analysis/object_info_widget.cc
-    analysis_service_provider.cc
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
+    analysis_bench.cc
+    analysis_service_provider.cc
     daqcontrol.cc
     daqcontrol_widget.cc
     daqstats_widget.cc
@@ -246,14 +186,37 @@ add_library(libmvme SHARED
     multi_event_splitter.cc
     multiplot_widget.cc
     multiplot_widget_p.cc
-    mvmecontext_analysis_service_provider.cc
+    mvlc/mvlc_dev_gui.cc
+    mvlc/mvlc_qt_object.cc
+    mvlc/mvlc_register_names.cc
+    mvlc/mvlc_script.cc
+    mvlc/mvlc_trigger_io.cc
+    mvlc/mvlc_trigger_io_editor.cc
+    mvlc/mvlc_trigger_io_editor_p.cc
+    mvlc/mvlc_trigger_io_script.cc
+    mvlc/mvlc_trigger_io_util.cc
+    mvlc/mvlc_util.cc
+    mvlc/mvlc_vme_controller.cc
+    mvlc/mvlc_vme_debug_widget.cc
+    mvlc/trigger_io_dso.cc
+    mvlc/trigger_io_dso_plot_widget.cc
+    mvlc/trigger_io_dso_sim_ui.cc
+    mvlc/trigger_io_sim.cc
+    mvlc/trigger_io_sim_pinaddress.cc
+    mvlc/vmeconfig_from_crateconfig.cc
+    mvlc/vmeconfig_to_crateconfig.cc
+    mvlc_daq.cc
+    mvlc_listfile_worker.cc
+    mvlc_readout_worker.cc
+    mvlc_stream_worker.cc
+    mvme.cpp
+    mvme.cpp
     mvme_context.cc
     mvme_context_lib.cc
-    mvme.cpp
-    mvme.cpp
     mvme_listfile.cc
     mvme_listfile_utils.cc
     mvme_listfile_worker.cc
+    mvme_mvlc_listfile.cc
     mvme_qthelp.cc
     mvme_qwt.cc
     mvme_session.cc
@@ -261,7 +224,9 @@ add_library(libmvme SHARED
     mvme_stream_processor.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
+    mvmecontext_analysis_service_provider.cc
     qt_assistant_remote_control.cc
+    qt_util.cc
     rate_monitor_base.cc
     rate_monitor_gui.cc
     rate_monitor_plot_widget.cc
@@ -273,21 +238,24 @@ add_library(libmvme SHARED
     scrollbar.cpp
     scrollzoomer.cpp
     sis3153.cc
-    sis3153_readout_worker.cc
     sis3153/sis3153ETH_vme_class.cpp
+    sis3153_readout_worker.cc
     sis3153_util.cc
     stream_worker_base.cc
     template_system.cc
     timed_block.cc
     treewidget_utils.cc
+    util.cc
     util/qledindicator.cpp
     util/qt_eventfilters.cc
+    util/qt_gui_io.cc
     util/qt_logview.cc
     util/qt_monospace_textedit.cc
     util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp
     util/strings.cc
     util/variablify.cc
+    util/version_compare.cc
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
@@ -300,12 +268,18 @@ add_library(libmvme SHARED
     vme_config_ui_variable_editor.cc
     vme_config_util.cc
     vme_config_version.cc
+    vme_controller.cpp
     vme_controller_factory.cc
     vme_controller_ui.cc
     vme_daq.cc
     vme_debug_widget.cc
     vme_readout_worker.cc
+    vme_script.cc
     vme_script_editor.cc
+    vme_script_exec.cc
+    vme_script_util.cc
+    vme_script_variables.cc
+    vmusb.cpp
     vmusb_buffer_processor.cc
     vmusb_firmware_loader.cc
     vmusb_readout_worker.cc
@@ -319,19 +293,30 @@ set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 generate_export_header(libmvme)
 
 target_link_libraries(libmvme
-    PUBLIC mesytec-mvlc
-    PUBLIC libmvme_core
-    PUBLIC ${QWT_LIBRARY}
-    PUBLIC cpp11-on-multicore
-    PUBLIC Qt5::PrintSupport
-    PRIVATE nlohmann-json
-    PRIVATE liba2_static
-    PRIVATE Threads::Threads
-    PRIVATE jcon
     PRIVATE ${GRAPHVIZ_CDT_LIBRARY}
     PRIVATE ${GRAPHVIZ_CGRAPH_LIBRARY}
     PRIVATE ${GRAPHVIZ_GVC_LIBRARY}
+    PRIVATE ${LIBUSB_LIBRARY}
+    PRIVATE Threads::Threads
+    PRIVATE jcon
+    PRIVATE liba2_static
+    PRIVATE nlohmann-json
     PRIVATE qgvcore
+    PUBLIC ${QUAZIP_QT5}
+    PUBLIC ${QWT_LIBRARY}
+    PUBLIC BFG::Lyra
+    PUBLIC Qt5::Concurrent
+    PUBLIC Qt5::Gui
+    PUBLIC Qt5::Network
+    PUBLIC Qt5::OpenGL
+    PUBLIC Qt5::PrintSupport
+    PUBLIC Qt5::Svg
+    PUBLIC Qt5::Widgets
+    PUBLIC Qt5::Xml
+    PUBLIC cpp11-on-multicore
+    PUBLIC libmvme_resources
+    PUBLIC mesytec-mvlc
+    PUBLIC yaml-cpp
     )
 
 target_compile_options(libmvme
@@ -339,51 +324,32 @@ target_compile_options(libmvme
     PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
     )
 
+find_package(prometheus-cpp CONFIG)
+
+if (PROMETHEUS_CPP_ENABLE_PULL)
+    message(">>> mvme: Found prometheus-cpp with PULL support. Enabling prometheus support.")
+    target_link_libraries(libmvme PUBLIC prometheus-cpp::pull)
+    target_sources(libmvme PRIVATE mvme_prometheus.cc)
+    target_compile_definitions(libmvme PUBLIC -DMVME_ENABLE_PROMETHEUS)
+endif()
+
+
 if (WIN32)
     target_link_libraries(libmvme
-        PRIVATE winmm
-        PRIVATE ws2_32)
+        PUBLIC winmm
+        PUBLIC ws2_32
+        )
     target_compile_options(libmvme PRIVATE -Wno-format)
+    target_compile_options(libmvme PRIVATE $<${not-msvc}:-Wno-format>)
 endif()
 
 target_include_directories(libmvme
-    PRIVATE ${CMAKE_SOURCE_DIR}/external
     PRIVATE "${CMAKE_SOURCE_DIR}/external/jcon-cpp/src/"
+    PRIVATE ${CMAKE_SOURCE_DIR}/external
     PRIVATE ${GRAPHVIZ_INCLUDE_DIRS}
+    PRIVATE ${LIBUSB_INCLUDE_PATH}
     PUBLIC ${QUAZIP_INCLUDE_DIR}
     SYSTEM PUBLIC "${CMAKE_SOURCE_DIR}/external/pcg-cpp-0.98/include/"
-    )
-
-target_sources(libmvme PRIVATE
-    mvlc_daq.cc
-    mvlc_listfile_worker.cc
-    mvlc/mvlc_dev_gui.cc
-    mvlc/mvlc_qt_object.cc
-    mvlc/mvlc_register_names.cc
-    mvlc/mvlc_script.cc
-    mvlc/mvlc_trigger_io.cc
-    mvlc/mvlc_trigger_io_editor.cc
-    mvlc/mvlc_trigger_io_editor_p.cc
-    mvlc/mvlc_trigger_io_script.cc
-    mvlc/mvlc_trigger_io_util.cc
-    mvlc/mvlc_util.cc
-    mvlc/mvlc_vme_controller.cc
-    mvlc/mvlc_vme_debug_widget.cc
-    mvlc_readout_worker.cc
-    mvlc_stream_worker.cc
-    mvlc/trigger_io_dso.cc
-    mvlc/trigger_io_dso_plot_widget.cc
-    mvlc/trigger_io_dso_sim_ui.cc
-    mvlc/trigger_io_sim.cc
-    mvlc/trigger_io_sim_pinaddress.cc
-    mvlc/vmeconfig_from_crateconfig.cc
-    mvlc/vmeconfig_to_crateconfig.cc
-    mvme_mvlc_listfile.cc
-)
-
-target_link_libraries(libmvme
-    PUBLIC yaml-cpp
-    PUBLIC BFG::Lyra
     )
 
 # Note: the BUILD_INTERFACE line does not work on older CMake versions
@@ -395,16 +361,6 @@ target_include_directories(libmvme
     )
 
 install(TARGETS libmvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
-
-# libmvme_mvlc based dev tools
-if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
-    add_executable(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
-    target_link_libraries(mvlc_dev_gui PRIVATE libmvme)
-    install(TARGETS mvlc_dev_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
-
-    add_executable(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
-    target_link_libraries(dev_mvlc_vmescript_runner PRIVATE libmvme)
-endif()
 
 # mvlc_dev_win_usb_debug
 #if (WIN32)
@@ -502,6 +458,9 @@ add_mvme_dev_exe(dev_mvlc_trigger_gui dev_mvlc_trigger_gui_main.cc)
 add_mvme_dev_exe(dev_import_mvlc_crateconfig dev_import_mvlc_crateconfig.cc)
 add_mvme_dev_exe(dev_qfiledialog_save_test "dev_qfiledialog_save_test.cc")
 add_mvme_dev_exe(dev_listfile_recovery "dev_listfile_recovery.cc")
+add_mvme_dev_exe(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
+install(TARGETS mvlc_dev_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+add_mvme_dev_exe(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
 
 if (NOT WIN32)
     add_mvme_dev_exe(dev_mvlc_dump_eth_file dev_mvlc_dump_eth_file.cc)

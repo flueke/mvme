@@ -38,7 +38,7 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-class LIBMVME_MVLC_EXPORT MVLCObject: public QObject
+class LIBMVME_EXPORT MVLCObject: public QObject
 {
     Q_OBJECT
     public:

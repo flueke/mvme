@@ -37,7 +37,7 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-class LIBMVME_MVLC_EXPORT VMEDebugWidget: public QWidget
+class LIBMVME_EXPORT VMEDebugWidget: public QWidget
 {
     Q_OBJECT
     signals:

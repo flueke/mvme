@@ -27,7 +27,7 @@
 #include <QString>
 #include <QVector>
 
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 
 namespace vme_script
 {
@@ -35,7 +35,7 @@ namespace vme_script
 static const QString SystemVariablePrefix = "sys_";
 static const QString MesytecVariablePrefix = "mesy_";
 
-struct LIBMVME_CORE_EXPORT Variable
+struct LIBMVME_EXPORT Variable
 {
     // The variables value. No special handling is done. Variable expansion
     // means simple text replacement.
@@ -71,10 +71,10 @@ struct LIBMVME_CORE_EXPORT Variable
     explicit operator bool() const { return !value.isNull(); }
 };
 
-bool LIBMVME_CORE_EXPORT operator==(const Variable &va, const Variable &vb);
-bool LIBMVME_CORE_EXPORT operator!=(const Variable &va, const Variable &vb);
+bool LIBMVME_EXPORT operator==(const Variable &va, const Variable &vb);
+bool LIBMVME_EXPORT operator!=(const Variable &va, const Variable &vb);
 
-struct LIBMVME_CORE_EXPORT SymbolTable
+struct LIBMVME_EXPORT SymbolTable
 {
     QString name;
     QMap<QString, Variable> symbols;
@@ -130,8 +130,8 @@ struct LIBMVME_CORE_EXPORT SymbolTable
     }
 };
 
-bool LIBMVME_CORE_EXPORT operator==(const SymbolTable &sta, const SymbolTable &stb);
-bool LIBMVME_CORE_EXPORT operator!=(const SymbolTable &sta, const SymbolTable &stb);
+bool LIBMVME_EXPORT operator==(const SymbolTable &sta, const SymbolTable &stb);
+bool LIBMVME_EXPORT operator!=(const SymbolTable &sta, const SymbolTable &stb);
 
 // Vector of SymbolTables. The first table in the vector is the innermost
 // scope and is written to by the 'set' command.
@@ -140,14 +140,14 @@ using SymbolTables = QVector<SymbolTable>;
 // Lookup a variable in a list of symbol tables.
 // Visits symbol tables in order and returns the first Variable stored under
 // varName.
-LIBMVME_CORE_EXPORT Variable lookup_variable(const QString &varName, const SymbolTables &symtabs);
+LIBMVME_EXPORT Variable lookup_variable(const QString &varName, const SymbolTables &symtabs);
 
 // JSON Serialization
-QJsonObject LIBMVME_CORE_EXPORT to_json(const Variable &var);
-Variable LIBMVME_CORE_EXPORT variable_from_json(const QJsonObject &json);
+QJsonObject LIBMVME_EXPORT to_json(const Variable &var);
+Variable LIBMVME_EXPORT variable_from_json(const QJsonObject &json);
 
-QJsonObject LIBMVME_CORE_EXPORT to_json(const SymbolTable &symtab);
-SymbolTable LIBMVME_CORE_EXPORT symboltable_from_json(const QJsonObject &tableJson);
+QJsonObject LIBMVME_EXPORT to_json(const SymbolTable &symtab);
+SymbolTable LIBMVME_EXPORT symboltable_from_json(const QJsonObject &tableJson);
 
 inline bool is_system_variable_name(const QString &varName)
 {

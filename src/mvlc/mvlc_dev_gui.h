@@ -36,7 +36,7 @@
 #include "mvlc/mvlc_qt_object.h"
 #include "vme_script.h"
 
-struct LIBMVME_MVLC_EXPORT FixedSizeBuffer
+struct LIBMVME_EXPORT FixedSizeBuffer
 {
     std::unique_ptr<u8[]> data;
     size_t capacity;
@@ -56,9 +56,9 @@ enum class FrameCheckResult: u8
     HeaderMatchFailed,  // hit something else than F3
 };
 
-QString LIBMVME_MVLC_EXPORT to_string(const FrameCheckResult &fcr);
+QString LIBMVME_EXPORT to_string(const FrameCheckResult &fcr);
 
-struct LIBMVME_MVLC_EXPORT FrameCheckData
+struct LIBMVME_EXPORT FrameCheckData
 {
     // Initial offset is 0, on error the last offset read by frame_check is
     // retained. If UDP is used nextHeaderOffset can be set by using the
@@ -72,9 +72,9 @@ struct LIBMVME_MVLC_EXPORT FrameCheckData
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
-FrameCheckResult LIBMVME_MVLC_EXPORT frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data);
+FrameCheckResult LIBMVME_EXPORT frame_check(const FixedSizeBuffer &buffer, FrameCheckData &data);
 
-struct LIBMVME_MVLC_EXPORT ReaderStats
+struct LIBMVME_EXPORT ReaderStats
 {
     enum CounterEnum
     {
@@ -95,7 +95,7 @@ struct LIBMVME_MVLC_EXPORT ReaderStats
     std::array<size_t, mesytec::mvlc::stacks::StackCount> stackHits = {};
 };
 
-struct LIBMVME_MVLC_EXPORT OwningPacketReadResult
+struct LIBMVME_EXPORT OwningPacketReadResult
 {
     std::vector<u8> buffer;
     mesytec::mvlc::eth::PacketReadResult prr;
@@ -110,9 +110,9 @@ struct LIBMVME_MVLC_EXPORT OwningPacketReadResult
 using EthDebugBuffer = boost::circular_buffer<OwningPacketReadResult>;
 static const size_t EthDebugPacketCapacity = 5;
 
-LIBMVME_MVLC_EXPORT const char *reader_stat_name(ReaderStats::CounterEnum counter);
+LIBMVME_EXPORT const char *reader_stat_name(ReaderStats::CounterEnum counter);
 
-class LIBMVME_MVLC_EXPORT LIBMVME_MVLC_EXPORT MVLCDataReader: public QObject
+class LIBMVME_EXPORT LIBMVME_EXPORT MVLCDataReader: public QObject
 {
     Q_OBJECT
     public:
@@ -195,7 +195,7 @@ namespace Ui
     class MVLCDevGUI;
 }
 
-class LIBMVME_MVLC_EXPORT MVLCDevGUI: public QMainWindow
+class LIBMVME_EXPORT MVLCDevGUI: public QMainWindow
 {
     Q_OBJECT
     signals:
@@ -242,7 +242,7 @@ class MVLCRegisterWidget: public QWidget
         void readStackInfo(u8 stackId);
 };
 
-class LIBMVME_MVLC_EXPORT LogWidget: public QWidget
+class LIBMVME_EXPORT LogWidget: public QWidget
 {
     Q_OBJECT
     public:

@@ -6,12 +6,13 @@
 #include <prometheus/exposer.h>
 #include <prometheus/registry.h>
 
+#include "libmvme_export.h"
 #include "stream_processor_consumers.h"
 
 namespace mesytec::mvme
 {
 
-class PrometheusContext
+class LIBMVME_EXPORT PrometheusContext
 {
     public:
         PrometheusContext(const std::string &bind_address);
@@ -30,13 +31,13 @@ class PrometheusContext
         std::shared_ptr<prometheus::Registry> registry_;
 };
 
-void set_prometheus_instance(std::shared_ptr<PrometheusContext> prom);
-std::shared_ptr<PrometheusContext> get_prometheus_instance();
+void LIBMVME_EXPORT set_prometheus_instance(std::shared_ptr<PrometheusContext> prom);
+std::shared_ptr<PrometheusContext> LIBMVME_EXPORT get_prometheus_instance();
 
 // Expose MVMEStreamProcessorCounters using the IStreamBufferConsumer so the
 // instance can be attached to both  the old mvme and the newer mvlc stream
 // workers.
-class StreamProcCountersPromExporter: public IStreamBufferConsumer
+class LIBMVME_EXPORT StreamProcCountersPromExporter: public IStreamBufferConsumer
 {
     public:
         StreamProcCountersPromExporter();

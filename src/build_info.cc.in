@@ -1,7 +1,7 @@
-#include "libmvme_core_export.h"
+#include "libmvme_export.h"
 
 #define DEF_BUILD_TYPE "@CMAKE_BUILD_TYPE@"
 #define DEF_BUILD_CXX_FLAGS "@BUILD_CXX_FLAGS@"
 
-extern const char LIBMVME_CORE_EXPORT BUILD_TYPE[]       = DEF_BUILD_TYPE;
-extern const char LIBMVME_CORE_EXPORT BUILD_CXX_FLAGS[]  = DEF_BUILD_CXX_FLAGS;
+extern const char LIBMVME_EXPORT BUILD_TYPE[]       = DEF_BUILD_TYPE;
+extern const char LIBMVME_EXPORT BUILD_CXX_FLAGS[]  = DEF_BUILD_CXX_FLAGS;
