@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.10.0
+--------------
+
+* New feature: prometheus metrics support. Metrics are exposed
+
 Version 1.9.2
 -------------
 

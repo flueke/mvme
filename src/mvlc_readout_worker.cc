@@ -35,9 +35,10 @@
 
 #include "mesytec-mvlc/mvlc_constants.h"
 #include "mvlc_daq.h"
-#include "mvme_mvlc_listfile.h"
 #include "mvlc/mvlc_util.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
+#include "mvme_mvlc_listfile.h"
+#include "mvme_prometheus.h"
 #include "util/strings.h"
 #include "util_zip.h"
 #include "vme_analysis_common.h"
@@ -138,6 +139,86 @@ DAQState readout_worker_state_to_daq_state(const mvlc::ReadoutWorker::State &sta
     return {};
 }
 
+#ifdef MVME_ENABLE_PROMETHEUS
+struct MvlcReadoutCountersMetrics
+{
+    prometheus::Gauge *buffersRead_;
+    prometheus::Gauge *bytesRead_;
+    prometheus::Gauge *snoopMissedBuffers_;
+    prometheus::Gauge *usbFramingErrors_;
+    prometheus::Gauge *receivedPackets_;
+    prometheus::Gauge *lostPackets_;
+    std::array<prometheus::Gauge *, stacks::StackCount> stackHits_;
+
+    MvlcReadoutCountersMetrics(prometheus::Registry &registry)
+    {
+        {
+            auto &f = (prometheus::BuildGauge()
+                    .Name("mvlc_readout_counters")
+                    .Help("MVLC readout counters")
+                    .Register(registry));
+            buffersRead_        = &f.Add({{"metric", "buffers_read"}});
+            bytesRead_          = &f.Add({{"metric", "bytes_read"}});
+            snoopMissedBuffers_ = &f.Add({{"metric", "snoop_missed_buffers"}});
+            usbFramingErrors_   = &f.Add({{"metric", "usb_framing_errors"}});
+            receivedPackets_    = &f.Add({{"metric", "eth_received_packets"}});
+            lostPackets_        = &f.Add({{"metric", "eth_lost_packets"}});
+        }
+
+        {
+            auto &f = (prometheus::BuildGauge()
+                    .Name("mvlc_readout_stack_hits")
+                    .Help("MVLC readout stack/event hits")
+                    .Register(registry));
+
+            for (size_t i=0; i<stackHits_.size(); ++i)
+            {
+                stackHits_[i] = &f.Add({{"stack_index", std::to_string(i)}});
+            }
+        }
+    }
+
+    void update(const mvlc::ReadoutWorker::Counters &counters)
+    {
+        assert(buffersRead_);
+        buffersRead_->Set(counters.buffersRead);
+        bytesRead_->Set(counters.bytesRead);
+        snoopMissedBuffers_->Set(counters.snoopMissedBuffers);
+        usbFramingErrors_->Set(counters.usbFramingErrors);
+        // Sum up the packet counters of both eth pipes.
+        size_t packets = std::accumulate(std::begin(counters.ethStats), std::end(counters.ethStats), size_t(0),
+            [] (size_t accu, const eth::PipeStats &pipeStats) { return accu + pipeStats.receivedPackets; });
+
+        size_t loss = std::accumulate(std::begin(counters.ethStats), std::end(counters.ethStats), size_t(0),
+            [] (size_t accu, const eth::PipeStats &pipeStats) { return accu + pipeStats.lostPackets; });
+
+        receivedPackets_->Set(packets);
+        lostPackets_->Set(loss);
+
+        for (size_t i=0; i<stackHits_.size(); ++i)
+            stackHits_[i]->Set(counters.stackHits[i]);
+    }
+};
+
+class MvlcReadoutCountersPromExporter
+{
+    public:
+        MvlcReadoutCountersPromExporter(prometheus::Registry &registry)
+            : metrics_(std::make_unique<MvlcReadoutCountersMetrics>(registry))
+        {
+        }
+
+        void updateMetrics(const mvlc::ReadoutWorker::Counters &counters)
+        {
+            metrics_->update(counters);
+        }
+
+    private:
+        std::unique_ptr<MvlcReadoutCountersMetrics> metrics_;
+};
+#endif
+
+
 } // end anon namespace
 
 struct MVLCReadoutWorker::Private
@@ -174,12 +255,26 @@ struct MVLCReadoutWorker::Private
     static const size_t ListfileWriterBufferSize  = ReadBufferSize;
     std::atomic<DebugInfoRequest> debugInfoRequest;
 
+#if MVME_ENABLE_PROMETHEUS
+    std::shared_ptr<MvlcReadoutCountersPromExporter> promExporter_;
+#endif
+
     explicit Private(MVLCReadoutWorker *q_)
         : q(q_)
         , state(DAQState::Idle)
         , desiredState(DAQState::Idle)
         , debugInfoRequest(DebugInfoRequest::None)
-    {}
+    {
+#if MVME_ENABLE_PROMETHEUS
+        if (auto prom = get_prometheus_instance())
+        {
+            if (auto registry = prom->registry())
+            {
+                promExporter_ = std::make_shared<MvlcReadoutCountersPromExporter>(*registry);
+            }
+        }
+#endif
+    }
 
     struct EventWithModules
     {
@@ -499,11 +594,18 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
             d->updateDAQStats();
 
+#if MVME_ENABLE_PROMETHEUS
+            if (d->promExporter_)
+                d->promExporter_->updateMetrics(getReadoutCounters());
+#endif
+
             auto daqState = readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state());
 
             if (d->state != daqState)
                 set_daq_state(daqState);
         }
+
+        // End of readout; begin shutdown procedure.
 
         if (d->listfileWriteHandle)
             listfile_write_system_event(*d->listfileWriteHandle, system_event::subtype::EndOfFile);
@@ -549,6 +651,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
                          .arg(count));
             }
         }
+
+#if MVME_ENABLE_PROMETHEUS
+        if (d->promExporter_)
+            d->promExporter_->updateMetrics(getReadoutCounters());
+#endif
 
         // Rethrow any exception recorded by the mvlc::ReadoutWorker.
         if (auto eptr = d->mvlcReadoutWorker->counters().eptr)
