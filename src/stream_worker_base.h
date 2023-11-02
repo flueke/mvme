@@ -67,13 +67,13 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer)
         {
             moduleConsumers_.push_back(consumer);
-            consumer->setStreamWorker(this);
+            consumer->setWorker(this);
         }
 
         void removeModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer)
         {
             moduleConsumers_.removeAll(consumer);
-            consumer->setStreamWorker(nullptr);
+            consumer->setWorker(nullptr);
         }
 
         const QVector<std::shared_ptr<IStreamModuleConsumer>> &moduleConsumers() const { return moduleConsumers_; }
@@ -82,13 +82,13 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
         {
             bufferConsumers_.push_back(consumer);
-            consumer->setStreamWorker(this);
+            consumer->setWorker(this);
         }
 
         void removeBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
         {
             bufferConsumers_.removeAll(consumer);
-            consumer->setStreamWorker(nullptr);
+            consumer->setWorker(nullptr);
         }
 
     public slots:

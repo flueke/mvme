@@ -4,6 +4,7 @@
 #ifdef MVME_ENABLE_PROMETHEUS
 
 #include <prometheus/exposer.h>
+#include <prometheus/gauge.h>
 #include <prometheus/registry.h>
 
 #include "libmvme_export.h"
@@ -35,7 +36,7 @@ void LIBMVME_EXPORT set_prometheus_instance(std::shared_ptr<PrometheusContext> p
 std::shared_ptr<PrometheusContext> LIBMVME_EXPORT get_prometheus_instance();
 
 // Expose MVMEStreamProcessorCounters using the IStreamBufferConsumer so the
-// instance can be attached to both  the old mvme and the newer mvlc stream
+// instance can be attached to both the old mvme and the newer mvlc stream
 // workers.
 class LIBMVME_EXPORT StreamProcCountersPromExporter: public IStreamBufferConsumer
 {

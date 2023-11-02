@@ -59,30 +59,30 @@ struct StreamProcCountersPromExporter::Private
 
         Metrics(prometheus::Registry &registry)
             : bytes_processed_family_(prometheus::BuildGauge()
-                                        .Name("bytes_processed")
+                                        .Name("analysis_bytes_processed")
                                         .Help("Bytes processed by the mvme analysis")
                                         .Register(registry))
             , bytes_processed_(bytes_processed_family_.Add({}))
 
             , buffers_processed_family_(prometheus::BuildGauge()
-                                        .Name("buffers_processed")
+                                        .Name("analysis_buffers_processed")
                                         .Help("Buffers processed by the mvme analysis")
                                         .Register(registry))
             , buffers_processed_(buffers_processed_family_.Add({}))
 
             , events_processed_family_(prometheus::BuildGauge()
-                                        .Name("events_processed")
+                                        .Name("analysis_events_processed")
                                         .Help("Total events processed by the mvme analysis")
                                         .Register(registry))
             , events_processed_(events_processed_family_.Add({}))
 
             , event_hits_family_(prometheus::BuildGauge()
-                                        .Name("events_hits")
+                                        .Name("analysis_event_hits")
                                         .Help("Events processed by the mvme analysis")
                                         .Register(registry))
 
             , module_hits_family_(prometheus::BuildGauge()
-                                        .Name("module_hits")
+                                        .Name("analysis_module_hits")
                                         .Help("Per module processed events by the mvme analysis")
                                         .Register(registry))
         {
@@ -215,7 +215,7 @@ void StreamProcCountersPromExporter::endRun(const DAQStats &stats, const std::ex
     (void) stats;
     (void) e;
 
-    if (auto streamWorker = getStreamWorker())
+    if (auto streamWorker = qobject_cast<StreamWorkerBase *>(getWorker()))
     {
         d->update(streamWorker->getCounters());
     }
@@ -228,7 +228,7 @@ void StreamProcCountersPromExporter::processBuffer(s32 bufferType, u32 bufferNum
     (void) buffer;
     (void) bufferSize;
 
-    if (auto streamWorker = getStreamWorker())
+    if (auto streamWorker = qobject_cast<StreamWorkerBase *>(getWorker()))
     {
         d->update(streamWorker->getCounters());
     }
