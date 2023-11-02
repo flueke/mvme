@@ -5077,7 +5077,8 @@ bool EventWidgetPrivate::canExport() const
 }
 
 static const char *AnalysisLibraryFileFilter =
-    "MVME Analysis Library Files (*.analysislib);; All Files (*.*)";
+    "MVME Analysis Files (*.analysis *.analysislib);;"
+    "All Files (*.*)";
 
 static const char *AnalysisLibraryFileExtension = ".analysislib";
 
@@ -5152,13 +5153,17 @@ void EventWidgetPrivate::actionImport()
     QJsonDocument doc(gui_read_json_file(fileName));
     auto exportRoot = doc.object();
 
-    if (!exportRoot.contains("MVMEAnalysisExport"))
+    QJsonObject importData;
+
+    if (exportRoot.contains("MVMEAnalysisExport"))
+        importData = exportRoot["MVMEAnalysisExport"].toObject();
+    else if (exportRoot.contains("AnalysisNG"))
+        importData = exportRoot["AnalysisNG"].toObject();
+    else
     {
-        QMessageBox::critical(m_q, "File format error", "File format error");
+        QMessageBox::critical(m_q, "File format error", QSL("Could not read analysis from %1").arg(fileName));
         return;
     }
-
-    auto importData = exportRoot["MVMEAnalysisExport"].toObject();
 
     try
     {
