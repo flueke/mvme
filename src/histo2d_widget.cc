@@ -710,12 +710,12 @@ void Histo2DWidget::replot()
                 auto histoBinning = histo->getAxisBinning(Qt::XAxis);
                 visibleYInterval.setMinValue(std::min(histoBinning.getMin(), visibleYInterval.minValue()));
                 visibleYInterval.setMaxValue(std::max(histoBinning.getMax(), visibleYInterval.maxValue()));
-                qDebug() << __PRETTY_FUNCTION__ << "visYInterval: min=" << visibleYInterval.minValue()
-                    << ", max=" << visibleYInterval.maxValue();
+                //qDebug() << __PRETTY_FUNCTION__ << "visYInterval: min=" << visibleYInterval.minValue()
+                //    << ", max=" << visibleYInterval.maxValue();
             }
 
-            qDebug() << __PRETTY_FUNCTION__ << "final visYInterval: min" << visibleYInterval.minValue()
-                    << ", max=" << visibleYInterval.maxValue();
+            //qDebug() << __PRETTY_FUNCTION__ << "final visYInterval: min" << visibleYInterval.minValue()
+            //        << ", max=" << visibleYInterval.maxValue();
         }
 
         m_d->m_plot->setAxisScale(QwtPlot::xBottom,
