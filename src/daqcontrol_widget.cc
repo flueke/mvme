@@ -391,6 +391,12 @@ void DAQControlWidget::setListFileOutputInfo(const ListFileOutputInfo &info)
     updateWidget();
 }
 
+void DAQControlWidget::setListfileInputFilename(const QString &filename)
+{
+    m_listfileInputFilename = filename;
+    updateWidget();
+}
+
 void DAQControlWidget::setDAQStats(const DAQStats &stats)
 {
     m_daqStats = stats;
@@ -575,14 +581,18 @@ void DAQControlWidget::updateWidget()
     // listfile options
     //
 
+    QString currentListfilePath;
+
     switch (globalMode)
     {
         case GlobalMode::DAQ:
             gb_listfile->setTitle(QSL("Listfile Output:"));
+            currentListfilePath = stats.listfileFilename;
             break;
 
         case GlobalMode::ListFile:
             gb_listfile->setTitle(QSL("Listfile Info:"));
+            currentListfilePath = m_listfileInputFilename;
             break;
     };
 
@@ -621,8 +631,6 @@ void DAQControlWidget::updateWidget()
         }
     }
 
-    auto filename = stats.listfileFilename;
-
     //qDebug() << __PRETTY_FUNCTION__ << "listfileFilename=" << filename;
 
     if (auto settings = make_workspace_settings(m_workspaceDirectory))
@@ -630,18 +638,18 @@ void DAQControlWidget::updateWidget()
         QDir workspaceDir(m_workspaceDirectory);
         auto prefix = workspaceDir.canonicalPath() + '/';
 
-        if (filename.startsWith(prefix))
-            filename.remove(0, prefix.size());
+        if (currentListfilePath.startsWith(prefix))
+            currentListfilePath.remove(0, prefix.size());
         else
         {
             prefix = workspaceDir.path() + '/';
-            if (filename.startsWith(prefix))
-                filename.remove(0, prefix.size());
+            if (currentListfilePath.startsWith(prefix))
+                currentListfilePath.remove(0, prefix.size());
         }
     }
 
-    if (le_listfileFilename->text() != filename)
-        le_listfileFilename->setText(filename);
+    if (le_listfileFilename->text() != currentListfilePath)
+        le_listfileFilename->setText(currentListfilePath);
 
 
     auto sizeLabel = qobject_cast<QLabel *>(gb_listfileLayout->labelForField(label_listfileSize));

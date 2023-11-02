@@ -146,6 +146,7 @@ struct MVMEWindowPrivate
 
     vme_script::VMEScript loopScript;
     QFutureWatcher<vme_script::ResultList> loopScriptWatcher;
+    QString currentReplayFilename;
 };
 
 MVMEMainWindow::MVMEMainWindow(const MVMEOptions &options)
@@ -557,10 +558,16 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
                 this, &MVMEMainWindow::handleSniffedReadoutBuffer);
 
         connect(m_d->m_context, &MVMEContext::listfileOpened,
-                this, &MVMEMainWindow::updateWindowTitle);
+                this, [this] (const QString &filename)
+                {
+                    m_d->currentReplayFilename = filename;
+                    updateWindowTitle();
+                });
+
+        connect(m_d->m_context, &MVMEContext::listfileOpened,
+                dcw, &DAQControlWidget::setListfileInputFilename);
 
         static const int DAQControlWidgetUpdateInterval_ms = 500;
-
 
         m_d->m_daqControlWidgetUpdateTimer = new QTimer(this);
 
@@ -1509,7 +1516,7 @@ void MVMEMainWindow::updateWindowTitle()
 
         case GlobalMode::ListFile:
             {
-                auto filename = m_d->m_context->getReplayFileHandle().inputFilename;
+                auto filename = m_d->currentReplayFilename;
 
                 if (filename.isEmpty())
                     filename = QSL("<no listfile>");

@@ -76,6 +76,7 @@ class LIBMVME_EXPORT DAQControlWidget: public QWidget
         void setVMEControllerTypeName(const QString &name);
         void setStreamWorkerState(const AnalysisWorkerState &state);
         void setListFileOutputInfo(const ListFileOutputInfo &info);
+        void setListfileInputFilename(const QString &filename);
         void setDAQStats(const DAQStats &stats);
         void setWorkspaceDirectory(const QString &dir);
         void setMVMEState(const MVMEState &state);
@@ -91,6 +92,7 @@ class LIBMVME_EXPORT DAQControlWidget: public QWidget
         QString m_vmeControllerTypeName;
         AnalysisWorkerState m_streamWorkerState = AnalysisWorkerState::Idle;
         ListFileOutputInfo m_listFileOutputInfo;
+        QString m_listfileInputFilename;
         DAQStats m_daqStats = {};
         QString m_workspaceDirectory;
         MVMEState m_mvmeState = MVMEState::Idle;

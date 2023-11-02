@@ -225,6 +225,7 @@ void MVLCListfileWorker::start()
                 // Note: do not touch the reader here, it's not thread-safe!
                 auto inputFilename = filepath_relative_to_cwd(QString::fromStdString(archiveName));
                 logMessage(QSL("Now replaying from %1").arg(inputFilename));
+                emit currentFilenameChanged(inputFilename);
             };
 
             d->mvlcSplitZipReader = std::make_unique<mvlc::listfile::SplitZipReader>();

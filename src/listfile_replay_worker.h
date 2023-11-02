@@ -33,6 +33,9 @@ class LIBMVME_EXPORT ListfileReplayWorker: public QObject
         void stateChanged(const DAQState &);
         void replayStopped();
         void replayPaused();
+        // Used by the mvlc replay worker to communicate when the next listfile
+        // part is opened.
+        void currentFilenameChanged(const QString &filename);
 
     public:
         using LoggerFun = std::function<void (const QString &)>;

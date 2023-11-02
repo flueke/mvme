@@ -828,6 +828,10 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             this, &MVMEContext::onReplayDone);
 
+    // Bit hacky: listfileOpened() is connected in mvme.cpp to update the main window and the daqcontrol widget.
+    connect(m_d->listfileReplayWorker.get(), &ListfileReplayWorker::currentFilenameChanged,
+            this, &MVMEContext::listfileOpened);
+
     if (auto mvlcListfileWorker = qobject_cast<MVLCListfileWorker *>(m_d->listfileReplayWorker.get()))
     {
         mvlcListfileWorker->setSnoopQueues(&m_d->mvlcSnoopQueues);
@@ -1414,7 +1418,7 @@ bool MVMEContext::setReplayFileHandle(ListfileReplayHandle handle, OpenListfileO
         getVMEConfig(), getAnalysis(),
         getAnalysisUi());
 
-    emit listfileOpened(handle.inputFilename);
+    emit listfileOpened(m_d->listfileReplayHandle.inputFilename);
 
     return true;
 }
