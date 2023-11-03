@@ -19,7 +19,7 @@ class MultiPlotWidget: public QWidget
         // Add all plots for the given sink
         void addSink(const analysis::SinkPtr &sink);
 
-        // For adding single sink elements (1d histograms, rate monitors, ...)
+        // For adding single sink elements (histograms, rate monitors, ...)
         void addSinkElement(const analysis::SinkPtr &sink, int elementIndex);
 
         void setMaxVisibleResolution(size_t maxres);

@@ -63,7 +63,7 @@ std::string layout_and_render_dot(
                 unsigned int renderSize = 0;
                 gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
 
-                result = { renderDest ? renderDest : "" };
+                result = { renderDest ? renderDest : std::string{""} };
 
                 gvFreeRenderData(renderDest);
                 gvFreeLayout(gvc, g);

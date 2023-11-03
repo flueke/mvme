@@ -7,7 +7,10 @@ Changelog
 Version 1.10.0
 --------------
 
-* New feature: prometheus metrics support. Metrics are exposed
+* New: prometheus metrics for the MVLC readout and the analysis. Metrics
+  are exposed on port 13802 by default.
+
+* vme_templates: Updated VMMR template. Merge vmmr and vmmr_1ns variants.
 
 Version 1.9.2
 -------------
