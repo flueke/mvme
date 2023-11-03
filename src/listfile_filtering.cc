@@ -269,13 +269,14 @@ void ListfileFilterStreamConsumer::beginRun(
     // TODO: set lfSetup.closeArchiveCallback to add additional files to the output archive.
 
     d->logger_->info("@{}: output filename is {}", fmt::ptr(this), lfSetup.filenamePrefix);
-    getLogger()(QSL("Listfile Filter: output filename is %1").arg(lfSetup.filenamePrefix.c_str()));
+    getLogger()(QSL("Listfile Filter: output filename is %1.zip").arg(lfSetup.filenamePrefix.c_str()));
 
     d->mvlcZipCreator_ = std::make_unique<listfile::SplitZipCreator>();
     d->mvlcZipCreator_->createArchive(lfSetup); // FIXME: does it throw? yes, it probably does
     d->listfileWriteHandle_ = std::shared_ptr<listfile::WriteHandle>(
         d->mvlcZipCreator_->createListfileEntry());
     d->outputBuffer_.clear();
+    d->counters_.access().ref() = {};
 
     d->logger_->debug("@{}: beginRun is done, output archive: {}, listfile entry: {}",
         fmt::ptr(this), d->mvlcZipCreator_->archiveName(), d->mvlcZipCreator_->entryInfo().name);
@@ -314,6 +315,16 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
 
     d->mvlcZipCreator_ = {};
     d->logger_->debug("@{}: endRun is done", fmt::ptr(this));
+
+    {
+        auto ca = d->counters_.access();
+        d->logger_->info("total output events written: {}", ca->totalEvents);
+        for (size_t i=0; i<ca->eventCounters.size(); ++i)
+        {
+            if (ca->eventCounters[i])
+                d->logger_->info("  event{}: {} output events", i, ca->eventCounters[i]);
+        }
+    }
 }
 
 void ListfileFilterStreamConsumer::Private::maybeFlushOutputBuffer(size_t flushSize)
@@ -383,6 +394,11 @@ void ListfileFilterStreamConsumer::processModuleData(
 #endif
 
     listfile::write_event_data(d->outputBuffer_, crateIndex, eventIndex, moduleDataList, moduleCount);
+    {
+        auto ca = d->counters_.access();
+        ca->eventCounters[eventIndex]++;
+        ca->totalEvents++;
+    }
     d->maybeFlushOutputBuffer();
 }
 
