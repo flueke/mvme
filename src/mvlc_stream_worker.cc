@@ -185,6 +185,13 @@ void MVLC_StreamWorker::setupParserCallbacks(
         logger->trace("f={}, eventIndex={}, moduleData={}, moduleCount={}",
                       lambdaName, eventIndex, reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
+#ifndef NDEBUG
+    for (size_t mi=0; mi<moduleCount; ++mi)
+    {
+        assert(mvlc::readout_parser::size_consistency_check(moduleDataList[mi]));
+    }
+#endif
+
         // beginEvent
         {
             this->blockIfPaused();

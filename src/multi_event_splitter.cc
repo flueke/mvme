@@ -285,9 +285,12 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
             auto &spans = moduleSpans[mi];
             auto &moduleData = moduleDataList[mi];
 
+            moduleData = {};
             moduleData.data = {
                 spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan))
             };
+            moduleData.dynamicSize = words_in_span(spans.dataSpan);
+
             ++state.counters.outputModules[ei][mi];
         }
 
@@ -306,6 +309,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
     // ModuleData structures used when invoking the eventData callback.
     std::array<ModuleData, MaxVMEModules+1> moduleDataList;
+    std::fill(std::begin(moduleDataList), std::end(moduleDataList), ModuleData{});
 
     assert(moduleSubeventSizes.size() > moduleCount);
     assert(moduleFilterMatches.size() > moduleCount);
@@ -394,7 +398,7 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         for (size_t mi = 0; mi < moduleCount; ++mi)
         {
             auto &moduleData = moduleDataList[mi];
-            moduleData.data = {};
+            moduleData = {};
 
             if (moduleFilterMatches[mi])
             {
@@ -416,6 +420,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                     // in the buffer. Yield all available data and record the
                     // error.
                     moduleData.data = { spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan)) };
+                    moduleData.dynamicSize = moduleData.data.size;
+                    moduleData.hasDynamic = true;
 
                     ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
                     state.processingFlags |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
@@ -442,9 +448,9 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                               &state, ei, mi, spans.dataSpan.begin, moduleEventSize)
 
                         //callbacks.moduleDynamic(ei, mi, spans.dynamicSpan.begin, moduleEventSize);
-                        moduleData.data = {
-                            spans.dataSpan.begin, moduleEventSize
-                        };
+                        moduleData.data = { spans.dataSpan.begin, moduleEventSize };
+                        moduleData.dynamicSize = moduleData.data.size;
+                        moduleData.hasDynamic = true;
 
                     // Move the spans begin pointer forward by the amount of data used.
                     spans.dataSpan.begin += moduleEventSize;
@@ -455,6 +461,8 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
                                   &state, *spans.dataSpan.begin);
                     }
                 }
+
+                assert(mvlc::readout_parser::size_consistency_check(moduleData));
 
                 ++state.counters.outputModules[ei][mi];
             }
