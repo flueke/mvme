@@ -392,7 +392,6 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 
 QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
-    auto path = m_serviceProvider->getWorkspaceDirectory();
     auto filename = m_serviceProvider->getAnalysisConfigFilename();
 
     if (filename.isEmpty())
@@ -401,24 +400,17 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
         {
             // Use the listfile basename to suggest a filename.
             const auto &replayHandle = m_serviceProvider->getReplayFileHandle();
-            path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".analysis";
+            filename = QFileInfo(replayHandle.inputFilename).baseName() + ".analysis";
         }
         else
         {
             // Use the last part of the workspace path to suggest a filename.
-            auto filename = m_serviceProvider->getAnalysisConfigFilename();
-            if (filename.isEmpty())
-                filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
-            path += "/" + filename;
+            filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
         }
-    }
-    else
-    {
-        path += "/" + filename;
     }
 
     auto result = gui_save_analysis_config_as(m_serviceProvider->getAnalysis(),
-                                       path,
+                                       filename,
                                        AnalysisFileFilter,
                                        m_serviceProvider);
 
