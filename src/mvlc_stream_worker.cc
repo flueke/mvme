@@ -242,7 +242,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
             analysis->endEvent(eventIndex);
 
             for (auto c: moduleConsumers())
-                c->endEvent(eventIndex); // TODO: not needed for consumers with the newer ModuleDataList interface
+                c->endEvent(crateIndex, eventIndex, moduleDataList, moduleCount);
 
             if (m_diag)
                 m_diag->endEvent(eventIndex);

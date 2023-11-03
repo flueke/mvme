@@ -344,43 +344,12 @@ void ListfileFilterStreamConsumer::beginEvent(s32 eventIndex)
         return;
 }
 
-void ListfileFilterStreamConsumer::endEvent(s32 eventIndex)
-{
-    if (!d->config_.enabled)
-        return;
-}
-
-void ListfileFilterStreamConsumer::processModuleData(
-    s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
+void ListfileFilterStreamConsumer::endEvent(s32 crateIndex, s32 eventIndex,
+            const ModuleData *moduleDataList, unsigned moduleCount)
 {
     if (!d->config_.enabled)
         return;
 
-    #if 0
-    if (eventIndex < static_cast<s32>(d->config_.filterConditionsByEvent.size()))
-    {
-        // TODO: to improve performance build a vector of condition bit indexes
-        // per event which will save doing the A2AdapterState hash lookups.
-        // => condValue = a2->conditionBits.test(d->eventConditionIndexes[eventIndex])
-
-        auto conditionBitIndexes = d->analysis_->getA2AdapterState()->conditionBitIndexes;
-        auto condId = d->config_.filterConditionsByEvent[eventIndex];
-        if (auto a1_cond = d->analysis_->getObject<analysis::ConditionInterface>(condId))
-        {
-            if (auto bitIndex = conditionBitIndexes.value(a1_cond.get(), -1);
-                bitIndex >= 0)
-            {
-                auto condValue = d->analysis_->getA2AdapterState()->a2->conditionBits.test(bitIndex);
-
-                if (!condValue)
-                {
-                    // TODO: count the filtered out event
-                    return;
-                }
-            }
-        }
-    }
-#else
     if (eventIndex < static_cast<signed>(d->eventConditionBitIndexes_.size()))
     {
         if (auto bitIndex = d->eventConditionBitIndexes_[eventIndex]; bitIndex >= 0)
@@ -391,7 +360,6 @@ void ListfileFilterStreamConsumer::processModuleData(
                 return;
         }
     }
-#endif
 
     listfile::write_event_data(d->outputBuffer_, crateIndex, eventIndex, moduleDataList, moduleCount);
     {
@@ -402,6 +370,17 @@ void ListfileFilterStreamConsumer::processModuleData(
     d->maybeFlushOutputBuffer();
 }
 
+void ListfileFilterStreamConsumer::processModuleData(
+    s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
+{
+    if (!d->config_.enabled)
+        return;
+}
+
+// FIXME: mvme and mvlc configs and endianess markers are duplicated in the
+// output file. they are written out in beginRun() via the
+// SplitListfileSetup::preamble stuff. The second copy is streamed through this
+// method here.
 void ListfileFilterStreamConsumer::processSystemEvent(s32 crateIndex, const u32 *header, u32 size)
 {
     if (!d->config_.enabled)

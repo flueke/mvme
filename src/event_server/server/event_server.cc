@@ -475,7 +475,7 @@ void EventServer::beginRun(const RunInfo &runInfo,
 
 // Send out event data to clients. At this point the analysis has processed an
 // event and extracted module data is available at the a2 datasource outputs.
-void EventServer::endEvent(s32 eventIndex)
+void EventServer::endEvent(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
 {
     if (!m_d->m_enabled) return;
 
@@ -693,6 +693,7 @@ void EventServer::processModuleData(s32 eventIndex, s32 moduleIndex,
     Q_UNUSED(size);
 
     if (!m_d->m_enabled) return;
+
     // Noop for this server case. We're interested in the endEvent() call as at
     // that point all data from all modules has been processed by the a2
     // analysis system and is available at the output pipes of the data
@@ -708,6 +709,7 @@ void EventServer::processModuleData(s32 crateIndex, s32 eventIndex, const Module
     Q_UNUSED(moduleCount);
 
     if (!m_d->m_enabled) return;
+
     // Noop for this server case. We're interested in the endEvent() call as at
     // that point all data from all modules has been processed by the a2
     // analysis system and is available at the output pipes of the data

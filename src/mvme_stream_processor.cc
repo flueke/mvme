@@ -704,7 +704,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
 
         for (auto c: this->moduleConsumers)
         {
-            c->endEvent(eventIndex);
+            c->endEvent(-1, eventIndex, nullptr, 0);
         }
 
         // Single event processing: terminate after one loop through the modules.
@@ -1245,7 +1245,7 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
 
         for (auto c: this->moduleConsumers)
         {
-            c->endEvent(eventIndex);
+            c->endEvent(-1, eventIndex, nullptr, 0);
         }
 
         if (!this->doMultiEventProcessing[eventIndex])
