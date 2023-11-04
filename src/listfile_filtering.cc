@@ -340,12 +340,16 @@ void ListfileFilterStreamConsumer::Private::maybeFlushOutputBuffer(size_t flushS
 
 void ListfileFilterStreamConsumer::beginEvent(s32 eventIndex)
 {
-    if (!d->config_.enabled)
-        return;
+    (void) eventIndex;
 }
 
-void ListfileFilterStreamConsumer::endEvent(s32 crateIndex, s32 eventIndex,
-            const ModuleData *moduleDataList, unsigned moduleCount)
+void ListfileFilterStreamConsumer::endEvent(s32 eventIndex)
+{
+    (void) eventIndex;
+}
+
+void ListfileFilterStreamConsumer::processModuleData(
+    s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
 {
     if (!d->config_.enabled)
         return;
@@ -368,13 +372,6 @@ void ListfileFilterStreamConsumer::endEvent(s32 crateIndex, s32 eventIndex,
         ca->totalEvents++;
     }
     d->maybeFlushOutputBuffer();
-}
-
-void ListfileFilterStreamConsumer::processModuleData(
-    s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
-{
-    if (!d->config_.enabled)
-        return;
 }
 
 // FIXME: mvme and mvlc configs and endianess markers are duplicated in the

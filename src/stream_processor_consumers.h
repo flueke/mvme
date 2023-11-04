@@ -63,8 +63,7 @@ class LIBMVME_EXPORT IStreamModuleConsumer: public StreamConsumerBase
         virtual void processModuleData(s32 crateIndex, s32 eventIndex,
             const ModuleData *moduleDataList, unsigned moduleCount) = 0;
 
-        virtual void endEvent(s32 crateIndex, s32 eventIndex,
-            const ModuleData *moduleDataList, unsigned moduleCount) = 0;
+        virtual void endEvent(s32 eventIndex) = 0;
 
         // Note: Having both system event and timetick methods is not redunant:
         // during live DAQ runs the latter method is called while during replays

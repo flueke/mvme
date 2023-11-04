@@ -475,7 +475,7 @@ void EventServer::beginRun(const RunInfo &runInfo,
 
 // Send out event data to clients. At this point the analysis has processed an
 // event and extracted module data is available at the a2 datasource outputs.
-void EventServer::endEvent(s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
+void EventServer::endEvent(s32 eventIndex)
 {
     if (!m_d->m_enabled) return;
 

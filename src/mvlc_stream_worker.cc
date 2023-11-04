@@ -211,9 +211,6 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // eventData
         analysis->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
 
-        for (auto c: moduleConsumers())
-            c->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
-
         for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
         {
             auto &moduleData = moduleDataList[parserModuleIndex];
@@ -241,8 +238,14 @@ void MVLC_StreamWorker::setupParserCallbacks(
         {
             analysis->endEvent(eventIndex);
 
+            // Call processModuleData _after_ the analysis has fully processed
+            // the event in the case the consumer wants to use analysis data
+            // itself.
             for (auto c: moduleConsumers())
-                c->endEvent(crateIndex, eventIndex, moduleDataList, moduleCount);
+                c->processModuleData(crateIndex, eventIndex, moduleDataList, moduleCount);
+
+            for (auto c: moduleConsumers())
+                c->endEvent(eventIndex);
 
             if (m_diag)
                 m_diag->endEvent(eventIndex);
