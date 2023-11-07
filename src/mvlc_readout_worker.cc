@@ -157,12 +157,21 @@ struct MvlcReadoutCountersMetrics
                     .Name("mvlc_readout_counters")
                     .Help("MVLC readout counters")
                     .Register(registry));
+
             buffersRead_        = &f.Add({{"metric", "buffers_read"}});
             bytesRead_          = &f.Add({{"metric", "bytes_read"}});
             snoopMissedBuffers_ = &f.Add({{"metric", "snoop_missed_buffers"}});
             usbFramingErrors_   = &f.Add({{"metric", "usb_framing_errors"}});
-            receivedPackets_    = &f.Add({{"metric", "eth_received_packets"}});
-            lostPackets_        = &f.Add({{"metric", "eth_lost_packets"}});
+        }
+
+        {
+            auto &f = (prometheus::BuildGauge()
+                    .Name("mvlc_eth_packet_counters")
+                    .Help("MVLC readout ethernet counters")
+                    .Register(registry));
+
+            receivedPackets_    = &f.Add({{"metric", "received_packets"}});
+            lostPackets_        = &f.Add({{"metric", "lost_packets"}});
         }
 
         {
