@@ -488,31 +488,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
             if (outInfo.format == ListFileFormat::ZIP
                 || outInfo.format == ListFileFormat::LZ4)
             {
-                //if (outInfo.fullDirectory.isEmpty())
-                //    throw std::runtime_error("Error: listfile output directory is not set");
-
-                listfile::SplitListfileSetup lfSetup;
-                lfSetup.entryType = (outInfo.format == ListFileFormat::ZIP
-                                     ? listfile::ZipEntryInfo::ZIP
-                                     : listfile::ZipEntryInfo::LZ4);
-                lfSetup.compressLevel = outInfo.compressionLevel;
-
-                if (outInfo.flags & ListFileOutputInfo::SplitBySize)
-                    lfSetup.splitMode = listfile::ZipSplitMode::SplitBySize;
-                else if (outInfo.flags & ListFileOutputInfo::SplitByTime)
-                    lfSetup.splitMode = listfile::ZipSplitMode::SplitByTime;
-
-                lfSetup.splitSize = outInfo.splitSize;
-                lfSetup.splitTime = outInfo.splitTime;
-
-                QFileInfo lfInfo(make_new_listfile_name(&outInfo));
-                auto lfDir = lfInfo.path();
-                auto lfBase = lfInfo.completeBaseName();
-                auto lfPrefix = lfDir + "/" + lfBase;
-
-                lfSetup.filenamePrefix = lfPrefix.toStdString();
-                lfSetup.preamble = preamble;
-
+                auto lfSetup = mvme_mvlc::make_listfile_setup(outInfo, preamble);
 
                 // Set the openArchiveCallback
                 lfSetup.openArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)

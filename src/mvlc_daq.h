@@ -23,6 +23,7 @@
 
 #include "libmvme_export.h"
 #include <mesytec-mvlc/mvlc_command_builders.h>
+#include <mesytec-mvlc/mvlc_listfile_zip.h>
 #include "mvlc/mvlc_qt_object.h"
 #include "mvlc/mvlc_trigger_io.h"
 #include "vme_config.h"
@@ -78,6 +79,9 @@ mvlc::StackCommandBuilder LIBMVME_EXPORT make_module_init_stack(const VMEConfig 
 // won't match up.
 std::vector<mvlc::StackCommandBuilder> LIBMVME_EXPORT sanitize_readout_stacks(
     const std::vector<mvlc::StackCommandBuilder> &inputStacks);
+
+// Adapter from the mvme ListFileOutputInfo to the mvlc SplitListfileSetup.
+mvlc::listfile::SplitListfileSetup make_listfile_setup(ListFileOutputInfo &outInfo, const std::vector<u8> &preamble = {});
 
 } // end namespace mvme_mvlc
 } // end namespace mesytec
