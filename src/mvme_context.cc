@@ -2971,6 +2971,7 @@ RunInfo MVMEContext::getRunInfo() const
 void MVMEContext::setRunNotes(const QString &notes)
 {
     m_d->runNotes.access().ref() = notes;
+    m_d->m_listfileFilter->setRunNotes(notes);
 }
 
 QString MVMEContext::getRunNotes() const

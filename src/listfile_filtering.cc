@@ -19,6 +19,8 @@
 #include "analysis/analysis.h"
 #include "analysis_service_provider.h"
 #include "globals.h"
+#include "mvlc_daq.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_mvlc_listfile.h"
 #include "mvme_qthelp.h"
 #include "mvme_workspace.h"
@@ -112,6 +114,7 @@ struct ListfileFilterStreamConsumer::Private
     std::shared_ptr<listfile::WriteHandle> listfileWriteHandle_;
     ReadoutBuffer outputBuffer_;
     mutable mesytec::mvlc::Protected<MVMEStreamProcessorCounters> counters_;
+    mesytec::mvlc::Protected<QString> runNotes_;
 
     void maybeFlushOutputBuffer(size_t flushSize = OutputBufferFlushSize);
 };
@@ -143,20 +146,6 @@ StreamConsumerBase::Logger &ListfileFilterStreamConsumer::getLogger()
 {
     return d->qtLogger_;
 }
-
-#if 0
-[2023-01-30 16:43:07.256] [info] virtual void ListfileFilterStreamConsumer::beginRun(const RunInfo&, const VMEConfig*, const analysis::Analysis*) @ 0x555556868390
-"" "ExperimentName"
-"\t" QVariant(QString, "Experiment")
-"" "ExperimentTitle"
-"\t" QVariant(QString, "")
-"" "MVMEWorkspace"
-"\t" QVariant(QString, "/home/florian/Documents/mvme-workspaces-on-hdd/2301_listfile-filtering")
-"" "replaySourceFile"
-"\t" QVariant(QString, "00-mdpp_trig.zip")
-
-runId is "00-mdpp_trig"
-#endif
 
 void ListfileFilterStreamConsumer::beginRun(
     const RunInfo &runInfo, const VMEConfig *vmeConfig, analysis::Analysis *analysis)
@@ -221,69 +210,68 @@ void ListfileFilterStreamConsumer::beginRun(
         }
     }
 
-#if 0
-    auto workspaceSettings = make_workspace_settings();
-    // for make_new_listfile_name()
-    ListFileOutputInfo lfOutInfo{};
-    lfOutInfo.format = ListFileFormat::ZIP;
-    // Not actually computing the absolute path here. Should still work as we are inside the workspace directory.
-    lfOutInfo.fullDirectory = workspaceSettings.value("ListFileDirectory").toString();
-    lfOutInfo.prefix = QFileInfo(runInfo.infoDict["replaySourceFile"].toString()).completeBaseName() + "_filtered";
-#endif
-
+    // Preamble to be written into every part of the output listfile.  Note: the
+    // format magic is set to USB format. This may differ from the VME
+    // controller type specified in the mvme VMEConfig and the MVLC CrateConfig
+    // objects! Consumers of the filtered output listfile must take this into account!
     auto make_listfile_preamble = [&vmeConfig]() -> std::vector<u8>
     {
         listfile::BufferedWriteHandle bwh;
         listfile::listfile_write_magic(bwh, ConnectionType::USB);
         listfile::listfile_write_endian_marker(bwh);
-        // To add the vme config data to every part of the output listfile.
+        auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+        listfile::listfile_write_crate_config(bwh, crateConfig);
         mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
         return bwh.getBuffer();
     };
 
-    const auto &outInfo = d->config_.outputInfo;
-    // FIXME: copy of the code in mvlc_readout_worker.cc
-    listfile::SplitListfileSetup lfSetup;
-    lfSetup.entryType = (outInfo.format == ListFileFormat::ZIP
-                            ? listfile::ZipEntryInfo::ZIP
-                            : listfile::ZipEntryInfo::LZ4);
-    lfSetup.compressLevel = outInfo.compressionLevel;
-    if (outInfo.flags & ListFileOutputInfo::SplitBySize)
-        lfSetup.splitMode = listfile::ZipSplitMode::SplitBySize;
-    else if (outInfo.flags & ListFileOutputInfo::SplitByTime)
-        lfSetup.splitMode = listfile::ZipSplitMode::SplitByTime;
+    auto &outInfo = d->config_.outputInfo;
+    auto lfSetup = mesytec::mvme_mvlc::make_listfile_setup(outInfo, make_listfile_preamble());
 
-    lfSetup.splitSize = outInfo.splitSize;
-    lfSetup.splitTime = outInfo.splitTime;
+    lfSetup.closeArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
+    {
+        assert(zipCreator->isOpen());
+        assert(!zipCreator->hasOpenEntry());
 
-    QFileInfo lfFileInfo(make_new_listfile_name(&d->config_.outputInfo));
-    qDebug() << lfFileInfo.filePath();
-    auto lfDir = lfFileInfo.path();
-    auto lfBase = lfFileInfo.completeBaseName();
-    auto lfPrefix = lfDir + "/" + lfBase;
+        auto do_write = [zipCreator] (const std::string &filename, const QByteArray &data)
+        {
+            listfile::add_file_to_archive(zipCreator, filename, data);
+        };
 
-    lfSetup.filenamePrefix = lfPrefix.toStdString();
-    lfSetup.preamble = make_listfile_preamble();
-    // FIXME end of code copied from mvlc_readout_worker.cc
-
-    // TODO: set lfSetup.closeArchiveCallback to add additional files to the output archive.
+        do_write("messages.log",  d->runInfo_.infoDict["listfileLogBuffer"].toByteArray());
+        if (d->analysis_)
+            do_write("analysis.analysis", analysis::serialize_analysis_to_json_document(*d->analysis_).toJson());
+        do_write("mvme_run_notes.txt", d->runNotes_.access().ref().toLocal8Bit());
+    };
 
     d->logger_->info("@{}: output filename is {}", fmt::ptr(this), lfSetup.filenamePrefix);
     getLogger()(QSL("Listfile Filter: output filename is %1.zip").arg(lfSetup.filenamePrefix.c_str()));
 
-    d->mvlcZipCreator_ = std::make_unique<listfile::SplitZipCreator>();
-    d->mvlcZipCreator_->createArchive(lfSetup); // FIXME: does it throw? yes, it probably does
-    d->listfileWriteHandle_ = std::shared_ptr<listfile::WriteHandle>(
-        d->mvlcZipCreator_->createListfileEntry());
-    d->outputBuffer_.clear();
-    d->counters_.access().ref() = {};
+    try
+    {
+        d->mvlcZipCreator_ = std::make_unique<listfile::SplitZipCreator>();
+        d->mvlcZipCreator_->createArchive(lfSetup);
+        d->listfileWriteHandle_ = std::shared_ptr<listfile::WriteHandle>(
+            d->mvlcZipCreator_->createListfileEntry());
+        d->outputBuffer_.clear();
+        d->counters_.access().ref() = {};
 
-    d->logger_->debug("@{}: beginRun is done, output archive: {}, listfile entry: {}",
-        fmt::ptr(this), d->mvlcZipCreator_->archiveName(), d->mvlcZipCreator_->entryInfo().name);
+        d->logger_->debug("@{}: beginRun is done, output archive: {}, listfile entry: {}",
+            fmt::ptr(this), d->mvlcZipCreator_->archiveName(), d->mvlcZipCreator_->entryInfo().name);
+    }
+    catch (const std::exception &e)
+    {
+        getLogger()(QSL("Listfile Filter: error creating output file: %1").arg(e.what()));
+        d->config_.enabled = false;
+        return;
+    }
 }
 
 void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exception *e)
 {
+    (void) stats;
+    (void) e;
+
     if (!d->config_.enabled)
         return;
 
@@ -292,27 +280,15 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
     // Flush remaining data.
     d->maybeFlushOutputBuffer(0);
 
-    d->listfileWriteHandle_.reset();
-    d->config_.enabled = false; // disable it after each run. User has to re-enable manually again.
+    // Disable filtering after each run and write it back to the analysis
+    // config. The user has to manually re-enable filtering again.
+    // FIXME: only works when using an analysis instance that's shared between
+    // gui and this code. Not thread-safe right now. Bad! Think up a design that
+    // would also work without a shared analysis instance.
+    d->config_.enabled = false;
     d->analysis_->setProperty("ListfileFilterConfig", listfile_filter_config_to_variant(d->config_));
 
-    if (d->mvlcZipCreator_)
-    {
-        d->mvlcZipCreator_->closeCurrentEntry();
-
-        auto do_write = [zipCreator = d->mvlcZipCreator_.get()] (const std::string &filename, const QByteArray &data)
-        {
-            listfile::add_file_to_archive(zipCreator, filename, data);
-        };
-
-        // Copy the log buffer from the input archive. TODO: add info that this file
-        // was filtered, how much was filtered and when the filtering took place.
-        do_write("messages.log",  d->runInfo_.infoDict["listfileLogBuffer"].toByteArray());
-
-        if (d->analysis_)
-            do_write("analysis.analysis", analysis::serialize_analysis_to_json_document(*d->analysis_).toJson());
-    }
-
+    d->listfileWriteHandle_.reset();
     d->mvlcZipCreator_ = {};
     d->logger_->debug("@{}: endRun is done", fmt::ptr(this));
 
@@ -354,13 +330,14 @@ void ListfileFilterStreamConsumer::processModuleData(
     if (!d->config_.enabled)
         return;
 
+    const auto &conditionBits = d->analysis_->getA2AdapterState()->a2->conditionBits;
+
     if (eventIndex < static_cast<signed>(d->eventConditionBitIndexes_.size()))
     {
-        if (auto bitIndex = d->eventConditionBitIndexes_[eventIndex]; bitIndex >= 0)
+        if (auto bitIndex = d->eventConditionBitIndexes_[eventIndex];
+            0 <= bitIndex && static_cast<unsigned>(bitIndex) < conditionBits.size())
         {
-            auto condResult = d->analysis_->getA2AdapterState()->a2->conditionBits.test(bitIndex);
-
-            if (!condResult)
+            if (!conditionBits.test(bitIndex))
                 return;
         }
     }
@@ -374,31 +351,46 @@ void ListfileFilterStreamConsumer::processModuleData(
     d->maybeFlushOutputBuffer();
 }
 
-// FIXME: mvme and mvlc configs and endianess markers are duplicated in the
-// output file. they are written out in beginRun() via the
-// SplitListfileSetup::preamble stuff. The second copy is streamed through this
-// method here.
 void ListfileFilterStreamConsumer::processSystemEvent(s32 crateIndex, const u32 *header, u32 size)
 {
     if (!d->config_.enabled)
         return;
-    if (size)
+
+    if (!header || !size)
+        return;
+
+    using namespace mesytec::mvlc;
+
+    auto info = extract_frame_info(*header);
+
+    if (info.type == frame_headers::SystemEvent)
     {
-        auto info = mesytec::mvlc::extract_frame_info(*header);
-        if (info.type == mesytec::mvlc::frame_headers::SystemEvent
-            && (info.sysEventSubType == mesytec::mvlc::system_event::subtype::BeginRun
-                || info.sysEventSubType == mesytec::mvlc::system_event::subtype::EndRun))
+        switch (info.sysEventSubType)
         {
-            d->logger_->info("system event: {}", mesytec::mvlc::decode_frame_header(*header));
+            // These are written as part of the listfile preamble, prepared in beginRun().
+            case system_event::subtype::EndianMarker:
+            case system_event::subtype::MVMEConfig:
+            case system_event::subtype::MVLCCrateConfig:
+                return;
+
+            default:
+                break;
         }
     }
-    // Note: works for MVLC inputs only, as otherwise the system event header won't be compatible.
+
+    // Note: just passing the event through works for MVLC inputs only, as
+    // otherwise the system event header won't be compatible with the mvlc
+    // listfile format.
     listfile::write_system_event(d->outputBuffer_, crateIndex, header, size);
     d->maybeFlushOutputBuffer();
 }
 
 void ListfileFilterStreamConsumer::processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size)
 {
+    (void) eventIndex;
+    (void) moduleIndex;
+    (void) data;
+    (void) size;
     assert(!"don't call me please!");
     throw std::runtime_error(fmt::format("{}: don't call me please!", __PRETTY_FUNCTION__));
 }
@@ -406,6 +398,11 @@ void ListfileFilterStreamConsumer::processModuleData(s32 eventIndex, s32 moduleI
 MVMEStreamProcessorCounters ListfileFilterStreamConsumer::getCounters() const
 {
     return d->counters_.copy();
+}
+
+void ListfileFilterStreamConsumer::setRunNotes(const QString &runNotes)
+{
+    d->runNotes_.access().ref() = runNotes;
 }
 
 //

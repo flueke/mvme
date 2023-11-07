@@ -14,6 +14,8 @@
 // output is limited to zip and lz4 files. Support for other output formats,
 // e.g.  zmq_ganil, could be added later.
 
+// Config for the listfile filter module. Stored in the Analysis object passed
+// to ListfileFilterStreamConsumer::beginRun().
 struct ListfileFilterConfig
 {
     struct FilterEventEntry
@@ -61,13 +63,9 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) override;
         void processTimetick() override {}; // noop
 
-        //void setEnabled(bool b) override;
-
         // Thread-safe, returns a copy of the counters.
         MVMEStreamProcessorCounters getCounters() const;
-
-        //// Not thread-safe. Needs to be called prior to starting a run.
-        //void setConfig(const ListfileFilterConfig &config);
+        void setRunNotes(const QString &runNotes);
 
     private:
         struct Private;
