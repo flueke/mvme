@@ -3079,10 +3079,12 @@ namespace
         return result;
     }
 
-    // set output value to 1.0 if condition was met, invalidate otherwise
+    // Set output value to 1.0 if condition was met, 0.0 otherwise.
+    // Alternatively invalid_param() could be used to invalidate the output in
+    // case the condition is false.
     void set_condition_output(Operator *cond, bool condResult)
     {
-        cond->outputs[0][0] = condResult ? 1.0 : invalid_param();
+        cond->outputs[0][0] = condResult ? 1.0 : 0.0;
     }
 }
 
@@ -3130,7 +3132,7 @@ void interval_condition_step(Operator *op, A2 *a2)
             result |= in_range(interval, op->inputs[0][idx]);
     }
 
-    // Write the result to the central condition bit set
+    // Write the result to the central condition bit set.
     a2->conditionBits.set(d->bitIndex, result);
 
     // Also write the result to the output vector.
