@@ -182,7 +182,6 @@ struct ListFileOutputInfo
     static const u32 SplitByTime  = 1u << 3;
     static const u32 UseFormatStr = 1u << 4;
 
-    // TODO: maybe move enabled into flags
     bool enabled = true;        // true if a listfile should be written
 
     ListFileFormat format;      // the format to write
