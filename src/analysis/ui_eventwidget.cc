@@ -1314,6 +1314,7 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
     // Listfile Filtering Settings
     QAction *actionListfileFilterSettings = new QAction(
         QIcon(QSL(":/data_filter.png")), "Listfile Filtering", this);
+    actionListfileFilterSettings->setToolTip("Filter listfiles using conditions (replay mode only).");
 
     connect(actionListfileFilterSettings, &QAction::triggered, this, [this] {
         ListfileFilterDialog dialog(m_d->m_serviceProvider, this);
@@ -4929,28 +4930,7 @@ void EventWidgetPrivate::updateActions()
 
 void EventWidgetPrivate::showDependencyGraphWidget(const AnalysisObjectPtr &obj)
 {
-    bool isNewWidget = !analysis::graph::find_dependency_graph_widget();
-    auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, obj);
-
-    if (isNewWidget)
-    {
-        QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::editObject,
-                         m_q, [=] (const AnalysisObjectPtr &obj)
-                         {
-                            if (auto op = std::dynamic_pointer_cast<OperatorInterface>(obj))
-                            {
-                                auto cond = std::dynamic_pointer_cast<ConditionInterface>(op);
-                                if (cond && !std::dynamic_pointer_cast<ExpressionCondition>(cond))
-                                    editConditionInFirstAvailableSink(cond);
-                                else
-                                    editOperator(op);
-                            }
-                            else if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
-                            {
-                                editSource(src);
-                            }
-                         });
-    }
+    analysis::graph::show_dependency_graph(m_serviceProvider, obj);
 }
 
 void EventWidgetPrivate::editSource(const SourcePtr &src)

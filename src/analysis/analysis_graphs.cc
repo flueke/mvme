@@ -663,6 +663,10 @@ DependencyGraphWidget *show_dependency_graph(
                                 else
                                     edit_operator(op);
                             }
+                            else if (auto src = std::dynamic_pointer_cast<SourceInterface>(obj))
+                            {
+                                edit_datasource(src);
+                            }
                          });
     }
 
