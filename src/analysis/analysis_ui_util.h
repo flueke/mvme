@@ -52,6 +52,9 @@ inline EventWidget *find_event_widget(const std::shared_ptr<Analysis> &analysis)
 
 inline EventWidget *find_event_widget(const AnalysisObjectPtr &obj)
 {
+    if (!obj)
+        return nullptr;
+
     return find_event_widget(obj->getAnalysis());
 }
 

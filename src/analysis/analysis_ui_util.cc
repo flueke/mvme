@@ -334,10 +334,24 @@ void *edit_datasource(const SourcePtr &src)
     auto eventWidget = find_event_widget(src);
     auto ana = src->getAnalysis();
 
+#ifndef NDEBUG //consistency check
+    {
+        auto ana2 = eventWidget->getServiceProvider()->getAnalysis();
+        assert(ana.get() == ana2);
+    }
+#endif
+
     if (!eventWidget || !ana)
         return {};
 
     auto vmeConfig = ana->getVMEConfig();
+
+#ifndef NDEBUG //consistency check
+    {
+        auto vmeConfig2 = eventWidget->getServiceProvider()->getVMEConfig();
+        assert(vmeConfig == vmeConfig2);
+    }
+#endif
 
     if (!vmeConfig)
         return {};
