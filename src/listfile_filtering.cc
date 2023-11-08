@@ -92,9 +92,22 @@ ListfileFilterConfig listfile_filter_config_from_variant(const QVariant &var)
     return result;
 }
 
+struct FilterCounters
+{
+    std::array<u32, MaxVMEEvents> eventsWritten;
+    std::array<u32, MaxVMEEvents> eventsSkipped;
+
+    void reset()
+    {
+        std::fill(std::begin(eventsWritten), std::end(eventsWritten), 0u);
+        std::fill(std::begin(eventsSkipped), std::end(eventsSkipped), 0u);
+    }
+};
+
 struct ListfileFilterStreamConsumer::Private
 {
     static const size_t OutputBufferInitialCapacity = mesytec::mvlc::util::Megabytes(1);
+    // Leave some space to avoid reallocations of the buffer.
     static const size_t OutputBufferFlushSize = OutputBufferInitialCapacity-256;
 
     ListfileFilterConfig config_;
@@ -106,14 +119,13 @@ struct ListfileFilterStreamConsumer::Private
     Logger qtLogger_;
 
     RunInfo runInfo_;
-    VMEControllerType inputControllerType_;
     // TODO: make this a shared_ptr or something at some point. It's passed in
     // beginRun() and must stay valid during the run.
     analysis::Analysis *analysis_ = nullptr;
     std::unique_ptr<listfile::SplitZipCreator> mvlcZipCreator_;
     std::shared_ptr<listfile::WriteHandle> listfileWriteHandle_;
     ReadoutBuffer outputBuffer_;
-    mutable mesytec::mvlc::Protected<MVMEStreamProcessorCounters> counters_;
+    FilterCounters counters_;
     mesytec::mvlc::Protected<QString> runNotes_;
 
     void maybeFlushOutputBuffer(size_t flushSize = OutputBufferFlushSize);
@@ -124,17 +136,14 @@ ListfileFilterStreamConsumer::ListfileFilterStreamConsumer()
 {
     d->logger_ = get_logger("ListfileFilterStreamConsumer");
     d->logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] [tid%t] %v");
-    d->logger_->set_level(spdlog::level::debug); // FIXME: remove this
+    d->logger_->set_level(spdlog::level::debug);
 
     d->outputBuffer_ = ReadoutBuffer(Private::OutputBufferInitialCapacity);
-    d->logger_->debug("created @{}", fmt::ptr(this));
-
     d->config_.outputInfo.enabled = false;
 }
 
 ListfileFilterStreamConsumer::~ListfileFilterStreamConsumer()
 {
-    d->logger_->debug("destroying @{}", fmt::ptr(this));
 }
 
 void ListfileFilterStreamConsumer::setLogger(Logger logger)
@@ -152,10 +161,11 @@ void ListfileFilterStreamConsumer::beginRun(
 {
     d->config_ = listfile_filter_config_from_variant(analysis->property("ListfileFilterConfig"));
 
+    if (!runInfo.isReplay)
+        d->config_.enabled = false;
+
     if (!d->config_.enabled)
         return;
-
-    d->logger_->debug("@{}: beginRun", fmt::ptr(this));
 
     if (!is_mvlc_controller(vmeConfig->getControllerType()))
     {
@@ -173,7 +183,6 @@ void ListfileFilterStreamConsumer::beginRun(
     }
 
     d->runInfo_ = runInfo;
-    d->inputControllerType_ = vmeConfig->getControllerType();
     d->analysis_ = analysis;
     //printMe(runInfo.infoDict);
 
@@ -186,9 +195,9 @@ void ListfileFilterStreamConsumer::beginRun(
         for (int ei=0; ei<eventConfigs.size(); ++ei)
         {
             auto eventConfig = eventConfigs[ei];
+            auto condId = d->config_.eventEntries.value(eventConfig->getId());
 
-            if (auto condId = d->config_.eventEntries.value(eventConfig->getId());
-                !condId.isNull())
+            if (!condId.isNull())
             {
                 if (auto a1_cond = d->analysis_->getObject<analysis::ConditionInterface>(condId))
                 {
@@ -199,13 +208,13 @@ void ListfileFilterStreamConsumer::beginRun(
                         continue;
                     }
                 }
-            }
-            else
-            {
-                getLogger()(QSL("Listfile Filter Error: Condition for event %1 not found. Check config!")
-                    .arg(ei));
+
+                getLogger()(QSL("Listfile Filter Error: Condition for event %1 not found. Check config!").arg(ei));
+                d->config_.enabled = false;
+                return;
             }
 
+            // No condition selected for this event -> add negative condition index as an indicator.
             d->eventConditionBitIndexes_.push_back(-1);
         }
     }
@@ -244,9 +253,6 @@ void ListfileFilterStreamConsumer::beginRun(
         do_write("mvme_run_notes.txt", d->runNotes_.access().ref().toLocal8Bit());
     };
 
-    d->logger_->info("@{}: output filename is {}", fmt::ptr(this), lfSetup.filenamePrefix);
-    getLogger()(QSL("Listfile Filter: output filename is %1.zip").arg(lfSetup.filenamePrefix.c_str()));
-
     try
     {
         d->mvlcZipCreator_ = std::make_unique<listfile::SplitZipCreator>();
@@ -254,10 +260,9 @@ void ListfileFilterStreamConsumer::beginRun(
         d->listfileWriteHandle_ = std::shared_ptr<listfile::WriteHandle>(
             d->mvlcZipCreator_->createListfileEntry());
         d->outputBuffer_.clear();
-        d->counters_.access().ref() = {};
+        d->counters_.reset();
 
-        d->logger_->debug("@{}: beginRun is done, output archive: {}, listfile entry: {}",
-            fmt::ptr(this), d->mvlcZipCreator_->archiveName(), d->mvlcZipCreator_->entryInfo().name);
+        getLogger()(QSL("Listfile Filter: output file is %1").arg(d->mvlcZipCreator_->archiveName().c_str()));
     }
     catch (const std::exception &e)
     {
@@ -275,10 +280,10 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
     if (!d->config_.enabled)
         return;
 
-    d->logger_->debug("@{}: endRun", fmt::ptr(this));
-
     // Flush remaining data.
     d->maybeFlushOutputBuffer(0);
+
+    const auto outputFilename = d->mvlcZipCreator_->archiveName();
 
     // Disable filtering after each run and write it back to the analysis
     // config. The user has to manually re-enable filtering again.
@@ -287,19 +292,27 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
     // would also work without a shared analysis instance.
     d->config_.enabled = false;
     d->analysis_->setProperty("ListfileFilterConfig", listfile_filter_config_to_variant(d->config_));
-
     d->listfileWriteHandle_.reset();
     d->mvlcZipCreator_ = {};
-    d->logger_->debug("@{}: endRun is done", fmt::ptr(this));
 
+    auto &logger = getLogger();
+    logger(QSL("Listfile Filter: closed output file %1").arg(outputFilename.c_str()));
+
+    const auto &counters = d->counters_;
+    std::vector<std::string> msgs;
+
+    for (size_t ei=0; ei<counters.eventsWritten.size(); ++ei)
     {
-        auto ca = d->counters_.access();
-        d->logger_->info("total output events written: {}", ca->totalEvents);
-        for (size_t i=0; i<ca->eventCounters.size(); ++i)
-        {
-            if (ca->eventCounters[i])
-                d->logger_->info("  event{}: {} output events", i, ca->eventCounters[i]);
-        }
+        if (!(counters.eventsWritten[ei] || counters.eventsSkipped[ei]))
+            continue;
+
+        msgs.emplace_back(fmt::format("eventIndex={}, events_written={:}, events_skipped={:}\n",
+            ei, counters.eventsWritten[ei], counters.eventsSkipped[ei]));
+    }
+
+    for (const auto &msg: msgs)
+    {
+        logger(QSL("Listfile Filter Counters: %1").arg(msg.c_str()));
     }
 }
 
@@ -338,16 +351,15 @@ void ListfileFilterStreamConsumer::processModuleData(
             0 <= bitIndex && static_cast<unsigned>(bitIndex) < conditionBits.size())
         {
             if (!conditionBits.test(bitIndex))
+            {
+                d->counters_.eventsSkipped[eventIndex]++;
                 return;
+            }
         }
     }
 
     listfile::write_event_data(d->outputBuffer_, crateIndex, eventIndex, moduleDataList, moduleCount);
-    {
-        auto ca = d->counters_.access();
-        ca->eventCounters[eventIndex]++;
-        ca->totalEvents++;
-    }
+    d->counters_.eventsWritten[eventIndex]++;
     d->maybeFlushOutputBuffer();
 }
 
@@ -393,11 +405,6 @@ void ListfileFilterStreamConsumer::processModuleData(s32 eventIndex, s32 moduleI
     (void) size;
     assert(!"don't call me please!");
     throw std::runtime_error(fmt::format("{}: don't call me please!", __PRETTY_FUNCTION__));
-}
-
-MVMEStreamProcessorCounters ListfileFilterStreamConsumer::getCounters() const
-{
-    return d->counters_.copy();
 }
 
 void ListfileFilterStreamConsumer::setRunNotes(const QString &runNotes)
@@ -462,12 +469,14 @@ ListfileFilterDialog::ListfileFilterDialog(AnalysisServiceProvider *asp, QWidget
     auto eventCondTable = new QTableWidget(d->rows_.size(), 2);
     eventCondTable->setHorizontalHeaderLabels({ "Event Name", "Filter Condition" });
     eventCondTable->horizontalHeader()->setStretchLastSection(false);
+    eventCondTable->verticalHeader()->hide();
 
     for (int rowIdx = 0; rowIdx < d->rows_.size(); ++rowIdx)
     {
         auto &row = d->rows_[rowIdx];
         auto item = new QTableWidgetItem(row.eventName);
         item->setData(Qt::UserRole, row.eventId);
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
         eventCondTable->setItem(rowIdx, 0, item);
         eventCondTable->setCellWidget(rowIdx, 1, row.combo_conditions);
     }
@@ -520,7 +529,7 @@ ListfileFilterDialog::ListfileFilterDialog(AnalysisServiceProvider *asp, QWidget
     QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
     QObject::connect(bb, &QDialogButtonBox::helpRequested,
-                     this, mesytec::mvme::make_help_keyword_handler("Analysis Processing Chain"));
+                     this, mesytec::mvme::make_help_keyword_handler("Listfile Filtering"));
     resize(600, 300);
 }
 

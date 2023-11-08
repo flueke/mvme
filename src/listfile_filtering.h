@@ -63,8 +63,6 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) override;
         void processTimetick() override {}; // noop
 
-        // Thread-safe, returns a copy of the counters.
-        MVMEStreamProcessorCounters getCounters() const;
         void setRunNotes(const QString &runNotes);
 
     private:
