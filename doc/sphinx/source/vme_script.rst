@@ -188,15 +188,6 @@ The **2esst** and **2essts** commands accept the following *<rate>* arguments:
 **2essts** is the word swapped version of **2esst** like **mblts** for
 MBLT transfers.
 
-.. note::
-  For the MVLC there is no difference between the FIFO and non-FIFO block
-  reads. FIFO mode only makes a difference if the controller interrupts the
-  block transfer after a fixed number of cycles (usually 256) and then starts a
-  new block transfer either from the starting address (FIFO) mode or from the
-  incremented address (non-FIFO mode). The MVLC performs block transfers
-  without interruptions which means the starting address is transmitted only
-  once and it is up to the individual module how it handles the block transfer.
-
 Miscellaneous
 ~~~~~~~~~~~~~
 
@@ -628,7 +619,7 @@ VME block read command mappings
 -------------------------------
 
 FIFO reads do not increment the read address, mem reads do. **VMEReadMem** and
-**VMEReadMemSwapped** are available since MVLC FW0036.
+**VMEReadMemSwapped** are available since MVLC firmware ``FW0036``.
 
 .. table:: VME block read command mappings
   :name: vme-block-read-command-mappings
@@ -650,13 +641,13 @@ FIFO reads do not increment the read address, mem reads do. **VMEReadMem** and
   +------------+----------------------------+------------------------+---------------------------------------------+
   | 2esst      | vme_block_read             | 0x12 VMERead           | for compatibility this is *fifo*, not *mem* |
   +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2esstfifo  | vme_block_read             | 0x12 VMERead           |                                             |
+  | 2esstfifo  | vme_block_read             | 0x12 VMERead           | same as ``2esst``                           |
   +------------+----------------------------+------------------------+---------------------------------------------+
   | 2esstmem   | vme_block_read_mem         | 0x32 VMEReadMem        | explicit *mem* version                      |
   +------------+----------------------------+------------------------+---------------------------------------------+
   | 2essts     | vme_block_read_swapped     | 0x13 VMEReadSwapped    | for compatibility this is *fifo*, not *mem* |
   +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2esstsfifo | vme_block_read_swapped     | 0x13 VMEReadSwapped    |                                             |
+  | 2esstsfifo | vme_block_read_swapped     | 0x13 VMEReadSwapped    | same as ``2essts``                          |
   +------------+----------------------------+------------------------+---------------------------------------------+
   | 2esstsmem  | vme_block_read_mem_swapped | 0x33 VMEReadMemSwapped | explicit *mem* version                      |
   +------------+----------------------------+------------------------+---------------------------------------------+

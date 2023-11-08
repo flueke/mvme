@@ -260,6 +260,12 @@ Double-click on a *H2D* node to open the histogram widget:
   Create the X/Y-Projection and open it in a new 1D histogram window. The
   projection will follow any zooming/scrolling done in the 2D histogram.
 
+* Slice X / Slice Y
+
+  Slices the histogram along the respective axis. The visible resolution of the
+  chosen axis determines the number of slices. Slices are displayed in a 1D
+  histogram window.
+
 * Clear
 
   Clears the histogram.
@@ -328,13 +334,50 @@ same way as other operators: using the context menu and selecting ``New ->
 Expression Condition``.
 
 Using conditions
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^
 
 Once you have created one or more condtions you can apply them to operators and
 (histogram) sinks using the right-click context menu and selecting "conditions".
 This works the same way as the input selection when creating operators. If
 multiple conditions are applied to the same operator they all have to evaluate
 to **true** in the current event for the operator to be executed.
+
+.. index:: Listfile Filtering
+
+Condition based listfile filtering
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+  Condition based listfile filtering is implemented for the MVLC only.
+
+Since mvme-1.10 analysis conditions can be used to filter input listfiles and
+produce smaller output files which are faster to re-analyze than the original
+input file.
+
+For each readout event defined in the VME config a condition can be selected.
+During a replay with filtering enabled only those events for which the selected
+condition evaluates to true are written to the output file.
+
+To use the feature first create a condition used for filtering, e.g. a simple
+interval condition, then load a listfile and press the ``Listfile Filtering``
+button in the analysis window.
+
+.. figure:: images/analysis_listfile_filtering.png
+
+    Listfile filtering setup. ``event0`` is filtered by the condition
+    ``interval0``, ``event1`` is not filtered.
+
+In the dialog that opens up a single condition can be selected for each defined
+event. If no condition is selected the respective event will always end up in
+the output listfile. For a condition to show up in the selection box it has to
+run in the same event context as the respective event.
+
+Optionally set a prefix for the output listfile filename. To guarantee
+uniqueness a timestamp string is appended to the filename prefix.
+
+Make sure the ``Enable filtering`` box is checked then accept the dialog and
+start the replay. The current output filename will be printed to the mvme log
+window.
 
 .. index:: Analysis Dependency Graph, Dependency Viewer
 .. _analysis-dependency-graph:
@@ -964,6 +1007,9 @@ Details can be found in the Rate Monitor user interface.
 
 Conditions
 -----------------------------------------
+
+See :ref:`analysis-condition-system` for a general description of how conditions
+work in mvme.
 
 .. index:: Interval Condition
 .. _analysis-interval-condition:

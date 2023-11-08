@@ -7,10 +7,15 @@ Changelog
 Version 1.10.0
 --------------
 
+* New: filter listfiles based on analysis conditions. Produces MVLC_USB
+  formatted output listfiles.
+
 * New: prometheus metrics for the MVLC readout and the analysis. Metrics
   are exposed on port 13802 by default.
 
 * vme_templates: Updated VMMR template. Merge vmmr and vmmr_1ns variants.
+
+* MVLC Trigger IO: fixes for the LUT simulation code (FW0036 related).
 
 Version 1.9.2
 -------------
