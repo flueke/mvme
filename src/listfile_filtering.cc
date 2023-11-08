@@ -484,8 +484,14 @@ ListfileFilterDialog::ListfileFilterDialog(AnalysisServiceProvider *asp, QWidget
     d->combo_outputFormat->addItem("ZIP", static_cast<int>(ListFileFormat::ZIP));
     d->combo_outputFormat->addItem("LZ4", static_cast<int>(ListFileFormat::LZ4));
 
-    QFileInfo fi(replayHandle.inputFilename);
-    auto newFilename = QSL("%1_filtered").arg(fi.baseName());
+    auto newFilename = d->config_.outputInfo.prefix;
+
+    // Default value if no filter config was present in the analysis yet.
+    if (newFilename == QSL("mvmelst"))
+    {
+        QFileInfo fi(replayHandle.inputFilename);
+        newFilename = QSL("%1_filtered").arg(fi.baseName());
+    }
 
     d->le_outputFilename = new QLineEdit;
     d->le_outputFilename->setText(newFilename);
