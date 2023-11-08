@@ -69,7 +69,7 @@ QVariant listfile_filter_config_to_variant(const ListfileFilterConfig &cfg)
     QVariantMap entryMap;
 
     for (auto it = cfg.eventEntries.begin(); it != cfg.eventEntries.end(); ++it)
-        entryMap.insert(it.key().toString(), it.value());
+        entryMap.insert(it.key().toString(), it.value().toString());
 
     QVariantMap result;
     result["EventConditionFilters"] = entryMap;
@@ -82,9 +82,9 @@ ListfileFilterConfig listfile_filter_config_from_variant(const QVariant &var)
 {
     auto map = var.toMap();
     ListfileFilterConfig result;
-    auto filtersMap = map.value("EventConditionFilters").toMap();
+    auto entryMap = map.value("EventConditionFilters").toMap();
 
-    for (auto it = filtersMap.begin(); it != filtersMap.end(); ++it)
+    for (auto it = entryMap.begin(); it != entryMap.end(); ++it)
         result.eventEntries.insert(QUuid::fromString(it.key()), it.value().toUuid());
 
     result.outputInfo = listfile_output_info_from_variant(map.value("ListfileOutputInfo"));
@@ -541,7 +541,14 @@ void ListfileFilterDialog::accept()
     filterConfig.enabled = d->cb_enableFiltering->isChecked();
 
     auto analysis = d->asp_->getAnalysis();
-    analysis->setProperty("ListfileFilterConfig", listfile_filter_config_to_variant(filterConfig));
+    auto currentConfig = analysis->property("ListfileFilterConfig");
+    auto newConfig = listfile_filter_config_to_variant(filterConfig);
+
+    if (currentConfig != newConfig)
+    {
+        analysis->setProperty("ListfileFilterConfig", newConfig);
+        analysis->setModified();
+    }
 
     done(QDialog::Accepted);
 }
