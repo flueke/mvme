@@ -1,0 +1,48 @@
+version: "3.8"
+
+networks:
+  prometheus:
+    driver: bridge
+
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: "prometheus"
+    restart: unless-stopped
+    command:
+      - '--web.external-url=/prometheus/'
+      #- '--web.route-prefix=/prometheus/'
+      - '--storage.tsdb.path=/prometheus/tsdb'
+      - '--log.level=info'
+    volumes:
+      - ./prometheus:/prometheus
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    extra_hosts:
+      # To be able to reach node-exporter which listens on the host network.
+      - "host.docker.internal:host-gateway"
+    user: '1000:1000'
+    ports:
+      - "9090:9090"
+    networks:
+      - prometheus
+
+  grafana:
+    image: grafana/grafana
+    container_name: "grafana"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/etc:/etc/grafana
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    #environment:
+      #- GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=true
+      #- GF_INSTALL_PLUGINS=grafana-piechart-panel
+    user: '1000:1000'
+    ports:
+      - "3000:3000"
+    networks:
+      - prometheus
