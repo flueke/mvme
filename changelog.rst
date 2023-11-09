@@ -7,15 +7,21 @@ Changelog
 Version 1.10.0
 --------------
 
-* New: filter listfiles based on analysis conditions. Produces MVLC_USB
+* new: filter listfiles based on analysis conditions. Produces MVLC_USB
   formatted output listfiles.
 
-* New: prometheus metrics for the MVLC readout and the analysis. Metrics
+* new: prometheus metrics for the MVLC readout and the analysis. Metrics
   are exposed on port 13802 by default.
 
 * vme_templates: Updated VMMR template. Merge vmmr and vmmr_1ns variants.
 
 * MVLC Trigger IO: fixes for the LUT simulation code (FW0036 related).
+
+* analysis: conditions now output 0.0 if false instead of invalid_param()/NaN.
+  Allows to track condition true/false and total counts in a single 1d
+  histogram.
+
+* bugfixes: empty listfile filename display, uninitialized data in multi_event_splitter
 
 Version 1.9.2
 -------------
