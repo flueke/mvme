@@ -15,6 +15,7 @@ Reference
     analysis
     json_rpc
     ref_event_server
+    ref_metrics
 
 .. ==================================================
 .. Operation Details
@@ -43,4 +44,3 @@ Reference
 ..   * Use the description from the source code.
 ..   * Refer to the listfile-dumper code that should be included in the installation.
 ..     TODO: Install this stuff!
-

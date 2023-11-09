@@ -482,19 +482,11 @@ Notes
 * Except for the traces under ``Samples+Triggers`` all other traces in the
   system are simulated based off the sampled data.
 
-* The maximum number of samples per channel the MVLC can provide is limitedk
-  This means high frequency signals may be cut off before the PostTrigger time.
-  The missing part of these traces is drawn using a red line signifying an
-  *unknown* state. Simulation code also produces an *unknown* state if one of
-  the inputs is *unknown*.
-
-* The DSO does not have a noticable impact on DAQ readout performance. But the
-  current version of the mvme GUI will become sluggish in the case where the
-  DSO is active but no triggers fire. Trying to execute VME scripts or start
-  the DAQ in this state will be slow. The workaround is to disable the DSO,
-  start the DAQ and reenable the DSO. This will be fixed in a future mvme
-  release.
-
+* The maximum number of samples per channel the MVLC can provide is limited.
+  This means high frequency signals may be cut off and start after the
+  PreTrigger time. The missing part of these traces is drawn using a red line
+  signifying an *unknown* state. Simulation code also produces an *unknown*
+  state if one of the inputs is *unknown*.
 
 Trigger IO Usage Example: Sysclk timestamp readout
 --------------------------------------------------
@@ -573,17 +565,17 @@ Only an MVLC is required for this setup to work.
 
 .. Busy signals
 .. ~~~~~~~~~~~~
-.. 
+..
 .. 3 NIM inputs, each a busy signal from some hardware.
 .. NIM GGs have to be disabled to let the DC-level busy signal through.
 .. Use a level1 LUT, create the OR over the inputs and negate it. This is the 'not busy' signal
-.. 
-.. 
-.. 
-.. 
-.. 
-.. 
-.. 
+..
+..
+..
+..
+..
+..
+..
 .. * NIM input to stack start/counter + counter readout
 .. * Timer/sysclk to counter + counter readout
 .. * Timer to stackstart for periodic events

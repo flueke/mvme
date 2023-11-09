@@ -2,20 +2,20 @@
 
 ## Contents
 
-├── docker-compose.yml              Compose project file to setup prometheus and grafana for mvme.
-├── grafana
-│   ├── data
-│   │   └── dashboards
-│   │       └── mvme.json           Basic dashboard displaying mvme metrics. Can be imported into existing grafana installations.
-│   └── etc                         Initial configuration and provisioning for the grafana instance.
-│       ├── grafana.ini
-│       └── provisioning
-│           ├── dashboards
-│           │   └── mvme.yml
-│           └── datasources
-│               └── prometheus.yml
-└── prometheus
-    └── prometheus.yml              Prometheus config including a scrape job for mvme running on localhost.
+    ├── docker-compose.yml              Compose project file to setup prometheus and grafana for mvme.
+    ├── grafana
+    │   ├── data
+    │   │   └── dashboards
+    │   │       └── mvme.json           Basic dashboard displaying mvme metrics. Can be imported into existing grafana installations.
+    │   └── etc                         Initial configuration and provisioning for the grafana instance.
+    │       ├── grafana.ini
+    │       └── provisioning
+    │           ├── dashboards
+    │           │   └── mvme.yml
+    │           └── datasources
+    │               └── prometheus.yml
+    └── prometheus
+        └── prometheus.yml              Prometheus config including a scrape job for mvme running on localhost.
 
 ## Usage
 
