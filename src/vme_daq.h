@@ -70,7 +70,7 @@ vme_daq_run_global_daq_start_scripts(
 
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_run_global_daq_stop_scripts(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -78,7 +78,7 @@ vme_daq_run_global_daq_stop_scripts(
 
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_run_init_modules(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -86,7 +86,7 @@ vme_daq_run_init_modules(
 
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_run_event_daq_start_scripts(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -94,7 +94,7 @@ vme_daq_run_event_daq_start_scripts(
 
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_run_event_daq_stop_scripts(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -105,14 +105,14 @@ vme_daq_run_event_daq_stop_scripts(
 // since 1.4.0-beta.
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_init(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts = 0u);
 
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_init(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -126,14 +126,14 @@ vme_daq_init(
  */
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_shutdown(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts = 0);
 
 QVector<ScriptWithResults> LIBMVME_EXPORT
 vme_daq_shutdown(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -144,7 +144,7 @@ vme_daq_shutdown(
 // daq stop scripts.
 QVector<ScriptWithResults> LIBMVME_EXPORT
 mvlc_daq_shutdown(
-    VMEConfig *vmeConfig,
+    const VMEConfig *vmeConfig,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -226,7 +226,8 @@ QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_event_mcst_daq_stop_scripts(co
 // Returns the readout scripts for the given EventConfig. The first script is
 // the event-wide "readout_start" script, the last one the event-widget
 // "readout_stop" script.
-QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_module_readout_scripts(const EventConfig *ev, bool includeDisabledModules = false);
+QVector<VMEScriptConfig *> LIBMVME_EXPORT collect_module_readout_scripts(const EventConfig *ev,
+    bool includeDisabledModules = false);
 
 // Returns the readout scripts for each event, e.g. [1] contains the module
 // readout scripts for event=1
