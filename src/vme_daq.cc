@@ -96,7 +96,7 @@ vme_daq_run_global_daq_start_scripts(
 
 QVector<ScriptWithResults>
 vme_daq_run_global_daq_stop_scripts(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -145,7 +145,7 @@ vme_daq_run_global_daq_stop_scripts(
 
 QVector<ScriptWithResults>
 vme_daq_run_init_modules(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -211,7 +211,7 @@ vme_daq_run_init_modules(
 
 QVector<ScriptWithResults>
 vme_daq_run_event_daq_start_scripts(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -252,7 +252,7 @@ vme_daq_run_event_daq_start_scripts(
 
 QVector<ScriptWithResults>
 vme_daq_run_event_daq_stop_scripts(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -297,7 +297,7 @@ vme_daq_run_event_daq_stop_scripts(
 //
 QVector<ScriptWithResults>
 vme_daq_init(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts
@@ -313,7 +313,7 @@ vme_daq_init(
 
 QVector<ScriptWithResults>
 vme_daq_init(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -348,7 +348,7 @@ vme_daq_init(
 //
 QVector<ScriptWithResults>
 vme_daq_shutdown(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     vme_script::run_script_options::Flag opts
@@ -359,7 +359,7 @@ vme_daq_shutdown(
 
 QVector<ScriptWithResults>
 vme_daq_shutdown(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
@@ -387,7 +387,7 @@ vme_daq_shutdown(
 //
 QVector<ScriptWithResults>
 mvlc_daq_shutdown(
-    VMEConfig *config,
+    const VMEConfig *config,
     VMEController *controller,
     std::function<void (const QString &)> logger,
     std::function<void (const QString &)> errorLogger,
