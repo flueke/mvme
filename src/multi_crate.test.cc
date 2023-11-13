@@ -29,7 +29,7 @@ TEST(multi_crate, ObjectMappingsJson)
 
     for (int i=0; i<10; ++i)
     {
-        srcMappings.insertMapping(QUuid(), QUuid());
+        srcMappings.insertMapping(QUuid::createUuid(), QUuid::createUuid());
     }
 
     auto json = to_json(srcMappings);
