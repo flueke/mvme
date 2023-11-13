@@ -227,7 +227,6 @@ class MvlcReadoutCountersPromExporter
 };
 #endif
 
-
 } // end anon namespace
 
 struct MVLCReadoutWorker::Private
@@ -285,15 +284,6 @@ struct MVLCReadoutWorker::Private
 #endif
     }
 
-    struct EventWithModules
-    {
-        EventConfig *event;
-        QVector<ModuleConfig *> modules;
-        QVector<u8> moduleTypes;
-    };
-
-    QVector<EventWithModules> events;
-
     void updateDAQStats()
     {
         auto rdoCounters = mvlcReadoutWorker->counters();
@@ -327,6 +317,10 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
     // member variable.
     std::vector<u32> triggers;
     std::error_code ec;
+
+    logger("");
+    logger("Initializing MVLC");
+
     std::tie(triggers, ec) = get_trigger_values(vmeConfig, logger);
 
     if (ec)
@@ -345,7 +339,6 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
         logger,
         error_logger);
 }
-
 
 MVLCReadoutWorker::MVLCReadoutWorker(QObject *parent)
     : VMEReadoutWorker(parent)
@@ -410,6 +403,32 @@ void MVLCReadoutWorker::start(quint32 cycles)
         }
 
         QCoreApplication::processEvents();
+    };
+
+    auto loop_until_daq_idle = [=]
+    {
+        // wait until readout done while periodically updating the DAQ stats
+        while (d->mvlcReadoutWorker->state() != ReadoutWorker::State::Idle)
+        {
+            d->mvlcReadoutWorker->waitableState().wait_for(
+                std::chrono::milliseconds(100),
+                [] (const ReadoutWorker::State &state)
+                {
+                    return state == ReadoutWorker::State::Idle;
+                });
+
+            d->updateDAQStats();
+
+#if MVME_ENABLE_PROMETHEUS
+            if (d->promExporter_)
+                d->promExporter_->updateMetrics(getReadoutCounters());
+#endif
+
+            auto daqState = readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state());
+
+            if (d->state != daqState)
+                set_daq_state(daqState);
+        }
     };
 
     if (d->state != DAQState::Idle)
@@ -552,43 +571,27 @@ void MVLCReadoutWorker::start(quint32 cycles)
             *d->snoopQueues,
             d->listfileWriteHandle);
 
+        // TODO: run these commands manually here to get better, mvme-style
+        // logging and maybe in the future also have the log entries point back
+        // to the source vme script file. Problem: when they're run by the
+        // readout worker itself it decides to stop in case of errors. This does
+        // not happen when running them here! Have to change error handling to
+        // detect errors happening in this layer and stop the readout worker.
+        #if 1
         d->mvlcReadoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
         d->mvlcReadoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);
+        #endif
 
         auto fStart = d->mvlcReadoutWorker->start();
 
         if (auto ec = fStart.get())
             throw ec;
 
-        logMessage("");
-        logMessage("Entering readout loop");
-
+        // This is only reached if the readout worker started successfully.
+        // Otherwise we land below the catch clauses further down.
         set_daq_state(DAQState::Running);
-
         m_workerContext.daqStats.start();
-
-        // wait until readout done while periodically updating the DAQ stats
-        while (d->mvlcReadoutWorker->state() != ReadoutWorker::State::Idle)
-        {
-            d->mvlcReadoutWorker->waitableState().wait_for(
-                std::chrono::milliseconds(100),
-                [] (const ReadoutWorker::State &state)
-                {
-                    return state == ReadoutWorker::State::Idle;
-                });
-
-            d->updateDAQStats();
-
-#if MVME_ENABLE_PROMETHEUS
-            if (d->promExporter_)
-                d->promExporter_->updateMetrics(getReadoutCounters());
-#endif
-
-            auto daqState = readout_worker_state_to_daq_state(d->mvlcReadoutWorker->state());
-
-            if (d->state != daqState)
-                set_daq_state(daqState);
-        }
+        loop_until_daq_idle();
 
         // End of readout; begin shutdown procedure.
 
@@ -603,8 +606,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         d->mvlcZipCreator.reset(); // destroy the ZipCreator to flush and close the listfile archive
 
-        // In case we recorded a listfile and the run number was used increment
-        // the run number here so that it represents the _next_ run number.
+        // In case we recorded a listfile and the run number was used, increment
+        // it here so that it represents the _next_ run number.
+        // TODO: can this be moved to the GUI thread? It's not good to modify
+        // global objects in here.
         if (m_workerContext.listfileOutputInfo.enabled
             && (m_workerContext.listfileOutputInfo.flags & ListFileOutputInfo::UseRunNumber))
         {
@@ -670,6 +675,11 @@ void MVLCReadoutWorker::start(quint32 cycles)
     {
         logError("Unknown exception during readout");
     }
+
+    loop_until_daq_idle(); // wait until readout done while periodically updating the DAQ stats
+
+    // Closes the output listfile in case there was one.
+    d->mvlcZipCreator = {};
 
     // Reset object pointers to ensure we don't accidentially work with stale
     // pointers on next startup.
@@ -796,8 +806,9 @@ bool run_daq_start_sequence(
     auto run_init_func = [=, &vmeConfig] (auto initFunc, const QString &partTitle)
     {
         vme_script::run_script_options::Flag opts = 0u;
+
         if (!ignoreStartupErrors)
-            opts = vme_script::run_script_options::AbortOnError;
+            opts |= vme_script::run_script_options::AbortOnError;
 
         auto initResults = initFunc(&vmeConfig, mvlcCtrl, logger, error_logger, opts);
 
@@ -815,9 +826,6 @@ bool run_daq_start_sequence(
 
 
     auto &mvlc = *mvlcCtrl->getMVLCObject();
-
-    logger("");
-    logger("Initializing MVLC");
 
     // Clear triggers and stacks =========================================================
 
@@ -892,19 +900,6 @@ bool run_daq_start_sequence(
     {
         logger(QString("Error setting up readout stacks: %1").arg(ec.message().c_str()));
         return false;
-    }
-
-
-    {
-        std::vector<u32> triggers;
-        std::error_code ec;
-        std::tie(triggers, ec) = get_trigger_values(vmeConfig, logger);
-
-        if (ec)
-        {
-            logger(QString("MVLC Stack Trigger setup error: %1").arg(ec.message().c_str()));
-            return false;
-        }
     }
 
     return true;
