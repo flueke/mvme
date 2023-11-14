@@ -1,0 +1,103 @@
+{
+    "EventConfig": {
+        "enabled": true,
+        "id": "{7d2d7b24-1deb-43ba-a31c-23405bdac6cb}",
+        "irqLevel": 2,
+        "irqVector": 0,
+        "modules": [
+        ],
+        "name": "start_event",
+        "scalerReadoutFrequency": 0,
+        "scalerReadoutPeriod": 2,
+        "triggerCondition": "MVLC Trigger I/O",
+        "triggerOptions": {
+            "IRQUseIACK": false,
+            "mvlc.timer_base": "ms",
+            "mvlc.timer_period": 1000,
+            "sis3153.timer_period": 1
+        },
+        "variable_table": {
+            "name": "",
+            "variables": {
+                "mesy_eoe_marker": {
+                    "comment": "EndOfEvent marker for mesytec modules (0: eventcounter, 1: timestamp, 3: extended_timestamp).",
+                    "definitionLocation": "",
+                    "value": "1"
+                },
+                "mesy_mcst": {
+                    "comment": "The most significant byte of the 32-bit multicast address to be used by this event.",
+                    "definitionLocation": "",
+                    "value": "bb"
+                },
+                "mesy_readout_num_events": {
+                    "comment": "Number of events to read out in each cycle.",
+                    "definitionLocation": "",
+                    "value": "1"
+                },
+                "sys_irq": {
+                    "comment": "IRQ value set for the VME Controller for this event.",
+                    "definitionLocation": "",
+                    "value": "0"
+                }
+            }
+        },
+        "vme_scripts": {
+            "daq_start": {
+                "enabled": true,
+                "id": "{fd65f891-b363-4f70-9f4d-4402292e665a}",
+                "name": "DAQ Start",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            },
+            "daq_stop": {
+                "enabled": true,
+                "id": "{24547b67-a288-47e9-870a-1e10d3ba605b}",
+                "name": "DAQ Stop",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            },
+            "readout_end": {
+                "enabled": true,
+                "id": "{5f5f397c-e6c5-4a40-8fc1-7c29915c8e64}",
+                "name": "Cycle End",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            },
+            "readout_start": {
+                "enabled": true,
+                "id": "{6504bdc2-7404-45ab-811f-74d021b24383}",
+                "name": "Cycle Start",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Start the acquisition sequence for all modules via the events multicast address.\n# In multicrate setups this is uploaded to the MVLC and executed in response to a\n# slave trigger signal.\nwriteabs a32 d16 0x${mesy_mcst}00603a      0   # stop acq\nwriteabs a32 d16 0x${mesy_mcst}006090      3   # reset CTRA and CTRB\nwriteabs a32 d16 0x${mesy_mcst}00603c      1   # FIFO reset\nwriteabs a32 d16 0x${mesy_mcst}00603a      1   # start acq\nwriteabs a32 d16 0x${mesy_mcst}006034      1   # readout reset"
+            }
+        }
+    }
+}

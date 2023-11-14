@@ -1,0 +1,16 @@
+setbase 0xffff0000
+
+print master mode
+read a32 d16 0x0010 # read master mode
+
+#print sync mode
+#read a32 d16 0x0100 # read sync
+
+print set master/slave
+0x0010 0 # set slave=0, master=1
+
+#print sync mode
+#read a32 d16 0x0100 # read sync
+
+print master mode
+read a32 d16 0x0010 # read master mode

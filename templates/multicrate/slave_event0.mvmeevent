@@ -1,0 +1,103 @@
+{
+    "EventConfig": {
+        "enabled": true,
+        "id": "{588e4cc1-6b43-494f-82f3-e032317b67c8}",
+        "irqLevel": 1,
+        "irqVector": 0,
+        "modules": [
+        ],
+        "name": "data_event0",
+        "scalerReadoutFrequency": 0,
+        "scalerReadoutPeriod": 2,
+        "triggerCondition": "Interrupt",
+        "triggerOptions": {
+            "IRQUseIACK": false,
+            "mvlc.timer_base": "ms",
+            "mvlc.timer_period": 1000,
+            "sis3153.timer_period": 1
+        },
+        "variable_table": {
+            "name": "",
+            "variables": {
+                "mesy_eoe_marker": {
+                    "comment": "EndOfEvent marker for mesytec modules (0: eventcounter, 1: timestamp, 3: extended_timestamp).",
+                    "definitionLocation": "",
+                    "value": "1"
+                },
+                "mesy_mcst": {
+                    "comment": "The most significant byte of the 32-bit multicast address to be used by this event.",
+                    "definitionLocation": "",
+                    "value": "bb"
+                },
+                "mesy_readout_num_events": {
+                    "comment": "Number of events to read out in each cycle.",
+                    "definitionLocation": "",
+                    "value": "1"
+                },
+                "sys_irq": {
+                    "comment": "IRQ value set for the VME Controller for this event.",
+                    "definitionLocation": "",
+                    "value": "1"
+                }
+            }
+        },
+        "vme_scripts": {
+            "daq_start": {
+                "enabled": true,
+                "id": "{fdc65fa7-72cf-41da-b4ce-8aecc82fc7a3}",
+                "name": "DAQ Start",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            },
+            "daq_stop": {
+                "enabled": true,
+                "id": "{23ba38a5-10ca-4bd6-a90f-788d04f3a8a6}",
+                "name": "DAQ Stop",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": ""
+            },
+            "readout_end": {
+                "enabled": true,
+                "id": "{e6a6cd50-e1e7-4743-a182-f1ffa7c71231}",
+                "name": "Cycle End",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Commands executed at the end of each readout cycle\n# Do a multicast write of the readout_reset register\nwriteabs a32 d16 0x${mesy_mcst}006034      1   # readout reset\n"
+            },
+            "readout_start": {
+                "enabled": true,
+                "id": "{526ddcaa-e809-423f-8ae1-0c701601ef47}",
+                "name": "Cycle Start",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Commands executed at the start of each readout cycle\n"
+            }
+        }
+    }
+}
