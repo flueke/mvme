@@ -89,9 +89,36 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &dest, const 
 
 std::unique_ptr<EventConfig> LIBMVME_EXPORT eventconfig_from_eventjson(const QJsonObject &json);
 void LIBMVME_EXPORT load_eventconfig_from_eventjson(EventConfig &ev, const QJsonObject &json);
+std::unique_ptr<EventConfig> LIBMVME_EXPORT eventconfig_from_file(const QString &filename);
 
 bool LIBMVME_EXPORT gui_save_vme_script_config_to_file(const VMEScriptConfig *script, QWidget *dialogParent = nullptr);
 bool LIBMVME_EXPORT gui_save_vme_script_to_file(const QString &scriptText, const QString &proposedFilename = {}, QWidget *dialogParent = nullptr);
+
+template<typename ObjectType>
+std::unique_ptr<ObjectType> configobject_from_json(const QJsonObject &json, const char *jsonRoot)
+{
+    auto result = std::make_unique<ObjectType>();
+    result->read(json[jsonRoot].toObject());
+    generate_new_object_ids(result.get());
+    return result;
+}
+
+// Parses the given mvlc url and returns the VMEControllerType and controller
+// settings compatible with VMEConfig::setVMEController(). Logic is similar to
+// the mvlc_factory code.
+std::pair<VMEControllerType, QVariantMap> LIBMVME_EXPORT mvlc_settings_from_url(const std::string &mvlcUrl);
+
+template<typename ConfigObjectType>
+std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &source)
+{
+    QJsonObject json;
+    source.write(json);
+    auto result = std::make_unique<ConfigObjectType>();
+    result->read(json);
+    generate_new_object_ids(result.get());
+    return result;
+}
+
 
 } // end namespace vme_config
 } // end namespace mvme

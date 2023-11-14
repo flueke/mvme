@@ -25,7 +25,9 @@
 #include <QMessageBox>
 #include <QSet>
 #include <QStandardPaths>
+#include <mesytec-mvlc/mvlc_factory.h>
 
+#include "util/qt_fs.h"
 #include "vme.h"
 
 namespace
@@ -349,15 +351,19 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
 
 std::unique_ptr<EventConfig> eventconfig_from_eventjson(const QJsonObject &json)
 {
-    auto ev = std::make_unique<EventConfig>();
-    load_eventconfig_from_eventjson(*ev, json);
-    return ev;
+    return configobject_from_json<EventConfig>(json, "EventConfig");
 }
 
 void load_eventconfig_from_eventjson(EventConfig &ev, const QJsonObject &json)
 {
     ev.read(json["EventConfig"].toObject());
     mvme::vme_config::generate_new_object_ids(&ev);
+}
+
+std::unique_ptr<EventConfig> eventconfig_from_file(const QString &filename)
+{
+    auto json = read_json_file(filename).object();
+    return eventconfig_from_eventjson(json);
 }
 
 bool gui_save_vme_script_config_to_file(const VMEScriptConfig *script, QWidget *dialogParent)
@@ -411,6 +417,45 @@ bool gui_save_vme_script_to_file(const QString &scriptText, const QString &propo
     settings.setValue("LastObjectSaveDirectory", QFileInfo(fileName).absolutePath());
 
     return true;
+}
+
+std::pair<VMEControllerType, QVariantMap> mvlc_settings_from_url(const std::string &mvlcUrl)
+{
+    auto controllerType(VMEControllerType::MVLC_USB);
+    QVariantMap controllerSettings;
+
+    auto url = mesytec::mvlc::mvlc_parse_url(mvlcUrl);
+
+    if ((url.scheme.empty() || url.scheme == "eth" || url.scheme == "udp") && !url.host.empty())
+    {
+        controllerType = VMEControllerType::MVLC_ETH;
+        controllerSettings["mvlc_hostname"] = QString::fromStdString(url.host);
+    }
+    else if (url.scheme == "usb")
+    {
+        // FIXME: annyoing setup. Very similar to vmeconfig_from_crateconfig() and
+        // MVLC_USB_SettingsWidget::getSettings().
+        controllerType = VMEControllerType::MVLC_USB;
+
+        if (!url.host.empty())
+        {
+            if (url.host.at(0) == '@')
+            {
+                unsigned index = std::strtoul(url.host.c_str() + 1, nullptr, 0);
+                controllerSettings["method"] = "by_index";
+                controllerSettings["index"]  = index;
+            }
+            else
+            {
+                controllerSettings["method"] = "by_serial";
+                controllerSettings["index"]  = QString::fromStdString(url.host);
+            }
+        }
+        else
+            controllerSettings["method"] = "first";
+    }
+
+    return std::make_pair(controllerType, controllerSettings);
 }
 
 } // end namespace vme_config
