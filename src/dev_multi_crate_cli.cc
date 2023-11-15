@@ -4,12 +4,15 @@
 #include <QDir>
 #include <QJsonDocument>
 #include <mesytec-mvlc/util/fmt.h>
+
+#include "multi_crate.h"
 #include "util/qt_fs.h"
 #include "template_system.h"
 #include "vme_config.h"
 #include "vme_config_util.h"
 
 using namespace mvme;
+using namespace mesytec;
 
 struct MulticrateTemplates
 {
@@ -39,7 +42,7 @@ MulticrateTemplates read_multicrate_templates()
     return result;
 }
 
-std::vector<std::unique_ptr<VMEConfig>> make_multicrate_configs(const std::vector<std::string> &mvlcUrls)
+std::vector<std::unique_ptr<VMEConfig>> make_multicrate_vme_configs(const std::vector<std::string> &mvlcUrls)
 {
     // read template files from multicrate subdirectory
     // create vme config for each mvlc url
@@ -93,7 +96,7 @@ int create_configs(const std::vector<std::string> &mvlcUrls, const std::string &
     if (mvlcUrls.empty())
         return 1;
 
-    auto vmeConfigs = make_multicrate_configs(mvlcUrls);
+    auto vmeConfigs = make_multicrate_vme_configs(mvlcUrls);
 
     QDir().mkdir(outputDirectory.c_str());
     QDir outDir(outputDirectory.c_str());
@@ -110,6 +113,29 @@ int create_configs(const std::vector<std::string> &mvlcUrls, const std::string &
         }
 
         vme_config::serialize_vme_config_to_device(out, *vmeConfig);
+    }
+
+    multi_crate::MulticrateVMEConfig combinedConfig;
+    combinedConfig.setObjectName("combined");
+
+    for (auto &vmeConfig: vmeConfigs)
+    {
+        combinedConfig.addCrateConfig(vmeConfig.release());
+    }
+
+    vmeConfigs.clear();
+
+    {
+        QFile out(outDir.filePath(combinedConfig.objectName() + QSL(".multicratevme")));
+
+        if (!out.open(QIODevice::WriteOnly))
+        {
+            std::cerr << fmt::format("Error opening output file {} for writing: {}\n",
+                out.fileName().toLocal8Bit().data(), out.errorString().toLocal8Bit().data());
+            return 1;
+        }
+
+        vme_config::serialize_multicrate_config_to_device(out, combinedConfig);
     }
 
     return 0;

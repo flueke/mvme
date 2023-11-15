@@ -697,3 +697,38 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
     });
 }
 #endif
+
+QString info_text(const EventConfig *config)
+{
+    QString infoText;
+
+    switch (config->triggerCondition)
+    {
+        case TriggerCondition::Interrupt:
+            {
+                infoText = QString("Trigger=IRQ%1")
+                    .arg(config->irqLevel);
+            } break;
+        case TriggerCondition::NIM1:
+            {
+                infoText = QSL("Trigger=NIM");
+            } break;
+        case TriggerCondition::Periodic:
+            {
+                infoText = QSL("Trigger=Periodic");
+                if (auto vmeConfig = config->getVMEConfig();
+                    vmeConfig && is_mvlc_controller(vmeConfig->getControllerType()))
+                {
+                    auto tp = config->getMVLCTimerPeriod();
+                    infoText += QSL(", every %1%2").arg(tp.first).arg(tp.second);
+                }
+            } break;
+        default:
+            {
+                infoText = QString("Trigger=%1")
+                    .arg(TriggerConditionNames.value(config->triggerCondition));
+            } break;
+    }
+
+    return infoText;
+}

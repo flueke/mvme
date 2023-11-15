@@ -1610,35 +1610,7 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig, bool expandNode
         node->setText(0, eventConfig->objectName());
         //node->setCheckState(0, eventConfig->isEnabled() ? Qt::Checked : Qt::Unchecked);
 
-        QString infoText;
-
-        switch (eventConfig->triggerCondition)
-        {
-            case TriggerCondition::Interrupt:
-                {
-                    infoText = QString("Trigger=IRQ%1")
-                        .arg(eventConfig->irqLevel);
-                } break;
-            case TriggerCondition::NIM1:
-                {
-                    infoText = QSL("Trigger=NIM");
-                } break;
-            case TriggerCondition::Periodic:
-                {
-                    infoText = QSL("Trigger=Periodic");
-                    if (is_mvlc_controller(m_config->getControllerType()))
-                    {
-                        auto tp = eventConfig->getMVLCTimerPeriod();
-                        infoText += QSL(", every %1%2").arg(tp.first).arg(tp.second);
-                    }
-                } break;
-            default:
-                {
-                    infoText = QString("Trigger=%1")
-                        .arg(TriggerConditionNames.value(eventConfig->triggerCondition));
-                } break;
-        }
-
+        auto infoText = info_text(eventConfig);
         node->setText(1, infoText);
     };
 
