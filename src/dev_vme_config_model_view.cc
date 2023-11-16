@@ -1,11 +1,13 @@
 #include <iostream>
 #include <QApplication>
 #include <QFileDialog>
+#include <QHeaderView>
 #include <spdlog/spdlog.h>
 
 #include "multi_crate.h"
 #include "mvme_session.h"
 #include "util/qt_fs.h"
+#include "vme_config_item_model.h"
 #include "vme_config_model_view.h"
 #include "vme_config_tree.h"
 #include "vme_config_ui.h"
@@ -44,7 +46,7 @@ enum DataRole
 class BaseItem: public QStandardItem
 {
     public:
-        BaseItem(ConfigItemType type)
+        explicit BaseItem(ConfigItemType type = ConfigItemType::Unspecified)
             : type_(type) {}
 
         BaseItem(ConfigItemType type, const QString &text)
@@ -54,6 +56,13 @@ class BaseItem: public QStandardItem
             : QStandardItem(icon, text), type_(type) {}
 
         int type() const override { return static_cast<int>(type_); }
+
+        QStandardItem *clone() const override
+        {
+            auto ret = new BaseItem(type_);
+            *ret = *this;
+            return ret;
+        }
 
     private:
         ConfigItemType type_;
@@ -89,10 +98,13 @@ class ItemBuilder
         BaseItem *build()
         {
             auto result = new BaseItem(type_, icon_, text_);
+            result->setEditable(false);
+            result->setDropEnabled(false);
+            result->setDragEnabled(false);
 
             if (obj_)
             {
-                result->setData(QVariant::fromValue(obj_), DataRole_Pointer);
+                result->setData(QVariant::fromValue(reinterpret_cast<quintptr>(obj_)), DataRole_Pointer);
 
                 if (auto p = obj_->property("display_name"); p.isValid() && text_.isEmpty())
                     result->setText(p.toString());
@@ -115,8 +127,8 @@ class ItemBuilder
         QIcon icon_;
         QString text_;
         QObject *obj_ = nullptr;
-        Qt::ItemFlags flagsEnable_;
-        Qt::ItemFlags flagsDisable_;
+        Qt::ItemFlags flagsEnable_ = Qt::NoItemFlags;
+        Qt::ItemFlags flagsDisable_ = Qt::NoItemFlags;
 };
 
 QList<QStandardItem *> build_generic(ConfigObject *config);
@@ -125,12 +137,16 @@ QList<QStandardItem *> build_container(ContainerObject *config)
 {
     auto root = ItemBuilder(ConfigItemType::Container)
         .qObject(config)
+        .enableFlags(Qt::ItemIsDropEnabled)
         .build();
 
     for (auto child: config->getChildren())
     {
         root->appendRow(build_generic(child));
     }
+
+    for (int i=0; i<root->rowCount(); ++i)
+        enable_flags(root->child(i), Qt::ItemIsDragEnabled);
 
     return { root };
 }
@@ -165,27 +181,22 @@ QList<QStandardItem *> build_vmeconfig(VMEConfig *config)
 
     auto triggerIo = ItemBuilder(ConfigItemType::VMEScript, "MVLC Trigger/IO")
         .qObject(config->getMVLCTriggerIOScript())
-        .disableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
     auto daqStart = build_generic(config->getGlobalStartsScripts());
-    disable_flags(daqStart[0], Qt::ItemIsEditable);
 
     auto events = ItemBuilder(ConfigItemType::Events, QIcon(":/mvme_16x16.png"), "Events")
         .qObject(config)
-        .disableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
     for (auto eventConfig: config->getEventConfigs())
         events->appendRow(build_generic(eventConfig));
 
     auto daqStop = build_generic(config->getGlobalStopScripts());
-    disable_flags(daqStop[0], Qt::ItemIsEditable);
 
     auto manual = build_generic(config->getGlobalManualScripts());
-    disable_flags(manual[0], Qt::ItemIsEditable);
 
-    root->appendRow(triggerIo);
+    root->appendRow({ triggerIo, new QStandardItem });
     root->appendRow(daqStart);
     root->appendRow(events);
     root->appendRow(daqStop);
@@ -193,12 +204,10 @@ QList<QStandardItem *> build_vmeconfig(VMEConfig *config)
     return { root };
 }
 
-
 QList<QStandardItem *> build_eventconfig(EventConfig *config)
 {
     auto root = ItemBuilder(ConfigItemType::Event, QIcon(":/vme_event.png"), config->objectName())
         .qObject(config)
-        .disableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
     auto root1 = ItemBuilder(ConfigItemType::Unspecified, info_text(config))
@@ -206,7 +215,6 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
 
     auto modules = ItemBuilder(ConfigItemType::EventModulesInit, QIcon(":/config_category.png"), "Modules Init")
         .qObject(config)
-        .disableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
     for (auto moduleConfig: config->getModuleConfigs())
@@ -214,7 +222,6 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
 
     auto readout = ItemBuilder(ConfigItemType::EventReadoutLoop, QIcon(":/config_category.png"), "Readout Loop")
         .qObject(config)
-        .disableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
     auto readout_start = build_generic(config->vmeScripts["readout_start"]);
@@ -231,12 +238,8 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
     auto readout_end = build_generic(config->vmeScripts["readout_end"]);
     readout->appendRow(readout_end);
 
-    for (int i=0; i<readout->rowCount(); ++i)
-        disable_flags(readout->child(i), Qt::ItemIsDragEnabled | Qt::ItemIsEditable);
-
     auto multicast = ItemBuilder(ConfigItemType::EventMulticast, QIcon(":/config_category.png"), "Multicast DAQ Start/Stop")
         .qObject(config)
-        .disableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
     auto mcast_start = build_generic(config->vmeScripts["daq_start"]);
@@ -244,9 +247,6 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
 
     multicast->appendRow(mcast_start);
     multicast->appendRow(mcast_end);
-
-    for (int i=0; i<multicast->rowCount(); ++i)
-        disable_flags(multicast->child(i), Qt::ItemIsDragEnabled | Qt::ItemIsEditable);
 
     root->appendRow(modules);
     root->appendRow(readout);
@@ -259,6 +259,7 @@ QList<QStandardItem *> build_moduleconfig(ModuleConfig *config)
 {
     auto root = ItemBuilder(ConfigItemType::Module, QIcon(":/vme_module.png"), config->objectName())
         .qObject(config)
+        .enableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
     auto reset = build_generic(config->getResetScript());
@@ -269,9 +270,6 @@ QList<QStandardItem *> build_moduleconfig(ModuleConfig *config)
         auto row = build_generic(script);
         root->appendRow(row);
     }
-
-    for (int i=0; i<root->rowCount(); ++i)
-        disable_flags(root->child(i), Qt::ItemIsDragEnabled | Qt::ItemIsEditable);
 
     return { root };
 }
@@ -301,7 +299,9 @@ QList<QStandardItem *> build_generic(ConfigObject *config)
 
 std::unique_ptr<QStandardItemModel> build_item_model(ConfigObject *config)
 {
-    auto model = std::make_unique<QStandardItemModel>();
+    auto model = std::make_unique<VmeConfigItemModel>();
+    model->setItemPrototype(new BaseItem);
+    model->setHorizontalHeaderLabels({ "Object", "Info"});
     auto row = build_generic(config);
     model->invisibleRootItem()->appendRow(row);
     return model;
@@ -372,8 +372,11 @@ int main(int argc, char **argv)
     auto itemModel = build_item_model(config.get());
     if (itemModel)
     {
-        treeView3.setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
-        treeView3.setDragDropMode(QAbstractItemView::DragDrop);
+        treeView3.setEditTriggers(QAbstractItemView::EditKeyPressed);
+        treeView3.setDefaultDropAction(Qt::MoveAction); // internal DnD
+        treeView3.setDragDropMode(QAbstractItemView::DragDrop); // external DnD
+        treeView3.setDragDropOverwriteMode(false);
+        treeView3.setDragEnabled(true);
         treeView3.setModel(itemModel.get());
         treeView3.setRootIndex(itemModel->invisibleRootItem()->child(0)->index());
         treeView3.show();
@@ -382,8 +385,8 @@ int main(int argc, char **argv)
         QObject::connect(&treeView3, &QTreeView::clicked, [&] (const QModelIndex &index)
         {
             auto item = itemModel->itemFromIndex(index);
-            qDebug() << item << item->text() << item->data(DataRole_Pointer)
-                << item->data(DataRole_Pointer).value<ConfigObject *>();
+            qDebug() << item << item->text() << item->data(DataRole_Pointer);
+            qDebug() << reinterpret_cast<QObject *>(item->data(DataRole_Pointer).value<quintptr>());
         });
     }
 
