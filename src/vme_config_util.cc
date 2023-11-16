@@ -492,5 +492,35 @@ std::pair<VMEControllerType, QVariantMap> mvlc_settings_from_url(const std::stri
     return std::make_pair(controllerType, controllerSettings);
 }
 
+void move_module(ModuleConfig *mod, EventConfig *destEvent, int destIndex)
+{
+    auto sourceEvent = mod->getEventConfig();
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "module=" << mod
+        << ", sourceEvent=" << sourceEvent
+        << ", destEvent=" << destEvent
+        << ", destIndex=" << destIndex;
+
+    if (sourceEvent)
+    {
+        // TODO: adjust destIndex if the module is moved down inside its parent event
+        sourceEvent->removeModuleConfig(mod);
+    }
+
+    destEvent->addModuleConfig(mod, destIndex);
+}
+
+void copy_module(ModuleConfig *mod, EventConfig *destEvent, int destIndex)
+{
+    qDebug() << __PRETTY_FUNCTION__
+        << "module=" << mod
+        << ", destEvent=" << destEvent
+        << ", destIndex=" << destIndex;
+
+    auto copy = clone_config_object(*mod);
+    destEvent->addModuleConfig(copy.release(), destIndex);
+}
+
 } // end namespace vme_config
 } // end namespace mvme

@@ -1203,19 +1203,3 @@ QString make_unique_name(const ConfigObject *co, const ContainerObject *destCont
 
     return result;
 }
-
-void move_module(ModuleConfig *module, EventConfig *destEvent, int destIndex)
-{
-    auto sourceEvent = module->getEventConfig();
-
-    qDebug() << __PRETTY_FUNCTION__
-        << "module=" << module
-        << ", sourceEvent=" << sourceEvent
-        << ", destEvent=" << destEvent
-        << ", destIndex=" << destIndex;
-
-    if (sourceEvent)
-        sourceEvent->removeModuleConfig(module);
-
-    destEvent->addModuleConfig(module, destIndex);
-}

@@ -8,7 +8,6 @@
 #include "multi_crate.h"
 #include "mvme_session.h"
 #include "util/qt_fs.h"
-#include "vme_config_item_model.h"
 #include "vme_config_model_view.h"
 #include "vme_config_tree.h"
 #include "vme_config_util.h"

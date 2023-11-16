@@ -2,11 +2,13 @@
 
 #include "multi_crate.h"
 #include "vme_config_ui.h"
+#include "vme_config_util.h"
 
 using namespace mesytec::multi_crate;
 
 namespace mesytec::mvme
 {
+using namespace ::mvme::vme_config;
 
 class BaseItem: public QStandardItem
 {
@@ -355,7 +357,7 @@ bool VmeConfigItemModel::canDropMimeData(const QMimeData *data, Qt::DropAction a
                         int row, int column, const QModelIndex &parent) const
 {
     Q_UNUSED(action); Q_UNUSED(row); Q_UNUSED(column); Q_UNUSED(parent);
-    qDebug() << __PRETTY_FUNCTION__ << data << data->formats();
+    //qDebug() << __PRETTY_FUNCTION__ << data << data->formats();
 
     if (!data->hasFormat(config_object_pointers_mimetype()))
         return false;
@@ -396,13 +398,29 @@ bool VmeConfigItemModel::dropMimeData(const QMimeData *data, Qt::DropAction acti
 
     if (destParentItem->type() == static_cast<int>(ConfigItemType::EventModulesInit))
     {
-        auto destEvent = qobject_cast<EventConfig *>(destParentObject);
-        auto sourceModule = qobject_cast<ModuleConfig *>(sourceObject);
-
-        if (destEvent && sourceModule)
+        // Move a module in an event or between events
+        if (action == Qt::MoveAction)
         {
-            qDebug() << "move module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
-            move_module(sourceModule, destEvent, row);
+            auto destEvent = qobject_cast<EventConfig *>(destParentObject);
+            auto sourceModule = qobject_cast<ModuleConfig *>(sourceObject);
+
+            if (destEvent && sourceModule)
+            {
+                qDebug() << "move module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
+                move_module(sourceModule, destEvent, row);
+            }
+        }
+        else if (action == Qt::CopyAction)
+        {
+            auto destEvent = qobject_cast<EventConfig *>(destParentObject);
+            auto sourceModule = qobject_cast<ModuleConfig *>(sourceObject);
+
+            if (destEvent && sourceModule)
+            {
+                // TODO: implement the module copy operation
+                qDebug() << "copy module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
+                copy_module(sourceModule, destEvent, row);
+            }
         }
     }
 
@@ -427,6 +445,15 @@ void VmeConfigItemModelController::setModel(VmeConfigItemModel *model)
 
             if (newRoot)
                 connectToObjects(newRoot);
+        });
+
+    connect(model, &VmeConfigItemModel::itemChanged,
+        this, [this] (QStandardItem *item)
+        {
+            if (auto obj = qobject_from_pointer<ConfigObject>(item->data(DataRole_Pointer)))
+            {
+                obj->setObjectName(item->text());
+            }
         });
 
     model_ = model;

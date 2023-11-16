@@ -125,6 +125,8 @@ std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &so
     return result;
 }
 
+void move_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
+void copy_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
 
 } // end namespace vme_config
 } // end namespace mvme

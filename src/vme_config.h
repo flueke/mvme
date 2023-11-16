@@ -539,6 +539,4 @@ QString make_unique_event_name(const VMEConfig *vmeConfig);
 QString make_unique_module_name(const QString &prefix, const VMEConfig *vmeConfig);
 QString make_unique_name(const ConfigObject *co, const ContainerObject *destContainer);
 
-void move_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
-
 #endif
