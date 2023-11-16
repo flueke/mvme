@@ -257,7 +257,6 @@ add_library(libmvme SHARED
     util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
-    vme_config_item_model.cc
     vme_config_json_schema_updates.cc
     vme_config_model_view.cc
     vme_config_scripts.cc
