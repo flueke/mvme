@@ -8,9 +8,7 @@
 #include <QTreeView>
 #include <vector>
 
-namespace mesytec
-{
-namespace mvme
+namespace mesytec::mvme
 {
 
 namespace
@@ -82,7 +80,36 @@ inline void set_expansion_state(QTreeView *view, const TreeViewExpansionState &s
     }
 }
 
+template<typename Predicate>
+void find_items(QStandardItem *root, Predicate p, QVector<QStandardItem *> &result)
+{
+    if (p(root))
+        result.push_back(root);
+
+    for (int row = 0; row < root->rowCount(); ++row)
+        find_items(root->child(row), p, result);
 }
+
+template<typename Predicate>
+QVector<QStandardItem *> find_items(QStandardItem *root, Predicate p)
+{
+    QVector<QStandardItem *> result;
+    find_items(root, p, result);
+    return result;
+}
+
+inline void delete_item_rows(const QVector<QStandardItem *> &items)
+{
+    for (auto item : items)
+    {
+        if (item->parent() && item->row() >= 0)
+        {
+            auto row = item->parent()->takeRow(item->row());
+            qDeleteAll(row);
+        }
+    }
+}
+
 }
 
 #endif /* __MVME_UTIL_QT_MODEL_VIEW_UTIL_H__ */

@@ -140,12 +140,13 @@ class VmeConfigItemModel: public QStandardItemModel
         ConfigObject *rootObject_ = nullptr;
 };
 
-class VmeConfigItemModelController: public QObject
+class VmeConfigItemController: public QObject
 {
     Q_OBJECT
     public:
         using QObject::QObject;
         void setModel(VmeConfigItemModel *model);
+        void addView(QTreeView *view);
 
     private slots:
         void onCrateAdded(VMEConfig *config);
@@ -160,6 +161,7 @@ class VmeConfigItemModelController: public QObject
         void connectToObjects(ConfigObject *root);
         void disconnectFromObjects(ConfigObject *root);
         VmeConfigItemModel *model_ = nullptr;
+        QVector<QTreeView *> views_;
 };
 
 #if 0

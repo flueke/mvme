@@ -68,7 +68,7 @@ int main(int argc, char **argv)
     QSettings().setValue("LastVMEConfig", vmeConfigFilename);
     #endif
 
-#if 1
+#if 0
     auto vmeConfig = qobject_cast<VMEConfig *>(config.get());
     VMEConfigTreeWidget treeWidget;
     if (vmeConfig)
@@ -83,15 +83,16 @@ int main(int argc, char **argv)
 #if 1
     auto treeView3 = new QTreeView();
     auto itemModel = std::make_unique<VmeConfigItemModel>();
-    auto controller = std::make_unique<VmeConfigItemModelController>();
+    auto controller = std::make_unique<VmeConfigItemController>();
+    treeView3->setModel(itemModel.get());
     controller->setModel(itemModel.get());
+    controller->addView(treeView3);
     itemModel->setRootObject(config.get());
     treeView3->setEditTriggers(QAbstractItemView::EditKeyPressed);
     treeView3->setDefaultDropAction(Qt::MoveAction); // internal DnD
     treeView3->setDragDropMode(QAbstractItemView::DragDrop); // external DnD
     treeView3->setDragDropOverwriteMode(false);
     treeView3->setDragEnabled(true);
-    treeView3->setModel(itemModel.get());
     treeView3->setRootIndex(itemModel->invisibleRootItem()->child(0)->index());
     treeView3->show();
     treeView3->resize(500, 700);

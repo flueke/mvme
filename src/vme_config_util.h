@@ -128,6 +128,33 @@ std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &so
 void move_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
 void copy_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
 
+inline void store_configobject_expanded_state(const QUuid &objectId, bool isExpanded)
+{
+    QSettings settings("vme_tree_ui_state.ini", QSettings::IniFormat);
+    auto expandedObjects = settings.value("ExpandedObjects").toMap();
+
+    if (isExpanded)
+    {
+        qDebug() << "ConfigObject expanded, id =" << objectId;
+        expandedObjects.insert(objectId.toString(), true);
+    }
+    else
+    {
+        qDebug() << "ConfigObject collapsed, id =" << objectId;
+        expandedObjects.remove(objectId.toString());
+    }
+
+    settings.setValue("ExpandedObjects", expandedObjects);
+}
+
+inline bool was_configobject_expanded(const QUuid &objectId)
+{
+    QSettings settings("vme_tree_ui_state.ini", QSettings::IniFormat);
+    auto expandedObjects = settings.value("ExpandedObjects").toMap();
+    return expandedObjects.value(objectId.toString(), false).toBool();
+}
+
+
 } // end namespace vme_config
 } // end namespace mvme
 

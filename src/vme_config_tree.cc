@@ -1163,32 +1163,6 @@ void VMEConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
     }
 }
 
-void store_configobject_expanded_state(const QUuid &objectId, bool isExpanded)
-{
-    QSettings settings("vme_tree_ui_state.ini", QSettings::IniFormat);
-    auto expandedObjects = settings.value("ExpandedObjects").toMap();
-
-    if (isExpanded)
-    {
-        qDebug() << "ConfigObject expanded, id =" << objectId;
-        expandedObjects.insert(objectId.toString(), true);
-    }
-    else
-    {
-        qDebug() << "ConfigObject collapsed, id =" << objectId;
-        expandedObjects.remove(objectId.toString());
-    }
-
-    settings.setValue("ExpandedObjects", expandedObjects);
-}
-
-bool was_configobject_expanded(const QUuid &objectId)
-{
-    QSettings settings("vme_tree_ui_state.ini", QSettings::IniFormat);
-    auto expandedObjects = settings.value("ExpandedObjects").toMap();
-    return expandedObjects.value(objectId.toString(), false).toBool();
-}
-
 void VMEConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
 {
     if (auto obj = get_qobject<ConfigObject>(item))

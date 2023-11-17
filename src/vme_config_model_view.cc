@@ -1,6 +1,7 @@
 #include "vme_config_model_view.h"
 
 #include "multi_crate.h"
+#include "util/qt_model_view_util.h"
 #include "vme_config_ui.h"
 #include "vme_config_util.h"
 
@@ -417,7 +418,6 @@ bool VmeConfigItemModel::dropMimeData(const QMimeData *data, Qt::DropAction acti
 
             if (destEvent && sourceModule)
             {
-                // TODO: implement the module copy operation
                 qDebug() << "copy module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
                 copy_module(sourceModule, destEvent, row);
             }
@@ -432,10 +432,12 @@ VmeConfigItemModel::~VmeConfigItemModel()
 {
 }
 
-void VmeConfigItemModelController::setModel(VmeConfigItemModel *model)
+void VmeConfigItemController::setModel(VmeConfigItemModel *model)
 {
     if (model_)
         model_->disconnect(this);
+
+    model_ = model;
 
     connect(model, &VmeConfigItemModel::rootObjectChanged,
         this, [this] (ConfigObject *oldRoot, ConfigObject *newRoot)
@@ -445,7 +447,37 @@ void VmeConfigItemModelController::setModel(VmeConfigItemModel *model)
 
             if (newRoot)
                 connectToObjects(newRoot);
-        });
+
+            auto predEventItems = [] (QStandardItem *item)
+            {
+                return item->type() == static_cast<int>(ConfigItemType::Events);
+            };
+
+            auto eventItems = find_items(model_->invisibleRootItem(), predEventItems);
+
+            auto predWasExpanded = [] (QStandardItem *item)
+            {
+                if (auto obj = qobject_from_pointer<ConfigObject>(item->data(DataRole_Pointer)))
+                    return was_configobject_expanded(obj->getId());
+
+                return false;
+            };
+
+            // FIXME: due to having assigned pointers to all nodes this finds
+            // and expands too much on rerload. Also it doesn't work on app start.
+            auto wasExpandedItems = find_items(model_->invisibleRootItem(), predWasExpanded);
+
+            for (auto view: views_)
+            {
+                for (auto item: eventItems)
+                    view->setExpanded(item->index(), true);
+
+                for (auto item: wasExpandedItems)
+                    view->setExpanded(item->index(), true);
+
+                view->resizeColumnToContents(0);
+            }
+        }, Qt::QueuedConnection);
 
     connect(model, &VmeConfigItemModel::itemChanged,
         this, [this] (QStandardItem *item)
@@ -453,44 +485,38 @@ void VmeConfigItemModelController::setModel(VmeConfigItemModel *model)
             if (auto obj = qobject_from_pointer<ConfigObject>(item->data(DataRole_Pointer)))
             {
                 obj->setObjectName(item->text());
+
+                for (auto view: views_)
+                    view->resizeColumnToContents(0);
             }
-        });
-
-    model_ = model;
+        }, Qt::QueuedConnection);
 }
 
-void VmeConfigItemModelController::onCrateAdded(VMEConfig *config)
+void VmeConfigItemController::addView(QTreeView *view)
 {
-}
+    views_.push_back(view);
 
-void VmeConfigItemModelController::onCrateAboutToBeRemoved(VMEConfig *config)
-{
-}
+    connect(view, &QTreeView::expanded, view, [view, this] (const QModelIndex &index)
+    {
+        if (auto item = model_->itemFromIndex(index))
+        {
+            if (auto obj = qobject_from_pointer<ConfigObject>(item->data(DataRole_Pointer)))
+                store_configobject_expanded_state(obj->getId(), true);
+        }
 
-void VmeConfigItemModelController::onEventAdded(EventConfig *config)
-{
-}
+        view->resizeColumnToContents(0);
+    }, Qt::QueuedConnection);
 
-void VmeConfigItemModelController::onEventAboutToBeRemoved(EventConfig *config)
-{
-}
+    connect(view, &QTreeView::collapsed, view, [view, this] (const QModelIndex &index)
+    {
+        if (auto item = model_->itemFromIndex(index))
+        {
+            if (auto obj = qobject_from_pointer<ConfigObject>(item->data(DataRole_Pointer)))
+                store_configobject_expanded_state(obj->getId(), false);
+        }
 
-template<typename Predicate>
-void find_items(QStandardItem *root, Predicate p, QVector<QStandardItem *> &result)
-{
-    if (p(root))
-        result.push_back(root);
-
-    for (int row = 0; row < root->rowCount(); ++row)
-        find_items(root->child(row), p, result);
-}
-
-template<typename Predicate>
-QVector<QStandardItem *> find_items(QStandardItem *root, Predicate p)
-{
-    QVector<QStandardItem *> result;
-    find_items(root, p, result);
-    return result;
+        view->resizeColumnToContents(0);
+    }, Qt::QueuedConnection);
 }
 
 template<typename T>
@@ -510,7 +536,23 @@ auto make_predicate_pointer_and_item_type(T *pointer, ConfigItemType itemType)
     return make_predicate_pointer_and_item_type(pointer, static_cast<int>(itemType));
 }
 
-void VmeConfigItemModelController::onModuleAdded(ModuleConfig *config, int /*index*/)
+void VmeConfigItemController::onCrateAdded(VMEConfig *config)
+{
+}
+
+void VmeConfigItemController::onCrateAboutToBeRemoved(VMEConfig *config)
+{
+}
+
+void VmeConfigItemController::onEventAdded(EventConfig *config)
+{
+}
+
+void VmeConfigItemController::onEventAboutToBeRemoved(EventConfig *config)
+{
+}
+
+void VmeConfigItemController::onModuleAdded(ModuleConfig *config, int /*index*/)
 {
     connectToObjects(config);
 
@@ -549,19 +591,7 @@ void VmeConfigItemModelController::onModuleAdded(ModuleConfig *config, int /*ind
     }
 }
 
-void delete_item_rows(const QVector<QStandardItem *> &items)
-{
-    for (auto item : items)
-    {
-        if (item->parent() && item->row() >= 0)
-        {
-            auto row = item->parent()->takeRow(item->row());
-            qDeleteAll(row);
-        }
-    }
-}
-
-void VmeConfigItemModelController::onModuleAboutToBeRemoved(ModuleConfig *config)
+void VmeConfigItemController::onModuleAboutToBeRemoved(ModuleConfig *config)
 {
     disconnectFromObjects(config);
 
@@ -581,41 +611,41 @@ void VmeConfigItemModelController::onModuleAboutToBeRemoved(ModuleConfig *config
     }
 }
 
-void VmeConfigItemModelController::onObjectEnabledChanged(bool enabled)
+void VmeConfigItemController::onObjectEnabledChanged(bool enabled)
 {
 }
 
-void VmeConfigItemModelController::connectToObjects(ConfigObject *root)
+void VmeConfigItemController::connectToObjects(ConfigObject *root)
 {
     if (auto multicrate = qobject_cast<MulticrateVMEConfig *>(root))
     {
         connect(multicrate, &MulticrateVMEConfig::crateConfigAdded,
-            this, &VmeConfigItemModelController::onCrateAdded);
+            this, &VmeConfigItemController::onCrateAdded);
         connect(multicrate, &MulticrateVMEConfig::crateConfigAboutToBeRemoved,
-            this, &VmeConfigItemModelController::onCrateAboutToBeRemoved);
+            this, &VmeConfigItemController::onCrateAboutToBeRemoved);
     }
 
     if (auto vmeConfig = qobject_cast<VMEConfig *>(root))
     {
         connect(vmeConfig, &VMEConfig::eventAdded,
-            this, &VmeConfigItemModelController::onEventAdded);
+            this, &VmeConfigItemController::onEventAdded);
         connect(vmeConfig, &VMEConfig::eventAboutToBeRemoved,
-            this, &VmeConfigItemModelController::onEventAboutToBeRemoved);
+            this, &VmeConfigItemController::onEventAboutToBeRemoved);
     }
 
     if (auto eventConfig = qobject_cast<EventConfig *>(root))
     {
         connect(eventConfig, &EventConfig::moduleAdded,
-            this, &VmeConfigItemModelController::onModuleAdded);
+            this, &VmeConfigItemController::onModuleAdded);
         connect(eventConfig, &EventConfig::moduleAboutToBeRemoved,
-            this, &VmeConfigItemModelController::onModuleAboutToBeRemoved);
+            this, &VmeConfigItemController::onModuleAboutToBeRemoved);
     }
 
     for (auto child: root->findChildren<ConfigObject *>(QString(), Qt::FindDirectChildrenOnly))
         connectToObjects(child);
 }
 
-void VmeConfigItemModelController::disconnectFromObjects(ConfigObject *root)
+void VmeConfigItemController::disconnectFromObjects(ConfigObject *root)
 {
     root->disconnect(this);
 
