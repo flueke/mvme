@@ -57,7 +57,9 @@
 
 using namespace std::placeholders;
 using namespace vats;
-using namespace mvme::vme_config;
+using namespace mesytec;
+using namespace mesytec::mvme;
+using namespace mesytec::mvme::vme_config;
 
 static const QString VMEModuleConfigFileFilter = QSL("MVME Module Configs (*.mvmemodule *.json);; All Files (*.*)");
 static const QString VMEEventConfigFileFilter = QSL("MVME Event Configs (*.mvmeevent *.json);; All Files (*.*)");

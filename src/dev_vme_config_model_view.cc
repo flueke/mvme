@@ -11,7 +11,9 @@
 #include "vme_config_model_view.h"
 #include "vme_config_tree.h"
 #include "vme_config_util.h"
+#include "util/qt_model_view_util.h"
 
+using namespace mesytec;
 using namespace mesytec::mvme;
 using namespace mesytec::multi_crate;
 
@@ -121,29 +123,5 @@ int main(int argc, char **argv)
     main.show();
 
 #endif
-
-#if 0
-    // custom model/view
-    QTreeView treeView1;
-    treeView1.setWindowTitle("custom model");
-    EventModel eventModel1;
-    treeView1.setModel(&eventModel1);
-    if (vmeConfig->getEventConfigs().size())
-        eventModel1.setEventConfig(vmeConfig->getEventConfigs()[0]);
-    treeView1.show();
-    treeView1.resize(500, 700);
-
-    // QStandardItem model/view
-    QTreeView treeView2;
-    treeView2.setWindowTitle("QStandardItem model");
-    EventModel2 eventModel2;
-    treeView2.setModel(&eventModel2);
-    if (vmeConfig->getEventConfigs().size())
-        eventModel2.setEventConfig(vmeConfig->getEventConfigs()[0]);
-    treeView2.show();
-    treeView2.resize(500, 700);
-#endif
-
-
     return app.exec();
 }

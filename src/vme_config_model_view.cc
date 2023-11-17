@@ -5,99 +5,11 @@
 #include "vme_config_ui.h"
 #include "vme_config_util.h"
 
+using namespace mesytec::mvme::vme_config;
 using namespace mesytec::multi_crate;
 
 namespace mesytec::mvme
 {
-using namespace ::mvme::vme_config;
-
-class BaseItem: public QStandardItem
-{
-    public:
-        explicit BaseItem(ConfigItemType type = ConfigItemType::Unspecified)
-            : type_(type) {}
-
-        BaseItem(ConfigItemType type, const QString &text)
-            : QStandardItem(text), type_(type) {}
-
-        BaseItem(ConfigItemType type, const QIcon &icon, const QString &text)
-            : QStandardItem(icon, text), type_(type) {}
-
-        int type() const override { return static_cast<int>(type_); }
-
-        QStandardItem *clone() const override
-        {
-            auto ret = new BaseItem(type_);
-            *ret = *this;
-            return ret;
-        }
-
-    private:
-        ConfigItemType type_;
-};
-
-void enable_flags(QStandardItem *item, Qt::ItemFlags flags)
-{
-    item->setFlags(item->flags() | flags);
-}
-
-void disable_flags(QStandardItem *item, Qt::ItemFlags flags)
-{
-    item->setFlags(item->flags() & ~flags);
-}
-
-class ItemBuilder
-{
-    public:
-        ItemBuilder(ConfigItemType type)
-            : type_(type) {}
-
-        ItemBuilder(ConfigItemType type, const QString &text)
-            : type_(type), text_(text) {}
-
-        ItemBuilder(ConfigItemType type, const QIcon &icon, const QString &text)
-            : type_(type), icon_(icon), text_(text) {}
-
-        ItemBuilder &text(const QString &text) { text_ = text; return *this; }
-        ItemBuilder &qObject(QObject *obj) { obj_ = obj; return *this; }
-        ItemBuilder &enableFlags(Qt::ItemFlags flag) { flagsEnable_ |= flag; return *this; }
-        ItemBuilder &disableFlags(Qt::ItemFlags flag) { flagsDisable_ |= flag; return *this; }
-
-        BaseItem *build()
-        {
-            auto result = new BaseItem(type_, icon_, text_);
-            result->setEditable(false);
-            result->setDropEnabled(false);
-            result->setDragEnabled(false);
-
-            if (obj_)
-            {
-                result->setData(QVariant::fromValue(reinterpret_cast<quintptr>(obj_)), DataRole_Pointer);
-
-                if (auto p = obj_->property("display_name"); p.isValid() && text_.isEmpty())
-                    result->setText(p.toString());
-
-                if (auto p = obj_->property("icon"); p.isValid() && icon_.isNull())
-                    result->setIcon(QIcon(p.toString()));
-            }
-
-            if (flagsEnable_)
-                enable_flags(result, flagsEnable_);
-
-            if (flagsDisable_)
-                disable_flags(result, flagsDisable_);
-
-            return result;
-        }
-
-    private:
-        ConfigItemType type_;
-        QIcon icon_;
-        QString text_;
-        QObject *obj_ = nullptr;
-        Qt::ItemFlags flagsEnable_ = Qt::NoItemFlags;
-        Qt::ItemFlags flagsDisable_ = Qt::NoItemFlags;
-};
 
 QList<QStandardItem *> build_generic(ConfigObject *config);
 
@@ -285,12 +197,6 @@ template<typename T> T *qobject_from_pointer(const QVariant &pointer)
     return nullptr;
 }
 
-QString config_object_pointers_mimetype()
-{
-    static const QString mimeType("application/x-mvme-config-object-pointers");
-    return mimeType;
-}
-
 QMimeData *encode_config_object_pointers(const QStandardItemModel *model, const QModelIndexList &indexes)
 {
     QVector<QVariant> pointers;
@@ -311,13 +217,13 @@ QMimeData *encode_config_object_pointers(const QStandardItemModel *model, const 
     stream << pointers;
 
     auto result = new QMimeData;
-    result->setData(config_object_pointers_mimetype(), buffer);
+    result->setData(qobject_pointers_mimetype(), buffer);
     return result;
 }
 
 QVector<ConfigObject *> decode_config_object_pointers(const QMimeData *mimeData)
 {
-    auto data = mimeData->data(config_object_pointers_mimetype());
+    auto data = mimeData->data(qobject_pointers_mimetype());
     QVector<QVariant> pointers;
     QDataStream stream(&data, QIODevice::ReadOnly);
     stream >> pointers;
@@ -346,7 +252,7 @@ void VmeConfigItemModel::setRootObject(ConfigObject *obj)
 
 QStringList VmeConfigItemModel::mimeTypes() const
 {
-    return { config_object_pointers_mimetype() };
+    return { qobject_pointers_mimetype() };
 }
 
 QMimeData *VmeConfigItemModel::mimeData(const QModelIndexList &indexes) const
@@ -360,7 +266,7 @@ bool VmeConfigItemModel::canDropMimeData(const QMimeData *data, Qt::DropAction a
     Q_UNUSED(action); Q_UNUSED(row); Q_UNUSED(column); Q_UNUSED(parent);
     //qDebug() << __PRETTY_FUNCTION__ << data << data->formats();
 
-    if (!data->hasFormat(config_object_pointers_mimetype()))
+    if (!data->hasFormat(qobject_pointers_mimetype()))
         return false;
 
     return true;
@@ -374,7 +280,7 @@ bool VmeConfigItemModel::dropMimeData(const QMimeData *data, Qt::DropAction acti
         << ", data=" << data << data->formats()
         << ", action=" << action;
 
-    if (!data->hasFormat(config_object_pointers_mimetype()))
+    if (!data->hasFormat(qobject_pointers_mimetype()))
         return false;
 
     auto objects = decode_config_object_pointers(data);

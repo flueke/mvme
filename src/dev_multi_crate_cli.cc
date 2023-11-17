@@ -11,8 +11,8 @@
 #include "vme_config.h"
 #include "vme_config_util.h"
 
-using namespace mvme;
 using namespace mesytec;
+using namespace mesytec::mvme;
 
 struct MulticrateTemplates
 {

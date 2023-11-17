@@ -32,7 +32,7 @@
 #include "vme_script_util.h"
 #include "vme_script_variables.h"
 
-using namespace mvme::vme_config;
+using namespace mesytec::mvme::vme_config;
 
 namespace
 {

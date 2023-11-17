@@ -39,6 +39,7 @@
 
 #define LISTFILE_VERBOSE 0
 
+using namespace mesytec;
 using namespace ListfileSections;
 
 void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer,

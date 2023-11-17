@@ -69,6 +69,7 @@
 
 #include "git_sha1.h"
 
+using namespace mesytec;
 using namespace mesytec::mvme;
 
 namespace

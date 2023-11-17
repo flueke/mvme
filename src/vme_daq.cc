@@ -37,6 +37,7 @@
 #include "vme_config_util.h"
 #include "vme_script.h"
 
+using namespace mesytec;
 using namespace mesytec::mvme;
 using namespace vme_script::run_script_options;
 

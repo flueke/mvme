@@ -57,9 +57,7 @@ u8 get_next_mcst(const VMEConfig *vmeConfig)
 
 } // end anon namespace
 
-namespace mvme
-{
-namespace vme_config
+namespace mesytec::mvme::vme_config
 {
 
 u8 get_next_free_irq(const VMEConfig *vmeConfig)
@@ -522,5 +520,4 @@ void copy_module(ModuleConfig *mod, EventConfig *destEvent, int destIndex)
     destEvent->addModuleConfig(copy.release(), destIndex);
 }
 
-} // end namespace vme_config
-} // end namespace mvme
+}

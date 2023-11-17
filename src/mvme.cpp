@@ -95,6 +95,7 @@
 #include <spdlog/sinks/qt_sinks.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+using namespace mesytec;
 using namespace mesytec::mvme;
 using namespace vats;
 

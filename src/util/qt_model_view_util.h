@@ -110,6 +110,107 @@ inline void delete_item_rows(const QVector<QStandardItem *> &items)
     }
 }
 
+class BaseItem: public QStandardItem
+{
+    public:
+        explicit BaseItem(int type = QStandardItem::UserType)
+            : type_(type) {}
+
+        BaseItem(int type, const QString &text)
+            : QStandardItem(text), type_(type) {}
+
+        BaseItem(int type, const QIcon &icon, const QString &text)
+            : QStandardItem(icon, text), type_(type) {}
+
+        int type() const override { return type_; }
+
+        QStandardItem *clone() const override
+        {
+            auto ret = new BaseItem(type_);
+            *ret = *this;
+            return ret;
+        }
+
+    private:
+        int type_;
+};
+
+inline void enable_flags(QStandardItem *item, Qt::ItemFlags flags)
+{
+    item->setFlags(item->flags() | flags);
+}
+
+inline void disable_flags(QStandardItem *item, Qt::ItemFlags flags)
+{
+    item->setFlags(item->flags() & ~flags);
+}
+
+enum DataRole
+{
+    DataRole_Pointer = Qt::UserRole,
+};
+
+class ItemBuilder
+{
+    public:
+
+        ItemBuilder(int type)
+            : type_(type) {}
+
+        ItemBuilder(int type, const QString &text)
+            : type_(type), text_(text) {}
+
+        ItemBuilder(int type, const QIcon &icon, const QString &text)
+            : type_(type), icon_(icon), text_(text) {}
+
+        ItemBuilder &text(const QString &text) { text_ = text; return *this; }
+        ItemBuilder &qObject(QObject *obj) { obj_ = obj; return *this; }
+        ItemBuilder &enableFlags(Qt::ItemFlags flag) { flagsEnable_ |= flag; return *this; }
+        ItemBuilder &disableFlags(Qt::ItemFlags flag) { flagsDisable_ |= flag; return *this; }
+
+        BaseItem *build()
+        {
+            auto result = new BaseItem(type_, icon_, text_);
+            result->setEditable(false);
+            result->setDropEnabled(false);
+            result->setDragEnabled(false);
+
+            if (obj_)
+            {
+                result->setData(QVariant::fromValue(reinterpret_cast<quintptr>(obj_)), DataRole_Pointer);
+
+                if (auto p = obj_->property("display_name"); p.isValid() && text_.isEmpty())
+                    result->setText(p.toString());
+
+                if (auto p = obj_->property("icon"); p.isValid() && icon_.isNull())
+                    result->setIcon(QIcon(p.toString()));
+            }
+
+            if (flagsEnable_)
+                enable_flags(result, flagsEnable_);
+
+            if (flagsDisable_)
+                disable_flags(result, flagsDisable_);
+
+            return result;
+        }
+
+    private:
+        int type_;
+        QIcon icon_;
+        QString text_;
+        QObject *obj_ = nullptr;
+        Qt::ItemFlags flagsEnable_ = Qt::NoItemFlags;
+        Qt::ItemFlags flagsDisable_ = Qt::NoItemFlags;
+};
+
+// Data is QVector<QVariant> where each variant contains a QObject * stored as
+// quintptr.
+inline QString qobject_pointers_mimetype()
+{
+    return "application/x-mvme-qobject-pointers";
+}
+
 }
 
 #endif /* __MVME_UTIL_QT_MODEL_VIEW_UTIL_H__ */

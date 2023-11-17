@@ -46,6 +46,8 @@
 #include "vme_script_util.h"
 #include "vme_config_util.h"
 
+using namespace mesytec;
+
 static const int TabStop = 4;
 
 struct VMEScriptEditorPrivate

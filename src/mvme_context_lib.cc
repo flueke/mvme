@@ -30,6 +30,7 @@
 #include "util_zip.h"
 #include "vme_config_util.h"
 
+using namespace mesytec;
 
 namespace
 {

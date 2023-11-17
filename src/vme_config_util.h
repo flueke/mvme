@@ -29,9 +29,7 @@
 #include "vme_config.h"
 #include "multi_crate.h"
 
-namespace mvme
-{
-namespace vme_config
+namespace mesytec::mvme::vme_config
 {
 
 // Creates a symbol table containing the standard vme event variables:
@@ -154,8 +152,6 @@ inline bool was_configobject_expanded(const QUuid &objectId)
     return expandedObjects.value(objectId.toString(), false).toBool();
 }
 
-
-} // end namespace vme_config
-} // end namespace mvme
+}
 
 #endif /* __MVME_VME_CONFIG_UTIL_H__ */
