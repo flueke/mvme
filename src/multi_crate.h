@@ -16,9 +16,7 @@
 #include "vme_config.h"
 #include "mvlc/mvlc_vme_controller.h"
 
-namespace mesytec
-{
-namespace multi_crate
+namespace mesytec::mvme::multi_crate
 {
 
 // Holds bi-directional mappings between ConfigObjects in crate and merged vme
@@ -392,9 +390,8 @@ struct MultiCrateReadout
     //std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedListfileQueues;
 };
 
-} // end namespace multi_crate
-} // end namespace mesytec
+}
 
-Q_DECLARE_METATYPE(mesytec::multi_crate::MulticrateVMEConfig *);
+Q_DECLARE_METATYPE(mesytec::mvme::multi_crate::MulticrateVMEConfig *);
 
 #endif /* __MVME_MULTI_CRATE_H__ */

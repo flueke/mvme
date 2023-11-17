@@ -6,7 +6,7 @@
 #include "vme_config_util.h"
 
 using namespace mesytec::mvme::vme_config;
-using namespace mesytec::multi_crate;
+using namespace mesytec::mvme::multi_crate;
 
 namespace mesytec::mvme
 {
@@ -165,7 +165,7 @@ QList<QStandardItem *> build_moduleconfig(ModuleConfig *config)
 
 QList<QStandardItem *> build_generic(ConfigObject *config)
 {
-    if (auto multicrate = qobject_cast<mesytec::multi_crate::MulticrateVMEConfig *>(config))
+    if (auto multicrate = qobject_cast<multi_crate::MulticrateVMEConfig *>(config))
         return build_multicrate(multicrate);
 
     if (auto vmeConfig = qobject_cast<VMEConfig *>(config))

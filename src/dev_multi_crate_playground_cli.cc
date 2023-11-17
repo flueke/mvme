@@ -28,7 +28,7 @@
 #include "vme_controller_factory.h"
 
 using namespace mesytec;
-using namespace multi_crate;
+using namespace mesytec::mvme::multi_crate;
 
 #if 0
 // Writes a MultiCrateConfig to file. Uses hardcoded data.

@@ -318,7 +318,7 @@ bool serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config)
     return out.write(doc.toJson()) >= 0;
 }
 
-QJsonDocument serialize_multicrate_config_to_json_document(const mesytec::multi_crate::MulticrateVMEConfig &config)
+QJsonDocument serialize_multicrate_config_to_json_document(const multi_crate::MulticrateVMEConfig &config)
 {
     QJsonObject configJson;
     config.write(configJson);
@@ -339,14 +339,14 @@ std::unique_ptr<ConfigObject> deserialize_object(const QJsonObject &json)
             result = configobject_from_json<VMEConfig>(json, it.key());
 
         if (it.key() == "MulticrateConfig")
-            result = configobject_from_json<mesytec::multi_crate::MulticrateVMEConfig>(json, it.key());
+            result = configobject_from_json<multi_crate::MulticrateVMEConfig>(json, it.key());
     }
 
     return result;
 }
 
 
-bool serialize_multicrate_config_to_device(QIODevice &out, const mesytec::multi_crate::MulticrateVMEConfig &config)
+bool serialize_multicrate_config_to_device(QIODevice &out, const multi_crate::MulticrateVMEConfig &config)
 {
     auto doc = serialize_multicrate_config_to_json_document(config);
     return out.write(doc.toJson()) >= 0;

@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
         crateConfigs.emplace_back(std::move(readResult.first));
     }
 
-    auto mergeResult = mesytec::multi_crate::make_merged_vme_config(crateConfigs, crossCrateEvents);
+    auto mergeResult = mesytec::mvme::multi_crate::make_merged_vme_config(crateConfigs, crossCrateEvents);
 
     //auto jsonDoc = mvme::vme_config::serialize_vme_config_to_json_document(*mergeResult.first);
     //auto jsonText = jsonDoc.toJson();

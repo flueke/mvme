@@ -15,7 +15,7 @@
 
 using namespace mesytec;
 using namespace mesytec::mvme;
-using namespace mesytec::multi_crate;
+using namespace mesytec::mvme::multi_crate;
 
 void logger(const QString &msg)
 {

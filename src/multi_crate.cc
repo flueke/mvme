@@ -5,9 +5,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include "vme_config_scripts.h"
 
-namespace mesytec
-{
-namespace multi_crate
+namespace mesytec::mvme::multi_crate
 {
 
 MulticrateVMEConfig::MulticrateVMEConfig(QObject *parent)
@@ -430,5 +428,4 @@ void multi_crate_playground()
     CrateReadout crateReadout2(std::move(crateReadout));
 }
 
-}
 }

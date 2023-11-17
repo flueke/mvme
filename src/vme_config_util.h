@@ -83,8 +83,8 @@ QJsonDocument LIBMVME_EXPORT serialize_vme_config_to_json_document(const VMEConf
 // Returns false on error. Use out.errorString() to retrieve error information.
 bool LIBMVME_EXPORT serialize_vme_config_to_device(QIODevice &out, const VMEConfig &config);
 
-QJsonDocument LIBMVME_EXPORT serialize_multicrate_config_to_json_document(const mesytec::multi_crate::MulticrateVMEConfig &config);
-bool LIBMVME_EXPORT serialize_multicrate_config_to_device(QIODevice &out, const mesytec::multi_crate::MulticrateVMEConfig &config);
+QJsonDocument LIBMVME_EXPORT serialize_multicrate_config_to_json_document(const multi_crate::MulticrateVMEConfig &config);
+bool LIBMVME_EXPORT serialize_multicrate_config_to_device(QIODevice &out, const multi_crate::MulticrateVMEConfig &config);
 
 std::unique_ptr<ModuleConfig> LIBMVME_EXPORT moduleconfig_from_modulejson(const QJsonObject &json);
 void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &dest, const QJsonObject &json);
