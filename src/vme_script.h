@@ -49,6 +49,7 @@ struct PreparsedLine
     QString line;               // A copy of the original line
     QStringList parts;          // The line trimmed of whitespace and split at word boundaries.
     int lineNumber;             // The original line number
+    QString source;             // Optional: name/id of the source script of this line.
     QSet<QString> varRefs;      // The names of the variables referenced by this line.
 };
 
@@ -193,6 +194,7 @@ struct Command
 
     QString warning;
     s32 lineNumber = 0;
+    QString source;             // Optional: name/id of the source script of this line.
 
     MetaBlock metaBlock = {};
     QStringList printArgs;
