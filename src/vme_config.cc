@@ -81,12 +81,14 @@ std::error_code make_error_code(VMEConfigReadResult r)
 //
 // ConfigObject
 //
+#if 0
 ConfigObject::ConfigObject(QObject *parent, bool watchDynamicProperties)
     : ConfigObject(parent)
 {
     if (watchDynamicProperties)
         setWatchDynamicProperties(true);
 }
+#endif
 
 ConfigObject::ConfigObject(QObject *parent)
     : QObject(parent)

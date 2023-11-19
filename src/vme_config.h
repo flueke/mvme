@@ -139,7 +139,7 @@ class LIBMVME_EXPORT ConfigObject: public QObject
         // Note: the watchDynamicProperties flag and
         // setWatchDynamicProperties() make it so that changes to dynamic
         // QObject properties mark this object as being modified.
-        ConfigObject(QObject *parent, bool watchDynamicProperties);
+        //ConfigObject(QObject *parent, bool watchDynamicProperties);
         bool eventFilter(QObject *obj, QEvent *event) override;
         void setWatchDynamicProperties(bool doWatch);
 
