@@ -4,7 +4,7 @@
 #include "multi_crate.h"
 #include "mvme_session.h"
 
-using namespace mesytec::multi_crate;
+using namespace mesytec::mvme::multi_crate;
 
 // Providing a main() so that a QCoreApplication can be crated before any tests
 // run. Needed to silence warnings from the vme template system which is used
