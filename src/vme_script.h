@@ -49,7 +49,6 @@ struct PreparsedLine
     QString line;               // A copy of the original line
     QStringList parts;          // The line trimmed of whitespace and split at word boundaries.
     int lineNumber;             // The original line number
-    QString source;             // Optional: name/id of the source script of this line.
     QSet<QString> varRefs;      // The names of the variables referenced by this line.
 };
 
@@ -309,33 +308,29 @@ void LIBMVME_EXPORT evaluate_expressions(PreparsedLine &preparsed);
 
 // These versions of the parse function use an internal symbol table. Access to
 // variables defined via the 'set' command is not possible.
-VMEScript LIBMVME_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
-VMEScript LIBMVME_EXPORT parse(const std::string &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_EXPORT parse(QFile *input, uint32_t baseAddress = 0, const QString &sourceId = {});
+VMEScript LIBMVME_EXPORT parse(const QString &input, uint32_t baseAddress = 0, const QString &sourceId = {});
+VMEScript LIBMVME_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0, const QString &sourceId = {});
+VMEScript LIBMVME_EXPORT parse(const std::string &input, uint32_t baseAddress = 0, const QString &sourceId = {});
 
 // Versions of the parse function taking a list of SymbolTables by reference.
 // The first table in the list is used as the 'script local' symbol table. If
 // the list is empty a single SymbolTable instance will be created and added.
 VMEScript LIBMVME_EXPORT parse(QFile *input, SymbolTables &symtabs,
-                                    uint32_t baseAddress = 0);
+                                    uint32_t baseAddress = 0,
+                                    const QString &sourceId = {});
 
 VMEScript LIBMVME_EXPORT parse(const QString &input, SymbolTables &symtabs,
-                                    uint32_t baseAddress = 0);
+                                    uint32_t baseAddress = 0,
+                                    const QString &sourceId = {});
 
 VMEScript LIBMVME_EXPORT parse(QTextStream &input, SymbolTables &symtabs,
-                                    uint32_t baseAddress = 0);
+                                    uint32_t baseAddress = 0,
+                                    const QString &sourceId = {});
 
 VMEScript LIBMVME_EXPORT parse(const std::string &input, SymbolTables &symtabs,
-                                    uint32_t baseAddress = 0);
-
-// Run a pre parse step on the input.
-// This splits the input into lines, removing comments and leading and trailing
-// whitespace. The line is then further split into atomic parts and the
-// variable names referenced whithin the line are collected.
-QVector<PreparsedLine> LIBMVME_EXPORT pre_parse(const QString &input);
-
-QVector<PreparsedLine> LIBMVME_EXPORT pre_parse(QTextStream &input);
+                                    uint32_t baseAddress = 0,
+                                    const QString &sourceId = {});
 
 // These functions return the set of variable names references in the given vme
 // script text.

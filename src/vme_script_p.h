@@ -34,6 +34,13 @@ namespace vme_script
 // Internal vme_script parser support functions.
 // Kept in a separate header to make them available for automatic tests.
 
+// Run a pre parse step on the input.
+// This splits the input into lines, removing comments and leading and trailing
+// whitespace. The line is then further split into atomic parts and the
+// variable names referenced whithin the line are collected.
+QVector<PreparsedLine> LIBMVME_EXPORT pre_parse(const QString &input);
+QVector<PreparsedLine> LIBMVME_EXPORT pre_parse(QTextStream &input);
+
 std::pair<std::string, bool> LIBMVME_EXPORT read_atomic_variable_reference(std::istringstream &in);
 std::pair<std::string, bool> LIBMVME_EXPORT read_atomic_variable_reference(const std::string &str);
 
