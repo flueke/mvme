@@ -204,11 +204,24 @@ class ItemBuilder
         Qt::ItemFlags flagsDisable_ = Qt::NoItemFlags;
 };
 
-// Data is QVector<QVariant> where each variant contains a QObject * stored as
-// quintptr.
+// Data for this mime type is QVector<QVariant>, where each variant contains a
+// QObject * stored as quintptr.
 inline QString qobject_pointers_mimetype()
 {
     return "application/x-mvme-qobject-pointers";
+}
+
+// Get a QObject instance back out of a variant storing a pointer. Safe as long
+// as nothing or a QObject * is stored in the variant.
+template<typename T> T *qobject_from_pointer(const QVariant &pointer)
+{
+    if (auto obj = reinterpret_cast<QObject *>(pointer.value<quintptr>()))
+    {
+        if (auto config = qobject_cast<T *>(obj))
+            return config;
+    }
+
+    return nullptr;
 }
 
 }

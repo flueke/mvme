@@ -76,7 +76,6 @@ QList<QStandardItem *> build_vmeconfig(VMEConfig *config)
     auto daqStart = build_generic(config->getGlobalStartsScripts());
 
     auto events = ItemBuilder(ConfigItemType::Events, QIcon(":/mvme_16x16.png"), "Events")
-        .qObject(config)
         .build();
 
     for (auto eventConfig: config->getEventConfigs())
@@ -104,7 +103,6 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
         .build();
 
     auto modules = ItemBuilder(ConfigItemType::EventModulesInit, QIcon(":/config_category.png"), "Modules Init")
-        .qObject(config)
         .enableFlags(Qt::ItemIsDropEnabled)
         .build();
 
@@ -112,7 +110,6 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
         modules->appendRow(build_generic(moduleConfig));
 
     auto readout = ItemBuilder(ConfigItemType::EventReadoutLoop, QIcon(":/config_category.png"), "Readout Loop")
-        .qObject(config)
         .build();
 
     auto readout_start = build_generic(config->vmeScripts["readout_start"]);
@@ -128,7 +125,6 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
     readout->appendRow(readout_end);
 
     auto multicast = ItemBuilder(ConfigItemType::EventMulticast, QIcon(":/config_category.png"), "Multicast DAQ Start/Stop")
-        .qObject(config)
         .build();
 
     auto mcast_start = build_generic(config->vmeScripts["daq_start"]);
@@ -240,6 +236,7 @@ QVector<ConfigObject *> decode_config_object_pointers(const QMimeData *mimeData)
 
 void VmeConfigItemModel::setRootObject(ConfigObject *obj)
 {
+    qDebug() << "begin VmeConfigItemModel::setRootObject()";
     clear();
     setItemPrototype(new BaseItem);
     setHorizontalHeaderLabels({ "Object", "Info"});
@@ -248,6 +245,7 @@ void VmeConfigItemModel::setRootObject(ConfigObject *obj)
     auto oldRoot = rootObject_;
     rootObject_ = obj;
     emit rootObjectChanged(oldRoot, rootObject_);
+    qDebug() << "end VmeConfigItemModel::setRootObject()";
 }
 
 QStringList VmeConfigItemModel::mimeTypes() const
@@ -295,38 +293,28 @@ bool VmeConfigItemModel::dropMimeData(const QMimeData *data, Qt::DropAction acti
     if (!destParentItem)
         return false;
 
-    auto destParentObject = qobject_from_pointer<ConfigObject>(
-        destParentItem->data(DataRole_Pointer));
+    qDebug() << "sourceObject =" << sourceObject << ", destParentItem =" << destParentItem;
 
-    if (!destParentObject)
-        return false;
-
-    qDebug() << "sourceObject =" << sourceObject << "destParentObject =" << destParentObject;
-
-    if (destParentItem->type() == static_cast<int>(ConfigItemType::EventModulesInit))
+    if (destParentItem->type() == static_cast<int>(ConfigItemType::EventModulesInit)
+        && destParentItem->parent()
+        && destParentItem->parent()->type() == static_cast<int>(ConfigItemType::Event))
     {
+        auto destEvent = qobject_from_pointer<EventConfig>(destParentItem->parent()->data(DataRole_Pointer));
+        auto sourceModule = qobject_cast<ModuleConfig *>(sourceObject);
+
+        if (!destEvent || !sourceModule)
+            return false;
+
         // Move a module in an event or between events
         if (action == Qt::MoveAction)
         {
-            auto destEvent = qobject_cast<EventConfig *>(destParentObject);
-            auto sourceModule = qobject_cast<ModuleConfig *>(sourceObject);
-
-            if (destEvent && sourceModule)
-            {
-                qDebug() << "move module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
-                move_module(sourceModule, destEvent, row);
-            }
+            qDebug() << "move module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
+            move_module(sourceModule, destEvent, row);
         }
         else if (action == Qt::CopyAction)
         {
-            auto destEvent = qobject_cast<EventConfig *>(destParentObject);
-            auto sourceModule = qobject_cast<ModuleConfig *>(sourceObject);
-
-            if (destEvent && sourceModule)
-            {
-                qDebug() << "copy module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
-                copy_module(sourceModule, destEvent, row);
-            }
+            qDebug() << "copy module" << sourceModule << "to event" << destEvent << ", destRow =" << row;
+            copy_module(sourceModule, destEvent, row);
         }
     }
 
@@ -369,9 +357,9 @@ void VmeConfigItemController::setModel(VmeConfigItemModel *model)
                 return false;
             };
 
-            // FIXME: due to having assigned pointers to all nodes this finds
-            // and expands too much on rerload. Also it doesn't work on app start.
             auto wasExpandedItems = find_items(model_->invisibleRootItem(), predWasExpanded);
+
+            qDebug() << "onRootObjectChanged: " << wasExpandedItems.size() << " items were expanded before: " << wasExpandedItems;
 
             for (auto view: views_)
             {
