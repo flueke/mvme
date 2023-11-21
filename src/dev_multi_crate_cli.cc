@@ -141,11 +141,106 @@ int create_configs(const std::vector<std::string> &mvlcUrls, const std::string &
     return 0;
 }
 
+struct ReplayTestContext
+{
+    size_t totalBuffersSeen;
+    size_t totalBytesSeen;
+};
+
+// This tests listfile reading without knowing the file type. It works assuming
+// that USB/system frames do not collide with eth headers.
+void replay_test_consume_buffer(ReplayTestContext &ctx, const mvlc::ReadoutBuffer *buffer)
+{
+    ++ctx.totalBuffersSeen;
+    ctx.totalBytesSeen += buffer->used();
+    auto input = buffer->viewU32();
+
+    auto it = std::begin(input);
+
+    while (it < std::end(input))
+    {
+        u32 header = *it;
+
+        std::cout << fmt::format("header=0x{:08X}: ", header);
+
+        if (mvlc::is_known_frame_header(header))
+        {
+            auto frameInfo = mvlc::extract_frame_info(header);
+            std::cout << fmt::format("Found known frame header 0x{:08X}, len={}, crate={}",
+                header, frameInfo.len, frameInfo.ctrl);
+            if (frameInfo.type == mvlc::frame_headers::SystemEvent)
+                std::cout << ", sysevent=" << mvlc::system_event_type_to_string(frameInfo.sysEventSubType);
+            std::cout << "\n";
+            it += 1 + frameInfo.len;
+        }
+        else if (it + 1 < std::end(input))
+        {
+            u32 header1 = *(it+1);
+            mvlc::eth::PayloadHeaderInfo ethInfo{ header, header1 };
+            std::cout << fmt::format("Assuming eth packet: len={}, crate={}\n", ethInfo.dataWordCount(), ethInfo.controllerId());
+            it += 2 + ethInfo.dataWordCount();
+        }
+        else
+        {
+            std::cout << fmt::format("Landed on unknown data word 0x{:08X}\n", header);
+            ++it;
+        }
+    }
+
+    std::cout << "End of buffer reached\n";
+}
+
+void do_replay_test(const std::string &filename)
+{
+    mvlc::listfile::SplitZipReader reader;
+    reader.openArchive(filename);
+    auto readHandle = reader.openFirstListfileEntry();
+    auto preamble = mvlc::listfile::read_preamble(*readHandle);
+    std::cout << fmt::format("input file {}: magic={}\n", filename, preamble.magic);
+
+    mvlc::ReadoutBufferQueues bufferQueues;
+    mvlc::ReplayWorker replayWorker(bufferQueues, readHandle);
+
+    if (auto ec = replayWorker.start().get())
+    {
+        std::cerr << "Error from replay worker: " << ec.message() << "\n";
+        return;
+    }
+
+    ReplayTestContext ctx{};
+
+    while (true)
+    {
+        auto buffer = bufferQueues.filledBufferQueue().dequeue(std::chrono::milliseconds(500));
+
+        if (!buffer)
+        {
+            std::cerr << "Did not get a buffer from the buffer queue, leaving loop\n";
+            break;
+        }
+
+        replay_test_consume_buffer(ctx, buffer);
+        bufferQueues.emptyBufferQueue().enqueue(buffer);
+    }
+
+    if (replayWorker.state() != mvlc::ReplayWorker::State::Idle)
+        if (auto ec = replayWorker.stop())
+            std::cerr << "Warning: error from replay worker: " << ec.message() << "\n";
+
+    return;
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
     argh::parser parser({"-h", "--help", "--log-level"});
     parser.parse(argv);
+
+    if (parser[{"-h", "--help"}])
+    {
+        std::cout << "subcommands: create-configs, replay-test\n";
+        std::cout << "RTFS for details :p\n";
+    }
 
     auto cmdName = parser[1];
 
@@ -175,6 +270,18 @@ int main(int argc, char *argv[])
         }
 
         return create_configs(mvlcUrls, outputDirectory);
+    }
+    else if (cmdName == "replay-test")
+    {
+        auto inputFilename = parser[2];
+        if (inputFilename.empty())
+        {
+            std::cerr << "Error: missing input filename\n";
+            return 1;
+        }
+
+        std::cout << "input file is " << inputFilename << "\n";
+        do_replay_test(inputFilename);
     }
 
     return 0;
