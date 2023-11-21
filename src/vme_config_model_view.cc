@@ -182,57 +182,6 @@ QList<QStandardItem *> build_generic(ConfigObject *config)
     return {};
 }
 
-template<typename T> T *qobject_from_pointer(const QVariant &pointer)
-{
-    if (auto obj = reinterpret_cast<QObject *>(pointer.value<quintptr>()))
-    {
-        if (auto config = qobject_cast<T *>(obj))
-            return config;
-    }
-
-    return nullptr;
-}
-
-QMimeData *encode_config_object_pointers(const QStandardItemModel *model, const QModelIndexList &indexes)
-{
-    QVector<QVariant> pointers;
-
-    for (const auto &index: indexes)
-    {
-        if (auto item = model->itemFromIndex(index))
-        {
-            if (item->data(DataRole_Pointer).isValid())
-            {
-                pointers.push_back(item->data(DataRole_Pointer));
-            }
-        }
-    }
-
-    QByteArray buffer;
-    QDataStream stream(&buffer, QIODevice::WriteOnly);
-    stream << pointers;
-
-    auto result = new QMimeData;
-    result->setData(qobject_pointers_mimetype(), buffer);
-    return result;
-}
-
-QVector<ConfigObject *> decode_config_object_pointers(const QMimeData *mimeData)
-{
-    auto data = mimeData->data(qobject_pointers_mimetype());
-    QVector<QVariant> pointers;
-    QDataStream stream(&data, QIODevice::ReadOnly);
-    stream >> pointers;
-    QVector<ConfigObject *> result;
-
-    for (const auto &pointer: pointers)
-    {
-        if (auto config = qobject_from_pointer<ConfigObject>(pointer))
-            result.push_back(config);
-    }
-
-    return result;
-}
 
 void VmeConfigItemModel::setRootObject(ConfigObject *obj)
 {
@@ -255,7 +204,7 @@ QStringList VmeConfigItemModel::mimeTypes() const
 
 QMimeData *VmeConfigItemModel::mimeData(const QModelIndexList &indexes) const
 {
-    return encode_config_object_pointers(this, indexes);
+    return mime_data_from_model_pointers(this, indexes);
 }
 
 bool VmeConfigItemModel::canDropMimeData(const QMimeData *data, Qt::DropAction action,
@@ -281,7 +230,7 @@ bool VmeConfigItemModel::dropMimeData(const QMimeData *data, Qt::DropAction acti
     if (!data->hasFormat(qobject_pointers_mimetype()))
         return false;
 
-    auto objects = decode_config_object_pointers(data);
+    auto objects = object_pointers_from_mime_data<ConfigObject>(data);
     qDebug() << "objects =" << objects;
 
     if (objects.isEmpty())
@@ -352,22 +301,26 @@ void VmeConfigItemController::setModel(VmeConfigItemModel *model)
             auto predWasExpanded = [] (QStandardItem *item)
             {
                 if (auto obj = qobject_from_pointer<ConfigObject>(item->data(DataRole_Pointer)))
+                {
                     return was_configobject_expanded(obj->getId());
+                }
 
                 return false;
             };
 
             auto wasExpandedItems = find_items(model_->invisibleRootItem(), predWasExpanded);
 
-            qDebug() << "onRootObjectChanged: " << wasExpandedItems.size() << " items were expanded before: " << wasExpandedItems;
-
             for (auto view: views_)
             {
                 for (auto item: eventItems)
-                    view->setExpanded(item->index(), true);
+                {
+                    expand_to_root(view, item->index());
+                }
 
                 for (auto item: wasExpandedItems)
-                    view->setExpanded(item->index(), true);
+                {
+                    expand_to_root(view, item->index());
+                }
 
                 view->resizeColumnToContents(0);
             }

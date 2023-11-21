@@ -2,6 +2,7 @@
 #define __MVME_UTIL_QT_MODEL_VIEW_UTIL_H__
 
 #include <QHeaderView>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QStandardItem>
@@ -77,6 +78,15 @@ inline void set_expansion_state(QTreeView *view, const TreeViewExpansionState &s
             view->setExpanded(index, true);
             parent = index;
         }
+    }
+}
+
+inline void expand_to_root(QTreeView *view, QModelIndex index)
+{
+    while (index.isValid())
+    {
+        view->setExpanded(index, true);
+        index = index.parent();
     }
 }
 
@@ -223,6 +233,32 @@ template<typename T> T *qobject_from_pointer(const QVariant &pointer)
 
     return nullptr;
 }
+
+template<typename TargetType> TargetType *qobject_from_item(
+    const QStandardItem *item, int dataRole = DataRole_Pointer)
+{
+    return qobject_from_pointer<TargetType>(item->data(dataRole));
+}
+
+template<typename TargetType>
+QVector<TargetType *> object_pointers_from_mime_data(const QMimeData *mimeData)
+{
+    auto data = mimeData->data(qobject_pointers_mimetype());
+    QVector<QVariant> pointers;
+    QDataStream stream(&data, QIODevice::ReadOnly);
+    stream >> pointers;
+    QVector<TargetType *> result;
+
+    for (const auto &pointer: pointers)
+    {
+        if (auto config = qobject_from_pointer<TargetType>(pointer))
+            result.push_back(config);
+    }
+
+    return result;
+}
+
+QMimeData *mime_data_from_model_pointers(const QStandardItemModel *model, const QModelIndexList &indexes);
 
 }
 

@@ -248,6 +248,7 @@ add_library(libmvme SHARED
     util/qt_eventfilters.cc
     util/qt_gui_io.cc
     util/qt_logview.cc
+    util/qt_model_view_util.cc
     util/qt_monospace_textedit.cc
     util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp

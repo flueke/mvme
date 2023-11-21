@@ -103,8 +103,12 @@ int main(int argc, char **argv)
     QObject::connect(treeView3, &QTreeView::clicked, [&] (const QModelIndex &index)
     {
         auto item = itemModel->itemFromIndex(index);
-        qDebug() << item << item->text() << item->data(DataRole_Pointer) << item->type()
-            << reinterpret_cast<QObject *>(item->data(DataRole_Pointer).value<quintptr>());
+        if (item)
+        {
+            auto configObject = qobject_from_item<ConfigObject>(item);
+            qDebug() << item << item->text() << item->data(DataRole_Pointer) << item->type()
+                << (configObject ? configObject->getId() : QUuid());
+        }
     });
 
     auto toolbar = new QToolBar;
