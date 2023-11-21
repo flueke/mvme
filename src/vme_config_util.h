@@ -101,7 +101,6 @@ std::unique_ptr<ObjectType> configobject_from_json(const QJsonObject &json, cons
 {
     auto result = std::make_unique<ObjectType>();
     result->read(json[jsonRoot].toObject());
-    generate_new_object_ids(result.get());
     return result;
 }
 
