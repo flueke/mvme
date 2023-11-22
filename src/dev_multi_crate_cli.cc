@@ -177,13 +177,13 @@ void replay_test_consume_buffer(ReplayTestContext &ctx, const mvlc::ReadoutBuffe
         {
             u32 header1 = *(it+1);
             mvlc::eth::PayloadHeaderInfo ethInfo{ header, header1 };
-            std::cout << fmt::format("Assuming eth packet: len={}, crate={}\n", ethInfo.dataWordCount(), ethInfo.controllerId());
+            std::cout << fmt::format("Assuming eth packet: packetNumber={}, len={}, crate={}\n",
+                ethInfo.packetNumber(), ethInfo.dataWordCount(), ethInfo.controllerId());
             it += 2 + ethInfo.dataWordCount();
         }
         else
         {
-            std::cout << fmt::format("Landed on unknown data word 0x{:08X}\n", header);
-            ++it;
+            throw std::runtime_error(fmt::format("Landed on unknown data word 0x{:08X}\n", header));
         }
     }
 
