@@ -864,6 +864,18 @@ bool run_daq_start_sequence(
         }
     }
 
+    // Controller/Crate Id ===============================================================
+    {
+        unsigned ctrlId = vmeConfig.getControllerSettings().value("mvlc_ctrl_id").toUInt();
+
+        logger(QSL("  Setting crate id = %1").arg(ctrlId));
+        if (auto ec = mvlc.writeRegister(mvlc::ControllerIdRegister, ctrlId))
+        {
+            logger(QSL("Error setting crate id: %2").arg(ec.message().c_str()));
+            return false;
+        }
+    }
+
     // Trigger IO ========================================================================
 
     logger("  Applying MVLC Trigger & I/O setup");

@@ -84,6 +84,7 @@ class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
         QLineEdit *le_serial;
         QPushButton *pb_listDevices;
         QTextBrowser *tb_devices;
+        QSpinBox *spin_crateId;
 };
 
 class MVLC_ETH_SettingsWidget: public VMEControllerSettingsWidget
@@ -98,6 +99,7 @@ class MVLC_ETH_SettingsWidget: public VMEControllerSettingsWidget
     private:
         QLineEdit *le_address;
         QCheckBox *cb_jumboFrames;
+        QSpinBox *spin_crateId;
 };
 
 
