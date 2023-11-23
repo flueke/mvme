@@ -174,7 +174,6 @@ read_mvlc_trigger_io_scripts();
 GenericVMEScriptInfo LIBMVME_EXPORT
 read_default_mvlc_trigger_io_script();
 
-
 }  // namespace vats
 
 #endif /* __TEMPLATE_SYSTEM_H__ */

@@ -110,6 +110,7 @@ std::unique_ptr<ObjectType> configobject_from_json(const QJsonObject &json, cons
 std::pair<VMEControllerType, QVariantMap> LIBMVME_EXPORT mvlc_settings_from_url(const std::string &mvlcUrl);
 
 std::unique_ptr<ConfigObject> deserialize_object(const QJsonObject &json);
+QJsonDocument serialize_object(const ConfigObject *obj);
 
 template<typename ConfigObjectType>
 std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &source)

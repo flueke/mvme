@@ -698,6 +698,36 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
 }
 #endif
 
+QString info_text(const VMEConfig *config)
+{
+    if (!is_mvlc_controller(config->getControllerType()))
+        return {};
+
+    auto settings = config->getControllerSettings();
+    QString ret;
+
+    if (config->getControllerType() == VMEControllerType::MVLC_ETH)
+    {
+        ret = QSL("eth://%1").arg(settings.value("mvlc_hostname").toString());
+    }
+    else if (settings.value("method").toString() == "by_index")
+    {
+        ret = QSL("usb://@%1").arg(settings.value("serial").toString());
+    }
+    else if (settings.value("method").toString() == "by_serial")
+    {
+        ret = QSL("usb://%1").arg(settings.value("serial").toString());
+    }
+    else if (settings.value("method").toString() == "first")
+    {
+        ret = QSL("usb://");
+    }
+
+    ret = QSL("MVLC ") + ret;
+
+    return ret;
+}
+
 QString info_text(const EventConfig *config)
 {
     QString infoText;
@@ -729,6 +759,15 @@ QString info_text(const EventConfig *config)
                     .arg(TriggerConditionNames.value(config->triggerCondition));
             } break;
     }
+
+    return infoText;
+}
+
+QString info_text(const ModuleConfig *config)
+{
+    QString infoText = QString("Type=%1, Address=0x%2")
+        .arg(config->getModuleMeta().displayName)
+        .arg(config->getBaseAddress(), 8, 16, QChar('0'));
 
     return infoText;
 }

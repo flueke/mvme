@@ -19,7 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "template_system.h"
-#include "qt_util.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -30,9 +29,11 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QTextStream>
+#include <limits>
 #include <spdlog/spdlog.h>
 
-#include <limits>
+#include "qt_util.h"
+#include "vme_config_util.h"
 
 namespace
 {
@@ -566,5 +567,6 @@ GenericVMEScriptInfo read_default_mvlc_trigger_io_script()
 
     return {};
 }
+
 
 } // namespace vats

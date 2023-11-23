@@ -69,6 +69,10 @@ QList<QStandardItem *> build_vmeconfig(VMEConfig *config)
         .qObject(config)
         .build();
 
+    auto root1 = ItemBuilder(ConfigItemType::Unspecified)
+        .build();
+    root1->setText(info_text(config));
+
     auto triggerIo = ItemBuilder(ConfigItemType::VMEScript, "MVLC Trigger/IO")
         .qObject(config->getMVLCTriggerIOScript())
         .build();
@@ -90,7 +94,7 @@ QList<QStandardItem *> build_vmeconfig(VMEConfig *config)
     root->appendRow(events);
     root->appendRow(daqStop);
     root->appendRow(manual);
-    return { root };
+    return { root, root1 };
 }
 
 QList<QStandardItem *> build_eventconfig(EventConfig *config)
@@ -99,8 +103,9 @@ QList<QStandardItem *> build_eventconfig(EventConfig *config)
         .qObject(config)
         .build();
 
-    auto root1 = ItemBuilder(ConfigItemType::Unspecified, info_text(config))
+    auto root1 = ItemBuilder(ConfigItemType::Unspecified)
         .build();
+    root1->setText(info_text(config));
 
     auto modules = ItemBuilder(ConfigItemType::EventModulesInit, QIcon(":/config_category.png"), "Modules Init")
         .enableFlags(Qt::ItemIsDropEnabled)
@@ -147,6 +152,10 @@ QList<QStandardItem *> build_moduleconfig(ModuleConfig *config)
         .enableFlags(Qt::ItemIsDragEnabled | Qt::ItemIsEditable)
         .build();
 
+    auto root1 = ItemBuilder(ConfigItemType::Unspecified)
+        .build();
+    root1->setText(info_text(config));
+
     auto reset = build_generic(config->getResetScript());
     root->appendRow(reset);
 
@@ -156,7 +165,7 @@ QList<QStandardItem *> build_moduleconfig(ModuleConfig *config)
         root->appendRow(row);
     }
 
-    return { root };
+    return { root, root1 };
 }
 
 QList<QStandardItem *> build_generic(ConfigObject *config)
@@ -189,11 +198,15 @@ void VmeConfigItemModel::setRootObject(ConfigObject *obj)
     clear();
     setItemPrototype(new BaseItem);
     setHorizontalHeaderLabels({ "Object", "Info"});
-    auto row = build_generic(obj);
-    invisibleRootItem()->appendRow(row);
-    auto oldRoot = rootObject_;
+
+    if (obj)
+    {
+        auto row = build_generic(obj);
+        invisibleRootItem()->appendRow(row);
+    }
+
     rootObject_ = obj;
-    emit rootObjectChanged(oldRoot, rootObject_);
+    emit rootObjectChanged(rootObject_);
     qDebug() << "end VmeConfigItemModel::setRootObject()";
 }
 
@@ -283,11 +296,8 @@ void VmeConfigItemController::setModel(VmeConfigItemModel *model)
     model_ = model;
 
     connect(model, &VmeConfigItemModel::rootObjectChanged,
-        this, [this] (ConfigObject *oldRoot, ConfigObject *newRoot)
+        this, [this] (ConfigObject *newRoot)
         {
-            if (oldRoot)
-                disconnectFromObjects(oldRoot);
-
             if (newRoot)
                 connectToObjects(newRoot);
 
@@ -337,11 +347,15 @@ void VmeConfigItemController::setModel(VmeConfigItemModel *model)
                     view->resizeColumnToContents(0);
             }
         }, Qt::QueuedConnection);
+
+    for (auto view: views_)
+        view->setModel(model_);
 }
 
 void VmeConfigItemController::addView(QTreeView *view)
 {
     views_.push_back(view);
+    view->setModel(model_);
 
     connect(view, &QTreeView::expanded, view, [view, this] (const QModelIndex &index)
     {

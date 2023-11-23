@@ -14,34 +14,6 @@
 using namespace mesytec;
 using namespace mesytec::mvme;
 
-struct MulticrateTemplates
-{
-    std::unique_ptr<EventConfig> startEvent;
-    std::unique_ptr<EventConfig> stopEvent;
-    std::unique_ptr<EventConfig> masterEvent;
-    std::unique_ptr<EventConfig> slaveEvent;
-    QString setMasterModeScript;
-    QString setSlaveModeScript;
-    QString triggerIoScript;
-};
-
-MulticrateTemplates read_multicrate_templates()
-{
-    MulticrateTemplates result;
-    auto dir = QDir(vats::get_template_path());
-
-    result.startEvent  = vme_config::eventconfig_from_file(dir.filePath("multicrate/start_event.mvmeevent"));
-    result.stopEvent   = vme_config::eventconfig_from_file(dir.filePath("multicrate/stop_event.mvmeevent"));
-    result.masterEvent = vme_config::eventconfig_from_file(dir.filePath("multicrate/master_event0.mvmeevent"));
-    result.slaveEvent  = vme_config::eventconfig_from_file(dir.filePath("multicrate/slave_event0.mvmeevent"));
-
-    result.setMasterModeScript = read_text_file(dir.filePath("multicrate/set_master_mode.vmescript"));
-    result.setSlaveModeScript  = read_text_file(dir.filePath("multicrate/set_slave_mode.vmescript"));
-    result.triggerIoScript     = read_text_file(dir.filePath("multicrate/mvlc_trigger_io.vmescript"));
-
-    return result;
-}
-
 std::vector<std::unique_ptr<VMEConfig>> make_multicrate_vme_configs(const std::vector<std::string> &mvlcUrls)
 {
     // read template files from multicrate subdirectory
@@ -53,7 +25,7 @@ std::vector<std::unique_ptr<VMEConfig>> make_multicrate_vme_configs(const std::v
         return {};
 
     std::vector<std::unique_ptr<VMEConfig>> result;
-    auto templates = read_multicrate_templates();
+    auto templates = multi_crate::read_multicrate_templates();
 
     for (auto urlIter = std::begin(mvlcUrls); urlIter != std::end(mvlcUrls); ++urlIter)
     {

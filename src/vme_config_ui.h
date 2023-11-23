@@ -102,6 +102,8 @@ class ModuleConfigDialog: public QDialog
 
 QLineEdit *make_vme_address_edit(u32 address = 0u, QWidget *parent = nullptr);
 
+QString info_text(const VMEConfig *config);
 QString info_text(const EventConfig *config);
+QString info_text(const ModuleConfig *config);
 
 #endif /* __CONFIG_WIDGETS_H__ */

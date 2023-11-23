@@ -315,6 +315,7 @@ target_link_libraries(libmvme
     PUBLIC cpp11-on-multicore
     PUBLIC libmvme_resources
     PUBLIC mesytec-mvlc
+    PUBLIC nng
     PUBLIC yaml-cpp
     )
 

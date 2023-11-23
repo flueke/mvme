@@ -3,14 +3,21 @@
 #include <QApplication>
 #include <QBoxLayout>
 #include <QCloseEvent>
+#include <QLineEdit>
 #include <QMenuBar>
 #include <QSettings>
 #include <QStatusBar>
 #include <QWindow>
 #include <QScrollArea>
 
+#include "multi_crate.h"
 #include "qt_util.h"
+#include "util/qt_model_view_util.h"
+#include "vme_config_model_view.h"
 #include "vme_config_tree.h"
+
+namespace mesytec::mvme
+{
 
 struct MultiCrateMainWindow::Private
 {
@@ -23,10 +30,25 @@ struct MultiCrateMainWindow::Private
     QBoxLayout *centralLayout;
     QStatusBar *statusBar;
     QMenuBar *menuBar;
+    QToolBar *configToolBar;
+    QToolBar *daqToolBar;
+    QLineEdit *le_filename;
     WidgetGeometrySaver *geometrySaver;
 
-    std::vector<VMEConfigTreeWidget *> crateConfigWidgets;
-    std::vector<std::shared_ptr<VMEConfig>> crateConfigs;
+    VmeConfigItemModel *vmeConfigModel_;
+    VmeConfigItemController *vmeConfigController_;
+    QTreeView *vmeConfigView_;
+    std::shared_ptr<ConfigObject> vmeConfig_;
+    QString vmeConfigFilename_;
+
+    void onViewItemDoubleClicked(const QModelIndex &index)
+    {
+        if (auto item = vmeConfigModel_->itemFromIndex(index))
+        {
+            if (auto config = qobject_from_item<VMEScriptConfig>(item))
+                emit q->editVmeScript(config);
+        }
+    }
 };
 
 MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
@@ -37,40 +59,110 @@ MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
     setWindowTitle("mvme multi crate");
 
     d->centralWidget          = new QWidget(this);
-    d->centralLayout          = new QHBoxLayout(d->centralWidget);
+    d->centralLayout          = new QVBoxLayout(d->centralWidget);
     d->statusBar              = new QStatusBar(this);
     d->statusBar->setSizeGripEnabled(false);
     d->menuBar                = new QMenuBar(this);
+    d->configToolBar = new QToolBar(this);
+    d->configToolBar->setObjectName("VmeConfigToolBar");
+    d->configToolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    d->daqToolBar = new QToolBar(this);
+    d->daqToolBar->setObjectName("DaqToolBar");
+    d->daqToolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    d->le_filename = new QLineEdit;
+    d->le_filename->setReadOnly(true);
     d->geometrySaver          = new WidgetGeometrySaver(this);
 
     setCentralWidget(d->centralWidget);
     setStatusBar(d->statusBar);
     setMenuBar(d->menuBar);
+    addToolBar(d->configToolBar);
+    addToolBar(d->daqToolBar);
 
-    auto menu = d->menuBar->addMenu("&File");
-    auto action = menu->addAction("&Quit", this, [this] { close(); });
-    action->setShortcut(QSL("Ctrl+Q"));
-    action->setShortcutContext(Qt::ApplicationShortcut);
-
-    auto containerWidget = new QWidget;
-    auto containerLayout = new QHBoxLayout(containerWidget);
-
-    for (int i=0; i<3; ++i)
-    {
-        auto w = new VMEConfigTreeWidget();
-        containerLayout->addWidget(w);
-        //d->centralLayout->addWidget(w);
-        d->crateConfigWidgets.push_back(w);
-        auto crateConfig = std::make_shared<VMEConfig>();
-        d->crateConfigs.push_back(crateConfig);
-        w->setConfig(crateConfig.get());
-    }
+    d->vmeConfigModel_ = new VmeConfigItemModel(this);
+    d->vmeConfigController_ = new VmeConfigItemController(this);
+    d->vmeConfigView_ = new VmeConfigTreeView;
+    d->vmeConfigController_->setModel(d->vmeConfigModel_);
+    d->vmeConfigController_->addView(d->vmeConfigView_);
 
     auto scrollArea = new QScrollArea;
     //scrollArea->setBackgroundRole(QPalette::Dark);
     scrollArea->setWidgetResizable(true);
-    scrollArea->setWidget(containerWidget);
+    scrollArea->setWidget(d->vmeConfigView_);
+
+    d->centralLayout->addWidget(d->le_filename);
     d->centralLayout->addWidget(scrollArea);
+
+    auto menuFile = d->menuBar->addMenu("&File");
+
+    auto actionNewVMEConfig     = new QAction(QIcon(QSL(":/document-new.png")), QSL("New VME Config"), this);
+    actionNewVMEConfig->setToolTip(QSL("New VME Config"));
+    actionNewVMEConfig->setIconText(QSL("New"));
+    actionNewVMEConfig->setObjectName(QSL("actionNewVMEConfig"));
+    actionNewVMEConfig->setShortcut(QSL("Ctrl+N"));
+
+    auto actionOpenVMEConfig    = new QAction(QIcon(QSL(":/document-open.png")), QSL("Open VME Config"), this);
+    actionOpenVMEConfig->setObjectName(QSL("actionOpenVMEConfig"));
+    actionOpenVMEConfig->setToolTip(QSL("Open VME Config"));
+    actionOpenVMEConfig->setIconText(QSL("Open"));
+    actionOpenVMEConfig->setShortcut(QSL("Ctrl+O"));
+
+    auto actionSaveVMEConfig    = new QAction(QIcon(QSL(":/document-save.png")), QSL("Save VME Config"), this);
+    actionSaveVMEConfig->setObjectName(QSL("actionSaveVMEConfig"));
+    actionSaveVMEConfig->setToolTip(QSL("Save VME Config"));
+    actionSaveVMEConfig->setIconText(QSL("Save"));
+    actionSaveVMEConfig->setShortcut(QSL("Ctrl+S"));
+
+    auto actionSaveVMEConfigAs  = new QAction(QIcon(QSL(":/document-save-as.png")), QSL("Save VME Config As"), this);
+    actionSaveVMEConfigAs->setObjectName(QSL("actionSaveVMEConfigAs"));
+    actionSaveVMEConfigAs->setToolTip(QSL("Save VME Config As"));
+    actionSaveVMEConfigAs->setIconText(QSL("Save As"));
+
+    auto actionQuit = menuFile->addAction("&Quit", this, [this] { close(); });
+    actionQuit->setShortcut(QSL("Ctrl+Q"));
+    actionQuit->setShortcutContext(Qt::ApplicationShortcut);
+
+    auto actionReloadView = new QAction("Reload View");
+    connect(actionReloadView, &QAction::triggered, this, [this] {
+        if (d->vmeConfig_)
+        {
+            d->vmeConfigModel_->setRootObject(d->vmeConfig_.get());
+            d->vmeConfigView_->setRootIndex(d->vmeConfigModel_->invisibleRootItem()->child(0)->index());
+        }
+    });
+
+    d->configToolBar->addAction(actionNewVMEConfig);
+    d->configToolBar->addAction(actionOpenVMEConfig);
+    d->configToolBar->addAction(actionSaveVMEConfig);
+    d->configToolBar->addAction(actionSaveVMEConfigAs);
+    d->configToolBar->addAction(actionReloadView);
+
+    connect(actionNewVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::newVmeConfig);
+    connect(actionOpenVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::openVmeConfig);
+    connect(actionSaveVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfig);
+    connect(actionSaveVMEConfigAs, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfigAs);
+
+    auto actionDaqStart    = new QAction(QIcon(":/control_play.png"), QSL("Start DAQ"), this);
+    actionDaqStart->setObjectName(QSL("actionDaqStart"));
+    auto actionDaqStop     = new QAction(QIcon(":/control_stop_square.png"), QSL("Stop DAQ"), this);
+    actionDaqStop->setObjectName(QSL("actionDaqStop"));
+    auto actionDaqPause    = new QAction(QIcon(":/control_pause.png"), QSL("Pause DAQ"), this);
+    actionDaqPause->setObjectName(QSL("actionDaqPause"));
+    auto actionDaqResume   = new QAction(QIcon(":/control_play.png"), QSL("Resume DAQ"), this);
+    actionDaqResume->setObjectName(QSL("actionDaqResume"));
+
+    d->daqToolBar->addAction(actionDaqStart);
+    d->daqToolBar->addAction(actionDaqStop);
+    d->daqToolBar->addAction(actionDaqPause);
+    d->daqToolBar->addAction(actionDaqResume);
+
+    connect(actionDaqStart, &QAction::triggered, this, &MultiCrateMainWindow::startDaq);
+    connect(actionDaqStop, &QAction::triggered, this, &MultiCrateMainWindow::stopDaq);
+    connect(actionDaqPause, &QAction::triggered, this, &MultiCrateMainWindow::pauseDaq);
+    connect(actionDaqResume, &QAction::triggered, this, &MultiCrateMainWindow::resumeDaq);
+
+    connect(d->vmeConfigView_, &QTreeView::doubleClicked,
+        this, [this] (const QModelIndex &index) { d->onViewItemDoubleClicked(index); });
 }
 
 MultiCrateMainWindow::~MultiCrateMainWindow()
@@ -109,4 +201,40 @@ void MultiCrateMainWindow::closeEvent(QCloseEvent *event)
 
     if (auto app = qobject_cast<QApplication *>(qApp))
         app->closeAllWindows();
+}
+
+void MultiCrateMainWindow::setConfig(const std::shared_ptr<ConfigObject> &config, const QString &filename)
+{
+    d->vmeConfig_ = config;
+    d->vmeConfigFilename_ = filename;
+
+    d->vmeConfigModel_->setRootObject(d->vmeConfig_.get());
+
+    if (d->vmeConfig_ && d->vmeConfigModel_->invisibleRootItem()->child(0))
+    {
+        d->vmeConfigView_->setRootIndex(d->vmeConfigModel_->invisibleRootItem()->child(0)->index());
+    }
+
+    if (d->vmeConfigFilename_.isEmpty())
+        d->le_filename->setText("<unsaved>");
+    else
+        d->le_filename->setText(d->vmeConfigFilename_);
+}
+
+std::shared_ptr<ConfigObject> MultiCrateMainWindow::getConfig()
+{
+    return d->vmeConfig_;
+}
+
+void MultiCrateMainWindow::setConfigFilename(const QString &filename)
+{
+    d->vmeConfigFilename_ = filename;
+    d->le_filename->setText(d->vmeConfigFilename_);
+}
+
+QString MultiCrateMainWindow::getConfigFilename() const
+{
+    return d->vmeConfigFilename_;
+}
+
 }

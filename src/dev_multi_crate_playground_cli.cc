@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
         crateVMEConfigs, crossCrateEvents);
 
     // MultiCrate readout instance
-    MultiCrateReadout mcrdo;
+    MultiCrateReadout_first mcrdo;
 
     // Create an empty analysis. For a first test it's going to run in the
     // EventBuilder thread.

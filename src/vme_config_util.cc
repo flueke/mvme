@@ -345,6 +345,19 @@ std::unique_ptr<ConfigObject> deserialize_object(const QJsonObject &json)
     return result;
 }
 
+QJsonDocument serialize_object(const ConfigObject *obj)
+{
+    if (auto vmeConfig = qobject_cast<const VMEConfig *>(obj))
+    {
+        return serialize_vme_config_to_json_document(*vmeConfig);
+    }
+    else if (auto multicrateConfig = qobject_cast<const multi_crate::MulticrateVMEConfig *>(obj))
+    {
+        return serialize_multicrate_config_to_json_document(*multicrateConfig);
+    }
+
+    return {};
+}
 
 bool serialize_multicrate_config_to_device(QIODevice &out, const multi_crate::MulticrateVMEConfig &config)
 {

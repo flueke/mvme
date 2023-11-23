@@ -79,8 +79,6 @@ int main(int argc, char *argv[])
 
     // debug code here: write output of some mvlc loggers to mvlc_trace.log
     if (args.contains("--trace-mvlc"))
-
-
     {
         mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::trace);
         mesytec::mvlc::get_logger("mvlc")->set_level(spdlog::level::trace);

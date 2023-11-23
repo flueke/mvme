@@ -1627,9 +1627,7 @@ void VMEConfigTreeWidget::onModuleAdded(ModuleConfig *module, int moduleIndex)
         node->readoutNode->setText(0, module->objectName());
         //node->setCheckState(0, module->isEnabled() ? Qt::Checked : Qt::Unchecked);
 
-        QString infoText = QString("Type=%1, Address=0x%2")
-            .arg(module->getModuleMeta().displayName)
-            .arg(module->getBaseAddress(), 8, 16, QChar('0'));
+        auto infoText = info_text(module);
 
         node->setText(1, infoText);
     };

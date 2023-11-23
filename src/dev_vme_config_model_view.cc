@@ -44,33 +44,7 @@ int main(int argc, char **argv)
 
     qDebug() << "read config object: " << config.get();
 
-    #if 0
-    auto vmeConfigFilename = QSettings().value("LastVMEConfig").toString();
-
-    if (!vmeConfigFilename.isEmpty())
-    {
-        QString errString;
-        std::tie(vmeConfig, errString) = read_vme_config_from_file(vmeConfigFilename, logger);
-        if (!vmeConfig)
-            spdlog::error("Error loading vme config from {}: {}",
-                          vmeConfigFilename.toStdString(), errString.toStdString());
-    }
-
-    if (!vmeConfig)
-    {
-        vmeConfigFilename = QFileDialog::getOpenFileName(
-            nullptr, "Load VME config from file", {}, "VME Configs (*.vme)");
-        QString errString;
-        std::tie(vmeConfig, errString) = read_vme_config_from_file(vmeConfigFilename, logger);
-        if (!vmeConfig)
-            spdlog::error("Error loading vme config from {}: {}",
-                          vmeConfigFilename.toStdString(), errString.toStdString());
-    }
-
-    QSettings().setValue("LastVMEConfig", vmeConfigFilename);
-    #endif
-
-#if 0
+#if 0 // old VMEConfigTreeWidget
     auto vmeConfig = qobject_cast<VMEConfig *>(config.get());
     VMEConfigTreeWidget treeWidget;
     if (vmeConfig)
@@ -86,9 +60,11 @@ int main(int argc, char **argv)
     auto treeView3 = new QTreeView();
     auto itemModel = std::make_unique<VmeConfigItemModel>();
     auto controller = std::make_unique<VmeConfigItemController>();
-    treeView3->setModel(itemModel.get());
     controller->setModel(itemModel.get());
     controller->addView(treeView3);
+
+    //treeView3->setModel(itemModel.get());
+
     itemModel->setRootObject(config.get());
     treeView3->setEditTriggers(QAbstractItemView::EditKeyPressed);
     treeView3->setDefaultDropAction(Qt::MoveAction); // internal DnD

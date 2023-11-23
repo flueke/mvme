@@ -31,7 +31,7 @@ class VmeConfigItemModel: public QStandardItemModel
 {
     Q_OBJECT
     signals:
-        void rootObjectChanged(ConfigObject *oldRoot, ConfigObject *root);
+        void rootObjectChanged(ConfigObject *root);
 
     public:
         using QStandardItemModel::QStandardItemModel;
@@ -75,6 +75,24 @@ class VmeConfigItemController: public QObject
         void disconnectFromObjects(ConfigObject *root);
         VmeConfigItemModel *model_ = nullptr;
         QVector<QTreeView *> views_;
+};
+
+class VmeConfigTreeView: public QTreeView
+{
+    Q_OBJECT
+    public:
+        VmeConfigTreeView(QWidget *parent = nullptr)
+            : QTreeView(parent)
+        {
+            setEditTriggers(QAbstractItemView::EditKeyPressed);
+            setDefaultDropAction(Qt::MoveAction); // internal DnD
+            setDragDropMode(QAbstractItemView::DragDrop); // external DnD
+            setDragDropOverwriteMode(false);
+            setDragEnabled(true);
+            show();
+            resize(500, 700);
+            resizeColumnToContents(0);
+        }
 };
 
 #if 0

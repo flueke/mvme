@@ -14,6 +14,7 @@
     <file alias="control_pause.png">resources/control-pause.png</file>
     <file alias="control_play.png">resources/control.png</file>
     <file alias="control_play_stop.png">resources/control-stop.png</file>
+    <file alias="control_stop_square.png">resources/control-stop-square.png</file>
     <file alias="data_filter.png">resources/view-filter.png</file>
     <file alias="multi_hit_filter.png">resources/multi_hit_filter.png</file>
     <file alias="dialog-close.png">resources/dialog-close.png</file>
