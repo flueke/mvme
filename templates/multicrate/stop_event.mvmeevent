@@ -1,7 +1,7 @@
 {
     "EventConfig": {
         "enabled": true,
-        "id": "{6f96e1dc-84e5-41e6-9cb2-5f580cc31539}",
+        "id": "{2b5476bd-5748-42b1-bfd8-bd5fae003d6f}",
         "irqLevel": 2,
         "irqVector": 0,
         "modules": [
@@ -44,7 +44,7 @@
         "vme_scripts": {
             "daq_start": {
                 "enabled": true,
-                "id": "{489e6232-b6af-47d7-a1bf-05366c3206bd}",
+                "id": "{92ca681c-3732-4c27-b581-bf257b3d458e}",
                 "name": "DAQ Start",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -58,7 +58,7 @@
             },
             "daq_stop": {
                 "enabled": true,
-                "id": "{5ac69908-f58e-4079-9e94-1618b51fead8}",
+                "id": "{5141f216-8b02-42b1-9d24-a0e25c0390f8}",
                 "name": "DAQ Stop",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -72,7 +72,7 @@
             },
             "readout_end": {
                 "enabled": true,
-                "id": "{7f40fb89-1b2c-4ac7-a1a6-fe632739ea50}",
+                "id": "{792e8e3c-b7e5-4859-a7d0-a864d55c4529}",
                 "name": "Cycle End",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -86,7 +86,7 @@
             },
             "readout_start": {
                 "enabled": true,
-                "id": "{4942355e-757f-4c2b-84e5-3d895e55726f}",
+                "id": "{4154e458-6eec-4f82-8f0d-5cf795abacc0}",
                 "name": "Cycle Start",
                 "properties": {
                     "icon": ":/vme_script.png"

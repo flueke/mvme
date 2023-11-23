@@ -1,9 +1,13 @@
 #include "multi_crate.h"
 
 #include <cassert>
-#include <stdexcept>
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include <QDir>
+#include <stdexcept>
+
+#include "util/qt_fs.h"
 #include "vme_config_scripts.h"
+#include "vme_config_util.h"
 
 namespace mesytec::mvme::multi_crate
 {
@@ -426,6 +430,59 @@ void multi_crate_playground()
     CrateReadout crateReadout;
 
     CrateReadout crateReadout2(std::move(crateReadout));
+}
+
+MulticrateTemplates read_multicrate_templates()
+{
+    MulticrateTemplates result;
+    auto dir = QDir(vats::get_template_path());
+
+    result.startEvent  = vme_config::eventconfig_from_file(dir.filePath("multicrate/start_event.mvmeevent"));
+    result.stopEvent   = vme_config::eventconfig_from_file(dir.filePath("multicrate/stop_event.mvmeevent"));
+    result.dataEvent   = vme_config::eventconfig_from_file(dir.filePath("multicrate/data_event0.mvmeevent"));
+
+    result.setMasterModeScript = read_text_file(dir.filePath("multicrate/set_master_mode.vmescript"));
+    result.setSlaveModeScript  = read_text_file(dir.filePath("multicrate/set_slave_mode.vmescript"));
+    result.triggerIoScript     = read_text_file(dir.filePath("multicrate/mvlc_trigger_io.vmescript"));
+
+    return result;
+}
+
+std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates)
+{
+    auto templates = multi_crate::read_multicrate_templates();
+    auto result = std::make_unique<MulticrateVMEConfig>();
+
+    for (size_t crateId = 0; crateId < numCrates; ++crateId)
+    {
+        auto crateConfig = std::make_unique<VMEConfig>();
+        crateConfig->setObjectName(fmt::format("crate{}", crateId).c_str());
+        crateConfig->setVMEController(VMEControllerType::MVLC_ETH);
+        crateConfig->addEventConfig(vme_config::clone_config_object(*templates.startEvent).release());
+        crateConfig->addEventConfig(vme_config::clone_config_object(*templates.stopEvent).release());
+        crateConfig->addEventConfig(vme_config::clone_config_object(*templates.dataEvent).release());
+        auto setMasterSlaveScript = std::make_unique<VMEScriptConfig>();
+
+        if (crateId == 0)
+        {
+            setMasterSlaveScript->setObjectName("set master mode");
+            setMasterSlaveScript->setScriptContents(templates.setMasterModeScript);
+        }
+        else
+        {
+            setMasterSlaveScript->setObjectName("set slave mode");
+            setMasterSlaveScript->setScriptContents(templates.setSlaveModeScript);
+        }
+
+        crateConfig->addGlobalScript(setMasterSlaveScript.release(), "daq_start");
+
+        if (auto triggerIo = crateConfig->getMVLCTriggerIOScript())
+            triggerIo->setScriptContents(templates.triggerIoScript);
+
+        result->addCrateConfig(crateConfig.release());
+    }
+
+    return result;
 }
 
 }

@@ -1,7 +1,7 @@
 {
     "EventConfig": {
         "enabled": true,
-        "id": "{588e4cc1-6b43-494f-82f3-e032317b67c8}",
+        "id": "{472bc14a-1e84-4b2a-9703-7ec42689060f}",
         "irqLevel": 1,
         "irqVector": 0,
         "modules": [
@@ -44,7 +44,7 @@
         "vme_scripts": {
             "daq_start": {
                 "enabled": true,
-                "id": "{fdc65fa7-72cf-41da-b4ce-8aecc82fc7a3}",
+                "id": "{5602a9a1-4a9a-4fff-aa23-a18bf60aaa71}",
                 "name": "DAQ Start",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -54,11 +54,11 @@
                     "variables": {
                     }
                 },
-                "vme_script": "# Activates soft trigger unit 0. In multicrate setups this is used to create MasterTrigger0\n# which in turn create SlaveTriggers on all connected MVLCs. The SlaveTrigger is then used to\n# execute the \"start_event\" command stack.\n\nsetbase 0xffff0000      # use the mvlc vme interface as the base address for the following writes\n\nset trigger_index 0                         # valid values: 0-7 (trigger_resource units)\n\nset trigger_unit $(4 + ${trigger_index})    # Level0 Units 4-11\n0x0200 ${trigger_unit}                      # select the unit\n0x0302 1                                    # write to the soft_trigger output activation register"
+                "vme_script": ""
             },
             "daq_stop": {
                 "enabled": true,
-                "id": "{23ba38a5-10ca-4bd6-a90f-788d04f3a8a6}",
+                "id": "{1afc2b6b-9540-4742-8972-1811bf257773}",
                 "name": "DAQ Stop",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -68,11 +68,11 @@
                     "variables": {
                     }
                 },
-                "vme_script": "# Activates soft trigger unit 1. In multicrate setups this is used to create MasterTrigger1\n# which in turn create SlaveTriggers on all connected MVLCs. The SlaveTrigger is then used to\n# execute the \"stop_event\" command stack.\n\nsetbase 0xffff0000      # use the mvlc vme interface as the base address for the following writes\n\nset trigger_index 1                         # valid values: 0-7 (trigger_resource units)\n\nset trigger_unit $(4 + ${trigger_index})    # Level0 Units 4-11\n0x0200 ${trigger_unit}                      # select the unit\n0x0302 1                                    # write to the soft_trigger output activation register"
+                "vme_script": ""
             },
             "readout_end": {
                 "enabled": true,
-                "id": "{e6a6cd50-e1e7-4743-a182-f1ffa7c71231}",
+                "id": "{6e239c34-2ac8-433c-89c3-a0e493b7cc61}",
                 "name": "Cycle End",
                 "properties": {
                     "icon": ":/vme_script.png"
@@ -86,7 +86,7 @@
             },
             "readout_start": {
                 "enabled": true,
-                "id": "{526ddcaa-e809-423f-8ae1-0c701601ef47}",
+                "id": "{7f5abe51-3b48-4d84-82a1-1e6788d7682d}",
                 "name": "Cycle Start",
                 "properties": {
                     "icon": ":/vme_script.png"

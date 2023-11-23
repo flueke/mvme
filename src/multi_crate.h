@@ -376,7 +376,7 @@ struct CrateReadout
     //CrateReadout(const CrateReadout &) = delete;
 };
 
-struct MultiCrateReadout
+struct MultiCrateReadout_first
 {
 
     std::vector<std::unique_ptr<CrateReadout>> crateReadouts;
@@ -389,6 +389,20 @@ struct MultiCrateReadout
     std::unique_ptr<mvlc::ReadoutBufferQueues> eventBuilderSnoopOutputQueues;
     //std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedListfileQueues;
 };
+
+struct MulticrateTemplates
+{
+    std::unique_ptr<EventConfig> startEvent;
+    std::unique_ptr<EventConfig> stopEvent;
+    std::unique_ptr<EventConfig> dataEvent;
+    QString setMasterModeScript;
+    QString setSlaveModeScript;
+    QString triggerIoScript;
+};
+
+MulticrateTemplates read_multicrate_templates();
+std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates = 2);
+
 
 }
 
