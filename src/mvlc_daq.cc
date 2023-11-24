@@ -471,5 +471,141 @@ mvlc::listfile::SplitListfileSetup make_listfile_setup(ListFileOutputInfo &outIn
     return lfSetup;
 }
 
+bool run_daq_start_sequence(
+    MVLC_VMEController *mvlcCtrl,
+    VMEConfig &vmeConfig,
+    bool ignoreStartupErrors,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> error_logger)
+{
+    auto run_init_func = [=, &vmeConfig] (auto initFunc, const QString &partTitle)
+    {
+        vme_script::run_script_options::Flag opts = 0u;
+        if (!ignoreStartupErrors)
+            opts = vme_script::run_script_options::AbortOnError;
+
+        auto initResults = initFunc(&vmeConfig, mvlcCtrl, logger, error_logger, opts);
+
+        if (!ignoreStartupErrors && has_errors(initResults))
+        {
+            logger("");
+            logger(partTitle + " Errors:");
+            auto logger_ = [=] (const QString &msg) { logger("  " + msg); };
+            log_errors(initResults, logger_);
+            return false;
+        }
+
+        return true;
+    };
+
+
+    auto &mvlc = *mvlcCtrl->getMVLCObject();
+
+    logger("");
+    logger("Initializing MVLC");
+
+    // Clear triggers and stacks =========================================================
+
+    logger("  Disabling triggers");
+
+    if (auto ec = disable_all_triggers_and_daq_mode(mvlc))
+    {
+        logger(QString("Error disabling readout triggers: %1")
+               .arg(ec.message().c_str()));
+        return false;
+    }
+
+    logger("  Resetting stack offsets");
+
+    if (auto ec = reset_stack_offsets(mvlc))
+    {
+        logger(QString("Error resetting stack offsets: %1")
+               .arg(ec.message().c_str()));
+        return false;
+    }
+
+    // MVLC Eth Jumbo Frames and Eth Receive Buffer Size =================================
+
+    if (mvlc.connectionType() == mvlc::ConnectionType::ETH)
+    {
+        bool enableJumboFrames = vmeConfig.getControllerSettings().value("mvlc_eth_enable_jumbos").toBool();
+
+        logger(QSL("  %1 jumbo frame support")
+               .arg(enableJumboFrames ? QSL("Enabling") : QSL("Disabling")));
+
+        if (auto ec = mvlc.writeRegister(mvlc::registers::jumbo_frame_enable, enableJumboFrames))
+        {
+            logger(QSL("Error %1 jumbo frames: %2")
+                   .arg(enableJumboFrames ? QSL("enabling") : QSL("disabling"))
+                   .arg(ec.message().c_str()));
+            return false;
+        }
+
+        if (auto eth = dynamic_cast<mvlc::eth::MVLC_ETH_Interface *>(mvlc.getImpl()))
+        {
+            auto counters = eth->getThrottleCounters();
+            logger(QSL("  Eth receive buffer size: %1")
+                   .arg(format_number(counters.rcvBufferSize, QSL("B"), UnitScaling::Binary, 0, 'f', 0)));
+        }
+    }
+
+    // Controller/Crate Id ===============================================================
+    {
+        unsigned ctrlId = vmeConfig.getControllerSettings().value("mvlc_ctrl_id").toUInt();
+
+        logger(QSL("  Setting crate id = %1").arg(ctrlId));
+        if (auto ec = mvlc.writeRegister(mvlc::ControllerIdRegister, ctrlId))
+        {
+            logger(QSL("Error setting crate id: %2").arg(ec.message().c_str()));
+            return false;
+        }
+    }
+
+    // Trigger IO ========================================================================
+
+    logger("  Applying MVLC Trigger & I/O setup");
+
+    if (auto ec = setup_trigger_io(mvlcCtrl, vmeConfig, logger))
+    {
+        logger(QSL("Error applying MVLC Trigger & I/O setup: %1").arg(ec.message().c_str()));
+        return false;
+    }
+
+    // Global DAQ Start Scripts ==========================================================
+
+    if (!run_init_func(vme_daq_run_global_daq_start_scripts, "Global DAQ Start Scripts"))
+        return false;
+
+    // Init Modules ======================================================================
+
+    if (!run_init_func(vme_daq_run_init_modules, "Modules Init"))
+        return false;
+
+    // Setup readout stacks ==============================================================
+
+    logger("");
+    logger("Setting up MVLC readout stacks");
+    if (auto ec = setup_readout_stacks(mvlc, vmeConfig, logger))
+    {
+        logger(QString("Error setting up readout stacks: %1").arg(ec.message().c_str()));
+        return false;
+    }
+
+
+    {
+        std::vector<u32> triggers;
+        std::error_code ec;
+        std::tie(triggers, ec) = get_trigger_values(vmeConfig, logger);
+
+        if (ec)
+        {
+            logger(QString("MVLC Stack Trigger setup error: %1").arg(ec.message().c_str()));
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // end namespace mvme_mvlc
 } // end namespace mesytec

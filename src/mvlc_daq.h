@@ -83,6 +83,14 @@ std::vector<mvlc::StackCommandBuilder> LIBMVME_EXPORT sanitize_readout_stacks(
 // Adapter from the mvme ListFileOutputInfo to the mvlc SplitListfileSetup.
 mvlc::listfile::SplitListfileSetup make_listfile_setup(ListFileOutputInfo &outInfo, const std::vector<u8> &preamble = {});
 
+bool LIBMVME_EXPORT run_daq_start_sequence(
+    mesytec::mvme_mvlc::MVLC_VMEController *mvlcCtrl,
+    VMEConfig &vmeConfig,
+    bool ignoreStartupErrors,
+    std::function<void (const QString &)> logger,
+    std::function<void (const QString &)> error_logger);
+
+
 } // end namespace mvme_mvlc
 } // end namespace mesytec
 
