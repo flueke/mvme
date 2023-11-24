@@ -30,4 +30,20 @@ static const size_t LogViewMaximumBlockCount = 10 * 1000u;
 std::unique_ptr<QPlainTextEdit> LIBMVME_EXPORT make_logview(
     size_t maxBlockCount = LogViewMaximumBlockCount);
 
+class MultiLogWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        MultiLogWidget(QWidget *parent = nullptr);
+        ~MultiLogWidget();
+
+    public slots:
+        void logMessage(const QString &msg);
+        void logMessage(const QString &category, const QString &msg);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 #endif /* __MVME_UTIL_QT_LOGVIEW_H__ */

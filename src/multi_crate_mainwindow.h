@@ -6,8 +6,13 @@
 #include "libmvme_export.h"
 #include "vme_config.h"
 
+class QTreeView;
+
 namespace mesytec::mvme
 {
+
+class VmeConfigItemModel;
+class VmeConfigItemController;
 
 class LIBMVME_EXPORT MultiCrateMainWindow: public QMainWindow
 {
@@ -17,6 +22,7 @@ class LIBMVME_EXPORT MultiCrateMainWindow: public QMainWindow
         void openVmeConfig();
         void saveVmeConfig();
         void saveVmeConfigAs();
+        void exploreWorkspace();
 
         void startDaq();
         void stopDaq();
@@ -24,6 +30,9 @@ class LIBMVME_EXPORT MultiCrateMainWindow: public QMainWindow
         void resumeDaq();
 
         void editVmeScript(VMEScriptConfig *config);
+        void editVmeScriptAsText(VMEScriptConfig *config);
+
+        void vmeTreeContextMenuRequested(const QPoint &pos);
 
     public:
         MultiCrateMainWindow(QWidget *parent = nullptr);
@@ -34,6 +43,11 @@ class LIBMVME_EXPORT MultiCrateMainWindow: public QMainWindow
         std::shared_ptr<ConfigObject> getConfig();
         void setConfigFilename(const QString &filename);
         QString getConfigFilename() const;
+
+        // TODO: think about this API. How should this stuff be exposed?
+        QTreeView *getVmeConfigTree();
+        VmeConfigItemModel *getVmeConfigModel();
+        VmeConfigItemController *getVmeConfigItemController();;
 
     private:
         struct Private;

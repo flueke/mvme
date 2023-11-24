@@ -38,6 +38,7 @@ class VmeConfigItemModel: public QStandardItemModel
         ~VmeConfigItemModel() override;
 
         void setRootObject(ConfigObject *obj);
+        ConfigObject *getRootObject();
 
         QStringList mimeTypes() const override;
 
@@ -52,6 +53,8 @@ class VmeConfigItemModel: public QStandardItemModel
     private:
         ConfigObject *rootObject_ = nullptr;
 };
+
+void update_info_texts(VmeConfigItemModel *model);
 
 class VmeConfigItemController: public QObject
 {
@@ -94,15 +97,6 @@ class VmeConfigTreeView: public QTreeView
             resizeColumnToContents(0);
         }
 };
-
-#if 0
-class LIBMVME_EXPORT VmeConfigView: public QTreeView
-{
-    Q_OBJECT
-    public:
-        VmeConfigView(QObject *parent = nullptr);
-};
-#endif
 
 }
 

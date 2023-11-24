@@ -210,6 +210,11 @@ void VmeConfigItemModel::setRootObject(ConfigObject *obj)
     qDebug() << "end VmeConfigItemModel::setRootObject()";
 }
 
+ConfigObject *VmeConfigItemModel::getRootObject()
+{
+    return rootObject_;
+}
+
 QStringList VmeConfigItemModel::mimeTypes() const
 {
     return { qobject_pointers_mimetype() };

@@ -82,6 +82,7 @@ MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
     d->vmeConfigModel_ = new VmeConfigItemModel(this);
     d->vmeConfigController_ = new VmeConfigItemController(this);
     d->vmeConfigView_ = new VmeConfigTreeView;
+    d->vmeConfigView_->setContextMenuPolicy(Qt::CustomContextMenu);
     d->vmeConfigController_->setModel(d->vmeConfigModel_);
     d->vmeConfigController_->addView(d->vmeConfigView_);
 
@@ -118,11 +119,29 @@ MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
     actionSaveVMEConfigAs->setToolTip(QSL("Save VME Config As"));
     actionSaveVMEConfigAs->setIconText(QSL("Save As"));
 
+    auto actionExploreWorkspace  = new QAction(QIcon(QSL(":/folder_orange.png")), QSL("Explore Workspace"), this);
+    actionExploreWorkspace->setObjectName(QSL("actionExploreWorkspace"));
+    actionExploreWorkspace->setToolTip(QSL("Open workspace directory in file manager"));
+    actionExploreWorkspace->setIconText(QSL("Explore Workspace"));
+
+    auto actionReloadView = new QAction("Reload View");
+
     auto actionQuit = menuFile->addAction("&Quit", this, [this] { close(); });
     actionQuit->setShortcut(QSL("Ctrl+Q"));
     actionQuit->setShortcutContext(Qt::ApplicationShortcut);
 
-    auto actionReloadView = new QAction("Reload View");
+    d->configToolBar->addAction(actionNewVMEConfig);
+    d->configToolBar->addAction(actionOpenVMEConfig);
+    d->configToolBar->addAction(actionSaveVMEConfig);
+    d->configToolBar->addAction(actionSaveVMEConfigAs);
+    d->configToolBar->addAction(actionExploreWorkspace);
+    d->configToolBar->addAction(actionReloadView);
+
+    connect(actionNewVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::newVmeConfig);
+    connect(actionOpenVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::openVmeConfig);
+    connect(actionSaveVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfig);
+    connect(actionSaveVMEConfigAs, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfigAs);
+    connect(actionExploreWorkspace, &QAction::triggered, this, &MultiCrateMainWindow::exploreWorkspace);
     connect(actionReloadView, &QAction::triggered, this, [this] {
         if (d->vmeConfig_)
         {
@@ -130,17 +149,6 @@ MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
             d->vmeConfigView_->setRootIndex(d->vmeConfigModel_->invisibleRootItem()->child(0)->index());
         }
     });
-
-    d->configToolBar->addAction(actionNewVMEConfig);
-    d->configToolBar->addAction(actionOpenVMEConfig);
-    d->configToolBar->addAction(actionSaveVMEConfig);
-    d->configToolBar->addAction(actionSaveVMEConfigAs);
-    d->configToolBar->addAction(actionReloadView);
-
-    connect(actionNewVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::newVmeConfig);
-    connect(actionOpenVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::openVmeConfig);
-    connect(actionSaveVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfig);
-    connect(actionSaveVMEConfigAs, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfigAs);
 
     auto actionDaqStart    = new QAction(QIcon(":/control_play.png"), QSL("Start DAQ"), this);
     actionDaqStart->setObjectName(QSL("actionDaqStart"));
@@ -163,6 +171,9 @@ MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
 
     connect(d->vmeConfigView_, &QTreeView::doubleClicked,
         this, [this] (const QModelIndex &index) { d->onViewItemDoubleClicked(index); });
+
+    connect(d->vmeConfigView_, &QTreeView::customContextMenuRequested,
+        this, &MultiCrateMainWindow::vmeTreeContextMenuRequested);
 }
 
 MultiCrateMainWindow::~MultiCrateMainWindow()
@@ -235,6 +246,21 @@ void MultiCrateMainWindow::setConfigFilename(const QString &filename)
 QString MultiCrateMainWindow::getConfigFilename() const
 {
     return d->vmeConfigFilename_;
+}
+
+QTreeView *MultiCrateMainWindow::getVmeConfigTree()
+{
+    return d->vmeConfigView_;
+}
+
+VmeConfigItemModel *MultiCrateMainWindow::getVmeConfigModel()
+{
+    return d->vmeConfigModel_;
+}
+
+VmeConfigItemController *MultiCrateMainWindow::getVmeConfigItemController()
+{
+    return d->vmeConfigController_;
 }
 
 }

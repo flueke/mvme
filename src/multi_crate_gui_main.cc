@@ -1,19 +1,31 @@
 #include <QApplication>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
+#include <QMenu>
+#include <QMetaObject>
 #include <QMessageBox>
 #include <QSplashScreen>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QTreeView>
+
+#include <cassert>
 #include <spdlog/spdlog.h>
 
 #include "multi_crate_mainwindow.h"
+#include "mvlc_daq.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvme_session.h"
 #include "mvme_workspace.h"
 #include "util/mesy_nng.h"
 #include "util/qt_fs.h"
+#include "util/qt_logview.h"
+#include "util/qt_model_view_util.h"
+#include "vme_config_model_view.h"
 #include "vme_config_util.h"
+#include "vme_controller_factory.h"
+#include "vme_controller_ui.h"
 #include "vme_script_editor.h"
 #include "widget_registry.h"
 
@@ -22,9 +34,50 @@ using namespace mesytec::mvme;
 
 static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);; All Files (*)");
 
+struct MultiCrateGuiContext
+{
+    // states
+    GlobalMode globalMode = GlobalMode::DAQ;
+    DAQState daqState = DAQState::Idle;
+    MVMEState mvmeState = MVMEState::Idle;
 
-// TODO: add autosave handling at some point (see MVMEContext::openWorkspace())
+    // config, controllers, readout
+    //std::shared_ptr<ConfigObject> vmeConfig; // FIXME: need to keep mainwindow and this config synced...
+    std::vector<std::unique_ptr<mvme_mvlc::MVLC_VMEController>> controllers;
+    nng_socket readoutProducerSocket;
+    nng_socket readoutConsumerSocket;
+    std::vector<std::thread> readoutProducerThreads;
+    std::thread readoutConsumerThread;
 
+    // widgets and gui stuff
+    MultiCrateMainWindow *mainWindow;
+    WidgetRegistry widgetRegistry;
+    std::unique_ptr<MultiLogWidget> logWidget;
+
+    std::unordered_map<QString, QStringList> logBuffers;
+
+    void logMessage(const QString &msg)
+    {
+        logBuffers[{}].push_back(msg);
+        if (logWidget)
+        {
+            QMetaObject::invokeMethod(logWidget.get(),
+                [w=logWidget.get(), msg] { w->logMessage(msg); }, Qt::QueuedConnection);
+        }
+    }
+
+    void logMessage(const QString &category, const QString &msg)
+    {
+        logBuffers[category].push_back(msg);
+        if (logWidget)
+        {
+            QMetaObject::invokeMethod(logWidget.get(),
+                [w=logWidget.get(), category, msg] { w->logMessage(category, msg); }, Qt::QueuedConnection);
+        }
+    }
+};
+
+// TODO: add autosave handling for vme and analysis configs at some point (see MVMEContext::openWorkspace())
 void open_vme_config(const QString &path, MultiCrateMainWindow *mainWindow)
 {
     auto doc = read_json_file(path);
@@ -139,6 +192,144 @@ bool save_vme_config(MultiCrateMainWindow *mainWindow)
     return false;
 }
 
+// TODO: add error checking and reporting
+std::pair<std::unique_ptr<ConfigObject>, QString> gui_open_vme_config()
+{
+    auto filename = QFileDialog::getOpenFileName(nullptr, "Open VME Config", {}, VMEConfigFileFilter);
+
+    if (filename.isEmpty())
+        return {};
+
+    QFile inFile(filename);
+
+    if (!inFile.open(QIODevice::ReadOnly))
+        return {};
+
+    auto data = inFile.readAll();
+    auto doc = QJsonDocument::fromJson(data);
+    return std::make_pair(vme_config::deserialize_object(doc.object()), QDir().relativeFilePath(filename));
+}
+
+void edit_vme_controller_settings(VMEConfig *config)
+{
+    VMEControllerSettingsDialog dialog;
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.setCurrentController(config->getControllerType(), config->getControllerSettings());
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        auto controllerType = dialog.getControllerType();
+        auto controllerSettings = dialog.getControllerSettings();
+        config->setVMEController(controllerType, controllerSettings);
+    }
+}
+
+void handle_vme_tree_context_menu(MultiCrateGuiContext &ctx, const QPoint &pos)
+{
+    const bool isIdle = ctx.mvmeState == MVMEState::Idle;
+    auto view = ctx.mainWindow->getVmeConfigTree();
+    auto model = ctx.mainWindow->getVmeConfigModel();
+    auto index = view->indexAt(pos);
+    auto item  = model->itemFromIndex(index);
+    auto obj = qobject_from_item<ConfigObject>(item);
+
+    QMenu menu;
+    QAction *action = nullptr;
+
+    if (auto vmeConfig = qobject_cast<VMEConfig *>(obj))
+    {
+        action = menu.addAction(QIcon(":/gear.png"), "Edit VME Controller Settings",
+            view, [vmeConfig] { edit_vme_controller_settings(vmeConfig); });
+    }
+
+    if (!menu.isEmpty())
+        menu.exec(view->mapToGlobal(pos));
+}
+
+void start_daq(MultiCrateGuiContext &ctx)
+{
+    if (ctx.mvmeState != MVMEState::Idle)
+        return;
+
+    // TODO: need to implement this for VMEConfig and for MulticrateVMEConfig
+    // TODO: need to figure out which if any of the vme controllers were
+    // changed in the vme configs and need to recreate these.
+    //
+    // *) connect vme controllers
+    // *) setup mvlcs, upload stacks, triggerio, etc.
+    // *) run the daq init sequence for each of the crates
+    // *) create output listfile, write magic and preamble
+    // *) create and start readout threads and a listfile writer thread using the nng sockets
+    // *) start the readout and listfile writer threads
+    // *) send the global daq start scripts (soft triggers kick of the multi crate daq)
+
+    ctx.controllers.clear();  // FIXME: this is a hack. MVLC that did not change should be kept to avoid useless reconnecting all the time.
+    assert(ctx.controllers.empty());
+
+    auto config = qobject_cast<multi_crate::MulticrateVMEConfig *>(ctx.mainWindow->getConfig().get());
+
+    if (!config)
+        return;
+
+    // MVLC creation. what a mess...
+    // *) connect vme controllers
+    for (auto vmeConfig: config->getCrateConfigs())
+    {
+        VMEControllerFactory f(vmeConfig->getControllerType());
+        auto controller = f.makeController(vmeConfig->getControllerSettings());
+        auto mvlcRaw = qobject_cast<mvme_mvlc::MVLC_VMEController *>(controller);
+        std::unique_ptr<mvme_mvlc::MVLC_VMEController> mvlc(mvlcRaw);
+
+        if (auto err = mvlc->open(); err.isError())
+        {
+            ctx.logMessage(err.toString());
+            return;
+        }
+        ctx.controllers.emplace_back(std::move(mvlc));
+    }
+
+    // *) setup mvlcs, upload stacks, triggerio, etc.
+
+    for (size_t crateId = 0; crateId < config->getCrateConfigs().size(); ++crateId)
+    {
+        auto crateConfig = config->getCrateConfig(crateId);
+        auto mvlcCtrl = ctx.controllers[crateId].get();
+
+        auto logger = [&] (const QString &msg) { ctx.logMessage(QSL("crate%1").arg(crateId), msg); };
+
+        // TODO: use QtConcurrent::run() to execute this non-blocking. Use a
+        // future watcher and a progress dialog to block the gui while this is ongoing.
+        // FIXME: controller id handling is bad: the vmeconfig controller
+        // settings are examined to get the crate id. Not good as the crateId
+        // has to be correct and is determined by crate order. Either pass a
+        // crateId to the init function or set the crate id manually in here or
+        // update the controller settings or something.
+        auto res = mvme_mvlc::run_daq_start_sequence(mvlcCtrl, *crateConfig, false, logger, logger);
+
+        if (!res)
+            return;
+    }
+}
+
+void stop_daq(MultiCrateGuiContext &ctx)
+{
+    // *) send the master global daq stop scripts (soft trigger to trigger the stop_event)
+    // *) tell readouts to quit
+    // *) quit the listfile writer
+    // *) close the listfile, add logs and analysis to output archive
+    // *) drink more coffee
+}
+
+void pause_daq(MultiCrateGuiContext &ctx)
+{
+    // *) send the master global daq stop scripts (TODO: what to do on error here? state is kinda broken then)
+}
+
+void resume_daq(MultiCrateGuiContext &ctx)
+{
+    // *) send the master global daq start scripts (TODO: what to do on error here? state is kinda broken then)
+}
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -176,24 +367,9 @@ int main(int argc, char *argv[])
     // create and show the gui
     MultiCrateMainWindow w;
 
-    struct MultiCrateGuiContext
-    {
-        // states
-        GlobalMode globalMode = GlobalMode::DAQ;
-        DAQState daqState = DAQState::Idle;
-        MVMEState mvmeState = MVMEState::Idle;
-
-        // config, controllers, readout
-        std::shared_ptr<ConfigObject> vmeConfig;
-        std::vector<std::unique_ptr<mvme_mvlc::MVLC_VMEController>> controllers;
-        nng_socket readoutProducerSocket;
-        nng_socket readoutConsumerSocket;
-
-        // widgets and gui stuff
-        WidgetRegistry widgetRegistry;
-    };
-
     MultiCrateGuiContext context{};
+    context.mainWindow = &w;
+    context.logWidget = std::make_unique<MultiLogWidget>();
 
     QObject::connect(&w, &MultiCrateMainWindow::newVmeConfig, &w, [&] {
         // TODO: multicrate or single crate? how many crates? mvlc urls?
@@ -205,6 +381,14 @@ int main(int argc, char *argv[])
         // TODO: check for modified state of current config. ask to discard.
         //QString fileName = QFileDialog::getOpenFileName(&w, "Open VME Config", {},
 
+        auto result = gui_open_vme_config();
+
+        if (result.first)
+        {
+            std::shared_ptr<ConfigObject> config(result.first.release());
+            auto filename = result.second;
+            w.setConfig(config, filename);
+        }
     });
 
     QObject::connect(&w, &MultiCrateMainWindow::saveVmeConfig, &w, [&] {
@@ -213,6 +397,10 @@ int main(int argc, char *argv[])
 
     QObject::connect(&w, &MultiCrateMainWindow::saveVmeConfigAs, &w,[&] {
         save_vme_config_as(&w);
+    });
+
+    QObject::connect(&w, &MultiCrateMainWindow::exploreWorkspace, &w,[&] {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QDir().absolutePath()));
     });
 
     QObject::connect(&w, &MultiCrateMainWindow::editVmeScript,
@@ -227,17 +415,47 @@ int main(int argc, char *argv[])
                 // (MVMEMainWindow::editVMEScript, VMEConfigTreeWidget::editScript()).
                 auto widget = new VMEScriptEditor(config);
                 context.widgetRegistry.addObjectWidget(widget, config, config->getId().toString());
-                // TODO: signal from editor widget: logMessage(), runScript, addApplicationWidget
+                // TODO: signals from editor widget: logMessage(), runScript, addApplicationWidget
             }
     });
 
+    QObject::connect(&w, &MultiCrateMainWindow::editVmeScriptAsText,
+        &w, [&] (VMEScriptConfig *config) {
+            if (context.widgetRegistry.hasObjectWidget(config))
+            {
+                context.widgetRegistry.activateObjectWidget(config);
+            }
+            else
+            {
+                auto widget = new VMEScriptEditor(config);
+                context.widgetRegistry.addObjectWidget(widget, config, config->getId().toString());
+                // TODO: signals from editor widget: logMessage(), runScript, addApplicationWidget
+            }
+    });
+
+    QObject::connect(&w, &MultiCrateMainWindow::vmeTreeContextMenuRequested,
+        &w, [&] (const QPoint &pos) { handle_vme_tree_context_menu(context, pos); });
+
     w.show();
+    context.logWidget->show();
 
     {
         QSettings settings;
         w.restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
         w.restoreState(settings.value("mainWindowState").toByteArray());
     }
+
+    QObject::connect(&w, &MultiCrateMainWindow::startDaq,
+        &w, [&] { start_daq(context); });
+
+    QObject::connect(&w, &MultiCrateMainWindow::stopDaq,
+        &w, [&] { stop_daq(context); });
+
+    QObject::connect(&w, &MultiCrateMainWindow::pauseDaq,
+        &w, [&] { pause_daq(context); });
+
+    QObject::connect(&w, &MultiCrateMainWindow::resumeDaq,
+        &w, [&] { resume_daq(context); });
 
 #ifdef QT_NO_DEBUG
     splash.raise();

@@ -19,10 +19,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "util/qt_logview.h"
-#include "util/qt_monospace_textedit.h"
-#include "util/qt_plaintextedit.h"
+
 #include <QMenu>
 #include <QDebug>
+#include <unordered_map>
+#include <QBoxLayout>
+
+#include "util/qt_monospace_textedit.h"
+#include "util/qt_plaintextedit.h"
+#include "util/qt_str.h"
 
 std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
 {
@@ -60,4 +65,40 @@ std::unique_ptr<QPlainTextEdit> make_logview(size_t maxBlockCount)
         });
 
     return result;
+}
+
+struct MultiLogWidget::Private
+{
+    std::unordered_map<QString, QPlainTextEdit> logViews;
+    // TODO: add a tab widget and multiple log views
+    QPlainTextEdit *logView;
+};
+
+MultiLogWidget::MultiLogWidget(QWidget *parent)
+    : QWidget(parent)
+    , d(std::make_unique<Private>())
+{
+    d->logView = make_logview().release();
+
+    auto layout = new QHBoxLayout(this);
+    layout->addWidget(d->logView);
+}
+
+MultiLogWidget::~MultiLogWidget()
+{
+}
+
+void MultiLogWidget::logMessage(const QString &msg)
+{
+    auto escaped = msg.toHtmlEscaped();
+    auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
+    d->logView->appendHtml(html);
+}
+
+void MultiLogWidget::logMessage(const QString &category, const QString &msg)
+{
+    auto str = QSL("[%1] %2").arg(category).arg(msg);
+    auto escaped = str.toHtmlEscaped();
+    auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
+    d->logView->appendHtml(html);
 }
