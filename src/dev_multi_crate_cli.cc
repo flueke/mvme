@@ -37,17 +37,16 @@ std::vector<std::unique_ptr<VMEConfig>> make_multicrate_vme_configs(const std::v
         vmeConfig->setVMEController(controllerInfo.first, controllerInfo.second);
         vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.startEvent).release());
         vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.stopEvent).release());
+        vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.dataEvent).release());
         auto setMasterSlaveScript = std::make_unique<VMEScriptConfig>();
 
         if (urlIter == std::begin(mvlcUrls))
         {
-            vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.masterEvent).release());
             setMasterSlaveScript->setObjectName("set master mode");
             setMasterSlaveScript->setScriptContents(templates.setMasterModeScript);
         }
         else
         {
-            vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.slaveEvent).release());
             setMasterSlaveScript->setObjectName("set slave mode");
             setMasterSlaveScript->setScriptContents(templates.setSlaveModeScript);
         }
