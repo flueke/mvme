@@ -27,7 +27,7 @@
 #include <QLineEdit>
 #include <QStackedWidget>
 
-class MVMEContext;
+#include "vme_controller.h"
 
 class VMEControllerSettingsWidget: public QWidget
 {
@@ -46,13 +46,18 @@ class VMEControllerSettingsDialog: public QDialog
 {
     Q_OBJECT
     public:
-        VMEControllerSettingsDialog(MVMEContext *context, QWidget *parent = 0);
+        VMEControllerSettingsDialog(VMEControllerType allowedControllerTypes = AllControllers, QWidget *parent = 0);
+
+        // Use these to set the current state prior to running the dialog.
+        void setCurrentController(VMEControllerType controllerType, const QVariantMap &controllerSettings);
+
+        // Valid if the dialog was accepted by the user.
+        VMEControllerType getControllerType() const;
+        QVariantMap getControllerSettings() const;
+
+        void accept() override;
 
     private:
-        void onButtonBoxClicked(QAbstractButton *button);
-
-        MVMEContext *m_context;
-        QDialogButtonBox *m_buttonBox;
         QComboBox *m_comboType;
         QStackedWidget *m_controllerStack;
         QVector<VMEControllerSettingsWidget *> m_settingsWidgets;

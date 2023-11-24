@@ -2135,9 +2135,20 @@ void MVMEMainWindow::onVMEModuleMoved(ModuleConfig *mod, EventConfig *sourceEven
 
 void MVMEMainWindow::runVMEControllerSettingsDialog()
 {
-    VMEControllerSettingsDialog dialog(m_d->m_context);
+    // XXX: weird asymmetry here: settings are obtained from the vme config
+    // but the controller is set on the MVMEContext object.
+    auto vmeConfig = m_d->m_context->getVMEConfig();
+
+    VMEControllerSettingsDialog dialog;
     dialog.setWindowModality(Qt::ApplicationModal);
-    dialog.exec();
+    dialog.setCurrentController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        auto controllerType = dialog.getControllerType();
+        auto controllerSettings = dialog.getControllerSettings();
+        m_d->m_context->setVMEController(controllerType, controllerSettings);
+    }
 }
 
 void MVMEMainWindow::runDAQRunSettingsDialog()

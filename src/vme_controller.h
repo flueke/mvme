@@ -23,6 +23,7 @@
 
 #include <QObject>
 #include <system_error>
+#include <type_traits>
 
 #include "libmvme_export.h"
 
@@ -32,11 +33,37 @@
 
 enum class VMEControllerType
 {
-    VMUSB,
-    SIS3153,
-    MVLC_USB,
-    MVLC_ETH,
+    VMUSB       = 1 << 0,
+    SIS3153     = 1 << 1,
+    MVLC_USB    = 1 << 2,
+    MVLC_ETH    = 1 << 3,
 };
+
+inline constexpr VMEControllerType operator|(VMEControllerType lhs, VMEControllerType rhs)
+{
+    return static_cast<VMEControllerType>(
+        static_cast<std::underlying_type<VMEControllerType>::type>(lhs) |
+        static_cast<std::underlying_type<VMEControllerType>::type>(rhs));
+}
+
+inline constexpr VMEControllerType operator&(VMEControllerType lhs, VMEControllerType rhs)
+{
+    return static_cast<VMEControllerType>(
+        static_cast<std::underlying_type<VMEControllerType>::type>(lhs) &
+        static_cast<std::underlying_type<VMEControllerType>::type>(rhs));
+}
+
+inline constexpr bool operator!(VMEControllerType t)
+{
+    return static_cast<std::underlying_type<VMEControllerType>::type>(t) == 0;
+}
+
+static const constexpr VMEControllerType AllControllers = (
+    VMEControllerType::VMUSB | VMEControllerType::SIS3153 |
+    VMEControllerType::MVLC_USB | VMEControllerType::MVLC_ETH);
+
+static const constexpr VMEControllerType MvlcControllers = (
+    VMEControllerType::MVLC_USB | VMEControllerType::MVLC_ETH);
 
 class LIBMVME_EXPORT VMEController: public QObject
 {

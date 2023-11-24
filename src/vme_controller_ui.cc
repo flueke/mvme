@@ -31,7 +31,6 @@
 #include <mesytec-mvlc/mvlc_impl_usb.h>
 
 #include "gui_util.h"
-#include "mvme_context.h"
 #include "qt_util.h"
 #include "sis3153.h"
 #include "vme_controller_factory.h"
@@ -429,10 +428,8 @@ namespace
     };
 }
 
-VMEControllerSettingsDialog::VMEControllerSettingsDialog(MVMEContext *context, QWidget *parent)
+VMEControllerSettingsDialog::VMEControllerSettingsDialog(VMEControllerType allowedControllerTypes, QWidget *parent)
     : QDialog(parent)
-    , m_context(context)
-    , m_buttonBox(new QDialogButtonBox)
     , m_comboType(new QComboBox)
     , m_controllerStack(new QStackedWidget)
 {
@@ -448,26 +445,16 @@ VMEControllerSettingsDialog::VMEControllerSettingsDialog(MVMEContext *context, Q
         widgetLayout->addWidget(gb);
     }
 
-    auto currentControllerType = m_context->getVMEConfig()->getControllerType();
-    s32 currentControllerIndex = 0;
-
     // fill combo and add settings widgets
     for (s32 i = 0; i< LabelsAndTypes.size(); ++i)
     {
+        if (!(allowedControllerTypes & LabelsAndTypes[i].type))
+            continue;
+
         auto lt = LabelsAndTypes[i];
         m_comboType->addItem(lt.label, static_cast<s32>(lt.type));
         VMEControllerFactory f(lt.type);
         auto settingsWidget = f.makeSettingsWidget();
-
-        settingsWidget->loadSettings(m_context->getVMEConfig()->getControllerSettings());
-        if (lt.type == currentControllerType)
-        {
-            currentControllerIndex = i;
-        }
-        //else
-        //{
-        //    settingsWidget->loadSettings(QVariantMap());
-        //}
 
         auto gb = new QGroupBox(QSL("Controller Settings"));
         auto l  = new QHBoxLayout(gb);
@@ -478,65 +465,54 @@ VMEControllerSettingsDialog::VMEControllerSettingsDialog(MVMEContext *context, Q
         m_settingsWidgets.push_back(settingsWidget);
     }
 
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
     // controller config stack
     widgetLayout->addWidget(m_controllerStack);
+    widgetLayout->addWidget(bb);
 
-    // buttonbox
-    m_buttonBox->setStandardButtons(
-        QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply);
-    connect(m_buttonBox, &QDialogButtonBox::clicked,
-            this, &VMEControllerSettingsDialog::onButtonBoxClicked);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    widgetLayout->addWidget(m_buttonBox);
-
-    // setup
     connect(m_comboType, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
             m_controllerStack, &QStackedWidget::setCurrentIndex);
-
-    m_comboType->setCurrentIndex(currentControllerIndex);
 }
 
-void VMEControllerSettingsDialog::onButtonBoxClicked(QAbstractButton *button)
+void VMEControllerSettingsDialog::setCurrentController(VMEControllerType controllerType, const QVariantMap &controllerSettings)
 {
-    auto buttonRole = m_buttonBox->buttonRole(button);
+    auto idx = m_comboType->findData(static_cast<s32>(controllerType));
 
-    if (buttonRole == QDialogButtonBox::RejectRole)
+    if (idx >= 0)
     {
-        reject();
-        return;
+        m_comboType->setCurrentIndex(idx);
+        m_settingsWidgets[idx]->loadSettings(controllerSettings);
     }
+}
 
-    Q_ASSERT(buttonRole == QDialogButtonBox::AcceptRole || buttonRole == QDialogButtonBox::ApplyRole);
+// Valid if the dialog was accepted by the user.
+VMEControllerType VMEControllerSettingsDialog::getControllerType() const
+{
+    return static_cast<VMEControllerType>(m_comboType->currentData().toInt());
+}
 
-    // change controller type here
-    // delete old controller
-    // set new controller
-    auto selectedType = static_cast<VMEControllerType>(m_comboType->currentData().toInt());
+QVariantMap VMEControllerSettingsDialog::getControllerSettings() const
+{
+    return m_settingsWidgets[m_comboType->currentIndex()]->getSettings();
+}
 
-    auto settingsWidget = qobject_cast<VMEControllerSettingsWidget *>(
-        m_settingsWidgets.value(m_comboType->currentIndex()));
-    Q_ASSERT(settingsWidget);
-
+void VMEControllerSettingsDialog::accept()
+{
     try
     {
-        settingsWidget->validate();
+        m_settingsWidgets[m_comboType->currentIndex()]->validate();
+        QDialog::accept();
     }
-    catch (const QString &e)
+    catch(const std::exception& e)
     {
-        QMessageBox::critical(this, QSL("Invalid Settings"),
-                              QString("Settings validation failed: %1").arg(e));
-        return;
+        QMessageBox::critical(this, "Invalid Settings", QSL("Settings validation failed: %1").arg(e.what()));
     }
-
-    auto settings = settingsWidget->getSettings();
-    VMEControllerFactory f(selectedType);
-    auto controller = f.makeController(settings);
-    qDebug() << "before m_context->setVMEController()";
-    m_context->setVMEController(controller, settings);
-    qDebug() << "after m_context->setVMEController()";
-
-    if (buttonRole == QDialogButtonBox::AcceptRole)
+    catch(const QString &e)
     {
-        accept();
+        QMessageBox::critical(this, "Invalid Settings", QSL("Settings validation failed: %1").arg(e));
     }
 }
