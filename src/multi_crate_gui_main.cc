@@ -246,6 +246,81 @@ void handle_vme_tree_context_menu(MultiCrateGuiContext &ctx, const QPoint &pos)
         menu.exec(view->mapToGlobal(pos));
 }
 
+enum class MessageType: u8
+{
+    ListfileBuffer,
+    ParsedEvents,
+};
+
+#define PACK_AND_ALIGN4 __attribute__((packed, aligned(4)))
+
+struct PACK_AND_ALIGN4 BaseMessageHeader
+{
+    MessageType messageType;
+    u32 messageNumber;
+};
+
+struct PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
+{
+    u32 bufferType;
+};
+
+static_assert(sizeof(ListfileBufferMessageHeader) % sizeof(u32) == 0);
+
+struct PACK_AND_ALIGN4 ParsedEventsMessageHeader: public BaseMessageHeader
+{
+};
+
+static_assert(sizeof(ParsedEventsMessageHeader) % sizeof(u32) == 0);
+
+size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
+{
+    size_t bytesMoved = 0u;
+    const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg))
+        + sizeof(ListfileBufferMessageHeader);
+    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ListfileBufferMessageHeader);
+
+    if (bufferType == mvlc::ConnectionType::USB)
+        bytesMoved = mvlc::fixup_buffer_mvlc_usb(msgBufferData, msgBufferSize, tmpBuf);
+    else
+        bytesMoved = mvlc::fixup_buffer_mvlc_eth(msgBufferData, msgBufferSize, tmpBuf);
+
+    nng_msg_chop(msg, bytesMoved);
+
+    return bytesMoved;
+}
+
+struct ReadoutContext
+{
+    mvlc::MVLC mvlc;
+    nng_socket outputSocket;
+};
+
+struct BufferHeader
+{
+    u32 bufferNumber;
+};
+
+// TODO: how to handle timeticks? generate on the outside and send via separate
+// messages or generate in each readout thread?
+void mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit)
+{
+    std::vector<u8> tmpBuf;
+    BufferHeader header{};
+    header.bufferNumber = 1;
+
+    while (!quit)
+    {
+        nng_msg *msg = nullptr;
+
+        if (auto res = allocate_reserve_message(&msg, mvlc::util::Megabytes(1)))
+        {
+            spdlog::error("mvlc_readout_loop: error allocating output message: {}", nng_strerror(res));
+            break;
+        }
+    }
+}
+
 void start_daq(MultiCrateGuiContext &ctx)
 {
     if (ctx.mvmeState != MVMEState::Idle)
@@ -273,6 +348,7 @@ void start_daq(MultiCrateGuiContext &ctx)
 
     // MVLC creation. what a mess...
     // *) connect vme controllers
+    size_t crateId = 0;
     for (auto vmeConfig: config->getCrateConfigs())
     {
         VMEControllerFactory f(vmeConfig->getControllerType());
@@ -280,16 +356,21 @@ void start_daq(MultiCrateGuiContext &ctx)
         auto mvlcRaw = qobject_cast<mvme_mvlc::MVLC_VMEController *>(controller);
         std::unique_ptr<mvme_mvlc::MVLC_VMEController> mvlc(mvlcRaw);
 
+        if (!mvlc)
+        {
+            ctx.logMessage(QSL("Error: could not create an MVLC instance for crate%1").arg(crateId));
+        }
+
         if (auto err = mvlc->open(); err.isError())
         {
             ctx.logMessage(err.toString());
             return;
         }
         ctx.controllers.emplace_back(std::move(mvlc));
+        ++crateId;
     }
 
     // *) setup mvlcs, upload stacks, triggerio, etc.
-
     for (size_t crateId = 0; crateId < config->getCrateConfigs().size(); ++crateId)
     {
         auto crateConfig = config->getCrateConfig(crateId);
@@ -309,6 +390,8 @@ void start_daq(MultiCrateGuiContext &ctx)
         if (!res)
             return;
     }
+
+    // *) create output listfile, write magic and preamble
 }
 
 void stop_daq(MultiCrateGuiContext &ctx)

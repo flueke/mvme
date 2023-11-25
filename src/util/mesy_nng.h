@@ -26,4 +26,18 @@ inline int receive_message(nng_socket sock, nng_msg **msg_ptr, int flags = 0)
     return 0;
 }
 
+int allocate_reserve_message(nng_msg **msg, size_t reserve = 0)
+{
+    assert(msg);
+
+    if (auto res = nng_msg_alloc(msg, 0))
+        return res;
+
+    if (auto res = nng_msg_reserve(*msg, reserve))
+        return res;
+
+    return 0;
+}
+
+
 #endif /* B18E3651_CA9A_43BC_AA25_810EA16533CD */
