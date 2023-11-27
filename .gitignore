@@ -11,3 +11,4 @@ doc/sphinx/source/changelog.rst
 build*/
 .cmake/
 .cache/
+.vscode/settings.json
