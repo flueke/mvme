@@ -712,7 +712,7 @@ QString info_text(const VMEConfig *config)
     }
     else if (settings.value("method").toString() == "by_index")
     {
-        ret = QSL("usb://@%1").arg(settings.value("serial").toString());
+        ret = QSL("usb://@%1").arg(settings.value("index").toString());
     }
     else if (settings.value("method").toString() == "by_serial")
     {
