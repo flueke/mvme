@@ -38,8 +38,7 @@ class MultiLogWidget: public QWidget
         ~MultiLogWidget();
 
     public slots:
-        void logMessage(const QString &msg);
-        void logMessage(const QString &category, const QString &msg);
+        void appendMessage(const QString &msg, const QString &category = {});
 
     private:
         struct Private;

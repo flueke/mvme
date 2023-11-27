@@ -13,6 +13,7 @@
 #include <cassert>
 #include <spdlog/spdlog.h>
 
+#include "multi_crate_gui.h"
 #include "multi_crate_mainwindow.h"
 #include "mvlc_daq.h"
 #include "mvlc/mvlc_vme_controller.h"
@@ -46,35 +47,16 @@ struct MultiCrateGuiContext
     std::vector<std::unique_ptr<mvme_mvlc::MVLC_VMEController>> controllers;
     nng_socket readoutProducerSocket;
     nng_socket readoutConsumerSocket;
-    std::vector<std::thread> readoutProducerThreads;
-    std::thread readoutConsumerThread;
+    std::vector<std::future<std::error_code>> readoutProducers;
+    std::future<std::error_code> readoutConsumer;
 
     // widgets and gui stuff
     MultiCrateMainWindow *mainWindow;
+    LogHandler logHandler;
     WidgetRegistry widgetRegistry;
     std::unique_ptr<MultiLogWidget> logWidget;
 
-    std::unordered_map<QString, QStringList> logBuffers;
-
-    void logMessage(const QString &msg)
-    {
-        logBuffers[{}].push_back(msg);
-        if (logWidget)
-        {
-            QMetaObject::invokeMethod(logWidget.get(),
-                [w=logWidget.get(), msg] { w->logMessage(msg); }, Qt::QueuedConnection);
-        }
-    }
-
-    void logMessage(const QString &category, const QString &msg)
-    {
-        logBuffers[category].push_back(msg);
-        if (logWidget)
-        {
-            QMetaObject::invokeMethod(logWidget.get(),
-                [w=logWidget.get(), category, msg] { w->logMessage(category, msg); }, Qt::QueuedConnection);
-        }
-    }
+    void logMessage(const QString &msg, const QString &category = {}) { logHandler.logMessage(msg, category); }
 };
 
 // TODO: add autosave handling for vme and analysis configs at some point (see MVMEContext::openWorkspace())
@@ -210,7 +192,7 @@ std::pair<std::unique_ptr<ConfigObject>, QString> gui_open_vme_config()
     return std::make_pair(vme_config::deserialize_object(doc.object()), QDir().relativeFilePath(filename));
 }
 
-void edit_vme_controller_settings(VMEConfig *config)
+bool edit_vme_controller_settings(VMEConfig *config)
 {
     VMEControllerSettingsDialog dialog;
     dialog.setWindowModality(Qt::ApplicationModal);
@@ -221,7 +203,10 @@ void edit_vme_controller_settings(VMEConfig *config)
         auto controllerType = dialog.getControllerType();
         auto controllerSettings = dialog.getControllerSettings();
         config->setVMEController(controllerType, controllerSettings);
+        return true;
     }
+
+    return false;
 }
 
 void handle_vme_tree_context_menu(MultiCrateGuiContext &ctx, const QPoint &pos)
@@ -236,10 +221,17 @@ void handle_vme_tree_context_menu(MultiCrateGuiContext &ctx, const QPoint &pos)
     QMenu menu;
     QAction *action = nullptr;
 
-    if (auto vmeConfig = qobject_cast<VMEConfig *>(obj))
+    if (auto vmeConfig = qobject_cast<VMEConfig *>(obj); vmeConfig && isIdle)
     {
         action = menu.addAction(QIcon(":/gear.png"), "Edit VME Controller Settings",
-            view, [vmeConfig] { edit_vme_controller_settings(vmeConfig); });
+            view, [vmeConfig, &ctx] {
+                if (edit_vme_controller_settings(vmeConfig))
+                {
+                    // FIXME: this should be "update info text for vmeConfig. No
+                    // need to reload the whole view just because the MVLC uri changed.
+                    ctx.mainWindow->reloadView();
+                }
+            });
     }
 
     if (!menu.isEmpty())
@@ -266,12 +258,6 @@ struct PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
 };
 
 static_assert(sizeof(ListfileBufferMessageHeader) % sizeof(u32) == 0);
-
-struct PACK_AND_ALIGN4 ParsedEventsMessageHeader: public BaseMessageHeader
-{
-};
-
-static_assert(sizeof(ParsedEventsMessageHeader) % sizeof(u32) == 0);
 
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
 {
@@ -303,7 +289,7 @@ struct BufferHeader
 
 // TODO: how to handle timeticks? generate on the outside and send via separate
 // messages or generate in each readout thread?
-void mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit)
+std::error_code mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit)
 {
     std::vector<u8> tmpBuf;
     BufferHeader header{};
@@ -319,6 +305,21 @@ void mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit)
             break;
         }
     }
+}
+
+// MVLC creation. what a mess...
+std::unique_ptr<mvme_mvlc::MVLC_VMEController> make_mvlc(const VMEConfig *vmeConfig)
+{
+    VMEControllerFactory f(vmeConfig->getControllerType());
+    auto controller = f.makeController(vmeConfig->getControllerSettings());
+    auto mvlcRaw = qobject_cast<mvme_mvlc::MVLC_VMEController *>(controller);
+    if (!mvlcRaw)
+    {
+        delete controller;
+        return {};
+    }
+    std::unique_ptr<mvme_mvlc::MVLC_VMEController> mvlc(mvlcRaw);
+    return mvlc;
 }
 
 void start_daq(MultiCrateGuiContext &ctx)
@@ -339,59 +340,92 @@ void start_daq(MultiCrateGuiContext &ctx)
     // *) send the global daq start scripts (soft triggers kick of the multi crate daq)
 
     ctx.controllers.clear();  // FIXME: this is a hack. MVLC that did not change should be kept to avoid useless reconnecting all the time.
-    assert(ctx.controllers.empty());
+    ctx.readoutProducers.clear();
 
     auto config = qobject_cast<multi_crate::MulticrateVMEConfig *>(ctx.mainWindow->getConfig().get());
 
     if (!config)
         return;
 
-    // MVLC creation. what a mess...
     // *) connect vme controllers
-    size_t crateId = 0;
-    for (auto vmeConfig: config->getCrateConfigs())
+    auto crateConfigs = config->getCrateConfigs();
+    const auto crateCount = crateConfigs.size();
+
+    for (size_t crateId = 0; crateId < crateCount; ++crateId)
     {
-        VMEControllerFactory f(vmeConfig->getControllerType());
-        auto controller = f.makeController(vmeConfig->getControllerSettings());
-        auto mvlcRaw = qobject_cast<mvme_mvlc::MVLC_VMEController *>(controller);
-        std::unique_ptr<mvme_mvlc::MVLC_VMEController> mvlc(mvlcRaw);
+        auto vmeConfig = crateConfigs[crateId];
+        auto mvlc = make_mvlc(vmeConfig);
 
         if (!mvlc)
         {
             ctx.logMessage(QSL("Error: could not create an MVLC instance for crate%1").arg(crateId));
+            return;
         }
 
         if (auto err = mvlc->open(); err.isError())
         {
-            ctx.logMessage(err.toString());
+            ctx.logMessage((QSL("Error connecting to %1: %2")
+                .arg(mvlc->getMVLCObject()->connectionInfo().c_str())
+                .arg(err.toString())));
             return;
         }
+
         ctx.controllers.emplace_back(std::move(mvlc));
-        ++crateId;
     }
 
     // *) setup mvlcs, upload stacks, triggerio, etc.
-    for (size_t crateId = 0; crateId < config->getCrateConfigs().size(); ++crateId)
+    for (size_t crateId = 0; crateId < crateCount; ++crateId)
     {
         auto crateConfig = config->getCrateConfig(crateId);
         auto mvlcCtrl = ctx.controllers[crateId].get();
+        auto mvlc = mvlcCtrl->getMVLC();
 
-        auto logger = [&] (const QString &msg) { ctx.logMessage(QSL("crate%1").arg(crateId), msg); };
+        auto logger = [&] (const QString &msg) { ctx.logMessage(msg, QSL("crate%1").arg(crateId)); };
+
+        logger(QSL("  Setting crate id = %1").arg(crateId));
+        if (auto ec = mvlc.writeRegister(mvlc::ControllerIdRegister, crateId))
+        {
+            logger(QSL("Error setting crate id: %2").arg(ec.message().c_str()));
+            return;
+        }
 
         // TODO: use QtConcurrent::run() to execute this non-blocking. Use a
         // future watcher and a progress dialog to block the gui while this is ongoing.
-        // FIXME: controller id handling is bad: the vmeconfig controller
-        // settings are examined to get the crate id. Not good as the crateId
-        // has to be correct and is determined by crate order. Either pass a
-        // crateId to the init function or set the crate id manually in here or
-        // update the controller settings or something.
         auto res = mvme_mvlc::run_daq_start_sequence(mvlcCtrl, *crateConfig, false, logger, logger);
 
         if (!res)
             return;
     }
 
-    // *) create output listfile, write magic and preamble
+    // TODO *) create output listfile, write magic and preamble
+
+    // *) create and start readout threads and a listfile writer thread using the nng sockets
+    if (int res = nng_pull0_open(&ctx.readoutConsumerSocket))
+    {
+        ctx.logMessage(QSL("Internal error: %1").arg(nng_strerror(res)));
+        return;
+    }
+
+    if (int res = nng_push0_open(&ctx.readoutProducerSocket))
+    {
+        ctx.logMessage(QSL("Internal error: %1").arg(nng_strerror(res)));
+        return;
+    }
+
+    if (int res = nng_listen(ctx.readoutConsumerSocket, "inproc://mvlc_readout", nullptr, 0))
+    {
+        ctx.logMessage(QSL("Internal error: %1").arg(nng_strerror(res)));
+        return;
+    }
+
+    if (int res = nng_dial(ctx.readoutProducerSocket, "inproc://mvlc_readout", nullptr, 0))
+    {
+        ctx.logMessage(QSL("Internal error: %1").arg(nng_strerror(res)));
+        return;
+    }
+
+    // *) start the readout and listfile writer threads
+    // *) send the global daq start scripts (soft triggers kick of the multi crate daq)
 }
 
 void stop_daq(MultiCrateGuiContext &ctx)
@@ -453,6 +487,14 @@ int main(int argc, char *argv[])
     MultiCrateGuiContext context{};
     context.mainWindow = &w;
     context.logWidget = std::make_unique<MultiLogWidget>();
+
+    auto on_message_logged = [w=context.logWidget.get()] (const QString &msg, const QString &category)
+    {
+        w->appendMessage(msg, category);
+    };
+
+    QObject::connect(&context.logHandler, &LogHandler::messageLogged,
+        context.logWidget.get(), on_message_logged, Qt::QueuedConnection);
 
     QObject::connect(&w, &MultiCrateMainWindow::newVmeConfig, &w, [&] {
         // TODO: multicrate or single crate? how many crates? mvlc urls?

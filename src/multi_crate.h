@@ -13,8 +13,9 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "libmvme_export.h"
-#include "vme_config.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "util/mesy_nng.h"
+#include "vme_config.h"
 
 namespace mesytec::mvme::multi_crate
 {
@@ -403,6 +404,37 @@ struct MulticrateTemplates
 MulticrateTemplates read_multicrate_templates();
 std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates = 2);
 
+struct ReadoutContext
+{
+    unsigned crateId;
+    mvlc::MVLC mvlc;
+    nng_socket outputSocket;
+};
+
+void mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit); // throws on error
+
+enum class MessageType: u8
+{
+    ListfileBuffer,
+    ParsedEvents,
+};
+
+#define PACK_AND_ALIGN4 __attribute__((packed, aligned(4)))
+
+struct PACK_AND_ALIGN4 BaseMessageHeader
+{
+    MessageType messageType;
+    u32 messageNumber; // starts from 1
+};
+
+struct PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
+{
+    u32 bufferType;
+};
+
+static_assert(sizeof(ListfileBufferMessageHeader) % sizeof(u32) == 0);
+
+#undef PACK_AND_ALIGN4
 
 }
 

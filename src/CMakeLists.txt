@@ -179,6 +179,7 @@ add_library(libmvme SHARED
     logfile_helper.cc
     mesytec_diagnostics.cc
     multi_crate.cc
+    multi_crate_gui.cc
     multi_crate_mainwindow.cc
     multi_event_splitter.cc
     multiplot_widget.cc

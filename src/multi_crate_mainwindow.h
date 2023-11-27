@@ -49,6 +49,9 @@ class LIBMVME_EXPORT MultiCrateMainWindow: public QMainWindow
         VmeConfigItemModel *getVmeConfigModel();
         VmeConfigItemController *getVmeConfigItemController();;
 
+    public slots:
+        void reloadView();
+
     private:
         struct Private;
         std::unique_ptr<Private> d;

@@ -5,9 +5,12 @@
 #include <QDir>
 #include <stdexcept>
 
+#include "util/mesy_nng.h"
 #include "util/qt_fs.h"
 #include "vme_config_scripts.h"
 #include "vme_config_util.h"
+
+using namespace mesytec::mvlc;
 
 namespace mesytec::mvme::multi_crate
 {
@@ -483,6 +486,86 @@ std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates)
     }
 
     return result;
+}
+
+static size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
+{
+    size_t bytesMoved = 0u;
+    const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg))
+        + sizeof(ListfileBufferMessageHeader);
+    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ListfileBufferMessageHeader);
+
+    if (bufferType == mvlc::ConnectionType::USB)
+        bytesMoved = mvlc::fixup_buffer_mvlc_usb(msgBufferData, msgBufferSize, tmpBuf);
+    else
+        bytesMoved = mvlc::fixup_buffer_mvlc_eth(msgBufferData, msgBufferSize, tmpBuf);
+
+    nng_msg_chop(msg, bytesMoved);
+
+    return bytesMoved;
+}
+
+
+struct BufferHeader
+{
+    u32 bufferNumber;
+};
+
+// flush timeout
+// timetick sections
+// crate id for timetick events
+
+struct TimetickGenerator
+{
+    public:
+        const std::chrono::seconds TimetickInterval = std::chrono::seconds(1);
+
+        void readoutStart(listfile::WriteHandle &wh)
+        {
+            // Write the initial timestamp in a BeginRun section
+            listfile_write_timestamp_section(wh, system_event::subtype::BeginRun);
+            tLastTick_ = std::chrono::steady_clock::now();
+        }
+
+        void readoutStop(listfile::WriteHandle &wh)
+        {
+            // Write the final timestamp in an EndRun section.
+            listfile_write_timestamp_section(wh, system_event::subtype::EndRun);
+        }
+
+        void operator()(listfile::WriteHandle &wh)
+        {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = now - tLastTick_;
+
+            if (elapsed >= TimetickInterval)
+            {
+                listfile_write_timestamp_section(wh, system_event::subtype::UnixTimetick);
+                tLastTick_ = now;
+            }
+        }
+
+    private:
+        std::chrono::time_point<std::chrono::steady_clock> tLastTick_ = {};
+};
+
+
+void mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit) // throws on error
+{
+    std::vector<u8> tmpBuf;
+    ListfileBufferMessageHeader header{};
+    header.messageNumber = 1;
+
+    while (!quit)
+    {
+        nng_msg *msg = nullptr;
+
+        if (auto res = allocate_reserve_message(&msg, mvlc::util::Megabytes(1)))
+        {
+            spdlog::error("mvlc_readout_loop: error allocating output message: {}", nng_strerror(res));
+            break;
+        }
+    }
 }
 
 }

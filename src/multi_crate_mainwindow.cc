@@ -142,13 +142,7 @@ MultiCrateMainWindow::MultiCrateMainWindow(QWidget *parent)
     connect(actionSaveVMEConfig, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfig);
     connect(actionSaveVMEConfigAs, &QAction::triggered, this, &MultiCrateMainWindow::saveVmeConfigAs);
     connect(actionExploreWorkspace, &QAction::triggered, this, &MultiCrateMainWindow::exploreWorkspace);
-    connect(actionReloadView, &QAction::triggered, this, [this] {
-        if (d->vmeConfig_)
-        {
-            d->vmeConfigModel_->setRootObject(d->vmeConfig_.get());
-            d->vmeConfigView_->setRootIndex(d->vmeConfigModel_->invisibleRootItem()->child(0)->index());
-        }
-    });
+    connect(actionReloadView, &QAction::triggered, this, &MultiCrateMainWindow::reloadView);
 
     auto actionDaqStart    = new QAction(QIcon(":/control_play.png"), QSL("Start DAQ"), this);
     actionDaqStart->setObjectName(QSL("actionDaqStart"));
@@ -261,6 +255,15 @@ VmeConfigItemModel *MultiCrateMainWindow::getVmeConfigModel()
 VmeConfigItemController *MultiCrateMainWindow::getVmeConfigItemController()
 {
     return d->vmeConfigController_;
+}
+
+void MultiCrateMainWindow::reloadView()
+{
+    if (d->vmeConfig_)
+    {
+        d->vmeConfigModel_->setRootObject(d->vmeConfig_.get());
+        d->vmeConfigView_->setRootIndex(d->vmeConfigModel_->invisibleRootItem()->child(0)->index());
+    }
 }
 
 }

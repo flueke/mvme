@@ -88,16 +88,14 @@ MultiLogWidget::~MultiLogWidget()
 {
 }
 
-void MultiLogWidget::logMessage(const QString &msg)
+void MultiLogWidget::appendMessage(const QString &msg, const QString &category)
 {
-    auto escaped = msg.toHtmlEscaped();
-    auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
-    d->logView->appendHtml(html);
-}
+    QString str;
+    if (category.isEmpty())
+        str = msg;
+    else
+        str = QSL("[%1] %2").arg(category).arg(msg);
 
-void MultiLogWidget::logMessage(const QString &category, const QString &msg)
-{
-    auto str = QSL("[%1] %2").arg(category).arg(msg);
     auto escaped = str.toHtmlEscaped();
     auto html = QSL("<font color=\"black\"><pre>%1</pre></font>").arg(escaped);
     d->logView->appendHtml(html);
