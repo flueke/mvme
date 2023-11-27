@@ -549,6 +549,7 @@ bool run_daq_start_sequence(
         }
     }
 
+    #if 0
     // Controller/Crate Id ===============================================================
     {
         unsigned ctrlId = vmeConfig.getControllerSettings().value("mvlc_ctrl_id").toUInt();
@@ -560,6 +561,7 @@ bool run_daq_start_sequence(
             return false;
         }
     }
+    #endif
 
     // Trigger IO ========================================================================
 
