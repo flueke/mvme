@@ -4,6 +4,12 @@
 Changelog
 ##################################################
 
+Version 1.10.1
+--------------
+
+* Add the prometheus+grafana docker-compose project to the binary packages
+  (extras/metrics).
+
 Version 1.10.0
 --------------
 
