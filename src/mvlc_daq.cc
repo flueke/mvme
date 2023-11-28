@@ -98,6 +98,9 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
         u16 uploadAddress = uploadWordOffset * mvlc::AddressIncrement;
         u16 endAddress    = uploadAddress + stackBuffer.size() * mvlc::AddressIncrement;
 
+        spdlog::trace("setup_readout_stacks: stackId={}, uploadAddress=0x{:04x}, endAddress=0x{:04x}",
+            static_cast<unsigned>(stackId), uploadAddress, endAddress);
+
         if (mvlc::stacks::StackMemoryBegin + endAddress >= mvlc::stacks::StackMemoryEnd)
             return make_error_code(mvlc::MVLCErrorCode::StackMemoryExceeded);
 
@@ -107,6 +110,8 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
         u16 offsetRegister = mvlc::stacks::get_offset_register(stackId);
 
         uploadAddress = uploadAddress & mvlc::stacks::StackOffsetBitMaskBytes;
+
+        spdlog::trace("setup_readout_stacks: stackId={}, offset=0x{:04x}", stackId, uploadAddress);
 
         if (auto ec = mvlc.writeRegister(offsetRegister, uploadAddress))
             return ec;
