@@ -26,7 +26,7 @@ inline int receive_message(nng_socket sock, nng_msg **msg_ptr, int flags = 0)
     return 0;
 }
 
-int allocate_reserve_message(nng_msg **msg, size_t reserve = 0)
+inline int allocate_reserve_message(nng_msg **msg, size_t reserve = 0)
 {
     assert(msg);
 

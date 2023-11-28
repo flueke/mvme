@@ -43,6 +43,7 @@ LIBMVME_EXPORT QByteArray read_vme_config_data(QIODevice &listfile);
 
 void LIBMVME_EXPORT listfile_write_mvme_config(
     mesytec::mvlc::listfile::WriteHandle &lf_out,
+    u8 crateId,
     const VMEConfig &vmeConfig);
 
 // Works for ZipCreator and SplitZipCreator

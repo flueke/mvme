@@ -227,10 +227,11 @@ void ListfileFilterStreamConsumer::beginRun(
     {
         listfile::BufferedWriteHandle bwh;
         listfile::listfile_write_magic(bwh, ConnectionType::USB);
-        listfile::listfile_write_endian_marker(bwh);
         auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+        listfile::listfile_write_endian_marker(bwh, crateConfig.crateId);
         listfile::listfile_write_crate_config(bwh, crateConfig);
-        mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
+        static const u8 crateId = 0; // FIXME: single crate only!
+        mvme_mvlc_listfile::listfile_write_mvme_config(bwh, crateId, *vmeConfig);
         return bwh.getBuffer();
     };
 

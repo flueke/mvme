@@ -125,6 +125,7 @@ QByteArray read_vme_config_data(QIODevice &listfile)
 
 void listfile_write_mvme_config(
     mesytec::mvlc::listfile::WriteHandle &lf_out,
+    u8 crateId,
     const VMEConfig &vmeConfig)
 {
     QJsonObject json;
@@ -140,7 +141,7 @@ void listfile_write_mvme_config(
         bytes.append(' ');
 
     mesytec::mvlc::listfile::listfile_write_system_event(
-        lf_out, mesytec::mvlc::system_event::subtype::MVMEConfig,
+        lf_out, crateId, mesytec::mvlc::system_event::subtype::MVMEConfig,
         reinterpret_cast<const u32 *>(bytes.data()),
         bytes.size() / sizeof(u32));
 }

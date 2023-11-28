@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
                             ci, err.toString().toStdString()));
         }
 
-        if (!mesytec::mvme::run_daq_start_sequence(
+        if (!mesytec::mvme_mvlc::run_daq_start_sequence(
             crdo->mvlcController.get(),
             conf,
             false, // ignoreStartupErrors
@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
     {
         auto mergedCrateConfig = mvme::vmeconfig_to_crateconfig(mergedVMEConfig.get());
         mvlc::listfile::listfile_write_preamble(lfwh, mergedCrateConfig);
-        mvme_mvlc_listfile::listfile_write_mvme_config(lfwh, *mergedVMEConfig);
+        mvme_mvlc_listfile::listfile_write_mvme_config(lfwh, 0, *mergedVMEConfig);
     }
     catch (const vme_script::ParseError &e)
     {
@@ -532,7 +532,7 @@ int main(int argc, char *argv[])
     }
 
     // Finalize the listfile
-    mvlc::listfile::listfile_write_system_event(lfwh, mvlc::system_event::subtype::EndOfFile);
+    mvlc::listfile::listfile_write_system_event(lfwh, 0, mvlc::system_event::subtype::EndOfFile);
 
     auto ebCounters = mcrdo.eventBuilder->getCounters();
 

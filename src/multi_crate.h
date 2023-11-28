@@ -404,6 +404,7 @@ struct MulticrateTemplates
 MulticrateTemplates read_multicrate_templates();
 std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates = 2);
 
+// Readout context for a single crate. Output buffers are written to the output socket.
 struct ReadoutContext
 {
     unsigned crateId;

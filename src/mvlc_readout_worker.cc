@@ -478,7 +478,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // Write our VMEConfig to the listfile aswell (the CrateConfig from
                 // the library does not have all the meta information stored in the
                 // VMEConfig).
-                mvme_mvlc_listfile::listfile_write_mvme_config(bwh, *vmeConfig);
+                mvme_mvlc_listfile::listfile_write_mvme_config(bwh, crateConfig.crateId, *vmeConfig);
 
                 preamble = bwh.getBuffer();
             }
@@ -593,7 +593,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
         // End of readout; begin shutdown procedure.
 
         if (d->listfileWriteHandle)
-            listfile_write_system_event(*d->listfileWriteHandle, system_event::subtype::EndOfFile);
+            listfile_write_system_event(*d->listfileWriteHandle, crateConfig.crateId, system_event::subtype::EndOfFile);
 
         logMessage("Leaving readout loop");
         logMessage("");
