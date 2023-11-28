@@ -2203,8 +2203,6 @@ void MVLCRegisterWidget::readStackInfo(u8 stackId)
         return;
     }
 
-    stackOffset &= mvlc::stacks::StackOffsetBitMaskWords;
-
     if (auto ec = m_mvlc->readRegister(triggerRegister, stackTriggers))
     {
         emit sigLogMessage(QString("Read Stack Info Error: %1").arg(ec.message().c_str()));
