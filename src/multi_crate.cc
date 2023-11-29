@@ -566,6 +566,47 @@ struct TimetickGenerator
 // crate id for timetick events
 // counters
 
+static const std::chrono::milliseconds FlushBufferTimeout(500);
+
+std::error_code readout_usb(
+    usb::MVLC_USB_Interface *mvlcUSB,
+    nng_msg *dest,
+    size_t &totalBytesTransferred
+)
+{
+    return {};
+}
+
+std::error_code readout_eth(
+    eth::MVLC_ETH_Interface *mvlcETH,
+    nng_msg *msg,
+    size_t &totalBytesTransferred)
+{
+#if 0
+    auto originalMessageSize = nng_msg_len(msg);
+    auto originalFreeSpace = allocated_free_space(msg);
+    size_t messageUsed = originalMessageSize;
+
+    nng_msg_realloc(msg, originalMessageSize + originalFreeSpace);
+
+    while (allocated_free_space(msg) >= eth::JumboFrameMaxSize)
+    {
+        nng_msg_realloc(msg, nng_msg_len(msg) + eth::JumboFrameMaxSize);
+
+        auto result = mvlcETH->read_packet(
+            Pipe::Data,
+            destBuffer->data() + destBuffer->used(),
+            destBuffer->free());
+
+        ec = result.ec;
+        destBuffer->use(result.bytesTransferred);
+        totalBytesTransferred += result.bytesTransferred;
+    }
+
+#endif
+    return {};
+}
+
 void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit) // throws on error
 {
     auto logger = mvlc::get_logger("mvlc_readout_loop");
@@ -595,6 +636,7 @@ void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit)
 
     while (!quit)
     {
+        // allocate new output message if needed
         if (!msg)
         {
             if (auto res = allocate_reserve_message(&msg, sizeof(header) +  mvlc::util::Megabytes(1)))
@@ -604,14 +646,25 @@ void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit)
         }
         assert(msg);
 
-        NngMsgWriteHandle msgWriteHandle(msg);
-        timetickGen(msgWriteHandle, context.crateId);
-
+        // move trailing data from last readout cycle to the current output message
         nng_msg_append(msg, tmpBuf.data(), tmpBuf.size());
         tmpBuf.clear();
 
-        // TODO: leftoff here 231127
+        NngMsgWriteHandle msgWriteHandle(msg);
 
+        // run the timetick generator
+        timetickGen(msgWriteHandle, context.crateId);
+
+        // the actual readout
+        {
+            auto dataGuard = mvlc.getLocks().lockData();
+            std::error_code ec;
+            size_t bytesTransferred = 0u;
+            if (mvlcEth)
+                ec = readout_eth(mvlcEth, msg, bytesTransferred);
+            else
+                ec = readout_usb(mvlcUsb, msg, bytesTransferred);
+        }
 
     }
 }

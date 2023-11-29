@@ -39,5 +39,13 @@ inline int allocate_reserve_message(nng_msg **msg, size_t reserve = 0)
     return 0;
 }
 
+inline size_t allocated_free_space(nng_msg *msg)
+{
+    auto capacity = nng_msg_capacity(msg);
+    auto used = nng_msg_len(msg);
+    assert(capacity >= used);
+    return capacity - used;
+}
+
 
 #endif /* B18E3651_CA9A_43BC_AA25_810EA16533CD */

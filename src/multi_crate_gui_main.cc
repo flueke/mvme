@@ -11,6 +11,7 @@
 #include <QTreeView>
 
 #include <cassert>
+#include <future>
 #include <spdlog/spdlog.h>
 
 #include "multi_crate_gui.h"
@@ -44,17 +45,27 @@ struct MultiCrateGuiContext
 
     // config, controllers, readout
     //std::shared_ptr<ConfigObject> vmeConfig; // FIXME: need to keep mainwindow and this config synced...
+
     std::vector<std::unique_ptr<mvme_mvlc::MVLC_VMEController>> controllers;
-    nng_socket readoutProducerSocket;
-    nng_socket readoutConsumerSocket;
-    std::vector<std::future<std::error_code>> readoutProducers;
+    nng_socket readoutProducerSocket = NNG_SOCKET_INITIALIZER;
+    nng_socket readoutConsumerSocket = NNG_SOCKET_INITIALIZER;
+    std::vector<std::unique_ptr<multi_crate::ReadoutProducerContext>> readoutContexts;
+    std::vector<std::future<void>> readoutProducers;
     std::future<std::error_code> readoutConsumer;
+    std::atomic<bool> quitReadoutProducers;
+    std::atomic<bool> quitReadoutConsumer;
 
     // widgets and gui stuff
     MultiCrateMainWindow *mainWindow;
     LogHandler logHandler;
     WidgetRegistry widgetRegistry;
     std::unique_ptr<MultiLogWidget> logWidget;
+
+    ~MultiCrateGuiContext()
+    {
+        nng_close(readoutProducerSocket);
+        nng_close(readoutConsumerSocket);
+    }
 
     void logMessage(const QString &msg, const QString &category = {}) { logHandler.logMessage(msg, category); }
 };
@@ -258,9 +269,9 @@ void start_daq(MultiCrateGuiContext &ctx)
     if (ctx.mvmeState != MVMEState::Idle)
         return;
 
-    // TODO: need to implement this for VMEConfig and for MulticrateVMEConfig
-    // TODO: need to figure out which if any of the vme controllers were
-    // changed in the vme configs and need to recreate these.
+    // TODO: need to implement this for VMEConfig and for MulticrateVMEConfig or find another way to support both.
+    // TODO: need to figure out which if any of the vme controllers were changed in the vme configs and need to recreate these.
+    //       Unmodified controllers could remain.
     //
     // *) connect vme controllers
     // *) setup mvlcs, upload stacks, triggerio, etc.
@@ -270,7 +281,10 @@ void start_daq(MultiCrateGuiContext &ctx)
     // *) start the readout and listfile writer threads
     // *) send the global daq start scripts (soft triggers kick of the multi crate daq)
 
-    ctx.controllers.clear();  // FIXME: this is a hack. MVLC that did not change should be kept to avoid useless reconnecting all the time.
+    // FIXME: this is a hack. MVLCs that did not change should be kept to avoid
+    // useless reconnecting all the time. Right now there's no way to compare
+    // connection info with an existing mvlc instance to determine if there was a change.
+    ctx.controllers.clear();
     ctx.readoutProducers.clear();
 
     auto config = qobject_cast<multi_crate::MulticrateVMEConfig *>(ctx.mainWindow->getConfig().get());
@@ -314,7 +328,7 @@ void start_daq(MultiCrateGuiContext &ctx)
         auto logger = [&] (const QString &msg) { ctx.logMessage(msg, QSL("crate%1").arg(crateId)); };
 
         logger(QSL("  Setting crate id = %1").arg(crateId));
-        if (auto ec = mvlc.writeRegister(mvlc::ControllerIdRegister, crateId))
+        if (auto ec = mvlc.writeRegister(mvlc::registers::controller_id, crateId))
         {
             logger(QSL("Error setting crate id: %2").arg(ec.message().c_str()));
             return;
@@ -328,9 +342,8 @@ void start_daq(MultiCrateGuiContext &ctx)
             return;
     }
 
-    // TODO *) create output listfile, write magic and preamble
+    // *) create and connect nng sockets
 
-    // *) create and start readout threads and a listfile writer thread using the nng sockets
     if (int res = nng_pull0_open(&ctx.readoutConsumerSocket))
     {
         ctx.logMessage(QSL("Internal error: %1").arg(nng_strerror(res)));
@@ -353,6 +366,25 @@ void start_daq(MultiCrateGuiContext &ctx)
     {
         ctx.logMessage(QSL("Internal error: %1").arg(nng_strerror(res)));
         return;
+    }
+
+    // TODO *) create output listfile, write magic and preamble
+
+    // *) create and start readout threads and a listfile writer thread using the nng sockets
+
+    for (size_t crateId = 0; crateId < crateCount; ++crateId)
+    {
+        auto mvlcCtrl = ctx.controllers[crateId].get();
+        auto mvlc = mvlcCtrl->getMVLC();
+
+        auto readoutContext = std::make_unique<multi_crate::ReadoutProducerContext>();
+        readoutContext->crateId = crateId;
+        readoutContext->mvlc = mvlc;
+        readoutContext->outputSocket = ctx.readoutProducerSocket;
+
+        auto producerFuture = std::async(std::launch::async, multi_crate::mvlc_readout_loop,
+            std::ref(*readoutContext), std::ref(ctx.quitReadoutProducers));
+        ctx.readoutProducers.emplace_back(std::move(producerFuture));
     }
 
     // *) start the readout and listfile writer threads

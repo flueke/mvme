@@ -7,6 +7,18 @@
 #include <mutex>
 #include <unordered_map>
 
+// TODO: implement something like this for structured logging. Use some default
+// keys to store message severity and originating subsystem, timestamp, etc.
+// This could also be recursive where a LogRecord can be stored in a QVariant in
+// the parents context.
+#if 0
+struct LogRecord
+{
+    QString message;
+    QVariantMap context;
+};
+#endif
+
 class LogHandler: public QObject
 {
     Q_OBJECT
