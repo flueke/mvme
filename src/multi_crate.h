@@ -393,7 +393,8 @@ struct MultiCrateReadout_first
 
 struct MulticrateTemplates
 {
-    std::unique_ptr<EventConfig> startEvent;
+    std::unique_ptr<EventConfig> mainStartEvent;
+    std::unique_ptr<EventConfig> secondaryStartEvent;
     std::unique_ptr<EventConfig> stopEvent;
     std::unique_ptr<EventConfig> dataEvent;
     QString setMasterModeScript;
@@ -405,14 +406,31 @@ MulticrateTemplates read_multicrate_templates();
 std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates = 2);
 
 // Readout context for a single crate. Output buffers are written to the output socket.
-struct ReadoutContext
+struct ReadoutProducerContext
 {
     unsigned crateId;
     mvlc::MVLC mvlc;
     nng_socket outputSocket;
+    // TODO: add readout counters here
 };
 
-void mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit); // throws on error
+#if 0
+struct ReplayProducerContext
+{
+    nng_socket outputSocket;
+};
+#endif
+
+struct ReadoutConsumerContext
+{
+    nng_socket inputSocket;
+    nng_socket snoopOutputSocket;
+    mvlc::listfile::WriteHandle *outputWriteHandle;
+    // TODO: add consumer counters here
+};
+
+void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit); // throws on error
+void mvlc_readout_consumer(ReadoutConsumerContext &context);
 
 enum class MessageType: u8
 {

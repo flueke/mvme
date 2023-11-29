@@ -440,9 +440,10 @@ MulticrateTemplates read_multicrate_templates()
     MulticrateTemplates result;
     auto dir = QDir(vats::get_template_path());
 
-    result.startEvent  = vme_config::eventconfig_from_file(dir.filePath("multicrate/start_event.mvmeevent"));
-    result.stopEvent   = vme_config::eventconfig_from_file(dir.filePath("multicrate/stop_event.mvmeevent"));
-    result.dataEvent   = vme_config::eventconfig_from_file(dir.filePath("multicrate/data_event0.mvmeevent"));
+    result.mainStartEvent = vme_config::eventconfig_from_file(dir.filePath("multicrate/main_start_event.mvmeevent"));
+    result.secondaryStartEvent = vme_config::eventconfig_from_file(dir.filePath("multicrate/secondary_start_event.mvmeevent"));
+    result.stopEvent = vme_config::eventconfig_from_file(dir.filePath("multicrate/stop_event.mvmeevent"));
+    result.dataEvent = vme_config::eventconfig_from_file(dir.filePath("multicrate/data_event0.mvmeevent"));
 
     result.setMasterModeScript = read_text_file(dir.filePath("multicrate/set_master_mode.vmescript"));
     result.setSlaveModeScript  = read_text_file(dir.filePath("multicrate/set_slave_mode.vmescript"));
@@ -456,32 +457,36 @@ std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates)
     auto templates = multi_crate::read_multicrate_templates();
     auto result = std::make_unique<MulticrateVMEConfig>();
 
-    for (size_t crateId = 0; crateId < numCrates; ++crateId)
+    {
+        auto mainCrate = std::make_unique<VMEConfig>();
+        mainCrate->setObjectName("crate0");
+        mainCrate->setVMEController(VMEControllerType::MVLC_ETH);
+        mainCrate->addEventConfig(vme_config::clone_config_object(*templates.mainStartEvent).release());
+        mainCrate->addEventConfig(vme_config::clone_config_object(*templates.stopEvent).release());
+        mainCrate->addEventConfig(vme_config::clone_config_object(*templates.dataEvent).release());
+        auto setModeScript = std::make_unique<VMEScriptConfig>();
+        setModeScript->setObjectName("set master mode");
+        setModeScript->setScriptContents(templates.setMasterModeScript);
+        mainCrate->addGlobalScript(setModeScript.release(), "daq_start");
+        if (auto triggerIo = mainCrate->getMVLCTriggerIOScript())
+            triggerIo->setScriptContents(templates.triggerIoScript);
+        result->addCrateConfig(mainCrate.release());
+    }
+
+    for (size_t crateId = 1; crateId < numCrates; ++crateId)
     {
         auto crateConfig = std::make_unique<VMEConfig>();
         crateConfig->setObjectName(fmt::format("crate{}", crateId).c_str());
         crateConfig->setVMEController(VMEControllerType::MVLC_ETH);
-        crateConfig->addEventConfig(vme_config::clone_config_object(*templates.startEvent).release());
+        crateConfig->addEventConfig(vme_config::clone_config_object(*templates.secondaryStartEvent).release());
         crateConfig->addEventConfig(vme_config::clone_config_object(*templates.stopEvent).release());
         crateConfig->addEventConfig(vme_config::clone_config_object(*templates.dataEvent).release());
-        auto setMasterSlaveScript = std::make_unique<VMEScriptConfig>();
-
-        if (crateId == 0)
-        {
-            setMasterSlaveScript->setObjectName("set master mode");
-            setMasterSlaveScript->setScriptContents(templates.setMasterModeScript);
-        }
-        else
-        {
-            setMasterSlaveScript->setObjectName("set slave mode");
-            setMasterSlaveScript->setScriptContents(templates.setSlaveModeScript);
-        }
-
-        crateConfig->addGlobalScript(setMasterSlaveScript.release(), "daq_start");
-
+        auto setModeScript = std::make_unique<VMEScriptConfig>();
+        setModeScript->setObjectName("set slave mode");
+        setModeScript->setScriptContents(templates.setSlaveModeScript);
+        crateConfig->addGlobalScript(setModeScript.release(), "daq_start");
         if (auto triggerIo = crateConfig->getMVLCTriggerIOScript())
             triggerIo->setScriptContents(templates.triggerIoScript);
-
         result->addCrateConfig(crateConfig.release());
     }
 
@@ -561,8 +566,11 @@ struct TimetickGenerator
 // crate id for timetick events
 // counters
 
-void mvlc_readout_loop(ReadoutContext &context, std::atomic<bool> &quit) // throws on error
+void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit) // throws on error
 {
+    auto logger = mvlc::get_logger("mvlc_readout_loop");
+    logger->info("mvlc_readout_loop starting for crate{} with MVLC {}", context.crateId, context.mvlc.connectionInfo());
+
     std::vector<u8> tmpBuf;
     auto &mvlc = context.mvlc;
     eth::MVLC_ETH_Interface *mvlcEth = nullptr;
