@@ -14,65 +14,30 @@
 using namespace mesytec;
 using namespace mesytec::mvme;
 
-std::vector<std::unique_ptr<VMEConfig>> make_multicrate_vme_configs(const std::vector<std::string> &mvlcUrls)
-{
-    // read template files from multicrate subdirectory
-    // create vme config for each mvlc url
-    // setup the mvlc for each vme config
-    // create start and stop events from the event templates
-
-    if (mvlcUrls.empty())
-        return {};
-
-    std::vector<std::unique_ptr<VMEConfig>> result;
-    auto templates = multi_crate::read_multicrate_templates();
-
-    for (auto urlIter = std::begin(mvlcUrls); urlIter != std::end(mvlcUrls); ++urlIter)
-    {
-        auto controllerInfo = vme_config::mvlc_settings_from_url(*urlIter);
-        auto name = fmt::format("crate{}", std::distance(std::begin(mvlcUrls), urlIter));
-
-        auto vmeConfig = std::make_unique<VMEConfig>();
-        vmeConfig->setObjectName(name.c_str());
-        vmeConfig->setVMEController(controllerInfo.first, controllerInfo.second);
-        vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.startEvent).release());
-        vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.stopEvent).release());
-        vmeConfig->addEventConfig(vme_config::clone_config_object(*templates.dataEvent).release());
-        auto setMasterSlaveScript = std::make_unique<VMEScriptConfig>();
-
-        if (urlIter == std::begin(mvlcUrls))
-        {
-            setMasterSlaveScript->setObjectName("set master mode");
-            setMasterSlaveScript->setScriptContents(templates.setMasterModeScript);
-        }
-        else
-        {
-            setMasterSlaveScript->setObjectName("set slave mode");
-            setMasterSlaveScript->setScriptContents(templates.setSlaveModeScript);
-        }
-
-        vmeConfig->addGlobalScript(setMasterSlaveScript.release(), "daq_start");
-
-        if (auto triggerIo = vmeConfig->getMVLCTriggerIOScript())
-            triggerIo->setScriptContents(templates.triggerIoScript);
-
-        result.emplace_back(std::move(vmeConfig));
-    }
-
-    return result;
-}
-
 int create_configs(const std::vector<std::string> &mvlcUrls, const std::string &outputDirectory)
 {
     if (mvlcUrls.empty())
         return 1;
 
-    auto vmeConfigs = make_multicrate_vme_configs(mvlcUrls);
+    auto multiCrateConfig = multi_crate::make_multicrate_config(mvlcUrls.size());
 
     QDir().mkdir(outputDirectory.c_str());
     QDir outDir(outputDirectory.c_str());
 
-    for (auto &vmeConfig: vmeConfigs)
+    {
+        QFile out(outDir.filePath(QSL("multicrate.multicratevme")));
+
+        if (!out.open(QIODevice::WriteOnly))
+        {
+            std::cerr << fmt::format("Error opening output file {} for writing: {}\n",
+                out.fileName().toLocal8Bit().data(), out.errorString().toLocal8Bit().data());
+            return 1;
+        }
+
+        vme_config::serialize_multicrate_config_to_device(out, *multiCrateConfig);
+    }
+
+    for (auto &vmeConfig: multiCrateConfig->getCrateConfigs())
     {
         QFile out(outDir.filePath(vmeConfig->objectName() + QSL(".vme")));
 
@@ -84,29 +49,6 @@ int create_configs(const std::vector<std::string> &mvlcUrls, const std::string &
         }
 
         vme_config::serialize_vme_config_to_device(out, *vmeConfig);
-    }
-
-    multi_crate::MulticrateVMEConfig combinedConfig;
-    combinedConfig.setObjectName("combined");
-
-    for (auto &vmeConfig: vmeConfigs)
-    {
-        combinedConfig.addCrateConfig(vmeConfig.release());
-    }
-
-    vmeConfigs.clear();
-
-    {
-        QFile out(outDir.filePath(combinedConfig.objectName() + QSL(".multicratevme")));
-
-        if (!out.open(QIODevice::WriteOnly))
-        {
-            std::cerr << fmt::format("Error opening output file {} for writing: {}\n",
-                out.fileName().toLocal8Bit().data(), out.errorString().toLocal8Bit().data());
-            return 1;
-        }
-
-        vme_config::serialize_multicrate_config_to_device(out, combinedConfig);
     }
 
     return 0;
