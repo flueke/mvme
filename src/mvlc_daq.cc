@@ -79,7 +79,7 @@ std::vector<mvlc::StackCommandBuilder> get_readout_stacks(const VMEConfig &vmeCo
 std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger)
 {
     // Stack0 is reserved for immediate exec
-    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
+    u8 stackId = mvlc::stacks::FirstReadoutStackID;
 
     // 1 word gap between immediate stack and first readout stack
     u16 uploadWordOffset = mvlc::stacks::ImmediateStackStartOffsetWords +
@@ -109,8 +109,6 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 
         u16 offsetRegister = mvlc::stacks::get_offset_register(stackId);
 
-        uploadAddress = uploadAddress & mvlc::stacks::StackOffsetBitMaskBytes;
-
         spdlog::trace("setup_readout_stacks: stackId={}, offset=0x{:04x}", stackId, uploadAddress);
 
         if (auto ec = mvlc.writeRegister(offsetRegister, uploadAddress))
@@ -127,7 +125,7 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 
 std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
-    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
+    u8 stackId = mvlc::stacks::FirstReadoutStackID;
     u16 timersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
@@ -206,7 +204,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 {
     std::vector<u32> triggers;
 
-    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
+    u8 stackId = mvlc::stacks::FirstReadoutStackID;
     u16 timersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
@@ -331,7 +329,7 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO
     auto ioCfg = trigger_io::parse_trigger_io_script_text(
         scriptConfig->getScriptContents());
 
-    u8 stackId = mvlc::stacks::ImmediateStackID + 1;
+    u8 stackId = mvlc::stacks::FirstReadoutStackID;
     u16 timersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
@@ -560,7 +558,7 @@ bool run_daq_start_sequence(
         unsigned ctrlId = vmeConfig.getControllerSettings().value("mvlc_ctrl_id").toUInt();
 
         logger(QSL("  Setting crate id = %1").arg(ctrlId));
-        if (auto ec = mvlc.writeRegister(mvlc::ControllerIdRegister, ctrlId))
+        if (auto ec = mvlc.writeRegister(mvlc::controller_id, ctrlId))
         {
             logger(QSL("Error setting crate id: %2").arg(ec.message().c_str()));
             return false;
