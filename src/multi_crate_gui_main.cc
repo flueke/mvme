@@ -36,6 +36,7 @@ using namespace mesytec::mvme;
 
 static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);; All Files (*)");
 
+// TODO: split this. Most stuff is not gui specific but mvlc+nng readout code.
 struct MultiCrateGuiContext
 {
     // states
@@ -46,12 +47,18 @@ struct MultiCrateGuiContext
     // config, controllers, readout
     //std::shared_ptr<ConfigObject> vmeConfig; // FIXME: need to keep mainwindow and this config synced...
 
-    std::vector<std::unique_ptr<mvme_mvlc::MVLC_VMEController>> controllers;
     nng_socket readoutProducerSocket = NNG_SOCKET_INITIALIZER;
     nng_socket readoutConsumerSocket = NNG_SOCKET_INITIALIZER;
-    std::vector<std::unique_ptr<multi_crate::ReadoutProducerContext>> readoutContexts;
+    nng_socket snoopOutputSocket = NNG_SOCKET_INITIALIZER;
+
+    std::vector<std::unique_ptr<mvme_mvlc::MVLC_VMEController>> controllers;
+
+    std::vector<std::shared_ptr<multi_crate::ReadoutProducerContext>> readoutContexts;
     std::vector<std::future<void>> readoutProducers;
-    std::future<std::error_code> readoutConsumer;
+
+    std::shared_ptr<multi_crate::ReadoutConsumerContext> readoutConsumerContext;
+    std::future<void> readoutConsumer;
+
     std::atomic<bool> quitReadoutProducers;
     std::atomic<bool> quitReadoutConsumer;
 
@@ -368,16 +375,33 @@ void start_daq(MultiCrateGuiContext &ctx)
         return;
     }
 
+    if (int res = nng_pub0_open(&ctx.snoopOutputSocket))
+    {
+        ctx.logMessage(QSL("Internal error: %1 (snoop output open)").arg(nng_strerror(res)));
+        return;
+    }
+
+    if (int res = nng_listen(ctx.snoopOutputSocket, "tcp://*:13803", nullptr, 0))
+    {
+        ctx.logMessage(QSL("Internal error: %1 (snoop output listen)").arg(nng_strerror(res)));
+        return;
+    }
+
     // TODO *) create output listfile, write magic and preamble
 
-    // *) create and start readout threads and a listfile writer thread using the nng sockets
-
+    // *) create and start readout threads
     for (size_t crateId = 0; crateId < crateCount; ++crateId)
     {
         auto mvlcCtrl = ctx.controllers[crateId].get();
         auto mvlc = mvlcCtrl->getMVLC();
 
-        auto readoutContext = std::make_unique<multi_crate::ReadoutProducerContext>();
+        if (auto ec = mvlc::redirect_eth_data_stream(mvlc))
+        {
+            ctx.logMessage(QSL("Internal error: %1").arg(ec.message().c_str()), QSL("crate%1").arg(crateId));
+            return;
+        }
+
+        auto readoutContext = std::make_shared<multi_crate::ReadoutProducerContext>();
         readoutContext->crateId = crateId;
         readoutContext->mvlc = mvlc;
         readoutContext->outputSocket = ctx.readoutProducerSocket;
@@ -385,9 +409,19 @@ void start_daq(MultiCrateGuiContext &ctx)
         auto producerFuture = std::async(std::launch::async, multi_crate::mvlc_readout_loop,
             std::ref(*readoutContext), std::ref(ctx.quitReadoutProducers));
         ctx.readoutProducers.emplace_back(std::move(producerFuture));
+        ctx.readoutContexts.push_back(readoutContext);
     }
 
-    // *) start the readout and listfile writer threads
+    // *) start the readout consumer
+    ctx.readoutConsumerContext = std::make_shared<multi_crate::ReadoutConsumerContext>();
+    auto &consumerContext = ctx.readoutConsumerContext;
+    consumerContext->inputSocket = ctx.readoutConsumerSocket;
+    consumerContext->snoopOutputSocket = ctx.snoopOutputSocket;
+    consumerContext->listfileWriteHandle = nullptr;
+
+    //ctx.readoutConsumer = std::async(std::launch::async, multi_crate::mvlc_readout_consumer,
+    //    std::ref(*ctx.readoutConsumerContext));
+
     // *) send the global daq start scripts (soft triggers kick of the multi crate daq)
 }
 

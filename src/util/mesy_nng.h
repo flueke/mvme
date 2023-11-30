@@ -2,9 +2,11 @@
 #define B18E3651_CA9A_43BC_AA25_810EA16533CD
 
 #include <nng/nng.h>
-#include <nng/protocol/pipeline0/push.h>
-#include <nng/protocol/pipeline0/pull.h>
 #include <nng/protocol/pair0/pair.h>
+#include <nng/protocol/pipeline0/pull.h>
+#include <nng/protocol/pipeline0/push.h>
+#include <nng/protocol/pubsub0/pub.h>
+#include <nng/protocol/pubsub0/sub.h>
 
 inline nng_msg *alloc_message(size_t size)
 {

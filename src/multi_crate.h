@@ -11,6 +11,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/util/protected.h>
 
 #include "libmvme_export.h"
 #include "mvlc/mvlc_vme_controller.h"
@@ -405,32 +406,60 @@ struct MulticrateTemplates
 MulticrateTemplates read_multicrate_templates();
 std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates = 2);
 
+// A WriteHandle implementation writing to a nng_msg structure.
+struct NngMsgWriteHandle: public mvlc::listfile::WriteHandle
+{
+    NngMsgWriteHandle()
+        : msg_(nullptr)
+        { }
+
+    explicit NngMsgWriteHandle(nng_msg *msg)
+        : msg_(msg)
+        { }
+
+    void setMessage(nng_msg *msg)
+    {
+        msg_= msg;
+    }
+
+    size_t write(const u8 *data, size_t size) override
+    {
+        assert(msg_);
+        if (auto res = nng_msg_append(msg_, data, size))
+            throw std::runtime_error(fmt::format("NngMsgWriteHandle: {}", nng_strerror(res)));
+        return size;
+    }
+
+    nng_msg *msg_;
+};
+
 // Readout context for a single crate. Output buffers are written to the output socket.
 struct ReadoutProducerContext
 {
-    unsigned crateId;
+    unsigned crateId = 0;
     mvlc::MVLC mvlc;
-    nng_socket outputSocket;
-    // TODO: add readout counters here
+    nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+    nng_msg *outputMessage = nullptr;
+    NngMsgWriteHandle msgWriteHandle;
+
+    // TODO: add readout counters here (mvlc_readout_worker)
 };
 
-#if 0
 struct ReplayProducerContext
 {
     nng_socket outputSocket;
 };
-#endif
 
 struct ReadoutConsumerContext
 {
     nng_socket inputSocket;
     nng_socket snoopOutputSocket;
-    mvlc::listfile::WriteHandle *outputWriteHandle;
+    mvlc::listfile::WriteHandle *listfileWriteHandle;
     // TODO: add consumer counters here
 };
 
 void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit); // throws on error
-void mvlc_readout_consumer(ReadoutConsumerContext &context);
+void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &quit);
 
 enum class MessageType: u8
 {
@@ -454,6 +483,9 @@ struct PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
 static_assert(sizeof(ListfileBufferMessageHeader) % sizeof(u32) == 0);
 
 #undef PACK_AND_ALIGN4
+
+// Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
+size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);
 
 }
 
