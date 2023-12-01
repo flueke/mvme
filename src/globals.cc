@@ -154,9 +154,9 @@ void deserialize_listfile_output_info(const Source &source, ListFileOutputInfo &
     dest.fmtStr           = source.value(QSL("ListFileFormatString"), dest.fmtStr).toString();
     dest.runNumber        = source.value(QSL("ListFileRunNumber"), 1u).toUInt();
     dest.flags            = source.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseRunNumber).toUInt();
-    dest.splitSize        = source.value(QSL("ListFileSplitSize"), static_cast<quint64>(dest.splitSize)).toUInt();
+    dest.splitSize        = source.value(QSL("ListFileSplitSize"), static_cast<quint64>(dest.splitSize)).toULongLong();
     dest.splitTime        = std::chrono::seconds(
-        source.value(QSL("ListFileSplitTime"), static_cast<quint64>(dest.splitTime.count())).toUInt());
+        source.value(QSL("ListFileSplitTime"), static_cast<quint64>(dest.splitTime.count())).toULongLong());
 }
 
 void write_listfile_output_info_to_qsettings(const ListFileOutputInfo &info, QSettings &settings)
