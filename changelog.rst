@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.10.2
+--------------
+
+* Fix large values for listfile split size and split duration being truncated.
+
 Version 1.10.1
 --------------
 
