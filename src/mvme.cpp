@@ -572,6 +572,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
 
         m_d->m_daqControlWidgetUpdateTimer = new QTimer(this);
 
+        // FIXME: is this timer update a good idea? is it needed?
         connect(m_d->m_daqControlWidgetUpdateTimer, &QTimer::timeout,
                 this, [this, dcw] ()
         {
