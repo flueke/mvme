@@ -47,11 +47,12 @@
 
 #include "analysis/analysis.h"
 #include "data_filter_edit.h"
+#include "mvlc/mvlc_trigger_io.h"
 #include "qt-collapsible-section/Section.h"
 #include "vme_config.h"
-#include "vme_script.h"
 #include "vme_config_ui_variable_editor.h"
 #include "vme_config_util.h"
+#include "vme_script.h"
 
 using namespace mesytec;
 using namespace vats;
@@ -270,8 +271,8 @@ EventConfigDialog::EventConfigDialog(
                     {
                         m_d->spin_timerPeriod->setSuffix(QSL(" ") + unit);
                         m_d->spin_timerPeriod->setMinimum(
-                            unit == "ns" ? mvlc::stacks::TimerPeriodMin_ns : 1);
-                        m_d->spin_timerPeriod->setMaximum(mvlc::stacks::TimerPeriodMax);
+                            unit == "ns" ? mvme_mvlc::trigger_io::Timer::MinPeriod : 1);
+                        m_d->spin_timerPeriod->setMaximum(mvme_mvlc::trigger_io::Timer::MaxPeriod);
                     };
 
                     on_timer_base_changed("ns");

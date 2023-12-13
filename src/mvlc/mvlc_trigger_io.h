@@ -47,7 +47,15 @@ static const size_t ECL_OUT_Count = 3;
 struct LIBMVME_EXPORT Timer
 {
     static const u16 MinPeriod = 8;
-    using Range = mvlc::stacks::TimerBaseUnit;
+    static const u16 MaxPeriod = 0xffffu;
+
+    enum class Range: u16
+    {
+        ns,
+        us,
+        ms,
+        s
+    };
 
     Range range;
     u16 delay_ns;
@@ -427,6 +435,8 @@ inline void set(LUT_RAM &lut, u8 address, u8 value)
     lut[cell] &= clearNibbleMask;
     lut[cell] |= (value & 0xf) << shift;
 }
+
+Timer::Range LIBMVME_EXPORT timer_range_from_string(const std::string &str);
 
 } // end namespace trigger_io
 } // end namespace mvme_mvlc

@@ -155,7 +155,7 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                 } break;
 
             case TriggerCondition::Periodic:
-                if (timersInUse >= mvlc::stacks::TimerCount)
+                if (timersInUse >= mvlc::stacks::StackTimersCount)
                 {
                     return make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
                 }
@@ -226,7 +226,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                 } break;
 
             case TriggerCondition::Periodic:
-                if (timersInUse >= mvlc::stacks::TimerCount)
+                if (timersInUse >= mvlc::stacks::StackTimersCount)
                 {
                     auto ec = make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
                     return std::make_pair(triggers, ec);
@@ -324,7 +324,7 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO
 
     assert(scriptConfig);
 
-    if (!scriptConfig) return {}; // TODO: error_code
+    if (!scriptConfig) return {}; // should not happen
 
     auto ioCfg = trigger_io::parse_trigger_io_script_text(
         scriptConfig->getScriptContents());
@@ -336,14 +336,14 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO
     {
         if (event->triggerCondition == TriggerCondition::Periodic)
         {
-            if (timersInUse >= mvlc::stacks::TimerCount)
+            if (timersInUse >= mvlc::stacks::StackTimersCount)
                 return {}; // TODO: error_code
 
             // Setup the l0 timer unit
             auto &timer = ioCfg.l0.timers[timersInUse];
             timer.period = event->triggerOptions["mvlc.timer_period"].toUInt();
 
-            timer.range = mvlc::timer_base_unit_from_string(
+            timer.range = mvme_mvlc::trigger_io::timer_range_from_string(
                     event->triggerOptions["mvlc.timer_base"].toString().toStdString());
 
             timer.softActivate = true;

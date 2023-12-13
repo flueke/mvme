@@ -21,6 +21,7 @@
 #include "mvlc/mvlc_trigger_io.h"
 #include <boost/range/adaptor/indexed.hpp>
 #include <iterator>
+#include <mesytec-mvlc/util/string_util.h>
 #include <minbool.h>
 
 using boost::adaptors::indexed;
@@ -627,6 +628,25 @@ UnitAddress get_connection_unit_address(const TriggerIO &ioCfg, const UnitAddres
         case 3:
             return ioCfg.l3.DynamicInputChoiceLists[addr[1]][addr[2]][conValue];
     }
+
+    return {};
+}
+
+Timer::Range timer_range_from_string(const std::string &str_)
+{
+    auto str = mesytec::mvlc::util::str_tolower(str_);
+
+    if (str == "ns")
+        return Timer::Range::ns;
+
+    if (str == "us" || str == "µs")
+        return Timer::Range::us;
+
+    if (str == "ms")
+        return Timer::Range::ms;
+
+    if (str == "s")
+        return Timer::Range::s;
 
     return {};
 }
