@@ -1137,6 +1137,12 @@ Operator make_keep_previous(
     assign_input(&result, inPipe, 0);
     push_output_vectors(arena, &result, 0, inPipe.data.size);
 
+    for (s32 idx = 0; idx < inPipe.data.size; ++idx)
+    {
+        result.outputLowerLimits[0][idx] = inPipe.lowerLimits[idx];
+        result.outputUpperLimits[0][idx] = inPipe.upperLimits[idx];
+    }
+
     return result;
 }
 
@@ -1154,6 +1160,9 @@ Operator make_keep_previous_idx(
 
     assign_input(&result, inPipe, 0);
     push_output_vectors(arena, &result, 0, 1);
+
+    result.outputLowerLimits[0][0] = inPipe.lowerLimits[inputIndex];
+    result.outputUpperLimits[0][0] = inPipe.upperLimits[inputIndex];
 
     return result;
 }
