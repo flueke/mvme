@@ -404,6 +404,7 @@ class PipeDisplay: public QWidget
         void refresh();
 
     private:
+        QString formatParameter(double number);
         Analysis *m_analysis;
         Pipe *m_pipe;
         bool m_showDecimals;
