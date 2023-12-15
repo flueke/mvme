@@ -93,12 +93,12 @@ mvlc::StackCommandBuilder
 
             case CommandType::MBLTSwapped:
                 {
-                    result.addVMEBlockReadSwapped(cmd.address, cmd.transfers, false);
+                    result.addVMEBlockReadSwapped(cmd.address, cmd.addressMode, cmd.transfers, false);
                 } break;
 
             case CommandType::MBLTSwappedFifo:
                 {
-                    result.addVMEBlockReadSwapped(cmd.address, cmd.transfers, true);
+                    result.addVMEBlockReadSwapped(cmd.address, cmd.addressMode, cmd.transfers, true);
                 } break;
 
             case CommandType::Blk2eSST64:
