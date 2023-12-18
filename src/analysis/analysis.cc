@@ -1445,9 +1445,11 @@ void Difference::beginRun(const RunInfo &, Logger)
         return;
     }
 
+    #if 0
     // Either both inputs are arrays or both are single values
     Q_ASSERT((m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
              || (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex));
+    #endif
 
     // Hack to fix an issue with existing analysis files where one input was a
     // single parameter while the other was an array. In debug builds the above
