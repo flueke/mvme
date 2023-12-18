@@ -26,17 +26,20 @@
 
 #include <QAbstractItemModel>
 #include <QButtonGroup>
+#include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QHeaderView>
 #include <QLabel>
 #include <QListWidget>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QMenu>
 #include <QRadioButton>
 #include <QRegularExpressionValidator>
 #include <QShortcut>
@@ -3109,19 +3112,62 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals, QWid
     , m_showDecimals(showDecimals)
     , m_parameterTable(new QTableWidget)
 {
-    auto layout = new QGridLayout(this);
-    s32 row = 0;
+    auto pb_toggleNumberDisplay = new QPushButton(QSL("Toggle Number Format"));
+    pb_toggleNumberDisplay->setToolTip("Toggle between automatic scientific notation and full digit number display");
+    connect(pb_toggleNumberDisplay, &QPushButton::clicked,
+        this, [this] {
+            setShowDecimals(!doesShowDecimals());
+        });
 
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
-    layout->addWidget(m_parameterTable, row++, 0);
-    layout->addWidget(closeButton, row++, 0, 1, 1);
+    auto buttonLayout = make_hbox();
+    buttonLayout->addWidget(pb_toggleNumberDisplay);
+    buttonLayout->addWidget(closeButton);
 
+    auto layout = new QGridLayout(this);
+    s32 row = 0;
+
+    layout->addWidget(m_parameterTable, row++, 0);
+    layout->addLayout(buttonLayout, row++, 0);
     layout->setRowStretch(1, 1);
 
     m_parameterTable->setColumnCount(4);
     m_parameterTable->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
+    m_parameterTable->setContextMenuPolicy(Qt::CustomContextMenu);
+
+
+    auto copy_to_clipboard = [this]
+    {
+        auto sm = m_parameterTable->selectionModel();
+        auto idx = sm->currentIndex();
+
+        if (!idx.isValid())
+            return;
+
+        auto item = m_parameterTable->item(idx.row(), idx.column());
+
+        if (!item)
+            return;
+
+        auto text = item->data(Qt::EditRole).toString();
+        QGuiApplication::clipboard()->setText(text);
+    };
+
+    auto handle_table_context_menu = [this, copy_to_clipboard] (const QPoint &pos)
+    {
+        auto item = m_parameterTable->itemAt(pos);
+
+        if (!item)
+            return;
+
+        QMenu menu;
+        menu.addAction(QIcon::fromTheme("edit-copy"), QSL("Copy"), this, copy_to_clipboard, QKeySequence::Copy);
+        menu.exec(m_parameterTable->mapToGlobal(pos));
+    };
+
+    connect(m_parameterTable, &QTableWidget::customContextMenuRequested, this, handle_table_context_menu);
 
     refresh();
 }
@@ -3145,22 +3191,11 @@ void PipeDisplay::refresh()
             double lowerLimit = pipe.lowerLimits[pi];
             double upperLimit = pipe.upperLimits[pi];
 
-
-            QString paramString;
-
-            if (a2::is_param_valid(param))
-            {
-                if (doesShowDecimals())
-                    paramString = QString::number(param);
-                else
-                    paramString = QString::number(static_cast<qlonglong>(param));
-            }
-
             int col = 0;
             colStrings[col++] = a2::is_param_valid(param) ? QSL("Y") : QSL("N");
-            colStrings[col++] = paramString;
-            colStrings[col++] = QString::number(lowerLimit);
-            colStrings[col++] = QString::number(upperLimit);
+            colStrings[col++] = formatParameter(param);;
+            colStrings[col++] = formatParameter(lowerLimit);
+            colStrings[col++] = formatParameter(upperLimit);
 
             for (s32 ci = 0; ci < colStrings.size(); ci++)
             {
@@ -3190,6 +3225,21 @@ void PipeDisplay::refresh()
     {
         m_parameterTable->setRowCount(0);
     }
+}
+
+QString PipeDisplay::formatParameter(double param)
+{
+    QString paramString;
+
+    if (a2::is_param_valid(param))
+    {
+        if (doesShowDecimals())
+            paramString = QString::number(param); // automatically uses scientific notation
+        else
+            paramString = QString::number(static_cast<qint64>(param));
+    }
+
+    return paramString;
 }
 
 QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const

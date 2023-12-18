@@ -4,6 +4,23 @@
 Changelog
 ##################################################
 
+Version 1.10.3
+--------------
+
+* mvlc: Fix ``mblts`` and ``mbltsfifo`` commands producing broken readout stacks.
+
+* analysis:
+
+  - correctly set the output limits of the ``Previous Value`` operator
+
+  - allow toggling between scientific and full number display in the "Show
+    Parameters" window.
+
+Version 1.10.2
+--------------
+
+* Fix large values for listfile split size and split duration being truncated.
+
 Version 1.10.1
 --------------
 
