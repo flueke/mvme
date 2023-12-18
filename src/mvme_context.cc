@@ -1026,13 +1026,23 @@ void MVMEContext::onControllerOpenFinished()
                           );
             }
         }
-        else if (auto mvlc = dynamic_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller))
+        else if (auto mvlcCtrl = dynamic_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(m_controller))
         {
             using namespace mesytec::mvme_mvlc;
 
+            auto mvlcObj  = mvlcCtrl->getMVLCObject();
+            auto mvlcCore = mvlcObj->getMVLC();
+
             logMessage(QString("Opened VME Controller %1 (%2)")
-                       .arg(mvlc->getIdentifyingString())
-                       .arg(mvlc->getMVLCObject()->getConnectionInfo()));
+                       .arg(mvlcCtrl->getIdentifyingString())
+                       .arg(mvlcObj->getConnectionInfo()));
+
+            if (mvlcCore.firmwareRevision() < 0x0037u)
+            {
+                logError(QSL("mvme-1.11 and later require at least MVLC firmware FW0037."));
+                mvlcCtrl->close();
+                m_d->m_ctrlOpenRetryCount = VMECtrlConnectMaxRetryCount;
+            }
         }
         else // generic case
         {
