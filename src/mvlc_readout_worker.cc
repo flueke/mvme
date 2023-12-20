@@ -327,7 +327,7 @@ bool MVLCReadoutWorker::Private::daqStartSequence()
     // member variable.
     std::vector<u32> triggers;
     std::error_code ec;
-    std::tie(triggers, ec) = get_trigger_values(vmeConfig, logger);
+    std::tie(triggers, ec) = get_trigger_values(vmeConfig);
 
     if (ec)
     {
