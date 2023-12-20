@@ -74,6 +74,7 @@ struct EventConfigDialogPrivate
     QComboBox *combo_mvlcTimerBase;
     QDoubleSpinBox *spin_timerPeriod;
     QSpinBox *spin_stackTimerPeriod;
+    QSpinBox *spin_mvlcMasterTriggerIndex;
 
     QCheckBox *cb_irqUseIACK;
 
@@ -337,12 +338,24 @@ EventConfigDialog::EventConfigDialog(
                     m_d->stack_options->addWidget(timerWidget);
                 }
 
+                // On Master Trigger (FW0037)
+                {
+                    m_d->spin_mvlcMasterTriggerIndex = new QSpinBox;
+                    m_d->spin_mvlcMasterTriggerIndex->setMaximum(mvlc::stacks::MasterTriggersCount - 1);
+
+                    auto optionsWidget = new QWidget;
+                    auto layout = new QFormLayout(optionsWidget);
+                    layout->addRow(QSL("Master Trigger Index"), m_d->spin_mvlcMasterTriggerIndex);
+                    m_d->stack_options->addWidget(optionsWidget);
+                }
+
                 conditions =
                 {
                     TriggerCondition::Interrupt,
-                    { TriggerCondition::MvlcStackTimer, QSL("Periodic") },
+                    { TriggerCondition::MvlcStackTimer, QSL("Periodic (via MVLC StackTimer)") },
                     TriggerCondition::TriggerIO,
                     { TriggerCondition::Periodic, QSL("Periodic (via MVLC Trigger I/O)") },
+                    TriggerCondition::MvlcOnMasterTrigger,
                 };
             } break;
     }
@@ -404,6 +417,9 @@ void EventConfigDialog::loadFromConfig()
 
                 m_d->spin_stackTimerPeriod->setValue(
                     config->triggerOptions.value(QSL("mvlc.stacktimer_period"), 1000u).toUInt());
+
+                m_d->spin_mvlcMasterTriggerIndex->setValue(
+                    config->triggerOptions.value(QSL("mvlc.mastertrigger_index"), 0u).toULongLong());
             } break;
     }
 }
@@ -442,6 +458,10 @@ void EventConfigDialog::saveToConfig()
             else if (config->triggerCondition == TriggerCondition::MvlcStackTimer)
             {
                 config->triggerOptions["mvlc.stacktimer_period"] = m_d->spin_stackTimerPeriod->value();
+            }
+            else if (config->triggerCondition == TriggerCondition::MvlcOnMasterTrigger)
+            {
+                config->triggerOptions["mvlc.mastertrigger_index"] = m_d->spin_mvlcMasterTriggerIndex->value();
             }
             break;
     }
@@ -809,6 +829,13 @@ QString info_text(const EventConfig *config)
                     .arg(config->triggerOptions["mvlc.stacktimer_period"].toULongLong());
                     ;
             } break;
+        case TriggerCondition::MvlcOnMasterTrigger:
+            {
+                infoText = QSL("Trigger=%1, MasterTriggerIndex=%2")
+                    .arg(TriggerConditionNames.value(config->triggerCondition))
+                    .arg(config->triggerOptions["mvlc.mastertrigger_index"].toULongLong());
+                break;
+            }
         default:
             {
                 infoText = QString("Trigger=%1")

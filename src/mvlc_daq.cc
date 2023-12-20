@@ -93,6 +93,15 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
             return make_error_code(mvlc::MVLCErrorCode::StackCountExceeded);
 
         auto stackBuilder = get_readout_commands(*event);
+
+        if (stackBuilder.empty())
+        {
+            spdlog::warn("Empty readout stack for event %1, skipping to next event config",
+                event->objectName().toLocal8Bit().data());
+            ++stackId;
+            continue;
+        }
+
         auto stackBuffer = make_stack_buffer(stackBuilder);
 
         u16 uploadAddress = uploadWordOffset * mvlc::AddressIncrement;
@@ -197,11 +206,24 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                     logger(QSL("    Event %1: Stack %2, periodic (StackTimer %3)")
                         .arg(event->objectName()).arg(stackId).arg(stackTimersInUse));
 
-                    u32 triggerValue = mvlc::stacks::IRQWithIACK << mvlc::stacks::TriggerTypeShift;
+                    u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
                     triggerValue |= (static_cast<u32>(mvlc::stacks::Triggers::Timer0) + stackTimersInUse) & mvlc::stacks::TriggerBitsMask;
                     triggers.push_back(triggerValue);
                     ++stackTimersInUse;
                 }
+                break;
+
+            case TriggerCondition::MvlcOnMasterTrigger:
+                {
+                    auto masterTriggerIndex = event->triggerOptions.value("mvlc.mastertrigger_index").toULongLong();
+                    logger(QSL("    Event %1: Stack %2, on MasterTrigger%3")
+                        .arg(event->objectName()).arg(stackId).arg(masterTriggerIndex));
+
+                    u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
+                    triggerValue |= (static_cast<u32>(mvlc::stacks::Triggers::Master0) + masterTriggerIndex) & mvlc::stacks::TriggerBitsMask;
+                    triggers.push_back(triggerValue);
+                }
+                break;
 
             InvalidDefaultCase;
         }
@@ -219,10 +241,25 @@ std::error_code setup_trigger_io(
         vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
 
     assert(scriptConfig);
+
     if (!scriptConfig)
         return make_error_code(mvlc::MVLCErrorCode::ReadoutSetupError);
 
-    auto ioCfg = update_trigger_io(vmeConfig);
+    mesytec::mvme_mvlc::trigger_io::TriggerIO ioCfg;
+
+    try
+    {
+        ioCfg = update_trigger_io(vmeConfig);
+    }
+    catch(const std::system_error& e)
+    {
+        return e.code();
+    }
+    catch (const std::exception &)
+    {
+        return mvlc::MVLCErrorCode::ReadoutSetupError;
+    }
+
     auto ioCfgText = trigger_io::generate_trigger_io_script_text(ioCfg);
 
     // Update the trigger io script stored in the VMEConfig in case we modified
@@ -244,6 +281,26 @@ std::error_code setup_trigger_io(
         if (firstError != std::end(results))
             logger(firstError->error.toString());
         return mvlc::MVLCErrorCode::ReadoutSetupError;
+    }
+
+    // Set the Mvlc StackTimer periods.
+    unsigned stackTimerIndex = 0;
+
+    for (auto event: vmeConfig.getEventConfigs())
+    {
+        if (event->triggerCondition == TriggerCondition::MvlcStackTimer)
+        {
+            auto period = event->triggerOptions.value("mvlc.stacktimer_period").toULongLong();
+            auto theMvlc = mvlc->getMVLC();
+
+            if (auto ec = theMvlc.writeRegister(mvlc::stacks::get_stacktimer_register(stackTimerIndex), period))
+            {
+                logger(QSL("Error setting StackTimer%1 period: %2").arg(stackTimerIndex).arg(ec.message().c_str()));
+                return ec;
+            }
+
+            ++stackTimerIndex;
+        }
     }
 
     return {};
@@ -282,7 +339,9 @@ mesytec::mvme_mvlc::trigger_io::TriggerIO
         if (event->triggerCondition == TriggerCondition::Periodic)
         {
             if (timersInUse >= mvlc::stacks::StackTimersCount)
-                return {}; // TODO: error_code
+            {
+                throw std::system_error(make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded));
+            }
 
             // Setup the l0 timer unit
             auto &timer = ioCfg.l0.timers[timersInUse];
@@ -497,20 +556,6 @@ bool run_daq_start_sequence(
         }
     }
 
-    #if 0
-    // Controller/Crate Id ===============================================================
-    {
-        unsigned ctrlId = vmeConfig.getControllerSettings().value("mvlc_ctrl_id").toUInt();
-
-        logger(QSL("  Setting crate id = %1").arg(ctrlId));
-        if (auto ec = mvlc.writeRegister(mvlc::controller_id, ctrlId))
-        {
-            logger(QSL("Error setting crate id: %2").arg(ec.message().c_str()));
-            return false;
-        }
-    }
-    #endif
-
     // Trigger IO ========================================================================
 
     logger("  Applying MVLC Trigger & I/O setup");
@@ -541,7 +586,8 @@ bool run_daq_start_sequence(
         return false;
     }
 
-
+    // Call get_trigger_values() purely for its error checking behavior. Trigger
+    // values are still set by the mvlc::ReadoutWorker class. instance.
     {
         std::vector<u32> triggers;
         std::error_code ec;
