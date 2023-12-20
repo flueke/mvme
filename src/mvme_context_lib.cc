@@ -376,6 +376,8 @@ void LIBMVME_EXPORT new_vme_config(MVMEContext *context)
         }
     }
 
+    vmeConfig->setModified(false);
+
     context->setVMEConfig(vmeConfig);
     context->setVMEConfigFilename(QString());
     context->setMode(GlobalMode::DAQ);
