@@ -96,6 +96,7 @@ enum class TriggerCondition
     Input2RisingEdge,   // SIS3153
     Input2FallingEdge,  // SIS3153
     TriggerIO,          // MVLC via the Trigger I/O logic
+    MvlcStackTimer,     // New MVLC periodic events since MVLC FW0037
 };
 
 static const QMap<TriggerCondition, QString> TriggerConditionNames =
@@ -108,6 +109,7 @@ static const QMap<TriggerCondition, QString> TriggerConditionNames =
     { TriggerCondition::Input2RisingEdge,   "Input 2 Rising Edge" },
     { TriggerCondition::Input2FallingEdge,  "Input 2 Falling Edge" },
     { TriggerCondition::TriggerIO,          "MVLC Trigger I/O" },
+    { TriggerCondition::MvlcStackTimer,     "MVLC StackTimer" },
 };
 
 static const QMap<DAQState, QString> DAQStateStrings =
