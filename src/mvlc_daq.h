@@ -41,9 +41,6 @@ std::pair<std::vector<u32>, std::error_code> LIBMVME_EXPORT get_trigger_values(
     const VMEConfig &vmeConfig, Logger logger = [] (const QString &) {});
 
 std::error_code LIBMVME_EXPORT
-    enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger);
-
-std::error_code LIBMVME_EXPORT
     disable_all_triggers_and_daq_mode(MVLCObject &mvlc);
 
 std::error_code LIBMVME_EXPORT
