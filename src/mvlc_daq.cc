@@ -126,7 +126,12 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
     u8 stackId = mvlc::stacks::FirstReadoutStackID;
+
+    // Number of trigger i/o timer units in use for pre FW0037 periodic events.
     u16 timersInUse = 0u;
+
+    // Number of StackTimer units in use for periodic events since FW0037.
+    u16 stackTimersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
     {
@@ -155,14 +160,14 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                 } break;
 
             case TriggerCondition::Periodic:
-                if (timersInUse >= mvlc::stacks::StackTimersCount)
+                if (timersInUse >= mvme_mvlc::trigger_io::TimerCount)
                 {
                     return make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
                 }
                 else
                 {
-                    logger(QSL("    Event %1: Stack %2, periodic")
-                           .arg(event->objectName()).arg(stackId));
+                    logger(QSL("    Event %1: Stack %2, periodic (Trigger I/O timer %3)")
+                           .arg(event->objectName()).arg(stackId).arg(timersInUse));
 
                     // Set the stack trigger to 'External'. The actual setup of
                     // the timer and the connection between the Timer and
@@ -191,6 +196,27 @@ std::error_code enable_triggers(MVLCObject &mvlc, const VMEConfig &vmeConfig, Lo
                     }
                 break;
 
+            case TriggerCondition::MvlcStackTimer:
+                if (stackTimersInUse >= mvlc::stacks::StackTimersCount)
+                {
+                    return make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
+                }
+                else
+                {
+                    logger(QSL("    Event %1: Stack %2, periodic (StackTimer %3)")
+                        .arg(event->objectName()).arg(stackId).arg(stackTimersInUse));
+
+                    u16 triggerReg = mvlc::stacks::get_trigger_register(stackId);
+                    u32 triggerVal = static_cast<u32>(mvlc::stacks::Triggers::Timer0) + stackTimersInUse;
+
+                    if (auto ec = mvlc.writeRegister(triggerReg, triggerVal))
+                        return ec;
+
+                    ++stackTimersInUse;
+                }
+                break;
+
+
             InvalidDefaultCase;
         }
 
@@ -205,7 +231,12 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
     std::vector<u32> triggers;
 
     u8 stackId = mvlc::stacks::FirstReadoutStackID;
+
+    // Number of trigger i/o timer units in use for pre FW0037 periodic events.
     u16 timersInUse = 0u;
+
+    // Number of StackTimer units in use for periodic events since FW0037.
+    u16 stackTimersInUse = 0u;
 
     for (const auto &event: vmeConfig.getEventConfigs())
     {
@@ -226,15 +257,15 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                 } break;
 
             case TriggerCondition::Periodic:
-                if (timersInUse >= mvlc::stacks::StackTimersCount)
+                if (timersInUse >= mvme_mvlc::trigger_io::TimerCount)
                 {
                     auto ec = make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
                     return std::make_pair(triggers, ec);
                 }
                 else
                 {
-                    logger(QSL("    Event %1: Stack %2, periodic")
-                           .arg(event->objectName()).arg(stackId));
+                    logger(QSL("    Event %1: Stack %2, periodic (Trigger I/O timer %3)")
+                           .arg(event->objectName()).arg(stackId).arg(timersInUse));
 
                     // Set the stack trigger to 'External'. The actual setup of
                     // the timer and the connection between the Timer and
@@ -257,6 +288,23 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                     triggers.push_back(mvlc::trigger_value(st));
                 }
                 break;
+
+            case TriggerCondition::MvlcStackTimer:
+                if (stackTimersInUse >= mvlc::stacks::StackTimersCount)
+                {
+                    auto ec = make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
+                    return std::make_pair(triggers, ec);
+                }
+                else
+                {
+                    logger(QSL("    Event %1: Stack %2, periodic (StackTimer %3)")
+                        .arg(event->objectName()).arg(stackId).arg(stackTimersInUse));
+
+                    u32 triggerValue = mvlc::stacks::IRQWithIACK << mvlc::stacks::TriggerTypeShift;
+                    triggerValue |= (static_cast<u32>(mvlc::stacks::Triggers::Timer0) + stackTimersInUse) & mvlc::stacks::TriggerBitsMask;
+                    triggers.push_back(triggerValue);
+                    ++stackTimersInUse;
+                }
 
             InvalidDefaultCase;
         }
