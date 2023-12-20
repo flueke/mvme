@@ -1,8 +1,6 @@
-**/*.swp
-**/*.swo
+**/*.sw?
 CMakeLists.txt.user*
 extras/mvme-listfile-dumper/mvme-listfile-dumper
-compile_commands.json
 doc/doxygen/html/
 doc/mvme.qch
 doc/mvme.qhc
@@ -11,5 +9,11 @@ doc/sphinx/source/changelog.rst
 build*/
 .cmake/
 .cache/
-.vscode/settings.json
 *.~lock*
+# Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
