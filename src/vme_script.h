@@ -243,7 +243,7 @@ inline bool is_valid(const Command &cmd)
 LIBMVME_EXPORT QString to_string(CommandType commandType);
 LIBMVME_EXPORT CommandType commandType_from_string(const QString &str);
 LIBMVME_EXPORT QString amod_to_string(u8 addressMode);
-LIBMVME_EXPORT QString to_string(DataWidth dataWidth);
+LIBMVME_EXPORT QString to_qstring(DataWidth dataWidth);
 LIBMVME_EXPORT QString to_string(const Command &cmd);
 LIBMVME_EXPORT QString format_hex(uint32_t value);
 

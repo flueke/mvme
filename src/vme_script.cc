@@ -1974,7 +1974,7 @@ QString amod_to_string(u8 addressMode)
     return result;
 }
 
-QString to_string(DataWidth dataWidth)
+QString to_qstring(DataWidth dataWidth)
 {
     static const QMap<DataWidth, QString> dataWidthToString =
     {
@@ -2029,7 +2029,7 @@ QString to_string(const Command &cmd)
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
                     .arg(amod_to_string(cmd.addressMode))
-                    .arg(to_string(cmd.dataWidth))
+                    .arg(to_qstring(cmd.dataWidth))
                     .arg(format_hex(cmd.address));
                 if (cmd.mvlcSlowRead)
                     buffer += " late";
@@ -2043,7 +2043,7 @@ QString to_string(const Command &cmd)
                 buffer = QString(QSL("%1 %2 %3 %4 %5"))
                     .arg(cmdStr)
                     .arg(amod_to_string(cmd.addressMode))
-                    .arg(to_string(cmd.dataWidth))
+                    .arg(to_qstring(cmd.dataWidth))
                     .arg(format_hex(cmd.address))
                     .arg(format_hex(cmd.value));
             } break;
