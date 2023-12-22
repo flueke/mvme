@@ -220,7 +220,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                         .arg(event->objectName()).arg(stackId).arg(masterTriggerIndex));
 
                     u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
-                    triggerValue |= (static_cast<u32>(mvlc::stacks::Triggers::Master0) + masterTriggerIndex) & mvlc::stacks::TriggerBitsMask;
+                    triggerValue |= (static_cast<u32>(mvlc::stacks::Triggers::Slave0) + masterTriggerIndex) & mvlc::stacks::TriggerBitsMask;
                     triggers.push_back(triggerValue);
                 }
                 break;
@@ -253,10 +253,12 @@ std::error_code setup_trigger_io(
     }
     catch(const std::system_error& e)
     {
+        logger(QSL("Error in setup_trigger_io: %1").arg(e.what()));
         return e.code();
     }
-    catch (const std::exception &)
+    catch (const std::exception &e)
     {
+        logger(QSL("Error in setup_trigger_io: %1").arg(e.what()));
         return mvlc::MVLCErrorCode::ReadoutSetupError;
     }
 
