@@ -285,7 +285,7 @@ std::error_code setup_trigger_io(
         return mvlc::MVLCErrorCode::ReadoutSetupError;
     }
 
-    // Set the Mvlc StackTimer periods.
+    // Set the Mvlc StackTimer periods. TODO: this is not really part of the trigger io. move it elsewhere
     unsigned stackTimerIndex = 0;
 
     for (auto event: vmeConfig.getEventConfigs())

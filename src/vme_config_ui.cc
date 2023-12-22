@@ -291,30 +291,6 @@ EventConfigDialog::EventConfigDialog(
                     m_d->stack_options->addWidget(timerWidget);
                 }
 
-                // Trigger IO Condition
-                {
-                    auto label = new QLabel(QSL(
-                            "The event should be triggered via the MVLC Trigger I/O module.\n\n"
-                            "Use the Trigger I/O Editor to setup one of the "
-                            "StackStart units to trigger execution of this "
-                            "events readout stack. Then connect the StackStart unit to the "
-                            "desired activation signals."
-                            ));
-                    label->setWordWrap(true);
-                    m_d->stack_options->addWidget(label);
-                }
-
-                // On Master Trigger (FW0037)
-                {
-                    m_d->spin_mvlcMasterTriggerIndex = new QSpinBox;
-                    m_d->spin_mvlcMasterTriggerIndex->setMaximum(mvlc::stacks::SlaveTriggersCount - 1);
-
-                    auto optionsWidget = new QWidget;
-                    auto layout = new QFormLayout(optionsWidget);
-                    layout->addRow(QSL("Master Trigger Index"), m_d->spin_mvlcMasterTriggerIndex);
-                    m_d->stack_options->addWidget(optionsWidget);
-                }
-
                 // Periodic via MVLC Trigger I/O
                 {
                     m_d->combo_mvlcTimerBase = new QComboBox;
@@ -347,6 +323,30 @@ EventConfigDialog::EventConfigDialog(
                     timerLayout->addRow(QSL("Timer Base"), m_d->combo_mvlcTimerBase);
                     timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
                     m_d->stack_options->addWidget(timerWidget);
+                }
+
+                // Trigger IO Condition
+                {
+                    auto label = new QLabel(QSL(
+                            "The event should be triggered via the MVLC Trigger I/O module.\n\n"
+                            "Use the Trigger I/O Editor to setup one of the "
+                            "StackStart units to trigger execution of this "
+                            "events readout stack. Then connect the StackStart unit to the "
+                            "desired activation signals."
+                            ));
+                    label->setWordWrap(true);
+                    m_d->stack_options->addWidget(label);
+                }
+
+                // On Master Trigger (FW0037)
+                {
+                    m_d->spin_mvlcMasterTriggerIndex = new QSpinBox;
+                    m_d->spin_mvlcMasterTriggerIndex->setMaximum(mvlc::stacks::SlaveTriggersCount - 1);
+
+                    auto optionsWidget = new QWidget;
+                    auto layout = new QFormLayout(optionsWidget);
+                    layout->addRow(QSL("Master Trigger Index"), m_d->spin_mvlcMasterTriggerIndex);
+                    m_d->stack_options->addWidget(optionsWidget);
                 }
 
 

@@ -353,6 +353,19 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
     // trigger values
     dstConfig.triggers = mvme_mvlc::get_trigger_values(*vmeConfig).first;
 
+    // initRegisters: internal register writes
+    unsigned stackTimerIndex = 0;
+    for (const auto &eventConfig: eventConfigs)
+    {
+        if (eventConfig->triggerCondition == TriggerCondition::MvlcStackTimer)
+        {
+            u16 registerAddress = mvlc::stacks::get_stacktimer_register(stackTimerIndex);
+            u32 timerPeriod = eventConfig->triggerOptions.value(QSL("mvlc.stacktimer_period"), 0).toUInt();
+            dstConfig.initRegisters.emplace_back(std::make_pair(registerAddress, timerPeriod));
+            ++stackTimerIndex;
+        }
+    }
+
     // init_trigger_io
     {
         dstConfig.initTriggerIO.setName("init_trigger_io");
