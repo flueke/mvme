@@ -304,6 +304,17 @@ EventConfigDialog::EventConfigDialog(
                     m_d->stack_options->addWidget(label);
                 }
 
+                // On Master Trigger (FW0037)
+                {
+                    m_d->spin_mvlcMasterTriggerIndex = new QSpinBox;
+                    m_d->spin_mvlcMasterTriggerIndex->setMaximum(mvlc::stacks::SlaveTriggersCount - 1);
+
+                    auto optionsWidget = new QWidget;
+                    auto layout = new QFormLayout(optionsWidget);
+                    layout->addRow(QSL("Master Trigger Index"), m_d->spin_mvlcMasterTriggerIndex);
+                    m_d->stack_options->addWidget(optionsWidget);
+                }
+
                 // Periodic via MVLC Trigger I/O
                 {
                     m_d->combo_mvlcTimerBase = new QComboBox;
@@ -338,23 +349,13 @@ EventConfigDialog::EventConfigDialog(
                     m_d->stack_options->addWidget(timerWidget);
                 }
 
-                // On Master Trigger (FW0037)
-                {
-                    m_d->spin_mvlcMasterTriggerIndex = new QSpinBox;
-                    m_d->spin_mvlcMasterTriggerIndex->setMaximum(mvlc::stacks::MasterTriggersCount - 1);
-
-                    auto optionsWidget = new QWidget;
-                    auto layout = new QFormLayout(optionsWidget);
-                    layout->addRow(QSL("Master Trigger Index"), m_d->spin_mvlcMasterTriggerIndex);
-                    m_d->stack_options->addWidget(optionsWidget);
-                }
 
                 conditions =
                 {
                     TriggerCondition::Interrupt,
                     { TriggerCondition::MvlcStackTimer, QSL("Periodic (via MVLC StackTimer)") },
+                    { TriggerCondition::Periodic,       QSL("Periodic (via MVLC Trigger I/O)") },
                     TriggerCondition::TriggerIO,
-                    { TriggerCondition::Periodic, QSL("Periodic (via MVLC Trigger I/O)") },
                     TriggerCondition::MvlcOnMasterTrigger,
                 };
             } break;
