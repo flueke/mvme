@@ -164,16 +164,26 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     m_d->m_context              = new MVMEContext(this, this, options);
 
 #if 1
-    auto consolesink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    auto qtsink = std::make_shared<spdlog::sinks::qt_sink_mt>(m_d->m_context, "logMessageRaw");
-    auto dupfilter = std::make_shared<spdlog::sinks::dup_filter_sink_mt>(std::chrono::seconds(2));
-    dupfilter->add_sink(consolesink);
-    dupfilter->add_sink(qtsink);
+    // Setup some of the mesytec-mvlc loggers to also log to the gui.
+    {
+        auto consolesink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        auto qtsink = std::make_shared<spdlog::sinks::qt_sink_mt>(m_d->m_context, "logMessageRaw");
+        auto dupfilter = std::make_shared<spdlog::sinks::dup_filter_sink_mt>(std::chrono::seconds(2));
+        dupfilter->add_sink(consolesink);
+        dupfilter->add_sink(qtsink);
 
-    auto loggerNames = { "listfile", "readout_worker", "replay", "readout_parser" };
+        auto loggerNames = { "listfile", "readout_worker", "replay", "readout_parser" };
 
-    for (const auto &loggerName: loggerNames)
-        mesytec::mvlc::create_logger(loggerName, { dupfilter });
+        for (const auto &loggerName: loggerNames)
+            mesytec::mvlc::create_logger(loggerName, { dupfilter });
+
+        // Another filter for the "mvlc" logger: only "error" level messages are
+        // passed through to the gui.
+        auto mvlcLogFilter = std::make_shared<spdlog::sinks::dup_filter_sink_mt>(std::chrono::seconds(2));
+        mvlcLogFilter->set_level(spdlog::level::err);
+        mvlcLogFilter->add_sink(qtsink);
+        mesytec::mvlc::create_logger("mvlc", { mvlcLogFilter, consolesink });
+    }
 #endif
 
     m_d->centralWidget          = new QWidget(this);
