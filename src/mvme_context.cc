@@ -90,7 +90,7 @@ static const int DefaultConfigFileAutosaveInterval_ms = 1 * 60 * 1000;
 
 /* Maximum number of connection attempts to the current VMEController before
  * giving up. */
-static const int VMECtrlConnectMaxRetryCount = 3;
+static const int VMECtrlConnectMaxRetryCount = 1;
 
 /* Maximum number of entries to keep in the logbuffer. Once this is exceeded
  * the oldest entries will be removed. */
@@ -983,8 +983,6 @@ void MVMEContext::onControllerOpenFinished()
 {
     auto result = m_ctrlOpenWatcher.result();
 
-    //qDebug() << __PRETTY_FUNCTION__ << "result =" << result.toString();
-
     if (!result.isError())
     {
         if (auto vmusb = dynamic_cast<VMUSB *>(m_controller))
@@ -1054,6 +1052,8 @@ void MVMEContext::onControllerOpenFinished()
     }
     else if (result.error() != VMEError::DeviceIsOpen)
     {
+        qDebug() << __PRETTY_FUNCTION__ << "result =" << result.toString();
+
         assert(result.isError());
 
         /* Could not connect. Inc retry count and log a hopefully user
