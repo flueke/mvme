@@ -135,6 +135,8 @@ QString command_builder_to_vmescript_string(const mvlc::StackCommandBuilder &scb
     return command_builder_to_vmescript_lines(scb).join("\n");
 }
 
+// TODO: handle CrateConfig.initRegisters in here to at least setup the
+// StackTimer periods correctly.
 std::unique_ptr<VMEConfig> vmeconfig_from_crateconfig(
     const mvlc::CrateConfig &crateConfig)
 {

@@ -159,7 +159,9 @@ StreamConsumerBase::Logger &ListfileFilterStreamConsumer::getLogger()
 void ListfileFilterStreamConsumer::beginRun(
     const RunInfo &runInfo, const VMEConfig *vmeConfig, analysis::Analysis *analysis)
 {
-    d->config_ = listfile_filter_config_from_variant(analysis->property("ListfileFilterConfig"));
+    auto theVariant = analysis->property("ListfileFilterConfig");
+    auto theConfig = listfile_filter_config_from_variant(theVariant);
+    d->config_ = theConfig;
 
     if (!runInfo.isReplay)
         d->config_.enabled = false;
