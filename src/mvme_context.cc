@@ -466,6 +466,7 @@ void MVMEContextPrivate::resumeAnalysis(analysis::Analysis::BeginRunOption runOp
     {
         // TODO: merge with the build  code in prepareStart().
         auto analysis = m_q->getAnalysis();
+        m_q->m_streamWorker->setAnalysis(analysis);
         analysis->beginRun(
             runOption, m_q->getVMEConfig(),
             [this] (const QString &msg) { m_q->logMessage(msg); });
