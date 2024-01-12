@@ -877,22 +877,29 @@ void Histo1DWidget::setHistogram(const Histo1DPtr &histo)
 
 void Histo1DWidgetPrivate::updateAxisScales()
 {
+    // yAxis
     double minValue = m_stats.minValue;
     double maxValue = m_stats.maxValue;
 
+    //qDebug() << "updateAxisScales(): unadjusted y: minValue=" << minValue << ", maxValue=" << maxValue;
+
     if (yAxisIsLog())
     {
-        // Force log scale to go from [1.0, something >= 1.0).
-        minValue = 1.0;
+        // Force log scale to be positive.
+        if (minValue <= 0.0)
+            minValue = 0.1;
+
         maxValue = std::max(minValue, maxValue);
     }
 
-    // Scale the y-axis by 5% to have some margin to the top and bottom of the
-    // widget. Mostly to make the top scrollbar not overlap the plotted graph.
-    minValue *= (minValue < 0.0) ? 1.05 : 0.95;
-    maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
+    {
+        // Scale the y-axis by 5% to have some margin to the top and bottom of the
+        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
+        minValue *= (minValue < 0.0) ? 1.05 : 0.95;
+        maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
+    }
 
-    //qDebug() << "y scale min" << minValue << "max" << maxValue;
+    //qDebug() << "updateAxisScales(): adjusted y: minValue=" << minValue << ", maxValue=" << maxValue;
 
     // This sets a fixed y-axis scale effectively overriding any changes made by
     // the scrollzoomer.

@@ -25,7 +25,8 @@
 #include <QFrame>
 #include "qwt_plot_curve.h"
 
-[[nodiscard]] std::unique_ptr<Histo1DWidget> make_histo_widget(const std::shared_ptr<Histo1D> &histo)
+template<typename Histo>
+[[nodiscard]] std::unique_ptr<Histo1DWidget> make_histo_widget(const Histo &histo)
 {
     auto histoWidget = std::make_unique<Histo1DWidget>(histo);
     add_widget_close_action(histoWidget.get());
@@ -39,6 +40,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
+    // positive y values
     auto make_test_histo0 = []
     {
         static const u32 nBins = 16;
@@ -50,14 +52,12 @@ int main(int argc, char *argv[])
 
         for (int i = 0; i < 4; ++i)
         {
-            histo->fill(i, 1.0);
-            histo->fill(i, 2.0);
-            histo->fill(i, 3.0);
-            histo->fill(i, 2.0);
+            histo->fill(i, i);
         }
         return histo;
     };
 
+    // sin(x) -> y in [-1.0, 1.0]
     auto make_test_histo1 = []
     {
         static const u32 nBins = 1024;
@@ -76,8 +76,32 @@ int main(int argc, char *argv[])
         return histo;
     };
 
-    //auto w0 = make_histo_widget(make_test_histo0());
-    auto w1 = make_histo_widget(make_test_histo1());
+    // negative y values only
+    auto make_test_histo2 = []
+    {
+        static const u32 nBins = 16;
+        static const double xMin = 0.0;
+        static const double xMax = 16.0;
+
+        auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+        histo->setObjectName("Test Histo 0");
+
+        for (int i = 0; i < 4; ++i)
+        {
+            histo->fill(i, -i);
+        }
+        return histo;
+    };
+
+    Histo1DWidget::HistoList histos =
+    {
+        make_test_histo1(),
+        make_test_histo0(),
+        make_test_histo2(),
+    };
+
+
+    auto w0 = make_histo_widget(histos);
 
 
 #if 0
