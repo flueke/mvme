@@ -51,11 +51,12 @@ VMUSBSettingsWidget::VMUSBSettingsWidget(QWidget *parent)
 void VMUSBSettingsWidget::loadSettings(const QVariantMap &settings)
 {
     m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
+    settings_ = settings;
 }
 
 QVariantMap VMUSBSettingsWidget::getSettings()
 {
-    QVariantMap result;
+    QVariantMap result = settings_;
     result["DebugRawBuffers"] = m_cb_debugRawBuffers->isChecked();
     return result;
 }
@@ -179,11 +180,12 @@ void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
     m_le_forwardingAddress->setText(settings.value("UDP_Forwarding_Address").toString());
     m_spin_forwardingPort->setValue(settings.value("UDP_Forwarding_Port", DefaultForwardingPort).toUInt());
     m_combo_packetGap->setCurrentIndex(settings.value("UDP_PacketGap", 0u).toUInt());
+    settings_ = settings;
 }
 
 QVariantMap SIS3153EthSettingsWidget::getSettings()
 {
-    QVariantMap result;
+    QVariantMap result = settings_;
 
     result["hostname"] = m_le_sisAddress->text();
     result["JumboFrames"] = m_cb_jumboFrames->isChecked();
@@ -214,7 +216,6 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
 {
     spin_index->setMinimum(0);
     spin_index->setMaximum(255);
-    le_serial->setText("1");
     spin_crateId->setMaximum(7);
 
     auto layout = new QFormLayout(this);
@@ -308,16 +309,21 @@ void MVLC_USB_SettingsWidget::validate()
 void MVLC_USB_SettingsWidget::loadSettings(const QVariantMap &settings)
 {
     auto method = settings["method"].toString();
+    auto serial = settings["serial"].toString();
+
+    if (serial.isEmpty())
+        serial = "02210056";
+
+    spin_index->setValue(settings["index"].toUInt());
+    le_serial->setText(serial);
 
     if (method == "by_index")
     {
         rb_index->setChecked(true);
-        spin_index->setValue(settings["index"].toUInt());
     }
     else if (method == "by_serial")
     {
         rb_serial->setChecked(true);
-        le_serial->setText(settings["serial"].toString());
     }
     else
     {
@@ -325,11 +331,13 @@ void MVLC_USB_SettingsWidget::loadSettings(const QVariantMap &settings)
     }
 
     spin_crateId->setValue(settings["mvlc_ctrl_id"].toUInt());
+
+    settings_ = settings;
 }
 
 QVariantMap MVLC_USB_SettingsWidget::getSettings()
 {
-    QVariantMap result;
+    QVariantMap result = settings_;
 
     if (rb_index->isChecked())
     {
@@ -366,9 +374,10 @@ MVLC_ETH_SettingsWidget::MVLC_ETH_SettingsWidget(QWidget *parent)
     layout->addRow("Hostname / IP Address", le_address);
     layout->addRow(make_framed_description_label(QSL(
                 "When using DHCP the MVLC will request a hostname of the form "
-                "<i>MVLC-NNNN</i> where NNNN is the serial number.<br/>"
-                "This value is  also printed on the MVLCs front panel close to "
-                "the ethernet plug."
+                "<i>MVLC-NNNN</i> where NNNN are the last four digits of the "
+                "serial number.<br/>"
+                "This value is also printed on the MVLCs front panel, near the "
+                "ethernet port."
                 )));
 
     layout->addRow("Enable Jumbo Frames", cb_jumboFrames);
@@ -388,17 +397,21 @@ void MVLC_ETH_SettingsWidget::validate()
 void MVLC_ETH_SettingsWidget::loadSettings(const QVariantMap &settings)
 {
     auto hostname = settings["mvlc_hostname"].toString();
+
     if (hostname.isEmpty())
         hostname = "MVLC-0001";
+
     le_address->setText(hostname);
 
     cb_jumboFrames->setChecked(settings["mvlc_eth_enable_jumbos"].toBool());
     spin_crateId->setValue(settings["mvlc_ctrl_id"].toUInt());
+
+    settings_ = settings;
 }
 
 QVariantMap MVLC_ETH_SettingsWidget::getSettings()
 {
-    QVariantMap result;
+    QVariantMap result = settings_;
 
     result["mvlc_hostname"] = le_address->text();
     result["mvlc_eth_enable_jumbos"] = cb_jumboFrames->isChecked();
@@ -480,12 +493,17 @@ VMEControllerSettingsDialog::VMEControllerSettingsDialog(VMEControllerType allow
 
 void VMEControllerSettingsDialog::setCurrentController(VMEControllerType controllerType, const QVariantMap &controllerSettings)
 {
-    auto idx = m_comboType->findData(static_cast<s32>(controllerType));
+    // Passes the same settings map to each of the controller specific widgets.
+    // This is done to keep previously used data, e.g. mvlc hostname, when
+    // switching between vme controller types. A better design would have been
+    // to keep per controller-type settings maps.
+    for (auto settingsWidget: m_settingsWidgets)
+        settingsWidget->loadSettings(controllerSettings);
 
-    if (idx >= 0)
+    if (auto idx = m_comboType->findData(static_cast<s32>(controllerType));
+        idx >= 0)
     {
         m_comboType->setCurrentIndex(idx);
-        m_settingsWidgets[idx]->loadSettings(controllerSettings);
     }
 }
 

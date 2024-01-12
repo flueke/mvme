@@ -40,6 +40,7 @@ class VMUSBSettingsWidget: public VMEControllerSettingsWidget
 
     private:
         QCheckBox *m_cb_debugRawBuffers;
+        QVariantMap settings_;
 };
 
 class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
@@ -61,6 +62,7 @@ class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
         QLineEdit *m_le_forwardingAddress;
         QSpinBox *m_spin_forwardingPort;
         QComboBox *m_combo_packetGap;
+        QVariantMap settings_;
 };
 
 class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
@@ -85,6 +87,7 @@ class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
         QPushButton *pb_listDevices;
         QTextBrowser *tb_devices;
         QSpinBox *spin_crateId;
+        QVariantMap settings_;
 };
 
 class MVLC_ETH_SettingsWidget: public VMEControllerSettingsWidget
@@ -100,6 +103,7 @@ class MVLC_ETH_SettingsWidget: public VMEControllerSettingsWidget
         QLineEdit *le_address;
         QCheckBox *cb_jumboFrames;
         QSpinBox *spin_crateId;
+        QVariantMap settings_;
 };
 
 
