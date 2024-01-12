@@ -2352,17 +2352,23 @@ void VMEConfigTreeWidget::updateConfigLabel()
     QString fileName = m_configFilename;
 
     if (fileName.isEmpty())
+    {
         fileName = QSL("<not saved>");
+    }
+    else
+    {
+        auto wsCanon = QDir().canonicalPath() + '/';
+        auto cfgCanon = QFileInfo(fileName).canonicalFilePath();
+
+        if (cfgCanon.startsWith(wsCanon))
+        {
+            cfgCanon.remove(wsCanon);
+            fileName = cfgCanon;
+        }
+    }
 
     if (m_config && m_config->isModified())
         fileName += QSL(" *");
-
-    auto wsDir = m_workspaceDirectory + '/';
-
-    if (fileName.startsWith(wsDir))
-    {
-        fileName.remove(wsDir);
-    }
 
     le_fileName->setText(fileName);
     le_fileName->setToolTip(fileName);
