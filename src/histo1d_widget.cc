@@ -1206,7 +1206,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         "</table>"
         );
 
-    double maxBinCenter = ((m_stats.entryCount > 0)
+    double maxBinCenter = ((m_stats.entryCount != 0.0)
                            ? getCurrentHisto()->getBinCenter(m_stats.maxBin, rrf)
                            : 0.0);
 
