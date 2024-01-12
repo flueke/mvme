@@ -9,703 +9,863 @@
 # allowed. These changes will be lost the next time the file
 # is modified by mvme.
 
+# The initialization commands for each Trigger I/O unit are
+# wrapped in mvlc_stack_begin/end blocks. This is to ensure
+# the commands are executed atomically without being
+# interleaved by other commands also touching the Trigger I/O
+# system, e.g. the routine for readout of the builtin DSO.
+
+# Check for minimum required mvme version
+mvme_require_version 1.9.1
+
 # Internal MVLC VME interface address
 setbase 0xffff0000
 
 # Level0 #####################################################
 
 # timer0
-0x0200 0x0000    # select L0.Unit0
-0x0302      2    # range (0:ns, 1:us, 2:ms, 3:s)
-0x0304      0    # delay [ns]
-0x0306   1000    # period [in range units]
+mvlc_stack_begin
+  0x0200 0x0000    # select L0.Unit0
+  0x0302      0    # range (0:ns, 1:us, 2:ms, 3:s)
+  0x0304      0    # delay [ns]
+  0x0306      0    # period [in range units]
+mvlc_stack_end
 
 # timer1
-0x0200 0x0001    # select L0.Unit1
-0x0302      0    # range (0:ns, 1:us, 2:ms, 3:s)
-0x0304      0    # delay [ns]
-0x0306      0    # period [in range units]
+mvlc_stack_begin
+  0x0200 0x0001    # select L0.Unit1
+  0x0302      0    # range (0:ns, 1:us, 2:ms, 3:s)
+  0x0304      0    # delay [ns]
+  0x0306      0    # period [in range units]
+mvlc_stack_end
 
 # timer2
-0x0200 0x0002    # select L0.Unit2
-0x0302      0    # range (0:ns, 1:us, 2:ms, 3:s)
-0x0304      0    # delay [ns]
-0x0306    100    # period [in range units]
+mvlc_stack_begin
+  0x0200 0x0002    # select L0.Unit2
+  0x0302      0    # range (0:ns, 1:us, 2:ms, 3:s)
+  0x0304      0    # delay [ns]
+  0x0306      0    # period [in range units]
+mvlc_stack_end
 
 # timer3
-0x0200 0x0003    # select L0.Unit3
-0x0302      0    # range (0:ns, 1:us, 2:ms, 3:s)
-0x0304      0    # delay [ns]
-0x0306      0    # period [in range units]
+mvlc_stack_begin
+  0x0200 0x0003    # select L0.Unit3
+  0x0302      0    # range (0:ns, 1:us, 2:ms, 3:s)
+  0x0304      0    # delay [ns]
+  0x0306      0    # period [in range units]
+mvlc_stack_end
 
 # trigger_resource0
-0x0200 0x0004    # select L0.Unit4
-0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x0004    # select L0.Unit4
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # trigger_resource1
-0x0200 0x0005    # select L0.Unit5
-0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      6    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x0005    # select L0.Unit5
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # trigger_resource2
-0x0200 0x0006    # select L0.Unit6
-0x0380      1    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x0006    # select L0.Unit6
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # trigger_resource3
-0x0200 0x0007    # select L0.Unit7
-0x0380      1    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x0007    # select L0.Unit7
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # trigger_resource4
-0x0200 0x0008    # select L0.Unit8
-0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x0008    # select L0.Unit8
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # trigger_resource5
-0x0200 0x0009    # select L0.Unit9
-0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x0009    # select L0.Unit9
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # trigger_resource6
-0x0200 0x000a    # select L0.Unit10
-0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x000a    # select L0.Unit10
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # trigger_resource7
-0x0200 0x000b    # select L0.Unit11
-0x0380      2    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
-0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
-0x0306      0    # slave_trigger: delay [ns]
-0x0308      0    # slave_trigger: width [ns]
-0x030a      0    # slave_trigger: holdoff [ns]
-0x030c      0    # slave_trigger: invert (start on trailing edge of input)
-0x0382      0    # slave trigger number (0..3)
+mvlc_stack_begin
+  0x0200 0x000b    # select L0.Unit11
+  0x0380      0    # type: 0=IRQ, 1=SoftTrigger, 2=SlaveTrigger
+  0x0300      0    # irq_index (zero-based: 0: IRQ1, .., 6: IRQ7)
+  0x0306      0    # slave_trigger: delay [ns]
+  0x0308      0    # slave_trigger: width [ns]
+  0x030a      0    # slave_trigger: holdoff [ns]
+  0x030c      0    # slave_trigger: invert (start on trailing edge of input)
+  0x0382      0    # slave trigger number (0..3)
+mvlc_stack_end
 
 # stack_busy0
-0x0200 0x000c    # select L0.Unit12
-0x0300      1    # stack_index
+mvlc_stack_begin
+  0x0200 0x000c    # select L0.Unit12
+  0x0300      0    # stack_index
+mvlc_stack_end
 
 # stack_busy1
-0x0200 0x000d    # select L0.Unit13
-0x0300      2    # stack_index
+mvlc_stack_begin
+  0x0200 0x000d    # select L0.Unit13
+  0x0300      0    # stack_index
+mvlc_stack_end
 
 # NIM0
-0x0200 0x0010    # select L0.Unit16
-0x0300      0    # delay [ns]
-0x0302   1000    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      0    # direction (0:in, 1:out)
-0x0310      0    # output activate
+mvlc_stack_begin
+  0x0200 0x0010    # select L0.Unit16
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM1
-0x0200 0x0011    # select L0.Unit17
-0x0300      0    # delay [ns]
-0x0302   1000    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      0    # direction (0:in, 1:out)
-0x0310      0    # output activate
+mvlc_stack_begin
+  0x0200 0x0011    # select L0.Unit17
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM2
-0x0200 0x0012    # select L0.Unit18
-0x0300      0    # delay [ns]
-0x0302   1000    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      0    # direction (0:in, 1:out)
-0x0310      0    # output activate
+mvlc_stack_begin
+  0x0200 0x0012    # select L0.Unit18
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM3
-0x0200 0x0013    # select L0.Unit19
-0x0300      0    # delay [ns]
-0x0302   1000    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      0    # direction (0:in, 1:out)
-0x0310      0    # output activate
+mvlc_stack_begin
+  0x0200 0x0013    # select L0.Unit19
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM4
-0x0200 0x0014    # select L0.Unit20
-0x0300      0    # delay [ns]
-0x0302   1000    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      0    # direction (0:in, 1:out)
-0x0310      0    # output activate
+mvlc_stack_begin
+  0x0200 0x0014    # select L0.Unit20
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM5
-0x0200 0x0015    # select L0.Unit21
-0x0300      0    # delay [ns]
-0x0302    100    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x0015    # select L0.Unit21
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM6
-0x0200 0x0016    # select L0.Unit22
-0x0300      0    # delay [ns]
-0x0302    100    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x0016    # select L0.Unit22
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM7
-0x0200 0x0017    # select L0.Unit23
-0x0300      0    # delay [ns]
-0x0302    100    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x0017    # select L0.Unit23
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM8
-0x0200 0x0018    # select L0.Unit24
-0x0300      0    # delay [ns]
-0x0302    100    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x0018    # select L0.Unit24
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM9
-0x0200 0x0019    # select L0.Unit25
-0x0300      0    # delay [ns]
-0x0302    100    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x0019    # select L0.Unit25
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM10
-0x0200 0x001a    # select L0.Unit26
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x001a    # select L0.Unit26
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM11
-0x0200 0x001b    # select L0.Unit27
-0x0300      0    # delay [ns]
-0x0302    100    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x001b    # select L0.Unit27
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM12
-0x0200 0x001c    # select L0.Unit28
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x001c    # select L0.Unit28
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # NIM13
-0x0200 0x001d    # select L0.Unit29
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x030a      1    # direction (0:in, 1:out)
-0x0310      1    # output activate
+mvlc_stack_begin
+  0x0200 0x001d    # select L0.Unit29
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x030a      0    # direction (0:in, 1:out)
+  0x0310      0    # output activate
+mvlc_stack_end
 
 # IRQ1
-0x0200 0x0021    # select L0.Unit33
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_begin
+  0x0200 0x0021    # select L0.Unit33
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_end
 
 # IRQ2
-0x0200 0x0022    # select L0.Unit34
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_begin
+  0x0200 0x0022    # select L0.Unit34
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_end
 
 # IRQ3
-0x0200 0x0023    # select L0.Unit35
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_begin
+  0x0200 0x0023    # select L0.Unit35
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_end
 
 # IRQ4
-0x0200 0x0024    # select L0.Unit36
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_begin
+  0x0200 0x0024    # select L0.Unit36
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_end
 
 # IRQ5
-0x0200 0x0025    # select L0.Unit37
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_begin
+  0x0200 0x0025    # select L0.Unit37
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_end
 
 # IRQ6
-0x0200 0x0026    # select L0.Unit38
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_begin
+  0x0200 0x0026    # select L0.Unit38
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+mvlc_stack_end
 
 # Level1 #####################################################
 
 # L1.LUT0
-0x0200 0x0100    # select L1.Unit0
-0x0300 0x1110    # cells 0-3
-0x0302 0x5555    # cells 4-7
-0x0304 0x1111    # cells 8-11
-0x0306 0x5555    # cells 12-15
-0x0308 0x1111    # cells 16-19
-0x030a 0x5555    # cells 20-23
-0x030c 0x1111    # cells 24-27
-0x030e 0x5555    # cells 28-31
-0x0310 0x1110    # cells 32-35
-0x0312 0x5555    # cells 36-39
-0x0314 0x1111    # cells 40-43
-0x0316 0x5555    # cells 44-47
-0x0318 0x1111    # cells 48-51
-0x031a 0x5555    # cells 52-55
-0x031c 0x1111    # cells 56-59
-0x031e 0x5555    # cells 60-63
+mvlc_stack_begin
+  0x0200 0x0100    # select L1.Unit0
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+mvlc_stack_end
 
 # L1.LUT1
-0x0200 0x0101    # select L1.Unit1
-0x0300 0x1111    # cells 0-3
-0x0302 0x1111    # cells 4-7
-0x0304 0x1111    # cells 8-11
-0x0306 0x1111    # cells 12-15
-0x0308 0x0000    # cells 16-19
-0x030a 0x0000    # cells 20-23
-0x030c 0x0000    # cells 24-27
-0x030e 0x0000    # cells 28-31
-0x0310 0x1111    # cells 32-35
-0x0312 0x1111    # cells 36-39
-0x0314 0x1111    # cells 40-43
-0x0316 0x1111    # cells 44-47
-0x0318 0x0000    # cells 48-51
-0x031a 0x0000    # cells 52-55
-0x031c 0x0000    # cells 56-59
-0x031e 0x0000    # cells 60-63
+mvlc_stack_begin
+  0x0200 0x0101    # select L1.Unit1
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+mvlc_stack_end
 
 # L1.LUT2
-0x0200 0x0102    # select L1.Unit2
-0x0300 0x1100    # cells 0-3
-0x0302 0x1111    # cells 4-7
-0x0304 0x1111    # cells 8-11
-0x0306 0x1111    # cells 12-15
-0x0308 0x1111    # cells 16-19
-0x030a 0x1111    # cells 20-23
-0x030c 0x1111    # cells 24-27
-0x030e 0x1111    # cells 28-31
-0x0310 0x1111    # cells 32-35
-0x0312 0x1111    # cells 36-39
-0x0314 0x1111    # cells 40-43
-0x0316 0x1111    # cells 44-47
-0x0318 0x1111    # cells 48-51
-0x031a 0x1111    # cells 52-55
-0x031c 0x1111    # cells 56-59
-0x031e 0x1111    # cells 60-63
-0x0380      0    # connect input0 to 'Gated_Trig3'
-0x0382      0    # connect input1 to 'Gated_Trig4'
-0x0384      0    # connect input2 to 'Free_Trigger'
+mvlc_stack_begin
+  0x0200 0x0102    # select L1.Unit2
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+  0x0380      0    # connect input0 to 'NIM8'
+  0x0382      0    # connect input1 to 'NIM9'
+  0x0384      0    # connect input2 to 'NIM10'
+mvlc_stack_end
 
 # L1.LUT3
-0x0200 0x0103    # select L1.Unit3
-0x0300 0x1010    # cells 0-3
-0x0302 0x1010    # cells 4-7
-0x0304 0x1010    # cells 8-11
-0x0306 0x1010    # cells 12-15
-0x0308 0x1010    # cells 16-19
-0x030a 0x1010    # cells 20-23
-0x030c 0x1010    # cells 24-27
-0x030e 0x1010    # cells 28-31
-0x0310 0x1010    # cells 32-35
-0x0312 0x1010    # cells 36-39
-0x0314 0x1010    # cells 40-43
-0x0316 0x1010    # cells 44-47
-0x0318 0x1010    # cells 48-51
-0x031a 0x1010    # cells 52-55
-0x031c 0x1010    # cells 56-59
-0x031e 0x1010    # cells 60-63
+mvlc_stack_begin
+  0x0200 0x0103    # select L1.Unit3
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+mvlc_stack_end
 
 # L1.LUT4
-0x0200 0x0104    # select L1.Unit4
-0x0300 0x0000    # cells 0-3
-0x0302 0x0000    # cells 4-7
-0x0304 0x2222    # cells 8-11
-0x0306 0x2222    # cells 12-15
-0x0308 0x0000    # cells 16-19
-0x030a 0x0000    # cells 20-23
-0x030c 0x2222    # cells 24-27
-0x030e 0x2222    # cells 28-31
-0x0310 0x0000    # cells 32-35
-0x0312 0x0000    # cells 36-39
-0x0314 0x2222    # cells 40-43
-0x0316 0x2222    # cells 44-47
-0x0318 0x0000    # cells 48-51
-0x031a 0x0000    # cells 52-55
-0x031c 0x2222    # cells 56-59
-0x031e 0x2222    # cells 60-63
+mvlc_stack_begin
+  0x0200 0x0104    # select L1.Unit4
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+mvlc_stack_end
 
 # L1.LUT5
-0x0200 0x0105    # select L1.Unit5
-0x0300 0x0000    # cells 0-3
-0x0302 0x0000    # cells 4-7
-0x0304 0x0000    # cells 8-11
-0x0306 0x0000    # cells 12-15
-0x0308 0x0000    # cells 16-19
-0x030a 0x0000    # cells 20-23
-0x030c 0x0000    # cells 24-27
-0x030e 0x0000    # cells 28-31
-0x0310 0x0000    # cells 32-35
-0x0312 0x0000    # cells 36-39
-0x0314 0x0000    # cells 40-43
-0x0316 0x0000    # cells 44-47
-0x0318 0x0000    # cells 48-51
-0x031a 0x0000    # cells 52-55
-0x031c 0x0000    # cells 56-59
-0x031e 0x0000    # cells 60-63
+mvlc_stack_begin
+  0x0200 0x0105    # select L1.Unit5
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+mvlc_stack_end
 
 # L1.LUT6
-0x0200 0x0106    # select L1.Unit6
-0x0300 0x0000    # cells 0-3
-0x0302 0x0000    # cells 4-7
-0x0304 0x0000    # cells 8-11
-0x0306 0x0000    # cells 12-15
-0x0308 0x0000    # cells 16-19
-0x030a 0x0000    # cells 20-23
-0x030c 0x0000    # cells 24-27
-0x030e 0x0000    # cells 28-31
-0x0310 0x0000    # cells 32-35
-0x0312 0x0000    # cells 36-39
-0x0314 0x0000    # cells 40-43
-0x0316 0x0000    # cells 44-47
-0x0318 0x0000    # cells 48-51
-0x031a 0x0000    # cells 52-55
-0x031c 0x0000    # cells 56-59
-0x031e 0x0000    # cells 60-63
+mvlc_stack_begin
+  0x0200 0x0106    # select L1.Unit6
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+mvlc_stack_end
 
 # Level2 #####################################################
 
 # L2.LUT0
-0x0200 0x0200    # select L2.Unit0
-0x0300 0x0000    # cells 0-3
-0x0302 0x4444    # cells 4-7
-0x0304 0x2222    # cells 8-11
-0x0306 0x6767    # cells 12-15
-0x0308 0x0000    # cells 16-19
-0x030a 0x4444    # cells 20-23
-0x030c 0x2222    # cells 24-27
-0x030e 0x6767    # cells 28-31
-0x0310 0x0000    # cells 32-35
-0x0312 0x4444    # cells 36-39
-0x0314 0x2222    # cells 40-43
-0x0316 0x6767    # cells 44-47
-0x0318 0x0000    # cells 48-51
-0x031a 0x4444    # cells 52-55
-0x031c 0x2222    # cells 56-59
-0x031e 0x6767    # cells 60-63
-0x0320 0b0001    # strobed_outputs
-0x0380      5    # connect input0 to 'IRQ7'
-0x0382      0    # connect input1 to 't_event1'
-0x0384     15    # connect input2 to 'daq_start'
-
-# L2.LUT0 strobe gate generator
-0x0332      8    # delay [ns]
-0x0334      8    # width [ns]
-0x0336   2000    # holdoff [ns]
-0x0338      0    # invert (start on trailing edge of input)
-0x0386     15    # connect strobe_input to 'Trig_OR'
+mvlc_stack_begin
+  0x0200 0x0200    # select L2.Unit0
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+  0x0320 0b0000    # strobed_outputs
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382      0    # connect input1 to 'timer0'
+  0x0384      0    # connect input2 to 'timer0'
+  # L2.LUT0 strobe gate generator
+  0x0332      0    # delay [ns]
+  0x0334      8    # width [ns]
+  0x0336      0    # holdoff [ns]
+  0x0338      0    # invert (start on trailing edge of input)
+  0x0386      0    # connect strobe_input to 'timer0'
+mvlc_stack_end
 
 # L2.LUT1
-0x0200 0x0201    # select L2.Unit1
-0x0300 0x3120    # cells 0-3
-0x0302 0x3120    # cells 4-7
-0x0304 0x3120    # cells 8-11
-0x0306 0x3120    # cells 12-15
-0x0308 0x3120    # cells 16-19
-0x030a 0x3120    # cells 20-23
-0x030c 0x3120    # cells 24-27
-0x030e 0x3120    # cells 28-31
-0x0310 0x3120    # cells 32-35
-0x0312 0x3120    # cells 36-39
-0x0314 0x3120    # cells 40-43
-0x0316 0x3120    # cells 44-47
-0x0318 0x3120    # cells 48-51
-0x031a 0x3120    # cells 52-55
-0x031c 0x3120    # cells 56-59
-0x031e 0x3120    # cells 60-63
-0x0320 0b0000    # strobed_outputs
-0x0380      5    # connect input0 to 'IRQ7'
-0x0382     12    # connect input1 to 'stack_busy0'
-0x0384      0    # connect input2 to 't_event1'
-
-# L2.LUT1 strobe gate generator
-0x0332      8    # delay [ns]
-0x0334      8    # width [ns]
-0x0336      0    # holdoff [ns]
-0x0338      0    # invert (start on trailing edge of input)
-0x0386     19    # connect strobe_input to 'L1.LUT4.OUT1'
+mvlc_stack_begin
+  0x0200 0x0201    # select L2.Unit1
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+  0x0320 0b0000    # strobed_outputs
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382      0    # connect input1 to 'timer0'
+  0x0384      0    # connect input2 to 'timer0'
+  # L2.LUT1 strobe gate generator
+  0x0332      0    # delay [ns]
+  0x0334      8    # width [ns]
+  0x0336      0    # holdoff [ns]
+  0x0338      0    # invert (start on trailing edge of input)
+  0x0386      0    # connect strobe_input to 'timer0'
+mvlc_stack_end
 
 # L2.LUT2
-0x0200 0x0202    # select L2.Unit2
-0x0300 0x0000    # cells 0-3
-0x0302 0x0000    # cells 4-7
-0x0304 0x0000    # cells 8-11
-0x0306 0x0000    # cells 12-15
-0x0308 0x0000    # cells 16-19
-0x030a 0x0000    # cells 20-23
-0x030c 0x0000    # cells 24-27
-0x030e 0x0000    # cells 28-31
-0x0310 0x0000    # cells 32-35
-0x0312 0x0000    # cells 36-39
-0x0314 0x0000    # cells 40-43
-0x0316 0x0000    # cells 44-47
-0x0318 0x0000    # cells 48-51
-0x031a 0x0000    # cells 52-55
-0x031c 0x0000    # cells 56-59
-0x031e 0x0000    # cells 60-63
-0x0320 0b0000    # strobed_outputs
-0x0380      0    # connect input0 to 't_event1'
-0x0382      0    # connect input1 to 't_event1'
-0x0384      0    # connect input2 to 't_event1'
-
-# L2.LUT2 strobe gate generator
-0x0332      0    # delay [ns]
-0x0334      8    # width [ns]
-0x0336      0    # holdoff [ns]
-0x0338      0    # invert (start on trailing edge of input)
-0x0386      0    # connect strobe_input to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0202    # select L2.Unit2
+  0x0300 0x0000    # cells 0-3
+  0x0302 0x0000    # cells 4-7
+  0x0304 0x0000    # cells 8-11
+  0x0306 0x0000    # cells 12-15
+  0x0308 0x0000    # cells 16-19
+  0x030a 0x0000    # cells 20-23
+  0x030c 0x0000    # cells 24-27
+  0x030e 0x0000    # cells 28-31
+  0x0310 0x0000    # cells 32-35
+  0x0312 0x0000    # cells 36-39
+  0x0314 0x0000    # cells 40-43
+  0x0316 0x0000    # cells 44-47
+  0x0318 0x0000    # cells 48-51
+  0x031a 0x0000    # cells 52-55
+  0x031c 0x0000    # cells 56-59
+  0x031e 0x0000    # cells 60-63
+  0x0320 0b0000    # strobed_outputs
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382      0    # connect input1 to 'timer0'
+  0x0384      0    # connect input2 to 'timer0'
+  # L2.LUT2 strobe gate generator
+  0x0332      0    # delay [ns]
+  0x0334      8    # width [ns]
+  0x0336      0    # holdoff [ns]
+  0x0338      0    # invert (start on trailing edge of input)
+  0x0386      0    # connect strobe_input to 'timer0'
+mvlc_stack_end
 
 # Level3 #####################################################
 
 # StackStart0
-0x0200 0x0300    # select L3.Unit0
-0x0300      0    # activate
-0x0302      2    # stack index
-0x0304      0    # delay [ns]
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0300    # select L3.Unit0
+  0x0300      0    # activate
+  0x0302      0    # stack index
+  0x0304      0    # delay [ns]
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # StackStart1
-0x0200 0x0301    # select L3.Unit1
-0x0300      0    # activate
-0x0302      1    # stack index
-0x0304      0    # delay [ns]
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0301    # select L3.Unit1
+  0x0300      0    # activate
+  0x0302      0    # stack index
+  0x0304      0    # delay [ns]
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # StackStart2
-0x0200 0x0302    # select L3.Unit2
-0x0300      0    # activate
-0x0302      1    # stack index
-0x0304      0    # delay [ns]
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0302    # select L3.Unit2
+  0x0300      0    # activate
+  0x0302      0    # stack index
+  0x0304      0    # delay [ns]
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # StackStart3
-0x0200 0x0303    # select L3.Unit3
-0x0300      0    # activate
-0x0302      1    # stack index
-0x0304      0    # delay [ns]
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0303    # select L3.Unit3
+  0x0300      0    # activate
+  0x0302      0    # stack index
+  0x0304      0    # delay [ns]
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # MasterTrigger0
-0x0200 0x0304    # select L3.Unit4
-0x0300      0    # activate
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0304    # select L3.Unit4
+  0x0300      0    # activate
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # MasterTrigger1
-0x0200 0x0305    # select L3.Unit5
-0x0300      0    # activate
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0305    # select L3.Unit5
+  0x0300      0    # activate
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # MasterTrigger2
-0x0200 0x0306    # select L3.Unit6
-0x0300      0    # activate
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0306    # select L3.Unit6
+  0x0300      0    # activate
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # MasterTrigger3
-0x0200 0x0307    # select L3.Unit7
-0x0300      0    # activate
-0x0380      0    # connect input0 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0307    # select L3.Unit7
+  0x0300      0    # activate
+  0x0380      0    # connect input0 to 'timer0'
+mvlc_stack_end
 
 # Counter0+Timestamper
-0x0200 0x0308    # select L3.Unit8
-0x030e      0    # clear on latch
-0x0380     14    # connect input0 to 'Gated_trigger'
-0x0382      0    # connect input1 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0308    # select L3.Unit8
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # Counter1
-0x0200 0x0309    # select L3.Unit9
-0x030e      0    # clear on latch
-0x0380     15    # connect input0 to 'Free_Trigger'
-0x0382      0    # connect input1 to 't_event1'
+mvlc_stack_begin
+  0x0200 0x0309    # select L3.Unit9
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # Counter2
-0x0200 0x030a    # select L3.Unit10
-0x030e      0    # clear on latch
-0x0380     16    # connect input0 to 'Daq_Start'
-0x0382     12    # connect input1 to 'stack_busy0'
+mvlc_stack_begin
+  0x0200 0x030a    # select L3.Unit10
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # Counter3
-0x0200 0x030b    # select L3.Unit11
-0x030e      0    # clear on latch
-0x0380     17    # connect input0 to 'Stack_Busy'
-0x0382     12    # connect input1 to 'stack_busy0'
+mvlc_stack_begin
+  0x0200 0x030b    # select L3.Unit11
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # Counter4
-0x0200 0x030c    # select L3.Unit12
-0x030e      0    # clear on latch
-0x0380     18    # connect input0 to 'IRQ7_Module_Busy'
-0x0382     12    # connect input1 to 'stack_busy0'
+mvlc_stack_begin
+  0x0200 0x030c    # select L3.Unit12
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # Counter5
-0x0200 0x030d    # select L3.Unit13
-0x030e      0    # clear on latch
-0x0380      0    # connect input0 to 't_event1'
-0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_begin
+  0x0200 0x030d    # select L3.Unit13
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # Counter6
-0x0200 0x030e    # select L3.Unit14
-0x030e      0    # clear on latch
-0x0380      0    # connect input0 to 't_event1'
-0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_begin
+  0x0200 0x030e    # select L3.Unit14
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # Counter7
-0x0200 0x030f    # select L3.Unit15
-0x030e      0    # clear on latch
-0x0380      0    # connect input0 to 't_event1'
-0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_begin
+  0x0200 0x030f    # select L3.Unit15
+  0x030e      0    # clear on latch
+  0x0380      0    # connect input0 to 'timer0'
+  0x0382     21    # connect input1 to '<not connected>'
+mvlc_stack_end
 
 # NIM unit connections (Note: NIM setup is done in the Level0 section)
 
 # NIM0
-0x0200 0x0310    # select L3.Unit16
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0310    # select L3.Unit16
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM1
-0x0200 0x0311    # select L3.Unit17
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0311    # select L3.Unit17
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM2
-0x0200 0x0312    # select L3.Unit18
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0312    # select L3.Unit18
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM3
-0x0200 0x0313    # select L3.Unit19
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0313    # select L3.Unit19
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM4
-0x0200 0x0314    # select L3.Unit20
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0314    # select L3.Unit20
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM5
-0x0200 0x0315    # select L3.Unit21
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0315    # select L3.Unit21
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM6
-0x0200 0x0316    # select L3.Unit22
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0316    # select L3.Unit22
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM7
-0x0200 0x0317    # select L3.Unit23
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0317    # select L3.Unit23
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM8
-0x0200 0x0318    # select L3.Unit24
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0318    # select L3.Unit24
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM9
-0x0200 0x0319    # select L3.Unit25
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0319    # select L3.Unit25
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM10
-0x0200 0x031a    # select L3.Unit26
-0x0380      1    # connect input0 to 'Free_Trigger'
+mvlc_stack_begin
+  0x0200 0x031a    # select L3.Unit26
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM11
-0x0200 0x031b    # select L3.Unit27
-0x0380      2    # connect input0 to 'Daq_Start'
+mvlc_stack_begin
+  0x0200 0x031b    # select L3.Unit27
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM12
-0x0200 0x031c    # select L3.Unit28
-0x0380      3    # connect input0 to 'Stack_Busy'
+mvlc_stack_begin
+  0x0200 0x031c    # select L3.Unit28
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # NIM13
-0x0200 0x031d    # select L3.Unit29
-0x0380      4    # connect input0 to 'IRQ7_Module_Busy'
+mvlc_stack_begin
+  0x0200 0x031d    # select L3.Unit29
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # LVDS0
-0x0200 0x031e    # select L3.Unit30
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x0310      0    # output activate
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x031e    # select L3.Unit30
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x0310      0    # output activate
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # LVDS1
-0x0200 0x031f    # select L3.Unit31
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x0310      0    # output activate
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x031f    # select L3.Unit31
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x0310      0    # output activate
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 # LVDS2
-0x0200 0x0320    # select L3.Unit32
-0x0300      0    # delay [ns]
-0x0302      0    # width [ns]
-0x0304      0    # holdoff [ns]
-0x0306      0    # invert (start on trailing edge of input)
-0x0310      0    # output activate
-0x0380      0    # connect input0 to 'Gated_trigger'
+mvlc_stack_begin
+  0x0200 0x0320    # select L3.Unit32
+  0x0300      0    # delay [ns]
+  0x0302      0    # width [ns]
+  0x0304      0    # holdoff [ns]
+  0x0306      0    # invert (start on trailing edge of input)
+  0x0310      0    # output activate
+  0x0380      0    # connect input0 to 'L2.LUT0.OUT0'
+mvlc_stack_end
 
 ##############################################################
 # MVLC Trigger I/O specific meta information                 #
@@ -713,36 +873,36 @@ setbase 0xffff0000
 meta_block_begin mvlc_trigger_io
 names:
   level0:
-    0: t_event1
+    0: timer0
     1: timer1
     2: timer2
     3: timer3
-    4: IRQ0
-    5: IRQ7
-    6: soft_trigger0
-    7: soft_trigger1
-    8: slave_trigger0
-    9: slave_trigger1
-    10: slave_trigger2
-    11: slave_trigger3
+    4: trigger_resource0
+    5: trigger_resource1
+    6: trigger_resource2
+    7: trigger_resource3
+    8: trigger_resource4
+    9: trigger_resource5
+    10: trigger_resource6
+    11: trigger_resource7
     12: stack_busy0
     13: stack_busy1
     14: sysclk
     15: daq_start
-    16: Trigger_in0
-    17: Trigger_in1
-    18: Trigger_in2
-    19: Trigger_in3
-    20: Trigger_in4
-    21: Gated_Trig0
-    22: Gated_Trig1
-    23: Gated_Trig2
-    24: Gated_Trig3
-    25: Gated_Trig4
-    26: Free_Trigger
-    27: Daq_Start
-    28: Stack_Busy
-    29: IRQ7_Module_Busy
+    16: NIM0
+    17: NIM1
+    18: NIM2
+    19: NIM3
+    20: NIM4
+    21: NIM5
+    22: NIM6
+    23: NIM7
+    24: NIM8
+    25: NIM9
+    26: NIM10
+    27: NIM11
+    28: NIM12
+    29: NIM13
     30: <unused>
     31: <unused>
     32: <unused>
@@ -754,7 +914,7 @@ names:
     38: IRQ6
   level1:
     0:
-      0: Trigger_OR
+      0: L1.LUT0.OUT0
       1: L1.LUT0.OUT1
       2: L1.LUT0.OUT2
     1:
@@ -766,8 +926,8 @@ names:
       1: L1.LUT2.OUT1
       2: L1.LUT2.OUT2
     3:
-      0: Trig_OR
-      1: Veto
+      0: L1.LUT3.OUT0
+      1: L1.LUT3.OUT1
       2: L1.LUT3.OUT2
     4:
       0: L1.LUT4.OUT0
@@ -783,19 +943,19 @@ names:
       2: L1.LUT6.OUT2
   level2:
     0:
-      0: Gated_trigger
-      1: Free_Trigger
-      2: Daq_Start
+      0: L2.LUT0.OUT0
+      1: L2.LUT0.OUT1
+      2: L2.LUT0.OUT2
     1:
-      0: Stack_Busy
-      1: IRQ7_Module_Busy
-      2: ""
+      0: L2.LUT1.OUT0
+      1: L2.LUT1.OUT1
+      2: L2.LUT1.OUT2
     2:
       0: L2.LUT2.OUT0
       1: L2.LUT2.OUT1
       2: L2.LUT2.OUT2
   level3:
-    0: ss_event1
+    0: StackStart0
     1: StackStart1
     2: StackStart2
     3: StackStart3
@@ -803,8 +963,8 @@ names:
     5: MasterTrigger1
     6: MasterTrigger2
     7: MasterTrigger3
-    8: Counter0_GT
-    9: Counter1_FT
+    8: Counter0+Timestamper
+    9: Counter1
     10: Counter2
     11: Counter3
     12: Counter4
@@ -818,7 +978,7 @@ names:
 settings:
   level0:
     0:
-      soft_activate: true
+      soft_activate: false
     1:
       soft_activate: false
     2:
@@ -827,9 +987,9 @@ settings:
       soft_activate: false
   level3:
     8:
-      soft_activate: true
+      soft_activate: false
     9:
-      soft_activate: true
+      soft_activate: false
     10:
       soft_activate: false
     11:
