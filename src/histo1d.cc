@@ -239,11 +239,6 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
         result.minValue = 0.0;
         result.maxValue = 0.0;
     }
-    else
-    {
-        result.minValue = std::numeric_limits<double>::max();
-        result.maxValue = std::numeric_limits<double>::lowest();
-    }
 
     for (u32 bin = startBin; bin < onePastEndBin; ++bin)
     {
