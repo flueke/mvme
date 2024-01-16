@@ -42,7 +42,7 @@ std::error_code disable_all_triggers_and_daq_mode(MVLCObject &mvlc)
 
 std::error_code reset_stack_offsets(MVLCObject &mvlc)
 {
-    for (u8 stackId = 0; stackId < mvlc::stacks::StackCount; stackId++)
+    for (u8 stackId = 0; stackId < mvlc.getMVLC().getStackCount(); stackId++)
     {
         u16 addr = mvlc::stacks::get_offset_register(stackId);
 
@@ -80,6 +80,7 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 {
     // Stack0 is reserved for immediate exec
     u8 stackId = mvlc::stacks::FirstReadoutStackID;
+    const unsigned stackCount = mvlc.getMVLC().getStackCount();
 
     // 1 word gap between immediate stack and first readout stack
     u16 uploadWordOffset = mvlc::stacks::ImmediateStackStartOffsetWords +
@@ -89,7 +90,7 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 
     for (const auto &event: vmeConfig.getEventConfigs())
     {
-        if (stackId >= mvlc::stacks::StackCount)
+        if (stackId >= stackCount)
             return make_error_code(mvlc::MVLCErrorCode::StackCountExceeded);
 
         auto stackBuilder = get_readout_commands(*event);
@@ -207,7 +208,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                         .arg(event->objectName()).arg(stackId).arg(stackTimersInUse));
 
                     u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
-                    triggerValue |= (static_cast<u32>(mvlc::stacks::Triggers::Timer0) + stackTimersInUse) & mvlc::stacks::TriggerBitsMask;
+                    triggerValue |= (static_cast<u32>(mvlc::stacks::TriggerSubtype::Timer0) + stackTimersInUse) & mvlc::stacks::TriggerBitsMask;
                     triggers.push_back(triggerValue);
                     ++stackTimersInUse;
                 }
@@ -220,7 +221,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                         .arg(event->objectName()).arg(stackId).arg(masterTriggerIndex));
 
                     u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
-                    triggerValue |= (static_cast<u32>(mvlc::stacks::Triggers::Slave0) + masterTriggerIndex) & mvlc::stacks::TriggerBitsMask;
+                    triggerValue |= (static_cast<u32>(mvlc::stacks::TriggerSubtype::Slave0) + masterTriggerIndex) & mvlc::stacks::TriggerBitsMask;
                     triggers.push_back(triggerValue);
                 }
                 break;

@@ -1035,13 +1035,6 @@ void MVMEContext::onControllerOpenFinished()
             logMessage(QString("Opened VME Controller %1 (%2)")
                        .arg(mvlcCtrl->getIdentifyingString())
                        .arg(mvlcObj->getConnectionInfo()));
-
-            if (mvlcCore.firmwareRevision() < 0x0037u)
-            {
-                logError(QSL("mvme-1.11 and later require at least MVLC firmware FW0037."));
-                mvlcCtrl->close();
-                m_d->m_ctrlOpenRetryCount = VMECtrlConnectMaxRetryCount;
-            }
         }
         else // generic case
         {
