@@ -3236,7 +3236,7 @@ QString PipeDisplay::formatParameter(double param)
         if (doesShowDecimals())
             paramString = QString::number(param); // automatically uses scientific notation
         else
-            paramString = QString::number(static_cast<qint64>(param));
+            paramString = QString::number(param, 'f', 0);
     }
 
     return paramString;
