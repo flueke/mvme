@@ -28,9 +28,9 @@ extern const char LIBMVME_EXPORT GIT_VERSION[];
 extern const char LIBMVME_EXPORT GIT_VERSION_SHORT[];
 
 // Digits only, e.g. "1.8.0.42"
-const char * LIBMVME_EXPORT mvme_git_version();
+LIBMVME_EXPORT const char * mvme_git_version();
 
 // Includes the abbreviated git hash, e.g. "v1.8.0-1-g42663342".
-const char * LIBMVME_EXPORT mvme_git_describe_version();
+LIBMVME_EXPORT const char * mvme_git_describe_version();
 
 #endif
