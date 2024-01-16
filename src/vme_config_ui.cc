@@ -844,6 +844,11 @@ QString info_text(const EventConfig *config)
             } break;
     }
 
+    auto vars = config->getVariables();
+
+    if (auto mcst = vars.value("mesy_mcst").value; !mcst.isEmpty())
+        infoText += QSL(", mcst=%1").arg(mcst);
+
     return infoText;
 }
 
