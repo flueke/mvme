@@ -289,7 +289,10 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
             moduleData.data = {
                 spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan))
             };
+            // Note: this can move input module "prefix" data to module
+            // "dynamic" data!
             moduleData.dynamicSize = words_in_span(spans.dataSpan);
+            moduleData.hasDynamic = true;
 
             ++state.counters.outputModules[ei][mi];
         }
