@@ -783,7 +783,7 @@ Operator make_export_sink(
 // A2 structure and entry points
 //
 
-static const int MaxVMEEvents  = 12;
+static const int MaxVMEEvents  = 20;
 static const int MaxVMEModules = 20;
 
 struct HistoFillDirect
