@@ -1,0 +1,4 @@
+set min_fw 0x0037       # Minimum firmware version required.
+setbase 0xffff0000
+read a32 d16 0x600E     # read the firmware revision
+accu_test gte ${min_fw} "Minimum MVLC firmware revision"

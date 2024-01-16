@@ -35,6 +35,12 @@
             "scriptName": "MVLC Send Master Trigger",
             "vendorName": "mesytec",
             "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-require_firmware.vmescript",
+            "scriptName": "MVLC Require Firmware Version",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
         }
     ]
 }
