@@ -1,0 +1,11 @@
+setbase 0xffff0000
+
+# Writes to lowest 4 bits of register 0x1306 send the master trigger
+# signal corresponding to the bit position.
+
+0x1306 0b0001 # send master trigger 0
+#0x1306 0b0010 # send master trigger 1
+#0x1306 0b0100 # send master trigger 2
+#0x1306 0b1000 # send master trigger 3
+
+#0x1306 0b0011 # send master triggers 0&1

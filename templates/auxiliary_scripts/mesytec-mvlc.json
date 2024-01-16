@@ -11,6 +11,30 @@
             "scriptName": "MVLC Counter Readout",
             "vendorName": "mesytec",
             "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-set_master_mode.vmescript",
+            "scriptName": "MVLC Set Master Mode",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-set_slave_mode.vmescript",
+            "scriptName": "MVLC Set Slave Mode",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-read_sync_status.vmescript",
+            "scriptName": "MVLC Read Sync Status",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-send_master_trigger.vmescript",
+            "scriptName": "MVLC Send Master Trigger",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
         }
     ]
 }

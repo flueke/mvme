@@ -1,0 +1,4 @@
+setbase 0xffff0000
+read a32 d16 0x0010 # read sync status
+accu_mask_rotate 0b10 0
+accu_test eq 0b10 "master/slave sync status"
