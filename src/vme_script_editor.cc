@@ -143,6 +143,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
     //qDebug() << __PRETTY_FUNCTION__ << "editor font key is:" << m_d->m_editor->font().key();
 
     connect(script, &VMEScriptConfig::modified, this, &VMEScriptEditor::onScriptModified);
+    connect(script, &VMEScriptConfig::destroyed, this, &VMEScriptEditor::onScriptDestroyed);
 
     auto parentConfig = qobject_cast<ConfigObject *>(m_d->m_script->parent());
 
@@ -283,6 +284,9 @@ bool VMEScriptEditor::isModified() const
 
 void VMEScriptEditor::updateWindowTitle()
 {
+    if (!m_d->m_script)
+        return;
+
     auto title = m_d->m_script->getVerboseTitle();
 
     if (m_d->m_editor->document()->isModified())
@@ -311,6 +315,12 @@ void VMEScriptEditor::onScriptModified(bool isModified)
     }
 
     updateWindowTitle();
+}
+
+void VMEScriptEditor::onScriptDestroyed()
+{
+    m_d->m_script = nullptr;
+    close();
 }
 
 void VMEScriptEditor::onEditorTextChanged()
@@ -552,6 +562,12 @@ void VMEScriptEditor::findPrev()
 
 void VMEScriptEditor::closeEvent(QCloseEvent *event)
 {
+    if (!m_d->m_script)
+    {
+        MVMEWidget::closeEvent(event);
+        return;
+    }
+
     bool doClose = !m_d->m_editor->document()->isModified();
 
     if (m_d->m_editor->document()->isModified())

@@ -65,6 +65,7 @@ class VMEScriptEditor: public MVMEWidget
 
         void onEditorTextChanged();
         void onScriptModified(bool isModified);
+        void onScriptDestroyed();
 
         void runScript_(const mesytec::mvme::ScriptConfigRunner::Options &options);
 #if 0

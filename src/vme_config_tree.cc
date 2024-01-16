@@ -2203,7 +2203,6 @@ void VMEConfigTreeWidget::removeGlobalScript()
     if (script && m_config->removeGlobalScript(script))
     {
         delete m_treeMap.take(script);  // delete the node
-        script->deleteLater();          // delete the script
     }
 }
 
