@@ -2948,7 +2948,7 @@ Level0UtilsDialog::Level0UtilsDialog(
             auto combo_stack = new QComboBox;
             ret.combos_stack.push_back(combo_stack);
 
-            for (int stack=0; stack <= 7; ++stack)
+            for (unsigned stack=0; stack < mvlc::stacks::StackCount; ++stack)
             {
                 auto eventName = (stack == 0) ? "Command Stack" :  vmeEventNames.value(stack-1);
                 auto str = QString::number(stack);
@@ -3255,7 +3255,7 @@ Level3UtilsDialog::Level3UtilsDialog(
             combo_connection->setSizeAdjustPolicy(QComboBox::AdjustToContents);
             check_activate->setChecked(l3.stackStart[row].activate);
 
-            for (int stack=1; stack <= 7; ++stack)
+            for (unsigned stack=1; stack < mvlc::stacks::StackCount; ++stack)
             {
                 auto eventName = vmeEventNames.value(stack-1);
                 auto str = QString::number(stack);
@@ -3366,6 +3366,17 @@ Level3UtilsDialog::Level3UtilsDialog(
         table->resizeColumnsToContents();
         table->resizeRowsToContents();
 
+        auto noticeLabel = new QLabel(QSL(
+            "These units produce a MasterTrigger signal when triggered. These"
+            " signals are available as <i>SlaveN</i> triggers on both the master and"
+            " connected slave crates."));
+        noticeLabel->setWordWrap(true);
+
+        ret.parentWidget = new QWidget;
+        auto parentLayout = make_vbox<0, 4>(ret.parentWidget);
+        parentLayout->addWidget(noticeLabel);
+        parentLayout->addWidget(ret.table);
+
         return ret;
     };
 
@@ -3459,7 +3470,7 @@ Level3UtilsDialog::Level3UtilsDialog(
 
     auto grid = new QGridLayout;
     grid->addWidget(make_groupbox(ui_stackStart.parentWidget, "Stack Start"), 0, 0);
-    grid->addWidget(make_groupbox(ui_masterTriggers.table, "Master Triggers"), 0, 1);
+    grid->addWidget(make_groupbox(ui_masterTriggers.parentWidget, "Master Triggers"), 0, 1);
     grid->addWidget(make_groupbox(ui_counters.parentWidget, "Counters"), 1, 0, 1, 2);
 
     auto bb = new QDialogButtonBox(

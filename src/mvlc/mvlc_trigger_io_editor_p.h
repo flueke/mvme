@@ -745,6 +745,8 @@ class Level3UtilsDialog: public QDialog
             };
 
             static const int FirstUnitIndex = 4;
+
+            QWidget *parentWidget;
         };
 
         struct Counters_UI: public Table_UI_Base
