@@ -35,6 +35,43 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
+std::error_code
+    check_config(mvlc::MVLC mvlc, const VMEConfig &vmeConfig, Logger logger)
+{
+    auto eventConfigs = vmeConfig.getEventConfigs();
+
+    if (static_cast<unsigned>(eventConfigs.size()) > mvlc.getReadoutStackCount())
+    {
+        logger(QSL("Error: number of MVLC readout stacks exceeded."
+                  " Have %1 stacks, need %2 stacks.")
+            .arg(mvlc.getReadoutStackCount())
+            .arg(eventConfigs.size()));
+        return mvlc::make_error_code(mvlc::MVLCErrorCode::StackCountExceeded);
+    }
+
+    if (mvlc.firmwareRevision() >= 0x0037)
+        return {};
+
+    for (const auto &eventConfig: eventConfigs)
+    {
+        if (eventConfig->triggerCondition == TriggerCondition::MvlcStackTimer)
+        {
+            logger(QSL("Error: 'StackTimer' trigger condition of event '%1' requires MVLC firmware >= FW0037")
+                .arg(eventConfig->objectName()));
+            return mvlc::make_error_code(mvlc::MVLCErrorCode::FirmwareTooOld);
+        }
+
+        if (eventConfig->triggerCondition == TriggerCondition::MvlcOnSlaveTrigger)
+        {
+            logger(QSL("Error: 'On MasterTrigger' trigger condition of event '%1' requires MVLC firmware >= FW0037")
+                .arg(eventConfig->objectName()));
+            return mvlc::make_error_code(mvlc::MVLCErrorCode::FirmwareTooOld);
+        }
+    }
+    return {};
+}
+
+
 std::error_code disable_all_triggers_and_daq_mode(MVLCObject &mvlc)
 {
     return mvlc::disable_all_triggers_and_daq_mode<mvme_mvlc::MVLCObject>(mvlc);
@@ -76,7 +113,7 @@ std::vector<mvlc::StackCommandBuilder> get_readout_stacks(const VMEConfig &vmeCo
 // Builds, uploads and sets up the readout stack for each event in the vme
 // config.
 // FIXME: multiple stack conversions. Pretty hacky now
-std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger)
+std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
     // Stack0 is reserved for immediate exec
     u8 stackId = mvlc::stacks::FirstReadoutStackID;
@@ -99,6 +136,8 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
         {
             spdlog::warn("Empty readout stack for event %1, skipping to next event config",
                 event->objectName().toLocal8Bit().data());
+            logger(QSL("Empty readout stack for event %1, skipping to next event config")
+                .arg(event->objectName().toLocal8Bit().data()));
             ++stackId;
             continue;
         }
@@ -214,14 +253,14 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                 }
                 break;
 
-            case TriggerCondition::MvlcOnMasterTrigger:
+            case TriggerCondition::MvlcOnSlaveTrigger:
                 {
-                    auto masterTriggerIndex = event->triggerOptions.value("mvlc.mastertrigger_index").toULongLong();
-                    logger(QSL("    Event %1: Stack %2, on MasterTrigger%3")
-                        .arg(event->objectName()).arg(stackId).arg(masterTriggerIndex));
+                    auto slaveTriggerIndex = event->triggerOptions.value("mvlc.slavetrigger_index").toULongLong();
+                    logger(QSL("    Event %1: Stack %2, on Master Trigger%3")
+                        .arg(event->objectName()).arg(stackId).arg(slaveTriggerIndex));
 
                     u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
-                    triggerValue |= (static_cast<u32>(mvlc::stacks::TriggerSubtype::Slave0) + masterTriggerIndex) & mvlc::stacks::TriggerBitsMask;
+                    triggerValue |= (static_cast<u32>(mvlc::stacks::TriggerSubtype::Slave0) + slaveTriggerIndex) & mvlc::stacks::TriggerBitsMask;
                     triggers.push_back(triggerValue);
                 }
                 break;
@@ -513,6 +552,12 @@ bool run_daq_start_sequence(
 
     logger("");
     logger("Initializing MVLC");
+
+    if (auto ec = check_config(mvlc.getMVLC(), vmeConfig, logger))
+    {
+        logger(QSL("Error: VME configuration check failed: %1").arg(ec.message().c_str()));
+        return false;
+    }
 
     // Clear triggers and stacks =========================================================
 

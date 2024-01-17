@@ -37,6 +37,9 @@ class MVLC_VMEController;
 
 using Logger = std::function<void (const QString &)>;
 
+std::error_code LIBMVME_EXPORT
+    check_config(mvlc::MVLC mvlc, const VMEConfig &vmeConfig, Logger logger);
+
 std::pair<std::vector<u32>, std::error_code> LIBMVME_EXPORT get_trigger_values(
     const VMEConfig &vmeConfig, Logger logger = [] (const QString &) {});
 
