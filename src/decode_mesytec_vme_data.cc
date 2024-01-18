@@ -94,14 +94,20 @@ void print_decoded_vme_word(Out &out, const DecodedVMEDataWord &dw)
     else if (dw.fill_word_found)
         out << "fill_word";
 
-    out << std::endl;
+    out << "\n";
 }
 
 int main()
 {
-    for (std::string line; std::getline(std::cin, line); )
+    // Remove all default settings for std::cin => number prefixes are interpreted properly
+    std::cin.unsetf(std::ios::dec);
+    std::cin.unsetf(std::ios::hex);
+    std::cin.unsetf(std::ios::oct);
+
+    std::uint32_t data_word;
+
+    while (std::cin >> data_word)
     {
-        auto data_word = std::strtoul(line.c_str(), nullptr, 0);
         auto decoded = decode_mesytec_vme_word(data_word);
         print_decoded_vme_word(std::cout, decoded);
     }
