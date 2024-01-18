@@ -6,9 +6,13 @@
 
 setbase 0xffff0000      # use the mvlc vme interface as the base address for the following writes
 
-set trigger_index 0                         # valid values: 0-7 (trigger_resource units)
+set trigger_index 0     # valid values: 0-7 (trigger_resource units)
 
-set trigger_unit $(4 + ${trigger_index})    # Level0 Units 4-11
-0x0200 ${trigger_unit}                      # select the unit
-0x0302 1                                    # write to the soft_trigger output activation register
-                                            # to generate an 8 ns pulse.
+mvlc_stack_begin
+  # Level0 Units 4-11
+  set trigger_unit $(4 + ${trigger_index})
+  # select the unit
+  0x0200 ${trigger_unit}
+  # write to the soft_trigger output activation register to generate an 8 ns pulse.
+  0x0302 1
+mvlc_stack_end
