@@ -1035,6 +1035,12 @@ void MVMEContext::onControllerOpenFinished()
             logMessage(QString("Opened VME Controller %1 (%2)")
                        .arg(mvlcCtrl->getIdentifyingString())
                        .arg(mvlcObj->getConnectionInfo()));
+
+            if (mvlcCore.firmwareRevision() < 0x0037)
+            {
+                logMessage(QSL("Warning: MVLC firmware >= FW0037 is recommended. Update instructions can be found"
+                               " here: https://mesytec.com/downloads/firmware%20updates/firmware_VME.html"));
+            }
         }
         else // generic case
         {
