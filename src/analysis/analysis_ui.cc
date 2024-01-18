@@ -400,14 +400,22 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
         {
             // Use the listfile basename to suggest a filename.
             const auto &replayHandle = m_serviceProvider->getReplayFileHandle();
-            filename = QFileInfo(replayHandle.inputFilename).baseName() + ".analysis";
+            filename = QFileInfo(replayHandle.inputFilename).baseName();
+        }
+        else if (!m_serviceProvider->getVMEConfigFilename().isEmpty())
+        {
+            // Use the current vme config name to suggest a filename.
+            filename = QFileInfo(m_serviceProvider->getVMEConfigFilename()).baseName();
         }
         else
         {
             // Use the last part of the workspace path to suggest a filename.
-            filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName() + ".analysis";
+            filename = QFileInfo(m_serviceProvider->getWorkspaceDirectory()).fileName();
         }
     }
+
+    if (!filename.endsWith(".analysis"))
+        filename.append(".analysis");
 
     auto result = gui_save_analysis_config_as(m_serviceProvider->getAnalysis(),
                                        filename,

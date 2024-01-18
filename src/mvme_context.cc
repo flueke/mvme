@@ -57,6 +57,7 @@
 #include "remote_control.h"
 #include "sis3153.h"
 #include "util/cpp17_util.h"
+#include "util/qt_fs.h"
 #include "util/ticketmutex.h"
 #include "vme_analysis_common.h"
 #include "vme_config_ui.h"
@@ -1554,13 +1555,14 @@ void MVMEContext::setVMEConfigFilename(QString name, bool updateWorkspace)
 {
     if (m_configFileName != name || updateWorkspace)
     {
-        m_configFileName = name;
+        // Remove the workspace path (current dir) prefix from the filename.
+        m_configFileName = filepath_relative_to_cwd(name);
+
         if (updateWorkspace)
         {
-            makeWorkspaceSettings()->setValue(
-                QSL("LastVMEConfig"), name.remove(getWorkspaceDirectory() + '/'));
+            makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), m_configFileName);
         }
-        emit vmeConfigFilenameChanged(name);
+        emit vmeConfigFilenameChanged(m_configFileName);
     }
 }
 
@@ -1568,13 +1570,14 @@ void MVMEContext::setAnalysisConfigFilename(QString name, bool updateWorkspace)
 {
     if (m_analysisConfigFileName != name || updateWorkspace)
     {
-        m_analysisConfigFileName = name;
+        // Remove the workspace path (current dir) prefix from the filename.
+        m_analysisConfigFileName = filepath_relative_to_cwd(name);
+
         if (updateWorkspace)
         {
-            makeWorkspaceSettings()->setValue(
-                QSL("LastAnalysisConfig"), name.remove(getWorkspaceDirectory() + '/'));
+            makeWorkspaceSettings()->setValue(QSL("LastAnalysisConfig"), m_analysisConfigFileName);
         }
-        emit analysisConfigFileNameChanged(name);
+        emit analysisConfigFileNameChanged(m_analysisConfigFileName);
     }
 }
 

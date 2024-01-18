@@ -47,6 +47,7 @@
 #include "mvme_stream_worker.h"
 #include "template_system.h"
 #include "treewidget_utils.h"
+#include "util/qt_fs.h"
 #include "util/qt_gui_io.h"
 #include "vme_config.h"
 #include "vme_config_scripts.h"
@@ -2353,17 +2354,6 @@ void VMEConfigTreeWidget::updateConfigLabel()
     if (fileName.isEmpty())
     {
         fileName = QSL("<not saved>");
-    }
-    else
-    {
-        auto wsCanon = QDir().canonicalPath() + '/';
-        auto cfgCanon = QFileInfo(fileName).canonicalFilePath();
-
-        if (cfgCanon.startsWith(wsCanon))
-        {
-            cfgCanon.remove(wsCanon);
-            fileName = cfgCanon;
-        }
     }
 
     if (m_config && m_config->isModified())
