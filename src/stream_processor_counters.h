@@ -30,8 +30,9 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 
     // [eventIndex, moduleIndex] -> number of times the module data size
     // extracted from the module header exceeds the amount of data in the input
-    // buffer.
-    std::vector<std::vector<size_t>> moduleEventSizeExceedsBuffer;
+    // buffer. Only used by the MVMEStreamProcessor for the old mvmelst listfile
+    // format.
+    std::array<ModuleCounters, MaxVMEEvents> moduleEventSizeExceedsBuffer;
 };
 
 #endif /* __MVME_STREAM_PROCESSOR_COUNTERS_H__ */

@@ -609,7 +609,8 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader,
                 if (unlikely(mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord))
                 {
                     this->counters.buffersWithErrors++;
-                    ++counters.moduleEventSizeExceedsBuffer[eventIndex][moduleIndex];
+                    if (eventIndex < MaxVMEEvents && moduleIndex < MaxVMEModules)
+                        ++counters.moduleEventSizeExceedsBuffer[eventIndex][moduleIndex];
 
                     QString msg = (QString("Error (mvme stream, buffer#%1): extracted module event size (%2) exceeds buffer size!"
                                            " eventIndex=%3, moduleIndex=%4, moduleHeader=0x%5, skipping event")
