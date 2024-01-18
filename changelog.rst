@@ -7,12 +7,13 @@ Changelog
 Version 1.11-rc
 ---------------
 
-* Support for MVLC firmware FW0037
-
-  - FW0037 is now also the minium required firmware for mvme.
+* Support for new MVLC firmware FW0037 features:
 
   - The 4 new StackTimer units can now be used to create periodic readout events
     without having to use ``TriggerResource`` and ``StackStart`` units.
+
+  - New event trigger condition to activate command stacks on one of the master
+    trigger signals.
 
   - The total number of MVLC command stacks has been raised from 8 to 16, so now
     15 command stacks are available for readout events.
@@ -22,10 +23,18 @@ Version 1.11-rc
   - The default Trigger I/O script is now empty as the previous default script
     was confusing.
 
+  - Remember last connected ETH hostname and other settings when switching
+    controller types.
+
+  - Add more utility VME scripts for the MVLC related to multicrate master/slave
+    handling.
+
 * histo1d: log scale plotting and stat calculation fixes
 
-* Only attempt to connect to VME controllers once, instead of multiple times to
+* Only attempt to connect to VME controllers once instead of multiple times to
   reduce log spam and wait time in case of errors.
+
+* Crash fix with old mvmelst formatted data and multi event splitting.
 
 Version 1.10.3
 --------------
