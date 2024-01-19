@@ -138,6 +138,7 @@ void serialize_listfile_output_info(Target &target, const ListFileOutputInfo &in
     set_value(target, QSL("ListFileOutputFlags"),       info.flags);
     set_value(target, QSL("ListFileSplitSize"),         static_cast<quint64>(info.splitSize));
     set_value(target, QSL("ListFileSplitTime"),         static_cast<quint64>(info.splitTime.count()));
+    set_value(target, QSL("ListFileOptions"),           info.options);
 }
 
 template<typename Source>
@@ -157,6 +158,7 @@ void deserialize_listfile_output_info(const Source &source, ListFileOutputInfo &
     dest.splitSize        = source.value(QSL("ListFileSplitSize"), static_cast<quint64>(dest.splitSize)).toULongLong();
     dest.splitTime        = std::chrono::seconds(
         source.value(QSL("ListFileSplitTime"), static_cast<quint64>(dest.splitTime.count())).toULongLong());
+    dest.options          = source.value(QSL("ListFileOptions")).toMap();
 }
 
 void write_listfile_output_info_to_qsettings(const ListFileOutputInfo &info, QSettings &settings)

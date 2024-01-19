@@ -193,9 +193,6 @@ struct ListFileOutputInfo
     QString directory;          // Path to the output directory. If it's not a
                                 // full path it's relative to the workspace directory.
                                 //
-    //QString fullDirectory;      // Always the full path to the listfile output directory.
-    //                            // This is transient and not stored in the workspace settings.
-
     int compressionLevel = 1;   // zlib/lz4 compression level
 
     QString prefix = QSL("mvmelst");
@@ -208,6 +205,8 @@ struct ListFileOutputInfo
 
     size_t splitSize = Gigabytes(1);
     std::chrono::seconds splitTime = std::chrono::seconds(3600);
+
+    QVariantMap options; // Additional format-dependent options can be stored here.
 };
 
 // listfile name without filename extensions
