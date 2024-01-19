@@ -38,7 +38,7 @@ class MVLC_VMEController;
 using Logger = std::function<void (const QString &)>;
 
 std::error_code LIBMVME_EXPORT
-    check_config(mvlc::MVLC mvlc, const VMEConfig &vmeConfig, Logger logger);
+    check_config(const mvlc::MVLC &mvlc, const VMEConfig &vmeConfig, Logger logger);
 
 std::pair<std::vector<u32>, std::error_code> LIBMVME_EXPORT get_trigger_values(
     const VMEConfig &vmeConfig, Logger logger = [] (const QString &) {});
@@ -70,13 +70,12 @@ void LIBMVME_EXPORT update_trigger_io_inplace(const VMEConfig &vmeConfig);
 
 mvlc::StackCommandBuilder LIBMVME_EXPORT make_module_init_stack(const VMEConfig &vmeConfig);
 
-// Removes non-output-producing command groups from each of the readout
-// stacks. This is done because the converted CrateConfig contains
-// groups for the "Cycle Start" and "Cycle End" event scripts which do
-// not produce any output. Having a Cycle Start script (called
-// "readout_start" in the CrateConfig) will confuse the readout parser
-// because the readout stack group indexes and the mvme module indexes
-// won't match up.
+// Removes non-output-producing command groups from each of the readout stacks.
+// This is done because the converted CrateConfig contains groups for the "Cycle
+// Start" and "Cycle End" event scripts, which do not produce any output. Having
+// a Cycle Start script (called "readout_start" in the CrateConfig) will confuse
+// the readout parser because the readout stack group indexes and the mvme
+// module indexes won't match up.
 std::vector<mvlc::StackCommandBuilder> LIBMVME_EXPORT sanitize_readout_stacks(
     const std::vector<mvlc::StackCommandBuilder> &inputStacks);
 

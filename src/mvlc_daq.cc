@@ -28,6 +28,7 @@
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvlc/mvlc_util.h"
 #include "util/strings.h"
+#include "vme_config_scripts.h"
 #include "vme_daq.h"
 
 namespace mesytec
@@ -35,8 +36,10 @@ namespace mesytec
 namespace mvme_mvlc
 {
 
-std::error_code
-    check_config(mvlc::MVLC mvlc, const VMEConfig &vmeConfig, Logger logger)
+namespace
+{
+
+std::error_code check_trigger_conditions(const mvlc::MVLC &mvlc, const VMEConfig &vmeConfig, Logger logger)
 {
     auto eventConfigs = vmeConfig.getEventConfigs();
 
@@ -68,6 +71,48 @@ std::error_code
             return mvlc::make_error_code(mvlc::MVLCErrorCode::FirmwareTooOld);
         }
     }
+
+    return {};
+}
+
+std::error_code check_readout_loop_start_end_scripts(const VMEConfig &vmeConfig, Logger logger)
+{
+    auto eventConfigs = vmeConfig.getEventConfigs();
+
+    for (const auto &eventConfig: eventConfigs)
+    {
+        for (auto scriptCategory: { "readout_start", "readout_end" })
+        {
+            if (auto scriptConf = eventConfig->vmeScripts.value(scriptCategory))
+            {
+                auto vmeScript = mvme::parse(scriptConf);
+                auto mvlcCommands = mvme::convert_script(vmeScript);
+
+                if (std::any_of(std::begin(mvlcCommands), std::end(mvlcCommands),
+                    [] (const auto &cmd) { return mvlc::produces_output(cmd); }))
+                {
+                    logger(QSL("Error: Script '%1' of event '%2' must not contain data producing commands (reads, block reads, ...).")
+                        .arg(scriptConf->objectName(), eventConfig->objectName()));
+                    return mvlc::make_error_code(mvlc::MVLCErrorCode::ReadoutSetupError);
+                }
+            }
+        }
+    }
+
+    return {};
+}
+
+}
+
+std::error_code
+    check_config(const mvlc::MVLC &mvlc, const VMEConfig &vmeConfig, Logger logger)
+{
+    if (auto ec = check_trigger_conditions(mvlc, vmeConfig, logger))
+        return ec;
+
+    if (auto ec = check_readout_loop_start_end_scripts(vmeConfig, logger))
+        return ec;
+
     return {};
 }
 
