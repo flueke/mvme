@@ -296,6 +296,9 @@ struct MVLCReadoutWorker::Private
 
     void updateDAQStats()
     {
+        assert(mvlcReadoutWorker);
+        if (!mvlcReadoutWorker) return;
+
         auto rdoCounters = mvlcReadoutWorker->counters();
 
         auto &daqStats = q->getContext().daqStats;
@@ -534,7 +537,17 @@ void MVLCReadoutWorker::start(quint32 cycles)
 #ifdef MVLC_HAVE_ZMQ
             else if (outInfo.format == ListFileFormat::ZMQ_Ganil)
             {
-                d->listfileWriteHandle = std::make_shared<mvlc::listfile::ZmqGanilWriteHandle>();
+                if (outInfo.options.contains("zmq_ganil_bind_port"))
+                {
+                    auto zmqBindPort = outInfo.options.value("zmq_ganil_bind_port").toString().toStdString();
+                    auto zmqBindUrl = "tcp://*:" + zmqBindPort;
+                    d->listfileWriteHandle = std::make_shared<mvlc::listfile::ZmqGanilWriteHandle>(zmqBindUrl);
+                }
+                else
+                {
+                    d->listfileWriteHandle = std::make_shared<mvlc::listfile::ZmqGanilWriteHandle>();
+                }
+
                 // Note: intentionally not sending the listfile preamble as the GANIL receiver
                 // code does not expect it.
             }
@@ -681,6 +694,9 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
 void MVLCReadoutWorker::stop()
 {
+    assert(d->mvlcReadoutWorker);
+    if (!d->mvlcReadoutWorker) return;
+
     if (auto ec = d->mvlcReadoutWorker->stop())
         logError(ec.message().c_str());
     else
@@ -698,12 +714,15 @@ void MVLCReadoutWorker::stop()
         logMessage(QString(QSL("MVLC readout stopped")));
     }
 
-    // delete the listfileWriteHandle
+    // Release the write handle to free up resources, e.g. zmq socket.
     d->listfileWriteHandle = {};
 }
 
 void MVLCReadoutWorker::pause()
 {
+    assert(d->mvlcReadoutWorker);
+    if (!d->mvlcReadoutWorker) return;
+
     if (auto ec = d->mvlcReadoutWorker->pause())
         logError(ec.message().c_str());
     else
@@ -725,6 +744,9 @@ void MVLCReadoutWorker::pause()
 void MVLCReadoutWorker::resume(quint32 cycles)
 {
     assert(cycles == 0 || !"mvlc_readout_worker does not support running a limited number of cycles"); (void) cycles;
+    assert(d->mvlcReadoutWorker);
+
+    if (!d->mvlcReadoutWorker) return;
 
     if (auto ec = d->mvlcReadoutWorker->resume())
         logError(ec.message().c_str());
