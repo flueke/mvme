@@ -172,7 +172,11 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         dupfilter->add_sink(consolesink);
         dupfilter->add_sink(qtsink);
 
-        auto loggerNames = { "listfile", "readout_worker", "replay", "readout_parser" };
+        auto loggerNames =
+        {
+             "listfile", "readout_worker", "replay", "readout_parser",
+             "mvlc_listfile_zmq_ganil"
+        };
 
         for (const auto &loggerName: loggerNames)
             mesytec::mvlc::create_logger(loggerName, { dupfilter });
