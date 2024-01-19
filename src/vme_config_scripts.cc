@@ -66,19 +66,6 @@ vme_script::SymbolTables collect_symbol_tables(const ConfigObject *co)
     return convert_to_symboltables(symbolsWithSources);
 }
 
-#if 0
-vme_script::SymbolTables collect_symbol_tables(const VMEScriptConfig *scriptConfig)
-{
-    assert(scriptConfig);
-
-    auto result = collect_symbol_tables(qobject_cast<const ConfigObject *>(scriptConfig));
-
-    result.push_front({"local", {}});
-
-    return result;
-}
-#endif
-
 namespace
 {
 

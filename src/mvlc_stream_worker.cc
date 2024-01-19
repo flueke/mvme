@@ -550,7 +550,7 @@ void MVLC_StreamWorker::start()
 
         // Removes non-output-producing command groups from each of the readout
         // stacks. This is done because the converted CrateConfig contains
-        // groups for the "Cycle Start" and "Cycle End" event scripts which do
+        // groups for the "Cycle Start" and "Cycle End" event scripts, which do
         // not produce any output. Having a Cycle Start script (called
         // "readout_start" in the CrateConfig) will confuse the readout parser
         // because the readout stack group indexes and the mvme module indexes
