@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>712</width>
-    <height>817</height>
+    <width>600</width>
+    <height>792</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -19,298 +19,341 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,1,0">
+  <layout class="QVBoxLayout" name="verticalLayout_3">
    <item>
-    <widget class="QGroupBox" name="groupBox_4">
-     <property name="title">
-      <string>Listfile filename</string>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <widget class="QGroupBox" name="gb_prefixSuffix">
-        <property name="title">
-         <string>Prefix / Suffix</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_2">
-         <item row="0" column="0">
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string>Prefix</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0" colspan="2">
-          <widget class="QCheckBox" name="cb_useRunNumber">
-           <property name="text">
-            <string>Use Run Number</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_2">
-           <property name="text">
-            <string>Suffix</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="2">
-          <widget class="QCheckBox" name="cb_useTimestamp">
-           <property name="text">
-            <string>Use Timestamp</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1" colspan="2">
-          <widget class="QLineEdit" name="le_prefix"/>
-         </item>
-         <item row="1" column="1" colspan="2">
-          <widget class="QLineEdit" name="le_suffix"/>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <widget class="QGroupBox" name="gb_formatString">
-        <property name="title">
-         <string>Format String</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
-        <layout class="QFormLayout" name="formLayout_3">
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_4">
-           <property name="text">
-            <string>Format</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="QLineEdit" name="le_formatString"/>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_5">
-           <property name="text">
-            <string>Error</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLineEdit" name="le_formatError">
-           <property name="palette">
-            <palette>
-             <active>
-              <colorrole role="Text">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>237</red>
-                 <green>51</green>
-                 <blue>59</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="PlaceholderText">
-               <brush brushstyle="SolidPattern">
-                <color alpha="128">
-                 <red>237</red>
-                 <green>51</green>
-                 <blue>59</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </active>
-             <inactive>
-              <colorrole role="Text">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>237</red>
-                 <green>51</green>
-                 <blue>59</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="PlaceholderText">
-               <brush brushstyle="SolidPattern">
-                <color alpha="128">
-                 <red>237</red>
-                 <green>51</green>
-                 <blue>59</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </inactive>
-             <disabled>
-              <colorrole role="Text">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>190</red>
-                 <green>190</green>
-                 <blue>190</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="PlaceholderText">
-               <brush brushstyle="SolidPattern">
-                <color alpha="128">
-                 <red>0</red>
-                 <green>0</green>
-                 <blue>0</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </disabled>
-            </palette>
-           </property>
-           <property name="readOnly">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0" colspan="2">
-          <widget class="QLabel" name="label_3">
-           <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Uses the fmt library to format the output filename. Two arguments are supplied when formatting:&lt;br/&gt;0: the current run number as an integer value&lt;br/&gt;1: the current timestamp as a string &lt;/p&gt;&lt;p&gt;Examples:&lt;br/&gt;- &amp;quot;mvmelst_run{0:03d}&amp;quot; -&amp;gt; 3 digit, zero prefixed run number, no timestamp&lt;br/&gt;- &amp;quot;mvmelst_run{0:04x}&amp;quot; -&amp;gt; 4 digit, zero prefixed run number in hex&lt;br/&gt;- &amp;quot;mvmelst_run{0:3d}_at_{1}&amp;quot; -&amp;gt; 3 digit run number and the timestamp string&lt;/p&gt;&lt;p&gt;For format syntax details see &lt;a href=&quot;https://fmt.dev/latest/syntax.html&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://fmt.dev/latest/syntax.html&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="textFormat">
-            <enum>Qt::RichText</enum>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-           <property name="openExternalLinks">
-            <bool>true</bool>
-           </property>
-           <property name="textInteractionFlags">
-            <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QWidget" name="tab_fileSettings">
+      <attribute name="title">
+       <string>File Settings</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="spacing">
+        <number>2</number>
+       </property>
+       <property name="leftMargin">
+        <number>2</number>
+       </property>
+       <property name="topMargin">
+        <number>2</number>
+       </property>
+       <property name="rightMargin">
+        <number>2</number>
+       </property>
+       <property name="bottomMargin">
+        <number>2</number>
+       </property>
+       <item>
+        <widget class="QGroupBox" name="groupBox_4">
+         <property name="title">
+          <string>Listfile filename</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <item>
+           <widget class="QGroupBox" name="gb_prefixSuffix">
+            <property name="title">
+             <string>Prefix / Suffix</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_2">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label">
+               <property name="text">
+                <string>Prefix</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0" colspan="2">
+              <widget class="QCheckBox" name="cb_useRunNumber">
+               <property name="text">
+                <string>Use Run Number</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_2">
+               <property name="text">
+                <string>Suffix</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="2">
+              <widget class="QCheckBox" name="cb_useTimestamp">
+               <property name="text">
+                <string>Use Timestamp</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1" colspan="2">
+              <widget class="QLineEdit" name="le_prefix"/>
+             </item>
+             <item row="1" column="1" colspan="2">
+              <widget class="QLineEdit" name="le_suffix"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="gb_formatString">
+            <property name="title">
+             <string>Format String</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+            <layout class="QFormLayout" name="formLayout_3">
+             <item row="0" column="0">
+              <widget class="QLabel" name="label_4">
+               <property name="text">
+                <string>Format</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="le_formatString"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_5">
+               <property name="text">
+                <string>Error</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="le_formatError">
+               <property name="palette">
+                <palette>
+                 <active>
+                  <colorrole role="Text">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>237</red>
+                     <green>51</green>
+                     <blue>59</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                  <colorrole role="PlaceholderText">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="128">
+                     <red>237</red>
+                     <green>51</green>
+                     <blue>59</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                 </active>
+                 <inactive>
+                  <colorrole role="Text">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>237</red>
+                     <green>51</green>
+                     <blue>59</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                  <colorrole role="PlaceholderText">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="128">
+                     <red>237</red>
+                     <green>51</green>
+                     <blue>59</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                 </inactive>
+                 <disabled>
+                  <colorrole role="Text">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="255">
+                     <red>190</red>
+                     <green>190</green>
+                     <blue>190</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                  <colorrole role="PlaceholderText">
+                   <brush brushstyle="SolidPattern">
+                    <color alpha="128">
+                     <red>0</red>
+                     <green>0</green>
+                     <blue>0</blue>
+                    </color>
+                   </brush>
+                  </colorrole>
+                 </disabled>
+                </palette>
+               </property>
+               <property name="readOnly">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0" colspan="2">
+              <widget class="QLabel" name="label_3">
+               <property name="text">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Uses the fmt library to format the output filename. Two arguments are supplied when formatting:&lt;br/&gt;0: the current run number as an integer value&lt;br/&gt;1: the current timestamp as a string &lt;/p&gt;&lt;p&gt;Examples:&lt;br/&gt;- &amp;quot;mvmelst_run{0:03d}&amp;quot; -&amp;gt; 3 digit, zero prefixed run number, no timestamp&lt;br/&gt;- &amp;quot;mvmelst_run{0:04x}&amp;quot; -&amp;gt; 4 digit, zero prefixed run number in hex&lt;br/&gt;- &amp;quot;mvmelst_run{0:3d}_at_{1}&amp;quot; -&amp;gt; 3 digit run number and the timestamp string&lt;/p&gt;&lt;p&gt;For format syntax details see &lt;a href=&quot;https://fmt.dev/latest/syntax.html&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://fmt.dev/latest/syntax.html&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="textFormat">
+                <enum>Qt::RichText</enum>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+               <property name="openExternalLinks">
+                <bool>true</bool>
+               </property>
+               <property name="textInteractionFlags">
+                <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="gb_splitting">
+         <property name="title">
+          <string>Listfile Splitting (MVLC only)</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="0" column="0">
+           <widget class="QRadioButton" name="rb_dontSplit">
+            <property name="text">
+             <string>Don't split</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QRadioButton" name="rb_splitBySize">
+            <property name="text">
+             <string>Split by size</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="spin_splitSize">
+            <property name="suffix">
+             <string> MB</string>
+            </property>
+            <property name="prefix">
+             <string>split every </string>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>999999999</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QRadioButton" name="rb_splitByTime">
+            <property name="text">
+             <string>Split by time</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="spin_splitTime">
+            <property name="suffix">
+             <string> seconds</string>
+            </property>
+            <property name="prefix">
+             <string>split after </string>
+            </property>
+            <property name="minimum">
+             <number>10</number>
+            </property>
+            <property name="maximum">
+             <number>999999999</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_5">
+         <property name="title">
+          <string/>
+         </property>
+         <layout class="QFormLayout" name="formLayout_4">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string>Next Run Number</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="spin_runNumber">
+            <property name="maximum">
+             <number>999999999</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Example filename</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="le_exampleName">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_zmqGanilSettings">
+      <attribute name="title">
+       <string>ZMQ Publisher Settings</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout">
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_8">
+         <property name="text">
+          <string>ZMQ Publisher Bind Port</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QSpinBox" name="spin_zmqGanilBindPort">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>65535</number>
+         </property>
+         <property name="value">
+          <number>5575</number>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="gb_splitting">
-     <property name="title">
-      <string>Listfile Splitting (MVLC only)</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout">
-      <item row="0" column="0">
-       <widget class="QRadioButton" name="rb_dontSplit">
-        <property name="text">
-         <string>Don't split</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QRadioButton" name="rb_splitBySize">
-        <property name="text">
-         <string>Split by size</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QSpinBox" name="spin_splitSize">
-        <property name="suffix">
-         <string> MB</string>
-        </property>
-        <property name="prefix">
-         <string>split every </string>
-        </property>
-        <property name="minimum">
-         <number>1</number>
-        </property>
-        <property name="maximum">
-         <number>999999999</number>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QRadioButton" name="rb_splitByTime">
-        <property name="text">
-         <string>Split by time</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QSpinBox" name="spin_splitTime">
-        <property name="suffix">
-         <string> seconds</string>
-        </property>
-        <property name="prefix">
-         <string>split after </string>
-        </property>
-        <property name="minimum">
-         <number>10</number>
-        </property>
-        <property name="maximum">
-         <number>999999999</number>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_5">
-     <property name="title">
-      <string/>
-     </property>
-     <layout class="QFormLayout" name="formLayout_4">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_7">
-        <property name="text">
-         <string>Next Run Number</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QSpinBox" name="spin_runNumber">
-        <property name="maximum">
-         <number>999999999</number>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_6">
-        <property name="text">
-         <string>Example filename</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="le_exampleName">
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
-    </spacer>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="bb">

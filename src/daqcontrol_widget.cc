@@ -35,36 +35,6 @@
 #include "vme_controller_ui.h"
 #include "ui_daq_run_settings_dialog.h"
 
-#if 0
-// zlib supports [0,9] with 6 being the default.
-//
-// Sample data from an MDPP-16 showed that compression levels > 1 lead to very
-// minor improvements in compressed file size but cause major performance
-// decreases. To not throttle the DAQ with compression we're now limiting the
-// selectable compression levels to 0 (no compression) and 1.
-static const int compressionMin = 0;
-static const int compressionMax = 1;
-
-static void fill_compression_combo(QComboBox *combo)
-{
-    for (int i = compressionMin;
-         i <= compressionMax;
-         ++i)
-    {
-        QString label(QString::number(i));
-
-        switch (i)
-        {
-            case 0: label = QSL("No compression"); break;
-            case 1: label = QSL("Fast compression"); break;
-            case 6: label = QSL("Default"); break;
-            case 9: label = QSL("Best compression"); break;
-        }
-
-        combo->addItem(label, i);
-    }
-}
-#else
 enum CompressionPreset
 {
     NoCompression = 0,      // ZIP, level 0 aka store
@@ -90,7 +60,6 @@ static void fill_compression_combo(QComboBox *combo, bool isMVLC)
         combo->addItem(QSL("ZMQ Publisher"), CompressionPreset::ZmqServer_Ganil);
 #endif
 }
-#endif
 
 DAQControlWidget::DAQControlWidget(QWidget *parent)
     : QWidget(parent)
@@ -213,6 +182,8 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
 
             case CompressionPreset::ZmqServer_Ganil:
                 m_listFileOutputInfo.format = ListFileFormat::ZMQ_Ganil;
+                // Requested by GANIL: always enable "listfile writing" when ZMQ output is selected.
+                cb_writeListfile->setChecked(true);
                 break;
 
             default:
@@ -744,6 +715,9 @@ DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, Q
     connect(ui->rb_splitBySize, &QRadioButton::toggled, this, [this] { updateExample(); });
     connect(ui->rb_splitByTime, &QRadioButton::toggled, this, [this] { updateExample(); });
 
+    // zmq ganil publisher options
+    ui->spin_zmqGanilBindPort->setValue(settings.options.value("zmq_ganil_bind_port", "5575").toUInt());
+
     connect(ui->bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(ui->bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
@@ -785,6 +759,8 @@ void DAQRunSettingsDialog::updateSettings()
 
     if (ui->rb_splitBySize->isChecked())
         s.flags |= ListFileOutputInfo::SplitBySize;
+
+    s.options.insert("zmq_ganil_bind_port", ui->spin_zmqGanilBindPort->value());
 }
 
 void DAQRunSettingsDialog::updateExample()
