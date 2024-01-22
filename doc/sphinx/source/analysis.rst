@@ -31,7 +31,7 @@ calibrated histograms in the bottom view.
 
 .. _analysis-ui-block-diagram:
 
-.. figure:: images/analysis_ui_block_diagram.png
+.. figure:: images/analysis_ui_block_diagram.*
 
     Analysis UI Block Diagram
 
@@ -55,7 +55,7 @@ Operators can be moved between levels by dragging and dropping them.
 
 .. _analysis-ui-screenshot:
 
-.. figure:: images/analysis_ui_simple_io_highlights.png
+.. figure:: images/analysis_ui_simple_io_highlights.*
 
     Analysis UI Screenshot
 
@@ -77,7 +77,7 @@ Clicking any of the input buttons will make the user interface enter "input
 select mode". In this mode valid outputs for the selected input are
 highlighted.
 
-.. figure:: images/analysis_ui_add_op_input_select.png
+.. figure:: images/analysis_ui_add_op_input_select.*
 
     Input select mode
 
@@ -120,7 +120,7 @@ histograms of the same size as the input array will be created.
 
 Double-click on the *H1D* node to open the histogram array widget:
 
-.. figure:: images/analysis_histo1d_listwidget.png
+.. figure:: images/analysis_histo1d_listwidget.*
 
     1D Histogram Array Widget
 
@@ -182,7 +182,7 @@ Double-click on the *H1D* node to open the histogram array widget:
   Operator <analysis-Calibration>` and allows to directly modify the
   calibration information from within the histogram:
 
-    .. autofigure:: images/analysis_histo1d_adjust_calibration.png
+    .. autofigure:: images/analysis_histo1d_adjust_calibration.*
 
         Calibration adjustment from within the histogram display
 
@@ -214,7 +214,7 @@ Double-click on the *H1D* node to open the histogram array widget:
   This view allows to quickly see if any or all channels of a module are
   responding.
 
-.. figure:: images/analysis_histo1d_combined_view.png
+.. figure:: images/analysis_histo1d_combined_view.*
 
     2D Combined View of MDPP-16_SCP amplitude values
 
@@ -230,7 +230,7 @@ Double-click on the *H1D* node to open the histogram array widget:
 accumulate. When selecting the inputs you will need to expand other operators
 and select the desired index directly.
 
-.. figure:: images/analysis_ui_add_histo2d.png
+.. figure:: images/analysis_ui_add_histo2d.*
 
     Adding a 2D Histogram
 
@@ -241,7 +241,7 @@ falling within the given interval will be accumulated.
 
 Double-click on a *H2D* node to open the histogram widget:
 
-.. figure:: images/analysis_histo2d_widget.png
+.. figure:: images/analysis_histo2d_widget.*
 
     2D Histogram Widget
 
@@ -325,7 +325,7 @@ A new condition created this way will use the same input arrays as the histogram
 where the editor was started. The new condition will be placed in a common
 directory on the same userlevel as the histogram used to create the condition.
 
-.. figure:: images/analysis_polycond_editor.png
+.. figure:: images/analysis_polycond_editor.*
 
   Polygon Condition Editor
 
@@ -362,7 +362,7 @@ To use the feature first create a condition used for filtering, e.g. a simple
 interval condition, then load a listfile and press the ``Listfile Filtering``
 button in the analysis window.
 
-.. figure:: images/analysis_listfile_filtering.png
+.. figure:: images/analysis_listfile_filtering.*
 
     Listfile filtering setup. ``event0`` is filtered by the condition
     ``interval0``, ``event1`` is not filtered.
@@ -391,7 +391,7 @@ processing. The graph can be opened from within histogram windows using the
 ``Dependency Graph`` button via the right-click context menu in the main
 analysis window.
 
-.. figure:: images/analysis_dependency_graph01.png
+.. figure:: images/analysis_dependency_graph01.*
 
   Dependency graph for a 2D histogram. Active conditions in the data path are
   grouped together in the grey box.
@@ -424,7 +424,7 @@ After all sources have processed the module event data, the dependent operators
 and sinks are stepped in order. Each object consumes its input and generates
 new output or in the case of sinks accumulates incoming data into a histogram.
 
-.. figure:: images/analysis_flowchart.png
+.. figure:: images/analysis_flowchart.*
 
     Example analysis dataflow
 
@@ -494,7 +494,7 @@ a specific *index* into the parameter array. An example is the :ref:`2D
 Histogram Sink <analysis-histo2dsink>`: it requires exactly two input values, X
 and Y, neither of which can be an array.
 
-.. figure:: images/analysis_input_types.png
+.. figure:: images/analysis_input_types.*
 
    Example of different input types
 
@@ -628,7 +628,7 @@ User Interface
 In the Analysis UI right-click a Module and select *New -> Filter Extractor* to
 add a new filter.
 
-.. figure:: images/analysis_add_filter_extractor.png
+.. figure:: images/analysis_add_filter_extractor.*
 
     Filter Extractor UI
 
@@ -755,7 +755,7 @@ calibrate input parameters using *unitMin* and *unitMax* values.
 Each input parameters ``[lowerLimit, upperLimit)`` interval is mapped to the
 outputs ``[unitMin, unitMax)`` interval.
 
-.. figure:: images/analysis_op_Calibration.png
+.. figure:: images/analysis_op_Calibration.*
 
 With *calibrate()*: ::
 
@@ -764,7 +764,7 @@ With *calibrate()*: ::
 Limits can be specified individually for each address in the input array. Use
 the *Apply* button to set all addresses to the global min and max values.
 
-.. figure:: images/analysis_calibration_ui.png
+.. figure:: images/analysis_calibration_ui.*
 
     Calibration UI
 
@@ -782,10 +782,10 @@ Previous Value
 Outputs the input array from the previous event. Optionally outputs the last
 input that was valid.
 
-.. figure:: images/analysis_op_PreviousValue.png
+.. figure:: images/analysis_op_PreviousValue.*
 
 
-.. figure:: images/analysis_op_PreviousValue_explanation.png
+.. figure:: images/analysis_op_PreviousValue_explanation.*
 
     Behaviour of Previous Value over time.
 
@@ -803,7 +803,7 @@ Difference
 
 Produces the element-wise difference of its two inputs *A* and *B*:
 
-.. figure:: images/analysis_op_Difference.png
+.. figure:: images/analysis_op_Difference.*
 
 The output unit label is taken from input *A*. If ``A[i]`` or ``B[i]`` are
 invalid then ``Out[i]`` will be set to invalid: ::
@@ -823,7 +823,7 @@ Calculates the sum (optionally the mean) of the elements of its input array.
 This operator produces an output array of size 1.
 
 
-.. figure:: images/analysis_op_Sum.png
+.. figure:: images/analysis_op_Sum.*
 
 When calculating the mean the number of *valid* input values is used as the denominator.
 
@@ -835,11 +835,11 @@ Array Map
 Allows selecting and reordering arbitrary indices from a variable number of
 input arrays.
 
-.. figure:: images/analysis_op_ArrayMap.png
+.. figure:: images/analysis_op_ArrayMap.*
 
 The mappings are created via the user interface:
 
-.. figure:: images/analysis_array_map.png
+.. figure:: images/analysis_array_map.*
 
     Array Map UI
 
@@ -857,7 +857,7 @@ in-between them. Focus a list and press ``Ctrl-A`` to select all items.
 1D Range Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: images/analysis_op_RangeFilter1D.png
+.. figure:: images/analysis_op_RangeFilter1D.*
 
 Keeps values if they fall inside (optionally outside) a given interval. Input
 values that do not match the criteria are set to *invalid* in the output.
@@ -867,7 +867,7 @@ values that do not match the criteria are set to *invalid* in the output.
 2D Rectangle Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: images/analysis_op_RectFilter2D.png
+.. figure:: images/analysis_op_RectFilter2D.*
 
 Produces a single *valid* output value if both inputs satisfy an interval based
 condition.
@@ -877,7 +877,7 @@ condition.
 Condition Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: images/analysis_op_ConditionFilter.png
+.. figure:: images/analysis_op_ConditionFilter.*
 
 Copies data input to output if the corresponding element of the condition input
 is valid.
@@ -950,7 +950,7 @@ See :ref:`Working with 2D histograms <analysis-working-with-2d-histos>` for deta
 Export Sink
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: images/analysis_export_sink_ui.png
+.. figure:: images/analysis_export_sink_ui.*
 
 .. _ROOT: https://root.cern.ch/
 
@@ -1194,7 +1194,7 @@ module, timestamp windows and minimum number of buffered events can set in
 ``Event Settings -> Event Builder Settings``. Changes are applied when
 restarting the DAQ/replay.
 
-.. figure:: images/analysis_event_builder_settings.png
+.. figure:: images/analysis_event_builder_settings.*
 
     Event Builder Settings
 
