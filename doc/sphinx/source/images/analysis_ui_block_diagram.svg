@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="40cm" height="26cm" viewBox="-149 -42 790 501" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g id="Background"/>
+  <g id="Background"/>
+  <g id="Background">
+    <g>
+      <rect style="fill: #d1d1d1; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="0" y="200" width="200" height="200" rx="0" ry="0"/>
+      <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="100" y="307.567">
+        <tspan x="100" y="307.567">Raw Histograms</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #4eee4e; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="0" y="0" width="200" height="200" rx="0" ry="0"/>
+      <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="100" y="107.567">
+        <tspan x="100" y="107.567">Data Extraction</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #158dff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="200" y="0" width="200" height="200" rx="0" ry="0"/>
+      <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="300" y="107.567">
+        <tspan x="300" y="107.567">Calibration</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #f5f5f5; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="199.125" y="200" width="201.75" height="200" rx="0" ry="0"/>
+      <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="300" y="307.567">
+        <tspan x="300" y="307.567">Calibrated Histograms</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #158dff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="400" y="0" width="200" height="200" rx="0" ry="0"/>
+      <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="500" y="96.9833">
+        <tspan x="500" y="96.9833">User-defined</tspan>
+        <tspan x="500" y="118.15">Processing</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #f5f5f5; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="400" y="200" width="200" height="200" rx="0" ry="0"/>
+      <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="500" y="296.983">
+        <tspan x="500" y="296.983">User-defined</tspan>
+        <tspan x="500" y="318.15">Histograms</tspan>
+      </text>
+    </g>
+    <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" fill-rule="evenodd" points="137.143,205.714 120,205.714 154.286,240 188.571,205.714 171.429,205.714 171.429,171.429 205.714,171.429 205.714,188.571 240,154.286 205.714,120 205.714,137.143 137.143,137.143 "/>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="188.571" y="160.379">
+      <tspan x="188.571" y="160.379">Data Flow </tspan>
+      <tspan x="188.571" y="176.379"></tspan>
+      <tspan x="188.571" y="192.379"></tspan>
+    </text>
+    <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" fill-rule="evenodd" points="337.143,205.714 320,205.714 354.286,240 388.571,205.714 371.429,205.714 371.429,171.429 405.714,171.429 405.714,188.571 440,154.286 405.714,120 405.714,137.143 337.143,137.143 "/>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="388.572" y="160.379">
+      <tspan x="388.572" y="160.379">Data Flow </tspan>
+      <tspan x="388.572" y="176.379"></tspan>
+      <tspan x="388.572" y="192.379"></tspan>
+    </text>
+    <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" fill-rule="evenodd" points="537.143,205.714 520,205.714 554.286,240 588.571,205.714 571.429,205.714 571.429,171.429 605.714,171.429 605.714,188.571 640,154.286 605.714,120 605.714,137.143 537.143,137.143 "/>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="588.572" y="160.379">
+      <tspan x="588.572" y="160.379">Data Flow </tspan>
+      <tspan x="588.572" y="176.379"></tspan>
+      <tspan x="588.572" y="192.379"></tspan>
+    </text>
+    <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="100" y="440">
+      <tspan x="100" y="440">Level 0</tspan>
+    </text>
+    <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="300" y="440">
+      <tspan x="300" y="440">Level 1</tspan>
+    </text>
+    <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="500" y="440">
+      <tspan x="500" y="440">Level 2</tspan>
+    </text>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 10 4 2 4; stroke: #000000" x1="200" y1="402" x2="200" y2="458"/>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 10 4 2 4; stroke: #000000" x1="400" y1="402" x2="400" y2="458"/>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 10 4 2 4; stroke: #000000" x1="600" y1="402" x2="600" y2="458"/>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 10 4 2 4; stroke: #000000" x1="0" y1="402" x2="0" y2="458"/>
+    <g>
+      <rect style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="430.4" y="-40" width="169.6" height="40" rx="0" ry="0"/>
+      <text font-size="16.9333" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="515.2" y="-12.4333">
+        <tspan x="515.2" y="-12.4333">Add/Remove Level</tspan>
+      </text>
+    </g>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 8; stroke: #000000" x1="620" y1="100" x2="640" y2="100"/>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 8; stroke: #000000" x1="620" y1="300" x2="640" y2="300"/>
+    <g>
+      <rect style="fill: #ffb105; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="-24.2" y="4" width="88.4" height="25.5222" rx="0" ry="0"/>
+      <text font-size="12.4178" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="20" y="22.3">
+        <tspan x="20" y="22.3">VME Event 0</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #ffff00; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="5.9" y="32" width="75.05" height="25.5222" rx="0" ry="0"/>
+      <text font-size="12.4178" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="43.425" y="50.3">
+        <tspan x="43.425" y="50.3">Module 0,0</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #ffff00; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="5.9" y="60" width="75.05" height="25.5222" rx="0" ry="0"/>
+      <text font-size="12.4178" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="43.425" y="78.3">
+        <tspan x="43.425" y="78.3">Module 0,1</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #ffb105; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="-24.2" y="116" width="88.4" height="25.5222" rx="0" ry="0"/>
+      <text font-size="12.4178" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="20" y="134.3">
+        <tspan x="20" y="134.3">VME Event 1</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #ffff00; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="5.9" y="144" width="75.05" height="25.5222" rx="0" ry="0"/>
+      <text font-size="12.4178" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="43.425" y="162.3">
+        <tspan x="43.425" y="162.3">Module 1,0</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #ffff00; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="5.9" y="172" width="75.05" height="25.5222" rx="0" ry="0"/>
+      <text font-size="12.4178" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="43.425" y="190.3">
+        <tspan x="43.425" y="190.3">Module 1,1</tspan>
+      </text>
+    </g>
+    <text font-size="21.4489" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="-80" y="300">
+      <tspan x="-80" y="300">Data</tspan>
+      <tspan x="-80" y="326.811">Visualization</tspan>
+    </text>
+    <text font-size="21.4489" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="-80" y="80">
+      <tspan x="-80" y="80">Data</tspan>
+      <tspan x="-80" y="106.811">Processing</tspan>
+    </text>
+  </g>
+</svg>

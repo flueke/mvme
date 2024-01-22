@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="18cm" height="7cm" viewBox="273 -2 359 123" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g id="Background"/>
+  <g id="Background">
+    <g>
+      <rect style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="340" y="0" width="220" height="20" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:700" x="450" y="15.7">
+        <tspan x="450" y="15.7">Previous Value</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="340" y="20" width="220" height="100" rx="0" ry="0"/>
+      <text font-size="10.16" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:monospace;font-style:normal;font-weight:normal" x="344" y="55.5">
+        <tspan x="344" y="55.5">Out[i]  = Prev[i]</tspan>
+        <tspan x="344" y="68.2"></tspan>
+        <tspan x="344" y="80.9">if not KeepValid or In[i].Valid:</tspan>
+        <tspan xml:space="preserve" x="344" y="93.6">    Prev[i] = In[i]</tspan>
+      </text>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x1="274" y1="70" x2="330.566" y2="70"/>
+      <polyline style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke: #000000" points="322.802,75 332.802,70 322.802,65 "/>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x1="564.979" y1="70" x2="625.528" y2="70"/>
+      <polyline style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke: #000000" points="617.764,75 627.764,70 617.764,65 "/>
+    </g>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="304.52" y="66.2">
+      <tspan x="304.52" y="66.2">In</tspan>
+    </text>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="597.49" y="66.2">
+      <tspan x="597.49" y="66.2">Out</tspan>
+    </text>
+  </g>
+</svg>

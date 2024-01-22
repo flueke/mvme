@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="36cm" height="12cm" viewBox="18 2 703 237" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g id="Background"/>
+  <g id="Background">
+    <g>
+      <rect style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 7; stroke: #000000" x="20" y="20" width="120" height="140" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="80" y="95.7">
+        <tspan x="80" y="95.7"></tspan>
+      </text>
+    </g>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="20" y="16.2">
+      <tspan x="20" y="16.2">Event</tspan>
+    </text>
+    <g>
+      <rect style="fill: #ffff00; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="40" y="40" width="80.8" height="40" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="80.4" y="65.7">
+        <tspan x="80.4" y="65.7">Module 0</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #ffff00; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="40" y="100" width="80.8" height="40" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="80.4" y="125.7">
+        <tspan x="80.4" y="125.7">Module 1</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #90ee90; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="200" y="40" width="120" height="40" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="65.7">
+        <tspan x="260" y="65.7">Source</tspan>
+      </text>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #000000" x1="130.8" y1="60" x2="178.028" y2="60"/>
+      <polygon style="fill: #000000; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #000000" fill-rule="evenodd" points="185.528,60 175.528,65 178.028,60 175.528,55 "/>
+    </g>
+    <g>
+      <rect style="fill: #158dff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="400" y="40" width="120" height="40" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="460" y="65.7">
+        <tspan x="460" y="65.7">Operator</tspan>
+      </text>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" x1="330" y1="60" x2="378.028" y2="60"/>
+      <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" fill-rule="evenodd" points="385.528,60 375.528,65 378.028,60 375.528,55 "/>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" x1="260" y1="150" x2="260" y2="178.028"/>
+      <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" fill-rule="evenodd" points="260,185.528 255,175.528 260,178.028 265,175.528 "/>
+    </g>
+    <g>
+      <rect style="fill: #d9d9d9; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="200" y="200" width="120" height="38" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="224.7">
+        <tspan x="260" y="224.7">Sink</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #d9d9d9; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="600" y="200" width="120" height="38" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="660" y="224.7">
+        <tspan x="660" y="224.7">Sink</tspan>
+      </text>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" x1="528.944" y1="64.4721" x2="580.348" y2="90.1738"/>
+      <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" fill-rule="evenodd" points="587.056,93.5279 575.875,93.5279 580.348,90.1738 580.348,84.5836 "/>
+    </g>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="150" y="20">
+      <tspan x="150" y="20">raw module data</tspan>
+    </text>
+    <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="320" y="20">
+      <tspan x="320" y="20">parameter array</tspan>
+    </text>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x1="180" y1="24" x2="157.361" y2="56.9825"/>
+    <g>
+      <rect style="fill: #90ee90; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="200" y="100" width="120" height="40" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="260" y="125.7">
+        <tspan x="260" y="125.7">Source</tspan>
+      </text>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #000000" x1="130.8" y1="120" x2="178.028" y2="120"/>
+      <polygon style="fill: #000000; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #000000" fill-rule="evenodd" points="185.528,120 175.528,125 178.028,120 175.528,115 "/>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" x1="330" y1="120" x2="378.028" y2="120"/>
+      <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" fill-rule="evenodd" points="385.528,120 375.528,125 378.028,120 375.528,115 "/>
+    </g>
+    <g>
+      <rect style="fill: #158dff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="400" y="100" width="120" height="40" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="460" y="125.7">
+        <tspan x="460" y="125.7">Operator</tspan>
+      </text>
+    </g>
+    <g>
+      <rect style="fill: #d9d9d9; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="400" y="200" width="120" height="38" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="460" y="224.7">
+        <tspan x="460" y="224.7">Sink</tspan>
+      </text>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" x1="460" y1="150" x2="460" y2="178.028"/>
+      <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" fill-rule="evenodd" points="460,185.528 455,175.528 460,178.028 465,175.528 "/>
+    </g>
+    <g>
+      <rect style="fill: #158dff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x="600" y="100" width="120" height="40" rx="0" ry="0"/>
+      <text font-size="12.8" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="660" y="125.7">
+        <tspan x="660" y="125.7">Operator</tspan>
+      </text>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" x1="530" y1="120" x2="577.034" y2="120"/>
+      <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" fill-rule="evenodd" points="584.534,120 574.534,125 577.034,120 574.534,115 "/>
+    </g>
+    <g>
+      <line style="fill: none; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" x1="660" y1="150" x2="660" y2="177.037"/>
+      <polygon style="fill: #00a300; fill-opacity: 1; stroke-opacity: 1; stroke-width: 4; stroke: #00a300" fill-rule="evenodd" points="660,184.537 655,174.537 660,177.037 665,174.537 "/>
+    </g>
+    <line style="fill: none; stroke-opacity: 1; stroke-width: 2; stroke: #000000" x1="376" y1="24" x2="353.362" y2="56.9824"/>
+  </g>
+</svg>

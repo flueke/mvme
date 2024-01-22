@@ -6,8 +6,12 @@
 %.png: %.dia
 	dia -e $@ $<
 
+%.svg: %.dia
+	dia -e $@ $<
+
 DIA_IN  = $(wildcard *.dia)
-DIA_OUT = $(DIA_IN:.dia=.png)
+DIA_OUT_PNG = $(DIA_IN:.dia=.png)
+DIA_OUT_SVG = $(DIA_IN:.dia=.svg)
 
 # Pattern rule for gimp xcf to png export
 %.png: %.xcf
@@ -20,10 +24,10 @@ GIMP_OUT = $(GIMP_IN:.xcf=.png)
 
 all: dia gimp
 
-dia: $(DIA_OUT)
+dia: $(DIA_OUT_PNG) $(DIA_OUT_SVG)
 
 gimp: $(GIMP_OUT)
 
 clean:
-	-rm -f $(DIA_OUT)
+	-rm -f $(DIA_OUT_PNG)
 	-rm -f $(GIMP_OUT)
