@@ -214,7 +214,8 @@ void simulate_single_lut_output(
 
                 if (strobeTrace)
                 {
-                    Sample s { t0 + LutInternalDelay + SampleTime(LUT::StrobeGGDefaultWidth), invert(outEdge) };
+                    // Go back to 0 as soon as the strobe pulse is over.
+                    Sample s { t0 + LutInternalDelay + SampleTime(LUT::StrobeGGDefaultWidth), Edge::Falling };
                     outputTrace->push_back(s);
                 }
             }
