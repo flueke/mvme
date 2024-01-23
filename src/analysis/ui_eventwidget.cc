@@ -2946,21 +2946,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
 
                 if (moduleConfig)
                 {
-                    auto edit_datasource_action = [this, moduleConfig] (const SourcePtr &src)
-                    {
-                        auto dialog = datasource_editor_factory(
-                            src, ObjectEditorMode::Edit, moduleConfig, m_q);
-
-                        assert(dialog);
-
-                        //POS dialog->move(QCursor::pos());
-                        dialog->setAttribute(Qt::WA_DeleteOnClose);
-                        dialog->show();
-                        clearAllTreeSelections();
-                        clearAllToDefaultNodeHighlights();
-                    };
-
-                    menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [=] { edit_datasource_action(srcPtr); });
+                    menu.addAction(QIcon(":/pencil.png"), QSL("Edit"), [srcPtr] { edit_datasource(srcPtr); });
 
                     menu.addAction(QIcon(QSL(":/document-rename.png")), QSL("Rename"), [activeNode] () {
                         if (auto tw = activeNode->treeWidget())
@@ -4224,14 +4210,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
 
                         if (moduleConfig)
                         {
-                            auto dialog = datasource_editor_factory(
-                                srcPtr, ObjectEditorMode::Edit, moduleConfig, m_q);
-
-                            assert(dialog);
-
-                            //POS dialog->move(QCursor::pos());
-                            dialog->setAttribute(Qt::WA_DeleteOnClose);
-                            dialog->show();
+                            edit_datasource(srcPtr);
                         }
                     }
                 } break;
