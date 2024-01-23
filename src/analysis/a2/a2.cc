@@ -1519,8 +1519,9 @@ static Operator make_aggregate_op(
 
     a2_trace("input thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
 
-    /* The min and max values must be set to the inputs lowest/highest limits if no
-     * threshold filtering is wanted. This way a isnan() test can be saved. */
+    /* The min and max values are set to the inputs lowest/highest limits if no
+     * threshold filtering is wanted. This way a isnan() test on the threshold
+     * value can be saved during runtime. */
     if (std::isnan(thresholds.min))
     {
         thresholds.min = *std::min_element(std::begin(input.lowerLimits), std::end(input.lowerLimits));

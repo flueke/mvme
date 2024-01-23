@@ -827,6 +827,64 @@ This operator produces an output array of size 1.
 
 When calculating the mean the number of *valid* input values is used as the denominator.
 
+.. _analysis-aggregate-operations:
+
+Aggregate Operations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This operator combines various aggegrate functions in a single operator:
+``sum``, ``mean``, ``min``, ``max``, ``sigma``, ``multiplicity``, ``min x``,
+``max x``, ``mean x``, ``sigma x``. The output is always an array of size 1.
+
+The input values used for the selected calculation can optionally be filtered by
+threshold limits: values that fall outside the threshold range are not used for
+the calculation of the result. The threshold can be either a lower limit, an
+upper limit or both. Lower and upper limits are inclusive.
+
+Operations
+^^^^^^^^^^
+
+* sum
+
+  Sum of all array elements.
+
+* mean
+
+  Sum of valid array elements divided by the number of valid elements.
+
+* min
+
+  Minimum value in the input array.
+
+* max
+
+  Maximum value in the input array.
+
+* sigma
+
+  Standard deviation of the array elements.
+
+* multiplicity
+
+  The number of valid array elements. Example: determine the number of
+  responding channels in an event.
+
+* min x
+
+  Zero based index of the minimum value in the array.
+
+* max x
+
+  Zero based index of the maximum value in the array.
+
+* mean x
+
+  Mean over the x values: ``sum(input[i] * i) / sum(input[i])``.
+
+* sigma x
+
+  Standard deviation over the x values.
+
 .. _analysis-ArrayMap:
 
 Array Map
