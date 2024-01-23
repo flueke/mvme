@@ -158,7 +158,6 @@ void simulate_single_lut_output(
             outputTrace->push_back({0ns, staticOutputValue});
             outputTrace->push_back({maxtime, staticOutputValue});
         }
-        // FIXME: does this really handle all cases? test strobe + Rising|Falling combinations.
         else // strobed and output set to 1 (Rising)
         {
             // In this case the output is equal to the simulated strobe trace
@@ -525,7 +524,9 @@ void simulate(Sim &sim, const SampleTime &maxtime)
     // L3 NIMs
     for (const auto &kv: sim.trigIO.l3.ioNIM | indexed(0))
     {
-        UnitAddress ua{3, static_cast<unsigned>(Level3::NIM_IO_Unit_Offset + kv.index())};
+        auto nimIndex = kv.index();
+
+        UnitAddress ua{3, static_cast<unsigned>(Level3::NIM_IO_Unit_Offset + nimIndex)};
 
         auto inputTrace = lookup_input_trace(sim, ua);
         auto outputTrace = lookup_output_trace(sim, ua);
@@ -535,7 +536,7 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 
         if (io.direction == IO::Direction::out)
         {
-            simulate_gg(kv.value(), *inputTrace, *outputTrace, maxtime);
+            simulate_gg(io, *inputTrace, *outputTrace, maxtime);
             apply_delay(*outputTrace, NimIoDelay);
         }
     }
