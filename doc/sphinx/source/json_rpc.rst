@@ -172,13 +172,13 @@ Attempts to open the specified file as a mvme listfile (\*.zip).
 * Parameters
 
   - string: filepath - Path to the ZIP listfile. Absolute or relative to the
-  current workspace directory.
+    current workspace directory.
 
   - bool: loadAnalysis = false - If true load the analysis contained in the
-  listfile archive.
+    listfile archive.
 
   - bool: replayAllParts = true - If a split listfile is detected (filename ending
-  in 'partNNN') all parts starting from the given filename will be replayed.
+    in 'partNNN') all parts starting from the given filename will be replayed.
 
 * Returns
 
