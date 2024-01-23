@@ -319,8 +319,7 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     return result;
 }
 
-
-void *edit_datasource(const SourcePtr &src)
+void edit_datasource(const SourcePtr &src)
 {
     if (auto oed = find_object_editor_dialog())
     {
@@ -328,38 +327,34 @@ void *edit_datasource(const SourcePtr &src)
         oed->show();
         oed->showNormal();
         oed->raise();
-        return {};
+        return;
     }
 
     auto eventWidget = find_event_widget(src);
     auto ana = src->getAnalysis();
 
-#ifndef NDEBUG //consistency check
+    if (!eventWidget)
+        return;
+
+#ifndef NDEBUG //consistency check: analysis set on src and on service provider
     {
         auto ana2 = eventWidget->getServiceProvider()->getAnalysis();
         assert(ana.get() == ana2);
     }
 #endif
 
-    if (!eventWidget || !ana)
-        return {};
+    if (!ana)
+        return;
 
-    auto vmeConfig = ana->getVMEConfig();
-
-#ifndef NDEBUG //consistency check
-    {
-        auto vmeConfig2 = eventWidget->getServiceProvider()->getVMEConfig();
-        assert(vmeConfig == vmeConfig2);
-    }
-#endif
+    auto vmeConfig = eventWidget->getServiceProvider()->getVMEConfig();
 
     if (!vmeConfig)
-        return {};
+        return;
 
     auto moduleConfig = vmeConfig->getModuleConfig(src->getModuleId());
 
     if (!moduleConfig)
-        return {};
+        return;
 
     if (auto dialog = datasource_editor_factory(
         src, ObjectEditorMode::Edit, moduleConfig, eventWidget))
@@ -368,10 +363,9 @@ void *edit_datasource(const SourcePtr &src)
         dialog->show();
         eventWidget->clearAllTreeSelections();
         eventWidget->clearAllToDefaultNodeHighlights();
-        return dialog;
     }
 
-    return {};
+    return;
 }
 
 }

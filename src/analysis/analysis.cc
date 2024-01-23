@@ -3964,9 +3964,6 @@ static const size_t A2ArenaSegmentSize = Kilobytes(256);
 struct Analysis::Private
 {
     vme_analysis_common::EventModuleIndexMaps eventModuleIndexMaps_;
-    // VMEConfig that was passed to the last beginRun() call.
-    // FIXME: very dangerous to store the raw pointer here!
-    const VMEConfig *vmeConfig_ = {};
 };
 
 Analysis::Analysis(QObject *parent)
@@ -5319,8 +5316,6 @@ void Analysis::beginRun(const RunInfo &runInfo,
         }
     }
 
-    d->vmeConfig_ = vmeConfig;
-
     auto tEnd = ClockType::now();
     std::chrono::duration<float> elapsed = tEnd - tStart;
 
@@ -5366,11 +5361,6 @@ void Analysis::endRun()
     {
         op->endRun();
     }
-}
-
-const VMEConfig *Analysis::getVMEConfig() const
-{
-    return d->vmeConfig_;
 }
 
 //

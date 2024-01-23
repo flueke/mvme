@@ -77,7 +77,7 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
                                               ModuleConfig *moduleConfig,
                                               EventWidget *eventWidget);
 
-void *edit_datasource(const SourcePtr &src);
+void edit_datasource(const SourcePtr &src);
 }
 
 #endif // __MNT_DATA_SRC_MVME2_SRC_ANALYSIS_ANALYSIS_UI_UTIL_H_
