@@ -726,12 +726,6 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
         m_d->m_vmeConfigAutoSaver->start();
     }
 
-    if (auto ana = getAnalysis())
-    {
-        ana->beginRun(getRunInfo(), getVMEConfig(),
-            [this] (const QString &msg) { logMessage(msg); });
-    }
-
     emit vmeConfigChanged(config);
 }
 
