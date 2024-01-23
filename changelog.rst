@@ -36,6 +36,11 @@ Version 1.11-rc
 
 * Crash fix with old mvmelst formatted data and multi event splitting.
 
+Version 1.10.4
+--------------
+
+* analysis: Fix bug leading to ExportSink output files being truncated on listfile load.
+
 Version 1.10.3
 --------------
 
