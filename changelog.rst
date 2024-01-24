@@ -4,8 +4,8 @@
 Changelog
 ##################################################
 
-Version 1.11-rc
----------------
+Version 1.11.0
+--------------
 
 * Support for new MVLC firmware FW0037 features:
 
