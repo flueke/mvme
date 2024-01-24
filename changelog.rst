@@ -29,7 +29,15 @@ Version 1.11-rc
   - Add more utility VME scripts for the MVLC related to multicrate master/slave
     handling.
 
-* histo1d: log scale plotting and stat calculation fixes
+  - Trigger I/O DSO: Fix simulation of strobed LUT outputs.
+
+* analysis:
+
+  - histo1d: log scale plotting and stat calculation fixes
+
+  - ExportSink: updates to the generated code: port to python3, require
+    cmake 3.0, suppress compiler warnings, do not force c++14 but pick the
+    standard used by ROOT instead. Tested with python-3.11.
 
 * Only attempt to connect to VME controllers once instead of multiple times to
   reduce log spam and wait time in case of errors.
