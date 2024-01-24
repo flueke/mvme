@@ -883,7 +883,7 @@ Operations
 
 * sigma x
 
-  Standard deviation over the x values.
+  Standard deviation of the x values.
 
 .. _analysis-ArrayMap:
 
