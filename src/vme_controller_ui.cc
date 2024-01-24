@@ -212,11 +212,11 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
     , le_serial(new QLineEdit)
     , pb_listDevices(new QPushButton("List connected devices"))
     , tb_devices(new QTextBrowser)
-    , spin_crateId(new QSpinBox)
+    //, spin_crateId(new QSpinBox)
 {
     spin_index->setMinimum(0);
     spin_index->setMaximum(255);
-    spin_crateId->setMaximum(7);
+    //spin_crateId->setMaximum(7);
 
     auto layout = new QFormLayout(this);
 
@@ -245,7 +245,7 @@ MVLC_USB_SettingsWidget::MVLC_USB_SettingsWidget(QWidget *parent)
 
     layout->addRow(pb_listDevices);
     layout->addRow(tb_devices);
-    layout->addRow("Crate Id", spin_crateId);
+    //layout->addRow("Crate Id", spin_crateId);
 
     connect(rb_first, &QRadioButton::toggled,
             [this] (bool en)
@@ -330,7 +330,7 @@ void MVLC_USB_SettingsWidget::loadSettings(const QVariantMap &settings)
         rb_first->setChecked(true);
     }
 
-    spin_crateId->setValue(settings["mvlc_ctrl_id"].toUInt());
+    //spin_crateId->setValue(settings["mvlc_ctrl_id"].toUInt());
 
     settings_ = settings;
 }
@@ -354,7 +354,7 @@ QVariantMap MVLC_USB_SettingsWidget::getSettings()
         result["method"] = "first";
     }
 
-    result["mvlc_ctrl_id"] = spin_crateId->value();
+    //result["mvlc_ctrl_id"] = spin_crateId->value();
 
     return result;
 }
@@ -366,9 +366,9 @@ MVLC_ETH_SettingsWidget::MVLC_ETH_SettingsWidget(QWidget *parent)
     : VMEControllerSettingsWidget(parent)
     , le_address(new QLineEdit)
     , cb_jumboFrames(new QCheckBox)
-    , spin_crateId(new QSpinBox)
+    //, spin_crateId(new QSpinBox)
 {
-    spin_crateId->setMaximum(7);
+    //spin_crateId->setMaximum(7);
     auto layout = new QFormLayout(this);
 
     layout->addRow("Hostname / IP Address", le_address);
@@ -387,7 +387,7 @@ MVLC_ETH_SettingsWidget::MVLC_ETH_SettingsWidget(QWidget *parent)
                 "have to support jumbo frames and have to be setup correctly for this option to work."
                 )));
 
-    layout->addRow("Crate Id", spin_crateId);
+    //layout->addRow("Crate Id", spin_crateId);
 }
 
 void MVLC_ETH_SettingsWidget::validate()
@@ -404,7 +404,7 @@ void MVLC_ETH_SettingsWidget::loadSettings(const QVariantMap &settings)
     le_address->setText(hostname);
 
     cb_jumboFrames->setChecked(settings["mvlc_eth_enable_jumbos"].toBool());
-    spin_crateId->setValue(settings["mvlc_ctrl_id"].toUInt());
+    //spin_crateId->setValue(settings["mvlc_ctrl_id"].toUInt());
 
     settings_ = settings;
 }
@@ -415,7 +415,7 @@ QVariantMap MVLC_ETH_SettingsWidget::getSettings()
 
     result["mvlc_hostname"] = le_address->text();
     result["mvlc_eth_enable_jumbos"] = cb_jumboFrames->isChecked();
-    result["mvlc_ctrl_id"] = spin_crateId->value();
+    //result["mvlc_ctrl_id"] = spin_crateId->value();
 
     return result;
 }
