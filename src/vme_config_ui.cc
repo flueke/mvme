@@ -325,17 +325,24 @@ EventConfigDialog::EventConfigDialog(
                     auto timerLayout = new QFormLayout(timerWidget);
                     timerLayout->addRow(QSL("Timer Base"), m_d->combo_mvlcTimerBase);
                     timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
+                    auto label = new QLabel(QSL(
+                        "Periodic event realized using the MVLC Trigger I/O. A <b>StackStart</b> unit is connected to a"
+                        " <b>Timer</b> unit to periodically execute the event stack. The Trigger I/O configuration is"
+                        " automatically modified when starting the DAQ. Prefer creating periodic events using"
+                        " <b>StackTimers</b> to save on Trigger I/O resources."
+                                                ));
+                    label->setWordWrap(true);
+                    timerLayout->addRow(label);
                     m_d->stack_options->addWidget(timerWidget);
                 }
 
                 // Trigger IO Condition
                 {
                     auto label = new QLabel(QSL(
-                            "The event should be triggered via the MVLC Trigger I/O module.\n\n"
-                            "Use the Trigger I/O Editor to setup one of the "
-                            "StackStart units to trigger execution of this "
-                            "events readout stack. Then connect the StackStart unit to the "
-                            "desired activation signals."
+                            "The event should be triggered via the MVLC Trigger I/O module.<br/><br/>"
+                            "Use the Trigger I/O Editor to setup one of the <b>StackStart</b> "
+                            "units to trigger execution of this events readout stack. Then connect "
+                            "the StackStart unit to the desired activation signals."
                             ));
                     label->setWordWrap(true);
                     m_d->stack_options->addWidget(label);
@@ -349,7 +356,9 @@ EventConfigDialog::EventConfigDialog(
                     auto optionsWidget = new QWidget;
                     auto layout = new QFormLayout(optionsWidget);
                     layout->addRow(QSL("Master Trigger Index"), m_d->spin_mvlcSlaveTriggerIndex);
-                    auto label = new QLabel(QSL("MVLC On Master Trigger requires MVLC firmware <b>FW0037</b> or later!"));
+                    auto label = new QLabel(QSL(
+                        "MVLC On Master Trigger requires MVLC firmware <b>FW0037</b> or later!<br/>"
+                        " Works on the master itself and on connected secondary crates."));
                     label->setWordWrap(true);
                     layout->addRow(label);
                     m_d->stack_options->addWidget(optionsWidget);
