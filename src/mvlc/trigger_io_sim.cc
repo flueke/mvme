@@ -21,7 +21,7 @@ namespace
 {
 static const SampleTime GateGeneratorDelay = 8ns;
 static const SampleTime LevelOutputDelay = 8ns;
-static const SampleTime NimIoDelay = 28ns;
+static const SampleTime NimIoDelay = 28ns + 16ns;
 static const SampleTime EclOutDelay = 28ns;
 static const SampleTime IRQInputDelay = 24ns;
 static const SampleTime LutInternalDelay = 8ns;
