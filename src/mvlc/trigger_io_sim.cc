@@ -21,8 +21,11 @@ namespace
 {
 static const SampleTime GateGeneratorDelay = 8ns;
 static const SampleTime LevelOutputDelay = 8ns;
-static const SampleTime NimIoDelay = 28ns + 16ns;
+// Measured by R.S. with FW0037
+static const SampleTime NimIoDelay = 28ns + 16ns + 1ns;
 static const SampleTime EclOutDelay = 28ns;
+// Measured by R.S. with FW0037
+static const SampleTime L0UtilityDelay = 40ns;
 static const SampleTime IRQInputDelay = 24ns;
 static const SampleTime LutInternalDelay = 8ns;
 static const SampleTime LutStrobeInputDelay = 8ns;
@@ -401,6 +404,8 @@ void simulate(Sim &sim, const SampleTime &maxtime)
 
         std::copy(std::begin(*inputTrace), std::end(*inputTrace),
                   std::back_inserter(*outputTrace));
+
+        apply_delay(*outputTrace, L0UtilityDelay);
 
         assert(inputTrace && outputTrace && (inputTrace != outputTrace));
     }
