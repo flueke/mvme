@@ -5,6 +5,12 @@
             "scriptName": "MDPP-16/32: boot into firmware",
             "vendorName": "mesytec",
             "moduleName": "MDPP"
+        },
+        {
+            "fileName": "mdpp_calibration.vmescript",
+            "scriptName": "MDPP-16/32: run calibration",
+            "vendorName": "mesytec",
+            "moduleName": "MDPP"
         }
     ]
 }

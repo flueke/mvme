@@ -1,0 +1,20 @@
+# Runs the internal calibration procedure of MDPP-16/32 modules.
+# Best done at normal operation temperature after a warm up phase.
+#
+# Set the full address of the target module here:
+setbase 0x00000000	# full address of the MDPP-module
+
+# ********** Switch to SCP Firmware for calibration ************
+0x6200 1        # switch on  interface to flash
+0x6202 0x70	    # set Area command
+0x6202 0xCD	    # access0
+0x6202 0xAB  	# access1
+0x6202 0x01  	# Area 1 = SCP
+
+wait 1000ms	    # Wait for FPGA to boot
+
+# ********** Do calibration ************************************
+0x610A 0x1234 	# enable Cal
+0x610C 0		# start Cal
+wait 10000		# wait for calibration procedure
+0x610E 4		# Store in flash
