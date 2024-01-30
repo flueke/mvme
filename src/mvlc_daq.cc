@@ -319,6 +319,9 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
     return std::make_pair(triggers, std::error_code{});
 }
 
+// FIXME: create code to upate the vmeconfig and separate code to run the
+// script, assuming it is updated already. The update of the vmeconfig should
+// run in the UI, there is no need to update it in the readout worker.
 std::error_code setup_trigger_io(
     MVLC_VMEController *mvlc, VMEConfig &vmeConfig, Logger logger)
 {
@@ -356,7 +359,7 @@ std::error_code setup_trigger_io(
         scriptConfig->setScriptContents(ioCfgText);
     }
 
-    // Parse the trigger io script and run the writes contained within.
+    // Parse the trigger io script and run the commands contained within.
     auto commands = vme_script::parse(ioCfgText);
     auto results = vme_script::run_script(mvlc, commands, logger,
         vme_script::run_script_options::AbortOnError);

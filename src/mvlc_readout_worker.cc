@@ -285,15 +285,6 @@ struct MVLCReadoutWorker::Private
 #endif
     }
 
-    struct EventWithModules
-    {
-        EventConfig *event;
-        QVector<ModuleConfig *> modules;
-        QVector<u8> moduleTypes;
-    };
-
-    QVector<EventWithModules> events;
-
     void updateDAQStats()
     {
         assert(mvlcReadoutWorker);
@@ -618,6 +609,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         // In case we recorded a listfile and the run number was used increment
         // the run number here so that it represents the _next_ run number.
+        // TODO: can this be moved to the GUI thread? It's not good to modify
+        // global objects in here.
         if (m_workerContext.listfileOutputInfo.enabled
             && (m_workerContext.listfileOutputInfo.flags & ListFileOutputInfo::UseRunNumber))
         {
