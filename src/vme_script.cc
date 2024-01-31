@@ -1439,6 +1439,32 @@ static Command handle_meta_block_command(
     return result;
 }
 
+// TODO: test and use this function in handle_mvlc_custom_command() and
+#if 0
+// Parses keyword arguments used by block read commands, e.g.
+// "mvlc_custom_begin output_words=7" returns {{"output_words", "7"}}
+// "mvlc_stack_begin suppress_output" return {{"suppress_output", ""}}
+static std::vector<std::pair<QString, QString>> parse_keyword_arguments(const PreparsedLine &cmdLine)
+{
+    std::vector<std::pair<QString, QString>> result;
+
+    for (auto it = cmdLine.parts.begin() + 1; it != cmdLine.parts.end(); it++)
+    {
+        if (it->contains('='))
+        {
+            QStringList argParts = (*it).split('=', QString::SkipEmptyParts);
+            result.emplace_back(std::make_pair(argParts.value(0, {}), argParts.value(1, {})));
+        }
+        else
+        {
+            result.emplace_back(std::make_pair(*it, QString{}));
+        }
+    }
+
+    return result;
+}
+#endif
+
 static Command handle_mvlc_custom_command(
     const QVector<PreparsedLine> &lines,
     int blockStartIndex, int blockEndIndex)
@@ -1501,6 +1527,25 @@ static Command handle_mvlc_inline_stack(
 
     Command result;
     result.type = CommandType::MVLC_InlineStack;
+
+// TODO: figure out where to store the flag or maybe even move handling of
+// the flag to the output function (format_result() in vme_script_exec.cc)
+#if 0
+    // parse first line arguments
+    PreparsedLine cmdLine = lines.at(blockStartIndex);
+
+    assert(cmdLine.parts.at(0) == MVLC_CustomBegin);
+
+    auto keywordArgs = parse_keyword_arguments(cmdLine);
+
+    for (const auto &kv: keywordArgs)
+    {
+        if (kv.first == "suppress_output")
+            result.transfers = parse
+        else
+            throw QString("unknown argument to '%1': %2").arg(MVLC_CustomBegin).arg(kv.first);
+    }
+#endif
 
     QStringList plainLineBuffer;
 
