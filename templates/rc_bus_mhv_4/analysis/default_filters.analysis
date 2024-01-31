@@ -1,0 +1,499 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+            "{c893052a-658b-4c03-b892-28cbfb8105d4}": {
+                "MultiEventProcessing": false
+            }
+        },
+        "conditionLinks": {
+        },
+        "connections": [
+            {
+                "dstId": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{285b7a96-bf3b-4d1f-8a52-b459c76aed25}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{292a17e3-a451-465e-811f-ec66885d1a16}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{285b7a96-bf3b-4d1f-8a52-b459c76aed25}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{156d0991-503d-40f0-886a-6b6fd1042d4d}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{51e6fdae-5487-44fa-8dc6-35524a5ca3b6}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{acd43136-5568-4705-b772-060a976f92ed}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{1c7941cf-216a-4777-9599-a0a6d76e0fdd}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{5878e01d-acc3-4c4c-9e4a-de90e2122675}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{34f7530f-6ea1-44f3-8b17-cc427c77c2af}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{738bfa41-ed12-4139-9346-d4134da4d2ad}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{669cbd02-682c-4cb6-be55-a57ba7033577}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{acd43136-5568-4705-b772-060a976f92ed}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{191414fb-ad22-4075-b0b8-ce30882547b9}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3e2a8434-9e10-435e-9249-817cbcc97b68}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{5878e01d-acc3-4c4c-9e4a-de90e2122675}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+            {
+                "data": {
+                    "displayLocation": "operator",
+                    "dynamicProperties": {
+                    },
+                    "members": [
+                        "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                        "{6861be44-df2d-4282-b759-4d2448913211}",
+                        "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{19fee8c6-1310-4822-95d2-2936238c3969}",
+                "name": "Calibrations",
+                "userLevel": 1
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "dynamicProperties": {
+                    },
+                    "members": [
+                        "{669cbd02-682c-4cb6-be55-a57ba7033577}",
+                        "{1c7941cf-216a-4777-9599-a0a6d76e0fdd}",
+                        "{292a17e3-a451-465e-811f-ec66885d1a16}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{393db575-a622-497a-a1d0-f82f538a1c79}",
+                "name": "MHV-4 raw values",
+                "userLevel": 0
+            },
+            {
+                "data": {
+                    "displayLocation": "sink",
+                    "dynamicProperties": {
+                    },
+                    "members": [
+                        "{738bfa41-ed12-4139-9346-d4134da4d2ad}",
+                        "{34f7530f-6ea1-44f3-8b17-cc427c77c2af}",
+                        "{3e2a8434-9e10-435e-9249-817cbcc97b68}",
+                        "{156d0991-503d-40f0-886a-6b6fd1042d4d}",
+                        "{51e6fdae-5487-44fa-8dc6-35524a5ca3b6}",
+                        "{191414fb-ad22-4075-b0b8-ce30882547b9}"
+                    ]
+                },
+                "eventId": "{00000000-0000-0000-0000-000000000000}",
+                "id": "{cf964b9d-ad61-4494-b1a9-254220e647b6}",
+                "name": "MHV-4 Calibrated Values",
+                "userLevel": 1
+            }
+        ],
+        "genericObjects": [
+        ],
+        "operators": [
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 819.1875,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 819.1875,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 819.1875,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 819.1875,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "V"
+                },
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "name": "voltages",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65.536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65.536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65.536,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 65.536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "µA"
+                },
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "name": "currents",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 6553.6,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6553.6,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6553.6,
+                            "unitMin": 0
+                        },
+                        {
+                            "unitMax": 6553.6,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": "°C"
+                },
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "name": "sensor_temps",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "",
+                    "useCombinedView": false,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{669cbd02-682c-4cb6-be55-a57ba7033577}",
+                "name": "voltages_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "",
+                    "useCombinedView": true,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{292a17e3-a451-465e-811f-ec66885d1a16}",
+                "name": "currents_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "",
+                    "useCombinedView": false,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{1c7941cf-216a-4777-9599-a0a6d76e0fdd}",
+                "name": "sensor_temps_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "µA",
+                    "useCombinedView": false,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{738bfa41-ed12-4139-9346-d4134da4d2ad}",
+                "name": "currents",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "V",
+                    "useCombinedView": true,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{34f7530f-6ea1-44f3-8b17-cc427c77c2af}",
+                "name": "voltages",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::RateMonitorSink",
+                "data": {
+                    "calibrationFactor": 1,
+                    "calibrationOffset": 0,
+                    "capacity": 86400,
+                    "numberOfInputs": 1,
+                    "samplingInterval": 1,
+                    "type": "PrecalculatedRate",
+                    "unitLabel": "°C",
+                    "useCombinedView": true,
+                    "xScaleType": "Time"
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{3e2a8434-9e10-435e-9249-817cbcc97b68}",
+                "name": "sensor_temperatures",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 1048576,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "currents",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{156d0991-503d-40f0-886a-6b6fd1042d4d}",
+                "name": "currents",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "sensor_temps",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{51e6fdae-5487-44fa-8dc6-35524a5ca3b6}",
+                "name": "sensor_temps",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 8192,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "voltages",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{191414fb-ad22-4075-b0b8-ce30882547b9}",
+                "name": "voltages",
+                "userLevel": 1
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                    "moduleName": "mhv_4_rc_bus",
+                    "moduleTypeName": "rc_bus_mhv_4"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 1,
+                        "wordCount": 1
+                    },
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "repetitions": 4,
+                    "rngSeed": "48008fcdb838017d"
+                },
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{acd43136-5568-4705-b772-060a976f92ed}",
+                "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                "name": "voltages"
+            },
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 1,
+                        "wordCount": 1
+                    },
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "repetitions": 4,
+                    "rngSeed": "23245f389d26ba8f"
+                },
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{285b7a96-bf3b-4d1f-8a52-b459c76aed25}",
+                "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                "name": "currents"
+            },
+            {
+                "class": "analysis::ListFilterExtractor",
+                "data": {
+                    "listFilter": {
+                        "extractionFilter": {
+                            "subFilters": [
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                                    "wordIndex": -1
+                                },
+                                {
+                                    "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                                    "wordIndex": -1
+                                }
+                            ]
+                        },
+                        "flags": 1,
+                        "wordCount": 1
+                    },
+                    "options": 1,
+                    "parameterNames": [
+                    ],
+                    "repetitions": 4,
+                    "rngSeed": "d02dce475ad8de78"
+                },
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{5878e01d-acc3-4c4c-9e4a-de90e2122675}",
+                "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                "name": "sensor_temps"
+            }
+        ]
+    }
+}
