@@ -437,10 +437,11 @@ QString format_result(const Result &result)
         QString ret;
         if (result.command.type == CommandType::Accu_Test)
         {
-            ret = QSL("%1 failed: ('%2', accu=0x%3)")
+            ret = QSL("%1 failed: ('%2', accu=0x%3 (dec %4))")
                 .arg(result.command.accuTestMessage)
                 .arg(to_string(result.command))
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                .arg(result.state.accu)
                 ;
         }
         else
@@ -565,15 +566,17 @@ QString format_result(const Result &result)
             break;
 
         case CommandType::Accu_MaskAndRotate:
-            ret += QSL(" -> accu=0x%1")
+            ret += QSL(" -> accu=0x%1 (%2 dec)")
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                .arg(result.state.accu)
                 ;
             break;
 
         case CommandType::Accu_Test:
-            ret = QSL("%1 ok (accu=0x%2)")
+            ret = QSL("%1 ok (accu=0x%2 (%3 dec))")
                 .arg(result.command.accuTestMessage)
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                .arg(result.state.accu)
                 ;
             break;
     }
