@@ -86,7 +86,7 @@ class MVLC_USB_SettingsWidget: public VMEControllerSettingsWidget
         QLineEdit *le_serial;
         QPushButton *pb_listDevices;
         QTextBrowser *tb_devices;
-        QSpinBox *spin_crateId;
+        QSpinBox *spin_crateId = nullptr;
         QVariantMap settings_;
 };
 
