@@ -10,87 +10,87 @@
         },
         "connections": [
             {
-                "dstId": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "dstId": "{07075606-3afd-4a69-8821-e6c97225207a}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{285b7a96-bf3b-4d1f-8a52-b459c76aed25}",
+                "srcId": "{85bda744-0aa0-49d9-a800-35ecabb97f43}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{292a17e3-a451-465e-811f-ec66885d1a16}",
+                "dstId": "{85bda744-0aa0-49d9-a800-35ecabb97f43}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{285b7a96-bf3b-4d1f-8a52-b459c76aed25}",
+                "srcId": "{2ab8bdaf-4193-4556-83d1-ef9ca26c917c}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{156d0991-503d-40f0-886a-6b6fd1042d4d}",
+                "dstId": "{4418750e-ed4c-44bc-909f-09ec115229d4}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "srcId": "{12d6a8bb-6f70-4fce-ba7c-c000a6caaa8c}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{51e6fdae-5487-44fa-8dc6-35524a5ca3b6}",
+                "dstId": "{cf6ee2d0-8ce2-47ff-bb53-95d9b65d775f}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "srcId": "{bf2d4fc1-992c-43af-a7bb-11f1e63ca34e}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "dstId": "{2e0946be-36d1-4e4f-abe0-20a7e68a3b82}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{acd43136-5568-4705-b772-060a976f92ed}",
+                "srcId": "{2e2c32e5-c874-4b1d-91f2-a184e6c87258}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{1c7941cf-216a-4777-9599-a0a6d76e0fdd}",
+                "dstId": "{2ef9b34b-3605-4b0a-8c7a-5e61a75db090}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{5878e01d-acc3-4c4c-9e4a-de90e2122675}",
+                "srcId": "{85bda744-0aa0-49d9-a800-35ecabb97f43}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{34f7530f-6ea1-44f3-8b17-cc427c77c2af}",
+                "dstId": "{d8b5e007-8ded-4aaa-93b0-9c6617f8ac42}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "srcId": "{12d6a8bb-6f70-4fce-ba7c-c000a6caaa8c}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{738bfa41-ed12-4139-9346-d4134da4d2ad}",
+                "dstId": "{bf2d4fc1-992c-43af-a7bb-11f1e63ca34e}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "srcId": "{c5bf9db8-e0f3-44ed-b6c6-982b5ca3ce81}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{669cbd02-682c-4cb6-be55-a57ba7033577}",
+                "dstId": "{12d6a8bb-6f70-4fce-ba7c-c000a6caaa8c}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{acd43136-5568-4705-b772-060a976f92ed}",
+                "srcId": "{2e2c32e5-c874-4b1d-91f2-a184e6c87258}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{191414fb-ad22-4075-b0b8-ce30882547b9}",
+                "dstId": "{32f399a3-1172-4e83-a64f-9861c43b854f}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "srcId": "{c5bf9db8-e0f3-44ed-b6c6-982b5ca3ce81}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{3e2a8434-9e10-435e-9249-817cbcc97b68}",
+                "dstId": "{1a0dcaf5-8e80-4ec6-ace0-897c4d50716a}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "srcId": "{2ab8bdaf-4193-4556-83d1-ef9ca26c917c}",
                 "srcIndex": 0
             },
             {
-                "dstId": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "dstId": "{2d893a91-9336-4bc2-8f83-beb0cd63f7e9}",
                 "dstIndex": 0,
                 "dstParamIndex": -1,
-                "srcId": "{5878e01d-acc3-4c4c-9e4a-de90e2122675}",
+                "srcId": "{bf2d4fc1-992c-43af-a7bb-11f1e63ca34e}",
                 "srcIndex": 0
             }
         ],
@@ -101,14 +101,14 @@
                     "dynamicProperties": {
                     },
                     "members": [
-                        "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
-                        "{6861be44-df2d-4282-b759-4d2448913211}",
-                        "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}"
+                        "{bf2d4fc1-992c-43af-a7bb-11f1e63ca34e}",
+                        "{85bda744-0aa0-49d9-a800-35ecabb97f43}",
+                        "{12d6a8bb-6f70-4fce-ba7c-c000a6caaa8c}"
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{19fee8c6-1310-4822-95d2-2936238c3969}",
-                "name": "Calibrations",
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{3c5943f6-196b-4000-afb3-de245d87d8d0}",
+                "name": "MHV-4 Calibrations",
                 "userLevel": 1
             },
             {
@@ -117,13 +117,13 @@
                     "dynamicProperties": {
                     },
                     "members": [
-                        "{669cbd02-682c-4cb6-be55-a57ba7033577}",
-                        "{1c7941cf-216a-4777-9599-a0a6d76e0fdd}",
-                        "{292a17e3-a451-465e-811f-ec66885d1a16}"
+                        "{32f399a3-1172-4e83-a64f-9861c43b854f}",
+                        "{2e0946be-36d1-4e4f-abe0-20a7e68a3b82}",
+                        "{1a0dcaf5-8e80-4ec6-ace0-897c4d50716a}"
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{393db575-a622-497a-a1d0-f82f538a1c79}",
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{b43accdc-b1ab-45ee-a8db-070edd20501c}",
                 "name": "MHV-4 raw values",
                 "userLevel": 0
             },
@@ -133,16 +133,16 @@
                     "dynamicProperties": {
                     },
                     "members": [
-                        "{738bfa41-ed12-4139-9346-d4134da4d2ad}",
-                        "{34f7530f-6ea1-44f3-8b17-cc427c77c2af}",
-                        "{3e2a8434-9e10-435e-9249-817cbcc97b68}",
-                        "{156d0991-503d-40f0-886a-6b6fd1042d4d}",
-                        "{51e6fdae-5487-44fa-8dc6-35524a5ca3b6}",
-                        "{191414fb-ad22-4075-b0b8-ce30882547b9}"
+                        "{2ef9b34b-3605-4b0a-8c7a-5e61a75db090}",
+                        "{cf6ee2d0-8ce2-47ff-bb53-95d9b65d775f}",
+                        "{4418750e-ed4c-44bc-909f-09ec115229d4}",
+                        "{07075606-3afd-4a69-8821-e6c97225207a}",
+                        "{d8b5e007-8ded-4aaa-93b0-9c6617f8ac42}",
+                        "{2d893a91-9336-4bc2-8f83-beb0cd63f7e9}"
                     ]
                 },
-                "eventId": "{00000000-0000-0000-0000-000000000000}",
-                "id": "{cf964b9d-ad61-4494-b1a9-254220e647b6}",
+                "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
+                "id": "{92015988-7e66-4902-a03f-4b99a27dd515}",
                 "name": "MHV-4 Calibrated Values",
                 "userLevel": 1
             }
@@ -174,7 +174,7 @@
                     "unitLabel": "V"
                 },
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{de041d15-f0e0-4f09-8489-1acd80f4b1e4}",
+                "id": "{bf2d4fc1-992c-43af-a7bb-11f1e63ca34e}",
                 "name": "voltages",
                 "userLevel": 1
             },
@@ -202,7 +202,7 @@
                     "unitLabel": "µA"
                 },
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{6861be44-df2d-4282-b759-4d2448913211}",
+                "id": "{85bda744-0aa0-49d9-a800-35ecabb97f43}",
                 "name": "currents",
                 "userLevel": 1
             },
@@ -230,7 +230,7 @@
                     "unitLabel": "°C"
                 },
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{7dc7c5f1-341e-44ea-8ff0-f08ef6fccbf2}",
+                "id": "{12d6a8bb-6f70-4fce-ba7c-c000a6caaa8c}",
                 "name": "sensor_temps",
                 "userLevel": 1
             },
@@ -249,7 +249,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{669cbd02-682c-4cb6-be55-a57ba7033577}",
+                "id": "{32f399a3-1172-4e83-a64f-9861c43b854f}",
                 "name": "voltages_raw",
                 "userLevel": 0
             },
@@ -268,7 +268,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{292a17e3-a451-465e-811f-ec66885d1a16}",
+                "id": "{1a0dcaf5-8e80-4ec6-ace0-897c4d50716a}",
                 "name": "currents_raw",
                 "userLevel": 0
             },
@@ -287,7 +287,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{1c7941cf-216a-4777-9599-a0a6d76e0fdd}",
+                "id": "{2e0946be-36d1-4e4f-abe0-20a7e68a3b82}",
                 "name": "sensor_temps_raw",
                 "userLevel": 0
             },
@@ -306,7 +306,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{738bfa41-ed12-4139-9346-d4134da4d2ad}",
+                "id": "{2ef9b34b-3605-4b0a-8c7a-5e61a75db090}",
                 "name": "currents",
                 "userLevel": 1
             },
@@ -325,7 +325,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{34f7530f-6ea1-44f3-8b17-cc427c77c2af}",
+                "id": "{cf6ee2d0-8ce2-47ff-bb53-95d9b65d775f}",
                 "name": "voltages",
                 "userLevel": 1
             },
@@ -344,7 +344,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{3e2a8434-9e10-435e-9249-817cbcc97b68}",
+                "id": "{4418750e-ed4c-44bc-909f-09ec115229d4}",
                 "name": "sensor_temperatures",
                 "userLevel": 1
             },
@@ -359,7 +359,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{156d0991-503d-40f0-886a-6b6fd1042d4d}",
+                "id": "{07075606-3afd-4a69-8821-e6c97225207a}",
                 "name": "currents",
                 "userLevel": 1
             },
@@ -374,7 +374,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{51e6fdae-5487-44fa-8dc6-35524a5ca3b6}",
+                "id": "{d8b5e007-8ded-4aaa-93b0-9c6617f8ac42}",
                 "name": "sensor_temps",
                 "userLevel": 1
             },
@@ -389,7 +389,7 @@
                 },
                 "enabled": true,
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{191414fb-ad22-4075-b0b8-ce30882547b9}",
+                "id": "{2d893a91-9336-4bc2-8f83-beb0cd63f7e9}",
                 "name": "voltages",
                 "userLevel": 1
             }
@@ -397,7 +397,7 @@
         "properties": {
             "ModuleProperties": [
                 {
-                    "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                    "moduleId": "{eb4dd0be-7d40-488a-a80d-fcdac365b2f0}",
                     "moduleName": "mhv_4",
                     "moduleTypeName": "mhv_4"
                 }
@@ -430,8 +430,8 @@
                     "rngSeed": "48008fcdb838017d"
                 },
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{acd43136-5568-4705-b772-060a976f92ed}",
-                "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                "id": "{c5bf9db8-e0f3-44ed-b6c6-982b5ca3ce81}",
+                "moduleId": "{eb4dd0be-7d40-488a-a80d-fcdac365b2f0}",
                 "name": "voltages"
             },
             {
@@ -460,8 +460,8 @@
                     "rngSeed": "23245f389d26ba8f"
                 },
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{285b7a96-bf3b-4d1f-8a52-b459c76aed25}",
-                "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                "id": "{2ab8bdaf-4193-4556-83d1-ef9ca26c917c}",
+                "moduleId": "{eb4dd0be-7d40-488a-a80d-fcdac365b2f0}",
                 "name": "currents"
             },
             {
@@ -490,8 +490,8 @@
                     "rngSeed": "d02dce475ad8de78"
                 },
                 "eventId": "{5e0b50a0-0007-43bb-af07-d61ebcf5eea9}",
-                "id": "{5878e01d-acc3-4c4c-9e4a-de90e2122675}",
-                "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
+                "id": "{2e2c32e5-c874-4b1d-91f2-a184e6c87258}",
+                "moduleId": "{eb4dd0be-7d40-488a-a80d-fcdac365b2f0}",
                 "name": "sensor_temps"
             }
         ]

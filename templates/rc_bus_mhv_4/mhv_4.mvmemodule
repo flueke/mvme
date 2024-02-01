@@ -1,0 +1,78 @@
+{
+    "ModuleConfig": {
+        "baseAddress": 34603008,
+        "enabled": true,
+        "id": "{eb4dd0be-7d40-488a-a80d-fcdac365b2f0}",
+        "initScripts": [
+            {
+                "enabled": true,
+                "id": "{bb6be871-47b4-4509-9d4a-afa2d4feb5b1}",
+                "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "#########################################################################\n# MHV-4 control and readout via the RC-Bus interface\n#########################################################################\n\n# This modules VME address must be set to the address of the physical VME\n# module that acts as the RC-Bus controller. Connect NIM0 of the VME module\n# to the MHV-4 and terminate at the MHV-4 side with a 50 Ohm resistor.\n#\n# The variable 'rcbus_address' holding the RC bus address of the target\n# MHV-4 is set on the MHV-4 module instance in mvme. This way the variables is\n# available to both the \"Module Init\" and \"Module Readout\" scripts. Right click\n# the module and choose \"Edit Module Settings\" to modify the 'rcbus_address'\n# value.\n#\n# This script only sets the channel target voltages and channel enable\n# states. Other parameters should be set beforehand using, e.g. mesycontrol\n# and an MRC-1/MRCC or via terminal connection using the back USB port of\n# the MHV-4. These settings are then automatically loaded on power-up of the\n# MHV-4.\n\n\n#########################################################################\n# RC-Bus Setup\n#########################################################################\n# Enable RC-Bus on NIM0. This is module specific, choose one of the options.\nprint \"Enabling RC-Bus on NIM0\"\n0x6074 1 # mdpp-16/32\n#0x606e 3 # madc, mqdc, mtdc\n#0x606e 1 # vmmr-8/16\n\n#########################################################################\n# MHV-4 setup\n#########################################################################\n# Turn channels on/off\nset chan0_enable 1\nset chan1_enable 1\nset chan2_enable 1\nset chan3_enable 1\nset chan0_voltage 10\nset chan1_voltage 20\nset chan2_voltage 30\nset chan3_voltage 40\n\n#########################################################################\n# Internal variables used in the script. Do not modify these.\nset expected_idc 27 \t# MHV-4 RC-Bus ID code value\nset rcbus_wait 1ms\t    # argument to 'wait' to delay until RC-bus operation completion\n#########################################################################\n\n# -----------------------------------------------------------------------\nprint \"Reading and checking MHV-4 RC-Bus ID Code\"\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 6 \t\t\t\t\t# send opcode \"read IDC\"\n0x6088 0 \t\t\t\t\t# issue the request\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\n\n# Read and evaluate the RC-Bus status bits.\n# bit0: active, bit1: address collision, bit2: no response.\n# 'active' means the CBus transaction is still in progress.\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\n\n# Read the result register\nread a32 d16 0x6088\n# Mask: bit0: RC Status, bits 1-7: IDC code\n# Rotate: By 31 to move bit1 to position 0\naccu_mask_rotate 0b11111110 31\naccu_test eq ${expected_idc} \"MHV-4 RC-Bus ID Code check\"\n\n# -----------------------------------------------------------------------\n# Enabling Remote Control is no required. Leaving it disables has the\n# advantage that the MHV-4 front panel will still be usable.\n/*\nprint \"Enabling MHV-4 remote control\"\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 3 \t\t\t\t\t# send opcode \"RC on\"\n0x6088 0 \t\t\t\t\t# issue the request\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\n*/\n\n# -----------------------------------------------------------------------\nprint \"MHV-4: setting target voltages\"\nprint \"------------------------------------------------------------\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 0    \t\t\t\t# set the module internal address\n0x6088 $(${chan0_voltage} * 10) # set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq $(${chan0_voltage} * 10) \"Channel 0 voltage write check\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 1    \t\t\t\t# set the module internal address\n0x6088 $(${chan1_voltage} * 10) # set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq $(${chan1_voltage} * 10) \"Channel 1 voltage write check\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 2    \t\t\t\t# set the module internal address\n0x6088 $(${chan2_voltage} * 10) # set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq $(${chan2_voltage} * 10) \"Channel 2 voltage write check\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 3    \t\t\t\t# set the module internal address\n0x6088 $(${chan3_voltage} * 10) # set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq $(${chan3_voltage} * 10) \"Channel 3 voltage write check\"\n\n# -----------------------------------------------------------------------\nprint \"MHV-4: enabling channels\"\nprint \"------------------------------------------------------------\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 4    \t\t\t\t# set the module internal address\n0x6088 ${chan0_enable}\t\t# set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq ${chan0_enable} \"Channel 0 enable check\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 5    \t\t\t\t# set the module internal address\n0x6088 ${chan1_enable}\t\t# set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq ${chan1_enable} \"Channel 1 enable check\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 6    \t\t\t\t# set the module internal address\n0x6088 ${chan2_enable}\t\t# set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq ${chan2_enable} \"Channel 2 enable check\"\n\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 16 \t\t\t\t\t# send opcode \"write data\"\n0x6086 7    \t\t\t\t# set the module internal address\n0x6088 ${chan3_enable}\t\t# set the value to write and start the operation\nwait ${rcbus_wait}          # wait for the RC-bus transaction to complete\nread a32 d16 0x608a\naccu_test eq 0 \"RC-Bus operation error check\"\nread a32 d16 0x6088\naccu_test eq ${chan3_enable} \"Channel 3 enable check\""
+            }
+        ],
+        "name": "mhv_4",
+        "type": "mhv_4",
+        "variable_table": {
+            "name": "",
+            "variables": {
+                "rcbus_address": {
+                    "comment": "RC-Bus address of the MHV-4.",
+                    "definitionLocation": "",
+                    "value": "2"
+                }
+            }
+        },
+        "vmeReadout": {
+            "enabled": true,
+            "id": "{4084e691-9e3a-4008-a371-eadfa0fd7b74}",
+            "name": "Module Readout",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# Readout of MHV-4 voltage and current values via the RC-Bus interface.\n\n# Note: the 'wait' command cannot be used here as the readout commands are executed as\n# part of a MVLC command stack. 'mvlc_wait <num_cycles>' is used instead to delay stack\n# execution. 0xcfff cycles are enough for RC-Bus operations to complete.\nset rcbus_wait 0xcfff\t    # argument to 'mvlc_wait' to delay until RC-bus operation completion\n\n# Use a single MVLC stack transaction for the following commands.\n# Required by 'mvlc_wait' and makes this script behave exactly like the\n# readout stack executed by the MVLC in DAQ mode.\nmvlc_stack_begin\n\n# high precision voltages ##############################################\n# Note: the high-precision voltage values are easier to handle in the\n# analysis as they do not include the channels polarity in the high bit.\n\n# channel0_voltage\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 112    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# channel1_voltage\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 113    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# channel2_voltage\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 114    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# channel3_voltage\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 115    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# currents #############################################################\n# channel0_current\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 50    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# channel1_current\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 51    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# channel2_current\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 52    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# channel3_current\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 53    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# temperatures #########################################################\n# sensor0_temp\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 26    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# sensor1_temp\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 27    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# sensor2_temp\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 28    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\n# sensor3_temp\n0x6082 ${rcbus_address}\t\t# set the RC-bus target address\n0x6084 18 \t\t\t\t\t# send opcode \"read data\"\n0x6086 29    \t\t\t\t# set the module internal address\n0x6088 0 \t# issue the request\nmvlc_wait ${rcbus_wait}     # wait for the RC-bus transaction to complete\nread a32 d16 0x6088\t\t\t# read the result value.\n\nmvlc_stack_end"
+        },
+        "vmeReset": {
+            "enabled": true,
+            "id": "{d7f13317-2276-4cf1-99aa-c034a0f0e099}",
+            "name": "Module Reset",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": ""
+        }
+    },
+    "ModuleMeta": {
+        "displayName": "MHV-4 (RC-Bus)",
+        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+        "typeId": 26,
+        "typeName": "mhv_4",
+        "variables": [
+            {
+                "comment": "RC-Bus address of the MHV-4.",
+                "name": "rcbus_address",
+                "value": "0"
+            }
+        ],
+        "vendorName": "mesytec",
+        "vmeAddress": 0
+    }
+}
