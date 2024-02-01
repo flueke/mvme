@@ -520,4 +520,21 @@ void copy_module(ModuleConfig *mod, EventConfig *destEvent, int destIndex)
     destEvent->addModuleConfig(copy.release(), destIndex);
 }
 
+vme_script::SymbolTable variable_symboltable_from_module_meta(const vats::VMEModuleMeta &moduleMeta)
+{
+    vme_script::SymbolTable result;
+
+    for (auto jsonVal: moduleMeta.variables)
+    {
+        auto json = jsonVal.toObject();
+
+        auto varName = json["name"].toString();
+        vme_script::Variable var(json["value"].toString(), {}, json["comment"].toString());
+
+        result.symbols[varName] = var;
+    }
+
+    return result;
+}
+
 }

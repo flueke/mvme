@@ -152,6 +152,11 @@ inline bool was_configobject_expanded(const QUuid &objectId)
     return expandedObjects.value(objectId.toString(), false).toBool();
 }
 
+// Create a SymbolTable from the information stored in the given VMEModuleMeta object.
+// Basically loads variables from the VMEModuleMeta JSON data and stores them in
+// the resulting symbol table.
+vme_script::SymbolTable variable_symboltable_from_module_meta(const vats::VMEModuleMeta &moduleMeta);
+
 }
 
 #endif /* __MVME_VME_CONFIG_UTIL_H__ */
