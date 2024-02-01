@@ -351,8 +351,13 @@ class CalibrationMinMaxConfigWidget: public AbstractOpConfigWidget
     private:
         // CalibrationMinMax
         QLineEdit *le_unit = nullptr;
-        QDoubleSpinBox *spin_unitMin = nullptr;
-        QDoubleSpinBox *spin_unitMax = nullptr;
+        QDoubleSpinBox *spin_unityInput = nullptr;
+        QDoubleSpinBox *spin_unityOutput = nullptr;
+        QPushButton *pb_applyUnity = nullptr;
+        QDoubleSpinBox *spin_inputMin = nullptr;
+        QDoubleSpinBox *spin_inputMax = nullptr;
+        QDoubleSpinBox *spin_outputMin = nullptr;
+        QDoubleSpinBox *spin_outputMax = nullptr;
         QTableWidget *m_calibrationTable = nullptr;
         QFrame *m_applyGlobalCalibFrame = nullptr;
         QPushButton *m_pb_applyGlobalCalib = nullptr;
