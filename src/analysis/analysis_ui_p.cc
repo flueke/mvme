@@ -747,6 +747,11 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
         m_opConfigWidget = new RateMonitorConfigWidget(
             rms, userLevel, eventWidget->getServiceProvider(), this);
     }
+    else if (auto cal = qobject_cast<CalibrationMinMax *>(op.get()))
+    {
+        m_opConfigWidget = new CalibrationMinMaxConfigWidget(
+            cal, userLevel, eventWidget->getServiceProvider(), this);
+    }
     else
     {
         m_opConfigWidget = new OperatorConfigurationWidget(
@@ -1440,76 +1445,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         formLayout->addRow(limits_x.outerFrame);
         formLayout->addRow(limits_y.outerFrame);
     }
-    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
-    {
-        le_unit = new QLineEdit;
-        le_unit->setText(calibration->getUnitLabel());
-
-        spin_unitMin = make_calibration_spinbox();
-        spin_unitMax = make_calibration_spinbox();
-
-        formLayout->addRow(QSL("Unit Label"), le_unit);
-        formLayout->addRow(QSL("Unit Min"), spin_unitMin);
-        formLayout->addRow(QSL("Unit Max"), spin_unitMax);
-
-        // Find first valid min/max pair and use it to fill the spinboxes.
-        for (const auto &params: calibration->getCalibrations())
-        {
-            if (params.isValid())
-            {
-                qDebug() << __PRETTY_FUNCTION__ << calibration->objectName()
-                    << "setting spinbox values:" << params.unitMin << params.unitMax;
-                spin_unitMin->setValue(params.unitMin);
-                spin_unitMax->setValue(params.unitMax);
-                break;
-            }
-        }
-
-        m_calibrationTable = new QTableWidget;
-        m_calibrationTable->setMinimumSize(325, 175);
-
-        m_pb_applyGlobalCalib = new QPushButton(QIcon(":/arrow_down.png"), QSL("Apply"));
-        m_pb_applyGlobalCalib->setToolTip(QSL("Apply to all addresses"));
-
-        connect(m_pb_applyGlobalCalib, &QPushButton::clicked, this, [this] () {
-            double unitMin = spin_unitMin->value();
-            double unitMax = spin_unitMax->value();
-
-            // Write spinbox values into the table
-            for (s32 row = 0;
-                 row < m_calibrationTable->rowCount();
-                 ++row)
-            {
-                auto minItem = m_calibrationTable->item(row, 1);
-                minItem->setData(Qt::EditRole, unitMin);
-
-                auto maxItem = m_calibrationTable->item(row, 2);
-                maxItem->setData(Qt::EditRole, unitMax);
-            }
-        });
-
-        m_applyGlobalCalibFrame = new QFrame;
-        auto applyCalibLayout = new QHBoxLayout(m_applyGlobalCalibFrame);
-        applyCalibLayout->setContentsMargins(0, 0, 0, 0);
-        applyCalibLayout->addStretch(1);
-        applyCalibLayout->addWidget(m_pb_applyGlobalCalib);
-        applyCalibLayout->addStretch(1);
-
-        formLayout->addRow(m_applyGlobalCalibFrame);
-        m_applyGlobalCalibFrame->setVisible(false);
-
-        m_calibrationTable->setVisible(false);
-        m_calibrationTable->setColumnCount(3);
-        m_calibrationTable->setItemDelegateForColumn(1, new CalibrationItemDelegate(m_calibrationTable));
-        m_calibrationTable->setItemDelegateForColumn(2, new CalibrationItemDelegate(m_calibrationTable));
-        m_calibrationTable->setHorizontalHeaderLabels({"Address", "Min", "Max"});
-        m_calibrationTable->verticalHeader()->setVisible(false);
-
-        // Populates the calibration table
-        inputSelected(0);
-
-        widgetLayout->addWidget(m_calibrationTable);
-    }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
     {
         spin_index = new QSpinBox;
@@ -2190,62 +2125,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
     Slot *slot = (slotIndex >= 0 ? op->getSlot(slotIndex) : nullptr);
 
-    if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
-    {
-        Q_ASSERT(slot);
-
-        if (slot->isConnected())
-        {
-            // If connected to array:
-            //   use first calibration values for spinbox
-            //   if those are not valid use first input param values for spinbox
-            // if connected to param:
-            //   use calibration for param for spinbox
-            //   if that is not valid use input param values for spinbox
-            // if nothing is valid keep spinbox values
-
-            double proposedMin = spin_unitMin->value();
-            double proposedMax = spin_unitMax->value();
-
-            s32 paramIndex = (slot->paramIndex == Slot::NoParamIndex ? 0 : slot->paramIndex);
-            auto params = calibration->getCalibration(paramIndex);
-
-            if (params.isValid())
-            {
-                proposedMin = params.unitMin;
-                proposedMax = params.unitMax;
-            }
-            else if (auto inParam = slot->inputPipe->getParameter(paramIndex))
-            {
-                proposedMin = inParam->lowerLimit;
-                proposedMax = inParam->upperLimit;
-            }
-
-            spin_unitMin->setValue(proposedMin);
-            spin_unitMax->setValue(proposedMax);
-
-            if (slot->paramIndex == Slot::NoParamIndex)
-            {
-                fillCalibrationTable(calibration, proposedMin, proposedMax);
-                m_calibrationTable->setVisible(true);
-                m_applyGlobalCalibFrame->setVisible(true);
-            }
-            else
-            {
-                m_calibrationTable->setVisible(false);
-                m_applyGlobalCalibFrame->setVisible(false);
-            }
-        }
-        else
-        {
-            // Not connected -> Make spinboxes show "Not Set" and hide table and button
-            spin_unitMin->setValue(spin_unitMin->minimum());
-            spin_unitMax->setValue(spin_unitMax->minimum());
-            m_calibrationTable->setVisible(false);
-            m_applyGlobalCalibFrame->setVisible(false);
-        }
-    }
-    else if (auto histoSink = qobject_cast<Histo1DSink *>(op))
+    if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
         if (le_xAxisTitle->text().isEmpty())
         {
@@ -2450,50 +2330,6 @@ void OperatorConfigurationWidget::configureOperator()
 
         // Same as for Histo1DSink: the histogram is created or updated in Histo2DSink::beginRun()
     }
-    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
-    {
-        calibration->setUnitLabel(le_unit->text());
-
-        double unitMin = spin_unitMin->value();
-        double unitMax = spin_unitMax->value();
-
-        if (unitMin == spin_unitMin->minimum())
-            unitMin = make_quiet_nan();
-
-        if (unitMax == spin_unitMax->minimum())
-            unitMax = make_quiet_nan();
-
-
-        for (s32 addr = 0; addr < op->getSlot(0)->inputPipe->parameters.size(); ++addr)
-        {
-            if (op->getSlot(0)->paramIndex != Slot::NoParamIndex)
-            {
-                // Connected to specific address -> use spinbox values for that address
-                if (op->getSlot(0)->paramIndex == addr)
-                {
-                    calibration->setCalibration(addr, unitMin, unitMax);
-                }
-                else
-                {
-                    // Set invalid params for other addresses
-                    calibration->setCalibration(addr, CalibrationMinMaxParameters());
-                }
-            }
-            else
-            {
-                // Connected to an array -> use table values
-                unitMin = unitMax = make_quiet_nan();
-
-                if (auto item = m_calibrationTable->item(addr, 1))
-                    unitMin = item->data(Qt::EditRole).toDouble();
-
-                if (auto item = m_calibrationTable->item(addr, 2))
-                    unitMax = item->data(Qt::EditRole).toDouble();
-
-                calibration->setCalibration(addr, unitMin, unitMax);
-            }
-        }
-    }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
     {
         s32 index = spin_index->value();
@@ -2590,42 +2426,6 @@ void OperatorConfigurationWidget::configureOperator()
         ex->setFormat(static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt()));
         ex->setOutputPrefixPath(le_exportPrefixPath->text());
     }
-}
-
-void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
-{
-    Q_ASSERT(calib->getSlot(0)->isConnected());
-
-    s32 paramCount = calib->getSlot(0)->inputPipe->parameters.size();
-
-    m_calibrationTable->setRowCount(paramCount);
-
-    for (s32 addr = 0; addr < paramCount; ++addr)
-    {
-        // address
-        auto item = new QTableWidgetItem;
-        item->setFlags(Qt::ItemIsEnabled);
-        item->setData(Qt::DisplayRole, addr);
-        m_calibrationTable->setItem(addr, 0, item);
-
-        auto calibParams = calib->getCalibration(addr);
-        double unitMin = calibParams.isValid() ? calibParams.unitMin : proposedMin;
-        double unitMax = calibParams.isValid() ? calibParams.unitMax : proposedMax;
-
-        // min
-        item = new QTableWidgetItem;
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        item->setData(Qt::EditRole, unitMin);
-        m_calibrationTable->setItem(addr, 1, item);
-
-        // max
-        item = new QTableWidgetItem;
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        item->setData(Qt::EditRole, unitMax);
-        m_calibrationTable->setItem(addr, 2, item);
-    }
-
-    m_calibrationTable->resizeRowsToContents();
 }
 
 void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
@@ -2739,6 +2539,260 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
         },
     }
 };
+
+CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *op,
+                        s32 userLevel,
+                        AnalysisServiceProvider *asp,
+                        QWidget *parent)
+    : AbstractOpConfigWidget(op, userLevel, asp, parent)
+    , m_cal(op)
+{
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *formLayout = new QFormLayout;
+    formLayout->setContentsMargins(2, 2, 2, 2);
+
+    widgetLayout->addLayout(formLayout);
+
+    le_name = new QLineEdit;
+    connect(le_name, &QLineEdit::textChanged, this, [this](const QString &newText) {
+        // If the user clears the textedit reset NameEdited to false.
+        this->setNameEdited(!newText.isEmpty());
+    });
+    formLayout->addRow(QSL("Name"), le_name);
+
+    le_name->setText(op->objectName());
+
+        le_unit = new QLineEdit;
+        le_unit->setText(m_cal->getUnitLabel());
+
+        spin_unitMin = make_calibration_spinbox();
+        spin_unitMax = make_calibration_spinbox();
+
+        formLayout->addRow(QSL("Unit Label"), le_unit);
+        formLayout->addRow(QSL("Unit Min"), spin_unitMin);
+        formLayout->addRow(QSL("Unit Max"), spin_unitMax);
+
+        // Find first valid min/max pair and use it to fill the spinboxes.
+        for (const auto &params: m_cal->getCalibrations())
+        {
+            if (params.isValid())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << m_cal->objectName()
+                    << "setting spinbox values:" << params.unitMin << params.unitMax;
+                spin_unitMin->setValue(params.unitMin);
+                spin_unitMax->setValue(params.unitMax);
+                break;
+            }
+        }
+
+        m_calibrationTable = new QTableWidget;
+        m_calibrationTable->setMinimumSize(325, 175);
+
+        m_pb_applyGlobalCalib = new QPushButton(QIcon(":/arrow_down.png"), QSL("Apply"));
+        m_pb_applyGlobalCalib->setToolTip(QSL("Apply to all addresses"));
+
+        connect(m_pb_applyGlobalCalib, &QPushButton::clicked, this, [this] () {
+            double unitMin = spin_unitMin->value();
+            double unitMax = spin_unitMax->value();
+
+            // Write spinbox values into the table
+            for (s32 row = 0;
+                 row < m_calibrationTable->rowCount();
+                 ++row)
+            {
+                auto minItem = m_calibrationTable->item(row, 1);
+                minItem->setData(Qt::EditRole, unitMin);
+
+                auto maxItem = m_calibrationTable->item(row, 2);
+                maxItem->setData(Qt::EditRole, unitMax);
+            }
+        });
+
+        m_applyGlobalCalibFrame = new QFrame;
+        auto applyCalibLayout = new QHBoxLayout(m_applyGlobalCalibFrame);
+        applyCalibLayout->setContentsMargins(0, 0, 0, 0);
+        applyCalibLayout->addStretch(1);
+        applyCalibLayout->addWidget(m_pb_applyGlobalCalib);
+        applyCalibLayout->addStretch(1);
+
+        formLayout->addRow(m_applyGlobalCalibFrame);
+        m_applyGlobalCalibFrame->setVisible(false);
+
+        m_calibrationTable->setVisible(false);
+        m_calibrationTable->setColumnCount(3);
+        m_calibrationTable->setItemDelegateForColumn(1, new CalibrationItemDelegate(m_calibrationTable));
+        m_calibrationTable->setItemDelegateForColumn(2, new CalibrationItemDelegate(m_calibrationTable));
+        m_calibrationTable->setHorizontalHeaderLabels({"Address", "Min", "Max"});
+        m_calibrationTable->verticalHeader()->setVisible(false);
+
+        // Populates the calibration table
+        inputSelected(0);
+
+        widgetLayout->addWidget(m_calibrationTable);
+}
+
+void CalibrationMinMaxConfigWidget::configureOperator()
+{
+    assert(required_inputs_connected_and_valid(m_cal));
+
+    m_cal->setObjectName(le_name->text());
+    m_cal->setUnitLabel(le_unit->text());
+
+    double unitMin = spin_unitMin->value();
+    double unitMax = spin_unitMax->value();
+
+    if (unitMin == spin_unitMin->minimum())
+        unitMin = make_quiet_nan();
+
+    if (unitMax == spin_unitMax->minimum())
+        unitMax = make_quiet_nan();
+
+    for (s32 addr = 0; addr < m_cal->getSlot(0)->inputPipe->parameters.size(); ++addr)
+    {
+        if (m_op->getSlot(0)->paramIndex != Slot::NoParamIndex)
+        {
+            // Connected to specific address -> use spinbox values for that address
+            if (m_op->getSlot(0)->paramIndex == addr)
+            {
+                m_cal->setCalibration(addr, unitMin, unitMax);
+            }
+            else
+            {
+                // Set invalid params for other addresses
+                m_cal->setCalibration(addr, CalibrationMinMaxParameters());
+            }
+        }
+        else
+        {
+            // Connected to an array -> use table values
+            unitMin = unitMax = make_quiet_nan();
+
+            if (auto item = m_calibrationTable->item(addr, 1))
+                unitMin = item->data(Qt::EditRole).toDouble();
+
+            if (auto item = m_calibrationTable->item(addr, 2))
+                unitMax = item->data(Qt::EditRole).toDouble();
+
+            m_cal->setCalibration(addr, unitMin, unitMax);
+        }
+    }
+}
+
+void CalibrationMinMaxConfigWidget::inputSelected(s32 slotIndex)
+{
+    emit validityMayHaveChanged();
+
+    auto op = m_cal;
+
+    if (no_input_connected(op) && !wasNameEdited())
+    {
+        le_name->clear();
+        setNameEdited(false);
+    }
+
+    if (!wasNameEdited() && op->getSlot(0)->isConnected())
+    {
+        le_name->setText(make_input_source_text(op->getSlot(0)));
+    }
+
+    Slot *slot = (slotIndex >= 0 ? op->getSlot(slotIndex) : nullptr);
+
+    assert(slot);
+
+    if (slot->isConnected())
+    {
+        // If connected to array:
+        //   use first calibration values for spinbox
+        //   if those are not valid use first input param values for spinbox
+        // if connected to param:
+        //   use calibration for param for spinbox
+        //   if that is not valid use input param values for spinbox
+        // if nothing is valid keep spinbox values
+
+        double proposedMin = spin_unitMin->value();
+        double proposedMax = spin_unitMax->value();
+
+        s32 paramIndex = (slot->paramIndex == Slot::NoParamIndex ? 0 : slot->paramIndex);
+        auto params = op->getCalibration(paramIndex);
+
+        if (params.isValid())
+        {
+            proposedMin = params.unitMin;
+            proposedMax = params.unitMax;
+        }
+        else if (auto inParam = slot->inputPipe->getParameter(paramIndex))
+        {
+            proposedMin = inParam->lowerLimit;
+            proposedMax = inParam->upperLimit;
+        }
+
+        spin_unitMin->setValue(proposedMin);
+        spin_unitMax->setValue(proposedMax);
+
+        if (slot->paramIndex == Slot::NoParamIndex)
+        {
+            fillCalibrationTable(op, proposedMin, proposedMax);
+            m_calibrationTable->setVisible(true);
+            m_applyGlobalCalibFrame->setVisible(true);
+        }
+        else
+        {
+            m_calibrationTable->setVisible(false);
+            m_applyGlobalCalibFrame->setVisible(false);
+        }
+    }
+    else
+    {
+        // Not connected -> Make spinboxes show "Not Set" and hide table and button
+        spin_unitMin->setValue(spin_unitMin->minimum());
+        spin_unitMax->setValue(spin_unitMax->minimum());
+        m_calibrationTable->setVisible(false);
+        m_applyGlobalCalibFrame->setVisible(false);
+    }
+}
+
+bool CalibrationMinMaxConfigWidget::isValid() const
+{
+   return required_inputs_connected_and_valid(m_cal);
+}
+
+void CalibrationMinMaxConfigWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
+{
+    Q_ASSERT(calib->getSlot(0)->isConnected());
+
+    s32 paramCount = calib->getSlot(0)->inputPipe->parameters.size();
+
+    m_calibrationTable->setRowCount(paramCount);
+
+    for (s32 addr = 0; addr < paramCount; ++addr)
+    {
+        // address
+        auto item = new QTableWidgetItem;
+        item->setFlags(Qt::ItemIsEnabled);
+        item->setData(Qt::DisplayRole, addr);
+        m_calibrationTable->setItem(addr, 0, item);
+
+        auto calibParams = calib->getCalibration(addr);
+        double unitMin = calibParams.isValid() ? calibParams.unitMin : proposedMin;
+        double unitMax = calibParams.isValid() ? calibParams.unitMax : proposedMax;
+
+        // min
+        item = new QTableWidgetItem;
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        item->setData(Qt::EditRole, unitMin);
+        m_calibrationTable->setItem(addr, 1, item);
+
+        // max
+        item = new QTableWidgetItem;
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        item->setData(Qt::EditRole, unitMax);
+        m_calibrationTable->setItem(addr, 2, item);
+    }
+
+    m_calibrationTable->resizeRowsToContents();
+}
 
 //
 // RateMonitorConfigWidget

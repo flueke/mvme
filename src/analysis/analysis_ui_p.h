@@ -272,15 +272,6 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         HistoAxisLimitsUI limits_x;
         HistoAxisLimitsUI limits_y;
 
-        // CalibrationMinMax
-        QLineEdit *le_unit = nullptr;
-        QDoubleSpinBox *spin_unitMin = nullptr;
-        QDoubleSpinBox *spin_unitMax = nullptr;
-        QTableWidget *m_calibrationTable = nullptr;
-        QFrame *m_applyGlobalCalibFrame = nullptr;
-        QPushButton *m_pb_applyGlobalCalib = nullptr;
-        void fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax);
-
         // IndexSelector
         QSpinBox *spin_index = nullptr;
 
@@ -310,6 +301,7 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         QRadioButton *rb_opOr;
 
         // BinarySumDiff
+        QLineEdit *le_unit = nullptr;
         QComboBox *combo_equation;
         QDoubleSpinBox *spin_outputLowerLimit;
         QDoubleSpinBox *spin_outputUpperLimit;
@@ -341,6 +333,32 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         QComboBox *combo_exportFormat;
         QComboBox *combo_exportCompression;
         QGroupBox *gb_codeGen;
+};
+
+class CalibrationMinMaxConfigWidget: public AbstractOpConfigWidget
+{
+    Q_OBJECT
+    public:
+        CalibrationMinMaxConfigWidget(CalibrationMinMax *op,
+                                s32 userLevel,
+                                AnalysisServiceProvider *asp,
+                                QWidget *parent = nullptr);
+
+        void configureOperator() override;
+        void inputSelected(s32 slotIndex) override;
+        bool isValid() const override;
+
+    private:
+        // CalibrationMinMax
+        QLineEdit *le_unit = nullptr;
+        QDoubleSpinBox *spin_unitMin = nullptr;
+        QDoubleSpinBox *spin_unitMax = nullptr;
+        QTableWidget *m_calibrationTable = nullptr;
+        QFrame *m_applyGlobalCalibFrame = nullptr;
+        QPushButton *m_pb_applyGlobalCalib = nullptr;
+        void fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax);
+
+        CalibrationMinMax *m_cal;
 };
 
 class RateMonitorConfigWidget: public AbstractOpConfigWidget
