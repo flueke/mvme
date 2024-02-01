@@ -64,7 +64,7 @@
         "displayName": "MHV-4 (RC-Bus)",
         "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
         "typeId": 26,
-        "typeName": "rc_bus_mhv_4",
+        "typeName": "mhv_4",
         "variables": [
             {
                 "comment": "RC-Bus address of the MHV-4.",

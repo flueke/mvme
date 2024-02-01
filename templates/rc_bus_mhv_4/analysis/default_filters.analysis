@@ -398,8 +398,8 @@
             "ModuleProperties": [
                 {
                     "moduleId": "{2028fb11-9878-4d44-99b1-e4c0752f2d87}",
-                    "moduleName": "mhv_4_rc_bus",
-                    "moduleTypeName": "rc_bus_mhv_4"
+                    "moduleName": "mhv_4",
+                    "moduleTypeName": "mhv_4"
                 }
             ]
         },
