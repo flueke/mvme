@@ -379,19 +379,6 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
     auto mm = vats::modulemeta_from_json(json["ModuleMeta"].toObject());
     mod.setModuleMeta(mm);
     mod.setObjectName(mm.typeName);
-
-    // Restore the variables on the module instance.
-    // FIXME: why is this needed? the variables should have been stored when the
-    // module was saved and reloaded when mod.read() was called.
-    for (auto it=mm.variables.begin(); it!=mm.variables.end(); ++it)
-    {
-        auto varJ = it->toObject();
-        auto varName = varJ["name"].toString();
-        vme_script::Variable var;
-        var.value = varJ["value"].toString();
-        var.comment = varJ["comment"].toString();
-        mod.setVariable(varName, var);
-    }
 }
 
 std::unique_ptr<EventConfig> eventconfig_from_eventjson(const QJsonObject &json)
