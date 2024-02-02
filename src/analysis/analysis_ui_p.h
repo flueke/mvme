@@ -428,7 +428,7 @@ class PipeDisplay: public QWidget
         void refresh();
 
     private:
-        QString formatParameter(double number);
+        QString formatParameter(double number, const QString &unitLabel = {});
         Analysis *m_analysis;
         Pipe *m_pipe;
         bool m_showDecimals;

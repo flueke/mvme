@@ -3295,14 +3295,15 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals, QWid
     , m_showDecimals(showDecimals)
     , m_parameterTable(new QTableWidget)
 {
-    auto pb_toggleNumberDisplay = new QPushButton(QSL("Toggle Number Format"));
+    auto pb_toggleNumberDisplay = new QPushButton(QSL("&Toggle Number Format"));
     pb_toggleNumberDisplay->setToolTip("Toggle between automatic scientific notation and full digit number display");
     connect(pb_toggleNumberDisplay, &QPushButton::clicked,
         this, [this] {
             setShowDecimals(!doesShowDecimals());
+            refresh();
         });
 
-    auto closeButton = new QPushButton(QSL("Close"));
+    auto closeButton = new QPushButton(QSL("&Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
     auto buttonLayout = make_hbox();
@@ -3359,6 +3360,8 @@ void PipeDisplay::refresh()
 {
     setWindowTitle(m_pipe->parameters.name);
 
+    const auto unitLabel = m_pipe->parameters.unit;
+
     if (auto a2State = m_analysis->getA2AdapterState())
     {
         a2::PipeVectors pipe = find_output_pipe(a2State, m_pipe).first;
@@ -3376,9 +3379,9 @@ void PipeDisplay::refresh()
 
             int col = 0;
             colStrings[col++] = a2::is_param_valid(param) ? QSL("Y") : QSL("N");
-            colStrings[col++] = formatParameter(param);;
-            colStrings[col++] = formatParameter(lowerLimit);
-            colStrings[col++] = formatParameter(upperLimit);
+            colStrings[col++] = formatParameter(param, unitLabel);
+            colStrings[col++] = formatParameter(lowerLimit, unitLabel);
+            colStrings[col++] = formatParameter(upperLimit, unitLabel);
 
             for (s32 ci = 0; ci < colStrings.size(); ci++)
             {
@@ -3410,7 +3413,7 @@ void PipeDisplay::refresh()
     }
 }
 
-QString PipeDisplay::formatParameter(double param)
+QString PipeDisplay::formatParameter(double param, const QString &unitLabel)
 {
     QString paramString;
 
@@ -3420,6 +3423,9 @@ QString PipeDisplay::formatParameter(double param)
             paramString = QString::number(param); // automatically uses scientific notation
         else
             paramString = QString::number(param, 'f', 0);
+
+        if (!unitLabel.isEmpty())
+            paramString += " " + unitLabel;
     }
 
     return paramString;
