@@ -4359,22 +4359,33 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
     if (!pipe || !pipe->getSource())
         return nullptr;
 
-    auto widget = new PipeDisplay(m_serviceProvider->getAnalysis(), pipe);
-
-    QObject::connect(m_displayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
-    QObject::connect(pipe->getSource(), &QObject::destroyed, widget, &QWidget::close);
-    add_widget_close_action(widget);
-    widget->move(QCursor::pos());
-    widget->setAttribute(Qt::WA_DeleteOnClose);
-    widget->show();
-
-    auto geoStateKey = QSL("PipeDisplay/%1_%2")
+    auto pipeDisplayName = QSL("PipeDisplay/%1_%2")
         .arg(pipe->source->getId().toString())
         .arg(QString::number(pipe->sourceOutputIndex));
-    auto geoSaver = new WidgetGeometrySaver(widget);
-    geoSaver->addAndRestore(widget, geoStateKey);
 
-    return widget;
+    if (!(QGuiApplication::keyboardModifiers() & Qt::ControlModifier))
+    {
+        if (auto pipeDisplay = qobject_cast<PipeDisplay *>(find_top_level_widget(pipeDisplayName)))
+        {
+            show_and_activate(pipeDisplay);
+            return pipeDisplay;
+        }
+    }
+
+    auto pipeDisplay = new PipeDisplay(m_serviceProvider->getAnalysis(), pipe);
+    pipeDisplay->setObjectName(pipeDisplayName);
+
+    QObject::connect(m_displayRefreshTimer, &QTimer::timeout, pipeDisplay, &PipeDisplay::refresh);
+    QObject::connect(pipe->getSource(), &QObject::destroyed, pipeDisplay, &QWidget::close);
+    add_widget_close_action(pipeDisplay);
+    pipeDisplay->move(QCursor::pos());
+    pipeDisplay->setAttribute(Qt::WA_DeleteOnClose);
+    pipeDisplay->show();
+
+    auto geoSaver = new WidgetGeometrySaver(pipeDisplay);
+    geoSaver->addAndRestore(pipeDisplay, pipeDisplayName);
+
+    return pipeDisplay;
 }
 
 void EventWidgetPrivate::doPeriodicUpdate()
