@@ -852,9 +852,28 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorDialog::accept);
     connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorDialog::reject);
+    for (auto button_: m_buttonBox->buttons())
+    {
+        if (auto button = qobject_cast<QPushButton *>(button_))
+        {
+            button->setAutoDefault(false);
+            button->setDefault(false);
+            button->setFocusPolicy(Qt::FocusPolicy::NoFocus);
+        }
+    }
+
+    // Hack so that Qt does not focus the Ok or Cancel buttons when opening the
+    // dialog.
+    auto invisibleDefaultButton = new QPushButton;
+    invisibleDefaultButton->setDefault(true);
+    invisibleDefaultButton->setAutoDefault(true);
+
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
+    buttonBoxLayout->addWidget(invisibleDefaultButton);
     buttonBoxLayout->addWidget(m_buttonBox);
+
+    invisibleDefaultButton->hide();
 
     auto layout = new QGridLayout(this);
     //layout->setContentsMargins(2, 2, 2, 2);
