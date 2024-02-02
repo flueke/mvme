@@ -4353,24 +4353,27 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 {
-    bool showDecimals = true;
+    assert(pipe);
+    assert(pipe->getSource());
 
-    // If the pipes input is a data source, meaning it is on level 0 and the
-    // data is the result of data filter extraction, then do not show decimals
-    // values but truncate to the raw integer value.
-    // This basically truncates down to the extracted value without any added
-    // random integer.
-    //if (pipe && qobject_cast<SourceInterface *>(pipe->getSource()))
-    //    showDecimals = false;
+    if (!pipe || !pipe->getSource())
+        return nullptr;
 
-    auto widget = new PipeDisplay(m_serviceProvider->getAnalysis(), pipe, showDecimals);
+    auto widget = new PipeDisplay(m_serviceProvider->getAnalysis(), pipe);
 
     QObject::connect(m_displayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
-    QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
+    QObject::connect(pipe->getSource(), &QObject::destroyed, widget, &QWidget::close);
     add_widget_close_action(widget);
     widget->move(QCursor::pos());
     widget->setAttribute(Qt::WA_DeleteOnClose);
     widget->show();
+
+    auto geoStateKey = QSL("PipeDisplay/%1_%2")
+        .arg(pipe->source->getId().toString())
+        .arg(QString::number(pipe->sourceOutputIndex));
+    auto geoSaver = new WidgetGeometrySaver(widget);
+    geoSaver->addAndRestore(widget, geoStateKey);
+
     return widget;
 }
 
