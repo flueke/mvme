@@ -4,6 +4,22 @@
 Changelog
 ##################################################
 
+Version 1.12-rc
+---------------
+
+* vme_templates: Add template for MHV-4 readout via RC-Bus connection from a
+  parent VME module.
+
+* ui
+
+  - vme: Bugfixes in the Add/Edit Module GUI.
+
+  - analysis: Improve Calibration editor.
+
+* mvlc:
+
+  - Update FTDI driver for windows from 1.3.0.2 to 1.3.0.8.
+
 Version 1.11.0
 --------------
 

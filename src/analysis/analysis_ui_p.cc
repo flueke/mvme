@@ -2587,13 +2587,15 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
     le_unit->setText(m_cal->getUnitLabel());
     formLayout->addRow(QSL("Output Unit Label"), le_unit);
 
-    spin_unityInput = new QDoubleSpinBox();
+    spin_unityInput = make_calibration_spinbox();
     spin_unityInput->setDecimals(1);
     spin_unityInput->setValue(1.0);
     spin_unityInput->setReadOnly(true);
     spin_unityOutput = make_calibration_spinbox();
     spin_unityOutput->setValue(1.0);
-    pb_applyUnity = new QPushButton("Apply");
+    pb_applyUnity = new QPushButton("&Set");
+    pb_applyUnity->setToolTip("Apply to Output Min/Max values");
+    pb_useInputLimits = new QPushButton("&Use Input Range");
     spin_inputMin = make_calibration_spinbox();
     spin_inputMax = make_calibration_spinbox();
     spin_inputMin->setReadOnly(true);
@@ -2615,6 +2617,7 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
     calibGridLayout->addWidget(spin_unityInput, 1, 1);
     calibGridLayout->addWidget(spin_unityOutput, 1, 2);
     calibGridLayout->addWidget(pb_applyUnity, 1, 3);
+    calibGridLayout->addWidget(pb_useInputLimits, 2, 3, 2, 1);
 
     calibGridLayout->addWidget(spin_inputMin, 2, 1);
     calibGridLayout->addWidget(spin_inputMax, 3, 1);
@@ -2642,8 +2645,8 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
         }
     }
 
-    m_pb_applyGlobalCalib = new QPushButton(QIcon(":/arrow_down.png"), QSL("Apply to all"));
-    m_pb_applyGlobalCalib->setToolTip(QSL("Apply to all addresses"));
+    m_pb_applyGlobalCalib = new QPushButton(QIcon(":/arrow_down.png"), QSL("&Apply to all"));
+    m_pb_applyGlobalCalib->setToolTip(QSL("Apply above calibration to all output addresses."));
 
     m_applyGlobalCalibFrame = new QFrame;
     auto applyCalibLayout = new QHBoxLayout(m_applyGlobalCalibFrame);
@@ -2686,31 +2689,53 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
 
     auto on_unit_text_changed =  [this] (const QString &str)
     {
-        spin_outputMin->setSuffix(" " + str);
-        spin_outputMax->setSuffix(" " + str);
+        auto suffix = " " + str;
+        spin_outputMin->setSuffix(suffix);
+        spin_outputMax->setSuffix(suffix);
+        spin_unityOutput->setSuffix(suffix);
+    };
+
+    // Set output min/max values based on the value of the unity output value.
+    auto apply_unity_value = [this]
+    {
+        auto unityOutputValue = spin_unityOutput->value();
+        auto newOutputMin = spin_inputMin->value() * unityOutputValue;
+        auto newOutputMax = spin_inputMax->value() * unityOutputValue;
+        spin_outputMin->setValue(newOutputMin);
+        spin_outputMax->setValue(newOutputMax);
+    };
+
+    // Adjust unity output value based on output min/max values.
+    auto update_unity_value = [this]
+    {
+        auto inputRange = spin_inputMax->value() - spin_inputMin->value();
+        auto outputRange = spin_outputMax->value() - spin_outputMin->value();
+        auto factor = outputRange / inputRange;
+        spin_unityOutput->setValue(factor);
+    };
+
+    auto use_input_limits = [this]
+    {
+        spin_outputMin->setValue(spin_inputMin->value());
+        spin_outputMax->setValue(spin_inputMax->value());
     };
 
     connect(le_unit, &QLineEdit::textChanged, this, on_unit_text_changed);
 
-    auto update_unity_value = [this]
-    {
-
-    };
-
-    auto apply_unity_value = [this]
-    {
-    };
-
     connect(spin_outputMin, qOverload<double>(&QDoubleSpinBox::valueChanged),
         this, update_unity_value);
+
     connect(spin_outputMax, qOverload<double>(&QDoubleSpinBox::valueChanged),
         this, update_unity_value);
-    connect(pb_applyUnity, &QPushButton::clicked,
-        this,  apply_unity_value);
+
+    connect(pb_applyUnity, &QPushButton::clicked, this,  apply_unity_value);
+
+    connect(pb_useInputLimits, &QPushButton::clicked, this, use_input_limits);
 
     // Populates the calibration table
     inputSelected(0);
     on_unit_text_changed(le_unit->text());
+    update_unity_value();
 }
 
 void CalibrationMinMaxConfigWidget::inputSelected(s32 slotIndex)
@@ -2745,6 +2770,7 @@ void CalibrationMinMaxConfigWidget::inputSelected(s32 slotIndex)
             spin_inputMin->setSuffix(" " + slot->inputPipe->parameters.unit);
             spin_inputMax->setSuffix(" " + slot->inputPipe->parameters.unit);
             spin_unityInput->setSuffix(" " + slot->inputPipe->parameters.unit);
+            spin_unityInput->setValue(1.0);
         }
 
         // If connected to array:
@@ -2796,10 +2822,16 @@ void CalibrationMinMaxConfigWidget::inputSelected(s32 slotIndex)
         spin_outputMin->setValue(spin_outputMin->minimum());
         spin_outputMax->setValue(spin_outputMax->minimum());
         spin_unityInput->setSuffix({});
+        spin_unityInput->setValue(spin_unityInput->minimum());
+        spin_unityOutput->setSuffix({});
+        spin_unityOutput->setValue(spin_unityOutput->minimum());
 
         m_calibrationTable->setVisible(false);
         m_applyGlobalCalibFrame->setVisible(false);
     }
+
+    pb_applyUnity->setVisible(slot->isConnected());
+    pb_useInputLimits->setVisible(slot->isConnected());
 }
 
 
