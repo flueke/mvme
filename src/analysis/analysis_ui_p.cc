@@ -3289,7 +3289,7 @@ void SelectConditionsDialog::reject()
 //
 
 PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, bool showDecimals, QWidget *parent)
-    : QWidget(parent, Qt::Tool)
+    : QWidget(parent)
     , m_analysis(analysis)
     , m_pipe(pipe)
     , m_showDecimals(showDecimals)
