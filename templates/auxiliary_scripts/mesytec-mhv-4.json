@@ -1,0 +1,18 @@
+{
+    "auxiliary_vme_scripts": [
+        {
+            "fileName": "mhv-4_hv-off.vmescript",
+            "scriptName": "MHV-4 (RC Bus): HV OFF",
+            "vendorName": "mesytec",
+            "moduleName": "MHV-4 (RC Bus)"
+        },
+        {
+            "fileName": "mhv-4_hv-on.vmescript",
+            "scriptName": "MHV-4 (RC Bus): HV ON",
+            "vendorName": "mesytec",
+            "moduleName": "MHV-4 (RC Bus)"
+        }
+    ]
+}
+
+

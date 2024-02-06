@@ -1,0 +1,93 @@
+#########################################################################
+# MHV-4 control via the RC-Bus interface
+#########################################################################
+
+# Base address of the VME module with the RC-Bus connection to the MHV-4.
+setbase 0x02100000
+
+# RC bus address of the MHV-4.
+set rcbus_address 2
+
+#########################################################################
+# RC-Bus Setup
+#########################################################################
+# Enable RC-Bus on NIM0. This is module specific, choose one of the options.
+print "Enabling RC-Bus on NIM0"
+0x6074 1 # mdpp-16/32
+#0x606e 3 # madc, mqdc, mtdc
+#0x606e 1 # vmmr-8/16
+
+#########################################################################
+# Internal variables used in the script. Do not modify these.
+set expected_idc 27 	# MHV-4 RC-Bus ID code value
+set rcbus_wait 1ms	    # argument to 'wait' to delay until RC-bus operation completion
+# Turn channels on
+set chan0_enable 1
+set chan1_enable 1
+set chan2_enable 1
+set chan3_enable 1
+#########################################################################
+
+# -----------------------------------------------------------------------
+print "Reading and checking MHV-4 RC-Bus ID Code"
+0x6082 ${rcbus_address}		# set the RC-bus target address
+0x6084 6 					# send opcode "read IDC"
+0x6088 0 					# issue the request
+wait ${rcbus_wait}          # wait for the RC-bus transaction to complete
+
+# Read and evaluate the RC-Bus status bits.
+# bit0: active, bit1: address collision, bit2: no response.
+# 'active' means the CBus transaction is still in progress.
+read a32 d16 0x608a
+accu_test eq 0 "RC-Bus operation error check"
+
+# Read the result register
+read a32 d16 0x6088
+# Mask: bit0: RC Status, bits 1-7: IDC code
+# Rotate: By 31 to move bit1 to position 0
+accu_mask_rotate 0b11111110 31
+accu_test eq ${expected_idc} "MHV-4 RC-Bus ID Code check"
+
+# -----------------------------------------------------------------------
+print "MHV-4: enabling channels"
+print "------------------------------------------------------------"
+
+0x6082 ${rcbus_address}		# set the RC-bus target address
+0x6084 16 					# send opcode "write data"
+0x6086 4    				# set the module internal address
+0x6088 ${chan0_enable}		# set the value to write and start the operation
+wait ${rcbus_wait}          # wait for the RC-bus transaction to complete
+read a32 d16 0x608a
+accu_test eq 0 "RC-Bus operation error check"
+read a32 d16 0x6088
+accu_test eq ${chan0_enable} "Channel 0 enable check"
+
+0x6082 ${rcbus_address}		# set the RC-bus target address
+0x6084 16 					# send opcode "write data"
+0x6086 5    				# set the module internal address
+0x6088 ${chan1_enable}		# set the value to write and start the operation
+wait ${rcbus_wait}          # wait for the RC-bus transaction to complete
+read a32 d16 0x608a
+accu_test eq 0 "RC-Bus operation error check"
+read a32 d16 0x6088
+accu_test eq ${chan1_enable} "Channel 1 enable check"
+
+0x6082 ${rcbus_address}		# set the RC-bus target address
+0x6084 16 					# send opcode "write data"
+0x6086 6    				# set the module internal address
+0x6088 ${chan2_enable}		# set the value to write and start the operation
+wait ${rcbus_wait}          # wait for the RC-bus transaction to complete
+read a32 d16 0x608a
+accu_test eq 0 "RC-Bus operation error check"
+read a32 d16 0x6088
+accu_test eq ${chan2_enable} "Channel 2 enable check"
+
+0x6082 ${rcbus_address}		# set the RC-bus target address
+0x6084 16 					# send opcode "write data"
+0x6086 7    				# set the module internal address
+0x6088 ${chan3_enable}		# set the value to write and start the operation
+wait ${rcbus_wait}          # wait for the RC-bus transaction to complete
+read a32 d16 0x608a
+accu_test eq 0 "RC-Bus operation error check"
+read a32 d16 0x6088
+accu_test eq ${chan3_enable} "Channel 3 enable check"
