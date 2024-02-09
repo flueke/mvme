@@ -214,11 +214,7 @@ void MultiCrateMainWindow::setConfig(const std::shared_ptr<ConfigObject> &config
     d->vmeConfigFilename_ = filename;
 
     d->vmeConfigModel_->setRootObject(d->vmeConfig_.get());
-
-    if (d->vmeConfig_ && d->vmeConfigModel_->invisibleRootItem()->child(0))
-    {
-        d->vmeConfigView_->setRootIndex(d->vmeConfigModel_->invisibleRootItem()->child(0)->index());
-    }
+    reloadView();
 
     if (d->vmeConfigFilename_.isEmpty())
         d->le_filename->setText("<unsaved>");
@@ -259,10 +255,11 @@ VmeConfigItemController *MultiCrateMainWindow::getVmeConfigItemController()
 
 void MultiCrateMainWindow::reloadView()
 {
-    if (d->vmeConfig_)
+    d->vmeConfigModel_->setRootObject(d->vmeConfig_.get());
+
+    if (auto firstChild = d->vmeConfigModel_->invisibleRootItem()->child(0))
     {
-        d->vmeConfigModel_->setRootObject(d->vmeConfig_.get());
-        d->vmeConfigView_->setRootIndex(d->vmeConfigModel_->invisibleRootItem()->child(0)->index());
+        d->vmeConfigView_->setRootIndex(firstChild->index());
     }
 }
 
