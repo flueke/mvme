@@ -65,7 +65,7 @@ QList<QStandardItem *> build_multicrate(MulticrateVMEConfig *config)
 
 QList<QStandardItem *> build_vmeconfig(VMEConfig *config)
 {
-    auto root = ItemBuilder(ConfigItemType::VmeConfig, config->objectName())
+    auto root = ItemBuilder(ConfigItemType::VmeConfig, QIcon(":/vme_crate.png"), config->objectName())
         .qObject(config)
         .build();
 

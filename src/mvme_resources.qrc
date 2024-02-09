@@ -59,6 +59,7 @@
     <file alias="text_field_clear.png">resources/ui-text-field-clear-button.png</file>
     <file alias="tree-settings.png">resources/view-list-tree.png</file>
     <file alias="ui_search_field.png">resources/ui-search-field.png</file>
+    <file alias="vme_crate.png">resources/application-icon.png</file>
     <file alias="vme_event.png">resources/application-monitor.png</file>
     <file alias="vme_global_scripts.png">resources/script-globe.png</file>
     <file alias="vme_module.png">resources/audio-card.png</file>
