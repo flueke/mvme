@@ -31,6 +31,9 @@ target_include_directories(cpp11-on-multicore INTERFACE ${CMAKE_CURRENT_SOURCE_D
 # libmesytec-mvlc
 add_subdirectory(mesytec-mvlc)
 
+# pybind11
+add_subdirectory(pybind11)
+
 # googletest
 if (MVME_BUILD_TESTS)
     if (NOT TARGET gtest)
