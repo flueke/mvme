@@ -2,8 +2,10 @@
 #include <pybind11/iostream.h>
 #include <ostream>
 #include <sstream>
-
 #include <iostream>
+#include <QtGlobal>
+#include <spdlog/fmt/fmt.h>
+#include <QByteArray>
 
 namespace py = pybind11;
 using namespace py::literals;
@@ -79,7 +81,8 @@ class BufferedOutputSink
 
         ~BufferedOutputSink()
         {
-            // flush(); // TODO: could flush on destruction
+            // flush(); // TODO: could flush on destruction. Currently it's done
+            // below in PyStdErrOutStreamSinkRedirect.
         }
 
         py::size_t write(py::object py_buffer)
@@ -150,8 +153,22 @@ PYBIND11_EMBEDDED_MODULE(output_redirect, m)
         ;
 }
 
+void put_env(const char *varName, const QByteArray &value)
+{
+    if (!qputenv(varName, value))
+        throw std::runtime_error(fmt::format("Could not set env variable {}", varName));
+}
+
 int main()
 {
+
+#ifdef __WIN32
+    // These variables are needed for the embedded python to work when started from a clean env.
+    // When distributing python with mvme these must be set to the mvme installation directory.
+    put_env("PYTHONHOME", R"(C:\msys64\mingw64\bin)");
+    put_env("PYTHONPATH", R"(C:\msys64\mingw64\lib\python3.10)");
+#endif
+
     py::scoped_interpreter guard{false}; // start the interpreter and keep it alive
 
     std::cerr << ">>>>>>>>>> before first output redirection ====================" << std::endl;
