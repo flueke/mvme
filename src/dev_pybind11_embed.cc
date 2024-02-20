@@ -162,11 +162,13 @@ void put_env(const char *varName, const QByteArray &value)
 int main()
 {
 
+#if 0
 #ifdef __WIN32
     // These variables are needed for the embedded python to work when started from a clean env.
     // When distributing python with mvme these must be set to the mvme installation directory.
     put_env("PYTHONHOME", R"(C:\msys64\mingw64\bin)");
     put_env("PYTHONPATH", R"(C:\msys64\mingw64\lib\python3.10)");
+#endif
 #endif
 
     py::scoped_interpreter guard{false}; // start the interpreter and keep it alive

@@ -33,7 +33,7 @@ add_subdirectory(mesytec-mvlc)
 
 # pybind11
 # To prefer the msys2 python installation over a native one under windows:
-set(Python_FIND_REGISTRY LAST)
+#set(Python_FIND_REGISTRY LAST)
 # Use FindPython so that python related cmake variables are set which does not
 # happen when pybind11 looks for python.
 find_package(Python COMPONENTS Interpreter Development)
