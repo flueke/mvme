@@ -530,7 +530,7 @@ add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
 install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 if (pybind11_FOUND)
     add_mvme_exe(dev_pybind11_embed dev_pybind11_embed.cc)
-    target_link_libraries(dev_pybind11_embed PRIVATE pybind11::embed)
+    target_link_libraries(dev_pybind11_embed PRIVATE pybind11::embed pybind11::lto pybind11::windows_extras)
 endif()
 
 # automated gtests

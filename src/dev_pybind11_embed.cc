@@ -68,13 +68,96 @@ public:
     }
 };
 
+using StringOutputFunc = std::function<void (const std::string &str)>;
+
+class BufferedOutputSink
+{
+    public:
+        BufferedOutputSink(StringOutputFunc sink)
+            : sink_(sink)
+        {}
+
+        ~BufferedOutputSink()
+        {
+            // flush(); // TODO: could flush on destruction
+        }
+
+        py::size_t write(py::object py_buffer)
+        {
+            buffer_ << py_buffer.cast<std::string>();
+            auto result = py::len(py_buffer);
+            return result;
+        }
+
+        void flush()
+        {
+            std::cerr << "[flush!]";
+            if (sink_ && !buffer_.str().empty())
+            {
+                sink_(buffer_.str());
+                buffer_.str({}); // clear the internal string buffer.
+            }
+        }
+
+    private:
+        StringOutputFunc sink_;
+        std::stringstream buffer_;
+};
+
+class PyStdErrOutStreamSinkRedirect
+{
+    public:
+        PyStdErrOutStreamSinkRedirect(StringOutputFunc stdout_sink, StringOutputFunc stderr_sink = {})
+        {
+            // Store previous sys.stdout/stderr objects.
+            auto sysm = py::module::import("sys");
+            prev_stdout_ = sysm.attr("stdout");
+            prev_stderr_ = sysm.attr("stderr");
+
+            // Need to import the output_redirect embedded module for
+            // BufferedOutputSink to be available in python.
+            py::module_::import("output_redirect");
+
+            // Replace sys.stdout/stderr with BufferedOutputSink instances
+            sysm.attr("stdout") = std::make_unique<BufferedOutputSink>(stdout_sink);
+            sysm.attr("stderr") = std::make_unique<BufferedOutputSink>(stderr_sink ? stderr_sink : stdout_sink);
+        }
+
+        ~PyStdErrOutStreamSinkRedirect()
+        {
+            auto sysm = py::module::import("sys");
+
+            // Force flush to the output sinks.
+            sysm.attr("stdout").attr("flush")();
+            sysm.attr("stderr").attr("flush")();
+
+            // Restore previous sys.stdout/stderr objects.
+            sysm.attr("stdout") = prev_stdout_;
+            sysm.attr("stderr") = prev_stderr_;
+        }
+
+    private:
+        py::object prev_stdout_;
+        py::object prev_stderr_;
+};
+
+PYBIND11_EMBEDDED_MODULE(output_redirect, m)
+{
+    py::class_<BufferedOutputSink>(m, "BufferedOutputSink")
+        // Note: no constructor defintion here -> cannot be created from within python.
+        .def("write", &BufferedOutputSink::write)
+        .def("flush", &BufferedOutputSink::flush)
+        ;
+}
+
 int main()
 {
     py::scoped_interpreter guard{false}; // start the interpreter and keep it alive
 
+    std::cerr << ">>>>>>>>>> before first output redirection ====================" << std::endl;
+
     {
         PyStdErrOutStreamRedirect pyOutputRedirect;
-        auto py_stdout = py::module::import("sys").attr("stdout");
 
         //py::print(py_stdout);
         py::print("Hello, World!"); // use the Python API
@@ -98,5 +181,44 @@ int main()
         std::cout << "stdoutString: " << pyOutputRedirect.stdoutString();
     }
 
-    py::print("after output redirection");
+    std::cerr << "========== after first output redirection ====================" << std::endl;
+
+
+    #if 1
+    {
+        auto stdout_sink = [](const std::string &str)
+        {
+            std::cout << "[stdout_sink]: '" << str << "'" << std::endl;
+        };
+
+        auto stderr_sink = [](const std::string &str)
+        {
+            std::cout << "[stderr_sink]: '" << str << "'" << std::endl;
+        };
+
+        PyStdErrOutStreamSinkRedirect pyOutputRedirect(stdout_sink, stderr_sink);
+
+        py::exec(R"(
+            print("Hello Sink!")
+            )");
+    }
+    #else
+    {
+        auto stdout_sink_func = [](const std::string &str)
+        {
+            std::cout << "[stdout_sink]: '" << str << "'" << std::endl;
+        };
+
+        auto redir_module = py::module_::import("output_redirect"); // So that python knows about BufferedOutpuSink.
+        auto stdout_sink = std::make_unique<BufferedOutputSink>(stdout_sink_func);
+        py::module_::import("sys").attr("stdout") = std::move(stdout_sink);
+        py::exec(R"(
+            print("Hello Sink!")
+            )");
+        // Force flush the BufferedOutputSink here
+        py::module_::import("sys").attr("stdout").attr("flush")();
+    }
+    #endif
+
+    std::cerr  << "<<<<<<<<<< after second output redirection ====================" << std::endl;
 }
