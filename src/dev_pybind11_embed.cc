@@ -5,7 +5,11 @@
 #include <iostream>
 #include <QtGlobal>
 #include <spdlog/fmt/fmt.h>
+
 #include <QByteArray>
+#include <QCoreApplication> // QCoreApplication::applicationDirPath()
+#include <QFileInfo>
+#include <QDebug>
 
 namespace py = pybind11;
 using namespace py::literals;
@@ -157,18 +161,32 @@ void put_env(const char *varName, const QByteArray &value)
 {
     if (!qputenv(varName, value))
         throw std::runtime_error(fmt::format("Could not set env variable {}", varName));
+    qDebug() << "put_env" << varName << "=" << value;
 }
 
-int main()
+// TODO: test
+int main(int argc, char *argv[])
 {
+    QCoreApplication app(argc, argv);
 
-#if 0
 #ifdef __WIN32
     // These variables are needed for the embedded python to work when started from a clean env.
     // When distributing python with mvme these must be set to the mvme installation directory.
-    put_env("PYTHONHOME", R"(C:\msys64\mingw64\bin)");
-    put_env("PYTHONPATH", R"(C:\msys64\mingw64\lib\python3.10)");
-#endif
+    //put_env("PYTHONHOME", R"(C:\msys64\mingw64\bin)");
+    //put_env("PYTHONPATH", R"(C:\msys64\mingw64\lib\python3.10)");
+
+    {
+        // Windows deployment contains the embeddable python under 'bin/python'.
+        auto localPyPath = QCoreApplication::applicationDirPath() + "/python";
+        qDebug() << "checking for local py path:" << localPyPath;
+        QFileInfo pyPathInfo(localPyPath);
+
+        if (pyPathInfo.isDir())
+        {
+            put_env("PYTHONHOME", pyPathInfo.absolutePath().toLocal8Bit());
+        }
+    }
+
 #endif
 
     py::scoped_interpreter guard{false}; // start the interpreter and keep it alive
