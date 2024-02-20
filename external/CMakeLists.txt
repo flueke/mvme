@@ -32,7 +32,27 @@ target_include_directories(cpp11-on-multicore INTERFACE ${CMAKE_CURRENT_SOURCE_D
 add_subdirectory(mesytec-mvlc)
 
 # pybind11
+# To prefer the msys2 python installation over a native one under windows:
+set(Python_FIND_REGISTRY LAST)
+# Use FindPython so that python related cmake variables are set which does not
+# happen when pybind11 looks for python.
+find_package(Python COMPONENTS Interpreter Development)
 add_subdirectory(pybind11)
+if (pybind11_FOUND)
+    include(CMakePrintHelpers)
+    cmake_print_variables(
+        Python_FOUND
+        Python_EXECUTABLE
+        Python_LIBRARY
+        Python_STDLIB
+        Python_SITELIB
+        Python_LIBRARY_DIRS
+    )
+# => Python_FOUND="TRUE" ; Python_EXECUTABLE="C:/msys64/mingw64/bin/python3.10.exe" ; Python_LIBRARY="" ; Python_STDLIB="C:\msys64\mingw64\lib\python3.10" ; Python_SITELIB="C:\msys64\mingw64\lib\python3.10\site-packages" ; Python_LIBRARY_DIRS="C:/msys64/mingw64/lib
+# Try setting up the following env variables:
+# PYTHONPATH=C:\msys64\mingw64\lib\python3.10 (Python_STDLIB)
+# PYTHONHOME=C:\msys64\mingw64\bin (dirname of Python_EXECUTABLE)
+endif()
 
 # googletest
 if (MVME_BUILD_TESTS)
