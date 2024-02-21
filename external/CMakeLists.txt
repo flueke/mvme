@@ -63,4 +63,9 @@ if(NOT nng)
     #install(TARGETS nng) # Only needed when BUILD_SHARED_LIBS=ON and/or the
     #headers should be installed.
 
+    if (LINUX)
+        set_target_properties(nng PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
+
+
 endif()
