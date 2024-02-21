@@ -1172,16 +1172,17 @@ Operator make_difference(
     PipeVectors inPipeA,
     PipeVectors inPipeB)
 {
-    assert(inPipeA.data.size == inPipeB.data.size);
-
     auto result = make_operator(arena, Operator_Difference, 2, 1);
 
     assign_input(&result, inPipeA, 0);
     assign_input(&result, inPipeB, 1);
 
-    push_output_vectors(arena, &result, 0, inPipeA.data.size);
+    // Use the smaller of the input sizes.
+    auto output_size = std::min(inPipeA.data.size, inPipeB.data.size);
 
-    for (s32 idx = 0; idx < inPipeA.data.size; idx++)
+    push_output_vectors(arena, &result, 0, output_size);
+
+    for (s32 idx = 0; idx < output_size; idx++)
     {
         result.outputLowerLimits[0][idx] = inPipeA.lowerLimits[idx] - inPipeB.upperLimits[idx];
         result.outputUpperLimits[0][idx] = inPipeA.upperLimits[idx] - inPipeB.lowerLimits[idx];
@@ -1225,14 +1226,13 @@ void difference_step(Operator *op, A2 *)
 {
     assert(op->inputCount == 2);
     assert(op->outputCount == 1);
-    assert(op->inputs[0].size == op->outputs[0].size);
-    assert(op->inputs[1].size == op->outputs[0].size);
     assert(op->type == Operator_Difference);
-
 
     auto inputA = op->inputs[0];
     auto inputB = op->inputs[1];
-    auto maxIdx = inputA.size;
+    const auto maxIdx = std::min(inputA.size, inputB.size);
+
+    assert(op->outputs[0].size >= maxIdx);
 
     for (auto idx = 0; idx < maxIdx; idx++)
     {
