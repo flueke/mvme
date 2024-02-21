@@ -1,5 +1,5 @@
 //
-// Copyright 2018 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2023 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 //
 // This software is supplied under the terms of the MIT License, a
@@ -27,13 +27,9 @@
 extern "C" {
 #endif
 
-// nng_time represents an absolute time since some arbitrary point in the
-// past, measured in milliseconds.  The values are always positive.
-typedef uint64_t nng_time;
-
 // Return an absolute time from some arbitrary point.  The value is
 // provided in milliseconds, and is of limited resolution based on the
-// system clock.  (Do not use it for fine grained performance measurements.)
+// system clock.  (Do not use it for fine-grained performance measurements.)
 NNG_DECL nng_time nng_clock(void);
 
 // Sleep for specified msecs.
@@ -103,6 +99,13 @@ NNG_DECL void nng_cv_wake1(nng_cv *);
 
 // nng_random returns a "strong" (cryptographic sense) random number.
 NNG_DECL uint32_t nng_random(void);
+
+// nng_socket_pair is used to create a bound pair of file descriptors
+// typically using the socketpair() call.  The descriptors are backed
+// by reliable, bidirectional, byte streams.  This will return NNG_ENOTSUP
+// if the platform lacks support for this.  The argument is a pointer
+// to an array of file descriptors (or HANDLES or similar).
+NNG_DECL int nng_socket_pair(int [2]);
 
 #ifdef __cplusplus
 }
