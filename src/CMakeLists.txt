@@ -527,10 +527,13 @@ install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTI
 
 # mvlc vmeconfig -> crateconfig debug tool
 add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
+
+# XXX: pybind::embed testing
 install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 if (pybind11_FOUND)
     add_mvme_exe(dev_pybind11_embed dev_pybind11_embed.cc)
     target_link_libraries(dev_pybind11_embed PRIVATE pybind11::embed pybind11::lto pybind11::windows_extras)
+    install(TARGETS dev_pybind11_embed RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 endif()
 
 # automated gtests
