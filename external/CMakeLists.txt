@@ -51,7 +51,16 @@ if(NOT nng)
     message("-- Using nng from external/nng")
     set(NNG_TESTS OFF)
     set(NNG_ENABLE_NNGCAT OFF)
-    set(BUILD_SHARED_LIBS ON)
+    #set(BUILD_SHARED_LIBS ON)
     add_subdirectory(nng)
-    install(TARGETS nng)
+
+    # nng sets these to "${PROJECT_BINARY_DIR}" which means the dll/a/so files
+    # ends up in build/external/nng. When debugging under windows the loader
+    # will not look there for libs. Solution: force output to end up in the
+    # build root directory. Only needed when BUILD_SHARED_LIBS=ON!
+    #set_target_properties(nng PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    #set_target_properties(nng PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    #install(TARGETS nng) # Only needed when BUILD_SHARED_LIBS=ON and/or the
+    #headers should be installed.
+
 endif()
