@@ -90,11 +90,19 @@ int main(int argc, char *argv[])
     }
 
 #ifdef MVME_ENABLE_PROMETHEUS
+    // This variable is here to keep the prom context alive in main! This is to
+    // avoid a hang when the internal civetweb instance is destroyed from within
+    // a DLL (https://github.com/civetweb/civetweb/issues/264). By having this
+    // variable on the stack the destructor is called from mvme.exe, not from
+    // within libmvme.dll.
+    std::shared_ptr<mesytec::mvme::PrometheusContext> prom;
     try
     {
         auto promBindAddress = QSettings().value("PrometheusBindAddress", "0.0.0.0:13802").toString().toStdString();
-        mesytec::mvme::set_prometheus_instance(std::make_shared<mesytec::mvme::PrometheusContext>(promBindAddress));
-        std::cout << "Prometheus server listening on port " << mesytec::mvme::get_prometheus_instance()->exposer().GetListeningPorts().front() << "\n";
+        prom = std::make_shared<mesytec::mvme::PrometheusContext>();
+        prom->start(promBindAddress);
+        std::cout << "Prometheus server listening on port " << prom->exposer()->GetListeningPorts().front() << "\n";
+        mesytec::mvme::set_prometheus_instance(prom); // Register the prom object globally.
     }
     catch (const std::exception &e)
     {
@@ -170,6 +178,10 @@ int main(int argc, char *argv[])
     int ret = app.exec();
 
     mvme_shutdown();
+
+#ifdef MVME_ENABLE_PROMETHEUS
+    if (prom) prom->stop();
+#endif
 
     return ret;
 }
