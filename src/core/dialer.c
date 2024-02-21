@@ -259,7 +259,7 @@ nni_dialer_create(nni_dialer **dp, nni_sock *s, const char *url_str)
 	nni_aio_init(&d->d_tmo_aio, dialer_timer_cb, d);
 
 	nni_mtx_lock(&dialers_lk);
-	rv = nni_id_alloc(&dialers, &d->d_id, d);
+	rv = nni_id_alloc32(&dialers, &d->d_id, d);
 	nni_mtx_unlock(&dialers_lk);
 
 #ifdef NNG_ENABLE_STATS
@@ -411,7 +411,7 @@ int
 nni_dialer_start(nni_dialer *d, unsigned flags)
 {
 	int      rv = 0;
-	nni_aio *aio;
+	nni_aio *aio = NULL;
 
 	if (nni_atomic_flag_test_and_set(&d->d_started)) {
 		return (NNG_ESTATE);

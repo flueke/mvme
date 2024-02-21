@@ -1,5 +1,5 @@
 //
-// Copyright 2023 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 //
 // This software is supplied under the terms of the MIT License, a
@@ -47,7 +47,7 @@ extern "C" {
 
 #ifndef NNG_DEPRECATED
 #if defined(__GNUC__) || defined(__clang__)
-#define NNG_DEPRECATED __attribute__ ((deprecated))
+#define NNG_DEPRECATED __attribute__((deprecated))
 #else
 #define NNG_DEPRECATED
 #endif
@@ -57,9 +57,10 @@ extern "C" {
 // We use SemVer, and these versions are about the API, and
 // may not necessarily match the ABI versions.
 #define NNG_MAJOR_VERSION 1
-#define NNG_MINOR_VERSION 6
-#define NNG_PATCH_VERSION 0
-#define NNG_RELEASE_SUFFIX "" // if non-empty (i.e. "pre"), this is a pre-release
+#define NNG_MINOR_VERSION 7
+#define NNG_PATCH_VERSION 2
+#define NNG_RELEASE_SUFFIX \
+	"" // if non-empty (i.e. "pre"), this is a pre-release
 
 // Maximum length of a socket address. This includes the terminating NUL.
 // This limit is built into other implementations, so do not change it.
@@ -71,7 +72,7 @@ extern "C" {
 // NNG_PROTOCOL_NUMBER is used by protocol headers to calculate their
 // protocol number from a major and minor number.  Applications should
 // probably not need to use this.
-#define NNG_PROTOCOL_NUMBER(maj, min) (((x) *16) + (y))
+#define NNG_PROTOCOL_NUMBER(maj, min) (((x) * 16) + (y))
 
 // Types common to nng.
 
@@ -101,7 +102,12 @@ typedef struct nng_socket_s {
 	uint32_t id;
 } nng_socket;
 
-typedef int32_t         nng_duration; // in milliseconds
+typedef int32_t nng_duration; // in milliseconds
+
+// nng_time represents an absolute time since some arbitrary point in the
+// past, measured in milliseconds.  The values are always positive.
+typedef uint64_t nng_time;
+
 typedef struct nng_msg  nng_msg;
 typedef struct nng_stat nng_stat;
 typedef struct nng_aio  nng_aio;
@@ -154,7 +160,7 @@ struct nng_sockaddr_abstract {
 	uint8_t  sa_name[107]; // 108 linux/windows, without leading NUL
 };
 
-// nng_sockaddr_storage is the the size required to store any nng_sockaddr.
+// nng_sockaddr_storage is the size required to store any nng_sockaddr.
 // This size must not change, and no individual nng_sockaddr type may grow
 // larger than this without breaking binary compatibility.
 struct nng_sockaddr_storage {
@@ -194,7 +200,7 @@ enum nng_sockaddr_family {
 
 // Scatter/gather I/O.
 typedef struct nng_iov {
-	void * iov_buf;
+	void  *iov_buf;
 	size_t iov_len;
 } nng_iov;
 
@@ -354,7 +360,7 @@ NNG_DECL int nng_listener_get_ptr(nng_listener, const char *, void **);
 NNG_DECL int nng_listener_get_ms(nng_listener, const char *, nng_duration *);
 NNG_DECL int nng_listener_get_addr(nng_listener, const char *, nng_sockaddr *);
 
-// nng_strerror returns a human readable string associated with the error
+// nng_strerror returns a human-readable string associated with the error
 // code supplied.
 NNG_DECL const char *nng_strerror(int);
 
@@ -380,7 +386,7 @@ NNG_DECL int nng_recv(nng_socket, void *, size_t *, int);
 // nng_sendmsg is like nng_send, but offers up a message structure, which
 // gives the ability to provide more control over the message, including
 // providing backtrace information.  It also can take a message that was
-// obtain via nn_recvmsg, allowing for zero copy forwarding.
+// obtained via nn_recvmsg, allowing for zero copy forwarding.
 NNG_DECL int nng_sendmsg(nng_socket, nng_msg *, int);
 
 // nng_recvmsg is like nng_recv, but is used to obtain a message structure
@@ -393,7 +399,7 @@ NNG_DECL int nng_recvmsg(nng_socket, nng_msg **, int);
 // the completion may be executed before the data has actually been delivered,
 // but only when it is accepted for delivery.  The supplied AIO must have
 // been initialized, and have an associated message.  The message will be
-// "owned" by the socket if the operation completes successfully.  Otherwise
+// "owned" by the socket if the operation completes successfully.  Otherwise,
 // the caller is responsible for freeing it.
 NNG_DECL void nng_send_aio(nng_socket, nng_aio *);
 
@@ -429,7 +435,7 @@ NNG_DECL int nng_ctx_id(nng_ctx);
 // uses a local context instead of the socket global context.
 NNG_DECL void nng_ctx_recv(nng_ctx, nng_aio *);
 
-// nng_ctx_recvmsg is allows for receiving a message synchronously using
+// nng_ctx_recvmsg allows for receiving a message synchronously using
 // a context.  It has the same semantics as nng_recvmsg, but operates
 // on a context instead of a socket.
 NNG_DECL int nng_ctx_recvmsg(nng_ctx, nng_msg **, int);
@@ -515,7 +521,7 @@ NNG_DECL void nng_aio_reap(nng_aio *);
 
 // nng_aio_stop stops any outstanding operation, and waits for the
 // AIO to be free, including for the callback to have completed
-// execution.  Therefore the caller must NOT hold any locks that
+// execution.  Therefore, the caller must NOT hold any locks that
 // are acquired in the callback, or deadlock will occur.
 NNG_DECL void nng_aio_stop(nng_aio *);
 
@@ -578,6 +584,11 @@ NNG_DECL void *nng_aio_get_output(nng_aio *, unsigned);
 // that any socket specific timeout should be used.
 NNG_DECL void nng_aio_set_timeout(nng_aio *, nng_duration);
 
+// nng_aio_set_expire is like nng_aio_set_timeout, except it sets an absolute
+// expiration time.  This is useful when chaining actions on a single aio
+// as part of a state machine.
+NNG_DECL void nng_aio_set_expire(nng_aio *, nng_time);
+
 // nng_aio_set_iov sets a scatter/gather vector on the aio.  The iov array
 // itself is copied. Data members (the memory regions referenced) *may* be
 // copied as well, depending on the operation.  This operation is guaranteed
@@ -606,7 +617,7 @@ NNG_DECL void nng_aio_finish(nng_aio *, int);
 // final argument is passed to the cancelfn.  The final argument of the
 // cancellation function is the error number (will not be zero) corresponding
 // to the reason for cancellation, e.g. NNG_ETIMEDOUT or NNG_ECANCELED.
-typedef void (*nng_aio_cancelfn)(nng_aio *, void *, int);
+typedef void  (*nng_aio_cancelfn)(nng_aio *, void *, int);
 NNG_DECL void nng_aio_defer(nng_aio *, nng_aio_cancelfn, void *);
 
 // nng_aio_sleep does a "sleeping" operation, basically does nothing
@@ -620,9 +631,9 @@ NNG_DECL void     nng_msg_free(nng_msg *);
 NNG_DECL int      nng_msg_realloc(nng_msg *, size_t);
 NNG_DECL int      nng_msg_reserve(nng_msg *, size_t);
 NNG_DECL size_t   nng_msg_capacity(nng_msg *);
-NNG_DECL void *   nng_msg_header(nng_msg *);
+NNG_DECL void    *nng_msg_header(nng_msg *);
 NNG_DECL size_t   nng_msg_header_len(const nng_msg *);
-NNG_DECL void *   nng_msg_body(nng_msg *);
+NNG_DECL void    *nng_msg_body(nng_msg *);
 NNG_DECL size_t   nng_msg_len(const nng_msg *);
 NNG_DECL int      nng_msg_append(nng_msg *, const void *, size_t);
 NNG_DECL int      nng_msg_insert(nng_msg *, const void *, size_t);
@@ -683,7 +694,7 @@ NNG_DECL nng_dialer   nng_pipe_dialer(nng_pipe);
 NNG_DECL nng_listener nng_pipe_listener(nng_pipe);
 
 // Flags.
-#define NNG_FLAG_ALLOC 1u // Recv to allocate receive buffer
+#define NNG_FLAG_ALLOC 1u    // Recv to allocate receive buffer
 #define NNG_FLAG_NONBLOCK 2u // Non-blocking operations
 
 // Options.
@@ -709,8 +720,8 @@ NNG_DECL nng_listener nng_pipe_listener(nng_pipe);
 
 // TLS options are only used when the underlying transport supports TLS.
 
-// NNG_OPT_TLS_CONFIG is a pointer to an nng_tls_config object.  Generally
-// this can used with endpoints, although once an endpoint is started, or
+// NNG_OPT_TLS_CONFIG is a pointer to a nng_tls_config object.  Generally
+// this can be used with endpoints, although once an endpoint is started, or
 // once a configuration is used, the value becomes read-only. Note that
 // when configuring the object, a hold is placed on the TLS configuration,
 // using a reference count.  When retrieving the object, no such hold is
@@ -730,7 +741,7 @@ NNG_DECL nng_listener nng_pipe_listener(nng_pipe);
 
 // NNG_OPT_TLS_CERT_KEY_FILE names a single file that contains a certificate
 // and key identifying the endpoint.  This is a write-only value.  This can be
-// set multiple times for times for different keys/certs corresponding to
+// set multiple times for different keys/certs corresponding to
 // different algorithms on listeners, whereas dialers only support one.  The
 // file must contain both cert and key as PEM blocks, and the key must
 // not be encrypted.  (If more flexibility is needed, use the TLS configuration
@@ -750,13 +761,13 @@ NNG_DECL nng_listener nng_pipe_listener(nng_pipe);
 #define NNG_OPT_TLS_SERVER_NAME "tls-server-name"
 
 // NNG_OPT_TLS_VERIFIED returns a boolean indicating whether the peer has
-// been verified (true) or not (false). Typically this is read-only, and
+// been verified (true) or not (false). Typically, this is read-only, and
 // only available for pipes. This option may return incorrect results if
 // peer authentication is disabled with `NNG_TLS_AUTH_MODE_NONE`.
 #define NNG_OPT_TLS_VERIFIED "tls-verified"
 
 // NNG_OPT_TLS_PEER_CN returns the string with the common name
-// of the peer certificate. Typically this is read-only and
+// of the peer certificate. Typically, this is read-only and
 // only available for pipes. This option may return incorrect results if
 // peer authentication is disabled with `NNG_TLS_AUTH_MODE_NONE`.
 #define NNG_OPT_TLS_PEER_CN "tls-peer-cn"
@@ -811,24 +822,30 @@ NNG_DECL nng_listener nng_pipe_listener(nng_pipe);
 // this for security.
 #define NNG_OPT_IPC_PERMISSIONS "ipc:permissions"
 
+// IPC peer options may also be used in some cases with other socket types.
+
 // Peer UID.  This is only available on POSIX style systems.
-#define NNG_OPT_IPC_PEER_UID "ipc:peer-uid"
+#define NNG_OPT_PEER_UID "ipc:peer-uid"
+#define NNG_OPT_IPC_PEER_UID NNG_OPT_PEER_UID
 
 // Peer GID (primary group).  This is only available on POSIX style systems.
-#define NNG_OPT_IPC_PEER_GID "ipc:peer-gid"
+#define NNG_OPT_PEER_GID "ipc:peer-gid"
+#define NNG_OPT_IPC_PEER_GID NNG_OPT_PEER_GID
 
 // Peer process ID.  Available on Windows, Linux, and SunOS.
-// In theory we could obtain this with the first message sent,
+// In theory, we could obtain this with the first message sent,
 // but we have elected not to do this for now. (Nice RFE for a FreeBSD
 // guru though.)
-#define NNG_OPT_IPC_PEER_PID "ipc:peer-pid"
+#define NNG_OPT_PEER_PID "ipc:peer-pid"
+#define NNG_OPT_IPC_PEER_PID NNG_OPT_PEER_PID
 
 // Peer Zone ID.  Only on SunOS systems.  (Linux containers have no
 // definable kernel identity; they are a user-land fabrication made up
 // from various pieces of different namespaces. FreeBSD does have
 // something called JailIDs, but it isn't obvious how to determine this,
 // or even if processes can use IPC across jail boundaries.)
-#define NNG_OPT_IPC_PEER_ZONEID "ipc:peer-zoneid"
+#define NNG_OPT_PEER_ZONEID "ipc:peer-zoneid"
+#define NNG_OPT_IPC_PEER_ZONEID NNG_OPT_PEER_ZONEID
 
 // WebSocket Options.
 
@@ -893,6 +910,16 @@ NNG_DECL nng_listener nng_pipe_listener(nng_pipe);
 // peers that cannot be coerced into sending binary frames.
 #define NNG_OPT_WS_RECV_TEXT "ws:recv-text"
 
+// NNG_OPT_SOCKET_FD is a write-only integer property that is used to
+// file descriptors (or FILE HANDLE objects on Windows) to a
+// socket:// based listener.  This file descriptor will be taken
+// over and used as a stream connection.  The protocol is compatible
+// with SP over TCP.  This facility is experimental, and intended to
+// allow use with descriptors created via socketpair() or similar.
+// Note that unidirectional pipes (such as those from pipe(2) or mkfifo)
+// are not supported.
+#define NNG_OPT_SOCKET_FD "socket:fd"
+
 // XXX: TBD: priorities, ipv4only
 
 // Statistics. These are for informational purposes only, and subject
@@ -927,7 +954,7 @@ NNG_DECL nng_stat *nng_stat_next(nng_stat *);
 NNG_DECL nng_stat *nng_stat_child(nng_stat *);
 
 // nng_stat_name is used to determine the name of the statistic.
-// This is a human readable name.  Statistic names, as well as the presence
+// This is a human-readable name.  Statistic names, as well as the presence
 // or absence or semantic of any particular statistic are not part of any
 // stable API, and may be changed without notice in future updates.
 NNG_DECL const char *nng_stat_name(nng_stat *);
@@ -974,14 +1001,12 @@ enum nng_unit_enum {
 	NNG_UNIT_EVENTS   = 4  // Some other type of event
 };
 
-// nng_stat_value returns returns the actual value of the statistic.
+// nng_stat_value returns the actual value of the statistic.
 // Statistic values reflect their value at the time that the corresponding
 // snapshot was updated, and are undefined until an update is performed.
 NNG_DECL uint64_t nng_stat_value(nng_stat *);
 
-// nng_stat_value returns returns the actual value of the statistic.
-// Statistic values reflect their value at the time that the corresponding
-// snapshot was updated, and are undefined until an update is performed.
+// nng_stat_bool returns the boolean value of the statistic.
 NNG_DECL bool nng_stat_bool(nng_stat *);
 
 // nng_stat_string returns the string associated with a string statistic,
@@ -989,7 +1014,7 @@ NNG_DECL bool nng_stat_bool(nng_stat *);
 // is valid until the associated statistic is freed.
 NNG_DECL const char *nng_stat_string(nng_stat *);
 
-// nng_stat_desc returns a human readable description of the statistic.
+// nng_stat_desc returns a human-readable description of the statistic.
 // This may be useful for display in diagnostic interfaces, etc.
 NNG_DECL const char *nng_stat_desc(nng_stat *);
 
@@ -1226,7 +1251,6 @@ NNG_DECL int nng_stream_listener_set_ptr(
 NNG_DECL int nng_stream_listener_set_addr(
     nng_stream_listener *, const char *, const nng_sockaddr *);
 
-
 #ifndef NNG_ELIDE_DEPRECATED
 // These are legacy APIs that have been deprecated.
 // Their use is strongly discouraged.
@@ -1236,95 +1260,211 @@ NNG_DECL int nng_stream_listener_set_addr(
 NNG_DECL int nng_msg_getopt(nng_msg *, int, void *, size_t *) NNG_DEPRECATED;
 
 // Socket options.  Use nng_socket_get and nng_socket_set instead.
-NNG_DECL int nng_getopt(nng_socket, const char *, void *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_getopt(
+    nng_socket, const char *, void *, size_t *) NNG_DEPRECATED;
 NNG_DECL int nng_getopt_bool(nng_socket, const char *, bool *) NNG_DEPRECATED;
 NNG_DECL int nng_getopt_int(nng_socket, const char *, int *) NNG_DEPRECATED;
-NNG_DECL int nng_getopt_ms(nng_socket, const char *, nng_duration *) NNG_DEPRECATED;
-NNG_DECL int nng_getopt_size(nng_socket, const char *, size_t *) NNG_DEPRECATED;
-NNG_DECL int nng_getopt_uint64(nng_socket, const char *, uint64_t *) NNG_DEPRECATED;
+NNG_DECL int nng_getopt_ms(
+    nng_socket, const char *, nng_duration *) NNG_DEPRECATED;
+NNG_DECL int nng_getopt_size(
+    nng_socket, const char *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_getopt_uint64(
+    nng_socket, const char *, uint64_t *) NNG_DEPRECATED;
 NNG_DECL int nng_getopt_ptr(nng_socket, const char *, void **) NNG_DEPRECATED;
-NNG_DECL int nng_getopt_string(nng_socket, const char *, char **) NNG_DEPRECATED;
-NNG_DECL int nng_setopt(nng_socket, const char *, const void *, size_t) NNG_DEPRECATED;
+NNG_DECL int nng_getopt_string(
+    nng_socket, const char *, char **) NNG_DEPRECATED;
+NNG_DECL int nng_setopt(
+    nng_socket, const char *, const void *, size_t) NNG_DEPRECATED;
 NNG_DECL int nng_setopt_bool(nng_socket, const char *, bool) NNG_DEPRECATED;
 NNG_DECL int nng_setopt_int(nng_socket, const char *, int) NNG_DEPRECATED;
-NNG_DECL int nng_setopt_ms(nng_socket, const char *, nng_duration) NNG_DEPRECATED;
+NNG_DECL int nng_setopt_ms(
+    nng_socket, const char *, nng_duration) NNG_DEPRECATED;
 NNG_DECL int nng_setopt_size(nng_socket, const char *, size_t) NNG_DEPRECATED;
-NNG_DECL int nng_setopt_uint64(nng_socket, const char *, uint64_t) NNG_DEPRECATED;
-NNG_DECL int nng_setopt_string(nng_socket, const char *, const char *) NNG_DEPRECATED;
+NNG_DECL int nng_setopt_uint64(
+    nng_socket, const char *, uint64_t) NNG_DEPRECATED;
+NNG_DECL int nng_setopt_string(
+    nng_socket, const char *, const char *) NNG_DEPRECATED;
 NNG_DECL int nng_setopt_ptr(nng_socket, const char *, void *) NNG_DEPRECATED;
 
 // Context options.  Use nng_ctx_get and nng_ctx_set instead.
-NNG_DECL int nng_ctx_getopt(nng_ctx, const char *, void *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_ctx_getopt(
+    nng_ctx, const char *, void *, size_t *) NNG_DEPRECATED;
 NNG_DECL int nng_ctx_getopt_bool(nng_ctx, const char *, bool *) NNG_DEPRECATED;
 NNG_DECL int nng_ctx_getopt_int(nng_ctx, const char *, int *) NNG_DEPRECATED;
-NNG_DECL int nng_ctx_getopt_ms(nng_ctx, const char *, nng_duration *) NNG_DEPRECATED;
-NNG_DECL int nng_ctx_getopt_size(nng_ctx, const char *, size_t *) NNG_DEPRECATED;
-NNG_DECL int nng_ctx_setopt(nng_ctx, const char *, const void *, size_t) NNG_DEPRECATED;
+NNG_DECL int nng_ctx_getopt_ms(
+    nng_ctx, const char *, nng_duration *) NNG_DEPRECATED;
+NNG_DECL int nng_ctx_getopt_size(
+    nng_ctx, const char *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_ctx_setopt(
+    nng_ctx, const char *, const void *, size_t) NNG_DEPRECATED;
 NNG_DECL int nng_ctx_setopt_bool(nng_ctx, const char *, bool) NNG_DEPRECATED;
 NNG_DECL int nng_ctx_setopt_int(nng_ctx, const char *, int) NNG_DEPRECATED;
-NNG_DECL int nng_ctx_setopt_ms(nng_ctx, const char *, nng_duration) NNG_DEPRECATED;
+NNG_DECL int nng_ctx_setopt_ms(
+    nng_ctx, const char *, nng_duration) NNG_DEPRECATED;
 NNG_DECL int nng_ctx_setopt_size(nng_ctx, const char *, size_t) NNG_DEPRECATED;
 
 // Dialer options.  Use nng_dialer_get and nng_dialer_set instead.
-NNG_DECL int nng_dialer_getopt(nng_dialer, const char *, void *, size_t *) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_getopt_bool(nng_dialer, const char *, bool *) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_getopt_int(nng_dialer, const char *, int *) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_getopt_ms(nng_dialer, const char *, nng_duration *) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_getopt_size(nng_dialer, const char *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt(
+    nng_dialer, const char *, void *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt_bool(
+    nng_dialer, const char *, bool *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt_int(
+    nng_dialer, const char *, int *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt_ms(
+    nng_dialer, const char *, nng_duration *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt_size(
+    nng_dialer, const char *, size_t *) NNG_DEPRECATED;
 NNG_DECL int nng_dialer_getopt_sockaddr(
     nng_dialer, const char *, nng_sockaddr *) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_getopt_uint64(nng_dialer, const char *, uint64_t *) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_getopt_ptr(nng_dialer, const char *, void **) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_getopt_string(nng_dialer, const char *, char **) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt(nng_dialer, const char *, const void *, size_t) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt_bool(nng_dialer, const char *, bool) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt_int(nng_dialer, const char *, int) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt_ms(nng_dialer, const char *, nng_duration) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt_size(nng_dialer, const char *, size_t) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt_uint64(nng_dialer, const char *, uint64_t) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt_ptr(nng_dialer, const char *, void *) NNG_DEPRECATED;
-NNG_DECL int nng_dialer_setopt_string(nng_dialer, const char *, const char *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt_uint64(
+    nng_dialer, const char *, uint64_t *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt_ptr(
+    nng_dialer, const char *, void **) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_getopt_string(
+    nng_dialer, const char *, char **) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt(
+    nng_dialer, const char *, const void *, size_t) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt_bool(
+    nng_dialer, const char *, bool) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt_int(
+    nng_dialer, const char *, int) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt_ms(
+    nng_dialer, const char *, nng_duration) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt_size(
+    nng_dialer, const char *, size_t) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt_uint64(
+    nng_dialer, const char *, uint64_t) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt_ptr(
+    nng_dialer, const char *, void *) NNG_DEPRECATED;
+NNG_DECL int nng_dialer_setopt_string(
+    nng_dialer, const char *, const char *) NNG_DEPRECATED;
 
 // Listener options.  Use nng_listener_get and nng_listener_set instead.
-NNG_DECL int nng_listener_getopt(nng_listener, const char *, void *, size_t *) NNG_DEPRECATED;
-NNG_DECL int nng_listener_getopt_bool(nng_listener, const char *, bool *) NNG_DEPRECATED;
-NNG_DECL int nng_listener_getopt_int(nng_listener, const char *, int *) NNG_DEPRECATED;
+NNG_DECL int nng_listener_getopt(
+    nng_listener, const char *, void *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_listener_getopt_bool(
+    nng_listener, const char *, bool *) NNG_DEPRECATED;
+NNG_DECL int nng_listener_getopt_int(
+    nng_listener, const char *, int *) NNG_DEPRECATED;
 NNG_DECL int nng_listener_getopt_ms(
     nng_listener, const char *, nng_duration *) NNG_DEPRECATED;
-NNG_DECL int nng_listener_getopt_size(nng_listener, const char *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_listener_getopt_size(
+    nng_listener, const char *, size_t *) NNG_DEPRECATED;
 NNG_DECL int nng_listener_getopt_sockaddr(
     nng_listener, const char *, nng_sockaddr *) NNG_DEPRECATED;
 NNG_DECL int nng_listener_getopt_uint64(
     nng_listener, const char *, uint64_t *) NNG_DEPRECATED;
-NNG_DECL int nng_listener_getopt_ptr(nng_listener, const char *, void **) NNG_DEPRECATED;
-NNG_DECL int nng_listener_getopt_string(nng_listener, const char *, char **) NNG_DEPRECATED;
+NNG_DECL int nng_listener_getopt_ptr(
+    nng_listener, const char *, void **) NNG_DEPRECATED;
+NNG_DECL int nng_listener_getopt_string(
+    nng_listener, const char *, char **) NNG_DEPRECATED;
 NNG_DECL int nng_listener_setopt(
     nng_listener, const char *, const void *, size_t) NNG_DEPRECATED;
-NNG_DECL int nng_listener_setopt_bool(nng_listener, const char *, bool) NNG_DEPRECATED;
-NNG_DECL int nng_listener_setopt_int(nng_listener, const char *, int) NNG_DEPRECATED;
-NNG_DECL int nng_listener_setopt_ms(nng_listener, const char *, nng_duration) NNG_DEPRECATED;
-NNG_DECL int nng_listener_setopt_size(nng_listener, const char *, size_t) NNG_DEPRECATED;
-NNG_DECL int nng_listener_setopt_uint64(nng_listener, const char *, uint64_t) NNG_DEPRECATED;
-NNG_DECL int nng_listener_setopt_ptr(nng_listener, const char *, void *) NNG_DEPRECATED;
+NNG_DECL int nng_listener_setopt_bool(
+    nng_listener, const char *, bool) NNG_DEPRECATED;
+NNG_DECL int nng_listener_setopt_int(
+    nng_listener, const char *, int) NNG_DEPRECATED;
+NNG_DECL int nng_listener_setopt_ms(
+    nng_listener, const char *, nng_duration) NNG_DEPRECATED;
+NNG_DECL int nng_listener_setopt_size(
+    nng_listener, const char *, size_t) NNG_DEPRECATED;
+NNG_DECL int nng_listener_setopt_uint64(
+    nng_listener, const char *, uint64_t) NNG_DEPRECATED;
+NNG_DECL int nng_listener_setopt_ptr(
+    nng_listener, const char *, void *) NNG_DEPRECATED;
 NNG_DECL int nng_listener_setopt_string(
     nng_listener, const char *, const char *) NNG_DEPRECATED;
 
 // Pipe options.  Use nng_pipe_get instead.
-NNG_DECL int nng_pipe_getopt(nng_pipe, const char *, void *, size_t *) NNG_DEPRECATED;
-NNG_DECL int nng_pipe_getopt_bool(nng_pipe, const char *, bool *) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt(
+    nng_pipe, const char *, void *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt_bool(
+    nng_pipe, const char *, bool *) NNG_DEPRECATED;
 NNG_DECL int nng_pipe_getopt_int(nng_pipe, const char *, int *) NNG_DEPRECATED;
-NNG_DECL int nng_pipe_getopt_ms(nng_pipe, const char *, nng_duration *) NNG_DEPRECATED;
-NNG_DECL int nng_pipe_getopt_size(nng_pipe, const char *, size_t *) NNG_DEPRECATED;
-NNG_DECL int nng_pipe_getopt_sockaddr(nng_pipe, const char *, nng_sockaddr *) NNG_DEPRECATED;
-NNG_DECL int nng_pipe_getopt_uint64(nng_pipe, const char *, uint64_t *) NNG_DEPRECATED;
-NNG_DECL int nng_pipe_getopt_ptr(nng_pipe, const char *, void **) NNG_DEPRECATED;
-NNG_DECL int nng_pipe_getopt_string(nng_pipe, const char *, char **) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt_ms(
+    nng_pipe, const char *, nng_duration *) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt_size(
+    nng_pipe, const char *, size_t *) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt_sockaddr(
+    nng_pipe, const char *, nng_sockaddr *) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt_uint64(
+    nng_pipe, const char *, uint64_t *) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt_ptr(
+    nng_pipe, const char *, void **) NNG_DEPRECATED;
+NNG_DECL int nng_pipe_getopt_string(
+    nng_pipe, const char *, char **) NNG_DEPRECATED;
 
 // nng_closeall closes all open sockets. Do not call this from
 // a library; it will affect all sockets.
 NNG_DECL void nng_closeall(void) NNG_DEPRECATED;
 
-#endif
+#endif // NNG_ELIDE_DEPRECATED
+
+// nng_init_parameter is used by applications to change a tunable setting.
+// This function must be called before any other NNG function for the setting
+// to have any effect.  This function is also not thread-safe!
+//
+// The list of parameters supported is *not* documented, and subject to change.
+//
+// We try to provide sane defaults, so the use here is intended to provide
+// more control for applications that cannot use compile-time configuration.
+//
+// Applications should not depend on this API for correct operation.
+//
+// This API is intentionally undocumented.
+//
+// Parameter settings are lost after nng_fini() is called.
+typedef int   nng_init_parameter;
+NNG_DECL void nng_init_set_parameter(nng_init_parameter, uint64_t);
+
+// The following list of parameters is not part of our API stability promise.
+// In particular the set of parameters that are supported, the default values,
+// the range of valid values, and semantics associated therein are subject to
+// change at any time.  We won't go out of our way to break these, and we will
+// try to prevent changes here from breaking working applications, but this is
+// on a best effort basis only.
+//
+// NOTE: When removing a value, please leave the enumeration in place and add
+// a suffix _RETIRED ... this will preserve the binary values for binary
+// compatibility.
+enum {
+	NNG_INIT_PARAMETER_NONE = 0, // ensure values start at 1.
+
+	// Fix the number of threads used for tasks (callbacks),
+	// Default is 2 threads per core, capped to NNG_INIT_MAX_TASK_THREADS.
+	// At least 2 threads will be created in any case.
+	NNG_INIT_NUM_TASK_THREADS,
+
+	// Fix the number of threads used for expiration.  Default is one
+	// thread per core, capped to NNG_INIT_MAX_EXPIRE_THREADS.  At least
+	// one thread will be created.
+	NNG_INIT_NUM_EXPIRE_THREADS,
+
+	// Fix the number of poller threads (used for I/O).  Support varies
+	// by platform (many platforms only support a single poller thread.)
+	NNG_INIT_NUM_POLLER_THREADS,
+
+	// Fix the number of threads used for DNS resolution.  At least one
+	// will be used. Default is controlled by NNG_RESOLV_CONCURRENCY
+	// compile time variable.
+	NNG_INIT_NUM_RESOLVER_THREADS,
+
+	// Limit the number of threads of created for tasks.
+	// NNG will always create at least 2 of these in order to prevent
+	// deadlocks. Zero means no limit.  Default is determined by
+	// NNG_MAX_TASKQ_THREADS compile time variable.
+	NNG_INIT_MAX_TASK_THREADS,
+
+	// Limit the number of threads created for expiration.  Zero means no
+	// limit. Default is determined by the NNG_MAX_EXPIRE_THREADS compile
+	// time variable.
+	NNG_INIT_MAX_EXPIRE_THREADS,
+
+	// Limit the number of poller/IO threads created.  Zero means no limit.
+	// Default is determined by NNG_MAX_POLLER_THREADS compile time
+	// variable.
+	NNG_INIT_MAX_POLLER_THREADS,
+};
 
 #ifdef __cplusplus
 }
