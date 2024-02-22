@@ -87,6 +87,7 @@ class BufferedOutputSink
         {
             // flush(); // TODO: could flush on destruction. Currently it's done
             // below in PyStdErrOutStreamSinkRedirect.
+            qDebug() << __PRETTY_FUNCTION__;
         }
 
         py::size_t write(py::object py_buffer)
@@ -132,6 +133,7 @@ class PyStdErrOutStreamSinkRedirect
 
         ~PyStdErrOutStreamSinkRedirect()
         {
+            qDebug() << __PRETTY_FUNCTION__ << "begin";
             auto sysm = py::module::import("sys");
 
             // Force flush to the output sinks.
@@ -141,6 +143,7 @@ class PyStdErrOutStreamSinkRedirect
             // Restore previous sys.stdout/stderr objects.
             sysm.attr("stdout") = prev_stdout_;
             sysm.attr("stderr") = prev_stderr_;
+            qDebug() << __PRETTY_FUNCTION__ << "end";
         }
 
     private:
