@@ -1,5 +1,5 @@
 #
-# Copyright 2020 Staysail Systems, Inc. <info@staysail.tech>
+# Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 #
 # This software is supplied under the terms of the MIT License, a
 # copy of which should be located in the distribution where this
@@ -38,6 +38,11 @@ option(NNG_ENABLE_COVERAGE "Enable coverage reporting." OFF)
 # Note: Currently this breaks the test suite, so we only do it
 # for the public library.
 option(NNG_ELIDE_DEPRECATED "Elide deprecated functionality." OFF)
+
+# Turning off the compatibility layer can save some space, and
+# compilation time, but may break legacy applications  It should
+# be left enabled when building a shared library.
+option(NNG_ENABLE_COMPAT "Enable legacy nanomsg API." ON)
 
 option(NNG_ENABLE_STATS "Enable statistics." ON)
 mark_as_advanced(NNG_ENABLE_STATS)
@@ -126,6 +131,9 @@ mark_as_advanced(NNG_TRANSPORT_WS)
 CMAKE_DEPENDENT_OPTION(NNG_TRANSPORT_WSS "Enable WSS transport." ON
         "NNG_ENABLE_TLS" OFF)
 mark_as_advanced(NNG_TRANSPORT_WSS)
+
+option (NNG_TRANSPORT_FDC "Enable File Descriptor transport (EXPERIMENTAL)" ON)
+mark_as_advanced(NNG_TRANSPORT_FDC)
 
 # ZeroTier
 option (NNG_TRANSPORT_ZEROTIER "Enable ZeroTier transport (requires libzerotiercore)." OFF)

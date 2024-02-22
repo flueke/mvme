@@ -1,5 +1,5 @@
 //
-// Copyright 2023 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 //
 // This software is supplied under the terms of the MIT License, a
@@ -115,7 +115,7 @@ void
 nni_aio_fini(nni_aio *aio)
 {
 	nni_aio_cancel_fn fn;
-	void	     *arg;
+	void             *arg;
 	nni_aio_expire_q *eq = aio->a_expire_q;
 
 	// This is like aio_close, but we don't want to dispatch
@@ -247,7 +247,21 @@ nni_aio_close(nni_aio *aio)
 void
 nni_aio_set_timeout(nni_aio *aio, nni_duration when)
 {
-	aio->a_timeout = when;
+	aio->a_timeout    = when;
+	aio->a_use_expire = false;
+}
+
+void
+nni_aio_set_expire(nni_aio *aio, nni_time expire)
+{
+	aio->a_expire     = expire;
+	aio->a_use_expire = true;
+}
+
+nng_duration
+nni_aio_get_timeout(nni_aio *aio)
+{
+	return (aio->a_timeout);
 }
 
 void
@@ -369,7 +383,7 @@ nni_aio_schedule(nni_aio *aio, nni_aio_cancel_fn cancel, void *data)
 {
 	nni_aio_expire_q *eq = aio->a_expire_q;
 
-	if (!aio->a_sleep) {
+	if ((!aio->a_sleep) && (!aio->a_use_expire)) {
 		// Convert the relative timeout to an absolute timeout.
 		switch (aio->a_timeout) {
 		case NNG_DURATION_ZERO:
@@ -411,7 +425,7 @@ void
 nni_aio_abort(nni_aio *aio, int rv)
 {
 	nni_aio_cancel_fn fn;
-	void	     *arg;
+	void             *arg;
 	nni_aio_expire_q *eq = aio->a_expire_q;
 
 	nni_mtx_lock(&eq->eq_mtx);
@@ -447,8 +461,9 @@ nni_aio_finish_impl(
 		aio->a_msg = msg;
 	}
 
-	aio->a_expire = NNI_TIME_NEVER;
-	aio->a_sleep  = false;
+	aio->a_expire     = NNI_TIME_NEVER;
+	aio->a_sleep      = false;
+	aio->a_use_expire = false;
 	nni_mtx_unlock(&eq->eq_mtx);
 
 	if (sync) {
@@ -518,13 +533,14 @@ nni_aio_completions_init(nni_aio_completions *clp)
 }
 
 void
-nni_aio_completions_add(nni_aio_completions *clp, nni_aio *aio, int result, size_t count)
+nni_aio_completions_add(
+    nni_aio_completions *clp, nni_aio *aio, int result, size_t count)
 {
 	NNI_ASSERT(!nni_aio_list_active(aio));
 	aio->a_reap_node.rn_next = *clp;
-	aio->a_result = result;
-	aio->a_count = count;
-	*clp = aio;
+	aio->a_result            = result;
+	aio->a_count             = count;
+	*clp                     = aio;
 }
 
 void
@@ -532,10 +548,10 @@ nni_aio_completions_run(nni_aio_completions *clp)
 {
 	nni_aio *aio;
 	nni_aio *cl = *clp;
-	*clp = NULL;
+	*clp        = NULL;
 
 	while ((aio = cl) != NULL) {
-		cl = (void *)aio->a_reap_node.rn_next;
+		cl                       = (void *) aio->a_reap_node.rn_next;
 		aio->a_reap_node.rn_next = NULL;
 		nni_aio_finish_sync(aio, aio->a_result, aio->a_count);
 	}
@@ -827,18 +843,29 @@ int
 nni_aio_sys_init(void)
 {
 	int num_thr;
+	int max_thr;
+
+#ifndef NNG_MAX_EXPIRE_THREADS
+#define NNG_MAX_EXPIRE_THREADS 8
+#endif
 
 #ifndef NNG_NUM_EXPIRE_THREADS
-	num_thr = nni_plat_ncpu();
-#else
-	num_thr = NNG_NUM_EXPIRE_THREADS;
-#endif
-#if NNG_MAX_EXPIRE_THREADS > 0
-	if (num_thr > NNG_MAX_EXPIRE_THREADS) {
-		num_thr = NNG_MAX_EXPIRE_THREADS;
-	}
+#define NNG_NUM_EXPIRE_THREADS (nni_plat_ncpu())
 #endif
 
+	max_thr = (int) nni_init_get_param(
+	    NNG_INIT_MAX_EXPIRE_THREADS, NNG_MAX_EXPIRE_THREADS);
+
+	num_thr = (int) nni_init_get_param(
+	    NNG_INIT_NUM_EXPIRE_THREADS, NNG_NUM_EXPIRE_THREADS);
+
+	if ((max_thr > 0) && (num_thr > max_thr)) {
+		num_thr = max_thr;
+	}
+	if (num_thr < 1) {
+		num_thr = 1;
+	}
+	nni_init_set_effective(NNG_INIT_NUM_EXPIRE_THREADS, num_thr);
 	nni_aio_expire_q_list =
 	    nni_zalloc(sizeof(nni_aio_expire_q *) * num_thr);
 	nni_aio_expire_q_cnt = num_thr;

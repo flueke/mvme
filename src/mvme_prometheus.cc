@@ -9,32 +9,36 @@
 
 namespace mesytec::mvme
 {
-
 static std::shared_ptr<PrometheusContext> theInstance;
 
-void set_prometheus_instance(std::shared_ptr<PrometheusContext> prom)
+void LIBMVME_EXPORT set_prometheus_instance(std::shared_ptr<PrometheusContext> prom)
 {
     theInstance = prom;
-    spdlog::info("prometheus context instance set to {}. &theInstance={}",
-        fmt::ptr(theInstance.get()),
-        fmt::ptr(&theInstance)
-        );
 }
 
-std::shared_ptr<PrometheusContext> get_prometheus_instance()
+std::shared_ptr<PrometheusContext> LIBMVME_EXPORT get_prometheus_instance()
 {
-    spdlog::info("returning prometheus context instance {}. &theInstance={}",
-        fmt::ptr(theInstance.get()),
-        fmt::ptr(&theInstance)
-        );
     return theInstance;
 }
 
-PrometheusContext::PrometheusContext(const std::string &bind_address)
-    : exposer_(bind_address)
-    , registry_(std::make_shared<prometheus::Registry>())
+
+PrometheusContext::PrometheusContext()
+    : registry_(std::make_shared<prometheus::Registry>())
 {
-    exposer_.RegisterCollectable(registry_);
+}
+
+void PrometheusContext::start(const std::string &bind_address)
+{
+    if (!exposer_)
+    {
+        exposer_ = std::make_shared<prometheus::Exposer>(bind_address);
+        exposer_->RegisterCollectable(registry_);
+    }
+}
+
+void PrometheusContext::stop()
+{
+    exposer_ = {};
 }
 
 struct StreamProcCountersPromExporter::Private
@@ -98,7 +102,7 @@ struct StreamProcCountersPromExporter::Private
 
     Private()
     {
-        if (auto prom = get_prometheus_instance())
+        if (auto prom = mesytec::mvme::get_prometheus_instance())
         {
             if (auto registry = prom->registry())
             {

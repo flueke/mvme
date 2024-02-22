@@ -1919,6 +1919,12 @@ nng_aio_set_timeout(nng_aio *aio, nni_duration when)
 	nni_aio_set_timeout(aio, when);
 }
 
+void
+nng_aio_set_expire(nng_aio *aio, nng_time when)
+{
+	nni_aio_set_expire(aio, when);
+}
+
 int
 nng_aio_set_iov(nng_aio *aio, unsigned niov, const nng_iov *iov)
 {
@@ -2004,4 +2010,10 @@ nng_version(void)
 {
 	return (xstr(NNG_MAJOR_VERSION) "." xstr(NNG_MINOR_VERSION) "." xstr(
 	    NNG_PATCH_VERSION) NNG_RELEASE_SUFFIX);
+}
+
+void
+nng_init_set_parameter(nng_init_parameter p, uint64_t value)
+{
+	nni_init_set_param(p, value);
 }

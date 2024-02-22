@@ -7,14 +7,17 @@ Changelog
 Version 1.12-rc
 ---------------
 
+* Fix hang on shutdown under windows (promteheus-cpp related issue).
+
 * vme_templates: Add template for MHV-4 readout via RC-Bus connection from a
   parent VME module.
 
 * ui
 
+  - analysis: Improve Calibration editor.
+
   - vme: Bugfixes in the Add/Edit Module GUI.
 
-  - analysis: Improve Calibration editor.
 
 * mvlc:
 

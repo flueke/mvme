@@ -16,19 +16,27 @@ namespace mesytec::mvme
 class LIBMVME_EXPORT PrometheusContext
 {
     public:
-        PrometheusContext(const std::string &bind_address);
+        PrometheusContext();
+
+        // Start the internal web server to serve metrics.
+        void start(const std::string &bind_address);
+
+        // Stop serving metrics.
+        void stop();
+
+        // Default registry for "/metrics". Others can be added if needed.
+        std::shared_ptr<prometheus::Registry> registry() { return registry_; }
+
+        // Internal civetweb exposer.
+        std::shared_ptr<prometheus::Exposer> exposer() { return exposer_; }
 
         PrometheusContext(const PrometheusContext &) = delete;
         PrometheusContext(PrometheusContext &&) = delete;
         PrometheusContext &operator=(const PrometheusContext &) = delete;
         PrometheusContext &operator=(PrometheusContext &&) = delete;
 
-        prometheus::Exposer &exposer() { return exposer_; }
-        // Default registry for "/metrics". Others can be added if needed.
-        std::shared_ptr<prometheus::Registry> registry() { return registry_; }
-
     private:
-        prometheus::Exposer exposer_;
+        std::shared_ptr<prometheus::Exposer> exposer_;
         std::shared_ptr<prometheus::Registry> registry_;
 };
 
