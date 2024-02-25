@@ -534,6 +534,9 @@ if (pybind11_FOUND)
     add_mvme_exe(dev_pybind11_embed dev_pybind11_embed.cc)
     target_link_libraries(dev_pybind11_embed PRIVATE pybind11::embed pybind11::lto pybind11::windows_extras)
     install(TARGETS dev_pybind11_embed RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+    add_mvme_exe(dev_pybind11_embed2 dev_pybind11_embed2.cc)
+    target_link_libraries(dev_pybind11_embed2 PRIVATE pybind11::embed pybind11::lto pybind11::windows_extras)
+    install(TARGETS dev_pybind11_embed2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 endif()
 
 # automated gtests

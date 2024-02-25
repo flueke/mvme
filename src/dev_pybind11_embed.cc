@@ -1,18 +1,24 @@
-#include <pybind11/embed.h>
-#include <pybind11/iostream.h>
+#include <future>
 #include <ostream>
 #include <sstream>
 #include <iostream>
-#include <QtGlobal>
+#include <chrono>
+
+#include <pybind11/embed.h>
+#include <pybind11/iostream.h>
+
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/fmt/std.h>
 
 #include <QByteArray>
 #include <QCoreApplication> // QCoreApplication::applicationDirPath()
-#include <QFileInfo>
 #include <QDebug>
+#include <QFileInfo>
+#include <QtGlobal>
 
 namespace py = pybind11;
 using namespace py::literals;
+using namespace std::chrono_literals;
 
 #if 0
 class my_buffer: public std::stringbuf
@@ -170,7 +176,7 @@ void put_env(const char *varName, const QByteArray &value)
 // TODO: test
 int main(int argc, char *argv[])
 {
-    QCoreApplication app(argc, argv);
+    //QCoreApplication app(argc, argv);
 
 #ifdef __WIN32
     // These variables are needed for the embedded python to work when started from a clean env.
@@ -194,6 +200,7 @@ int main(int argc, char *argv[])
 
     py::scoped_interpreter guard{false}; // start the interpreter and keep it alive
 
+    #if 0
     std::cerr << ">>>>>>>>>> before first output redirection ====================" << std::endl;
 
     {
@@ -220,6 +227,7 @@ int main(int argc, char *argv[])
 
         std::cout << "stdoutString: " << pyOutputRedirect.stdoutString();
     }
+    #endif
 
     std::cerr << "========== after first output redirection ====================" << std::endl;
 
@@ -228,6 +236,7 @@ int main(int argc, char *argv[])
     {
         auto stdout_sink = [](const std::string &str)
         {
+            fmt::print("stdout_sink thread is {}\n", std::this_thread::get_id());
             std::cout << "[stdout_sink]: '" << str << "'" << std::endl;
         };
 
@@ -236,11 +245,63 @@ int main(int argc, char *argv[])
             std::cout << "[stderr_sink]: '" << str << "'" << std::endl;
         };
 
-        PyStdErrOutStreamSinkRedirect pyOutputRedirect(stdout_sink, stderr_sink);
+        //PyStdErrOutStreamSinkRedirect pyOutputRedirect(stdout_sink, stderr_sink);
 
-        py::exec(R"(
-            print("Hello Sink!")
+        {
+            fmt::print("main thread is {}\n", std::this_thread::get_id());
+            #if 1
+            py::exec(R"(
+                print("py: Setting up signal handler for SIGINT", flush=True)
+                import signal
+                signal.signal(signal.SIGINT, signal.SIG_DFL)
             )");
+            #endif
+            py::gil_scoped_release gil_release;
+            auto f = std::async(std::launch::async, [] {
+                py::gil_scoped_acquire gil_acquire;
+                fmt::print("py thread is {}\n", std::this_thread::get_id());
+                py::exec(R"(
+                    #print("Hello Sink, sleeping now for 5s!", flush=True)
+                    #import time
+                    #time.sleep(5)
+                    #print("Hello Sink, done sleeping", flush=True)
+                    print("py: Entering infinite loop...", flush=True)
+                    while True: pass
+                    )");
+            });
+
+            std::future_status status;
+
+            do
+            {
+                switch (status = f.wait_for(1s); status)
+                {
+                case std::future_status::deferred:
+                    std::cout << "deferred\n";
+                    break;
+                case std::future_status::timeout:
+                    std::cout << "timeout\n";
+                    PyErr_SetString(PyExc_KeyboardInterrupt, "...");
+                    // PyErr_SetInterrupt();
+                    break;
+                case std::future_status::ready:
+                    std::cout << "ready!\n";
+                    break;
+                }
+            } while (status != std::future_status::ready);
+            //auto f_status = f.wait_for(std::chrono::milliseconds(100));
+            //while (f.wait_for(std::chrono::milliseconds(100) != std::future_status::ready))
+            //{
+            //    fmt::print("PyErr_SetInterrupt!\n");
+            //    PyErr_SetInterrupt();
+            //}
+            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            //PyErr_SetInterrupt();
+            //PyErr_SetString(PyExc_KeyboardInterrupt, "...");
+            f.get();
+        }
+
+
     }
     #else
     {
