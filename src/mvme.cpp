@@ -1207,16 +1207,24 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
         return;
     }
 
-    auto vmeConfig = vmeconfig_from_crateconfig(crateConfig);
+    try
+    {
+        auto vmeConfig = vmeconfig_from_crateconfig(crateConfig);
 
-    // Strip the extension from the input filename, add "-imported.vme" and use
-    // that as the suggested vme config name.
-    QFileInfo fi(fileName);
-    auto configName = fi.baseName() + QSL("-imported.vme");
+        // Strip the extension from the input filename, add "-imported.vme" and use
+        // that as the suggested vme config name.
+        QFileInfo fi(fileName);
+        auto configName = fi.baseName() + QSL("-imported.vme");
 
-    m_d->m_context->setVMEConfig(vmeConfig.release());
-    m_d->m_context->setVMEConfigFilename(configName, false);
-    m_d->m_context->setMode(GlobalMode::DAQ);
+        m_d->m_context->setVMEConfig(vmeConfig.release());
+        m_d->m_context->setVMEConfigFilename(configName, false);
+        m_d->m_context->setMode(GlobalMode::DAQ);
+    }
+    catch (const vme_script::ParseError &e)
+    {
+        QMessageBox::critical(
+            0, "Error", QSL("Error converting MVLC crate config to MVME VME config: %1").arg(e.toString()));
+    }
 }
 
 void MVMEMainWindow::onActionOpenListfile_triggered()
