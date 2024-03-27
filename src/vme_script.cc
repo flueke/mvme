@@ -1984,7 +1984,7 @@ CommandType commandType_from_string(const QString &str)
     return stringToCommandType.value(str.toLower(), CommandType::Invalid);
 }
 
-QString amod_to_string(u8 addressMode)
+QString amod_to_string(u8 addressMode, bool pretty)
 {
     static const QMap<u8, QString> addressModeToString =
     {
@@ -2013,11 +2013,14 @@ QString amod_to_string(u8 addressMode)
     };
 
     auto result = addressModeToString.value(addressMode);
-    // XXX: Cannot do this as the output is not a valid vme script command if it contains '(amod=0xNN)'
-    // Having the value in log output would be nice but how to do this? Add a 'pretty' version of to_string()?
-    //if (!result.isEmpty())
-    //    result += " ";
-    //result += QSL("(amod=0x%1)").arg(static_cast<u32>(addressMode), 2, 16, QLatin1Char('0'));
+    if (pretty)
+    {
+        // When pretty printing the resulting string is not parseable as a vme
+        // script command.
+        if (!result.isEmpty())
+            result += " ";
+        result += QSL("(amod=0x%1)").arg(static_cast<u32>(addressMode), 2, 16, QLatin1Char('0'));
+    }
     return result;
 }
 
@@ -2058,7 +2061,7 @@ QString to_string(const Blk2eSSTRate &rate)
     return "Unknown 2eSST transfer rate";
 }
 
-QString to_string(const Command &cmd)
+QString to_string(const Command &cmd, bool pretty)
 {
     QString buffer;
     QString cmdStr = to_string(cmd.type);
@@ -2075,7 +2078,7 @@ QString to_string(const Command &cmd)
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
-                    .arg(amod_to_string(cmd.addressMode))
+                    .arg(amod_to_string(cmd.addressMode, pretty))
                     .arg(to_qstring(cmd.dataWidth))
                     .arg(format_hex(cmd.address));
                 if (cmd.mvlcSlowRead)
@@ -2089,7 +2092,7 @@ QString to_string(const Command &cmd)
             {
                 buffer = QString(QSL("%1 %2 %3 %4 %5"))
                     .arg(cmdStr)
-                    .arg(amod_to_string(cmd.addressMode))
+                    .arg(amod_to_string(cmd.addressMode, pretty))
                     .arg(to_qstring(cmd.dataWidth))
                     .arg(format_hex(cmd.address))
                     .arg(format_hex(cmd.value));
@@ -2116,7 +2119,7 @@ QString to_string(const Command &cmd)
             {
                 buffer = QString(QSL("%1 %2 %3 %4"))
                     .arg(cmdStr)
-                    .arg(amod_to_string(cmd.addressMode))
+                    .arg(amod_to_string(cmd.addressMode, pretty))
                     .arg(format_hex(cmd.address))
                     .arg(cmd.transfers);
             } break;

@@ -463,7 +463,7 @@ QString format_result(const Result &result)
 #endif
     }
 
-    QString ret(to_string(result.command));
+    QString ret(to_string(result.command, true));
 
     switch (result.command.type)
     {
