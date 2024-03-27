@@ -1175,7 +1175,7 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
     if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
         return;
 
-    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    auto path = QSettings().value("LastWorkspaceDirectory").toString();
 
     QString fileName = QFileDialog::getOpenFileName(
         this, m_d->actionImportFromMVLC->text(), path, yamlOrAnyFileFilter);
