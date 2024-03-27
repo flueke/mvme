@@ -2013,9 +2013,11 @@ QString amod_to_string(u8 addressMode)
     };
 
     auto result = addressModeToString.value(addressMode);
-    if (!result.isEmpty())
-        result += " ";
-    result += QSL("(amod=0x%1)").arg(static_cast<u32>(addressMode), 2, 16, QLatin1Char('0'));
+    // XXX: Cannot do this as the output is not a valid vme script command if it contains '(amod=0xNN)'
+    // Having the value in log output would be nice but how to do this? Add a 'pretty' version of to_string()?
+    //if (!result.isEmpty())
+    //    result += " ";
+    //result += QSL("(amod=0x%1)").arg(static_cast<u32>(addressMode), 2, 16, QLatin1Char('0'));
     return result;
 }
 
