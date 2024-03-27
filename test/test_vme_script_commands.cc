@@ -180,15 +180,17 @@ TEST(vme_script_commands, MVLC_CompareLoopAccu)
 TEST(vme_script_commands, Reads)
 {
     {
-        auto input = QSL("read a32 d16 0x1111");
+        auto input = QSL("read a32 d32 0x1111");
         auto script = vme_script::parse(input);
         ASSERT_EQ(script.size(), 1);
         auto &cmd = script.first();
         ASSERT_EQ(cmd.type, CommandType::Read);
         ASSERT_EQ(cmd.address, 0x1111);
         ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D32);
         ASSERT_EQ(cmd.mvlcSlowRead, false);
         ASSERT_EQ(cmd.mvlcFifoMode, true);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 
     {
@@ -199,8 +201,10 @@ TEST(vme_script_commands, Reads)
         ASSERT_EQ(cmd.type, CommandType::Read);
         ASSERT_EQ(cmd.address, 0x1111);
         ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
         ASSERT_EQ(cmd.mvlcSlowRead, true);
         ASSERT_EQ(cmd.mvlcFifoMode, true);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 
     {
@@ -211,8 +215,10 @@ TEST(vme_script_commands, Reads)
         ASSERT_EQ(cmd.type, CommandType::Read);
         ASSERT_EQ(cmd.address, 0x1111);
         ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
         ASSERT_EQ(cmd.mvlcSlowRead, false);
         ASSERT_EQ(cmd.mvlcFifoMode, true);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 
     {
@@ -223,8 +229,10 @@ TEST(vme_script_commands, Reads)
         ASSERT_EQ(cmd.type, CommandType::Read);
         ASSERT_EQ(cmd.address, 0x1111);
         ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
         ASSERT_EQ(cmd.mvlcSlowRead, true);
         ASSERT_EQ(cmd.mvlcFifoMode, true);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 
     {
@@ -235,8 +243,10 @@ TEST(vme_script_commands, Reads)
         ASSERT_EQ(cmd.type, CommandType::Read);
         ASSERT_EQ(cmd.address, 0x1111);
         ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
         ASSERT_EQ(cmd.mvlcSlowRead, true);
         ASSERT_EQ(cmd.mvlcFifoMode, true);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 
     {
@@ -247,8 +257,10 @@ TEST(vme_script_commands, Reads)
         ASSERT_EQ(cmd.type, CommandType::Read);
         ASSERT_EQ(cmd.address, 0x1111);
         ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
         ASSERT_EQ(cmd.mvlcSlowRead, false);
         ASSERT_EQ(cmd.mvlcFifoMode, false);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 
     {
@@ -259,8 +271,10 @@ TEST(vme_script_commands, Reads)
         ASSERT_EQ(cmd.type, CommandType::Read);
         ASSERT_EQ(cmd.address, 0x1111);
         ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
         ASSERT_EQ(cmd.mvlcSlowRead, true);
         ASSERT_EQ(cmd.mvlcFifoMode, false);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 }
 
@@ -632,6 +646,48 @@ TEST(vme_script_commands, BlockRead2eSstSwappedMem)
                 ASSERT_EQ(cmd.transfers, 54321);
             }
         }
+    }
+}
+
+TEST(vme_script_commands, Writes)
+{
+    {
+        auto input = QSL("write a32 d16 0x1111 0x2222");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::Write);
+        ASSERT_EQ(cmd.address, 0x1111);
+        ASSERT_EQ(cmd.value, 0x2222);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
+    }
+
+    {
+        auto input = QSL("write a32 d32 0x1111 0x2222");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::Write);
+        ASSERT_EQ(cmd.address, 0x1111);
+        ASSERT_EQ(cmd.value, 0x2222);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D32);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
+    }
+
+    {
+        auto input = QSL("writeabs a32 d16 0x1111 0x2222");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::WriteAbs);
+        ASSERT_EQ(cmd.address, 0x1111);
+        ASSERT_EQ(cmd.value, 0x2222);
+        ASSERT_EQ(cmd.addressMode, vme_address_modes::A32);
+        ASSERT_EQ(cmd.dataWidth, vme_script::DataWidth::D16);
+        ASSERT_EQ(vme_script::parse(to_string(cmd)), script);
     }
 }
 
