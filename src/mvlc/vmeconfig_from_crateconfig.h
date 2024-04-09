@@ -2,6 +2,7 @@
 #define __MVME_VMECONFIG_FROM_CRATECONFIG_H__
 
 #include "vme_config.h"
+#include "vme_script.h"
 #include <mesytec-mvlc/mvlc_readout_config.h>
 
 namespace mesytec
@@ -9,8 +10,11 @@ namespace mesytec
 namespace mvme
 {
 
-std::unique_ptr<VMEConfig> LIBMVME_EXPORT vmeconfig_from_crateconfig(
-    const mvlc::CrateConfig &crateConfig);
+vme_script::Command LIBMVME_EXPORT
+    stack_command_to_vmescript_command(const mvlc::StackCommand &srcCmd);
+
+std::unique_ptr<VMEConfig> LIBMVME_EXPORT
+    vmeconfig_from_crateconfig(const mvlc::CrateConfig &crateConfig);
 
 }
 }
