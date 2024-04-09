@@ -1,0 +1,26 @@
+name: C/C++ CI
+
+on: [push]
+
+jobs:
+  build-ubuntu:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: submodules
+      run: git submodule update --init
+    - name: apt-get
+      run: sudo apt-get update &&
+           sudo apt-get install -y
+                    build-essential cmake libboost-all-dev
+                    qtbase5-dev-tools libquazip5-dev libqwt-qt5-dev
+                    zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build
+                    libgraphviz-dev libqt5svg5-dev
+    - name: configure
+      run: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release ..
+    - name: build
+      run: cmake --build build -j 4
+    - name: install
+      run: cd build && sudo make install
