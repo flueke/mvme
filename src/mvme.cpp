@@ -1133,8 +1133,14 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
         path += "/" + basename;
     }
 
-    QString fileName = QFileDialog::getSaveFileName(
-        this, m_d->actionExportToMVLC->text(), path, yamlOrAnyFileFilter);
+    QFileDialog fd(this, m_d->actionExportToMVLC->text(), path, yamlOrAnyFileFilter);
+    fd.setDefaultSuffix(".yaml");
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
+        return false;
+
+    auto fileName = fd.selectedFiles().front();
 
     if (fileName.isEmpty())
         return false;
