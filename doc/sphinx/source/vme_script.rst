@@ -163,11 +163,14 @@ mvme supports the following read-only block transfer commands:
 * **2essts** *<address> <rate> <count>* (**MVLC only**, **FIFO mode**, **word swapped**)
 * **2esstsfifo** *<address> <rate> <count>* (**MVLC only**, **FIFO mode**, **word swapped**)
 * **2esstsmem** *<address> <rate> <count>* (**MVLC only**, **word swapped**)
+* **read** *<amode> <dwidth> <address> ['slow'|'late'] ['fifo', 'mem']* (**MVLC only**, **used with the stack accu**)
+* **readabs** *<amode> <dwidth> <address> ['slow'|'late'] ['fifo', 'mem']* (**MVLC only**, **used with the stack accu**)
+
 
 **blt** and **bltfifo** transfer *<count>* number of 32-bit words, **mblt** and **mbltfifo**
 transfer 64-bit words. **2esst** uses the 2eSST protocol for data transfer.
 
-The **\*fifo** variants do not increment the given starting address.
+The **fifo** variants do not increment the given starting address.
 
 **mblts** stands for *MBLT swapped* and is the same as MBLT but swaps the two
 32-bit words in each transferred 64-bit word. It is only supported by the MVLC.
@@ -187,6 +190,18 @@ The **2esst** and **2essts** commands accept the following *<rate>* arguments:
 
 **2essts** is the word swapped version of **2esst** like **mblts** for
 MBLT transfers.
+
+The **read** and **readabs** commands usually return a single data word not
+contained in a block read structure. When used in combination with the MVLC
+stack accumulator these commands do produce block read structures. Example:
+::
+
+  mvlc_set_accu 100
+  read a32 d16 0x0000 mem
+
+Performs 100 reads from 0x0000 with incrementing read addresses. The data is
+yielded in a block read structure in the readout data stream just like, e.g. a
+**mblt** command would.
 
 Miscellaneous
 ~~~~~~~~~~~~~
@@ -381,7 +396,7 @@ mvlc_mask_shift_accu
 * **mvlc_mask_shift_accu** *<mask>* *<shift>*
 
 Set the stack accumulator *mask* and *shift* values. When the accumulator value
-is used for a VME block read first the mask is applied, then the result is
+is used for a VME block read, first the mask is applied, then the result is
 rotated left by the *shift* argument. The resulting value is the number of
 block read cycles to perform.
 
@@ -624,30 +639,37 @@ FIFO reads do not increment the read address, mem reads do. **VMEReadMem** and
 .. table:: VME block read command mappings
   :name: vme-block-read-command-mappings
 
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | VMEScript  |         MVLC YAML          |      MVLC command      |                    Notes                    |
-  +============+============================+========================+=============================================+
-  | blt        | vme_block_read_mem         | 0x32 VMEReadMem        |                                             |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | bltfifo    | vme_block_read             | 0x12 VMERead           |                                             |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | mblt       | vme_block_read_mem         | 0x32 VMEReadMem        |                                             |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | mbltfifo   | vme_block_read             | 0x12 VMERead           |                                             |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | mblts      | vme_block_read_mem_swapped | 0x33 VMEReadMemSwapped |                                             |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | mbltsfifo  | vme_block_read_swapped     | 0x13 VMEReadSwapped    |                                             |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2esst      | vme_block_read             | 0x12 VMERead           | for compatibility this is *fifo*, not *mem* |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2esstfifo  | vme_block_read             | 0x12 VMERead           | same as ``2esst``                           |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2esstmem   | vme_block_read_mem         | 0x32 VMEReadMem        | explicit *mem* version                      |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2essts     | vme_block_read_swapped     | 0x13 VMEReadSwapped    | for compatibility this is *fifo*, not *mem* |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2esstsfifo | vme_block_read_swapped     | 0x13 VMEReadSwapped    | same as ``2essts``                          |
-  +------------+----------------------------+------------------------+---------------------------------------------+
-  | 2esstsmem  | vme_block_read_mem_swapped | 0x33 VMEReadMemSwapped | explicit *mem* version                      |
-  +------------+----------------------------+------------------------+---------------------------------------------+
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | VMEScript  |         MVLC YAML          |          MVLC command          |                    Notes                    |
+  +============+============================+================================+=============================================+
+  | blt        | vme_block_read_mem         | 0x32 VMEReadMem                |                                             |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | bltfifo    | vme_block_read             | 0x12 VMERead                   |                                             |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | mblt       | vme_block_read_mem         | 0x32 VMEReadMem                |                                             |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | mbltfifo   | vme_block_read             | 0x12 VMERead                   |                                             |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | mblts      | vme_block_read_mem_swapped | 0x33 VMEReadMemSwapped         |                                             |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | mbltsfifo  | vme_block_read_swapped     | 0x13 VMEReadSwapped            |                                             |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | 2esst      | vme_block_read             | 0x12 VMERead                   | for compatibility this is *fifo*, not *mem* |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | 2esstfifo  | vme_block_read             | 0x12 VMERead                   | same as ``2esst``                           |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | 2esstmem   | vme_block_read_mem         | 0x32 VMEReadMem                | explicit *mem* version                      |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | 2essts     | vme_block_read_swapped     | 0x13 VMEReadSwapped            | for compatibility this is *fifo*, not *mem* |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | 2esstsfifo | vme_block_read_swapped     | 0x13 VMEReadSwapped            | same as ``2essts``                          |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | 2esstsmem  | vme_block_read_mem_swapped | 0x33 VMEReadMemSwapped         | explicit *mem* version                      |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | read       | vme_read                   | 0x12 VMERead                   | MVLC stack accu + 'fifo' flag               |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+  | read       | vme_read_mem               | 0x32 VMEReadMem                | MVLC stack accu + 'mem' flag                |
+  +------------+----------------------------+--------------------------------+---------------------------------------------+
+
+The mapping of the **read** command depends on whether the 'fifo' or 'mem' flags
+are specified. This is only used in combination with the MVLC stack accumulator.
