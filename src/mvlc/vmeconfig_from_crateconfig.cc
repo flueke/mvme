@@ -21,9 +21,11 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
     using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
 
     Command dstCmd;
+    dstCmd.type = CommandType::Invalid;
 
     switch (srcCmd.type)
     {
+        // FIFO block reads and single word reads
         case mvlcCT::VMERead:
             if (mvlc::vme_amods::is_blt_mode(srcCmd.amod))
             {
@@ -39,7 +41,9 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
-//#warning "Implement eSST64 in VMEScript" (it's not even implemented in the MVLC yet)
+                dstCmd.type = CommandType::Blk2eSST64Fifo;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.blk2eSSTRate = srcCmd.rate;
                 break;
             }
             else // non-block reads
@@ -49,6 +53,77 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
                                     ? DataWidth::D16
                                     : DataWidth::D32);
                 dstCmd.addressMode = srcCmd.amod;
+            }
+
+            dstCmd.address = srcCmd.address;
+            break;
+
+        // FIFO word swapped for MBLT and 2eSST
+        case mvlcCT::VMEReadSwapped:
+            if (mvlc::vme_amods::is_mblt_mode(srcCmd.amod))
+            {
+                dstCmd.type = CommandType::MBLTSwappedFifo;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.addressMode = vme_address_modes::MBLT64;
+            }
+            else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
+            {
+                dstCmd.type = CommandType::Blk2eSST64SwappedFifo;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.blk2eSSTRate = srcCmd.rate;
+                break;
+            }
+
+            dstCmd.address = srcCmd.address;
+            break;
+
+        // memory reads (with address increment) and single word reads
+        case mvlcCT::VMEReadMem:
+            if (mvlc::vme_amods::is_blt_mode(srcCmd.amod))
+            {
+                dstCmd.type = CommandType::BLT;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.addressMode = vme_address_modes::BLT32;
+            }
+            else if (mvlc::vme_amods::is_mblt_mode(srcCmd.amod))
+            {
+                dstCmd.type = CommandType::MBLT;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.addressMode = vme_address_modes::MBLT64;
+            }
+            else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
+            {
+                dstCmd.type = CommandType::Blk2eSST64;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.blk2eSSTRate = srcCmd.rate;
+                break;
+            }
+            else // non-block reads
+            {
+                dstCmd.type = CommandType::Read;
+                dstCmd.dataWidth = (srcCmd.dataWidth == mesytec::mvlc::VMEDataWidth::D16
+                                    ? DataWidth::D16
+                                    : DataWidth::D32);
+                dstCmd.addressMode = srcCmd.amod;
+            }
+
+            dstCmd.address = srcCmd.address;
+            break;
+
+        // word swapped memory reads for MBLT and 2eSST
+        case mvlcCT::VMEReadMemSwapped:
+            if (mvlc::vme_amods::is_mblt_mode(srcCmd.amod))
+            {
+                dstCmd.type = CommandType::MBLTSwapped;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.addressMode = vme_address_modes::MBLT64;
+            }
+            else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
+            {
+                dstCmd.type = CommandType::Blk2eSST64Swapped;
+                dstCmd.transfers = srcCmd.transfers;
+                dstCmd.blk2eSSTRate = srcCmd.rate;
+                break;
             }
 
             dstCmd.address = srcCmd.address;
@@ -74,12 +149,56 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             dstCmd.value = srcCmd.value;
             break;
 
+        case mvlcCT::Wait:
+            dstCmd.type = CommandType::MVLC_Wait;
+            dstCmd.value = srcCmd.value;
+            break;
+
+        case mvlcCT::SignalAccu:
+            dstCmd.type = CommandType::MVLC_SignalAccu;
+            break;
+
+        case mvlcCT::MaskShiftAccu:
+            dstCmd.type = CommandType::MVLC_MaskShiftAccu;
+            dstCmd.address = srcCmd.address; // mask
+            dstCmd.value = srcCmd.value; // shift
+            break;
+
+        case mvlcCT::SetAccu:
+            dstCmd.type = CommandType::MVLC_SetAccu;
+            dstCmd.value = srcCmd.value;
+            break;
+
+        case mvlcCT::ReadToAccu:
+            dstCmd.type = CommandType::MVLC_ReadToAccu;
+            dstCmd.address = srcCmd.address;
+            dstCmd.addressMode = srcCmd.amod;
+            dstCmd.dataWidth = (srcCmd.dataWidth == mesytec::mvlc::VMEDataWidth::D16
+                                ? DataWidth::D16
+                                : DataWidth::D32);
+            dstCmd.mvlcSlowRead = srcCmd.lateRead;
+            break;
+
+        case mvlcCT::CompareLoopAccu:
+            dstCmd.type = CommandType::MVLC_CompareLoopAccu;
+            dstCmd.value = srcCmd.value; // AccuComparator
+            dstCmd.address = srcCmd.address; // compare value
+            break;
+
         case mvlcCT::SoftwareDelay:
             dstCmd.type = CommandType::Wait;
             dstCmd.delay_ms = srcCmd.value;
             break;
 
-        default:
+        case mvlcCT::Custom:
+            dstCmd.type = CommandType::MVLC_Custom;
+            dstCmd.transfers = srcCmd.transfers;
+            dstCmd.mvlcCustomStack = srcCmd.customValues;
+            break;
+
+        case mvlcCT::StackStart:
+        case mvlcCT::StackEnd:
+        case mvlcCT::Invalid:
             break;
     }
 

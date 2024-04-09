@@ -130,8 +130,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
         case CommandType::MVLC_Custom:
             dstCmd.type = mvlcCT::Custom;
             dstCmd.transfers = srcCmd.transfers;
-            for (u32 value: srcCmd.mvlcCustomStack)
-                dstCmd.customValues.push_back(value);
+            dstCmd.customValues = srcCmd.mvlcCustomStack;
             break;
 
         case CommandType::MVLC_SignalAccu:
