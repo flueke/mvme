@@ -353,6 +353,15 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
         result.addressMode = parseAddressMode(args[1], true);
     }
 
+    switch (result.type)
+    {
+        case CommandType::BLT:
+        case CommandType::MBLT:
+        case CommandType::MBLTSwapped:
+            result.mvlcFifoMode = false;
+            break;
+    }
+
     result.address = parseAddress(args[2]);
     result.transfers = parseValue<u32>(args[3]);
     result.lineNumber = lineNumber;
@@ -388,6 +397,14 @@ Command parse2esstTransfer(const QStringList &args, int lineNumber)
     result.blk2eSSTRate = parse2esstRate(args[2]);
     result.transfers = parseValue<u32>(args[3]);
     result.lineNumber = lineNumber;
+
+    switch (result.type)
+    {
+        case CommandType::Blk2eSST64:
+        case CommandType::Blk2eSST64Swapped:
+            result.mvlcFifoMode = false;
+            break;
+    }
 
     return result;
 }
