@@ -18,6 +18,8 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
 
     auto test_one_command = [] (const QString &mvmeCmdString)
     {
+        try
+        {
         auto mvmeCmd = vme_script::parse(mvmeCmdString).first();
         // vme_script::parse() sets the lineNumber to 1,
         // mvme::stack_command_to_vme_script_command() leaves it set to 0.
@@ -37,6 +39,12 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
 
         ASSERT_EQ(mvmeCmd, mvmeCmdImported);
         std::cout << "\n";
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            std::cout << "vme_script::ParseError: " << e.toString().toLocal8Bit().data() << "\n";
+            throw;
+        }
     };
 
 
@@ -46,7 +54,7 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
     // FIXME (maybe): wouldn't it be better to produce the 'abs' versions when
     // importing? Otherwise when importing into a module script the base address
     // would be added to the absolute module address. Not an issue if all
-    // imported modules have address 0x0...
+    // imported modules are created with address 0x0.
 
     test_one_command("write a16 d16 0x1234 0xaffe");
     test_one_command("write a24 d32 0x1234 0xaffe");
@@ -61,6 +69,23 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
     test_one_command("read a16 d16 0x1234 slow mem");
 
     test_one_command("blt a24 0x1234 1000");
+    test_one_command("blt a32 0x4321 9000");
+    test_one_command("bltfifo a24 0x1234 1000");
+    test_one_command("bltfifo a32 0x4321 9000");
+
+    // Note: a24 is not a valid amod for mblt transfers
+    test_one_command("mblt a32 0x1234 1000");
+    test_one_command("mbltfifo a32 0x4321 9000");
+    test_one_command("mblts a32 0x1234 1000");
+    test_one_command("mbltsfifo a32 0x1234 1000");
+
+    test_one_command("2esst 0x1234 276mb 1000");
+    test_one_command("2esstfifo 0x1234 276mb 1000");
+    test_one_command("2esstmem 0x1234 276mb 1000");
+
+    test_one_command("2essts 0x1234 276mb 1000");
+    test_one_command("2esstsfifo 0x1234 276mb 1000");
+    test_one_command("2esstsmem 0x1234 276mb 1000");
 
     test_one_command("wait 100");
     test_one_command("marker 0x1234");

@@ -31,20 +31,17 @@ vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand
             {
                 dstCmd.type = CommandType::BLTFifo;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_mblt_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::MBLTFifo;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::Blk2eSST64Fifo;
                 dstCmd.transfers = srcCmd.transfers;
                 dstCmd.blk2eSSTRate = srcCmd.rate;
-                break;
             }
             else // non-block reads
             {
@@ -52,10 +49,10 @@ vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand
                 dstCmd.dataWidth = (srcCmd.dataWidth == mesytec::mvlc::VMEDataWidth::D16
                                     ? DataWidth::D16
                                     : DataWidth::D32);
-                dstCmd.addressMode = srcCmd.amod;
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.addressMode = srcCmd.amod;
             dstCmd.mvlcSlowRead = srcCmd.lateRead;
             dstCmd.mvlcFifoMode = true;
             break;
@@ -66,17 +63,16 @@ vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand
             {
                 dstCmd.type = CommandType::MBLTSwappedFifo;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::Blk2eSST64SwappedFifo;
                 dstCmd.transfers = srcCmd.transfers;
                 dstCmd.blk2eSSTRate = srcCmd.rate;
-                break;
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.addressMode = srcCmd.amod;
             dstCmd.mvlcSlowRead = srcCmd.lateRead;
             dstCmd.mvlcFifoMode = true;
             break;
@@ -87,20 +83,17 @@ vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand
             {
                 dstCmd.type = CommandType::BLT;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_mblt_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::MBLT;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::Blk2eSST64;
                 dstCmd.transfers = srcCmd.transfers;
                 dstCmd.blk2eSSTRate = srcCmd.rate;
-                break;
             }
             else // non-block reads
             {
@@ -108,10 +101,10 @@ vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand
                 dstCmd.dataWidth = (srcCmd.dataWidth == mesytec::mvlc::VMEDataWidth::D16
                                     ? DataWidth::D16
                                     : DataWidth::D32);
-                dstCmd.addressMode = srcCmd.amod;
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.addressMode = srcCmd.amod;
             dstCmd.mvlcSlowRead = srcCmd.lateRead;
             dstCmd.mvlcFifoMode = false;
             break;
@@ -122,17 +115,16 @@ vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand
             {
                 dstCmd.type = CommandType::MBLTSwapped;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::Blk2eSST64Swapped;
                 dstCmd.transfers = srcCmd.transfers;
                 dstCmd.blk2eSSTRate = srcCmd.rate;
-                break;
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.addressMode = srcCmd.amod;
             dstCmd.mvlcSlowRead = srcCmd.lateRead;
             dstCmd.mvlcFifoMode = false;
             break;
