@@ -811,12 +811,14 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
             setupModified();
         });
 
+    #if 0
     clearMenu->addAction(
         QSL("Empty Setup"), this, [this] ()
         {
             d->ioCfg = {};
             setupModified();
         });
+    #endif
 
     action = toolbar->addAction(
         QIcon(":/document-new.png"), QSL("Clear Setup"));
