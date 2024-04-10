@@ -49,7 +49,7 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
 
 
     // Note: No test for 'readabs' or 'writeabs'. The MVLC YAML file always
-    // contains absolute addresses, so importing results in 'read' or 'write'
+    // contains absolute addresses importing results in 'read' or 'write'
     // commands.
     // FIXME (maybe): wouldn't it be better to produce the 'abs' versions when
     // importing? Otherwise when importing into a module script the base address
@@ -89,4 +89,21 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
 
     test_one_command("wait 100");
     test_one_command("marker 0x1234");
+
+    test_one_command("mvlc_wait 314159");
+    test_one_command("mvlc_signal_accu");
+    test_one_command("mvlc_mask_shift_accu 0x55 13");
+    test_one_command("mvlc_set_accu 666");
+
+    test_one_command("mvlc_read_to_accu a16 d16 0x1234");
+    test_one_command("mvlc_read_to_accu a24 d32 0x1234 slow");
+    test_one_command("mvlc_read_to_accu a32 d16 0x1234 late");
+
+    test_one_command("mvlc_compare_loop_accu eq 42");
+    test_one_command("mvlc_compare_loop_accu gt 42");
+    test_one_command("mvlc_compare_loop_accu lt 42");
+
+    test_one_command("mvlc_writespecial timestamp");
+    test_one_command("mvlc_writespecial accu");
+    test_one_command("mvlc_writespecial 1234");
 }
