@@ -317,41 +317,42 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
     Command result;
     result.type = commandType_from_string(args[0]);
 
-    try
-    {
-        // Parse non-numeric address modes only and translate them to the
-        // correct address mode for the transfer type.
-        auto amod = parseAddressMode(args[1], false);
+    // Parse both literal and numeric address modes, then translate them to the
+    // correct amode values for the transfer type. E.g. for a "blt" command the
+    // address_mode "a24" is first parsed to 0x09, then translated to 0x3b.
+    auto amod = parseAddressMode(args[1], true);
 
-        switch (result.type)
+    switch (result.type)
+    {
+    case CommandType::BLT:
+    case CommandType::BLTFifo:
+        if (amod == vme_amods::A24)
+            amod = vme_amods::a24UserBlock;
+        else if (amod == vme_amods::A32)
+            amod = vme_amods::a32UserBlock;
+        break;
+
+    case CommandType::MBLT:
+    case CommandType::MBLTFifo:
+    case CommandType::MBLTSwapped:
+    case CommandType::MBLTSwappedFifo:
+        if (amod == vme_amods::A32)
         {
-        case CommandType::BLT:
-        case CommandType::BLTFifo:
-            if (amod == vme_amods::A24)
-                amod = vme_amods::a24UserBlock;
-            else if (amod == vme_amods::A32)
-                amod = vme_amods::a32UserBlock;
-            break;
-
-        case CommandType::MBLT:
-        case CommandType::MBLTFifo:
-        case CommandType::MBLTSwapped:
-        case CommandType::MBLTSwappedFifo:
-            if (amod == vme_amods::A32)
-                amod = vme_amods::a32UserBlock64;
-            break;
-
-        default:
-            break;
+            amod = vme_amods::a32UserBlock64;
         }
+        else
+        {
+            throw ParseError(
+                "Invalid address modifier for MBLT transfer (only A32 allowed)",
+                lineNumber);
+        }
+        break;
 
-        result.addressMode = amod;
+    default:
+        break;
     }
-    catch(const char *)
-    {
-        // Try parsing again but this time accepting raw numeric values too.
-        result.addressMode = parseAddressMode(args[1], true);
-    }
+
+    result.addressMode = amod;
 
     switch (result.type)
     {
@@ -359,6 +360,9 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
         case CommandType::MBLT:
         case CommandType::MBLTSwapped:
             result.mvlcFifoMode = false;
+            break;
+
+        default:
             break;
     }
 
@@ -403,6 +407,9 @@ Command parse2esstTransfer(const QStringList &args, int lineNumber)
         case CommandType::Blk2eSST64:
         case CommandType::Blk2eSST64Swapped:
             result.mvlcFifoMode = false;
+            break;
+
+        default:
             break;
     }
 
