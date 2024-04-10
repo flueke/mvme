@@ -7,7 +7,7 @@ namespace mesytec
 namespace mvme
 {
 
-mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
+mvlc::StackCommand vme_script_to_mvlc_command(const vme_script::Command &srcCmd)
 {
     using CommandType = vme_script::CommandType;
     using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
@@ -50,49 +50,49 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
 
         case CommandType::BLT:
             dstCmd.type = mvlcCT::VMEReadMem;
-            dstCmd.amod = mesytec::mvlc::vme_amods::BLT32;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
 
         case CommandType::BLTFifo:
             dstCmd.type = mvlcCT::VMERead;
-            dstCmd.amod = mesytec::mvlc::vme_amods::BLT32;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
 
         case CommandType::MBLT:
             dstCmd.type = mvlcCT::VMEReadMem;
-            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
 
         case CommandType::MBLTFifo:
             dstCmd.type = mvlcCT::VMERead;
-            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
 
         case CommandType::MBLTSwapped:
             dstCmd.type = mvlcCT::VMEReadMemSwapped;
-            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
 
         case CommandType::MBLTSwappedFifo:
             dstCmd.type = mvlcCT::VMEReadSwapped;
-            dstCmd.amod = mesytec::mvlc::vme_amods::MBLT64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
             break;
 
         case CommandType::Blk2eSST64:
             dstCmd.type = mvlcCT::VMEReadMem;
-            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
@@ -100,7 +100,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
 
         case CommandType::Blk2eSST64Fifo:
             dstCmd.type = mvlcCT::VMERead;
-            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
@@ -108,7 +108,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
 
         case CommandType::Blk2eSST64Swapped:
             dstCmd.type = mvlcCT::VMEReadMemSwapped;
-            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
@@ -116,7 +116,7 @@ mvlc::StackCommand convert_command(const vme_script::Command &srcCmd)
 
         case CommandType::Blk2eSST64SwappedFifo:
             dstCmd.type = mvlcCT::VMEReadSwapped;
-            dstCmd.amod = mesytec::mvlc::vme_amods::Blk2eSST64;
+            dstCmd.amod = srcCmd.addressMode;
             dstCmd.rate = static_cast<mesytec::mvlc::Blk2eSSTRate>(srcCmd.blk2eSSTRate);
             dstCmd.address = srcCmd.address;
             dstCmd.transfers = srcCmd.transfers;
@@ -222,7 +222,7 @@ std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &cont
     std::transform(
         std::begin(flattened), std::end(flattened),
         std::back_inserter(ret),
-        convert_command);
+        vme_script_to_mvlc_command);
 
     return ret;
 }
@@ -249,11 +249,11 @@ void add_stack_group(
                 auto inlineStack = srcCmd.mvlcInlineStack;
                 for (const auto &innerCommand: inlineStack)
                 {
-                    if (auto dstCmd = convert_command(*innerCommand))
+                    if (auto dstCmd = vme_script_to_mvlc_command(*innerCommand))
                         stack.addCommand(dstCmd);
                 }
             }
-            else if (auto dstCmd = convert_command(srcCmd))
+            else if (auto dstCmd = vme_script_to_mvlc_command(srcCmd))
                 stack.addCommand(dstCmd);
         }
     }
@@ -277,10 +277,10 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
                 if (srcCmd.type == vme_script::CommandType::MVLC_InlineStack)
                 {
                     for (const auto &innerCommand: srcCmd.mvlcInlineStack)
-                        if (auto dstCmd = convert_command(*innerCommand))
+                        if (auto dstCmd = vme_script_to_mvlc_command(*innerCommand))
                             stack.addCommand(dstCmd);
                 }
-                else if (auto dstCmd = convert_command(srcCmd))
+                else if (auto dstCmd = vme_script_to_mvlc_command(srcCmd))
                     stack.addCommand(dstCmd);
             }
         }

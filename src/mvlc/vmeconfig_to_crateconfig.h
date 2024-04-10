@@ -12,7 +12,7 @@ namespace mesytec
 namespace mvme
 {
 
-mvlc::StackCommand convert_command(const vme_script::Command &srcCmd);
+mvlc::StackCommand vme_script_to_mvlc_command(const vme_script::Command &srcCmd);
 
 std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &script);
 

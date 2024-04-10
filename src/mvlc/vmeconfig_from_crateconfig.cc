@@ -15,7 +15,7 @@ namespace mvme
 // Converts a mvlc::StackCommand to a vme_script::Command. If the conversion
 // cannot be performed, e.g. for StackStart or StackEnd, an invalid
 // vme_script::Command is returned.
-vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand &srcCmd)
+vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand &srcCmd)
 {
     using namespace vme_script;
     using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
@@ -31,13 +31,13 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             {
                 dstCmd.type = CommandType::BLTFifo;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = vme_address_modes::BLT32;
+                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_mblt_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::MBLTFifo;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = vme_address_modes::MBLT64;
+                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
@@ -56,6 +56,8 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.mvlcSlowRead = srcCmd.lateRead;
+            dstCmd.mvlcFifoMode = true;
             break;
 
         // FIFO word swapped for MBLT and 2eSST
@@ -64,7 +66,7 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             {
                 dstCmd.type = CommandType::MBLTSwappedFifo;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = vme_address_modes::MBLT64;
+                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
@@ -75,6 +77,8 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.mvlcSlowRead = srcCmd.lateRead;
+            dstCmd.mvlcFifoMode = true;
             break;
 
         // memory reads (with address increment) and single word reads
@@ -83,13 +87,13 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             {
                 dstCmd.type = CommandType::BLT;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = vme_address_modes::BLT32;
+                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_mblt_mode(srcCmd.amod))
             {
                 dstCmd.type = CommandType::MBLT;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = vme_address_modes::MBLT64;
+                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
@@ -108,6 +112,8 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.mvlcSlowRead = srcCmd.lateRead;
+            dstCmd.mvlcFifoMode = false;
             break;
 
         // word swapped memory reads for MBLT and 2eSST
@@ -116,7 +122,7 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             {
                 dstCmd.type = CommandType::MBLTSwapped;
                 dstCmd.transfers = srcCmd.transfers;
-                dstCmd.addressMode = vme_address_modes::MBLT64;
+                dstCmd.addressMode = srcCmd.amod;
             }
             else if (mvlc::vme_amods::is_esst64_mode(srcCmd.amod))
             {
@@ -127,6 +133,8 @@ vme_script::Command stack_command_to_vmescript_command(const mvlc::StackCommand 
             }
 
             dstCmd.address = srcCmd.address;
+            dstCmd.mvlcSlowRead = srcCmd.lateRead;
+            dstCmd.mvlcFifoMode = false;
             break;
 
         case mvlcCT::VMEWrite:
@@ -211,7 +219,7 @@ vme_script::VMEScript command_group_to_vmescript(const mvlc::StackCommandBuilder
 
     for (const auto &cmd: group.commands)
     {
-        auto vmeScriptCmd = stack_command_to_vmescript_command(cmd);
+        auto vmeScriptCmd = stack_command_to_vme_script_command(cmd);
 
         if (is_valid(vmeScriptCmd))
             result.push_back(vmeScriptCmd);

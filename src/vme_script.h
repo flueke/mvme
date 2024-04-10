@@ -236,6 +236,12 @@ inline bool operator==(const Command &lhs, const Command &rhs)
         == std::tie(rhs.type, rhs.addressMode, rhs.dataWidth, rhs.address, rhs.value, rhs.transfers, rhs.delay_ms, rhs.countMask, rhs.blk2eSSTRate, rhs.warning, rhs.lineNumber, rhs.source, rhs.metaBlock, rhs.printArgs, rhs.mvlcCustomStack, rhs.mvlcInlineStack, rhs.mvlcSlowRead, rhs.mvlcFifoMode, rhs.accuTestOp, rhs.accuTestMessage, rhs.accuMask, rhs.accuRotate, rhs.stringData);
 }
 
+inline bool operator!=(const Command &lhs, const Command &rhs)
+{
+    return !(lhs == rhs);
+}
+
+
 inline bool is_valid(const Command &cmd)
 {
     return cmd.type != CommandType::Invalid;
