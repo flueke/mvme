@@ -107,3 +107,6 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
     test_one_command("mvlc_writespecial accu");
     test_one_command("mvlc_writespecial 1234");
 }
+
+
+// TODO: add tests for the VMEConfig <-> CrateConfig conversions

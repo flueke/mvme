@@ -365,27 +365,55 @@ std::unique_ptr<VMEConfig> vmeconfig_from_crateconfig(
         try
         {
             const auto &readoutStack = crateConfig.stacks.at(stackIndex);
-            auto triggerInfo = mvlc::decode_trigger_value(crateConfig.triggers.at(stackIndex));
 
             auto eventConfig = std::make_unique<EventConfig>();
             eventConfig->setObjectName(QString::fromStdString(readoutStack.getName()));
 
-            if (triggerInfo.first == mvlc::stacks::TriggerType::IRQWithIACK
-                || triggerInfo.first == mvlc::stacks::TriggerType::IRQNoIACK)
+            mvlc::stacks::Trigger trigger { .value = static_cast<u16>(crateConfig.triggers.at(stackIndex)) };
+
+            if (trigger.type == mvlc::stacks::TriggerType::IRQWithIACK
+                || trigger.type == mvlc::stacks::TriggerType::IRQNoIACK)
             {
-                eventConfig->triggerCondition = TriggerCondition::Interrupt;
-                eventConfig->triggerOptions[QSL("IRQUseIACK")] =
-                    (triggerInfo.first == mvlc::stacks::TriggerType::IRQWithIACK);
-                eventConfig->irqLevel = triggerInfo.second;
+                if (trigger.subtype <= mvlc::stacks::TriggerSubtype::IRQ16)
+                {
+                    eventConfig->triggerCondition = TriggerCondition::Interrupt;
+                    eventConfig->triggerOptions[QSL("IRQUseIACK")] = (trigger.type == mvlc::stacks::TriggerType::IRQWithIACK);
+                    // IRQ1 is stored as 0 in stacks:Trigger::TriggerSubtype but as 1 in EventConfig::irqLevel.
+                    eventConfig->irqLevel = trigger.subtype + 1;
+                }
+                else if (trigger.subtype <= mvlc::stacks::TriggerSubtype::Slave3)
+                {
+                    eventConfig->triggerCondition = TriggerCondition::MvlcOnSlaveTrigger;
+                    // Similar to EventConfigDialog::saveToConfig() but the Slave trigger index has to be calculated.
+                    eventConfig->triggerOptions[QSL("mvlc.slavetrigger_index")] =
+                        trigger.subtype - mvlc::stacks::TriggerSubtype::Slave0;
+                }
+                else if (trigger.subtype <= mvlc::stacks::Timer3)
+                {
+                    eventConfig->triggerCondition = TriggerCondition::MvlcStackTimer;
+
+                    // The stack timer period is stored in CrateConfig::initRegisters.
+                    // Calculate the timer index and the corresponding timer register address. Look for the register in
+                    // CrateConfig::initRegisters and store its value as the timer period in the EventConfig.
+                    auto timerIndex = trigger.subtype - mvlc::stacks::TriggerSubtype::Timer0;
+                    auto timerRegister = mvlc::stacks::get_stacktimer_register(timerIndex);
+
+                    auto regWrite = std::find_if(std::begin(crateConfig.initRegisters), std::end(crateConfig.initRegisters),
+                        [timerRegister] (const auto &regWrite) { return regWrite.first == timerRegister; });
+
+                    if (regWrite != std::end(crateConfig.initRegisters))
+                    {
+                        eventConfig->triggerOptions["mvlc.stacktimer_period"] = regWrite->second;
+                    }
+                }
             }
-            else if (triggerInfo.first == mvlc::stacks::TriggerType::External)
+            else if (trigger.type == mvlc::stacks::TriggerType::External)
             {
                 eventConfig->triggerCondition = TriggerCondition::TriggerIO;
             }
 
             // Walk the readoutStack to fill the EventConfig and create child
             // ModuleConfigs.
-            //
             //
             // The first group that does not contain any
             // read commands is used as the events "readout_start" script. The
