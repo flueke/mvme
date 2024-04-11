@@ -219,7 +219,7 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
 
 std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig &vmeConfig, Logger logger)
 {
-    std::vector<u32> triggers;
+    std::vector<u32> triggerValues;
 
     u8 stackId = mvlc::stacks::FirstReadoutStackID;
 
@@ -241,17 +241,17 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 
                     bool useIACK = event->triggerOptions["IRQUseIACK"].toBool();
 
-                    mvlc::StackTrigger st;
-                    st.triggerType = (useIACK ? mvlc::stacks::IRQWithIACK : mvlc::stacks::IRQNoIACK);
-                    st.irqLevel = event->irqLevel;
-                    triggers.push_back(mvlc::trigger_value(st));
+                    mvlc::stacks::Trigger st{};
+                    st.type = (useIACK ? mvlc::stacks::IRQWithIACK : mvlc::stacks::IRQNoIACK);
+                    st.subtype = mvlc::stacks::TriggerSubtype(event->irqLevel -1);
+                    triggerValues.push_back(st.value);
                 } break;
 
             case TriggerCondition::Periodic:
                 if (timersInUse >= mvme_mvlc::trigger_io::TimerCount)
                 {
                     auto ec = make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
-                    return std::make_pair(triggers, ec);
+                    return std::make_pair(triggerValues, ec);
                 }
                 else
                 {
@@ -261,9 +261,9 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                     // Set the stack trigger to 'External'. The actual setup of
                     // the timer and the connection between the Timer and
                     // StackStart units is done in setup_trigger_io().
-                    mvlc::StackTrigger st{ mvlc::stacks::External, 0 };
-                    st.triggerType = mvlc::stacks::External;
-                    triggers.push_back(mvlc::trigger_value(st));
+                    mvlc::stacks::Trigger st{};
+                    st.type = mvlc::stacks::External;
+                    triggerValues.push_back(st.value);
                     ++timersInUse;
                 } break;
 
@@ -274,9 +274,9 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
 
                     // Set the stack trigger to 'External'. The actual trigger
                     // setup is done by the user via the trigger io gui.
-                    mvlc::StackTrigger st{ mvlc::stacks::External, 0 };
-                    st.triggerType = mvlc::stacks::External;
-                    triggers.push_back(mvlc::trigger_value(st));
+                    mvlc::stacks::Trigger st{};
+                    st.type = mvlc::stacks::External;
+                    triggerValues.push_back(st.value);
                 }
                 break;
 
@@ -284,29 +284,31 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
                 if (stackTimersInUse >= mvlc::stacks::StackTimersCount)
                 {
                     auto ec = make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded);
-                    return std::make_pair(triggers, ec);
+                    return std::make_pair(triggerValues, ec);
                 }
                 else
                 {
                     logger(QSL("    Event %1: Stack %2, periodic (StackTimer %3)")
                         .arg(event->objectName()).arg(stackId).arg(stackTimersInUse));
 
-                    u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
-                    triggerValue |= (static_cast<u32>(mvlc::stacks::TriggerSubtype::Timer0) + stackTimersInUse) & mvlc::stacks::TriggerBitsMask;
-                    triggers.push_back(triggerValue);
+                    mvlc::stacks::Trigger st{};
+                    st.type = mvlc::stacks::IRQNoIACK;
+                    st.subtype = mvlc::stacks::TriggerSubtype(mvlc::stacks::TriggerSubtype::Timer0 + stackTimersInUse);
+                    triggerValues.push_back(st.value);
                     ++stackTimersInUse;
                 }
                 break;
 
             case TriggerCondition::MvlcOnSlaveTrigger:
                 {
-                    auto slaveTriggerIndex = event->triggerOptions.value("mvlc.slavetrigger_index").toULongLong();
+                    u16 slaveTriggerIndex = event->triggerOptions.value("mvlc.slavetrigger_index").toUInt();
                     logger(QSL("    Event %1: Stack %2, on Master Trigger%3")
                         .arg(event->objectName()).arg(stackId).arg(slaveTriggerIndex));
 
-                    u32 triggerValue = mvlc::stacks::IRQNoIACK << mvlc::stacks::TriggerTypeShift;
-                    triggerValue |= (static_cast<u32>(mvlc::stacks::TriggerSubtype::Slave0) + slaveTriggerIndex) & mvlc::stacks::TriggerBitsMask;
-                    triggers.push_back(triggerValue);
+                    mvlc::stacks::Trigger st{};
+                    st.type = mvlc::stacks::IRQNoIACK;
+                    st.subtype = mvlc::stacks::TriggerSubtype(mvlc::stacks::TriggerSubtype::Slave0 + slaveTriggerIndex);
+                    triggerValues.push_back(st.value);
                 }
                 break;
 
@@ -316,7 +318,7 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
         stackId++;
     }
 
-    return std::make_pair(triggers, std::error_code{});
+    return std::make_pair(triggerValues, std::error_code{});
 }
 
 // FIXME: create code to upate the vmeconfig and separate code to run the
