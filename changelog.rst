@@ -7,6 +7,14 @@ Changelog
 Version 1.12-rc
 ---------------
 
+* vme_script
+
+  - Fix wrong FIFO mode setting when parsing block transfer commands.
+
+  - Do not accept invalid VME amods for block transfers.
+
+* Fixes and improvements to the mesytec-mvlc YAML export/import.
+
 * vme_templates: Add template for MHV-4 readout via RC-Bus connection from a
   parent VME module.
 
