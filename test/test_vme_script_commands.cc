@@ -328,16 +328,34 @@ TEST(vme_script_commands, BlockReads)
         ASSERT_EQ(cmd.transfers, 1000);
     }
 
-    // blt but with a custom, non-sensical address mode
+    // blt with a numeric amod value (0x3F == a24PrivBlock)
     {
-        auto input = QSL("blt 0x42 0x1234 1000");
+        auto input = QSL("blt 0x3F 0x1234 1000");
         auto script = vme_script::parse(input);
         ASSERT_EQ(script.size(), 1);
         auto &cmd = script.first();
         ASSERT_EQ(cmd.type, CommandType::BLT);
         ASSERT_EQ(cmd.address, 0x1234);
-        ASSERT_EQ(cmd.addressMode, 0x42);
+        ASSERT_EQ(cmd.addressMode, 0x3F);
         ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // blt with a numeric amod value (0x0F == a32PrivBlock)
+    {
+        auto input = QSL("blt 0x0F 0x1234 1000");
+        auto script = vme_script::parse(input);
+        ASSERT_EQ(script.size(), 1);
+        auto &cmd = script.first();
+        ASSERT_EQ(cmd.type, CommandType::BLT);
+        ASSERT_EQ(cmd.address, 0x1234);
+        ASSERT_EQ(cmd.addressMode, 0x0F);
+        ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // blt but with a custom, non-sensical address mode
+    {
+        auto input = QSL("blt 0x42 0x1234 1000");
+        EXPECT_THROW(vme_script::parse(input), vme_script::ParseError);
     }
 
     // mblt a32
@@ -352,16 +370,22 @@ TEST(vme_script_commands, BlockReads)
         ASSERT_EQ(cmd.transfers, 1000);
     }
 
-    // mblt but with a custom amod
+    // mblt with a numeric amod value (0x0c == a32PrivBlock64)
     {
-        auto input = QSL("mblt 0x42 0x1234 1000");
+        auto input = QSL("mblt 0x0c 0x1234 1000");
         auto script = vme_script::parse(input);
         ASSERT_EQ(script.size(), 1);
         auto &cmd = script.first();
         ASSERT_EQ(cmd.type, CommandType::MBLT);
         ASSERT_EQ(cmd.address, 0x1234);
-        ASSERT_EQ(cmd.addressMode, 0x42);
+        ASSERT_EQ(cmd.addressMode, 0x0c);
         ASSERT_EQ(cmd.transfers, 1000);
+    }
+
+    // mblt with an invalid numeric amod value
+    {
+        auto input = QSL("mblt 0x42 0x1234 1000");
+        EXPECT_THROW(vme_script::parse(input), vme_script::ParseError);
     }
 
     // mbltfifo a32

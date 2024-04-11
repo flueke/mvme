@@ -327,9 +327,19 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
     case CommandType::BLT:
     case CommandType::BLTFifo:
         if (amod == vme_amods::A24)
+        {
             amod = vme_amods::a24UserBlock;
+        }
         else if (amod == vme_amods::A32)
+        {
             amod = vme_amods::a32UserBlock;
+        }
+        else if (amod != vme_amods::a24PrivBlock && amod != vme_amods::a32PrivBlock)
+        {
+            throw ParseError(
+                "Invalid address modifier for BLT transfer (only A24/A32 modes allowed)",
+                lineNumber);
+        }
         break;
 
     case CommandType::MBLT:
@@ -340,7 +350,7 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
         {
             amod = vme_amods::a32UserBlock64;
         }
-        else
+        else if (amod != vme_amods::a32PrivBlock64)
         {
             throw ParseError(
                 "Invalid address modifier for MBLT transfer (only A32 allowed)",
