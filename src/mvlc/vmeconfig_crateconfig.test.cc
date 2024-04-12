@@ -22,7 +22,7 @@ TEST(vmeconfig_crateconfig, ExportImportCommands)
         {
         auto mvmeCmd = vme_script::parse(mvmeCmdString).first();
         // vme_script::parse() sets the lineNumber to 1,
-        // mvme::stack_command_to_vme_script_command() leaves it set to 0.
+        // mvme::mvlc_command_to_vme_script_command() leaves it set to 0.
         mvmeCmd.lineNumber = 0;
 
         auto mvlcCmd = mvme::vme_script_command_to_mvlc_command(mvmeCmd);
@@ -30,7 +30,7 @@ TEST(vmeconfig_crateconfig, ExportImportCommands)
         std::cout << "mvme vmeScript command: " << mvmeCmdString.toLocal8Bit().data() << "\n";
         std::cout << "mvlc command string:    " << to_string(mvlcCmd) << "\n";
 
-        auto mvmeCmdImported = mvme::stack_command_to_vme_script_command(mvlcCmd);
+        auto mvmeCmdImported = mvme::mvlc_command_to_vme_script_command(mvlcCmd);
 
         if (mvmeCmd != mvmeCmdImported)
         {

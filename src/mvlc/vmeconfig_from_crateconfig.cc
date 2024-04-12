@@ -15,7 +15,7 @@ namespace mvme
 // Converts a mvlc::StackCommand to a vme_script::Command. If the conversion
 // cannot be performed, e.g. for StackStart or StackEnd, an invalid
 // vme_script::Command is returned.
-vme_script::Command stack_command_to_vme_script_command(const mvlc::StackCommand &srcCmd)
+vme_script::Command mvlc_command_to_vme_script_command(const mvlc::StackCommand &srcCmd)
 {
     using namespace vme_script;
     using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
@@ -211,7 +211,7 @@ vme_script::VMEScript command_group_to_vmescript(const mvlc::StackCommandBuilder
 
     for (const auto &cmd: group.commands)
     {
-        auto vmeScriptCmd = stack_command_to_vme_script_command(cmd);
+        auto vmeScriptCmd = mvlc_command_to_vme_script_command(cmd);
 
         if (is_valid(vmeScriptCmd))
             result.push_back(vmeScriptCmd);

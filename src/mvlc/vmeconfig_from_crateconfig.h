@@ -11,7 +11,7 @@ namespace mvme
 {
 
 vme_script::Command LIBMVME_EXPORT
-    stack_command_to_vme_script_command(const mvlc::StackCommand &srcCmd);
+    mvlc_command_to_vme_script_command(const mvlc::StackCommand &srcCmd);
 
 std::unique_ptr<VMEConfig> LIBMVME_EXPORT
     vmeconfig_from_crateconfig(const mvlc::CrateConfig &crateConfig);
