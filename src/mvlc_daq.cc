@@ -168,8 +168,6 @@ std::error_code setup_readout_stacks(MVLCObject &mvlc, const VMEConfig &vmeConfi
     u16 uploadWordOffset = mvlc::stacks::ImmediateStackStartOffsetWords +
         mvlc::stacks::ImmediateStackReservedWords + 1;
 
-    std::vector<u32> responseBuffer;
-
     for (const auto &event: vmeConfig.getEventConfigs())
     {
         if (stackId >= stackCount)
