@@ -29,6 +29,24 @@
 #include "vme_script.h"
 #include "vme_script_exec.h"
 
+using VmeScriptConfigVector = QVector<VMEScriptConfig *>;
+
+// Returns a flat list of the modules init scripts. This includes the "Module
+// Reset" script.
+VmeScriptConfigVector LIBMVME_EXPORT
+vme_daq_collect_module_init_scripts(const ModuleConfig *moduleConfig);
+
+// Returns the module init scripts of all modules in the given event.
+// Note: also returns entries for disabled modules!
+QVector<std::pair<ModuleConfig *, VmeScriptConfigVector>> LIBMVME_EXPORT
+vme_daq_collect_module_init_scripts(const EventConfig *eventConfig);
+
+// Returns the module init scripts for all events in the given vme config.
+// Note: also returns entries for disabled modules!
+QVector<std::pair<EventConfig *, QVector<std::pair<ModuleConfig *, VmeScriptConfigVector>>>> LIBMVME_EXPORT
+vme_daq_collect_module_init_scripts(const VMEConfig *vmeConfig);
+
+
 /* Both init functions throw on error:
  * QString, std::runtime_error, vme_script::ParseError
  */
