@@ -49,12 +49,13 @@ TEST(vmeconfig_crateconfig, ExportImportCommands)
 
 
     // Note: No test for 'readabs' or 'writeabs'. The MVLC YAML file always
-    // contains absolute addresses importing results in 'read' or 'write'
-    // commands.
+    // contains absolute addresses and currently 'read'/'write' commands are
+    // used when importing.
     // FIXME (maybe): wouldn't it be better to produce the 'abs' versions when
     // importing? Otherwise when importing into a module script the base address
     // would be added to the absolute module address. Not an issue if all
-    // imported modules are created with address 0x0.
+    // imported modules are created with address 0x0 which currently is the
+    // case.
 
     test_one_command("write a16 d16 0x1234 0xaffe");
     test_one_command("write a24 d32 0x1234 0xaffe");
