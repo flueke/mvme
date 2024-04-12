@@ -6,13 +6,13 @@
 // Idea for testing the mvme VMEConfig <-> mvlc YAML conversion code:
 // - Input is a single vme_script command line
 // - Parse the line to get a vme_script::Command
-// - Convert to mvlc::StackCommand using vme_script_to_mvlc_command()
+// - Convert to mvlc::StackCommand using vme_script_command_to_mvlc_command()
 
 // - Convert the mvlc::StackCommand back to a vme_script::Command
 // - Compare the original vme_script::Command with the new one.
 // If the commands are equal the conversion works as intended.
 
-TEST(vmeconfig_to_crateconfig, ExportImportCommands)
+TEST(vmeconfig_crateconfig, ExportImportCommands)
 {
     using namespace mesytec;
 
@@ -25,7 +25,7 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
         // mvme::stack_command_to_vme_script_command() leaves it set to 0.
         mvmeCmd.lineNumber = 0;
 
-        auto mvlcCmd = mvme::vme_script_to_mvlc_command(mvmeCmd);
+        auto mvlcCmd = mvme::vme_script_command_to_mvlc_command(mvmeCmd);
 
         std::cout << "mvme vmeScript command: " << mvmeCmdString.toLocal8Bit().data() << "\n";
         std::cout << "mvlc command string:    " << to_string(mvlcCmd) << "\n";
@@ -34,7 +34,7 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
 
         if (mvmeCmd != mvmeCmdImported)
         {
-            int x = 42;
+            int x = 42; (void) x;  // for breakpoints
         }
 
         ASSERT_EQ(mvmeCmd, mvmeCmdImported);
@@ -108,5 +108,4 @@ TEST(vmeconfig_to_crateconfig, ExportImportCommands)
     test_one_command("mvlc_writespecial 1234");
 }
 
-
-// TODO: add tests for the VMEConfig <-> CrateConfig conversions
+//TEST(vmeconfig_crateconfig,

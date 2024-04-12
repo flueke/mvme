@@ -7,7 +7,7 @@ namespace mesytec
 namespace mvme
 {
 
-mvlc::StackCommand vme_script_to_mvlc_command(const vme_script::Command &srcCmd)
+mvlc::StackCommand vme_script_command_to_mvlc_command(const vme_script::Command &srcCmd)
 {
     using CommandType = vme_script::CommandType;
     using mvlcCT = mesytec::mvlc::StackCommand::CommandType;
@@ -222,7 +222,7 @@ std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &cont
     std::transform(
         std::begin(flattened), std::end(flattened),
         std::back_inserter(ret),
-        vme_script_to_mvlc_command);
+        vme_script_command_to_mvlc_command);
 
     return ret;
 }
@@ -249,11 +249,11 @@ void add_stack_group(
                 auto inlineStack = srcCmd.mvlcInlineStack;
                 for (const auto &innerCommand: inlineStack)
                 {
-                    if (auto dstCmd = vme_script_to_mvlc_command(*innerCommand))
+                    if (auto dstCmd = vme_script_command_to_mvlc_command(*innerCommand))
                         stack.addCommand(dstCmd);
                 }
             }
-            else if (auto dstCmd = vme_script_to_mvlc_command(srcCmd))
+            else if (auto dstCmd = vme_script_command_to_mvlc_command(srcCmd))
                 stack.addCommand(dstCmd);
         }
     }
@@ -277,10 +277,10 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
                 if (srcCmd.type == vme_script::CommandType::MVLC_InlineStack)
                 {
                     for (const auto &innerCommand: srcCmd.mvlcInlineStack)
-                        if (auto dstCmd = vme_script_to_mvlc_command(*innerCommand))
+                        if (auto dstCmd = vme_script_command_to_mvlc_command(*innerCommand))
                             stack.addCommand(dstCmd);
                 }
-                else if (auto dstCmd = vme_script_to_mvlc_command(srcCmd))
+                else if (auto dstCmd = vme_script_command_to_mvlc_command(srcCmd))
                     stack.addCommand(dstCmd);
             }
         }

@@ -12,7 +12,7 @@ namespace mesytec
 namespace mvme
 {
 
-mvlc::StackCommand vme_script_to_mvlc_command(const vme_script::Command &srcCmd);
+mvlc::StackCommand vme_script_command_to_mvlc_command(const vme_script::Command &srcCmd);
 
 std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &script);
 
@@ -20,7 +20,6 @@ std::vector<mvlc::StackCommand> convert_script(const VMEScriptConfig *script, u3
 
 // Converts a mvme VMEConfig to a mesytec-mvlc CrateConfig.
 mvlc::CrateConfig LIBMVME_EXPORT vmeconfig_to_crateconfig(const VMEConfig *vmeConfig);
-
 
 }
 }
