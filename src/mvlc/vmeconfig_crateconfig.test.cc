@@ -2,6 +2,7 @@
 
 #include "vmeconfig_to_crateconfig.h"
 #include "vmeconfig_from_crateconfig.h"
+#include "mvlc_daq.h"
 
 // Idea for testing the mvme VMEConfig <-> mvlc YAML conversion code:
 // - Input is a single vme_script command line
@@ -109,4 +110,67 @@ TEST(vmeconfig_crateconfig, ExportImportCommands)
     test_one_command("mvlc_writespecial 1234");
 }
 
-//TEST(vmeconfig_crateconfig,
+TEST(vmeconfig_crateconfig, TriggerValues)
+{
+    using namespace mesytec;
+
+    // ev0: irq3 with iack
+    auto ev0 = new EventConfig; // Qt raw pointer ownership :-(
+    ev0->triggerCondition = TriggerCondition::Interrupt;
+    ev0->triggerOptions["IRQUseIACK"] = true;
+    ev0->irqLevel = 3;
+
+    // ev1: irq1 without iack
+    auto ev1 = new EventConfig;
+    ev1->triggerCondition = TriggerCondition::Interrupt;
+    ev1->triggerOptions["IRQUseIACK"] = false;
+    ev1->irqLevel = 3;
+
+    // ev2: periodic via trigger io. The stack trigger is set to "External".
+    // Setup of the trigger io must be done elsewhere, it's not part of
+    // calculating the trigger values.
+    auto ev2 = new EventConfig;
+    ev2->triggerCondition = TriggerCondition::Periodic;
+
+    // ev3: via trigger io. Same as Periodic above when it comes to calculating
+    // the trigger value.
+    auto ev3 = new EventConfig;
+    ev3->triggerCondition = TriggerCondition::TriggerIO;
+
+    // ev4: via stack timer (MVLC >= FW0037).
+    auto ev4 = new EventConfig;
+    ev4->triggerCondition = TriggerCondition::MvlcStackTimer;
+
+    // ev5: via stack timer (MVLC >= FW0037).
+    auto ev5 = new EventConfig;
+    ev5->triggerCondition = TriggerCondition::MvlcStackTimer;
+
+    // ev6: on slave trigger (MVLC >= FW0037).
+    auto ev6 = new EventConfig;
+    ev6->triggerCondition = TriggerCondition::MvlcOnSlaveTrigger;
+    ev6->triggerOptions["mvlc.slavetrigger_index"] = 2;
+
+    // ev7: on slave trigger (MVLC >= FW0037).
+    auto ev7 = new EventConfig;
+    ev7->triggerCondition = TriggerCondition::MvlcOnSlaveTrigger;
+    ev7->triggerOptions["mvlc.slavetrigger_index"] = 1;
+
+    auto vmeCfg = std::make_unique<VMEConfig>();
+
+    for (auto ev: { ev0, ev1, ev2, ev3, ev4, ev5, ev6, ev7 })
+        vmeCfg->addEventConfig(ev);
+
+    auto crateConfig = mvme::vmeconfig_to_crateconfig(vmeCfg.get());
+    auto vmeCfgImported = mvme::vmeconfig_from_crateconfig(crateConfig);
+
+    ASSERT_EQ(vmeCfg->getEventConfigs().size(), vmeCfgImported->getEventConfigs().size());
+
+    #if 0
+    fmt::print("trigger_values: {}\n", fmt::join(mvme_mvlc::get_trigger_values(*vmeCfg).first, ", "));
+    fmt::print("trigger_values: {}\n", fmt::join(mvme_mvlc::get_trigger_values(*vmeCfgImported).first, ", "));
+    fmt::print("trigger_values: {}\n", fmt::join(crateConfig.triggers, ", "));
+    #endif
+
+    ASSERT_EQ(mvme_mvlc::get_trigger_values(*vmeCfg), mvme_mvlc::get_trigger_values(*vmeCfg));
+
+}
