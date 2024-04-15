@@ -174,3 +174,67 @@ TEST(vmeconfig_crateconfig, TriggerValues)
     ASSERT_EQ(mvme_mvlc::get_trigger_values(*vmeCfg), mvme_mvlc::get_trigger_values(*vmeCfg));
 
 }
+
+TEST(vmeconfig_crateconfig, ReadoutCommands)
+{
+    using namespace mesytec;
+
+    auto mod0 = new ModuleConfig;
+    mod0->setBaseAddress(0x12340000u);
+    QStringList readout0;
+    readout0 << "mbltfifo a32 0xaaaa 9000";
+    readout0 << "write a32 d16 0x6034 1";
+    mod0->getReadoutScript()->setScriptContents(readout0.join("\n"));
+
+    auto mod1 = new ModuleConfig;
+    mod1->setBaseAddress(0x02000000u);
+    QStringList readout1;
+    readout1 << "read a32 d16 0xbbbb";
+    readout1 << "2essts 0x1234 276mb 1000";
+    readout1 << "read a24 d32 0x2222";
+    mod1->getReadoutScript()->setScriptContents(readout1.join("\n"));
+
+    auto ev0 = new EventConfig;
+    ev0->addModuleConfig(mod0);
+    ev0->addModuleConfig(mod1);
+
+    auto vmeCfg = std::make_unique<VMEConfig>();
+
+    for (auto ev: { ev0 })
+        vmeCfg->addEventConfig(ev);
+
+    auto crateConfig = mvme::vmeconfig_to_crateconfig(vmeCfg.get());
+    auto vmeCfgImported = mvme::vmeconfig_from_crateconfig(crateConfig);
+
+    ASSERT_EQ(vmeCfgImported->getEventConfigs().size(), 1);
+
+    auto ev0Imported = vmeCfgImported->getEventConfigs().at(0);
+
+    ASSERT_EQ(ev0Imported->getModuleConfigs().size(), 2);
+
+    {
+        auto mod0Imported = ev0Imported->getModuleConfigs().at(0);
+        auto mod0ReadoutImported = vme_script::parse(mod0Imported->getReadoutScript()->getScriptContents());
+        ASSERT_EQ(mod0ReadoutImported.size(), 2);
+        ASSERT_EQ(mod0ReadoutImported.at(0).type, vme_script::CommandType::MBLTFifo);
+        ASSERT_EQ(mod0ReadoutImported.at(0).address, 0x1234aaaa);
+        ASSERT_EQ(mod0ReadoutImported.at(0).transfers, 9000);
+        ASSERT_EQ(mod0ReadoutImported.at(1).type, vme_script::CommandType::Write);
+        ASSERT_EQ(mod0ReadoutImported.at(1).address, 0x12346034);
+        ASSERT_EQ(mod0ReadoutImported.at(1).value, 1);
+    }
+
+    {
+        auto mod1Imported = ev0Imported->getModuleConfigs().at(1);
+        auto mod1ReadoutImported = vme_script::parse(mod1Imported->getReadoutScript()->getScriptContents());
+
+        ASSERT_EQ(mod1ReadoutImported.size(), 3);
+
+        ASSERT_EQ(mod1ReadoutImported.at(0).type, vme_script::CommandType::Read);
+        ASSERT_EQ(mod1ReadoutImported.at(0).address, 0x0200bbbb);
+        ASSERT_EQ(mod1ReadoutImported.at(1).type, vme_script::CommandType::Blk2eSST64SwappedFifo);
+        ASSERT_EQ(mod1ReadoutImported.at(1).address, 0x02001234);
+        ASSERT_EQ(mod1ReadoutImported.at(2).type, vme_script::CommandType::Read);
+        ASSERT_EQ(mod1ReadoutImported.at(2).address, 0x02002222);
+    }
+}
