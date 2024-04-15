@@ -483,16 +483,6 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         VMEControllerType getControllerType() const { return m_controllerType; }
         QVariantMap getControllerSettings() const { return m_controllerSettings; }
 
-#if 0
-        // Pretty generic interface to hold global config objects.
-        // Currently these are global vme scripts run at daq start/stop time or
-        // manually and global devices like MVLCs trigger/IO module, mesytec RC
-        // Bus <-> VME interface or ISEGS high voltage power supply.
-        void addGlobalObject(ConfigObject *obj);
-        bool removeGlobalObject(ConfigObject *obj);
-        QVector<ConfigObject *> getGlobalObjects() const;
-#endif
-
         const ContainerObject &getGlobalObjectRoot() const;
         ContainerObject &getGlobalObjectRoot();
 
