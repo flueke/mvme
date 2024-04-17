@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "*.analysis": "json",
-        "*.mvmemodule": "json",
-        "system_error": "cpp",
-        "string_view": "cpp"
-    },
-}
