@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 1.12.1 - works with MVLC FW0037 or earlier
+Version 1.12.2 - works with MVLC FW0037 or earlier
 --------------------------------------------------
 
 * mvlc:
