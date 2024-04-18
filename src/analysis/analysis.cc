@@ -6066,13 +6066,13 @@ AnalysisObjectVector order_objects(const AnalysisObjectVector &objects,
     return order_objects(set, analysis);
 }
 
-std::pair<std::unique_ptr<Analysis>, QString>
+std::pair<std::shared_ptr<Analysis>, QString>
     read_analysis_config_from_file(const QString &filename,
                                    const VMEConfig *vmeConfig,
                                    read_options::Opt options,
                                    Logger logger)
 {
-    std::pair<std::unique_ptr<Analysis>, QString> result;
+    std::pair<std::shared_ptr<Analysis>, QString> result;
 
     QFile inFile(filename);
     if (!inFile.open(QIODevice::ReadOnly))
@@ -6098,7 +6098,7 @@ std::pair<std::unique_ptr<Analysis>, QString>
         json = json["AnalysisNG"].toObject();
     }
 
-    auto analysis = std::make_unique<Analysis>();
+    auto analysis = std::make_shared<Analysis>();
 
     if (auto ec = analysis->read(json, vmeConfig))
     {
@@ -6116,7 +6116,7 @@ std::pair<std::unique_ptr<Analysis>, QString>
     return result;
 }
 
-std::pair<std::unique_ptr<Analysis>, QString>
+std::pair<std::shared_ptr<Analysis>, QString>
     read_analysis_config_from_file(const QString &filename,
                                    read_options::Opt options,
                                    Logger logger)
