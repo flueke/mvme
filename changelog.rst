@@ -4,16 +4,22 @@
 Changelog
 ##################################################
 
-Version 1.12-rc
----------------
+Version 1.12 - works with MVLC FW0037 or earlier
+------------------------------------------------
+
+* mvlc:
+
+  - Update FTDI driver for windows from 1.3.0.2 to 1.3.0.8.
+
+  - Fix broken trigger setup with MVLC < FW0037.
+
+  - Fixes and improvements to the mesytec-mvlc YAML export/import.
 
 * vme_script
 
   - Fix wrong FIFO mode setting when parsing block transfer commands.
 
-  - Do not accept invalid VME amods for block transfers.
-
-* Fixes and improvements to the mesytec-mvlc YAML export/import.
+  - Do not accept invalid VME amods for block transfers (e.g. MBLT with a24).
 
 * vme_templates: Add template for MHV-4 readout via RC-Bus connection from a
   parent VME module.
@@ -29,12 +35,8 @@ Version 1.12-rc
 
 * Fix hang on shutdown under windows (promteheus-cpp related issue).
 
-* mvlc:
-
-  - Update FTDI driver for windows from 1.3.0.2 to 1.3.0.8.
-
-Version 1.11.0
---------------
+Version 1.11.0 - MVLC FW0037 or later only!
+-------------------------------------------
 
 * Support for new MVLC firmware FW0037 features:
 
