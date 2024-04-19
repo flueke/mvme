@@ -1,7 +1,9 @@
 #include <argh.h>
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/util/udp_sockets.h>
 #include <QApplication>
 #include <spdlog/spdlog.h>
+#include <poll.h>
 
 #include "analysis/analysis.h"
 #include "mvme_session.h"
@@ -11,6 +13,56 @@ using namespace mesytec::mvlc;
 //using namespace mesytec::mvme;
 
 std::atomic<bool> quit = false;
+
+void processing_loop(const std::vector<int> &mvlcDataSockets, std::atomic<bool> &quit)
+{
+    std::vector<struct pollfd> pollfds;
+
+    for (auto sock: mvlcDataSockets)
+    {
+        struct pollfd pfd = {};
+        pfd.fd = sock;
+        pfd.events = POLLIN;
+        pollfds.emplace_back(pfd);
+    }
+
+    auto num_open_fds = pollfds.size();
+
+    std::array<u8, 1500> destBuffer;
+
+    while (!quit && num_open_fds > 0)
+    {
+        if (poll(pollfds.data(), pollfds.size(), 100) < 0)
+        {
+            perror("poll");
+            return;
+        }
+
+        spdlog::trace("poll() returned");
+
+        for (auto &pfd: pollfds)
+        {
+            if (pfd.revents & POLLIN)
+            {
+                // TODO: read from the socket
+                destBuffer.fill(0);
+                size_t bytesTransferred = 0;
+                if (auto ec = eth::receive_one_packet(pfd.fd, destBuffer.data(), destBuffer.size(), bytesTransferred, 500))
+                {
+                    spdlog::error("Error reading from socket: {}\n", ec.message());
+                    return;
+                }
+                spdlog::info("Received {} bytes from socket {}\n", bytesTransferred, pfd.fd);
+            }
+            else if (pfd.revents & (POLLERR | POLLHUP))
+            {
+                // TODO: close the socket here?
+                pfd.fd = -1; // poll() ignored entries with negative fds
+                --num_open_fds;
+            }
+        }
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -108,40 +160,12 @@ int main(int argc, char *argv[])
 
         auto host = settings.value("mvlc_hostname").toString().toStdString();
         auto port = eth::DataPort;
-        struct sockaddr_in addr{};
+        std::error_code ec;
+        auto sock = eth::connect_udp_socket(host, port, &ec);
 
-        if (auto ec = eth::lookup(host, port, addr))
+        if (ec)
         {
-            std::cerr << fmt::format("Error looking up host '{}': {}\n",
-                host, ec.message());
-            return 1;
-        }
-
-        auto sock = socket(AF_INET, SOCK_DGRAM, 0);
-
-        if (sock < 0)
-        {
-            auto ec = std::error_code(errno, std::system_category());
-            std::cerr << fmt::format("Error creating socket for MVLC data pipe: {}\n", ec.message());
-            return 1;
-        }
-
-        struct sockaddr_in localAddr = {};
-        localAddr.sin_family = AF_INET;
-        localAddr.sin_addr.s_addr = INADDR_ANY;
-
-        if (::bind(sock, reinterpret_cast<struct sockaddr *>(&localAddr), sizeof(localAddr)))
-        {
-            auto ec = std::error_code(errno, std::system_category());
-            std::cerr << fmt::format("Error binding socket for MVLC data pipe: {}\n", ec.message());
-            return 1;
-        }
-
-        if (::connect(sock, reinterpret_cast<struct sockaddr *>(&addr),
-                                sizeof(addr)))
-        {
-            auto ec = std::error_code(errno, std::system_category());
-            std::cerr << fmt::format("connect() failed for data socket: {}\n", ec.message().c_str());
+            std::cerr << fmt::format("Error connecting to '{}': {}\n", host, ec.message());
             return 1;
         }
 
@@ -167,21 +191,28 @@ int main(int argc, char *argv[])
         }
     }
 
+    processing_loop(mvlcDataSockets, quit);
+
+    #if 0
     while (!quit)
     {
         // TODO: use select to read from whatever socket is ready first instead of running into read timeouts here.
         // TODO2: use one thread per mvlc
         for (auto sock: mvlcDataSockets)
         {
+
+
+
             std::array<u8, 1500> destBuffer;
             destBuffer.fill(0);
-            u16 bytesTransferred = 0;
+            size_t bytesTransferred = 0;
 
             if (auto ec = eth::receive_one_packet(sock, destBuffer.data(), destBuffer.size(), bytesTransferred, 500))
             {
             }
         }
     }
+    #endif
 
     //int ret = app.exec();
     int ret = 0;
