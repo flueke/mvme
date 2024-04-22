@@ -238,3 +238,6 @@ TEST(vmeconfig_crateconfig, ReadoutCommands)
         ASSERT_EQ(mod1ReadoutImported.at(2).address, 0x02002222);
     }
 }
+
+// TODO: test mvlc connection info (if not done elsewhere already)
+// TODO: test setting of crateId

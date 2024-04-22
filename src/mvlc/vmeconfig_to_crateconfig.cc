@@ -297,6 +297,7 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
             dstConfig.connectionType = mesytec::mvlc::ConnectionType::ETH;
             dstConfig.ethHost = ctrlSettings["mvlc_hostname"].toString().toStdString();
             dstConfig.ethJumboEnable = ctrlSettings["mvlc_eth_enable_jumbos"].toBool();
+            dstConfig.crateId = ctrlSettings["mvlc_ctrl_id"].toUInt();
             break;
 
         case VMEControllerType::MVLC_USB:
@@ -307,6 +308,8 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
             if (ctrlSettings.value("method") == QSL("by_serial"))
                 dstConfig.usbSerial = ctrlSettings["serial"].toString().toStdString();
+
+            dstConfig.crateId = ctrlSettings["mvlc_ctrl_id"].toUInt();
 
             break;
 
