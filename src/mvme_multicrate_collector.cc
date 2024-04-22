@@ -4,21 +4,55 @@
 #include <QApplication>
 #include <spdlog/spdlog.h>
 #include <poll.h>
+#include <signal.h>
 
 #include "analysis/analysis.h"
 #include "mvme_session.h"
 #include "vme_config.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
+#include "mvme_mvlc_listfile.h"
 
+using namespace mesytec;
 using namespace mesytec::mvlc;
-//using namespace mesytec::mvme;
+using namespace mesytec::mvme;
 
-std::atomic<bool> quit = false;
+static std::atomic<bool> signal_received = false;
 
-void processing_loop(const std::vector<int> &mvlcDataSockets, std::atomic<bool> &quit)
+void signal_handler(int signum)
+{
+    std::cerr << "signal " << signum << "\n";
+    std::cerr.flush();
+    signal_received = true;
+}
+
+void setup_signal_handlers()
+{
+    /* Set up the structure to specify the new action. */
+    struct sigaction new_action;
+    new_action.sa_handler = signal_handler;
+    sigemptyset (&new_action.sa_mask);
+    new_action.sa_flags = 0;
+
+    for (auto signum: { SIGINT, SIGHUP, SIGTERM })
+    {
+        if (sigaction(signum, &new_action, NULL) != 0)
+            throw std::system_error(errno, std::generic_category(), "setup_signal_handlers");
+    }
+}
+
+struct ProcessingContext
+{
+    std::atomic<bool> quit = false;
+    std::vector<std::unique_ptr<VMEConfig>> vmeConfigs;
+    std::vector<int> dataSockets;
+    std::unique_ptr<listfile::WriteHandle> lfh;
+};
+
+void processing_loop(ProcessingContext &context)
 {
     std::vector<struct pollfd> pollfds;
 
-    for (auto sock: mvlcDataSockets)
+    for (auto sock: context.dataSockets)
     {
         struct pollfd pfd = {};
         pfd.fd = sock;
@@ -30,7 +64,7 @@ void processing_loop(const std::vector<int> &mvlcDataSockets, std::atomic<bool> 
 
     std::array<u8, 1500> destBuffer;
 
-    while (!quit && num_open_fds > 0)
+    while (!context.quit && num_open_fds > 0 && !signal_received)
     {
         if (poll(pollfds.data(), pollfds.size(), 100) < 0)
         {
@@ -50,9 +84,31 @@ void processing_loop(const std::vector<int> &mvlcDataSockets, std::atomic<bool> 
                 if (auto ec = eth::receive_one_packet(pfd.fd, destBuffer.data(), destBuffer.size(), bytesTransferred, 500))
                 {
                     spdlog::error("Error reading from socket: {}\n", ec.message());
-                    return;
+                    pfd.fd = -1; // poll() ignored entries with negative fds
+                    --num_open_fds;
                 }
-                spdlog::info("Received {} bytes from socket {}\n", bytesTransferred, pfd.fd);
+                else
+                {
+                    spdlog::info("Received {} bytes from socket {}\n", bytesTransferred, pfd.fd);
+
+                    eth::PacketReadResult prr{};
+                    prr.buffer = destBuffer.data();
+                    prr.bytesTransferred = bytesTransferred;
+
+                    if (prr.hasHeaders())
+                    {
+                        spdlog::warn("foo");
+                        spdlog::info("socket {} -> packetNumber={}, crateId={}",
+                            pfd.fd, prr.packetNumber(), prr.controllerId());
+                    }
+                    else { assert(false); }
+                        spdlog::warn("bar");
+
+                    if (context.lfh)
+                    {
+                        context.lfh->write(destBuffer.data(), bytesTransferred);
+                    }
+                }
             }
             else if (pfd.revents & (POLLERR | POLLHUP))
             {
@@ -77,6 +133,8 @@ int main(int argc, char *argv[])
     spdlog::set_level(spdlog::level::warn);
     mesytec::mvlc::set_global_log_level(spdlog::level::warn);
 
+    setup_signal_handlers();
+
     if (argc < 2)
     {
         std::cout << generalHelp;
@@ -84,7 +142,7 @@ int main(int argc, char *argv[])
     }
 
     argh::parser parser({"-h", "--help", "--log-level"});
-    parser.add_params({"--analysis"});
+    parser.add_params({"--analysis", "--listfile"});
     parser.parse(argv);
 
     {
@@ -191,28 +249,49 @@ int main(int argc, char *argv[])
         }
     }
 
-    processing_loop(mvlcDataSockets, quit);
+    std::unique_ptr<listfile::ZipCreator> listfileCreator;
+    std::unique_ptr<listfile::WriteHandle> lfh;
 
-    #if 0
-    while (!quit)
+    // Open the output listfile
+    if (parser("--listfile") >> str)
     {
-        // TODO: use select to read from whatever socket is ready first instead of running into read timeouts here.
-        // TODO2: use one thread per mvlc
-        for (auto sock: mvlcDataSockets)
+        try
         {
+            listfileCreator = std::make_unique<listfile::ZipCreator>();
+            listfileCreator->createArchive(str);
+            lfh = listfileCreator->createZIPEntry("listfile.mvlclst");
+            spdlog::info("Opened output listfile {}", str);
+            listfile::listfile_write_magic(*lfh, ConnectionType::ETH);
+            listfile::listfile_write_endian_marker(*lfh, 0);
 
-
-
-            std::array<u8, 1500> destBuffer;
-            destBuffer.fill(0);
-            size_t bytesTransferred = 0;
-
-            if (auto ec = eth::receive_one_packet(sock, destBuffer.data(), destBuffer.size(), bytesTransferred, 500))
+            for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
             {
+                auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[crateId].get());
+                crateConfig.crateId = crateId;
+                listfile::listfile_write_crate_config(*lfh, crateConfig);
+                mvme_mvlc::listfile_write_mvme_config(*lfh, crateId, *vmeConfigs[crateId]);
+            }
+
+            for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
+            {
+                listfile::listfile_write_timestamp_section(
+                    *lfh, crateId, system_event::subtype::BeginRun);
             }
         }
+        catch(const std::exception& e)
+        {
+            spdlog::error("Error opening output listfile {}: {}", str, e.what());
+            return 1;
+        }
     }
-    #endif
+
+    ProcessingContext context{};
+    context.quit = false;
+    context.vmeConfigs = std::move(vmeConfigs);
+    context.dataSockets = mvlcDataSockets;
+    context.lfh = std::move(lfh);
+
+    processing_loop(context);
 
     //int ret = app.exec();
     int ret = 0;
