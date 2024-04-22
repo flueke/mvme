@@ -79,11 +79,21 @@ int main(int argc, char *argv[])
 
     auto mergeResult = mesytec::mvme::multi_crate::make_merged_vme_config(crateConfigs, crossCrateEvents);
 
+    for (auto &crateConfig: crateConfigs)
+    {
+        auto configTreeWidget = new VMEConfigTreeWidget;
+        configTreeWidget->setWindowTitle("crate");
+        configTreeWidget->resize(600, 800);
+        configTreeWidget->setConfig(crateConfig.get());
+        configTreeWidget->show();
+    }
+
     //auto jsonDoc = mvme::vme_config::serialize_vme_config_to_json_document(*mergeResult.first);
     //auto jsonText = jsonDoc.toJson();
     //std::cout << jsonText.toStdString();
 
     VMEConfigTreeWidget configTreeWidget;
+    configTreeWidget.setWindowTitle("merged");
     configTreeWidget.resize(600, 800);
     configTreeWidget.setConfig(mergeResult.first.get());
     configTreeWidget.show();
