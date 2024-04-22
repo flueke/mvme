@@ -44,7 +44,7 @@ namespace
     }
 }
 
-namespace mvme_mvlc_listfile
+namespace mesytec::mvme_mvlc
 {
 
 size_t get_filemagic_len()

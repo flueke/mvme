@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
     {
         auto mergedCrateConfig = mvme::vmeconfig_to_crateconfig(mergedVMEConfig.get());
         mvlc::listfile::listfile_write_preamble(lfwh, mergedCrateConfig);
-        mvme_mvlc_listfile::listfile_write_mvme_config(lfwh, 0, *mergedVMEConfig);
+        mvme_mvlc::listfile_write_mvme_config(lfwh, 0, *mergedVMEConfig);
     }
     catch (const vme_script::ParseError &e)
     {

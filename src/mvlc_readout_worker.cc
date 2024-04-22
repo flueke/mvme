@@ -472,7 +472,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // Write our VMEConfig to the listfile aswell (the CrateConfig from
                 // the library does not have all the meta information stored in the
                 // VMEConfig).
-                mvme_mvlc_listfile::listfile_write_mvme_config(bwh, crateConfig.crateId, *vmeConfig);
+                mvme_mvlc::listfile_write_mvme_config(bwh, crateConfig.crateId, *vmeConfig);
 
                 preamble = bwh.getBuffer();
             }

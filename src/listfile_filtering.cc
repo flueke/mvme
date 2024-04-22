@@ -27,6 +27,7 @@
 #include "run_info.h"
 #include "vme_daq.h"
 
+using namespace mesytec;
 using namespace mesytec::mvlc;
 
 namespace
@@ -233,7 +234,7 @@ void ListfileFilterStreamConsumer::beginRun(
         listfile::listfile_write_endian_marker(bwh, crateConfig.crateId);
         listfile::listfile_write_crate_config(bwh, crateConfig);
         static const u8 crateId = 0; // FIXME: single crate only!
-        mvme_mvlc_listfile::listfile_write_mvme_config(bwh, crateId, *vmeConfig);
+        mvme_mvlc::listfile_write_mvme_config(bwh, crateId, *vmeConfig);
         return bwh.getBuffer();
     };
 
