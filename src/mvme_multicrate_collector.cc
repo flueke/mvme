@@ -69,7 +69,6 @@ void processing_loop(ProcessingContext &context)
         if (poll(pollfds.data(), pollfds.size(), 100) < 0)
         {
             perror("poll");
-            return;
         }
 
         spdlog::trace("poll() returned");
@@ -97,12 +96,14 @@ void processing_loop(ProcessingContext &context)
 
                     if (prr.hasHeaders())
                     {
-                        spdlog::warn("foo");
                         spdlog::info("socket {} -> packetNumber={}, crateId={}",
                             pfd.fd, prr.packetNumber(), prr.controllerId());
                     }
-                    else { assert(false); }
-                        spdlog::warn("bar");
+                    else
+                    {
+                        spdlog::info("socket {} -> no valid headers in received packet of size {}",
+                            pfd.fd, prr.bytesTransferred);
+                    }
 
                     if (context.lfh)
                     {
@@ -292,6 +293,21 @@ int main(int argc, char *argv[])
     context.lfh = std::move(lfh);
 
     processing_loop(context);
+
+    if (context.lfh)
+    {
+        spdlog::info("Writing EndRun and EndOfFile sections");
+        for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
+        {
+            listfile::listfile_write_timestamp_section(
+                *context.lfh, crateId, system_event::subtype::EndRun);
+        }
+
+        for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
+        {
+            listfile_write_system_event(*context.lfh, crateId, system_event::subtype::EndOfFile);
+        }
+    }
 
     //int ret = app.exec();
     int ret = 0;
