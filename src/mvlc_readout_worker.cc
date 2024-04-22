@@ -549,6 +549,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
             }
         }
 
+        auto crateId = vmeConfig->getControllerSettings().value("mvlc_crate_id").toUInt();
+
+        if (auto ec = d->mvlcObj->writeRegister(registers::controller_id, crateId))
+        {
+            throw std::runtime_error(fmt::format("Error setting MVLC crate id: {}", ec.message()));
+        }
+
         // mesytec-mvlc readout worker
         d->mvlcReadoutWorker = std::make_unique<mvlc::ReadoutWorker>(
             d->mvlcCtrl->getMVLC(),
