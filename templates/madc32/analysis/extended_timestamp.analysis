@@ -1,0 +1,119 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 4,
+        "VMEObjectSettings": {
+        },
+        "conditionLinks": {
+        },
+        "connections": [
+            {
+                "dstId": "{dbb8f221-ee90-4835-82ab-efe492e7be3c}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{633d4799-3c5b-4aae-bd39-1ee55ffa368f}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{9aa66f07-a813-4d5c-b507-76ef3d0bcca5}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{dbb8f221-ee90-4835-82ab-efe492e7be3c}",
+                "srcIndex": 0
+            },
+            {
+                "dstId": "{3cf1e84f-0b34-4ecc-80cd-331a7155fb92}",
+                "dstIndex": 0,
+                "dstParamIndex": -1,
+                "srcId": "{633d4799-3c5b-4aae-bd39-1ee55ffa368f}",
+                "srcIndex": 0
+            }
+        ],
+        "directories": [
+        ],
+        "genericObjects": [
+        ],
+        "operators": [
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{616b2840-e511-493c-bffc-bdec157310ca}",
+                "id": "{3cf1e84f-0b34-4ecc-80cd-331a7155fb92}",
+                "name": "madc32.extended_timestamp_raw",
+                "userLevel": 0
+            },
+            {
+                "class": "analysis::CalibrationMinMax",
+                "data": {
+                    "calibrations": [
+                        {
+                            "unitMax": 65536,
+                            "unitMin": 0
+                        }
+                    ],
+                    "unitLabel": ""
+                },
+                "eventId": "{616b2840-e511-493c-bffc-bdec157310ca}",
+                "id": "{dbb8f221-ee90-4835-82ab-efe492e7be3c}",
+                "name": "madc32.extended_timestamp",
+                "userLevel": 1
+            },
+            {
+                "class": "analysis::Histo1DSink",
+                "data": {
+                    "nBins": 65536,
+                    "resolutionReductionFactor": 0,
+                    "xAxisTitle": "",
+                    "xLimitMax": null,
+                    "xLimitMin": null
+                },
+                "enabled": true,
+                "eventId": "{616b2840-e511-493c-bffc-bdec157310ca}",
+                "id": "{9aa66f07-a813-4d5c-b507-76ef3d0bcca5}",
+                "name": "madc32.extended_timestamp",
+                "userLevel": 1
+            }
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{dffbb79e-0ce5-4704-94aa-03c73a7c7299}",
+                    "moduleName": "madc32",
+                    "moduleTypeName": "madc32"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "options": 0,
+                    "parameterNames": [
+                    ],
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "4986851a142aaa8c",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "0010XXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{616b2840-e511-493c-bffc-bdec157310ca}",
+                "id": "{633d4799-3c5b-4aae-bd39-1ee55ffa368f}",
+                "moduleId": "{dffbb79e-0ce5-4704-94aa-03c73a7c7299}",
+                "name": "madc32.extended_timestamp"
+            }
+        ]
+    }
+}
