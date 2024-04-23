@@ -33,6 +33,8 @@ The install step is optional, mvme does run directly from the build directory.
 Starting point is a clean installation of Debian Buster with the *XFCE* desktop
 enviroment selected during installation time.
 
+Note: Debian Bookworm has no 'qt5-default', but needs 'libqt5svg5-dev'.
+
     apt-get install build-essential cmake libboost-all-dev qt5-default \
                     qtbase5-dev-tools libquazip5-dev libqwt-qt5-dev \
                     zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build \
