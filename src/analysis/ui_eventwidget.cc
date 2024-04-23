@@ -2871,7 +2871,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
             }
 
             // default data filters and "raw display" creation
-            auto defaultExtractors = get_default_data_extractors(
+            auto defaultExtractors = get_data_extractor_templates(
                 moduleConfig->getModuleMeta().typeName);
 
             if (!defaultExtractors.isEmpty())
