@@ -33,8 +33,9 @@ class QTreeWidgetItem;
 namespace analysis
 {
 
+// Loads Extractor and ListFilterExtractor instances from default_filters.analysis
 QVector<std::shared_ptr<SourceInterface>> LIBMVME_EXPORT
-    get_default_data_extractors(const QString &moduleTypeName);
+    get_data_extractor_templates(const QString &moduleTypeName);
 
 namespace CollectFlags
 {

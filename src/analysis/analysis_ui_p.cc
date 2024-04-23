@@ -159,7 +159,7 @@ AddEditExtractorDialog::AddEditExtractorDialog(std::shared_ptr<Extractor> ex, Mo
 
     add_widget_close_action(this);
 
-    auto dataSources = get_default_data_extractors(moduleConfig->getModuleMeta().typeName);
+    auto dataSources = get_data_extractor_templates(moduleConfig->getModuleMeta().typeName);
     m_defaultExtractors.clear();
 
     for (auto source: dataSources)
@@ -319,7 +319,7 @@ void AddEditExtractorDialog::runLoadTemplateDialog()
 /** Loads the template with the given \c index into the GUI.
  *
  * The index is an index into a vector of Extractor instances obtained from
- * get_default_data_extractors() cached in m_defaultExtractors.
+ * get_data_extractor_templates() cached in m_defaultExtractors.
  *
  * Assumes that the filter name loaded from the templates does consists of
  * sections split by '.' The last section is assumed to be the filter name,
@@ -479,7 +479,7 @@ struct MultiHitExtractorDialog::Private
         // Get the list of Extractors which do have a single subFilter.
         std::vector<std::shared_ptr<Extractor>> extractors;
 
-        for (auto source: get_default_data_extractors(mod->getModuleMeta().typeName))
+        for (auto source: get_data_extractor_templates(mod->getModuleMeta().typeName))
         {
             if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
             {
