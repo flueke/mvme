@@ -16,6 +16,9 @@
 #include "vme_config.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_mvlc_listfile.h"
+#include "util/mesy_nng.h"
+#include "util/mesy_nng_pipeline.h"
+#include "multi_crate.h"
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
@@ -134,6 +137,143 @@ void processing_loop(ProcessingContext &context)
             }
         }
     }
+}
+
+struct ReadoutLoopContext
+{
+    std::atomic<bool> quit;
+    int dataSocket;
+    nng_socket listfileSocket;
+    nng_socket snoopSocket;
+    u8 crateId;
+};
+
+static const size_t DefaultOutputMessageReserve = mvlc::util::Megabytes(1) + sizeof(multi_crate::ListfileBufferMessageHeader);
+static const std::chrono::milliseconds FlushBufferTimeout(500);
+
+void mvlc_eth_readout_loop(ReadoutLoopContext &context)
+{
+    multi_crate::NngMsgWriteHandle lfh;
+    u32 messageNumber = 1u;
+    std::vector<u8> previousData;
+
+    auto new_output_message = [&] () -> nng_msg *
+    {
+        nng_msg *msg = {};
+
+        if (auto res = nng::allocate_reserve_message(&msg, DefaultOutputMessageReserve))
+        {
+            spdlog::error("mvlc_eth_readout_loop: could not allocate nng output message");
+            return nullptr;
+        }
+
+        lfh.setMessage(msg);
+
+        multi_crate::ListfileBufferMessageHeader header
+        {
+            multi_crate::MessageType::ListfileBuffer,
+            messageNumber++,
+            context.crateId,
+            static_cast<u32>(mvlc::ConnectionType::ETH)
+        };
+
+        nng_msg_append(msg, &header, sizeof(header));
+        assert(nng_msg_len(msg) == sizeof(header));
+
+        nng_msg_append(msg, previousData.data(), previousData.size());
+        previousData.clear();
+
+        return msg;
+    };
+
+    auto flush_output_message = [&] (nng_msg *msg) -> int
+    {
+        multi_crate::fixup_listfile_buffer_message(mvlc::ConnectionType::ETH, msg, previousData);
+        nng_msg *msgClone = nullptr;
+
+        if (auto res = nng_msg_dup(&msgClone, msg))
+        {
+            spdlog::error("mvlc_eth_readout_loop: could not allocate nng output message");
+            return res;
+        }
+
+        if (auto res = nng::send_message_retry(context.listfileSocket, msg))
+            return res;
+
+        if (auto res = nng::send_message_retry(context.snoopSocket, msgClone))
+            return res;
+
+        return 0;
+    };
+
+    ReadoutLoopPlugin::Arguments pluginArgs{};
+    pluginArgs.crateId = context.crateId;
+    pluginArgs.listfileHandle = &lfh;
+
+    std::vector<std::unique_ptr<ReadoutLoopPlugin>> readoutLoopPlugins;
+    readoutLoopPlugins.emplace_back(std::make_unique<TimetickPlugin>());
+
+    auto msg = new_output_message();
+
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStart(pluginArgs);
+
+    auto tLastFlush = std::chrono::steady_clock::now();
+
+    while (!context.quit)
+    {
+        assert(nng::allocated_free_space(msg) >= eth::JumboFrameMaxSize);
+
+        auto msgUsed = nng_msg_len(msg);
+
+        // Note: should not alloc as we reserved space when the message was created.
+        nng_msg_realloc(msg, msgUsed + eth::JumboFrameMaxSize);
+
+        size_t bytesTransferred = 0;
+        auto ec = eth::receive_one_packet(
+            context.dataSocket,
+            static_cast<u8 *>(nng_msg_body(msg)) + msgUsed,
+            eth::JumboFrameMaxSize, bytesTransferred, 100);
+
+        assert(bytesTransferred <= eth::JumboFrameMaxSize);
+
+        // Note: should not alloc as we can only shrink the message here.
+        nng_msg_realloc(msg, msgUsed + bytesTransferred);
+
+        // Cross check size here.
+        assert(nng_msg_len(msg) == msgUsed + bytesTransferred);
+
+        if (ec && ec != std::errc::resource_unavailable_try_again)
+        {
+            spdlog::error("Error reading from mvlc data socket: {}", ec.message());
+            break;
+        }
+
+        // Run plugins (currently only timetick generation here).
+        for (const auto &plugin: readoutLoopPlugins)
+        {
+            plugin->operator()(pluginArgs);
+        }
+
+        // Check if either the flush timeout elapsed or there is no more space
+        // for packets in the output message.
+        if (auto elapsed = std::chrono::steady_clock::now() - tLastFlush;
+            elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+        {
+            if (flush_output_message(msg) != 0)
+                return;
+
+            msg = new_output_message();
+
+            if (!msg)
+                return;
+
+            tLastFlush = std::chrono::steady_clock::now();
+        }
+    }
+
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStop(pluginArgs);
 }
 
 int main(int argc, char *argv[])
