@@ -2422,7 +2422,7 @@ namespace read_options
     static const Opt BuildAnalysis = 1u;
 };
 
-LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
+LIBMVME_EXPORT std::pair<std::shared_ptr<Analysis>, QString>
     read_analysis_config_from_file(const QString &filename,
                                    const VMEConfig *vmeConfig,
                                    read_options::Opt options = read_options::BuildAnalysis,
@@ -2430,7 +2430,7 @@ LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
 
 // Simpler version of the above: uses a default constructed VMEConfig for the
 // call to Analysis::read().
-LIBMVME_EXPORT std::pair<std::unique_ptr<Analysis>, QString>
+LIBMVME_EXPORT std::pair<std::shared_ptr<Analysis>, QString>
     read_analysis_config_from_file(const QString &filename,
                                    read_options::Opt options = read_options::BuildAnalysis,
                                    Logger logger = {});

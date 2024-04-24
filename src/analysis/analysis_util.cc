@@ -34,36 +34,42 @@
 namespace analysis
 {
 
-QVector<std::shared_ptr<SourceInterface>> get_default_data_extractors(const QString &moduleTypeName)
+QVector<std::shared_ptr<SourceInterface>> get_data_extractor_templates(const QString &moduleTypeName)
 {
     QVector<std::shared_ptr<SourceInterface>> result;
 
     QDir moduleDir(vats::get_module_path(moduleTypeName));
-    QFile filtersFile(moduleDir.filePath("analysis/default_filters.analysis"));
+    moduleDir.cd("analysis");
 
-    if (filtersFile.open(QIODevice::ReadOnly))
+    for (auto filtersFilename: moduleDir.entryList({ "*.analysis" }))
     {
-        auto doc = QJsonDocument::fromJson(filtersFile.readAll());
-        auto filterAnalysis = std::make_shared<Analysis>();
-        /* Note: This does not do proper config conversion as no VMEConfig is
-         * passed to Analysis::read().  It is assumed that the default filters
-         * shipped with mvme are in the latest format (or a format that does
-         * not need a VMEConfig to be upconverted). */
 
-        if (auto ec = filterAnalysis->read(doc.object()[QSL("AnalysisNG")].toObject()))
+        QFile filtersFile(moduleDir.filePath(filtersFilename));
+
+        if (filtersFile.open(QIODevice::ReadOnly))
         {
-            QMessageBox::critical(nullptr,
-                                  QSL("Error loading default filters"),
-                                  ec.message().c_str());
-        }
-        else
-        {
-            for (auto source: filterAnalysis->getSources())
+            auto doc = QJsonDocument::fromJson(filtersFile.readAll());
+            auto filterAnalysis = std::make_shared<Analysis>();
+            /* Note: This does not do proper config conversion as no VMEConfig is
+            * passed to Analysis::read().  It is assumed that the default filters
+            * shipped with mvme are in the latest format (or a format that does
+            * not need a VMEConfig to be upconverted). */
+
+            if (auto ec = filterAnalysis->read(doc.object()[QSL("AnalysisNG")].toObject()))
             {
-                if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
-                    result.push_back(extractor);
-                else if (auto extractor = std::dynamic_pointer_cast<ListFilterExtractor>(source))
-                    result.push_back(extractor);
+                QMessageBox::critical(nullptr,
+                                    QSL("Error loading default filters"),
+                                    ec.message().c_str());
+            }
+            else
+            {
+                for (auto source: filterAnalysis->getSources())
+                {
+                    if (auto extractor = std::dynamic_pointer_cast<Extractor>(source))
+                        result.push_back(extractor);
+                    else if (auto extractor = std::dynamic_pointer_cast<ListFilterExtractor>(source))
+                        result.push_back(extractor);
+                }
             }
         }
     }
@@ -654,6 +660,25 @@ void add_default_filters(Analysis *analysis, ModuleConfig *module)
     // Prepare the analysis objects
     establish_connections(objectStore);
     generate_new_object_ids(objectStore.allObjects());
+
+#if 0
+    // Remove objects that have IsDefaultFilter=false set.
+    AnalysisObjectVector objectsToRemove;
+
+    for (auto &obj: objectStore.allObjects())
+    {
+        if (auto prop = obj->property("IsDefaultFilter");
+            prop.isValid() && !prop.toBool())
+        {
+            objectsToRemove.push_back(obj);
+        }
+    }
+
+    for (const auto &obj: objectsToRemove)
+    {
+        remove_object(objectStore, obj);
+    }
+#endif
 
     for (auto &obj: objectStore.allObjects())
         obj->setEventId(module->getEventId());

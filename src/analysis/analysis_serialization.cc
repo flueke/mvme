@@ -801,4 +801,29 @@ AnalysisObjectSet to_set(const AnalysisObjectVector &objects)
     return result;
 }
 
+#if 0
+template<typename Target, typename Vec, typename Obj> bool remove_object(Vec vec, const Obj &obj)
+{
+    if (auto target = std::dynamic_pointer_cast<Target>(obj))
+    {
+        if (auto it = std::find(vec.begin(), vec.end(), target);
+            it != std::end(vec))
+        {
+            vec.erase(it);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool remove_object(AnalysisObjectStore &objectStore, const AnalysisObjectPtr &obj)
+{
+    return (remove_object<SourceInterface>(objectStore.sources, obj) ||
+            remove_object<OperatorInterface>(objectStore.operators, obj) ||
+            remove_object<Directory>(objectStore.directories, obj) ||
+            remove_object<AnalysisObject>(objectStore.generics, obj));
+}
+#endif
+
 } // end namespace analysis

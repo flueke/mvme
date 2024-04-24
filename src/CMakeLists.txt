@@ -529,6 +529,11 @@ install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTI
 add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
 install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
+# mvme multicrate collector
+add_mvme_exe(mvme_multicrate_collector mvme_multicrate_collector.cc)
+install(TARGETS mvme_multicrate_collector RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+
 # automated gtests
 if(MVME_BUILD_TESTS)
 

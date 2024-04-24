@@ -472,7 +472,7 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // Write our VMEConfig to the listfile aswell (the CrateConfig from
                 // the library does not have all the meta information stored in the
                 // VMEConfig).
-                mvme_mvlc_listfile::listfile_write_mvme_config(bwh, crateConfig.crateId, *vmeConfig);
+                mvme_mvlc::listfile_write_mvme_config(bwh, crateConfig.crateId, *vmeConfig);
 
                 preamble = bwh.getBuffer();
             }
@@ -547,6 +547,13 @@ void MVLCReadoutWorker::start(quint32 cycles)
             {
                 throw std::runtime_error("Unsupported listfile format");
             }
+        }
+
+        auto crateId = vmeConfig->getControllerSettings().value("mvlc_crate_id").toUInt();
+
+        if (auto ec = d->mvlcObj->writeRegister(registers::controller_id, crateId))
+        {
+            throw std::runtime_error(fmt::format("Error setting MVLC crate id: {}", ec.message()));
         }
 
         // mesytec-mvlc readout worker

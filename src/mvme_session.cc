@@ -35,7 +35,7 @@
 #include "vme_config.h"
 #include "vme_controller.h"
 
-void mvme_init(const QString &appName)
+void mvme_init(const QString &appName, bool showDebugInfo)
 {
     Q_INIT_RESOURCE(mvme_resources);
 
@@ -48,13 +48,16 @@ void mvme_init(const QString &appName)
 
     QLocale::setDefault(QLocale::c());
 
-    qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
-    qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
-    qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
-    qDebug() << "mvme_git_version = " << mvme_git_version();
-    qDebug() << "mvme_git_describe_version = " << mvme_git_describe_version();
-    qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
-    qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
+    if (showDebugInfo)
+    {
+        qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
+        qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
+        qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
+        qDebug() << "mvme_git_version = " << mvme_git_version();
+        qDebug() << "mvme_git_describe_version = " << mvme_git_describe_version();
+        qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
+        qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
+    }
 
 #ifndef NDEBUG
     spdlog::set_level(spdlog::level::debug);

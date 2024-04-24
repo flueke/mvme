@@ -24,7 +24,7 @@
 #include "libmvme_export.h"
 #include "qt_util.h"
 
-void LIBMVME_EXPORT mvme_init(const QString &appName = QSL("mvme"));
+void LIBMVME_EXPORT mvme_init(const QString &appName = QSL("mvme"), bool showDebugInfo = true);
 void LIBMVME_EXPORT mvme_shutdown();
 
 void LIBMVME_EXPORT register_mvme_qt_metatypes();

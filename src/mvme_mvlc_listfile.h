@@ -29,7 +29,7 @@
 #include "vme_config.h"
 #include <mesytec-mvlc/mvlc_listfile.h>
 
-namespace mvme_mvlc_listfile
+namespace mesytec::mvme_mvlc
 {
 
 // Magic bytes at the start of the listfile. The terminating zero is not

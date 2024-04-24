@@ -338,7 +338,7 @@ int main(int argc, char *argv[])
 
         // ReadoutParser pushing data into the EventBuilder
         crdo->parserState = mvlc::readout_parser::make_readout_parser(
-            mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks), ci);
+            mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks));
         crdo->parserCounters = std::make_unique<CrateReadout::ProtectedParserCounters>();
 
         crdo->parserCallbacks.eventData = [&mcrdo] (
@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
     {
         auto mergedCrateConfig = mvme::vmeconfig_to_crateconfig(mergedVMEConfig.get());
         mvlc::listfile::listfile_write_preamble(lfwh, mergedCrateConfig);
-        mvme_mvlc_listfile::listfile_write_mvme_config(lfwh, 0, *mergedVMEConfig);
+        mvme_mvlc::listfile_write_mvme_config(lfwh, 0, *mergedVMEConfig);
     }
     catch (const vme_script::ParseError &e)
     {
