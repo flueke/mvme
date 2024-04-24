@@ -11,6 +11,7 @@
 #include "vme_config_util.h"
 
 using namespace mesytec::mvlc;
+using namespace mesytec::nng;
 
 namespace mesytec::mvme::multi_crate
 {

@@ -473,14 +473,43 @@ struct PACK_AND_ALIGN4 BaseMessageHeader
 {
     MessageType messageType;
     u32 messageNumber; // starts from 1
+    u8 crateId;
 };
 
 struct PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
 {
-    u32 bufferType;
+    u32 bufferType; // mvlc eth or mvlc usb
 };
 
 static_assert(sizeof(ListfileBufferMessageHeader) % sizeof(u32) == 0);
+
+struct PACK_AND_ALIGN4 ParsedEventHeader
+{
+};
+
+struct PACK_AND_ALIGN4 ParsedDataEventHeader: public ParsedEventHeader
+{
+    u8 eventIndex;
+    u8 moduleCount;
+};
+
+struct PACK_AND_ALIGN4 ParsedModuleHeader
+{
+    u16 prefixSize;
+    u16 suffixSize;
+    u32 dynamicSize;
+
+    size_t totalSize() const { return prefixSize + suffixSize + dynamicSize; }
+    size_t totalBytes() const { return totalSize() * sizeof(u32); }
+};
+
+struct PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEventHeader
+{
+    u32 eventSize;
+
+    size_t totalSize() const { return eventSize; }
+    size_t totalBytes() const { return totalSize() * sizeof(u32); }
+};
 
 #undef PACK_AND_ALIGN4
 
