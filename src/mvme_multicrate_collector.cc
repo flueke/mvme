@@ -3,8 +3,13 @@
 #include <mesytec-mvlc/util/udp_sockets.h>
 #include <QApplication>
 #include <spdlog/spdlog.h>
-#include <poll.h>
 #include <signal.h>
+
+#ifndef __WIN32
+#include <poll.h>
+#else
+#include <winsock2.h>
+#endif
 
 #include "analysis/analysis.h"
 #include "mvme_session.h"
@@ -27,6 +32,7 @@ void signal_handler(int signum)
 
 void setup_signal_handlers()
 {
+#ifndef __WIN32
     /* Set up the structure to specify the new action. */
     struct sigaction new_action;
     new_action.sa_handler = signal_handler;
@@ -38,6 +44,8 @@ void setup_signal_handlers()
         if (sigaction(signum, &new_action, NULL) != 0)
             throw std::system_error(errno, std::generic_category(), "setup_signal_handlers");
     }
+#endif
+    // TODO: add signal handling for windows
 }
 
 struct ProcessingContext
@@ -66,10 +74,17 @@ void processing_loop(ProcessingContext &context)
 
     while (!context.quit && num_open_fds > 0 && !signal_received)
     {
+#ifndef __WIN32
         if (poll(pollfds.data(), pollfds.size(), 100) < 0)
         {
             perror("poll");
         }
+#else
+        if (WSAPoll(pollfds.data(), pollfds.size(), 100) == SOCKET_ERROR)
+        {
+            spdlog::error("Error from WSAPoll: {}", WSAGetLastError());
+        }
+#endif
 
         spdlog::trace("poll() returned");
 
