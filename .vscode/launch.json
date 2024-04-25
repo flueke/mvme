@@ -51,6 +51,35 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "(gdb) multicrate collector",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mvme_multicrate_collector",
+            "args": [
+                "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp.vme",
+                "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp_2.vme",
+                "--listfile test_listfile0.zip",
+                "--trace"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
         }
 
     ]
