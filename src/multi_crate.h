@@ -469,31 +469,31 @@ enum class MessageType: u8
 
 #define PACK_AND_ALIGN4 __attribute__((packed, aligned(4)))
 
-struct PACK_AND_ALIGN4 BaseMessageHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 BaseMessageHeader
 {
     MessageType messageType;
     u32 messageNumber; // starts from 1
     u8 crateId;
 };
 
-struct PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
 {
     u32 bufferType; // mvlc eth or mvlc usb
 };
 
 static_assert(sizeof(ListfileBufferMessageHeader) % sizeof(u32) == 0);
 
-struct PACK_AND_ALIGN4 ParsedEventHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedEventHeader
 {
 };
 
-struct PACK_AND_ALIGN4 ParsedDataEventHeader: public ParsedEventHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedDataEventHeader: public ParsedEventHeader
 {
     u8 eventIndex;
     u8 moduleCount;
 };
 
-struct PACK_AND_ALIGN4 ParsedModuleHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedModuleHeader
 {
     u16 prefixSize;
     u16 suffixSize;
@@ -514,7 +514,7 @@ struct PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEventHeader
 #undef PACK_AND_ALIGN4
 
 // Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
-size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);
+size_t LIBMVME_EXPORT fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);
 
 }
 
