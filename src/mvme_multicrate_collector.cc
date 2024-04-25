@@ -185,7 +185,7 @@ void mvlc_eth_readout_loop(ReadoutLoopContext &context)
 
         if (auto res = nng::allocate_reserve_message(&msg, DefaultOutputMessageReserve))
         {
-            spdlog::error("mvlc_eth_readout_loop: could not allocate nng output message");
+            spdlog::error("mvlc_eth_readout_loop: could not allocate nng output message: {}", nng_strerror(res));
             return nullptr;
         }
 

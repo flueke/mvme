@@ -21,7 +21,10 @@ inline nng_msg *alloc_message(size_t size)
 {
     nng_msg *msg = {};
     if (int res = nng_msg_alloc(&msg, size))
+    {
+        mesy_nng_error("nng_msg_alloc", res);
         return nullptr;
+    }
     return msg;
 }
 
