@@ -2,13 +2,16 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/util/udp_sockets.h>
 #include <QApplication>
-#include <spdlog/spdlog.h>
 #include <signal.h>
 
 #ifndef __WIN32
 #include <poll.h>
 #else
 #include <winsock2.h>
+#endif
+
+#ifdef __linux__
+#include <sys/prctl.h>
 #endif
 
 #include "analysis/analysis.h"
@@ -51,6 +54,7 @@ void setup_signal_handlers()
     // TODO: add signal handling for windows
 }
 
+#if 0
 struct ProcessingContext
 {
     std::atomic<bool> quit = false;
@@ -138,14 +142,27 @@ void processing_loop(ProcessingContext &context)
         }
     }
 }
+#endif
 
 struct ReadoutLoopContext
 {
     std::atomic<bool> quit;
-    int dataSocket;
-    nng_socket listfileSocket;
-    nng_socket snoopSocket;
+
+    // This is put into output ListfileBufferMessageHeader messages and passed
+    // to ReadoutLoopPlugins.
     u8 crateId;
+
+    // The MVLC data stream is read from this socket.
+    int mvlcDataSocket;
+
+    // Readout data is written to this socket. Expected to use a lossless,
+    // blocking protocol, e.g. pair or push as this data goes to the output
+    // listfile.
+    nng_socket dataOutputSocket;
+
+    // Readout data is also written to this socket. Should be a lossfull,
+    // non-blocking protocol, e.g. pub.
+    nng_socket snoopOutputSocket;
 };
 
 static const size_t DefaultOutputMessageReserve = mvlc::util::Megabytes(1) + sizeof(multi_crate::ListfileBufferMessageHeader);
@@ -153,9 +170,14 @@ static const std::chrono::milliseconds FlushBufferTimeout(500);
 
 void mvlc_eth_readout_loop(ReadoutLoopContext &context)
 {
+#ifdef __linux__
+    prctl(PR_SET_NAME,"mvlc_eth_readout_loop",0,0,0);
+#endif
+
     multi_crate::NngMsgWriteHandle lfh;
     u32 messageNumber = 1u;
     std::vector<u8> previousData;
+    s32 lastPacketNumber = -1;
 
     auto new_output_message = [&] () -> nng_msg *
     {
@@ -197,10 +219,10 @@ void mvlc_eth_readout_loop(ReadoutLoopContext &context)
             return res;
         }
 
-        if (auto res = nng::send_message_retry(context.listfileSocket, msg))
+        if (auto res = nng::send_message_retry(context.dataOutputSocket, msg))
             return res;
 
-        if (auto res = nng::send_message_retry(context.snoopSocket, msgClone))
+        if (auto res = nng::send_message_retry(context.snoopOutputSocket, msgClone))
             return res;
 
         return 0;
@@ -226,27 +248,65 @@ void mvlc_eth_readout_loop(ReadoutLoopContext &context)
 
         auto msgUsed = nng_msg_len(msg);
 
-        // Note: should not alloc as we reserved space when the message was created.
+        // Note: should not alloc as we reserved space when the message was
+        // created. This just increases the size of the message.
         nng_msg_realloc(msg, msgUsed + eth::JumboFrameMaxSize);
 
         size_t bytesTransferred = 0;
         auto ec = eth::receive_one_packet(
-            context.dataSocket,
-            static_cast<u8 *>(nng_msg_body(msg)) + msgUsed,
+            context.mvlcDataSocket,
+            reinterpret_cast<u8 *>(nng_msg_body(msg)) + msgUsed,
             eth::JumboFrameMaxSize, bytesTransferred, 100);
-
-        assert(bytesTransferred <= eth::JumboFrameMaxSize);
-
-        // Note: should not alloc as we can only shrink the message here.
-        nng_msg_realloc(msg, msgUsed + bytesTransferred);
-
-        // Cross check size here.
-        assert(nng_msg_len(msg) == msgUsed + bytesTransferred);
 
         if (ec && ec != std::errc::resource_unavailable_try_again)
         {
             spdlog::error("Error reading from mvlc data socket: {}", ec.message());
             break;
+        }
+
+        assert(bytesTransferred <= eth::JumboFrameMaxSize);
+
+        if (bytesTransferred > 0)
+        {
+            eth::PacketReadResult prr{};
+            prr.buffer = reinterpret_cast<u8 *>(nng_msg_body(msg)) + msgUsed;
+            prr.bytesTransferred = bytesTransferred;
+
+            if (prr.hasHeaders())
+            {
+                spdlog::debug("mvlc_eth_readout_loop (crate{}): incoming packet: packetNumber={}, crateId={}, size={} bytes",
+                    context.crateId, prr.packetNumber(), prr.controllerId(), prr.bytesTransferred);
+            }
+
+            if (!prr.hasHeaders())
+            {
+                spdlog::warn("crate{}: no valid headers in received packet of size {}. Dropping the packet!",
+                    context.crateId, prr.bytesTransferred);
+            }
+            else if (prr.controllerId() != context.crateId)
+            {
+                spdlog::warn("crate{}: incoming data packet has crateId={} set, excepted {}. Dropping the packet!",
+                    context.crateId, prr.controllerId(), context.crateId);
+            }
+            else
+            {
+                if (lastPacketNumber >= 0)
+                {
+                    if (auto loss = eth::calc_packet_loss(
+                        lastPacketNumber, prr.packetNumber()))
+                    {
+                        spdlog::warn("crate{}: lost {} incoming data packets!",
+                            context.crateId, loss);
+                    }
+                }
+
+                // Update the message size. This should not alloc as we can only shrink
+                // the message here.
+                nng_msg_realloc(msg, msgUsed + bytesTransferred);
+
+                // Cross check size here.
+                assert(nng_msg_len(msg) == msgUsed + bytesTransferred);
+            }
         }
 
         // Run plugins (currently only timetick generation here).
@@ -260,6 +320,12 @@ void mvlc_eth_readout_loop(ReadoutLoopContext &context)
         if (auto elapsed = std::chrono::steady_clock::now() - tLastFlush;
             elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
         {
+            if (nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+                spdlog::trace("crate{}: flushing full output message #{}", context.crateId, messageNumber - 1);
+            else
+                spdlog::trace("crate{}: flushing output message #{} due to timeout", context.crateId, messageNumber - 1);
+
+
             if (flush_output_message(msg) != 0)
                 return;
 
@@ -274,6 +340,88 @@ void mvlc_eth_readout_loop(ReadoutLoopContext &context)
 
     for (auto &plugin: readoutLoopPlugins)
         plugin->readoutStop(pluginArgs);
+}
+
+struct ListfileWriterContext
+{
+    std::atomic<bool> quit;
+
+    // Readout data in the form of ListfileBufferMessageHeader messages is read
+    // from this socket.
+    nng_socket dataInputSocket;
+
+    // This is where readout data is written to if non-null.
+    std::unique_ptr<listfile::WriteHandle> lfh;
+};
+
+void listfile_writer_loop(ListfileWriterContext &context)
+{
+#ifdef __linux__
+    prctl(PR_SET_NAME,"listfile_writer_loop",0,0,0);
+#endif
+
+    // Last received message number per crate.
+    std::array<u32, frame_headers::CtrlIdMask+1> lastMessageNumbers;
+    lastMessageNumbers.fill(0);
+
+    while (!context.quit)
+    {
+        nng_msg *msg = nullptr;
+
+        if (auto res = nng::receive_message(context.dataInputSocket, &msg))
+        {
+            if (res != NNG_ETIMEDOUT)
+                spdlog::warn("listfile_writer_loop: Error reading from data input socket: {}", nng_strerror(res));
+            continue;
+        }
+
+        assert(msg != nullptr);
+
+        if (nng_msg_len(msg) < sizeof(multi_crate::ListfileBufferMessageHeader))
+        {
+            spdlog::warn("listfile_writer_loop: Incoming message is too short!");
+            // TODO: count this error (should not happen)
+            nng_msg_free(msg);
+            msg = nullptr;
+            continue;
+        }
+
+        auto header = *reinterpret_cast<multi_crate::ListfileBufferMessageHeader *>(nng_msg_body(msg));
+
+        if (header.crateId > frame_headers::CtrlIdMask)
+        {
+            spdlog::warn("listfile_writer_loop: Invalid crateId={} in incoming data packet!", header.crateId);
+            nng_msg_free(msg);
+            msg = nullptr;
+            continue;
+        }
+
+        if (auto loss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumbers[header.crateId]))
+            spdlog::warn("listfile_writer_loop: lost {} messages from crate{}!", loss, header.crateId);
+
+        lastMessageNumbers[header.crateId] = header.messageNumber;
+
+
+        // Trim off the header from the front of the message. The rest of the
+        // message is pure readout data and added system event frames.
+        nng_msg_trim(msg, sizeof(multi_crate::ListfileBufferMessageHeader));
+
+        auto dataPtr = reinterpret_cast<const u32 *>(nng_msg_body(msg));
+        size_t dataSize = nng_msg_len(msg) / sizeof(u32);
+        std::basic_string_view<u32> dataView(dataPtr, dataSize);
+
+        if (context.lfh)
+        {
+            try
+            {
+                context.lfh->write(reinterpret_cast<const u8 *>(nng_msg_body(msg)), nng_msg_len(msg));
+            }
+            catch(const std::exception& e)
+            {
+                spdlog::warn("listfile_writer_loop: Error writing to output listfile: {}", e.what());
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -360,7 +508,7 @@ int main(int argc, char *argv[])
         analysisConfig = ana;
     }
 
-    // Create socktes for the mvlc data pipes.
+    // Create sockets for the mvlc data pipes.
     std::vector<int> mvlcDataSockets;
 
     for (auto &vmeConfig: vmeConfigs)
@@ -405,18 +553,77 @@ int main(int argc, char *argv[])
         }
     }
 
-    std::unique_ptr<listfile::ZipCreator> listfileCreator;
-    std::unique_ptr<listfile::WriteHandle> lfh;
+    // All readout threads write messages of type
+    // multi_crate::MessageType::ListfileBuffer to the readoutProducerSocket.
+    nng_socket readoutProducerSocket = nng::make_push_socket();
 
-    // Open the output listfile
+    // Readout threads also publish their ListfileBuffer messages through this
+    // socket. During readout this should be a lossfull pup socket, when
+    // replaying from file this should instead be a push or pair socket that
+    // does not lose messages.
+    nng_socket readoutProducerSnoopSocket = nng::make_pub_socket();
+
+    // A single thread reads ListfileBuffer messages from this socket and writes
+    // a listfile.
+    nng_socket listfileConsumerSocket = nng::make_pull_socket();
+
+    // TODO: check for socket validity via nng_socket_id() and/or add another
+    // way of communicating errors from the socket creation functions.
+
+    if (int res = nng_listen(listfileConsumerSocket, "inproc://readoutData", nullptr, 0))
+    {
+        nng::mesy_nng_error("nng_listen readoutData", res);
+        return 1;
+    }
+
+    if (int res = nng_dial(readoutProducerSocket, "inproc://readoutData", nullptr, 0))
+    {
+        nng::mesy_nng_error("nng_dial readoutData", res);
+        return 1;
+    }
+
+    if (int res = nng_listen(readoutProducerSnoopSocket, "inproc://readoutSnoop", nullptr, 0))
+    {
+        nng::mesy_nng_error("nng_listen readoutSnoop", res);
+        return 1;
+    }
+
+    if (int res = nng_listen(readoutProducerSnoopSocket, "tcp://*:42666", nullptr, 0))
+    {
+        nng::mesy_nng_error("nng_listen readoutSnoop", res);
+        return 1;
+    }
+
+    std::vector<std::unique_ptr<ReadoutLoopContext>> readoutContexts;
+
+    for (size_t i=0; i<mvlcDataSockets.size(); ++i)
+    {
+        auto ctx = std::make_unique<ReadoutLoopContext>();
+        ctx->quit = false;
+        ctx->mvlcDataSocket = mvlcDataSockets[i];
+        ctx->dataOutputSocket = readoutProducerSocket;
+        ctx->snoopOutputSocket = readoutProducerSnoopSocket;
+        ctx->crateId = i;
+        readoutContexts.emplace_back(std::move(ctx));
+    }
+
+    ListfileWriterContext listfileWriterContext{};
+    listfileWriterContext.quit = false;
+    listfileWriterContext.dataInputSocket = listfileConsumerSocket;
+
+
+    // Open the output listfile if one should be written.
+    std::unique_ptr<listfile::ZipCreator> listfileCreator;
+
     if (parser("--listfile") >> str)
     {
         try
         {
             listfileCreator = std::make_unique<listfile::ZipCreator>();
             listfileCreator->createArchive(str);
-            lfh = listfileCreator->createZIPEntry("listfile.mvlclst");
+            listfileWriterContext.lfh = listfileCreator->createZIPEntry("listfile.mvlclst");
             spdlog::info("Opened output listfile {}", str);
+            auto &lfh = listfileWriterContext.lfh;
             listfile::listfile_write_magic(*lfh, ConnectionType::ETH);
             listfile::listfile_write_endian_marker(*lfh, 0);
 
@@ -427,12 +634,6 @@ int main(int argc, char *argv[])
                 listfile::listfile_write_crate_config(*lfh, crateConfig);
                 mvme_mvlc::listfile_write_mvme_config(*lfh, crateId, *vmeConfigs[crateId]);
             }
-
-            for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
-            {
-                listfile::listfile_write_timestamp_section(
-                    *lfh, crateId, system_event::subtype::BeginRun);
-            }
         }
         catch(const std::exception& e)
         {
@@ -441,6 +642,38 @@ int main(int argc, char *argv[])
         }
     }
 
+    std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
+    std::vector<std::thread> readoutThreads;
+
+    for (auto &readoutContext: readoutContexts)
+    {
+        std::thread readoutThread(mvlc_eth_readout_loop, std::ref(*readoutContext));
+        readoutThreads.emplace_back(std::move(readoutThread));
+    }
+
+    do
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } while (!signal_received);
+
+
+    // TODO: use empty messages to tell downstream consumers to also quit.
+    // Inject empty messages into readoutProducerSocket. This way the listfile
+    // writer will consume all pending messages before terminating itself.
+    for (auto &readoutContext: readoutContexts)
+        readoutContext->quit = true;
+
+    listfileWriterContext.quit = true;
+
+    for (auto &readoutThread: readoutThreads)
+        if (readoutThread.joinable())
+            readoutThread.join();
+
+    if (listfileWriterThread.joinable())
+        listfileWriterThread.join();
+
+
+    #if 0
     ProcessingContext context{};
     context.quit = false;
     context.vmeConfigs = std::move(vmeConfigs);
@@ -463,6 +696,7 @@ int main(int argc, char *argv[])
             listfile_write_system_event(*context.lfh, crateId, system_event::subtype::EndOfFile);
         }
     }
+    #endif
 
     //int ret = app.exec();
     int ret = 0;
