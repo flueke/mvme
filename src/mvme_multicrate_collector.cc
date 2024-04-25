@@ -382,7 +382,6 @@ void listfile_writer_loop(ListfileWriterContext &context)
             spdlog::warn("listfile_writer_loop: Incoming message is too short!");
             // TODO: count this error (should not happen)
             nng_msg_free(msg);
-            msg = nullptr;
             continue;
         }
 
@@ -392,7 +391,6 @@ void listfile_writer_loop(ListfileWriterContext &context)
         {
             spdlog::warn("listfile_writer_loop: Invalid crateId={} in incoming data packet!", header.crateId);
             nng_msg_free(msg);
-            msg = nullptr;
             continue;
         }
 
@@ -400,7 +398,6 @@ void listfile_writer_loop(ListfileWriterContext &context)
             spdlog::warn("listfile_writer_loop: lost {} messages from crate{}!", loss, header.crateId);
 
         lastMessageNumbers[header.crateId] = header.messageNumber;
-
 
         // Trim off the header from the front of the message. The rest of the
         // message is pure readout data and added system event frames.
@@ -421,6 +418,8 @@ void listfile_writer_loop(ListfileWriterContext &context)
                 spdlog::warn("listfile_writer_loop: Error writing to output listfile: {}", e.what());
             }
         }
+
+        nng_msg_free(msg);
     }
 }
 
