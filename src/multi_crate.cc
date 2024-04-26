@@ -497,8 +497,8 @@ std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates)
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
 {
     size_t bytesMoved = 0u;
-    const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg)) + sizeof(ListfileBufferMessageHeader);
-    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ListfileBufferMessageHeader);
+    const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg)) + sizeof(ReadoutDataMessageHeader);
+    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ReadoutDataMessageHeader);
 
     if (bufferType == mvlc::ConnectionType::USB)
         bytesMoved = mvlc::fixup_buffer_mvlc_usb(msgBufferData, msgBufferSize, tmpBuf);
@@ -544,7 +544,7 @@ struct TimetickGenerator
         std::chrono::time_point<std::chrono::steady_clock> tLastTick_ = {};
 };
 
-void allocate_prepare_output_message(ReadoutProducerContext &context, ListfileBufferMessageHeader &header)
+void allocate_prepare_output_message(ReadoutProducerContext &context, ReadoutDataMessageHeader &header)
 {
     // Header + space for data plus some margin so that readout_usb() does not
     // have to realloc.
@@ -618,8 +618,8 @@ std::error_code readout_usb(
 
     // Move trailing data to tmpBuf
     const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg))
-        + sizeof(ListfileBufferMessageHeader);
-    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ListfileBufferMessageHeader);
+        + sizeof(ReadoutDataMessageHeader);
+    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ReadoutDataMessageHeader);
 
     size_t bytesMoved = fixup_buffer_mvlc_usb(msgBufferData, msgBufferSize, tmpBuf);
 
@@ -695,7 +695,7 @@ void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit)
     if (!mvlcEth && !mvlcUsb)
         throw std::runtime_error("Could not determine MVLC type. Expected USB or ETH.");
 
-    ListfileBufferMessageHeader header{};
+    ReadoutDataMessageHeader header{};
     header.messageType = MessageType::ListfileBuffer;
     header.messageNumber = 1;
     // TODO: don't actually need to know the buffer type. Can detect when parsing.
@@ -754,7 +754,7 @@ void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &q
             continue;
         }
 
-        if (nng_msg_len(msg) < sizeof(ListfileBufferMessageHeader))
+        if (nng_msg_len(msg) < sizeof(ReadoutDataMessageHeader))
         {
             // TODO: count this error (should not happen)
             nng_msg_free(msg);
@@ -762,11 +762,11 @@ void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &q
             continue;
         }
 
-        auto header = *reinterpret_cast<ListfileBufferMessageHeader *>(nng_msg_body(msg));
+        auto header = *reinterpret_cast<ReadoutDataMessageHeader *>(nng_msg_body(msg));
         if (auto loss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumber))
             spdlog::warn("mvlc_readout_consumer: lost {} messages!", loss);
         lastMessageNumber = header.messageNumber;
-        nng_msg_trim(msg, sizeof(ListfileBufferMessageHeader));
+        nng_msg_trim(msg, sizeof(ReadoutDataMessageHeader));
 
         auto dataPtr = reinterpret_cast<const u32 *>(nng_msg_body(msg));
         size_t dataSize = nng_msg_len(msg) / sizeof(u32);

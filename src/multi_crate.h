@@ -473,27 +473,45 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 BaseMessageHeader
 {
     MessageType messageType;
     u32 messageNumber; // starts from 1
+};
+
+// These messages contain raw controller data possibly mixed with system event
+// frames.
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ReadoutDataMessageHeader: public BaseMessageHeader
+{
+    u32 bufferType; // mvlc eth or mvlc usb
     u8 crateId;
 };
 
-struct LIBMVME_EXPORT PACK_AND_ALIGN4 ListfileBufferMessageHeader: public BaseMessageHeader
-{
-    u32 bufferType; // mvlc eth or mvlc usb
-};
+static_assert(sizeof(ReadoutDataMessageHeader) % sizeof(u32) == 0);
 
-static_assert(sizeof(ListfileBufferMessageHeader) % sizeof(u32) == 0);
-
-struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedEventHeader
+// Message header for parsed data and system events. Can carry data from
+// different crates.
+struct PACK_AND_ALIGN4 ParsedEventsMessageHeader: public BaseMessageHeader
 {
 };
 
-struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedDataEventHeader: public ParsedEventHeader
+static_assert(sizeof(ParsedEventsMessageHeader) % sizeof(u32) == 0);
+
+// Magic byte to identify a parsed readout data section.
+static const u8 ParsedDataEventMagic = 0xF3u;
+
+// Magic byte to identify a parsed system event section.
+static const u8 ParsedSystemEventMagic = 0xFAu;
+
+struct PACK_AND_ALIGN4 ParsedEventHeader
+{
+    u8 magicByte;
+    u8 crateIndex;
+};
+
+struct PACK_AND_ALIGN4 ParsedDataEventHeader: public ParsedEventHeader
 {
     u8 eventIndex;
     u8 moduleCount;
 };
 
-struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedModuleHeader
+struct PACK_AND_ALIGN4 ParsedModuleHeader
 {
     u16 prefixSize;
     u16 suffixSize;
@@ -514,7 +532,8 @@ struct PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEventHeader
 #undef PACK_AND_ALIGN4
 
 // Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
-size_t LIBMVME_EXPORT fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);
+size_t LIBMVME_EXPORT fixup_listfile_buffer_message(
+    const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);
 
 }
 
