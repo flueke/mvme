@@ -200,8 +200,11 @@ void mvlc_eth_readout_loop(ReadoutLoopContext &context)
         header.bufferType = static_cast<u32>(mvlc::ConnectionType::ETH);
         header.crateId = context.crateId;
 
-        spdlog::debug("mvlc_eth_readout_loop: preparing new output message: crateId={}, messageNumber={}",
-            header.crateId, header.messageNumber);
+        {
+            auto messageNumber = header.messageNumber; // fix for gcc + spdlog/fmt + packed struct members
+            spdlog::debug("mvlc_eth_readout_loop: preparing new output message: crateId={}, messageNumber={}",
+                header.crateId, messageNumber);
+        }
 
         nng_msg_append(msg, &header, sizeof(header));
         assert(nng_msg_len(msg) == sizeof(header));
@@ -410,12 +413,18 @@ void listfile_writer_loop(ListfileWriterContext &context)
             continue;
         }
 
-        spdlog::debug("listfile_writer_loop: incoming message from crate{}, messageNumber={}",
-            header.crateId, header.messageNumber);
+        {
+            auto messageNumber = header.messageNumber; // fix for gcc + spdlog/fmt + packed struct members
+            spdlog::debug("listfile_writer_loop: incoming message from crate{}, messageNumber={}",
+                header.crateId, messageNumber);
+        }
 
-        if (auto loss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumbers[header.crateId]))
-            spdlog::warn("listfile_writer_loop: lost {} messages from crate{}! (header.messageNumber={}, lastMessageNumber={}",
-             loss, header.crateId, header.messageNumber, lastMessageNumbers[header.crateId]);
+        {
+            auto messageNumber = header.messageNumber; // fix for gcc + spdlog/fmt + packed struct members
+            if (auto loss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumbers[header.crateId]))
+                spdlog::warn("listfile_writer_loop: lost {} messages from crate{}! (header.messageNumber={}, lastMessageNumber={}",
+                loss, header.crateId, messageNumber, lastMessageNumbers[header.crateId]);
+        }
 
         lastMessageNumbers[header.crateId] = header.messageNumber;
 
