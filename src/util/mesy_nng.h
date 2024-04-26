@@ -208,13 +208,13 @@ inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries =
 template<typename T>
 std::optional<T> msg_trim_read(nng_msg *msg)
 {
-    const auto oldlen = nng_msg_len(msg);
+    const auto oldlen = nng_msg_len(msg); (void) oldlen;
     if (nng_msg_len(msg) < sizeof(T))
         return {};
 
     T result = *reinterpret_cast<T *>(nng_msg_body(msg));
     nng_msg_trim(msg, sizeof(T));
-    const auto newlen = nng_msg_len(msg);
+    const auto newlen = nng_msg_len(msg); (void) newlen;
     assert(newlen + sizeof(T) == oldlen);
     return result;
 }
