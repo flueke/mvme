@@ -9,10 +9,17 @@
 #include <nng/protocol/pubsub0/sub.h>
 #include <spdlog/spdlog.h>
 
+#include <optional>
+
 namespace mesytec::nng
 {
 
 inline void mesy_nng_error(const char *const msg, int rv)
+{
+    spdlog::error("{} ({})", msg, nng_strerror(rv));
+}
+
+inline void mesy_nng_error(const std::string &msg, int rv)
 {
     spdlog::error("{} ({})", msg, nng_strerror(rv));
 }
@@ -195,6 +202,21 @@ inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries =
     } while (res == NNG_ETIMEDOUT);
 
     return 0;
+}
+
+// Read type T from the front of msg and trim the message by sizeof(T).
+template<typename T>
+std::optional<T> msg_trim_read(nng_msg *msg)
+{
+    const auto oldlen = nng_msg_len(msg);
+    if (nng_msg_len(msg) < sizeof(T))
+        return {};
+
+    T result = *reinterpret_cast<T *>(nng_msg_body(msg));
+    nng_msg_trim(msg, sizeof(T));
+    const auto newlen = nng_msg_len(msg);
+    assert(newlen + sizeof(T) == oldlen);
+    return result;
 }
 
 }
