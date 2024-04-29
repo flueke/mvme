@@ -55,97 +55,7 @@ void setup_signal_handlers()
     // TODO: add signal handling for windows
 }
 
-#if 0
-struct ProcessingContext
-{
-    std::atomic<bool> quit = false;
-    std::vector<std::unique_ptr<VMEConfig>> vmeConfigs;
-    std::vector<int> dataSockets;
-    std::unique_ptr<listfile::WriteHandle> lfh;
-};
-
-void processing_loop(ProcessingContext &context)
-{
-    std::vector<struct pollfd> pollfds;
-
-    for (auto sock: context.dataSockets)
-    {
-        struct pollfd pfd = {};
-        pfd.fd = sock;
-        pfd.events = POLLIN;
-        pollfds.emplace_back(pfd);
-    }
-
-    auto num_open_fds = pollfds.size();
-
-    std::array<u8, 1500> destBuffer;
-
-    while (!context.quit && num_open_fds > 0 && !signal_received)
-    {
-#ifndef __WIN32
-        if (poll(pollfds.data(), pollfds.size(), 100) < 0)
-        {
-            perror("poll");
-        }
-#else
-        if (WSAPoll(pollfds.data(), pollfds.size(), 100) == SOCKET_ERROR)
-        {
-            spdlog::error("Error from WSAPoll: {}", WSAGetLastError());
-        }
-#endif
-
-        spdlog::trace("poll() returned");
-
-        for (auto &pfd: pollfds)
-        {
-            if (pfd.revents & POLLIN)
-            {
-                // TODO: read from the socket
-                destBuffer.fill(0);
-                size_t bytesTransferred = 0;
-                if (auto ec = eth::receive_one_packet(pfd.fd, destBuffer.data(), destBuffer.size(), bytesTransferred, 500))
-                {
-                    spdlog::error("Error reading from socket: {}\n", ec.message());
-                    pfd.fd = -1; // poll() ignored entries with negative fds
-                    --num_open_fds;
-                }
-                else
-                {
-                    spdlog::info("Received {} bytes from socket {}\n", bytesTransferred, pfd.fd);
-
-                    eth::PacketReadResult prr{};
-                    prr.buffer = destBuffer.data();
-                    prr.bytesTransferred = bytesTransferred;
-
-                    if (prr.hasHeaders())
-                    {
-                        spdlog::info("socket {} -> packetNumber={}, crateId={}",
-                            pfd.fd, prr.packetNumber(), prr.controllerId());
-                    }
-                    else
-                    {
-                        spdlog::info("socket {} -> no valid headers in received packet of size {}",
-                            pfd.fd, prr.bytesTransferred);
-                    }
-
-                    if (context.lfh)
-                    {
-                        context.lfh->write(destBuffer.data(), bytesTransferred);
-                    }
-                }
-            }
-            else if (pfd.revents & (POLLERR | POLLHUP))
-            {
-                // TODO: close the socket here?
-                pfd.fd = -1; // poll() ignored entries with negative fds
-                --num_open_fds;
-            }
-        }
-    }
-}
-#endif
-
-struct ReadoutLoopContext
+struct MvlcEthReadoutLoopContext
 {
     std::atomic<bool> quit;
 
@@ -169,7 +79,7 @@ struct ReadoutLoopContext
 static const size_t DefaultOutputMessageReserve = mvlc::util::Megabytes(1) + sizeof(multi_crate::ReadoutDataMessageHeader);
 static const std::chrono::milliseconds FlushBufferTimeout(500);
 
-void mvlc_eth_readout_loop(ReadoutLoopContext &context)
+void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
 {
 #ifdef __linux__
     prctl(PR_SET_NAME,"mvlc_eth_readout_loop",0,0,0);
@@ -457,6 +367,7 @@ void listfile_writer_loop(ListfileWriterContext &context)
 struct ReadoutParserNngContext
 {
     nng_msg *outputMessage = nullptr;
+    bool outputError = false;
     u32 outputMessageNumber = 0u;
     nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
     size_t totalReadoutEvents = 0u;
@@ -489,10 +400,11 @@ bool flush_output_message(ReadoutParserNngContext &ctx, const char *debugInfo = 
 {
     const auto msgSize = nng_msg_len(ctx.outputMessage);
 
-    if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, 0, debugInfo))
+    if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, 3, debugInfo))
     {
         nng_msg_free(ctx.outputMessage);
         ctx.outputMessage = nullptr;
+        ctx.outputError = true;
         spdlog::error("{}: send_message_retry: {}:", debugInfo, nng_strerror(res));
         return false;
     }
@@ -688,7 +600,7 @@ void readout_parser_loop(
 
     auto crateId = crateConfig.crateId;
 
-    while (!quit)
+    while (!quit && !parserContext.outputError)
     {
         StopWatch stopWatch;
         stopWatch.start();
@@ -798,6 +710,56 @@ void readout_parser_loop(
     spdlog::info("leaving readout_parser_loop, crateId={}", crateId);
 }
 
+// EventBuilder - this can be split up: N threads can call
+// recordEventData()/recordSystemEvent() while one thread repeatedly calls
+// buildEvents().
+
+struct EventBuilderContext
+{
+    std::atomic<bool> &quit;
+    nng_socket inputSocket;
+    nng_socket outputSocket;
+    nng_socket snoopOutputSocket;
+    mvlc::EventBuilder eventBuilder;
+};
+
+// Calls recordEventData and recordSystemEvent with data read from inputSocket.
+// on the event builder. Event builder output is written to the outputSocket and
+// duplicated on the snoop output.
+void event_builder_loop(EventBuilderContext &context)
+{
+    prctl(PR_SET_NAME,"event_builder_loop",0,0,0);
+
+    spdlog::info("Entering event_builder_loop");
+
+    while (!context.quit)
+    {
+        nng_msg *inputMsg = nullptr;
+        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
+        {
+            if (res != NNG_ETIMEDOUT)
+            {
+                spdlog::warn("event_builder_loop: Error reading from input socket: {}", nng_strerror(res));
+            }
+            continue;
+        }
+
+        assert(inputMsg != nullptr);
+
+        if (nng_msg_len(inputMsg) < sizeof(multi_crate::ParsedEventsMessageHeader))
+        {
+            spdlog::warn("event_builder_loop: Incoming message is too short!");
+            // TODO: count this error (should not happen)
+            nng_msg_free(inputMsg);
+            continue;
+        }
+
+        // TODO: actually do some work here.
+    }
+
+    spdlog::info("Leaving event_builder_loop");
+}
+
 void analysis_loop(
     nng_socket inputSocket,
     std::atomic<bool> &quit
@@ -868,8 +830,8 @@ void analysis_loop(
                         {
                             const u32 *moduleData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg));
 
-                            //util::log_buffer(std::cout, moduleData, moduleHeader->totalSize(), fmt::format("crate={}, event={}, module={}, size={}",
-                            //    eventHeader->crateIndex, eventHeader->eventIndex, moduleIndex, moduleHeader->totalSize()));
+                            mvlc::util::log_buffer(std::cout, moduleData, moduleHeader->totalSize(), fmt::format("crate={}, event={}, module={}, size={}",
+                                eventHeader->crateIndex, eventHeader->eventIndex, moduleIndex, moduleHeader->totalSize()));
 
                             if (nng_msg_trim(inputMsg, moduleHeader->totalBytes()))
                                 break;
@@ -1129,11 +1091,11 @@ int main(int argc, char *argv[])
         parsedDataConsumerSockets.emplace_back(analysisInputSocket);
     }
 
-    std::vector<std::unique_ptr<ReadoutLoopContext>> readoutContexts;
+    std::vector<std::unique_ptr<MvlcEthReadoutLoopContext>> readoutContexts;
 
     for (size_t i=0; i<mvlcDataSockets.size(); ++i)
     {
-        auto ctx = std::make_unique<ReadoutLoopContext>();
+        auto ctx = std::make_unique<MvlcEthReadoutLoopContext>();
         ctx->quit = false;
         ctx->mvlcDataSocket = mvlcDataSockets[i];
         ctx->dataOutputSocket = readoutProducerSocket;
