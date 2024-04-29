@@ -177,7 +177,7 @@ inline void log_pipe_info(nng_pipe p, const char *info)
     spdlog::info("{}: {}={}", info, NNG_OPT_REMADDR, remoteAddress);
 }
 
-inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries = 0, const char *debugInfo = "")
+inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries = 3, const char *debugInfo = "")
 {
     int res = 0;
     size_t attempt = 0u;
