@@ -378,14 +378,23 @@ void listfile_writer_loop(ListfileWriterContext &context)
     spdlog::info("leaving listfile_writer_loop");
 }
 
+struct LoopTimeBudget
+{
+    std::chrono::microseconds tReceive = {};
+    std::chrono::microseconds tProcess = {};
+    std::chrono::microseconds tSend = {};
+    std::chrono::microseconds tTotal = {};
+};
+
 struct ReadoutParserNngContext
 {
+    std::atomic<bool> quit = false;
     nng_msg *outputMessage = nullptr;
-    bool outputError = false;
     u32 outputMessageNumber = 0u;
     nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
     size_t totalReadoutEvents = 0u;
     size_t totalSystemEvents = 0u;
+    LoopTimeBudget timings;
 };
 
 // Allocates and prepares a new ParsedEventsMessageHeader message if there isn't
@@ -414,16 +423,27 @@ bool flush_output_message(ReadoutParserNngContext &ctx, const char *debugInfo = 
 {
     const auto msgSize = nng_msg_len(ctx.outputMessage);
 
-    if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, 3, debugInfo))
+    // Retries forever or until told to quit.
+    auto retryPredicate = [&]
+    {
+        return !ctx.quit;
+    };
+
+    StopWatch stopWatch;
+    stopWatch.start();
+
+    if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, retryPredicate, debugInfo))
     {
         nng_msg_free(ctx.outputMessage);
         ctx.outputMessage = nullptr;
-        ctx.outputError = true;
-        spdlog::error("{}: send_message_retry: {}:", debugInfo, nng_strerror(res));
+        spdlog::error("{}: readout parser: flush_output_message(): {}:", debugInfo, nng_strerror(res));
         return false;
     }
 
     ctx.outputMessage = nullptr;
+
+    ctx.timings.tSend += stopWatch.interval();
+    ctx.timings.tTotal += stopWatch.end();
 
     spdlog::debug("{}: sent message {} of size {}",
         debugInfo, ctx.outputMessageNumber, msgSize);
@@ -580,27 +600,26 @@ void readout_parser_loop(
 
     nng_msg *inputMsg = nullptr;
     u32 &outputMessageNumber = parserContext.outputMessageNumber;
-    std::chrono::microseconds tReceive(0);
-    std::chrono::microseconds tProcess(0);
-    std::chrono::microseconds tSend(0);
-    std::chrono::microseconds tTotal(0);
     auto tLastReport = std::chrono::steady_clock::now();
     const auto tStart = std::chrono::steady_clock::now();
 
     auto log_stats = [&]
     {
+        auto &timings = parserContext.timings;
+
         spdlog::info("readout_parser_loop (crateId={}): lastInputMessageNumber={}, inputBuffersLost={}, totalInput={:.2f} MiB",
             crateConfig.crateId, lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
+
         spdlog::info("readout_parser_loop (crateId={}): time budget: "
                     "  tReceive = {} ms, "
                     "  tProcess = {} ms, "
                     "  tSend = {} ms, "
                     "  tTotal = {} ms",
                     crateConfig.crateId,
-                    tReceive.count() / 1000.0,
-                    tProcess.count() / 1000.0,
-                    tSend.count() / 1000.0,
-                    tTotal.count() / 1000.0);
+                    timings.tReceive.count() / 1000.0,
+                    timings.tProcess.count() / 1000.0,
+                    timings.tSend.count() / 1000.0,
+                    timings.tTotal.count() / 1000.0);
 
         auto totalElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - tStart);
@@ -613,11 +632,13 @@ void readout_parser_loop(
     };
 
     auto crateId = crateConfig.crateId;
+    auto &timings = parserContext.timings;
 
-    while (!quit && !parserContext.outputError)
+    while (!quit)
     {
         StopWatch stopWatch;
         stopWatch.start();
+
         if (auto res = nng::receive_message(inputSocket, &inputMsg))
         {
             if (res != NNG_ETIMEDOUT)
@@ -638,7 +659,7 @@ void readout_parser_loop(
         }
         else
         {
-            tReceive += stopWatch.interval();
+            timings.tReceive += stopWatch.interval();
             totalInputBytes += nng_msg_len(inputMsg);
             auto inputHeader = *reinterpret_cast<const multi_crate::ReadoutDataMessageHeader *>(
                 nng_msg_body(inputMsg));
@@ -661,10 +682,11 @@ void readout_parser_loop(
                 inputData,
                 inputLen);
 
-            tProcess += stopWatch.interval();
+            auto tCycle = stopWatch.interval();
+            timings.tProcess += tCycle;
+            timings.tTotal += stopWatch.end();
 
-            // TODO: also flush after a certain time
-            tTotal += stopWatch.end();
+            // TODO: also flush after 500ms a certain time
         }
 
         if (inputMsg)
@@ -844,8 +866,8 @@ void analysis_loop(
                         {
                             const u32 *moduleData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg));
 
-                            mvlc::util::log_buffer(std::cout, moduleData, moduleHeader->totalSize(), fmt::format("crate={}, event={}, module={}, size={}",
-                                eventHeader->crateIndex, eventHeader->eventIndex, moduleIndex, moduleHeader->totalSize()));
+                            //mvlc::util::log_buffer(std::cout, moduleData, moduleHeader->totalSize(), fmt::format("crate={}, event={}, module={}, size={}",
+                            //    eventHeader->crateIndex, eventHeader->eventIndex, moduleIndex, moduleHeader->totalSize()));
 
                             if (nng_msg_trim(inputMsg, moduleHeader->totalBytes()))
                                 break;
