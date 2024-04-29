@@ -14,6 +14,7 @@
 #include <mesytec-mvlc/util/protected.h>
 
 #include "libmvme_export.h"
+#include "analysis_service_provider.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "util/mesy_nng.h"
 #include "vme_config.h"
@@ -534,6 +535,71 @@ struct PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEventHeader
 // Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
 size_t LIBMVME_EXPORT fixup_listfile_buffer_message(
     const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);
+
+class MinimalAnalysisServiceProvider: public AnalysisServiceProvider
+{
+    Q_OBJECT
+    public:
+        QString getWorkspaceDirectory() override;
+
+        QString getWorkspacePath(
+            const QString &settingsKey,
+            const QString &defaultValue = QString(),
+            bool setIfDefaulted = true) const override;
+
+        std::shared_ptr<QSettings> makeWorkspaceSettings() const override;
+
+        // VMEConfig
+        VMEConfig *getVMEConfig() override;
+        QString getVMEConfigFilename() override;
+        void setVMEConfigFilename(const QString &filename) override;
+        void vmeConfigWasSaved() override;
+
+        // Analysis
+        analysis::Analysis *getAnalysis() override;
+        QString getAnalysisConfigFilename() override;
+        void setAnalysisConfigFilename(const QString &filename) override;
+        void analysisWasSaved() override;
+        void analysisWasCleared() override;
+        void stopAnalysis() override;
+        void resumeAnalysis(analysis::Analysis::BeginRunOption runOption) override;
+        bool loadAnalysisConfig(const QString &filename) override;
+        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo, AnalysisLoadFlags flags) override;
+
+        // Widget registry
+        mesytec::mvme::WidgetRegistry *getWidgetRegistry() override;
+
+        // Worker states
+        AnalysisWorkerState getAnalysisWorkerState() override;
+        StreamWorkerBase *getMVMEStreamWorker() override;
+
+        void logMessage(const QString &msg) override;
+
+
+        GlobalMode getGlobalMode() override; // DAQ or Listfile
+        const ListfileReplayHandle &getReplayFileHandle() const override;
+
+        DAQStats getDAQStats() const override;
+        RunInfo getRunInfo() const override;
+
+        DAQState getDAQState() const override;
+
+    public slots:
+        void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
+                                 s32 userLevel) override;
+        void setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op) override;
+
+    public:
+        VMEConfig *vmeConfig_;
+        QString vmeConfigFilename_;
+        std::shared_ptr<analysis::Analysis> analysis_;
+        QString analysisConfigFilename_;
+        std::shared_ptr<WidgetRegistry> widgetRegistry_;
+        // artifacts from mvme. Don't think it's needed in the future.
+        ListfileReplayHandle listfileReplayHandle_;
+        DAQStats daqStats_;
+        RunInfo runInfo_;
+};
 
 }
 

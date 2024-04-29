@@ -15,6 +15,7 @@
 #endif
 
 #include "analysis/analysis.h"
+#include "analysis/analysis_ui.h"
 #include "multi_crate.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_mvlc_listfile.h"
@@ -1083,6 +1084,19 @@ int main(int argc, char *argv[])
         }
     }
 
+    auto widgetRegistry = std::make_shared<WidgetRegistry>();
+    std::vector<std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider>> asps;
+
+    for (size_t i=0; i<std::min(vmeConfigs.size(), analysisConfigs.size()); ++i)
+    {
+        auto asp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
+        asp->vmeConfig_ = vmeConfigs[i].get();
+        asp->analysis_ = analysisConfigs[i];
+        asp->widgetRegistry_ = widgetRegistry;
+
+        asps.emplace_back(std::move(asp));
+    }
+
     // Create sockets for the mvlc data pipes.
     std::vector<int> mvlcDataSockets;
 
@@ -1337,19 +1351,31 @@ int main(int argc, char *argv[])
         analysisThreads.emplace_back(std::move(analysisThread));
     }
 
+#if 1 // GUI
+
+    for (size_t i=0; i<asps.size(); ++i)
+    {
+        auto asp = asps[i].get();
+        auto widget = new analysis::ui::AnalysisWidget(asp);
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->show();
+    }
+
+    int ret = app.exec();
+
+#else // non-GUI
+
     // Loop until we get interrupted. TODO: tell loops to quit somehow, e.g. by
     // injecting an empty message into the processing chains. This way ensures
     // that each loop processes all its input packets before quitting.
     spdlog::info("entering wait_for_signal loop!");
 
-    #if 1
     do
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     } while (!signal_received);
-    #else
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    #endif
+
+#endif
 
     spdlog::info("trying to stop all the things!");
 
@@ -1386,8 +1412,6 @@ int main(int argc, char *argv[])
         if (t.joinable())
             t.join();
 
-    //int ret = app.exec();
-    int ret = 0;
     mvme_shutdown();
     return ret;
 }

@@ -609,6 +609,9 @@ void AnalysisWidgetPrivate::actionLoadSession()
 void AnalysisWidgetPrivate::updateActions()
 {
     auto streamWorker = m_serviceProvider->getMVMEStreamWorker();
+
+    if (!streamWorker) return;
+
     auto workerState = streamWorker->getState();
 
     qDebug() << __PRETTY_FUNCTION__ << to_string(workerState);
@@ -656,6 +659,9 @@ void AnalysisWidgetPrivate::actionExploreWorkspace()
 void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 {
     auto streamWorker = m_serviceProvider->getMVMEStreamWorker();
+
+    if (!streamWorker) return;
+
     auto workerState = streamWorker->getState();
 
     switch (workerState)
@@ -682,6 +688,9 @@ void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 void AnalysisWidgetPrivate::actionStepNextEvent()
 {
     auto streamWorker = m_serviceProvider->getMVMEStreamWorker();
+
+    if (!streamWorker) return;
+
     auto workerState = streamWorker->getState();
 
     switch (workerState)

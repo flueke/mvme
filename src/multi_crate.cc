@@ -5,6 +5,7 @@
 #include <QDir>
 #include <stdexcept>
 
+#include "mvme_workspace.h"
 #include "util/mesy_nng.h"
 #include "util/qt_fs.h"
 #include "vme_config_scripts.h"
@@ -775,4 +776,130 @@ void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &q
     }
 }
 
+QString MinimalAnalysisServiceProvider::getWorkspaceDirectory()
+{
+    return {};
 }
+
+QString MinimalAnalysisServiceProvider::getWorkspacePath(
+    const QString &settingsKey,
+    const QString &defaultValue,
+    bool setIfDefaulted) const
+{
+    return QDir().absolutePath();
+}
+
+std::shared_ptr<QSettings> MinimalAnalysisServiceProvider::makeWorkspaceSettings() const
+{
+    return make_workspace_settings(QDir().absolutePath());
+}
+
+// VMEConfig
+VMEConfig *MinimalAnalysisServiceProvider::getVMEConfig()
+{
+    return vmeConfig_;
+}
+
+QString MinimalAnalysisServiceProvider::getVMEConfigFilename()
+{
+    return vmeConfigFilename_;
+}
+
+void MinimalAnalysisServiceProvider::setVMEConfigFilename(const QString &filename)
+{
+    vmeConfigFilename_ = filename;
+}
+
+void MinimalAnalysisServiceProvider::vmeConfigWasSaved()
+{
+}
+
+// Analysis
+analysis::Analysis *MinimalAnalysisServiceProvider::getAnalysis()
+{
+    return analysis_.get();
+}
+QString MinimalAnalysisServiceProvider::getAnalysisConfigFilename()
+{
+    return analysisConfigFilename_;
+}
+void MinimalAnalysisServiceProvider::setAnalysisConfigFilename(const QString &filename)
+{
+    analysisConfigFilename_ = filename;
+}
+void MinimalAnalysisServiceProvider::analysisWasSaved()
+{
+}
+void MinimalAnalysisServiceProvider::analysisWasCleared()
+{
+}
+void MinimalAnalysisServiceProvider::stopAnalysis()
+{
+}
+void MinimalAnalysisServiceProvider::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
+{
+}
+bool MinimalAnalysisServiceProvider::loadAnalysisConfig(const QString &filename)
+{
+}
+bool MinimalAnalysisServiceProvider::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo,
+    AnalysisLoadFlags flags)
+{
+}
+
+// Widget registry
+mesytec::mvme::WidgetRegistry *MinimalAnalysisServiceProvider::getWidgetRegistry()
+{
+    return widgetRegistry_.get();
+}
+
+// Worker states
+AnalysisWorkerState MinimalAnalysisServiceProvider::getAnalysisWorkerState()
+{
+    return AnalysisWorkerState::Idle;
+}
+StreamWorkerBase *MinimalAnalysisServiceProvider::getMVMEStreamWorker()
+{
+    return nullptr;
+}
+
+void MinimalAnalysisServiceProvider::logMessage(const QString &msg)
+{
+    spdlog::info("MinimalAnalysisServiceProvider: {}", msg.toStdString());
+}
+
+GlobalMode MinimalAnalysisServiceProvider::getGlobalMode() // DAQ or Listfile
+{
+    return GlobalMode::DAQ;
+}
+
+const ListfileReplayHandle &MinimalAnalysisServiceProvider::getReplayFileHandle() const
+{
+    return listfileReplayHandle_;
+}
+
+DAQStats MinimalAnalysisServiceProvider::getDAQStats() const
+{
+    return daqStats_;
+}
+
+RunInfo MinimalAnalysisServiceProvider::getRunInfo() const
+{
+    return runInfo_;
+}
+
+DAQState MinimalAnalysisServiceProvider::getDAQState() const
+{
+    return DAQState::Running;
+}
+
+void MinimalAnalysisServiceProvider::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
+    s32 userLevel)
+{
+}
+
+void MinimalAnalysisServiceProvider::setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
+{
+}
+
+} // namespace mesytec::mvme::multi_crate
