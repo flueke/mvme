@@ -139,15 +139,29 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
             }
         }
 
-        // The blocking socket. listfile_writer reads from the other end.
-        if (auto res = nng::send_message_retry(context.dataOutputSocket, msg))
-            return res;
+        // Retry until the external quit flag is set.
+        auto retryPredicate = [&]
+        {
+            return !context.quit;
+        };
 
-        // Also write to the snoop socket if one was setup.
+        // The main (blocking) output socket. listfile_writer or similar reads
+        // from the other end.
+        if (auto res = nng::send_message_retry(context.dataOutputSocket, msg, retryPredicate))
+        {
+            nng_msg_free(msg);
+            nng_msg_free(msgClone); // TODO: is it ok to pass nullptr here?
+            return res;
+        }
+
+        // Also write to the snoop socket if one was setup. Only one send attempt.
         if (msgClone)
         {
-            if (auto res = nng::send_message_retry(context.snoopOutputSocket, msgClone))
-                return res;
+            if (auto res = nng::send_message_retry(context.snoopOutputSocket, msgClone, 1))
+            {
+                spdlog::warn("mvlc_eth_readout_loop: could not write to snoop output: {}", nng_strerror(res));
+                nng_msg_free(msgClone);
+            }
         }
 
         return 0;
