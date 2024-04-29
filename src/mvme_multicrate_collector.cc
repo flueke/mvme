@@ -1049,6 +1049,8 @@ int main(int argc, char *argv[])
     std::vector<nng_socket> readoutParserOutputSockets;
     std::vector<nng_socket> parsedDataConsumerSockets;
 
+    u16 readoutDataSnoopPort = 42666;
+
     for (size_t i=0; i<mvlcDataSockets.size(); ++i)
     {
         auto uri = fmt::format("inproc://readoutDataSnoop{}", i);
@@ -1058,6 +1060,14 @@ int main(int argc, char *argv[])
         if (int res = nng_listen(pubSocket, uri.c_str(), nullptr, 0))
         {
             nng::mesy_nng_error(fmt::format("nng_listen {}", uri), res);
+            return 1;
+        }
+
+        auto snoopTcpUri = fmt::format("tcp://*:{}", readoutDataSnoopPort++);
+
+        if (int res = nng_listen(pubSocket, snoopTcpUri.c_str(), nullptr, 0))
+        {
+            nng::mesy_nng_error(fmt::format("nng_listen {}", snoopTcpUri), res);
             return 1;
         }
 
