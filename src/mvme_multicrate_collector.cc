@@ -389,12 +389,18 @@ struct LoopTimeBudget
 struct ReadoutParserNngContext
 {
     std::atomic<bool> quit = false;
-    nng_msg *outputMessage = nullptr;
-    u32 outputMessageNumber = 0u;
+    nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
     nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+    mvlc::CrateConfig crateConfig;
+
     size_t totalReadoutEvents = 0u;
     size_t totalSystemEvents = 0u;
     LoopTimeBudget timings;
+
+    nng_msg *outputMessage = nullptr;
+    u32 outputMessageNumber = 0u;
+    mvlc::readout_parser::ReadoutParserState parserState;
+    mvlc::readout_parser::ReadoutParserCounters parserCounters;
 };
 
 // Allocates and prepares a new ParsedEventsMessageHeader message if there isn't
@@ -566,13 +572,12 @@ void parser_nng_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 s
 // TODO: move context creation out of this processing loop. Initial work and
 // error checking does not need to happen in the processing threads.
 void readout_parser_loop(
-    nng_socket inputSocket,
-    nng_socket outputSocket,
-    const mvlc::CrateConfig &crateConfig,
-    std::atomic<bool> &quit
+    ReadoutParserNngContext &context
     )
 {
     prctl(PR_SET_NAME,"readout_parser_loop",0,0,0);
+
+    auto &crateConfig = context.crateConfig;
 
     spdlog::info("entering readout_parser_loop, crateId={}", crateConfig.crateId);
 
@@ -587,10 +592,8 @@ void readout_parser_loop(
 
     spdlog::info("readout_parser_loop (crateId={}): readout stacks:\n{}", crateConfig.crateId, stacksYaml);
 
-    ReadoutParserNngContext parserContext;
-    parserContext.outputSocket = outputSocket;
     auto parserState = mvlc::readout_parser::make_readout_parser(
-        crateConfig.stacks, crateConfig.crateId, &parserContext);
+        crateConfig.stacks, crateConfig.crateId, &context);
     mvlc::readout_parser::ReadoutParserCounters parserCounters = {};
     mvlc::readout_parser::ReadoutParserCallbacks parserCallbacks =
     {
@@ -599,13 +602,13 @@ void readout_parser_loop(
     };
 
     nng_msg *inputMsg = nullptr;
-    u32 &outputMessageNumber = parserContext.outputMessageNumber;
+    u32 &outputMessageNumber = context.outputMessageNumber;
     auto tLastReport = std::chrono::steady_clock::now();
     const auto tStart = std::chrono::steady_clock::now();
 
     auto log_stats = [&]
     {
-        auto &timings = parserContext.timings;
+        auto &timings = context.timings;
 
         spdlog::info("readout_parser_loop (crateId={}): lastInputMessageNumber={}, inputBuffersLost={}, totalInput={:.2f} MiB",
             crateConfig.crateId, lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
@@ -632,14 +635,14 @@ void readout_parser_loop(
     };
 
     auto crateId = crateConfig.crateId;
-    auto &timings = parserContext.timings;
+    auto &timings = context.timings;
 
-    while (!quit)
+    while (!context.quit)
     {
         StopWatch stopWatch;
         stopWatch.start();
 
-        if (auto res = nng::receive_message(inputSocket, &inputMsg))
+        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
         {
             if (res != NNG_ETIMEDOUT)
             {
@@ -708,8 +711,8 @@ void readout_parser_loop(
         }
     }
 
-    if (parserContext.outputMessage)
-        flush_output_message(parserContext, "readout_parser_loop");
+    if (context.outputMessage)
+        flush_output_message(context, "readout_parser_loop");
 
     if (inputMsg)
     {
@@ -717,20 +720,25 @@ void readout_parser_loop(
         inputMsg = nullptr;
     }
 
-    assert(!parserContext.outputMessage);
+    assert(!context.outputMessage);
 
     // send empty message
-    if (auto res = nng_msg_alloc(&parserContext.outputMessage, 0))
+    if (auto res = nng_msg_alloc(&context.outputMessage, 0))
     {
         spdlog::error("readout_parser_loop (crateId={}) - nng_msg_alloc: {}", crateId, nng_strerror(res));
         return;
     }
 
-    if (auto res = nng::send_message_retry(outputSocket, parserContext.outputMessage,
-        3, "readout_parser_loop"))
+    // TODO: predicate checking for 'quit'
+    auto retryPredicate = [&]
     {
-        nng_msg_free(parserContext.outputMessage);
-        parserContext.outputMessage = nullptr;
+        return !context.quit;
+    };
+
+    if (auto res = nng::send_message_retry(context.outputSocket, context.outputMessage, retryPredicate))
+    {
+        nng_msg_free(context.outputMessage);
+        context.outputMessage = nullptr;
         spdlog::error("readout_parser_loop (crateId={}): send_message_retry: {}:", crateId, nng_strerror(res));
         return;
     }
@@ -796,9 +804,14 @@ void event_builder_loop(EventBuilderContext &context)
     spdlog::info("Leaving event_builder_loop");
 }
 
+struct AnalysisProcessingContext
+{
+    std::atomic<bool> quit;
+    nng_socket inputSocket;
+};
+
 void analysis_loop(
-    nng_socket inputSocket,
-    std::atomic<bool> &quit
+    AnalysisProcessingContext &context
     )
 {
     prctl(PR_SET_NAME,"analysis_loop",0,0,0);
@@ -810,9 +823,9 @@ void analysis_loop(
 
     spdlog::info("entering analysis_loop");
 
-    while (!error && !quit)
+    while (!error && !context.quit)
     {
-        if (auto res = nng::receive_message(inputSocket, &inputMsg))
+        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
         {
             if (res != NNG_ETIMEDOUT)
             {
@@ -1184,6 +1197,30 @@ int main(int argc, char *argv[])
         }
     }
 
+    std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
+
+    for (size_t i=0; i<crateConfigs.size(); ++i)
+    {
+        auto parserContext = std::make_unique<ReadoutParserNngContext>();
+        parserContext->quit = false;
+        parserContext->inputSocket = readoutConsumerInputSockets[i];
+        parserContext->outputSocket = readoutParserOutputSockets[i];
+        parserContext->crateConfig = crateConfigs[i];
+
+        parserContexts.emplace_back(std::move(parserContext));
+    }
+
+    std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisContexts;
+
+    for (size_t i=0; i<parsedDataConsumerSockets.size(); ++i)
+    {
+        auto analysisContext = std::make_unique<AnalysisProcessingContext>();
+        analysisContext->quit = false;
+        analysisContext->inputSocket = parsedDataConsumerSockets[i];
+
+        analysisContexts.emplace_back(std::move(analysisContext));
+    }
+
     // Thread creation starts here.
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
     std::vector<std::thread> readoutThreads;
@@ -1201,16 +1238,13 @@ int main(int argc, char *argv[])
 
     for (size_t i=0; i<readoutConsumerInputSockets.size(); ++i)
     {
-        std::thread parserThread(readout_parser_loop,
-            readoutConsumerInputSockets[i], readoutParserOutputSockets[i],
-            crateConfigs[i], std::ref(quit));
-
+        std::thread parserThread(readout_parser_loop, std::ref(*parserContexts[i]));
         parserThreads.emplace_back(std::move(parserThread));
     }
 
-    for (size_t i=0; i<parsedDataConsumerSockets.size(); ++i)
+    for (size_t i=0; i<analysisContexts.size(); ++i)
     {
-        std::thread analysisThread(analysis_loop, parsedDataConsumerSockets[i], std::ref(quit));
+        std::thread analysisThread(analysis_loop, std::ref(*analysisContexts[i]));
         analysisThreads.emplace_back(std::move(analysisThread));
     }
 
@@ -1234,9 +1268,18 @@ int main(int argc, char *argv[])
     // TODO: use empty messages to tell downstream consumers to also quit.
     // Inject empty messages into readoutProducerSocket. This way the listfile
     // writer will consume all pending messages before terminating itself.
+
+    // After waiting for a certain time for things to stop, set the quit flag
+    // and start joining threads. Each processing loop should react to the quit
+    // flag and immediately shut down.
+
     for (auto &readoutContext: readoutContexts)
         readoutContext->quit = true;
     listfileWriterContext.quit = true;
+    for (auto &parserContext: parserContexts)
+        parserContext->quit = true;
+    for (auto &analysisContext: analysisContexts)
+        analysisContext->quit = true;
     quit = true;
 
     for (auto &t: readoutThreads)
@@ -1253,32 +1296,6 @@ int main(int argc, char *argv[])
     for (auto &t: analysisThreads)
         if (t.joinable())
             t.join();
-
-
-    #if 0
-    ProcessingContext context{};
-    context.quit = false;
-    context.vmeConfigs = std::move(vmeConfigs);
-    context.dataSockets = mvlcDataSockets;
-    context.lfh = std::move(lfh);
-
-    processing_loop(context);
-
-    if (context.lfh)
-    {
-        spdlog::info("Writing EndRun and EndOfFile sections");
-        for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
-        {
-            listfile::listfile_write_timestamp_section(
-                *context.lfh, crateId, system_event::subtype::EndRun);
-        }
-
-        for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
-        {
-            listfile_write_system_event(*context.lfh, crateId, system_event::subtype::EndOfFile);
-        }
-    }
-    #endif
 
     //int ret = app.exec();
     int ret = 0;
