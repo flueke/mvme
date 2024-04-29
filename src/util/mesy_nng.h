@@ -177,10 +177,28 @@ inline void log_pipe_info(nng_pipe p, const char *info)
     spdlog::info("{}: {}={}", info, NNG_OPT_REMADDR, remoteAddress);
 }
 
-inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries = 3, const char *debugInfo = "")
+using retry_predicate = std::function<bool ()>;
+
+class RetryNTimes
+{
+    public:
+        RetryNTimes(size_t maxTries = 3)
+            : maxTries_(maxTries)
+        {}
+
+        bool operator()()
+        {
+            return attempt_++ < maxTries_;
+        }
+
+    private:
+        size_t maxTries_;
+        size_t attempt_ = 0u;
+};
+
+inline int send_message_retry(nng_socket socket, nng_msg *msg, retry_predicate rp, const char *debugInfo = "")
 {
     int res = 0;
-    size_t attempt = 0u;
 
     do
     {
@@ -194,14 +212,19 @@ inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries =
             if (res == NNG_ETIMEDOUT)
                 spdlog::warn("send_message_retry: {} - send timeout", debugInfo);
 
-            if (maxTries > 0 && attempt >= maxTries)
+            if (!rp())
                 return res;
-
-            ++attempt;
         }
     } while (res == NNG_ETIMEDOUT);
 
     return 0;
+}
+
+inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries = 3, const char *debugInfo = "")
+{
+    RetryNTimes retryPredicate(maxTries);
+
+    return send_message_retry(socket, msg, retryPredicate, debugInfo);
 }
 
 // Read type T from the front of msg and trim the message by sizeof(T).
