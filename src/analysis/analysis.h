@@ -2263,6 +2263,8 @@ class LIBMVME_EXPORT Analysis:
         void processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
+        // TODO (maybe): make this crate specific so that timeticks from
+        // different crates can be processed here?
         void processTimetick();
         double getTimetickCount() const;
 

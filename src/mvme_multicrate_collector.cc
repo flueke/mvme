@@ -808,6 +808,8 @@ struct AnalysisProcessingContext
 {
     std::atomic<bool> quit;
     nng_socket inputSocket;
+
+    std::shared_ptr<analysis::Analysis> analysis;
 };
 
 void analysis_loop(
@@ -820,6 +822,7 @@ void analysis_loop(
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
     bool error = false;
+    std::array<ModuleData, MaxVMEEvents> eventModuleData;
 
     spdlog::info("entering analysis_loop");
 
@@ -866,18 +869,54 @@ void analysis_loop(
                 if (eventMagic == multi_crate::ParsedDataEventMagic)
                 {
                     auto eventHeader = nng::msg_trim_read<multi_crate::ParsedDataEventHeader>(inputMsg);
+
                     if (!eventHeader)
                         break;
 
+                    if (eventHeader->moduleCount >= eventModuleData.size())
+                    {
+                        spdlog::error("analysis loop: incoming event data contains too many modules: {}, skipping all input data",
+                            eventHeader->moduleCount);
+                        break;
+                    }
+
+                    eventModuleData.fill({});
+
+                    // Convert from serialized message data back to a list of
+                    // readout_parser::ModuleData. The raw message data is not
+                    // copied, instead ModuleData::data points directly into the
+                    // messages memory. It should be ok to trim the message
+                    // while at the same time keeping pointers into the message
+                    // body around as long as the message is not freed before
+                    // the processing all data.
                     for (size_t moduleIndex=0u; moduleIndex<eventHeader->moduleCount; ++moduleIndex)
                     {
                         auto moduleHeader = nng::msg_trim_read<multi_crate::ParsedModuleHeader>(inputMsg);
-                        if (!moduleHeader)
-                            break;
 
-                        if (moduleHeader->totalBytes())
+                        if (!moduleHeader)
+                            break; // TODO: error handling, do not go to the next module!
+
+                        if (moduleHeader->totalBytes()) // TODO: handling of empty module data.
                         {
-                            const u32 *moduleData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg));
+                            const u32 *moduleDataPtr = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg));
+
+                            readout_parser::ModuleData moduleData{};
+                            moduleData.data.data = moduleDataPtr;
+                            moduleData.data.size = moduleHeader->totalSize();
+                            moduleData.prefixSize = moduleHeader->prefixSize;
+                            moduleData.dynamicSize = moduleHeader->dynamicSize;
+                            moduleData.suffixSize = moduleHeader->suffixSize;
+                            // FIXME: this should not depend on the current
+                            // events data but rather is a configuration
+                            // setting. The readout dictates if there is a
+                            // dynamic part or not, even if the readout cycle
+                            // for this concrete event did yield empty dynamic
+                            // data.
+                            moduleData.hasDynamic = moduleHeader->dynamicSize > 0;
+
+                            assert(moduleIndex < eventModuleData.size());
+
+                            eventModuleData[moduleIndex] = moduleData;
 
                             //mvlc::util::log_buffer(std::cout, moduleData, moduleHeader->totalSize(), fmt::format("crate={}, event={}, module={}, size={}",
                             //    eventHeader->crateIndex, eventHeader->eventIndex, moduleIndex, moduleHeader->totalSize()));
@@ -886,12 +925,44 @@ void analysis_loop(
                                 break;
                         }
                     }
+
+                    if (context.analysis)
+                    {
+                        context.analysis->beginEvent(eventHeader->eventIndex);
+                        context.analysis->processModuleData(
+                            eventHeader->crateIndex, eventHeader->eventIndex, eventModuleData.data(), eventHeader->moduleCount);
+                        context.analysis->endEvent(eventHeader->eventIndex);
+                    }
                 }
                 else if (eventMagic == multi_crate::ParsedSystemEventMagic)
                 {
                     auto eventHeader = nng::msg_trim_read<multi_crate::ParsedSystemEventHeader>(inputMsg);
                     if (!eventHeader)
                         break;
+
+                    readout_parser::DataBlock sysEventData =
+                    {
+                        reinterpret_cast<const u32 *>(nng_msg_body(inputMsg)),
+                        static_cast<u32>(eventHeader->totalSize()) // size in terms of u32 not u8
+                    };
+
+                    if (sysEventData.size)
+                    {
+                        auto frameInfo = mvlc::extract_frame_info(sysEventData.data[0]);
+                        assert(frameInfo.type == mvlc::frame_headers::SystemEvent);
+
+                        if (frameInfo.sysEventSubType == mvlc::system_event::subtype::UnixTimetick)
+                        {
+                            // TODO: only do this when replaying(?). Right now
+                            // the producing side does inject timeticks so all
+                            // stream should contain them. On the other hand we
+                            // might lose input buffers here and would need to
+                            // manually create proper timeticks.
+                            if (context.analysis)
+                                context.analysis->processTimetick();
+                        }
+                    }
+
                     if (nng_msg_trim(inputMsg, eventHeader->totalBytes()))
                         break;
                 }
@@ -964,7 +1035,6 @@ int main(int argc, char *argv[])
     // Read vme and analysis configs
 
     std::vector<std::unique_ptr<VMEConfig>> vmeConfigs;
-    std::shared_ptr<analysis::Analysis> analysisConfig;
 
     for (size_t i=1; i<parser.pos_args().size(); ++i)
     {
@@ -980,21 +1050,37 @@ int main(int argc, char *argv[])
         vmeConfigs.emplace_back(std::move(vmeConfig));
     }
 
-    std::string str;
+    std::vector<std::shared_ptr<analysis::Analysis>> analysisConfigs;
 
-    if (parser("--analysis") >> str)
     {
-        auto filename = QString::fromStdString(str);
-        auto [ana, errorString] = analysis::read_analysis_config_from_file(filename);
-
-        if (!ana)
+        auto logger = [] (const QString &msg)
         {
-            std::cerr << fmt::format("Error reading mvme analysis config from '{}': {}\n",
-                filename.toStdString(), errorString.toStdString());
-            return 1;
-        }
+            spdlog::error("analysis: {}", msg.toStdString());
+        };
 
-        analysisConfig = ana;
+        size_t crateIndex = 0;
+
+        for (auto &param: parser.params("--analysis"))
+        {
+            auto filename = QString::fromStdString(param.second);
+            auto [ana, errorString] = analysis::read_analysis_config_from_file(filename);
+
+            if (!ana)
+            {
+                std::cerr << fmt::format("Error reading mvme analysis config from '{}': {}\n",
+                    filename.toStdString(), errorString.toStdString());
+                return 1;
+            }
+
+            if (crateIndex < vmeConfigs.size())
+            {
+                RunInfo runInfo{};
+                ana->beginRun(runInfo, vmeConfigs[crateIndex].get());
+            }
+
+            analysisConfigs.emplace_back(std::move(ana));
+            ++crateIndex;
+        }
     }
 
     // Create sockets for the mvlc data pipes.
@@ -1170,6 +1256,7 @@ int main(int argc, char *argv[])
     // Open the output listfile if one should be written.
     std::unique_ptr<listfile::ZipCreator> listfileCreator;
 
+    std::string str;
     if (parser("--listfile") >> str)
     {
         try
@@ -1217,6 +1304,8 @@ int main(int argc, char *argv[])
         auto analysisContext = std::make_unique<AnalysisProcessingContext>();
         analysisContext->quit = false;
         analysisContext->inputSocket = parsedDataConsumerSockets[i];
+        if (i < analysisConfigs.size())
+            analysisContext->analysis = analysisConfigs[i];
 
         analysisContexts.emplace_back(std::move(analysisContext));
     }
