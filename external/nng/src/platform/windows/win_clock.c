@@ -24,13 +24,16 @@ nni_clock(void)
 int
 nni_time_get(uint64_t *seconds, uint32_t *nanoseconds)
 {
-	int             rv;
 	struct timespec ts;
+#ifndef __MINGW32__
 	if (timespec_get(&ts, TIME_UTC) == TIME_UTC) {
 		*seconds     = ts.tv_sec;
 		*nanoseconds = ts.tv_nsec;
 		return (0);
 	}
+#else
+	clock_gettime(CLOCK_REALTIME, &ts);
+#endif
 	return (nni_win_error(GetLastError()));
 }
 
