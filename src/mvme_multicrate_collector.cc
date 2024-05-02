@@ -10,10 +10,6 @@
 #include <winsock2.h>
 #endif
 
-#ifdef __linux__
-#include <sys/prctl.h>
-#endif
-
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
 #include "multi_crate.h"
@@ -24,6 +20,20 @@
 #include "util/mesy_nng_pipeline.h"
 #include "util/stopwatch.h"
 #include "vme_config.h"
+
+#ifdef __linux__
+#include <sys/prctl.h>
+
+void set_thread_name(const char *name)
+{
+    prctl(PR_SET_NAME,name,0,0,0);
+}
+#else
+void set_thread_name(const char *)
+{
+}
+
+#endif
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
@@ -82,9 +92,7 @@ static const std::chrono::milliseconds FlushBufferTimeout(500);
 
 void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
 {
-#ifdef __linux__
-    prctl(PR_SET_NAME,"mvlc_eth_readout_loop",0,0,0);
-#endif
+    set_thread_name("mvlc_eth_readout_loop");
 
     spdlog::info("entering mvlc_eth_readout_loop, crateId={}", context.crateId);
 
@@ -298,9 +306,7 @@ struct ListfileWriterContext
 
 void listfile_writer_loop(ListfileWriterContext &context)
 {
-#ifdef __linux__
-    prctl(PR_SET_NAME,"listfile_writer_loop",0,0,0);
-#endif
+    set_thread_name("listfile_writer_loop");
 
     spdlog::info("entering listfile_writer_loop");
 
@@ -576,7 +582,7 @@ void readout_parser_loop(
     ReadoutParserNngContext &context
     )
 {
-    prctl(PR_SET_NAME,"readout_parser_loop",0,0,0);
+    set_thread_name("readout_parser_loop");
 
     auto &crateConfig = context.crateConfig;
 
@@ -773,7 +779,7 @@ struct EventBuilderContext
 // duplicated on the snoop output.
 void event_builder_loop(EventBuilderContext &context)
 {
-    prctl(PR_SET_NAME,"event_builder_loop",0,0,0);
+    set_thread_name("event_builder_loop");
 
     spdlog::info("Entering event_builder_loop");
 
@@ -817,7 +823,8 @@ void analysis_loop(
     AnalysisProcessingContext &context
     )
 {
-    prctl(PR_SET_NAME,"analysis_loop",0,0,0);
+    set_thread_name("analysis_loop");
+
     nng_msg *inputMsg = nullptr;
     size_t totalInputBytes = 0u;
     u32 lastInputMessageNumber = 0u;

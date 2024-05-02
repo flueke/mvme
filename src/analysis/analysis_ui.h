@@ -40,7 +40,7 @@ namespace ui
 struct AnalysisWidgetPrivate;
 class ConditionWidget;
 
-class AnalysisWidget: public QWidget
+class LIBMVME_EXPORT AnalysisWidget: public QWidget
 {
     Q_OBJECT
     public:

@@ -13,7 +13,7 @@ struct AnalysisLoadFlags
 };
 
 // Interface defining services used by the analysis GUI and analysis utilities
-class AnalysisServiceProvider: public QObject
+class LIBMVME_EXPORT AnalysisServiceProvider: public QObject
 {
     Q_OBJECT
     signals:

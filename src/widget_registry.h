@@ -5,6 +5,7 @@
 #include <QWidget>
 #include <QString>
 #include "qt_util.h"
+#include "libmvme_export.h"
 
 namespace mesytec
 {
@@ -12,7 +13,7 @@ namespace mvme
 {
 
 // Allows storing and querying QObject -> QWidget mappings.
-class WidgetRegistry: public QObject
+class LIBMVME_EXPORT WidgetRegistry: public QObject
 {
     Q_OBJECT
     signals:

@@ -404,11 +404,11 @@ struct MulticrateTemplates
     QString triggerIoScript;
 };
 
-MulticrateTemplates read_multicrate_templates();
-std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates = 2);
+MulticrateTemplates LIBMVME_EXPORT read_multicrate_templates();
+std::unique_ptr<MulticrateVMEConfig> LIBMVME_EXPORT make_multicrate_config(size_t numCrates = 2);
 
 // A WriteHandle implementation writing to a nng_msg structure.
-struct NngMsgWriteHandle: public mvlc::listfile::WriteHandle
+struct LIBMVME_EXPORT NngMsgWriteHandle: public mvlc::listfile::WriteHandle
 {
     NngMsgWriteHandle()
         : msg_(nullptr)
@@ -435,7 +435,7 @@ struct NngMsgWriteHandle: public mvlc::listfile::WriteHandle
 };
 
 // Readout context for a single crate. Output buffers are written to the output socket.
-struct ReadoutProducerContext
+struct LIBMVME_EXPORT ReadoutProducerContext
 {
     unsigned crateId = 0;
     mvlc::MVLC mvlc;
@@ -446,12 +446,12 @@ struct ReadoutProducerContext
     // TODO: add readout counters here (mvlc_readout_worker)
 };
 
-struct ReplayProducerContext
+struct LIBMVME_EXPORT ReplayProducerContext
 {
     nng_socket outputSocket;
 };
 
-struct ReadoutConsumerContext
+struct LIBMVME_EXPORT ReadoutConsumerContext
 {
     nng_socket inputSocket;
     nng_socket snoopOutputSocket;
@@ -459,8 +459,8 @@ struct ReadoutConsumerContext
     // TODO: add consumer counters here
 };
 
-void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit); // throws on error
-void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &quit);
+void LIBMVME_EXPORT mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit); // throws on error
+void LIBMVME_EXPORT mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &quit);
 
 enum class MessageType: u8
 {
@@ -488,7 +488,7 @@ static_assert(sizeof(ReadoutDataMessageHeader) % sizeof(u32) == 0);
 
 // Message header for parsed data and system events. Can carry data from
 // different crates.
-struct PACK_AND_ALIGN4 ParsedEventsMessageHeader: public BaseMessageHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedEventsMessageHeader: public BaseMessageHeader
 {
 };
 
@@ -500,19 +500,19 @@ static const u8 ParsedDataEventMagic = 0xF3u;
 // Magic byte to identify a parsed system event section.
 static const u8 ParsedSystemEventMagic = 0xFAu;
 
-struct PACK_AND_ALIGN4 ParsedEventHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedEventHeader
 {
     u8 magicByte;
     u8 crateIndex;
 };
 
-struct PACK_AND_ALIGN4 ParsedDataEventHeader: public ParsedEventHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedDataEventHeader: public ParsedEventHeader
 {
     u8 eventIndex;
     u8 moduleCount;
 };
 
-struct PACK_AND_ALIGN4 ParsedModuleHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedModuleHeader
 {
     u16 prefixSize;
     u16 suffixSize;
@@ -522,7 +522,7 @@ struct PACK_AND_ALIGN4 ParsedModuleHeader
     size_t totalBytes() const { return totalSize() * sizeof(u32); }
 };
 
-struct PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEventHeader
+struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEventHeader
 {
     u32 eventSize;
 
@@ -536,7 +536,7 @@ struct PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEventHeader
 size_t LIBMVME_EXPORT fixup_listfile_buffer_message(
     const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);
 
-class MinimalAnalysisServiceProvider: public AnalysisServiceProvider
+class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvider
 {
     Q_OBJECT
     public:
