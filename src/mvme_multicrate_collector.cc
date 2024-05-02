@@ -36,6 +36,10 @@ void set_thread_name(const char *)
 
 #endif
 
+#ifdef MVME_ENABLE_PROMETHEUS
+#include "mvme_prometheus.h"
+#endif
+
 using namespace mesytec;
 using namespace mesytec::mvlc;
 using namespace mesytec::mvme;
@@ -126,6 +130,39 @@ void periodic_nng_stats_dump()
     visit_nng_stats(stats, visitor);
     nng_stats_free(stats);
 }
+
+struct NngStatsMetrics
+{
+    struct MetricsKey
+    {
+        std::string url;
+        std::string type; // dialer/listener
+        u64 socketId;
+    };
+
+    struct MetricsValues
+    {
+        prometheus::Gauge *txMessages;
+        prometheus::Gauge *rxMessages;
+        prometheus::Gauge *txBytes;
+        prometheus::Gauge *rxBytes;
+        prometheus::Gauge *pipeCount;
+    };
+
+    prometheus::Family<prometheus::Gauge> &nng_stats_family_;
+    // TODO (maybe): use another data structure for faster lookups. linear search should be ok for now.
+    std::vector<std::pair<MetricsKey, MetricsValues>> socketMetrics_;
+
+    NngStatsMetrics(prometheus::Registry &registry)
+        : nng_stats_family_(prometheus::BuildGauge().Name("nng_stats").Register(registry))
+    {
+    }
+
+    void update()
+    {
+        // Walk global stats tree. On hitting a dialer or listener: find its socket id.
+    }
+};
 
 struct MvlcEthReadoutLoopContext
 {
@@ -1391,6 +1428,39 @@ int main(int argc, char *argv[])
 
         analysisContexts.emplace_back(std::move(analysisContext));
     }
+
+#ifdef MVME_ENABLE_PROMETHEUS
+    // This variable is here to keep the prom context alive in main! This is to
+    // avoid a hang when the internal civetweb instance is destroyed from within
+    // a DLL (https://github.com/civetweb/civetweb/issues/264). By having this
+    // variable on the stack the destructor is called from mvme.exe, not from
+    // within libmvme.dll.
+    std::shared_ptr<mesytec::mvme::PrometheusContext> prom;
+    try
+    {
+        auto promBindAddress = QSettings().value("PrometheusBindAddress", "0.0.0.0:13803").toString().toStdString();
+        prom = std::make_shared<mesytec::mvme::PrometheusContext>();
+        prom->start(promBindAddress);
+        std::cout << "Prometheus server listening on port " << prom->exposer()->GetListeningPorts().front() << "\n";
+        mesytec::mvme::set_prometheus_instance(prom); // Register the prom object globally.
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error creating prometheus context: " << e.what() << ". Prometheus metrics not available!\n";
+    }
+
+    std::unique_ptr<NngStatsMetrics> metrics;
+
+    if (auto prom = mesytec::mvme::get_prometheus_instance())
+    {
+        if (auto registry = prom->registry())
+        {
+            metrics = std::make_unique<NngStatsMetrics>(*registry);
+        }
+    }
+
+
+#endif
 
     // Thread creation starts here.
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
