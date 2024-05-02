@@ -2,6 +2,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/util/udp_sockets.h>
 #include <QApplication>
+#include <QTimer>
 #include <signal.h>
 
 #ifndef __WIN32
@@ -64,6 +65,66 @@ void setup_signal_handlers()
     }
 #endif
     // TODO: add signal handling for windows
+}
+
+template<typename Visitor>
+void visit_nng_stats(nng_stat *stat, Visitor visitor, unsigned depth=0)
+{
+    visitor(stat, depth);
+
+    auto statType = nng_stat_type(stat);
+
+    if (statType == NNG_STAT_SCOPE)
+    {
+        for (auto child = nng_stat_child(stat); child; child = nng_stat_next(child))
+        {
+            visit_nng_stats(child, visitor, depth+1);
+        }
+    }
+}
+
+template<typename Value>
+std::string format_stat(int type, const char *name, const char *desc, u64 ts, Value value, int unit)
+{
+    return fmt::format("type={}, name={}, desc={}, ts={}, value={}, unit={}",
+        nng::nng_stat_type_to_string(type),
+        name, desc, ts, value,
+        nng::nng_stat_unit_to_string(unit));
+}
+
+void periodic_nng_stats_dump()
+{
+    nng_stat *stats = nullptr;
+
+    if (int res = nng_stats_get(&stats))
+    {
+        spdlog::error("nng_stat_get: {}", nng_strerror(res));
+    }
+
+    auto logger = mvlc::get_logger("nng_stats");
+
+    auto visitor = [=] (nng_stat *stat, int depth)
+    {
+        auto type = nng_stat_type(stat);
+        auto name = nng_stat_name(stat);
+        auto desc = nng_stat_desc(stat);
+        auto ts   = nng_stat_timestamp(stat);
+        auto unit = nng_stat_unit(stat);
+
+        if (type == NNG_STAT_STRING)
+        {
+            auto value = nng_stat_string(stat);
+            logger->info("{:{}s} fooo {}", "", depth, format_stat(type, name, desc, ts, value, unit));
+        }
+        else
+        {
+            auto value = nng_stat_value(stat);
+            logger->info("{:{}s} baaar {}", "", depth, format_stat(type, name, desc, ts, value, unit));
+        }
+    };
+
+    visit_nng_stats(stats, visitor);
+    nng_stats_free(stats);
 }
 
 struct MvlcEthReadoutLoopContext
@@ -1359,6 +1420,10 @@ int main(int argc, char *argv[])
     }
 
 #if 1 // GUI
+    QTimer statsTimer;
+    QObject::connect(&statsTimer, &QTimer::timeout, periodic_nng_stats_dump);
+    statsTimer.setInterval(500);
+    statsTimer.start();
 
     for (size_t i=0; i<asps.size(); ++i)
     {

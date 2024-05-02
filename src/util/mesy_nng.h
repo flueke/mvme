@@ -242,6 +242,44 @@ std::optional<T> msg_trim_read(nng_msg *msg)
     return result;
 }
 
+inline const char *nng_stat_unit_to_string(int unit)
+{
+    switch (unit)
+    {
+        case NNG_UNIT_BYTES:
+            return "B";
+        case NNG_UNIT_MESSAGES:
+            return "msgs";
+        case NNG_UNIT_MILLIS:
+            return "ms";
+        case NNG_UNIT_EVENTS:
+            return "events";
+    }
+
+    return "";
+}
+
+inline const char *nng_stat_type_to_string(int type)
+{
+    switch (type)
+    {
+        case NNG_STAT_SCOPE:
+            return "scope";
+        case NNG_STAT_LEVEL:
+            return "level";
+        case NNG_STAT_COUNTER:
+            return "counter";
+        case NNG_STAT_STRING:
+            return "string";
+        case NNG_STAT_BOOLEAN:
+            return "bool";
+        case NNG_STAT_ID:
+            return "id";
+    }
+
+    return "";
+}
+
 }
 
 #endif /* B18E3651_CA9A_43BC_AA25_810EA16533CD */
