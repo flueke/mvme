@@ -73,213 +73,6 @@ void setup_signal_handlers()
 }
 
 
-void periodic_nng_stats_dump()
-{
-    nng_stat *stats = nullptr;
-
-    if (int res = nng_stats_get(&stats))
-    {
-        spdlog::error("nng_stat_get: {}", nng_strerror(res));
-    }
-
-    auto logger = mvlc::get_logger("nng_stats");
-
-    auto visitor = [=] (nng_stat *stat, int depth)
-    {
-        auto type = nng_stat_type(stat);
-        auto name = nng_stat_name(stat);
-        auto desc = nng_stat_desc(stat);
-        auto ts   = nng_stat_timestamp(stat);
-        auto unit = nng_stat_unit(stat);
-
-        if (type == NNG_STAT_STRING)
-        {
-            auto value = nng_stat_string(stat);
-            logger->info("{:{}s} string {}", "", depth, format_stat(type, name, desc, ts, value, unit));
-        }
-        else if (type == NNG_STAT_BOOLEAN)
-        {
-            auto value = nng_stat_bool(stat);
-            logger->info("{:{}s} bool {}", "", depth, format_stat(type, name, desc, ts, value, unit));
-        }
-        else
-        {
-            auto value = nng_stat_value(stat);
-            logger->info("{:{}s} value {}", "", depth, format_stat(type, name, desc, ts, value, unit));
-        }
-    };
-
-    visit_nng_stats(stats, visitor);
-    nng_stats_free(stats);
-}
-
-struct NngStatsMetrics
-{
-    struct MetricsKey
-    {
-        std::string url;
-        std::string type; // dialer/listener
-        u64 objectId; // id of the dialer/listener
-        u64 socketId; // socket id the stats refer to
-
-        bool operator==(const MetricsKey &other) const
-        {
-            return (url == other.url
-             && type == other.type
-             && objectId == other.objectId
-             && socketId == other.socketId
-            );
-        }
-
-        bool operator<(const MetricsKey &other) const
-        {
-            return (url < other.url
-             && type < other.type
-             && objectId < other.objectId
-             && socketId < other.socketId
-            );
-        }
-    };
-
-    struct MetricsValues
-    {
-        prometheus::Gauge *rxMessages;
-        prometheus::Gauge *txMessages;
-        prometheus::Gauge *rxBytes;
-        prometheus::Gauge *txBytes;
-        prometheus::Gauge *pipeCount;
-    };
-
-    prometheus::Family<prometheus::Gauge> &rx_messages_family_;
-    prometheus::Family<prometheus::Gauge> &tx_messages_family_;
-    prometheus::Family<prometheus::Gauge> &rx_bytes_family_;
-    prometheus::Family<prometheus::Gauge> &tx_bytes_family_;
-    //std::map<MetricsKey, MetricsValues> socketMetrics_;
-    std::vector<std::pair<MetricsKey, MetricsValues>> socketMetrics_;
-
-    NngStatsMetrics(prometheus::Registry &registry)
-        : rx_messages_family_(prometheus::BuildGauge().Name("nng_rx_messages").Register(registry))
-        , tx_messages_family_(prometheus::BuildGauge().Name("nng_tx_messages").Register(registry))
-        , rx_bytes_family_(prometheus::BuildGauge().Name("nng_rx_bytes").Register(registry))
-        , tx_bytes_family_(prometheus::BuildGauge().Name("nng_tx_bytes").Register(registry))
-    {
-    }
-
-    void update()
-    {
-        // Walk global stats tree. On hitting a dialer or listener: find its
-        // socket id.
-        // Walk the tree again to find the socket. Create a MetricsKeys using
-        // the found data.
-        // Lookup the key. If found update its values. Otherwise create a new
-        // key and metrics and add both to socketMetrics_.
-
-        nng_stat *allStats = nullptr;
-        std::vector<MetricsKey> keys;
-
-        if (nng_stats_get(&allStats))
-            return;
-
-        // Build keys
-        for (auto statScope = nng_stat_child(allStats); statScope; statScope = nng_stat_next(statScope))
-        {
-            if (auto scopeName = nng_stat_name(statScope);
-                strcmp(scopeName, "dialer") == 0 || strcmp(scopeName, "listener") == 0)
-            {
-                MetricsKey key;
-                key.objectId = nng_stat_value(statScope);
-                key.type = scopeName;
-
-                for (auto child = nng_stat_child(statScope); child; child = nng_stat_next(child))
-                {
-                    auto type = nng_stat_type(child);
-                    auto name = nng_stat_name(child);
-
-                    if (type == NNG_STAT_ID && strcmp(name, "socket") == 0)
-                    {
-                        key.socketId = nng_stat_value(child);
-                    }
-                    else if (strcmp(name, "url") == 0)
-                    {
-                        key.url = nng_stat_string(child);
-                    }
-                }
-
-                //if (socketMetrics_.count(key) == 0)
-                //    socketMetrics_[key] = {};
-
-                if (auto it = std::find_if(std::begin(socketMetrics_), std::end(socketMetrics_),
-                    [&key] (const auto &p) { return p.first == key; });
-                    it == std::end(socketMetrics_))
-                {
-                    socketMetrics_.emplace_back(std::make_pair(key, MetricsValues{}));
-                }
-
-                keys.emplace_back(std::move(key));
-            }
-        }
-
-        spdlog::info("created {} keys", keys.size());
-
-        for (const auto &key: keys)
-        {
-            spdlog::info("  key: url={}, type={}, objectId={}, socketId={}", key.url, key.type, key.objectId, key.socketId);
-        }
-
-        // Create/update metrics values
-        for (auto statScope = nng_stat_child(allStats); statScope; statScope = nng_stat_next(statScope))
-        {
-            if (auto scopeName = nng_stat_name(statScope);
-                strcmp(scopeName, "socket") == 0)
-            {
-                auto socketId = nng_stat_value(statScope);
-
-                if (auto it = std::find_if(std::begin(socketMetrics_), std::end(socketMetrics_),
-                    [&socketId] (const auto &p) { return p.first.socketId == socketId; });
-                    it != std::end(socketMetrics_))
-                {
-                    auto &[key, metrics] = *it;
-
-                    if (!metrics.rxMessages)
-                    {
-                        auto add_gauge = [&] (auto &family)
-                        {
-                            return &family.Add({
-                                { "url", key.url },
-                                { "type", key.type },
-                                { "objectId", std::to_string(key.objectId) },
-                                { "socketId", std::to_string(key.socketId) }
-                            });
-                        };
-
-                        metrics.rxMessages = add_gauge(rx_messages_family_);
-                        metrics.txMessages = add_gauge(tx_messages_family_);
-                        metrics.rxBytes = add_gauge(tx_bytes_family_);
-                        metrics.txBytes = add_gauge(rx_bytes_family_);
-                    }
-
-                    for (auto child = nng_stat_child(statScope); child; child = nng_stat_next(child))
-                    {
-                        auto name = nng_stat_name(child);
-                        auto value = nng_stat_value(child);
-
-                        if (strcmp(name, "rx_msgs") == 0)
-                            metrics.rxMessages->Set(value);
-                        else if (strcmp(name, "tx_msgs") == 0)
-                            metrics.txMessages->Set(value);
-                        else if (strcmp(name, "rx_bytes") == 0)
-                            metrics.rxBytes->Set(value);
-                        else if (strcmp(name, "tx_bytes") == 0)
-                            metrics.txBytes->Set(value);
-                    }
-                }
-            }
-        }
-
-        nng_stats_free(allStats);
-    }
-};
-
 struct MvlcEthReadoutLoopContext
 {
     std::atomic<bool> quit;
@@ -622,6 +415,8 @@ struct ReadoutParserNngContext
     u32 outputMessageNumber = 0u;
     mvlc::readout_parser::ReadoutParserState parserState;
     mvlc::readout_parser::ReadoutParserCounters parserCounters;
+
+    std::chrono::steady_clock::time_point tLastFlush;
 };
 
 // Allocates and prepares a new ParsedEventsMessageHeader message if there isn't
@@ -671,6 +466,7 @@ bool flush_output_message(ReadoutParserNngContext &ctx, const char *debugInfo = 
 
     ctx.timings.tSend += stopWatch.interval();
     ctx.timings.tTotal += stopWatch.end();
+    ctx.tLastFlush = std::chrono::steady_clock::now();
 
     spdlog::debug("{}: sent message {} of size {}",
         debugInfo, ctx.outputMessageNumber, msgSize);
@@ -687,7 +483,6 @@ void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
     assert(eventIndex >= 0 && eventIndex <= std::numeric_limits<u8>::max());
     assert(moduleCount < std::numeric_limits<u8>::max());
 
-
     auto &ctx = *reinterpret_cast<ReadoutParserNngContext *>(ctx_);
     ++ctx.totalReadoutEvents;
     auto &msg = ctx.outputMessage;
@@ -703,16 +498,21 @@ void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
 
     size_t bytesFree =  msg ? nng::allocated_free_space(msg) : 0u;
 
-    if (msg && bytesFree < requiredBytes)
+    if (msg)
     {
-        if (!flush_output_message(ctx, "parser_nng_eventdata"))
-            return;
+        if (auto elapsed = std::chrono::steady_clock::now() - ctx.tLastFlush;
+            elapsed >= FlushBufferTimeout || bytesFree < requiredBytes)
+        {
+            if (!flush_output_message(ctx, "parser_nng_eventdata"))
+                return;
+        }
     }
 
     if (!msg && !parser_maybe_alloc_output(ctx))
         return;
 
-    bytesFree =  msg ? nng::allocated_free_space(msg) : 0u;
+    assert(msg);
+    bytesFree = nng::allocated_free_space(msg);
     assert(bytesFree >= requiredBytes);
 
     multi_crate::ParsedDataEventHeader eventHeader{};
@@ -760,16 +560,21 @@ void parser_nng_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 s
     size_t requiredBytes = sizeof(multi_crate::ParsedSystemEventHeader) + size * sizeof(u32);
     size_t bytesFree =  msg ? nng::allocated_free_space(msg) : 0u;
 
-    if (msg && bytesFree < requiredBytes)
+    if (msg)
     {
-        if (!flush_output_message(ctx, "parser_nng_systemevent"))
-            return;
+        if (auto elapsed = std::chrono::steady_clock::now() - ctx.tLastFlush;
+            elapsed >= FlushBufferTimeout || bytesFree < requiredBytes)
+        {
+            if (!flush_output_message(ctx, "parser_nng_systemevent"))
+                return;
+        }
     }
 
     if (!msg && !parser_maybe_alloc_output(ctx))
         return;
 
-    bytesFree =  msg ? nng::allocated_free_space(msg) : 0u;
+    assert(msg);
+    bytesFree = nng::allocated_free_space(msg);
     assert(bytesFree >= requiredBytes);
 
     multi_crate::ParsedSystemEventHeader eventHeader{};
@@ -857,6 +662,7 @@ void readout_parser_loop(
 
     auto crateId = crateConfig.crateId;
     auto &timings = context.timings;
+    context.tLastFlush = std::chrono::steady_clock::now();
 
     while (!context.quit)
     {
@@ -909,8 +715,6 @@ void readout_parser_loop(
             auto tCycle = stopWatch.interval();
             timings.tProcess += tCycle;
             timings.tTotal += stopWatch.end();
-
-            // TODO: also flush after 500ms a certain time
         }
 
         if (inputMsg)
@@ -1565,17 +1369,7 @@ int main(int argc, char *argv[])
         std::cerr << "Error creating prometheus context: " << e.what() << ". Prometheus metrics not available!\n";
     }
 
-    #if 0
-    std::unique_ptr<NngStatsMetrics> metrics;
-
-    if (auto prom = mesytec::mvme::get_prometheus_instance())
-    {
-        if (auto registry = prom->registry())
-        {
-            metrics = std::make_unique<NngStatsMetrics>(*registry);
-        }
-    }
-    #endif
+    // TODO: design and add actual metrics here
 #endif
 
     // Thread creation starts here.
@@ -1607,17 +1401,8 @@ int main(int argc, char *argv[])
 
 #if 1 // GUI
     QTimer statsTimer;
-    //QObject::connect(&statsTimer, &QTimer::timeout, periodic_nng_stats_dump);
-    QObject::connect(&statsTimer, &QTimer::timeout,
-        []
-        {
-            nng_stat *stats = nullptr;
-            if (nng_stats_get(&stats))
-                return;
-            nng_stats_dump(stats);
-            nng_stats_free(stats);
-        }
-    );
+
+    // TODO: add stats and/or prometheus metrics and udpate them here.
 #ifdef MVME_ENABLE_PROMETHEUS
     //QObject::connect(&statsTimer, &QTimer::timeout, [&] { metrics->update(); });
 #endif
@@ -1635,7 +1420,6 @@ int main(int argc, char *argv[])
     int ret = app.exec();
 
 #else // non-GUI
-
     // Loop until we get interrupted. TODO: tell loops to quit somehow, e.g. by
     // injecting an empty message into the processing chains. This way ensures
     // that each loop processes all its input packets before quitting.
