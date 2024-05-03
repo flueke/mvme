@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QTimer>
 #include <signal.h>
+#include <map>
 
 #ifndef __WIN32
 #include <poll.h>
@@ -137,30 +138,164 @@ struct NngStatsMetrics
     {
         std::string url;
         std::string type; // dialer/listener
-        u64 socketId;
+        u64 objectId; // id of the dialer/listener
+        u64 socketId; // socket id the stats refer to
+
+        bool operator==(const MetricsKey &other) const
+        {
+            return (url == other.url
+             && type == other.type
+             && objectId == other.objectId
+             && socketId == other.socketId
+            );
+        }
+
+        bool operator<(const MetricsKey &other) const
+        {
+            return (url < other.url
+             && type < other.type
+             && objectId < other.objectId
+             && socketId < other.socketId
+            );
+        }
     };
 
     struct MetricsValues
     {
-        prometheus::Gauge *txMessages;
         prometheus::Gauge *rxMessages;
-        prometheus::Gauge *txBytes;
+        prometheus::Gauge *txMessages;
         prometheus::Gauge *rxBytes;
+        prometheus::Gauge *txBytes;
         prometheus::Gauge *pipeCount;
     };
 
-    prometheus::Family<prometheus::Gauge> &nng_stats_family_;
-    // TODO (maybe): use another data structure for faster lookups. linear search should be ok for now.
+    prometheus::Family<prometheus::Gauge> &rx_messages_family_;
+    prometheus::Family<prometheus::Gauge> &tx_messages_family_;
+    prometheus::Family<prometheus::Gauge> &rx_bytes_family_;
+    prometheus::Family<prometheus::Gauge> &tx_bytes_family_;
+    //std::map<MetricsKey, MetricsValues> socketMetrics_;
     std::vector<std::pair<MetricsKey, MetricsValues>> socketMetrics_;
 
     NngStatsMetrics(prometheus::Registry &registry)
-        : nng_stats_family_(prometheus::BuildGauge().Name("nng_stats").Register(registry))
+        : rx_messages_family_(prometheus::BuildGauge().Name("nng_rx_messages").Register(registry))
+        , tx_messages_family_(prometheus::BuildGauge().Name("nng_tx_messages").Register(registry))
+        , rx_bytes_family_(prometheus::BuildGauge().Name("nng_rx_bytes").Register(registry))
+        , tx_bytes_family_(prometheus::BuildGauge().Name("nng_tx_bytes").Register(registry))
     {
     }
 
     void update()
     {
-        // Walk global stats tree. On hitting a dialer or listener: find its socket id.
+        // Walk global stats tree. On hitting a dialer or listener: find its
+        // socket id.
+        // Walk the tree again to find the socket. Create a MetricsKeys using
+        // the found data.
+        // Lookup the key. If found update its values. Otherwise create a new
+        // key and metrics and add both to socketMetrics_.
+
+        nng_stat *allStats = nullptr;
+        std::vector<MetricsKey> keys;
+
+        if (nng_stats_get(&allStats))
+            return;
+
+        // Build keys
+        for (auto statScope = nng_stat_child(allStats); statScope; statScope = nng_stat_next(statScope))
+        {
+            if (auto scopeName = nng_stat_name(statScope);
+                strcmp(scopeName, "dialer") == 0 || strcmp(scopeName, "listener") == 0)
+            {
+                MetricsKey key;
+                key.objectId = nng_stat_value(statScope);
+                key.type = scopeName;
+
+                for (auto child = nng_stat_child(statScope); child; child = nng_stat_next(child))
+                {
+                    auto type = nng_stat_type(child);
+                    auto name = nng_stat_name(child);
+
+                    if (type == NNG_STAT_ID && strcmp(name, "socket") == 0)
+                    {
+                        key.socketId = nng_stat_value(child);
+                    }
+                    else if (strcmp(name, "url") == 0)
+                    {
+                        key.url = nng_stat_string(child);
+                    }
+                }
+
+                //if (socketMetrics_.count(key) == 0)
+                //    socketMetrics_[key] = {};
+
+                if (auto it = std::find_if(std::begin(socketMetrics_), std::end(socketMetrics_),
+                    [&key] (const auto &p) { return p.first == key; });
+                    it == std::end(socketMetrics_))
+                {
+                    socketMetrics_.emplace_back(std::make_pair(key, MetricsValues{}));
+                }
+
+                keys.emplace_back(std::move(key));
+            }
+        }
+
+        spdlog::info("created {} keys", keys.size());
+
+        for (const auto &key: keys)
+        {
+            spdlog::info("  key: url={}, type={}, objectId={}, socketId={}", key.url, key.type, key.objectId, key.socketId);
+        }
+
+        // Create/update metrics values
+        for (auto statScope = nng_stat_child(allStats); statScope; statScope = nng_stat_next(statScope))
+        {
+            if (auto scopeName = nng_stat_name(statScope);
+                strcmp(scopeName, "socket") == 0)
+            {
+                auto socketId = nng_stat_value(statScope);
+
+                if (auto it = std::find_if(std::begin(socketMetrics_), std::end(socketMetrics_),
+                    [&socketId] (const auto &p) { return p.first.socketId == socketId; });
+                    it != std::end(socketMetrics_))
+                {
+                    auto &[key, metrics] = *it;
+
+                    if (!metrics.rxMessages)
+                    {
+                        auto add_gauge = [&] (auto &family)
+                        {
+                            return &family.Add({
+                                { "url", key.url },
+                                { "type", key.type },
+                                { "objectId", std::to_string(key.objectId) },
+                                { "socketId", std::to_string(key.socketId) }
+                            });
+                        };
+
+                        metrics.rxMessages = add_gauge(rx_messages_family_);
+                        metrics.txMessages = add_gauge(tx_messages_family_);
+                        metrics.rxBytes = add_gauge(tx_bytes_family_);
+                        metrics.txBytes = add_gauge(rx_bytes_family_);
+                    }
+
+                    for (auto child = nng_stat_child(statScope); child; child = nng_stat_next(child))
+                    {
+                        auto name = nng_stat_name(child);
+                        auto value = nng_stat_value(child);
+
+                        if (strcmp(name, "rx_msgs") == 0)
+                            metrics.rxMessages->Set(value);
+                        else if (strcmp(name, "tx_msgs") == 0)
+                            metrics.txMessages->Set(value);
+                        else if (strcmp(name, "rx_bytes") == 0)
+                            metrics.rxBytes->Set(value);
+                        else if (strcmp(name, "tx_bytes") == 0)
+                            metrics.txBytes->Set(value);
+                    }
+                }
+            }
+        }
+
+        nng_stats_free(allStats);
     }
 };
 
@@ -1458,8 +1593,6 @@ int main(int argc, char *argv[])
             metrics = std::make_unique<NngStatsMetrics>(*registry);
         }
     }
-
-
 #endif
 
     // Thread creation starts here.
@@ -1492,6 +1625,9 @@ int main(int argc, char *argv[])
 #if 1 // GUI
     QTimer statsTimer;
     QObject::connect(&statsTimer, &QTimer::timeout, periodic_nng_stats_dump);
+#ifdef MVME_ENABLE_PROMETHEUS
+    //QObject::connect(&statsTimer, &QTimer::timeout, [&] { metrics->update(); });
+#endif
     statsTimer.setInterval(500);
     statsTimer.start();
 
