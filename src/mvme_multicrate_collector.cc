@@ -1182,7 +1182,7 @@ int main(int argc, char *argv[])
     nng_socket readoutProducerSocket = nng::make_push_socket();
 
     // A single(!) thread reads ListfileBuffer messages from this socket and
-    // writes a listfile. Do connect multiple pull sockets to the
+    // writes a listfile. Do not connect multiple pull sockets to the
     // readoutProducerSocket as that will round-robin distribute the messages!
     nng_socket listfileConsumerSocket = nng::make_pull_socket();
 
