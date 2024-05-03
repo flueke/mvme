@@ -119,12 +119,17 @@ void periodic_nng_stats_dump()
         if (type == NNG_STAT_STRING)
         {
             auto value = nng_stat_string(stat);
-            logger->info("{:{}s} fooo {}", "", depth, format_stat(type, name, desc, ts, value, unit));
+            logger->info("{:{}s} string {}", "", depth, format_stat(type, name, desc, ts, value, unit));
+        }
+        else if (type == NNG_STAT_BOOLEAN)
+        {
+            auto value = nng_stat_bool(stat);
+            logger->info("{:{}s} bool {}", "", depth, format_stat(type, name, desc, ts, value, unit));
         }
         else
         {
             auto value = nng_stat_value(stat);
-            logger->info("{:{}s} baaar {}", "", depth, format_stat(type, name, desc, ts, value, unit));
+            logger->info("{:{}s} value {}", "", depth, format_stat(type, name, desc, ts, value, unit));
         }
     };
 
@@ -1584,6 +1589,7 @@ int main(int argc, char *argv[])
         std::cerr << "Error creating prometheus context: " << e.what() << ". Prometheus metrics not available!\n";
     }
 
+    #if 0
     std::unique_ptr<NngStatsMetrics> metrics;
 
     if (auto prom = mesytec::mvme::get_prometheus_instance())
@@ -1593,6 +1599,7 @@ int main(int argc, char *argv[])
             metrics = std::make_unique<NngStatsMetrics>(*registry);
         }
     }
+    #endif
 #endif
 
     // Thread creation starts here.
@@ -1624,7 +1631,17 @@ int main(int argc, char *argv[])
 
 #if 1 // GUI
     QTimer statsTimer;
-    QObject::connect(&statsTimer, &QTimer::timeout, periodic_nng_stats_dump);
+    //QObject::connect(&statsTimer, &QTimer::timeout, periodic_nng_stats_dump);
+    QObject::connect(&statsTimer, &QTimer::timeout,
+        []
+        {
+            nng_stat *stats = nullptr;
+            if (nng_stats_get(&stats))
+                return;
+            nng_stats_dump(stats);
+            nng_stats_free(stats);
+        }
+    );
 #ifdef MVME_ENABLE_PROMETHEUS
     //QObject::connect(&statsTimer, &QTimer::timeout, [&] { metrics->update(); });
 #endif
