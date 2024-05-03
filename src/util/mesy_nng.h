@@ -280,6 +280,34 @@ inline const char *nng_stat_type_to_string(int type)
     return "";
 }
 
+// Important: as of nng-1.8.0 sockets stats are only implemented for pair1 type
+// sockets!
+
+template<typename Visitor>
+void visit_nng_stats(nng_stat *stat, Visitor visitor, unsigned depth=0)
+{
+    visitor(stat, depth);
+
+    auto statType = nng_stat_type(stat);
+
+    if (statType == NNG_STAT_SCOPE)
+    {
+        for (auto child = nng_stat_child(stat); child; child = nng_stat_next(child))
+        {
+            visit_nng_stats(child, visitor, depth+1);
+        }
+    }
+}
+
+template<typename Value>
+std::string format_stat(int type, const char *name, const char *desc, u64 ts, Value value, int unit)
+{
+    return fmt::format("type={}, name={}, desc={}, ts={}, value={}, unit={}",
+        nng::nng_stat_type_to_string(type),
+        name, desc, ts, value,
+        nng::nng_stat_unit_to_string(unit));
+}
+
 }
 
 #endif /* B18E3651_CA9A_43BC_AA25_810EA16533CD */
