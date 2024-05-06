@@ -47,6 +47,7 @@ using namespace mesytec::mvme;
 
 static std::atomic<bool> signal_received = false;
 
+#ifndef __WIN32
 void signal_handler(int signum)
 {
     std::cerr << "signal " << signum << "\n";
@@ -56,7 +57,6 @@ void signal_handler(int signum)
 
 void setup_signal_handlers()
 {
-#ifndef __WIN32
     /* Set up the structure to specify the new action. */
     struct sigaction new_action;
     new_action.sa_handler = signal_handler;
@@ -68,9 +68,30 @@ void setup_signal_handlers()
         if (sigaction(signum, &new_action, NULL) != 0)
             throw std::system_error(errno, std::generic_category(), "setup_signal_handlers");
     }
-#endif
-    // TODO: add signal handling for windows
 }
+#else
+BOOL CtrlHandler(DWORD ctrlType)
+{
+    switch (ctrlType)
+    {
+    case CTRL_C_EVENT:
+        printf("\n\nCTRL-C pressed. finishing current task.\n\n");
+        signal_received = true;
+        return (TRUE);
+    default:
+        return (FALSE);
+    }
+}
+
+void setup_signal_handlers()
+{
+    if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE))
+    {
+        printf("Error setting Console-Ctrl Handler\n");
+        return -1;
+    }
+}
+#endif
 
 
 struct MvlcEthReadoutLoopContext
