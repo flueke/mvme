@@ -75,7 +75,7 @@ BOOL CtrlHandler(DWORD ctrlType)
     switch (ctrlType)
     {
     case CTRL_C_EVENT:
-        printf("\n\nCTRL-C pressed. finishing current task.\n\n");
+        printf("\n\nCTRL-C pressed, exiting.\n\n");
         signal_received = true;
         return (TRUE);
     default:
@@ -87,8 +87,7 @@ void setup_signal_handlers()
 {
     if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE))
     {
-        printf("Error setting Console-Ctrl Handler\n");
-        return -1;
+        throw std::runtime_error("Error setting Console-Ctrl Handler\n");
     }
 }
 #endif
@@ -1421,14 +1420,20 @@ int main(int argc, char *argv[])
     }
 
 #if 1 // GUI
-    QTimer statsTimer;
+    QTimer periodicTimer;
+
+    QObject::connect(&periodicTimer, &QTimer::timeout, [&]
+    {
+        if (signal_received)
+            app.quit();
+    });
 
     // TODO: add stats and/or prometheus metrics and udpate them here.
 #ifdef MVME_ENABLE_PROMETHEUS
-    //QObject::connect(&statsTimer, &QTimer::timeout, [&] { metrics->update(); });
+    //QObject::connect(&periodicTimer, &QTimer::timeout, [&] { metrics->update(); });
 #endif
-    statsTimer.setInterval(500);
-    statsTimer.start();
+    periodicTimer.setInterval(500);
+    periodicTimer.start();
 
     for (size_t i=0; i<asps.size(); ++i)
     {
@@ -1477,17 +1482,26 @@ int main(int argc, char *argv[])
         if (t.joinable())
             t.join();
 
+    spdlog::trace("readout threads stopped");
+
     if (listfileWriterThread.joinable())
         listfileWriterThread.join();
+
+    spdlog::trace("listfile writer stopped");
 
     for (auto &t: parserThreads)
         if (t.joinable())
             t.join();
 
+    spdlog::trace("parsers stopped");
+
     for (auto &t: analysisThreads)
         if (t.joinable())
             t.join();
 
+    spdlog::trace("analysis threads stopped");
+
     mvme_shutdown();
+    spdlog::trace("returning from main()");
     return ret;
 }
