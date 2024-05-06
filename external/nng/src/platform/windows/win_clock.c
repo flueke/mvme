@@ -27,13 +27,13 @@ nni_time_get(uint64_t *seconds, uint32_t *nanoseconds)
 	struct timespec ts;
 #ifndef __MINGW32__
 	if (timespec_get(&ts, TIME_UTC) == TIME_UTC) {
+#else
+	if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
+#endif
 		*seconds     = ts.tv_sec;
 		*nanoseconds = ts.tv_nsec;
 		return (0);
 	}
-#else
-	clock_gettime(CLOCK_REALTIME, &ts);
-#endif
 	return (nni_win_error(GetLastError()));
 }
 
