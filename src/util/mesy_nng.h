@@ -227,6 +227,29 @@ inline int send_message_retry(nng_socket socket, nng_msg *msg, size_t maxTries =
     return send_message_retry(socket, msg, retryPredicate, debugInfo);
 }
 
+inline int send_empty_message(nng_socket socket, retry_predicate rp)
+{
+    nng_msg *msg = nullptr;
+
+    if (int res = allocate_reserve_message(&msg, 0))
+        return res;
+
+    if (int res = send_message_retry(socket, msg, rp, "send_empty_message"))
+    {
+        nng_msg_free(msg);
+        return res;
+    }
+
+    return 0;
+}
+
+inline int send_empty_message(nng_socket socket, size_t maxTries = 3)
+{
+    RetryNTimes retryPredicate(maxTries);
+
+    return send_empty_message(socket, retryPredicate);
+}
+
 // Read type T from the front of msg and trim the message by sizeof(T).
 template<typename T>
 std::optional<T> msg_trim_read(nng_msg *msg)
@@ -307,6 +330,8 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
         name, desc, ts, value,
         nng::nng_stat_unit_to_string(unit));
 }
+
+using unique_msg_handle = std::unique_ptr<nng_msg, decltype(&nng_msg_free)>;
 
 }
 
