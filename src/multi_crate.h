@@ -464,6 +464,7 @@ void LIBMVME_EXPORT mvlc_readout_consumer(ReadoutConsumerContext &context, std::
 
 enum class MessageType: u8
 {
+    GracefulShutdown, // Note: cannot use an empty message as that does not go through pub-sub
     ListfileBuffer,
     ParsedEvents,
 };
@@ -473,7 +474,7 @@ enum class MessageType: u8
 struct LIBMVME_EXPORT PACK_AND_ALIGN4 BaseMessageHeader
 {
     MessageType messageType;
-    u32 messageNumber; // starts from 1
+    u32 messageNumber; // initially starts from 1 to simplify packet loss calculations. wraps to 0.
 };
 
 // These messages contain raw controller data possibly mixed with system event

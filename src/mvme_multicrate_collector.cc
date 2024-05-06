@@ -92,7 +92,6 @@ void setup_signal_handlers()
 }
 #endif
 
-
 struct MvlcEthReadoutLoopContext
 {
     std::atomic<bool> quit;
@@ -123,6 +122,7 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
 
     spdlog::info("entering mvlc_eth_readout_loop, crateId={}", context.crateId);
 
+    // Listfile handle to pass to ReadoutLoopPlugins.
     multi_crate::NngMsgWriteHandle lfh;
     u32 messageNumber = 1u;
     std::vector<u8> previousData;
@@ -223,7 +223,7 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
 
         auto msgUsed = nng_msg_len(msg);
 
-        // Note: should not alloc as we reserved space when the message was
+        // Note: this should not alloc as we reserved space when the message was
         // created. This just increases the size of the message.
         nng_msg_realloc(msg, msgUsed + eth::JumboFrameMaxSize);
 
@@ -317,6 +317,8 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         plugin->readoutStop(pluginArgs);
 
     spdlog::info("leaving mvlc_eth_readout_loop, crateId={}", context.crateId);
+
+    // Important: no sentinel has been sent at this point!
 }
 
 struct ListfileWriterContext
@@ -327,7 +329,8 @@ struct ListfileWriterContext
     // from this socket.
     nng_socket dataInputSocket;
 
-    // This is where readout data is written to if non-null.
+    // This is where readout data is written to if non-null. If the handle is
+    // null readout data is read from the input socket and discarded.
     std::unique_ptr<listfile::WriteHandle> lfh;
 };
 
@@ -348,13 +351,29 @@ void listfile_writer_loop(ListfileWriterContext &context)
         if (auto res = nng::receive_message(context.dataInputSocket, &msg))
         {
             if (res != NNG_ETIMEDOUT)
+            {
                 spdlog::warn("listfile_writer_loop: Error reading from data input socket: {}", nng_strerror(res));
+                break;;
+            }
             continue;
         }
 
         assert(msg != nullptr);
 
-        if (nng_msg_len(msg) < sizeof(multi_crate::ReadoutDataMessageHeader))
+        const auto msgLen = nng_msg_len(msg);
+
+        // Check for shutdown message.
+        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        {
+            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(msg));
+            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
+            {
+                spdlog::warn("listfile_writer_loop: Received shutdown message, leaving loop");
+                break;
+            }
+        }
+
+        if (msgLen < sizeof(multi_crate::ReadoutDataMessageHeader))
         {
             spdlog::warn("listfile_writer_loop: Incoming message is too short!");
             // TODO: count this error (should not happen)
@@ -372,15 +391,15 @@ void listfile_writer_loop(ListfileWriterContext &context)
         }
 
         {
-            auto messageNumber = header.messageNumber; // fix for gcc + spdlog/fmt + packed struct members
-            spdlog::debug("listfile_writer_loop: incoming message from crate{}, messageNumber={}",
+            auto messageNumber = header.messageNumber; // workaround for gcc + spdlog/fmt + packed struct members
+            spdlog::debug("listfile_writer_loop: Incoming message from crate{}, messageNumber={}",
                 header.crateId, messageNumber);
         }
 
         {
-            auto messageNumber = header.messageNumber; // fix for gcc + spdlog/fmt + packed struct members
+            auto messageNumber = header.messageNumber; // workaround for gcc + spdlog/fmt + packed struct members
             if (auto loss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumbers[header.crateId]))
-                spdlog::warn("listfile_writer_loop: lost {} messages from crate{}! (header.messageNumber={}, lastMessageNumber={}",
+                spdlog::warn("listfile_writer_loop: Lost {} messages from crate{}! (header.messageNumber={}, lastMessageNumber={}",
                 loss, header.crateId, messageNumber, lastMessageNumbers[header.crateId]);
         }
 
@@ -423,21 +442,36 @@ struct LoopTimeBudget
 struct ReadoutParserNngContext
 {
     std::atomic<bool> quit = false;
+
+    // Input: MessageType::ListfileBuffer
     nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+    // Output: MessageType::ParsedEvents
     nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
-    mvlc::CrateConfig crateConfig;
+
+    unsigned crateId = 0;
+    mvlc::ConnectionType inputFormat;
 
     size_t totalReadoutEvents = 0u;
     size_t totalSystemEvents = 0u;
     LoopTimeBudget timings;
-
     nng_msg *outputMessage = nullptr;
     u32 outputMessageNumber = 0u;
     mvlc::readout_parser::ReadoutParserState parserState;
-    mvlc::readout_parser::ReadoutParserCounters parserCounters;
-
+    mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
     std::chrono::steady_clock::time_point tLastFlush;
 };
+
+std::unique_ptr<ReadoutParserNngContext> make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig)
+{
+    auto res = std::make_unique<ReadoutParserNngContext>();
+
+    res->crateId = crateConfig.crateId;
+    res->inputFormat = crateConfig.connectionType;
+    res->parserState = mvlc::readout_parser::make_readout_parser(
+        crateConfig.stacks, crateConfig.crateId, res.get());
+
+    return res;
+}
 
 // Allocates and prepares a new ParsedEventsMessageHeader message if there isn't
 // one in the context object.
@@ -499,6 +533,7 @@ bool flush_output_message(ReadoutParserNngContext &ctx, const char *debugInfo = 
 void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
     const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
 {
+    assert(ctx_);
     assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
     assert(eventIndex >= 0 && eventIndex <= std::numeric_limits<u8>::max());
     assert(moduleCount < std::numeric_limits<u8>::max());
@@ -572,6 +607,7 @@ void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
 
 void parser_nng_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 size)
 {
+    assert(ctx_);
     assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
     auto &ctx = *reinterpret_cast<ReadoutParserNngContext *>(ctx_);
     ++ctx.totalSystemEvents;
@@ -615,31 +651,20 @@ void parser_nng_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 s
     }
 }
 
-// TODO: move context creation out of this processing loop. Initial work and
-// error checking does not need to happen in the processing threads.
-void readout_parser_loop(
-    ReadoutParserNngContext &context
-    )
+void readout_parser_loop(ReadoutParserNngContext &context)
 {
     set_thread_name("readout_parser_loop");
 
-    auto &crateConfig = context.crateConfig;
+    auto crateId = context.crateId;
 
-    spdlog::info("entering readout_parser_loop, crateId={}", crateConfig.crateId);
+    spdlog::info("entering readout_parser_loop, crateId={}", crateId);
 
     size_t totalInputBytes = 0u;
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
-    const auto listfileFormat = crateConfig.connectionType;
 
-    std::string stacksYaml;
-    for (const auto &stack: crateConfig.stacks)
-        stacksYaml += to_yaml(stack);
-
-    spdlog::info("readout_parser_loop (crateId={}): readout stacks:\n{}", crateConfig.crateId, stacksYaml);
-
-    auto parserState = mvlc::readout_parser::make_readout_parser(
-        crateConfig.stacks, crateConfig.crateId, &context);
+    // Local, non-protected readout parser counters. The protected version in
+    // the context struct will be updated after parsing a full input buffer.
     mvlc::readout_parser::ReadoutParserCounters parserCounters = {};
     mvlc::readout_parser::ReadoutParserCallbacks parserCallbacks =
     {
@@ -647,7 +672,6 @@ void readout_parser_loop(
         parser_nng_systemevent,
     };
 
-    nng_msg *inputMsg = nullptr;
     u32 &outputMessageNumber = context.outputMessageNumber;
     auto tLastReport = std::chrono::steady_clock::now();
     const auto tStart = std::chrono::steady_clock::now();
@@ -657,14 +681,14 @@ void readout_parser_loop(
         auto &timings = context.timings;
 
         spdlog::info("readout_parser_loop (crateId={}): lastInputMessageNumber={}, inputBuffersLost={}, totalInput={:.2f} MiB",
-            crateConfig.crateId, lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
+            crateId, lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
 
         spdlog::info("readout_parser_loop (crateId={}): time budget: "
                     "  tReceive = {} ms, "
                     "  tProcess = {} ms, "
                     "  tSend = {} ms, "
                     "  tTotal = {} ms",
-                    crateConfig.crateId,
+                    crateId,
                     timings.tReceive.count() / 1000.0,
                     timings.tProcess.count() / 1000.0,
                     timings.tSend.count() / 1000.0,
@@ -677,10 +701,9 @@ void readout_parser_loop(
         //auto bytesPerSecond = 1.0 * totalBytes / totalElapsed.count();
         auto MiBperSecond = totalMiB / totalElapsed.count() * 1000.0;
         spdlog::info("readout_parser_loop (crateId={}): outputMessages={}, bytesProcessed={:.2f} MiB, rate={:.2f} MiB/s",
-            crateConfig.crateId, outputMessageNumber, totalMiB, MiBperSecond);
+            crateId, outputMessageNumber, totalMiB, MiBperSecond);
     };
 
-    auto crateId = crateConfig.crateId;
     auto &timings = context.timings;
     context.tLastFlush = std::chrono::steady_clock::now();
 
@@ -689,53 +712,72 @@ void readout_parser_loop(
         StopWatch stopWatch;
         stopWatch.start();
 
+        nng_msg *inputMsg = nullptr;
+
         if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
         {
             if (res != NNG_ETIMEDOUT)
             {
                 spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}",
                     crateId, nng_strerror(res));
-                return;
+                break;
             }
             spdlog::trace("readout_parser_loop (crateId={}) - receive_message: timeout", crateId);
+            continue;
         }
-        else if (nng_msg_len(inputMsg) < sizeof(multi_crate::ReadoutDataMessageHeader))
+
+        assert(inputMsg != nullptr);
+
+        const auto msgLen = nng_msg_len(inputMsg);
+
+        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
         {
-            if (nng_msg_len(inputMsg) == 0)
+            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
+            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
+            {
+                spdlog::warn("reaodut_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+                nng_msg_free(inputMsg);
                 break;
-
-            spdlog::warn("readout_parser_loop (crateId={}) - incoming message too short (len={})",
-                crateId, nng_msg_len(inputMsg));
+            }
         }
-        else
+
+        if (msgLen < sizeof(multi_crate::ReadoutDataMessageHeader))
         {
-            timings.tReceive += stopWatch.interval();
-            totalInputBytes += nng_msg_len(inputMsg);
-            auto inputHeader = *reinterpret_cast<const multi_crate::ReadoutDataMessageHeader *>(
-                nng_msg_body(inputMsg));
-            auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
-            inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;;
-            lastInputMessageNumber = inputHeader.messageNumber;
-            spdlog::debug("readout_parser_loop (crateId={}): received message {} of size {}",
-                crateId, lastInputMessageNumber, nng_msg_len(inputMsg));
-
-            nng_msg_trim(inputMsg, sizeof(multi_crate::ReadoutDataMessageHeader));
-            auto inputData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg));
-            size_t inputLen = nng_msg_len(inputMsg) / sizeof(u32);
-
-            readout_parser::parse_readout_buffer(
-                listfileFormat,
-                parserState,
-                parserCallbacks,
-                parserCounters,
-                inputHeader.messageNumber,
-                inputData,
-                inputLen);
-
-            auto tCycle = stopWatch.interval();
-            timings.tProcess += tCycle;
-            timings.tTotal += stopWatch.end();
+            spdlog::warn("reaodut_parser_loop (crateId={}): Incoming message is too short (len={})!",
+                crateId, msgLen);
+            nng_msg_free(inputMsg);
+            continue;
         }
+
+        //spdlog::warn("incoming message size={}", nng_msg_len(inputMsg));
+        timings.tReceive += stopWatch.interval();
+        totalInputBytes += nng_msg_len(inputMsg);
+        auto inputHeader = *reinterpret_cast<const multi_crate::ReadoutDataMessageHeader *>(
+            nng_msg_body(inputMsg));
+        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
+        inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;
+        lastInputMessageNumber = inputHeader.messageNumber;
+        spdlog::debug("readout_parser_loop (crateId={}): received message {} of size {}",
+            crateId, lastInputMessageNumber, nng_msg_len(inputMsg));
+
+        nng_msg_trim(inputMsg, sizeof(multi_crate::ReadoutDataMessageHeader));
+        auto inputData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg));
+        size_t inputLen = nng_msg_len(inputMsg) / sizeof(u32);
+
+        // Invoke the parser. The output message is flushed from within the callbacks when needed.
+        readout_parser::parse_readout_buffer(
+            context.inputFormat,
+            context.parserState,
+            parserCallbacks,
+            parserCounters,
+            inputHeader.messageNumber,
+            inputData,
+            inputLen);
+
+        auto tCycle = stopWatch.interval();
+        timings.tProcess += tCycle;
+        timings.tTotal += stopWatch.end();
+        context.parserCounters.access().ref() = parserCounters;
 
         if (inputMsg)
         {
@@ -759,12 +801,6 @@ void readout_parser_loop(
     if (context.outputMessage)
         flush_output_message(context, "readout_parser_loop");
 
-    if (inputMsg)
-    {
-        nng_msg_free(inputMsg);
-        inputMsg = nullptr;
-    }
-
     assert(!context.outputMessage);
 
     // send empty message
@@ -774,7 +810,6 @@ void readout_parser_loop(
         return;
     }
 
-    // TODO: predicate checking for 'quit'
     auto retryPredicate = [&]
     {
         return !context.quit;
@@ -799,7 +834,8 @@ void readout_parser_loop(
     spdlog::info("leaving readout_parser_loop, crateId={}", crateId);
 }
 
-// EventBuilder - this can be split up: N threads can call
+// EventBuilder
+// Note: this can be split up: N threads can call
 // recordEventData()/recordSystemEvent() while one thread repeatedly calls
 // buildEvents().
 
@@ -824,6 +860,7 @@ void event_builder_loop(EventBuilderContext &context)
     while (!context.quit)
     {
         nng_msg *inputMsg = nullptr;
+
         if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
         {
             if (res != NNG_ETIMEDOUT)
@@ -835,10 +872,23 @@ void event_builder_loop(EventBuilderContext &context)
 
         assert(inputMsg != nullptr);
 
+        // FIXME: shutdown handling
+        assert(false);
+        if (auto msgLen = nng_msg_len(inputMsg); msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
+        {
+            if (msgLen == 0) // graceful shutdown
+                break;
+        }
+
         if (nng_msg_len(inputMsg) < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
+            if (nng_msg_len(inputMsg) == 0)
+            {
+                nng_msg_free(inputMsg);
+                break;
+            }
+
             spdlog::warn("event_builder_loop: Incoming message is too short!");
-            // TODO: count this error (should not happen)
             nng_msg_free(inputMsg);
             continue;
         }
@@ -1347,13 +1397,20 @@ int main(int argc, char *argv[])
 
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
-        auto parserContext = std::make_unique<ReadoutParserNngContext>();
+        assert(i == crateConfigs[i].crateId);
+
+        auto parserContext = make_readout_parser_nng_context(crateConfigs[i]);
         parserContext->quit = false;
         parserContext->inputSocket = readoutConsumerInputSockets[i];
         parserContext->outputSocket = readoutParserOutputSockets[i];
-        parserContext->crateConfig = crateConfigs[i];
 
         parserContexts.emplace_back(std::move(parserContext));
+
+        std::string stacksYaml;
+        for (const auto &stack: crateConfigs[i].stacks)
+            stacksYaml += to_yaml(stack);
+
+        spdlog::info("readout_parser_loop (crateId={}): readout stacks:\n{}", crateConfigs[i].crateId, stacksYaml);
     }
 
     std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisContexts;
@@ -1397,7 +1454,6 @@ int main(int argc, char *argv[])
     std::vector<std::thread> readoutThreads;
     std::vector<std::thread> parserThreads;
     std::vector<std::thread> analysisThreads;
-    std::atomic<bool> quit = false;
 
     for (auto &readoutContext: readoutContexts)
     {
@@ -1471,37 +1527,67 @@ int main(int argc, char *argv[])
 
     for (auto &readoutContext: readoutContexts)
         readoutContext->quit = true;
-    listfileWriterContext.quit = true;
-    for (auto &parserContext: parserContexts)
-        parserContext->quit = true;
-    for (auto &analysisContext: analysisContexts)
-        analysisContext->quit = true;
-    quit = true;
 
     for (auto &t: readoutThreads)
         if (t.joinable())
             t.join();
 
-    spdlog::trace("readout threads stopped");
+    spdlog::debug("readout threads stopped");
+
+    // Now send shutdown messages through the data output and snoop sockets.
+    for (auto &readoutContext: readoutContexts)
+    {
+        spdlog::warn("crate{}: sending shutdown messages", readoutContext->crateId);
+        multi_crate::BaseMessageHeader header{};
+        header.messageType = multi_crate::MessageType::GracefulShutdown;
+        // XXX: messageNumber is garbage here. Do not know the last message
+        // number output by the readout loop. So basically it's not used for
+        // GracefulShutdown
+        for (auto socket: { readoutContext->dataOutputSocket, readoutContext->snoopOutputSocket })
+        {
+            auto msg = nng::alloc_message(sizeof(header));
+            std::memcpy(nng_msg_body(msg), &header, sizeof(header));
+            if (int res = nng::send_message_retry(socket, msg))
+            {
+                spdlog::warn("crate{}: error sending shutdown to readout output socket: {}",
+                    readoutContext->crateId, nng_strerror(res));
+            }
+        }
+    }
+
+    spdlog::debug("shutdown sent through data/snoop output sockets for all crates");
+
+    //listfileWriterContext.quit = true;
+    //for (auto &parserContext: parserContexts)
+    //    parserContext->quit = true;
+    //for (auto &analysisContext: analysisContexts)
+    //    analysisContext->quit = true;
+
+    //for (auto &t: readoutThreads)
+    //    if (t.joinable())
+    //        t.join();
+
+
+    // TODO: replace the threads with std::async as the returned futures can be waited on, unlike thread.join()
 
     if (listfileWriterThread.joinable())
         listfileWriterThread.join();
 
-    spdlog::trace("listfile writer stopped");
+    spdlog::debug("listfile writer stopped");
 
     for (auto &t: parserThreads)
         if (t.joinable())
             t.join();
 
-    spdlog::trace("parsers stopped");
+    spdlog::debug("parsers stopped");
 
     for (auto &t: analysisThreads)
         if (t.joinable())
             t.join();
 
-    spdlog::trace("analysis threads stopped");
+    spdlog::debug("analysis threads stopped");
 
     mvme_shutdown();
-    spdlog::trace("returning from main()");
+    spdlog::debug("returning from main()");
     return ret;
 }
