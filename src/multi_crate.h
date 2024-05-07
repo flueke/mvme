@@ -464,7 +464,7 @@ void LIBMVME_EXPORT mvlc_readout_consumer(ReadoutConsumerContext &context, std::
 
 enum class MessageType: u8
 {
-    GracefulShutdown, // Note: cannot use an empty message as that does not go through pub-sub
+    GracefulShutdown,
     ListfileBuffer,
     ParsedEvents,
 };
