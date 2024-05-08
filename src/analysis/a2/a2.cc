@@ -4295,9 +4295,15 @@ struct OperatorFunctions
     EndRunFunction end_run = nullptr;
 };
 
+// TODO: simplify this or call it only once to get the table. Measure again
+// using perf or similar! Performance is critical here.
 const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
 {
+    static bool initialized = false;
     static std::array<OperatorFunctions, OperatorTypeCount> result = {};
+
+    if (initialized)
+        return result;
 
     result[Invalid_OperatorType] = { nullptr };
 
@@ -4349,6 +4355,8 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_IntervalCondition] = { interval_condition_step };
     result[Operator_PolygonCondition] = { polygon_condition_step };
     result[Operator_ExpressionCondition] = { expression_condition_step };
+
+    initialized = true;
 
     return result;
 }
