@@ -697,7 +697,7 @@ void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit)
         throw std::runtime_error("Could not determine MVLC type. Expected USB or ETH.");
 
     ReadoutDataMessageHeader header{};
-    header.messageType = MessageType::ListfileBuffer;
+    header.messageType = MessageType::ReadoutData;
     header.messageNumber = 1;
     // TODO: don't actually need to know the buffer type. Can detect when parsing.
     header.bufferType = static_cast<u32>(mvlcEth ? ConnectionType::ETH : ConnectionType::USB);

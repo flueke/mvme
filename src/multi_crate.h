@@ -464,9 +464,9 @@ void LIBMVME_EXPORT mvlc_readout_consumer(ReadoutConsumerContext &context, std::
 
 enum class MessageType: u8
 {
-    GracefulShutdown,
-    ListfileBuffer,
-    ParsedEvents,
+    GracefulShutdown,   // -> BaseMessageHeader
+    ReadoutData,        // -> ReadoutDataMessageHeader
+    ParsedEvents,       // -> ParsedEventsMessageHeader
 };
 
 #define PACK_AND_ALIGN4 __attribute__((packed, aligned(4)))

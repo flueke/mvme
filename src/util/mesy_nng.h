@@ -331,7 +331,29 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
         nng::nng_stat_unit_to_string(unit));
 }
 
+#if 0 // sandbox
 using unique_msg_handle = std::unique_ptr<nng_msg, decltype(&nng_msg_free)>;
+
+inline void nng_y_connector(nng_socket input, nng_socket output0, nng_socket output1, std::atomic<bool> &quit)
+{
+    while (!quit)
+    {
+        nng_msg *msg = nullptr;
+
+        if (receive_message(input, &msg) != 0)
+            continue;
+
+        nng_msg *clone = nullptr;
+        nng_msg_dup(&clone, msg);
+
+        if (msg && send_message_retry(output0, msg) != 0)
+            nng_msg_free(msg);
+
+        if (clone && send_message_retry(output1, clone) != 0)
+            nng_msg_free(clone);
+    }
+}
+#endif
 
 }
 
