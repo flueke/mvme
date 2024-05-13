@@ -518,6 +518,7 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedModuleHeader
     u16 prefixSize;
     u16 suffixSize;
     u32 dynamicSize;
+    bool hasDynamic;
 
     size_t totalSize() const { return prefixSize + suffixSize + dynamicSize; }
     size_t totalBytes() const { return totalSize() * sizeof(u32); }
