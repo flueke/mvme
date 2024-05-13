@@ -498,6 +498,105 @@ void listfile_writer_loop(ListfileWriterContext &context)
     spdlog::info("leaving listfile_writer_loop");
 }
 
+// Helper class for filling out ParsedEventsMessages.
+struct ParsedEventsMessageWriter
+{
+    // Must return a prepared MessageType::ParsedEvents message with reserved
+    // free space.
+    virtual nng_msg *getOutputMessage() = 0;
+
+    // Called when the output message is full and needs to be sent. Afterwards
+    // getOutputMessage() is called to get a fresh output message.
+    virtual bool flushOutputMessage() = 0;
+
+    // Must return true if the module specified by the given indices has dynamic
+    // data. Note: this is a configuration setting. Concrete events can have
+    // empty dynamic data when e.g. a VME block read immediately terminates.
+    virtual bool hasDynamic(int crateIndex, int eventIndex, int moduleIndex) = 0;
+
+    virtual ~ParsedEventsMessageWriter() = default;
+
+    bool consumeReadoutEventData(int crateIndex, int eventIndex,
+        const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+    {
+        size_t requiredBytes = sizeof(multi_crate::ParsedDataEventHeader);
+
+        for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
+        {
+            auto &moduleData = moduleDataList[moduleIndex];
+            requiredBytes += sizeof(multi_crate::ParsedModuleHeader);
+            requiredBytes += moduleData.data.size * sizeof(u32);
+        }
+
+        auto msg = getOutputMessage();
+        size_t bytesFree = msg ? nng::allocated_free_space(msg) : 0u;
+
+        if (bytesFree < requiredBytes)
+        {
+            if (!flushOutputMessage())
+                return false;
+
+            msg = getOutputMessage();
+        }
+
+        if (!msg || nng::allocated_free_space(msg) < requiredBytes)
+            return false;
+
+        multi_crate::ParsedDataEventHeader eventHeader{};
+        eventHeader.magicByte = multi_crate::ParsedDataEventMagic;
+        eventHeader.crateIndex = crateIndex;
+        eventHeader.eventIndex = eventIndex;
+        eventHeader.moduleCount = moduleCount;
+
+        nng_msg_append(msg, &eventHeader, sizeof(eventHeader));
+
+        for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
+        {
+            auto &moduleData = moduleDataList[moduleIndex];
+
+            multi_crate::ParsedModuleHeader moduleHeader = {};
+            moduleHeader.prefixSize = moduleData.prefixSize;
+            moduleHeader.dynamicSize = moduleData.dynamicSize;
+            moduleHeader.suffixSize = moduleData.suffixSize;
+            moduleHeader.hasDynamic = hasDynamic(crateIndex, eventIndex, moduleIndex);
+
+            nng_msg_append(msg, &moduleHeader, sizeof(moduleHeader));
+            nng_msg_append(msg, moduleData.data.data, moduleData.data.size * sizeof(u32));
+        }
+
+        return true;
+    }
+
+    bool consumeSystemEventData(int crateIndex, const u32 *header, u32 size)
+    {
+        size_t requiredBytes = sizeof(multi_crate::ParsedSystemEventHeader) + size * sizeof(u32);
+
+        auto msg = getOutputMessage();
+        size_t bytesFree = msg ? nng::allocated_free_space(msg) : 0u;
+
+        if (bytesFree < requiredBytes)
+        {
+            if (!flushOutputMessage())
+                return false;
+
+            msg = getOutputMessage();
+        }
+
+        if (!msg || nng::allocated_free_space(msg) < requiredBytes)
+            return false;
+
+        multi_crate::ParsedSystemEventHeader eventHeader{};
+        eventHeader.magicByte = multi_crate::ParsedSystemEventMagic;
+        eventHeader.crateIndex = crateIndex;
+        eventHeader.eventSize = size;
+
+        nng_msg_append(msg, &eventHeader, sizeof(eventHeader));
+        nng_msg_append(msg, header, size * sizeof(u32));
+
+        return true;
+    }
+};
+
 struct ReadoutParserNngContext
 {
     std::atomic<bool> quit = false;
@@ -592,6 +691,39 @@ bool flush_output_message(ReadoutParserNngContext &ctx, const char *debugInfo = 
     return true;
 }
 
+struct ReadoutParserNngMessageWriter: public ParsedEventsMessageWriter
+{
+    ReadoutParserNngMessageWriter(ReadoutParserNngContext &ctx_)
+        : ctx(ctx_)
+    {
+    }
+
+    nng_msg *getOutputMessage() override
+    {
+        parser_maybe_alloc_output(ctx);
+        return ctx.outputMessage;
+    }
+
+    bool flushOutputMessage() override
+    {
+        return flush_output_message(ctx, "ReadoutParserNngMessageWriter");
+    }
+
+    bool hasDynamic(int crateIndex, int eventIndex, int moduleIndex) override
+    {
+        (void) crateIndex;
+        if (0 <= eventIndex && static_cast<size_t>(eventIndex) < ctx.parserState.readoutStructure.size())
+        {
+            if (0 <= moduleIndex && static_cast<size_t>(moduleIndex) < ctx.parserState.readoutStructure[eventIndex].size())
+                return ctx.parserState.readoutStructure[eventIndex][moduleIndex].hasDynamic;
+        }
+
+        return false;
+    }
+
+    ReadoutParserNngContext &ctx;
+};
+
 // The event data callback for the readout parser. Serializes the parsed module
 // data list into the current output message.
 void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
@@ -604,122 +736,21 @@ void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
 
     auto &ctx = *reinterpret_cast<ReadoutParserNngContext *>(ctx_);
     ++ctx.totalReadoutEvents;
-    auto &msg = ctx.outputMessage;
 
-    size_t requiredBytes = sizeof(multi_crate::ParsedDataEventHeader);
-
-    for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
-    {
-        auto &moduleData = moduleDataList[moduleIndex];
-        requiredBytes += sizeof(multi_crate::ParsedModuleHeader);
-        requiredBytes += moduleData.data.size * sizeof(u32);
-    }
-
-    size_t bytesFree =  msg ? nng::allocated_free_space(msg) : 0u;
-
-    if (msg)
-    {
-        if (auto elapsed = std::chrono::steady_clock::now() - ctx.tLastFlush;
-            elapsed >= FlushBufferTimeout || bytesFree < requiredBytes)
-        {
-            if (!flush_output_message(ctx, "parser_nng_eventdata"))
-                return;
-        }
-    }
-
-    if (!msg && !parser_maybe_alloc_output(ctx))
-        return;
-
-    assert(msg);
-    bytesFree = nng::allocated_free_space(msg);
-    assert(bytesFree >= requiredBytes);
-
-    multi_crate::ParsedDataEventHeader eventHeader{};
-    eventHeader.magicByte = multi_crate::ParsedDataEventMagic;
-    eventHeader.crateIndex = crateIndex;
-    eventHeader.eventIndex = eventIndex;
-    eventHeader.moduleCount = moduleCount;
-
-    if (int res = nng_msg_append(msg, &eventHeader, sizeof(eventHeader)))
-    {
-        spdlog::error("parser_nng_eventdata: nng_msg_append: {}", nng_strerror(res));
-        return;
-    }
-
-    for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
-    {
-        auto &moduleData = moduleDataList[moduleIndex];
-
-        multi_crate::ParsedModuleHeader moduleHeader = {};
-        moduleHeader.prefixSize = moduleData.prefixSize;
-        moduleHeader.dynamicSize = moduleData.dynamicSize;
-        moduleHeader.suffixSize = moduleData.suffixSize;
-        moduleHeader.hasDynamic = false;
-
-        if (0 <= eventIndex && static_cast<size_t>(eventIndex) < ctx.parserState.readoutStructure.size())
-        {
-            if (moduleIndex < ctx.parserState.readoutStructure[eventIndex].size())
-                moduleHeader.hasDynamic = ctx.parserState.readoutStructure[eventIndex][moduleIndex].hasDynamic;
-        }
-
-        if (int res = nng_msg_append(msg, &moduleHeader, sizeof(moduleHeader)))
-        {
-            spdlog::error("parser_nng_eventdata: nng_msg_append: {}", nng_strerror(res));
-            return;
-        }
-
-        if (int res = nng_msg_append(msg, moduleData.data.data, moduleData.data.size * sizeof(u32)))
-        {
-            spdlog::error("parser_nng_eventdata: nng_msg_append: {}", nng_strerror(res));
-            return;
-        }
-    }
+    ReadoutParserNngMessageWriter writer(ctx);
+    writer.consumeReadoutEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
 }
 
 void parser_nng_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 size)
 {
     assert(ctx_);
     assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
+
     auto &ctx = *reinterpret_cast<ReadoutParserNngContext *>(ctx_);
     ++ctx.totalSystemEvents;
-    auto &msg = ctx.outputMessage;
 
-    size_t requiredBytes = sizeof(multi_crate::ParsedSystemEventHeader) + size * sizeof(u32);
-    size_t bytesFree =  msg ? nng::allocated_free_space(msg) : 0u;
-
-    if (msg)
-    {
-        if (auto elapsed = std::chrono::steady_clock::now() - ctx.tLastFlush;
-            elapsed >= FlushBufferTimeout || bytesFree < requiredBytes)
-        {
-            if (!flush_output_message(ctx, "parser_nng_systemevent"))
-                return;
-        }
-    }
-
-    if (!msg && !parser_maybe_alloc_output(ctx))
-        return;
-
-    assert(msg);
-    bytesFree = nng::allocated_free_space(msg);
-    assert(bytesFree >= requiredBytes);
-
-    multi_crate::ParsedSystemEventHeader eventHeader{};
-    eventHeader.magicByte = multi_crate::ParsedSystemEventMagic;
-    eventHeader.crateIndex = crateIndex;
-    eventHeader.eventSize = size;
-
-    if (int res = nng_msg_append(msg, &eventHeader, sizeof(eventHeader)))
-    {
-        spdlog::error("parser_nng_systemevent: nng_msg_append: {}", nng_strerror(res));
-        return;
-    }
-
-    if (int res = nng_msg_append(msg, header, size * sizeof(u32)))
-    {
-        spdlog::error("parser_nng_systemevent: nng_msg_append: {}", nng_strerror(res));
-        return;
-    }
+    ReadoutParserNngMessageWriter writer(ctx);
+    writer.consumeSystemEventData(crateIndex, header, size);
 }
 
 void readout_parser_loop(ReadoutParserNngContext &context)
@@ -737,6 +768,7 @@ void readout_parser_loop(ReadoutParserNngContext &context)
     // Local, non-protected readout parser counters. The protected version in
     // the context struct will be updated after parsing a full input buffer.
     mvlc::readout_parser::ReadoutParserCounters parserCounters = {};
+
     mvlc::readout_parser::ReadoutParserCallbacks parserCallbacks =
     {
         parser_nng_eventdata,
@@ -980,12 +1012,209 @@ mvlc::EventContainer next_event(ParsedEventMessageIterator &iter)
 struct EventBuilderContext
 {
     std::atomic<bool> &quit;
+
+    // Input: ParsedEventsMessageHeader
     nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+
+    // Output: ParsedEventsMessageHeader
     nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+
+    // Snoop Output: ParsedEventsMessageHeader
     nng_socket snoopOutputSocket = NNG_SOCKET_INITIALIZER;
+
     mvlc::EventBuilder eventBuilder;
+
+    nng_msg *outputMessage = nullptr;
+    u32 outputMessageNumber = 0u;
 };
 
+// Calls recordEventData and recordSystemEvent with data read from inputSocket.
+void event_builder_record_loop(EventBuilderContext &context)
+{
+    set_thread_name("event_builder_recorder");
+
+    spdlog::info("entering event_builder_record_loop");
+
+    while (!context.quit)
+    {
+        nng_msg *inputMsg = nullptr;
+
+        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
+        {
+            if (res != NNG_ETIMEDOUT)
+            {
+                spdlog::error("event_builder_record_loop - receive_message: {}", nng_strerror(res));
+                break;
+            }
+            spdlog::trace("event_builder_record_loop - receive_message: timeout");
+            continue;
+        }
+
+        assert(inputMsg != nullptr);
+
+        const auto msgLen = nng_msg_len(inputMsg);
+
+        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        {
+            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
+            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
+            {
+                spdlog::warn("event_builder_record_loop: Received shutdown message, leaving loop");
+                nng_msg_free(inputMsg);
+                break;
+            }
+        }
+
+        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
+        {
+            spdlog::warn("event_builder_record_loop - incoming message too short (len={})", msgLen);
+            nng_msg_free(inputMsg);
+            continue;
+        }
+
+        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg).value();
+
+        if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
+        {
+            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
+                break;
+        }
+
+        ParsedEventMessageIterator messageIter(inputMsg);
+
+        for (auto eventData = next_event(messageIter);
+                eventData.type != EventContainer::Type::None;
+                eventData = next_event(messageIter))
+        {
+            if (eventData.type == EventContainer::Type::Readout)
+            {
+                context.eventBuilder.recordEventData(eventData.crateId, eventData.readout.eventIndex,
+                    eventData.readout.moduleDataList, eventData.readout.moduleCount);
+            }
+            else if (eventData.type == EventContainer::Type::System && eventData.system.size)
+            {
+                context.eventBuilder.recordSystemEvent(eventData.crateId, eventData.system.header, eventData.system.size);
+            }
+            else if (nng_msg_len(inputMsg))
+            {
+                spdlog::warn("analysis_loop: incoming message contains unknown subsection '{}'",
+                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg)));
+                break;
+            }
+        }
+    }
+
+    spdlog::info("leaving event_builder_record_loop");
+}
+
+struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
+{
+    EventBuilderNngMessageWriter(EventBuilderContext &ctx_)
+        : ctx(ctx_)
+    {
+    }
+
+    nng_msg *getOutputMessage() override
+    {
+        auto &msg = ctx.outputMessage;
+
+        if (msg)
+            return msg;
+
+        if (nng::allocate_reserve_message(&msg, DefaultOutputMessageReserve))
+            return nullptr;
+
+        multi_crate::ParsedEventsMessageHeader header{};
+        header.messageType = multi_crate::MessageType::ParsedEvents;
+        header.messageNumber = ++ctx.outputMessageNumber;
+
+        nng_msg_append(msg, &header, sizeof(header));
+        assert(nng_msg_len(msg) == sizeof(header));
+
+        return msg;
+    }
+
+    bool flushOutputMessage() override
+    {
+        const auto msgSize = nng_msg_len(ctx.outputMessage);
+
+        // Retries forever or until told to quit.
+        auto retryPredicate = [&]
+        {
+            return !ctx.quit;
+        };
+
+        const char *debugInfo = "EventBuilderNngMessageWriter";
+
+        if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, retryPredicate, debugInfo))
+        {
+            nng_msg_free(ctx.outputMessage);
+            ctx.outputMessage = nullptr;
+            return false;
+        }
+
+        ctx.outputMessage = nullptr;
+
+        spdlog::debug("{}: sent message {} of size {}",
+            debugInfo, ctx.outputMessageNumber, msgSize);
+
+        return true;
+    }
+
+    bool hasDynamic(int crateIndex, int eventIndex, int moduleIndex) override
+    {
+        (void) crateIndex; (void) eventIndex; (void) moduleIndex;
+        return true;
+    }
+
+    EventBuilderContext &ctx;
+};
+
+void event_builder_eventdata(void *ctx_, int crateIndex, int eventIndex,
+    const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+{
+    assert(ctx_);
+    assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
+    assert(eventIndex >= 0 && eventIndex <= std::numeric_limits<u8>::max());
+    assert(moduleCount < std::numeric_limits<u8>::max());
+
+    auto &ctx = *reinterpret_cast<EventBuilderContext *>(ctx_);
+
+    EventBuilderNngMessageWriter writer(ctx);
+    writer.consumeReadoutEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
+}
+
+void event_builder_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 size)
+{
+    assert(ctx_);
+    assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
+
+    auto &ctx = *reinterpret_cast<EventBuilderContext *>(ctx_);
+
+    EventBuilderNngMessageWriter writer(ctx);
+    writer.consumeSystemEventData(crateIndex, header, size);
+}
+
+void event_build_build_loop(EventBuilderContext &context)
+{
+    // TODO: make callbacks which write eventbuilder output to the outputSocket
+    // and snoopOutputSocket.
+    readout_parser::ReadoutParserCallbacks callbacks;
+
+    set_thread_name("event_builder_builder");
+
+    while (!context.quit)
+    {
+        context.eventBuilder.buildEvents(callbacks);
+    }
+
+    // flush
+    context.eventBuilder.buildEvents(callbacks, true);
+}
+
+
+#if 0
 // Calls recordEventData and recordSystemEvent with data read from inputSocket.
 // on the event builder. Event builder output is written to the outputSocket and
 // duplicated on the snoop output.
@@ -1037,6 +1266,7 @@ void event_builder_loop(EventBuilderContext &context)
 
     spdlog::info("Leaving event_builder_loop");
 }
+#endif
 
 struct AnalysisProcessingContext
 {
