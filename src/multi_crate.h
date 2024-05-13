@@ -599,7 +599,7 @@ class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvi
         std::shared_ptr<WidgetRegistry> widgetRegistry_;
         // artifacts from mvme. Don't think it's needed in the future.
         ListfileReplayHandle listfileReplayHandle_;
-        DAQStats daqStats_;
+        mutable mvlc::Protected<DAQStats> daqStats_;
         RunInfo runInfo_;
 };
 

@@ -880,7 +880,7 @@ const ListfileReplayHandle &MinimalAnalysisServiceProvider::getReplayFileHandle(
 
 DAQStats MinimalAnalysisServiceProvider::getDAQStats() const
 {
-    return daqStats_;
+    return daqStats_.copy();
 }
 
 RunInfo MinimalAnalysisServiceProvider::getRunInfo() const
