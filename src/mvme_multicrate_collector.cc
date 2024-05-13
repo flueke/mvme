@@ -843,6 +843,111 @@ void readout_parser_loop(ReadoutParserNngContext &context)
     spdlog::info("leaving readout_parser_loop, crateId={}", crateId);
 }
 
+struct ParsedEventMessageIterator
+{
+    nng_msg *msg = nullptr;
+    std::array<ModuleData, MaxVMEModules * 2> moduleDataBuffer;
+
+    explicit ParsedEventMessageIterator(nng_msg *msg_)
+        : msg(msg_)
+    {
+        moduleDataBuffer.fill({});
+    }
+};
+
+// Input must be a ParsedEventsMessageHeader formatted message. Extracts the
+// next event from message, trims message and returns the filled event
+// container. This should be fine as trimming does not free or overwrite the
+// message data.
+// Returns EventContainer::Type::None once all data has been extracted from msg.
+mvlc::EventContainer next_event(ParsedEventMessageIterator &iter)
+{
+    mvlc::EventContainer result{};
+    auto &msg = iter.msg;
+
+    if (nng_msg_len(msg) >= 1)
+    {
+        const u8 eventMagic = *reinterpret_cast<u8 *>(nng_msg_body(msg));
+
+        if (eventMagic == multi_crate::ParsedDataEventMagic)
+        {
+            if (auto eventHeader = nng::msg_trim_read<multi_crate::ParsedDataEventHeader>(msg); eventHeader)
+            {
+                if (eventHeader->moduleCount >= iter.moduleDataBuffer.size())
+                {
+                    spdlog::error("too many modules {} in ParsedEventsMessage", eventHeader->moduleCount);
+                    return {};
+                }
+
+                iter.moduleDataBuffer.fill({});
+
+                for (size_t moduleIndex=0u; moduleIndex<eventHeader->moduleCount; ++moduleIndex)
+                {
+                    auto moduleHeader = nng::msg_trim_read<multi_crate::ParsedModuleHeader>(msg);
+
+                    if (!moduleHeader)
+                        return {};
+
+                    if (moduleHeader->totalBytes() > nng_msg_len(msg))
+                    {
+                        spdlog::error("ParsedModuleHeader::totalBytes() exceeds remaining message size");
+                        return {};
+                    }
+
+                    if (moduleHeader->totalBytes())
+                    {
+                        const u32 *moduleDataPtr = reinterpret_cast<const u32 *>(nng_msg_body(msg));
+
+                        readout_parser::ModuleData moduleData{};
+                        moduleData.data.data = moduleDataPtr;
+                        moduleData.data.size = moduleHeader->totalSize();
+                        moduleData.prefixSize = moduleHeader->prefixSize;
+                        moduleData.dynamicSize = moduleHeader->dynamicSize;
+                        moduleData.suffixSize = moduleHeader->suffixSize;
+                        moduleData.hasDynamic = moduleHeader->hasDynamic;
+
+                        assert(moduleIndex < iter.moduleDataBuffer.size());
+
+                        iter.moduleDataBuffer[moduleIndex] = moduleData;
+
+                        //mvlc::util::log_buffer(std::cout, moduleData.data.data, moduleHeader->totalSize(),
+                        //    fmt::format("crate={}, event={}, module={}, size={}",
+                        //    eventHeader->crateIndex, eventHeader->eventIndex, moduleIndex, moduleHeader->totalSize()));
+
+                        nng_msg_trim(msg, moduleHeader->totalBytes());
+                    }
+                }
+
+                result.type = EventContainer::Type::Readout;
+                result.readout.eventIndex = eventHeader->eventIndex;
+                result.readout.moduleDataList = iter.moduleDataBuffer.data();
+                result.readout.moduleCount = eventHeader->moduleCount;
+            }
+        }
+        else if (eventMagic == multi_crate::ParsedSystemEventMagic)
+        {
+            if (auto eventHeader = nng::msg_trim_read<multi_crate::ParsedSystemEventHeader>(msg);
+                eventHeader && nng_msg_len(msg) >= eventHeader->totalBytes())
+            {
+                result.type = EventContainer::Type::System;
+                result.system.header = reinterpret_cast<const u32 *>(nng_msg_body(msg));
+                result.system.size = eventHeader->totalSize();
+                nng_msg_trim(msg, eventHeader->totalBytes());
+            }
+            else
+            {
+                spdlog::warn("next_event: system event message too short (len={})", nng_msg_len(msg));
+            }
+        }
+        else
+        {
+            spdlog::warn("next_event: unknown event magic byte 0x{:02x}", eventMagic);
+        }
+    }
+
+    return result;
+}
+
 // EventBuilder
 // Note: this can be split up: N threads can call
 // recordEventData()/recordSystemEvent() while one thread repeatedly calls
