@@ -13,9 +13,10 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/util/protected.h>
 
-#include "libmvme_export.h"
 #include "analysis_service_provider.h"
+#include "libmvme_export.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvme_mvlc_listfile.h"
 #include "util/mesy_nng.h"
 #include "vme_config.h"
 
@@ -602,6 +603,175 @@ class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvi
         mutable mvlc::Protected<DAQStats> daqStats_;
         RunInfo runInfo_;
 };
+
+struct SocketWorkPerformanceCounters
+{
+    std::chrono::steady_clock::time_point tpStart = {};
+    std::chrono::microseconds tReceive = {};
+    std::chrono::microseconds tProcess = {};
+    std::chrono::microseconds tSend = {};
+    std::chrono::microseconds tTotal = {};
+    size_t messagesReceived = 0;
+    size_t messagesLost = 0;
+    size_t messagesSent = 0;
+    size_t bytesReceived = 0;
+    size_t bytesSent = 0;
+
+    void start()
+    {
+        tpStart = std::chrono::steady_clock::now();
+    }
+};
+
+void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info);
+
+struct MvlcEthReadoutLoopContext
+{
+    std::atomic<bool> quit;
+
+    // This is put into output ReadoutDataMessageHeader messages and passed
+    // to ReadoutLoopPlugins.
+    u8 crateId;
+
+    // The MVLC data stream is read from this UDP socket.
+    int mvlcDataSocket;
+
+    // Readout data is written to this socket. Expected to use a lossless,
+    // blocking protocol, e.g. pair or push as this data goes to the output
+    // listfile.
+    nng_socket dataOutputSocket;
+
+    // Readout data is also written to this socket. Should be a lossfull,
+    // non-blocking protocol, e.g. pub.
+    nng_socket snoopOutputSocket;
+
+    mvlc::Protected<SocketWorkPerformanceCounters> dataOutputCounters;
+    mvlc::Protected<SocketWorkPerformanceCounters> snoopOutputCounters;
+};
+
+void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context);
+
+struct ListfileWriterContext
+{
+    std::atomic<bool> quit;
+
+    // Readout data in the form of ReadoutDataMessageHeader messages is read
+    // from this socket.
+    nng_socket dataInputSocket;
+
+    // This is where readout data is written to if non-null. If the handle is
+    // null readout data is read from the input socket and discarded.
+    std::unique_ptr<mvlc::listfile::WriteHandle> lfh;
+};
+
+void listfile_writer_loop(ListfileWriterContext &context);
+
+// Helper class for filling out ParsedEventsMessages.
+struct ParsedEventsMessageWriter
+{
+    // Must return a prepared MessageType::ParsedEvents message with reserved
+    // free space.
+    virtual nng_msg *getOutputMessage() = 0;
+
+    // Called when the output message is full and needs to be sent. Afterwards
+    // getOutputMessage() is used to get a fresh output message.
+    virtual bool flushOutputMessage() = 0;
+
+    // Must return true if the module specified by the given indices has dynamic
+    // data. Note: this is a configuration setting. Concrete events can have
+    // empty dynamic data when e.g. a VME block read immediately terminates.
+    virtual bool hasDynamic(int crateIndex, int eventIndex, int moduleIndex) = 0;
+
+    virtual ~ParsedEventsMessageWriter() = default;
+
+    // Serialize the given module data list into the current output message.
+    bool consumeReadoutEventData(int crateIndex, int eventIndex,
+        const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
+
+    // Serialize the given system event data into the current output message.
+    bool consumeSystemEventData(int crateIndex, const u32 *header, u32 size);
+};
+
+struct ParsedEventMessageIterator
+{
+    nng_msg *msg = nullptr;
+    std::array<mvlc::readout_parser::ModuleData, MaxVMEModules * 2> moduleDataBuffer;
+
+    explicit ParsedEventMessageIterator(nng_msg *msg_)
+        : msg(msg_)
+    {
+        moduleDataBuffer.fill({});
+    }
+};
+
+mvlc::EventContainer next_event(ParsedEventMessageIterator &iter);
+
+struct ReadoutParserNngContext
+{
+    std::atomic<bool> quit = false;
+
+    // Input: MessageType::ReadoutData
+    nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+    // Output: MessageType::ParsedEvents
+    nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+
+    unsigned crateId = 0;
+    mvlc::ConnectionType inputFormat;
+
+    size_t totalReadoutEvents = 0u;
+    size_t totalSystemEvents = 0u;
+    mvlc::Protected<SocketWorkPerformanceCounters> counters;
+    nng_msg *outputMessage = nullptr;
+    u32 outputMessageNumber = 0u;
+    mvlc::readout_parser::ReadoutParserState parserState;
+    mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+    std::chrono::steady_clock::time_point tLastFlush;
+};
+
+std::unique_ptr<ReadoutParserNngContext> make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig);
+void readout_parser_loop(ReadoutParserNngContext &context);
+
+// EventBuilder
+// Note: this can be split up: N threads can call
+// recordEventData()/recordSystemEvent() while one thread repeatedly calls
+// buildEvents().
+struct EventBuilderContext
+{
+    std::atomic<bool> &quit;
+
+    // Input: ParsedEventsMessageHeader
+    nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+
+    // Output: ParsedEventsMessageHeader
+    nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+
+    // Snoop Output: ParsedEventsMessageHeader
+    nng_socket snoopOutputSocket = NNG_SOCKET_INITIALIZER;
+
+    mvlc::EventBuilderConfig eventBuilderConfig;
+    mvlc::EventBuilder eventBuilder;
+
+    nng_msg *outputMessage = nullptr;
+    u32 outputMessageNumber = 0u;
+};
+
+// Calls recordEventData and recordSystemEvent with data read from inputSocket.
+void event_builder_record_loop(EventBuilderContext &context);
+void event_build_build_loop(EventBuilderContext &context);
+
+struct AnalysisProcessingContext
+{
+    std::atomic<bool> quit;
+    nng_socket inputSocket;
+    std::shared_ptr<analysis::Analysis> analysis;
+    bool isReplay = false;
+    multi_crate::MinimalAnalysisServiceProvider *asp = nullptr;
+    mvlc::Protected<SocketWorkPerformanceCounters> inputSocketCounters;
+    u8 crateId;
+};
+
+// Consumes ParsedEventsMessageHeader type messages.
+void analysis_loop(AnalysisProcessingContext &context);
 
 }
 
