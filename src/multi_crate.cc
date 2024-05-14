@@ -1048,7 +1048,7 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         if (auto res = nng::send_message_retry(context.dataOutputSocket, msg, retryPredicate))
         {
             nng_msg_free(msg);
-            nng_msg_free(msgClone); // TODO: is it ok to pass nullptr here?
+            nng_msg_free(msgClone);
             return res;
         }
 

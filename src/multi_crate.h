@@ -629,6 +629,7 @@ struct SocketWorkPerformanceCounters
 
 void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info);
 
+// Ethernet-only MVLC data stream readout.
 struct MvlcEthReadoutLoopContext
 {
     std::atomic<bool> quit;
@@ -654,6 +655,28 @@ struct MvlcEthReadoutLoopContext
 };
 
 void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context);
+
+// Data stream readout working on a mvlc::MVLC instance. Works for both ETH and
+// USB connections.
+struct MvlcInstanceReadoutLoopContext
+{
+    std::atomic<bool> quit;
+
+    // This is put into output ReadoutDataMessageHeader messages and passed
+    // to ReadoutLoopPlugins.
+    u8 crateId;
+
+    mvlc::MVLC mvlc;
+
+    nng_socket dataOutputSocket;
+    nng_socket snoopOutputSocket;
+
+    mvlc::Protected<SocketWorkPerformanceCounters> dataOutputCounters;
+    mvlc::Protected<SocketWorkPerformanceCounters> snoopOutputCounters;
+};
+
+// TODO: implement this (similar to ReadoutWorker::Private::readout())
+void mvlc_instance_readout_loop(MvlcInstanceReadoutLoopContext &context);
 
 struct ListfileWriterContext
 {

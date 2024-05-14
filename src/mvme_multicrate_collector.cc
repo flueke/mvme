@@ -511,7 +511,7 @@ int main(int argc, char *argv[])
         analysisThreads.emplace_back(std::move(analysisThread));
     }
 
-#if 1 // GUI
+    // GUI stuff starts here
     QTimer periodicTimer;
 
     QObject::connect(&periodicTimer, &QTimer::timeout, [&]
@@ -557,30 +557,14 @@ int main(int argc, char *argv[])
 
     int ret = app.exec();
 
-#else // non-GUI
-    // Loop until we get interrupted. TODO: tell loops to quit somehow, e.g. by
-    // injecting an empty message into the processing chains. This way ensures
-    // that each loop processes all its input packets before quitting.
-    spdlog::info("entering wait_for_signal loop!");
-
-    do
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    } while (!signal_received);
-
-#endif
-
     spdlog::info("trying to stop all the things!");
 
-
-    // TODO: use empty messages to tell downstream consumers to also quit.
-    // Inject empty messages into readoutProducerSocket. This way the listfile
-    // writer will consume all pending messages before terminating itself.
 
     // After waiting for a certain time for things to stop, set the quit flag
     // and start joining threads. Each processing loop should react to the quit
     // flag and immediately shut down.
 
+    // Stop the start of the processing chains.
     for (auto &readoutContext: readoutContexts)
         readoutContext->quit = true;
 
@@ -594,25 +578,7 @@ int main(int argc, char *argv[])
     for (auto &readoutContext: readoutContexts)
     {
         spdlog::warn("crate{} readout: sending shutdown messages", readoutContext->crateId);
-        #if 0
-        multi_crate::BaseMessageHeader header{};
-        header.messageType = multi_crate::MessageType::GracefulShutdown;
-        // XXX: messageNumber is garbage here. Do not know the last message
-        // number output by the readout loop. So basically it's not used for
-        // GracefulShutdown
-        for (auto socket: { readoutContext->dataOutputSocket, readoutContext->snoopOutputSocket })
-        {
-            auto msg = nng::alloc_message(sizeof(header));
-            std::memcpy(nng_msg_body(msg), &header, sizeof(header));
-            if (int res = nng::send_message_retry(socket, msg))
-            {
-                spdlog::warn("crate{}: error sending shutdown to readout output socket: {}",
-                    readoutContext->crateId, nng_strerror(res));
-            }
-        }
-        #else
         send_shutdown_messages({ readoutContext->dataOutputSocket, readoutContext->snoopOutputSocket });
-        #endif
     }
 
     spdlog::debug("shutdown sent through data and snoop output sockets for all crates");
