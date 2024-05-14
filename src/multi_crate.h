@@ -535,6 +535,10 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEven
 
 #undef PACK_AND_ALIGN4
 
+
+int send_shutdown_message(nng_socket socket);
+void send_shutdown_messages(std::initializer_list<nng_socket> sockets);
+
 // Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
 size_t LIBMVME_EXPORT fixup_listfile_buffer_message(
     const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf);

@@ -79,79 +79,6 @@ void setup_signal_handlers()
 }
 #endif
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-// Calls recordEventData and recordSystemEvent with data read from inputSocket.
-// on the event builder. Event builder output is written to the outputSocket and
-// duplicated on the snoop output.
-void event_builder_loop(EventBuilderContext &context)
-{
-    set_thread_name("event_builder_loop");
-
-    spdlog::info("entering event_builder_loop");
-
-    while (!context.quit)
-    {
-        nng_msg *inputMsg = nullptr;
-
-        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
-        {
-            if (res != NNG_ETIMEDOUT)
-            {
-                spdlog::warn("event_builder_loop - receive message: {}", nng_strerror(res));
-            }
-            spdlog::trace("event_builder_loop - receive_message: timeout");
-            continue;
-        }
-
-        assert(inputMsg != nullptr);
-
-        const auto msgLen = nng_msg_len(inputMsg);
-
-        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
-        {
-            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
-            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
-            {
-                spdlog::warn("event_builder_loop: Received shutdown message, leaving loop");
-                nng_msg_free(inputMsg);
-                break;
-            }
-        }
-
-        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
-        {
-            spdlog::warn("event_builder_loop - incoming message too short (len={})", msgLen);
-            nng_msg_free(inputMsg);
-            continue;
-        }
-
-
-
-    }
-
-    spdlog::info("Leaving event_builder_loop");
-}
-#endif
-
-
-
 #if 0
 struct ParsedDataStatsContext
 {
@@ -182,29 +109,6 @@ void parsed_data_stats_loop(ParsedDataStatsContext &context)
     }
 }
 #endif
-
-int send_shutdown_message(nng_socket socket)
-{
-    multi_crate::BaseMessageHeader header{};
-    header.messageType = multi_crate::MessageType::GracefulShutdown;
-    auto msg = nng::alloc_message(sizeof(header));
-    std::memcpy(nng_msg_body(msg), &header, sizeof(header));
-    if (int res = nng::send_message_retry(socket, msg))
-    {
-        nng_msg_free(msg);
-        return res;
-    }
-
-    return 0;
-}
-
-void send_shutdown_messages(std::initializer_list<nng_socket> sockets)
-{
-    for (auto socket: sockets)
-    {
-        send_shutdown_message(socket);
-    }
-}
 
 int main(int argc, char *argv[])
 {

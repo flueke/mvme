@@ -514,6 +514,29 @@ std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates)
     return result;
 }
 
+int send_shutdown_message(nng_socket socket)
+{
+    multi_crate::BaseMessageHeader header{};
+    header.messageType = multi_crate::MessageType::GracefulShutdown;
+    auto msg = nng::alloc_message(sizeof(header));
+    std::memcpy(nng_msg_body(msg), &header, sizeof(header));
+    if (int res = nng::send_message_retry(socket, msg))
+    {
+        nng_msg_free(msg);
+        return res;
+    }
+
+    return 0;
+}
+
+void send_shutdown_messages(std::initializer_list<nng_socket> sockets)
+{
+    for (auto socket: sockets)
+    {
+        send_shutdown_message(socket);
+    }
+}
+
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
 {
     size_t bytesMoved = 0u;
