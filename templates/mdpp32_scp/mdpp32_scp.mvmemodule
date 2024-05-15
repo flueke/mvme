@@ -1,0 +1,96 @@
+{
+    "ModuleConfig": {
+        "baseAddress": 0,
+        "enabled": true,
+        "id": "{2fe1f0e4-7e2b-48c9-80c4-e35b6a200137}",
+        "initScripts": [
+            {
+                "enabled": true,
+                "id": "{dcbf1923-ef57-4b35-bab7-435c698cdff7}",
+                "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "## Parameters for MDPP-32_SCP\n\n# Operation Mode\n# ############################################################################\n# tdc_resolution\n0x6042  0           # 0 ->  24 ps = 25 ns / 1024\n                    # 1 ->  49 ps = 25 ns / 512\n                    # 2 ->  98 ps = 25 ns / 256\n                    # 3 -> 195 ps = 25 ns / 128\n                    # 4 -> 391 ps = 25 ns / 64\n                    # 5 -> 781 ps = 25 ns / 32\n\n# first_hit\n0x605C  1           # 0 -> transmit all hits per channel in the window\n                    # 1 -> only transmit first hit per channel in the window\n\n# Trigger Setup\n# ############################################################################\n# win_start\n0x6050  $(16384 - 100 / 1.56) # second term: offset in ns, positive or negative\n                    # Window of interest start time relative to trigger.\n                    # Window start   = 16384  + delay[ns] / 1.56;\n                    # Delay can be negative to register hits before the trigger.\n                    # Delay may be in the range [-25560 ns, +25560 ns].\n                    # < 0 -> window starts before trigger\n                    # > 0 -> window is delayed\n\n# win_width (14 bit value)\n0x6054  $(200 / 1.56)    # first term in ns;\n                    # win_width = (win_width[ns] / 25ns * 16)\n                    # max value 16383; (Hex notation: 0x3FFF)\n                    # Range: [0, 25560 ns]\n\n# trig_source\n# Defines the trigger which creates the window of interest.\n0x6058  0x300       # 0x001 -> trigger 0 input\n                    # 0x002 -> trigger 1 input\n                    # 0x300 -> bank 0 and 1 (self trigger; all channels)\n                    # single channel: trig_source = 128 + (chan * 4)\n                    #                 with channel in 0..31\n                    # +-------------+--------------------+---------+\n                    # | Whole bank  |     32_channels    |  trig   |\n                    # |   2 bits    |       6 bits       | 2 bits  |\n                    # +============================================|\n                    # |   B1   | B0 | active |   Chan    | T1 | T0 |\n                    # |        |    |        |   [4:0]   |    |    |\n                    # +--------+----+--------+---+-------+----+----+\n\n# trigger_output\n# NIM1 trigger output\n0x605E  0x300       # 0x300 -> bank 0 and 1 (OR of all channels)\n                    # single channel: trigger_output = 128 + (chan * 4)\n                    #                 with channel in 0..31\n                    # +-------------+--------------------+---------+\n                    # | Whole bank  |     32_channels    |  trig   |\n                    # |   2 bits    |       6 bits       | 2 bits  |\n                    # +============================================|\n                    # |   B1   | B0 | active |   Chan    | X  | X  |\n                    # |        |    |        |   [4:0]   |    |    |\n                    # +--------+----+--------+---+-------+----+----+\n\n\n# I/O\n# ############################################################################\n# Sorted from top to bottom, as on the front panel.\n\n# ECL3 input\n0x6060  0x00        # 0x00 -> off\n                    # 0x01 -> trig0, terminated\n                    # 0x11 -> trig0, unterminated\n# ECL2 input\n0x6062  0x00        # 0x00 -> off\n                    # 0x01 -> sync, terminated\n                    # 0x11 -> sync, unterminated\n                    # 0x02 -> trig1, terminated\n                    # 0x12 -> trig1, unterminated\n# ECL1 input\n0x6064  0x00        # 0x00 -> off\n                    # 0x01 -> reset, terminated\n                    # 0x11 -> reset, unterminated\n# ECL0 output\n0x6066  0x00        # 0x0 -> off\n                    # 0x4 -> busy\n                    # 0x8 -> data in buffer above threshold 0x6018 (= Data ready)\n                    # 0x9 -> events in buffer above threshold 0x601E\n\n# NIM4 input\n0x6068  1           # 0 -> off\n                    # 1 -> trig0_in\n\n# NIM3\n# Note: Front panel Monitor setting overrides this setting (becomes mon1\n# output).\n0x606A  0           # 0 -> off\n                    # 2 -> sync in (also set CTRA.ts_sources (0x6096)!)\n# NIM2\n# Note: Front panel Monitor setting overrides this setting (becomes mon0\n# output).\n0x606C  1           # 0 -> off\n                    # 1 -> trig1_in\n                    # 2 -> reset\n\n# NIM1 is always trigger output\n\n# NIM0\n0x6074  1           # 0 -> off\n                    # 1 -> CBus\n                    # 4 -> busy_out (== FIFO full or ACQ stopped)\n                    # 8 -> data in buffer above threshold 0x6018\n                    # 9 -> events in buffer above threshold 0x601E\n\n# Internal Test Pulser\n# ############################################################################\n# pulser_status\n0x6070  0           # 0 -> off, 1 -> on\n\n# pulser_amplitude\n0x6072  400         # maximum amplitude: 0xFFF = 4095\n\n# Timestamp/Event Counters: CTRA, CTRB\n# ############################################################################\n# ts_sources\n0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)\n                    # bit 1: external reset enable\n\n# ts_divisor (16 bit value)\n0x6098  1           # timestamp = time / ts_divisor\n                    # 0 means division by 65536\n\n# stop_ctr\n#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)\n                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)\n                    # with 0 -> run, 1 -> stop counter\n"
+            },
+            {
+                "enabled": true,
+                "id": "{463b3489-5ce9-4eff-b188-4b503adb11b4}",
+                "name": "Frontend Settings",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Front end settings\n# ############################################################################\n# select_chan_pair\n0x6100  8       # 0 -> channel 0, 1, 2, 3\n                # 1 -> channel 4, 5, 6, 7\n                # ...\n                # 8 -> all channels (set to common values)\n# tf_int_diff\n0x6110  $(100 / 12.5)  # first term in [ns];  TF integration/differentiation time common for the 4 selected channels\n                # range 12.5 .. 1600. (set value  1..127 in multiples of 12.5 ns)\n\t\t\t\t\n# shaping_time (common for the 4 selected channels)\n0x6124  $(2000 / 12.5)  # first term: in ns, FWHM-width \n                # range 100 ns to 12500 ns  (set value 8..1000)\n\n# Gain (common for the 4 selected channels)\n0x611A  $(2.0 * 100)  # gain * 100\n                # range 1..250\n                # 100   -> gain = 1\n                # 25000 -> gain = 250\n\n# PZ0 (signal_decay_time0 for the 1st selected channel); internal pulser decay time =102us\n0x6112  $(25000 / 12.5)  # first term: decay time in ns\n                # multiples of 12.5 ns\n\n# PZ1 (signal_decay_time1 for the 2nd selected channel)\n0x6114  $(25000 / 12.5)  # same as signal_decay_time0\n\n# PZ2 (signal_decay_time1 for the 3rd selected channel)\n0x6116  $(25000 / 12.5)  # same as signal_decay_time0\n\n# PZ3 (signal_decay_time1 for the 4th selected channel)\n0x6118  $(25000 / 12.5)  # same as signal_decay_time0\n\n# threshold0\n0x611C  2000    # 0..64k, 64k corresponds to full range\n# threshold1\n0x611E  2000    # same as threshold0\n# threshold2\n0x6120  2000    # same as threshold0\n# threshold3\n0x6122  2000    # same as threshold0\n\n# signal_rise_time, determines the flat top of trapezoidal shaper (common for the 4 selected channels)\n0x612A  4       # multiple of 12.5 ns (7 bit value)\n                # 0 -> For Si-detectors, constant rise time detectors: shorted dead time.\n                # For germanium detectors with position dependent rise time set\n                # to largest possible signal rise time.\n                # This results in highest resolution and ballistic loss correction.\n\n##### Expert settings, usually the default settings are fine #######\n# BLR - base line restorer (common for the 4 selected channels)\n0x6126  2       # 0 -> off\n                # 1 -> strict (int. time = 4 shaping times)\n                # 2 -> soft   (int. time = 8 shaping times)\n\n# reset_time (common for both selected channels)\n0x6128  16      # multiple of 12.5 ns, min = 16 (== 200ns)\n\n\n\n# Channel / Channel Pair Front end settings\n# ############################################################################\n/*\n# channels (0, 1, 2, 3)\n0x6100       0\n0x611C  0x00FF    # threshold 0\n0x611E  0x00FF    # threshold 1\n0x6120  0x00FF    # threshold 2\n0x6122  0x00FF    # threshold 3\n0x6112  0xFFFF    # PZ 0\n0x6114  0xFFFF    # PZ 1\n0x6116  0xFFFF    # PZ 2\n0x6118  0xFFFF    # PZ 3\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n\n# channels (4, 5, 6, 7)\n0x6100       1\n0x611C  0x00FF    # threshold 4\n0x611E  0x00FF    # threshold 5\n0x6120  0x00FF    # threshold 6\n0x6122  0x00FF    # threshold 7\n0x6112  0xFFFF    # PZ 4\n0x6114  0xFFFF    # PZ 5\n0x6116  0xFFFF    # PZ 6\n0x6118  0xFFFF    # PZ 7\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n\n# channels (8, 9, 10, 11)\n0x6100       2\n0x611C  0x00FF    # threshold 8\n0x611E  0x00FF    # threshold 9\n0x6120  0x00FF    # threshold 10\n0x6122  0x00FF    # threshold 11\n0x6112  0xFFFF    # PZ 8\n0x6114  0xFFFF    # PZ 9\n0x6116  0xFFFF    # PZ 10\n0x6118  0xFFFF    # PZ 11\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n\n# channels (12, 13, 14, 15)\n0x6100       3\n0x611C  0x00FF    # threshold 12\n0x611E  0x00FF    # threshold 13\n0x6120  0x00FF    # threshold 14\n0x6122  0x00FF    # threshold 15\n0x6112  0xFFFF    # PZ 12\n0x6114  0xFFFF    # PZ 13\n0x6116  0xFFFF    # PZ 14\n0x6118  0xFFFF    # PZ 15\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n\n# channels (16, 17, 18, 19)\n0x6100       4\n0x611C  0x00FF    # threshold 16\n0x611E  0x00FF    # threshold 17\n0x6120  0x00FF    # threshold 18\n0x6122  0x00FF    # threshold 19\n0x6112  0xFFFF    # PZ 16\n0x6114  0xFFFF    # PZ 17\n0x6116  0xFFFF    # PZ 18\n0x6118  0xFFFF    # PZ 19\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n\n# channels (20, 21, 22, 23)\n0x6100       5\n0x611C  0x00FF    # threshold 20\n0x611E  0x00FF    # threshold 21\n0x6120  0x00FF    # threshold 22\n0x6122  0x00FF    # threshold 23\n0x6112  0xFFFF    # PZ 20\n0x6114  0xFFFF    # PZ 21\n0x6116  0xFFFF    # PZ 22\n0x6118  0xFFFF    # PZ 23\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n\n# channels (24, 25, 26, 27)\n0x6100       6\n0x611C  0x00FF    # threshold 24\n0x611E  0x00FF    # threshold 25\n0x6120  0x00FF    # threshold 26\n0x6122  0x00FF    # threshold 27\n0x6112  0xFFFF    # PZ 24\n0x6114  0xFFFF    # PZ 25\n0x6116  0xFFFF    # PZ 26\n0x6118  0xFFFF    # PZ 27\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n\n# channels (28, 29, 30, 31)\n0x6100       7\n0x611C  0x00FF    # threshold 28\n0x611E  0x00FF    # threshold 29\n0x6120  0x00FF    # threshold 30\n0x6122  0x00FF    # threshold 31\n0x6112  0xFFFF    # PZ 28\n0x6114  0xFFFF    # PZ 29\n0x6116  0xFFFF    # PZ 30\n0x6118  0xFFFF    # PZ 31\n0x6110      20    # tf_int_diff\n0x611A    2000    # gain\n0x6124     160    # shaping_time\n0x6126       2    # BLR\n0x6128      16    # reset_time\n0x612A      4     # signal_rise_time\n*/\n"
+            },
+            {
+                "enabled": true,
+                "id": "{9ecdd679-158b-48d1-966d-650fc998c235}",
+                "name": "VME Interface Settings",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Settings related to the readout loop\n# #####################################\n# Trigger output via IRQ-lines at Backplane; MDPP-32\n# Implemented since March 2021.\n# 0x6300 0b1111'1111'1111'1111  #IRQ 1 lower 16 channels\n# 0x6302 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6304 0b1111'1111'1111'1111  #IRQ2 lower 16 channels\n# 0x6306 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6308 0b1111'1111'1111'1111  #IRQ3 lower 16 channels\n# 0x630A 0b1111'1111'1111'1111  # upper 16 channels\n# 0x630C 0b1111'1111'1111'1111  #IRQ4 lower 16 channels\n# 0x630E 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6310 0b1111'1111'1111'1111  #IRQ5 lower 16 channels\n# 0x6312 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6314 0b1111'1111'1111'1111  #IRQ6 lower 16 channels\n# 0x6316 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6318 0b1111'1111'1111'1111  # ** not supported by MVLC ** IRQ 7 lower 16 channels\n# 0x631A 0b1111'1111'1111'1111  #** not supported by MVLC ** upper 16 channels\n#######################################\n\n0x6010  ${sys_irq}                          # irq level\n\n# IRQ_source and thresholds\n#0x601C 1                                   # 1 -> specifies number of words\n#0x6018  100                                # IRQ-FIFO threshold, words\n0x601C 0                                    # 0 -> the following register specifies the number of events\n0x601E $(${mesy_readout_num_events} + 2)    # IRQ-FIFO threshold, events\n\n# marking_type\n0x6038 ${mesy_eoe_marker}                   # End Of Event marking\n                                            # 0 -> event counter\n                                            # 1 -> time stamp\n                                            # 3 -> extended time stamp\n\n# multi event mode:\n0x6036 0xb                                  # 0x0 -> single event\n                                            # 0x3 -> multi event, number of words\n                                            # 0xb -> multi event, transmits number of events specified\n\n# max_transfer_data\n0x601A ${mesy_readout_num_events}           # multi event mode == 0x3 -> Berr is emitted when more or equal the\n                                            #   specified number of words have been sent and \"End Of Event\" is detected.\n                                            # multi event mode == 0xb -> Berr is emitted when the specified number\n                                            #   of events has been transmitted.\n\n# Stop the module from accepting triggers and clear the readout FIFO.\n# Acquisition will be started simultaneously for all modules in the parent\n# event by the \"Multicast DAQ Start\" script.\n0x603a 0   # stop acq\n0x603c 1   # FIFO reset\n0x6034 1   # readout reset\n\n# MCST - Multicast Setup\n# #####################################\n0x6020 0x80                                 # Enable multicast\n0x6024 0x${mesy_mcst}                       # Set 8 high bits of MCST address\n"
+            }
+        ],
+        "name": "mdpp32_scp",
+        "type": "mdpp32_scp",
+        "variable_table": {
+            "name": "",
+            "variables": {
+            }
+        },
+        "vmeReadout": {
+            "enabled": true,
+            "id": "{bfc72b9d-74f6-4aea-9b10-7776e1404a15}",
+            "name": "Module Readout",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# BLT readout until BERR or number of transfers reached\nmbltfifo a32 0x0000 65535\n"
+        },
+        "vmeReset": {
+            "enabled": true,
+            "id": "{ad5390ea-8c2d-4eaa-8587-85ca0042798b}",
+            "name": "Module Reset",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# Reset the module\n0x6008 1\nwait 500ms\n\n## Get Module ids for log file\nprint \"Hardware ID:\"\nread a32 d16 0x6008\t# hardware ID\naccu_mask_rotate 0x0000ffff 0\naccu_test eq 0x5007 \"MDPP-32 hardware id check\"\n\nprint \"Firmware Revision:\"\nread a32 d16 0x600E # firmware revision\naccu_mask_rotate 0x0000f000 20\naccu_test eq 2 \"SCP firmware check\"\n\n0x603a 0   # stop acq\n0x603c 1   # FIFO reset\n0x6034 1   # readout reset\n"
+        }
+    },
+    "ModuleMeta": {
+        "displayName": "MDPP-32_SCP",
+        "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
+        "typeId": 11,
+        "typeName": "mdpp32_scp",
+        "variables": [
+        ],
+        "vendorName": "mesytec",
+        "vmeAddress": 0
+    }
+}

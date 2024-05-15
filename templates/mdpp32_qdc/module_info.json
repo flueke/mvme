@@ -1,7 +1,0 @@
-{
-    "typeId"        : 13,
-    "typeName"      : "mdpp32_qdc",
-    "displayName"   : "MDPP-32_QDC",
-    "vendorName"    : "mesytec",
-    "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
-}
