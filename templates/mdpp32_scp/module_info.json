@@ -1,7 +1,0 @@
-{
-    "typeId"        : 11,
-    "typeName"      : "mdpp32_scp",
-    "displayName"   : "MDPP-32_SCP",
-    "vendorName"    : "mesytec",
-    "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
-}
