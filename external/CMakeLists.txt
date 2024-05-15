@@ -49,6 +49,7 @@ find_package(nng QUIET)
 
 if(NOT nng)
     message("-- Using nng from external/nng")
+    set(BUILD_SHARED_LIBS ON)
     set(NNG_TESTS OFF)
     set(NNG_ENABLE_NNGCAT ON)
     set(NNG_ENABLE_COMPAT OFF)
@@ -70,9 +71,9 @@ if(NOT nng)
     #install(TARGETS nng) # Only needed when BUILD_SHARED_LIBS=ON and/or the
     #headers should be installed.
 
-    if (LINUX)
-        set_target_properties(nng PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    endif()
+    #if (LINUX)
+    #    set_target_properties(nng PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    #endif()
 
 
 endif()
