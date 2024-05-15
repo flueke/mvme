@@ -536,8 +536,8 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEven
 #undef PACK_AND_ALIGN4
 
 
-int send_shutdown_message(nng_socket socket);
-void send_shutdown_messages(std::initializer_list<nng_socket> sockets);
+int LIBMVME_EXPORT send_shutdown_message(nng_socket socket);
+void LIBMVME_EXPORT send_shutdown_messages(std::initializer_list<nng_socket> sockets);
 
 // Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
 size_t LIBMVME_EXPORT fixup_listfile_buffer_message(
@@ -608,7 +608,7 @@ class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvi
         RunInfo runInfo_;
 };
 
-struct SocketWorkPerformanceCounters
+struct LIBMVME_EXPORT SocketWorkPerformanceCounters
 {
     std::chrono::steady_clock::time_point tpStart = {};
     std::chrono::microseconds tReceive = {};
@@ -627,10 +627,10 @@ struct SocketWorkPerformanceCounters
     }
 };
 
-void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info);
+void LIBMVME_EXPORT log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info);
 
 // Ethernet-only MVLC data stream readout.
-struct MvlcEthReadoutLoopContext
+struct LIBMVME_EXPORT MvlcEthReadoutLoopContext
 {
     std::atomic<bool> quit;
 
@@ -654,11 +654,11 @@ struct MvlcEthReadoutLoopContext
     mvlc::Protected<SocketWorkPerformanceCounters> snoopOutputCounters;
 };
 
-void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context);
+void LIBMVME_EXPORT mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context);
 
 // Data stream readout working on a mvlc::MVLC instance. Works for both ETH and
 // USB connections.
-struct MvlcInstanceReadoutLoopContext
+struct LIBMVME_EXPORT MvlcInstanceReadoutLoopContext
 {
     std::atomic<bool> quit;
 
@@ -676,9 +676,9 @@ struct MvlcInstanceReadoutLoopContext
 };
 
 // TODO: implement this (similar to ReadoutWorker::Private::readout())
-void mvlc_instance_readout_loop(MvlcInstanceReadoutLoopContext &context);
+void LIBMVME_EXPORT mvlc_instance_readout_loop(MvlcInstanceReadoutLoopContext &context);
 
-struct ListfileWriterContext
+struct LIBMVME_EXPORT ListfileWriterContext
 {
     std::atomic<bool> quit;
 
@@ -691,10 +691,10 @@ struct ListfileWriterContext
     std::unique_ptr<mvlc::listfile::WriteHandle> lfh;
 };
 
-void listfile_writer_loop(ListfileWriterContext &context);
+void LIBMVME_EXPORT listfile_writer_loop(ListfileWriterContext &context);
 
 // Helper class for filling out ParsedEventsMessages.
-struct ParsedEventsMessageWriter
+struct LIBMVME_EXPORT ParsedEventsMessageWriter
 {
     // Must return a prepared MessageType::ParsedEvents message with reserved
     // free space.
@@ -719,7 +719,7 @@ struct ParsedEventsMessageWriter
     bool consumeSystemEventData(int crateIndex, const u32 *header, u32 size);
 };
 
-struct ParsedEventMessageIterator
+struct LIBMVME_EXPORT ParsedEventMessageIterator
 {
     nng_msg *msg = nullptr;
     std::array<mvlc::readout_parser::ModuleData, MaxVMEModules * 2> moduleDataBuffer;
@@ -731,9 +731,9 @@ struct ParsedEventMessageIterator
     }
 };
 
-mvlc::EventContainer next_event(ParsedEventMessageIterator &iter);
+mvlc::EventContainer LIBMVME_EXPORT next_event(ParsedEventMessageIterator &iter);
 
-struct ReadoutParserNngContext
+struct LIBMVME_EXPORT ReadoutParserNngContext
 {
     std::atomic<bool> quit = false;
 
@@ -755,14 +755,14 @@ struct ReadoutParserNngContext
     std::chrono::steady_clock::time_point tLastFlush;
 };
 
-std::unique_ptr<ReadoutParserNngContext> make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig);
-void readout_parser_loop(ReadoutParserNngContext &context);
+std::unique_ptr<ReadoutParserNngContext> LIBMVME_EXPORT make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig);
+void LIBMVME_EXPORT readout_parser_loop(ReadoutParserNngContext &context);
 
 // EventBuilder
 // Note: this can be split up: N threads can call
 // recordEventData()/recordSystemEvent() while one thread repeatedly calls
 // buildEvents().
-struct EventBuilderContext
+struct LIBMVME_EXPORT EventBuilderContext
 {
     std::atomic<bool> quit;
 
@@ -785,10 +785,10 @@ struct EventBuilderContext
 };
 
 // Calls recordEventData and recordSystemEvent with data read from inputSocket.
-void event_builder_record_loop(EventBuilderContext &context);
-void event_builder_build_loop(EventBuilderContext &context);
+void LIBMVME_EXPORT event_builder_record_loop(EventBuilderContext &context);
+void LIBMVME_EXPORT event_builder_build_loop(EventBuilderContext &context);
 
-struct AnalysisProcessingContext
+struct LIBMVME_EXPORT AnalysisProcessingContext
 {
     std::atomic<bool> quit;
     nng_socket inputSocket;
@@ -800,7 +800,7 @@ struct AnalysisProcessingContext
 };
 
 // Consumes ParsedEventsMessageHeader type messages.
-void analysis_loop(AnalysisProcessingContext &context);
+void LIBMVME_EXPORT analysis_loop(AnalysisProcessingContext &context);
 
 }
 
