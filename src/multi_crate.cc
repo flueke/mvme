@@ -1887,6 +1887,7 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
 
         if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, retryPredicate, debugInfo))
         {
+            spdlog::warn("EventBuilderNngMessageWriter: send_message_retry: {}", nng_strerror(res));
             nng_msg_free(ctx.outputMessage);
             ctx.outputMessage = nullptr;
             return false;
@@ -1956,7 +1957,11 @@ void event_builder_build_loop(EventBuilderContext &context)
 
     while (!context.quit)
     {
-        context.eventBuilder->buildEvents(callbacks);
+        if (context.eventBuilder->waitForData(std::chrono::milliseconds(100)))
+        {
+            if (auto nEvents = context.eventBuilder->buildEvents(callbacks))
+                spdlog::info("event_builder_builder{}: built {} events", context.crateId, nEvents);
+        }
     }
 
     // flush

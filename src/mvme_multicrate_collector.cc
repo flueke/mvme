@@ -21,6 +21,7 @@
 #include "util/mesy_nng.h"
 #include "util/mesy_nng_pipeline.h"
 #include "util/stopwatch.h"
+#include "util/qt_monospace_textedit.h"
 #include "vme_config.h"
 
 #ifdef MVME_ENABLE_PROMETHEUS
@@ -594,7 +595,22 @@ int main(int argc, char *argv[])
     }
 
     // GUI stuff starts here
+
+    // TODO: add stats and/or prometheus metrics and udpate them here.
+#ifdef MVME_ENABLE_PROMETHEUS
+    //QObject::connect(&periodicTimer, &QTimer::timeout, [&] { metrics->update(); });
+#endif
+    for (size_t i=0; i<asps.size(); ++i)
+    {
+        auto asp = asps[i].get();
+        auto widget = new analysis::ui::AnalysisWidget(asp);
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->show();
+    }
+
     QTimer periodicTimer;
+    periodicTimer.setInterval(1000);
+    periodicTimer.start();
 
     QObject::connect(&periodicTimer, &QTimer::timeout, [&]
     {
@@ -628,19 +644,22 @@ int main(int argc, char *argv[])
         }
     });
 
-    // TODO: add stats and/or prometheus metrics and udpate them here.
-#ifdef MVME_ENABLE_PROMETHEUS
-    //QObject::connect(&periodicTimer, &QTimer::timeout, [&] { metrics->update(); });
-#endif
-    periodicTimer.setInterval(1000);
-    periodicTimer.start();
-
-    for (size_t i=0; i<asps.size(); ++i)
+    for (size_t i=0; i<eventBuilderStage1Contexts.size(); ++i)
     {
-        auto asp = asps[i].get();
-        auto widget = new analysis::ui::AnalysisWidget(asp);
+        auto widget = mvme::util::make_monospace_plain_textedit().release();
+        widget->setWindowTitle(fmt::format("EventBuilder Stage1 (crateId={})", i).c_str());
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->resize(800, 200);
         widget->show();
+
+        auto &context = eventBuilderStage1Contexts[i];
+
+        QObject::connect(&periodicTimer, &QTimer::timeout, widget, [&]
+        {
+            auto counters = context->eventBuilder->getCounters();
+            auto str = to_string(counters);
+            widget->setPlainText(QString::fromStdString(str));
+        });
     }
 
     int ret = app.exec();
