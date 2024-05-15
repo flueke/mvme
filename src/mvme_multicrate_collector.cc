@@ -307,7 +307,11 @@ int main(int argc, char *argv[])
     std::vector<nng_socket> readoutConsumerInputSockets;
 
     std::vector<nng_socket> readoutParserOutputSockets;
-    std::vector<nng_socket> parsedDataConsumerSockets;
+    std::vector<nng_socket> eventBuilderStage1InputSockets;
+    std::vector<nng_socket> eventBuilderStage1OutputSockets;
+    std::vector<nng_socket> analysisStage1InputSockets;
+    nng_socket eventBuilderStage2InputSocket;
+    nng_socket analysisStage2InputSocket;
 
     u16 readoutDataSnoopPort = 42666;
 
@@ -351,6 +355,7 @@ int main(int argc, char *argv[])
         readoutConsumerInputSockets.emplace_back(subSocket);
     }
 
+    // parsers -> eventbuilders stage 1
     for (size_t i=0; i<mvlcDataSockets.size(); ++i)
     {
         auto uri = fmt::format("inproc://parsedData{}", i);
@@ -365,6 +370,32 @@ int main(int argc, char *argv[])
 
         readoutParserOutputSockets.emplace_back(parserOutputSocket);
 
+        nng_socket ebStage1InputSocket = nng::make_pair_socket();
+
+        if (int res = nng_dial(ebStage1InputSocket, uri.c_str(), nullptr, 0))
+        {
+            nng::mesy_nng_error(fmt::format("nng_dial {}", uri), res);
+            return 1;
+        }
+
+        eventBuilderStage1InputSockets.emplace_back(ebStage1InputSocket);
+    }
+
+    // eb stage 1 -> analysis stage 1
+    for (size_t i=0; i<mvlcDataSockets.size(); ++i)
+    {
+        auto uri = fmt::format("inproc://eventBuilderData{}", i);
+
+        nng_socket ebStage1OutputSocket = nng::make_pair_socket();
+
+        if (int res = nng_listen(ebStage1OutputSocket, uri.c_str(), nullptr, 0))
+        {
+            nng::mesy_nng_error(fmt::format("nng_listen {}", uri), res);
+            return 1;
+        }
+
+        eventBuilderStage1OutputSockets.emplace_back(ebStage1OutputSocket);
+
         nng_socket analysisInputSocket = nng::make_pair_socket();
 
         if (int res = nng_dial(analysisInputSocket, uri.c_str(), nullptr, 0))
@@ -373,7 +404,7 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        parsedDataConsumerSockets.emplace_back(analysisInputSocket);
+        analysisStage1InputSockets.emplace_back(analysisInputSocket);
     }
 
     std::vector<std::unique_ptr<MvlcEthReadoutLoopContext>> readoutContexts;
@@ -444,13 +475,50 @@ int main(int argc, char *argv[])
         spdlog::info("crateId={}: readout stacks:\n{}", crateConfigs[i].crateId, stacksYaml);
     }
 
+    // Parser -> EventBuilder Stage1 (single crate) -> EventBuilder Stage2 (all crates) -> Analysis
+    std::vector<std::unique_ptr<EventBuilderContext>> eventBuilderStage1Contexts;
+
+    // Assumption: only event0 of each crate needs timestamp matching, other
+    // events can be directly forwarded.
+    for (size_t i=0; i<crateConfigs.size(); ++i)
+    {
+        auto crateConfig = crateConfigs.at(i);
+        auto readoutStructure = readout_parser::build_readout_structure(crateConfig.stacks);
+        const size_t moduleCount = readoutStructure.at(0).size(); // modules in event 0
+
+        EventSetup::CrateSetup crateSetup;
+
+        for (size_t mi=0; mi<moduleCount; ++mi)
+        {
+            crateSetup.moduleTimestampExtractors.emplace_back(make_mesytec_default_timestamp_extractor());
+            crateSetup.moduleMatchWindows.emplace_back(event_builder::DefaultMatchWindow);
+        }
+
+        EventSetup eventSetup;
+        eventSetup.enabled = true;
+        eventSetup.crateSetups.emplace_back(crateSetup);
+        eventSetup.mainModule = std::make_pair(0, 0);
+
+        EventBuilderConfig ebConfig;
+        ebConfig.setups.emplace_back(eventSetup);
+
+        auto ebContext = std::make_unique<EventBuilderContext>();
+        ebContext->crateId = i;
+        ebContext->quit = false;
+        ebContext->eventBuilderConfig = ebConfig;
+        ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
+        ebContext->inputSocket = eventBuilderStage1InputSockets[i];
+        ebContext->outputSocket = eventBuilderStage1OutputSockets[i];
+        eventBuilderStage1Contexts.emplace_back(std::move(ebContext));
+    }
+
     std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisContexts;
 
-    for (size_t i=0; i<parsedDataConsumerSockets.size(); ++i)
+    for (size_t i=0; i<analysisStage1InputSockets.size(); ++i)
     {
         auto analysisContext = std::make_unique<AnalysisProcessingContext>();
         analysisContext->quit = false;
-        analysisContext->inputSocket = parsedDataConsumerSockets[i];
+        analysisContext->inputSocket = analysisStage1InputSockets[i];
         analysisContext->crateId = i;
 
         if (i < analysisConfigs.size())
@@ -489,7 +557,9 @@ int main(int argc, char *argv[])
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
     std::vector<std::thread> readoutThreads;
     std::vector<std::thread> parserThreads;
-    std::vector<std::thread> analysisThreads;
+    std::vector<std::thread> eventBuilderStage1RecorderThreads;
+    std::vector<std::thread> eventBuilderStage1BuilderThreads;
+    std::vector<std::thread> analysisStage1Threads;
 
     for (auto &readoutContext: readoutContexts)
     {
@@ -505,10 +575,22 @@ int main(int argc, char *argv[])
         parserThreads.emplace_back(std::move(parserThread));
     }
 
+    for (size_t i=0; i<eventBuilderStage1Contexts.size(); ++i)
+    {
+        std::thread ebStage1Thread(event_builder_record_loop, std::ref(*eventBuilderStage1Contexts[i]));
+        eventBuilderStage1RecorderThreads.emplace_back(std::move(ebStage1Thread));
+    }
+
+    for (size_t i=0; i<eventBuilderStage1Contexts.size(); ++i)
+    {
+        std::thread ebStage1Thread(event_builder_build_loop, std::ref(*eventBuilderStage1Contexts[i]));
+        eventBuilderStage1BuilderThreads.emplace_back(std::move(ebStage1Thread));
+    }
+
     for (size_t i=0; i<analysisContexts.size(); ++i)
     {
         std::thread analysisThread(analysis_loop, std::ref(*analysisContexts[i]));
-        analysisThreads.emplace_back(std::move(analysisThread));
+        analysisStage1Threads.emplace_back(std::move(analysisThread));
     }
 
     // GUI stuff starts here
@@ -531,6 +613,12 @@ int main(int argc, char *argv[])
         {
             log_socket_work_counters(ctx->counters.access().ref(),
                 fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+        }
+
+        for (auto &ctx: eventBuilderStage1Contexts)
+        {
+            log_socket_work_counters(ctx->counters.access().ref(),
+                fmt::format("event_builder_stage1 (crateId={})", ctx->crateId));
         }
 
         for (auto &ctx: analysisContexts)
@@ -601,7 +689,25 @@ int main(int argc, char *argv[])
         send_shutdown_message(parserContext->outputSocket);
     }
 
-    for (auto &t: analysisThreads)
+    for (auto &t: eventBuilderStage1RecorderThreads)
+        if (t.joinable())
+            t.join();
+
+    // The builder threads do not receive shutdown messages as they do not read
+    // from a socket => manually tell them to stop.
+    for (auto &ebContext: eventBuilderStage1Contexts)
+        ebContext->quit = true;
+
+    for (auto &t: eventBuilderStage1BuilderThreads)
+        if (t.joinable())
+            t.join();
+
+    spdlog::debug("event builders stopped");
+
+    for (auto &ebContext: eventBuilderStage1Contexts)
+        send_shutdown_message(ebContext->outputSocket);
+
+    for (auto &t: analysisStage1Threads)
         if (t.joinable())
             t.join();
 

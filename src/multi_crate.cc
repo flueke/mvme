@@ -1708,11 +1708,7 @@ void readout_parser_loop(ReadoutParserNngContext &context)
         }
         context.parserCounters.access().ref() = parserCounters;
 
-        if (inputMsg)
-        {
-            nng_msg_free(inputMsg);
-            inputMsg = nullptr;
-        }
+        nng_msg_free(inputMsg);
 
         #if 0
         {
@@ -1753,8 +1749,13 @@ void event_builder_record_loop(EventBuilderContext &context)
 
     spdlog::info("entering event_builder_record_loop");
 
+    context.counters.access()->start();
+
     while (!context.quit)
     {
+        StopWatch stopWatch;
+        stopWatch.start();
+
         nng_msg *inputMsg = nullptr;
 
         if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
@@ -1800,6 +1801,13 @@ void event_builder_record_loop(EventBuilderContext &context)
             break;
         }
 
+        {
+            auto ta = context.counters.access();
+            ta->messagesReceived++;
+            ta->bytesReceived += msgLen;
+            ta->tReceive += stopWatch.interval();
+        }
+
         ParsedEventMessageIterator messageIter(inputMsg);
 
         for (auto eventData = next_event(messageIter);
@@ -1808,12 +1816,12 @@ void event_builder_record_loop(EventBuilderContext &context)
         {
             if (eventData.type == EventContainer::Type::Readout)
             {
-                context.eventBuilder.recordEventData(eventData.crateId, eventData.readout.eventIndex,
+                context.eventBuilder->recordEventData(eventData.crateId, eventData.readout.eventIndex,
                     eventData.readout.moduleDataList, eventData.readout.moduleCount);
             }
             else if (eventData.type == EventContainer::Type::System && eventData.system.size)
             {
-                context.eventBuilder.recordSystemEvent(eventData.crateId, eventData.system.header, eventData.system.size);
+                context.eventBuilder->recordSystemEvent(eventData.crateId, eventData.system.header, eventData.system.size);
             }
             else if (nng_msg_len(inputMsg))
             {
@@ -1821,6 +1829,12 @@ void event_builder_record_loop(EventBuilderContext &context)
                     *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg)));
                 break;
             }
+        }
+
+        {
+            auto ta = context.counters.access();
+            ta->tProcess += stopWatch.interval();
+            ta->tTotal += stopWatch.end();
         }
 
         nng_msg_free(inputMsg);
@@ -1868,6 +1882,9 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
 
         const char *debugInfo = "EventBuilderNngMessageWriter";
 
+        StopWatch stopWatch;
+        stopWatch.start();
+
         if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, retryPredicate, debugInfo))
         {
             nng_msg_free(ctx.outputMessage);
@@ -1876,6 +1893,15 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
         }
 
         ctx.outputMessage = nullptr;
+
+        {
+            auto ta = ctx.counters.access();
+            ta->tSend += stopWatch.interval();
+            ta->tTotal += stopWatch.end();
+            ta->messagesSent++;
+            ta->bytesSent += msgSize;
+            // FIXME ctx.tLastFlush = std::chrono::steady_clock::now();
+        }
 
         spdlog::debug("{}: sent message {} of size {}",
             debugInfo, ctx.outputMessageNumber, msgSize);
@@ -1917,7 +1943,7 @@ inline void event_builder_systemevent(void *ctx_, int crateIndex, const u32 *hea
     writer.consumeSystemEventData(crateIndex, header, size);
 }
 
-void event_build_build_loop(EventBuilderContext &context)
+void event_builder_build_loop(EventBuilderContext &context)
 {
     set_thread_name("event_builder_builder");
 
@@ -1930,11 +1956,11 @@ void event_build_build_loop(EventBuilderContext &context)
 
     while (!context.quit)
     {
-        context.eventBuilder.buildEvents(callbacks);
+        context.eventBuilder->buildEvents(callbacks);
     }
 
     // flush
-    context.eventBuilder.buildEvents(callbacks, true);
+    context.eventBuilder->buildEvents(callbacks, true);
 }
 
 void analysis_loop(AnalysisProcessingContext &context)

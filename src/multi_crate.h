@@ -764,7 +764,7 @@ void readout_parser_loop(ReadoutParserNngContext &context);
 // buildEvents().
 struct EventBuilderContext
 {
-    std::atomic<bool> &quit;
+    std::atomic<bool> quit;
 
     // Input: ParsedEventsMessageHeader
     nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
@@ -776,15 +776,17 @@ struct EventBuilderContext
     nng_socket snoopOutputSocket = NNG_SOCKET_INITIALIZER;
 
     mvlc::EventBuilderConfig eventBuilderConfig;
-    mvlc::EventBuilder eventBuilder;
+    std::unique_ptr<mvlc::EventBuilder> eventBuilder;
 
     nng_msg *outputMessage = nullptr;
     u32 outputMessageNumber = 0u;
+    mvlc::Protected<SocketWorkPerformanceCounters> counters;
+    unsigned crateId = 0;
 };
 
 // Calls recordEventData and recordSystemEvent with data read from inputSocket.
 void event_builder_record_loop(EventBuilderContext &context);
-void event_build_build_loop(EventBuilderContext &context);
+void event_builder_build_loop(EventBuilderContext &context);
 
 struct AnalysisProcessingContext
 {
