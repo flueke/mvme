@@ -301,15 +301,14 @@ int main(int argc, char *argv[])
 
     // TODO: design and add actual metrics here
 #endif
-
     // All readout threads write messages of type
     // multi_crate::MessageType::ReadoutData to the readoutProducerSocket.
-    nng_socket readoutProducerSocket = nng::make_push_socket();
+    nng_socket readoutProducerSocket = nng::make_pair_socket();
 
     // A single(!) thread reads ReadoutData messages from this socket and
     // writes a listfile. Do not connect multiple pull sockets to the
     // readoutProducerSocket as that will round-robin distribute the messages!
-    nng_socket listfileConsumerSocket = nng::make_pull_socket();
+    nng_socket listfileConsumerSocket = nng::make_pair_socket();
 
     if (int res = nng::marry_listen_dial(readoutProducerSocket, listfileConsumerSocket, "inproc://readoutData"))
     {
@@ -322,9 +321,15 @@ int main(int argc, char *argv[])
     std::vector<std::pair<nng_socket, nng_socket>> readoutSnoopSockets; // readout writes, parser reads
     std::vector<std::pair<nng_socket, nng_socket>> parsedDataSockets; // parser writes, eventbuilder reads
     std::vector<std::pair<nng_socket, nng_socket>> stage1DataSockets; // eventbuilder writes, yduplicator reads
-    std::vector<std::pair<nng_socket, nng_socket>> stage1AnalysisSockets; // yduplicator writes, analysis reads
-    //nng_socket stage1CommonDataSocket = {}; // yduplicators write (one per crate), stage2 eventbuilder reads
-    //std::pair<nng_socket, nng_socket> stage2DataSockets; // stage2 eventbuilder writes, stage 2 analysis reads
+    std::vector<std::pair<nng_socket, nng_socket>> stage1AnalysisSockets; // yduplicator writes, stage1 analysis reads
+
+    // stage1 data from all crates is written to the first socket by a
+    // yduplicator instance.  A stage2 eventbuilder reads from the second
+    // socket.
+    std::pair<nng_socket, nng_socket> stage1SharedDataSockets;
+
+    // stage2 eventbuilder writes, stage2 analysis reads
+    std::pair<nng_socket, nng_socket> stage2DataSockets;
 
     // Readout data is published on consecutive ports starting from this one.
     u16 readoutDataSnoopPort = 42666;
@@ -397,70 +402,45 @@ int main(int argc, char *argv[])
         stage1DataSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
     }
 
-    #if 0
-    // The duplicators all share this output socket. Parsed data from all crates
-    // will be written to this socket.
-    auto stage1DuplicatorCommonOutputSocket = nng::make_push_socket();
-    auto stage1DuplicatorCommonInputSocket = nng::make_pull_socket();
+    for (size_t i=0; i<mvlcDataSockets.size(); ++i)
+    {
+        auto uri = fmt::format("inproc://stage1Data{}", i);
+
+        nng_socket outputSocket = nng::make_pair_socket();
+        nng_socket inputSocket = nng::make_pair_socket();
+
+        if (int res = nng::marry_listen_dial(outputSocket, inputSocket, uri.c_str()))
+        {
+            nng::mesy_nng_error(fmt::format("marry_listen_dial {}", uri), res);
+            return 1;
+        }
+
+        stage1AnalysisSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
+    }
+
+    stage1SharedDataSockets = std::make_pair(nng::make_pair_socket(), nng::make_pair_socket());
 
     {
         auto uri = fmt::format("inproc://stage1CommonData");
 
-        if (int res = nng::marry_listen_dial(stage1DuplicatorCommonOutputSocket, stage1DuplicatorCommonInputSocket, uri.c_str()))
+        if (int res = nng::marry_listen_dial(stage1SharedDataSockets.first, stage1SharedDataSockets.second, uri.c_str()))
         {
             nng::mesy_nng_error("marry_listen_dial stage1CommonData", res);
             return 1;
         }
     }
-    #endif
 
-    #if 0
-    for (size_t i=0; i<mvlcDataSockets.size(); ++i)
+    stage2DataSockets = std::make_pair(nng::make_pair_socket(), nng::make_pair_socket());
+
     {
-        auto uri = fmt::format("inproc://stage1Data{}", i);
+        auto uri = fmt::format("inproc://stage2Data");
 
-        nng_socket outputSocket0 = nng::make_pair_socket();
-
-        if (int res = nng_listen(outputSocket0, uri.c_str(), nullptr, 0))
+        if (int res = nng::marry_listen_dial(stage2DataSockets.first, stage2DataSockets.second, uri.c_str()))
         {
-            nng::mesy_nng_error(fmt::format("nng_listen {}", uri), res);
+            nng::mesy_nng_error("marry_listen_dial stage2Data", res);
             return 1;
         }
-
-        nng_socket inputSocket0 = nng::make_pair_socket();
-
-        if (int res = nng_dial(inputSocket0, uri.c_str(), nullptr, 0))
-        {
-            nng::mesy_nng_error(fmt::format("nng_dial {}", uri), res);
-            return 1;
-        }
-
-        analysisStage1InputSockets.emplace_back(inputSocket0);
-        stage1YDuplicatorOutputSockets.emplace_back(std::make_pair(stage1DuplicatorCommonOutputSocket, outputSocket0));
     }
-
-    eventBuilderStage2InputSocket = nng::make_pull_socket();
-    eventBuilderStage2OutputSocket = nng::make_pair_socket();
-    analysisStage2InputSocket = nng::make_pair_socket();
-
-    if (int res = nng_dial(eventBuilderStage2InputSocket, "inproc://stage1CommonData", nullptr, 0))
-    {
-        nng::mesy_nng_error("nng_dial stage1CommonData", res);
-        return 1;
-    }
-
-    if (int res = nng_listen(eventBuilderStage2OutputSocket, "inproc://stage2Data", nullptr, 0))
-    {
-        nng::mesy_nng_error("nng_listen stage2Data", res);
-        return 1;
-    }
-
-    if (int res = nng_dial(analysisStage2InputSocket, "inproc://stage2Data", nullptr, 0))
-    {
-        nng::mesy_nng_error("nng_dial stage2Data", res);
-        return 1;
-    }
-    #endif
 
     std::vector<std::unique_ptr<MvlcEthReadoutLoopContext>> readoutContexts;
 
@@ -619,7 +599,7 @@ int main(int argc, char *argv[])
     std::vector<std::thread> eventBuilderStage1RecorderThreads;
     std::vector<std::thread> eventBuilderStage1BuilderThreads;
     std::vector<std::thread> analysisStage1Threads;
-    //std::vector<std::thread> stage1DuplicatorThreads;
+    std::vector<std::thread> stage1DuplicatorThreads; // XXX: leftoff here. use these and complete the chain
 
     for (auto &readoutContext: readoutContexts)
     {
@@ -644,6 +624,16 @@ int main(int argc, char *argv[])
         std::thread t(event_builder_build_loop, std::ref(*eventBuilderStage1Contexts[i]));
         eventBuilderStage1BuilderThreads.emplace_back(std::move(t));
     }
+
+    // y duplicator piece consuming stage1 data. output goes to the single crate
+    // analysis instances and to the stage2 event builder.
+    #if 0
+    for (size_t i=0; i<crateConfigs.size(); ++i)
+    {
+        std::thread t(nng::y_duplicator, std::ref(*stage1DuplicatorContexts[i]));
+        stage1DuplicatorThreads.emplace_back(std::move(t));
+    }
+    #endif
 
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
