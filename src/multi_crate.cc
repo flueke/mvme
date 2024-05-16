@@ -6,32 +6,18 @@
 #include <QDir>
 #include <stdexcept>
 
+#include "mvlc_daq.h"
 #include "mvme_workspace.h"
 #include "util/mesy_nng.h"
 #include "util/qt_fs.h"
 #include "util/stopwatch.h"
+#include "util/thread_name.h"
 #include "vme_config_scripts.h"
 #include "vme_config_util.h"
 
-#ifdef __linux__
-#include <sys/prctl.h>
-
-void set_thread_name(const char *name)
-{
-    prctl(PR_SET_NAME,name,0,0,0);
-}
-
-#else
-
-void set_thread_name(const char *)
-{
-}
-
-#endif
-
-
 using namespace mesytec::mvlc;
 using namespace mesytec::nng;
+using namespace mesytec::util;
 
 namespace mesytec::mvme::multi_crate
 {
@@ -537,6 +523,19 @@ void send_shutdown_messages(std::initializer_list<nng_socket> sockets)
     }
 }
 
+bool LIBMVME_EXPORT is_shutdown_message(nng_msg *msg)
+{
+    const auto msgLen = nng_msg_len(msg);
+
+    if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+    {
+        auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(msg));
+        return (header.messageType == multi_crate::MessageType::GracefulShutdown);
+    }
+
+    return false;
+}
+
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
 {
     size_t bytesMoved = 0u;
@@ -960,9 +959,11 @@ void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, con
 
     auto mibReceived = counters.bytesReceived * 1.0 / mvlc::util::Megabytes(1);
     auto mibSent = counters.bytesSent * 1.0 / mvlc::util::Megabytes(1);
+    auto totalMessages = counters.messagesReceived + counters.messagesLost;
+    auto efficiency = counters.messagesReceived * 1.0 / totalMessages;
 
-    spdlog::info("{}: stats: msgsReceived={}, msgsLost={}, msgsSent={}, bytesReceived={:.2f} MiB, bytesSent={:.2f} MiB",
-        info, counters.messagesReceived, counters.messagesLost, counters.messagesSent, mibReceived, mibSent);
+    spdlog::info("{}: stats: msgsReceived={}, msgsLost={} (efficiency={:.2f}), msgsSent={}, bytesReceived={:.2f} MiB, bytesSent={:.2f} MiB",
+        info, counters.messagesReceived, counters.messagesLost, efficiency, counters.messagesSent, mibReceived, mibSent);
 
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - counters.tpStart);
@@ -1202,11 +1203,20 @@ void listfile_writer_loop(ListfileWriterContext &context)
     spdlog::info("entering listfile_writer_loop");
 
     // Last received message number per crate.
-    std::array<u32, frame_headers::CtrlIdMask+1> lastMessageNumbers;
+    std::array<u32, MaxVMECrates> lastMessageNumbers;
+
     lastMessageNumbers.fill(0);
+
+    {
+        auto ca = context.dataInputCounters.access();
+        for (auto &counters: ca.ref())
+            counters.start();
+    }
 
     while (!context.quit)
     {
+        StopWatch stopWatch;
+        stopWatch.start();
         nng_msg *msg = nullptr;
 
         if (auto res = nng::receive_message(context.dataInputSocket, &msg))
@@ -1218,6 +1228,8 @@ void listfile_writer_loop(ListfileWriterContext &context)
             }
             continue;
         }
+
+        auto tReceive = stopWatch.interval();
 
         assert(msg != nullptr);
 
@@ -1251,18 +1263,16 @@ void listfile_writer_loop(ListfileWriterContext &context)
             continue;
         }
 
+        auto messageNumber = header.messageNumber;
+        auto messageLoss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumbers[header.crateId]);
+        lastMessageNumbers[header.crateId] = header.messageNumber;
+
+        if (messageLoss > 0)
         {
-            auto messageNumber = header.messageNumber; // workaround for gcc + spdlog/fmt + packed struct members
-            spdlog::debug("listfile_writer_loop: Incoming message from crate{}, messageNumber={}",
-                header.crateId, messageNumber);
+            spdlog::warn("listfile_writer_loop: Lost {} messages from crate{}! (header.messageNumber={}, lastMessageNumber={}",
+                messageLoss, header.crateId, messageNumber, lastMessageNumbers[header.crateId]);
         }
 
-        {
-            auto messageNumber = header.messageNumber; // workaround for gcc + spdlog/fmt + packed struct members
-            if (auto loss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumbers[header.crateId]))
-                spdlog::warn("listfile_writer_loop: Lost {} messages from crate{}! (header.messageNumber={}, lastMessageNumber={}",
-                loss, header.crateId, messageNumber, lastMessageNumbers[header.crateId]);
-        }
 
         lastMessageNumbers[header.crateId] = header.messageNumber;
 
@@ -1287,6 +1297,20 @@ void listfile_writer_loop(ListfileWriterContext &context)
         }
 
         nng_msg_free(msg);
+
+        auto tProcess = stopWatch.interval();
+        auto tTotal = stopWatch.end();
+
+        {
+            auto ca = context.dataInputCounters.access();
+            auto &counters = ca.ref()[header.crateId];
+            counters.bytesReceived += msgLen;
+            counters.messagesLost += messageLoss;
+            counters.messagesReceived += 1;
+            counters.tReceive += tReceive;
+            counters.tProcess += tProcess;
+            counters.tTotal += tTotal;
+        }
     }
 
     spdlog::info("leaving listfile_writer_loop");
@@ -1473,8 +1497,8 @@ std::unique_ptr<ReadoutParserNngContext> make_readout_parser_nng_context(const m
 
     res->crateId = crateConfig.crateId;
     res->inputFormat = crateConfig.connectionType;
-    res->parserState = mvlc::readout_parser::make_readout_parser(
-        crateConfig.stacks, crateConfig.crateId, res.get());
+    auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
+    res->parserState = mvlc::readout_parser::make_readout_parser(stacks, crateConfig.crateId, res.get());
 
     return res;
 }
@@ -1705,6 +1729,7 @@ void readout_parser_loop(ReadoutParserNngContext &context)
             auto ta = context.counters.access();
             ta->tProcess += tCycle;
             ta->tTotal += stopWatch.end();
+            ta->messagesLost = inputBuffersLost;
         }
         context.parserCounters.access().ref() = parserCounters;
 
@@ -1959,8 +1984,9 @@ void event_builder_build_loop(EventBuilderContext &context)
     {
         if (context.eventBuilder->waitForData(std::chrono::milliseconds(100)))
         {
-            if (auto nEvents = context.eventBuilder->buildEvents(callbacks))
-                spdlog::info("event_builder_builder{}: built {} events", context.crateId, nEvents);
+            auto nEvents = context.eventBuilder->buildEvents(callbacks);
+            if (nEvents)
+                spdlog::trace("event_builder_builder{}: built {} events", context.crateId, nEvents);
         }
     }
 
@@ -2037,7 +2063,8 @@ void analysis_loop(AnalysisProcessingContext &context)
         {
             spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
                 static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
-                break;
+            nng_msg_free(inputMsg);
+            break;
         }
         spdlog::debug("analysis_nng: received message {} of size {}", lastInputMessageNumber, nng_msg_len(inputMsg));
 
@@ -2097,6 +2124,79 @@ void analysis_loop(AnalysisProcessingContext &context)
 
     //spdlog::info("analysis_nng: lastInputMessageNumber={}, inputBuffersLost={}, totalInput={:.2f} MiB",
     //    lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
+}
+
+void parsed_data_consumer_loop(ParsedDataConsumerContext &context)
+{
+    {
+        auto name = fmt::format("parsed_data_consumer_loop({})", context.info);
+        set_thread_name(name.c_str());
+    }
+
+    size_t totalInputBytes = 0u;
+    size_t inputBuffersLost = 0;
+    // FIXME: this thing receives data from multiple event builders so a single message loss calculation is not enough.
+    u32 lastInputMessageNumber = 0u;
+    context.counters.access()->start();
+
+    while (!context.quit)
+    {
+        nng_msg *inputMsg = nullptr;
+
+        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
+        {
+            if (res != NNG_ETIMEDOUT)
+            {
+                spdlog::error("parsed_data_consumer_loop - receive_message: {}", nng_strerror(res));
+                break;
+            }
+            spdlog::trace("parsed_data_consumer_loop - receive_message: timeout");
+            continue;
+        }
+
+        assert(inputMsg != nullptr);
+
+        const auto msgLen = nng_msg_len(inputMsg);
+
+        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        {
+            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
+            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
+            {
+                spdlog::warn("parsed_data_consumer_loop: Received shutdown message, leaving loop");
+                nng_msg_free(inputMsg);
+                break;
+            }
+        }
+
+        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
+        {
+            spdlog::warn("parsed_data_consumer_loop - incoming message too short (len={})", msgLen);
+            nng_msg_free(inputMsg);
+            continue;
+        }
+
+        totalInputBytes += nng_msg_len(inputMsg);
+        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg).value();
+        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
+        inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;;
+        lastInputMessageNumber = inputHeader.messageNumber;
+        if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
+        {
+            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
+                break;
+        }
+
+        {
+            auto a = context.counters.access();
+            a->bytesReceived = totalInputBytes;
+            a->messagesReceived += 1;
+            a->messagesLost = inputBuffersLost;
+        }
+
+        nng_msg_free(inputMsg);
+    }
 }
 
 } // namespace mesytec::mvme::multi_crate

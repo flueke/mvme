@@ -254,6 +254,7 @@ add_library(libmvme SHARED
     util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp
     util/strings.cc
+    util/thread_name.cc
     util/variablify.cc
     util/version_compare.cc
     util_zip.cc

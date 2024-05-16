@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include <optional>
+#include "thread_name.h"
 
 namespace mesytec::nng
 {
@@ -331,29 +332,62 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
         nng::nng_stat_unit_to_string(unit));
 }
 
-#if 0 // sandbox
+#if 1 // sandbox
 using unique_msg_handle = std::unique_ptr<nng_msg, decltype(&nng_msg_free)>;
+#endif
 
-inline void nng_y_connector(nng_socket input, nng_socket output0, nng_socket output1, std::atomic<bool> &quit)
+struct YDuplicatorContext
 {
-    while (!quit)
+    std::atomic<bool> quit;
+    nng_socket inputSocket;
+    std::pair<nng_socket, nng_socket> outputSockets;
+    std::function<bool (nng_msg *msg)> isShutdownMessage;
+};
+
+inline void y_duplicator(YDuplicatorContext &ctx)
+{
+    util::set_thread_name("nng_y_duplicator");
+
+    while (!ctx.quit)
     {
         nng_msg *msg = nullptr;
 
-        if (receive_message(input, &msg) != 0)
+        if (receive_message(ctx.inputSocket, &msg) != 0)
             continue;
+
+        if (ctx.isShutdownMessage && ctx.isShutdownMessage(msg))
+        {
+            nng_msg_free(msg);
+            break;
+        }
 
         nng_msg *clone = nullptr;
         nng_msg_dup(&clone, msg);
 
-        if (msg && send_message_retry(output0, msg) != 0)
+        if (msg && send_message_retry(ctx.outputSockets.first, msg, 3, "nng_y_duplicator output0") != 0)
             nng_msg_free(msg);
 
-        if (clone && send_message_retry(output1, clone) != 0)
+        if (clone && send_message_retry(ctx.outputSockets.second, clone, 3, "nng_y_duplicator output1") != 0)
             nng_msg_free(clone);
     }
 }
-#endif
+
+inline int marry_listen_dial(nng_socket listen, nng_socket dial, const char *url)
+{
+    if (int res = nng_listen(listen, url, nullptr, 0))
+    {
+        mesy_nng_error("nng_listen", res);
+        return res;
+    }
+
+    if (int res = nng_dial(dial, url, nullptr, 0))
+    {
+        mesy_nng_error("nng_dial", res);
+        return res;
+    }
+
+    return 0;
+}
 
 }
 

@@ -15,6 +15,7 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
 #include "multi_crate.h"
+#include "mvlc_daq.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_mvlc_listfile.h"
 #include "mvme_session.h"
@@ -278,6 +279,29 @@ int main(int argc, char *argv[])
         crateConfigs.emplace_back(std::move(crateConfig));
     }
 
+#ifdef MVME_ENABLE_PROMETHEUS
+    // This variable is here to keep the prom context alive in main! This is to
+    // avoid a hang when the internal civetweb instance is destroyed from within
+    // a DLL (https://github.com/civetweb/civetweb/issues/264). By having this
+    // variable on the stack the destructor is called from mvme.exe, not from
+    // within libmvme.dll.
+    std::shared_ptr<mesytec::mvme::PrometheusContext> prom;
+    try
+    {
+        auto promBindAddress = QSettings().value("PrometheusBindAddress", "0.0.0.0:13803").toString().toStdString();
+        prom = std::make_shared<mesytec::mvme::PrometheusContext>();
+        prom->start(promBindAddress);
+        std::cout << "Prometheus server listening on port " << prom->exposer()->GetListeningPorts().front() << "\n";
+        mesytec::mvme::set_prometheus_instance(prom); // Register the prom object globally.
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error creating prometheus context: " << e.what() << ". Prometheus metrics not available!\n";
+    }
+
+    // TODO: design and add actual metrics here
+#endif
+
     // All readout threads write messages of type
     // multi_crate::MessageType::ReadoutData to the readoutProducerSocket.
     nng_socket readoutProducerSocket = nng::make_push_socket();
@@ -287,44 +311,44 @@ int main(int argc, char *argv[])
     // readoutProducerSocket as that will round-robin distribute the messages!
     nng_socket listfileConsumerSocket = nng::make_pull_socket();
 
-    // TODO: check for socket validity via nng_socket_id() and/or add another
-    // way of communicating errors from the socket creation functions.
-    if (int res = nng_listen(listfileConsumerSocket, "inproc://readoutData", nullptr, 0))
+    if (int res = nng::marry_listen_dial(readoutProducerSocket, listfileConsumerSocket, "inproc://readoutData"))
     {
-        nng::mesy_nng_error("nng_listen readoutData", res);
+        nng::mesy_nng_error("marry_listen_dial readoutData", res);
         return 1;
     }
 
-    if (int res = nng_dial(readoutProducerSocket, "inproc://readoutData", nullptr, 0))
-    {
-        nng::mesy_nng_error("nng_dial readoutData", res);
-        return 1;
-    }
+    // Per crate. Output data is written to the first socket. Input data is read
+    // from the second socket.
+    std::vector<std::pair<nng_socket, nng_socket>> readoutSnoopSockets; // readout writes, parser reads
+    std::vector<std::pair<nng_socket, nng_socket>> parsedDataSockets; // parser writes, eventbuilder reads
+    std::vector<std::pair<nng_socket, nng_socket>> stage1DataSockets; // eventbuilder writes, yduplicator reads
+    std::vector<std::pair<nng_socket, nng_socket>> stage1AnalysisSockets; // yduplicator writes, analysis reads
+    //nng_socket stage1CommonDataSocket = {}; // yduplicators write (one per crate), stage2 eventbuilder reads
+    //std::pair<nng_socket, nng_socket> stage2DataSockets; // stage2 eventbuilder writes, stage 2 analysis reads
 
-    // Readout data producers also publish their data on this socket. One snoop
-    // output socket per crate.
-    std::vector<nng_socket> readoutProducerSnoopSockets;
-    // Connected to the respective producer snoop socket. Readout parsers read from one of these.
-    std::vector<nng_socket> readoutConsumerInputSockets;
-
-    std::vector<nng_socket> readoutParserOutputSockets;
-    std::vector<nng_socket> eventBuilderStage1InputSockets;
-    std::vector<nng_socket> eventBuilderStage1OutputSockets;
-    std::vector<nng_socket> analysisStage1InputSockets;
-    nng_socket eventBuilderStage2InputSocket;
-    nng_socket analysisStage2InputSocket;
-
+    // Readout data is published on consecutive ports starting from this one.
     u16 readoutDataSnoopPort = 42666;
 
+    // Per crate readout snoop. This is the start of the per crate processing
+    // chain. This first stage will drop data if the chain is too slow to keep
+    // up.
     for (size_t i=0; i<mvlcDataSockets.size(); ++i)
     {
         auto uri = fmt::format("inproc://readoutDataSnoop{}", i);
 
         nng_socket pubSocket = nng::make_pub_socket();
+        nng_socket subSocket = nng::make_sub_socket();
 
-        if (int res = nng_listen(pubSocket, uri.c_str(), nullptr, 0))
+        // This subscription does receive empty messages.
+        if (int res = nng_socket_set(subSocket, NNG_OPT_SUB_SUBSCRIBE, nullptr, 0))
         {
-            nng::mesy_nng_error(fmt::format("nng_listen {}", uri), res);
+            nng::mesy_nng_error("readout consumer socket subscribe", res);
+            return 1;
+        }
+
+        if (int res = nng::marry_listen_dial(pubSocket, subSocket, uri.c_str()))
+        {
+            nng::mesy_nng_error("marry_listen_dial readoutDataSnoop", res);
             return 1;
         }
 
@@ -336,24 +360,7 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        readoutProducerSnoopSockets.emplace_back(pubSocket);
-
-        nng_socket subSocket = nng::make_sub_socket();
-
-        // This subscription does receive empty messages.
-        if (int res = nng_socket_set(subSocket, NNG_OPT_SUB_SUBSCRIBE, nullptr, 0))
-        {
-            nng::mesy_nng_error("readout consumer socket subscribe", res);
-            return 1;
-        }
-
-        if (int res = nng_dial(subSocket, uri.c_str(), nullptr, 0))
-        {
-            nng::mesy_nng_error(fmt::format("nng_dial {}", uri), res);
-            return 1;
-        }
-
-        readoutConsumerInputSockets.emplace_back(subSocket);
+        readoutSnoopSockets.emplace_back(std::make_pair(pubSocket, subSocket));
     }
 
     // parsers -> eventbuilders stage 1
@@ -361,52 +368,99 @@ int main(int argc, char *argv[])
     {
         auto uri = fmt::format("inproc://parsedData{}", i);
 
-        nng_socket parserOutputSocket = nng::make_pair_socket();
+        nng_socket outputSocket = nng::make_pair_socket();
+        nng_socket inputSocket = nng::make_pair_socket();
 
-        if (int res = nng_listen(parserOutputSocket, uri.c_str(), nullptr, 0))
+        if (int res = nng::marry_listen_dial(outputSocket, inputSocket, uri.c_str()))
         {
-            nng::mesy_nng_error(fmt::format("nng_listen {}", uri), res);
+            nng::mesy_nng_error("marry_listen_dial parsedData", res);
             return 1;
         }
 
-        readoutParserOutputSockets.emplace_back(parserOutputSocket);
-
-        nng_socket ebStage1InputSocket = nng::make_pair_socket();
-
-        if (int res = nng_dial(ebStage1InputSocket, uri.c_str(), nullptr, 0))
-        {
-            nng::mesy_nng_error(fmt::format("nng_dial {}", uri), res);
-            return 1;
-        }
-
-        eventBuilderStage1InputSockets.emplace_back(ebStage1InputSocket);
+        parsedDataSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
     }
 
-    // eb stage 1 -> analysis stage 1
+    // eb stage 1 -> y duplicator
     for (size_t i=0; i<mvlcDataSockets.size(); ++i)
     {
         auto uri = fmt::format("inproc://eventBuilderData{}", i);
 
-        nng_socket ebStage1OutputSocket = nng::make_pair_socket();
+        nng_socket outputSocket = nng::make_pair_socket();
+        nng_socket inputSocket = nng::make_pair_socket();
 
-        if (int res = nng_listen(ebStage1OutputSocket, uri.c_str(), nullptr, 0))
+        if (int res = nng::marry_listen_dial(outputSocket, inputSocket, uri.c_str()))
+        {
+            nng::mesy_nng_error(fmt::format("marry_listen_dial {}", uri), res);
+            return 1;
+        }
+
+        stage1DataSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
+    }
+
+    #if 0
+    // The duplicators all share this output socket. Parsed data from all crates
+    // will be written to this socket.
+    auto stage1DuplicatorCommonOutputSocket = nng::make_push_socket();
+    auto stage1DuplicatorCommonInputSocket = nng::make_pull_socket();
+
+    {
+        auto uri = fmt::format("inproc://stage1CommonData");
+
+        if (int res = nng::marry_listen_dial(stage1DuplicatorCommonOutputSocket, stage1DuplicatorCommonInputSocket, uri.c_str()))
+        {
+            nng::mesy_nng_error("marry_listen_dial stage1CommonData", res);
+            return 1;
+        }
+    }
+    #endif
+
+    #if 0
+    for (size_t i=0; i<mvlcDataSockets.size(); ++i)
+    {
+        auto uri = fmt::format("inproc://stage1Data{}", i);
+
+        nng_socket outputSocket0 = nng::make_pair_socket();
+
+        if (int res = nng_listen(outputSocket0, uri.c_str(), nullptr, 0))
         {
             nng::mesy_nng_error(fmt::format("nng_listen {}", uri), res);
             return 1;
         }
 
-        eventBuilderStage1OutputSockets.emplace_back(ebStage1OutputSocket);
+        nng_socket inputSocket0 = nng::make_pair_socket();
 
-        nng_socket analysisInputSocket = nng::make_pair_socket();
-
-        if (int res = nng_dial(analysisInputSocket, uri.c_str(), nullptr, 0))
+        if (int res = nng_dial(inputSocket0, uri.c_str(), nullptr, 0))
         {
             nng::mesy_nng_error(fmt::format("nng_dial {}", uri), res);
             return 1;
         }
 
-        analysisStage1InputSockets.emplace_back(analysisInputSocket);
+        analysisStage1InputSockets.emplace_back(inputSocket0);
+        stage1YDuplicatorOutputSockets.emplace_back(std::make_pair(stage1DuplicatorCommonOutputSocket, outputSocket0));
     }
+
+    eventBuilderStage2InputSocket = nng::make_pull_socket();
+    eventBuilderStage2OutputSocket = nng::make_pair_socket();
+    analysisStage2InputSocket = nng::make_pair_socket();
+
+    if (int res = nng_dial(eventBuilderStage2InputSocket, "inproc://stage1CommonData", nullptr, 0))
+    {
+        nng::mesy_nng_error("nng_dial stage1CommonData", res);
+        return 1;
+    }
+
+    if (int res = nng_listen(eventBuilderStage2OutputSocket, "inproc://stage2Data", nullptr, 0))
+    {
+        nng::mesy_nng_error("nng_listen stage2Data", res);
+        return 1;
+    }
+
+    if (int res = nng_dial(analysisStage2InputSocket, "inproc://stage2Data", nullptr, 0))
+    {
+        nng::mesy_nng_error("nng_dial stage2Data", res);
+        return 1;
+    }
+    #endif
 
     std::vector<std::unique_ptr<MvlcEthReadoutLoopContext>> readoutContexts;
 
@@ -416,7 +470,7 @@ int main(int argc, char *argv[])
         ctx->quit = false;
         ctx->mvlcDataSocket = mvlcDataSockets[i];
         ctx->dataOutputSocket = readoutProducerSocket;
-        ctx->snoopOutputSocket = readoutProducerSnoopSockets[i];
+        ctx->snoopOutputSocket = readoutSnoopSockets[i].first;
         ctx->crateId = i;
         readoutContexts.emplace_back(std::move(ctx));
     }
@@ -425,7 +479,7 @@ int main(int argc, char *argv[])
     listfileWriterContext.quit = false;
     listfileWriterContext.dataInputSocket = listfileConsumerSocket;
 
-    // Open the output listfile if one should be written.
+    // Open the output listfile if one should be written. // TODO: move this out of the context creation stuff.
     std::unique_ptr<listfile::ZipCreator> listfileCreator;
 
     std::string str;
@@ -464,8 +518,8 @@ int main(int argc, char *argv[])
 
         auto parserContext = make_readout_parser_nng_context(crateConfigs[i]);
         parserContext->quit = false;
-        parserContext->inputSocket = readoutConsumerInputSockets[i];
-        parserContext->outputSocket = readoutParserOutputSockets[i];
+        parserContext->inputSocket = readoutSnoopSockets[i].second;
+        parserContext->outputSocket = parsedDataSockets[i].first;
 
         parserContexts.emplace_back(std::move(parserContext));
 
@@ -473,18 +527,27 @@ int main(int argc, char *argv[])
         for (const auto &stack: crateConfigs[i].stacks)
             stacksYaml += to_yaml(stack);
 
-        spdlog::info("crateId={}: readout stacks:\n{}", crateConfigs[i].crateId, stacksYaml);
+        std::string sanitizedStacksYaml;
+
+        for (const auto &stack: mvme_mvlc::sanitize_readout_stacks(crateConfigs[i].stacks))
+            sanitizedStacksYaml += to_yaml(stack);
+
+        auto crateId = crateConfigs[i].crateId;
+
+        spdlog::info("crateId={}: readout stacks:\n{}", crateId, stacksYaml);
+        spdlog::info("crateId={}: sanitized readout stacks:\n{}", crateId, sanitizedStacksYaml);
     }
 
-    // Parser -> EventBuilder Stage1 (single crate) -> EventBuilder Stage2 (all crates) -> Analysis
     std::vector<std::unique_ptr<EventBuilderContext>> eventBuilderStage1Contexts;
 
+    // First stage event builder setup: event building for a single crate.
     // Assumption: only event0 of each crate needs timestamp matching, other
     // events can be directly forwarded.
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
         auto crateConfig = crateConfigs.at(i);
-        auto readoutStructure = readout_parser::build_readout_structure(crateConfig.stacks);
+        auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
+        auto readoutStructure = readout_parser::build_readout_structure(stacks);
         const size_t moduleCount = readoutStructure.at(0).size(); // modules in event 0
 
         EventSetup::CrateSetup crateSetup;
@@ -508,18 +571,18 @@ int main(int argc, char *argv[])
         ebContext->quit = false;
         ebContext->eventBuilderConfig = ebConfig;
         ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
-        ebContext->inputSocket = eventBuilderStage1InputSockets[i];
-        ebContext->outputSocket = eventBuilderStage1OutputSockets[i];
+        ebContext->inputSocket = parsedDataSockets[i].second;
+        ebContext->outputSocket = stage1DataSockets[i].first;
         eventBuilderStage1Contexts.emplace_back(std::move(ebContext));
     }
 
-    std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisContexts;
+    std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage1Contexts;
 
-    for (size_t i=0; i<analysisStage1InputSockets.size(); ++i)
+    for (size_t i=0; i<crateConfigs.size(); ++i)
     {
         auto analysisContext = std::make_unique<AnalysisProcessingContext>();
         analysisContext->quit = false;
-        analysisContext->inputSocket = analysisStage1InputSockets[i];
+        analysisContext->inputSocket = stage1DataSockets[i].second;
         analysisContext->crateId = i;
 
         if (i < analysisConfigs.size())
@@ -528,31 +591,26 @@ int main(int argc, char *argv[])
         if (i < asps.size())
             analysisContext->asp = asps[i].get();
 
-        analysisContexts.emplace_back(std::move(analysisContext));
+        analysisStage1Contexts.emplace_back(std::move(analysisContext));
     }
 
-#ifdef MVME_ENABLE_PROMETHEUS
-    // This variable is here to keep the prom context alive in main! This is to
-    // avoid a hang when the internal civetweb instance is destroyed from within
-    // a DLL (https://github.com/civetweb/civetweb/issues/264). By having this
-    // variable on the stack the destructor is called from mvme.exe, not from
-    // within libmvme.dll.
-    std::shared_ptr<mesytec::mvme::PrometheusContext> prom;
-    try
+    #if 0
+    std::vector<std::unique_ptr<nng::YDuplicatorContext>> stage1DuplicatorContexts;
+
+    for (size_t i=0; i<stage1YDuplicatorInputSockets.size(); ++i)
     {
-        auto promBindAddress = QSettings().value("PrometheusBindAddress", "0.0.0.0:13803").toString().toStdString();
-        prom = std::make_shared<mesytec::mvme::PrometheusContext>();
-        prom->start(promBindAddress);
-        std::cout << "Prometheus server listening on port " << prom->exposer()->GetListeningPorts().front() << "\n";
-        mesytec::mvme::set_prometheus_instance(prom); // Register the prom object globally.
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error creating prometheus context: " << e.what() << ". Prometheus metrics not available!\n";
+        auto ydContext = std::make_unique<nng::YDuplicatorContext>();
+        ydContext->quit = false;
+        ydContext->inputSocket = stage1YDuplicatorInputSockets[i];
+        ydContext->outputSockets = { stage1YDuplicatorOutputSockets[i].first, stage1DuplicatorCommonOutputSocket };
+        ydContext->isShutdownMessage = is_shutdown_message;
+        stage1DuplicatorContexts.emplace_back(std::move(ydContext));
     }
 
-    // TODO: design and add actual metrics here
-#endif
+    auto stage2CommonConsumerContext = std::make_unique<ParsedDataConsumerContext>();
+    stage2CommonConsumerContext->quit = false;
+    stage2CommonConsumerContext->inputSocket = stage1DuplicatorCommonInputSocket;
+    #endif
 
     // Thread creation starts here.
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
@@ -561,6 +619,7 @@ int main(int argc, char *argv[])
     std::vector<std::thread> eventBuilderStage1RecorderThreads;
     std::vector<std::thread> eventBuilderStage1BuilderThreads;
     std::vector<std::thread> analysisStage1Threads;
+    //std::vector<std::thread> stage1DuplicatorThreads;
 
     for (auto &readoutContext: readoutContexts)
     {
@@ -568,31 +627,41 @@ int main(int argc, char *argv[])
         readoutThreads.emplace_back(std::move(readoutThread));
     }
 
-    assert(readoutConsumerInputSockets.size() == vmeConfigs.size());
-
-    for (size_t i=0; i<readoutConsumerInputSockets.size(); ++i)
+    for (size_t i=0; i<crateConfigs.size(); ++i)
     {
         std::thread parserThread(readout_parser_loop, std::ref(*parserContexts[i]));
         parserThreads.emplace_back(std::move(parserThread));
     }
 
-    for (size_t i=0; i<eventBuilderStage1Contexts.size(); ++i)
+    for (size_t i=0; i<crateConfigs.size(); ++i)
     {
         std::thread ebStage1Thread(event_builder_record_loop, std::ref(*eventBuilderStage1Contexts[i]));
         eventBuilderStage1RecorderThreads.emplace_back(std::move(ebStage1Thread));
     }
 
-    for (size_t i=0; i<eventBuilderStage1Contexts.size(); ++i)
+    for (size_t i=0; i<crateConfigs.size(); ++i)
     {
-        std::thread ebStage1Thread(event_builder_build_loop, std::ref(*eventBuilderStage1Contexts[i]));
-        eventBuilderStage1BuilderThreads.emplace_back(std::move(ebStage1Thread));
+        std::thread t(event_builder_build_loop, std::ref(*eventBuilderStage1Contexts[i]));
+        eventBuilderStage1BuilderThreads.emplace_back(std::move(t));
     }
 
-    for (size_t i=0; i<analysisContexts.size(); ++i)
+    for (size_t i=0; i<crateConfigs.size(); ++i)
     {
-        std::thread analysisThread(analysis_loop, std::ref(*analysisContexts[i]));
+        std::thread analysisThread(analysis_loop, std::ref(*analysisStage1Contexts[i]));
         analysisStage1Threads.emplace_back(std::move(analysisThread));
     }
+
+    #if 0
+    for (size_t i=0; i<stage1YDuplicatorInputSockets.size(); ++i)
+    {
+        std::thread ydThread(nng::y_duplicator, std::ref(*stage1DuplicatorContexts[i]));
+        stage1DuplicatorThreads.emplace_back(std::move(ydThread));
+    }
+
+    std::thread stage2CommonConsumerThread(parsed_data_consumer_loop, std::ref(*stage2CommonConsumerContext));
+    #endif
+    //std::thread eventBuilderStage2Thread;
+    //std::thread analysisStage2Thread;
 
     // GUI stuff starts here
 
@@ -625,6 +694,16 @@ int main(int argc, char *argv[])
                 fmt::format("eth_readout (crate={}, snoop output)", ctx->crateId));
         }
 
+        {
+            auto listfileWriterCounters = listfileWriterContext.dataInputCounters.copy();
+            for (size_t i=0; i<listfileWriterCounters.size(); ++i)
+            {
+                auto &counters = listfileWriterCounters[i];
+                if (counters.messagesReceived || counters.messagesLost)
+                    log_socket_work_counters(counters, fmt::format("listfile_writer (crateId={})", i));
+            }
+        }
+
         for (auto &ctx: parserContexts)
         {
             log_socket_work_counters(ctx->counters.access().ref(),
@@ -637,11 +716,16 @@ int main(int argc, char *argv[])
                 fmt::format("event_builder_stage1 (crateId={})", ctx->crateId));
         }
 
-        for (auto &ctx: analysisContexts)
+        for (auto &ctx: analysisStage1Contexts)
         {
             log_socket_work_counters(ctx->inputSocketCounters.access().ref(),
                 fmt::format("analysis_loop (crateId={})", ctx->crateId));
         }
+
+        #if 0
+        log_socket_work_counters(stage2CommonConsumerContext->counters.access().ref(),
+            "parsed_data_consumer (stage2)");
+        #endif
     });
 
     for (size_t i=0; i<eventBuilderStage1Contexts.size(); ++i)
@@ -652,10 +736,9 @@ int main(int argc, char *argv[])
         widget->resize(800, 200);
         widget->show();
 
-        auto &context = eventBuilderStage1Contexts[i];
-
-        QObject::connect(&periodicTimer, &QTimer::timeout, widget, [&]
+        QObject::connect(&periodicTimer, &QTimer::timeout, widget, [widget, i, &eventBuilderStage1Contexts]
         {
+            auto &context = eventBuilderStage1Contexts[i];
             auto counters = context->eventBuilder->getCounters();
             auto str = to_string(counters);
             widget->setPlainText(QString::fromStdString(str));
@@ -726,18 +809,32 @@ int main(int argc, char *argv[])
     for (auto &ebContext: eventBuilderStage1Contexts)
         send_shutdown_message(ebContext->outputSocket);
 
+    #if 0
+    for (auto &t: stage1DuplicatorThreads)
+        if (t.joinable())
+            t.join();
+
+    spdlog::debug("stage 1 duplicators stopped");
+
+    for (auto &ctx: stage1DuplicatorContexts)
+        send_shutdown_messages({ ctx->outputSockets.first, ctx->outputSockets.second });
+    #endif
+
+
     for (auto &t: analysisStage1Threads)
         if (t.joinable())
             t.join();
 
     spdlog::debug("analysis threads stopped");
 
+
+
     // TODO: force shutdowns after giving threads time to stop
 
     //listfileWriterContext.quit = true;
     //for (auto &parserContext: parserContexts)
     //    parserContext->quit = true;
-    //for (auto &analysisContext: analysisContexts)
+    //for (auto &analysisContext: analysisStage1Contexts)
     //    analysisContext->quit = true;
 
     //for (auto &t: readoutThreads)

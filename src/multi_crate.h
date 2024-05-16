@@ -538,6 +538,7 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEven
 
 int LIBMVME_EXPORT send_shutdown_message(nng_socket socket);
 void LIBMVME_EXPORT send_shutdown_messages(std::initializer_list<nng_socket> sockets);
+bool LIBMVME_EXPORT is_shutdown_message(nng_msg *msg);
 
 // Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
 size_t LIBMVME_EXPORT fixup_listfile_buffer_message(
@@ -642,7 +643,7 @@ struct LIBMVME_EXPORT MvlcEthReadoutLoopContext
     int mvlcDataSocket;
 
     // Readout data is written to this socket. Expected to use a lossless,
-    // blocking protocol, e.g. pair or push as this data goes to the output
+    // blocking protocol, e.g. pair or push, as this data goes to the output
     // listfile.
     nng_socket dataOutputSocket;
 
@@ -689,6 +690,11 @@ struct LIBMVME_EXPORT ListfileWriterContext
     // This is where readout data is written to if non-null. If the handle is
     // null readout data is read from the input socket and discarded.
     std::unique_ptr<mvlc::listfile::WriteHandle> lfh;
+
+    // Per crate data input counters.
+    mvlc::Protected<std::array<SocketWorkPerformanceCounters, mvlc::MaxVMECrates>> dataInputCounters;
+
+    ListfileWriterContext() {}
 };
 
 void LIBMVME_EXPORT listfile_writer_loop(ListfileWriterContext &context);
@@ -802,7 +808,18 @@ struct LIBMVME_EXPORT AnalysisProcessingContext
 // Consumes ParsedEventsMessageHeader type messages.
 void LIBMVME_EXPORT analysis_loop(AnalysisProcessingContext &context);
 
-}
+struct LIBMVME_EXPORT ParsedDataConsumerContext
+{
+    std::atomic<bool> quit;
+    nng_socket inputSocket;
+    mvlc::Protected<SocketWorkPerformanceCounters> counters;
+    std::string info;
+};
+
+// Consumes ParsedEventsMessageHeader type messages.
+void LIBMVME_EXPORT parsed_data_consumer_loop(ParsedDataConsumerContext &context);
+
+} // namespace mesytec::mvme::multi_crate
 
 Q_DECLARE_METATYPE(mesytec::mvme::multi_crate::MulticrateVMEConfig *);
 

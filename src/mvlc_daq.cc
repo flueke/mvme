@@ -527,6 +527,7 @@ std::vector<mvlc::StackCommandBuilder> sanitize_readout_stacks(
     for (auto &srcStack: inputStacks)
     {
         mvlc::StackCommandBuilder dstStack;
+        dstStack.setName(srcStack.getName());
 
         for (const auto &srcGroup: srcStack.getGroups())
         {
