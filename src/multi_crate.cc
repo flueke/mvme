@@ -1851,12 +1851,14 @@ void event_builder_record_loop(EventBuilderContext &context)
         {
             if (eventData.type == EventContainer::Type::Readout)
             {
-                context.eventBuilder->recordEventData(eventData.crateId, eventData.readout.eventIndex,
+                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
+                context.eventBuilder->recordEventData(inputCrateId, eventData.readout.eventIndex,
                     eventData.readout.moduleDataList, eventData.readout.moduleCount);
             }
             else if (eventData.type == EventContainer::Type::System && eventData.system.size)
             {
-                context.eventBuilder->recordSystemEvent(eventData.crateId, eventData.system.header, eventData.system.size);
+                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
+                context.eventBuilder->recordSystemEvent(inputCrateId, eventData.system.header, eventData.system.size);
             }
             else if (nng_msg_len(inputMsg))
             {
@@ -1964,8 +1966,10 @@ inline void event_builder_eventdata(void *ctx_, int crateIndex, int eventIndex,
 
     auto &ctx = *reinterpret_cast<EventBuilderContext *>(ctx_);
 
+    auto outputCrateId = ctx.outputCrateMappings[crateIndex];
+
     EventBuilderNngMessageWriter writer(ctx);
-    writer.consumeReadoutEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
+    writer.consumeReadoutEventData(outputCrateId, eventIndex, moduleDataList, moduleCount);
 }
 
 inline void event_builder_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 size)
@@ -1975,8 +1979,10 @@ inline void event_builder_systemevent(void *ctx_, int crateIndex, const u32 *hea
 
     auto &ctx = *reinterpret_cast<EventBuilderContext *>(ctx_);
 
+    auto outputCrateId = ctx.outputCrateMappings[crateIndex];
+
     EventBuilderNngMessageWriter writer(ctx);
-    writer.consumeSystemEventData(crateIndex, header, size);
+    writer.consumeSystemEventData(outputCrateId, header, size);
 }
 
 void event_builder_build_loop(EventBuilderContext &context)

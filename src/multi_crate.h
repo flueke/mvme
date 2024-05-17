@@ -20,6 +20,9 @@
 #include "util/mesy_nng.h"
 #include "vme_config.h"
 
+// TODO:
+// - flush timeouts for everything! Some loops are still missing this.
+
 namespace mesytec::mvme::multi_crate
 {
 
@@ -788,6 +791,18 @@ struct LIBMVME_EXPORT EventBuilderContext
     u32 outputMessageNumber = 0u;
     mvlc::Protected<SocketWorkPerformanceCounters> counters;
     unsigned crateId = 0;
+
+    std::array<u8, mvlc::MaxVMECrates> inputCrateMappings;
+    std::array<u8, mvlc::MaxVMECrates> outputCrateMappings;
+
+    EventBuilderContext()
+    {
+        for (size_t i=0; i<inputCrateMappings.size(); ++i)
+        {
+            inputCrateMappings[i] = i;
+            outputCrateMappings[i] = i;
+        }
+    }
 };
 
 // Calls recordEventData and recordSystemEvent with data read from inputSocket.

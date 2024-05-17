@@ -556,6 +556,9 @@ int main(int argc, char *argv[])
         ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
         ebContext->inputSocket = parsedDataSockets[i].second;
         ebContext->outputSocket = stage1DataSockets[i].first;
+        // Rewrite data to make the eventbuilder work for a single crate with a non-zero crateid.
+        ebContext->inputCrateMappings[i] = 0;
+        ebContext->outputCrateMappings[0] = i;
         eventBuilderStage1Contexts.emplace_back(std::move(ebContext));
     }
 
