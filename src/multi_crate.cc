@@ -1096,6 +1096,12 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
     {
         assert(nng::allocated_free_space(msg) >= eth::JumboFrameMaxSize);
 
+        if (nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+        {
+            spdlog::error("should not happen!");
+            std::abort();
+        }
+
         auto msgUsed = nng_msg_len(msg);
 
         // Note: this should not alloc as we reserved space when the message was
@@ -1462,6 +1468,7 @@ mvlc::EventContainer next_event(ParsedEventMessageIterator &iter)
                 }
 
                 result.type = EventContainer::Type::Readout;
+                result.crateId = eventHeader->crateIndex;
                 result.readout.eventIndex = eventHeader->eventIndex;
                 result.readout.moduleDataList = iter.moduleDataBuffer.data();
                 result.readout.moduleCount = eventHeader->moduleCount;
@@ -1473,6 +1480,7 @@ mvlc::EventContainer next_event(ParsedEventMessageIterator &iter)
                 eventHeader && nng_msg_len(msg) >= eventHeader->totalBytes())
             {
                 result.type = EventContainer::Type::System;
+                result.crateId = eventHeader->crateIndex;
                 result.system.header = reinterpret_cast<const u32 *>(nng_msg_body(msg));
                 result.system.size = eventHeader->totalSize();
                 nng_msg_trim(msg, eventHeader->totalBytes());
@@ -1499,6 +1507,7 @@ std::unique_ptr<ReadoutParserNngContext> make_readout_parser_nng_context(const m
     res->inputFormat = crateConfig.connectionType;
     auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
     res->parserState = mvlc::readout_parser::make_readout_parser(stacks, crateConfig.crateId, res.get());
+    res->parserState.crateIndex = crateConfig.crateId;
 
     return res;
 }
@@ -1525,24 +1534,25 @@ inline bool parser_maybe_alloc_output(ReadoutParserNngContext &ctx)
     return true;
 }
 
-inline bool flush_output_message(ReadoutParserNngContext &ctx, const char *debugInfo = "")
+inline bool flush_output_message(ReadoutParserNngContext &ctx)
 {
     const auto msgSize = nng_msg_len(ctx.outputMessage);
 
     // Retries forever or until told to quit.
-    auto retryPredicate = [&]
-    {
-        return !ctx.quit;
-    };
+    //auto retryPredicate = [&]
+    //{
+    //    return !ctx.quit;
+    //};
 
     StopWatch stopWatch;
     stopWatch.start();
+    auto debugInfo = fmt::format("readout_parser (crate{})", ctx.crateId);
 
-    if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, retryPredicate, debugInfo))
+    if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, 3, debugInfo.c_str()))
     {
         nng_msg_free(ctx.outputMessage);
         ctx.outputMessage = nullptr;
-        spdlog::error("{}: readout parser: flush_output_message(): {}:", debugInfo, nng_strerror(res));
+        //spdlog::error("{}: readout parser: flush_output_message(): {}:", debugInfo, nng_strerror(res));
         return false;
     }
 
@@ -1578,7 +1588,7 @@ struct ReadoutParserNngMessageWriter: public ParsedEventsMessageWriter
 
     bool flushOutputMessage() override
     {
-        return flush_output_message(ctx, "ReadoutParserNngMessageWriter");
+        return flush_output_message(ctx);
     }
 
     bool hasDynamic(int crateIndex, int eventIndex, int moduleIndex) override
@@ -1752,7 +1762,7 @@ void readout_parser_loop(ReadoutParserNngContext &context)
     }
 
     if (context.outputMessage)
-        flush_output_message(context, "readout_parser_loop");
+        flush_output_message(context);
 
     assert(!context.outputMessage);
 
@@ -1900,19 +1910,19 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
         const auto msgSize = nng_msg_len(ctx.outputMessage);
 
         // Retries forever or until told to quit.
-        auto retryPredicate = [&]
-        {
-            return !ctx.quit;
-        };
+        //auto retryPredicate = [&]
+        //{
+        //    return !ctx.quit;
+        //};
 
-        const char *debugInfo = "EventBuilderNngMessageWriter";
+        auto debugInfo = fmt::format("EventBuilderNngMessageWriter (crateId={})", ctx.crateId);
 
         StopWatch stopWatch;
         stopWatch.start();
 
-        if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, retryPredicate, debugInfo))
+        if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, 3, debugInfo.c_str()))
         {
-            spdlog::warn("EventBuilderNngMessageWriter: send_message_retry: {}", nng_strerror(res));
+            //spdlog::warn("EventBuilderNngMessageWriter: send_message_retry: {}", nng_strerror(res));
             nng_msg_free(ctx.outputMessage);
             ctx.outputMessage = nullptr;
             return false;
@@ -1993,6 +2003,12 @@ void event_builder_build_loop(EventBuilderContext &context)
     // flush
     context.eventBuilder->buildEvents(callbacks, true);
 }
+
+// records input data and immediately calls buildEvents() // TODO: try this out,
+// might be faster than having two loops per event builder
+//void event_builder_combined_loop(EventBuilderContext &context)
+//{
+//}
 
 void analysis_loop(AnalysisProcessingContext &context)
 {
@@ -2126,10 +2142,10 @@ void analysis_loop(AnalysisProcessingContext &context)
     //    lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
 }
 
-void parsed_data_consumer_loop(ParsedDataConsumerContext &context)
+void parsed_data_test_consumer_loop(ParsedDataConsumerContext &context)
 {
     {
-        auto name = fmt::format("parsed_data_consumer_loop({})", context.info);
+        auto name = fmt::format("parsed_data_test_consumer_loop({})", context.info);
         set_thread_name(name.c_str());
     }
 
@@ -2138,6 +2154,8 @@ void parsed_data_consumer_loop(ParsedDataConsumerContext &context)
     // FIXME: this thing receives data from multiple event builders so a single message loss calculation is not enough.
     u32 lastInputMessageNumber = 0u;
     context.counters.access()->start();
+    context.readoutEventCounts.access()->fill(0);
+    context.systemEventCounts.access()->fill(0);
 
     while (!context.quit)
     {
@@ -2147,10 +2165,10 @@ void parsed_data_consumer_loop(ParsedDataConsumerContext &context)
         {
             if (res != NNG_ETIMEDOUT)
             {
-                spdlog::error("parsed_data_consumer_loop - receive_message: {}", nng_strerror(res));
+                spdlog::error("parsed_data_test_consumer_loop - receive_message: {}", nng_strerror(res));
                 break;
             }
-            spdlog::trace("parsed_data_consumer_loop - receive_message: timeout");
+            spdlog::trace("parsed_data_test_consumer_loop - receive_message: timeout");
             continue;
         }
 
@@ -2163,7 +2181,7 @@ void parsed_data_consumer_loop(ParsedDataConsumerContext &context)
             auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
             if (header.messageType == multi_crate::MessageType::GracefulShutdown)
             {
-                spdlog::warn("parsed_data_consumer_loop: Received shutdown message, leaving loop");
+                spdlog::warn("parsed_data_test_consumer_loop: Received shutdown message, leaving loop");
                 nng_msg_free(inputMsg);
                 break;
             }
@@ -2171,7 +2189,7 @@ void parsed_data_consumer_loop(ParsedDataConsumerContext &context)
 
         if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
-            spdlog::warn("parsed_data_consumer_loop - incoming message too short (len={})", msgLen);
+            spdlog::warn("parsed_data_test_consumer_loop - incoming message too short (len={})", msgLen);
             nng_msg_free(inputMsg);
             continue;
         }
@@ -2193,6 +2211,26 @@ void parsed_data_consumer_loop(ParsedDataConsumerContext &context)
             a->bytesReceived = totalInputBytes;
             a->messagesReceived += 1;
             a->messagesLost = inputBuffersLost;
+        }
+
+        ParsedEventMessageIterator messageIter(inputMsg);
+
+        for (auto eventData = next_event(messageIter);
+                eventData.type != EventContainer::Type::None;
+                eventData = next_event(messageIter))
+        {
+            if (eventData.type == EventContainer::Type::Readout)
+            {
+                //spdlog::info("parsed_data_test_consumer_loop: Readout event: crate={}, event={}",
+                //    eventData.crateId, eventData.readout.eventIndex);
+                context.readoutEventCounts.access()->at(eventData.crateId)++;
+            }
+            else if (eventData.type == EventContainer::Type::System && eventData.system.size)
+            {
+                //spdlog::info("parsed_data_test_consumer_loop: System event: crate={}, size={}",
+                //    eventData.crateId, eventData.system.size);
+                context.systemEventCounts.access()->at(eventData.crateId)++;
+            }
         }
 
         nng_msg_free(inputMsg);

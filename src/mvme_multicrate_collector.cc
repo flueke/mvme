@@ -556,13 +556,25 @@ int main(int argc, char *argv[])
         eventBuilderStage1Contexts.emplace_back(std::move(ebContext));
     }
 
+    std::vector<std::unique_ptr<nng::YDuplicatorContext>> stage1DuplicatorContexts;
+
+    for (size_t i=0; i<crateConfigs.size(); ++i)
+    {
+        auto ydContext = std::make_unique<nng::YDuplicatorContext>();
+        ydContext->quit = false;
+        ydContext->inputSocket = stage1DataSockets[i].second;
+        ydContext->outputSockets = { stage1AnalysisSockets[i].first, stage1SharedDataSockets.first };
+        ydContext->isShutdownMessage = is_shutdown_message;
+        stage1DuplicatorContexts.emplace_back(std::move(ydContext));
+    }
+
     std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage1Contexts;
 
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
         auto analysisContext = std::make_unique<AnalysisProcessingContext>();
         analysisContext->quit = false;
-        analysisContext->inputSocket = stage1DataSockets[i].second;
+        analysisContext->inputSocket = stage1AnalysisSockets[i].second;
         analysisContext->crateId = i;
 
         if (i < analysisConfigs.size())
@@ -574,23 +586,10 @@ int main(int argc, char *argv[])
         analysisStage1Contexts.emplace_back(std::move(analysisContext));
     }
 
-    #if 0
-    std::vector<std::unique_ptr<nng::YDuplicatorContext>> stage1DuplicatorContexts;
-
-    for (size_t i=0; i<stage1YDuplicatorInputSockets.size(); ++i)
-    {
-        auto ydContext = std::make_unique<nng::YDuplicatorContext>();
-        ydContext->quit = false;
-        ydContext->inputSocket = stage1YDuplicatorInputSockets[i];
-        ydContext->outputSockets = { stage1YDuplicatorOutputSockets[i].first, stage1DuplicatorCommonOutputSocket };
-        ydContext->isShutdownMessage = is_shutdown_message;
-        stage1DuplicatorContexts.emplace_back(std::move(ydContext));
-    }
 
     auto stage2CommonConsumerContext = std::make_unique<ParsedDataConsumerContext>();
     stage2CommonConsumerContext->quit = false;
-    stage2CommonConsumerContext->inputSocket = stage1DuplicatorCommonInputSocket;
-    #endif
+    stage2CommonConsumerContext->inputSocket = stage1SharedDataSockets.second;
 
     // Thread creation starts here.
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
@@ -599,7 +598,7 @@ int main(int argc, char *argv[])
     std::vector<std::thread> eventBuilderStage1RecorderThreads;
     std::vector<std::thread> eventBuilderStage1BuilderThreads;
     std::vector<std::thread> analysisStage1Threads;
-    std::vector<std::thread> stage1DuplicatorThreads; // XXX: leftoff here. use these and complete the chain
+    std::vector<std::thread> stage1DuplicatorThreads;
 
     for (auto &readoutContext: readoutContexts)
     {
@@ -627,13 +626,11 @@ int main(int argc, char *argv[])
 
     // y duplicator piece consuming stage1 data. output goes to the single crate
     // analysis instances and to the stage2 event builder.
-    #if 0
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
-        std::thread t(nng::y_duplicator, std::ref(*stage1DuplicatorContexts[i]));
+        std::thread t(nng::duplicator_loop, std::ref(*stage1DuplicatorContexts[i]));
         stage1DuplicatorThreads.emplace_back(std::move(t));
     }
-    #endif
 
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
@@ -641,15 +638,7 @@ int main(int argc, char *argv[])
         analysisStage1Threads.emplace_back(std::move(analysisThread));
     }
 
-    #if 0
-    for (size_t i=0; i<stage1YDuplicatorInputSockets.size(); ++i)
-    {
-        std::thread ydThread(nng::y_duplicator, std::ref(*stage1DuplicatorContexts[i]));
-        stage1DuplicatorThreads.emplace_back(std::move(ydThread));
-    }
-
-    std::thread stage2CommonConsumerThread(parsed_data_consumer_loop, std::ref(*stage2CommonConsumerContext));
-    #endif
+    std::thread stage2CommonConsumerThread(parsed_data_test_consumer_loop, std::ref(*stage2CommonConsumerContext));
     //std::thread eventBuilderStage2Thread;
     //std::thread analysisStage2Thread;
 
@@ -712,10 +701,25 @@ int main(int argc, char *argv[])
                 fmt::format("analysis_loop (crateId={})", ctx->crateId));
         }
 
-        #if 0
         log_socket_work_counters(stage2CommonConsumerContext->counters.access().ref(),
             "parsed_data_consumer (stage2)");
-        #endif
+
+        {
+            auto readoutEventCounts = stage2CommonConsumerContext->readoutEventCounts.copy();
+            auto systemEventCounts  = stage2CommonConsumerContext->systemEventCounts.copy();
+
+            for (size_t i=0; i<readoutEventCounts.size(); ++i)
+            {
+                if (readoutEventCounts.at(i))
+                    spdlog::info("stage2 consumer: readout events from crate{}: {}", i, readoutEventCounts.at(i));
+            }
+
+            for (size_t i=0; i<systemEventCounts.size(); ++i)
+            {
+                if (systemEventCounts.at(i))
+                    spdlog::info("stage2 consumer: system events from crate{}: {}", i, systemEventCounts.at(i));
+            }
+        }
     });
 
     for (size_t i=0; i<eventBuilderStage1Contexts.size(); ++i)
@@ -777,9 +781,7 @@ int main(int argc, char *argv[])
     spdlog::debug("parsers stopped");
 
     for (auto &parserContext: parserContexts)
-    {
         send_shutdown_message(parserContext->outputSocket);
-    }
 
     for (auto &t: eventBuilderStage1RecorderThreads)
         if (t.joinable())
@@ -799,7 +801,6 @@ int main(int argc, char *argv[])
     for (auto &ebContext: eventBuilderStage1Contexts)
         send_shutdown_message(ebContext->outputSocket);
 
-    #if 0
     for (auto &t: stage1DuplicatorThreads)
         if (t.joinable())
             t.join();
@@ -808,14 +809,17 @@ int main(int argc, char *argv[])
 
     for (auto &ctx: stage1DuplicatorContexts)
         send_shutdown_messages({ ctx->outputSockets.first, ctx->outputSockets.second });
-    #endif
-
 
     for (auto &t: analysisStage1Threads)
         if (t.joinable())
             t.join();
 
-    spdlog::debug("analysis threads stopped");
+    spdlog::debug("analysis stage 1 threads stopped");
+
+    if (stage2CommonConsumerThread.joinable())
+        stage2CommonConsumerThread.join();
+
+    spdlog::debug("stage2 common consumer stopped");
 
 
 

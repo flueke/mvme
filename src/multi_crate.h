@@ -814,10 +814,12 @@ struct LIBMVME_EXPORT ParsedDataConsumerContext
     nng_socket inputSocket;
     mvlc::Protected<SocketWorkPerformanceCounters> counters;
     std::string info;
+    mvlc::Protected<std::array<size_t, mvlc::MaxVMECrates>> readoutEventCounts;
+    mvlc::Protected<std::array<size_t, mvlc::MaxVMECrates>> systemEventCounts;
 };
 
 // Consumes ParsedEventsMessageHeader type messages.
-void LIBMVME_EXPORT parsed_data_consumer_loop(ParsedDataConsumerContext &context);
+void LIBMVME_EXPORT parsed_data_test_consumer_loop(ParsedDataConsumerContext &context);
 
 } // namespace mesytec::mvme::multi_crate
 
