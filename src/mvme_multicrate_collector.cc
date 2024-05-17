@@ -181,10 +181,12 @@ int main(int argc, char *argv[])
     std::vector<std::shared_ptr<analysis::Analysis>> analysisConfigs;
 
     {
+        #if 0
         auto logger = [] (const QString &msg)
         {
             spdlog::error("analysis: {}", msg.toStdString());
         };
+        #endif
 
         size_t crateIndex = 0;
 
@@ -593,9 +595,16 @@ int main(int argc, char *argv[])
     }
 
 
+    #if 0
     auto stage2CommonConsumerContext = std::make_unique<ParsedDataConsumerContext>();
     stage2CommonConsumerContext->quit = false;
     stage2CommonConsumerContext->inputSocket = stage1SharedDataSockets.second;
+    #else
+    auto stage2CommonConsumerContext = std::make_unique<AnalysisProcessingContext>();
+    stage2CommonConsumerContext->quit = false;
+    stage2CommonConsumerContext->inputSocket = stage1SharedDataSockets.second;
+    stage2CommonConsumerContext->crateId = 0xffu; // XXX
+    #endif
 
     // Thread creation starts here.
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
@@ -618,6 +627,7 @@ int main(int argc, char *argv[])
         parserThreads.emplace_back(std::move(parserThread));
     }
 
+    #if 0
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
         std::thread ebStage1Thread(event_builder_record_loop, std::ref(*eventBuilderStage1Contexts[i]));
@@ -629,6 +639,13 @@ int main(int argc, char *argv[])
         std::thread t(event_builder_build_loop, std::ref(*eventBuilderStage1Contexts[i]));
         eventBuilderStage1BuilderThreads.emplace_back(std::move(t));
     }
+    #else
+    for (size_t i=0; i<crateConfigs.size(); ++i)
+    {
+        std::thread t(event_builder_combined_loop, std::ref(*eventBuilderStage1Contexts[i]));
+        eventBuilderStage1RecorderThreads.emplace_back(std::move(t));
+    }
+    #endif
 
     // y duplicator piece consuming stage1 data. output goes to the single crate
     // analysis instances and to the stage2 event builder.

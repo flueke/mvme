@@ -782,7 +782,7 @@ struct LIBMVME_EXPORT EventBuilderContext
     nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
 
     // Snoop Output: ParsedEventsMessageHeader
-    nng_socket snoopOutputSocket = NNG_SOCKET_INITIALIZER;
+    //nng_socket snoopOutputSocket = NNG_SOCKET_INITIALIZER;
 
     mvlc::EventBuilderConfig eventBuilderConfig;
     std::unique_ptr<mvlc::EventBuilder> eventBuilder;
@@ -808,6 +808,9 @@ struct LIBMVME_EXPORT EventBuilderContext
 // Calls recordEventData and recordSystemEvent with data read from inputSocket.
 void LIBMVME_EXPORT event_builder_record_loop(EventBuilderContext &context);
 void LIBMVME_EXPORT event_builder_build_loop(EventBuilderContext &context);
+// Combines the above two into a single loop. Somehow way faster than having the
+// two loops in two threads
+void LIBMVME_EXPORT event_builder_combined_loop(EventBuilderContext &context);
 
 struct LIBMVME_EXPORT AnalysisProcessingContext
 {

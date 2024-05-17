@@ -1989,8 +1989,6 @@ void event_builder_build_loop(EventBuilderContext &context)
 {
     set_thread_name("event_builder_builder");
 
-    // TODO: make callbacks which write eventbuilder output to the outputSocket
-    // and snoopOutputSocket.
     readout_parser::ReadoutParserCallbacks callbacks;
     callbacks.eventData = event_builder_eventdata;
     callbacks.systemEvent = event_builder_systemevent;
@@ -2012,9 +2010,115 @@ void event_builder_build_loop(EventBuilderContext &context)
 
 // records input data and immediately calls buildEvents() // TODO: try this out,
 // might be faster than having two loops per event builder
-//void event_builder_combined_loop(EventBuilderContext &context)
-//{
-//}
+void event_builder_combined_loop(EventBuilderContext &context)
+{
+    set_thread_name("event_builder_combined_loop");
+
+    spdlog::info("entering event_builder_combined_loop");
+
+    readout_parser::ReadoutParserCallbacks callbacks;
+    callbacks.eventData = event_builder_eventdata;
+    callbacks.systemEvent = event_builder_systemevent;
+
+    context.counters.access()->start();
+
+    while (!context.quit)
+    {
+        StopWatch stopWatch;
+        stopWatch.start();
+
+        nng_msg *inputMsg = nullptr;
+
+        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
+        {
+            if (res != NNG_ETIMEDOUT)
+            {
+                spdlog::error("event_builder_combined_loop - receive_message: {}", nng_strerror(res));
+                break;
+            }
+            spdlog::trace("event_builder_combined_loop - receive_message: timeout");
+            continue;
+        }
+
+        assert(inputMsg != nullptr);
+
+        const auto msgLen = nng_msg_len(inputMsg);
+
+        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        {
+            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
+            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
+            {
+                spdlog::warn("event_builder_combined_loop: Received shutdown message, leaving loop");
+                nng_msg_free(inputMsg);
+                break;
+            }
+        }
+
+        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
+        {
+            spdlog::warn("event_builder_combined_loop - incoming message too short (len={})", msgLen);
+            nng_msg_free(inputMsg);
+            continue;
+        }
+
+        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg).value();
+
+        if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
+        {
+            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
+            nng_msg_free(inputMsg);
+            break;
+        }
+
+        {
+            auto ta = context.counters.access();
+            ta->messagesReceived++;
+            ta->bytesReceived += msgLen;
+            ta->tReceive += stopWatch.interval();
+        }
+
+        ParsedEventMessageIterator messageIter(inputMsg);
+
+        for (auto eventData = next_event(messageIter);
+                eventData.type != EventContainer::Type::None;
+                eventData = next_event(messageIter))
+        {
+            if (eventData.type == EventContainer::Type::Readout)
+            {
+                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
+                context.eventBuilder->recordEventData(inputCrateId, eventData.readout.eventIndex,
+                    eventData.readout.moduleDataList, eventData.readout.moduleCount);
+            }
+            else if (eventData.type == EventContainer::Type::System && eventData.system.size)
+            {
+                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
+                context.eventBuilder->recordSystemEvent(inputCrateId, eventData.system.header, eventData.system.size);
+            }
+            else if (nng_msg_len(inputMsg))
+            {
+                spdlog::warn("analysis_loop: incoming message contains unknown subsection '{}'",
+                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg)));
+                break;
+            }
+        }
+
+        auto nEvents = context.eventBuilder->buildEvents(callbacks);
+        if (nEvents)
+            spdlog::trace("event_builder_combined_loop{}: built {} events", context.crateId, nEvents);
+
+        {
+            auto ta = context.counters.access();
+            ta->tProcess += stopWatch.interval();
+            ta->tTotal += stopWatch.end();
+        }
+
+        nng_msg_free(inputMsg);
+    }
+
+    spdlog::info("leaving event_builder_combined_loop");
+}
 
 void analysis_loop(AnalysisProcessingContext &context)
 {
