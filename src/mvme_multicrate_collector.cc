@@ -279,6 +279,39 @@ int main(int argc, char *argv[])
         crateConfigs.emplace_back(std::move(crateConfig));
     }
 
+    // Open the output listfile if one should be written. // TODO: move this out of the context creation stuff.
+    std::unique_ptr<listfile::ZipCreator> listfileCreator;
+    std::unique_ptr<listfile::WriteHandle> lfh;
+
+    std::string outputListfilename;
+    if (parser("--listfile") >> outputListfilename)
+    {
+        try
+        {
+            listfileCreator = std::make_unique<listfile::ZipCreator>();
+            listfileCreator->createArchive(outputListfilename);
+            lfh = listfileCreator->createZIPEntry("listfile.mvlclst");
+            spdlog::info("Opened output listfile {}", outputListfilename);
+            listfile::listfile_write_magic(*lfh, ConnectionType::ETH);
+            listfile::listfile_write_endian_marker(*lfh, 0);
+
+            for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
+            {
+                auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[crateId].get());
+                crateConfig.crateId = crateId;
+                listfile::listfile_write_crate_config(*lfh, crateConfig);
+                mvme_mvlc::listfile_write_mvme_config(*lfh, crateId, *vmeConfigs[crateId]);
+            }
+        }
+        catch(const std::exception& e)
+        {
+            spdlog::error("Error opening output listfile {}: {}", outputListfilename, e.what());
+            return 1;
+        }
+    }
+
+
+
 #ifdef MVME_ENABLE_PROMETHEUS
     // This variable is here to keep the prom context alive in main! This is to
     // avoid a hang when the internal civetweb instance is destroyed from within
@@ -458,37 +491,7 @@ int main(int argc, char *argv[])
     ListfileWriterContext listfileWriterContext{};
     listfileWriterContext.quit = false;
     listfileWriterContext.dataInputSocket = listfileConsumerSocket;
-
-    // Open the output listfile if one should be written. // TODO: move this out of the context creation stuff.
-    std::unique_ptr<listfile::ZipCreator> listfileCreator;
-
-    std::string str;
-    if (parser("--listfile") >> str)
-    {
-        try
-        {
-            listfileCreator = std::make_unique<listfile::ZipCreator>();
-            listfileCreator->createArchive(str);
-            listfileWriterContext.lfh = listfileCreator->createZIPEntry("listfile.mvlclst");
-            spdlog::info("Opened output listfile {}", str);
-            auto &lfh = listfileWriterContext.lfh;
-            listfile::listfile_write_magic(*lfh, ConnectionType::ETH);
-            listfile::listfile_write_endian_marker(*lfh, 0);
-
-            for (unsigned crateId=0; crateId < vmeConfigs.size(); ++crateId)
-            {
-                auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[crateId].get());
-                crateConfig.crateId = crateId;
-                listfile::listfile_write_crate_config(*lfh, crateConfig);
-                mvme_mvlc::listfile_write_mvme_config(*lfh, crateId, *vmeConfigs[crateId]);
-            }
-        }
-        catch(const std::exception& e)
-        {
-            spdlog::error("Error opening output listfile {}: {}", str, e.what());
-            return 1;
-        }
-    }
+    listfileWriterContext.lfh = std::move(lfh);
 
     std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
 
