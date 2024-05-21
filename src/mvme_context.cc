@@ -1343,7 +1343,7 @@ static void handle_vme_analysis_assignment(
     using namespace analysis;
     using namespace vme_analysis_common;
 
-    auto_assign_vme_modules(vmeConfig, analysis);
+    //auto_assign_vme_modules(vmeConfig, analysis); // FIXME: reenable this and deal with multicrate somehow
 
     if (analysisUi)
         analysisUi->repopulate();
