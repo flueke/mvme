@@ -327,8 +327,6 @@ int main(int argc, char *argv[])
         }
     }
 
-
-
 #ifdef MVME_ENABLE_PROMETHEUS
     // This variable is here to keep the prom context alive in main! This is to
     // avoid a hang when the internal civetweb instance is destroyed from within
@@ -374,8 +372,7 @@ int main(int argc, char *argv[])
     std::vector<std::pair<nng_socket, nng_socket>> stage1AnalysisSockets; // yduplicator writes, stage1 analysis reads
 
     // stage1 data from all crates is written to the first socket by a
-    // yduplicator instance.  A stage2 eventbuilder reads from the second
-    // socket.
+    // yduplicator instance. A stage2 eventbuilder reads from the second socket.
     std::pair<nng_socket, nng_socket> stage1SharedDataSockets;
 
     // stage2 eventbuilder writes, stage2 analysis reads
@@ -614,12 +611,51 @@ int main(int argc, char *argv[])
     stage2TestConsumerContext->quit = false;
     stage2TestConsumerContext->inputSocket = stage1SharedDataSockets.second;
 
+    auto stage2EventBuilderContext = std::make_unique<EventBuilderContext>();
+
+    // Make event0 a cross crate event. Assume each module in event0 from all
+    // crates is a mesytec module and uses a large match window.
+    {
+        EventSetup eventSetup;
+        eventSetup.enabled = true;
+        eventSetup.mainModule = std::make_pair(0, 0);
+
+        for (size_t i=0; i<vmeConfigs.size(); ++i)
+        {
+            auto crateConfig = crateConfigs.at(i);
+            auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
+            auto readoutStructure = readout_parser::build_readout_structure(stacks);
+            const size_t moduleCount = readoutStructure.at(0).size(); // modules in event 0
+
+            EventSetup::CrateSetup crateSetup;
+
+            for (size_t mi=0; mi<moduleCount; ++mi)
+            {
+                crateSetup.moduleTimestampExtractors.emplace_back(make_mesytec_default_timestamp_extractor());
+                crateSetup.moduleMatchWindows.emplace_back(std::make_pair(-100000, 100000));
+            }
+
+            eventSetup.crateSetups.emplace_back(crateSetup);
+        }
+
+        EventBuilderConfig ebConfig;
+        ebConfig.setups.emplace_back(eventSetup);
+
+        auto &ebContext = stage2EventBuilderContext;
+        ebContext->crateId = 0xffu; // XXX: crateId
+        ebContext->quit = false;
+        ebContext->eventBuilderConfig = ebConfig;
+        ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
+        ebContext->inputSocket = stage1SharedDataSockets.second;
+        ebContext->outputSocket = stage2DataSockets.first;
+    }
+
     auto stage2AnalysisContext = std::make_unique<AnalysisProcessingContext>();
     stage2AnalysisContext->quit = false;
-    stage2AnalysisContext->inputSocket = stage1SharedDataSockets.second;
+    stage2AnalysisContext->inputSocket = stage2DataSockets.second;
     // Use this special value to indicate that this is processing data from
     // multiple crates.
-    stage2AnalysisContext->crateId = 0xffu;
+    stage2AnalysisContext->crateId = 0xffu; // XXX: crateId
     auto stage2AnalysisAsp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
     stage2AnalysisAsp->widgetRegistry_ = widgetRegistry;
     auto mergedVmeConfig = make_merged_vme_config_keep_ids(vmeConfigs, std::set<int>{0});
@@ -700,6 +736,8 @@ int main(int argc, char *argv[])
         std::thread analysisThread(analysis_loop, std::ref(*analysisStage1Contexts[i]));
         analysisStage1Threads.emplace_back(std::move(analysisThread));
     }
+
+    std::thread stage2EventBuilderThread(event_builder_combined_loop, std::ref(*stage2EventBuilderContext));
 
     //std::thread stage2CommonConsumerThread(parsed_data_test_consumer_loop, std::ref(*stage2TestConsumerContext));
     std::thread stage2AnalysisThread(analysis_loop, std::ref(*stage2AnalysisContext));
@@ -789,6 +827,9 @@ int main(int argc, char *argv[])
         log_socket_work_counters(stage2TestConsumerContext->counters.access().ref(),
             "parsed_data_consumer (stage2)");
 
+        log_socket_work_counters(stage2EventBuilderContext->counters.access().ref(),
+            "stage2_event_builder");
+
         log_socket_work_counters(stage2AnalysisContext->inputSocketCounters.access().ref(),
             "stage2_analysis_consumer");
 
@@ -821,6 +862,22 @@ int main(int argc, char *argv[])
         QObject::connect(&periodicTimer, &QTimer::timeout, widget, [widget, i, &eventBuilderStage1Contexts]
         {
             auto &context = eventBuilderStage1Contexts[i];
+            auto counters = context->eventBuilder->getCounters();
+            auto str = to_string(counters);
+            widget->setPlainText(QString::fromStdString(str));
+        });
+    }
+
+    {
+        auto widget = mvme::util::make_monospace_plain_textedit().release();
+        widget->setWindowTitle(fmt::format("EventBuilder Stage2").c_str());
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->resize(800, 200);
+        widget->show();
+
+        QObject::connect(&periodicTimer, &QTimer::timeout, widget, [widget, &stage2EventBuilderContext]
+        {
+            auto &context = stage2EventBuilderContext;
             auto counters = context->eventBuilder->getCounters();
             auto str = to_string(counters);
             widget->setPlainText(QString::fromStdString(str));
@@ -908,11 +965,18 @@ int main(int argc, char *argv[])
     if (stage2CommonConsumerThread.joinable())
         stage2CommonConsumerThread.join();
     #else
+    if (stage2EventBuilderThread.joinable())
+        stage2EventBuilderThread.join();
+
+    spdlog::debug("stage2 event builder stopped");
+
+    send_shutdown_message(stage2EventBuilderContext->outputSocket);
+
     if (stage2AnalysisThread.joinable())
         stage2AnalysisThread.join();
     #endif
 
-    spdlog::debug("stage2 common consumer stopped");
+    spdlog::debug("stage2 analysis stopped");
 
 
     // TODO: force shutdowns after giving threads time to stop
