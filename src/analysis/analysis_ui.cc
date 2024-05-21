@@ -1166,7 +1166,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // Build the analysis to make sure everything is setup properly
     auto analysis = m_d->m_serviceProvider->getAnalysis();
 
-    analysis->beginRun(m_d->m_serviceProvider->getRunInfo(), m_d->m_serviceProvider->getVMEConfig());
+    //analysis->beginRun(m_d->m_serviceProvider->getRunInfo(), m_d->m_serviceProvider->getVMEConfig());
 
     // React to changes to the analysis but using the local signal wrapper
     // instead of the analysis directly.

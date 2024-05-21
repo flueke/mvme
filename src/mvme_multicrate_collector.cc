@@ -199,35 +199,6 @@ int main(int argc, char *argv[])
         analysisConfigs.emplace_back(std::move(ana));
     }
 
-    #if 0
-    {
-        #if 0
-        auto logger = [] (const QString &msg)
-        {
-            spdlog::error("analysis: {}", msg.toStdString());
-        };
-        #endif
-
-        size_t crateIndex = 0;
-
-        for (auto &param: parser.params("--analysis"))
-        {
-            auto filename = QString::fromStdString(param.second);
-            auto [ana, errorString] = analysis::read_analysis_config_from_file(filename);
-
-
-            if (crateIndex < vmeConfigs.size())
-            {
-                RunInfo runInfo{};
-                ana->beginRun(runInfo, vmeConfigs[crateIndex].get());
-            }
-
-            analysisConfigs.emplace_back(std::move(ana));
-            ++crateIndex;
-        }
-    }
-    #endif
-
     auto widgetRegistry = std::make_shared<WidgetRegistry>();
     std::vector<std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider>> asps;
 
@@ -669,9 +640,12 @@ int main(int argc, char *argv[])
         {
             RunInfo runInfo{};
             auto &ana = analysisConfigs[i];
-            ana->beginRun(runInfo, vmeConfigs[i].get());
+            //ana->beginRun(runInfo, vmeConfigs[i].get());
         }
     }
+
+
+    fmt::print(">>>>>>>>>>>>>>>>>>>>>> stage2 analysis build start <<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
 
     // Prepare the merged stage2 analysis instance.
     if (analysisConfigs.size() >= vmeConfigs.size())
@@ -681,6 +655,8 @@ int main(int argc, char *argv[])
         stage2AnalysisContext->analysis = ana;
         stage2AnalysisAsp->analysis_ = ana;
     }
+
+    fmt::print(">>>>>>>>>>>>>>>>>>>>>> stage2 analysis build done <<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
 
     // Thread creation starts here.
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
