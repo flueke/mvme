@@ -839,7 +839,6 @@ struct LIBMVME_EXPORT AnalysisProcessingContext
     multi_crate::MinimalAnalysisServiceProvider *asp = nullptr;
     mvlc::Protected<SocketWorkPerformanceCounters> inputSocketCounters;
     u8 crateId = 0;
-    mvlc::Protected<SocketWorkPerformanceCounters> counters;
 };
 
 // Consumes ParsedEventsMessageHeader type messages.

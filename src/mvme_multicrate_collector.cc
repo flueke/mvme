@@ -24,6 +24,7 @@
 #include "util/stopwatch.h"
 #include "util/qt_monospace_textedit.h"
 #include "vme_config.h"
+#include "vme_config_tree.h"
 
 #ifdef MVME_ENABLE_PROMETHEUS
 #include "mvme_prometheus.h"
@@ -178,8 +179,27 @@ int main(int argc, char *argv[])
         vmeConfigs.emplace_back(std::move(vmeConfig));
     }
 
-    std::vector<std::shared_ptr<analysis::Analysis>> analysisConfigs;
+    // Read in the single analyis config file and create an analysis instance from it.
+    // This will be cloned for each crate and for the multi crate stage2 analysis.
+    std::string analysisConfigFilename;
+    parser("--analysis") >> analysisConfigFilename;
 
+    std::vector<std::shared_ptr<analysis::Analysis>> analysisConfigs;
+    for (size_t i=0; i<=vmeConfigs.size(); ++i) // one more for the multi crate stage2 analysis
+    {
+        auto [ana, errorString] = analysis::read_analysis_config_from_file(analysisConfigFilename.c_str());
+
+        if (!ana)
+        {
+            std::cerr << fmt::format("Error reading mvme analysis config from '{}': {}\n",
+                analysisConfigFilename, errorString.toStdString());
+            return 1;
+        }
+
+        analysisConfigs.emplace_back(std::move(ana));
+    }
+
+    #if 0
     {
         #if 0
         auto logger = [] (const QString &msg)
@@ -195,12 +215,6 @@ int main(int argc, char *argv[])
             auto filename = QString::fromStdString(param.second);
             auto [ana, errorString] = analysis::read_analysis_config_from_file(filename);
 
-            if (!ana)
-            {
-                std::cerr << fmt::format("Error reading mvme analysis config from '{}': {}\n",
-                    filename.toStdString(), errorString.toStdString());
-                return 1;
-            }
 
             if (crateIndex < vmeConfigs.size())
             {
@@ -212,6 +226,7 @@ int main(int argc, char *argv[])
             ++crateIndex;
         }
     }
+    #endif
 
     auto widgetRegistry = std::make_shared<WidgetRegistry>();
     std::vector<std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider>> asps;
@@ -611,11 +626,24 @@ int main(int argc, char *argv[])
     stage2AnalysisAsp->vmeConfig_ = mergedVmeConfig.get();
     stage2AnalysisContext->asp = stage2AnalysisAsp.get();
 
-    if (analysisConfigs.size())
+    // Prepare the single crate analysis instances.
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        // Use the first analysis config for stage2 processing.
-        stage2AnalysisContext->analysis = analysisConfigs[0];
-        stage2AnalysisAsp->analysis_ = analysisConfigs[0];
+        if (i < analysisConfigs.size())
+        {
+            RunInfo runInfo{};
+            auto &ana = analysisConfigs[i];
+            ana->beginRun(runInfo, vmeConfigs[i].get());
+        }
+    }
+
+    // Prepare the merged stage2 analysis instance.
+    if (analysisConfigs.size() >= vmeConfigs.size())
+    {
+        auto &ana = analysisConfigs.back();
+        ana->beginRun(RunInfo{}, mergedVmeConfig.get());
+        stage2AnalysisContext->analysis = ana;
+        stage2AnalysisAsp->analysis_ = ana;
     }
 
     // Thread creation starts here.
@@ -694,6 +722,25 @@ int main(int argc, char *argv[])
     stage2AnalysisWidget->setAttribute(Qt::WA_DeleteOnClose, true);
     stage2AnalysisWidget->show();
 
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
+    {
+        auto widget = new VMEConfigTreeWidget;
+        widget->setWindowTitle(fmt::format("crate{}", i).c_str());
+        widget->resize(600, 800);
+        widget->setConfig(vmeConfigs[i].get());
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->show();
+    }
+
+    {
+        auto widget = new VMEConfigTreeWidget;
+        widget->setWindowTitle("merged");
+        widget->resize(600, 800);
+        widget->setConfig(mergedVmeConfig.get());
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->show();
+    }
+
     QTimer periodicTimer;
     periodicTimer.setInterval(1000);
     periodicTimer.start();
@@ -741,6 +788,9 @@ int main(int argc, char *argv[])
 
         log_socket_work_counters(stage2TestConsumerContext->counters.access().ref(),
             "parsed_data_consumer (stage2)");
+
+        log_socket_work_counters(stage2AnalysisContext->inputSocketCounters.access().ref(),
+            "stage2_analysis_consumer");
 
         {
             auto readoutEventCounts = stage2TestConsumerContext->readoutEventCounts.copy();
@@ -854,10 +904,13 @@ int main(int argc, char *argv[])
 
     spdlog::debug("analysis stage 1 threads stopped");
 
-    //if (stage2CommonConsumerThread.joinable())
-    //    stage2CommonConsumerThread.join();
+    #if 0
+    if (stage2CommonConsumerThread.joinable())
+        stage2CommonConsumerThread.join();
+    #else
     if (stage2AnalysisThread.joinable())
         stage2AnalysisThread.join();
+    #endif
 
     spdlog::debug("stage2 common consumer stopped");
 

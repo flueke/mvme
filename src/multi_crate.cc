@@ -1187,7 +1187,15 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
 
     while (!context.quit)
     {
-        assert(nng::allocated_free_space(msg) >= eth::JumboFrameMaxSize);
+        if (!msg || nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+        {
+            if (flush_output_message(msg, context) != 0)
+                return; // FIXME: error log or return
+
+            msg = new_output_message();
+
+            if (!msg) return; // FIXME: error log or return
+        }
 
         if (nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
         {
@@ -1232,13 +1240,14 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
                 spdlog::warn("crate{}: no valid headers in received packet of size {}. Dropping the packet!",
                     context.crateId, prr.bytesTransferred);
             }
-            else if (prr.controllerId() != context.crateId)
-            {
-                spdlog::warn("crate{}: incoming data packet has crateId={} set, excepted {}. Dropping the packet!",
-                    context.crateId, prr.controllerId(), context.crateId);
-            }
             else
             {
+                if (prr.controllerId() != context.crateId)
+                {
+                    //spdlog::warn("crate{}: incoming data packet has crateId={} set, excepted {}. Dropping the packet!",
+                    //    context.crateId, prr.controllerId(), context.crateId);
+                }
+
                 if (lastPacketNumber >= 0)
                 {
                     if (auto loss = eth::calc_packet_loss(
@@ -2219,6 +2228,7 @@ void analysis_loop(AnalysisProcessingContext &context)
 
     nng_msg *inputMsg = nullptr;
     size_t totalInputBytes = 0u;
+    // FIXME: this thing receives data from multiple event builders so a single message loss calculation is not enough.
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
     bool error = false;

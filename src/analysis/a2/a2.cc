@@ -4414,7 +4414,7 @@ void a2_begin_event(A2 *a2, int eventIndex)
 
     int srcCount = a2->dataSourceCounts[eventIndex];
 
-    a2_trace("ei=%d, dataSources=%d\n", eventIndex, srcCount);
+    a2_trace("a=%p, ei=%d, dataSources=%d\n", a2, eventIndex, srcCount);
 
     for (int srcIdx = 0; srcIdx < srcCount; srcIdx++)
     {
