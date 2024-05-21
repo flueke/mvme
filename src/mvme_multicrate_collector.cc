@@ -595,16 +595,28 @@ int main(int argc, char *argv[])
     }
 
 
-    #if 0
-    auto stage2CommonConsumerContext = std::make_unique<ParsedDataConsumerContext>();
-    stage2CommonConsumerContext->quit = false;
-    stage2CommonConsumerContext->inputSocket = stage1SharedDataSockets.second;
-    #else
-    auto stage2CommonConsumerContext = std::make_unique<AnalysisProcessingContext>();
-    stage2CommonConsumerContext->quit = false;
-    stage2CommonConsumerContext->inputSocket = stage1SharedDataSockets.second;
-    stage2CommonConsumerContext->crateId = 0xffu; // XXX
-    #endif
+    auto stage2TestConsumerContext = std::make_unique<ParsedDataConsumerContext>();
+    stage2TestConsumerContext->quit = false;
+    stage2TestConsumerContext->inputSocket = stage1SharedDataSockets.second;
+
+    auto stage2AnalysisContext = std::make_unique<AnalysisProcessingContext>();
+    stage2AnalysisContext->quit = false;
+    stage2AnalysisContext->inputSocket = stage1SharedDataSockets.second;
+    // Use this special value to indicate that this is processing data from
+    // multiple crates.
+    stage2AnalysisContext->crateId = 0xffu;
+    auto stage2AnalysisAsp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
+    stage2AnalysisAsp->widgetRegistry_ = widgetRegistry;
+    auto mergedVmeConfig = make_merged_vme_config_keep_ids(vmeConfigs, std::set<int>{0});
+    stage2AnalysisAsp->vmeConfig_ = mergedVmeConfig.get();
+    stage2AnalysisContext->asp = stage2AnalysisAsp.get();
+
+    if (analysisConfigs.size())
+    {
+        // Use the first analysis config for stage2 processing.
+        stage2AnalysisContext->analysis = analysisConfigs[0];
+        stage2AnalysisAsp->analysis_ = analysisConfigs[0];
+    }
 
     // Thread creation starts here.
     std::thread listfileWriterThread(listfile_writer_loop, std::ref(listfileWriterContext));
@@ -661,9 +673,8 @@ int main(int argc, char *argv[])
         analysisStage1Threads.emplace_back(std::move(analysisThread));
     }
 
-    std::thread stage2CommonConsumerThread(parsed_data_test_consumer_loop, std::ref(*stage2CommonConsumerContext));
-    //std::thread eventBuilderStage2Thread;
-    //std::thread analysisStage2Thread;
+    //std::thread stage2CommonConsumerThread(parsed_data_test_consumer_loop, std::ref(*stage2TestConsumerContext));
+    std::thread stage2AnalysisThread(analysis_loop, std::ref(*stage2AnalysisContext));
 
     // GUI stuff starts here
 
@@ -678,6 +689,10 @@ int main(int argc, char *argv[])
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
         widget->show();
     }
+
+    auto stage2AnalysisWidget = new analysis::ui::AnalysisWidget(stage2AnalysisAsp.get());
+    stage2AnalysisWidget->setAttribute(Qt::WA_DeleteOnClose, true);
+    stage2AnalysisWidget->show();
 
     QTimer periodicTimer;
     periodicTimer.setInterval(1000);
@@ -724,12 +739,12 @@ int main(int argc, char *argv[])
                 fmt::format("analysis_loop (crateId={})", ctx->crateId));
         }
 
-        log_socket_work_counters(stage2CommonConsumerContext->counters.access().ref(),
+        log_socket_work_counters(stage2TestConsumerContext->counters.access().ref(),
             "parsed_data_consumer (stage2)");
 
         {
-            auto readoutEventCounts = stage2CommonConsumerContext->readoutEventCounts.copy();
-            auto systemEventCounts  = stage2CommonConsumerContext->systemEventCounts.copy();
+            auto readoutEventCounts = stage2TestConsumerContext->readoutEventCounts.copy();
+            auto systemEventCounts  = stage2TestConsumerContext->systemEventCounts.copy();
 
             for (size_t i=0; i<readoutEventCounts.size(); ++i)
             {
@@ -839,11 +854,12 @@ int main(int argc, char *argv[])
 
     spdlog::debug("analysis stage 1 threads stopped");
 
-    if (stage2CommonConsumerThread.joinable())
-        stage2CommonConsumerThread.join();
+    //if (stage2CommonConsumerThread.joinable())
+    //    stage2CommonConsumerThread.join();
+    if (stage2AnalysisThread.joinable())
+        stage2AnalysisThread.join();
 
     spdlog::debug("stage2 common consumer stopped");
-
 
 
     // TODO: force shutdowns after giving threads time to stop
@@ -857,13 +873,6 @@ int main(int argc, char *argv[])
     //for (auto &t: readoutThreads)
     //    if (t.joinable())
     //        t.join();
-
-
-
-
-
-
-
 
     mvme_shutdown();
     spdlog::debug("returning from main()");

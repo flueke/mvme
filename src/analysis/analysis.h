@@ -2257,6 +2257,7 @@ class LIBMVME_EXPORT Analysis:
         //
         void beginEvent(int eventIndex);
         // The new (as of 230130) primary method to pass event data to the analysis.
+        // FIXME: crateIndex is unused. Use it or remove it!
         void processModuleData(int crateIndex, int eventIndex,
                                const mesytec::mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
         // The old variant, requiring one call per module.

@@ -279,7 +279,7 @@ void generate_new_ids(ConfigObject *parentObject)
 // Copies a ConfigObject by first serializing to json, then creating the copy
 // via deserialization. The copied object and its children are assigned new ids.
 template<typename T>
-std::unique_ptr<T> copy_config_object(const T *obj)
+std::unique_ptr<T> copy_config_object(const T *obj, bool generateNewIds = true)
 {
     assert(obj);
 
@@ -289,14 +289,15 @@ std::unique_ptr<T> copy_config_object(const T *obj)
     auto ret = std::make_unique<T>();
     ret->read(json);
 
-    generate_new_ids(ret.get());
+    if (generateNewIds)
+        generate_new_ids(ret.get());
 
     return ret;
 }
 
-std::unique_ptr<ModuleConfig> copy_module_config(const ModuleConfig *src)
+std::unique_ptr<ModuleConfig> copy_module_config(const ModuleConfig *src, bool generateNewIds = true)
 {
-    auto moduleCopy = copy_config_object(src);
+    auto moduleCopy = copy_config_object(src, generateNewIds);
 
     // Symbol tables from innermost scope to outermost scope. Traverse them in
     // reverse order setting symbols on the moduleCopy object. This way the
@@ -433,6 +434,98 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
         merged->addEventConfig(eventConf.release());
 
     return std::make_pair(std::move(merged), mappings);
+}
+
+std::unique_ptr<VMEConfig> make_merged_vme_config_keep_ids(
+    const std::vector<VMEConfig *> &crateConfigs,
+    const std::set<int> &crossCrateEvents)
+{
+    assert(!crateConfigs.empty());
+
+    std::vector<std::unique_ptr<EventConfig>> mergedEvents;
+
+    // Create the cross crate merged events.
+    for (auto crossEventIndex: crossCrateEvents)
+    {
+        auto outEv = std::make_unique<EventConfig>();
+        //outEv->setObjectName(QSL("event%1").arg(crossEventIndex));
+        outEv->triggerCondition = TriggerCondition::TriggerIO;
+
+        for (size_t ci=0; ci<crateConfigs.size(); ++ci)
+        {
+            auto crateEvent = crateConfigs[ci]->getEventConfig(crossEventIndex);
+
+            if (!crateEvent)
+                throw std::runtime_error(fmt::format(
+                        "cross crate event {} not present in crate config {}",
+                        crossEventIndex, ci));
+
+            // Use the event name from the main crate for the cross event name
+            // and for the mappings.
+            if (ci == 0)
+            {
+                outEv->setObjectName(crateEvent->objectName());
+            }
+
+            auto moduleConfigs = crateEvent->getModuleConfigs();
+
+            for (auto moduleConf: moduleConfigs)
+            {
+                auto moduleCopy = copy_module_config(moduleConf, false);
+                outEv->addModuleConfig(moduleCopy.release());
+            }
+        }
+
+        mergedEvents.emplace_back(std::move(outEv));
+    }
+
+    // Copy over the non-merged events from each of the crate configs.
+
+    std::vector<std::unique_ptr<EventConfig>> singleCrateEvents;
+
+    for (size_t ci=0; ci<crateConfigs.size(); ++ci)
+    {
+        auto crateConf = crateConfigs[ci];
+        auto crateEvents = crateConf->getEventConfigs();
+
+        for (int ei=0; ei<crateEvents.size(); ++ei)
+        {
+            auto eventConf = crateEvents[ei];
+
+            if (!crossCrateEvents.count(ei))
+            {
+                // Create a recursive copy of the event, then update the mappings table by
+                // iterating over the modules.
+                auto outEv = copy_config_object(eventConf);
+                outEv->setObjectName(QSL("crate%1_%2")
+                                     .arg(ci)
+                                     .arg(eventConf->objectName())
+                                     );
+
+                assert(eventConf->getModuleConfigs().size() == outEv->getModuleConfigs().size());
+
+                for (int mi=0; mi<eventConf->moduleCount(); ++mi)
+                {
+                    auto inMod = eventConf->getModuleConfigs().at(mi);
+                    auto outMod = outEv->getModuleConfigs().at(mi);
+                }
+
+                singleCrateEvents.emplace_back(std::move(outEv));
+            }
+        }
+    }
+
+    auto merged = std::make_unique<VMEConfig>();
+
+    // Add the merged events first, then the non-merged ones.
+
+    for (auto &eventConf: mergedEvents)
+        merged->addEventConfig(eventConf.release());
+
+    for (auto &eventConf: singleCrateEvents)
+        merged->addEventConfig(eventConf.release());
+
+    return std::move(merged);
 }
 
 void multi_crate_playground()

@@ -167,6 +167,24 @@ make_merged_vme_config(
     return make_merged_vme_config(rawConfigs, crossCrateEvents, prevMappings);
 }
 
+// Simpler version of make_merged_vme_config() which keeps existing object ids
+// of ModuleConfigs. EventConfigs are still generated with new ids. These
+// currently do not matter for analysis processing.
+std::unique_ptr<VMEConfig> LIBMVME_EXPORT make_merged_vme_config_keep_ids(
+    const std::vector<VMEConfig *> &crateConfigs,
+    const std::set<int> &crossCrateEvents);
+
+inline std::unique_ptr<VMEConfig> LIBMVME_EXPORT make_merged_vme_config_keep_ids(
+    const std::vector<std::unique_ptr<VMEConfig>> &crateConfigs,
+    const std::set<int> &crossCrateEvents)
+{
+    std::vector<VMEConfig *> rawConfigs;
+    for (auto &ptr: crateConfigs)
+        rawConfigs.emplace_back(ptr.get());
+
+    return make_merged_vme_config_keep_ids(rawConfigs, crossCrateEvents);
+}
+
 //
 // Playground
 //
@@ -790,7 +808,7 @@ struct LIBMVME_EXPORT EventBuilderContext
     nng_msg *outputMessage = nullptr;
     u32 outputMessageNumber = 0u;
     mvlc::Protected<SocketWorkPerformanceCounters> counters;
-    unsigned crateId = 0;
+    u8 crateId = 0;
 
     std::array<u8, mvlc::MaxVMECrates> inputCrateMappings;
     std::array<u8, mvlc::MaxVMECrates> outputCrateMappings;
@@ -820,7 +838,8 @@ struct LIBMVME_EXPORT AnalysisProcessingContext
     bool isReplay = false;
     multi_crate::MinimalAnalysisServiceProvider *asp = nullptr;
     mvlc::Protected<SocketWorkPerformanceCounters> inputSocketCounters;
-    u8 crateId;
+    u8 crateId = 0;
+    mvlc::Protected<SocketWorkPerformanceCounters> counters;
 };
 
 // Consumes ParsedEventsMessageHeader type messages.
