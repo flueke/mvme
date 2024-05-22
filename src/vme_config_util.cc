@@ -29,6 +29,7 @@
 
 #include "util/qt_fs.h"
 #include "vme.h"
+#include "vme_config_json_schema_updates.h"
 
 namespace
 {
@@ -535,6 +536,24 @@ vme_script::SymbolTable variable_symboltable_from_module_meta(const vats::VMEMod
     }
 
     return result;
+}
+
+std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
+    const std::vector<u8> &data)
+{
+    QByteArray qbytes(reinterpret_cast<const char *>(data.data()), data.size());
+
+    auto doc = QJsonDocument::fromJson(qbytes);
+    auto json = doc.object();
+    json = json.value("VMEConfig").toObject();
+
+    mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
+    updateOptions.skip_v4_VMEScriptVariableUpdate = true;
+
+    json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, {}, updateOptions);
+    auto vmeConfig = std::make_unique<VMEConfig>();
+    auto ec = vmeConfig->read(json);
+    return std::make_pair(std::move(vmeConfig), ec);
 }
 
 }
