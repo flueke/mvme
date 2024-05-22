@@ -536,23 +536,7 @@ int main(int argc, char *argv[])
 
     auto ebCounters = mcrdo.eventBuilder->getCounters();
 
-    spdlog::info("EventBuilder max mem usage: {}", ebCounters.maxMemoryUsage);
-
-    for (size_t ei=0; ei<ebCounters.eventCounters.size(); ++ei)
-    {
-        auto &modCounters = ebCounters.eventCounters.at(ei);
-        for (size_t mi=0; mi<modCounters.discardedEvents.size(); ++mi)
-        {
-            spdlog::info(
-                "  ei={}, mi={}, totalHits={}, discarded={}, empties={}, invScoreSum={}",
-                ei, mi,
-                modCounters.totalHits.at(mi),
-                modCounters.discardedEvents.at(mi),
-                modCounters.emptyEvents.at(mi),
-                modCounters.invScoreSums.at(mi)
-                );
-        }
-    }
+    spdlog::info(to_string(ebCounters));
 
     analysis->endRun();
 
