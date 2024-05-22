@@ -332,9 +332,19 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
         nng::nng_stat_unit_to_string(unit));
 }
 
-#if 1 // sandbox
 using unique_msg_handle = std::unique_ptr<nng_msg, decltype(&nng_msg_free)>;
-#endif
+
+inline std::pair<unique_msg_handle, int> receive_message(nng_socket sock, int flags = 0)
+{
+    nng_msg *msg = nullptr;
+
+    if (auto res = nng_recvmsg(sock, &msg, flags))
+    {
+        return {unique_msg_handle(nullptr, nng_msg_free), res};
+    }
+
+    return {unique_msg_handle(msg, nng_msg_free), 0};
+}
 
 struct YDuplicatorContext
 {

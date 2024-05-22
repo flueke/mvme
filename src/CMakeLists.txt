@@ -563,6 +563,7 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_vmeconfig_crateconfig mvlc/vmeconfig_crateconfig.test.cc)
     add_mvme_gtest(test_multi_crate multi_crate.test.cc)
     add_mvme_gtest(test_util_version_compare util/version_compare.test.cc)
+    add_mvme_gtest(test_mesy_nng_pipeline2 util/mesy_nng_pipeline2.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
