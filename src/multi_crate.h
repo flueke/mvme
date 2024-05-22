@@ -18,6 +18,7 @@
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvme_mvlc_listfile.h"
 #include "util/mesy_nng.h"
+#include "util/mesy_nng_pipeline2.h"
 #include "vme_config.h"
 
 // TODO:
@@ -503,8 +504,13 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 BaseMessageHeader
 // frames.
 struct LIBMVME_EXPORT PACK_AND_ALIGN4 ReadoutDataMessageHeader: public BaseMessageHeader
 {
-    u32 bufferType; // mvlc eth or mvlc usb
-    u8 crateId;
+    ReadoutDataMessageHeader()
+    {
+        messageType = MessageType::ReadoutData;
+    }
+
+    u32 bufferType = 0; // mvlc eth or mvlc usb
+    u8 crateId = 0;
 };
 
 static_assert(sizeof(ReadoutDataMessageHeader) % sizeof(u32) == 0);
@@ -513,6 +519,10 @@ static_assert(sizeof(ReadoutDataMessageHeader) % sizeof(u32) == 0);
 // different crates.
 struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedEventsMessageHeader: public BaseMessageHeader
 {
+    ParsedEventsMessageHeader()
+    {
+        messageType = MessageType::ParsedEvents;
+    }
 };
 
 static_assert(sizeof(ParsedEventsMessageHeader) % sizeof(u32) == 0);
@@ -556,6 +566,22 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEven
 
 #undef PACK_AND_ALIGN4
 
+template<typename Header>
+nng::unique_msg_handle allocate_prepare_message(const Header &header, size_t allocSize = mvlc::util::Megabytes(1))
+{
+    auto msg = nng::allocate_reserve_message(sizeof(Header) + allocSize);
+
+    if (!msg)
+        return msg;
+
+    if (auto res = nng_msg_append(msg.get(), &header, sizeof(header)))
+    {
+        nng::mesy_nng_error("nng_msg_append", res);
+        return nng::unique_msg_handle(nullptr, nng_msg_free);
+    }
+
+    return msg;
+}
 
 int LIBMVME_EXPORT send_shutdown_message(nng_socket socket);
 void LIBMVME_EXPORT send_shutdown_messages(std::initializer_list<nng_socket> sockets);
@@ -856,6 +882,16 @@ struct LIBMVME_EXPORT ParsedDataConsumerContext
 
 // Consumes ParsedEventsMessageHeader type messages.
 void LIBMVME_EXPORT parsed_data_test_consumer_loop(ParsedDataConsumerContext &context);
+
+struct MulticrateReplayContext
+{
+    std::atomic<bool> quit;
+    std::unique_ptr<mvlc::listfile::ReadHandle> lfh;
+    // output writer in crate order
+    std::vector<std::unique_ptr<nng::OutputWriter>> writers;
+};
+
+void LIBMVME_EXPORT multicrate_replay_loop(MulticrateReplayContext &context);
 
 } // namespace mesytec::mvme::multi_crate
 

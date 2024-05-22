@@ -346,6 +346,26 @@ inline std::pair<unique_msg_handle, int> receive_message(nng_socket sock, int fl
     return {unique_msg_handle(msg, nng_msg_free), 0};
 }
 
+inline unique_msg_handle allocate_reserve_message(size_t reserve = 0)
+{
+    nng_msg *msg = nullptr;
+
+    if (auto res = nng_msg_alloc(&msg, 0))
+    {
+        mesy_nng_error("allocate_reserve_message", res);
+        return unique_msg_handle(nullptr, nng_msg_free);
+    }
+
+    if (auto res = nng_msg_reserve(msg, reserve))
+    {
+        mesy_nng_error("allocate_reserve_message", res);
+        nng_msg_free(msg);
+        return unique_msg_handle(nullptr, nng_msg_free);
+    }
+
+    return unique_msg_handle(msg, nng_msg_free);
+}
+
 struct YDuplicatorContext
 {
     std::atomic<bool> quit;

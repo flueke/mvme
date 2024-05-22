@@ -35,7 +35,7 @@ struct SocketOutputWriter: public OutputWriter
 {
     nng_socket socket = NNG_SOCKET_INITIALIZER;
     size_t maxRetries = 3;
-    retry_predicate retryPredicate;
+    retry_predicate retryPredicate; // if set, overrides maxRetries
     std::string debugInfo;
 
     int writeMessage(unique_msg_handle &&msg) override
@@ -125,6 +125,13 @@ class MultiOutputWriter: public OutputWriter
     private:
         std::mutex mutex_;
         std::vector<std::unique_ptr<OutputWriter>> writers;
+};
+
+struct ProcessingLoopContext
+{
+    std::atomic<bool> quit;
+    std::unique_ptr<InputReader> inputReader;
+    std::unique_ptr<OutputWriter> outputWriter;
 };
 
 }

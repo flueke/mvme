@@ -3,7 +3,6 @@
 #include <mesytec-mvlc/util/udp_sockets.h>
 #include <QApplication>
 #include <QTimer>
-#include <signal.h>
 #include <map>
 
 #ifndef __WIN32
@@ -21,8 +20,9 @@
 #include "mvme_session.h"
 #include "util/mesy_nng.h"
 #include "util/mesy_nng_pipeline.h"
-#include "util/stopwatch.h"
 #include "util/qt_monospace_textedit.h"
+#include "util/signal_handling.h"
+#include "util/stopwatch.h"
 #include "vme_config.h"
 #include "vme_config_tree.h"
 
@@ -34,53 +34,6 @@ using namespace mesytec;
 using namespace mesytec::mvlc;
 using namespace mesytec::mvme;
 using namespace mesytec::mvme::multi_crate;
-
-static std::atomic<bool> signal_received = false;
-
-#ifndef __WIN32
-void signal_handler(int signum)
-{
-    std::cerr << "signal " << signum << "\n";
-    std::cerr.flush();
-    signal_received = true;
-}
-
-void setup_signal_handlers()
-{
-    /* Set up the structure to specify the new action. */
-    struct sigaction new_action;
-    new_action.sa_handler = signal_handler;
-    sigemptyset (&new_action.sa_mask);
-    new_action.sa_flags = 0;
-
-    for (auto signum: { SIGINT, SIGHUP, SIGTERM })
-    {
-        if (sigaction(signum, &new_action, NULL) != 0)
-            throw std::system_error(errno, std::generic_category(), "setup_signal_handlers");
-    }
-}
-#else
-BOOL CtrlHandler(DWORD ctrlType)
-{
-    switch (ctrlType)
-    {
-    case CTRL_C_EVENT:
-        printf("\n\nCTRL-C pressed, exiting.\n\n");
-        signal_received = true;
-        return (TRUE);
-    default:
-        return (FALSE);
-    }
-}
-
-void setup_signal_handlers()
-{
-    if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE))
-    {
-        throw std::runtime_error("Error setting Console-Ctrl Handler\n");
-    }
-}
-#endif
 
 #if 0
 struct ParsedDataStatsContext
@@ -153,7 +106,7 @@ int main(int argc, char *argv[])
             spdlog::set_level(spdlog::level::from_str(logLevelName));
     }
 
-    trace_log_parser_info(parser, "mvlc-cli");
+    trace_log_parser_info(parser, "mvme_multicrate_collector");
 
     if (parser.pos_args().size() <= 1)
     {
@@ -761,7 +714,7 @@ int main(int argc, char *argv[])
 
     QObject::connect(&periodicTimer, &QTimer::timeout, [&]
     {
-        if (signal_received)
+        if (signal_received())
             app.quit();
 
         for (auto &ctx: readoutContexts)

@@ -2450,4 +2450,96 @@ void parsed_data_test_consumer_loop(ParsedDataConsumerContext &context)
     }
 }
 
+void multicrate_replay_loop(MulticrateReplayContext &context)
+{
+    assert(context.lfh);
+    assert(context.writers.size());
+
+    struct Output
+    {
+        unique_msg_handle msg = { nullptr, nng_msg_free };
+        size_t messageNumber = 0;
+    };
+
+    std::vector<Output> outputs(context.writers.size());
+    mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
+    std::vector<u8> tmpBuf;
+
+    while (!context.quit)
+    {
+        mainBuf.ensureFreeSpace(tmpBuf.size());
+        std::copy(std::begin(tmpBuf), std::end(tmpBuf), mainBuf.data() + mainBuf.used());
+
+        size_t bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), mainBuf.free());
+
+        if (bytesRead == 0)
+            break;
+
+        auto input = mainBuf.viewU32();
+        auto it = std::begin(input);
+
+        while (it != std::end(input))
+        {
+            u32 header = *it;
+            unsigned crateId = 0;
+            size_t partWords = 0;
+            u32 bufferType = 0;
+
+            if (mvlc::is_known_frame_header(header))
+            {
+                auto frameInfo = mvlc::extract_frame_info(header);
+                crateId = frameInfo.ctrl;
+                partWords = frameInfo.len + 1;
+                bufferType = static_cast<u32>(ConnectionType::USB);
+            }
+            else if (it + 1 < std::end(input))
+            {
+                u32 header1 = *(it+1);
+                mvlc::eth::PayloadHeaderInfo ethInfo{ header, header1 };
+                crateId = ethInfo.controllerId();
+                partWords = ethInfo.dataWordCount() + 2;
+                bufferType = static_cast<u32>(ConnectionType::ETH);
+            }
+
+            if (partWords == 0 || it + partWords >= std::end(input))
+            {
+                // Either we are at the end of input or the current part is not
+                // fully contained in the input sequence => move remaining data
+                // to the temp buffer and leave the inner loop.
+                std::copy(it, std::end(input), std::begin(tmpBuf));
+                break;
+            }
+
+            const size_t partBytes = partWords * sizeof(u32);
+
+            if (crateId < outputs.size())
+            {
+                auto &output = outputs[crateId];
+
+                if (!output.msg || allocated_free_space(output.msg.get()) < partBytes)
+                {
+                    if (output.msg)
+                        context.writers[crateId]->writeMessage(std::move(output.msg));
+
+                    ReadoutDataMessageHeader messageHeader;
+                    messageHeader.bufferType = bufferType;
+                    messageHeader.crateId = crateId;
+                    messageHeader.messageNumber = output.messageNumber++;
+                    output.msg = allocate_prepare_message(messageHeader);
+
+                    if (!output.msg)
+                        return;
+                }
+            }
+        }
+    }
+
+    // Flush remaining messages.
+    for (auto &output: outputs)
+    {
+        if (output.msg)
+            context.writers[output.messageNumber]->writeMessage(std::move(output.msg));
+    }
+}
+
 } // namespace mesytec::mvme::multi_crate

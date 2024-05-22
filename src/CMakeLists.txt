@@ -253,6 +253,7 @@ add_library(libmvme SHARED
     util/qt_monospace_textedit.cc
     util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp
+    util/signal_handling.cc
     util/strings.cc
     util/thread_name.cc
     util/variablify.cc
@@ -533,6 +534,10 @@ install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATIO
 # mvme multicrate collector
 add_mvme_exe(mvme_multicrate_collector mvme_multicrate_collector.cc)
 install(TARGETS mvme_multicrate_collector RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+# mvme multicrate replay
+add_mvme_exe(mvme_multicrate_replay mvme_multicrate_replay.cc)
+install(TARGETS mvme_multicrate_replay RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 
 # automated gtests
