@@ -145,6 +145,8 @@ int main(int argc, char *argv[])
 
         nng_socket outputSocket = nng::make_pub_socket();
         nng_socket inputSocket = nng::make_sub_socket();
+        //nng_socket outputSocket = nng::make_pair_socket();
+        //nng_socket inputSocket = nng::make_pair_socket();
 
         if (int res = nng::marry_listen_dial(outputSocket, inputSocket, uri.c_str()))
         {
