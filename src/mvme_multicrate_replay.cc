@@ -178,9 +178,7 @@ int main(int argc, char *argv[])
         parserContexts.emplace_back(std::move(parserContext));
     }
 
-    auto replayFuture = std::async(std::launch::async, [&replayContext](){
-        multicrate_replay_loop(replayContext);
-    });
+    auto replayFuture = std::async(std::launch::async, multicrate_replay_loop, std::ref(replayContext));
 
     std::vector<std::future<void>> parserFutures;
 
@@ -201,7 +199,30 @@ int main(int argc, char *argv[])
         if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
         {
             assert(replayFuture.valid());
-            replayFuture.get();
+            auto result = replayFuture.get();
+            if (result.hasError())
+            {
+                if (result.ec)
+                {
+                    auto ec = result.ec;
+                    spdlog::warn("result from replay loop: error_code={} ({})", ec.message(), ec.category().name());
+                }
+                else if (result.exception)
+                {
+                    try
+                    {
+                        std::rethrow_exception(result.exception);
+                    }
+                    catch(const std::runtime_error& e)
+                    {
+                        spdlog::error("error from replay loop: {}", e.what());
+                    }
+                    catch(...)
+                    {
+                        spdlog::error("unknown exception thrown from replay loop");
+                    }
+                }
+            }
             spdlog::debug("replay done, leaving main loop");
             break;
         }

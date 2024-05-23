@@ -2459,9 +2459,10 @@ void parsed_data_test_consumer_loop(ParsedDataConsumerContext &context)
     }
 }
 
-void multicrate_replay_loop(MulticrateReplayContext &context)
+LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
 {
     spdlog::info("entering multicrate_replay_loop");
+    LoopResult result;
 
     assert(context.lfh);
     assert(context.writers.size());
@@ -2499,6 +2500,13 @@ void multicrate_replay_loop(MulticrateReplayContext &context)
         catch (const std::runtime_error &e)
         {
             spdlog::warn("multicrate_replay_loop: runtime_error while reading from input file: {}", e.what());
+            result.exception = std::current_exception();
+            break;
+        }
+        catch (...)
+        {
+            spdlog::warn("multicrate_replay_loop: exception while reading from input file");
+            result.exception = std::current_exception();
             break;
         }
 
@@ -2568,7 +2576,7 @@ void multicrate_replay_loop(MulticrateReplayContext &context)
                     {
                         spdlog::error("multicrate_replay_loop: crateId {} - failed to allocate message",
                             crateId);
-                        return;
+                        return result;
                     }
                 }
 
@@ -2606,6 +2614,8 @@ void multicrate_replay_loop(MulticrateReplayContext &context)
         }
     }
     spdlog::info("leaving multicrate_replay_loop");
+
+    return result;
 }
 
 } // namespace mesytec::mvme::multi_crate
