@@ -586,6 +586,7 @@ nng::unique_msg_handle allocate_prepare_message(const Header &header, size_t all
 int LIBMVME_EXPORT send_shutdown_message(nng_socket socket);
 void LIBMVME_EXPORT send_shutdown_messages(std::initializer_list<nng_socket> sockets);
 bool LIBMVME_EXPORT is_shutdown_message(nng_msg *msg);
+int LIBMVME_EXPORT send_shutdown_message(nng::OutputWriter &outputWriter);
 
 // Move trailing bytes from msg to tmpBuf. Returns the number of bytes moved.
 size_t LIBMVME_EXPORT fixup_listfile_buffer_message(
@@ -886,8 +887,8 @@ void LIBMVME_EXPORT parsed_data_test_consumer_loop(ParsedDataConsumerContext &co
 struct MulticrateReplayContext
 {
     std::atomic<bool> quit;
-    std::unique_ptr<mvlc::listfile::ReadHandle> lfh;
-    // output writer in crate order
+    mvlc::listfile::ReadHandle *lfh = nullptr;
+    // output writers in crate order
     std::vector<std::unique_ptr<nng::OutputWriter>> writers;
 };
 

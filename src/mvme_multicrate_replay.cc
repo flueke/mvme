@@ -3,10 +3,12 @@
 #include <QApplication>
 #include <QTimer>
 
+#include "mvlc/vmeconfig_to_crateconfig.h"
 #include "util/signal_handling.h"
 #include "mvme_session.h"
 #include "multi_crate.h"
 #include "vme_config_util.h"
+#include "util/stopwatch.h"
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
@@ -117,6 +119,133 @@ int main(int argc, char *argv[])
     }
 
     fmt::print("Read {} vme configs from {}\n", vmeConfigs.size(), listfileFilename);
+
+    std::vector<std::pair<nng_socket, nng_socket>> readoutSnoopSockets; // readout writes, parser reads
+    std::vector<std::pair<nng_socket, nng_socket>> parsedDataSockets; // parser writes, eventbuilder reads
+
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
+    {
+        auto uri = fmt::format("inproc://readoutDataSnoop{}", i);
+        nng_socket writerSocket = nng::make_pair_socket();
+        nng_socket readerSocket = nng::make_pair_socket();
+
+        if (int res = nng::marry_listen_dial(writerSocket, readerSocket, uri.c_str()))
+        {
+            nng::mesy_nng_error("marry_listen_dial readoutDataSnoop", res);
+            return 1;
+        }
+
+        readoutSnoopSockets.emplace_back(std::make_pair(writerSocket, readerSocket));
+    }
+
+    // parsers -> eventbuilders stage 1
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
+    {
+        auto uri = fmt::format("inproc://parsedData{}", i);
+
+        nng_socket outputSocket = nng::make_pub_socket();
+        nng_socket inputSocket = nng::make_sub_socket();
+
+        if (int res = nng::marry_listen_dial(outputSocket, inputSocket, uri.c_str()))
+        {
+            nng::mesy_nng_error("marry_listen_dial parsedData", res);
+            return 1;
+        }
+
+        parsedDataSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
+    }
+
+    MulticrateReplayContext replayContext;
+    replayContext.quit = false;
+    replayContext.lfh = readerHelper.readHandle;
+
+    for (const auto &[writerSocket, _]: readoutSnoopSockets)
+    {
+        auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
+        replayContext.writers.emplace_back(std::move(writer));
+    }
+
+    std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
+
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
+    {
+        auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
+        crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
+        auto parserContext = make_readout_parser_nng_context(crateConfig);
+        parserContext->quit = false;
+        parserContext->inputSocket = readoutSnoopSockets[i].second;
+        parserContext->outputSocket = parsedDataSockets[i].first;
+        parserContexts.emplace_back(std::move(parserContext));
+    }
+
+    auto replayFuture = std::async(std::launch::async, [&replayContext](){
+        multicrate_replay_loop(replayContext);
+    });
+
+    std::vector<std::future<void>> parserFutures;
+
+    for (auto &parserContext: parserContexts)
+    {
+        parserFutures.emplace_back(std::async(std::launch::async, [&parserContext](){
+            readout_parser_loop(*parserContext);
+        }));
+    }
+
+    // TODO: wait for replayFuture and parserFutures
+    // TODO: shutdown procedure
+    #if 1
+    StopWatch reportStopwatch;
+    reportStopwatch.start();
+    while (!signal_received())
+    {
+        if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
+        {
+            assert(replayFuture.valid());
+            replayFuture.get();
+            spdlog::debug("replay done, leaving main loop");
+            break;
+        }
+
+        if (reportStopwatch.get_interval() >= std::chrono::milliseconds(1000))
+        {
+            for (auto &ctx: parserContexts)
+            {
+                log_socket_work_counters(ctx->counters.access().ref(),
+                    fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+            }
+            reportStopwatch.interval();
+        }
+    }
+
+    spdlog::debug("sending shutdown messages through replay output writers");
+    for (auto &writer: replayContext.writers)
+    {
+        if (writer)
+            send_shutdown_message(*writer);
+    }
+
+    spdlog::info("final parser socket counters:");
+    for (auto &ctx: parserContexts)
+    {
+        log_socket_work_counters(ctx->counters.access().ref(),
+            fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+    }
+    #else
+    QTimer periodicTimer;
+    periodicTimer.setInterval(1000);
+    periodicTimer.start();
+
+    QObject::connect(&periodicTimer, &QTimer::timeout, [&]
+    {
+        if (signal_received())
+            app.quit();
+    }
+
+
+    int ret = app.exec();
+    #endif
+
+    spdlog::debug("end of main reached");
 
     return 0;
 }

@@ -525,7 +525,7 @@ std::unique_ptr<VMEConfig> make_merged_vme_config_keep_ids(
     for (auto &eventConf: singleCrateEvents)
         merged->addEventConfig(eventConf.release());
 
-    return std::move(merged);
+    return merged;
 }
 
 void multi_crate_playground()
@@ -627,6 +627,15 @@ bool LIBMVME_EXPORT is_shutdown_message(nng_msg *msg)
     }
 
     return false;
+}
+
+int send_shutdown_message(nng::OutputWriter &outputWriter)
+{
+    multi_crate::BaseMessageHeader header{};
+    header.messageType = multi_crate::MessageType::GracefulShutdown;
+    auto msg = nng::alloc_message(sizeof(header));
+    std::memcpy(nng_msg_body(msg), &header, sizeof(header));
+    return outputWriter.writeMessage(unique_msg_handle(msg, nng_msg_free));
 }
 
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
@@ -2452,6 +2461,8 @@ void parsed_data_test_consumer_loop(ParsedDataConsumerContext &context)
 
 void multicrate_replay_loop(MulticrateReplayContext &context)
 {
+    spdlog::info("entering multicrate_replay_loop");
+
     assert(context.lfh);
     assert(context.writers.size());
 
@@ -2469,16 +2480,32 @@ void multicrate_replay_loop(MulticrateReplayContext &context)
     {
         mainBuf.ensureFreeSpace(tmpBuf.size());
         std::copy(std::begin(tmpBuf), std::end(tmpBuf), mainBuf.data() + mainBuf.used());
+        mainBuf.use(tmpBuf.size());
+        tmpBuf.clear();
 
-        size_t bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), mainBuf.free());
+        size_t bytesRead = 0;
 
-        if (bytesRead == 0)
+        try
+        {
+            bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), mainBuf.free());
+            mainBuf.use(bytesRead);
+
+            if (bytesRead == 0)
+            {
+                spdlog::debug("multicrate_replay_loop: EOF reached");
+                break;
+            }
+        }
+        catch (const std::runtime_error &e)
+        {
+            spdlog::warn("multicrate_replay_loop: runtime_error while reading from input file: {}", e.what());
             break;
+        }
 
         auto input = mainBuf.viewU32();
         auto it = std::begin(input);
 
-        while (it != std::end(input))
+        while (it < std::end(input))
         {
             u32 header = *it;
             unsigned crateId = 0;
@@ -2506,11 +2533,14 @@ void multicrate_replay_loop(MulticrateReplayContext &context)
                 // Either we are at the end of input or the current part is not
                 // fully contained in the input sequence => move remaining data
                 // to the temp buffer and leave the inner loop.
-                std::copy(it, std::end(input), std::begin(tmpBuf));
+                std::copy(it, std::end(input), std::back_inserter(tmpBuf));
                 break;
             }
 
             const size_t partBytes = partWords * sizeof(u32);
+
+            //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), partWords,
+            //    fmt::format("multicrate_replay_loop: crateId={}", crateId));
 
             if (crateId < outputs.size())
             {
@@ -2519,27 +2549,63 @@ void multicrate_replay_loop(MulticrateReplayContext &context)
                 if (!output.msg || allocated_free_space(output.msg.get()) < partBytes)
                 {
                     if (output.msg)
+                    {
+                        spdlog::debug("multicrate_replay_loop: crateId {} - flushing message {} of size {}",
+                            crateId, output.messageNumber, nng_msg_len(output.msg.get()));
                         context.writers[crateId]->writeMessage(std::move(output.msg));
+                    }
+
+                    spdlog::debug("multicrate_replay_loop: crateId {} - creating new output message #{}",
+                        crateId, output.messageNumber + 1);
 
                     ReadoutDataMessageHeader messageHeader;
                     messageHeader.bufferType = bufferType;
                     messageHeader.crateId = crateId;
-                    messageHeader.messageNumber = output.messageNumber++;
+                    messageHeader.messageNumber = ++output.messageNumber;
                     output.msg = allocate_prepare_message(messageHeader);
 
                     if (!output.msg)
+                    {
+                        spdlog::error("multicrate_replay_loop: crateId {} - failed to allocate message",
+                            crateId);
                         return;
+                    }
                 }
+
+                assert(output.msg);
+                assert(allocated_free_space(output.msg.get()) >= partBytes);
+                // Calculate byte offset of the current part in the main buffer.
+                auto partStart = mainBuf.data() + (it - std::begin(input)) * sizeof(u32);
+                nng_msg_append(output.msg.get(), partStart, partBytes);
+                spdlog::trace("multicrate_replay_loop: crateId {} - appended {} bytes/ {} words to output message #{}",
+                    crateId, partBytes, partWords, output.messageNumber);
             }
+            else
+                spdlog::warn("multicrate_replay_loop: crateId {} out of range", crateId);
+
+            it += partWords;
         }
     }
 
-    // Flush remaining messages.
-    for (auto &output: outputs)
+    if (tmpBuf.size())
     {
-        if (output.msg)
-            context.writers[output.messageNumber]->writeMessage(std::move(output.msg));
+        spdlog::warn("multicrate_replay_loop: remaining data in temp buffer: {} bytes", tmpBuf.size());
     }
+
+    spdlog::debug("multicrate_replay_loop: flushing remaining messages");
+
+    // Flush remaining messages.
+    for (size_t crateId = 0; crateId < outputs.size(); ++crateId)
+    {
+        auto &output = outputs[crateId];
+        if (output.msg)
+        {
+            spdlog::debug("multicrate_replay_loop: crateId {} - flushing message {} of size {}",
+                crateId, output.messageNumber, nng_msg_len(output.msg.get()));
+            context.writers[crateId]->writeMessage(std::move(output.msg));
+        }
+    }
+    spdlog::info("leaving multicrate_replay_loop");
 }
 
 } // namespace mesytec::mvme::multi_crate

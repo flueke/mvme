@@ -23,6 +23,8 @@ struct SocketInputReader: public InputReader
     nng_socket socket = NNG_SOCKET_INITIALIZER;
     int receiveFlags = 0; // can be set to NNG_FLAG_NONBLOCK, e.g. for the MultiInputReader
 
+    explicit SocketInputReader(nng_socket s): socket(s) {}
+
     std::pair<unique_msg_handle, int> readMessage() override
     {
         nng_msg *msg = nullptr;
@@ -37,6 +39,8 @@ struct SocketOutputWriter: public OutputWriter
     size_t maxRetries = 3;
     retry_predicate retryPredicate; // if set, overrides maxRetries
     std::string debugInfo;
+
+    explicit SocketOutputWriter(nng_socket s): socket(s) {}
 
     int writeMessage(unique_msg_handle &&msg) override
     {
