@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     std::string analysisFilename;
     parser("--analysis") >> analysisFilename;
 
-    mvlc::listfile::ZipReader zipReader;
+    mvlc::listfile::SplitZipReader zipReader;
     try
     {
         zipReader.openArchive(listfileFilename);

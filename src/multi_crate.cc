@@ -2475,20 +2475,17 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
 
     std::vector<Output> outputs(context.writers.size());
     mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
-    std::vector<u8> tmpBuf;
 
     while (!context.quit)
     {
-        mainBuf.ensureFreeSpace(tmpBuf.size());
-        std::copy(std::begin(tmpBuf), std::end(tmpBuf), mainBuf.data() + mainBuf.used());
-        mainBuf.use(tmpBuf.size());
-        tmpBuf.clear();
-
         size_t bytesRead = 0;
+        size_t bytesToRead = mainBuf.free();
+
+        assert(bytesToRead > 0);
 
         try
         {
-            bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), mainBuf.free());
+            bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), bytesToRead);
             mainBuf.use(bytesRead);
 
             if (bytesRead == 0)
@@ -2499,7 +2496,7 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
         }
         catch (const std::runtime_error &e)
         {
-            spdlog::warn("multicrate_replay_loop: runtime_error while reading from input file: {}", e.what());
+            spdlog::warn("multicrate_replay_loop: runtime_error while reading from input file: {}, requestedBytes={}", e.what(), bytesToRead);
             result.exception = std::current_exception();
             break;
         }
@@ -2540,8 +2537,14 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
             {
                 // Either we are at the end of input or the current part is not
                 // fully contained in the input sequence => move remaining data
-                // to the temp buffer and leave the inner loop.
-                std::copy(it, std::end(input), std::back_inserter(tmpBuf));
+                // to the front of the buffer.
+
+                const auto byteOffset = std::distance(std::begin(input), it) * sizeof(u32);
+                const auto byteCount = std::distance(it, std::end(input)) * sizeof(u32);
+                spdlog::debug("multicrate_replay_loop: moving {} remaining bytes to the front of the buffer", byteCount);
+                auto &buffer = mainBuf.buffer();
+                std::memcpy(buffer.data(), buffer.data() + byteOffset, byteCount);
+                mainBuf.setUsed(byteCount);
                 break;
             }
 
@@ -2583,7 +2586,7 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
                 assert(output.msg);
                 assert(allocated_free_space(output.msg.get()) >= partBytes);
                 // Calculate byte offset of the current part in the main buffer.
-                auto partStart = mainBuf.data() + (it - std::begin(input)) * sizeof(u32);
+                auto partStart = mainBuf.data() + std::distance(std::begin(input), it) * sizeof(u32);
                 nng_msg_append(output.msg.get(), partStart, partBytes);
                 spdlog::trace("multicrate_replay_loop: crateId {} - appended {} bytes/ {} words to output message #{}",
                     crateId, partBytes, partWords, output.messageNumber);
@@ -2593,11 +2596,6 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
 
             it += partWords;
         }
-    }
-
-    if (tmpBuf.size())
-    {
-        spdlog::warn("multicrate_replay_loop: remaining data in temp buffer: {} bytes", tmpBuf.size());
     }
 
     spdlog::debug("multicrate_replay_loop: flushing remaining messages");
