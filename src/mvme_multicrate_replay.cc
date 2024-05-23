@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
         parserContexts.emplace_back(std::move(parserContext));
     }
 
-    auto replayFuture = std::async(std::launch::async, multicrate_replay_loop, std::ref(replayContext));
+    auto replayFuture = std::async(std::launch::async, replay_loop, std::ref(replayContext));
 
     std::vector<std::future<void>> parserFutures;
 
@@ -234,6 +234,16 @@ int main(int argc, char *argv[])
                 log_socket_work_counters(ctx->counters.access().ref(),
                     fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
             }
+
+            {
+                auto ca = replayContext.writerCounters.access();
+                const auto &counters = ca.ref();
+                for(size_t crateId=0; crateId<counters.size(); ++crateId)
+                {
+                    log_socket_work_counters(counters[crateId], fmt::format("replay_loop ouputWriter (crateId={})", crateId));
+                }
+            }
+
             reportStopwatch.interval();
         }
     }
@@ -250,6 +260,15 @@ int main(int argc, char *argv[])
     {
         log_socket_work_counters(ctx->counters.access().ref(),
             fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+    }
+
+    {
+        auto ca = replayContext.writerCounters.access();
+        const auto &counters = ca.ref();
+        for(size_t crateId=0; crateId<counters.size(); ++crateId)
+        {
+            log_socket_work_counters(counters[crateId], fmt::format("replay_loop ouputWriter (crateId={})", crateId));
+        }
     }
     #else
     QTimer periodicTimer;

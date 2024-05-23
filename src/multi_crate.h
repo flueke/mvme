@@ -886,12 +886,11 @@ void LIBMVME_EXPORT parsed_data_test_consumer_loop(ParsedDataConsumerContext &co
 
 struct MulticrateReplayContext
 {
-    std::mutex mutex;
     std::atomic<bool> quit;
     mvlc::listfile::ReadHandle *lfh = nullptr;
     // output writers in crate order
     std::vector<std::unique_ptr<nng::OutputWriter>> writers;
-    std::vector<SocketWorkPerformanceCounters> writerCounters;
+    mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCounters;
 };
 
 struct LoopResult
@@ -902,7 +901,7 @@ struct LoopResult
     bool hasError() const { return ec || exception; }
 };
 
-LoopResult LIBMVME_EXPORT multicrate_replay_loop(MulticrateReplayContext &context);
+LoopResult LIBMVME_EXPORT replay_loop(MulticrateReplayContext &context);
 
 } // namespace mesytec::mvme::multi_crate
 

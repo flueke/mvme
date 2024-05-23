@@ -2459,9 +2459,9 @@ void parsed_data_test_consumer_loop(ParsedDataConsumerContext &context)
     }
 }
 
-LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
+LoopResult replay_loop(MulticrateReplayContext &context)
 {
-    spdlog::info("entering multicrate_replay_loop");
+    spdlog::info("entering replay_loop");
     LoopResult result;
 
     assert(context.lfh);
@@ -2474,7 +2474,31 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
     };
 
     std::vector<Output> outputs(context.writers.size());
+    std::vector<SocketWorkPerformanceCounters> counters(context.writers.size());
     mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
+
+    auto flush_output = [&] (unsigned crateId)
+    {
+        if (crateId < outputs.size())
+        {
+            auto &output = outputs[crateId];
+
+            if (output.msg)
+            {
+                const size_t msgLen = nng_msg_len(output.msg.get());
+                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}",
+                    crateId, output.messageNumber, msgLen);
+                StopWatch sw;
+                context.writers[crateId]->writeMessage(std::move(output.msg));
+                counters[crateId].tSend += sw.interval();
+                counters[crateId].bytesSent += msgLen;
+                counters[crateId].messagesSent++;
+            }
+        }
+    };
+
+    for (auto &c: counters)
+        c.start();
 
     while (!context.quit)
     {
@@ -2490,19 +2514,19 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
 
             if (bytesRead == 0)
             {
-                spdlog::debug("multicrate_replay_loop: EOF reached");
+                spdlog::debug("replay_loop: EOF reached");
                 break;
             }
         }
         catch (const std::runtime_error &e)
         {
-            spdlog::warn("multicrate_replay_loop: runtime_error while reading from input file: {}, requestedBytes={}", e.what(), bytesToRead);
+            spdlog::warn("replay_loop: runtime_error while reading from input file: {}, requestedBytes={}", e.what(), bytesToRead);
             result.exception = std::current_exception();
             break;
         }
         catch (...)
         {
-            spdlog::warn("multicrate_replay_loop: exception while reading from input file");
+            spdlog::warn("replay_loop: exception while reading from input file");
             result.exception = std::current_exception();
             break;
         }
@@ -2541,7 +2565,7 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
 
                 const auto byteOffset = std::distance(std::begin(input), it) * sizeof(u32);
                 const auto byteCount = std::distance(it, std::end(input)) * sizeof(u32);
-                spdlog::debug("multicrate_replay_loop: moving {} remaining bytes to the front of the buffer", byteCount);
+                spdlog::debug("replay_loop: moving {} remaining bytes to the front of the buffer", byteCount);
                 auto &buffer = mainBuf.buffer();
                 std::memcpy(buffer.data(), buffer.data() + byteOffset, byteCount);
                 mainBuf.setUsed(byteCount);
@@ -2551,7 +2575,7 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
             const size_t partBytes = partWords * sizeof(u32);
 
             //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), partWords,
-            //    fmt::format("multicrate_replay_loop: crateId={}", crateId));
+            //    fmt::format("replay_loop: crateId={}", crateId));
 
             if (crateId < outputs.size())
             {
@@ -2559,14 +2583,9 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
 
                 if (!output.msg || allocated_free_space(output.msg.get()) < partBytes)
                 {
-                    if (output.msg)
-                    {
-                        spdlog::debug("multicrate_replay_loop: crateId {} - flushing message {} of size {}",
-                            crateId, output.messageNumber, nng_msg_len(output.msg.get()));
-                        context.writers[crateId]->writeMessage(std::move(output.msg));
-                    }
+                    flush_output(crateId);
 
-                    spdlog::debug("multicrate_replay_loop: crateId {} - creating new output message #{}",
+                    spdlog::debug("replay_loop: crateId {} - creating new output message #{}",
                         crateId, output.messageNumber + 1);
 
                     ReadoutDataMessageHeader messageHeader;
@@ -2577,7 +2596,7 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
 
                     if (!output.msg)
                     {
-                        spdlog::error("multicrate_replay_loop: crateId {} - failed to allocate message",
+                        spdlog::error("replay_loop: crateId {} - failed to allocate message",
                             crateId);
                         return result;
                     }
@@ -2588,30 +2607,26 @@ LoopResult multicrate_replay_loop(MulticrateReplayContext &context)
                 // Calculate byte offset of the current part in the main buffer.
                 auto partStart = mainBuf.data() + std::distance(std::begin(input), it) * sizeof(u32);
                 nng_msg_append(output.msg.get(), partStart, partBytes);
-                spdlog::trace("multicrate_replay_loop: crateId {} - appended {} bytes/ {} words to output message #{}",
+                spdlog::trace("replay_loop: crateId {} - appended {} bytes/ {} words to output message #{}",
                     crateId, partBytes, partWords, output.messageNumber);
             }
             else
-                spdlog::warn("multicrate_replay_loop: crateId {} out of range", crateId);
+                spdlog::warn("replay_loop: crateId {} out of range", crateId);
 
             it += partWords;
         }
+
+        context.writerCounters.access().ref() = counters;
     }
 
-    spdlog::debug("multicrate_replay_loop: flushing remaining messages");
+    spdlog::debug("replay_loop: flushing remaining messages");
 
     // Flush remaining messages.
     for (size_t crateId = 0; crateId < outputs.size(); ++crateId)
     {
-        auto &output = outputs[crateId];
-        if (output.msg)
-        {
-            spdlog::debug("multicrate_replay_loop: crateId {} - flushing message {} of size {}",
-                crateId, output.messageNumber, nng_msg_len(output.msg.get()));
-            context.writers[crateId]->writeMessage(std::move(output.msg));
-        }
+        flush_output(crateId);
     }
-    spdlog::info("leaving multicrate_replay_loop");
+    spdlog::info("leaving replay_loop");
 
     return result;
 }

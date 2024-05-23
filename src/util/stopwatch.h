@@ -8,6 +8,11 @@ class StopWatch
 public:
     using duration_type = std::chrono::microseconds;
 
+    explicit StopWatch()
+    {
+        start();
+    }
+
     void start()
     {
         tStart_ = tInterval_ = std::chrono::high_resolution_clock::now();
