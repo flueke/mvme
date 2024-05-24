@@ -635,7 +635,7 @@ int send_shutdown_message(nng::OutputWriter &outputWriter)
     header.messageType = multi_crate::MessageType::GracefulShutdown;
     auto msg = nng::alloc_message(sizeof(header));
     std::memcpy(nng_msg_body(msg), &header, sizeof(header));
-    return outputWriter.writeMessage(unique_msg_handle(msg, nng_msg_free));
+    return outputWriter.writeMessage(unique_msg(msg, nng_msg_free));
 }
 
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
@@ -2488,7 +2488,7 @@ LoopResult replay_loop(MulticrateReplayContext &context)
 
     struct Output
     {
-        unique_msg_handle msg = { nullptr, nng_msg_free };
+        unique_msg msg = { nullptr, nng_msg_free };
         size_t messageNumber = 0;
     };
 

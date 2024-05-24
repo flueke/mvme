@@ -5,17 +5,17 @@
 
 using namespace mesytec::nng;
 
-inline unique_msg_handle make_message(const std::string &data)
+inline unique_msg make_message(const std::string &data)
 {
     nng_msg *msg = nullptr;
     if (int res = nng_msg_alloc(&msg, data.size()))
     {
         mesy_nng_error("nng_msg_alloc", res);
-        return unique_msg_handle(nullptr, nng_msg_free);
+        return unique_msg(nullptr, nng_msg_free);
     }
 
     memcpy(nng_msg_body(msg), data.data(), data.size());
-    return unique_msg_handle(msg, nng_msg_free);
+    return unique_msg(msg, nng_msg_free);
 }
 
 TEST(MesyNngPipeline2, SocketWriterReader)

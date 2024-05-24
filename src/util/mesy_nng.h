@@ -332,40 +332,40 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
         nng::nng_stat_unit_to_string(unit));
 }
 
-using unique_msg_handle = std::unique_ptr<nng_msg, decltype(&nng_msg_free)>;
+using unique_msg = std::unique_ptr<nng_msg, decltype(&nng_msg_free)>;
 
-inline unique_msg_handle make_unique_msg(nng_msg *msg = nullptr, decltype(&nng_msg_free) deleter = nng_msg_free)
+inline unique_msg make_unique_msg(nng_msg *msg = nullptr, decltype(&nng_msg_free) deleter = nng_msg_free)
 {
-    return unique_msg_handle(msg, deleter);
+    return unique_msg(msg, deleter);
 }
 
-inline std::pair<unique_msg_handle, int> receive_message(nng_socket sock, int flags = 0)
+inline std::pair<unique_msg, int> receive_message(nng_socket sock, int flags = 0)
 {
     nng_msg *msg = nullptr;
 
     if (auto res = nng_recvmsg(sock, &msg, flags))
     {
-        return {unique_msg_handle(nullptr, nng_msg_free), res};
+        return {unique_msg(nullptr, nng_msg_free), res};
     }
 
-    return {unique_msg_handle(msg, nng_msg_free), 0};
+    return {unique_msg(msg, nng_msg_free), 0};
 }
 
-inline unique_msg_handle allocate_reserve_message(size_t reserve = 0)
+inline unique_msg allocate_reserve_message(size_t reserve = 0)
 {
     nng_msg *msg = nullptr;
 
     if (auto res = nng_msg_alloc(&msg, 0))
     {
         mesy_nng_error("allocate_reserve_message", res);
-        return unique_msg_handle(nullptr, nng_msg_free);
+        return unique_msg(nullptr, nng_msg_free);
     }
 
     if (auto res = nng_msg_reserve(msg, reserve))
     {
         mesy_nng_error("allocate_reserve_message", res);
         nng_msg_free(msg);
-        return unique_msg_handle(nullptr, nng_msg_free);
+        return unique_msg(nullptr, nng_msg_free);
     }
 
     return make_unique_msg(msg);

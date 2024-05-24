@@ -567,7 +567,7 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedSystemEventHeader: public ParsedEven
 #undef PACK_AND_ALIGN4
 
 template<typename Header>
-nng::unique_msg_handle allocate_prepare_message(const Header &header, size_t allocSize = mvlc::util::Megabytes(1))
+nng::unique_msg allocate_prepare_message(const Header &header, size_t allocSize = mvlc::util::Megabytes(1))
 {
     auto msg = nng::allocate_reserve_message(sizeof(Header) + allocSize);
 
@@ -577,7 +577,7 @@ nng::unique_msg_handle allocate_prepare_message(const Header &header, size_t all
     if (auto res = nng_msg_append(msg.get(), &header, sizeof(header)))
     {
         nng::mesy_nng_error("nng_msg_append", res);
-        return nng::unique_msg_handle(nullptr, nng_msg_free);
+        return nng::unique_msg(nullptr, nng_msg_free);
     }
 
     return msg;
@@ -837,7 +837,7 @@ struct LIBMVME_EXPORT ReadoutParserNngContext
     size_t totalReadoutEvents = 0u;
     size_t totalSystemEvents = 0u;
     mvlc::Protected<SocketWorkPerformanceCounters> counters;
-    nng::unique_msg_handle outputMessage = nng::make_unique_msg();
+    nng::unique_msg outputMessage = nng::make_unique_msg();
     u32 outputMessageNumber = 0u;
     mvlc::readout_parser::ReadoutParserState parserState;
     mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;

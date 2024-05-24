@@ -8,13 +8,13 @@ namespace mesytec::nng
 
 struct InputReader
 {
-    virtual std::pair<unique_msg_handle, int> readMessage() = 0;
+    virtual std::pair<unique_msg, int> readMessage() = 0;
     virtual ~InputReader() = default;
 };
 
 struct OutputWriter
 {
-    virtual int writeMessage(unique_msg_handle &&msg) = 0;
+    virtual int writeMessage(unique_msg &&msg) = 0;
     virtual ~OutputWriter() = default;
 };
 
@@ -25,11 +25,11 @@ struct SocketInputReader: public InputReader
 
     explicit SocketInputReader(nng_socket s): socket(s) {}
 
-    std::pair<unique_msg_handle, int> readMessage() override
+    std::pair<unique_msg, int> readMessage() override
     {
         nng_msg *msg = nullptr;
         int res = nng_recvmsg(socket, &msg, receiveFlags);
-        return {unique_msg_handle(msg, nng_msg_free), res};
+        return {unique_msg(msg, nng_msg_free), res};
     }
 };
 
@@ -42,7 +42,7 @@ struct SocketOutputWriter: public OutputWriter
 
     explicit SocketOutputWriter(nng_socket s): socket(s) {}
 
-    int writeMessage(unique_msg_handle &&msg) override
+    int writeMessage(unique_msg &&msg) override
     {
         int res = 0;
         if (retryPredicate)
@@ -63,7 +63,7 @@ struct SocketOutputWriter: public OutputWriter
 class MultiInputReader: public InputReader
 {
     public:
-        std::pair<unique_msg_handle, int> readMessage() override
+        std::pair<unique_msg, int> readMessage() override
         {
             std::lock_guard lock(mutex_);
 
@@ -74,7 +74,7 @@ class MultiInputReader: public InputReader
                     return {std::move(msg), 0};
             }
 
-            return std::make_pair(unique_msg_handle(nullptr, nng_msg_free), 0);
+            return std::make_pair(unique_msg(nullptr, nng_msg_free), 0);
         }
 
         void addReader(std::unique_ptr<InputReader> &&reader)
@@ -92,7 +92,7 @@ class MultiInputReader: public InputReader
 class MultiOutputWriter: public OutputWriter
 {
     public:
-        int writeMessage(unique_msg_handle &&msg) override
+        int writeMessage(unique_msg &&msg) override
         {
             std::lock_guard lock(mutex_);
 
@@ -109,7 +109,7 @@ class MultiOutputWriter: public OutputWriter
                 if (int res = nng_msg_dup(&dup, msg.get()))
                     return res; // allocation failure -> terminate immediately
 
-                if (int res = writers[i]->writeMessage(unique_msg_handle(dup, nng_msg_free)))
+                if (int res = writers[i]->writeMessage(unique_msg(dup, nng_msg_free)))
                     retval = res; // store last error that occured
             }
 
