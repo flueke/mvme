@@ -855,18 +855,16 @@ struct LIBMVME_EXPORT EventBuilderContext
 {
     std::atomic<bool> quit;
 
-    // Input: ParsedEventsMessageHeader
-    //std::unique_ptr<nng::InputReader> inputReader;
-    nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+    // Input: MessageType::ParsedEvents
+    std::unique_ptr<nng::InputReader> inputReader;
 
-    // Output: ParsedEventsMessageHeader
-    //std::unique_ptr<nng::OutputWriter> outputWriter;
-    nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+    // Output: MessageType::ParsedEvents
+    std::unique_ptr<nng::OutputWriter> outputWriter;
 
     mvlc::EventBuilderConfig eventBuilderConfig;
     std::unique_ptr<mvlc::EventBuilder> eventBuilder;
 
-    nng_msg *outputMessage = nullptr;
+    nng::unique_msg outputMessage = nng::make_unique_msg();
     u32 outputMessageNumber = 0u;
     mvlc::Protected<SocketWorkPerformanceCounters> counters;
     u8 crateId = 0;

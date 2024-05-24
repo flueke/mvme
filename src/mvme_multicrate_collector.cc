@@ -491,8 +491,8 @@ int main(int argc, char *argv[])
         ebContext->quit = false;
         ebContext->eventBuilderConfig = ebConfig;
         ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
-        ebContext->inputSocket = parsedDataSockets[i].second;
-        ebContext->outputSocket = stage1DataSockets[i].first;
+        ebContext->inputReader = std::make_unique<nng::SocketInputReader>(parsedDataSockets[i].second);
+        ebContext->outputWriter = std::make_unique<nng::SocketOutputWriter>(stage1DataSockets[i].first);
         // Rewrite data to make the eventbuilder work for a single crate with a non-zero crateid.
         ebContext->inputCrateMappings[i] = 0;
         ebContext->outputCrateMappings[0] = i;
@@ -569,8 +569,8 @@ int main(int argc, char *argv[])
         ebContext->quit = false;
         ebContext->eventBuilderConfig = ebConfig;
         ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
-        ebContext->inputSocket = stage1SharedDataSockets.second;
-        ebContext->outputSocket = stage2DataSockets.first;
+        ebContext->inputReader = std::make_unique<nng::SocketInputReader>(stage1SharedDataSockets.second);
+        ebContext->outputWriter = std::make_unique<nng::SocketOutputWriter>(stage2DataSockets.first);
     }
 
     auto stage2AnalysisContext = std::make_unique<AnalysisProcessingContext>();
@@ -873,7 +873,7 @@ int main(int argc, char *argv[])
     spdlog::debug("event builders stopped");
 
     for (auto &ebContext: eventBuilderStage1Contexts)
-        send_shutdown_message(ebContext->outputSocket);
+        send_shutdown_message(*ebContext->outputWriter);
 
     for (auto &t: stage1DuplicatorThreads)
         if (t.joinable())
@@ -899,7 +899,7 @@ int main(int argc, char *argv[])
 
     spdlog::debug("stage2 event builder stopped");
 
-    send_shutdown_message(stage2EventBuilderContext->outputSocket);
+    send_shutdown_message(*stage2EventBuilderContext->outputWriter);
 
     if (stage2AnalysisThread.joinable())
         stage2AnalysisThread.join();

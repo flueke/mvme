@@ -635,7 +635,7 @@ int send_shutdown_message(nng::OutputWriter &outputWriter)
     header.messageType = multi_crate::MessageType::GracefulShutdown;
     auto msg = nng::alloc_message(sizeof(header));
     std::memcpy(nng_msg_body(msg), &header, sizeof(header));
-    return outputWriter.writeMessage(unique_msg(msg, nng_msg_free));
+    return outputWriter.writeMessage(make_unique_msg(msg));
 }
 
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
@@ -1816,14 +1816,10 @@ void readout_parser_loop(ReadoutParserNngContext &context)
 
         const auto msgLen = nng_msg_len(inputMsg.get());
 
-        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        if (is_shutdown_message(inputMsg.get()))
         {
-            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg.get()));
-            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
-            {
-                spdlog::warn("reaodut_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
-                break;
-            }
+            spdlog::warn("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            break;
         }
 
         if (msgLen < sizeof(multi_crate::ReadoutDataMessageHeader))
@@ -1919,48 +1915,42 @@ void event_builder_record_loop(EventBuilderContext &context)
         StopWatch stopWatch;
         stopWatch.start();
 
-        nng_msg *inputMsg = nullptr;
+        auto [inputMsg, res] = context.inputReader->readMessage();
 
-        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
+        if (res && res != NNG_ETIMEDOUT)
         {
-            if (res != NNG_ETIMEDOUT)
-            {
-                spdlog::error("event_builder_record_loop - receive_message: {}", nng_strerror(res));
-                break;
-            }
+            spdlog::error("event_builder_record_loop - receive_message: {}", nng_strerror(res));
+            break;
+        }
+        else if (res)
+        {
             spdlog::trace("event_builder_record_loop - receive_message: timeout");
             continue;
         }
 
-        assert(inputMsg != nullptr);
+        assert(inputMsg);
 
-        const auto msgLen = nng_msg_len(inputMsg);
+        const auto msgLen = nng_msg_len(inputMsg.get());
 
-        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        if (is_shutdown_message(inputMsg.get()))
         {
-            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
-            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
-            {
-                spdlog::warn("event_builder_record_loop: Received shutdown message, leaving loop");
-                nng_msg_free(inputMsg);
-                break;
-            }
+            spdlog::warn("event_builder_record_loop: Received shutdown message, leaving loop");
+            nng_msg_free(inputMsg.get());
+            break;
         }
 
         if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
             spdlog::warn("event_builder_record_loop - incoming message too short (len={})", msgLen);
-            nng_msg_free(inputMsg);
             continue;
         }
 
-        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg).value();
+        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg.get()).value();
 
         if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
         {
             spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
                 static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
-            nng_msg_free(inputMsg);
             break;
         }
 
@@ -1971,7 +1961,7 @@ void event_builder_record_loop(EventBuilderContext &context)
             ta->tReceive += stopWatch.interval();
         }
 
-        ParsedEventMessageIterator messageIter(inputMsg);
+        ParsedEventMessageIterator messageIter(inputMsg.get());
 
         for (auto eventData = next_event(messageIter);
                 eventData.type != EventContainer::Type::None;
@@ -1988,10 +1978,10 @@ void event_builder_record_loop(EventBuilderContext &context)
                 auto inputCrateId = context.inputCrateMappings[eventData.crateId];
                 context.eventBuilder->recordSystemEvent(inputCrateId, eventData.system.header, eventData.system.size);
             }
-            else if (nng_msg_len(inputMsg))
+            else if (nng_msg_len(inputMsg.get()))
             {
                 spdlog::warn("analysis_loop: incoming message contains unknown subsection '{}'",
-                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg)));
+                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
                 break;
             }
         }
@@ -2001,8 +1991,6 @@ void event_builder_record_loop(EventBuilderContext &context)
             ta->tProcess += stopWatch.interval();
             ta->tTotal += stopWatch.end();
         }
-
-        nng_msg_free(inputMsg);
     }
 
     spdlog::info("leaving event_builder_record_loop");
@@ -2020,24 +2008,26 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
         auto &msg = ctx.outputMessage;
 
         if (msg)
-            return msg;
+            return msg.get();
 
-        if (nng::allocate_reserve_message(&msg, DefaultOutputMessageReserve))
+        msg = nng::allocate_reserve_message(DefaultOutputMessageReserve);
+
+        if (!msg)
             return nullptr;
 
         multi_crate::ParsedEventsMessageHeader header{};
         header.messageType = multi_crate::MessageType::ParsedEvents;
         header.messageNumber = ++ctx.outputMessageNumber;
 
-        nng_msg_append(msg, &header, sizeof(header));
-        assert(nng_msg_len(msg) == sizeof(header));
+        nng_msg_append(msg.get(), &header, sizeof(header));
+        assert(nng_msg_len(msg.get()) == sizeof(header));
 
-        return msg;
+        return msg.get();
     }
 
     bool flushOutputMessage() override
     {
-        const auto msgSize = nng_msg_len(ctx.outputMessage);
+        const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
         // Retries forever or until told to quit.
         //auto retryPredicate = [&]
@@ -2049,16 +2039,7 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
 
         StopWatch stopWatch;
         stopWatch.start();
-
-        if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, 3, debugInfo.c_str()))
-        {
-            //spdlog::warn("EventBuilderNngMessageWriter: send_message_retry: {}", nng_strerror(res));
-            nng_msg_free(ctx.outputMessage);
-            ctx.outputMessage = nullptr;
-            return false;
-        }
-
-        ctx.outputMessage = nullptr;
+        ctx.outputWriter->writeMessage(std::move(ctx.outputMessage));
 
         {
             auto ta = ctx.counters.access();
@@ -2155,48 +2136,41 @@ void event_builder_combined_loop(EventBuilderContext &context)
         StopWatch stopWatch;
         stopWatch.start();
 
-        nng_msg *inputMsg = nullptr;
+        auto [inputMsg, res] = context.inputReader->readMessage();
 
-        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
+        if (res && res != NNG_ETIMEDOUT)
         {
-            if (res != NNG_ETIMEDOUT)
-            {
-                spdlog::error("event_builder_combined_loop - receive_message: {}", nng_strerror(res));
-                break;
-            }
-            spdlog::trace("event_builder_combined_loop - receive_message: timeout");
+            spdlog::error("event_builder_record_loop - receive_message: {}", nng_strerror(res));
+            break;
+        }
+        else if (res)
+        {
+            spdlog::trace("event_builder_record_loop - receive_message: timeout");
             continue;
         }
 
-        assert(inputMsg != nullptr);
+        assert(inputMsg);
 
-        const auto msgLen = nng_msg_len(inputMsg);
+        const auto msgLen = nng_msg_len(inputMsg.get());
 
-        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        if (is_shutdown_message(inputMsg.get()))
         {
-            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
-            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
-            {
-                spdlog::warn("event_builder_combined_loop: Received shutdown message, leaving loop");
-                nng_msg_free(inputMsg);
-                break;
-            }
+            spdlog::warn("event_builder_combined_loop: Received shutdown message, leaving loop");
+            break;
         }
 
         if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
             spdlog::warn("event_builder_combined_loop - incoming message too short (len={})", msgLen);
-            nng_msg_free(inputMsg);
             continue;
         }
 
-        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg).value();
+        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg.get()).value();
 
         if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
         {
             spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
                 static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
-            nng_msg_free(inputMsg);
             break;
         }
 
@@ -2207,7 +2181,7 @@ void event_builder_combined_loop(EventBuilderContext &context)
             ta->tReceive += stopWatch.interval();
         }
 
-        ParsedEventMessageIterator messageIter(inputMsg);
+        ParsedEventMessageIterator messageIter(inputMsg.get());
 
         for (auto eventData = next_event(messageIter);
                 eventData.type != EventContainer::Type::None;
@@ -2224,10 +2198,10 @@ void event_builder_combined_loop(EventBuilderContext &context)
                 auto inputCrateId = context.inputCrateMappings[eventData.crateId];
                 context.eventBuilder->recordSystemEvent(inputCrateId, eventData.system.header, eventData.system.size);
             }
-            else if (nng_msg_len(inputMsg))
+            else if (nng_msg_len(inputMsg.get()))
             {
                 spdlog::warn("analysis_loop: incoming message contains unknown subsection '{}'",
-                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg)));
+                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
                 break;
             }
         }
@@ -2241,8 +2215,6 @@ void event_builder_combined_loop(EventBuilderContext &context)
             ta->tProcess += stopWatch.interval();
             ta->tTotal += stopWatch.end();
         }
-
-        nng_msg_free(inputMsg);
     }
 
     spdlog::info("leaving event_builder_combined_loop");
@@ -2488,7 +2460,7 @@ LoopResult replay_loop(MulticrateReplayContext &context)
 
     struct Output
     {
-        unique_msg msg = { nullptr, nng_msg_free };
+        unique_msg msg = make_unique_msg();
         size_t messageNumber = 0;
     };
 
