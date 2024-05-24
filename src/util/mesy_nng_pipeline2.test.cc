@@ -28,11 +28,8 @@ TEST(MesyNngPipeline2, SocketWriterReader)
 
     ASSERT_EQ(res, 0);
 
-    SocketOutputWriter writer;
-    writer.socket = s1;
-
-    SocketInputReader reader;
-    reader.socket = s2;
+    SocketOutputWriter writer(s1);
+    SocketInputReader reader(s2);
 
     auto outMsg = make_message("1234");
 
@@ -63,11 +60,8 @@ TEST(MesyNngPipeline2, SocketMultiOutputWriter)
     res = marry_listen_dial(s10, s11, "inproc://test1");
     ASSERT_EQ(res, 0);
 
-    auto writer0 = std::make_unique<SocketOutputWriter>();
-    writer0->socket = s00;
-
-    auto writer1 = std::make_unique<SocketOutputWriter>();
-    writer1->socket = s10;
+    auto writer0 = std::make_unique<SocketOutputWriter>(s00);
+    auto writer1 = std::make_unique<SocketOutputWriter>(s10);
 
     MultiOutputWriter multiWriter;
     multiWriter.addWriter(std::move(writer0));
