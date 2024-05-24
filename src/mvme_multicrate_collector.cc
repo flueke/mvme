@@ -277,9 +277,8 @@ int main(int argc, char *argv[])
     // multi_crate::MessageType::ReadoutData to the readoutProducerSocket.
     nng_socket readoutProducerSocket = nng::make_pair_socket();
 
-    // A single(!) thread reads ReadoutData messages from this socket and
-    // writes a listfile. Do not connect multiple pull sockets to the
-    // readoutProducerSocket as that will round-robin distribute the messages!
+    // A single thread reads ReadoutData messages from this socket and writes a
+    // listfile.
     nng_socket listfileConsumerSocket = nng::make_pair_socket();
 
     if (int res = nng::marry_listen_dial(readoutProducerSocket, listfileConsumerSocket, "inproc://readoutData"))
