@@ -157,6 +157,7 @@ int main(int argc, char *argv[])
         parsedDataSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
     }
 
+    // FIXME: it does not seem to correctly replay data from multiple crates.
     MulticrateReplayContext replayContext;
     replayContext.quit = false;
     replayContext.lfh = readerHelper.readHandle;
