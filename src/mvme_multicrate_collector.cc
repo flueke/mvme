@@ -438,8 +438,8 @@ int main(int argc, char *argv[])
 
         auto parserContext = make_readout_parser_nng_context(crateConfigs[i]);
         parserContext->quit = false;
-        parserContext->inputSocket = readoutSnoopSockets[i].second;
-        parserContext->outputSocket = parsedDataSockets[i].first;
+        parserContext->inputReader = std::make_unique<nng::SocketInputReader>(readoutSnoopSockets[i].second);
+        parserContext->outputWriter = std::make_unique<nng::SocketOutputWriter>(parsedDataSockets[i].first);
 
         parserContexts.emplace_back(std::move(parserContext));
 
@@ -854,7 +854,8 @@ int main(int argc, char *argv[])
     spdlog::debug("parsers stopped");
 
     for (auto &parserContext: parserContexts)
-        send_shutdown_message(parserContext->outputSocket);
+        if (parserContext->outputWriter)
+        send_shutdown_message(*parserContext->outputWriter);
 
     for (auto &t: eventBuilderStage1RecorderThreads)
         if (t.joinable())

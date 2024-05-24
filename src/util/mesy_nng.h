@@ -334,6 +334,11 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
 
 using unique_msg_handle = std::unique_ptr<nng_msg, decltype(&nng_msg_free)>;
 
+inline unique_msg_handle make_unique_msg(nng_msg *msg = nullptr, decltype(&nng_msg_free) deleter = nng_msg_free)
+{
+    return unique_msg_handle(msg, deleter);
+}
+
 inline std::pair<unique_msg_handle, int> receive_message(nng_socket sock, int flags = 0)
 {
     nng_msg *msg = nullptr;
@@ -363,7 +368,7 @@ inline unique_msg_handle allocate_reserve_message(size_t reserve = 0)
         return unique_msg_handle(nullptr, nng_msg_free);
     }
 
-    return unique_msg_handle(msg, nng_msg_free);
+    return make_unique_msg(msg);
 }
 
 struct YDuplicatorContext

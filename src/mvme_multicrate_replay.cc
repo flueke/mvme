@@ -180,8 +180,8 @@ int main(int argc, char *argv[])
         crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
         auto parserContext = make_readout_parser_nng_context(crateConfig);
         parserContext->quit = false;
-        parserContext->inputSocket = readoutSnoopSockets[i].second;
-        parserContext->outputSocket = parsedDataSockets[i].first;
+        parserContext->inputReader = std::make_unique<nng::SocketInputReader>(readoutSnoopSockets[i].second);
+        parserContext->outputWriter = std::make_unique<nng::SocketOutputWriter>(parsedDataSockets[i].first);
         parserContexts.emplace_back(std::move(parserContext));
     }
 

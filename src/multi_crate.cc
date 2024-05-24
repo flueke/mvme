@@ -1665,42 +1665,30 @@ inline bool parser_maybe_alloc_output(ReadoutParserNngContext &ctx)
     if (msg)
         return false;
 
-    if (nng::allocate_reserve_message(&msg, DefaultOutputMessageReserve))
+    msg = nng::allocate_reserve_message(DefaultOutputMessageReserve);
+
+    if (!msg)
         return false;
 
     multi_crate::ParsedEventsMessageHeader header{};
     header.messageType = multi_crate::MessageType::ParsedEvents;
     header.messageNumber = ++ctx.outputMessageNumber;
 
-    nng_msg_append(msg, &header, sizeof(header));
-    assert(nng_msg_len(msg) == sizeof(header));
+    nng_msg_append(msg.get(), &header, sizeof(header));
+    assert(nng_msg_len(msg.get()) == sizeof(header));
 
     return true;
 }
 
 inline bool flush_output_message(ReadoutParserNngContext &ctx)
 {
-    const auto msgSize = nng_msg_len(ctx.outputMessage);
+    if (!ctx.outputMessage || !ctx.outputWriter)
+        return false;
 
-    // Retries forever or until told to quit.
-    //auto retryPredicate = [&]
-    //{
-    //    return !ctx.quit;
-    //};
+    const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
     StopWatch stopWatch;
-    stopWatch.start();
-    auto debugInfo = fmt::format("readout_parser (crate{})", ctx.crateId);
-
-    if (auto res = nng::send_message_retry(ctx.outputSocket, ctx.outputMessage, 3, debugInfo.c_str()))
-    {
-        nng_msg_free(ctx.outputMessage);
-        ctx.outputMessage = nullptr;
-        //spdlog::error("{}: readout parser: flush_output_message(): {}:", debugInfo, nng_strerror(res));
-        return false;
-    }
-
-    ctx.outputMessage = nullptr;
+    ctx.outputWriter->writeMessage(std::move(ctx.outputMessage));
 
     {
         auto ta = ctx.counters.access();
@@ -1711,8 +1699,8 @@ inline bool flush_output_message(ReadoutParserNngContext &ctx)
         ctx.tLastFlush = std::chrono::steady_clock::now();
     }
 
-    spdlog::debug("{}: sent message {} of size {}",
-        debugInfo, ctx.outputMessageNumber, msgSize);
+    spdlog::debug("readout_parser (crate{}): sent message {} of size {}",
+        ctx.crateId, ctx.outputMessageNumber, msgSize);
 
     return true;
 }
@@ -1727,7 +1715,7 @@ struct ReadoutParserNngMessageWriter: public ParsedEventsMessageWriter
     nng_msg *getOutputMessage() override
     {
         parser_maybe_alloc_output(ctx);
-        return ctx.outputMessage;
+        return ctx.outputMessage.get();
     }
 
     bool flushOutputMessage() override
@@ -1810,31 +1798,30 @@ void readout_parser_loop(ReadoutParserNngContext &context)
         StopWatch stopWatch;
         stopWatch.start();
 
-        nng_msg *inputMsg = nullptr;
+        auto [inputMsg, res] = context.inputReader->readMessage();
 
-        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
+        if (res && res != NNG_ETIMEDOUT)
         {
-            if (res != NNG_ETIMEDOUT)
-            {
-                spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}",
-                    crateId, nng_strerror(res));
-                break;
-            }
+            spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}",
+                crateId, nng_strerror(res));
+            break;
+        }
+        else if (res)
+        {
             spdlog::trace("readout_parser_loop (crateId={}) - receive_message: timeout", crateId);
             continue;
         }
 
-        assert(inputMsg != nullptr);
+        assert(inputMsg);
 
-        const auto msgLen = nng_msg_len(inputMsg);
+        const auto msgLen = nng_msg_len(inputMsg.get());
 
         if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
         {
-            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
+            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg.get()));
             if (header.messageType == multi_crate::MessageType::GracefulShutdown)
             {
                 spdlog::warn("reaodut_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
-                nng_msg_free(inputMsg);
                 break;
             }
         }
@@ -1843,7 +1830,6 @@ void readout_parser_loop(ReadoutParserNngContext &context)
         {
             spdlog::warn("reaodut_parser_loop (crateId={}): Incoming message is too short (len={})!",
                 crateId, msgLen);
-            nng_msg_free(inputMsg);
             continue;
         }
 
@@ -1855,18 +1841,18 @@ void readout_parser_loop(ReadoutParserNngContext &context)
             ta->tReceive += stopWatch.interval();
         }
 
-        totalInputBytes += nng_msg_len(inputMsg);
+        totalInputBytes += nng_msg_len(inputMsg.get());
         auto inputHeader = *reinterpret_cast<const multi_crate::ReadoutDataMessageHeader *>(
-            nng_msg_body(inputMsg));
+            nng_msg_body(inputMsg.get()));
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
         inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;
         lastInputMessageNumber = inputHeader.messageNumber;
         spdlog::debug("readout_parser_loop (crateId={}): received message {} of size {}",
-            crateId, lastInputMessageNumber, nng_msg_len(inputMsg));
+            crateId, lastInputMessageNumber, nng_msg_len(inputMsg.get()));
 
-        nng_msg_trim(inputMsg, sizeof(multi_crate::ReadoutDataMessageHeader));
-        auto inputData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg));
-        size_t inputLen = nng_msg_len(inputMsg) / sizeof(u32);
+        nng_msg_trim(inputMsg.get(), sizeof(multi_crate::ReadoutDataMessageHeader));
+        auto inputData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg.get()));
+        size_t inputLen = nng_msg_len(inputMsg.get()) / sizeof(u32);
 
         // Invoke the parser. The output message is flushed from within the callbacks when needed.
         readout_parser::parse_readout_buffer(
@@ -1886,8 +1872,6 @@ void readout_parser_loop(ReadoutParserNngContext &context)
             ta->messagesLost = inputBuffersLost;
         }
         context.parserCounters.access().ref() = parserCounters;
-
-        nng_msg_free(inputMsg);
 
         #if 0
         {

@@ -827,9 +827,9 @@ struct LIBMVME_EXPORT ReadoutParserNngContext
     std::atomic<bool> quit = false;
 
     // Input: MessageType::ReadoutData
-    nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+    std::unique_ptr<nng::InputReader> inputReader;
     // Output: MessageType::ParsedEvents
-    nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+    std::unique_ptr<nng::OutputWriter> outputWriter;
 
     unsigned crateId = 0;
     mvlc::ConnectionType inputFormat;
@@ -837,7 +837,7 @@ struct LIBMVME_EXPORT ReadoutParserNngContext
     size_t totalReadoutEvents = 0u;
     size_t totalSystemEvents = 0u;
     mvlc::Protected<SocketWorkPerformanceCounters> counters;
-    nng_msg *outputMessage = nullptr;
+    nng::unique_msg_handle outputMessage = nng::make_unique_msg();
     u32 outputMessageNumber = 0u;
     mvlc::readout_parser::ReadoutParserState parserState;
     mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
