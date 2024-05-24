@@ -766,9 +766,8 @@ struct LIBMVME_EXPORT ListfileWriterContext
 {
     std::atomic<bool> quit;
 
-    // Readout data in the form of ReadoutDataMessageHeader messages is read
-    // from this socket.
-    nng_socket dataInputSocket;
+    // Input: MessageType::ReadoutData
+    std::unique_ptr<nng::InputReader> inputReader;
 
     // This is where readout data is written to if non-null. If the handle is
     // null readout data is read from the input socket and discarded.

@@ -427,7 +427,7 @@ int main(int argc, char *argv[])
 
     ListfileWriterContext listfileWriterContext{};
     listfileWriterContext.quit = false;
-    listfileWriterContext.dataInputSocket = listfileConsumerSocket;
+    listfileWriterContext.inputReader = std::make_unique<nng::SocketInputReader>(listfileConsumerSocket);
     listfileWriterContext.lfh = std::move(lfh);
 
     std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;

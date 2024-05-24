@@ -1367,49 +1367,43 @@ void listfile_writer_loop(ListfileWriterContext &context)
     {
         StopWatch stopWatch;
         stopWatch.start();
-        nng_msg *msg = nullptr;
 
-        if (auto res = nng::receive_message(context.dataInputSocket, &msg))
+        auto [msg, res] = context.inputReader->readMessage();
+
+        if (res && res != NNG_ETIMEDOUT)
         {
-            if (res != NNG_ETIMEDOUT)
-            {
-                spdlog::warn("listfile_writer_loop: Error reading from data input socket: {}", nng_strerror(res));
-                break;;
-            }
+            spdlog::error("listfile_writer_loop - receive_message: {}", nng_strerror(res));
+            break;
+        }
+        else if (res)
+        {
+            spdlog::trace("listfile_writer_loop - receive_message: timeout");
             continue;
         }
 
         auto tReceive = stopWatch.interval();
 
-        assert(msg != nullptr);
+        assert(msg);
 
-        const auto msgLen = nng_msg_len(msg);
-
-        // Check for shutdown message.
-        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+        if (is_shutdown_message(msg.get()))
         {
-            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(msg));
-            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
-            {
-                spdlog::warn("listfile_writer_loop: Received shutdown message, leaving loop");
-                break;
-            }
+            spdlog::warn("listfile_writer_loop: Received shutdown message, leaving loop");
+            break;
         }
+
+        const auto msgLen = nng_msg_len(msg.get());
 
         if (msgLen < sizeof(multi_crate::ReadoutDataMessageHeader))
         {
-            spdlog::warn("listfile_writer_loop: Incoming message is too short!");
-            // TODO: count this error (should not happen)
-            nng_msg_free(msg);
+            spdlog::warn("listfile_writer_loop - incoming message too short (len={})", msgLen);
             continue;
         }
 
-        auto header = *reinterpret_cast<multi_crate::ReadoutDataMessageHeader *>(nng_msg_body(msg));
+        auto header = *reinterpret_cast<multi_crate::ReadoutDataMessageHeader *>(nng_msg_body(msg.get()));
 
         if (header.crateId > frame_headers::CtrlIdMask)
         {
             spdlog::warn("listfile_writer_loop: Invalid crateId={} in incoming data packet!", header.crateId);
-            nng_msg_free(msg);
             continue;
         }
 
@@ -1428,25 +1422,23 @@ void listfile_writer_loop(ListfileWriterContext &context)
 
         // Trim off the header from the front of the message. The rest of the
         // message is pure readout data and added system event frames.
-        nng_msg_trim(msg, sizeof(multi_crate::ReadoutDataMessageHeader));
+        nng_msg_trim(msg.get(), sizeof(multi_crate::ReadoutDataMessageHeader));
 
-        auto dataPtr = reinterpret_cast<const u32 *>(nng_msg_body(msg));
-        size_t dataSize = nng_msg_len(msg) / sizeof(u32);
+        auto dataPtr = reinterpret_cast<const u32 *>(nng_msg_body(msg.get()));
+        size_t dataSize = nng_msg_len(msg.get()) / sizeof(u32);
         std::basic_string_view<u32> dataView(dataPtr, dataSize);
 
         if (context.lfh)
         {
             try
             {
-                context.lfh->write(reinterpret_cast<const u8 *>(nng_msg_body(msg)), nng_msg_len(msg));
+                context.lfh->write(reinterpret_cast<const u8 *>(nng_msg_body(msg.get())), nng_msg_len(msg.get()));
             }
             catch(const std::exception& e)
             {
                 spdlog::warn("listfile_writer_loop: Error writing to output listfile: {}", e.what());
             }
         }
-
-        nng_msg_free(msg);
 
         auto tProcess = stopWatch.interval();
         auto tTotal = stopWatch.end();
