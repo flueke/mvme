@@ -1046,6 +1046,39 @@ void MinimalAnalysisServiceProvider::setAnalysisOperatorEdited(const std::shared
 {
 }
 
+std::vector<LoopResult> shutdown_pipeline(PipelineRuntime &pipeline,
+    std::chrono::milliseconds elementShutdownTimeout)
+{
+    if (pipeline.empty())
+        return {};
+
+    std::vector<LoopResult> ret;
+
+    pipeline.front().quit = true;
+
+    for (auto &element: pipeline)
+    {
+        if (element.resultFuture.valid())
+        {
+            if (element.resultFuture.wait_for(elementShutdownTimeout) != std::future_status::ready)
+                spdlog::warn("shutdown_pipeline: element did not finish in time, setting quit flag");
+            element.quit = true;
+            ret.emplace_back(element.resultFuture.get());
+        }
+        else
+        {
+            ret.emplace_back(LoopResult{});
+        }
+
+        // notify the next stage of the pipeline
+        for (auto outputWriter: element.outputWriters)
+            if (outputWriter)
+                send_shutdown_message(*outputWriter);
+    }
+
+    return ret;
+}
+
 void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info)
 {
     spdlog::info("{}: time budget: "
@@ -2461,6 +2494,8 @@ void parsed_data_test_consumer_loop(ParsedDataConsumerContext &context)
 
 LoopResult replay_loop(MulticrateReplayContext &context)
 {
+    set_thread_name("replay_loop");
+
     spdlog::info("entering replay_loop");
     LoopResult result;
 

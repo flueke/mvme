@@ -131,12 +131,40 @@ class MultiOutputWriter: public OutputWriter
         std::vector<std::unique_ptr<OutputWriter>> writers;
 };
 
-struct ProcessingLoopContext
+#if 0
+class AbstractLoopContext
 {
-    std::atomic<bool> quit;
-    std::unique_ptr<InputReader> inputReader;
-    std::unique_ptr<OutputWriter> outputWriter;
+    public:
+        virtual std::atomic<bool> &quit() = 0;
+        virtual ~AbstractLoopContext() = default;
 };
+
+class AbstractProcessorContext: public AbstractLoopContext
+{
+    public:
+        virtual InputReader *inputReader() = 0;
+        virtual OutputWriter *outputWriter() = 0;
+        virtual ~AbstractProcessorContext() = default;
+};
+
+class BasicProcessorContext: public AbstractProcessorContext
+{
+    public:
+        BasicProcessorContext(std::unique_ptr<InputReader> inputReader = {}, std::unique_ptr<OutputWriter> outputWriter = {}):
+            quit_(false), inputReader_(std::move(inputReader)), outputWriter_(std::move(outputWriter)) {}
+
+        std::atomic<bool> &quit() override { return quit_; }
+        InputReader *inputReader() override { return inputReader_.get(); }
+        OutputWriter *outputWriter() override { return outputWriter_.get(); }
+        std::unique_ptr<InputReader> &takeInputReader() { return inputReader_; }
+        std::unique_ptr<OutputWriter> &takeOutputWriter() { return outputWriter_; }
+
+    private:
+        std::atomic<bool> quit_;
+        std::unique_ptr<InputReader> inputReader_;
+        std::unique_ptr<OutputWriter> outputWriter_;
+};
+#endif
 
 }
 

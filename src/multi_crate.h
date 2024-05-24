@@ -657,6 +657,41 @@ class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvi
         RunInfo runInfo_;
 };
 
+struct LoopResult
+{
+    std::error_code ec;
+    std::exception_ptr exception;
+
+    bool hasError() const { return ec || exception; }
+};
+
+// Runtime state for a loop context. Combines the loops quit flag, the future
+// from the async call spawning the loop and optionally a raw pointer to the
+// loops outputWriter.
+//
+// Allows to run a graceful shutdown sequence for processing pipelines.
+// - Set quit flag on the first element (the producer) in a pipeline.
+// - Wait for the future of the first element to finish.
+// - Send shutdown messages through the outputWriter of the first element.
+//
+// * Repeat for all remaining elements in the pipeline:
+//   - Wait for the future of the element to finish (it should receive the
+//     shutdown message after having processed all input data).
+//   - If a timeout is exceeded set the quit flag to force the loop to exit. Repeat waiting for the future.
+//     Give up after a defined time or number of attempts.
+//   - Send shutdown messages through the outputWriter of the element.
+struct LoopRuntime
+{
+    std::atomic<bool> &quit;
+    std::future<LoopResult> resultFuture;
+    std::vector<nng::OutputWriter *> outputWriters;
+};
+
+using PipelineRuntime = std::vector<LoopRuntime>;
+
+std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(PipelineRuntime &pipeline,
+    std::chrono::milliseconds elementShutdownTimeout = std::chrono::milliseconds(5000));
+
 struct LIBMVME_EXPORT SocketWorkPerformanceCounters
 {
     std::chrono::steady_clock::time_point tpStart = {};
@@ -821,13 +856,12 @@ struct LIBMVME_EXPORT EventBuilderContext
     std::atomic<bool> quit;
 
     // Input: ParsedEventsMessageHeader
+    //std::unique_ptr<nng::InputReader> inputReader;
     nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
 
     // Output: ParsedEventsMessageHeader
+    //std::unique_ptr<nng::OutputWriter> outputWriter;
     nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
-
-    // Snoop Output: ParsedEventsMessageHeader
-    //nng_socket snoopOutputSocket = NNG_SOCKET_INITIALIZER;
 
     mvlc::EventBuilderConfig eventBuilderConfig;
     std::unique_ptr<mvlc::EventBuilder> eventBuilder;
@@ -891,14 +925,6 @@ struct MulticrateReplayContext
     // output writers in crate order
     std::vector<std::unique_ptr<nng::OutputWriter>> writers;
     mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCounters;
-};
-
-struct LoopResult
-{
-    std::error_code ec;
-    std::exception_ptr exception;
-
-    bool hasError() const { return ec || exception; }
 };
 
 LoopResult LIBMVME_EXPORT replay_loop(MulticrateReplayContext &context);

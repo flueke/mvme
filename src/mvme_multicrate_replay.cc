@@ -161,10 +161,15 @@ int main(int argc, char *argv[])
     replayContext.quit = false;
     replayContext.lfh = readerHelper.readHandle;
 
-    for (const auto &[writerSocket, _]: readoutSnoopSockets)
     {
-        auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
-        replayContext.writers.emplace_back(std::move(writer));
+        unsigned crateId = 0;
+
+        for (const auto &[writerSocket, _]: readoutSnoopSockets)
+        {
+            auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
+            writer->debugInfo = fmt::format("replayOutput (crateId={})", crateId++);
+            replayContext.writers.emplace_back(std::move(writer));
+        }
     }
 
     std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
@@ -180,7 +185,36 @@ int main(int argc, char *argv[])
         parserContexts.emplace_back(std::move(parserContext));
     }
 
-    auto replayFuture = std::async(std::launch::async, replay_loop, std::ref(replayContext));
+    auto log_counters = [&]
+    {
+        for (auto &ctx: parserContexts)
+        {
+            log_socket_work_counters(ctx->counters.access().ref(),
+                fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+        }
+
+        {
+            auto ca = replayContext.writerCounters.access();
+            const auto &counters = ca.ref();
+            for(size_t crateId=0; crateId<counters.size(); ++crateId)
+            {
+                log_socket_work_counters(counters[crateId], fmt::format("replay_loop ouputWriter (crateId={})", crateId));
+            }
+        }
+    };
+
+    PipelineRuntime pipeline;
+
+    {
+        std::vector<nng::OutputWriter *> writers;
+
+        for (auto &w: replayContext.writers)
+            writers.push_back(w.get());
+
+        auto replayFuture = std::async(std::launch::async, replay_loop, std::ref(replayContext));
+        LoopRuntime runtime { replayContext.quit, std::move(replayFuture), writers };
+        pipeline.emplace_back(std::move(runtime));
+    }
 
     std::vector<std::future<void>> parserFutures;
 
@@ -191,87 +225,70 @@ int main(int argc, char *argv[])
         }));
     }
 
-    // TODO: wait for replayFuture and parserFutures
-    // TODO: shutdown procedure
     #if 1
     StopWatch reportStopwatch;
     reportStopwatch.start();
+
     while (!signal_received())
     {
+        auto &replayFuture = pipeline[0].resultFuture;
         if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
         {
-            assert(replayFuture.valid());
-            auto result = replayFuture.get();
-            if (result.hasError())
-            {
-                if (result.ec)
-                {
-                    auto ec = result.ec;
-                    spdlog::warn("result from replay loop: error_code={} ({})", ec.message(), ec.category().name());
-                }
-                else if (result.exception)
-                {
-                    try
-                    {
-                        std::rethrow_exception(result.exception);
-                    }
-                    catch(const std::runtime_error& e)
-                    {
-                        spdlog::error("error from replay loop: {}", e.what());
-                    }
-                    catch(...)
-                    {
-                        spdlog::error("unknown exception thrown from replay loop");
-                    }
-                }
-            }
             spdlog::debug("replay done, leaving main loop");
             break;
         }
 
         if (reportStopwatch.get_interval() >= std::chrono::milliseconds(1000))
         {
-            for (auto &ctx: parserContexts)
-            {
-                log_socket_work_counters(ctx->counters.access().ref(),
-                    fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
-            }
-
-            {
-                auto ca = replayContext.writerCounters.access();
-                const auto &counters = ca.ref();
-                for(size_t crateId=0; crateId<counters.size(); ++crateId)
-                {
-                    log_socket_work_counters(counters[crateId], fmt::format("replay_loop ouputWriter (crateId={})", crateId));
-                }
-            }
-
+            log_counters();
             reportStopwatch.interval();
         }
     }
 
+    replayContext.quit = true;
+
+    if (auto &replayFuture = pipeline[0].resultFuture; replayFuture.valid())
+    {
+        auto result = replayFuture.get();
+        if (result.hasError())
+        {
+            if (result.ec)
+            {
+                auto ec = result.ec;
+                spdlog::warn("result from replay loop: error_code={} ({})", ec.message(), ec.category().name());
+            }
+            else if (result.exception)
+            {
+                try
+                {
+                    std::rethrow_exception(result.exception);
+                }
+                catch(const std::runtime_error& e)
+                {
+                    spdlog::error("error from replay loop: {}", e.what());
+                }
+                catch(...)
+                {
+                    spdlog::error("unknown exception thrown from replay loop");
+                }
+            }
+        }
+    }
+
     spdlog::debug("sending shutdown messages through replay output writers");
+    #if 0
     for (auto &writer: replayContext.writers)
     {
         if (writer)
             send_shutdown_message(*writer);
     }
+    #else
+    auto results = shutdown_pipeline(pipeline);
+    #endif
 
-    spdlog::info("final parser socket counters:");
-    for (auto &ctx: parserContexts)
-    {
-        log_socket_work_counters(ctx->counters.access().ref(),
-            fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
-    }
+    spdlog::info("final counters:");
+    log_counters();
 
-    {
-        auto ca = replayContext.writerCounters.access();
-        const auto &counters = ca.ref();
-        for(size_t crateId=0; crateId<counters.size(); ++crateId)
-        {
-            log_socket_work_counters(counters[crateId], fmt::format("replay_loop ouputWriter (crateId={})", crateId));
-        }
-    }
     #else
     QTimer periodicTimer;
     periodicTimer.setInterval(1000);
