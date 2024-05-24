@@ -1125,17 +1125,11 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
     std::vector<u8> previousData;
     s32 lastPacketNumber = -1;
 
-    auto new_output_message = [&] () -> nng_msg *
+    auto new_output_message = [&] () -> nng::unique_msg
     {
-        nng_msg *msg = {};
+        auto msg = nng::allocate_reserve_message(DefaultOutputMessageReserve);
 
-        if (auto res = nng::allocate_reserve_message(&msg, DefaultOutputMessageReserve))
-        {
-            spdlog::error("mvlc_eth_readout_loop: could not allocate nng output message: {}", nng_strerror(res));
-            return nullptr;
-        }
-
-        lfh.setMessage(msg);
+        lfh.setMessage(msg.get());
 
         multi_crate::ReadoutDataMessageHeader header{};
         header.messageType = multi_crate::MessageType::ReadoutData;
@@ -1149,63 +1143,29 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
                 header.crateId, messageNumber);
         }
 
-        nng_msg_append(msg, &header, sizeof(header));
-        assert(nng_msg_len(msg) == sizeof(header));
+        nng_msg_append(msg.get(), &header, sizeof(header));
+        assert(nng_msg_len(msg.get()) == sizeof(header));
 
-        nng_msg_append(msg, previousData.data(), previousData.size());
+        nng_msg_append(msg.get(), previousData.data(), previousData.size());
         previousData.clear();
 
         return msg;
     };
 
-    auto flush_output_message = [&] (nng_msg *msg, MvlcEthReadoutLoopContext &ctx) -> int
+    auto flush_output_message = [&] (unique_msg &&msg, MvlcEthReadoutLoopContext &ctx) -> int
     {
-        multi_crate::fixup_listfile_buffer_message(mvlc::ConnectionType::ETH, msg, previousData);
-        nng_msg *msgClone = nullptr;
-        const size_t msgLen = nng_msg_len(msg);
+        multi_crate::fixup_listfile_buffer_message(mvlc::ConnectionType::ETH, msg.get(), previousData);
 
-        if (nng_socket_id(context.snoopOutputSocket) >= 0)
-        {
-            if (auto res = nng_msg_dup(&msgClone, msg))
-            {
-                spdlog::error("mvlc_eth_readout_loop: could not allocate nng output message");
-                return res;
-            }
-        }
-
-        // Retry until the external quit flag is set.
-        auto retryPredicate = [&]
-        {
-            return !context.quit;
-        };
-
-        // The main (blocking) output socket. listfile_writer or similar reads
-        // from the other end.
-        if (auto res = nng::send_message_retry(context.dataOutputSocket, msg, retryPredicate))
-        {
-            nng_msg_free(msg);
-            nng_msg_free(msgClone);
-            return res;
-        }
+        const auto msgSize = nng_msg_len(msg.get());
+        StopWatch stopWatch;
+        ctx.outputWriter->writeMessage(std::move(msg));
 
         {
-            auto ca = ctx.dataOutputCounters.access();
-            ca->messagesSent += 1;
-            ca->bytesSent += msgLen;
-        }
-
-        // Also write to the snoop socket if one was setup. Only one send attempt.
-        if (msgClone)
-        {
-            if (auto res = nng::send_message_retry(context.snoopOutputSocket, msgClone, 1))
-            {
-                spdlog::warn("mvlc_eth_readout_loop: could not write to snoop output: {}", nng_strerror(res));
-                nng_msg_free(msgClone);
-            }
-
-            auto ca = ctx.snoopOutputCounters.access();
-            ca->messagesSent += 1;
-            ca->bytesSent += msgLen;
+            auto ta = ctx.dataOutputCounters.access();
+            ta->tSend += stopWatch.interval();
+            ta->tTotal += stopWatch.end();
+            ta->messagesSent++;
+            ta->bytesSent += msgSize;
         }
 
         return 0;
@@ -1225,13 +1185,12 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
 
     auto tLastFlush = std::chrono::steady_clock::now();
     context.dataOutputCounters.access()->start();
-    context.snoopOutputCounters.access()->start();
 
     while (!context.quit)
     {
-        if (!msg || nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+        if (!msg || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
         {
-            if (flush_output_message(msg, context) != 0)
+            if (flush_output_message(std::move(msg), context) != 0)
                 return; // FIXME: error log or return
 
             msg = new_output_message();
@@ -1239,22 +1198,22 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
             if (!msg) return; // FIXME: error log or return
         }
 
-        if (nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+        if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
         {
             spdlog::error("should not happen!");
             std::abort();
         }
 
-        auto msgUsed = nng_msg_len(msg);
+        auto msgUsed = nng_msg_len(msg.get());
 
         // Note: this should not alloc as we reserved space when the message was
         // created. This just increases the size of the message.
-        nng_msg_realloc(msg, msgUsed + eth::JumboFrameMaxSize);
+        nng_msg_realloc(msg.get(), msgUsed + eth::JumboFrameMaxSize);
 
         size_t bytesTransferred = 0;
         auto ec = eth::receive_one_packet(
             context.mvlcDataSocket,
-            reinterpret_cast<u8 *>(nng_msg_body(msg)) + msgUsed,
+            reinterpret_cast<u8 *>(nng_msg_body(msg.get())) + msgUsed,
             eth::JumboFrameMaxSize, bytesTransferred, 100);
 
         if (ec)
@@ -1268,7 +1227,7 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         if (bytesTransferred > 0)
         {
             eth::PacketReadResult prr{};
-            prr.buffer = reinterpret_cast<u8 *>(nng_msg_body(msg)) + msgUsed;
+            prr.buffer = reinterpret_cast<u8 *>(nng_msg_body(msg.get())) + msgUsed;
             prr.bytesTransferred = bytesTransferred;
 
             if (prr.hasHeaders())
@@ -1302,10 +1261,10 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
 
                 // Update the message size. This should not alloc as we can only shrink
                 // the message here.
-                nng_msg_realloc(msg, msgUsed + bytesTransferred);
+                nng_msg_realloc(msg.get(), msgUsed + bytesTransferred);
 
                 // Cross check size here.
-                assert(nng_msg_len(msg) == msgUsed + bytesTransferred);
+                assert(nng_msg_len(msg.get()) == msgUsed + bytesTransferred);
             }
         }
 
@@ -1318,15 +1277,15 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         // Check if either the flush timeout elapsed or there is no more space
         // for packets in the output message.
         if (auto elapsed = std::chrono::steady_clock::now() - tLastFlush;
-            elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+            elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
         {
-            if (nng::allocated_free_space(msg) < eth::JumboFrameMaxSize)
+            if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
                 spdlog::trace("crate{}: flushing full output message #{}", context.crateId, messageNumber - 1);
             else
                 spdlog::trace("crate{}: flushing output message #{} due to timeout", context.crateId, messageNumber - 1);
 
 
-            if (flush_output_message(msg, context) != 0)
+            if (flush_output_message(std::move(msg), context) != 0)
                 return;
 
             msg = new_output_message();
@@ -1366,7 +1325,6 @@ void listfile_writer_loop(ListfileWriterContext &context)
     while (!context.quit)
     {
         StopWatch stopWatch;
-        stopWatch.start();
 
         auto [msg, res] = context.inputReader->readMessage();
 

@@ -725,17 +725,10 @@ struct LIBMVME_EXPORT MvlcEthReadoutLoopContext
     // The MVLC data stream is read from this UDP socket.
     int mvlcDataSocket;
 
-    // Readout data is written to this socket. Expected to use a lossless,
-    // blocking protocol, e.g. pair or push, as this data goes to the output
-    // listfile.
-    nng_socket dataOutputSocket;
-
-    // Readout data is also written to this socket. Should be a lossfull,
-    // non-blocking protocol, e.g. pub.
-    nng_socket snoopOutputSocket;
+    // Readout data goes here. Format: MessageType::ReadoutData
+    std::unique_ptr<nng::OutputWriter> outputWriter;
 
     mvlc::Protected<SocketWorkPerformanceCounters> dataOutputCounters;
-    mvlc::Protected<SocketWorkPerformanceCounters> snoopOutputCounters;
 };
 
 void LIBMVME_EXPORT mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context);

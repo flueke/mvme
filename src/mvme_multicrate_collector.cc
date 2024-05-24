@@ -419,8 +419,12 @@ int main(int argc, char *argv[])
         auto ctx = std::make_unique<MvlcEthReadoutLoopContext>();
         ctx->quit = false;
         ctx->mvlcDataSocket = mvlcDataSockets[i];
-        ctx->dataOutputSocket = readoutProducerSocket;
-        ctx->snoopOutputSocket = readoutSnoopSockets[i].first;
+        auto outputWriter = std::make_unique<nng::MultiOutputWriter>();
+        // Usually goes to the listfile writer.
+        outputWriter->addWriter(std::make_unique<nng::SocketOutputWriter>(readoutProducerSocket));
+        // Snoop data goes here. Suggested to use a lossfull protocol like pub/sub to avoid slowing down the daq.
+        outputWriter->addWriter(std::make_unique<nng::SocketOutputWriter>(readoutSnoopSockets[i].first));
+        ctx->outputWriter = std::move(outputWriter);
         ctx->crateId = i;
         readoutContexts.emplace_back(std::move(ctx));
     }
@@ -720,8 +724,6 @@ int main(int argc, char *argv[])
         {
             log_socket_work_counters(ctx->dataOutputCounters.access().ref(),
                 fmt::format("eth_readout (crate={}, data output)", ctx->crateId));
-            log_socket_work_counters(ctx->snoopOutputCounters.access().ref(),
-                fmt::format("eth_readout (crate={}, snoop output)", ctx->crateId));
         }
 
         {
@@ -834,8 +836,8 @@ int main(int argc, char *argv[])
     // Now send shutdown messages through the data output and snoop sockets.
     for (auto &readoutContext: readoutContexts)
     {
-        spdlog::warn("crate{} readout: sending shutdown messages", readoutContext->crateId);
-        send_shutdown_messages({ readoutContext->dataOutputSocket, readoutContext->snoopOutputSocket });
+        spdlog::warn("crate{} readout: sending shutdown message", readoutContext->crateId);
+        send_shutdown_message(*readoutContext->outputWriter);
     }
 
     spdlog::debug("shutdown sent through data and snoop output sockets for all crates");
