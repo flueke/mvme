@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
     // from the second socket.
     std::vector<std::pair<nng_socket, nng_socket>> readoutSnoopSockets; // readout writes, parser reads
     std::vector<std::pair<nng_socket, nng_socket>> parsedDataSockets; // parser writes, eventbuilder reads
-    std::vector<std::pair<nng_socket, nng_socket>> stage1DataSockets; // eventbuilder writes, yduplicator reads
+    std::vector<std::pair<nng_socket, nng_socket>> stage1DataSockets; // eventbuilder writes, stage1 analysis reads
     std::vector<std::pair<nng_socket, nng_socket>> stage1AnalysisSockets; // yduplicator writes, stage1 analysis reads
 
     // stage1 data from all crates is written to the first socket by a

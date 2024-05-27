@@ -81,3 +81,132 @@ TEST(MesyNngPipeline2, SocketMultiOutputWriter)
     ASSERT_EQ(nng_msg_len(inMsg1.get()), 4);
     ASSERT_EQ(memcmp(nng_msg_body(inMsg1.get()), "1234", 4), 0);
 }
+
+TEST(MesyNngPipeline2, SocketPipeline)
+{
+    // Last digit: 0 = input, 1 = output
+    nng_socket s01 = { 0 }; // out0 - first stage producer
+
+    nng_socket s10 = { 1 }; // in1  - second stage in
+    nng_socket s11 = { 2 }; // out1 - second stage out
+
+    nng_socket s20 = { 3 }; // in2  - third stage in
+    nng_socket s21 = { 4 }; // out2 - third stage out
+
+    nng_socket s30 = { 5 }; // in3 - last stage consumer
+
+    // => Couples are (s01, s10), (s11, s20), (s21, s30)
+
+    std::string url0_1 = "inproc://test0_1";
+    std::string url1_2 = "inproc://test1_2";
+    std::string url2_3 = "inproc://test2_3";
+
+    SocketPipeline pipeline;
+
+    {
+        pipeline.addProducer(s01, url0_1);
+
+        ASSERT_EQ(pipeline.pipeline.size(), 1);
+        ASSERT_EQ(pipeline.couples.size(), 1);
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].inputSocket), -1);
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].outputSocket), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].listener), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].dialer), -1);
+        ASSERT_EQ(pipeline.pipeline[0].inputUrl, "");
+        ASSERT_EQ(pipeline.pipeline[0].outputUrl, url0_1);
+        ASSERT_EQ(pipeline.couples[0].url, url0_1);
+    }
+
+    {
+        pipeline.addElement(s10, s11, url0_1, url1_2);
+
+        ASSERT_EQ(pipeline.pipeline.size(), 2);
+        ASSERT_EQ(pipeline.couples.size(), 2);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].inputSocket), -1);
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].outputSocket), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].listener), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].dialer), nng_socket_id(s10));
+        ASSERT_EQ(pipeline.pipeline[0].inputUrl, "");
+        ASSERT_EQ(pipeline.pipeline[0].outputUrl, url0_1);
+        ASSERT_EQ(pipeline.couples[0].url, url0_1);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[1].inputSocket), nng_socket_id(s10));
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[1].outputSocket), nng_socket_id(s11));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].listener), nng_socket_id(s11));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].dialer), -1);
+        ASSERT_EQ(pipeline.pipeline[1].inputUrl, url0_1);
+        ASSERT_EQ(pipeline.pipeline[1].outputUrl, url1_2);
+        ASSERT_EQ(pipeline.couples[1].url, url1_2);
+    }
+
+    {
+        pipeline.addElement(s20, s21, url1_2, url2_3);
+
+        ASSERT_EQ(pipeline.pipeline.size(), 3);
+        ASSERT_EQ(pipeline.couples.size(), 3);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].inputSocket), -1);
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].outputSocket), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].listener), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].dialer), nng_socket_id(s10));
+        ASSERT_EQ(pipeline.pipeline[0].inputUrl, "");
+        ASSERT_EQ(pipeline.pipeline[0].outputUrl, url0_1);
+        ASSERT_EQ(pipeline.couples[0].url, url0_1);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[1].inputSocket), nng_socket_id(s10));
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[1].outputSocket), nng_socket_id(s11));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].listener), nng_socket_id(s11));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].dialer), nng_socket_id(s20));
+        ASSERT_EQ(pipeline.pipeline[1].inputUrl, url0_1);
+        ASSERT_EQ(pipeline.pipeline[1].outputUrl, url1_2);
+        ASSERT_EQ(pipeline.couples[1].url, url1_2);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[2].inputSocket), nng_socket_id(s20));
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[2].outputSocket), nng_socket_id(s21));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[2].listener), nng_socket_id(s21));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[2].dialer), -1);
+        ASSERT_EQ(pipeline.pipeline[2].inputUrl, url1_2);
+        ASSERT_EQ(pipeline.pipeline[2].outputUrl, url2_3);
+        ASSERT_EQ(pipeline.couples[2].url, url2_3);
+    }
+
+    {
+        pipeline.addConsumer(s30, url2_3);
+
+        ASSERT_EQ(pipeline.pipeline.size(), 4);
+        ASSERT_EQ(pipeline.couples.size(), 4);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].inputSocket), -1);
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[0].outputSocket), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].listener), nng_socket_id(s01));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].dialer), nng_socket_id(s10));
+        ASSERT_EQ(pipeline.pipeline[0].inputUrl, "");
+        ASSERT_EQ(pipeline.pipeline[0].outputUrl, url0_1);
+        ASSERT_EQ(pipeline.couples[0].url, url0_1);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[1].inputSocket), nng_socket_id(s10));
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[1].outputSocket), nng_socket_id(s11));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].listener), nng_socket_id(s11));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].dialer), nng_socket_id(s20));
+        ASSERT_EQ(pipeline.pipeline[1].inputUrl, url0_1);
+        ASSERT_EQ(pipeline.pipeline[1].outputUrl, url1_2);
+        ASSERT_EQ(pipeline.couples[1].url, url1_2);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[2].inputSocket), nng_socket_id(s20));
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[2].outputSocket), nng_socket_id(s21));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[2].listener), nng_socket_id(s21));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[2].dialer), nng_socket_id(s30));
+        ASSERT_EQ(pipeline.pipeline[2].inputUrl, url1_2);
+        ASSERT_EQ(pipeline.pipeline[2].outputUrl, url2_3);
+        ASSERT_EQ(pipeline.couples[2].url, url2_3);
+
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[3].inputSocket), nng_socket_id(s30));
+        ASSERT_EQ(nng_socket_id(pipeline.pipeline[3].outputSocket), -1);
+        ASSERT_EQ(nng_socket_id(pipeline.couples[3].listener), -1);
+        ASSERT_EQ(nng_socket_id(pipeline.couples[3].dialer), -1);
+        ASSERT_EQ(pipeline.pipeline[3].inputUrl, url2_3);
+        ASSERT_EQ(pipeline.pipeline[3].outputUrl, "");
+        ASSERT_EQ(pipeline.couples[3].url, "");
+    }
+}

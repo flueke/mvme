@@ -123,17 +123,23 @@ int main(int argc, char *argv[])
     std::vector<std::pair<nng_socket, nng_socket>> readoutSnoopSockets; // readout writes, parser reads
     std::vector<std::pair<nng_socket, nng_socket>> parsedDataSockets; // parser writes, eventbuilder reads
 
+    std::vector<nng::SocketPipeline> pipelines;
+
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        auto uri = fmt::format("inproc://readoutDataSnoop{}", i);
+        auto uri = fmt::format("inproc://crate{}_readout", i);
         nng_socket writerSocket = nng::make_pair_socket();
         nng_socket readerSocket = nng::make_pair_socket();
 
         if (int res = nng::marry_listen_dial(writerSocket, readerSocket, uri.c_str()))
         {
-            nng::mesy_nng_error("marry_listen_dial readoutDataSnoop", res);
+            nng::mesy_nng_error(fmt::format("marry_listen_dial {}", i), res);
             return 1;
         }
+
+        // FIXME: left off here. How to use the pipeline abstraction to make this code easier?
+        //nng::SocketPipeline pipeline;
+        //pipeline.addProducer(writerSocket, uri);
 
         readoutSnoopSockets.emplace_back(std::make_pair(writerSocket, readerSocket));
     }
@@ -157,7 +163,6 @@ int main(int argc, char *argv[])
         parsedDataSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
     }
 
-    // FIXME: it does not seem to correctly replay data from multiple crates.
     MulticrateReplayContext replayContext;
     replayContext.quit = false;
     replayContext.lfh = readerHelper.readHandle;

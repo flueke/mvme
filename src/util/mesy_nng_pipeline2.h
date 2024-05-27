@@ -131,6 +131,75 @@ class MultiOutputWriter: public OutputWriter
         std::vector<std::unique_ptr<OutputWriter>> writers;
 };
 
+// Abstraction for a nng socket based processing pipeline.
+// The pipeline consists of a sequence of processing stages, each stage has an
+// input and an output socket. The first stage is the producer stage, having
+// only an output socket, while the last stage is a consumer, having only an
+// input socket.
+// stageN and stageN+1 are connected by a married socket couple. Usually stageN
+// output listens, stageN+1 output dials.
+struct SocketPipeline
+{
+    // Processing pipeline element.
+    struct Element
+    {
+        nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+        nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+        std::string inputUrl;
+        std::string outputUrl;
+    };
+
+    // Married socket couple. Listener is usually the stageN output, dialer is the stageN+1 input.
+    struct Couple
+    {
+        nng_socket listener = NNG_SOCKET_INITIALIZER;
+        nng_socket dialer = NNG_SOCKET_INITIALIZER;
+        std::string url;
+    };
+
+    // Processing stage0 .. stageN-1.
+    std::vector<Element> pipeline;
+
+    // Married socket couples stage0 .. stageN-1.
+    // couples[N] contains the output socket of stageN and the input socket of stageN-1.
+    std::vector<Couple> couples;
+
+    void addElement(nng_socket inputSocket, nng_socket outputSocket,
+        const std::string &inputUrl = {}, const std::string &outputUrl = {})
+    {
+        Element elem;
+        elem.inputSocket = inputSocket;
+        elem.outputSocket = outputSocket;
+        elem.inputUrl = inputUrl;
+        elem.outputUrl = outputUrl;
+
+        Couple couple;
+        couple.listener = outputSocket;
+        couple.url = outputUrl;
+
+        if (!couples.empty())
+        {
+            couples.back().dialer = inputSocket;
+            assert(couples.back().url == inputUrl);
+        }
+
+        pipeline.emplace_back(elem);
+        couples.emplace_back(couple);
+    }
+
+    void addProducer(nng_socket outputSocket, const std::string &outputUrl = {})
+    {
+        assert(pipeline.empty());
+        addElement(NNG_SOCKET_INITIALIZER, outputSocket, {}, outputUrl);
+    }
+
+    void addConsumer(nng_socket inputSocket, const std::string &inputUrl = {})
+    {
+        assert(!pipeline.empty());
+        addElement(inputSocket, NNG_SOCKET_INITIALIZER, inputUrl, {});
+    }
+};
+
 #if 0
 class AbstractLoopContext
 {

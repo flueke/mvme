@@ -1171,14 +1171,14 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         return 0;
     };
 
+    auto msg = new_output_message();
+
     ReadoutLoopPlugin::Arguments pluginArgs{};
     pluginArgs.crateId = context.crateId;
     pluginArgs.listfileHandle = &lfh;
 
     std::vector<std::unique_ptr<ReadoutLoopPlugin>> readoutLoopPlugins;
     readoutLoopPlugins.emplace_back(std::make_unique<TimetickPlugin>());
-
-    auto msg = new_output_message();
 
     for (auto &plugin: readoutLoopPlugins)
         plugin->readoutStart(pluginArgs);
@@ -1204,7 +1204,7 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
             std::abort();
         }
 
-        auto msgUsed = nng_msg_len(msg.get());
+        const auto msgUsed = nng_msg_len(msg.get());
 
         // Note: this should not alloc as we reserved space when the message was
         // created. This just increases the size of the message.
@@ -1245,8 +1245,8 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
             {
                 if (prr.controllerId() != context.crateId)
                 {
-                    //spdlog::warn("crate{}: incoming data packet has crateId={} set, excepted {}. Dropping the packet!",
-                    //    context.crateId, prr.controllerId(), context.crateId);
+                    spdlog::warn("crate{}: incoming data packet has crateId={} set, excepted {}.",
+                        context.crateId, prr.controllerId(), context.crateId);
                 }
 
                 if (lastPacketNumber >= 0)
@@ -1269,9 +1269,20 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         }
 
         // Run plugins (currently only timetick generation here).
+        bool stopReadout = false;
         for (const auto &plugin: readoutLoopPlugins)
         {
-            plugin->operator()(pluginArgs);
+            if (auto pluginResult = plugin->operator()(pluginArgs);
+                pluginResult == ReadoutLoopPlugin::Result::StopReadout)
+            {
+                stopReadout = true;
+            }
+        }
+
+        if (stopReadout)
+        {
+            spdlog::warn("crate{}: readout loop requested to stop by plugin", context.crateId);
+            break;
         }
 
         // Check if either the flush timeout elapsed or there is no more space
@@ -1301,9 +1312,174 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         plugin->readoutStop(pluginArgs);
 
     spdlog::info("leaving mvlc_eth_readout_loop, crateId={}", context.crateId);
-
-    // Important: no sentinel has been sent at this point!
 }
+
+#if 0 // TODO: implement this and merge similar parts with mvlc_eth_readout_loop
+void mvlc_instance_readout_loop(MvlcInstanceReadoutLoopContext &context)
+{
+    set_thread_name("mvlc_readout_loop");
+
+    spdlog::info("entering mvlc_readout_loop, crateId={}", context.crateId);
+
+    // Listfile handle to pass to ReadoutLoopPlugins.
+    multi_crate::NngMsgWriteHandle lfh;
+    u32 messageNumber = 1u;
+    std::vector<u8> previousData;
+    s32 lastPacketNumber = -1;
+
+    // MVLC connection type specifics
+    const auto outputBufferType = context.mvlc.connectionType();
+    eth::MVLC_ETH_Interface *mvlcETH = nullptr;
+    usb::MVLC_USB_Interface *mvlcUSB = nullptr;
+
+    switch (context.mvlc.connectionType())
+    {
+        case ConnectionType::ETH:
+            mvlcETH = dynamic_cast<eth::MVLC_ETH_Interface *>(context.mvlc.getImpl());
+            mvlcETH->resetPipeAndChannelStats(); // reset packet loss counters
+            assert(mvlcETH);
+
+            // Send an initial empty frame to the UDP data pipe port so that
+            // the MVLC knows where to send the readout data.
+            if (auto ec = redirect_eth_data_stream(context.mvlc))
+            {
+                // TODO: return an error
+                return;
+            }
+            break;
+
+        case ConnectionType::USB:
+            mvlcUSB = dynamic_cast<usb::MVLC_USB_Interface *>(context.mvlc.getImpl());
+            assert(mvlcUSB);
+            break;
+    }
+
+    // Reset the MVLC-wide stack error counters
+    context.mvlc.resetStackErrorCounters();
+
+    auto new_output_message = [&] () -> nng::unique_msg
+    {
+        auto msg = nng::allocate_reserve_message(DefaultOutputMessageReserve);
+
+        lfh.setMessage(msg.get());
+
+        multi_crate::ReadoutDataMessageHeader header{};
+        header.messageType = multi_crate::MessageType::ReadoutData;
+        header.messageNumber = messageNumber++;
+        header.bufferType = static_cast<u32>(outputBufferType);
+        header.crateId = context.crateId;
+
+        {
+            auto messageNumber = header.messageNumber; // fix for gcc + spdlog/fmt + packed struct members
+            spdlog::debug("mvlc_readout_loop: preparing new output message: crateId={}, messageNumber={}",
+                header.crateId, messageNumber);
+        }
+
+        nng_msg_append(msg.get(), &header, sizeof(header));
+        assert(nng_msg_len(msg.get()) == sizeof(header));
+
+        nng_msg_append(msg.get(), previousData.data(), previousData.size());
+        previousData.clear();
+
+        return msg;
+    };
+
+    auto flush_output_message = [&] (unique_msg &&msg, MvlcInstanceReadoutLoopContext &ctx) -> int
+    {
+        multi_crate::fixup_listfile_buffer_message(outputBufferType, msg.get(), previousData);
+
+        const auto msgSize = nng_msg_len(msg.get());
+        StopWatch stopWatch;
+        ctx.outputWriter->writeMessage(std::move(msg));
+
+        {
+            auto ta = ctx.dataOutputCounters.access();
+            ta->tSend += stopWatch.interval();
+            ta->tTotal += stopWatch.end();
+            ta->messagesSent++;
+            ta->bytesSent += msgSize;
+        }
+
+        return 0;
+    };
+
+    auto msg = new_output_message();
+
+    ReadoutLoopPlugin::Arguments pluginArgs{};
+    pluginArgs.crateId = context.crateId;
+    pluginArgs.listfileHandle = &lfh;
+
+    std::vector<std::unique_ptr<ReadoutLoopPlugin>> readoutLoopPlugins;
+    readoutLoopPlugins.emplace_back(std::make_unique<TimetickPlugin>());
+
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStart(pluginArgs);
+
+    StopWatch swFlush;
+    context.dataOutputCounters.access()->start();
+
+    while (!context.quit)
+    {
+        if (!msg || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+        {
+            if (flush_output_message(std::move(msg), context) != 0)
+                return; // FIXME: error log or return
+
+            msg = new_output_message();
+
+            if (!msg) return; // FIXME: error log or return
+        }
+
+        if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+        {
+            spdlog::error("should not happen!");
+            std::abort();
+        }
+
+        const auto msgUsed = nng_msg_len(msg.get());
+
+        // Note: this should not alloc as we reserved space when the message was
+        // created. This just increases the size of the message.
+        nng_msg_realloc(msg.get(), msgUsed + eth::JumboFrameMaxSize);
+
+        size_t bytesTransferred = 0;
+
+        // Run plugins (currently only timetick generation here).
+        for (const auto &plugin: readoutLoopPlugins)
+        {
+            auto pluginResult = plugin->operator()(pluginArgs);
+            // TODO: check for stop request from the plugin
+        }
+
+        // Check if either the flush timeout elapsed or there is no more space
+        // for packets in the output message.
+        if (auto elapsed = swFlush.get_interval();
+            elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+        {
+            if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+                spdlog::trace("crate{}: flushing full output message #{}", context.crateId, messageNumber - 1);
+            else
+                spdlog::trace("crate{}: flushing output message #{} due to timeout", context.crateId, messageNumber - 1);
+
+            if (flush_output_message(std::move(msg), context) != 0)
+                return;
+
+            msg = new_output_message();
+
+            if (!msg)
+                return;
+
+            swFlush.interval();
+        }
+    }
+
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStop(pluginArgs);
+
+
+    spdlog::info("leaving mvlc_readout_loop, crateId={}", context.crateId);
+}
+#endif
 
 void listfile_writer_loop(ListfileWriterContext &context)
 {

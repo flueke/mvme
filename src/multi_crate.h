@@ -745,11 +745,10 @@ struct LIBMVME_EXPORT MvlcInstanceReadoutLoopContext
 
     mvlc::MVLC mvlc;
 
-    nng_socket dataOutputSocket;
-    nng_socket snoopOutputSocket;
+    // Readout data goes here. Format: MessageType::ReadoutData
+    std::unique_ptr<nng::OutputWriter> outputWriter;
 
     mvlc::Protected<SocketWorkPerformanceCounters> dataOutputCounters;
-    mvlc::Protected<SocketWorkPerformanceCounters> snoopOutputCounters;
 };
 
 // TODO: implement this (similar to ReadoutWorker::Private::readout())
