@@ -200,6 +200,40 @@ struct SocketPipeline
     }
 };
 
+// Create a pipeline from a sequence of married socket couples.
+// N couples will result in a pipeline of size N+1. The pipeline starts with a
+// producer and ends with a consumer with optional processing elements
+// in-between.
+inline SocketPipeline pipeline_from_couples(const std::vector<SocketPipeline::Couple> &couples)
+{
+    SocketPipeline ret;
+
+    if (!couples.empty())
+        ret.addProducer(couples.front().listener, couples.front().url);
+
+    for (size_t i=1; i<couples.size(); ++i)
+        ret.addElement(couples[i-1].dialer, couples[i].listener, couples[i-1].url, couples[i].url);
+
+    if (!couples.empty())
+        ret.addConsumer(couples.back().dialer, couples.back().url);
+
+    return ret;
+}
+
+inline std::pair<SocketPipeline::Couple, int> make_pair_couple(const std::string &url)
+{
+    auto result = std::make_pair<SocketPipeline::Couple, int>({}, 0);
+    auto listener = make_pair_socket();
+    auto dialer = make_pair_socket();
+
+    if (int res = marry_listen_dial(listener, dialer, url.c_str()))
+        result.second = res;
+    else
+        result.first = {listener, dialer, url};
+
+    return result;
+}
+
 #if 0
 class AbstractLoopContext
 {

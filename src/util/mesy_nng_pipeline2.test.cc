@@ -82,7 +82,7 @@ TEST(MesyNngPipeline2, SocketMultiOutputWriter)
     ASSERT_EQ(memcmp(nng_msg_body(inMsg1.get()), "1234", 4), 0);
 }
 
-TEST(MesyNngPipeline2, SocketPipeline)
+TEST(MesyNngPipeline2, SocketPipelineFromElements)
 {
     // Last digit: 0 = input, 1 = output
     nng_socket s01 = { 0 }; // out0 - first stage producer
@@ -209,4 +209,31 @@ TEST(MesyNngPipeline2, SocketPipeline)
         ASSERT_EQ(pipeline.pipeline[3].outputUrl, "");
         ASSERT_EQ(pipeline.couples[3].url, "");
     }
+}
+
+TEST(MesyNngPipeline2, SocketPipelineFromCouples)
+{
+    const unsigned crateId = 0;
+    std::vector<SocketPipeline::Couple> couples;
+
+    {
+        auto url = fmt::format("inproc://crate{}_stage0_readout", crateId);
+        auto [couple, res] = make_pair_couple(url);
+        ASSERT_EQ(res, 0);
+
+        couples.emplace_back(couple);
+
+        auto pipeline = pipeline_from_couples(couples);
+        ASSERT_EQ(pipeline.pipeline.size(), 2);
+        ASSERT_EQ(pipeline.couples.size(), 2);
+        ASSERT_EQ(pipeline.pipeline[0].inputUrl, "");
+        ASSERT_EQ(pipeline.pipeline[0].outputUrl, url);
+        ASSERT_EQ(pipeline.pipeline[1].inputUrl, url);
+        ASSERT_EQ(pipeline.pipeline[1].outputUrl, "");
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].listener), nng_socket_id(couple.listener));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[0].dialer), nng_socket_id(couple.dialer));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].listener), nng_socket_id(couple.listener));
+        ASSERT_EQ(nng_socket_id(pipeline.couples[1].dialer), nng_socket_id(couple.dialer));
+    }
+
 }
