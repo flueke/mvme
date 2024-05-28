@@ -699,6 +699,7 @@ std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(PipelineRuntime &pipeli
 struct LIBMVME_EXPORT SocketWorkPerformanceCounters
 {
     std::chrono::steady_clock::time_point tpStart = {};
+    std::chrono::steady_clock::time_point tpStop = {};
     std::chrono::microseconds tReceive = {};
     std::chrono::microseconds tProcess = {};
     std::chrono::microseconds tSend = {};
@@ -712,6 +713,11 @@ struct LIBMVME_EXPORT SocketWorkPerformanceCounters
     void start()
     {
         tpStart = std::chrono::steady_clock::now();
+    }
+
+    void stop()
+    {
+        tpStop = std::chrono::steady_clock::now();
     }
 };
 

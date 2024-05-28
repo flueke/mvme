@@ -1093,12 +1093,18 @@ std::vector<LoopResult> shutdown_pipeline(PipelineRuntime &pipeline,
 
 void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info)
 {
+    //auto now = tpStop
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - counters.tpStart);
+
     spdlog::info("{}: time budget: "
+                "elapsed = {} ms, "
                 "tReceive = {} ms, "
                 "tProcess = {} ms, "
                 "tSend = {} ms, "
                 "tTotal = {} ms",
                 info,
+                elapsed.count() / 1000.0,
                 counters.tReceive.count() / 1000.0,
                 counters.tProcess.count() / 1000.0,
                 counters.tSend.count() / 1000.0,
@@ -1109,20 +1115,23 @@ void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, con
     auto totalMessages = counters.messagesReceived + counters.messagesLost;
     auto efficiency = counters.messagesReceived * 1.0 / totalMessages;
 
-    spdlog::info("{}: stats: msgsReceived={}, msgsLost={} (efficiency={:.2f}), msgsSent={}, bytesReceived={:.2f} MiB, bytesSent={:.2f} MiB",
-        info, counters.messagesReceived, counters.messagesLost, efficiency, counters.messagesSent, mibReceived, mibSent);
-
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - counters.tpStart);
+    //spdlog::info("{}: stats: msgsReceived={}, msgsLost={} (efficiency={:.2f}), msgsSent={}, bytesReceived={:.2f} MiB, bytesSent={:.2f} MiB",
+    //    info, counters.messagesReceived, counters.messagesLost, efficiency, counters.messagesSent, mibReceived, mibSent);
 
     auto msgReceiveRate = counters.messagesReceived * 1.0 / elapsed.count() * 1000.0;
     auto msgSendRate =  counters.messagesSent * 1.0 / elapsed.count() * 1000.0;
     auto bytesReceiveRate = mibReceived / elapsed.count() * 1000.0;
     auto bytesSendRate = mibSent / elapsed.count() * 1000.0;
 
-    spdlog::info("{}: rates: elapsed={:.2f} s, msgReceiveRate={:.2f} msgs/s, msgSendRate={:.2f} msgs/s, "
-        " bytesReceivedRate={:.2f} MiB/s, bytesSentRate={:.2f} MiB/s",
-        info, elapsed.count() / 1000.0, msgReceiveRate, msgSendRate, bytesReceiveRate, bytesSendRate);
+    //spdlog::info("{}: rates: elapsed={:.2f} s, msgReceiveRate={:.2f} msgs/s, msgSendRate={:.2f} msgs/s, "
+    //    " bytesReceivedRate={:.2f} MiB/s, bytesSentRate={:.2f} MiB/s",
+    //    info, elapsed.count() / 1000.0, msgReceiveRate, msgSendRate, bytesReceiveRate, bytesSendRate);
+
+    spdlog::info("{}: rx: tRecv={:.2f} ms, msgs={}, {:.2f} msg/s, bytes={:.2f} MiB, {:.2f} MiB/s",
+        info, counters.tReceive.count() / 1000.0, counters.messagesReceived, msgReceiveRate, mibReceived, bytesReceiveRate);
+
+    spdlog::info("{}: tx: tSend={:.2f} ms, msgs={}, {:.2f} msg/s, bytes={:.2f} MiB, {:.2f} MiB/s",
+        info, counters.tSend.count() / 1000.0, counters.messagesSent, msgSendRate, mibSent, bytesSendRate);
 }
 
 void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
