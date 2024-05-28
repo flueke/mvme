@@ -27,6 +27,7 @@ void setup_signal_handlers()
     }
 }
 #else
+#include <windows.h>
 BOOL CtrlHandler(DWORD ctrlType)
 {
     switch (ctrlType)
