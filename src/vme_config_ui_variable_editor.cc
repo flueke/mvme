@@ -182,11 +182,13 @@ struct VariableNameValidator: public QValidator
                 return QValidator::Invalid;
             }
 
+            #if 0 // Was catching "sys_" to stop users from editing these variables. Not really needed as it turns out.
             if (vme_script::is_system_variable_name(input))
             {
                 qDebug() << __PRETTY_FUNCTION__ << "is_system_variable_name -> Invalid";
                 return QValidator::Invalid;
             }
+            #endif
 
             if (m_existingNames.contains(input))
             {
