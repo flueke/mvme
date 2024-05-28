@@ -887,16 +887,16 @@ void LIBMVME_EXPORT event_builder_combined_loop(EventBuilderContext &context);
 struct LIBMVME_EXPORT AnalysisProcessingContext
 {
     std::atomic<bool> quit;
-    nng_socket inputSocket;
+    std::unique_ptr<nng::InputReader> inputReader;
     std::shared_ptr<analysis::Analysis> analysis;
     bool isReplay = false;
-    multi_crate::MinimalAnalysisServiceProvider *asp = nullptr;
+    std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider> asp = nullptr;
     mvlc::Protected<SocketWorkPerformanceCounters> inputSocketCounters;
     u8 crateId = 0;
 };
 
 // Consumes ParsedEventsMessageHeader type messages.
-void LIBMVME_EXPORT analysis_loop(AnalysisProcessingContext &context);
+LoopResult LIBMVME_EXPORT analysis_loop(AnalysisProcessingContext &context);
 
 struct LIBMVME_EXPORT ParsedDataConsumerContext
 {

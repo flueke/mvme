@@ -120,6 +120,8 @@ int main(int argc, char *argv[])
 
     fmt::print("Read {} vme configs from {}\n", vmeConfigs.size(), listfileFilename);
 
+    // Prepare sockets for the processing pipelines.
+
     std::vector<nng::SocketPipeline> pipelines; // one processing pipeline per crate
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
@@ -148,6 +150,8 @@ int main(int argc, char *argv[])
         pipelines.emplace_back(std::move(pipeline));
     }
 
+    // Replay: one context with one output writer for each crate in the input listfile.
+
     MulticrateReplayContext replayContext;
     replayContext.quit = false;
     replayContext.lfh = readerHelper.readHandle;
@@ -162,6 +166,7 @@ int main(int argc, char *argv[])
         replayContext.writers.emplace_back(std::move(writer));
     }
 
+    // Parsers: one parser per crate
     std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
@@ -183,14 +188,53 @@ int main(int argc, char *argv[])
         parserContexts.emplace_back(std::move(parserContext));
     }
 
-    auto log_counters = [&]
+    // Analysis: one per crate
+    std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage1Contexts;
+    auto widgetRegistry = std::make_shared<WidgetRegistry>();
+
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        for (auto &ctx: parserContexts)
+        const auto &pipeline = pipelines[i];
+        assert(pipeline.elements().size() >= 3);
+
+        auto analysisContext = std::make_unique<AnalysisProcessingContext>();
+        analysisContext->quit = false;
+        analysisContext->inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[2].inputSocket);
+        analysisContext->crateId = i;
+        std::shared_ptr<analysis::Analysis> analysis;
+
+        if (!analysisFilename.empty())
         {
-            log_socket_work_counters(ctx->counters.access().ref(),
-                fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+            auto [ana, errorString] = analysis::read_analysis_config_from_file(analysisFilename.c_str());
+
+            if (!ana)
+            {
+                std::cerr << fmt::format("Error reading mvme analysis config from '{}': {}\n",
+                    analysisFilename, errorString.toStdString());
+                return 1;
+            }
+
+            analysis = ana;
+        }
+        else
+        {
+            analysis = std::make_shared<analysis::Analysis>();
         }
 
+        analysisContext->analysis = analysis;
+        auto asp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
+        asp->vmeConfig_ = vmeConfigs[i].get();
+        asp->analysis_ = analysis;
+        asp->widgetRegistry_ = widgetRegistry;
+        analysisContext->asp = std::move(asp);
+        analysis->beginRun(RunInfo{}, vmeConfigs[i].get());
+
+        analysisStage1Contexts.emplace_back(std::move(analysisContext));
+    }
+
+    auto log_counters = [&]
+    {
+        // replay
         {
             auto ca = replayContext.writerCounters.access();
             const auto &counters = ca.ref();
@@ -198,6 +242,20 @@ int main(int argc, char *argv[])
             {
                 log_socket_work_counters(counters[crateId], fmt::format("replay_loop ouputWriter (crateId={})", crateId));
             }
+        }
+
+        // parsers
+        for (auto &ctx: parserContexts)
+        {
+            log_socket_work_counters(ctx->counters.access().ref(),
+                fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+        }
+
+        // analyses
+        for (auto &ctx: analysisStage1Contexts)
+        {
+            log_socket_work_counters(ctx->inputSocketCounters.access().ref(),
+                fmt::format("analysis_loop (crateId={})", ctx->crateId));
         }
     };
 
@@ -228,6 +286,13 @@ int main(int argc, char *argv[])
         cratePipelineRuntimes[parserContext->crateId].emplace_back(std::move(rt));
     }
 
+    for (auto &analysisContext: analysisStage1Contexts)
+    {
+        auto future = std::async(std::launch::async, analysis_loop, std::ref(*analysisContext));
+        auto rt = LoopRuntime{ analysisContext->quit, std::move(future), {} };
+        cratePipelineRuntimes[analysisContext->crateId].emplace_back(std::move(rt));
+    }
+
     StopWatch reportStopwatch;
     reportStopwatch.start();
 
@@ -256,8 +321,10 @@ int main(int argc, char *argv[])
         spdlog::warn("replay finished, shutting down");
     }
 
+    const auto ShutdownMaxWait = std::chrono::milliseconds(20 * 1000);
+
     replayContext.quit = true;
-    auto replayLoopResult = shutdown_loop(*replayLoopRuntime);
+    auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
 
     assert(!replayLoopResult.hasError()); // XXX: debugging
 
@@ -265,7 +332,7 @@ int main(int argc, char *argv[])
 
     for (auto &pipelineRuntime: cratePipelineRuntimes)
     {
-        auto loopResults = shutdown_pipeline(pipelineRuntime);
+        auto loopResults = shutdown_pipeline(pipelineRuntime, ShutdownMaxWait);
     }
 
     spdlog::debug("crate processing pipelines shutdown done");

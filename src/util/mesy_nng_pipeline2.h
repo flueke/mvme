@@ -44,7 +44,7 @@ struct SocketOutputWriter: public OutputWriter
 
     int writeMessage(unique_msg &&msg) override
     {
-        spdlog::warn("SocketOutputWriter: entering writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+        spdlog::trace("SocketOutputWriter: entering writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
 
         int res = 0;
 
@@ -53,19 +53,19 @@ struct SocketOutputWriter: public OutputWriter
         else
             res = send_message_retry(socket, msg.get(), maxRetries, debugInfo.c_str());
 
-        spdlog::warn("SocketOutputWriter: send_message_retry returned {} (msg.get()=({}, {}))", res, fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+        spdlog::trace("SocketOutputWriter: send_message_retry returned {} (msg.get()=({}, {}))", res, fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
 
         if (res == 0)
         {
-            spdlog::warn("SocketOutputWriter: releasing message ({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+            spdlog::trace("SocketOutputWriter: releasing message ({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
             msg.release(); // nng has taken ownership at this point
         }
         else
         {
-            spdlog::warn("SocketOutputWriter: write failed for msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+            spdlog::trace("SocketOutputWriter: write failed for msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
         }
 
-        spdlog::warn("SocketOutputWriter: leaving writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+        spdlog::trace("SocketOutputWriter: leaving writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
         return res;
     }
 };

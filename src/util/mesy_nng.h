@@ -335,7 +335,7 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
 
 static void custom_nng_msg_free(nng_msg *msg)
 {
-    spdlog::warn("custom_nng_msg_free: msg={}", fmt::ptr(msg));
+    //spdlog::warn("custom_nng_msg_free: msg={}", fmt::ptr(msg));
     nng_msg_free(msg);
 }
 
