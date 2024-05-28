@@ -686,6 +686,7 @@ struct LoopRuntime
     std::atomic<bool> &quit;
     std::future<LoopResult> resultFuture;
     std::vector<nng::OutputWriter *> outputWriters;
+    std::string info;
 };
 
 using PipelineRuntime = std::vector<LoopRuntime>;

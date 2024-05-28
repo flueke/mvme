@@ -265,31 +265,32 @@ int main(int argc, char *argv[])
     // Per crate runtimes of the processing stages.
     std::vector<PipelineRuntime> cratePipelineRuntimes(vmeConfigs.size());
 
+    // replay_loop
     {
         std::vector<nng::OutputWriter *> writers;
         for (auto &w: replayContext.writers)
             writers.push_back(w.get());
 
         auto replayFuture = std::async(std::launch::async, replay_loop, std::ref(replayContext));
-        auto rt = LoopRuntime{ replayContext.quit, std::move(replayFuture), writers };
+        auto rt = LoopRuntime{ replayContext.quit, std::move(replayFuture), writers, "replay_loop" };
         replayLoopRuntime = std::make_unique<LoopRuntime>(std::move(rt));
     }
 
+    // parser_loop[crate]
     for (auto &parserContext: parserContexts)
     {
-        std::vector<nng::OutputWriter *> writers;
-        for (auto &w: replayContext.writers)
-            writers.push_back(w.get());
+        std::vector<nng::OutputWriter *> writers { parserContext->outputWriter.get() };
 
         auto future = std::async(std::launch::async, readout_parser_loop, std::ref(*parserContext));
-        auto rt = LoopRuntime{ parserContext->quit, std::move(future), writers };
+        auto rt = LoopRuntime{ parserContext->quit, std::move(future), writers, fmt::format("readout_parser_loop (crateId={})", parserContext->crateId) };
         cratePipelineRuntimes[parserContext->crateId].emplace_back(std::move(rt));
     }
 
+    // analysis_loop[crate]
     for (auto &analysisContext: analysisStage1Contexts)
     {
         auto future = std::async(std::launch::async, analysis_loop, std::ref(*analysisContext));
-        auto rt = LoopRuntime{ analysisContext->quit, std::move(future), {} };
+        auto rt = LoopRuntime{ analysisContext->quit, std::move(future), {}, fmt::format("analysis_loop (crateId={})", analysisContext->crateId) };
         cratePipelineRuntimes[analysisContext->crateId].emplace_back(std::move(rt));
     }
 
@@ -318,10 +319,10 @@ int main(int argc, char *argv[])
     }
     else
     {
-        spdlog::warn("replay finished, shutting down");
+        spdlog::debug("replay finished, shutting down");
     }
 
-    const auto ShutdownMaxWait = std::chrono::milliseconds(20 * 1000);
+    const auto ShutdownMaxWait = std::chrono::milliseconds(3 * 1000);
 
     replayContext.quit = true;
     auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);

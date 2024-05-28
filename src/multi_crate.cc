@@ -1048,16 +1048,23 @@ void MinimalAnalysisServiceProvider::setAnalysisOperatorEdited(const std::shared
 
 LoopResult shutdown_loop(LoopRuntime &rt, std::chrono::milliseconds elementShutdownTimeout)
 {
+    spdlog::debug("begin shutdown_loop {}", rt.info);
     LoopResult ret;
 
     if (rt.resultFuture.valid())
     {
         if (rt.resultFuture.wait_for(elementShutdownTimeout) != std::future_status::ready)
-            spdlog::warn("shutdown_loop: loop runtime did not finish in time, setting 'quit' flag");
+            spdlog::warn("shutdown_loop ({}): timeout reached, force quitting", rt.info);
         rt.quit = true;
         ret = rt.resultFuture.get(); // assumes all loops are well behaved and return eventually
     }
 
+    // notify the next stage of the pipeline
+    for (auto outputWriter: rt.outputWriters)
+        if (outputWriter)
+            send_shutdown_message(*outputWriter);
+
+    spdlog::debug("return from shutdown_loop {}", rt.info);
     return ret;
 }
 
@@ -1069,23 +1076,11 @@ std::vector<LoopResult> shutdown_pipeline(PipelineRuntime &pipeline,
 
     std::vector<LoopResult> ret;
 
-    pipeline.front().quit = true;
+    //pipeline.front().quit = true;
 
     for (auto &element: pipeline)
     {
-        if (element.resultFuture.valid())
-        {
-            ret.emplace_back(shutdown_loop(element, elementShutdownTimeout));
-        }
-        else
-        {
-            ret.emplace_back(LoopResult{});
-        }
-
-        // notify the next stage of the pipeline
-        for (auto outputWriter: element.outputWriters)
-            if (outputWriter)
-                send_shutdown_message(*outputWriter);
+        ret.emplace_back(shutdown_loop(element, elementShutdownTimeout));
     }
 
     return ret;
@@ -2144,7 +2139,7 @@ void event_builder_record_loop(EventBuilderContext &context)
             }
             else if (nng_msg_len(inputMsg.get()))
             {
-                spdlog::warn("analysis_loop: incoming message contains unknown subsection '{}'",
+                spdlog::warn("event_builder_record_loop: incoming message contains unknown subsection '{}'",
                     *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
                 break;
             }
@@ -2363,7 +2358,7 @@ void event_builder_combined_loop(EventBuilderContext &context)
             }
             else if (nng_msg_len(inputMsg.get()))
             {
-                spdlog::warn("analysis_loop: incoming message contains unknown subsection '{}'",
+                spdlog::warn("event_builder_combined_loop: incoming message contains unknown subsection '{}'",
                     *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
                 break;
             }
@@ -2425,7 +2420,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
         }
         else if (res)
         {
-            spdlog::trace("analysis_loop (crateId={}) - receive_message: timeout", crateId);
+            spdlog::debug("analysis_loop (crateId={}) - receive_message: timeout", crateId);
             continue;
         }
 
@@ -2435,7 +2430,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::warn("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            spdlog::debug("analysis_loop (crateId={}): Received shutdown message, leaving loop", crateId);
             break;
         }
 
@@ -2468,7 +2463,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
         inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;;
         lastInputMessageNumber = inputHeader.messageNumber;
 
-        spdlog::debug("analysis_nng: received message {} of size {}", lastInputMessageNumber, msgLen);
+        spdlog::debug("analysis_loop: received message {} of size {}", lastInputMessageNumber, msgLen);
 
         if (context.asp)
         {
