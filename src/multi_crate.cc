@@ -1046,6 +1046,21 @@ void MinimalAnalysisServiceProvider::setAnalysisOperatorEdited(const std::shared
 {
 }
 
+LoopResult shutdown_loop(LoopRuntime &rt, std::chrono::milliseconds elementShutdownTimeout)
+{
+    LoopResult ret;
+
+    if (rt.resultFuture.valid())
+    {
+        if (rt.resultFuture.wait_for(elementShutdownTimeout) != std::future_status::ready)
+            spdlog::warn("shutdown_loop: loop runtime did not finish in time, setting 'quit' flag");
+        rt.quit = true;
+        ret = rt.resultFuture.get(); // assumes all loops are well behaved and return eventually
+    }
+
+    return ret;
+}
+
 std::vector<LoopResult> shutdown_pipeline(PipelineRuntime &pipeline,
     std::chrono::milliseconds elementShutdownTimeout)
 {
@@ -1060,10 +1075,7 @@ std::vector<LoopResult> shutdown_pipeline(PipelineRuntime &pipeline,
     {
         if (element.resultFuture.valid())
         {
-            if (element.resultFuture.wait_for(elementShutdownTimeout) != std::future_status::ready)
-                spdlog::warn("shutdown_pipeline: element did not finish in time, setting quit flag");
-            element.quit = true;
-            ret.emplace_back(element.resultFuture.get());
+            ret.emplace_back(shutdown_loop(element, elementShutdownTimeout));
         }
         else
         {
@@ -1610,9 +1622,7 @@ bool ParsedEventsMessageWriter::consumeReadoutEventData(int crateIndex, int even
 
     if (bytesFree < requiredBytes)
     {
-        if (!flushOutputMessage())
-            return false;
-
+        flushOutputMessage();
         msg = getOutputMessage();
     }
 
@@ -1654,9 +1664,7 @@ bool ParsedEventsMessageWriter::consumeSystemEventData(int crateIndex, const u32
 
     if (bytesFree < requiredBytes)
     {
-        if (!flushOutputMessage())
-            return false;
-
+        flushOutputMessage();
         msg = getOutputMessage();
     }
 
@@ -1808,13 +1816,30 @@ inline bool parser_maybe_alloc_output(ReadoutParserNngContext &ctx)
 
 inline bool flush_output_message(ReadoutParserNngContext &ctx)
 {
+    assert(ctx.outputMessage);
+
     if (!ctx.outputMessage || !ctx.outputWriter)
         return false;
 
     const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
     StopWatch stopWatch;
-    ctx.outputWriter->writeMessage(std::move(ctx.outputMessage));
+
+    auto msg = std::move(ctx.outputMessage);
+    auto msgRaw = msg.get();
+    assert(!ctx.outputMessage);
+
+    if (int res = ctx.outputWriter->writeMessage(std::move(msg)))
+    {
+        // Note: if msg was not released in writeMessage() it is still alive
+        // here. It will be destroyed when leaving this scope.
+        assert(!ctx.outputMessage);
+        spdlog::error("readout_parser (crate{}): error writing output message: {}", ctx.crateId, nng_strerror(res));
+        return false;
+    }
+
+    assert(!msg);
+    assert(!ctx.outputMessage);
 
     {
         auto ta = ctx.counters.access();
@@ -1893,10 +1918,11 @@ inline void parser_nng_systemevent(void *ctx_, int crateIndex, const u32 *header
     writer.consumeSystemEventData(crateIndex, header, size);
 }
 
-void readout_parser_loop(ReadoutParserNngContext &context)
+LoopResult readout_parser_loop(ReadoutParserNngContext &context)
 {
     set_thread_name("readout_parser_loop");
 
+    LoopResult result;
     auto crateId = context.crateId;
 
     spdlog::info("entering readout_parser_loop, crateId={}", crateId);
@@ -1930,6 +1956,7 @@ void readout_parser_loop(ReadoutParserNngContext &context)
         {
             spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}",
                 crateId, nng_strerror(res));
+            result.nngError = res;
             break;
         }
         else if (res)
@@ -2026,6 +2053,8 @@ void readout_parser_loop(ReadoutParserNngContext &context)
     }
 
     spdlog::info("leaving readout_parser_loop, crateId={}", crateId);
+
+    return result;
 }
 
 void event_builder_record_loop(EventBuilderContext &context)
@@ -2702,14 +2731,15 @@ LoopResult replay_loop(MulticrateReplayContext &context)
                 {
                     flush_output(crateId);
 
-                    spdlog::debug("replay_loop: crateId {} - creating new output message #{}",
-                        crateId, output.messageNumber + 1);
-
                     ReadoutDataMessageHeader messageHeader;
                     messageHeader.bufferType = bufferType;
                     messageHeader.crateId = crateId;
                     messageHeader.messageNumber = ++output.messageNumber;
                     output.msg = allocate_prepare_message(messageHeader);
+
+                    spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
+                        crateId, output.messageNumber + 1, fmt::ptr(output.msg.get()));
+
 
                     if (!output.msg)
                     {

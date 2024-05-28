@@ -29,7 +29,7 @@ struct SocketInputReader: public InputReader
     {
         nng_msg *msg = nullptr;
         int res = nng_recvmsg(socket, &msg, receiveFlags);
-        return {unique_msg(msg, nng_msg_free), res};
+        return { make_unique_msg(msg), res };
     }
 };
 
@@ -44,15 +44,28 @@ struct SocketOutputWriter: public OutputWriter
 
     int writeMessage(unique_msg &&msg) override
     {
+        spdlog::warn("SocketOutputWriter: entering writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+
         int res = 0;
+
         if (retryPredicate)
             res = send_message_retry(socket, msg.get(), retryPredicate, debugInfo.c_str());
         else
             res = send_message_retry(socket, msg.get(), maxRetries, debugInfo.c_str());
 
-        if (res == 0)
-            msg.release(); // nng has taken ownership at this point
+        spdlog::warn("SocketOutputWriter: send_message_retry returned {} (msg.get()=({}, {}))", res, fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
 
+        if (res == 0)
+        {
+            spdlog::warn("SocketOutputWriter: releasing message ({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+            msg.release(); // nng has taken ownership at this point
+        }
+        else
+        {
+            spdlog::warn("SocketOutputWriter: write failed for msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+        }
+
+        spdlog::warn("SocketOutputWriter: leaving writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
         return res;
     }
 };
@@ -74,7 +87,7 @@ class MultiInputReader: public InputReader
                     return {std::move(msg), 0};
             }
 
-            return std::make_pair(unique_msg(nullptr, nng_msg_free), 0);
+            return std::make_pair(make_unique_msg(), 0);
         }
 
         void addReader(std::unique_ptr<InputReader> &&reader)
@@ -109,13 +122,16 @@ class MultiOutputWriter: public OutputWriter
                 if (int res = nng_msg_dup(&dup, msg.get()))
                     return res; // allocation failure -> terminate immediately
 
-                if (int res = writers[i]->writeMessage(unique_msg(dup, nng_msg_free)))
+                if (int res = writers[i]->writeMessage(make_unique_msg(dup)))
                     retval = res; // store last error that occured
             }
 
             // Now write the original msg to the last writer.
             if (int res = writers.back()->writeMessage(std::move(msg)))
+            {
+                assert(!msg);
                 retval = res;
+            }
 
             return retval;
         }
@@ -220,13 +236,12 @@ class SocketPipeline
         }
 
     private:
+        // Processing stage0 .. stageN-1.
+        std::vector<Element> elements_;
 
-    // Processing stage0 .. stageN-1.
-    std::vector<Element> elements_;
-
-    // Married socket links stage0 .. stageN-1.
-    // links[N] contains the output socket of stageN and the input socket of stageN-1.
-    std::vector<Link> links_;
+        // Married socket links stage0 .. stageN-1.
+        // links[N] contains the output socket of stageN and the input socket of stageN-1.
+        std::vector<Link> links_;
 };
 
 inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &url)
@@ -236,7 +251,11 @@ inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &ur
     auto dialer = make_pair_socket();
 
     if (int res = marry_listen_dial(listener, dialer, url.c_str()))
+    {
         result.second = res;
+        nng_close(dialer);
+        nng_close(listener);
+    }
     else
         result.first = {listener, dialer, url};
 

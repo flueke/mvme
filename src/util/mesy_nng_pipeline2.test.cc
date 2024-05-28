@@ -278,3 +278,15 @@ TEST(MesyNngPipeline2, SocketPipelineFromLinks)
         ASSERT_EQ(pipeline.elements()[2].outputUrl, "");
     }
 }
+
+TEST(MesyNngPipeline2, UniqueMsg)
+{
+    auto msg0 = allocate_reserve_message(1024);
+    auto msg0Raw = msg0.get();
+    auto msg1 = std::move(msg0);
+    auto msg1Raw = msg1.get();
+
+    ASSERT_EQ(msg0Raw, msg1Raw);
+    ASSERT_EQ(msg0.get(), nullptr);
+    ASSERT_EQ(msg1.get(), msg1Raw);
+}

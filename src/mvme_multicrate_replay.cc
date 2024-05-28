@@ -120,74 +120,66 @@ int main(int argc, char *argv[])
 
     fmt::print("Read {} vme configs from {}\n", vmeConfigs.size(), listfileFilename);
 
-    std::vector<std::pair<nng_socket, nng_socket>> readoutSnoopSockets; // readout writes, parser reads
-    std::vector<std::pair<nng_socket, nng_socket>> parsedDataSockets; // parser writes, eventbuilder reads
-
-    std::vector<nng::SocketPipeline> pipelines;
+    std::vector<nng::SocketPipeline> pipelines; // one processing pipeline per crate
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        auto uri = fmt::format("inproc://crate{}_readout", i);
-        nng_socket writerSocket = nng::make_pair_socket();
-        nng_socket readerSocket = nng::make_pair_socket();
+        std::vector<nng::SocketPipeline::Link> links;
 
-        if (int res = nng::marry_listen_dial(writerSocket, readerSocket, uri.c_str()))
+        const auto urlTemplates = { "inproc://crate{}_stage00_raw", "inproc://crate{}_stage01_parser" };
+
+        for (auto tmpl: urlTemplates)
         {
-            nng::mesy_nng_error(fmt::format("marry_listen_dial {}", i), res);
-            return 1;
+            auto url = fmt::format(tmpl, i);
+            auto [link, res] = nng::make_pair_link(url);
+            if (res)
+            {
+                nng::mesy_nng_error(fmt::format("make_pair_link {}", url), res);
+                std::for_each(links.begin(), links.end(), [](auto &link){
+                    nng_close(link.dialer);
+                    nng_close(link.listener);
+                });
+                return 1;
+            }
+            links.emplace_back(link);
         }
 
-        // FIXME: left off here. How to use the pipeline abstraction to make this code easier?
-        //nng::SocketPipeline pipeline;
-        //pipeline.addProducer(writerSocket, uri);
-
-        readoutSnoopSockets.emplace_back(std::make_pair(writerSocket, readerSocket));
-    }
-
-    // parsers -> eventbuilders stage 1
-    for (size_t i=0; i<vmeConfigs.size(); ++i)
-    {
-        auto uri = fmt::format("inproc://parsedData{}", i);
-
-        nng_socket outputSocket = nng::make_pub_socket();
-        nng_socket inputSocket = nng::make_sub_socket();
-        //nng_socket outputSocket = nng::make_pair_socket();
-        //nng_socket inputSocket = nng::make_pair_socket();
-
-        if (int res = nng::marry_listen_dial(outputSocket, inputSocket, uri.c_str()))
-        {
-            nng::mesy_nng_error("marry_listen_dial parsedData", res);
-            return 1;
-        }
-
-        parsedDataSockets.emplace_back(std::make_pair(outputSocket, inputSocket));
+        auto pipeline = nng::SocketPipeline::fromLinks(links);
+        pipelines.emplace_back(std::move(pipeline));
     }
 
     MulticrateReplayContext replayContext;
     replayContext.quit = false;
     replayContext.lfh = readerHelper.readHandle;
 
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        unsigned crateId = 0;
-
-        for (const auto &[writerSocket, _]: readoutSnoopSockets)
-        {
-            auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
-            writer->debugInfo = fmt::format("replayOutput (crateId={})", crateId++);
-            replayContext.writers.emplace_back(std::move(writer));
-        }
+        const auto &pipeline = pipelines[i];
+        assert(pipeline.elements().size() >= 1);
+        auto writerSocket = pipeline.elements()[0].outputSocket;
+        auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
+        writer->debugInfo = fmt::format("replayOutput (crateId={})", i);
+        replayContext.writers.emplace_back(std::move(writer));
     }
 
     std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
+        const auto &pipeline = pipelines[i];
+        assert(pipeline.elements().size() >= 2);
         auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
         crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
+
+        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[1].inputSocket);
+        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[1].outputSocket);
+        outputWriter->debugInfo = fmt::format("parserOutput (crateId={})", i);
+
         auto parserContext = make_readout_parser_nng_context(crateConfig);
         parserContext->quit = false;
-        parserContext->inputReader = std::make_unique<nng::SocketInputReader>(readoutSnoopSockets[i].second);
-        parserContext->outputWriter = std::make_unique<nng::SocketOutputWriter>(parsedDataSockets[i].first);
+        parserContext->inputReader = std::move(inputReader);
+        parserContext->outputWriter = std::move(outputWriter);
+
         parserContexts.emplace_back(std::move(parserContext));
     }
 
@@ -209,35 +201,39 @@ int main(int argc, char *argv[])
         }
     };
 
-    PipelineRuntime pipeline;
+    // Runtime of the single(!) replay_loop.
+    std::unique_ptr<LoopRuntime> replayLoopRuntime;
+
+    // Per crate runtimes of the processing stages.
+    std::vector<PipelineRuntime> cratePipelineRuntimes(vmeConfigs.size());
 
     {
         std::vector<nng::OutputWriter *> writers;
-
         for (auto &w: replayContext.writers)
             writers.push_back(w.get());
 
         auto replayFuture = std::async(std::launch::async, replay_loop, std::ref(replayContext));
-        LoopRuntime runtime { replayContext.quit, std::move(replayFuture), writers };
-        pipeline.emplace_back(std::move(runtime));
+        auto rt = LoopRuntime{ replayContext.quit, std::move(replayFuture), writers };
+        replayLoopRuntime = std::make_unique<LoopRuntime>(std::move(rt));
     }
-
-    std::vector<std::future<void>> parserFutures;
 
     for (auto &parserContext: parserContexts)
     {
-        parserFutures.emplace_back(std::async(std::launch::async, [&parserContext](){
-            readout_parser_loop(*parserContext);
-        }));
+        std::vector<nng::OutputWriter *> writers;
+        for (auto &w: replayContext.writers)
+            writers.push_back(w.get());
+
+        auto future = std::async(std::launch::async, readout_parser_loop, std::ref(*parserContext));
+        auto rt = LoopRuntime{ parserContext->quit, std::move(future), writers };
+        cratePipelineRuntimes[parserContext->crateId].emplace_back(std::move(rt));
     }
 
-    #if 1
     StopWatch reportStopwatch;
     reportStopwatch.start();
 
     while (!signal_received())
     {
-        auto &replayFuture = pipeline[0].resultFuture;
+        auto &replayFuture = replayLoopRuntime->resultFuture;
         if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
         {
             spdlog::debug("replay done, leaving main loop");
@@ -251,9 +247,33 @@ int main(int argc, char *argv[])
         }
     }
 
-    replayContext.quit = true;
+    if (signal_received())
+    {
+        spdlog::warn("signal received, shutting down");
+    }
+    else
+    {
+        spdlog::warn("replay finished, shutting down");
+    }
 
-    if (auto &replayFuture = pipeline[0].resultFuture; replayFuture.valid())
+    replayContext.quit = true;
+    auto replayLoopResult = shutdown_loop(*replayLoopRuntime);
+
+    assert(!replayLoopResult.hasError()); // XXX: debugging
+
+    spdlog::debug("replay loop shutdown done");
+
+    for (auto &pipelineRuntime: cratePipelineRuntimes)
+    {
+        auto loopResults = shutdown_pipeline(pipelineRuntime);
+    }
+
+    spdlog::debug("crate processing pipelines shutdown done");
+
+    // TODO: walk and show results
+
+    #if 0
+    if (auto &replayFuture = replayLoopRuntime->resultFuture; replayFuture.valid())
     {
         auto result = replayFuture.get();
         if (result.hasError())
@@ -280,35 +300,10 @@ int main(int argc, char *argv[])
             }
         }
     }
-
-    spdlog::debug("sending shutdown messages through replay output writers");
-    #if 0
-    for (auto &writer: replayContext.writers)
-    {
-        if (writer)
-            send_shutdown_message(*writer);
-    }
-    #else
-    auto results = shutdown_pipeline(pipeline);
     #endif
 
     spdlog::info("final counters:");
     log_counters();
-
-    #else
-    QTimer periodicTimer;
-    periodicTimer.setInterval(1000);
-    periodicTimer.start();
-
-    QObject::connect(&periodicTimer, &QTimer::timeout, [&]
-    {
-        if (signal_received())
-            app.quit();
-    }
-
-
-    int ret = app.exec();
-    #endif
 
     spdlog::debug("end of main reached");
 

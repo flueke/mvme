@@ -661,13 +661,14 @@ struct LoopResult
 {
     std::error_code ec;
     std::exception_ptr exception;
+    int nngError = 0;
 
-    bool hasError() const { return ec || exception; }
+    bool hasError() const { return ec || exception || nngError; }
 };
 
 // Runtime state for a loop context. Combines the loops quit flag, the future
-// from the async call spawning the loop and optionally a raw pointer to the
-// loops outputWriter.
+// from the async call spawning the loop and optionally a raw pointers to the
+// loops outputWriters.
 //
 // Allows to run a graceful shutdown sequence for processing pipelines.
 // - Set quit flag on the first element (the producer) in a pipeline.
@@ -688,6 +689,9 @@ struct LoopRuntime
 };
 
 using PipelineRuntime = std::vector<LoopRuntime>;
+
+LoopResult LIBMVME_EXPORT shutdown_loop(LoopRuntime &rt,
+    std::chrono::milliseconds elementShutdownTimeout = std::chrono::milliseconds(5000));
 
 std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(PipelineRuntime &pipeline,
     std::chrono::milliseconds elementShutdownTimeout = std::chrono::milliseconds(5000));
@@ -836,7 +840,7 @@ struct LIBMVME_EXPORT ReadoutParserNngContext
 };
 
 std::unique_ptr<ReadoutParserNngContext> LIBMVME_EXPORT make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig);
-void LIBMVME_EXPORT readout_parser_loop(ReadoutParserNngContext &context);
+LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserNngContext &context);
 
 // EventBuilder
 // Note: this can be split up: N threads can call
