@@ -11,6 +11,7 @@
 
 #include <optional>
 #include "thread_name.h"
+#include "typedefs.h"
 
 namespace mesytec::nng
 {

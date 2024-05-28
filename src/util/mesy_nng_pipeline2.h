@@ -138,91 +138,100 @@ class MultiOutputWriter: public OutputWriter
 // input socket.
 // stageN and stageN+1 are connected by a married socket couple. Usually stageN
 // output listens, stageN+1 output dials.
-struct SocketPipeline
+class SocketPipeline
 {
-    // Processing pipeline element.
-    struct Element
-    {
-        nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
-        nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
-        std::string inputUrl;
-        std::string outputUrl;
-    };
-
-    // Married socket couple. Listener is usually the stageN output, dialer is the stageN+1 input.
-    struct Couple
-    {
-        nng_socket listener = NNG_SOCKET_INITIALIZER;
-        nng_socket dialer = NNG_SOCKET_INITIALIZER;
-        std::string url;
-    };
-
-    // Processing stage0 .. stageN-1.
-    std::vector<Element> pipeline;
-
-    // Married socket couples stage0 .. stageN-1.
-    // couples[N] contains the output socket of stageN and the input socket of stageN-1.
-    std::vector<Couple> couples;
-
-    void addElement(nng_socket inputSocket, nng_socket outputSocket,
-        const std::string &inputUrl = {}, const std::string &outputUrl = {})
-    {
-        Element elem;
-        elem.inputSocket = inputSocket;
-        elem.outputSocket = outputSocket;
-        elem.inputUrl = inputUrl;
-        elem.outputUrl = outputUrl;
-
-        Couple couple;
-        couple.listener = outputSocket;
-        couple.url = outputUrl;
-
-        if (!couples.empty())
+    public:
+        // Processing pipeline element.
+        struct Element
         {
-            couples.back().dialer = inputSocket;
-            assert(couples.back().url == inputUrl);
+            nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
+            nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+            std::string inputUrl;
+            std::string outputUrl;
+
+            bool operator==(const Element &o) const;
+            bool operator!=(const Element &o) const { return !(*this == o); }
+        };
+
+        // Married socket couple. Listener is usually the stageN output, dialer is the stageN+1 input.
+        struct Link
+        {
+            nng_socket listener = NNG_SOCKET_INITIALIZER;
+            nng_socket dialer = NNG_SOCKET_INITIALIZER;
+            std::string url;
+
+            bool operator==(const Link &o) const;
+            bool operator!=(const Link &o) const { return !(*this == o); }
+        };
+
+        const std::vector<Link> &links() const
+        {
+            return links_;
         }
 
-        pipeline.emplace_back(elem);
-        couples.emplace_back(couple);
-    }
+        const std::vector<Element> &elements() const
+        {
+            return elements_;
+        }
 
-    void addProducer(nng_socket outputSocket, const std::string &outputUrl = {})
-    {
-        assert(pipeline.empty());
-        addElement(NNG_SOCKET_INITIALIZER, outputSocket, {}, outputUrl);
-    }
+        // Create a pipeline from a sequence of married socket links.
+        // N links will result in a pipeline of size N+1. The pipeline starts with a
+        // producer and ends with a consumer with optional processing elements
+        // in-between.
+        static SocketPipeline fromLinks(const std::vector<SocketPipeline::Link> &links)
+        {
+            SocketPipeline ret;
 
-    void addConsumer(nng_socket inputSocket, const std::string &inputUrl = {})
-    {
-        assert(!pipeline.empty());
-        addElement(inputSocket, NNG_SOCKET_INITIALIZER, inputUrl, {});
-    }
+            if (links.empty())
+                return ret;
+
+            // [0]: [X, out(0)]
+            {
+                SocketPipeline::Element element;
+                element.inputSocket = NNG_SOCKET_INITIALIZER;
+                element.outputSocket = links.front().listener;
+                element.outputUrl = links.front().url;
+                ret.elements_.emplace_back(element);
+            }
+
+            for (size_t i=1; i<links.size(); ++i)
+            {
+                // [i]: [in(i-1), out(i)]
+                SocketPipeline::Element element;
+                element.inputSocket = links[i-1].dialer;
+                element.outputSocket = links[i].listener;
+                element.inputUrl = links[i-1].url;
+                element.outputUrl = links[i].url;
+                ret.elements_.emplace_back(element);
+            }
+
+            // [i+1]: [in(i-1), X]
+            {
+                SocketPipeline::Element element;
+                element.inputSocket = links.back().dialer;
+                element.outputSocket = NNG_SOCKET_INITIALIZER;
+                element.inputUrl = links.back().url;
+                ret.elements_.emplace_back(element);
+            }
+
+            ret.links_ = links;
+
+            return ret;
+        }
+
+    private:
+
+    // Processing stage0 .. stageN-1.
+    std::vector<Element> elements_;
+
+    // Married socket links stage0 .. stageN-1.
+    // links[N] contains the output socket of stageN and the input socket of stageN-1.
+    std::vector<Link> links_;
 };
 
-// Create a pipeline from a sequence of married socket couples.
-// N couples will result in a pipeline of size N+1. The pipeline starts with a
-// producer and ends with a consumer with optional processing elements
-// in-between.
-inline SocketPipeline pipeline_from_couples(const std::vector<SocketPipeline::Couple> &couples)
+inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &url)
 {
-    SocketPipeline ret;
-
-    if (!couples.empty())
-        ret.addProducer(couples.front().listener, couples.front().url);
-
-    for (size_t i=1; i<couples.size(); ++i)
-        ret.addElement(couples[i-1].dialer, couples[i].listener, couples[i-1].url, couples[i].url);
-
-    if (!couples.empty())
-        ret.addConsumer(couples.back().dialer, couples.back().url);
-
-    return ret;
-}
-
-inline std::pair<SocketPipeline::Couple, int> make_pair_couple(const std::string &url)
-{
-    auto result = std::make_pair<SocketPipeline::Couple, int>({}, 0);
+    auto result = std::make_pair<SocketPipeline::Link, int>({}, 0);
     auto listener = make_pair_socket();
     auto dialer = make_pair_socket();
 

@@ -245,6 +245,7 @@ add_library(libmvme SHARED
     timed_block.cc
     treewidget_utils.cc
     util.cc
+    util/mesy_nng_pipeline2.cc
     util/qledindicator.cpp
     util/qt_eventfilters.cc
     util/qt_gui_io.cc
