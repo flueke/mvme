@@ -909,6 +909,11 @@ struct MulticrateReplayContext
 
 LoopResult LIBMVME_EXPORT replay_loop(MulticrateReplayContext &context);
 
+struct ProcessingCore
+{
+    std::vector<nng::SocketPipeline> cratePipelines; // one processing pipeline per crate
+};
+
 } // namespace mesytec::mvme::multi_crate
 
 Q_DECLARE_METATYPE(mesytec::mvme::multi_crate::MulticrateVMEConfig *);

@@ -146,6 +146,10 @@ class MultiOutputWriter: public OutputWriter
         std::vector<std::unique_ptr<OutputWriter>> writers;
 };
 
+class SocketPipeline;
+
+int close_sockets(SocketPipeline &pipeline);
+
 // Abstraction for a nng socket based processing pipeline.
 // The pipeline consists of a sequence of processing stages, each stage has an
 // input and an output socket. The first stage is the producer stage, having
@@ -168,7 +172,7 @@ class SocketPipeline
             bool operator!=(const Element &o) const { return !(*this == o); }
         };
 
-        // Married socket couple. Listener is usually the stageN output, dialer is the stageN+1 input.
+        // Linked socket couple. Listener is usually the stageN output, dialer is the stageN+1 input.
         struct Link
         {
             nng_socket listener = NNG_SOCKET_INITIALIZER;
@@ -178,6 +182,13 @@ class SocketPipeline
             bool operator==(const Link &o) const;
             bool operator!=(const Link &o) const { return !(*this == o); }
         };
+
+        #if 0
+        ~SocketPipeline()
+        {
+            close_sockets(*this);
+        }
+        #endif
 
         const std::vector<Link> &links() const
         {
@@ -189,7 +200,7 @@ class SocketPipeline
             return elements_;
         }
 
-        // Create a pipeline from a sequence of married socket links.
+        // Create a pipeline from a sequence of socket links.
         // N links will result in a pipeline of size N+1. The pipeline starts with a
         // producer and ends with a consumer with optional processing elements
         // in-between.
@@ -243,16 +254,26 @@ class SocketPipeline
         std::vector<Link> links_;
 };
 
+inline int close_link(SocketPipeline::Link &link)
+{
+    int ret = 0;
+
+    if (int res = nng_close(link.dialer))
+        ret = res;
+
+    if (int res = nng_close(link.listener))
+        ret = res;
+
+    return ret;
+}
+
 inline int close_sockets(SocketPipeline &pipeline)
 {
     int ret = 0;
 
     for (auto link: pipeline.links())
     {
-        if (int res = nng_close(link.dialer))
-            ret = res;
-
-        if (int res = nng_close(link.listener))
+        if (int res = close_link(link))
             ret = res;
     }
 

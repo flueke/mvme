@@ -8,6 +8,7 @@
 #include "mvlc_daq.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_session.h"
+#include "util/qt_monospace_textedit.h"
 #include "util/signal_handling.h"
 #include "util/stopwatch.h"
 #include "vme_config_util.h"
@@ -139,10 +140,7 @@ int main(int argc, char *argv[])
             if (res)
             {
                 nng::mesy_nng_error(fmt::format("make_pair_link {}", url), res);
-                std::for_each(links.begin(), links.end(), [](auto &link){
-                    nng_close(link.dialer);
-                    nng_close(link.listener);
-                });
+                std::for_each(links.begin(), links.end(), nng::close_link);
                 return 1;
             }
             links.emplace_back(link);
@@ -541,6 +539,8 @@ int main(int argc, char *argv[])
     }
 
     // Widgets
+    QTimer timer;
+
     for (size_t i=0; i<analysisStage0Contexts.size(); ++i)
     {
         auto &ctx = analysisStage0Contexts[i];
@@ -560,6 +560,38 @@ int main(int argc, char *argv[])
         widget->show();
     }
 
+    for (size_t i=0; i<eventBuilderStage0Contexts.size(); ++i)
+    {
+        auto widget = mvme::util::make_monospace_plain_textedit().release();
+        widget->setWindowTitle(fmt::format("EventBuilder Stage0 (crateId={})", i).c_str());
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->resize(800, 200);
+        widget->show();
+
+        QObject::connect(&timer, &QTimer::timeout, widget, [widget, i, &eventBuilderStage0Contexts]
+        {
+            auto &context = eventBuilderStage0Contexts[i];
+            auto counters = context->eventBuilder->getCounters();
+            auto str = to_string(counters);
+            widget->setPlainText(QString::fromStdString(str));
+        });
+    }
+
+    {
+        auto widget = mvme::util::make_monospace_plain_textedit().release();
+        widget->setWindowTitle(fmt::format("EventBuilder Stage1").c_str());
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->resize(800, 200);
+        widget->show();
+
+        QObject::connect(&timer, &QTimer::timeout, widget, [widget, &eventBuilderStage1Context]
+        {
+            auto &context = eventBuilderStage1Context;
+            auto counters = context->eventBuilder->getCounters();
+            auto str = to_string(counters);
+            widget->setPlainText(QString::fromStdString(str));
+        });
+    }
     // Wait for things to finish.
 
     auto shutdown_if_replay_done = [&]
@@ -618,7 +650,6 @@ int main(int argc, char *argv[])
     };
 
 #if 1
-    QTimer timer;
     timer.setInterval(1000);
     timer.start();
 
@@ -728,8 +759,8 @@ int main(int argc, char *argv[])
     for (auto &ctx: analysisStage0Contexts)
     {
         // circular reference: asp has shared_ptr<Analysis>, context has shared_ptr<Analysis> and unique_ptr<AnalysisServiceProvider>!
-        //ctx->asp = {};
-        //ctx->analysis = {};
+        ctx->asp = {};
+        ctx->analysis = {};
     }
 
     return ret;
