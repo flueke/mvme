@@ -156,15 +156,37 @@ int main(int argc, char *argv[])
     // Producers are usually event builders but could also be readout parsers or
     // multievent splitters if stage0 event building is not wanted.
     // Consumer is the stage1 event builder or directly the stage1 analysis.
-    auto url = "inproc://stage0_data";
-    auto [stage0DataLink, res] = nng::make_pair_link(url);
-    //auto [stage0DataLink, res] = nng::make_pubsub_link(url);
+    nng::SocketPipeline::Link stage0DataLink;
 
-    if (res)
     {
-        nng::mesy_nng_error(fmt::format("make_pair_link {}", url), res);
-        // TODO: close pipelines! RAII please!
-        return 1;
+        auto url = "inproc://stage0_data";
+        auto [link, res] = nng::make_pair_link(url);
+        //auto [stage0DataLink, res] = nng::make_pubsub_link(url);
+
+        if (res)
+        {
+            nng::mesy_nng_error(fmt::format("make_pair_link {}", url), res);
+            // TODO: close pipelines! RAII please!
+            return 1;
+        }
+
+        stage0DataLink = link;
+    }
+
+    nng::SocketPipeline::Link stage1DataLink;
+
+    {
+        auto url = "inproc://stage1_data";
+        auto [link, res] = nng::make_pair_link(url);
+
+        if (res)
+        {
+            nng::mesy_nng_error(fmt::format("make_pair_link {}", url), res);
+            // TODO: close pipelines! RAII please!
+            return 1;
+        }
+
+        stage1DataLink = link;
     }
 
     size_t pipelineStep = 0;
@@ -213,8 +235,8 @@ int main(int argc, char *argv[])
 
     ++pipelineStep;
 
-    // Event builders: one per crate
-    std::vector<std::unique_ptr<EventBuilderContext>> eventBuilderStage1Contexts;
+    // stage0 event builders: one per crate
+    std::vector<std::unique_ptr<EventBuilderContext>> eventBuilderStage0Contexts;
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
@@ -267,13 +289,13 @@ int main(int argc, char *argv[])
         // Rewrite data to make the eventbuilder work for a single crate with a non-zero crateid.
         ebContext->inputCrateMappings[i] = 0;
         ebContext->outputCrateMappings[0] = i;
-        eventBuilderStage1Contexts.emplace_back(std::move(ebContext));
+        eventBuilderStage0Contexts.emplace_back(std::move(ebContext));
     }
 
     ++pipelineStep;
 
-    // Analysis: one per crate but each instances is loaded from the same file.
-    std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage1Contexts;
+    // stage0 analysis : one per crate but each instances is loaded from the same file.
+    std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage0Contexts;
     auto widgetRegistry = std::make_shared<WidgetRegistry>();
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
@@ -313,12 +335,97 @@ int main(int argc, char *argv[])
         analysisContext->asp = std::move(asp);
         analysis->beginRun(RunInfo{}, vmeConfigs[i].get());
 
-        analysisStage1Contexts.emplace_back(std::move(analysisContext));
+        analysisStage0Contexts.emplace_back(std::move(analysisContext));
+    }
+
+    // stage1: event builder
+    auto eventBuilderStage1Context = std::make_unique<EventBuilderContext>();
+
+    // Make event0 a cross crate event. Assume each module in event0 from all
+    // crates is a mesytec module and uses a large match window.
+    {
+        EventSetup eventSetup;
+        eventSetup.enabled = true;
+        eventSetup.mainModule = std::make_pair(0, 0);
+
+        for (size_t i=0; i<vmeConfigs.size(); ++i)
+        {
+            auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
+            crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
+            auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
+            auto readoutStructure = readout_parser::build_readout_structure(stacks);
+            const size_t moduleCount = readoutStructure.at(0).size(); // modules in event 0
+
+            EventSetup::CrateSetup crateSetup;
+
+            for (size_t mi=0; mi<moduleCount; ++mi)
+            {
+                crateSetup.moduleTimestampExtractors.emplace_back(make_mesytec_default_timestamp_extractor());
+                crateSetup.moduleMatchWindows.emplace_back(std::make_pair(-100000, 100000));
+            }
+
+            eventSetup.crateSetups.emplace_back(crateSetup);
+        }
+
+        EventBuilderConfig ebConfig;
+        ebConfig.setups.emplace_back(eventSetup);
+
+        auto &ebContext = eventBuilderStage1Context;
+        ebContext->crateId = 0xffu; // XXX: special crateId to indicate combined data from all crates
+        ebContext->quit = false;
+        ebContext->eventBuilderConfig = ebConfig;
+        ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
+        ebContext->inputReader = std::make_unique<nng::SocketInputReader>(stage0DataLink.dialer);
+        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(stage1DataLink.listener);
+        outputWriter->debugInfo = fmt::format("eventBuilderOutput (crateId={})", ebContext->crateId);
+        outputWriter->retryPredicate = [ctx=ebContext.get()] { return !ctx->quit; };
+        ebContext->outputWriter = std::move(outputWriter);
+    }
+
+    // stage1: analysis
+    auto analysisStage1Context = std::make_unique<AnalysisProcessingContext>();
+    auto mergedVmeConfig = make_merged_vme_config_keep_ids(vmeConfigs, std::set<int>{0}); // XXX: have to keep this alive. The minimal asp does not take ownership!
+
+    {
+        auto &ctx = analysisStage1Context;
+
+        ctx->quit = false;
+        ctx->inputReader = std::make_unique<nng::SocketInputReader>(stage1DataLink.dialer);
+        ctx->crateId = 0xffu; // XXX: special crateId to indicate combined data from all crates
+
+        std::shared_ptr<analysis::Analysis> analysis;
+
+        if (!analysisFilename.empty())
+        {
+            auto [ana, errorString] = analysis::read_analysis_config_from_file(analysisFilename.c_str());
+
+            if (!ana)
+            {
+                std::cerr << fmt::format("Error reading mvme analysis config from '{}': {}\n",
+                    analysisFilename, errorString.toStdString());
+                return 1;
+            }
+
+            analysis = ana;
+        }
+        else
+        {
+            analysis = std::make_shared<analysis::Analysis>();
+        }
+
+        ctx->analysis = analysis;
+
+        auto asp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
+        asp->widgetRegistry_ = widgetRegistry;
+        asp->vmeConfig_ = mergedVmeConfig.get();
+        asp->analysis_ = analysis;
+        ctx->asp = std::move(asp);
+        analysis->beginRun(RunInfo{}, mergedVmeConfig.get());
     }
 
     auto log_counters = [&]
     {
-        // replay
+        // stage0 replay
         {
             auto ca = replayContext.writerCounters.access();
             const auto &counters = ca.ref();
@@ -328,23 +435,36 @@ int main(int argc, char *argv[])
             }
         }
 
-        // parsers
+        // stage0 parsers
         for (auto &ctx: parserContexts)
         {
             log_socket_work_counters(ctx->counters.access().ref(),
                 fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
         }
 
-        // event builders
-        for (auto &ctx: eventBuilderStage1Contexts)
+        // stage0 event builders
+        for (auto &ctx: eventBuilderStage0Contexts)
         {
             log_socket_work_counters(ctx->counters.access().ref(),
                 fmt::format("event_builder_loop (crateId={})", ctx->crateId));
         }
 
-        // analyses
-        for (auto &ctx: analysisStage1Contexts)
+        // stage0 analyses
+        for (auto &ctx: analysisStage0Contexts)
         {
+            log_socket_work_counters(ctx->inputSocketCounters.access().ref(),
+                fmt::format("analysis_loop (crateId={})", ctx->crateId));
+        }
+
+        // stage1 event builder
+        {
+            auto &ctx = eventBuilderStage1Context;
+            log_socket_work_counters(ctx->counters.access().ref(), fmt::format("event_builder_loop (crateId={})", ctx->crateId));
+        }
+
+        // stage1 analysis
+        {
+            auto &ctx = analysisStage1Context;
             log_socket_work_counters(ctx->inputSocketCounters.access().ref(),
                 fmt::format("analysis_loop (crateId={})", ctx->crateId));
         }
@@ -355,8 +475,13 @@ int main(int argc, char *argv[])
 
     // Per crate runtimes of the processing stages.
     std::vector<PipelineRuntime> cratePipelineRuntimes(vmeConfigs.size());
+    // XXX: not sure how best to do this. Processing is a directed graph, not a simple pipeline.
+    // For now keep the stage0 pipelines and this additional stage2 pipeline.
+    // The bridge is after the stage0 event builder (or earlier if no event
+    // building is done in stage0).
+    PipelineRuntime stage1Runtimes;
 
-    // replay_loop
+    // stage0 replay_loop
     {
         std::vector<nng::OutputWriter *> writers;
         for (auto &w: replayContext.writers)
@@ -367,7 +492,7 @@ int main(int argc, char *argv[])
         replayLoopRuntime = std::make_unique<LoopRuntime>(std::move(rt));
     }
 
-    // parser_loop[crate]
+    // stage0 parser_loop[crate]
     for (auto &parserContext: parserContexts)
     {
         std::vector<nng::OutputWriter *> writers { parserContext->outputWriter.get() };
@@ -377,8 +502,8 @@ int main(int argc, char *argv[])
         cratePipelineRuntimes[parserContext->crateId].emplace_back(std::move(rt));
     }
 
-    // event_builder_loop[crate]
-    for (auto &ctx: eventBuilderStage1Contexts)
+    // stage0 event_builder_loop[crate]
+    for (auto &ctx: eventBuilderStage0Contexts)
     {
         std::vector<nng::OutputWriter *> writers { ctx->outputWriter.get() };
 
@@ -387,22 +512,50 @@ int main(int argc, char *argv[])
         cratePipelineRuntimes[ctx->crateId].emplace_back(std::move(rt));
     }
 
-    // analysis_loop[crate]
-    for (auto &analysisContext: analysisStage1Contexts)
+    // stage0 analysis_loop[crate]
+    for (auto &analysisContext: analysisStage0Contexts)
     {
         auto future = std::async(std::launch::async, analysis_loop, std::ref(*analysisContext));
         auto rt = LoopRuntime{ analysisContext->quit, std::move(future), {}, fmt::format("analysis_loop (crateId={})", analysisContext->crateId) };
         cratePipelineRuntimes[analysisContext->crateId].emplace_back(std::move(rt));
     }
 
-    // Widgets
-    for (size_t i=0; i<analysisStage1Contexts.size(); ++i)
+    // stage1 event builder
     {
-        auto &ctx = analysisStage1Contexts[i];
+        auto &ctx = eventBuilderStage1Context;
+
+        std::vector<nng::OutputWriter *> writers { ctx->outputWriter.get() };
+
+        auto future = std::async(std::launch::async, event_builder_loop, std::ref(*ctx));
+        auto rt = LoopRuntime{ ctx->quit, std::move(future), writers, fmt::format("event_builder_loop (crateId={})", ctx->crateId) };
+        stage1Runtimes.emplace_back(std::move(rt));
+    }
+
+    // stage1 analysis
+    {
+        auto &ctx = analysisStage1Context;
+        auto future = std::async(std::launch::async, analysis_loop, std::ref(*ctx));
+        auto rt = LoopRuntime{ ctx->quit, std::move(future), {}, fmt::format("analysis_loop (crateId={})", ctx->crateId) };
+        stage1Runtimes.emplace_back(std::move(rt));
+    }
+
+    // Widgets
+    for (size_t i=0; i<analysisStage0Contexts.size(); ++i)
+    {
+        auto &ctx = analysisStage0Contexts[i];
         auto asp = ctx->asp.get();
         auto widget = new analysis::ui::AnalysisWidget(asp);
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
         widget->setWindowTitle(fmt::format("Analysis (crate {})", i).c_str());
+        widget->show();
+    }
+
+    {
+        auto &ctx = analysisStage1Context;
+        auto asp = ctx->asp.get();
+        auto widget = new analysis::ui::AnalysisWidget(asp);
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->setWindowTitle(fmt::format("Analysis (crate {})", ctx->crateId).c_str());
         widget->show();
     }
 
@@ -445,6 +598,13 @@ int main(int argc, char *argv[])
                     }
                 }
 
+
+                auto stage1Results = shutdown_pipeline(stage1Runtimes, ShutdownMaxWait);
+                for (size_t j=0; j<stage1Results.size(); ++j)
+                {
+                    spdlog::info("shutdown: stage1, step {} pipeline shutdown done, result={}", j, stage1Results[j].toString());
+                }
+
                 spdlog::info("shutdown_if_replay_done: final counters:");
                 log_counters();
             }
@@ -453,10 +613,6 @@ int main(int argc, char *argv[])
                 spdlog::info("shutdown_if_replay_done: replay still in progress");
                 log_counters();
             }
-        }
-        else
-        {
-            spdlog::warn("shutdown_if_replay_done: replayFuture is not valid, leaving main loop");
         }
     };
 
@@ -491,8 +647,14 @@ int main(int argc, char *argv[])
             auto results = shutdown_pipeline(rt, ShutdownMaxWait);
             for (size_t j=0; j<results.size(); ++j)
             {
-                spdlog::info("shutdown_if_replay_done: crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
+                spdlog::info("shutdown: crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
             }
+        }
+
+        auto stage1Results = shutdown_pipeline(stage1Runtimes, ShutdownMaxWait);
+        for (size_t j=0; j<stage1Results.size(); ++j)
+        {
+            spdlog::info("shutdown: stage1, step {} pipeline shutdown done, result={}", j, stage1Results[j].toString());
         }
     }
     spdlog::warn("after shutdown_if_replay_done()");
@@ -562,7 +724,7 @@ int main(int argc, char *argv[])
 
     spdlog::debug("end of main reached");
 
-    for (auto &ctx: analysisStage1Contexts)
+    for (auto &ctx: analysisStage0Contexts)
     {
         // circular reference: asp has shared_ptr<Analysis>, context has shared_ptr<Analysis> and unique_ptr<AnalysisServiceProvider>!
         //ctx->asp = {};
