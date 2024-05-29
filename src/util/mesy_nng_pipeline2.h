@@ -129,7 +129,6 @@ class MultiOutputWriter: public OutputWriter
             // Now write the original msg to the last writer.
             if (int res = writers.back()->writeMessage(std::move(msg)))
             {
-                assert(!msg);
                 retval = res;
             }
 

@@ -157,8 +157,8 @@ int main(int argc, char *argv[])
     // multievent splitters if stage0 event building is not wanted.
     // Consumer is the stage1 event builder or directly the stage1 analysis.
     auto url = "inproc://stage0_data";
-    //auto [stage0DataLink, res] = nng::make_pair_link(url);
-    auto [stage0DataLink, res] = nng::make_pubsub_link(url);
+    auto [stage0DataLink, res] = nng::make_pair_link(url);
+    //auto [stage0DataLink, res] = nng::make_pubsub_link(url);
 
     if (res)
     {
@@ -414,6 +414,7 @@ int main(int argc, char *argv[])
 
         if (replayFuture.valid())
         {
+            spdlog::info("replayFuture is valid");
             if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
             {
                 spdlog::debug("replay done, leaving main loop");
@@ -448,7 +449,14 @@ int main(int argc, char *argv[])
                 log_counters();
             }
             else
+            {
+                spdlog::info("replay still in progress");
                 log_counters();
+            }
+        }
+        else
+        {
+            spdlog::warn("replayFuture is not valid, leaving main loop");
         }
     };
 
@@ -468,7 +476,10 @@ int main(int argc, char *argv[])
     });
 
     int ret = app.exec();
+    spdlog::warn("after app.exec()");
+    replayContext.quit = true;
     shutdown_if_replay_done();
+    spdlog::warn("after shutdown_if_replay_done()");
 
 #else
     StopWatch reportStopwatch;

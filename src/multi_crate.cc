@@ -2092,9 +2092,9 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
     return result;
 }
 
-struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
+struct EventBuilderMessageWriter: public ParsedEventsMessageWriter
 {
-    EventBuilderNngMessageWriter(EventBuilderContext &ctx_)
+    EventBuilderMessageWriter(EventBuilderContext &ctx_)
         : ctx(ctx_)
     {
     }
@@ -2131,11 +2131,12 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
         //    return !ctx.quit;
         //};
 
-        auto debugInfo = fmt::format("EventBuilderNngMessageWriter (crateId={})", ctx.crateId);
+        auto debugInfo = fmt::format("EventBuilderMessageWriter (crateId={})", ctx.crateId);
 
         StopWatch stopWatch;
         stopWatch.start();
         ctx.outputWriter->writeMessage(std::move(ctx.outputMessage));
+        ctx.outputMessage = {};
 
         {
             auto ta = ctx.counters.access();
@@ -2173,7 +2174,7 @@ inline void event_builder_eventdata_callback(void *ctx_, int crateIndex, int eve
 
     auto outputCrateId = ctx.outputCrateMappings[crateIndex];
 
-    EventBuilderNngMessageWriter writer(ctx);
+    EventBuilderMessageWriter writer(ctx);
     writer.consumeReadoutEventData(outputCrateId, eventIndex, moduleDataList, moduleCount);
 }
 
@@ -2186,7 +2187,7 @@ inline void event_builder_systemevent_callback(void *ctx_, int crateIndex, const
 
     auto outputCrateId = ctx.outputCrateMappings[crateIndex];
 
-    EventBuilderNngMessageWriter writer(ctx);
+    EventBuilderMessageWriter writer(ctx);
     writer.consumeSystemEventData(outputCrateId, header, size);
 }
 
