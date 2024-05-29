@@ -2104,6 +2104,9 @@ struct EventBuilderMessageWriter: public ParsedEventsMessageWriter
 
     bool flushOutputMessage() override
     {
+        if (!ctx.outputMessage)
+            return false;
+
         const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
         // Retries forever or until told to quit.
@@ -2272,6 +2275,9 @@ LoopResult event_builder_loop(EventBuilderContext &context)
             ta->tTotal += stopWatch.end();
         }
     }
+
+    EventBuilderMessageWriter writer(context);
+    writer.flushOutputMessage();
 
     spdlog::info("leaving event_builder_loop (crateId={})", context.crateId);
 
