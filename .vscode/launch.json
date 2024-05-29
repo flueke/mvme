@@ -53,15 +53,70 @@
             ]
         },
         {
-            "name": "(gdb) multicrate collector",
+            "name": "(gdb) multicrate collector 0",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/mvme_multicrate_collector",
             "args": [
                 "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp.vme",
                 "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp_2.vme",
-                "--listfile test_listfile0.zip",
-                "--trace"
+                "--analysis", "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp_merged.analysis",
+                "--info"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "(gdb) multicrate collector 1",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mvme_multicrate_collector",
+            "args": [
+                "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp.vme",
+                "--analysis", "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp_merged.analysis",
+                "--info"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "(gdb) multicrate replay 1",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mvme_multicrate_replay",
+            "args": [
+                "./test_listfile_one_crate-01.zip",
+                "--debug"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
