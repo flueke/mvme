@@ -260,11 +260,16 @@ inline int close_sockets(SocketPipeline &pipeline)
     return ret;
 }
 
-inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &url)
+using SocketFactory = std::function<nng_socket ()>;
+
+inline std::pair<SocketPipeline::Link, int> make_link(
+    const std::string &url,
+    SocketFactory listenerFactory,
+    SocketFactory dialerFactory)
 {
     auto result = std::make_pair<SocketPipeline::Link, int>({}, 0);
-    auto listener = make_pair_socket();
-    auto dialer = make_pair_socket();
+    auto listener = listenerFactory();
+    auto dialer = dialerFactory();
 
     if (int res = marry_listen_dial(listener, dialer, url.c_str()))
     {
@@ -276,6 +281,16 @@ inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &ur
         result.first = {listener, dialer, url};
 
     return result;
+}
+
+inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &url)
+{
+    return make_link(url, [] { return make_pair_socket(); }, [] { return make_pair_socket(); });
+}
+
+inline std::pair<SocketPipeline::Link, int> make_pubsub_link(const std::string &url)
+{
+    return make_link(url, [] { return make_pub_socket(); }, [] { return make_sub_socket(); });
 }
 
 #if 0
