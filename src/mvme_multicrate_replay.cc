@@ -414,16 +414,16 @@ int main(int argc, char *argv[])
 
         if (replayFuture.valid())
         {
-            spdlog::info("replayFuture is valid");
+            spdlog::info("shutdown_if_replay_done: replayFuture is valid");
             if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
             {
-                spdlog::debug("replay done, leaving main loop");
+                spdlog::debug("shutdown_if_replay_done: replay done, leaving main loop");
                 const auto ShutdownMaxWait = std::chrono::milliseconds(3 * 1000);
 
                 replayContext.quit = true;
                 auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
 
-                spdlog::info("replay loop shutdown done, result={}", replayLoopResult.toString());
+                spdlog::info("shutdown_if_replay_done: replay loop shutdown done, result={}", replayLoopResult.toString());
 
                 for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
                 {
@@ -431,32 +431,32 @@ int main(int argc, char *argv[])
                     auto results = shutdown_pipeline(rt, ShutdownMaxWait);
                     for (size_t j=0; j<results.size(); ++j)
                     {
-                        spdlog::info("crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
+                        spdlog::info("shutdown_if_replay_done: crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
                     }
                 }
 
-                spdlog::debug("processing cratePipelines shutdown done, closing sockets");
+                spdlog::debug("shutdown_if_replay_done: processing cratePipelines shutdown done, closing sockets");
 
                 for (size_t i=0; i<cratePipelines.size(); ++i)
                 {
                     if (int res = close_sockets(cratePipelines[i]))
                     {
-                        spdlog::warn("close_sockets failed for crate {}, res={}", i, res);
+                        spdlog::warn("shutdown_if_replay_done: close_sockets failed for crate {}, res={}", i, res);
                     }
                 }
 
-                spdlog::info("final counters:");
+                spdlog::info("shutdown_if_replay_done: final counters:");
                 log_counters();
             }
             else
             {
-                spdlog::info("replay still in progress");
+                spdlog::info("shutdown_if_replay_done: replay still in progress");
                 log_counters();
             }
         }
         else
         {
-            spdlog::warn("replayFuture is not valid, leaving main loop");
+            spdlog::warn("shutdown_if_replay_done: replayFuture is not valid, leaving main loop");
         }
     };
 
@@ -476,9 +476,25 @@ int main(int argc, char *argv[])
     });
 
     int ret = app.exec();
-    spdlog::warn("after app.exec()");
+    spdlog::warn("after app.exec(), forcing shutdown");
     replayContext.quit = true;
-    shutdown_if_replay_done();
+    auto &replayFuture = replayLoopRuntime->resultFuture;
+    if (replayFuture.valid())
+    {
+        const auto ShutdownMaxWait = std::chrono::milliseconds(100);
+        auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
+        spdlog::info("shutdown: replay loop shutdown done, result={}", replayLoopResult.toString());
+
+        for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
+        {
+            auto &rt = cratePipelineRuntimes[i];
+            auto results = shutdown_pipeline(rt, ShutdownMaxWait);
+            for (size_t j=0; j<results.size(); ++j)
+            {
+                spdlog::info("shutdown_if_replay_done: crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
+            }
+        }
+    }
     spdlog::warn("after shutdown_if_replay_done()");
 
 #else
