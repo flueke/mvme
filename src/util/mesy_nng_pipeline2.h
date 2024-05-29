@@ -244,6 +244,22 @@ class SocketPipeline
         std::vector<Link> links_;
 };
 
+inline int close_sockets(SocketPipeline &pipeline)
+{
+    int ret = 0;
+
+    for (auto link: pipeline.links())
+    {
+        if (int res = nng_close(link.dialer))
+            ret = res;
+
+        if (int res = nng_close(link.listener))
+            ret = res;
+    }
+
+    return ret;
+}
+
 inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &url)
 {
     auto result = std::make_pair<SocketPipeline::Link, int>({}, 0);

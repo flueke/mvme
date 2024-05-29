@@ -650,7 +650,7 @@ int main(int argc, char *argv[])
     #else
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
-        std::thread t(event_builder_combined_loop, std::ref(*eventBuilderStage1Contexts[i]));
+        std::thread t(event_builder_loop, std::ref(*eventBuilderStage1Contexts[i]));
         eventBuilderStage1RecorderThreads.emplace_back(std::move(t));
     }
     #endif
@@ -669,7 +669,7 @@ int main(int argc, char *argv[])
         analysisStage1Threads.emplace_back(std::move(analysisThread));
     }
 
-    std::thread stage2EventBuilderThread(event_builder_combined_loop, std::ref(*stage2EventBuilderContext));
+    std::thread stage2EventBuilderThread(event_builder_loop, std::ref(*stage2EventBuilderContext));
 
     //std::thread stage2CommonConsumerThread(parsed_data_test_consumer_loop, std::ref(*stage2TestConsumerContext));
     std::thread stage2AnalysisThread(analysis_loop, std::ref(*stage2AnalysisContext));

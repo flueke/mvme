@@ -961,7 +961,7 @@ void MinimalAnalysisServiceProvider::vmeConfigWasSaved()
 // Analysis
 analysis::Analysis *MinimalAnalysisServiceProvider::getAnalysis()
 {
-    return analysis_.get();
+    return analysis_.lock().get(); // XXX: evil
 }
 QString MinimalAnalysisServiceProvider::getAnalysisConfigFilename()
 {
@@ -1046,6 +1046,33 @@ void MinimalAnalysisServiceProvider::setAnalysisOperatorEdited(const std::shared
 {
 }
 
+std::string LoopResult::toString() const
+{
+    if (ec)
+        return fmt::format("ec={} ({})", ec.message(), ec.category().name());
+
+    if (nngError)
+        return fmt::format("nngError={}", nng_strerror(nngError));
+
+    if (exception)
+    {
+        try
+        {
+            std::rethrow_exception(exception);
+        }
+        catch(const std::exception& e)
+        {
+            return fmt::format("exception={}", e.what());
+        }
+        catch (...)
+        {
+            return fmt::format("unknown exception");
+        }
+    }
+
+    return "Ok";
+}
+
 LoopResult shutdown_loop(LoopRuntime &rt, std::chrono::milliseconds elementShutdownTimeout)
 {
     spdlog::debug("begin shutdown_loop {}", rt.info);
@@ -1108,10 +1135,10 @@ void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, con
     auto mibReceived = counters.bytesReceived * 1.0 / mvlc::util::Megabytes(1);
     auto mibSent = counters.bytesSent * 1.0 / mvlc::util::Megabytes(1);
     auto totalMessages = counters.messagesReceived + counters.messagesLost;
-    auto efficiency = counters.messagesReceived * 1.0 / totalMessages;
+    auto rxEfficiency = counters.messagesReceived * 1.0 / totalMessages;
 
-    //spdlog::info("{}: stats: msgsReceived={}, msgsLost={} (efficiency={:.2f}), msgsSent={}, bytesReceived={:.2f} MiB, bytesSent={:.2f} MiB",
-    //    info, counters.messagesReceived, counters.messagesLost, efficiency, counters.messagesSent, mibReceived, mibSent);
+    //spdlog::info("{}: stats: msgsReceived={}, msgsLost={} (rxEfficiency={:.2f}), msgsSent={}, bytesReceived={:.2f} MiB, bytesSent={:.2f} MiB",
+    //    info, counters.messagesReceived, counters.messagesLost, rxEfficiency, counters.messagesSent, mibReceived, mibSent);
 
     auto msgReceiveRate = counters.messagesReceived * 1.0 / elapsed.count() * 1000.0;
     auto msgSendRate =  counters.messagesSent * 1.0 / elapsed.count() * 1000.0;
@@ -1122,8 +1149,9 @@ void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, con
     //    " bytesReceivedRate={:.2f} MiB/s, bytesSentRate={:.2f} MiB/s",
     //    info, elapsed.count() / 1000.0, msgReceiveRate, msgSendRate, bytesReceiveRate, bytesSendRate);
 
-    spdlog::info("{}: rx: tRecv={:.2f} ms, msgs={}, {:.2f} msg/s, bytes={:.2f} MiB, {:.2f} MiB/s",
-        info, counters.tReceive.count() / 1000.0, counters.messagesReceived, msgReceiveRate, mibReceived, bytesReceiveRate);
+    spdlog::info("{}: rx: tRecv={:.2f} ms, msgs={}, {:.2f} msg/s, bytes={:.2f} MiB, {:.2f} MiB/s, loss={}, eff={:.2f}",
+        info, counters.tReceive.count() / 1000.0, counters.messagesReceived,
+        msgReceiveRate, mibReceived, bytesReceiveRate, counters.messagesLost, rxEfficiency);
 
     spdlog::info("{}: tx: tSend={:.2f} ms, msgs={}, {:.2f} msg/s, bytes={:.2f} MiB, {:.2f} MiB/s",
         info, counters.tSend.count() / 1000.0, counters.messagesSent, msgSendRate, mibSent, bytesSendRate);
@@ -1895,7 +1923,7 @@ struct ReadoutParserNngMessageWriter: public ParsedEventsMessageWriter
 
 // The event data callback for the readout parser. Serializes the parsed module
 // data list into the current output message.
-inline void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
+inline void readout_parser_eventdata_callback(void *ctx_, int crateIndex, int eventIndex,
     const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
 {
     assert(ctx_);
@@ -1910,7 +1938,7 @@ inline void parser_nng_eventdata(void *ctx_, int crateIndex, int eventIndex,
     writer.consumeReadoutEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
 }
 
-inline void parser_nng_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 size)
+inline void readout_parser_systemevent_callback(void *ctx_, int crateIndex, const u32 *header, u32 size)
 {
     assert(ctx_);
     assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
@@ -1927,7 +1955,7 @@ LoopResult readout_parser_loop(ReadoutParserNngContext &context)
     set_thread_name("readout_parser_loop");
 
     LoopResult result;
-    auto crateId = context.crateId;
+    const auto crateId = context.crateId;
 
     spdlog::info("entering readout_parser_loop, crateId={}", crateId);
 
@@ -1941,8 +1969,8 @@ LoopResult readout_parser_loop(ReadoutParserNngContext &context)
 
     mvlc::readout_parser::ReadoutParserCallbacks parserCallbacks =
     {
-        parser_nng_eventdata,
-        parser_nng_systemevent,
+        readout_parser_eventdata_callback,
+        readout_parser_systemevent_callback,
     };
 
     //auto tLastReport = std::chrono::steady_clock::now();
@@ -1958,8 +1986,7 @@ LoopResult readout_parser_loop(ReadoutParserNngContext &context)
 
         if (res && res != NNG_ETIMEDOUT)
         {
-            spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}",
-                crateId, nng_strerror(res));
+            spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}", crateId, nng_strerror(res));
             result.nngError = res;
             break;
         }
@@ -1975,18 +2002,25 @@ LoopResult readout_parser_loop(ReadoutParserNngContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::warn("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            spdlog::debug("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
             break;
         }
 
         if (msgLen < sizeof(multi_crate::ReadoutDataMessageHeader))
         {
-            spdlog::warn("reaodut_parser_loop (crateId={}): Incoming message is too short (len={})!",
-                crateId, msgLen);
+            spdlog::warn("reaodut_parser_loop (crateId={}): Incoming message is too short (len={})!", crateId, msgLen);
             continue;
         }
 
-        //spdlog::warn("incoming message size={}", nng_msg_len(inputMsg));
+        auto inputHeader = nng::msg_trim_read<multi_crate::ReadoutDataMessageHeader>(inputMsg.get()).value();
+
+        if (inputHeader.messageType != multi_crate::MessageType::ReadoutData)
+        {
+            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
+            continue;
+        }
+
         {
             auto ta = context.counters.access();
             ta->messagesReceived++;
@@ -1994,16 +2028,13 @@ LoopResult readout_parser_loop(ReadoutParserNngContext &context)
             ta->tReceive += stopWatch.interval();
         }
 
-        totalInputBytes += nng_msg_len(inputMsg.get());
-        auto inputHeader = *reinterpret_cast<const multi_crate::ReadoutDataMessageHeader *>(
-            nng_msg_body(inputMsg.get()));
+        totalInputBytes += msgLen;
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
         inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;
         lastInputMessageNumber = inputHeader.messageNumber;
         spdlog::debug("readout_parser_loop (crateId={}): received message {} of size {}",
-            crateId, lastInputMessageNumber, nng_msg_len(inputMsg.get()));
+            crateId, lastInputMessageNumber, msgLen);
 
-        nng_msg_trim(inputMsg.get(), sizeof(multi_crate::ReadoutDataMessageHeader));
         auto inputData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg.get()));
         size_t inputLen = nng_msg_len(inputMsg.get()) / sizeof(u32);
 
@@ -2059,100 +2090,6 @@ LoopResult readout_parser_loop(ReadoutParserNngContext &context)
     spdlog::info("leaving readout_parser_loop, crateId={}", crateId);
 
     return result;
-}
-
-void event_builder_record_loop(EventBuilderContext &context)
-{
-    set_thread_name("event_builder_recorder");
-
-    spdlog::info("entering event_builder_record_loop");
-
-    context.counters.access()->start();
-
-    while (!context.quit)
-    {
-        StopWatch stopWatch;
-        stopWatch.start();
-
-        auto [inputMsg, res] = context.inputReader->readMessage();
-
-        if (res && res != NNG_ETIMEDOUT)
-        {
-            spdlog::error("event_builder_record_loop - receive_message: {}", nng_strerror(res));
-            break;
-        }
-        else if (res)
-        {
-            spdlog::trace("event_builder_record_loop - receive_message: timeout");
-            continue;
-        }
-
-        assert(inputMsg);
-
-        const auto msgLen = nng_msg_len(inputMsg.get());
-
-        if (is_shutdown_message(inputMsg.get()))
-        {
-            spdlog::warn("event_builder_record_loop: Received shutdown message, leaving loop");
-            nng_msg_free(inputMsg.get());
-            break;
-        }
-
-        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
-        {
-            spdlog::warn("event_builder_record_loop - incoming message too short (len={})", msgLen);
-            continue;
-        }
-
-        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg.get()).value();
-
-        if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
-        {
-            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
-                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
-            break;
-        }
-
-        {
-            auto ta = context.counters.access();
-            ta->messagesReceived++;
-            ta->bytesReceived += msgLen;
-            ta->tReceive += stopWatch.interval();
-        }
-
-        ParsedEventMessageIterator messageIter(inputMsg.get());
-
-        for (auto eventData = next_event(messageIter);
-                eventData.type != EventContainer::Type::None;
-                eventData = next_event(messageIter))
-        {
-            if (eventData.type == EventContainer::Type::Readout)
-            {
-                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
-                context.eventBuilder->recordEventData(inputCrateId, eventData.readout.eventIndex,
-                    eventData.readout.moduleDataList, eventData.readout.moduleCount);
-            }
-            else if (eventData.type == EventContainer::Type::System && eventData.system.size)
-            {
-                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
-                context.eventBuilder->recordSystemEvent(inputCrateId, eventData.system.header, eventData.system.size);
-            }
-            else if (nng_msg_len(inputMsg.get()))
-            {
-                spdlog::warn("event_builder_record_loop: incoming message contains unknown subsection '{}'",
-                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
-                break;
-            }
-        }
-
-        {
-            auto ta = context.counters.access();
-            ta->tProcess += stopWatch.interval();
-            ta->tTotal += stopWatch.end();
-        }
-    }
-
-    spdlog::info("leaving event_builder_record_loop");
 }
 
 struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
@@ -2224,7 +2161,7 @@ struct EventBuilderNngMessageWriter: public ParsedEventsMessageWriter
     EventBuilderContext &ctx;
 };
 
-inline void event_builder_eventdata(void *ctx_, int crateIndex, int eventIndex,
+inline void event_builder_eventdata_callback(void *ctx_, int crateIndex, int eventIndex,
     const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
 {
     assert(ctx_);
@@ -2240,7 +2177,7 @@ inline void event_builder_eventdata(void *ctx_, int crateIndex, int eventIndex,
     writer.consumeReadoutEventData(outputCrateId, eventIndex, moduleDataList, moduleCount);
 }
 
-inline void event_builder_systemevent(void *ctx_, int crateIndex, const u32 *header, u32 size)
+inline void event_builder_systemevent_callback(void *ctx_, int crateIndex, const u32 *header, u32 size)
 {
     assert(ctx_);
     assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
@@ -2253,40 +2190,18 @@ inline void event_builder_systemevent(void *ctx_, int crateIndex, const u32 *hea
     writer.consumeSystemEventData(outputCrateId, header, size);
 }
 
-void event_builder_build_loop(EventBuilderContext &context)
+LoopResult event_builder_loop(EventBuilderContext &context)
 {
-    set_thread_name("event_builder_builder");
+    set_thread_name("event_builder_loop");
+
+    LoopResult result;
+    const auto crateId = context.crateId;
+
+    spdlog::info("entering event_builder_loop (crateId={})", crateId);
 
     readout_parser::ReadoutParserCallbacks callbacks;
-    callbacks.eventData = event_builder_eventdata;
-    callbacks.systemEvent = event_builder_systemevent;
-
-
-    while (!context.quit)
-    {
-        if (context.eventBuilder->waitForData(std::chrono::milliseconds(100)))
-        {
-            auto nEvents = context.eventBuilder->buildEvents(callbacks);
-            if (nEvents)
-                spdlog::trace("event_builder_builder{}: built {} events", context.crateId, nEvents);
-        }
-    }
-
-    // flush
-    context.eventBuilder->buildEvents(callbacks, true);
-}
-
-// records input data and immediately calls buildEvents() // TODO: try this out,
-// might be faster than having two loops per event builder
-void event_builder_combined_loop(EventBuilderContext &context)
-{
-    set_thread_name("event_builder_combined_loop");
-
-    spdlog::info("entering event_builder_combined_loop");
-
-    readout_parser::ReadoutParserCallbacks callbacks;
-    callbacks.eventData = event_builder_eventdata;
-    callbacks.systemEvent = event_builder_systemevent;
+    callbacks.eventData = event_builder_eventdata_callback;
+    callbacks.systemEvent = event_builder_systemevent_callback;
 
     context.counters.access()->start();
 
@@ -2298,12 +2213,13 @@ void event_builder_combined_loop(EventBuilderContext &context)
 
         if (res && res != NNG_ETIMEDOUT)
         {
-            spdlog::error("event_builder_record_loop - receive_message: {}", nng_strerror(res));
+            spdlog::error("event_builder_loop (crateId={}) - receive_message: {}", crateId, nng_strerror(res));
+            result.nngError = res;
             break;
         }
         else if (res)
         {
-            spdlog::trace("event_builder_record_loop - receive_message: timeout");
+            spdlog::trace("event_builder_loop (crateId={}) - receive_message: timeout", crateId);
             continue;
         }
 
@@ -2313,13 +2229,13 @@ void event_builder_combined_loop(EventBuilderContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::warn("event_builder_combined_loop: Received shutdown message, leaving loop");
+            spdlog::debug("event_builder_loop (crateId={}): Received shutdown message, leaving loop", crateId);
             break;
         }
 
         if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
-            spdlog::warn("event_builder_combined_loop - incoming message too short (len={})", msgLen);
+            spdlog::warn("event_builder_loop (crateId={}): Incoming message is too short (len={})!", crateId, msgLen);
             continue;
         }
 
@@ -2329,7 +2245,7 @@ void event_builder_combined_loop(EventBuilderContext &context)
         {
             spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
                 static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
-            break;
+            continue;
         }
 
         {
@@ -2358,7 +2274,7 @@ void event_builder_combined_loop(EventBuilderContext &context)
             }
             else if (nng_msg_len(inputMsg.get()))
             {
-                spdlog::warn("event_builder_combined_loop: incoming message contains unknown subsection '{}'",
+                spdlog::warn("event_builder_loop: incoming message contains unknown subsection '{}'",
                     *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
                 break;
             }
@@ -2366,7 +2282,7 @@ void event_builder_combined_loop(EventBuilderContext &context)
 
         auto nEvents = context.eventBuilder->buildEvents(callbacks);
         if (nEvents)
-            spdlog::trace("event_builder_combined_loop{}: built {} events", context.crateId, nEvents);
+            spdlog::trace("event_builder_loop{}: built {} events", context.crateId, nEvents);
 
         {
             auto ta = context.counters.access();
@@ -2375,7 +2291,9 @@ void event_builder_combined_loop(EventBuilderContext &context)
         }
     }
 
-    spdlog::info("leaving event_builder_combined_loop");
+    spdlog::info("leaving event_builder_loop (crateId={})", context.crateId);
+
+    return result;
 }
 
 LoopResult analysis_loop(AnalysisProcessingContext &context)
@@ -2446,7 +2364,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
         {
             spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
                 static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
-            break;
+            continue;
         }
 
         {
@@ -2511,101 +2429,6 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
     //    lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
     spdlog::info("leaving analysis_loop, crateId={}", crateId);
     return result;
-}
-
-void parsed_data_test_consumer_loop(ParsedDataConsumerContext &context)
-{
-    {
-        auto name = fmt::format("parsed_data_test_consumer_loop({})", context.info);
-        set_thread_name(name.c_str());
-    }
-
-    size_t totalInputBytes = 0u;
-    size_t inputBuffersLost = 0;
-    // FIXME: this thing receives data from multiple event builders so a single message loss calculation is not enough.
-    u32 lastInputMessageNumber = 0u;
-    context.counters.access()->start();
-    context.readoutEventCounts.access()->fill(0);
-    context.systemEventCounts.access()->fill(0);
-
-    while (!context.quit)
-    {
-        nng_msg *inputMsg = nullptr;
-
-        if (auto res = nng::receive_message(context.inputSocket, &inputMsg))
-        {
-            if (res != NNG_ETIMEDOUT)
-            {
-                spdlog::error("parsed_data_test_consumer_loop - receive_message: {}", nng_strerror(res));
-                break;
-            }
-            spdlog::trace("parsed_data_test_consumer_loop - receive_message: timeout");
-            continue;
-        }
-
-        assert(inputMsg != nullptr);
-
-        const auto msgLen = nng_msg_len(inputMsg);
-
-        if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
-        {
-            auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg));
-            if (header.messageType == multi_crate::MessageType::GracefulShutdown)
-            {
-                spdlog::warn("parsed_data_test_consumer_loop: Received shutdown message, leaving loop");
-                nng_msg_free(inputMsg);
-                break;
-            }
-        }
-
-        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
-        {
-            spdlog::warn("parsed_data_test_consumer_loop - incoming message too short (len={})", msgLen);
-            nng_msg_free(inputMsg);
-            continue;
-        }
-
-        totalInputBytes += nng_msg_len(inputMsg);
-        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg).value();
-        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
-        inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;;
-        lastInputMessageNumber = inputHeader.messageNumber;
-        if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
-        {
-            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
-                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
-                break;
-        }
-
-        {
-            auto a = context.counters.access();
-            a->bytesReceived = totalInputBytes;
-            a->messagesReceived += 1;
-            a->messagesLost = inputBuffersLost;
-        }
-
-        ParsedEventMessageIterator messageIter(inputMsg);
-
-        for (auto eventData = next_event(messageIter);
-                eventData.type != EventContainer::Type::None;
-                eventData = next_event(messageIter))
-        {
-            if (eventData.type == EventContainer::Type::Readout)
-            {
-                //spdlog::info("parsed_data_test_consumer_loop: Readout event: crate={}, event={}",
-                //    eventData.crateId, eventData.readout.eventIndex);
-                context.readoutEventCounts.access()->at(eventData.crateId)++;
-            }
-            else if (eventData.type == EventContainer::Type::System && eventData.system.size)
-            {
-                //spdlog::info("parsed_data_test_consumer_loop: System event: crate={}, size={}",
-                //    eventData.crateId, eventData.system.size);
-                context.systemEventCounts.access()->at(eventData.crateId)++;
-            }
-        }
-
-        nng_msg_free(inputMsg);
-    }
 }
 
 LoopResult replay_loop(MulticrateReplayContext &context)

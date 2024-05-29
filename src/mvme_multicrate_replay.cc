@@ -3,12 +3,14 @@
 #include <QApplication>
 #include <QTimer>
 
-#include "mvlc/vmeconfig_to_crateconfig.h"
-#include "util/signal_handling.h"
-#include "mvme_session.h"
+#include "analysis/analysis_ui.h"
 #include "multi_crate.h"
-#include "vme_config_util.h"
+#include "mvlc_daq.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
+#include "mvme_session.h"
+#include "util/signal_handling.h"
 #include "util/stopwatch.h"
+#include "vme_config_util.h"
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
@@ -128,7 +130,7 @@ int main(int argc, char *argv[])
     {
         std::vector<nng::SocketPipeline::Link> links;
 
-        const auto urlTemplates = { "inproc://crate{}_stage00_raw", "inproc://crate{}_stage01_parser" };
+        const auto urlTemplates = { "inproc://crate{}_stage00_raw", "inproc://crate{}_stage01_event_builder", "inproc://crate{}_stage02_parser" };
 
         for (auto tmpl: urlTemplates)
         {
@@ -150,6 +152,8 @@ int main(int argc, char *argv[])
         pipelines.emplace_back(std::move(pipeline));
     }
 
+    size_t pipelineStage = 0;
+
     // Replay: one context with one output writer for each crate in the input listfile.
 
     MulticrateReplayContext replayContext;
@@ -159,12 +163,15 @@ int main(int argc, char *argv[])
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
         const auto &pipeline = pipelines[i];
-        assert(pipeline.elements().size() >= 1);
-        auto writerSocket = pipeline.elements()[0].outputSocket;
+        assert(pipeline.elements().size() >= pipelineStage+1);
+        auto writerSocket = pipeline.elements()[pipelineStage].outputSocket;
         auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
-        writer->debugInfo = fmt::format("replayOutput (crateId={})", i);
+        writer->debugInfo = fmt::format("replay_loop (crateId={})", i);
+        writer->retryPredicate = [&] { return !replayContext.quit; };
         replayContext.writers.emplace_back(std::move(writer));
     }
+
+    ++pipelineStage;
 
     // Parsers: one parser per crate
     std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
@@ -172,34 +179,88 @@ int main(int argc, char *argv[])
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
         const auto &pipeline = pipelines[i];
-        assert(pipeline.elements().size() >= 2);
+        assert(pipeline.elements().size() >= pipelineStage+1);
         auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
         crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
 
-        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[1].inputSocket);
-        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[1].outputSocket);
-        outputWriter->debugInfo = fmt::format("parserOutput (crateId={})", i);
+        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStage].inputSocket);
+        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStage].outputSocket);
 
         auto parserContext = make_readout_parser_nng_context(crateConfig);
         parserContext->quit = false;
+        outputWriter->debugInfo = fmt::format("parserOutput (crateId={})", i);
+        outputWriter->retryPredicate = [&] { return !parserContext->quit; };
         parserContext->inputReader = std::move(inputReader);
         parserContext->outputWriter = std::move(outputWriter);
 
         parserContexts.emplace_back(std::move(parserContext));
     }
 
-    // Analysis: one per crate
+    ++pipelineStage;
+
+    // Event builders: one per crate
+    std::vector<std::unique_ptr<EventBuilderContext>> eventBuilderStage1Contexts;
+
+    for (size_t i=0; i<vmeConfigs.size(); ++i)
+    {
+        const auto &pipeline = pipelines[i];
+        assert(pipeline.elements().size() >= pipelineStage+1);
+        auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
+        crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
+
+        auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
+        auto readoutStructure = readout_parser::build_readout_structure(stacks);
+        const size_t moduleCount = readoutStructure.at(0).size(); // modules in event 0
+
+        EventSetup::CrateSetup crateSetup;
+
+        for (size_t mi=0; mi<moduleCount; ++mi)
+        {
+            crateSetup.moduleTimestampExtractors.emplace_back(make_mesytec_default_timestamp_extractor());
+            crateSetup.moduleMatchWindows.emplace_back(event_builder::DefaultMatchWindow);
+        }
+
+        EventSetup eventSetup;
+        eventSetup.enabled = true;
+        eventSetup.crateSetups.emplace_back(crateSetup);
+        eventSetup.mainModule = std::make_pair(0, 0);
+
+        EventBuilderConfig ebConfig;
+        ebConfig.setups.emplace_back(eventSetup);
+
+        auto ebContext = std::make_unique<EventBuilderContext>();
+        ebContext->crateId = i;
+        ebContext->quit = false;
+        ebContext->eventBuilderConfig = ebConfig;
+        ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
+
+        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStage].inputSocket);
+        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStage].outputSocket);
+        outputWriter->debugInfo = fmt::format("eventBuilderOutput (crateId={})", i);
+        outputWriter->retryPredicate = [&] { return !ebContext->quit; };
+
+        ebContext->inputReader = std::move(inputReader);
+        ebContext->outputWriter = std::move(outputWriter);
+        // Rewrite data to make the eventbuilder work for a single crate with a non-zero crateid.
+        ebContext->inputCrateMappings[i] = 0;
+        ebContext->outputCrateMappings[0] = i;
+        eventBuilderStage1Contexts.emplace_back(std::move(ebContext));
+    }
+
+    ++pipelineStage;
+
+    // Analysis: one per crate but each instances is loaded from the same file.
     std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage1Contexts;
     auto widgetRegistry = std::make_shared<WidgetRegistry>();
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
         const auto &pipeline = pipelines[i];
-        assert(pipeline.elements().size() >= 3);
+        assert(pipeline.elements().size() >= pipelineStage+1);
 
         auto analysisContext = std::make_unique<AnalysisProcessingContext>();
         analysisContext->quit = false;
-        analysisContext->inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[2].inputSocket);
+        analysisContext->inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStage].inputSocket);
         analysisContext->crateId = i;
         std::shared_ptr<analysis::Analysis> analysis;
 
@@ -240,7 +301,7 @@ int main(int argc, char *argv[])
             const auto &counters = ca.ref();
             for(size_t crateId=0; crateId<counters.size(); ++crateId)
             {
-                log_socket_work_counters(counters[crateId], fmt::format("replay_loop ouputWriter (crateId={})", crateId));
+                log_socket_work_counters(counters[crateId], fmt::format("replay_loop (crateId={})", crateId));
             }
         }
 
@@ -249,6 +310,13 @@ int main(int argc, char *argv[])
         {
             log_socket_work_counters(ctx->counters.access().ref(),
                 fmt::format("readout_parser_loop (crateId={})", ctx->crateId));
+        }
+
+        // event builders
+        for (auto &ctx: eventBuilderStage1Contexts)
+        {
+            log_socket_work_counters(ctx->counters.access().ref(),
+                fmt::format("event_builder_loop (crateId={})", ctx->crateId));
         }
 
         // analyses
@@ -286,6 +354,16 @@ int main(int argc, char *argv[])
         cratePipelineRuntimes[parserContext->crateId].emplace_back(std::move(rt));
     }
 
+    // event_builder_loop[crate]
+    for (auto &ctx: eventBuilderStage1Contexts)
+    {
+        std::vector<nng::OutputWriter *> writers { ctx->outputWriter.get() };
+
+        auto future = std::async(std::launch::async, event_builder_loop, std::ref(*ctx));
+        auto rt = LoopRuntime{ ctx->quit, std::move(future), writers, fmt::format("event_builder_loop (crateId={})", ctx->crateId) };
+        cratePipelineRuntimes[ctx->crateId].emplace_back(std::move(rt));
+    }
+
     // analysis_loop[crate]
     for (auto &analysisContext: analysisStage1Contexts)
     {
@@ -294,8 +372,85 @@ int main(int argc, char *argv[])
         cratePipelineRuntimes[analysisContext->crateId].emplace_back(std::move(rt));
     }
 
+    // Widgets
+    for (size_t i=0; i<analysisStage1Contexts.size(); ++i)
+    {
+        auto &ctx = analysisStage1Contexts[i];
+        auto asp = ctx->asp.get();
+        auto widget = new analysis::ui::AnalysisWidget(asp);
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->setWindowTitle(fmt::format("Analysis (crate {})", i).c_str());
+        widget->show();
+    }
+
+    // Wait for things to finish.
+
+    auto shutdown_if_replay_done = [&]
+    {
+        auto &replayFuture = replayLoopRuntime->resultFuture;
+
+        if (replayFuture.valid())
+        {
+            if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
+            {
+                spdlog::debug("replay done, leaving main loop");
+                const auto ShutdownMaxWait = std::chrono::milliseconds(3 * 1000);
+
+                replayContext.quit = true;
+                auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
+
+                spdlog::info("replay loop shutdown done, result={}", replayLoopResult.toString());
+
+                for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
+                {
+                    auto &rt = cratePipelineRuntimes[i];
+                    auto results = shutdown_pipeline(rt, ShutdownMaxWait);
+                    for (size_t j=0; j<results.size(); ++j)
+                    {
+                        spdlog::info("crate {}, stage {} pipeline shutdown done, result={}", i, j, results[j].toString());
+                    }
+                }
+
+                spdlog::debug("processing pipelines shutdown done, closing sockets");
+
+                for (size_t i=0; i<pipelines.size(); ++i)
+                {
+                    if (int res = close_sockets(pipelines[i]))
+                    {
+                        spdlog::warn("close_sockets failed for crate {}, res={}", i, res);
+                    }
+                }
+
+                spdlog::info("final counters:");
+                log_counters();
+            }
+            else
+                log_counters();
+        }
+    };
+
+#if 1
+    QTimer timer;
+    timer.setInterval(1000);
+    timer.start();
+
+    QObject::connect(&timer, &QTimer::timeout, [&]{
+        if (signal_received())
+        {
+            spdlog::warn("signal received, shutting down");
+            app.quit();
+        }
+
+        shutdown_if_replay_done();
+    });
+
+    int ret = app.exec();
+    shutdown_if_replay_done();
+
+#else
     StopWatch reportStopwatch;
     reportStopwatch.start();
+
 
     while (!signal_received())
     {
@@ -311,6 +466,8 @@ int main(int argc, char *argv[])
             log_counters();
             reportStopwatch.interval();
         }
+
+        QApplication::processEvents();
     }
 
     if (signal_received())
@@ -327,53 +484,40 @@ int main(int argc, char *argv[])
     replayContext.quit = true;
     auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
 
-    assert(!replayLoopResult.hasError()); // XXX: debugging
+    spdlog::info("replay loop shutdown done, result={}", replayLoopResult.toString());
 
-    spdlog::debug("replay loop shutdown done");
-
-    for (auto &pipelineRuntime: cratePipelineRuntimes)
+    for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
     {
-        auto loopResults = shutdown_pipeline(pipelineRuntime, ShutdownMaxWait);
-    }
-
-    spdlog::debug("crate processing pipelines shutdown done");
-
-    // TODO: walk and show results
-
-    #if 0
-    if (auto &replayFuture = replayLoopRuntime->resultFuture; replayFuture.valid())
-    {
-        auto result = replayFuture.get();
-        if (result.hasError())
+        auto &rt = cratePipelineRuntimes[i];
+        auto results = shutdown_pipeline(rt, ShutdownMaxWait);
+        for (size_t j=0; j<results.size(); ++j)
         {
-            if (result.ec)
-            {
-                auto ec = result.ec;
-                spdlog::warn("result from replay loop: error_code={} ({})", ec.message(), ec.category().name());
-            }
-            else if (result.exception)
-            {
-                try
-                {
-                    std::rethrow_exception(result.exception);
-                }
-                catch(const std::runtime_error& e)
-                {
-                    spdlog::error("error from replay loop: {}", e.what());
-                }
-                catch(...)
-                {
-                    spdlog::error("unknown exception thrown from replay loop");
-                }
-            }
+            spdlog::info("crate {}, stage {} pipeline shutdown done, result={}", i, j, results[j].toString());
         }
     }
-    #endif
+
+    spdlog::debug("processing pipelines shutdown done, closing sockets");
+
+    for (size_t i=0; i<pipelines.size(); ++i)
+    {
+        if (int res = close_sockets(pipelines[i]))
+        {
+            spdlog::warn("close_sockets failed for crate {}, res={}", i, res);
+        }
+    }
 
     spdlog::info("final counters:");
     log_counters();
+#endif
 
     spdlog::debug("end of main reached");
 
-    return 0;
+    for (auto &ctx: analysisStage1Contexts)
+    {
+        // circular reference: asp has shared_ptr<Analysis>, context has shared_ptr<Analysis> and unique_ptr<AnalysisServiceProvider>!
+        //ctx->asp = {};
+        //ctx->analysis = {};
+    }
+
+    return ret;
 }

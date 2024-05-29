@@ -648,7 +648,7 @@ class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvi
     public:
         VMEConfig *vmeConfig_;
         QString vmeConfigFilename_;
-        std::shared_ptr<analysis::Analysis> analysis_;
+        std::weak_ptr<analysis::Analysis> analysis_;
         QString analysisConfigFilename_;
         std::shared_ptr<WidgetRegistry> widgetRegistry_;
         // artifacts from mvme. Don't think it's needed in the future.
@@ -664,6 +664,7 @@ struct LoopResult
     int nngError = 0;
 
     bool hasError() const { return ec || exception || nngError; }
+    std::string toString() const;
 };
 
 // Runtime state for a loop context. Combines the loops quit flag, the future
@@ -849,10 +850,6 @@ struct LIBMVME_EXPORT ReadoutParserNngContext
 std::unique_ptr<ReadoutParserNngContext> LIBMVME_EXPORT make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig);
 LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserNngContext &context);
 
-// EventBuilder
-// Note: this can be split up: N threads can call
-// recordEventData()/recordSystemEvent() while one thread repeatedly calls
-// buildEvents().
 struct LIBMVME_EXPORT EventBuilderContext
 {
     std::atomic<bool> quit;
@@ -884,12 +881,7 @@ struct LIBMVME_EXPORT EventBuilderContext
     }
 };
 
-// Calls recordEventData and recordSystemEvent with data read from inputSocket.
-void LIBMVME_EXPORT event_builder_record_loop(EventBuilderContext &context);
-void LIBMVME_EXPORT event_builder_build_loop(EventBuilderContext &context);
-// Combines the above two into a single loop. Somehow way faster than having the
-// two loops in two threads
-void LIBMVME_EXPORT event_builder_combined_loop(EventBuilderContext &context);
+LoopResult LIBMVME_EXPORT event_builder_loop(EventBuilderContext &context);
 
 struct LIBMVME_EXPORT AnalysisProcessingContext
 {
@@ -904,19 +896,6 @@ struct LIBMVME_EXPORT AnalysisProcessingContext
 
 // Consumes ParsedEventsMessageHeader type messages.
 LoopResult LIBMVME_EXPORT analysis_loop(AnalysisProcessingContext &context);
-
-struct LIBMVME_EXPORT ParsedDataConsumerContext
-{
-    std::atomic<bool> quit;
-    nng_socket inputSocket;
-    mvlc::Protected<SocketWorkPerformanceCounters> counters;
-    std::string info;
-    mvlc::Protected<std::array<size_t, mvlc::MaxVMECrates>> readoutEventCounts;
-    mvlc::Protected<std::array<size_t, mvlc::MaxVMECrates>> systemEventCounts;
-};
-
-// Consumes ParsedEventsMessageHeader type messages.
-void LIBMVME_EXPORT parsed_data_test_consumer_loop(ParsedDataConsumerContext &context);
 
 struct MulticrateReplayContext
 {
