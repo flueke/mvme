@@ -381,49 +381,6 @@ inline unique_msg allocate_reserve_message(size_t reserve = 0)
     return make_unique_msg(msg);
 }
 
-struct YDuplicatorContext
-{
-    std::atomic<bool> quit;
-    nng_socket inputSocket;
-    std::pair<nng_socket, nng_socket> outputSockets;
-    std::function<bool (nng_msg *msg)> isShutdownMessage;
-    std::string info;
-};
-
-inline void duplicator_loop(YDuplicatorContext &ctx)
-{
-    util::set_thread_name("duplicator_loop");
-
-    while (!ctx.quit)
-    {
-        nng_msg *msg = nullptr;
-
-        if (receive_message(ctx.inputSocket, &msg) != 0)
-            continue;
-
-        if (ctx.isShutdownMessage && ctx.isShutdownMessage(msg))
-        {
-            nng_msg_free(msg);
-            break;
-        }
-
-        nng_msg *clone = nullptr;
-        nng_msg_dup(&clone, msg);
-
-        assert(msg && clone);
-
-        auto info = fmt::format("duplicator_loop({}) output0", ctx.info);
-
-        if (msg && send_message_retry(ctx.outputSockets.first, msg, 3, info.c_str()) != 0)
-            nng_msg_free(msg);
-
-        info = fmt::format("duplicator_loop({}) output1", ctx.info);
-
-        if (clone && send_message_retry(ctx.outputSockets.second, clone, 3, info.c_str()) != 0)
-            nng_msg_free(clone);
-    }
-}
-
 inline int marry_listen_dial(nng_socket listen, nng_socket dial, const char *url)
 {
     if (int res = nng_listen(listen, url, nullptr, 0))

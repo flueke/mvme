@@ -434,13 +434,13 @@ int main(int argc, char *argv[])
     listfileWriterContext.inputReader = std::make_unique<nng::SocketInputReader>(listfileConsumerSocket);
     listfileWriterContext.lfh = std::move(lfh);
 
-    std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
+    std::vector<std::unique_ptr<ReadoutParserContext>> parserContexts;
 
     for (size_t i=0; i<crateConfigs.size(); ++i)
     {
         assert(i == crateConfigs[i].crateId);
 
-        auto parserContext = make_readout_parser_nng_context(crateConfigs[i]);
+        auto parserContext = make_readout_parser_context(crateConfigs[i]);
         parserContext->quit = false;
         parserContext->inputReader = std::make_unique<nng::SocketInputReader>(readoutSnoopSockets[i].second);
         parserContext->outputWriter = std::make_unique<nng::SocketOutputWriter>(parsedDataSockets[i].first);

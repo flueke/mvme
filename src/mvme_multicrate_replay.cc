@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
         pipelines.emplace_back(std::move(pipeline));
     }
 
-    size_t pipelineStage = 0;
+    size_t pipelineStep = 0;
 
     // Replay: one context with one output writer for each crate in the input listfile.
 
@@ -163,30 +163,30 @@ int main(int argc, char *argv[])
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
         const auto &pipeline = pipelines[i];
-        assert(pipeline.elements().size() >= pipelineStage+1);
-        auto writerSocket = pipeline.elements()[pipelineStage].outputSocket;
+        assert(pipeline.elements().size() >= pipelineStep+1);
+        auto writerSocket = pipeline.elements()[pipelineStep].outputSocket;
         auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
         writer->debugInfo = fmt::format("replay_loop (crateId={})", i);
         writer->retryPredicate = [&] { return !replayContext.quit; };
         replayContext.writers.emplace_back(std::move(writer));
     }
 
-    ++pipelineStage;
+    ++pipelineStep;
 
     // Parsers: one parser per crate
-    std::vector<std::unique_ptr<ReadoutParserNngContext>> parserContexts;
+    std::vector<std::unique_ptr<ReadoutParserContext>> parserContexts;
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
         const auto &pipeline = pipelines[i];
-        assert(pipeline.elements().size() >= pipelineStage+1);
+        assert(pipeline.elements().size() >= pipelineStep+1);
         auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
         crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
 
-        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStage].inputSocket);
-        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStage].outputSocket);
+        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStep].inputSocket);
+        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStep].outputSocket);
 
-        auto parserContext = make_readout_parser_nng_context(crateConfig);
+        auto parserContext = make_readout_parser_context(crateConfig);
         parserContext->quit = false;
         outputWriter->debugInfo = fmt::format("parserOutput (crateId={})", i);
         outputWriter->retryPredicate = [&] { return !parserContext->quit; };
@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
         parserContexts.emplace_back(std::move(parserContext));
     }
 
-    ++pipelineStage;
+    ++pipelineStep;
 
     // Event builders: one per crate
     std::vector<std::unique_ptr<EventBuilderContext>> eventBuilderStage1Contexts;
@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
         const auto &pipeline = pipelines[i];
-        assert(pipeline.elements().size() >= pipelineStage+1);
+        assert(pipeline.elements().size() >= pipelineStep+1);
         auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
         crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
 
@@ -234,8 +234,8 @@ int main(int argc, char *argv[])
         ebContext->eventBuilderConfig = ebConfig;
         ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
 
-        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStage].inputSocket);
-        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStage].outputSocket);
+        auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStep].inputSocket);
+        auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStep].outputSocket);
         outputWriter->debugInfo = fmt::format("eventBuilderOutput (crateId={})", i);
         outputWriter->retryPredicate = [&] { return !ebContext->quit; };
 
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
         eventBuilderStage1Contexts.emplace_back(std::move(ebContext));
     }
 
-    ++pipelineStage;
+    ++pipelineStep;
 
     // Analysis: one per crate but each instances is loaded from the same file.
     std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage1Contexts;
@@ -256,11 +256,11 @@ int main(int argc, char *argv[])
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
         const auto &pipeline = pipelines[i];
-        assert(pipeline.elements().size() >= pipelineStage+1);
+        assert(pipeline.elements().size() >= pipelineStep+1);
 
         auto analysisContext = std::make_unique<AnalysisProcessingContext>();
         analysisContext->quit = false;
-        analysisContext->inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStage].inputSocket);
+        analysisContext->inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStep].inputSocket);
         analysisContext->crateId = i;
         std::shared_ptr<analysis::Analysis> analysis;
 
@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
                     auto results = shutdown_pipeline(rt, ShutdownMaxWait);
                     for (size_t j=0; j<results.size(); ++j)
                     {
-                        spdlog::info("crate {}, stage {} pipeline shutdown done, result={}", i, j, results[j].toString());
+                        spdlog::info("crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
                     }
                 }
 

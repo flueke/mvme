@@ -1809,9 +1809,9 @@ mvlc::EventContainer next_event(ParsedEventMessageIterator &iter)
     return result;
 }
 
-std::unique_ptr<ReadoutParserNngContext> make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig)
+std::unique_ptr<ReadoutParserContext> make_readout_parser_context(const mvlc::CrateConfig &crateConfig)
 {
-    auto res = std::make_unique<ReadoutParserNngContext>();
+    auto res = std::make_unique<ReadoutParserContext>();
 
     res->crateId = crateConfig.crateId;
     res->inputFormat = crateConfig.connectionType;
@@ -1824,7 +1824,7 @@ std::unique_ptr<ReadoutParserNngContext> make_readout_parser_nng_context(const m
 
 // Allocates and prepares a new ParsedEventsMessageHeader message if there isn't
 // one in the context object.
-inline bool parser_maybe_alloc_output(ReadoutParserNngContext &ctx)
+inline bool parser_maybe_alloc_output(ReadoutParserContext &ctx)
 {
     auto &msg = ctx.outputMessage;
 
@@ -1846,7 +1846,7 @@ inline bool parser_maybe_alloc_output(ReadoutParserNngContext &ctx)
     return true;
 }
 
-inline bool flush_output_message(ReadoutParserNngContext &ctx)
+inline bool flush_output_message(ReadoutParserContext &ctx)
 {
     assert(ctx.outputMessage);
 
@@ -1890,7 +1890,7 @@ inline bool flush_output_message(ReadoutParserNngContext &ctx)
 
 struct ReadoutParserNngMessageWriter: public ParsedEventsMessageWriter
 {
-    ReadoutParserNngMessageWriter(ReadoutParserNngContext &ctx_)
+    ReadoutParserNngMessageWriter(ReadoutParserContext &ctx_)
         : ctx(ctx_)
     {
     }
@@ -1918,7 +1918,7 @@ struct ReadoutParserNngMessageWriter: public ParsedEventsMessageWriter
         return false;
     }
 
-    ReadoutParserNngContext &ctx;
+    ReadoutParserContext &ctx;
 };
 
 // The event data callback for the readout parser. Serializes the parsed module
@@ -1931,7 +1931,7 @@ inline void readout_parser_eventdata_callback(void *ctx_, int crateIndex, int ev
     assert(eventIndex >= 0 && eventIndex <= std::numeric_limits<u8>::max());
     assert(moduleCount < std::numeric_limits<u8>::max());
 
-    auto &ctx = *reinterpret_cast<ReadoutParserNngContext *>(ctx_);
+    auto &ctx = *reinterpret_cast<ReadoutParserContext *>(ctx_);
     ++ctx.totalReadoutEvents;
 
     ReadoutParserNngMessageWriter writer(ctx);
@@ -1943,14 +1943,14 @@ inline void readout_parser_systemevent_callback(void *ctx_, int crateIndex, cons
     assert(ctx_);
     assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
 
-    auto &ctx = *reinterpret_cast<ReadoutParserNngContext *>(ctx_);
+    auto &ctx = *reinterpret_cast<ReadoutParserContext *>(ctx_);
     ++ctx.totalSystemEvents;
 
     ReadoutParserNngMessageWriter writer(ctx);
     writer.consumeSystemEventData(crateIndex, header, size);
 }
 
-LoopResult readout_parser_loop(ReadoutParserNngContext &context)
+LoopResult readout_parser_loop(ReadoutParserContext &context)
 {
     set_thread_name("readout_parser_loop");
 

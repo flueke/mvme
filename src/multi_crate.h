@@ -811,6 +811,7 @@ struct LIBMVME_EXPORT ParsedEventsMessageWriter
     bool consumeSystemEventData(int crateIndex, const u32 *header, u32 size);
 };
 
+// Helper class for reading ParsedEventsMessages.
 struct LIBMVME_EXPORT ParsedEventMessageIterator
 {
     nng_msg *msg = nullptr;
@@ -825,7 +826,7 @@ struct LIBMVME_EXPORT ParsedEventMessageIterator
 
 mvlc::EventContainer LIBMVME_EXPORT next_event(ParsedEventMessageIterator &iter);
 
-struct LIBMVME_EXPORT ReadoutParserNngContext
+struct LIBMVME_EXPORT ReadoutParserContext
 {
     std::atomic<bool> quit = false;
 
@@ -847,8 +848,8 @@ struct LIBMVME_EXPORT ReadoutParserNngContext
     std::chrono::steady_clock::time_point tLastFlush;
 };
 
-std::unique_ptr<ReadoutParserNngContext> LIBMVME_EXPORT make_readout_parser_nng_context(const mvlc::CrateConfig &crateConfig);
-LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserNngContext &context);
+std::unique_ptr<ReadoutParserContext> LIBMVME_EXPORT make_readout_parser_context(const mvlc::CrateConfig &crateConfig);
+LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserContext &context);
 
 struct LIBMVME_EXPORT EventBuilderContext
 {
