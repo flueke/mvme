@@ -1959,7 +1959,6 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
 
     spdlog::info("entering readout_parser_loop, crateId={}", crateId);
 
-    size_t totalInputBytes = 0u;
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
 
@@ -1973,14 +1972,12 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
         readout_parser_systemevent_callback,
     };
 
-    //auto tLastReport = std::chrono::steady_clock::now();
     context.tLastFlush = std::chrono::steady_clock::now();
     context.counters.access()->start();
 
     while (!context.quit)
     {
-        StopWatch stopWatch;
-        stopWatch.start();
+        StopWatch sw;
 
         auto [inputMsg, res] = context.inputReader->readMessage();
 
@@ -2021,14 +2018,8 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
             continue;
         }
 
-        {
-            auto ta = context.counters.access();
-            ta->messagesReceived++;
-            ta->bytesReceived += msgLen;
-            ta->tReceive += stopWatch.interval();
-        }
+        auto tReceive = sw.interval();
 
-        totalInputBytes += msgLen;
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
         inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;
         lastInputMessageNumber = inputHeader.messageNumber;
@@ -2048,29 +2039,19 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
             inputData,
             inputLen);
 
-        auto tCycle = stopWatch.interval();
-        {
-            auto ta = context.counters.access();
-            ta->tProcess += tCycle;
-            ta->tTotal += stopWatch.end();
-            ta->messagesLost = inputBuffersLost;
-        }
         context.parserCounters.access().ref() = parserCounters;
 
-        #if 0
-        {
-            auto now = std::chrono::steady_clock::now();
-            auto tReportElapsed = now - tLastReport;
-            static const auto ReportInterval = std::chrono::seconds(1);
+        auto tProcess = sw.interval();
 
-            if (tReportElapsed >= ReportInterval)
-            {
-                log_socket_work_counters(context.counters.access().ref(),
-                    fmt::format("readout_parser_loop (crateId={})", context.crateId));
-                tLastReport = now;
-            }
+        {
+            auto ta = context.counters.access();
+            ta->bytesReceived += msgLen;
+            ta->messagesReceived++;
+            ta->tReceive += tReceive;
+            ta->tProcess += tProcess;
+            ta->tTotal += sw.end();
+            ta->messagesLost = inputBuffersLost;
         }
-        #endif
     }
 
     if (context.outputMessage)
@@ -2302,7 +2283,6 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
     set_thread_name("analysis_loop");
 
     LoopResult result;
-    size_t totalInputBytes = 0u;
     // FIXME: this thing receives data from multiple event builders so a single message loss calculation is not enough.
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
@@ -2355,7 +2335,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
         if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
-            spdlog::warn("analysis_loop - incoming message too short (len={})", msgLen);
+            spdlog::warn("analysis_loop (crateId={}): incoming message too short (len={})", crateId, msgLen);
             continue;
         }
 
@@ -2368,21 +2348,14 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
             continue;
         }
 
-        {
-            auto ta = context.inputSocketCounters.access();
-            ta->bytesReceived = totalInputBytes;
-            ta->messagesReceived++;
-            ta->bytesReceived += msgLen;
-            ta->tReceive += sw.interval();
-            ta->messagesLost = inputBuffersLost;
-        }
+        auto tReceive = sw.interval();
 
-        totalInputBytes += msgLen;
+        // FIXME: loss calcs per crate
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
         inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;;
         lastInputMessageNumber = inputHeader.messageNumber;
 
-        spdlog::debug("analysis_loop: received message {} of size {}", lastInputMessageNumber, msgLen);
+        spdlog::debug("analysis_loop (crateId={}): received message {} of size {}", crateId, lastInputMessageNumber, msgLen);
 
         if (context.asp)
         {
@@ -2401,7 +2374,9 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
             {
                 context.analysis->beginEvent(eventData.readout.eventIndex);
 
-                context.analysis->processModuleData(eventData.crateId, eventData.readout.eventIndex,
+                // FIXME: eventData.crateId != crateId
+
+                context.analysis->processModuleData(crateId, eventData.readout.eventIndex,
                     eventData.readout.moduleDataList, eventData.readout.moduleCount);
 
                 context.analysis->endEvent(eventData.readout.eventIndex);
@@ -2419,10 +2394,22 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
             }
             else if (nng_msg_len(inputMsg.get()))
             {
-                spdlog::warn("analysis_loop: incoming message contains unknown subsection '{}'",
-                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
+                spdlog::warn("analysis_loop (crateId={}): incoming message contains unknown subsection '{}'",
+                    crateId, *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
                 break;
             }
+        }
+
+        auto tProcess = sw.interval();
+
+        {
+            auto ta = context.inputSocketCounters.access();
+            ta->bytesReceived += msgLen;
+            ta->messagesReceived++;
+            ta->tReceive += tReceive;
+            ta->tProcess += tProcess;
+            ta->tTotal += sw.end();
+            ta->messagesLost = inputBuffersLost;
         }
     }
 

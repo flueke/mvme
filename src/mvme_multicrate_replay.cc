@@ -296,7 +296,6 @@ int main(int argc, char *argv[])
 
     // stage0 analysis : one per crate but each instances is loaded from the same file.
     std::vector<std::unique_ptr<AnalysisProcessingContext>> analysisStage0Contexts;
-    auto widgetRegistry = std::make_shared<WidgetRegistry>();
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
@@ -331,6 +330,7 @@ int main(int argc, char *argv[])
         auto asp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
         asp->vmeConfig_ = vmeConfigs[i].get();
         asp->analysis_ = analysis;
+        auto widgetRegistry = std::make_shared<WidgetRegistry>();
         asp->widgetRegistry_ = widgetRegistry;
         analysisContext->asp = std::move(asp);
         analysis->beginRun(RunInfo{}, vmeConfigs[i].get());
@@ -416,6 +416,7 @@ int main(int argc, char *argv[])
         ctx->analysis = analysis;
 
         auto asp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
+        auto widgetRegistry = std::make_shared<WidgetRegistry>();
         asp->widgetRegistry_ = widgetRegistry;
         asp->vmeConfig_ = mergedVmeConfig.get();
         asp->analysis_ = analysis;
