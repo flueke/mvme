@@ -2176,7 +2176,7 @@ inline void event_builder_systemevent_callback(void *ctx_, int crateIndex, const
 
 LoopResult event_builder_loop(EventBuilderContext &context)
 {
-    set_thread_name(fmt::format("evt_builder{}", context.crateId).c_str());
+    set_thread_name(fmt::format("evt_bldr{}", context.crateId).c_str());
 
     LoopResult result;
     const auto crateId = context.crateId;
@@ -2191,7 +2191,7 @@ LoopResult event_builder_loop(EventBuilderContext &context)
 
     while (!context.quit)
     {
-        StopWatch stopWatch;
+        StopWatch sw;
 
         auto [inputMsg, res] = context.inputReader->readMessage();
 
@@ -2203,7 +2203,7 @@ LoopResult event_builder_loop(EventBuilderContext &context)
         }
         else if (res)
         {
-            spdlog::trace("event_builder_loop (crateId={}) - receive_message: timeout", crateId);
+            spdlog::debug("event_builder_loop (crateId={}) - receive_message: timeout", crateId);
             continue;
         }
 
@@ -2219,7 +2219,7 @@ LoopResult event_builder_loop(EventBuilderContext &context)
 
         if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
-            spdlog::warn("event_builder_loop (crateId={}): Incoming message is too short (len={})!", crateId, msgLen);
+            spdlog::debug("event_builder_loop (crateId={}): Incoming message is too short (len={})!", crateId, msgLen);
             continue;
         }
 
@@ -2232,12 +2232,7 @@ LoopResult event_builder_loop(EventBuilderContext &context)
             continue;
         }
 
-        {
-            auto ta = context.counters.access();
-            ta->messagesReceived++;
-            ta->bytesReceived += msgLen;
-            ta->tReceive += stopWatch.interval();
-        }
+        auto tReceive = sw.interval();
 
         ParsedEventMessageIterator messageIter(inputMsg.get());
 
@@ -2270,12 +2265,17 @@ LoopResult event_builder_loop(EventBuilderContext &context)
 
         auto nEvents = context.eventBuilder->buildEvents(callbacks);
         if (nEvents)
-            spdlog::trace("event_builder_loop{}: built {} events", context.crateId, nEvents);
+            spdlog::debug("event_builder_loop{}: built {} events", context.crateId, nEvents);
+
+        auto tProcess = sw.interval();
 
         {
             auto ta = context.counters.access();
-            ta->tProcess += stopWatch.interval();
-            ta->tTotal += stopWatch.end();
+            ta->messagesReceived++;
+            ta->bytesReceived += msgLen;
+            ta->tReceive += tReceive;
+            ta->tProcess += tProcess;
+            ta->tTotal += sw.end();
         }
     }
 
