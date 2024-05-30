@@ -2176,7 +2176,7 @@ inline void event_builder_systemevent_callback(void *ctx_, int crateIndex, const
 
 LoopResult event_builder_loop(EventBuilderContext &context)
 {
-    set_thread_name("event_builder_loop");
+    set_thread_name(fmt::format("evt_builder{}", context.crateId).c_str());
 
     LoopResult result;
     const auto crateId = context.crateId;
@@ -2247,14 +2247,18 @@ LoopResult event_builder_loop(EventBuilderContext &context)
         {
             if (eventData.type == EventContainer::Type::Readout)
             {
-                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
-                context.eventBuilder->recordEventData(inputCrateId, eventData.readout.eventIndex,
+                auto mappedCrateId = context.inputCrateMappings[eventData.crateId];
+                spdlog::trace("event_builder_loop (crateId={}) - readout event: input crateId={} mapped to crateId={}",
+                    context.crateId, eventData.crateId, mappedCrateId);
+                context.eventBuilder->recordEventData(mappedCrateId, eventData.readout.eventIndex,
                     eventData.readout.moduleDataList, eventData.readout.moduleCount);
             }
             else if (eventData.type == EventContainer::Type::System && eventData.system.size)
             {
-                auto inputCrateId = context.inputCrateMappings[eventData.crateId];
-                context.eventBuilder->recordSystemEvent(inputCrateId, eventData.system.header, eventData.system.size);
+                auto mappedCrateId = context.inputCrateMappings[eventData.crateId];
+                spdlog::trace("event_builder_loop (crateId={}) - system event: input crateId={} mapped to crateId={}",
+                    context.crateId, eventData.crateId, mappedCrateId);
+                context.eventBuilder->recordSystemEvent(mappedCrateId, eventData.system.header, eventData.system.size);
             }
             else if (nng_msg_len(inputMsg.get()))
             {

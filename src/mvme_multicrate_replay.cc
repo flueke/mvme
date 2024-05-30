@@ -124,19 +124,29 @@ int main(int argc, char *argv[])
 
     fmt::print("Read {} vme configs from {}\n", vmeConfigs.size(), listfileFilename);
 
+    std::vector<mvlc::CrateConfig> crateConfigs;
+
+    for (auto &vmeConfig: vmeConfigs)
+    {
+        crateConfigs.emplace_back(vmeconfig_to_crateconfig(vmeConfig.get()));
+    }
+
     // Prepare sockets for the processing cratePipelines.
 
-    std::vector<nng::SocketPipeline> cratePipelines; // one processing pipeline per crate
+    std::unordered_map<u8, nng::SocketPipeline> cratePipelines; // one processing pipeline per crate. key is crateId
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
+        const auto &crateConfig = crateConfigs[i];
+        auto crateId = crateConfig.crateId;
+
         std::vector<nng::SocketPipeline::Link> links;
 
         const auto urlTemplates = { "inproc://crate{}_stage00_raw", "inproc://crate{}_stage01_parser", "inproc://crate{}_stage02_event_builder" };
 
         for (auto tmpl: urlTemplates)
         {
-            auto url = fmt::format(tmpl, i);
+            auto url = fmt::format(tmpl, crateId);
             auto [link, res] = nng::make_pair_link(url);
             if (res)
             {
@@ -148,7 +158,7 @@ int main(int argc, char *argv[])
         }
 
         auto pipeline = nng::SocketPipeline::fromLinks(links);
-        cratePipelines.emplace_back(std::move(pipeline));
+        cratePipelines[crateId] = std::move(pipeline);
     }
 
     // An additional socket pair for parsed stage0 data from all crates.
@@ -198,13 +208,18 @@ int main(int argc, char *argv[])
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        const auto &pipeline = cratePipelines[i];
+        const auto &crateConfig = crateConfigs[i];
+        auto crateId = crateConfig.crateId;
+        const auto &pipeline = cratePipelines[crateId];
         assert(pipeline.elements().size() >= pipelineStep+1);
+
         auto writerSocket = pipeline.elements()[pipelineStep].outputSocket;
         auto writer = std::make_unique<nng::SocketOutputWriter>(writerSocket);
-        writer->debugInfo = fmt::format("replay_loop (crateId={})", i);
+        writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
         writer->retryPredicate = [ctx=&replayContext] { return !ctx->quit; };
-        replayContext.writers.emplace_back(std::move(writer));
+        if (replayContext.writers.size() <= crateId)
+            replayContext.writers.resize(crateId+1);
+        replayContext.writers[crateId] = std::move(writer);
     }
 
     ++pipelineStep;
@@ -214,17 +229,17 @@ int main(int argc, char *argv[])
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        const auto &pipeline = cratePipelines[i];
+        const auto &crateConfig = crateConfigs[i];
+        auto crateId = crateConfig.crateId;
+        const auto &pipeline = cratePipelines[crateId];
         assert(pipeline.elements().size() >= pipelineStep+1);
-        auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
-        crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
 
         auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStep].inputSocket);
         auto outputWriter = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStep].outputSocket);
 
         auto parserContext = make_readout_parser_context(crateConfig);
         parserContext->quit = false;
-        outputWriter->debugInfo = fmt::format("parserOutput (crateId={})", i);
+        outputWriter->debugInfo = fmt::format("parserOutput (crateId={})", crateId);
         outputWriter->retryPredicate = [ctx=parserContext.get()] { return !ctx->quit; };
         parserContext->inputReader = std::move(inputReader);
         parserContext->outputWriter = std::move(outputWriter);
@@ -239,10 +254,10 @@ int main(int argc, char *argv[])
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        const auto &pipeline = cratePipelines[i];
+        const auto &crateConfig = crateConfigs[i];
+        auto crateId = crateConfig.crateId;
+        const auto &pipeline = cratePipelines[crateId];
         assert(pipeline.elements().size() >= pipelineStep+1);
-        auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
-        crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
 
         auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
         auto readoutStructure = readout_parser::build_readout_structure(stacks);
@@ -265,18 +280,18 @@ int main(int argc, char *argv[])
         ebConfig.setups.emplace_back(eventSetup);
 
         auto ebContext = std::make_unique<EventBuilderContext>();
-        ebContext->crateId = i;
+        ebContext->crateId = crateId;
         ebContext->quit = false;
         ebContext->eventBuilderConfig = ebConfig;
         ebContext->eventBuilder = std::make_unique<EventBuilder>(ebConfig, ebContext.get());
 
         auto inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStep].inputSocket);
         auto outputWriter0 = std::make_unique<nng::SocketOutputWriter>(pipeline.elements()[pipelineStep].outputSocket);
-        outputWriter0->debugInfo = fmt::format("eventBuilderOutput (crateId={})", i);
+        outputWriter0->debugInfo = fmt::format("eventBuilderOutput (crateId={})", crateId);
         outputWriter0->retryPredicate = [ctx=ebContext.get()] { return !ctx->quit; };
 
         auto outputWriter1 = std::make_unique<nng::SocketOutputWriter>(stage0DataLink.listener);
-        outputWriter1->debugInfo = fmt::format("stage0Data (crateId={})", i);
+        outputWriter1->debugInfo = fmt::format("stage0Data (crateId={})", crateId);
         outputWriter1->retryPredicate = [ctx=ebContext.get()] { return !ctx->quit; };
 
         auto outputWriter = std::make_unique<nng::MultiOutputWriter>();
@@ -286,8 +301,16 @@ int main(int argc, char *argv[])
         ebContext->inputReader = std::move(inputReader);
         ebContext->outputWriter = std::move(outputWriter);
         // Rewrite data to make the eventbuilder work for a single crate with a non-zero crateid.
-        ebContext->inputCrateMappings[i] = 0;
-        ebContext->outputCrateMappings[0] = i;
+        if (crateConfig.crateId < ebContext->inputCrateMappings.size())
+        {
+            ebContext->inputCrateMappings[crateConfig.crateId] = 0;
+            ebContext->outputCrateMappings[0] = crateConfig.crateId;
+        }
+        else
+        {
+            spdlog::error("event builder crate id out of range: crateId={}", crateConfig.crateId);
+            return 1;
+        }
         eventBuilderStage0Contexts.emplace_back(std::move(ebContext));
     }
 
@@ -298,13 +321,15 @@ int main(int argc, char *argv[])
 
     for (size_t i=0; i<vmeConfigs.size(); ++i)
     {
-        const auto &pipeline = cratePipelines[i];
+        const auto &crateConfig = crateConfigs[i];
+        auto crateId = crateConfig.crateId;
+        const auto &pipeline = cratePipelines[crateId];
         assert(pipeline.elements().size() >= pipelineStep+1);
 
         auto analysisContext = std::make_unique<AnalysisProcessingContext>();
         analysisContext->quit = false;
         analysisContext->inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStep].inputSocket);
-        analysisContext->crateId = i;
+        analysisContext->crateId = crateId;
         analysisContext->isReplay = true;
         std::shared_ptr<analysis::Analysis> analysis;
 
@@ -347,12 +372,11 @@ int main(int argc, char *argv[])
     {
         EventSetup eventSetup;
         eventSetup.enabled = true;
-        eventSetup.mainModule = std::make_pair(0, 0);
+        // eventSetup.mainModule = std::make_pair(0, 0); FIXME: see below
 
         for (size_t i=0; i<vmeConfigs.size(); ++i)
         {
-            auto crateConfig = vmeconfig_to_crateconfig(vmeConfigs[i].get());
-            crateConfig.crateId = i; // FIXME: vmeconfig_to_crateconfig should set the crateId correctly
+            const auto &crateConfig = crateConfigs[i];
             auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
             auto readoutStructure = readout_parser::build_readout_structure(stacks);
             const size_t moduleCount = readoutStructure.at(0).size(); // modules in event 0
@@ -365,7 +389,9 @@ int main(int argc, char *argv[])
                 crateSetup.moduleMatchWindows.emplace_back(std::make_pair(-100000, 100000));
             }
 
-            eventSetup.crateSetups.emplace_back(crateSetup);
+            eventSetup.mainModule = std::make_pair(crateConfig.crateId, 0); // FIXME: wrong and a workaround
+            eventSetup.crateSetups.resize(std::max(eventSetup.crateSetups.size(), static_cast<size_t>(crateConfig.crateId+1)));
+            eventSetup.crateSetups[crateConfig.crateId] = std::move(crateSetup);
         }
 
         EventBuilderConfig ebConfig;
@@ -478,7 +504,7 @@ int main(int argc, char *argv[])
     std::unique_ptr<LoopRuntime> replayLoopRuntime;
 
     // Per crate runtimes of the processing stages.
-    std::vector<PipelineRuntime> cratePipelineRuntimes(vmeConfigs.size());
+    std::unordered_map<u8, std::vector<LoopRuntime>> cratePipelineRuntimes;
     // XXX: not sure how best to do this. Processing is a directed graph, not a simple pipeline.
     // For now keep the stage0 pipelines and this additional stage2 pipeline.
     // The bridge is after the stage0 event builder (or earlier if no event
@@ -552,7 +578,7 @@ int main(int argc, char *argv[])
         auto asp = ctx->asp.get();
         auto widget = new analysis::ui::AnalysisWidget(asp);
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
-        widget->setWindowTitle(fmt::format("Analysis (crate {})", i).c_str());
+        widget->setWindowTitle(fmt::format("Analysis (crate {})", ctx->crateId).c_str());
         widget->show();
     }
 
@@ -567,8 +593,9 @@ int main(int argc, char *argv[])
 
     for (size_t i=0; i<eventBuilderStage0Contexts.size(); ++i)
     {
+        auto &ctx = eventBuilderStage0Contexts[i];
         auto widget = mvme::util::make_monospace_plain_textedit().release();
-        widget->setWindowTitle(fmt::format("EventBuilder Stage0 (crateId={})", i).c_str());
+        widget->setWindowTitle(fmt::format("EventBuilder Stage0 (crateId={})", ctx->crateId).c_str());
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
         widget->resize(1200, 200);
         widget->show();
@@ -583,8 +610,9 @@ int main(int argc, char *argv[])
     }
 
     {
+        auto &ctx = eventBuilderStage1Context;
         auto widget = mvme::util::make_monospace_plain_textedit().release();
-        widget->setWindowTitle(fmt::format("EventBuilder Stage1").c_str());
+        widget->setWindowTitle(fmt::format("EventBuilder Stage1 (crateId={})", ctx->crateId).c_str());
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
         widget->resize(1200, 200);
         widget->show();
@@ -618,11 +646,12 @@ int main(int argc, char *argv[])
 
                 for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
                 {
+                    auto crateId = crateConfigs[i].crateId;
                     auto &rt = cratePipelineRuntimes[i];
                     auto results = shutdown_pipeline(rt, ShutdownMaxWait);
                     for (size_t j=0; j<results.size(); ++j)
                     {
-                        spdlog::info("shutdown_if_replay_done: crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
+                        spdlog::info("shutdown_if_replay_done: crate {}, step {} pipeline shutdown done, result={}", crateId, j, results[j].toString());
                     }
                 }
 
@@ -632,7 +661,8 @@ int main(int argc, char *argv[])
                 {
                     if (int res = close_sockets(cratePipelines[i]))
                     {
-                        spdlog::warn("shutdown_if_replay_done: close_sockets failed for crate {}, res={}", i, res);
+                        auto crateId = crateConfigs[i].crateId;
+                        spdlog::warn("shutdown_if_replay_done: close_sockets failed for crate {}, res={}", crateId, res);
                     }
                 }
 
@@ -680,11 +710,12 @@ int main(int argc, char *argv[])
 
         for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
         {
+            auto crateId = crateConfigs[i].crateId;
             auto &rt = cratePipelineRuntimes[i];
             auto results = shutdown_pipeline(rt, ShutdownMaxWait);
             for (size_t j=0; j<results.size(); ++j)
             {
-                spdlog::info("shutdown: crate {}, step {} pipeline shutdown done, result={}", i, j, results[j].toString());
+                spdlog::info("shutdown: crate {}, step {} pipeline shutdown done, result={}", crateId, j, results[j].toString());
             }
         }
 
