@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 
         std::vector<nng::SocketPipeline::Link> links;
 
-        const auto urlTemplates = { "inproc://crate{}_stage00_raw", "inproc://crate{}_stage01_parser", "inproc://crate{}_stage02_event_builder" };
+        const auto urlTemplates = { "inproc://crate{}_stage0_0_raw", "inproc://crate{}_stage0_1_parser", "inproc://crate{}_stage0_2_event_builder" };
 
         for (auto tmpl: urlTemplates)
         {
@@ -160,6 +160,14 @@ int main(int argc, char *argv[])
 
         auto pipeline = nng::SocketPipeline::fromLinks(links);
         cratePipelines[crateId] = std::move(pipeline);
+    }
+
+    for (const auto &[crateId, pipeline]: cratePipelines)
+    {
+        for (const auto &e: pipeline.elements())
+        {
+            spdlog::info("crateId={}, inputUrl={}, outputUrl={}", crateId, e.inputUrl, e.outputUrl);
+        }
     }
 
     // An additional socket pair for parsed stage0 data from all crates.

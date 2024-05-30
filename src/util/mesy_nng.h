@@ -168,6 +168,11 @@ inline void log_socket_info(nng_socket s, const char *info)
     spdlog::info("{}: {}={}", info, NNG_OPT_REMADDR, remoteAddress);
 }
 
+inline std::string get_local_address(nng_socket s)
+{
+    return socket_get_string_opt(s, NNG_OPT_LOCADDR);
+}
+
 inline void log_pipe_info(nng_pipe p, const char *info)
 {
     auto sockName = pipe_get_string_opt(p, NNG_OPT_SOCKNAME);
@@ -334,6 +339,17 @@ std::string format_stat(int type, const char *name, const char *desc, u64 ts, Va
         nng::nng_stat_type_to_string(type),
         name, desc, ts, value,
         nng::nng_stat_unit_to_string(unit));
+}
+
+inline std::string format_stat(nng_stat *stat)
+{
+    switch (nng_stat_type(stat))
+    {
+        case NNG_STAT_BOOLEAN:
+            return format_stat(nng_stat_type(stat), nng_stat_name(stat), nng_stat_desc(stat), nng_stat_timestamp(stat), nng_stat_value(stat), nng_stat_unit(stat));
+        default:
+            return format_stat(nng_stat_type(stat), nng_stat_name(stat), nng_stat_desc(stat), nng_stat_timestamp(stat), nng_stat_value(stat), nng_stat_unit(stat));
+    }
 }
 
 static void custom_nng_msg_free(nng_msg *msg)
