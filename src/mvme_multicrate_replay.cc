@@ -4,6 +4,7 @@
 #include <QTimer>
 
 #include "analysis/analysis_ui.h"
+#include "analysis/analysis_util.h"
 #include "multi_crate.h"
 #include "mvlc_daq.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
@@ -304,6 +305,7 @@ int main(int argc, char *argv[])
         analysisContext->quit = false;
         analysisContext->inputReader = std::make_unique<nng::SocketInputReader>(pipeline.elements()[pipelineStep].inputSocket);
         analysisContext->crateId = i;
+        analysisContext->isReplay = true;
         std::shared_ptr<analysis::Analysis> analysis;
 
         if (!analysisFilename.empty())
@@ -317,6 +319,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
+            analysis::generate_new_object_ids(ana.get()); // FIXME: figure out object id handling
             analysis = ana;
         }
         else
@@ -390,6 +393,7 @@ int main(int argc, char *argv[])
         ctx->quit = false;
         ctx->inputReader = std::make_unique<nng::SocketInputReader>(stage1DataLink.dialer);
         ctx->crateId = 0xffu; // XXX: special crateId to indicate combined data from all crates
+        ctx->isReplay = true;
 
         std::shared_ptr<analysis::Analysis> analysis;
 
@@ -404,6 +408,7 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
+            analysis::generate_new_object_ids(ana.get()); // FIXME: figure out object id handling
             analysis = ana;
         }
         else
@@ -565,7 +570,7 @@ int main(int argc, char *argv[])
         auto widget = mvme::util::make_monospace_plain_textedit().release();
         widget->setWindowTitle(fmt::format("EventBuilder Stage0 (crateId={})", i).c_str());
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
-        widget->resize(800, 200);
+        widget->resize(1200, 200);
         widget->show();
 
         QObject::connect(&timer, &QTimer::timeout, widget, [widget, i, &eventBuilderStage0Contexts]
@@ -581,7 +586,7 @@ int main(int argc, char *argv[])
         auto widget = mvme::util::make_monospace_plain_textedit().release();
         widget->setWindowTitle(fmt::format("EventBuilder Stage1").c_str());
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
-        widget->resize(800, 200);
+        widget->resize(1200, 200);
         widget->show();
 
         QObject::connect(&timer, &QTimer::timeout, widget, [widget, &eventBuilderStage1Context]

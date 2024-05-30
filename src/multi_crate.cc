@@ -2515,6 +2515,7 @@ LoopResult replay_loop(MulticrateReplayContext &context)
                 crateId = frameInfo.ctrl;
                 partWords = frameInfo.len + 1;
                 bufferType = static_cast<u32>(ConnectionType::USB);
+                //spdlog::trace("replay_loop: crateId {} - found frame header 0x{:08x}", crateId, header);
             }
             else if (it + 1 < std::end(input))
             {
@@ -2523,6 +2524,7 @@ LoopResult replay_loop(MulticrateReplayContext &context)
                 crateId = ethInfo.controllerId();
                 partWords = ethInfo.dataWordCount() + 2;
                 bufferType = static_cast<u32>(ConnectionType::ETH);
+                //spdlog::trace("replay_loop: crateId {} - found ETH header 0x{:08x} 0x{:08x}", crateId, header, header1);
             }
 
             if (partWords == 0 || it + partWords >= std::end(input))
@@ -2531,9 +2533,20 @@ LoopResult replay_loop(MulticrateReplayContext &context)
                 // fully contained in the input sequence => move remaining data
                 // to the front of the buffer.
 
+                //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), std::distance(it, std::end(input)),
+                //    fmt::format("replay_loop: crateId={}", crateId));
+
+                const auto wordOffset = std::distance(std::begin(input), it);
+                const auto wordCount = std::distance(it, std::end(input));
+                spdlog::debug("replay_loop: moving {} remaining words to the front of the buffer (offset={})", wordCount, wordOffset);
+
                 const auto byteOffset = std::distance(std::begin(input), it) * sizeof(u32);
                 const auto byteCount = std::distance(it, std::end(input)) * sizeof(u32);
-                spdlog::debug("replay_loop: moving {} remaining bytes to the front of the buffer", byteCount);
+                spdlog::debug("replay_loop: moving {} remaining bytes to the front of the buffer (offset={})", byteCount, wordOffset);
+
+
+
+
                 auto &buffer = mainBuf.buffer();
                 std::memcpy(buffer.data(), buffer.data() + byteOffset, byteCount);
                 mainBuf.setUsed(byteCount);

@@ -215,7 +215,7 @@ inline int send_message_retry(nng_socket socket, nng_msg *msg, retry_predicate r
             }
 
             if (res == NNG_ETIMEDOUT)
-                spdlog::debug("send_message_retry: {} - send timeout (msg={})", debugInfo, fmt::ptr(msg));
+                spdlog::trace("send_message_retry: {} - send timeout (msg={})", debugInfo, fmt::ptr(msg));
 
             if (!rp())
                 return res;
