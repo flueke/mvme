@@ -1816,8 +1816,7 @@ std::unique_ptr<ReadoutParserContext> make_readout_parser_context(const mvlc::Cr
     res->crateId = crateConfig.crateId;
     res->inputFormat = crateConfig.connectionType;
     auto stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
-    res->parserState = mvlc::readout_parser::make_readout_parser(stacks, crateConfig.crateId, res.get());
-    res->parserState.crateIndex = crateConfig.crateId;
+    res->parserState = mvlc::readout_parser::make_readout_parser(stacks, res.get());
 
     return res;
 }
