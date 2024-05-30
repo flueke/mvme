@@ -13,6 +13,7 @@
 #include "util/signal_handling.h"
 #include "util/stopwatch.h"
 #include "vme_config_util.h"
+#include "vme_analysis_common.h"
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
@@ -434,13 +435,16 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            analysis::generate_new_object_ids(ana.get()); // FIXME: figure out object id handling
+            //analysis::generate_new_object_ids(ana.get()); // FIXME: figure out object id handling
             analysis = ana;
         }
         else
         {
             analysis = std::make_shared<analysis::Analysis>();
         }
+
+        // FIXME: crate id index assignment issues
+        vme_analysis_common::auto_assign_vme_modules(mergedVmeConfig.get(), analysis.get());
 
         ctx->analysis = analysis;
 
@@ -637,17 +641,15 @@ int main(int argc, char *argv[])
             if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
             {
                 spdlog::debug("shutdown_if_replay_done: replay done, leaving main loop");
-                const auto ShutdownMaxWait = std::chrono::milliseconds(3 * 1000);
+                const auto ShutdownMaxWait = std::chrono::milliseconds(10 * 1000);
 
                 replayContext.quit = true;
                 auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
 
                 spdlog::info("shutdown_if_replay_done: replay loop shutdown done, result={}", replayLoopResult.toString());
 
-                for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
+                for (auto &[crateId, rt]: cratePipelineRuntimes)
                 {
-                    auto crateId = crateConfigs[i].crateId;
-                    auto &rt = cratePipelineRuntimes[i];
                     auto results = shutdown_pipeline(rt, ShutdownMaxWait);
                     for (size_t j=0; j<results.size(); ++j)
                     {
@@ -657,15 +659,13 @@ int main(int argc, char *argv[])
 
                 spdlog::debug("shutdown_if_replay_done: processing cratePipelines shutdown done, closing sockets");
 
-                for (size_t i=0; i<cratePipelines.size(); ++i)
+                for (auto &[crateId, pipeline]: cratePipelines)
                 {
-                    if (int res = close_sockets(cratePipelines[i]))
+                    if (int res = close_sockets(pipeline))
                     {
-                        auto crateId = crateConfigs[i].crateId;
                         spdlog::warn("shutdown_if_replay_done: close_sockets failed for crate {}, res={}", crateId, res);
                     }
                 }
-
 
                 auto stage1Results = shutdown_pipeline(stage1Runtimes, ShutdownMaxWait);
                 for (size_t j=0; j<stage1Results.size(); ++j)
@@ -684,7 +684,6 @@ int main(int argc, char *argv[])
         }
     };
 
-#if 1
     timer.setInterval(1000);
     timer.start();
 
@@ -708,10 +707,8 @@ int main(int argc, char *argv[])
         auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
         spdlog::info("shutdown: replay loop shutdown done, result={}", replayLoopResult.toString());
 
-        for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
+        for (auto &[crateId, rt]: cratePipelineRuntimes)
         {
-            auto crateId = crateConfigs[i].crateId;
-            auto &rt = cratePipelineRuntimes[i];
             auto results = shutdown_pipeline(rt, ShutdownMaxWait);
             for (size_t j=0; j<results.size(); ++j)
             {
@@ -726,69 +723,6 @@ int main(int argc, char *argv[])
         }
     }
     spdlog::warn("after shutdown_if_replay_done()");
-
-#else
-    StopWatch reportStopwatch;
-    reportStopwatch.start();
-
-
-    while (!signal_received())
-    {
-        auto &replayFuture = replayLoopRuntime->resultFuture;
-        if (replayFuture.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready)
-        {
-            spdlog::debug("replay done, leaving main loop");
-            break;
-        }
-
-        if (reportStopwatch.get_interval() >= std::chrono::milliseconds(1000))
-        {
-            log_counters();
-            reportStopwatch.interval();
-        }
-
-        QApplication::processEvents();
-    }
-
-    if (signal_received())
-    {
-        spdlog::warn("signal received, shutting down");
-    }
-    else
-    {
-        spdlog::debug("replay finished, shutting down");
-    }
-
-    const auto ShutdownMaxWait = std::chrono::milliseconds(3 * 1000);
-
-    replayContext.quit = true;
-    auto replayLoopResult = shutdown_loop(*replayLoopRuntime, ShutdownMaxWait);
-
-    spdlog::info("replay loop shutdown done, result={}", replayLoopResult.toString());
-
-    for (size_t i=0; i<cratePipelineRuntimes.size(); ++i)
-    {
-        auto &rt = cratePipelineRuntimes[i];
-        auto results = shutdown_pipeline(rt, ShutdownMaxWait);
-        for (size_t j=0; j<results.size(); ++j)
-        {
-            spdlog::info("crate {}, stage {} pipeline shutdown done, result={}", i, j, results[j].toString());
-        }
-    }
-
-    spdlog::debug("processing cratePipelines shutdown done, closing sockets");
-
-    for (size_t i=0; i<cratePipelines.size(); ++i)
-    {
-        if (int res = close_sockets(cratePipelines[i]))
-        {
-            spdlog::warn("close_sockets failed for crate {}, res={}", i, res);
-        }
-    }
-
-    spdlog::info("final counters:");
-    log_counters();
-#endif
 
     spdlog::debug("end of main reached");
 
