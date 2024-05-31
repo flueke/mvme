@@ -22,6 +22,7 @@ struct SocketInputReader: public InputReader
 {
     nng_socket socket = NNG_SOCKET_INITIALIZER;
     int receiveFlags = 0; // can be set to NNG_FLAG_NONBLOCK, e.g. for the MultiInputReader
+    std::string debugInfo;
 
     explicit SocketInputReader(nng_socket s): socket(s) {}
 
@@ -183,13 +184,6 @@ class SocketPipeline
             bool operator!=(const Link &o) const { return !(*this == o); }
         };
 
-        #if 0
-        ~SocketPipeline()
-        {
-            close_sockets(*this);
-        }
-        #endif
-
         const std::vector<Link> &links() const
         {
             return links_;
@@ -263,6 +257,19 @@ inline int close_link(SocketPipeline::Link &link)
 
     if (int res = nng_close(link.listener))
         ret = res;
+
+    return ret;
+}
+
+inline int close_links(const std::vector<SocketPipeline::Link> &links)
+{
+    int ret = 0;
+
+    for (auto link: links)
+    {
+        if (int res = close_link(link))
+            ret = res;
+    }
 
     return ret;
 }

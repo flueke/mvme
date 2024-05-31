@@ -5,6 +5,7 @@
 #include <mesytec-mvlc/util/udp_sockets.h>
 #include <QDir>
 #include <stdexcept>
+#include <string_view>
 
 #include "mvlc_daq.h"
 #include "mvme_workspace.h"
@@ -2612,6 +2613,325 @@ LoopResult replay_loop(MulticrateReplayContext &context)
         flush_output(crateId);
     }
     spdlog::info("leaving replay_loop");
+
+    return result;
+}
+
+LoopResult replay_loop(ReplayJobContext &context)
+{
+    set_thread_name("replay_loop");
+
+    spdlog::info("entering replay_loop");
+    LoopResult result;
+
+    assert(context.lfh);
+    assert(context.outputWriters().size());
+
+    struct Output
+    {
+        unique_msg msg = make_unique_msg();
+        size_t messageNumber = 0;
+    };
+
+    auto writers = context.outputWritersByCrate;
+    std::vector<Output> outputs(writers.size());
+    std::vector<SocketWorkPerformanceCounters> counters(writers.size());
+    mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
+
+    auto flush_output = [&] (unsigned crateId)
+    {
+        if (crateId < outputs.size())
+        {
+            auto &output = outputs[crateId];
+
+            if (output.msg)
+            {
+                const size_t msgLen = nng_msg_len(output.msg.get());
+                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}",
+                    crateId, output.messageNumber, msgLen);
+                StopWatch sw;
+                writers[crateId]->writeMessage(std::move(output.msg));
+                counters[crateId].tSend += sw.interval();
+                counters[crateId].bytesSent += msgLen;
+                counters[crateId].messagesSent++;
+            }
+        }
+    };
+
+    auto prepare_output_message = [&] (unsigned crateId, u32 bufferType)
+    {
+        if (crateId < outputs.size() && !outputs[crateId].msg)
+        {
+            auto &output = outputs[crateId];
+            ReadoutDataMessageHeader messageHeader;
+            messageHeader.bufferType = bufferType;
+            messageHeader.crateId = crateId;
+            messageHeader.messageNumber = ++output.messageNumber;
+            output.msg = allocate_prepare_message(messageHeader);
+
+            spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
+                crateId, output.messageNumber, fmt::ptr(output.msg.get()));
+            spdlog::debug("replay_loop (crateId={}): mainBuf={} words", crateId, mainBuf.viewU32().size());
+        }
+    };
+
+    for (auto &c: counters)
+        c.start();
+
+    while (!context.shouldQuit())
+    {
+        size_t bytesRead = 0;
+        size_t bytesToRead = mainBuf.free();
+
+        assert(bytesToRead > 0);
+
+        try
+        {
+            spdlog::warn("replay_loop: read from file - bytesToRead={}, mainBuf={} words", bytesToRead, mainBuf.viewU32().size());
+            //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
+            bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), bytesToRead);
+            mainBuf.use(bytesRead);
+            spdlog::info("replay_loop: read from file - mainBuf.use({}), mainBuf.used()={}", bytesRead, mainBuf.used());
+
+            #if 0
+            if (bytesRead == 0)
+            {
+                spdlog::warn("replay_loop: EOF reached");
+                break;
+            }
+            #endif
+        }
+        catch (const std::runtime_error &e)
+        {
+            spdlog::warn("replay_loop: runtime_error while reading from input file: {}, requestedBytes={}", e.what(), bytesToRead);
+            result.exception = std::current_exception();
+            break;
+        }
+        catch (...)
+        {
+            spdlog::warn("replay_loop: exception while reading from input file");
+            result.exception = std::current_exception();
+            break;
+        }
+
+        auto input = mainBuf.viewU32();
+        auto it = std::begin(input);
+
+        while (it < std::end(input))
+        {
+            u32 header = *it;
+            unsigned crateId = 0;
+            size_t partWords = 0;
+            u32 bufferType = 0;
+
+            if (mvlc::is_known_frame_header(header))
+            {
+                auto frameInfo = mvlc::extract_frame_info(header);
+                crateId = frameInfo.ctrl;
+                partWords = frameInfo.len + 1;
+                bufferType = static_cast<u32>(ConnectionType::USB);
+                spdlog::trace("replay_loop: crateId {} - found frame header 0x{:08x}", crateId, header);
+            }
+            else if (it + 1 < std::end(input))
+            {
+                u32 header1 = *(it+1);
+                mvlc::eth::PayloadHeaderInfo ethInfo{ header, header1 };
+                crateId = ethInfo.controllerId();
+                partWords = ethInfo.dataWordCount() + 2;
+                bufferType = static_cast<u32>(ConnectionType::ETH);
+                spdlog::trace("replay_loop: crateId {} - found ETH header 0x{:08x} 0x{:08x}", crateId, header, header1);
+            }
+            else
+            {
+                spdlog::warn("replay_loop: unknown header 0x{:08x}", header);
+            }
+
+            if (partWords == 0 || it + partWords > std::end(input))
+            {
+
+                spdlog::info("replay_loop: crateId={}, partWords={}, it={}, it+partWords={}, end={}", crateId, partWords,
+                 fmt::ptr(it), fmt::ptr(it + partWords), fmt::ptr(std::end(input)));
+                spdlog::info("replay_loop: crateId {} - found frame header 0x{:08x}", crateId, header);
+
+                // Either we are at the end of input or the current part is not
+                // fully contained in the input sequence => move remaining data
+                // to the front of the buffer.
+                //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), std::distance(it, std::end(input)),
+                //    fmt::format("replay_loop: crateId={}, partWords={}", crateId, partWords));
+
+                const auto wordOffset = std::distance(std::begin(input), it);
+                const auto wordCount = std::distance(it, std::end(input));
+                spdlog::info("replay_loop: moving {} remaining words to the front of the buffer (offset={})", wordCount, wordOffset);
+
+                const auto byteOffset = std::distance(std::begin(input), it) * sizeof(u32);
+                const auto byteCount = std::distance(it, std::end(input)) * sizeof(u32);
+                //spdlog::debug("replay_loop: moving {} remaining bytes to the front of the buffer (offset={})", byteCount, wordOffset);
+
+                auto &buffer = mainBuf.buffer();
+                std::memcpy(buffer.data(), buffer.data() + byteOffset, byteCount);
+                spdlog::info("replay_loop: mainBuf.setUsed({})", byteCount);
+                mainBuf.setUsed(byteCount);
+                break;
+            }
+
+            const size_t partBytes = partWords * sizeof(u32);
+
+            //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), partWords,
+            //    fmt::format("replay_loop: crateId={}", crateId));
+
+            if (crateId < outputs.size())
+            {
+                auto &output = outputs[crateId];
+
+                if (!output.msg || allocated_free_space(output.msg.get()) < partBytes)
+                {
+                    flush_output(crateId);
+
+                    ReadoutDataMessageHeader messageHeader;
+                    messageHeader.bufferType = bufferType;
+                    messageHeader.crateId = crateId;
+                    messageHeader.messageNumber = ++output.messageNumber;
+                    output.msg = allocate_prepare_message(messageHeader);
+
+                    spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
+                        crateId, output.messageNumber, fmt::ptr(output.msg.get()));
+                    spdlog::debug("replay_loop (crateId={}): mainBuf={} words", crateId, mainBuf.viewU32().size());
+
+
+                    if (!output.msg)
+                    {
+                        spdlog::error("replay_loop: crateId {} - failed to allocate message",
+                            crateId);
+                        return result;
+                    }
+                }
+
+                assert(output.msg);
+                assert(allocated_free_space(output.msg.get()) >= partBytes);
+                // Calculate byte offset of the current part in the main buffer.
+                auto inputWordOffset = std::distance(std::begin(input), it);
+                spdlog::trace("replay_loop: crateId {} - appending from inputWordOffset={}, partWords={}",
+                    crateId, inputWordOffset, partWords);
+                auto partStart = mainBuf.data() + inputWordOffset * sizeof(u32);
+                nng_msg_append(output.msg.get(), partStart, partBytes);
+                spdlog::trace("replay_loop: crateId {} - appended {} bytes/ {} words to output message #{} (new size={})",
+                    crateId, partBytes, partWords, output.messageNumber, nng_msg_len(output.msg.get()));
+            }
+            else
+                spdlog::warn("replay_loop: crateId {} out of range", crateId);
+
+            it += partWords;
+        }
+
+        context.writerCounters().access().ref() = counters;
+
+        if (bytesRead == 0)
+        {
+            spdlog::warn("replay_loop: EOF reached");
+            break;
+        }
+    }
+
+    #if 0
+    if (mainBuf.used())
+    {
+        spdlog::warn("replay_loop: {} bytes remaining in main buffer, discarding", mainBuf.used());
+        //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
+    }
+    #endif
+
+    spdlog::debug("replay_loop: flushing remaining messages");
+
+    // Flush remaining messages.
+    for (size_t crateId = 0; crateId < outputs.size(); ++crateId)
+    {
+        flush_output(crateId);
+    }
+    spdlog::info("leaving replay_loop");
+
+    return result;
+}
+
+LoopResult test_consumer_loop(TestConsumerContext &context)
+{
+    set_thread_name("test_consumer_loop");
+
+    spdlog::info("entering test_consumer_loop");
+
+    LoopResult result{};
+
+    while (!context.shouldQuit())
+    {
+        StopWatch sw;
+
+        auto [inputMsg, res] = context.inputReader()->readMessage();
+
+        if (res && res != NNG_ETIMEDOUT)
+        {
+            spdlog::error("test_consumer_loop ({}) - receive_message: {}",
+                context.name(), nng_strerror(res));
+            result.nngError = res;
+            break;
+        }
+        else if (res)
+        {
+            spdlog::debug("test_consumer_loop ({}) - receive_message: timeout", context.name());
+            continue;
+        }
+
+        assert(inputMsg != nullptr);
+
+        const auto msgLen = nng_msg_len(inputMsg.get());
+
+        if (is_shutdown_message(inputMsg.get()))
+        {
+            spdlog::debug("test_consumer_loop ({}): Received shutdown message, leaving loop", context.name());
+            break;
+        }
+
+        if (msgLen < sizeof(multi_crate::BaseMessageHeader))
+        {
+            spdlog::warn("test_consumer_loop ({}): incoming message too short (len={})", context.name(), msgLen);
+            continue;
+        }
+
+        auto tReceive = sw.interval();
+
+        auto baseHeader = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(inputMsg.get()));
+
+        switch (baseHeader.messageType)
+        {
+            case MessageType::ReadoutData:
+            {
+                auto inputHeader = nng::msg_trim_read<multi_crate::ReadoutDataMessageHeader>(inputMsg.get()).value();
+                spdlog::debug("test_consumer_loop ({}): received ReadoutData: crateId={}, messageNumber={}, messageSize={}",
+                    context.name(), inputHeader.crateId, inputHeader.messageNumber, msgLen);
+
+                auto inputData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg.get()));
+                size_t inputLen = nng_msg_len(inputMsg.get()) / sizeof(u32);
+                std::basic_string_view<u32> view(inputData, inputLen);
+                //mvlc::util::log_buffer(std::cout, view, fmt::format("test_consumer_loop ({}): ReadoutData", context.name()));
+
+            } break;
+            case MessageType::ParsedEvents:
+            {
+            } break;
+        }
+
+        auto tProcess = sw.interval();
+
+        {
+            auto ta = context.readerCounters().access();
+            ta->bytesReceived += msgLen;
+            ta->messagesReceived++;
+            ta->tReceive += tReceive;
+            ta->tProcess += tProcess;
+            ta->tTotal += sw.end();
+            //ta->messagesLost = inputBuffersLost;
+        }
+    }
+
+    spdlog::info("leaving test_consumer_loop");
 
     return result;
 }

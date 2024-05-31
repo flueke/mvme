@@ -518,7 +518,7 @@ int main(int argc, char *argv[])
     // Per crate runtimes of the processing stages.
     std::unordered_map<u8, std::vector<LoopRuntime>> cratePipelineRuntimes;
     // XXX: not sure how best to do this. Processing is a directed graph, not a simple pipeline.
-    // For now keep the stage0 pipelines and this additional stage2 pipeline.
+    // For now keep the stage0 pipelines and this additional stage1 pipeline.
     // The bridge is after the stage0 event builder (or earlier if no event
     // building is done in stage0).
     PipelineRuntime stage1Runtimes;
@@ -529,7 +529,9 @@ int main(int argc, char *argv[])
         for (auto &w: replayContext.writers)
             writers.push_back(w.get());
 
-        auto replayFuture = std::async(std::launch::async, replay_loop, std::ref(replayContext));
+        auto f = [&] { return replay_loop(replayContext); };
+
+        auto replayFuture = std::async(std::launch::async, f);
         auto rt = LoopRuntime{ replayContext.quit, std::move(replayFuture), writers, "replay_loop" };
         replayLoopRuntime = std::make_unique<LoopRuntime>(std::move(rt));
     }

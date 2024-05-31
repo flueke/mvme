@@ -667,6 +667,8 @@ struct LoopResult
     std::string toString() const;
 };
 
+using job_function = std::function<LoopResult ()>;
+
 // Runtime state for a loop context. Combines the loops quit flag, the future
 // from the async call spawning the loop and optionally a raw pointers to the
 // loops outputWriters.
@@ -724,6 +726,89 @@ struct LIBMVME_EXPORT SocketWorkPerformanceCounters
 };
 
 void LIBMVME_EXPORT log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info);
+
+class JobContextInterface
+{
+    public:
+        virtual ~JobContextInterface() = default;
+        virtual bool shouldQuit() const = 0;
+        virtual void setQuit(bool b) = 0;
+        void quit() { setQuit(true); }
+        virtual nng::InputReader *inputReader() = 0;
+        virtual std::vector<nng::OutputWriter *> outputWriters() = 0;
+        virtual void setInputReader(nng::InputReader *reader) = 0;
+        virtual void addOutputWriter(nng::OutputWriter *writer) = 0;
+        virtual mvlc::Protected<SocketWorkPerformanceCounters> &readerCounters() = 0;
+        virtual mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> &writerCounters() = 0;
+        virtual std::string name() const = 0;
+        virtual void setName(const std::string &name) = 0;
+
+        virtual job_function function() = 0;
+};
+
+class AbstractJobContext: public JobContextInterface
+{
+    public:
+        bool shouldQuit() const override { return quit_; }
+        void setQuit(bool b) override { quit_ = b; }
+
+        nng::InputReader *inputReader() override { return inputReader_; }
+        std::vector<nng::OutputWriter *> outputWriters() override { return outputWriters_; }
+        void setInputReader(nng::InputReader *reader) override { inputReader_ = reader; }
+        void addOutputWriter(nng::OutputWriter *writer) override { outputWriters_.push_back(writer); writerCounters_.access()->resize(outputWriters_.size()); }
+        mvlc::Protected<SocketWorkPerformanceCounters> &readerCounters() override { return readerCounters_; }
+        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> &writerCounters() override { return writerCounters_; }
+        std::string name() const override { return name_; }
+        void setName(const std::string &name) override { name_ = name; }
+
+        #if 0
+        AbstractJobContext() = default;
+        AbstractJobContext(AbstractJobContext &&) = default;
+        AbstractJobContext &operator=(AbstractJobContext &&) = default;
+        #endif
+
+    private:
+        std::atomic<bool> quit_ = false;
+        nng::InputReader *inputReader_ = nullptr;
+        std::vector<nng::OutputWriter *> outputWriters_;
+        mvlc::Protected<SocketWorkPerformanceCounters> readerCounters_;
+        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCounters_;
+
+        std::string name_;
+};
+
+struct JobRuntime
+{
+    JobContextInterface *context = nullptr;
+    std::future<LoopResult> result;
+
+    bool isRunning()
+    {
+        return result.valid() && result.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
+    }
+
+    LoopResult wait()
+    {
+        if (result.valid())
+            return result.get();
+        return {};
+    }
+
+    bool shouldQuit() const { return context->shouldQuit(); }
+    void setQuit(bool b) { context->setQuit(b); }
+};
+
+inline JobRuntime start_job(JobContextInterface &context)
+{
+    JobRuntime rt;
+    context.setQuit(false);
+    context.readerCounters().access()->start();
+    for (auto &counters: context.writerCounters().access().ref())
+        counters.start();
+    rt.context = &context;
+    rt.result = std::async(std::launch::async, context.function());
+    return rt;
+}
 
 // Ethernet-only MVLC data stream readout.
 struct LIBMVME_EXPORT MvlcEthReadoutLoopContext
@@ -908,6 +993,50 @@ struct MulticrateReplayContext
 };
 
 LoopResult LIBMVME_EXPORT replay_loop(MulticrateReplayContext &context);
+
+class ReplayJobContext;
+
+LoopResult LIBMVME_EXPORT replay_loop(ReplayJobContext &context);
+
+class ReplayJobContext: public AbstractJobContext
+{
+    public:
+        friend LoopResult replay_loop(ReplayJobContext &context);
+
+        mvlc::listfile::ReadHandle *lfh = nullptr;
+
+        void addOutputWriterForCrate(unsigned crateId, nng::OutputWriter *writer)
+        {
+            if (outputWritersByCrate.size() <= crateId)
+                outputWritersByCrate.resize(crateId + 1);
+            outputWritersByCrate[crateId] = writer;
+            addOutputWriter(writer);
+        }
+
+
+        job_function function() override
+        {
+            return [this] { return replay_loop(*this); };
+        }
+
+    private:
+        std::vector<nng::OutputWriter *> outputWritersByCrate;
+};
+
+class TestConsumerContext;
+
+LoopResult LIBMVME_EXPORT test_consumer_loop(TestConsumerContext &context);
+
+class TestConsumerContext: public AbstractJobContext
+{
+    public:
+        std::shared_ptr<spdlog::logger> logger;
+
+        job_function function() override
+        {
+            return [this] { return test_consumer_loop(*this); };
+        }
+};
 
 struct ProcessingInstance
 {
