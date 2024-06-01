@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
         auto writer = std::make_shared<nng::SocketOutputWriter>(link.listener);
         writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
         writer->retryPredicate = [ctx=replayContext.get()] { return !ctx->shouldQuit(); };
-        replayContext->addOutputWriterForCrate(crateId, writer.get());
+        replayContext->setOutputWriterForCrate(crateId, writer.get());
 
         result.writer = writer;
         result.context = replayContext;
@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 
         auto writer = std::make_shared<nng::SocketOutputWriter>(outputLink.listener);
         writer->debugInfo = context->name();
-        context->addOutputWriter(writer.get());
+        context->setOutputWriter(writer.get());
 
         result.inputLink = inputLink;
         result.outputLink = outputLink;
@@ -279,17 +279,20 @@ int main(int argc, char *argv[])
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    auto replayResult = replayContext->jobRuntime().wait();
+    spdlog::info("replay finished");
 
-    spdlog::info("replay finished: {}", replayResult.toString());
+    //auto replayResult = replayContext->jobRuntime().wait();
+
+    //spdlog::info("replay finished: {}", replayResult.toString());
     spdlog::info("sending shutdown messages");
 
-    for (auto writer: replayContext->outputWriters())
-    {
-        send_shutdown_message(*writer);
-    }
+    //for (auto writer: replayContext->outputWritersByCrate)
+    //{
+    //    if (writer)
+    //        send_shutdown_message(*writer);
+    //}
 
-    spdlog::info("shutdown messages sent from replay producer, waiting for jobs to finish");
+    //spdlog::info("shutdown messages sent from replay producer, waiting for jobs to finish");
 
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
@@ -298,10 +301,8 @@ int main(int argc, char *argv[])
             spdlog::info("waiting for job {} to finish", step.context->name());
             auto result = step.context->jobRuntime().wait();
             spdlog::info("job {} finished: {}", step.context->name(), result.toString());
-            for (auto writer: step.context->outputWriters())
-            {
-                send_shutdown_message(*writer);
-            }
+            if (step.writer)
+                send_shutdown_message(*step.writer);
             spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
         }
     }
@@ -312,11 +313,10 @@ int main(int argc, char *argv[])
         {
             for (const auto &step: steps)
             {
-                log_socket_work_counters(step.context->readerCounters().copy(), fmt::format("step={}, reader", step.context->name()));
-                for (const auto &counters: step.context->writerCounters().copy())
-                {
-                    log_socket_work_counters(counters, fmt::format("step={}, writer", step.context->name()));
-                }
+                if (step.reader)
+                    log_socket_work_counters(step.context->readerCounters().copy(), fmt::format("step={}, reader", step.context->name()));
+                if (step.writer)
+                    log_socket_work_counters(step.context->writerCounters().copy(), fmt::format("step={}, writer", step.context->name()));
             }
         }
     };

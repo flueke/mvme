@@ -737,11 +737,11 @@ class JobContextInterface
         virtual void setQuit(bool b) = 0;
         void quit() { setQuit(true); }
         virtual nng::InputReader *inputReader() = 0;
-        virtual std::vector<nng::OutputWriter *> outputWriters() = 0;
+        virtual nng::OutputWriter * outputWriter() = 0;
         virtual void setInputReader(nng::InputReader *reader) = 0;
-        virtual void addOutputWriter(nng::OutputWriter *writer) = 0;
+        virtual void setOutputWriter(nng::OutputWriter *writer) = 0;
         virtual mvlc::Protected<SocketWorkPerformanceCounters> &readerCounters() = 0;
-        virtual mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> &writerCounters() = 0;
+        virtual mvlc::Protected<SocketWorkPerformanceCounters> &writerCounters() = 0;
         virtual std::string name() const = 0;
         virtual void setName(const std::string &name) = 0;
         virtual void setJobRuntime(JobRuntime &&rt) = 0;
@@ -779,28 +779,22 @@ class AbstractJobContext: public JobContextInterface
         void setQuit(bool b) override { quit_ = b; }
 
         nng::InputReader *inputReader() override { return inputReader_; }
-        std::vector<nng::OutputWriter *> outputWriters() override { return outputWriters_; }
+        nng::OutputWriter * outputWriter() override { return outputWriter_; }
         void setInputReader(nng::InputReader *reader) override { inputReader_ = reader; }
-        void addOutputWriter(nng::OutputWriter *writer) override { outputWriters_.push_back(writer); writerCounters_.access()->resize(outputWriters_.size()); }
+        void setOutputWriter(nng::OutputWriter *writer) override { outputWriter_ = writer; }
         mvlc::Protected<SocketWorkPerformanceCounters> &readerCounters() override { return readerCounters_; }
-        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> &writerCounters() override { return writerCounters_; }
+        mvlc::Protected<SocketWorkPerformanceCounters> &writerCounters() override { return writerCounters_; }
         std::string name() const override { return name_; }
         void setName(const std::string &name) override { name_ = name; }
         void setJobRuntime(JobRuntime &&rt) override { jobRuntime_ = std::move(rt); }
         JobRuntime &jobRuntime() override { return jobRuntime_; }
 
-        #if 0
-        AbstractJobContext() = default;
-        AbstractJobContext(AbstractJobContext &&) = default;
-        AbstractJobContext &operator=(AbstractJobContext &&) = default;
-        #endif
-
     private:
         std::atomic<bool> quit_ = false;
         nng::InputReader *inputReader_ = nullptr;
-        std::vector<nng::OutputWriter *> outputWriters_;
+        nng::OutputWriter *outputWriter_ = nullptr;
         mvlc::Protected<SocketWorkPerformanceCounters> readerCounters_;
-        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCounters_;
+        mvlc::Protected<SocketWorkPerformanceCounters> writerCounters_;
 
         std::string name_;
         JobRuntime jobRuntime_;
@@ -812,8 +806,7 @@ inline JobRuntime start_job(JobContextInterface &context)
     JobRuntime rt;
     context.setQuit(false);
     context.readerCounters().access()->start();
-    for (auto &counters: context.writerCounters().access().ref())
-        counters.start();
+    context.writerCounters().access()->start();
     rt.context = &context;
     rt.result = std::async(std::launch::async, context.function());
     return rt;
@@ -1005,25 +998,25 @@ struct MulticrateReplayContext
 
 LoopResult LIBMVME_EXPORT replay_loop(MulticrateReplayContext &context);
 
-class ReplayJobContext;
+struct ReplayJobContext;
 
 LoopResult LIBMVME_EXPORT replay_loop(ReplayJobContext &context);
 
-class ReplayJobContext: public AbstractJobContext
+struct ReplayJobContext: public AbstractJobContext
 {
     public:
         friend LoopResult replay_loop(ReplayJobContext &context);
 
         mvlc::listfile::ReadHandle *lfh = nullptr;
+        std::vector<nng::OutputWriter *> outputWritersByCrate;
+        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCountersByCrate;
 
-        void addOutputWriterForCrate(unsigned crateId, nng::OutputWriter *writer)
+        void setOutputWriterForCrate(unsigned crateId, nng::OutputWriter *writer)
         {
             if (outputWritersByCrate.size() <= crateId)
                 outputWritersByCrate.resize(crateId + 1);
             outputWritersByCrate[crateId] = writer;
-            addOutputWriter(writer);
         }
-
 
         job_function function() override
         {
@@ -1031,7 +1024,6 @@ class ReplayJobContext: public AbstractJobContext
         }
 
     private:
-        std::vector<nng::OutputWriter *> outputWritersByCrate;
 };
 
 class TestConsumerContext;

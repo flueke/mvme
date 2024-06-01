@@ -1853,8 +1853,6 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
     if (!ctx.outputMessage)
         return false;
 
-    assert(ctx.outputWriters().size() == 1);
-
     const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
     StopWatch stopWatch;
@@ -1863,7 +1861,7 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
     auto msg = std::move(ctx.outputMessage);
     assert(!ctx.outputMessage);
 
-    if (int res = ctx.outputWriters()[0]->writeMessage(std::move(msg)))
+    if (int res = ctx.outputWriter()->writeMessage(std::move(msg)))
     {
         // Note: if msg was not released in writeMessage() it is still alive
         // here. It will be destroyed when leaving this scope.
@@ -1877,7 +1875,7 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
 
     {
         auto a = ctx.writerCounters().access();
-        auto &c = a.ref()[0];
+        auto &c = a.ref();
         c.tSend += stopWatch.interval();
         c.tTotal += stopWatch.end();
         c.messagesSent++;
@@ -2054,7 +2052,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
             counters.tProcess += tProcess;
             counters.tTotal += sw.end();
             counters.messagesLost = inputBuffersLost;
-            context.writerCounters().access().ref()[0] = counters;
+            context.readerCounters().access().ref() = counters;
         }
     }
 
@@ -2900,7 +2898,6 @@ LoopResult replay_loop(ReplayJobContext &context)
     LoopResult result;
 
     assert(context.lfh);
-    assert(context.outputWriters().size());
 
     struct Output
     {
@@ -2926,7 +2923,7 @@ LoopResult replay_loop(ReplayJobContext &context)
 
     auto prepare_output_message = [&] (unsigned crateId, u32 bufferType)
     {
-        if (crateId < outputs.size() && !outputs[crateId].msg)
+        if (crateId < outputs.size() && writers[crateId] && !outputs[crateId].msg)
         {
             auto &output = outputs[crateId];
             ReadoutDataMessageHeader messageHeader;
@@ -2943,7 +2940,7 @@ LoopResult replay_loop(ReplayJobContext &context)
 
     auto flush_output = [&] (unsigned crateId)
     {
-        if (crateId < outputs.size())
+        if (crateId < outputs.size() && writers[crateId])
         {
             auto &output = outputs[crateId];
 
@@ -2963,7 +2960,7 @@ LoopResult replay_loop(ReplayJobContext &context)
 
     auto append_to_output = [&] (unsigned crateId, const u32 *it, size_t partWords, u32 bufferType)
     {
-        if (crateId < outputs.size())
+        if (crateId < outputs.size() && writers[crateId])
         {
             auto &output = outputs[crateId];
 
@@ -3111,7 +3108,7 @@ LoopResult replay_loop(ReplayJobContext &context)
             mainBuf.setUsed(bytesToMove);
         }
 
-        context.writerCounters().access().ref() = counters;
+        context.writerCountersByCrate.access().ref() = counters;
 
         if (bytesRead == 0)
         {
@@ -3137,7 +3134,7 @@ LoopResult replay_loop(ReplayJobContext &context)
     }
 
     // Final counters update!
-    context.writerCounters().access().ref() = counters;
+    context.writerCountersByCrate.access().ref() = counters;
 
     spdlog::info("leaving replay_loop");
 
