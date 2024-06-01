@@ -3194,8 +3194,9 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
             case MessageType::ReadoutData:
             {
                 auto inputHeader = nng::msg_trim_read<multi_crate::ReadoutDataMessageHeader>(inputMsg.get()).value();
+                auto messageNumber = inputHeader.messageNumber;
                 spdlog::debug("test_consumer_loop ({}): received ReadoutData: crateId={}, messageNumber={}, messageSize={}",
-                    context.name(), inputHeader.crateId, inputHeader.messageNumber, msgLen);
+                    context.name(), inputHeader.crateId, messageNumber, msgLen);
 
                 auto inputData = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg.get()));
                 size_t inputLen = nng_msg_len(inputMsg.get()) / sizeof(u32);
