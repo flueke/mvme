@@ -144,18 +144,6 @@ int main(int argc, char *argv[])
 
     int ret = 0;
 
-    using SocketLink = nng::SocketPipeline::Link;
-
-    struct CratePipelineStep
-    {
-        SocketLink inputLink;
-        SocketLink outputLink;
-        int nngError = 0;
-        std::shared_ptr<nng::InputReader> reader;
-        std::shared_ptr<nng::MultiOutputWriter> writer;
-        std::shared_ptr<JobContextInterface> context;
-    };
-
     auto make_replay_step = [](const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId)
     {
 

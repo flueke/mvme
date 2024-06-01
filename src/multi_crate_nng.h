@@ -191,6 +191,30 @@ class TestConsumerContext: public AbstractJobContext
         }
 };
 
+using SocketLink = nng::SocketPipeline::Link;
+
+#if 0
+class SocketLink
+{
+    nng_socket listener = NNG_SOCKET_INITIALIZER;
+    nng_socket dialer = NNG_SOCKET_INITIALIZER;
+    std::string url;
+
+    bool operator==(const SocketLink &o) const;
+    bool operator!=(const SocketLink &o) const { return !(*this == o); }
+};
+#endif
+
+struct CratePipelineStep
+{
+    SocketLink inputLink;
+    SocketLink outputLink;
+    int nngError = 0;
+    std::shared_ptr<nng::InputReader> reader;
+    std::shared_ptr<nng::MultiOutputWriter> writer;
+    std::shared_ptr<JobContextInterface> context;
+};
+
 }
 
 #endif /* DF704338_EE9D_465F_9467_11BAD11A0DDF */

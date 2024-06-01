@@ -12,7 +12,7 @@ using namespace mesytec::util;
 namespace mesytec::mvme::multi_crate
 {
 
-static constexpr std::chrono::milliseconds FlushBufferTimeout(500);
+//static constexpr std::chrono::milliseconds FlushBufferTimeout(500);
 static const size_t DefaultOutputMessageReserve = mvlc::util::Megabytes(1) + sizeof(multi_crate::ReadoutDataMessageHeader);
 
 std::string LoopResult::toString() const
