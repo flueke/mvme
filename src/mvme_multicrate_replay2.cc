@@ -215,6 +215,19 @@ int main(int argc, char *argv[])
         return result;
     };
 
+    auto make_analysis_step = [] (const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink)
+    {
+        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
+        reader->debugInfo = context->name();
+        context->setInputReader(reader.get());
+
+        CratePipelineStep result;
+        result.inputLink = inputLink;
+        result.reader = reader;
+        result.context = context;
+        return result;
+    };
+
     auto make_test_consumer_step = [] (const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink)
     {
         auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
@@ -250,13 +263,38 @@ int main(int argc, char *argv[])
         cratePipelineSteps[crateId].emplace_back(step);
     }
 
-    // test consumers
-    for (const auto &[crateId, _]: vmeConfigs)
+    std::vector<std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
+
+    if (!analysisFilename.empty())
     {
-        auto ctx = std::make_shared<TestConsumerContext>();
-        ctx->setName(fmt::format("test_consumer_crate{}", crateId));
-        auto step = make_test_consumer_step(ctx, cratePipelineSteps[crateId].back().outputLink);
-        cratePipelineSteps[crateId].emplace_back(step);
+        // analysis consumers
+        for (const auto &[crateId, configs]: vmeConfigs)
+        {
+            auto ctx = std::shared_ptr<AnalysisProcessingContext>(make_analysis_context(analysisFilename, configs.vmeConfig.get()));
+            assert(ctx);
+            if (ctx && ctx->analysis)
+            {
+                ctx->setName(fmt::format("analysis_crate{}", crateId));
+                // TODO analysis object id handling / rewriting before beginRun()
+                ctx->crateId = configs.crateConfig.crateId;
+                ctx->isReplay = true;
+                ctx->analysis->beginRun(RunInfo{}, ctx->asp->vmeConfig_);
+                auto step = make_analysis_step(ctx, cratePipelineSteps[crateId].back().outputLink);
+                cratePipelineSteps[crateId].emplace_back(step);
+                analysisContexts.emplace_back(ctx);
+            }
+        }
+    }
+    else
+    {
+        // test consumers
+        for (const auto &[crateId, _]: vmeConfigs)
+        {
+            auto ctx = std::make_shared<TestConsumerContext>();
+            ctx->setName(fmt::format("test_consumer_crate{}", crateId));
+            auto step = make_test_consumer_step(ctx, cratePipelineSteps[crateId].back().outputLink);
+            cratePipelineSteps[crateId].emplace_back(step);
+        }
     }
 
     for (auto &[crateId, steps]: cratePipelineSteps)
@@ -279,20 +317,7 @@ int main(int argc, char *argv[])
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    spdlog::info("replay finished");
-
-    //auto replayResult = replayContext->jobRuntime().wait();
-
-    //spdlog::info("replay finished: {}", replayResult.toString());
-    spdlog::info("sending shutdown messages");
-
-    //for (auto writer: replayContext->outputWritersByCrate)
-    //{
-    //    if (writer)
-    //        send_shutdown_message(*writer);
-    //}
-
-    //spdlog::info("shutdown messages sent from replay producer, waiting for jobs to finish");
+    spdlog::info("replay finished, starting shutdown");
 
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
@@ -309,6 +334,14 @@ int main(int argc, char *argv[])
 
     auto log_counters = [&]
     {
+        for (size_t i=0; i<replayContext->outputWritersByCrate.size(); ++i)
+        {
+            if (replayContext->outputWritersByCrate[i])
+            {
+                log_socket_work_counters(replayContext->writerCountersByCrate.access().ref()[i], fmt::format("replay_output (crateId={})", i));
+            }
+        }
+
         for (const auto &[crateId, steps]: cratePipelineSteps)
         {
             for (const auto &step: steps)
@@ -321,7 +354,19 @@ int main(int argc, char *argv[])
         }
     };
 
+    for (auto &ctx: analysisContexts)
+    {
+        auto asp = ctx->asp.get();
+        auto widget = new analysis::ui::AnalysisWidget(asp);
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->setWindowTitle(fmt::format("Analysis (crate {})", ctx->crateId).c_str());
+        widget->show();
+    }
+
     log_counters();
+
+    if (!analysisContexts.empty())
+        ret = app.exec();
 
     return ret;
 }

@@ -920,14 +920,12 @@ LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserContext &context);
 struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
 {
     public:
-        //friend LoopResult readout_parser_loop(ReadoutParserContext &context);
-
         job_function function() override
         {
             return [this] { return readout_parser_loop(*this); };
         }
 
-        unsigned crateId = 0;
+        u8 crateId = 0;
         mvlc::ConnectionType inputFormat;
         size_t totalReadoutEvents = 0u;
         size_t totalSystemEvents = 0u;
@@ -973,30 +971,26 @@ struct LIBMVME_EXPORT EventBuilderContext
 
 LoopResult LIBMVME_EXPORT event_builder_loop(EventBuilderContext &context);
 
-struct LIBMVME_EXPORT AnalysisProcessingContext
-{
-    std::atomic<bool> quit;
-    std::unique_ptr<nng::InputReader> inputReader;
-    std::shared_ptr<analysis::Analysis> analysis;
-    bool isReplay = false;
-    std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider> asp = nullptr;
-    mvlc::Protected<SocketWorkPerformanceCounters> inputSocketCounters;
-    u8 crateId = 0;
-};
+struct AnalysisProcessingContext;
 
 // Consumes ParsedEventsMessageHeader type messages.
 LoopResult LIBMVME_EXPORT analysis_loop(AnalysisProcessingContext &context);
 
-struct MulticrateReplayContext
+struct LIBMVME_EXPORT AnalysisProcessingContext: public AbstractJobContext
 {
-    std::atomic<bool> quit;
-    mvlc::listfile::ReadHandle *lfh = nullptr;
-    // output writers in crate order
-    std::vector<std::unique_ptr<nng::OutputWriter>> writers;
-    mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCounters;
+    std::shared_ptr<analysis::Analysis> analysis;
+    bool isReplay = false;
+    std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider> asp = nullptr;
+    u8 crateId = 0;
+
+    job_function function() override
+    {
+        return [this] { return analysis_loop(*this); };
+    }
 };
 
-LoopResult LIBMVME_EXPORT replay_loop(MulticrateReplayContext &context);
+std::unique_ptr<AnalysisProcessingContext> LIBMVME_EXPORT make_analysis_context(const std::shared_ptr<analysis::Analysis> &analysis, VMEConfig *vmeConfig);
+std::unique_ptr<AnalysisProcessingContext> LIBMVME_EXPORT make_analysis_context(const std::string &filename, VMEConfig *vmeConfig);
 
 struct ReplayJobContext;
 
@@ -1005,7 +999,7 @@ LoopResult LIBMVME_EXPORT replay_loop(ReplayJobContext &context);
 struct ReplayJobContext: public AbstractJobContext
 {
     public:
-        friend LoopResult replay_loop(ReplayJobContext &context);
+        //friend LoopResult replay_loop(ReplayJobContext &context);
 
         mvlc::listfile::ReadHandle *lfh = nullptr;
         std::vector<nng::OutputWriter *> outputWritersByCrate;

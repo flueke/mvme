@@ -2290,6 +2290,44 @@ LoopResult event_builder_loop(EventBuilderContext &context)
     return result;
 }
 
+std::unique_ptr<AnalysisProcessingContext> make_analysis_context(const std::shared_ptr<analysis::Analysis> &analysis, VMEConfig *vmeConfig)
+{
+    auto res = std::make_unique<AnalysisProcessingContext>();
+    auto asp = std::make_unique<multi_crate::MinimalAnalysisServiceProvider>();
+    auto widgetRegistry = std::make_shared<WidgetRegistry>();
+
+    res->analysis = analysis;
+    asp->vmeConfig_ = vmeConfig;
+    asp->analysis_ = analysis;
+    asp->widgetRegistry_ = widgetRegistry;
+    res->asp = std::move(asp);
+
+    return res;
+}
+
+std::unique_ptr<AnalysisProcessingContext> make_analysis_context(const std::string &filename, VMEConfig *vmeConfig)
+{
+    std::shared_ptr<analysis::Analysis> analysis;
+
+    if (!filename.empty())
+    {
+        auto [ana, errorString] = analysis::read_analysis_config_from_file(filename.c_str());
+
+        if (!ana)
+        {
+            std::cerr << fmt::format("Error reading mvme analysis config from '{}': {}\n",
+                filename, errorString.toStdString());
+            return {};
+        }
+
+        //analysis::generate_new_object_ids(ana.get()); // FIXME: figure out object id handling
+    //vme_analysis_common::auto_assign_vme_modules(mergedVmeConfig.get(), analysis.get());
+        analysis = ana;
+    }
+
+    return make_analysis_context(analysis, vmeConfig);
+}
+
 LoopResult analysis_loop(AnalysisProcessingContext &context)
 {
     set_thread_name("analysis_loop");
@@ -2300,12 +2338,12 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
     size_t inputBuffersLost = 0;
     bool error = false;
     vme_analysis_common::TimetickGenerator timetickGen;
-    context.inputSocketCounters.access()->start();
+    context.readerCounters().access()->start();
     const auto crateId = context.crateId;
 
     spdlog::info("entering analysis_loop (crateId={})", crateId);
 
-    while (!error && !context.quit)
+    while (!error && !context.shouldQuit())
     {
         if (!context.isReplay)
         {
@@ -2320,7 +2358,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
         StopWatch sw;
 
-        auto [inputMsg, res] = context.inputReader->readMessage();
+        auto [inputMsg, res] = context.inputReader()->readMessage();
 
         if (res && res != NNG_ETIMEDOUT)
         {
@@ -2415,7 +2453,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
         auto tProcess = sw.interval();
 
         {
-            auto ta = context.inputSocketCounters.access();
+            auto ta = context.readerCounters().access();
             ta->bytesReceived += msgLen;
             ta->messagesReceived++;
             ta->tReceive += tReceive;
@@ -2431,430 +2469,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
     return result;
 }
 
-LoopResult replay_loop(MulticrateReplayContext &context)
-{
-    set_thread_name("replay_loop");
 
-    spdlog::info("entering replay_loop");
-    LoopResult result;
-
-    assert(context.lfh);
-    assert(context.writers.size());
-
-    struct Output
-    {
-        unique_msg msg = make_unique_msg();
-        size_t messageNumber = 0;
-    };
-
-    std::vector<Output> outputs(context.writers.size());
-    std::vector<SocketWorkPerformanceCounters> counters(context.writers.size());
-    mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
-
-    auto flush_output = [&] (unsigned crateId)
-    {
-        if (crateId < outputs.size())
-        {
-            auto &output = outputs[crateId];
-
-            if (output.msg)
-            {
-                const size_t msgLen = nng_msg_len(output.msg.get());
-                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}, sent so far={}",
-                    crateId, output.messageNumber, msgLen, counters[crateId].messagesSent);
-                StopWatch sw;
-                context.writers[crateId]->writeMessage(std::move(output.msg));
-                counters[crateId].tSend += sw.interval();
-                counters[crateId].bytesSent += msgLen;
-                counters[crateId].messagesSent++;
-            }
-        }
-    };
-
-    for (auto &c: counters)
-        c.start();
-
-    while (!context.quit)
-    {
-        size_t bytesRead = 0;
-        size_t bytesToRead = mainBuf.free();
-
-        assert(bytesToRead > 0);
-
-        try
-        {
-            bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), bytesToRead);
-            mainBuf.use(bytesRead);
-
-            if (bytesRead == 0)
-            {
-                spdlog::debug("replay_loop: EOF reached");
-                break;
-            }
-        }
-        catch (const std::runtime_error &e)
-        {
-            spdlog::warn("replay_loop: runtime_error while reading from input file: {}, requestedBytes={}", e.what(), bytesToRead);
-            result.exception = std::current_exception();
-            break;
-        }
-        catch (...)
-        {
-            spdlog::warn("replay_loop: exception while reading from input file");
-            result.exception = std::current_exception();
-            break;
-        }
-
-        auto input = mainBuf.viewU32();
-        auto it = std::begin(input);
-
-        while (it < std::end(input))
-        {
-            u32 header = *it;
-            unsigned crateId = 0;
-            size_t partWords = 0;
-            u32 bufferType = 0;
-
-            if (mvlc::is_known_frame_header(header))
-            {
-                auto frameInfo = mvlc::extract_frame_info(header);
-                crateId = frameInfo.ctrl;
-                partWords = frameInfo.len + 1;
-                bufferType = static_cast<u32>(ConnectionType::USB);
-                //spdlog::trace("replay_loop: crateId {} - found frame header 0x{:08x}", crateId, header);
-            }
-            else if (it + 1 < std::end(input))
-            {
-                u32 header1 = *(it+1);
-                mvlc::eth::PayloadHeaderInfo ethInfo{ header, header1 };
-                crateId = ethInfo.controllerId();
-                partWords = ethInfo.dataWordCount() + 2;
-                bufferType = static_cast<u32>(ConnectionType::ETH);
-                //spdlog::trace("replay_loop: crateId {} - found ETH header 0x{:08x} 0x{:08x}", crateId, header, header1);
-            }
-
-            if (partWords == 0 || it + partWords >= std::end(input))
-            {
-                // Either we are at the end of input or the current part is not
-                // fully contained in the input sequence => move remaining data
-                // to the front of the buffer.
-
-                //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), std::distance(it, std::end(input)),
-                //    fmt::format("replay_loop: crateId={}", crateId));
-
-                const auto wordOffset = std::distance(std::begin(input), it);
-                const auto wordCount = std::distance(it, std::end(input));
-                spdlog::debug("replay_loop: moving {} remaining words to the front of the buffer (offset={})", wordCount, wordOffset);
-
-                const auto byteOffset = std::distance(std::begin(input), it) * sizeof(u32);
-                const auto byteCount = std::distance(it, std::end(input)) * sizeof(u32);
-                spdlog::debug("replay_loop: moving {} remaining bytes to the front of the buffer (offset={})", byteCount, wordOffset);
-
-
-
-
-                auto &buffer = mainBuf.buffer();
-                std::memcpy(buffer.data(), buffer.data() + byteOffset, byteCount);
-                mainBuf.setUsed(byteCount);
-                break;
-            }
-
-            const size_t partBytes = partWords * sizeof(u32);
-
-            //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), partWords,
-            //    fmt::format("replay_loop: crateId={}", crateId));
-
-            if (crateId < outputs.size())
-            {
-                auto &output = outputs[crateId];
-
-                if (!output.msg || allocated_free_space(output.msg.get()) < partBytes)
-                {
-                    flush_output(crateId);
-
-                    ReadoutDataMessageHeader messageHeader;
-                    messageHeader.bufferType = bufferType;
-                    messageHeader.crateId = crateId;
-                    messageHeader.messageNumber = ++output.messageNumber;
-                    output.msg = allocate_prepare_message(messageHeader);
-
-                    spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
-                        crateId, output.messageNumber + 1, fmt::ptr(output.msg.get()));
-
-
-                    if (!output.msg)
-                    {
-                        spdlog::error("replay_loop: crateId {} - failed to allocate message",
-                            crateId);
-                        return result;
-                    }
-                }
-
-                assert(output.msg);
-                assert(allocated_free_space(output.msg.get()) >= partBytes);
-                // Calculate byte offset of the current part in the main buffer.
-                auto partStart = mainBuf.data() + std::distance(std::begin(input), it) * sizeof(u32);
-                nng_msg_append(output.msg.get(), partStart, partBytes);
-                spdlog::trace("replay_loop: crateId {} - appended {} bytes/ {} words to output message #{}",
-                    crateId, partBytes, partWords, output.messageNumber);
-            }
-            else
-                spdlog::warn("replay_loop: crateId {} out of range", crateId);
-
-            it += partWords;
-        }
-
-        context.writerCounters.access().ref() = counters;
-    }
-
-    spdlog::debug("replay_loop: flushing remaining messages");
-
-    // Flush remaining messages.
-    for (size_t crateId = 0; crateId < outputs.size(); ++crateId)
-    {
-        flush_output(crateId);
-    }
-    spdlog::info("leaving replay_loop");
-
-    return result;
-}
-
-#if 0
-LoopResult replay_loop(ReplayJobContext &context)
-{
-    set_thread_name("replay_loop");
-
-    spdlog::info("entering replay_loop");
-    LoopResult result;
-
-    assert(context.lfh);
-    assert(context.outputWriters().size());
-
-    struct Output
-    {
-        unique_msg msg = make_unique_msg();
-        size_t messageNumber = 0;
-    };
-
-    auto writers = context.outputWritersByCrate;
-    std::vector<Output> outputs(writers.size());
-    std::vector<SocketWorkPerformanceCounters> counters(writers.size());
-    mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
-
-    auto prepare_output_message = [&] (unsigned crateId, u32 bufferType)
-    {
-        if (crateId < outputs.size() && !outputs[crateId].msg)
-        {
-            auto &output = outputs[crateId];
-            ReadoutDataMessageHeader messageHeader;
-            messageHeader.bufferType = bufferType;
-            messageHeader.crateId = crateId;
-            messageHeader.messageNumber = ++output.messageNumber;
-            output.msg = allocate_prepare_message(messageHeader);
-
-            spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
-                crateId, output.messageNumber, fmt::ptr(output.msg.get()));
-            spdlog::debug("replay_loop (crateId={}): mainBuf={} words", crateId, mainBuf.viewU32().size());
-        }
-    };
-
-    auto flush_output = [&] (unsigned crateId)
-    {
-        if (crateId < outputs.size())
-        {
-            auto &output = outputs[crateId];
-
-            if (output.msg)
-            {
-                const size_t msgLen = nng_msg_len(output.msg.get());
-                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}",
-                    crateId, output.messageNumber, msgLen);
-                StopWatch sw;
-                writers[crateId]->writeMessage(std::move(output.msg));
-                counters[crateId].tSend += sw.interval();
-                counters[crateId].bytesSent += msgLen;
-                counters[crateId].messagesSent++;
-            }
-        }
-    };
-
-    for (auto &c: counters)
-        c.start();
-
-    while (!context.shouldQuit())
-    {
-        size_t bytesRead = 0;
-        size_t bytesToRead = mainBuf.free();
-
-        if (bytesToRead == 0)
-        {
-            spdlog::warn("replay_loop: mainBuf is full (used={}, capacity={}), increasing size!", mainBuf.used(), mainBuf.capacity());
-            mainBuf.ensureFreeSpace(mvlc::util::Megabytes(1));
-            bytesToRead = mainBuf.free();
-        }
-
-        assert(bytesToRead > 0);
-
-        try
-        {
-            spdlog::warn("replay_loop: read from file - bytesToRead={}, mainBuf={} words", bytesToRead, mainBuf.viewU32().size());
-            //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
-            bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), bytesToRead);
-            mainBuf.use(bytesRead);
-            spdlog::info("replay_loop: read from file - mainBuf.use({}), mainBuf.used()={}", bytesRead, mainBuf.used());
-
-            #if 0
-            if (bytesRead == 0)
-            {
-                spdlog::warn("replay_loop: EOF reached");
-                break;
-            }
-            #endif
-        }
-        catch (const std::runtime_error &e)
-        {
-            spdlog::warn("replay_loop: runtime_error while reading from input file: {}, requestedBytes={}", e.what(), bytesToRead);
-            result.exception = std::current_exception();
-            break;
-        }
-        catch (...)
-        {
-            spdlog::warn("replay_loop: exception while reading from input file");
-            result.exception = std::current_exception();
-            break;
-        }
-
-        auto input = mainBuf.viewU32();
-        auto it = std::begin(input);
-
-        while (it < std::end(input))
-        {
-            u32 header = *it;
-            unsigned crateId = 0;
-            size_t partWords = 0;
-            u32 bufferType = 0;
-
-            if (mvlc::is_known_frame_header(header))
-            {
-                auto frameInfo = mvlc::extract_frame_info(header);
-                crateId = frameInfo.ctrl;
-                partWords = frameInfo.len + 1;
-                bufferType = static_cast<u32>(ConnectionType::USB);
-                spdlog::trace("replay_loop: crateId {} - found frame header 0x{:08x}", crateId, header);
-            }
-            else if (it + 1 < std::end(input))
-            {
-                u32 header1 = *(it+1);
-                mvlc::eth::PayloadHeaderInfo ethInfo{ header, header1 };
-                crateId = ethInfo.controllerId();
-                partWords = ethInfo.dataWordCount() + 2;
-                bufferType = static_cast<u32>(ConnectionType::ETH);
-                spdlog::trace("replay_loop: crateId {} - found ETH header 0x{:08x} 0x{:08x}", crateId, header, header1);
-            }
-            else
-            {
-                spdlog::warn("replay_loop: unknown header 0x{:08x}", header);
-            }
-
-            if (partWords == 0 || it + partWords > std::end(input))
-            {
-
-                spdlog::info("replay_loop: crateId={}, partWords={}, it={}, it+partWords={}, end={}", crateId, partWords,
-                 fmt::ptr(it), fmt::ptr(it + partWords), fmt::ptr(std::end(input)));
-                spdlog::info("replay_loop: crateId {} - found frame header 0x{:08x}", crateId, header);
-
-                // Either we are at the end of input or the current part is not
-                // fully contained in the input sequence => move remaining data
-                // to the front of the buffer.
-                //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), std::distance(it, std::end(input)),
-                //    fmt::format("replay_loop: crateId={}, partWords={}", crateId, partWords));
-
-                const auto wordOffset = std::distance(std::begin(input), it);
-                const auto wordCount = std::distance(it, std::end(input));
-                spdlog::info("replay_loop: moving {} remaining words to the front of the buffer (offset={})", wordCount, wordOffset);
-
-                const auto byteOffset = std::distance(std::begin(input), it) * sizeof(u32);
-                const auto byteCount = std::distance(it, std::end(input)) * sizeof(u32);
-                //spdlog::debug("replay_loop: moving {} remaining bytes to the front of the buffer (offset={})", byteCount, wordOffset);
-
-                auto &buffer = mainBuf.buffer();
-                std::memcpy(buffer.data(), buffer.data() + byteOffset, byteCount);
-                spdlog::info("replay_loop: mainBuf.setUsed({})", byteCount);
-                mainBuf.setUsed(byteCount);
-                break;
-            }
-
-            const size_t partBytes = partWords * sizeof(u32);
-
-            //mvlc::util::log_buffer(std::cout, input.data() + (it - std::begin(input)), partWords,
-            //    fmt::format("replay_loop: crateId={}", crateId));
-
-            if (crateId < outputs.size())
-            {
-                auto &output = outputs[crateId];
-
-                if (!output.msg || allocated_free_space(output.msg.get()) < partBytes)
-                {
-                    flush_output(crateId);
-                    prepare_output_message(crateId, bufferType);
-
-                    if (!output.msg)
-                    {
-                        spdlog::error("replay_loop: crateId {} - failed to allocate message",
-                            crateId);
-                        return result;
-                    }
-                }
-
-                assert(output.msg);
-                assert(allocated_free_space(output.msg.get()) >= partBytes);
-                // Calculate byte offset of the current part in the main buffer.
-                auto inputWordOffset = std::distance(std::begin(input), it);
-                spdlog::trace("replay_loop: crateId {} - appending from inputWordOffset={}, partWords={}",
-                    crateId, inputWordOffset, partWords);
-                auto partStart = mainBuf.data() + inputWordOffset * sizeof(u32);
-                nng_msg_append(output.msg.get(), partStart, partBytes);
-                spdlog::trace("replay_loop: crateId {} - appended {} bytes/ {} words to output message #{} (new size={}, free={})",
-                    crateId, partBytes, partWords, output.messageNumber, nng_msg_len(output.msg.get()), allocated_free_space(output.msg.get()));
-
-                if (allocated_free_space(output.msg.get()) == 0)
-                    flush_output(crateId);
-            }
-            else
-                spdlog::warn("replay_loop: crateId {} out of range", crateId);
-
-            it += partWords;
-        }
-
-        context.writerCounters().access().ref() = counters;
-
-        if (bytesRead == 0)
-        {
-            spdlog::warn("replay_loop: EOF reached");
-            break;
-        }
-    }
-
-    #if 0
-    if (mainBuf.used())
-    {
-        spdlog::warn("replay_loop: {} bytes remaining in main buffer, discarding", mainBuf.used());
-        //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
-    }
-    #endif
-
-    spdlog::debug("replay_loop: flushing remaining messages");
-
-    // Flush remaining messages.
-    for (size_t crateId = 0; crateId < outputs.size(); ++crateId)
-    {
-        flush_output(crateId);
-    }
-    spdlog::info("leaving replay_loop");
-
-    return result;
-}
-#else
 std::tuple<unsigned, size_t, u32> extract_part_info(const u32 *it, const u32 *end)
 {
     unsigned crateId = 0;
@@ -3140,7 +2755,6 @@ LoopResult replay_loop(ReplayJobContext &context)
 
     return result;
 }
-#endif
 
 LoopResult test_consumer_loop(TestConsumerContext &context)
 {
