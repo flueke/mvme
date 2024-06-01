@@ -6,6 +6,7 @@
 #include "analysis/analysis_ui.h"
 #include "analysis/analysis_util.h"
 #include "multi_crate.h"
+#include "multi_crate_nng.h"
 #include "mvlc_daq.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_session.h"
