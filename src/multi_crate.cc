@@ -2458,8 +2458,8 @@ LoopResult replay_loop(MulticrateReplayContext &context)
             if (output.msg)
             {
                 const size_t msgLen = nng_msg_len(output.msg.get());
-                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}",
-                    crateId, output.messageNumber, msgLen);
+                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}, sent so far={}",
+                    crateId, output.messageNumber, msgLen, counters[crateId].messagesSent);
                 StopWatch sw;
                 context.writers[crateId]->writeMessage(std::move(output.msg));
                 counters[crateId].tSend += sw.interval();
@@ -2946,8 +2946,8 @@ LoopResult replay_loop(ReplayJobContext &context)
             if (output.msg)
             {
                 const size_t msgLen = nng_msg_len(output.msg.get());
-                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}",
-                    crateId, output.messageNumber, msgLen);
+                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}, sent so far={}",
+                    crateId, output.messageNumber, msgLen, counters[crateId].messagesSent);
                 StopWatch sw;
                 writers[crateId]->writeMessage(std::move(output.msg));
                 counters[crateId].tSend += sw.interval();
@@ -3056,11 +3056,11 @@ LoopResult replay_loop(ReplayJobContext &context)
 
         try
         {
-            spdlog::warn("replay_loop: read from file - bytesToRead={}, mainBuf={} words", bytesToRead, mainBuf.viewU32().size());
+            spdlog::debug("replay_loop: read from file - bytesToRead={}, mainBuf={} words", bytesToRead, mainBuf.viewU32().size());
             //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
             bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), bytesToRead);
             mainBuf.use(bytesRead);
-            spdlog::info("replay_loop: read from file - mainBuf.use({}), mainBuf.used()={}", bytesRead, mainBuf.used());
+            spdlog::debug("replay_loop: read from file - mainBuf.use({}), mainBuf.used()={}", bytesRead, mainBuf.used());
 
             #if 0
             if (bytesRead == 0)
@@ -3086,11 +3086,13 @@ LoopResult replay_loop(ReplayJobContext &context)
         auto input = mainBuf.viewU32();
         auto it = process_input_data(input);
 
+        #if 0
         if (it == std::begin(input))
         {
             spdlog::warn("replay_loop: no complete input part in mainBuf (size={} words)", input.size());
         }
         else
+        #endif
         {
             auto wordsConsumed = std::distance(std::begin(input), it);
             auto bytesConsumed = wordsConsumed * sizeof(u32);
@@ -3114,7 +3116,7 @@ LoopResult replay_loop(ReplayJobContext &context)
         }
     }
 
-    #if 0
+    #if 1
     if (mainBuf.used())
     {
         spdlog::warn("replay_loop: {} bytes remaining in main buffer, discarding", mainBuf.used());
@@ -3129,6 +3131,10 @@ LoopResult replay_loop(ReplayJobContext &context)
     {
         flush_output(crateId);
     }
+
+    // Final counters update!
+    context.writerCounters().access().ref() = counters;
+
     spdlog::info("leaving replay_loop");
 
     return result;
