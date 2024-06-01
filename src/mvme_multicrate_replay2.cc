@@ -144,8 +144,11 @@ int main(int argc, char *argv[])
     int ret = 0;
 
     using SocketLink = nng::SocketPipeline::Link;
+    using JobContextPipeline = std::vector<std::shared_ptr<JobContextInterface>>;
 
     std::unordered_map<u8, std::vector<SocketLink>> crateSocketLinks;
+    std::unordered_map<u8, JobContextPipeline> cratePipelineContexts;;
+    std::vector<std::shared_ptr<nng::OutputWriter>> outputWriters;
 
     auto close_links = [&crateSocketLinks] ()
     {
@@ -153,96 +156,125 @@ int main(int argc, char *argv[])
             std::for_each(links.begin(), links.end(), nng::close_link);
     };
 
+    struct CratePipelineStep
+    {
+        SocketLink inputLink;
+        SocketLink outputLink;
+        int nngError = 0;
+        std::shared_ptr<nng::InputReader> reader;
+        std::shared_ptr<nng::OutputWriter> writer;
+        std::shared_ptr<JobContextInterface> context;
+    };
+
+    auto make_replay_step = [](const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId)
+    {
+
+        auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
+        auto url = fmt::format(tmpl, crateId);
+        auto [link, res] = nng::make_pair_link(url);
+        CratePipelineStep result;
+        result.outputLink = link;
+        result.nngError = res;
+        if (res)
+            return result;
+
+        auto writer = std::make_shared<nng::SocketOutputWriter>(link.listener);
+        writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
+        writer->retryPredicate = [ctx=replayContext.get()] { return !ctx->shouldQuit(); };
+        replayContext->addOutputWriterForCrate(crateId, writer.get());
+
+        result.writer = writer;
+        result.context = replayContext;
+        return result;
+    };
+
+    auto make_test_consumer_step = [] (const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink)
+    {
+        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
+        reader->debugInfo = context->name();
+        context->setInputReader(reader.get());
+
+        CratePipelineStep result;
+        result.inputLink = inputLink;
+        result.reader = reader;
+        result.context = context;
+        return result;
+    };
+
     auto replayContext = std::make_shared<ReplayJobContext>();
     replayContext->setName("replay_loop");
     replayContext->lfh = listfileReadHandle;
 
-    std::unordered_map<u8, std::shared_ptr<TestConsumerContext>> testConsumerContexts;
+    std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelineSteps;
+
+    for (const auto &[crateId, _]: vmeConfigs)
+    {
+        auto step = make_replay_step(replayContext, crateId);
+        cratePipelineSteps[crateId].emplace_back(step);
+    }
 
     for (const auto &[crateId, _]: vmeConfigs)
     {
         auto ctx = std::make_shared<TestConsumerContext>();
         ctx->setName(fmt::format("test_consumer_crate{}", crateId));
-        testConsumerContexts.emplace(crateId, std::move(ctx));
+        auto step = make_test_consumer_step(ctx, cratePipelineSteps[crateId].back().outputLink);
+        cratePipelineSteps[crateId].emplace_back(step);
     }
 
-    std::vector<std::shared_ptr<nng::OutputWriter>> outputWriters;
-    std::vector<std::shared_ptr<nng::InputReader>> inputReaders;
-
-    for (const auto &[crateId, _]: vmeConfigs)
+    for (auto &[crateId, steps]: cratePipelineSteps)
     {
-        auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
-        auto url = fmt::format(tmpl, crateId);
-        auto [link, res] = nng::make_pair_link(url);
-        if (res)
+        for (auto &step: steps)
         {
-            nng::mesy_nng_error(fmt::format("make_pair_link {}", url), res);
-            close_links();
-            return 1;
+            if (!step.context->jobRuntime().isRunning())
+            {
+                auto rt = start_job(*step.context);
+                spdlog::info("started job {}", step.context->name());
+                step.context->setJobRuntime(std::move(rt));
+            }
         }
-
-        crateSocketLinks[crateId].push_back(link);
-
-        auto writer = std::make_shared<nng::SocketOutputWriter>(link.listener);
-        writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
-        writer->retryPredicate = [ctx=replayContext.get()] { return !ctx->shouldQuit(); };
-        outputWriters.push_back(writer);
-        replayContext->addOutputWriterForCrate(crateId, writer.get());
-
-        auto reader = std::make_shared<nng::SocketInputReader>(link.dialer);
-        reader->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
-        testConsumerContexts[crateId]->setInputReader(reader.get());
-    }
-
-    auto replayRuntime = start_job(*replayContext);
-
-    std::unordered_map<u8, std::vector<JobRuntime>> crateJobRuntimes;
-
-    for (auto &[crateId, ctx]: testConsumerContexts)
-    {
-        auto rt = start_job(*ctx);
-        crateJobRuntimes[crateId].emplace_back(std::move(rt));
     }
 
     spdlog::info("waiting for replay to finish");
 
-    while (replayRuntime.isRunning())
+    while (replayContext->jobRuntime().isRunning())
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    auto replayResult = replayRuntime.wait();
+    auto replayResult = replayContext->jobRuntime().wait();
 
     spdlog::info("replay finished: {}", replayResult.toString());
     spdlog::info("sending shutdown messages");
 
-    for (auto writer: replayRuntime.context->outputWriters())
+    for (auto writer: replayContext->outputWriters())
     {
         send_shutdown_message(*writer);
     }
 
     spdlog::info("shutdown messages sent, waiting for jobs to finish");
 
-    for (auto &[crateId, jobs]: crateJobRuntimes)
+    for (auto &[crateId, steps]: cratePipelineSteps)
     {
-        for (auto &job: jobs)
+        for (auto &step: steps)
         {
-            spdlog::info("waiting for job {} to finish", job.context->name());
-            auto result = job.wait();
-            spdlog::info("job {} finished: {}", job.context->name(), result.toString());
+            spdlog::info("waiting for job {} to finish", step.context->name());
+            auto result = step.context->jobRuntime().wait();
+            spdlog::info("job {} finished: {}", step.context->name(), result.toString());
         }
     }
 
     auto log_counters = [&]
     {
-        for (const auto &counters: replayContext->writerCounters().copy())
+        for (const auto &[crateId, steps]: cratePipelineSteps)
         {
-            log_socket_work_counters(counters, "replay_loop");
-        }
-
-        for (const auto &[crateId, ctx]: testConsumerContexts)
-        {
-            log_socket_work_counters(ctx->readerCounters().copy(), fmt::format("test_consumer_crate{}", crateId));
+            for (const auto &step: steps)
+            {
+                log_socket_work_counters(step.context->readerCounters().copy(), fmt::format("step={}, reader", step.context->name()));
+                for (const auto &counters: step.context->writerCounters().copy())
+                {
+                    log_socket_work_counters(counters, fmt::format("step={}, writer", step.context->name()));
+                }
+            }
         }
     };
 

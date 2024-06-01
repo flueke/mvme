@@ -2617,6 +2617,7 @@ LoopResult replay_loop(MulticrateReplayContext &context)
     return result;
 }
 
+#if 0
 LoopResult replay_loop(ReplayJobContext &context)
 {
     set_thread_name("replay_loop");
@@ -2638,6 +2639,23 @@ LoopResult replay_loop(ReplayJobContext &context)
     std::vector<SocketWorkPerformanceCounters> counters(writers.size());
     mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
 
+    auto prepare_output_message = [&] (unsigned crateId, u32 bufferType)
+    {
+        if (crateId < outputs.size() && !outputs[crateId].msg)
+        {
+            auto &output = outputs[crateId];
+            ReadoutDataMessageHeader messageHeader;
+            messageHeader.bufferType = bufferType;
+            messageHeader.crateId = crateId;
+            messageHeader.messageNumber = ++output.messageNumber;
+            output.msg = allocate_prepare_message(messageHeader);
+
+            spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
+                crateId, output.messageNumber, fmt::ptr(output.msg.get()));
+            spdlog::debug("replay_loop (crateId={}): mainBuf={} words", crateId, mainBuf.viewU32().size());
+        }
+    };
+
     auto flush_output = [&] (unsigned crateId)
     {
         if (crateId < outputs.size())
@@ -2658,23 +2676,6 @@ LoopResult replay_loop(ReplayJobContext &context)
         }
     };
 
-    auto prepare_output_message = [&] (unsigned crateId, u32 bufferType)
-    {
-        if (crateId < outputs.size() && !outputs[crateId].msg)
-        {
-            auto &output = outputs[crateId];
-            ReadoutDataMessageHeader messageHeader;
-            messageHeader.bufferType = bufferType;
-            messageHeader.crateId = crateId;
-            messageHeader.messageNumber = ++output.messageNumber;
-            output.msg = allocate_prepare_message(messageHeader);
-
-            spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
-                crateId, output.messageNumber, fmt::ptr(output.msg.get()));
-            spdlog::debug("replay_loop (crateId={}): mainBuf={} words", crateId, mainBuf.viewU32().size());
-        }
-    };
-
     for (auto &c: counters)
         c.start();
 
@@ -2682,6 +2683,13 @@ LoopResult replay_loop(ReplayJobContext &context)
     {
         size_t bytesRead = 0;
         size_t bytesToRead = mainBuf.free();
+
+        if (bytesToRead == 0)
+        {
+            spdlog::warn("replay_loop: mainBuf is full (used={}, capacity={}), increasing size!", mainBuf.used(), mainBuf.capacity());
+            mainBuf.ensureFreeSpace(mvlc::util::Megabytes(1));
+            bytesToRead = mainBuf.free();
+        }
 
         assert(bytesToRead > 0);
 
@@ -2786,17 +2794,7 @@ LoopResult replay_loop(ReplayJobContext &context)
                 if (!output.msg || allocated_free_space(output.msg.get()) < partBytes)
                 {
                     flush_output(crateId);
-
-                    ReadoutDataMessageHeader messageHeader;
-                    messageHeader.bufferType = bufferType;
-                    messageHeader.crateId = crateId;
-                    messageHeader.messageNumber = ++output.messageNumber;
-                    output.msg = allocate_prepare_message(messageHeader);
-
-                    spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
-                        crateId, output.messageNumber, fmt::ptr(output.msg.get()));
-                    spdlog::debug("replay_loop (crateId={}): mainBuf={} words", crateId, mainBuf.viewU32().size());
-
+                    prepare_output_message(crateId, bufferType);
 
                     if (!output.msg)
                     {
@@ -2814,8 +2812,11 @@ LoopResult replay_loop(ReplayJobContext &context)
                     crateId, inputWordOffset, partWords);
                 auto partStart = mainBuf.data() + inputWordOffset * sizeof(u32);
                 nng_msg_append(output.msg.get(), partStart, partBytes);
-                spdlog::trace("replay_loop: crateId {} - appended {} bytes/ {} words to output message #{} (new size={})",
-                    crateId, partBytes, partWords, output.messageNumber, nng_msg_len(output.msg.get()));
+                spdlog::trace("replay_loop: crateId {} - appended {} bytes/ {} words to output message #{} (new size={}, free={})",
+                    crateId, partBytes, partWords, output.messageNumber, nng_msg_len(output.msg.get()), allocated_free_space(output.msg.get()));
+
+                if (allocated_free_space(output.msg.get()) == 0)
+                    flush_output(crateId);
             }
             else
                 spdlog::warn("replay_loop: crateId {} out of range", crateId);
@@ -2851,6 +2852,288 @@ LoopResult replay_loop(ReplayJobContext &context)
 
     return result;
 }
+#else
+std::tuple<unsigned, size_t, u32> extract_part_info(const u32 *it, const u32 *end)
+{
+    unsigned crateId = 0;
+    size_t partWords = 0;
+    u32 bufferType = 0;
+
+    if (mvlc::is_known_frame_header(*it))
+    {
+        auto frameInfo = mvlc::extract_frame_info(*it);
+        crateId = frameInfo.ctrl;
+        partWords = frameInfo.len + 1;
+        bufferType = static_cast<u32>(ConnectionType::USB);
+        spdlog::trace("replay_loop: crateId {} - found frame header 0x{:08x} (@{})", crateId, *it, fmt::ptr(it));
+    }
+    else if (it + 1 < end)
+    {
+        u32 header1 = *(it+1);
+        mvlc::eth::PayloadHeaderInfo ethInfo{ *it, header1 };
+        crateId = ethInfo.controllerId();
+        partWords = ethInfo.dataWordCount() + 2;
+        bufferType = static_cast<u32>(ConnectionType::ETH);
+        spdlog::trace("replay_loop: crateId {} - found ETH header 0x{:08x} 0x{:08x} (@{})", crateId, *it, header1, fmt::ptr(it));
+    }
+    else if (it + 1 >= end)
+    {
+        spdlog::warn("replay_loop: possible first eth header word: 0x{:08x}, second word not in input buffer", *it);
+    }
+    else
+    {
+        spdlog::warn("replay_loop: unknown header 0x{:08x}", *it);
+    }
+
+    return { crateId, partWords, bufferType };
+};
+
+LoopResult replay_loop(ReplayJobContext &context)
+{
+    set_thread_name("replay_loop");
+
+    spdlog::info("entering replay_loop");
+    LoopResult result;
+
+    assert(context.lfh);
+    assert(context.outputWriters().size());
+
+    struct Output
+    {
+        unique_msg msg = make_unique_msg();
+        size_t messageNumber = 0;
+    };
+
+    auto writers = context.outputWritersByCrate;
+    std::vector<Output> outputs(writers.size());
+    std::vector<SocketWorkPerformanceCounters> counters(writers.size());
+
+    // algorithm:
+    // - if the read buffer is full: increase the buffer size
+    // - read 1 MB from input file
+    // - iterate over input data
+    // - extract crate id and part size
+    // - if part is contained in the input data:
+    //    - append part to output message for the crate
+    // - else:
+    //    - move remaining data to the front of the buffer
+
+    mvlc::ReadoutBuffer mainBuf(mvlc::util::Megabytes(1));
+
+    auto prepare_output_message = [&] (unsigned crateId, u32 bufferType)
+    {
+        if (crateId < outputs.size() && !outputs[crateId].msg)
+        {
+            auto &output = outputs[crateId];
+            ReadoutDataMessageHeader messageHeader;
+            messageHeader.bufferType = bufferType;
+            messageHeader.crateId = crateId;
+            messageHeader.messageNumber = ++output.messageNumber;
+            output.msg = allocate_prepare_message(messageHeader);
+
+            spdlog::debug("replay_loop: crateId {} - created new output message #{} @ {}",
+                crateId, output.messageNumber, fmt::ptr(output.msg.get()));
+            spdlog::debug("replay_loop (crateId={}): mainBuf={} words", crateId, mainBuf.viewU32().size());
+        }
+    };
+
+    auto flush_output = [&] (unsigned crateId)
+    {
+        if (crateId < outputs.size())
+        {
+            auto &output = outputs[crateId];
+
+            if (output.msg)
+            {
+                const size_t msgLen = nng_msg_len(output.msg.get());
+                spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}",
+                    crateId, output.messageNumber, msgLen);
+                StopWatch sw;
+                writers[crateId]->writeMessage(std::move(output.msg));
+                counters[crateId].tSend += sw.interval();
+                counters[crateId].bytesSent += msgLen;
+                counters[crateId].messagesSent++;
+            }
+        }
+    };
+
+    auto append_to_output = [&] (unsigned crateId, const u32 *it, size_t partWords, u32 bufferType)
+    {
+        if (crateId < outputs.size())
+        {
+            auto &output = outputs[crateId];
+
+            if (!output.msg || allocated_free_space(output.msg.get()) < partWords * sizeof(u32))
+            {
+                flush_output(crateId);
+                prepare_output_message(crateId, bufferType);
+
+                if (!output.msg)
+                {
+                    spdlog::error("replay_loop: crateId {} - failed to allocate message",
+                        crateId);
+                    return; // XXX
+                }
+            }
+
+            nng_msg_append(output.msg.get(), reinterpret_cast<const u8 *>(it), partWords * sizeof(u32));
+        }
+    };
+
+    auto process_input_data = [&] (auto input)
+    {
+        auto nextHeader = std::begin(input);
+        auto cratePartsBegin = std::begin(input);
+        const auto end = std::end(input);
+
+        auto [crateId, partWords, bufferType] = extract_part_info(nextHeader, end);
+        // if partsWords == 0  -> no header info could be extrated
+
+        while (partWords > 0 && nextHeader + partWords <= end)
+        {
+            if (nextHeader + partWords >= end)
+            {
+                spdlog::trace("replay_loop: process input data: cannot advanced nextHeader, leaving loop");
+                break;
+            }
+
+            nextHeader += partWords;
+            auto [nextCrateId, nextPartWords, nextBufferType] = extract_part_info(nextHeader, std::end(input));
+            partWords = nextPartWords;
+
+            if (nextHeader + nextPartWords > end)
+            {
+                spdlog::trace("replay_loop: process_input_data: next frame is not fully contained in input (nextHeader={:08x}, nextPartWords={}, nextPartEnd={}, end={}",
+                    *nextHeader, nextPartWords, fmt::ptr(nextHeader + nextPartWords), fmt::ptr(end));
+                break;
+            }
+
+            if (nextCrateId == crateId)
+            {
+            }
+            else
+            {
+                auto cratePartsEnd = nextHeader;
+                auto cratePartWords = std::distance(cratePartsBegin, cratePartsEnd);
+                spdlog::trace("replay_loop: flushing to output: crateId={}, cratePartWords={}", crateId, cratePartWords);
+                append_to_output(crateId, cratePartsBegin, cratePartWords, bufferType);
+                crateId = nextCrateId;
+                bufferType = nextBufferType;
+                cratePartsBegin = cratePartsEnd;
+            }
+        }
+
+        if (nextHeader + partWords <= std::end(input))
+            nextHeader += partWords;
+        auto cratePartsEnd = nextHeader;
+        auto cratePartWords = std::distance(cratePartsBegin, cratePartsEnd);
+
+        if (cratePartWords)
+        {
+            spdlog::trace("replay_loop: process_input_data: end of input reached (partWords={}, cratePartWords={})", partWords, cratePartWords);
+            spdlog::trace("replay_loop: flushing to output: crateId={}, cratePartWords={}", crateId, cratePartWords);
+            append_to_output(crateId, cratePartsBegin, cratePartWords, bufferType);
+            cratePartsBegin = cratePartsEnd;
+        }
+
+        return cratePartsBegin;
+    };
+
+    for (auto &c: counters)
+        c.start();
+
+    while (!context.shouldQuit())
+    {
+        if (mainBuf.free() < mvlc::util::Megabytes(1) * 0.5)
+        {
+            spdlog::warn("replay_loop: mainBuf is full (used={}, capacity={}), increasing size!", mainBuf.used(), mainBuf.capacity());
+            mainBuf.ensureFreeSpace(mvlc::util::Megabytes(1) * 0.5);
+        }
+
+        size_t bytesToRead = std::min(mainBuf.free(), mvlc::util::Megabytes(1));
+        assert(bytesToRead >= mvlc::util::Megabytes(1) * 0.5);
+        size_t bytesRead = 0;
+
+        try
+        {
+            spdlog::warn("replay_loop: read from file - bytesToRead={}, mainBuf={} words", bytesToRead, mainBuf.viewU32().size());
+            //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
+            bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), bytesToRead);
+            mainBuf.use(bytesRead);
+            spdlog::info("replay_loop: read from file - mainBuf.use({}), mainBuf.used()={}", bytesRead, mainBuf.used());
+
+            #if 0
+            if (bytesRead == 0)
+            {
+                spdlog::warn("replay_loop: EOF reached");
+                break;
+            }
+            #endif
+        }
+        catch (const std::runtime_error &e)
+        {
+            spdlog::warn("replay_loop: runtime_error while reading from input file: {}, requestedBytes={}", e.what(), bytesToRead);
+            result.exception = std::current_exception();
+            break;
+        }
+        catch (...)
+        {
+            spdlog::warn("replay_loop: exception while reading from input file");
+            result.exception = std::current_exception();
+            break;
+        }
+
+        auto input = mainBuf.viewU32();
+        auto it = process_input_data(input);
+
+        if (it == std::begin(input))
+        {
+            spdlog::warn("replay_loop: no complete input part in mainBuf (size={} words)", input.size());
+        }
+        else
+        {
+            auto wordsConsumed = std::distance(std::begin(input), it);
+            auto bytesConsumed = wordsConsumed * sizeof(u32);
+            auto bytesToMove = std::distance(mainBuf.data() + bytesConsumed, mainBuf.data() + mainBuf.used());
+            spdlog::debug("replay_loop: input consumed: words={}, bytes={}, bytesToMove={}", wordsConsumed, bytesConsumed, bytesToMove);
+            assert(mainBuf.data() + bytesConsumed + bytesToMove <= mainBuf.data() + mainBuf.used());
+            if (bytesToMove)
+            {
+                std::memcpy(mainBuf.data(), mainBuf.data() + bytesConsumed, bytesToMove);
+                //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "partial data left in mainBuf");
+            }
+            mainBuf.setUsed(bytesToMove);
+        }
+
+        context.writerCounters().access().ref() = counters;
+
+        if (bytesRead == 0)
+        {
+            spdlog::warn("replay_loop: EOF reached");
+            break;
+        }
+    }
+
+    #if 0
+    if (mainBuf.used())
+    {
+        spdlog::warn("replay_loop: {} bytes remaining in main buffer, discarding", mainBuf.used());
+        //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
+    }
+    #endif
+
+    spdlog::debug("replay_loop: flushing remaining messages");
+
+    // Flush remaining messages.
+    for (size_t crateId = 0; crateId < outputs.size(); ++crateId)
+    {
+        flush_output(crateId);
+    }
+    spdlog::info("leaving replay_loop");
+
+    return result;
+}
+#endif
 
 LoopResult test_consumer_loop(TestConsumerContext &context)
 {

@@ -727,6 +727,8 @@ struct LIBMVME_EXPORT SocketWorkPerformanceCounters
 
 void LIBMVME_EXPORT log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info);
 
+struct JobRuntime;
+
 class JobContextInterface
 {
     public:
@@ -742,39 +744,10 @@ class JobContextInterface
         virtual mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> &writerCounters() = 0;
         virtual std::string name() const = 0;
         virtual void setName(const std::string &name) = 0;
+        virtual void setJobRuntime(JobRuntime &&rt) = 0;
+        virtual JobRuntime &jobRuntime() = 0;
 
         virtual job_function function() = 0;
-};
-
-class AbstractJobContext: public JobContextInterface
-{
-    public:
-        bool shouldQuit() const override { return quit_; }
-        void setQuit(bool b) override { quit_ = b; }
-
-        nng::InputReader *inputReader() override { return inputReader_; }
-        std::vector<nng::OutputWriter *> outputWriters() override { return outputWriters_; }
-        void setInputReader(nng::InputReader *reader) override { inputReader_ = reader; }
-        void addOutputWriter(nng::OutputWriter *writer) override { outputWriters_.push_back(writer); writerCounters_.access()->resize(outputWriters_.size()); }
-        mvlc::Protected<SocketWorkPerformanceCounters> &readerCounters() override { return readerCounters_; }
-        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> &writerCounters() override { return writerCounters_; }
-        std::string name() const override { return name_; }
-        void setName(const std::string &name) override { name_ = name; }
-
-        #if 0
-        AbstractJobContext() = default;
-        AbstractJobContext(AbstractJobContext &&) = default;
-        AbstractJobContext &operator=(AbstractJobContext &&) = default;
-        #endif
-
-    private:
-        std::atomic<bool> quit_ = false;
-        nng::InputReader *inputReader_ = nullptr;
-        std::vector<nng::OutputWriter *> outputWriters_;
-        mvlc::Protected<SocketWorkPerformanceCounters> readerCounters_;
-        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCounters_;
-
-        std::string name_;
 };
 
 struct JobRuntime
@@ -798,8 +771,44 @@ struct JobRuntime
     void setQuit(bool b) { context->setQuit(b); }
 };
 
+
+class AbstractJobContext: public JobContextInterface
+{
+    public:
+        bool shouldQuit() const override { return quit_; }
+        void setQuit(bool b) override { quit_ = b; }
+
+        nng::InputReader *inputReader() override { return inputReader_; }
+        std::vector<nng::OutputWriter *> outputWriters() override { return outputWriters_; }
+        void setInputReader(nng::InputReader *reader) override { inputReader_ = reader; }
+        void addOutputWriter(nng::OutputWriter *writer) override { outputWriters_.push_back(writer); writerCounters_.access()->resize(outputWriters_.size()); }
+        mvlc::Protected<SocketWorkPerformanceCounters> &readerCounters() override { return readerCounters_; }
+        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> &writerCounters() override { return writerCounters_; }
+        std::string name() const override { return name_; }
+        void setName(const std::string &name) override { name_ = name; }
+        void setJobRuntime(JobRuntime &&rt) override { jobRuntime_ = std::move(rt); }
+        JobRuntime &jobRuntime() override { return jobRuntime_; }
+
+        #if 0
+        AbstractJobContext() = default;
+        AbstractJobContext(AbstractJobContext &&) = default;
+        AbstractJobContext &operator=(AbstractJobContext &&) = default;
+        #endif
+
+    private:
+        std::atomic<bool> quit_ = false;
+        nng::InputReader *inputReader_ = nullptr;
+        std::vector<nng::OutputWriter *> outputWriters_;
+        mvlc::Protected<SocketWorkPerformanceCounters> readerCounters_;
+        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCounters_;
+
+        std::string name_;
+        JobRuntime jobRuntime_;
+};
+
 inline JobRuntime start_job(JobContextInterface &context)
 {
+    assert(!context.jobRuntime().isRunning());
     JobRuntime rt;
     context.setQuit(false);
     context.readerCounters().access()->start();
