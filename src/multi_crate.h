@@ -920,30 +920,32 @@ struct LIBMVME_EXPORT ParsedEventMessageIterator
 
 mvlc::EventContainer LIBMVME_EXPORT next_event(ParsedEventMessageIterator &iter);
 
-struct LIBMVME_EXPORT ReadoutParserContext
+struct ReadoutParserContext;
+
+LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserContext &context);
+
+struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
 {
-    std::atomic<bool> quit = false;
+    public:
+        //friend LoopResult readout_parser_loop(ReadoutParserContext &context);
 
-    // Input: MessageType::ReadoutData
-    std::unique_ptr<nng::InputReader> inputReader;
-    // Output: MessageType::ParsedEvents
-    std::unique_ptr<nng::OutputWriter> outputWriter;
+        job_function function() override
+        {
+            return [this] { return readout_parser_loop(*this); };
+        }
 
-    unsigned crateId = 0;
-    mvlc::ConnectionType inputFormat;
-
-    size_t totalReadoutEvents = 0u;
-    size_t totalSystemEvents = 0u;
-    mvlc::Protected<SocketWorkPerformanceCounters> counters;
-    nng::unique_msg outputMessage = nng::make_unique_msg();
-    u32 outputMessageNumber = 0u;
-    mvlc::readout_parser::ReadoutParserState parserState;
-    mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
-    std::chrono::steady_clock::time_point tLastFlush;
+        unsigned crateId = 0;
+        mvlc::ConnectionType inputFormat;
+        size_t totalReadoutEvents = 0u;
+        size_t totalSystemEvents = 0u;
+        nng::unique_msg outputMessage = nng::make_unique_msg();
+        u32 outputMessageNumber = 0u;
+        mvlc::readout_parser::ReadoutParserState parserState;
+        mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+        std::chrono::steady_clock::time_point tLastFlush;
 };
 
 std::unique_ptr<ReadoutParserContext> LIBMVME_EXPORT make_readout_parser_context(const mvlc::CrateConfig &crateConfig);
-LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserContext &context);
 
 struct LIBMVME_EXPORT EventBuilderContext
 {

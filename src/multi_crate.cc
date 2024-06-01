@@ -1850,8 +1850,10 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
 {
     assert(ctx.outputMessage);
 
-    if (!ctx.outputMessage || !ctx.outputWriter)
+    if (!ctx.outputMessage)
         return false;
+
+    assert(ctx.outputWriters().size() == 1);
 
     const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
@@ -1861,7 +1863,7 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
     auto msg = std::move(ctx.outputMessage);
     assert(!ctx.outputMessage);
 
-    if (int res = ctx.outputWriter->writeMessage(std::move(msg)))
+    if (int res = ctx.outputWriters()[0]->writeMessage(std::move(msg)))
     {
         // Note: if msg was not released in writeMessage() it is still alive
         // here. It will be destroyed when leaving this scope.
@@ -1874,11 +1876,12 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
     assert(!ctx.outputMessage);
 
     {
-        auto ta = ctx.counters.access();
-        ta->tSend += stopWatch.interval();
-        ta->tTotal += stopWatch.end();
-        ta->messagesSent++;
-        ta->bytesSent += msgSize;
+        auto a = ctx.writerCounters().access();
+        auto &c = a.ref()[0];
+        c.tSend += stopWatch.interval();
+        c.tTotal += stopWatch.end();
+        c.messagesSent++;
+        c.bytesSent += msgSize;
         ctx.tLastFlush = std::chrono::steady_clock::now();
     }
 
@@ -1973,13 +1976,14 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
     };
 
     context.tLastFlush = std::chrono::steady_clock::now();
-    context.counters.access()->start();
+    SocketWorkPerformanceCounters counters;
+    counters.start();
 
-    while (!context.quit)
+    while (!context.shouldQuit())
     {
         StopWatch sw;
 
-        auto [inputMsg, res] = context.inputReader->readMessage();
+        auto [inputMsg, res] = context.inputReader()->readMessage();
 
         if (res && res != NNG_ETIMEDOUT)
         {
@@ -2044,13 +2048,13 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
         auto tProcess = sw.interval();
 
         {
-            auto ta = context.counters.access();
-            ta->bytesReceived += msgLen;
-            ta->messagesReceived++;
-            ta->tReceive += tReceive;
-            ta->tProcess += tProcess;
-            ta->tTotal += sw.end();
-            ta->messagesLost = inputBuffersLost;
+            counters.bytesReceived += msgLen;
+            counters.messagesReceived++;
+            counters.tReceive += tReceive;
+            counters.tProcess += tProcess;
+            counters.tTotal += sw.end();
+            counters.messagesLost = inputBuffersLost;
+            context.writerCounters().access().ref()[0] = counters;
         }
     }
 
@@ -2059,8 +2063,8 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
 
     assert(!context.outputMessage);
 
-    log_socket_work_counters(context.counters.access().ref(),
-        fmt::format("readout_parser_loop (crateId={})", context.crateId));
+    //log_socket_work_counters(context.counters.access().ref(),
+    //    fmt::format("readout_parser_loop (crateId={})", context.crateId));
 
     {
         std::ostringstream ss;

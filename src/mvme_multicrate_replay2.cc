@@ -188,6 +188,33 @@ int main(int argc, char *argv[])
         return result;
     };
 
+    auto make_readout_parser_step = [](const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink)
+    {
+        auto tmpl = "inproc://crate{0}_stage0_step1_parsed_data";
+        auto url = fmt::format(tmpl, context->crateId);
+        auto [outputLink, res] = nng::make_pair_link(url);
+        CratePipelineStep result;
+        result.outputLink = outputLink;
+        result.nngError = res;
+        if (res)
+            return result;
+
+        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
+        reader->debugInfo = context->name();
+        context->setInputReader(reader.get());
+
+        auto writer = std::make_shared<nng::SocketOutputWriter>(outputLink.listener);
+        writer->debugInfo = context->name();
+        context->addOutputWriter(writer.get());
+
+        result.inputLink = inputLink;
+        result.outputLink = outputLink;
+        result.reader = reader;
+        result.writer = writer;
+        result.context = context;
+        return result;
+    };
+
     auto make_test_consumer_step = [] (const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink)
     {
         auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
@@ -207,12 +234,23 @@ int main(int argc, char *argv[])
 
     std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelineSteps;
 
+    // producer steps
     for (const auto &[crateId, _]: vmeConfigs)
     {
         auto step = make_replay_step(replayContext, crateId);
         cratePipelineSteps[crateId].emplace_back(step);
     }
 
+    // readout parsers
+    for (const auto &[crateId, configs]: vmeConfigs)
+    {
+        auto ctx = std::shared_ptr<ReadoutParserContext>(make_readout_parser_context(configs.crateConfig));
+        ctx->setName(fmt::format("readout_parser_crate{}", crateId));
+        auto step = make_readout_parser_step(ctx, cratePipelineSteps[crateId].back().outputLink);
+        cratePipelineSteps[crateId].emplace_back(step);
+    }
+
+    // test consumers
     for (const auto &[crateId, _]: vmeConfigs)
     {
         auto ctx = std::make_shared<TestConsumerContext>();
@@ -251,7 +289,7 @@ int main(int argc, char *argv[])
         send_shutdown_message(*writer);
     }
 
-    spdlog::info("shutdown messages sent, waiting for jobs to finish");
+    spdlog::info("shutdown messages sent from replay producer, waiting for jobs to finish");
 
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
@@ -260,6 +298,11 @@ int main(int argc, char *argv[])
             spdlog::info("waiting for job {} to finish", step.context->name());
             auto result = step.context->jobRuntime().wait();
             spdlog::info("job {} finished: {}", step.context->name(), result.toString());
+            for (auto writer: step.context->outputWriters())
+            {
+                send_shutdown_message(*writer);
+            }
+            spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
         }
     }
 
