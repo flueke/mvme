@@ -116,7 +116,7 @@ class MultiOutputWriter: public OutputWriter
                 return 0;
 
             // Write copies of msg to all writers except the last one.
-            for (size_t i=0; i<writers.size() - 1; ++i)
+            for (size_t i=0, size=writers.size(); i<size - 1; ++i)
             {
                 nng_msg *dup = nullptr;
 

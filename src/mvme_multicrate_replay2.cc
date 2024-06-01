@@ -144,17 +144,6 @@ int main(int argc, char *argv[])
     int ret = 0;
 
     using SocketLink = nng::SocketPipeline::Link;
-    using JobContextPipeline = std::vector<std::shared_ptr<JobContextInterface>>;
-
-    std::unordered_map<u8, std::vector<SocketLink>> crateSocketLinks;
-    std::unordered_map<u8, JobContextPipeline> cratePipelineContexts;;
-    std::vector<std::shared_ptr<nng::OutputWriter>> outputWriters;
-
-    auto close_links = [&crateSocketLinks] ()
-    {
-        for (auto & [crateId, links]: crateSocketLinks)
-            std::for_each(links.begin(), links.end(), nng::close_link);
-    };
 
     struct CratePipelineStep
     {
@@ -162,7 +151,7 @@ int main(int argc, char *argv[])
         SocketLink outputLink;
         int nngError = 0;
         std::shared_ptr<nng::InputReader> reader;
-        std::shared_ptr<nng::OutputWriter> writer;
+        std::shared_ptr<nng::MultiOutputWriter> writer;
         std::shared_ptr<JobContextInterface> context;
     };
 
@@ -178,12 +167,16 @@ int main(int argc, char *argv[])
         if (res)
             return result;
 
-        auto writer = std::make_shared<nng::SocketOutputWriter>(link.listener);
+        auto writer = std::make_unique<nng::SocketOutputWriter>(link.listener);
         writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
         writer->retryPredicate = [ctx=replayContext.get()] { return !ctx->shouldQuit(); };
-        replayContext->setOutputWriterForCrate(crateId, writer.get());
 
-        result.writer = writer;
+        auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
+        writerWrapper->addWriter(std::move(writer));
+
+        replayContext->setOutputWriterForCrate(crateId, writerWrapper.get());
+
+        result.writer = writerWrapper;
         result.context = replayContext;
         return result;
     };
@@ -203,14 +196,18 @@ int main(int argc, char *argv[])
         reader->debugInfo = context->name();
         context->setInputReader(reader.get());
 
-        auto writer = std::make_shared<nng::SocketOutputWriter>(outputLink.listener);
+        auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
         writer->debugInfo = context->name();
-        context->setOutputWriter(writer.get());
+
+        auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
+        writerWrapper->addWriter(std::move(writer));
+
+        context->setOutputWriter(writerWrapper.get());
 
         result.inputLink = inputLink;
         result.outputLink = outputLink;
         result.reader = reader;
-        result.writer = writer;
+        result.writer = writerWrapper;
         result.context = context;
         return result;
     };
