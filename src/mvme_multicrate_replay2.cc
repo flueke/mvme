@@ -7,6 +7,7 @@
 #include "analysis/analysis_util.h"
 #include "multi_crate.h"
 #include "multi_crate_nng.h"
+#include "multi_crate_nng_gui.h"
 #include "mvlc_daq.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_session.h"
@@ -234,7 +235,7 @@ int main(int argc, char *argv[])
     struct ReplayApp
     {
         std::shared_ptr<ReplayJobContext> replayContext;
-        std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelines;
+        std::unordered_map<u8, CratePipeline> cratePipelines;
         std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
     };
 
@@ -305,7 +306,25 @@ int main(int argc, char *argv[])
 
     //ret = app.exec();
 
-    #if 1
+    for (auto &[crateId, ctx]: analysisContexts)
+    {
+        auto asp = ctx->asp.get();
+        auto widget = new analysis::ui::AnalysisWidget(asp);
+        widget->setAttribute(Qt::WA_DeleteOnClose, true);
+        widget->setWindowTitle(fmt::format("Analysis (crate {})", ctx->crateId).c_str());
+        widget->show();
+    }
+
+    CratePipelineMonitorWidget monitorWidget;
+
+    for (auto &[crateId, steps]: cratePipelineSteps)
+    {
+        monitorWidget.addPipeline(fmt::format("crate{}", crateId), steps);
+    }
+
+    monitorWidget.resize(800, 600);
+    monitorWidget.show();
+
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
         for (auto &step: steps)
@@ -325,28 +344,6 @@ int main(int argc, char *argv[])
 
     spdlog::info("waiting for replay to finish");
 
-    while (replayContext->jobRuntime().isRunning())
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-
-    spdlog::info("replay finished, starting shutdown");
-
-    auto replayContextResult = replayContext->jobRuntime().wait();
-
-    for (auto &[crateId, steps]: cratePipelineSteps)
-    {
-        for (auto &step: steps)
-        {
-            spdlog::info("waiting for job {} to finish", step.context->name());
-            auto result = step.context->jobRuntime().wait();
-            spdlog::info("job {} finished: {}", step.context->name(), result.toString());
-            if (step.writer)
-                send_shutdown_message(*step.writer);
-            spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
-        }
-    }
-
     auto log_counters = [&]
     {
         for (const auto &[crateId, steps]: cratePipelineSteps)
@@ -361,20 +358,47 @@ int main(int argc, char *argv[])
         }
     };
 
-    for (auto &[crateId, ctx]: analysisContexts)
-    {
-        auto asp = ctx->asp.get();
-        auto widget = new analysis::ui::AnalysisWidget(asp);
-        widget->setAttribute(Qt::WA_DeleteOnClose, true);
-        widget->setWindowTitle(fmt::format("Analysis (crate {})", ctx->crateId).c_str());
-        widget->show();
-    }
-
     log_counters();
 
-    if (!analysisContexts.empty())
-        ret = app.exec();
-    #endif
+    QTimer timer;
+
+    timer.setInterval(500);
+    timer.start();
+
+    QObject::connect(&timer, &QTimer::timeout, [&]
+    {
+        if (signal_received())
+        {
+            spdlog::warn("signal received, shutting down");
+            app.quit();
+        }
+
+        if (!replayContext->jobRuntime().isRunning() && replayContext->jobRuntime().result.valid())
+        {
+            spdlog::info("replay finished, starting shutdown");
+
+            for (auto &[crateId, steps]: cratePipelineSteps)
+            {
+                for (auto &step: steps)
+                {
+                    spdlog::info("waiting for job {} to finish", step.context->name());
+                    auto result = step.context->jobRuntime().wait();
+                    spdlog::info("job {} finished: {}", step.context->name(), result.toString());
+                    step.context->readerCounters().access()->stop();
+                    step.context->writerCounters().access()->stop();
+                    if (step.writer)
+                    {
+                        send_shutdown_message(*step.writer);
+                        spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
+                    }
+                }
+            }
+
+            log_counters();
+        }
+    });
+
+    ret = app.exec();
 
     return ret;
 }

@@ -182,6 +182,7 @@ add_library(libmvme SHARED
     multi_crate_gui.cc
     multi_crate_mainwindow.cc
     multi_crate_nng.cc
+    multi_crate_nng_gui.cc
     multi_event_splitter.cc
     multiplot_widget.cc
     multiplot_widget_p.cc
