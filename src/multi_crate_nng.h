@@ -155,25 +155,53 @@ LoopResult LIBMVME_EXPORT replay_loop(ReplayJobContext &context);
 struct ReplayJobContext: public AbstractJobContext
 {
     public:
-        //friend LoopResult replay_loop(ReplayJobContext &context);
-
         mvlc::listfile::ReadHandle *lfh = nullptr;
         std::vector<nng::OutputWriter *> outputWritersByCrate;
-        mvlc::Protected<std::vector<SocketWorkPerformanceCounters>> writerCountersByCrate;
+        std::vector<std::unique_ptr<mvlc::Protected<SocketWorkPerformanceCounters>>> writerCountersByCrate;
 
         void setOutputWriterForCrate(unsigned crateId, nng::OutputWriter *writer)
         {
             if (outputWritersByCrate.size() <= crateId)
+            {
                 outputWritersByCrate.resize(crateId + 1);
+                writerCountersByCrate.resize(crateId + 1);
+            }
             outputWritersByCrate[crateId] = writer;
+            writerCountersByCrate[crateId] = std::make_unique<mvlc::Protected<SocketWorkPerformanceCounters>>();
         }
 
         job_function function() override
         {
             return [this] { return replay_loop(*this); };
         }
+};
+
+// Goal: share a ReplayContext but have this wrapper prodive access to the correct output writer counters for a specific crate
+struct CrateReplayWrapperContext: public JobContextInterface
+{
+    u8 crateId = 0;
+    std::shared_ptr<ReplayJobContext> replayContext;
+
+    bool shouldQuit() const override { return replayContext->shouldQuit(); }
+    void setQuit(bool b) override { replayContext->setQuit(b); }
+    nng::InputReader *inputReader() override { return replayContext->inputReader(); }
+    nng::OutputWriter *outputWriter() override { return replayContext->outputWritersByCrate[crateId]; }
+    void setInputReader(nng::InputReader *reader) override { replayContext->setInputReader(reader); }
+    void setOutputWriter(nng::OutputWriter *writer) override { replayContext->setOutputWriterForCrate(crateId, writer); }
+    mvlc::Protected<SocketWorkPerformanceCounters> &readerCounters() override { return replayContext->readerCounters(); }
+    mvlc::Protected<SocketWorkPerformanceCounters> &writerCounters() override { return *replayContext->writerCountersByCrate[crateId]; }
+    std::string name() const override { return name_; }
+    void setName(const std::string &name) override { name_ = name; }
+    void setJobRuntime(JobRuntime &&rt) override { replayContext->setJobRuntime(std::move(rt)); }
+    JobRuntime &jobRuntime() override { return replayContext->jobRuntime(); }
+
+    job_function function() override
+    {
+        return [this] { return replay_loop(*replayContext); };
+    }
 
     private:
+        std::string name_;
 };
 
 class TestConsumerContext;
@@ -194,14 +222,65 @@ class TestConsumerContext: public AbstractJobContext
 using SocketLink = nng::SocketPipeline::Link;
 
 #if 0
-class SocketLink
+struct OwningSocketLink
 {
     nng_socket listener = NNG_SOCKET_INITIALIZER;
     nng_socket dialer = NNG_SOCKET_INITIALIZER;
     std::string url;
 
-    bool operator==(const SocketLink &o) const;
-    bool operator!=(const SocketLink &o) const { return !(*this == o); }
+    void swap(OwningSocketLink &o)
+    {
+        std::swap(listener, o.listener);
+        std::swap(dialer, o.dialer);
+        std::swap(url, o.url);
+    }
+
+    ~OwningSocketLink()
+    {
+        if (nng_socket_id(dialer) != nng_socket_id(NNG_SOCKET_INITIALIZER))
+        {
+            spdlog::info("~OwningSocketLink(): closing link.dialer {}", url);
+            nng_close(dialer);
+            dialer = NNG_SOCKET_INITIALIZER;
+        }
+        if (nng_socket_id(listener) != nng_socket_id(NNG_SOCKET_INITIALIZER))
+        {
+            spdlog::info("~OwningSocketLink(): closing link.listener {}", url);
+            nng_close(listener);
+            listener = NNG_SOCKET_INITIALIZER;
+        }
+    }
+
+    OwningSocketLink() = default;
+    OwningSocketLink(const OwningSocketLink &) = delete;
+    OwningSocketLink &operator=(const OwningSocketLink &) = delete;
+    OwningSocketLink(OwningSocketLink &&o)
+    {
+        swap(o);
+    }
+
+    OwningSocketLink &operator=(OwningSocketLink &&o)
+    {
+        swap(o);
+        return *this;
+    }
+
+    OwningSocketLink(const SocketLink &link)
+        : listener(link.listener)
+        , dialer(link.dialer)
+        , url(link.url)
+    {
+    }
+
+    OwningSocketLink &operator=(SocketLink &link)
+    {
+        listener = link.listener;
+        dialer = link.dialer;
+        url = link.url;
+    }
+
+    bool operator==(const OwningSocketLink &o) const;
+    bool operator!=(const OwningSocketLink &o) const { return !(*this == o); }
 };
 #endif
 
@@ -213,7 +292,134 @@ struct CratePipelineStep
     std::shared_ptr<nng::InputReader> reader;
     std::shared_ptr<nng::MultiOutputWriter> writer;
     std::shared_ptr<JobContextInterface> context;
+
+    #if 0
+    // Make CratePipelineStep take ownership of the inputLink and outputLink
+    // sockets.
+
+    CratePipelineStep() = default;
+    ~CratePipelineStep()
+    {
+        if (nng_socket_id(outputLink.dialer) != nng_socket_id(NNG_SOCKET_INITIALIZER))
+        {
+            spdlog::info("~CratePipelineStep(): closing outputLink.dialer {}", outputLink.url);
+            nng_close(outputLink.dialer);
+            outputLink.dialer = NNG_SOCKET_INITIALIZER;
+        }
+        if (nng_socket_id(outputLink.listener) != nng_socket_id(NNG_SOCKET_INITIALIZER))
+        {
+            spdlog::info("~CratePipelineStep(): closing outputLink.listener {}", outputLink.url);
+            nng_close(outputLink.listener);
+            outputLink.listener = NNG_SOCKET_INITIALIZER;
+        }
+    }
+
+    void swap(CratePipelineStep &o)
+    {
+        std::swap(inputLink, o.inputLink);
+        std::swap(outputLink, o.outputLink);
+        std::swap(nngError, o.nngError);
+        std::swap(reader, o.reader);
+        std::swap(writer, o.writer);
+        std::swap(context, o.context);
+    }
+
+    CratePipelineStep(CratePipelineStep &&o)
+    {
+        swap(o);
+    }
+
+    CratePipelineStep &operator=(CratePipelineStep &&o)
+    {
+        swap(o);
+        return *this;
+    }
+
+    CratePipelineStep(const CratePipelineStep &) = delete;
+    CratePipelineStep &operator=(const CratePipelineStep &) = delete;
+    #endif
 };
+
+class JobRuntimeWatcher: public QObject
+{
+    Q_OBJECT
+    signals:
+        void finished();
+
+    public:
+        JobRuntimeWatcher(JobRuntime &rt, QObject *parent = nullptr)
+            : QObject(parent)
+            , rt_(rt)
+        {
+            connect(&timer_, &QTimer::timeout, this, &JobRuntimeWatcher::check);
+        }
+
+    public slots:
+        void start()
+        {
+            timer_.start(100);
+        }
+
+    private slots:
+        void check()
+        {
+            if (!rt_.isRunning())
+            {
+                timer_.stop();
+                emit finished();
+            }
+        }
+
+    private:
+        JobRuntime &rt_;
+        QTimer timer_;
+
+};
+
+class JobWatcher: public QObject
+{
+    Q_OBJECT
+    signals:
+        void finished();
+
+    public:
+        JobWatcher(const std::weak_ptr<JobContextInterface> &jobContext, QObject *parent = nullptr)
+            : QObject(parent)
+            , jobContext_(jobContext)
+        {
+            connect(&timer_, &QTimer::timeout, this, &JobWatcher::check);
+        }
+
+    public slots:
+        void start()
+        {
+            timer_.start(100);
+        }
+
+        void setJobContext(const std::weak_ptr<JobContextInterface> &jobContext)
+        {
+            jobContext_ = jobContext;
+        }
+
+    private slots:
+        void check()
+        {
+            if (auto ctx = jobContext_.lock())
+            {
+                if (ctx->jobRuntime().isRunning())
+                {
+                    timer_.stop();
+                    emit finished();
+                }
+            }
+        }
+
+    private:
+        std::weak_ptr<JobContextInterface> jobContext_;
+        QTimer timer_;
+
+};
+
 
 }
 

@@ -671,6 +671,15 @@ LoopResult replay_loop(ReplayJobContext &context)
         return cratePartsBegin;
     };
 
+    auto update_counters = [&]
+    {
+        for (size_t crateId=0; crateId<counters.size(); ++crateId)
+        {
+            if (auto cc = context.writerCountersByCrate[crateId].get())
+                cc->access().ref() = counters[crateId];
+        }
+    };
+
     for (auto &c: counters)
         c.start();
 
@@ -739,7 +748,7 @@ LoopResult replay_loop(ReplayJobContext &context)
             mainBuf.setUsed(bytesToMove);
         }
 
-        context.writerCountersByCrate.access().ref() = counters;
+        update_counters();
 
         if (bytesRead == 0)
         {
@@ -765,7 +774,7 @@ LoopResult replay_loop(ReplayJobContext &context)
     }
 
     // Final counters update!
-    context.writerCountersByCrate.access().ref() = counters;
+    update_counters();
 
     spdlog::info("leaving replay_loop");
 

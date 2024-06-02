@@ -163,10 +163,14 @@ int main(int argc, char *argv[])
         auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
         writerWrapper->addWriter(std::move(writer));
 
-        replayContext->setOutputWriterForCrate(crateId, writerWrapper.get());
+        // Use a wrapper context here so that we have a distinct context per crate stream.
+        auto contextWrapper = std::make_shared<CrateReplayWrapperContext>();
+        contextWrapper->crateId = crateId;
+        contextWrapper->replayContext = replayContext;
+        contextWrapper->setOutputWriter(writerWrapper.get());
 
         result.writer = writerWrapper;
-        result.context = replayContext;
+        result.context = contextWrapper;
         return result;
     };
 
@@ -227,17 +231,26 @@ int main(int argc, char *argv[])
         return result;
     };
 
+    struct ReplayApp
+    {
+        std::shared_ptr<ReplayJobContext> replayContext;
+        std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelines;
+        std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
+    };
+
     auto replayContext = std::make_shared<ReplayJobContext>();
     replayContext->setName("replay_loop");
     replayContext->lfh = listfileReadHandle;
 
     std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelineSteps;
+    std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
 
     // producer steps
     for (const auto &[crateId, _]: vmeConfigs)
     {
         auto step = make_replay_step(replayContext, crateId);
-        cratePipelineSteps[crateId].emplace_back(step);
+        step.context->setName(fmt::format("replay_loop_crate{}", crateId));
+        cratePipelineSteps[crateId].emplace_back(std::move(step));
     }
 
     // readout parsers
@@ -246,10 +259,8 @@ int main(int argc, char *argv[])
         auto ctx = std::shared_ptr<ReadoutParserContext>(make_readout_parser_context(configs.crateConfig));
         ctx->setName(fmt::format("readout_parser_crate{}", crateId));
         auto step = make_readout_parser_step(ctx, cratePipelineSteps[crateId].back().outputLink);
-        cratePipelineSteps[crateId].emplace_back(step);
+        cratePipelineSteps[crateId].emplace_back(std::move(step));
     }
-
-    std::vector<std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
 
     if (!analysisFilename.empty())
     {
@@ -266,8 +277,8 @@ int main(int argc, char *argv[])
                 ctx->isReplay = true;
                 ctx->analysis->beginRun(RunInfo{}, ctx->asp->vmeConfig_);
                 auto step = make_analysis_step(ctx, cratePipelineSteps[crateId].back().outputLink);
-                cratePipelineSteps[crateId].emplace_back(step);
-                analysisContexts.emplace_back(ctx);
+                cratePipelineSteps[crateId].emplace_back(std::move(step));
+                analysisContexts.emplace(crateId, ctx);
             }
         }
     }
@@ -279,10 +290,22 @@ int main(int argc, char *argv[])
             auto ctx = std::make_shared<TestConsumerContext>();
             ctx->setName(fmt::format("test_consumer_crate{}", crateId));
             auto step = make_test_consumer_step(ctx, cratePipelineSteps[crateId].back().outputLink);
-            cratePipelineSteps[crateId].emplace_back(step);
+            cratePipelineSteps[crateId].emplace_back(std::move(step));
         }
     }
 
+    //ReplayApp replayApp;
+    //replayApp.replayContext = replayContext;
+    //replayApp.cratePipelines = std::move(cratePipelineSteps);
+    //replayApp.analysisContexts = std::move(analysisContexts);
+
+    //ReplayAppGui replayAppGui;
+
+    //replayAppGui.setReplay(replayApp);
+
+    //ret = app.exec();
+
+    #if 1
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
         for (auto &step: steps)
@@ -292,6 +315,10 @@ int main(int argc, char *argv[])
                 auto rt = start_job(*step.context);
                 spdlog::info("started job {}", step.context->name());
                 step.context->setJobRuntime(std::move(rt));
+            }
+            else
+            {
+                spdlog::info("job {} was already running", step.context->name());
             }
         }
     }
@@ -304,6 +331,8 @@ int main(int argc, char *argv[])
     }
 
     spdlog::info("replay finished, starting shutdown");
+
+    auto replayContextResult = replayContext->jobRuntime().wait();
 
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
@@ -320,14 +349,6 @@ int main(int argc, char *argv[])
 
     auto log_counters = [&]
     {
-        for (size_t i=0; i<replayContext->outputWritersByCrate.size(); ++i)
-        {
-            if (replayContext->outputWritersByCrate[i])
-            {
-                log_socket_work_counters(replayContext->writerCountersByCrate.access().ref()[i], fmt::format("replay_output (crateId={})", i));
-            }
-        }
-
         for (const auto &[crateId, steps]: cratePipelineSteps)
         {
             for (const auto &step: steps)
@@ -340,7 +361,7 @@ int main(int argc, char *argv[])
         }
     };
 
-    for (auto &ctx: analysisContexts)
+    for (auto &[crateId, ctx]: analysisContexts)
     {
         auto asp = ctx->asp.get();
         auto widget = new analysis::ui::AnalysisWidget(asp);
@@ -353,6 +374,7 @@ int main(int argc, char *argv[])
 
     if (!analysisContexts.empty())
         ret = app.exec();
+    #endif
 
     return ret;
 }
