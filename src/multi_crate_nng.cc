@@ -192,6 +192,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
 
     spdlog::info("entering readout_parser_loop, crateId={}", crateId);
 
+    context.outputMessageNumber = 0;
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
 
@@ -255,7 +256,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
         auto tReceive = sw.interval();
 
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
-        inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;
+        inputBuffersLost += bufferLoss;
         lastInputMessageNumber = inputHeader.messageNumber;
         spdlog::debug("readout_parser_loop (crateId={}): received message {} of size {}",
             crateId, lastInputMessageNumber, msgLen);
@@ -350,7 +351,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
     set_thread_name("analysis_loop");
 
     LoopResult result;
-    // FIXME: this thing receives data from multiple event builders so a single message loss calculation is not enough.
+    // FIXME: this thing can receive data from multiple input crates, so a single loss calculation is not enough. do per crate ones!
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
     bool error = false;
@@ -419,7 +420,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
         // FIXME: loss calcs per crate
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
-        inputBuffersLost += bufferLoss >= 0 ? bufferLoss : 0u;;
+        inputBuffersLost += bufferLoss;
         lastInputMessageNumber = inputHeader.messageNumber;
 
         spdlog::debug("analysis_loop (crateId={}): received message {} of size {}", crateId, lastInputMessageNumber, msgLen);
@@ -427,7 +428,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
         if (context.asp)
         {
             auto a = context.asp->daqStats_.access();
-            a->droppedBuffers += inputBuffersLost;
+            a->droppedBuffers = inputBuffersLost;
             a->totalBuffersRead += 1;
         }
 
