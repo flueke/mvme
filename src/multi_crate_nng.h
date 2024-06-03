@@ -37,8 +37,15 @@ class JobContextInterface
         virtual void setName(const std::string &name) = 0;
         virtual void setJobRuntime(JobRuntime &&rt) = 0;
         virtual JobRuntime &jobRuntime() = 0;
+        virtual std::optional<LoopResult> lastResult() const = 0;
+        virtual void setLastResult(const LoopResult &result) = 0;
+        virtual void clearLastResult() = 0;
 
         virtual job_function function() = 0;
+        // May do additional things to restart the job, e.g. seek to the beginning of a file.
+        virtual job_function restart_function() { return {}; }
+        // May do additional things when stopping the job.
+        virtual job_function stop_function() { return {}; }
 };
 
 struct JobRuntime
@@ -78,6 +85,9 @@ class AbstractJobContext: public JobContextInterface
         void setName(const std::string &name) override { name_ = name; }
         void setJobRuntime(JobRuntime &&rt) override { jobRuntime_ = std::move(rt); }
         JobRuntime &jobRuntime() override { return jobRuntime_; }
+        std::optional<LoopResult> lastResult() const override { return lastResult_; }
+        void setLastResult(const LoopResult &result) override { lastResult_ = result; }
+        void clearLastResult() override { lastResult_.reset(); }
 
     private:
         std::atomic<bool> quit_ = false;
@@ -88,6 +98,7 @@ class AbstractJobContext: public JobContextInterface
 
         std::string name_;
         JobRuntime jobRuntime_;
+        std::optional<LoopResult> lastResult_;
 };
 
 inline JobRuntime start_job(JobContextInterface &context)
@@ -176,7 +187,8 @@ struct ReplayJobContext: public AbstractJobContext
         }
 };
 
-// Goal: share a ReplayContext but have this wrapper prodive access to the correct output writer counters for a specific crate
+// Goal: share a ReplayContext but have this wrapper provide access to the
+// correct output writer counters for a specific crate.
 struct CrateReplayWrapperContext: public JobContextInterface
 {
     u8 crateId = 0;
@@ -194,6 +206,9 @@ struct CrateReplayWrapperContext: public JobContextInterface
     void setName(const std::string &name) override { name_ = name; }
     void setJobRuntime(JobRuntime &&rt) override { replayContext->setJobRuntime(std::move(rt)); }
     JobRuntime &jobRuntime() override { return replayContext->jobRuntime(); }
+    std::optional<LoopResult> lastResult() const override { return lastResult_; }
+    void setLastResult(const LoopResult &result) override { lastResult_ = result; }
+    void clearLastResult() override { lastResult_.reset(); }
 
     job_function function() override
     {
@@ -202,6 +217,7 @@ struct CrateReplayWrapperContext: public JobContextInterface
 
     private:
         std::string name_;
+        std::optional<LoopResult> lastResult_;
 };
 
 class TestConsumerContext;
@@ -341,6 +357,10 @@ struct CratePipelineStep
 };
 
 using CratePipeline = std::vector<CratePipelineStep>;
+
+std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline);
+std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline);
+int close_pipeline(CratePipeline &pipeline);
 
 }
 

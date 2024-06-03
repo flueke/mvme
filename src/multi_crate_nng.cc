@@ -866,4 +866,71 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
     return result;
 }
 
+std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
+{
+    std::vector<LoopResult> results;
+
+    for (auto &step: pipeline)
+    {
+        LoopResult result = {};
+
+        if (step.context->jobRuntime().result.valid())
+        {
+            spdlog::info("waiting for job {} to finish", step.context->name());
+            auto result = step.context->jobRuntime().wait();
+            spdlog::info("job {} finished: {}", step.context->name(), result.toString());
+            step.context->setLastResult(result);
+        }
+
+        results.emplace_back(std::move(result));
+        step.context->readerCounters().access()->stop();
+        step.context->writerCounters().access()->stop();
+
+        if (step.writer)
+        {
+            send_shutdown_message(*step.writer);
+            spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
+        }
+    }
+
+    return results;
+}
+
+std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
+{
+    if (pipeline.empty())
+        return {};
+
+    pipeline.front().context->quit();
+    return shutdown_pipeline(pipeline);
+}
+
+int close_pipeline(CratePipeline &pipeline)
+{
+    int ret = 0;
+    for (auto &step: pipeline)
+    {
+        if (!step.inputLink.url.empty())
+        {
+            spdlog::debug("closing inputLink dialer {} (context={})", step.inputLink.url, step.context->name());
+            if (int res = nng_close(step.inputLink.dialer))
+            {
+                spdlog::warn("close inputLink.dialer {}: {}", step.inputLink.url, nng_strerror(res));
+                ret = res;
+            }
+        }
+
+        if (!step.outputLink.url.empty())
+        {
+            spdlog::debug("closing outputLink listener {} (context={})", step.outputLink.url, step.context->name());
+            if (int res = nng_close(step.outputLink.listener))
+            {
+                spdlog::warn("close outputLink.listener {}: {}", step.outputLink.url, nng_strerror(res));
+                ret = res;
+            }
+        }
+    }
+    return ret;
+}
+
 }
