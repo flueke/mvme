@@ -146,92 +146,6 @@ int main(int argc, char *argv[])
 
     fmt::print("Read {} vme configs from {}\n", vmeConfigs.size(), listfileFilename);
 
-    auto make_replay_step = [](const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId)
-    {
-
-        auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
-        auto url = fmt::format(tmpl, crateId);
-        auto [link, res] = nng::make_pair_link(url);
-        CratePipelineStep result;
-        result.outputLink = link;
-        result.nngError = res;
-        if (res)
-            return result;
-
-        auto writer = std::make_unique<nng::SocketOutputWriter>(link.listener);
-        writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
-        writer->retryPredicate = [ctx=replayContext.get()] { return !ctx->shouldQuit(); };
-
-        auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
-        writerWrapper->addWriter(std::move(writer));
-
-        // Use a wrapper context here so that we have a distinct context per crate stream.
-        auto contextWrapper = std::make_shared<CrateReplayWrapperContext>();
-        contextWrapper->crateId = crateId;
-        contextWrapper->replayContext = replayContext;
-        contextWrapper->setOutputWriter(writerWrapper.get());
-
-        result.writer = writerWrapper;
-        result.context = contextWrapper;
-        return result;
-    };
-
-    auto make_readout_parser_step = [](const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink)
-    {
-        auto tmpl = "inproc://crate{0}_stage0_step1_parsed_data";
-        auto url = fmt::format(tmpl, context->crateId);
-        auto [outputLink, res] = nng::make_pair_link(url);
-        CratePipelineStep result;
-        result.outputLink = outputLink;
-        result.nngError = res;
-        if (res)
-            return result;
-
-        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
-        reader->debugInfo = context->name();
-        context->setInputReader(reader.get());
-
-        auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
-        writer->debugInfo = context->name();
-
-        auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
-        writerWrapper->addWriter(std::move(writer));
-
-        context->setOutputWriter(writerWrapper.get());
-
-        result.inputLink = inputLink;
-        result.outputLink = outputLink;
-        result.reader = reader;
-        result.writer = writerWrapper;
-        result.context = context;
-        return result;
-    };
-
-    auto make_analysis_step = [] (const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink)
-    {
-        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
-        reader->debugInfo = context->name();
-        context->setInputReader(reader.get());
-
-        CratePipelineStep result;
-        result.inputLink = inputLink;
-        result.reader = reader;
-        result.context = context;
-        return result;
-    };
-
-    auto make_test_consumer_step = [] (const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink)
-    {
-        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
-        reader->debugInfo = context->name();
-        context->setInputReader(reader.get());
-
-        CratePipelineStep result;
-        result.inputLink = inputLink;
-        result.reader = reader;
-        result.context = context;
-        return result;
-    };
 
     struct ReplayApp
     {
@@ -250,7 +164,9 @@ int main(int argc, char *argv[])
     // producer steps
     for (const auto &[crateId, _]: vmeConfigs)
     {
-        auto step = make_replay_step(replayContext, crateId);
+        auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
+        auto url = fmt::format(tmpl, crateId);
+        auto step = make_replay_step(replayContext, crateId, url);
         step.context->setName(fmt::format("replay_loop_crate{}", crateId));
         cratePipelineSteps[crateId].emplace_back(std::move(step));
     }
@@ -260,7 +176,9 @@ int main(int argc, char *argv[])
     {
         auto ctx = std::shared_ptr<ReadoutParserContext>(make_readout_parser_context(configs.crateConfig));
         ctx->setName(fmt::format("readout_parser_crate{}", crateId));
-        auto step = make_readout_parser_step(ctx, cratePipelineSteps[crateId].back().outputLink);
+        auto tmpl = "inproc://crate{0}_stage0_step1_parsed_data";
+        auto url = fmt::format(tmpl, ctx->crateId);
+        auto step = make_readout_parser_step(ctx, cratePipelineSteps[crateId].back().outputLink, url);
         cratePipelineSteps[crateId].emplace_back(std::move(step));
     }
 

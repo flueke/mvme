@@ -116,92 +116,13 @@ int main(int argc, char *argv[])
         vmeConfigs.emplace(crateConfig.crateId, VmeConfigs{std::move(vmeConfig), std::move(crateConfig)});
     }
 
-    auto make_readout_step = [] (const std::shared_ptr<MvlcInstanceReadoutContext> &ctx)
-    {
-        auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
-        auto url = fmt::format(tmpl, ctx->crateId);
-        auto [link, res] = nng::make_pair_link(url);
-        CratePipelineStep result;
-        result.outputLink = link;
-        result.nngError = res;
-        if (res)
-            return result;
-
-        auto writer = std::make_unique<nng::SocketOutputWriter>(link.listener);
-        writer->debugInfo = fmt::format("readout_loop (crateId={})", ctx->crateId);
-        writer->retryPredicate = [ctx=ctx.get()] { return !ctx->shouldQuit(); };
-
-        auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
-        writerWrapper->addWriter(std::move(writer));
-
-        result.writer = writerWrapper;
-        result.context = ctx;
-        return result;
-    };
-
-    auto make_readout_parser_step = [](const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink)
-    {
-        auto tmpl = "inproc://crate{0}_stage0_step1_parsed_data";
-        auto url = fmt::format(tmpl, context->crateId);
-        auto [outputLink, res] = nng::make_pair_link(url);
-        CratePipelineStep result;
-        result.outputLink = outputLink;
-        result.nngError = res;
-        if (res)
-            return result;
-
-        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
-        reader->debugInfo = context->name();
-        context->setInputReader(reader.get());
-
-        auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
-        writer->debugInfo = context->name();
-
-        auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
-        writerWrapper->addWriter(std::move(writer));
-
-        context->setOutputWriter(writerWrapper.get());
-
-        result.inputLink = inputLink;
-        result.outputLink = outputLink;
-        result.reader = reader;
-        result.writer = writerWrapper;
-        result.context = context;
-        return result;
-    };
-
-    auto make_analysis_step = [] (const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink)
-    {
-        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
-        reader->debugInfo = context->name();
-        context->setInputReader(reader.get());
-
-        CratePipelineStep result;
-        result.inputLink = inputLink;
-        result.reader = reader;
-        result.context = context;
-        return result;
-    };
-
-    auto make_test_consumer_step = [] (const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink)
-    {
-        auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
-        reader->debugInfo = context->name();
-        context->setInputReader(reader.get());
-
-        CratePipelineStep result;
-        result.inputLink = inputLink;
-        result.reader = reader;
-        result.context = context;
-        return result;
-    };
-
     struct ReadoutApp
     {
         std::unordered_map<u8, VmeConfigs> vmeConfigs;
         std::unordered_map<u8, std::shared_ptr<mvme_mvlc::MVLC_VMEController>> mvlcs;
         std::unordered_map<u8, std::shared_ptr<MvlcInstanceReadoutContext>> readoutContexts;
-        std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelineSteps;
+        std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
+        std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelines;
     };
 
     ReadoutApp mesyApp;
@@ -209,18 +130,27 @@ int main(int argc, char *argv[])
 
     for (auto &[crateId, configs]: mesyApp.vmeConfigs)
     {
+        // build the mvme VMEController subclass for the mvlc. It's needed for the mvme vme init sequence.
         VMEControllerFactory factory(configs.vmeConfig->getControllerType());
         auto controller = std::unique_ptr<VMEController>(factory.makeController(configs.vmeConfig->getControllerSettings()));
-        auto mvlc = std::unique_ptr<mvme_mvlc::MVLC_VMEController>(qobject_cast<mvme_mvlc::MVLC_VMEController *>(controller.get()));
+        auto mvmeMvlc = std::unique_ptr<mvme_mvlc::MVLC_VMEController>(qobject_cast<mvme_mvlc::MVLC_VMEController *>(controller.get()));
 
-        if (!mvlc)
+        if (!mvmeMvlc)
         {
             std::cerr << fmt::format("Error creating MVLC instance crate {}\n", crateId);
             return 1;
         }
 
-        controller.release();
-        mesyApp.mvlcs.emplace(crateId, std::move(mvlc));
+        controller.release(); // ownvership went to mvmeMvlc
+
+        if (auto err = mvmeMvlc->open(); err.isError())
+        {
+            std::cerr << fmt::format("Error connecting to MVLC instance {} for crate {}: {}\n",
+                mvmeMvlc->getMVLC().connectionInfo(), crateId, err.getStdErrorCode().message());
+            return 1;
+        }
+
+        mesyApp.mvlcs.emplace(crateId, std::move(mvmeMvlc));
     }
 
     for (auto &[crateId, configs]: mesyApp.vmeConfigs)
@@ -228,20 +158,58 @@ int main(int argc, char *argv[])
         auto ctx = std::make_shared<MvlcInstanceReadoutContext>();
         ctx->crateId = crateId;
         ctx->mvlc = mesyApp.mvlcs[crateId]->getMVLC();
-        auto step = make_readout_step(ctx);
+        auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
+        auto url = fmt::format(tmpl, crateId);
+        auto step = make_readout_step(ctx, url);
         step.context->setName(fmt::format("readout_loop{}", crateId));
-        mesyApp.cratePipelineSteps[crateId].emplace_back(std::move(step));
+        mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
     }
 
-    // build pipeline for each crate:
-    //  readout -> listfile
-    //          -> parser -> analysis
+    // readout parsers
+    for (const auto &[crateId, configs]: vmeConfigs)
+    {
+        auto ctx = std::shared_ptr<ReadoutParserContext>(make_readout_parser_context(configs.crateConfig));
+        ctx->setName(fmt::format("readout_parser_crate{}", crateId));
+        auto tmpl = "inproc://crate{0}_stage0_step1_parsed_data";
+        auto url = fmt::format(tmpl, ctx->crateId);
+        auto step = make_readout_parser_step(ctx, mesyApp.cratePipelines[crateId].back().outputLink, url);
+        mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
+    }
 
-    // For each crateconfig:
-    //   create mvlc instance
-    //   initialize readout
-    //   start readout
+    if (!analysisFilename.empty())
+    {
+        // analysis consumers
+        for (const auto &[crateId, configs]: vmeConfigs)
+        {
+            auto ctx = std::shared_ptr<AnalysisProcessingContext>(make_analysis_context(analysisFilename, configs.vmeConfig.get()));
+            assert(ctx);
+            if (ctx && ctx->analysis)
+            {
+                ctx->setName(fmt::format("analysis_crate{}", crateId));
+                // TODO analysis object id handling / rewriting before beginRun()
+                ctx->crateId = configs.crateConfig.crateId;
+                ctx->isReplay = true;
+                ctx->analysis->beginRun(RunInfo{}, ctx->asp->vmeConfig_);
+                auto step = make_analysis_step(ctx, mesyApp.cratePipelines[crateId].back().outputLink);
+                mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
+                mesyApp.analysisContexts.emplace(crateId, ctx);
+            }
+        }
+    }
+    else
+    {
+        // test consumers
+        for (const auto &[crateId, _]: vmeConfigs)
+        {
+            auto ctx = std::make_shared<TestConsumerContext>();
+            ctx->setName(fmt::format("test_consumer_crate{}", crateId));
+            auto step = make_test_consumer_step(ctx, mesyApp.cratePipelines[crateId].back().outputLink);
+            mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
+        }
+    }
 
+    // TODO: init readouts
+    // TODO: start the pipelines
 
     int ret = 0;
     return ret;

@@ -271,6 +271,12 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline);
 std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline);
 int close_pipeline(CratePipeline &pipeline);
 
+CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, const std::string &url);
+CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, const std::string &url);
+CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, const std::string &url);
+CratePipelineStep make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink);
+CratePipelineStep make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink);
+
 }
 
 #endif /* DF704338_EE9D_465F_9467_11BAD11A0DDF */
