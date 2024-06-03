@@ -674,7 +674,10 @@ struct LIBMVME_EXPORT SocketWorkPerformanceCounters
 
     void start()
     {
+        tReceive = tProcess = tSend = tTotal = {};
+        messagesReceived = messagesLost = messagesSent = bytesReceived = bytesSent = 0;
         tpStart = std::chrono::steady_clock::now();
+        tpStop = {};
     }
 
     void stop()
