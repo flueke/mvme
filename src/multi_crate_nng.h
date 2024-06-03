@@ -119,21 +119,20 @@ LoopResult LIBMVME_EXPORT readout_parser_loop(ReadoutParserContext &context);
 
 struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
 {
-    public:
-        job_function function() override
-        {
-            return [this] { return readout_parser_loop(*this); };
-        }
+    job_function function() override
+    {
+        return [this] { return readout_parser_loop(*this); };
+    }
 
-        u8 crateId = 0;
-        mvlc::ConnectionType inputFormat;
-        size_t totalReadoutEvents = 0u;
-        size_t totalSystemEvents = 0u;
-        nng::unique_msg outputMessage = nng::make_unique_msg();
-        u32 outputMessageNumber = 0u;
-        mvlc::readout_parser::ReadoutParserState parserState;
-        mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
-        std::chrono::steady_clock::time_point tLastFlush;
+    u8 crateId = 0;
+    mvlc::ConnectionType inputFormat;
+    size_t totalReadoutEvents = 0u;
+    size_t totalSystemEvents = 0u;
+    nng::unique_msg outputMessage = nng::make_unique_msg();
+    u32 outputMessageNumber = 0u;
+    mvlc::readout_parser::ReadoutParserState parserState;
+    mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+    std::chrono::steady_clock::time_point tLastFlush;
 };
 
 std::unique_ptr<ReadoutParserContext> LIBMVME_EXPORT make_readout_parser_context(const mvlc::CrateConfig &crateConfig);
@@ -235,70 +234,26 @@ class TestConsumerContext: public AbstractJobContext
         }
 };
 
-using SocketLink = nng::SocketPipeline::Link;
+// Data stream readout working on a mvlc::MVLC instance. Works for both ETH and
+// USB connections.
+struct MvlcInstanceReadoutContext;
 
-#if 0
-struct OwningSocketLink
+LoopResult LIBMVME_EXPORT readout_loop(MvlcInstanceReadoutContext &context);
+
+struct LIBMVME_EXPORT MvlcInstanceReadoutContext: public AbstractJobContext
 {
-    nng_socket listener = NNG_SOCKET_INITIALIZER;
-    nng_socket dialer = NNG_SOCKET_INITIALIZER;
-    std::string url;
+    // This is put into output ReadoutDataMessageHeader messages and passed
+    // to ReadoutLoopPlugins.
+    u8 crateId = 0;
+    mvlc::MVLC mvlc;
 
-    void swap(OwningSocketLink &o)
+    job_function function() override
     {
-        std::swap(listener, o.listener);
-        std::swap(dialer, o.dialer);
-        std::swap(url, o.url);
+        return [this] { return readout_loop(*this); };
     }
-
-    ~OwningSocketLink()
-    {
-        if (nng_socket_id(dialer) != nng_socket_id(NNG_SOCKET_INITIALIZER))
-        {
-            spdlog::info("~OwningSocketLink(): closing link.dialer {}", url);
-            nng_close(dialer);
-            dialer = NNG_SOCKET_INITIALIZER;
-        }
-        if (nng_socket_id(listener) != nng_socket_id(NNG_SOCKET_INITIALIZER))
-        {
-            spdlog::info("~OwningSocketLink(): closing link.listener {}", url);
-            nng_close(listener);
-            listener = NNG_SOCKET_INITIALIZER;
-        }
-    }
-
-    OwningSocketLink() = default;
-    OwningSocketLink(const OwningSocketLink &) = delete;
-    OwningSocketLink &operator=(const OwningSocketLink &) = delete;
-    OwningSocketLink(OwningSocketLink &&o)
-    {
-        swap(o);
-    }
-
-    OwningSocketLink &operator=(OwningSocketLink &&o)
-    {
-        swap(o);
-        return *this;
-    }
-
-    OwningSocketLink(const SocketLink &link)
-        : listener(link.listener)
-        , dialer(link.dialer)
-        , url(link.url)
-    {
-    }
-
-    OwningSocketLink &operator=(SocketLink &link)
-    {
-        listener = link.listener;
-        dialer = link.dialer;
-        url = link.url;
-    }
-
-    bool operator==(const OwningSocketLink &o) const;
-    bool operator!=(const OwningSocketLink &o) const { return !(*this == o); }
 };
-#endif
+
+using SocketLink = nng::SocketPipeline::Link;
 
 struct CratePipelineStep
 {
@@ -308,52 +263,6 @@ struct CratePipelineStep
     std::shared_ptr<nng::InputReader> reader;
     std::shared_ptr<nng::MultiOutputWriter> writer;
     std::shared_ptr<JobContextInterface> context;
-
-    #if 0
-    // Make CratePipelineStep take ownership of the inputLink and outputLink
-    // sockets.
-
-    CratePipelineStep() = default;
-    ~CratePipelineStep()
-    {
-        if (nng_socket_id(outputLink.dialer) != nng_socket_id(NNG_SOCKET_INITIALIZER))
-        {
-            spdlog::info("~CratePipelineStep(): closing outputLink.dialer {}", outputLink.url);
-            nng_close(outputLink.dialer);
-            outputLink.dialer = NNG_SOCKET_INITIALIZER;
-        }
-        if (nng_socket_id(outputLink.listener) != nng_socket_id(NNG_SOCKET_INITIALIZER))
-        {
-            spdlog::info("~CratePipelineStep(): closing outputLink.listener {}", outputLink.url);
-            nng_close(outputLink.listener);
-            outputLink.listener = NNG_SOCKET_INITIALIZER;
-        }
-    }
-
-    void swap(CratePipelineStep &o)
-    {
-        std::swap(inputLink, o.inputLink);
-        std::swap(outputLink, o.outputLink);
-        std::swap(nngError, o.nngError);
-        std::swap(reader, o.reader);
-        std::swap(writer, o.writer);
-        std::swap(context, o.context);
-    }
-
-    CratePipelineStep(CratePipelineStep &&o)
-    {
-        swap(o);
-    }
-
-    CratePipelineStep &operator=(CratePipelineStep &&o)
-    {
-        swap(o);
-        return *this;
-    }
-
-    CratePipelineStep(const CratePipelineStep &) = delete;
-    CratePipelineStep &operator=(const CratePipelineStep &) = delete;
-    #endif
 };
 
 using CratePipeline = std::vector<CratePipelineStep>;

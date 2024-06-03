@@ -449,6 +449,8 @@ struct LIBMVME_EXPORT NngMsgWriteHandle: public mvlc::listfile::WriteHandle
     size_t write(const u8 *data, size_t size) override
     {
         assert(msg_);
+        if (!msg_)
+            throw std::runtime_error(fmt::format("NngMsgWriteHandle: msg is null!"));
         if (auto res = nng_msg_append(msg_, data, size))
             throw std::runtime_error(fmt::format("NngMsgWriteHandle: {}", nng_strerror(res)));
         return size;

@@ -546,6 +546,10 @@ install(TARGETS mvme_multicrate_replay RUNTIME DESTINATION bin LIBRARY DESTINATI
 add_mvme_exe(mvme_multicrate_replay2 mvme_multicrate_replay2.cc)
 install(TARGETS mvme_multicrate_replay2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
+# mvme multicrate readout2
+add_mvme_exe(mvme_multicrate_readout2 mvme_multicrate_readout2.cc)
+install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
 # automated gtests
 if(MVME_BUILD_TESTS)
 

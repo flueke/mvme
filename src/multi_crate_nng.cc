@@ -12,7 +12,7 @@ using namespace mesytec::util;
 namespace mesytec::mvme::multi_crate
 {
 
-//static constexpr std::chrono::milliseconds FlushBufferTimeout(500);
+static constexpr std::chrono::milliseconds FlushBufferTimeout(500);
 static const size_t DefaultOutputMessageReserve = mvlc::util::Megabytes(1) + sizeof(multi_crate::ReadoutDataMessageHeader);
 
 std::string LoopResult::toString() const
@@ -864,6 +864,265 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
 
     spdlog::info("leaving test_consumer_loop");
 
+    return result;
+}
+
+inline nng::unique_msg new_readout_data_message(u8 crateId, u32 messageNumber, u32 bufferType, const std::vector<u8> &data)
+{
+    multi_crate::ReadoutDataMessageHeader header{};
+    header.messageType = multi_crate::MessageType::ReadoutData;
+    header.crateId = crateId;
+    header.messageNumber = messageNumber;
+    header.bufferType = bufferType;
+
+    auto msg = nng::allocate_reserve_message(sizeof(DefaultOutputMessageReserve));
+    nng_msg_append(msg.get(), &header, sizeof(header));
+    assert(nng_msg_len(msg.get()) == sizeof(header));
+    nng_msg_append(msg.get(), data.data(), data.size());
+
+    return msg;
+}
+
+inline size_t fixup_readout_data_message(nng_msg *msg, std::vector<u8> &tmpBuf)
+{
+    auto header = *reinterpret_cast<multi_crate::ReadoutDataMessageHeader *>(nng_msg_body(msg));
+    return multi_crate::fixup_listfile_buffer_message(static_cast<mvlc::ConnectionType>(header.bufferType), msg, tmpBuf);
+}
+
+// TODO: add try/catch. At least the NngMsgWriteHandle throws
+LoopResult readout_loop(MvlcInstanceReadoutContext &context)
+{
+    set_thread_name(fmt::format("readout_loop{}", context.crateId).c_str());
+    spdlog::info(fmt::format("entering readout_loop{}", context.crateId));
+
+    LoopResult result{};
+    multi_crate::NngMsgWriteHandle lfh; // Listfile handle to pass to ReadoutLoopPlugins.
+    u32 messageNumber = 1u;
+    s32 lastPacketNumber = -1;
+    std::vector<u8> previousData;
+    u32 connectionType = static_cast<u32>(context.mvlc.connectionType());
+    eth::MVLC_ETH_Interface *mvlcEth = nullptr;
+    usb::MVLC_USB_Interface *mvlcUsb = nullptr;
+
+    auto new_output_message = [&] () -> nng::unique_msg
+    {
+        auto msg = new_readout_data_message(context.crateId, messageNumber++, connectionType, previousData);
+        previousData.clear();
+        lfh.setMessage(msg.get()); // important: set the new output message on the NngMsgWriteHandle
+        return msg;
+    };
+
+    auto flush_output_message = [&] (unique_msg &&msg)
+    {
+        // XXX: not strictly needed for ETH as packet reading is atomic
+        if (auto bytesMoved = fixup_readout_data_message(msg.get(), previousData))
+            spdlog::warn("moved {} bytes from the output message to a temporary buffer", bytesMoved);
+
+        const auto msgSize = nng_msg_len(msg.get());
+        StopWatch stopWatch;
+        context.outputWriter()->writeMessage(std::move(msg));
+        lfh.setMessage(nullptr); // important: clear the output message of the NngMsgWriteHandle
+
+        {
+            auto ta = context.writerCounters().access();
+            ta->tSend += stopWatch.interval();
+            ta->tTotal += stopWatch.end();
+            ta->messagesSent++;
+            ta->bytesSent += msgSize;
+        }
+    };
+
+    auto readout_eth = [&] (nng_msg *dest, std::error_code *ecp = nullptr) -> size_t
+    {
+        size_t totalBytesRead = 0;
+        std::error_code ec_;
+        if (!ecp)
+            ecp = &ec_;
+
+        *ecp = {};
+
+        auto tStart = std::chrono::steady_clock::now();
+        auto msgUsed = nng_msg_len(dest);
+        auto msgFree = nng::allocated_free_space(dest);
+        auto dataGuard = context.mvlc.getLocks().lockData();
+
+        while (msgFree >= eth::JumboFrameMaxSize)
+        {
+            auto readResult = mvlcEth->read_packet(
+                Pipe::Data,
+                reinterpret_cast<u8 *>(nng_msg_body(dest)) + msgUsed,
+                msgFree);
+            *ecp = readResult.ec;
+
+            if (readResult.bytesTransferred > 0)
+            {
+                nng_msg_realloc(dest, msgUsed + readResult.bytesTransferred);
+                msgUsed = nng_msg_len(dest);
+                msgFree = nng::allocated_free_space(dest);
+                totalBytesRead += readResult.bytesTransferred;
+            }
+
+            if (*ecp)
+                break;
+
+            if (auto elapsed = std::chrono::steady_clock::now() - tStart;
+                elapsed >= FlushBufferTimeout)
+                break;
+        }
+
+        return totalBytesRead;
+    };
+
+    auto readout_usb = [&] (nng_msg *dest, std::error_code *ecp = nullptr) -> size_t
+    {
+        size_t totalBytesRead = 0;
+        std::error_code ec_;
+        *ecp = {};
+
+        auto tStart = std::chrono::steady_clock::now();
+        auto msgUsed = nng_msg_len(dest);
+        auto msgFree = nng::allocated_free_space(dest);
+        auto dataGuard = context.mvlc.getLocks().lockData();
+
+        while (msgFree >= 4)
+        {
+            size_t bytesTransferred = 0u;
+
+            *ecp = mvlcUsb->read_unbuffered(
+                Pipe::Data,
+                reinterpret_cast<u8 *>(nng_msg_body(dest)) + msgUsed,
+                msgFree,
+                bytesTransferred);
+
+            if (bytesTransferred > 0)
+            {
+                nng_msg_realloc(dest, msgUsed + bytesTransferred);
+                msgUsed = nng_msg_len(dest);
+                msgFree = nng::allocated_free_space(dest);
+                totalBytesRead += bytesTransferred;
+            }
+
+            if (*ecp)
+                break;
+
+            if (auto elapsed = std::chrono::steady_clock::now() - tStart;
+                elapsed >= FlushBufferTimeout)
+                break;
+        }
+
+        return totalBytesRead;
+    };
+
+    ReadoutLoopPlugin::Arguments pluginArgs{};
+    pluginArgs.crateId = context.crateId;
+    pluginArgs.listfileHandle = &lfh;
+
+    std::vector<std::unique_ptr<ReadoutLoopPlugin>> readoutLoopPlugins;
+    readoutLoopPlugins.emplace_back(std::make_unique<TimetickPlugin>());
+
+    switch (context.mvlc.connectionType())
+    {
+        case ConnectionType::ETH:
+            mvlcEth = dynamic_cast<eth::MVLC_ETH_Interface *>(context.mvlc.getImpl());
+            mvlcEth->resetPipeAndChannelStats(); // reset packet loss counters
+            assert(mvlcEth);
+
+            // Send an initial empty frame to the UDP data pipe port so that
+            // the MVLC knows where to send the readout data.
+            if (auto ec = redirect_eth_data_stream(context.mvlc))
+            {
+                result.ec = ec;
+                return result;
+            }
+            break;
+
+        case ConnectionType::USB:
+            mvlcUsb = dynamic_cast<usb::MVLC_USB_Interface *>(context.mvlc.getImpl());
+            assert(mvlcUsb);
+            break;
+    }
+
+    assert(mvlcEth || mvlcUsb);
+
+    auto msg = nng::make_unique_msg();
+    auto tLastFlush = std::chrono::steady_clock::now();
+    context.writerCounters().access()->start();
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStart(pluginArgs);
+    context.mvlc.resetStackErrorCounters(); // Reset the MVLC-wide stack error counters
+
+    while (!context.shouldQuit())
+    {
+        if (!msg)
+        {
+            msg = new_output_message();
+            if (!msg)
+                break; // TODO: store some error indicator in result
+        }
+
+        // Run plugins for timetick generation and run duration checks.
+        bool stopReadout = false;
+        for (const auto &plugin: readoutLoopPlugins)
+        {
+            if (auto pluginResult = plugin->operator()(pluginArgs);
+                pluginResult == ReadoutLoopPlugin::Result::StopReadout)
+            {
+                stopReadout = true;
+            }
+        }
+
+        if (stopReadout)
+        {
+            spdlog::warn("crate{}: readout loop requested to stop by plugin", context.crateId);
+            break;
+        }
+
+        std::error_code ec;
+        size_t bytesTransferred = 0;
+
+        if (mvlcEth)
+        {
+            bytesTransferred = readout_eth(msg.get(), &ec);
+        }
+        else if (mvlcUsb)
+        {
+            bytesTransferred = readout_usb(msg.get(), &ec);
+        }
+
+        if (ec == ErrorType::ConnectionError)
+        {
+            spdlog::error("connection error from mvlc readout: {}", ec.message());
+            break;
+        }
+
+        // Check if either the flush timeout elapsed or there is no more space
+        // for packets in the output message.
+
+        auto msgFree = nng::allocated_free_space(msg.get());
+
+        if ((mvlcEth && msgFree < eth::JumboFrameMaxSize)
+            || mvlcUsb && msgFree < 4)
+        {
+            flush_output_message(std::move(msg));
+            tLastFlush = std::chrono::steady_clock::now();
+        }
+        else if (auto elapsed = std::chrono::steady_clock::now() - tLastFlush;
+            elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+        {
+            if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+                spdlog::trace("crate{}: flushing full output message #{}", context.crateId, messageNumber - 1);
+            else
+                spdlog::trace("crate{}: flushing output message #{} due to timeout", context.crateId, messageNumber - 1);
+
+            flush_output_message(std::move(msg));
+            tLastFlush = std::chrono::steady_clock::now();
+        }
+    }
+
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStop(pluginArgs);
+
+    spdlog::info(fmt::format("leaving readout_loop{}", context.crateId));
     return result;
 }
 
