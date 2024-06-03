@@ -1,8 +1,9 @@
 #include <argh.h>
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <QApplication>
-#include <QTimer>
+#include <QCheckBox>
 #include <QPushButton>
+#include <QTimer>
 
 #include "analysis/analysis_ui.h"
 #include "analysis/analysis_util.h"
@@ -12,6 +13,7 @@
 #include "mvlc_daq.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme_session.h"
+#include "qt_util.h"
 #include "util/qt_monospace_textedit.h"
 #include "util/signal_handling.h"
 #include "util/stopwatch.h"
@@ -314,9 +316,11 @@ int main(int argc, char *argv[])
         widget->setAttribute(Qt::WA_DeleteOnClose, true);
         widget->setWindowTitle(fmt::format("Analysis (crate {})", ctx->crateId).c_str());
         widget->show();
+        add_widget_close_action(widget);
     }
 
     CratePipelineMonitorWidget monitorWidget;
+    add_widget_close_action(&monitorWidget);
 
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
@@ -328,12 +332,21 @@ int main(int argc, char *argv[])
 
 
     QWidget controlsWidget;
+    add_widget_close_action(&controlsWidget);
     auto pbStart = new QPushButton("Start");
     auto pbStop = new QPushButton("Stop");
+    auto cbAutoRestart = new QCheckBox("Auto-restart");
+    auto cbKeepHistoContents = new QCheckBox("Keep histogram contents");
+    pbStart->setEnabled(true);
+    pbStop->setEnabled(false);
+    cbAutoRestart->setChecked(false);
+    cbKeepHistoContents->setChecked(false);
     {
         auto l = make_vbox(&controlsWidget);
         l->addWidget(pbStart);
         l->addWidget(pbStop);
+        l->addWidget(cbAutoRestart);
+        l->addWidget(cbKeepHistoContents);
     }
 
     auto start_replay = [&]
@@ -348,6 +361,15 @@ int main(int argc, char *argv[])
         {
             replayContext->lfh->seek(0);
             (void) listfile::read_magic(*replayContext->lfh);
+        }
+
+        for (auto &[crateId, ctx]: analysisContexts)
+        {
+            RunInfo runInfo{};
+            runInfo.isReplay = true;
+            runInfo.keepAnalysisState = cbKeepHistoContents->isChecked();
+            ctx->analysis->beginRun(runInfo, ctx->asp->vmeConfig_);
+
         }
 
         for (auto &[crateId, steps]: cratePipelineSteps)
@@ -369,6 +391,8 @@ int main(int argc, char *argv[])
         }
     };
 
+    bool manuallyStopped = false;
+
     auto stop_replay = [&]
     {
         for (auto &[crateId, steps]: cratePipelineSteps)
@@ -388,14 +412,10 @@ int main(int argc, char *argv[])
         }
     };
 
-    QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, start_replay);
-    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, stop_replay);
+    QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
+    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(); });
 
     controlsWidget.show();
-
-    start_replay();
-
-    spdlog::info("waiting for replay to finish");
 
     auto log_counters = [&]
     {
@@ -411,8 +431,6 @@ int main(int argc, char *argv[])
         }
     };
 
-    log_counters();
-
     QTimer timer;
 
     timer.setInterval(100);
@@ -426,6 +444,9 @@ int main(int argc, char *argv[])
             app.quit();
         }
 
+        pbStart->setEnabled(!replayContext->jobRuntime().isRunning());
+        pbStop->setEnabled(!pbStart->isEnabled());
+
         if (!replayContext->jobRuntime().isRunning() && replayContext->jobRuntime().result.valid())
         {
             spdlog::info("replay finished, starting shutdown");
@@ -436,6 +457,11 @@ int main(int argc, char *argv[])
             }
 
             log_counters();
+
+            if (!manuallyStopped && cbAutoRestart->isChecked())
+            {
+                start_replay();
+            }
         }
     });
 

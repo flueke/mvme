@@ -25,7 +25,7 @@ QList<QStandardItem *> make_row(size_t columns, int type = QStandardItem::UserTy
     QList<QStandardItem *> row;
 
     for (size_t i=0; i<columns; i++)
-        row.append(new BaseItem(type));
+        row.append(ItemBuilder(type).build());
 
     return row;
 }
