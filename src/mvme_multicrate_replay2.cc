@@ -146,8 +146,6 @@ int main(int argc, char *argv[])
 
     fmt::print("Read {} vme configs from {}\n", vmeConfigs.size(), listfileFilename);
 
-    int ret = 0;
-
     auto make_replay_step = [](const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId)
     {
 
@@ -297,17 +295,6 @@ int main(int argc, char *argv[])
             cratePipelineSteps[crateId].emplace_back(std::move(step));
         }
     }
-
-    //ReplayApp replayApp;
-    //replayApp.replayContext = replayContext;
-    //replayApp.cratePipelines = std::move(cratePipelineSteps);
-    //replayApp.analysisContexts = std::move(analysisContexts);
-
-    //ReplayAppGui replayAppGui;
-
-    //replayAppGui.setReplay(replayApp);
-
-    //ret = app.exec();
 
     for (auto &[crateId, ctx]: analysisContexts)
     {
@@ -465,7 +452,7 @@ int main(int argc, char *argv[])
         }
     });
 
-    ret = app.exec();
+    int ret = app.exec();
 
     stop_replay();
 
