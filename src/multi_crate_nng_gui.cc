@@ -18,7 +18,7 @@ enum DataRole
     PipelineName = Qt::UserRole + 1,
 };
 
-static const QStringList HeaderLabels = { "Object", "State", "Msgs", "Msg Rate", "Data", "Data Rate", "Message Loss" };
+static const QStringList HeaderLabels = { "Object", "State", "Msgs", "Msg Rate [msgs/s]", "Data [MiB]", "Data Rate [MiB/s]", "Message Loss [msgs]" };
 
 QList<QStandardItem *> make_row(size_t columns, int type = QStandardItem::UserType + 1)
 {
@@ -58,12 +58,16 @@ void update_step(std::vector<QStandardItem *> roots, const CratePipelineStep &st
 {
     assert(roots.size() == 2);
 
-    if (step.context->jobRuntime().isRunning())
-        roots[1]->setText("running");
-    else
-        roots[1]->setText("idle");
-
     const bool isRunning = step.context->jobRuntime().isRunning();
+    std::string str("idle");
+
+    if (isRunning)
+        str = "running";
+    else if (step.context->lastResult())
+        str = fmt::format("idle, result={}", step.context->lastResult()->toString());
+
+    roots[1]->setText(QString::fromStdString(str));
+
     size_t row = 0;
 
     if (step.context->inputReader())
@@ -79,9 +83,10 @@ void update_step(std::vector<QStandardItem *> roots, const CratePipelineStep &st
         size_t col = 2;
 
         if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(msgs));
-        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(msgRate));
-        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mib));
-        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mibRate));
+        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(msgRate, 'f', 2));
+        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mib, 'f', 2));
+        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mibRate, 'f', 2));
+        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(counters.messagesLost));
 
         ++row;
     }
@@ -99,9 +104,9 @@ void update_step(std::vector<QStandardItem *> roots, const CratePipelineStep &st
         size_t col = 2;
 
         if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(msgs));
-        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(msgRate));
-        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mib));
-        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mibRate));
+        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(msgRate, 'f', 2));
+        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mib, 'f', 2));
+        if (auto item = roots[0]->child(row, col++)) item->setText(QString::number(mibRate, 'f', 2));
 
         ++row;
     }
@@ -127,9 +132,10 @@ void update_pipeline(std::vector<QStandardItem *> roots, const CratePipeline &pi
 {
     assert(roots.size() == 2);
 
-    const bool allIdle = std::all_of(std::begin(pipeline), std::end(pipeline), [] (const auto &step) { return !step.context->jobRuntime().isRunning(); });;
+    //const bool allIdle = std::all_of(std::begin(pipeline), std::end(pipeline), [] (const auto &step) { return !step.context->jobRuntime().isRunning(); });
+    const bool anyRunning = std::any_of(std::begin(pipeline), std::end(pipeline), [] (const auto &step) { return step.context->jobRuntime().isRunning(); });
 
-    roots[1]->setText(allIdle ? "idle" : "running");
+    roots[1]->setText(!anyRunning ? "idle" : "running");
 
     assert(static_cast<size_t>(roots[0]->rowCount()) == pipeline.size());
 
@@ -201,7 +207,25 @@ struct CratePipelineMonitorWidget::Private
         model.setHorizontalHeaderLabels(HeaderLabels);
         auto rows = build_pipelines(pipelines_);
         for (auto row: rows)
+        {
             model.invisibleRootItem()->appendRow(row);
+            if (!rows.empty())
+            {
+                treeView->setExpanded(model.indexFromItem(row[0]), true);
+            }
+        }
+        auto headerView = treeView->header();
+        treeView->resizeColumnToContents(0);
+
+        for (int section=0; section<headerView->count(); section++)
+        {
+            if (headerView->sectionSize(section) < headerView->sectionSizeHint(section))
+                headerView->resizeSection(section, headerView->sectionSizeHint(section));
+        }
+
+        auto items = find_items(model.invisibleRootItem(), [] (QStandardItem *item) { return item->type() == ItemType::Step; });
+        for (auto item: items)
+            treeView->setExpanded(model.indexFromItem(item), true);
     }
 
     void refresh()
