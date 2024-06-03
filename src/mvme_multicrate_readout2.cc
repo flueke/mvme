@@ -210,6 +210,7 @@ int main(int argc, char *argv[])
 
     // TODO: init readouts
     // TODO: start the pipelines
+    // TODO: write a listfile
 
     int ret = 0;
     return ret;
