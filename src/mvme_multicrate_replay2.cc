@@ -2,6 +2,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <QApplication>
 #include <QTimer>
+#include <QPushButton>
 
 #include "analysis/analysis_ui.h"
 #include "analysis/analysis_util.h"
@@ -322,25 +323,77 @@ int main(int argc, char *argv[])
         monitorWidget.addPipeline(fmt::format("crate{}", crateId), steps);
     }
 
-    monitorWidget.resize(800, 600);
+    monitorWidget.resize(1000, 400);
     monitorWidget.show();
 
-    for (auto &[crateId, steps]: cratePipelineSteps)
+
+    QWidget controlsWidget;
+    auto pbStart = new QPushButton("Start");
+    auto pbStop = new QPushButton("Stop");
     {
-        for (auto &step: steps)
+        auto l = make_vbox(&controlsWidget);
+        l->addWidget(pbStart);
+        l->addWidget(pbStop);
+    }
+
+    auto start_replay = [&]
+    {
+        for (auto &[crateId, steps]: cratePipelineSteps)
         {
-            if (!step.context->jobRuntime().isRunning())
+            const bool anyRunning = std::any_of(std::begin(steps), std::end(steps), [] (const auto &step) { return step.context->jobRuntime().isRunning(); });
+            if (anyRunning) return;
+        }
+
+        if (replayContext->lfh)
+        {
+            replayContext->lfh->seek(0);
+            (void) listfile::read_magic(*replayContext->lfh);
+        }
+
+        for (auto &[crateId, steps]: cratePipelineSteps)
+        {
+            for (auto &step: steps)
             {
-                auto rt = start_job(*step.context);
-                spdlog::info("started job {}", step.context->name());
-                step.context->setJobRuntime(std::move(rt));
-            }
-            else
-            {
-                spdlog::info("job {} was already running", step.context->name());
+                if (!step.context->jobRuntime().isRunning())
+                {
+                    step.context->clearLastResult();
+                    auto rt = start_job(*step.context);
+                    spdlog::info("started job {}", step.context->name());
+                    step.context->setJobRuntime(std::move(rt));
+                }
+                else
+                {
+                    spdlog::info("job {} was already running", step.context->name());
+                }
             }
         }
-    }
+    };
+
+    auto stop_replay = [&]
+    {
+        for (auto &[crateId, steps]: cratePipelineSteps)
+        {
+            spdlog::info("terminating pipeline for crate{}", crateId);
+            for (auto &step: steps)
+            {
+                if (step.context->jobRuntime().isRunning())
+                {
+                    step.context->quit();
+                    auto result = step.context->jobRuntime().wait();
+                    step.context->setLastResult(result);
+                    step.context->readerCounters().access()->stop();
+                    step.context->writerCounters().access()->stop();
+                }
+            }
+        }
+    };
+
+    QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, start_replay);
+    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, stop_replay);
+
+    controlsWidget.show();
+
+    start_replay();
 
     spdlog::info("waiting for replay to finish");
 
@@ -362,7 +415,7 @@ int main(int argc, char *argv[])
 
     QTimer timer;
 
-    timer.setInterval(500);
+    timer.setInterval(100);
     timer.start();
 
     QObject::connect(&timer, &QTimer::timeout, [&]
@@ -379,19 +432,7 @@ int main(int argc, char *argv[])
 
             for (auto &[crateId, steps]: cratePipelineSteps)
             {
-                for (auto &step: steps)
-                {
-                    spdlog::info("waiting for job {} to finish", step.context->name());
-                    auto result = step.context->jobRuntime().wait();
-                    spdlog::info("job {} finished: {}", step.context->name(), result.toString());
-                    step.context->readerCounters().access()->stop();
-                    step.context->writerCounters().access()->stop();
-                    if (step.writer)
-                    {
-                        send_shutdown_message(*step.writer);
-                        spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
-                    }
-                }
+                shutdown_pipeline(steps);
             }
 
             log_counters();
@@ -399,6 +440,21 @@ int main(int argc, char *argv[])
     });
 
     ret = app.exec();
+
+    stop_replay();
+
+    spdlog::info("crate pipelines terminated");
+
+    for (auto &[crateId, steps]: cratePipelineSteps)
+    {
+        spdlog::info("closing pipeline for crate{}", crateId);
+        if (int res = close_pipeline(steps))
+        {
+            spdlog::warn("{}", nng_strerror(res));
+        }
+    }
+
+    spdlog::info("crate pipelines closed");
 
     return ret;
 }
