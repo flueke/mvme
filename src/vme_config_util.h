@@ -158,6 +158,8 @@ inline bool was_configobject_expanded(const QUuid &objectId)
 vme_script::SymbolTable LIBMVME_EXPORT variable_symboltable_from_module_meta(const vats::VMEModuleMeta &moduleMeta);
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
+    const QByteArray &data);
+std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
     const std::vector<u8> &data);
 }
 

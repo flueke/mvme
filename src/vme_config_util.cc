@@ -539,10 +539,8 @@ vme_script::SymbolTable variable_symboltable_from_module_meta(const vats::VMEMod
 }
 
 std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
-    const std::vector<u8> &data)
+    const QByteArray &qbytes)
 {
-    QByteArray qbytes(reinterpret_cast<const char *>(data.data()), data.size());
-
     auto doc = QJsonDocument::fromJson(qbytes);
     auto json = doc.object();
     json = json.value("VMEConfig").toObject();
@@ -554,6 +552,13 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_c
     auto vmeConfig = std::make_unique<VMEConfig>();
     auto ec = vmeConfig->read(json);
     return std::make_pair(std::move(vmeConfig), ec);
+}
+
+std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
+    const std::vector<u8> &data)
+{
+    QByteArray qbytes(reinterpret_cast<const char *>(data.data()), data.size());
+    return read_vme_config_from_data(qbytes);
 }
 
 }
