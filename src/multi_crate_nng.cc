@@ -1213,16 +1213,9 @@ int close_pipeline(CratePipeline &pipeline)
     return ret;
 }
 
-CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, const std::string &url)
+CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink)
 {
-    auto [link, res] = nng::make_pair_link(url);
-    CratePipelineStep result;
-    result.outputLink = link;
-    result.nngError = res;
-    if (res)
-        return result;
-
-    auto writer = std::make_unique<nng::SocketOutputWriter>(link.listener);
+    auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
     writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
     writer->retryPredicate = [ctx=replayContext.get()] { return !ctx->shouldQuit(); };
 
@@ -1235,20 +1228,16 @@ CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &repl
     contextWrapper->replayContext = replayContext;
     contextWrapper->setOutputWriter(writerWrapper.get());
 
+    CratePipelineStep result;
+    result.outputLink = outputLink;
     result.writer = writerWrapper;
     result.context = contextWrapper;
     return result;
 }
 
-CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, const std::string &url)
+CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, SocketLink outputLink)
 {
-    auto [link, res] = nng::make_pair_link(url);
-    CratePipelineStep result;
-    result.nngError = res;
-    if (res)
-        return result;
-
-    auto writer = std::make_unique<nng::SocketOutputWriter>(link.listener);
+    auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
     writer->debugInfo = fmt::format("readout_loop (crateId={})", ctx->crateId);
     writer->retryPredicate = [ctx=ctx.get()] { return !ctx->shouldQuit(); };
 
@@ -1257,20 +1246,15 @@ CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutCon
 
     ctx->setOutputWriter(writerWrapper.get());
 
-    result.outputLink = link;
+    CratePipelineStep result;
+    result.outputLink = outputLink;
     result.writer = writerWrapper;
     result.context = ctx;
     return result;
 }
 
-CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, const std::string &url)
+CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink)
 {
-    auto [outputLink, res] = nng::make_pair_link(url);
-    CratePipelineStep result;
-    result.nngError = res;
-    if (res)
-        return result;
-
     auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
     reader->debugInfo = context->name();
     context->setInputReader(reader.get());
@@ -1284,6 +1268,7 @@ CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserCo
 
     context->setOutputWriter(writerWrapper.get());
 
+    CratePipelineStep result;
     result.inputLink = inputLink;
     result.outputLink = outputLink;
     result.reader = reader;

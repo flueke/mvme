@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
 
         if (!logLevelName.empty())
             spdlog::set_level(spdlog::level::from_str(logLevelName));
+        else
+            spdlog::set_level(spdlog::level::info);
     }
 
     trace_log_parser_info(parser, "mvme_multicrate_replay");
@@ -166,7 +168,13 @@ int main(int argc, char *argv[])
     {
         auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
         auto url = fmt::format(tmpl, crateId);
-        auto step = make_replay_step(replayContext, crateId, url);
+        auto [outputLink, res] = nng::make_pair_link(url);
+        if (res)
+        {
+            spdlog::error("Error creating outputlink {} for {}: {}", url, replayContext->name(), nng_strerror(res));
+            return 1;
+        }
+        auto step = make_replay_step(replayContext, crateId, outputLink);
         step.context->setName(fmt::format("replay_loop_crate{}", crateId));
         cratePipelineSteps[crateId].emplace_back(std::move(step));
     }
@@ -178,7 +186,13 @@ int main(int argc, char *argv[])
         ctx->setName(fmt::format("readout_parser_crate{}", crateId));
         auto tmpl = "inproc://crate{0}_stage0_step1_parsed_data";
         auto url = fmt::format(tmpl, ctx->crateId);
-        auto step = make_readout_parser_step(ctx, cratePipelineSteps[crateId].back().outputLink, url);
+        auto [outputLink, res] = nng::make_pair_link(url);
+        if (res)
+        {
+            spdlog::error("Error creating outputlink {} for {}: {}", url, ctx->name(), nng_strerror(res));
+            return 1;
+        }
+        auto step = make_readout_parser_step(ctx, cratePipelineSteps[crateId].back().outputLink, outputLink);
         cratePipelineSteps[crateId].emplace_back(std::move(step));
     }
 

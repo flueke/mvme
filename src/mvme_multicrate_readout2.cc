@@ -67,6 +67,8 @@ int main(int argc, char *argv[])
 
         if (!logLevelName.empty())
             spdlog::set_level(spdlog::level::from_str(logLevelName));
+        else
+            spdlog::set_level(spdlog::level::info);
     }
 
     trace_log_parser_info(parser, "mvme_multicrate_reaodut2");
@@ -163,7 +165,13 @@ int main(int argc, char *argv[])
         ctx->mvlc = mesyApp.mvlcs[crateId]->getMVLC();
         auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
         auto url = fmt::format(tmpl, crateId);
-        auto step = make_readout_step(ctx, url);
+        auto [outputLink, res] = nng::make_pair_link(url);
+        if (res)
+        {
+            spdlog::error("Error creating outputlink {} for {}: {}", url, ctx->name(), nng_strerror(res));
+            return 1;
+        }
+        auto step = make_readout_step(ctx, outputLink);
         step.context->setName(fmt::format("readout_loop{}", crateId));
         mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
         mesyApp.readoutContexts[crateId] = ctx;
@@ -176,7 +184,13 @@ int main(int argc, char *argv[])
         ctx->setName(fmt::format("readout_parser_crate{}", crateId));
         auto tmpl = "inproc://crate{0}_stage0_step1_parsed_data";
         auto url = fmt::format(tmpl, ctx->crateId);
-        auto step = make_readout_parser_step(ctx, mesyApp.cratePipelines[crateId].back().outputLink, url);
+        auto [outputLink, res] = nng::make_pair_link(url);
+        if (res)
+        {
+            spdlog::error("Error creating outputlink {} for {}: {}", url, ctx->name(), nng_strerror(res));
+            return 1;
+        }
+        auto step = make_readout_parser_step(ctx, mesyApp.cratePipelines[crateId].back().outputLink, outputLink);
         mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
     }
 
@@ -192,7 +206,7 @@ int main(int argc, char *argv[])
                 ctx->setName(fmt::format("analysis_crate{}", crateId));
                 // TODO analysis object id handling / rewriting before beginRun()
                 ctx->crateId = configs.crateConfig.crateId;
-                ctx->isReplay = true;
+                ctx->isReplay = false;
                 ctx->analysis->beginRun(RunInfo{}, ctx->asp->vmeConfig_);
                 auto step = make_analysis_step(ctx, mesyApp.cratePipelines[crateId].back().outputLink);
                 mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
@@ -336,25 +350,6 @@ int main(int argc, char *argv[])
 
         //pbStart->setEnabled(!replayContext->jobRuntime().isRunning());
         //pbStop->setEnabled(!pbStart->isEnabled());
-
-        #if 0
-        if (!readoutContext->jobRuntime().isRunning() && replayContext->jobRuntime().result.valid())
-        {
-            spdlog::info("replay finished, starting shutdown");
-
-            for (auto &[crateId, steps]: mesyApp.cratePipelines)
-            {
-                shutdown_pipeline(steps);
-            }
-
-            log_counters();
-
-            //if (!manuallyStopped && cbAutoRestart->isChecked())
-            //{
-            //    start_replay();
-            //}
-        }
-        #endif
     });
 
     int ret = app.exec();
