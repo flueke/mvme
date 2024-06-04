@@ -363,19 +363,12 @@ int main(int argc, char *argv[])
     {
         for (auto &[crateId, steps]: mesyApp.cratePipelines)
         {
-            spdlog::info("terminating pipeline for crate{}", crateId);
-            for (auto &step: steps)
-            {
-                if (step.context->jobRuntime().isRunning())
-                {
-                    step.context->quit();
-                    auto result = step.context->jobRuntime().wait();
-                    step.context->setLastResult(result);
-                    step.context->readerCounters().access()->stop();
-                    step.context->writerCounters().access()->stop();
-                }
-            }
+            if (!steps.empty())
+                steps[0].context->quit(); // quit the readout_loop
+            shutdown_pipeline(steps);
         }
+
+        log_counters();
     };
 
     stop_readout();
