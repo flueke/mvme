@@ -2,6 +2,7 @@
 #define DF704338_EE9D_465F_9467_11BAD11A0DDF
 
 #include "multi_crate.h"
+#include "util/stopwatch.h"
 
 namespace mesytec::mvme::multi_crate
 {
@@ -132,7 +133,7 @@ struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
     u32 outputMessageNumber = 0u;
     mvlc::readout_parser::ReadoutParserState parserState;
     mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
-    std::chrono::steady_clock::time_point tLastFlush;
+    StopWatch flushTimer;
 };
 
 std::unique_ptr<ReadoutParserContext> LIBMVME_EXPORT make_readout_parser_context(const mvlc::CrateConfig &crateConfig);

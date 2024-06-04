@@ -112,7 +112,7 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
         c.tTotal += stopWatch.end();
         c.messagesSent++;
         c.bytesSent += msgSize;
-        ctx.tLastFlush = std::chrono::steady_clock::now();
+        ctx.flushTimer.interval();
     }
 
     spdlog::debug("readout_parser (crate{}): sent message {} of size {}",
@@ -136,6 +136,8 @@ struct ReadoutParserNngMessageWriter: public ParsedEventsMessageWriter
 
     bool flushOutputMessage() override
     {
+        spdlog::debug("readout_parser_loop (crateId={}): flushing full output message #{}",
+            ctx.crateId, ctx.outputMessageNumber-1);
         return flush_output_message(ctx);
     }
 
@@ -206,7 +208,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
         readout_parser_systemevent_callback,
     };
 
-    context.tLastFlush = std::chrono::steady_clock::now();
+    context.flushTimer.start();
     SocketWorkPerformanceCounters counters;
     counters.start();
 
@@ -286,6 +288,12 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
             counters.tTotal += sw.end();
             counters.messagesLost = inputBuffersLost;
             context.readerCounters().access().ref() = counters;
+        }
+
+        if (context.flushTimer.get_interval() >= FlushBufferTimeout)
+        {
+            spdlog::debug("readout_parser_loop (crateId={}): flushing output message #{} due to timeout", context.crateId, context.outputMessageNumber-1);
+            flush_output_message(context);
         }
     }
 
@@ -387,7 +395,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
         }
         else if (res)
         {
-            spdlog::debug("analysis_loop (crateId={}) - receive_message: timeout", crateId);
+            spdlog::trace("analysis_loop (crateId={}) - receive_message: timeout", crateId);
             continue;
         }
 
@@ -805,7 +813,7 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
         }
         else if (res)
         {
-            spdlog::debug("test_consumer_loop ({}) - receive_message: timeout", context.name());
+            spdlog::trace("test_consumer_loop ({}) - receive_message: timeout", context.name());
             continue;
         }
 
@@ -876,8 +884,6 @@ inline nng::unique_msg new_readout_data_message(u8 crateId, u32 messageNumber, u
     header.bufferType = bufferType;
 
     auto msg = nng::allocate_reserve_message(DefaultOutputMessageReserve);
-    auto used = nng_msg_len(msg.get());
-    auto free = nng::allocated_free_space(msg.get());
     assert(nng::allocated_free_space(msg.get()) == DefaultOutputMessageReserve);
 
     nng_msg_append(msg.get(), &header, sizeof(header));
@@ -885,7 +891,6 @@ inline nng::unique_msg new_readout_data_message(u8 crateId, u32 messageNumber, u
     assert(nng::allocated_free_space(msg.get()) == DefaultOutputMessageReserve - sizeof(header));
 
     nng_msg_append(msg.get(), data.data(), data.size());
-
     assert(nng::allocated_free_space(msg.get()) >= eth::JumboFrameMaxSize);
 
     return msg;
@@ -1103,6 +1108,8 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
             spdlog::error("connection error from mvlc readout: {}", ec.message());
             break;
         }
+
+        spdlog::trace("readout_loop (crate{}): read {} bytes from MVLC", context.crateId, bytesTransferred);
 
         // Check if either the flush timeout elapsed or there is no more space
         // for packets in the output message.
