@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     }
 
     argh::parser parser({"-h", "--help", "--log-level"});
-    parser.add_params({"--analysis"});
+    parser.add_params({"--analysis", "--listfile"});
     parser.parse(argv);
 
     {
@@ -81,6 +81,8 @@ int main(int argc, char *argv[])
 
     std::string analysisFilename;
     parser("--analysis") >> analysisFilename;
+    std::string outputListfilename;
+    parser("--listfile") >> outputListfilename;
 
     struct VmeConfigs
     {
@@ -105,6 +107,7 @@ int main(int argc, char *argv[])
     //   convert to crateconfig
     //   add both to VmeConfigs
 
+    // Read vme configs
     for (auto it = std::begin(parser.pos_args()) + 1; it<std::end(parser.pos_args()); ++it)
     {
         auto filename = *it;
@@ -128,6 +131,7 @@ int main(int argc, char *argv[])
         mesyApp.vmeConfigs.emplace(crateConfig.crateId, VmeConfigs{std::move(vmeConfig), std::move(crateConfig)});
     }
 
+    // Create MVLC instances
     for (auto &[crateId, configs]: mesyApp.vmeConfigs)
     {
         // build the mvme VMEController subclass for the mvlc. It's needed for the mvme vme init sequence.
@@ -158,6 +162,10 @@ int main(int argc, char *argv[])
         mesyApp.mvlcs.emplace(crateId, std::move(mvmeMvlc));
     }
 
+    // Create the processing pipelines
+
+
+    // readout -> pubsub -> parser
     for (auto &[crateId, configs]: mesyApp.vmeConfigs)
     {
         auto ctx = std::make_shared<MvlcInstanceReadoutContext>();
@@ -165,7 +173,7 @@ int main(int argc, char *argv[])
         ctx->mvlc = mesyApp.mvlcs[crateId]->getMVLC();
         auto tmpl = "inproc://crate{0}_stage0_step0_raw_data";
         auto url = fmt::format(tmpl, crateId);
-        auto [outputLink, res] = nng::make_pair_link(url);
+        auto [outputLink, res] = nng::make_pubsub_link(url);
         if (res)
         {
             spdlog::error("Error creating outputlink {} for {}: {}", url, ctx->name(), nng_strerror(res));
@@ -226,7 +234,27 @@ int main(int argc, char *argv[])
         }
     }
 
-    // TODO: init readouts
+    if (!outputListfilename.empty())
+    {
+        // Want to write an output listfile. Create a new lossless link between
+        // readouts and listfile writer.
+        auto url = "inproc://listfile_writer";
+        auto [link, res] = nng::make_pair_link(url);
+        if (res)
+        {
+            spdlog::error("Error creating link for listfile writer (url={}): {}", url, nng_strerror(res));
+            return 1;
+        }
+
+        // add the link as an output to each readout instance
+        for (auto &[crateId, pipeline]: mesyApp.cratePipelines)
+        {
+            // XXX: leftoff here
+            //pipeline[0].writer->addWriter(
+        }
+    }
+
+    // init readouts
     for (auto &[crateId, configs]: mesyApp.vmeConfigs)
     {
         auto &mvlc = mesyApp.mvlcs[crateId];
@@ -245,7 +273,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // TODO: start the processing pipelines
+    // start the processing pipelines
     for (auto &[crateId, steps]: mesyApp.cratePipelines)
     {
         for (auto &step: steps)
@@ -264,7 +292,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // TODO: start the daq
+    // start the daq
     for (auto &[crateId, configs]: mesyApp.vmeConfigs)
     {
         auto mvlc = mesyApp.mvlcs[crateId]->getMVLC();
@@ -297,8 +325,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // TODO: write a listfile
-    // TODO: add flush timeout to readout_parser_loop
+    // widgets
 
     for (auto &[crateId, ctx]: mesyApp.analysisContexts)
     {
