@@ -543,7 +543,11 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_c
 {
     auto doc = QJsonDocument::fromJson(qbytes);
     auto json = doc.object();
-    json = json.value("VMEConfig").toObject();
+
+    if (json.contains("DAQConfig"))
+        json = json["DAQConfig"].toObject();
+    else if (json.contains("VMEConfig"))
+        json = json["VMEConfig"].toObject();
 
     mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
     updateOptions.skip_v4_VMEScriptVariableUpdate = true;
