@@ -251,7 +251,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
         if (inputHeader.messageType != multi_crate::MessageType::ReadoutData)
         {
             spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
-                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ReadoutData));
             continue;
         }
 
@@ -1143,6 +1143,113 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
     flush_output_message(std::move(msg));
 
     spdlog::info(fmt::format("leaving readout_loop{}", context.crateId));
+    return result;
+}
+
+LoopResult listfile_writer_loop(ListfileWriterContext &context)
+{
+    set_thread_name("listfile_writer_loop");
+
+    spdlog::info("entering listfile_writer_loop");
+
+    LoopResult result;
+    // Last received message number per crate.
+    std::unordered_map<u8, u32> lastMessageNumbers;
+
+    {
+        auto ca = context.dataInputCounters.access();
+        for (auto &counters: ca.ref())
+            counters.start();
+    }
+
+    while (!context.shouldQuit())
+    {
+        StopWatch sw;
+
+        auto [inputMsg, res] = context.inputReader()->readMessage();
+
+        if (res && res != NNG_ETIMEDOUT)
+        {
+            spdlog::error("listfile_writer_loop - receive_message: {}", nng_strerror(res));
+            result.nngError = res;
+            break;
+        }
+        else if (res)
+        {
+            spdlog::trace("listfile_writer_loop - receive_message: timeout");
+            continue;
+        }
+
+        assert(inputMsg);
+
+        if (is_shutdown_message(inputMsg.get()))
+        {
+            spdlog::warn("listfile_writer_loop: Received shutdown message, leaving loop");
+            break;
+        }
+
+        const auto msgLen = nng_msg_len(inputMsg.get());
+
+        if (msgLen < sizeof(multi_crate::ReadoutDataMessageHeader))
+        {
+            spdlog::warn("listfile_writer_loop: Incoming message too short (len={})", msgLen);
+            continue;
+        }
+
+        auto inputHeader = nng::msg_trim_read<multi_crate::ReadoutDataMessageHeader>(inputMsg.get()).value();
+
+        if (inputHeader.messageType != multi_crate::MessageType::ReadoutData)
+        {
+            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ReadoutData));
+            continue;
+        }
+
+        auto tReceive = sw.interval();
+
+        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastMessageNumbers[inputHeader.crateId]);
+
+        if (bufferLoss > 0)
+        {
+            spdlog::warn("listfile_writer_loop: Lost {} messages from crate{}! (header.messageNumber={}, lastMessageNumber={}",
+                bufferLoss, inputHeader.crateId, (u32)inputHeader.messageNumber, lastMessageNumbers[inputHeader.crateId]);
+        }
+
+        lastMessageNumbers[inputHeader.crateId] = inputHeader.messageNumber;
+
+        //auto dataPtr = reinterpret_cast<const u32 *>(nng_msg_body(inputMsg.get()));
+        //size_t dataSize = nng_msg_len(inputMsg.get()) / sizeof(u32);
+        //std::basic_string_view<u32> dataView(dataPtr, dataSize);
+
+        if (context.lfh)
+        {
+            try
+            {
+                context.lfh->write(reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())), nng_msg_len(inputMsg.get()));
+            }
+            catch(const std::exception& e)
+            {
+                spdlog::warn("listfile_writer_loop: Error writing to output listfile: {}", e.what());
+            }
+        }
+
+        auto tProcess = sw.interval();
+        auto tTotal = sw.end();
+
+        {
+            auto ca = context.dataInputCounters.access();
+            auto &counters = ca.ref()[inputHeader.crateId];
+            counters.bytesReceived += msgLen;
+            counters.messagesLost += bufferLoss;
+            counters.messagesReceived++;
+            counters.tReceive += tReceive;
+            counters.tProcess += tProcess;
+            counters.tTotal += tTotal;
+        }
+    }
+
+    spdlog::info("leaving listfile_writer_loop");
+
     return result;
 }
 

@@ -254,6 +254,25 @@ struct LIBMVME_EXPORT MvlcInstanceReadoutContext: public AbstractJobContext
     }
 };
 
+struct ListfileWriterContext;
+
+LoopResult LIBMVME_EXPORT listfile_writer_loop(ListfileWriterContext &context);
+
+struct LIBMVME_EXPORT ListfileWriterContext: public AbstractJobContext
+{
+    // This is where readout data is written to if non-null. If the handle is
+    // null readout data is read from the input socket and discarded.
+    std::unique_ptr<mvlc::listfile::WriteHandle> lfh;
+
+    // Per crate data input counters.
+    mvlc::Protected<std::array<SocketWorkPerformanceCounters, mvlc::MaxVMECrates>> dataInputCounters;
+
+    job_function function() override
+    {
+        return [this] { return listfile_writer_loop(*this); };
+    }
+};
+
 using SocketLink = nng::SocketPipeline::Link;
 
 struct CratePipelineStep

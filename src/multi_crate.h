@@ -732,25 +732,6 @@ struct LIBMVME_EXPORT MvlcInstanceReadoutLoopContext
 // TODO: implement this (similar to ReadoutWorker::Private::readout())
 void LIBMVME_EXPORT mvlc_instance_readout_loop(MvlcInstanceReadoutLoopContext &context);
 
-struct LIBMVME_EXPORT ListfileWriterContext
-{
-    std::atomic<bool> quit;
-
-    // Input: MessageType::ReadoutData
-    std::unique_ptr<nng::InputReader> inputReader;
-
-    // This is where readout data is written to if non-null. If the handle is
-    // null readout data is read from the input socket and discarded.
-    std::unique_ptr<mvlc::listfile::WriteHandle> lfh;
-
-    // Per crate data input counters.
-    mvlc::Protected<std::array<SocketWorkPerformanceCounters, mvlc::MaxVMECrates>> dataInputCounters;
-
-    ListfileWriterContext() {}
-};
-
-void LIBMVME_EXPORT listfile_writer_loop(ListfileWriterContext &context);
-
 // Helper class for filling out ParsedEventsMessages.
 struct LIBMVME_EXPORT ParsedEventsMessageWriter
 {
