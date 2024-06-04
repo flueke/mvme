@@ -875,10 +875,18 @@ inline nng::unique_msg new_readout_data_message(u8 crateId, u32 messageNumber, u
     header.messageNumber = messageNumber;
     header.bufferType = bufferType;
 
-    auto msg = nng::allocate_reserve_message(sizeof(DefaultOutputMessageReserve));
+    auto msg = nng::allocate_reserve_message(DefaultOutputMessageReserve);
+    auto used = nng_msg_len(msg.get());
+    auto free = nng::allocated_free_space(msg.get());
+    assert(nng::allocated_free_space(msg.get()) == DefaultOutputMessageReserve);
+
     nng_msg_append(msg.get(), &header, sizeof(header));
     assert(nng_msg_len(msg.get()) == sizeof(header));
+    assert(nng::allocated_free_space(msg.get()) == DefaultOutputMessageReserve - sizeof(header));
+
     nng_msg_append(msg.get(), data.data(), data.size());
+
+    assert(nng::allocated_free_space(msg.get()) >= eth::JumboFrameMaxSize);
 
     return msg;
 }
@@ -1044,12 +1052,13 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
 
     assert(mvlcEth || mvlcUsb);
 
-    auto msg = nng::make_unique_msg();
+    auto msg = new_output_message();
     auto tLastFlush = std::chrono::steady_clock::now();
     context.writerCounters().access()->start();
+    context.mvlc.resetStackErrorCounters(); // Reset the MVLC-wide stack error counters
+
     for (auto &plugin: readoutLoopPlugins)
         plugin->readoutStart(pluginArgs);
-    context.mvlc.resetStackErrorCounters(); // Reset the MVLC-wide stack error counters
 
     while (!context.shouldQuit())
     {
@@ -1101,26 +1110,30 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
         auto msgFree = nng::allocated_free_space(msg.get());
 
         if ((mvlcEth && msgFree < eth::JumboFrameMaxSize)
-            || mvlcUsb && msgFree < 4)
+            || (mvlcUsb && msgFree < 4))
         {
             flush_output_message(std::move(msg));
             tLastFlush = std::chrono::steady_clock::now();
+            msg = new_output_message();
         }
         else if (auto elapsed = std::chrono::steady_clock::now() - tLastFlush;
             elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
         {
             if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
-                spdlog::trace("crate{}: flushing full output message #{}", context.crateId, messageNumber - 1);
+                spdlog::debug("crate{}: flushing full output message #{}", context.crateId, messageNumber - 1);
             else
-                spdlog::trace("crate{}: flushing output message #{} due to timeout", context.crateId, messageNumber - 1);
+                spdlog::debug("crate{}: flushing output message #{} due to timeout", context.crateId, messageNumber - 1);
 
             flush_output_message(std::move(msg));
             tLastFlush = std::chrono::steady_clock::now();
+            msg = new_output_message();
         }
     }
 
     for (auto &plugin: readoutLoopPlugins)
         plugin->readoutStop(pluginArgs);
+
+    flush_output_message(std::move(msg));
 
     spdlog::info(fmt::format("leaving readout_loop{}", context.crateId));
     return result;
@@ -1224,7 +1237,6 @@ CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutCon
 {
     auto [link, res] = nng::make_pair_link(url);
     CratePipelineStep result;
-    result.outputLink = link;
     result.nngError = res;
     if (res)
         return result;
@@ -1236,6 +1248,9 @@ CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutCon
     auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
     writerWrapper->addWriter(std::move(writer));
 
+    ctx->setOutputWriter(writerWrapper.get());
+
+    result.outputLink = link;
     result.writer = writerWrapper;
     result.context = ctx;
     return result;
@@ -1245,7 +1260,6 @@ CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserCo
 {
     auto [outputLink, res] = nng::make_pair_link(url);
     CratePipelineStep result;
-    result.outputLink = outputLink;
     result.nngError = res;
     if (res)
         return result;
@@ -1256,6 +1270,7 @@ CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserCo
 
     auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
     writer->debugInfo = context->name();
+    writer->retryPredicate = [ctx=context.get()] { return !ctx->shouldQuit(); };
 
     auto writerWrapper = std::make_shared<nng::MultiOutputWriter>();
     writerWrapper->addWriter(std::move(writer));
