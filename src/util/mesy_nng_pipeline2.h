@@ -315,9 +315,19 @@ inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &ur
     return make_link(url, [] { return make_pair_socket(); }, [] { return make_pair_socket(); });
 }
 
+// Note: sub subscribes to all incoming messages, even empty ones.
 inline std::pair<SocketPipeline::Link, int> make_pubsub_link(const std::string &url)
 {
-    return make_link(url, [] { return make_pub_socket(); }, [] { return make_sub_socket(); });
+    auto listenerFactory = [] { return make_pub_socket(); };
+    auto dialerFactory = []
+    {
+        auto s = make_sub_socket();
+        // This subscription does receive empty messages.
+        nng_socket_set(s, NNG_OPT_SUB_SUBSCRIBE, nullptr, 0);
+        return s;
+    };
+
+    return make_link(url, listenerFactory, dialerFactory);
 }
 
 #if 0
