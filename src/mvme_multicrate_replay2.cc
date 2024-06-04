@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QTimer>
+#include <QMainWindow>
 
 #include "analysis/analysis_ui.h"
 #include "analysis/analysis_util.h"
@@ -148,6 +149,34 @@ int main(int argc, char *argv[])
 
     fmt::print("Read {} vme configs from {}\n", vmeConfigs.size(), listfileFilename);
 
+#if 0
+    struct MultiCrateProcessing
+    {
+        // TODO: add splitters and event builders
+        std::unordered_map<u8, std::shared_ptr<ReadoutParserContext>> parserContexts;
+        std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
+        std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelines;
+    };
+
+
+    // Replay crate streams from a single listfile.
+    struct ReplayApp
+    {
+        // TODO: ZipReader, filename
+        std::shared_ptr<ReplayJobContext> replayContext;
+        MultiCrateProcessing proc;
+    };
+
+    // Replay crate streams from multiple listfiles. Will likely need crateId mapping.
+    struct ReplayAppMultifile
+    {
+        // TODO: ZipReaders, filenames
+        std::vector<std::shared_ptr<ReplayJobContext>> replayContexts;
+        MultiCrateProcessing proc;
+        // TODO: or std::vector<MultiCrateProcessing> procs;
+    };
+#endif
+
 
     struct ReplayApp
     {
@@ -291,11 +320,23 @@ int main(int argc, char *argv[])
 
         }
 
+        #if 0
         for (auto &[crateId, steps]: cratePipelineSteps)
         {
             for (auto &step: steps)
             {
-                if (!step.context->jobRuntime().isRunning())
+                assert(!step.context->jobRuntime().isRunning());
+                step.context->clearLastResult();
+            }
+        }
+        #endif
+
+        // start pipelines
+        for (auto &[crateId, steps]: cratePipelineSteps)
+        {
+            for (auto &step: steps)
+            {
+                if (!step.context->jobRuntime().isRunning() && step.context->jobRuntime().result.valid())
                 {
                     step.context->clearLastResult();
                     auto rt = start_job(*step.context);
@@ -366,7 +407,7 @@ int main(int argc, char *argv[])
         pbStart->setEnabled(!replayContext->jobRuntime().isRunning());
         pbStop->setEnabled(!pbStart->isEnabled());
 
-        if (!replayContext->jobRuntime().isRunning() && replayContext->jobRuntime().result.valid())
+        if (!replayContext->jobRuntime().isRunning() /* && replayContext->jobRuntime().result.valid() */)
         {
             spdlog::info("replay finished, starting shutdown");
 
@@ -383,6 +424,15 @@ int main(int argc, char *argv[])
             }
         }
     });
+
+    for (int i=0; i<3; ++i)
+    {
+        auto w = new QMainWindow;
+        w->setAttribute(Qt::WA_DeleteOnClose, true);
+        w->setWindowTitle(QString("mainwindow %1").arg(i));
+        w->show();
+        w->addToolBar("toolbar");
+    }
 
     int ret = app.exec();
 

@@ -95,12 +95,16 @@ int main(int argc, char *argv[])
         // VMEConfig and CrateConfig by crateId
         std::unordered_map<u8, VmeConfigs> vmeConfigs;
         std::unordered_map<u8, std::shared_ptr<mvme_mvlc::MVLC_VMEController>> mvlcs;
+
         std::unordered_map<u8, std::shared_ptr<MvlcInstanceReadoutContext>> readoutContexts;
         std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
         std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelines;
+        // TODO: listfile writer
+        //MultiCrateProcessing proc;
     };
 
     ReadoutApp mesyApp;
+
 
     // For each pos arg:
     //   read vme config from arg
@@ -261,8 +265,8 @@ int main(int argc, char *argv[])
 
         bool ignoreStartupErrors = false;
         // TODO: redirect logs to somewhere. Make available from the GUI.
-        auto logger = [&] (const QString &msg) { spdlog::info("crate {}: {}", crateId, msg.toStdString()); };
-        auto errorLogger = [&] (const QString &msg) { spdlog::error("crate {}: {}", crateId, msg.toStdString()); };
+        auto logger = [crateId=crateId] (const QString &msg) { spdlog::info("crate {}: {}", crateId, msg.toStdString()); };
+        auto errorLogger = [crateId=crateId] (const QString &msg) { spdlog::error("crate {}: {}", crateId, msg.toStdString()); };
 
         auto b = mvme_mvlc::run_daq_start_sequence(mvlc.get(), *configs.vmeConfig, ignoreStartupErrors, logger, errorLogger);
 
