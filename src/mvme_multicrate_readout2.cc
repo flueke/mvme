@@ -95,16 +95,17 @@ int main(int argc, char *argv[])
         // VMEConfig and CrateConfig by crateId
         std::unordered_map<u8, VmeConfigs> vmeConfigs;
         std::unordered_map<u8, std::shared_ptr<mvme_mvlc::MVLC_VMEController>> mvlcs;
+        std::unique_ptr<listfile::ZipCreator> listfileCreator;
+        std::shared_ptr<ListfileWriterContext> listfileWriterContext;
 
+        // standard crate processing contexts and pipelines
         std::unordered_map<u8, std::shared_ptr<MvlcInstanceReadoutContext>> readoutContexts;
         std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
         std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelines;
-        // TODO: listfile writer
-        //MultiCrateProcessing proc;
+        CratePipeline listfileWriterPipeline;
     };
 
     ReadoutApp mesyApp;
-
 
     // For each pos arg:
     //   read vme config from arg
@@ -238,7 +239,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (!outputListfilename.empty())
+    // listfile: output file creation, pipeline link setup and writer configuration
+    if (!outputListfilename.empty() && !mesyApp.mvlcs.empty())
     {
         // Want to write an output listfile. Create a new lossless link between
         // readouts and listfile writer.
@@ -250,83 +252,47 @@ int main(int argc, char *argv[])
             return 1;
         }
 
+        try
+        {
+            mesyApp.listfileCreator = std::make_unique<listfile::ZipCreator>();
+            mesyApp.listfileCreator->createArchive(outputListfilename);
+            auto lfh = mesyApp.listfileCreator->createZIPEntry("listfile.mvlclst");
+            spdlog::info("Opened output listfile {}", outputListfilename);
+            // XXX: a single connectiontype at the start of the listfile
+            // doesn't really make sense anymore. On the other hand we have to
+            // keep it for existing code to be able to read the file. Just use
+            // the first mvlc connectiontype for now.
+            listfile::listfile_write_magic(*lfh, mesyApp.mvlcs.begin()->second->getMVLC().connectionType());
+            listfile::listfile_write_endian_marker(*lfh, 0);
+
+            for (auto &[crateId, configs]: mesyApp.vmeConfigs)
+            {
+                listfile::listfile_write_crate_config(*lfh, configs.crateConfig);
+                mvme_mvlc::listfile_write_mvme_config(*lfh, crateId, *configs.vmeConfig);
+            }
+
+            auto ctx = std::make_shared<ListfileWriterContext>();
+            ctx->setName("listfile_writer");
+            ctx->lfh = std::move(lfh);
+            mesyApp.listfileWriterContext = ctx;
+        }
+        catch(const std::exception& e)
+        {
+            spdlog::error("Error opening output listfile {}: {}", outputListfilename, e.what());
+            return 1;
+        }
+
         // add the link as an output to each readout instance
         for (auto &[crateId, pipeline]: mesyApp.cratePipelines)
         {
-            // XXX: leftoff here
-            //pipeline[0].writer->addWriter(
-        }
-    }
-
-    // init readouts
-    for (auto &[crateId, configs]: mesyApp.vmeConfigs)
-    {
-        auto &mvlc = mesyApp.mvlcs[crateId];
-
-        bool ignoreStartupErrors = false;
-        // TODO: redirect logs to somewhere. Make available from the GUI.
-        auto logger = [crateId=crateId] (const QString &msg) { spdlog::info("crate {}: {}", crateId, msg.toStdString()); };
-        auto errorLogger = [crateId=crateId] (const QString &msg) { spdlog::error("crate {}: {}", crateId, msg.toStdString()); };
-
-        auto b = mvme_mvlc::run_daq_start_sequence(mvlc.get(), *configs.vmeConfig, ignoreStartupErrors, logger, errorLogger);
-
-        if (!b)
-        {
-            spdlog::error("Error starting DAQ for crate {}", crateId);
-            return 1;
-        }
-    }
-
-    // start the processing pipelines
-    for (auto &[crateId, steps]: mesyApp.cratePipelines)
-    {
-        for (auto &step: steps)
-        {
-            if (!step.context->jobRuntime().isRunning())
-            {
-                step.context->clearLastResult();
-                auto rt = start_job(*step.context);
-                spdlog::info("started job {}", step.context->name());
-                step.context->setJobRuntime(std::move(rt));
-            }
-            else
-            {
-                spdlog::info("job {} was already running", step.context->name());
-            }
-        }
-    }
-
-    // start the daq
-    for (auto &[crateId, configs]: mesyApp.vmeConfigs)
-    {
-        auto mvlc = mesyApp.mvlcs[crateId]->getMVLC();
-
-        if (auto ec = setup_readout_triggers(mvlc, configs.crateConfig.triggers))
-        {
-            spdlog::error("crate {}: error setting up readout triggers: {}", crateId, ec.message());
-            return 1;
+            auto writer = std::make_unique<nng::SocketOutputWriter>(link.listener);
+            writer->debugInfo = fmt::format("crate{}_to_listfile_writer", crateId);
+            pipeline[0].writer->addWriter(std::move(writer));
         }
 
-        if (auto ec = enable_daq_mode(mvlc))
-        {
-            spdlog::error("crate {}: error enabling DAQ mode: {}", crateId, ec.message());
-            return 1;
-        }
-
-        if (!configs.crateConfig.mcstDaqStart.empty())
-        {
-            auto results = run_commands(mvlc, configs.crateConfig.mcstDaqStart);
-            for (const auto &result: results)
-            {
-                spdlog::info("  crate{}: {} -> {}", crateId, to_string(result.cmd), result.ec.message());
-            }
-
-            if (auto ec = get_first_error(results))
-            {
-                spdlog::error("crate {}: error running mcstDaqStart commands: {}", crateId, ec.message());
-                return 1;
-            }
-        }
+        auto ctx = mesyApp.listfileWriterContext;
+        auto step = make_listfile_writer_step(ctx, link);
+        mesyApp.listfileWriterPipeline = { step };
     }
 
     // widgets
@@ -349,8 +315,25 @@ int main(int argc, char *argv[])
         monitorWidget.addPipeline(fmt::format("crate{}", crateId), steps);
     }
 
+    if (!mesyApp.listfileWriterPipeline.empty())
+    {
+        monitorWidget.addPipeline("listfile_writer", mesyApp.listfileWriterPipeline);
+    }
+
     monitorWidget.resize(1000, 400);
     monitorWidget.show();
+
+    QWidget controlsWidget;
+    add_widget_close_action(&controlsWidget);
+    auto pbStart = new QPushButton("Start");
+    auto pbStop = new QPushButton("Stop");
+    pbStart->setEnabled(true);
+    pbStop->setEnabled(false);
+    {
+        auto l = make_vbox(&controlsWidget);
+        l->addWidget(pbStart);
+        l->addWidget(pbStop);
+    }
 
     auto log_counters = [&]
     {
@@ -364,7 +347,130 @@ int main(int argc, char *argv[])
                     log_socket_work_counters(step.context->writerCounters().copy(), fmt::format("step={}, writer", step.context->name()));
             }
         }
+
+        for (const auto &step: mesyApp.listfileWriterPipeline)
+        {
+            if (step.reader)
+                log_socket_work_counters(step.context->readerCounters().copy(), fmt::format("step={}, reader", step.context->name()));
+            if (step.writer)
+                log_socket_work_counters(step.context->writerCounters().copy(), fmt::format("step={}, writer", step.context->name()));
+        }
     };
+
+    auto start_readout = [&]
+    {
+        // init readouts
+        for (auto &[crateId, configs]: mesyApp.vmeConfigs)
+        {
+            auto &mvlc = mesyApp.mvlcs[crateId];
+
+            bool ignoreStartupErrors = false;
+            // TODO: redirect logs to somewhere. Make available from the GUI.
+            auto logger = [crateId=crateId] (const QString &msg) { spdlog::info("crate {}: {}", crateId, msg.toStdString()); };
+            auto errorLogger = [crateId=crateId] (const QString &msg) { spdlog::error("crate {}: {}", crateId, msg.toStdString()); };
+
+            auto b = mvme_mvlc::run_daq_start_sequence(mvlc.get(), *configs.vmeConfig, ignoreStartupErrors, logger, errorLogger);
+
+            if (!b)
+            {
+                spdlog::error("Error starting DAQ for crate {}", crateId);
+                return;
+            }
+        }
+
+        // start the processing pipelines
+        for (auto &[crateId, steps]: mesyApp.cratePipelines)
+        {
+            for (auto &step: steps)
+            {
+                if (!step.context->jobRuntime().isRunning())
+                {
+                    step.context->clearLastResult();
+                    auto rt = start_job(*step.context);
+                    spdlog::info("started job {}", step.context->name());
+                    step.context->setJobRuntime(std::move(rt));
+                }
+                else
+                {
+                    spdlog::info("job {} was already running", step.context->name());
+                }
+            }
+        }
+
+        if (mesyApp.listfileWriterContext)
+        {
+            auto &step = mesyApp.listfileWriterPipeline[0];
+            if (!step.context->jobRuntime().isRunning())
+            {
+                step.context->clearLastResult();
+                auto rt = start_job(*step.context);
+                spdlog::info("started job {}", step.context->name());
+                step.context->setJobRuntime(std::move(rt));
+            }
+            else
+            {
+                spdlog::info("job {} was already running", step.context->name());
+            }
+        }
+
+        // start the daq
+        for (auto &[crateId, configs]: mesyApp.vmeConfigs)
+        {
+            auto mvlc = mesyApp.mvlcs[crateId]->getMVLC();
+
+            if (auto ec = setup_readout_triggers(mvlc, configs.crateConfig.triggers))
+            {
+                spdlog::error("crate {}: error setting up readout triggers: {}", crateId, ec.message());
+                return;
+            }
+
+            if (auto ec = enable_daq_mode(mvlc))
+            {
+                spdlog::error("crate {}: error enabling DAQ mode: {}", crateId, ec.message());
+                return;
+            }
+
+            if (!configs.crateConfig.mcstDaqStart.empty())
+            {
+                auto results = run_commands(mvlc, configs.crateConfig.mcstDaqStart);
+                for (const auto &result: results)
+                {
+                    spdlog::info("  crate{}: {} -> {}", crateId, to_string(result.cmd), result.ec.message());
+                }
+
+                if (auto ec = get_first_error(results))
+                {
+                    spdlog::error("crate {}: error running mcstDaqStart commands: {}", crateId, ec.message());
+                    return;
+                }
+            }
+        }
+    };
+
+    auto stop_readout = [&]
+    {
+        // TODO: send mcst daq stop sequence to all mvlcs
+        // TODO: properly finish and close the output listfile
+
+        // terminate pipelines
+        for (auto &[crateId, steps]: mesyApp.cratePipelines)
+        {
+            if (!steps.empty())
+                steps[0].context->quit(); // quit the readout_loop
+            shutdown_pipeline(steps);
+        }
+        if (mesyApp.listfileWriterContext)
+        {
+            shutdown_pipeline(mesyApp.listfileWriterPipeline);
+        }
+
+        log_counters();
+    };
+
+    QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { start_readout(); pbStart->setEnabled(false); pbStop->setEnabled(true); });
+    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { stop_readout(); pbStop->setEnabled(false); });
+
+    controlsWidget.show();
 
     QTimer timer;
 
@@ -385,21 +491,7 @@ int main(int argc, char *argv[])
 
     int ret = app.exec();
 
-    auto stop_readout = [&]
-    {
-        for (auto &[crateId, steps]: mesyApp.cratePipelines)
-        {
-            if (!steps.empty())
-                steps[0].context->quit(); // quit the readout_loop
-            shutdown_pipeline(steps);
-        }
-
-        log_counters();
-    };
-
     stop_readout();
-
-            log_counters();
 
     return ret;
 }
