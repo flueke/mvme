@@ -535,12 +535,12 @@ add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
 install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvme multicrate collector
-add_mvme_exe(mvme_multicrate_collector mvme_multicrate_collector.cc)
-install(TARGETS mvme_multicrate_collector RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+#add_mvme_exe(mvme_multicrate_collector mvme_multicrate_collector.cc)
+#install(TARGETS mvme_multicrate_collector RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvme multicrate replay
-add_mvme_exe(mvme_multicrate_replay mvme_multicrate_replay.cc)
-install(TARGETS mvme_multicrate_replay RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+#add_mvme_exe(mvme_multicrate_replay mvme_multicrate_replay.cc)
+#install(TARGETS mvme_multicrate_replay RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvme multicrate replay2
 add_mvme_exe(mvme_multicrate_replay2 mvme_multicrate_replay2.cc)
