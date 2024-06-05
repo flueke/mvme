@@ -6,7 +6,7 @@
 namespace mesytec::mvme::multi_crate
 {
 
-class CratePipelineMonitorWidget: public QWidget
+class LIBMVME_EXPORT CratePipelineMonitorWidget: public QWidget
 {
     Q_OBJECT
     public:

@@ -7,7 +7,7 @@
 namespace mesytec::mvme::multi_crate
 {
 
-struct LoopResult
+struct LIBMVME_EXPORT LoopResult
 {
     std::error_code ec;
     std::exception_ptr exception;
@@ -21,7 +21,7 @@ using job_function = std::function<LoopResult ()>;
 
 struct JobRuntime;
 
-class JobContextInterface
+class LIBMVME_EXPORT JobContextInterface
 {
     public:
         virtual ~JobContextInterface() = default;
@@ -49,7 +49,7 @@ class JobContextInterface
         virtual job_function stop_function() { return {}; }
 };
 
-struct JobRuntime
+struct LIBMVME_EXPORT JobRuntime
 {
     JobContextInterface *context = nullptr;
     std::future<LoopResult> result;
@@ -70,7 +70,7 @@ struct JobRuntime
     void setQuit(bool b) { context->setQuit(b); }
 };
 
-class AbstractJobContext: public JobContextInterface
+class LIBMVME_EXPORT AbstractJobContext: public JobContextInterface
 {
     public:
         bool shouldQuit() const override { return quit_; }
@@ -163,7 +163,7 @@ struct ReplayJobContext;
 
 LoopResult LIBMVME_EXPORT replay_loop(ReplayJobContext &context);
 
-struct ReplayJobContext: public AbstractJobContext
+struct LIBMVME_EXPORT ReplayJobContext: public AbstractJobContext
 {
     public:
         mvlc::listfile::ReadHandle *lfh = nullptr;
@@ -189,7 +189,7 @@ struct ReplayJobContext: public AbstractJobContext
 
 // Goal: share a ReplayContext but have this wrapper provide access to the
 // correct output writer counters for a specific crate.
-struct CrateReplayWrapperContext: public JobContextInterface
+struct LIBMVME_EXPORT CrateReplayWrapperContext: public JobContextInterface
 {
     u8 crateId = 0;
     std::shared_ptr<ReplayJobContext> replayContext;
@@ -224,7 +224,7 @@ class TestConsumerContext;
 
 LoopResult LIBMVME_EXPORT test_consumer_loop(TestConsumerContext &context);
 
-class TestConsumerContext: public AbstractJobContext
+class LIBMVME_EXPORT TestConsumerContext: public AbstractJobContext
 {
     public:
         std::shared_ptr<spdlog::logger> logger;
@@ -275,7 +275,7 @@ struct LIBMVME_EXPORT ListfileWriterContext: public AbstractJobContext
 
 using SocketLink = nng::SocketPipeline::Link;
 
-struct CratePipelineStep
+struct LIBMVME_EXPORT CratePipelineStep
 {
     SocketLink inputLink;
     SocketLink outputLink;
@@ -287,15 +287,15 @@ struct CratePipelineStep
 
 using CratePipeline = std::vector<CratePipelineStep>;
 
-std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline);
-std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline);
-int close_pipeline(CratePipeline &pipeline);
+std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(CratePipeline &pipeline);
+std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline);
+int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 
-CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink);
-CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, SocketLink outputLink);
-CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink);
-CratePipelineStep make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink);
-CratePipelineStep make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink);
+CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink);
+CratePipelineStep LIBMVME_EXPORT make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink);
 
 }
 

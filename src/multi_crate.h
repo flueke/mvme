@@ -171,11 +171,11 @@ make_merged_vme_config(
 // Simpler version of make_merged_vme_config() which keeps existing object ids
 // of ModuleConfigs. EventConfigs are still generated with new ids. These
 // currently do not matter for analysis processing.
-std::unique_ptr<VMEConfig> LIBMVME_EXPORT make_merged_vme_config_keep_ids(
+std::unique_ptr<VMEConfig> make_merged_vme_config_keep_ids(
     const std::vector<VMEConfig *> &crateConfigs,
     const std::set<int> &crossCrateEvents);
 
-inline std::unique_ptr<VMEConfig> LIBMVME_EXPORT make_merged_vme_config_keep_ids(
+inline std::unique_ptr<VMEConfig> make_merged_vme_config_keep_ids(
     const std::vector<std::unique_ptr<VMEConfig>> &crateConfigs,
     const std::set<int> &crossCrateEvents)
 {
@@ -487,7 +487,7 @@ struct LIBMVME_EXPORT ReadoutConsumerContext
 void LIBMVME_EXPORT mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit); // throws on error
 void LIBMVME_EXPORT mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &quit);
 
-enum class MessageType: u8
+enum class LIBMVME_EXPORT MessageType: u8
 {
     GracefulShutdown,   // -> BaseMessageHeader
     ReadoutData,        // -> ReadoutDataMessageHeader

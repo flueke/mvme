@@ -97,7 +97,7 @@ bool LIBMVME_EXPORT gui_save_vme_script_config_to_file(const VMEScriptConfig *sc
 bool LIBMVME_EXPORT gui_save_vme_script_to_file(const QString &scriptText, const QString &proposedFilename = {}, QWidget *dialogParent = nullptr);
 
 template<typename ObjectType, typename StringType>
-std::unique_ptr<ObjectType> LIBMVME_EXPORT configobject_from_json(const QJsonObject &json, const StringType &jsonRoot)
+std::unique_ptr<ObjectType> configobject_from_json(const QJsonObject &json, const StringType &jsonRoot)
 {
     auto result = std::make_unique<ObjectType>();
     result->read(json[jsonRoot].toObject());
@@ -113,7 +113,7 @@ std::unique_ptr<ConfigObject> LIBMVME_EXPORT deserialize_object(const QJsonObjec
 QJsonDocument LIBMVME_EXPORT serialize_object(const ConfigObject *obj);
 
 template<typename ConfigObjectType>
-std::unique_ptr<ConfigObjectType> LIBMVME_EXPORT clone_config_object(const ConfigObjectType &source)
+std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &source)
 {
     QJsonObject json;
     source.write(json);
