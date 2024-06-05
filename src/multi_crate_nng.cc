@@ -711,14 +711,6 @@ LoopResult replay_loop(ReplayJobContext &context)
             bytesRead = context.lfh->read(mainBuf.data() + mainBuf.used(), bytesToRead);
             mainBuf.use(bytesRead);
             spdlog::debug("replay_loop: read from file - mainBuf.use({}), mainBuf.used()={}", bytesRead, mainBuf.used());
-
-            #if 0
-            if (bytesRead == 0)
-            {
-                spdlog::warn("replay_loop: EOF reached");
-                break;
-            }
-            #endif
         }
         catch (const std::runtime_error &e)
         {
@@ -770,7 +762,8 @@ LoopResult replay_loop(ReplayJobContext &context)
     if (mainBuf.used())
     {
         spdlog::warn("replay_loop: {} bytes remaining in main buffer, discarding", mainBuf.used());
-        //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
+        spdlog::warn("replay_loop: shouldQuit={}", context.shouldQuit());
+        mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
     }
     #endif
 

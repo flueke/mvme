@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
 
         }
 
-        #if 0
+        #if 1
         for (auto &[crateId, steps]: cratePipelineSteps)
         {
             for (auto &step: steps)
@@ -407,7 +407,10 @@ int main(int argc, char *argv[])
         pbStart->setEnabled(!replayContext->jobRuntime().isRunning());
         pbStop->setEnabled(!pbStart->isEnabled());
 
-        if (!replayContext->jobRuntime().isRunning())
+        // Wait for the job to end and someone to have set the result future on
+        // the contexts job runtime. Who exactly does set the result? Is this
+        // messy? Use std::packaged_task to implement this? TODO
+        if (!replayContext->jobRuntime().isRunning() && replayContext->jobRuntime().result.valid())
         {
             spdlog::info("replay finished, starting shutdown");
 
@@ -425,6 +428,7 @@ int main(int argc, char *argv[])
         }
     });
 
+    #if 0
     for (int i=0; i<3; ++i)
     {
         auto w = new QMainWindow;
@@ -434,6 +438,7 @@ int main(int argc, char *argv[])
         auto tb = w->addToolBar("toolbar");
         auto a = tb->addAction(QString("action in toolbar %1").arg(i));
     }
+    #endif
 
     int ret = app.exec();
 
