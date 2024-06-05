@@ -113,9 +113,94 @@
             "name": "(gdb) multicrate replay 1",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/mvme_multicrate_replay",
+            "program": "${workspaceFolder}/build/mvme_multicrate_replay2",
             "args": [
-                "./test_listfile_one_crate-01.zip",
+                "../build/test_listfile_two_crates-01.zip",
+                "--analysis", "~/Documents/mvme-workspaces-on-hdd/02_mvlc-test-workspace/1_mdpp_merged.analysis",
+                "--debug"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "(gdb) multicrate replay 2",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mvme_multicrate_replay2",
+            "args": [
+                "~/Documents/mvme-multicrate-workspace/listfiles/mdpp16_scp_0_0_usb_240530_140817.zip",
+                "--analysis", "~/Documents/mvme-multicrate-workspace/mdpp16_scp_all.analysis",
+                "--debug"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "(gdb) multicrate readout 2",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mvme_multicrate_readout2",
+            "args": [
+                "~/Documents/mvme-multicrate-workspace/mdpp16_scp_0_0.vme",
+                "--analysis", "~/Documents/mvme-multicrate-workspace/mdpp16_scp_all.analysis",
+                "--debug"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "(gdb) multicrate readout 3",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mvme_multicrate_readout2",
+            "args": [
+                "~/Documents/mvme-multicrate-workspace/mdpp16_scp_1_0.vme",
+                "--analysis", "~/Documents/mvme-multicrate-workspace/mdpp16_scp_all.analysis",
                 "--debug"
             ],
             "stopAtEntry": false,
@@ -136,6 +221,5 @@
                 }
             ]
         }
-
     ]
 }
