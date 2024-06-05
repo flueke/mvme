@@ -336,7 +336,7 @@ int main(int argc, char *argv[])
         {
             for (auto &step: steps)
             {
-                if (!step.context->jobRuntime().isRunning() && step.context->jobRuntime().result.valid())
+                if (!step.context->jobRuntime().isRunning())
                 {
                     step.context->clearLastResult();
                     auto rt = start_job(*step.context);
@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
         pbStart->setEnabled(!replayContext->jobRuntime().isRunning());
         pbStop->setEnabled(!pbStart->isEnabled());
 
-        if (!replayContext->jobRuntime().isRunning() /* && replayContext->jobRuntime().result.valid() */)
+        if (!replayContext->jobRuntime().isRunning())
         {
             spdlog::info("replay finished, starting shutdown");
 
@@ -431,7 +431,8 @@ int main(int argc, char *argv[])
         w->setAttribute(Qt::WA_DeleteOnClose, true);
         w->setWindowTitle(QString("mainwindow %1").arg(i));
         w->show();
-        w->addToolBar("toolbar");
+        auto tb = w->addToolBar("toolbar");
+        auto a = tb->addAction(QString("action in toolbar %1").arg(i));
     }
 
     int ret = app.exec();
