@@ -1142,11 +1142,15 @@ LoopResult listfile_writer_loop(ListfileWriterContext &context)
     // Last received message number per crate.
     std::unordered_map<u8, u32> lastMessageNumbers;
 
+    // Per crate counters, specific to the listfile_writer_loop.
     {
         auto ca = context.dataInputCounters.access();
         for (auto &counters: ca.ref())
             counters.start();
     }
+    // Standard reader counters from the JobContextInterface. These are used to
+    // track the sum of the counters from all crates.
+    context.readerCounters().access()->start();
 
     while (!context.shouldQuit())
     {
@@ -1191,6 +1195,9 @@ LoopResult listfile_writer_loop(ListfileWriterContext &context)
             continue;
         }
 
+        spdlog::debug("listfile_writer_loop : received message {} of size {} from crate{}",
+            (u32)inputHeader.messageNumber, msgLen, inputHeader.crateId);
+
         auto tReceive = sw.interval();
 
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastMessageNumbers[inputHeader.crateId]);
@@ -1225,6 +1232,16 @@ LoopResult listfile_writer_loop(ListfileWriterContext &context)
         {
             auto ca = context.dataInputCounters.access();
             auto &counters = ca.ref()[inputHeader.crateId];
+            counters.bytesReceived += msgLen;
+            counters.messagesLost += bufferLoss;
+            counters.messagesReceived++;
+            counters.tReceive += tReceive;
+            counters.tProcess += tProcess;
+            counters.tTotal += tTotal;
+        }
+        {
+            auto ca = context.readerCounters().access();
+            auto &counters = ca.ref();
             counters.bytesReceived += msgLen;
             counters.messagesLost += bufferLoss;
             counters.messagesReceived++;
@@ -1384,6 +1401,19 @@ CratePipelineStep make_analysis_step(const std::shared_ptr<AnalysisProcessingCon
 }
 
 CratePipelineStep make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink)
+{
+    auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
+    reader->debugInfo = context->name();
+    context->setInputReader(reader.get());
+
+    CratePipelineStep result;
+    result.inputLink = inputLink;
+    result.reader = reader;
+    result.context = context;
+    return result;
+}
+
+CratePipelineStep make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, SocketLink inputLink)
 {
     auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
     reader->debugInfo = context->name();

@@ -296,6 +296,7 @@ CratePipelineStep LIBMVME_EXPORT make_readout_step(const std::shared_ptr<MvlcIns
 CratePipelineStep LIBMVME_EXPORT make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink);
 CratePipelineStep LIBMVME_EXPORT make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink);
+CratePipelineStep LIBMVME_EXPORT make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, SocketLink inputLink);
 
 }
 
