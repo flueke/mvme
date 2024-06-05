@@ -728,13 +728,6 @@ LoopResult replay_loop(ReplayJobContext &context)
         auto input = mainBuf.viewU32();
         auto it = process_input_data(input);
 
-        #if 0
-        if (it == std::begin(input))
-        {
-            spdlog::warn("replay_loop: no complete input part in mainBuf (size={} words)", input.size());
-        }
-        else
-        #endif
         {
             auto wordsConsumed = std::distance(std::begin(input), it);
             auto bytesConsumed = wordsConsumed * sizeof(u32);
