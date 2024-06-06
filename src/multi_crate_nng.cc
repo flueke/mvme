@@ -1294,38 +1294,6 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
     return results;
 }
 
-std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
-{
-    std::vector<LoopResult> results;
-
-    for (auto &step: pipeline)
-    {
-        LoopResult result = {};
-
-        if (step.context->jobRuntime().isRunning())
-        {
-            spdlog::info("waiting for job {} to finish", step.context->name());
-            step.context->quit();
-            auto result = step.context->jobRuntime().wait();
-            spdlog::info("job {} finished: {}", step.context->name(), result.toString());
-            step.context->setLastResult(result);
-        }
-
-        results.emplace_back(std::move(result));
-        step.context->readerCounters().access()->stop();
-        step.context->writerCounters().access()->stop();
-
-        // Note: cannot send shutdown messages when force quitting. We reach the
-        // next step in the pipeline and call context->quit() while the messages
-        // from the current step have not been consumed yet.
-        // => The next step will leave its loop and never read the messages off the socket!
-        // FIXME: how about other messages? Avoid having things stuck in the pipelines!
-        // Maybe even redial the dialers?
-    }
-
-    return results;
-}
-
 int close_pipeline(CratePipeline &pipeline)
 {
     int ret = 0;

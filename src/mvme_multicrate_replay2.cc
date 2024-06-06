@@ -357,38 +357,22 @@ int main(int argc, char *argv[])
 
     bool manuallyStopped = false;
 
-    auto stop_replay = [&] (bool graceful = true)
+    auto stop_replay = [&]
     {
         StopWatch sw;
-        if (graceful)
+        spdlog::warn("begin graceful shutdown");
+        replayContext->quit(); // tell the shared replay context to quit
+        for (auto &[crateId, steps]: cratePipelineSteps)
         {
-            spdlog::warn("begin graceful shutdown");
-            replayContext->quit(); // tell the shared replay context to quit
-            for (auto &[crateId, steps]: cratePipelineSteps)
-            {
-                spdlog::info("terminating pipeline for crate{}", crateId);
-                shutdown_pipeline(steps);
-            }
-            auto dt = sw.interval();
-            spdlog::warn("end graceful shutdown (dt={} ms)", dt.count() / 1000.0);
+            spdlog::info("terminating pipeline for crate{}", crateId);
+            shutdown_pipeline(steps);
         }
-        else
-        {
-            // FIXME: Have to read all messages from the input links or recreate
-            // the links. Otherwise stale messages will be left in the pipeline.
-            spdlog::warn("begin immediate shutdown");
-            for (auto &[crateId, steps]: cratePipelineSteps)
-            {
-                spdlog::info("terminating pipeline for crate{}", crateId);
-                quit_pipeline(steps);
-            }
-            auto dt = sw.interval();
-            spdlog::warn("end immediate shutdown (dt={} ms)", dt.count() / 1000.0);
-        }
+        auto dt = sw.interval();
+        spdlog::warn("end graceful shutdown (dt={} ms)", dt.count() / 1000.0);
     };
 
     QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
-    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(true); });
+    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(); });
 
     controlsWidget.show();
 

@@ -302,7 +302,13 @@ struct LIBMVME_EXPORT CratePipelineStep
 using CratePipeline = std::vector<CratePipelineStep>;
 
 std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(CratePipeline &pipeline); // graceful shutdown
-std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline); // forced shutdown for each stage
+
+// TODO: add quit_pipeline() to force quit a pipeline. Needs care as messages
+// should not get stuck in the pipeline when force quitting. Have to either
+// recreate the pipe or read all pending messages off the readers. Also keep in
+// mind that some links may be lossfull, so shutdown messages themselves can get
+// dropped if they are used!
+
 int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 
 CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink);
