@@ -290,7 +290,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
             context.readerCounters().access().ref() = counters;
         }
 
-        if (context.flushTimer.get_interval() >= FlushBufferTimeout)
+        if (context.outputMessage && context.flushTimer.get_interval() >= FlushBufferTimeout)
         {
             spdlog::debug("readout_parser_loop (crateId={}): flushing output message #{} due to timeout", context.crateId, context.outputMessageNumber-1);
             flush_output_message(context);
