@@ -53,17 +53,23 @@ struct LIBMVME_EXPORT JobRuntime
 {
     JobContextInterface *context = nullptr;
     std::future<LoopResult> result;
+    std::thread thread;
 
     bool isRunning()
     {
-        return result.valid() && result.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
+        return thread.joinable();
+    }
+
+    bool isReady() const
+    {
+        return result.valid() && result.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
     }
 
     LoopResult wait()
     {
-        if (result.valid())
-            return result.get();
-        return {};
+        if (thread.joinable())
+            thread.join();
+        return result.get();
     }
 
     bool shouldQuit() const { return context->shouldQuit(); }
@@ -102,16 +108,24 @@ class LIBMVME_EXPORT AbstractJobContext: public JobContextInterface
         std::optional<LoopResult> lastResult_;
 };
 
-inline JobRuntime start_job(JobContextInterface &context)
+inline bool start_job(JobContextInterface &context)
 {
     assert(!context.jobRuntime().isRunning()); // FIXME: return error in re.result or use std::optional
-    JobRuntime rt;
+
+    if (context.jobRuntime().isRunning())
+        return false;
+
     context.setQuit(false);
     context.readerCounters().access()->start();
     context.writerCounters().access()->start();
+
+    JobRuntime rt;
     rt.context = &context;
-    rt.result = std::async(std::launch::async, context.function());
-    return rt;
+    auto task = std::packaged_task<LoopResult()>(context.function());
+    rt.result = task.get_future();
+    rt.thread = std::thread([t = std::move(task)]() mutable { t.make_ready_at_thread_exit(); });
+    context.setJobRuntime(std::move(rt));
+    return true;
 }
 
 struct ReadoutParserContext;
@@ -287,8 +301,8 @@ struct LIBMVME_EXPORT CratePipelineStep
 
 using CratePipeline = std::vector<CratePipelineStep>;
 
-std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(CratePipeline &pipeline);
-std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline);
+std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(CratePipeline &pipeline); // graceful shutdown
+std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline); // forced shutdown for each stage
 int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 
 CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink);

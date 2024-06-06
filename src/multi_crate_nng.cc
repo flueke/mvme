@@ -236,7 +236,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::debug("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            spdlog::info("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
             break;
         }
 
@@ -311,7 +311,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
         spdlog::info("readout_parser_loop (crateId={}): parser counters:\n{}", crateId, ss.str());
     }
 
-    spdlog::info("leaving readout_parser_loop, crateId={}", crateId);
+    spdlog::info("leaving readout_parser_loop, crateId={} (shouldQuit={})", crateId, context.shouldQuit());
 
     return result;
 }
@@ -405,7 +405,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::debug("analysis_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            spdlog::info("analysis_loop (crateId={}): Received shutdown message, leaving loop", crateId);
             break;
         }
 
@@ -491,7 +491,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
     //spdlog::info("analysis_nng: lastInputMessageNumber={}, inputBuffersLost={}, totalInput={:.2f} MiB",
     //    lastInputMessageNumber, inputBuffersLost, 1.0 * totalInputBytes / mvlc::util::Megabytes(1));
-    spdlog::info("leaving analysis_loop, crateId={}", crateId);
+    spdlog::info("leaving analysis_loop, crateId={} (shouldQuit={})", crateId, context.shouldQuit());
     return result;
 }
 
@@ -590,10 +590,14 @@ LoopResult replay_loop(ReplayJobContext &context)
                 spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}, sent so far={}",
                     crateId, output.messageNumber, msgLen, counters[crateId].messagesSent);
                 StopWatch sw;
-                writers[crateId]->writeMessage(std::move(output.msg));
+                int res = writers[crateId]->writeMessage(std::move(output.msg));
                 counters[crateId].tSend += sw.interval();
                 counters[crateId].bytesSent += msgLen;
                 counters[crateId].messagesSent++;
+                if (res)
+                {
+                    spdlog::warn("replay_loop: crateId {} - error writing output message: {}", crateId, nng_strerror(res));
+                }
             }
         }
     };
@@ -754,9 +758,9 @@ LoopResult replay_loop(ReplayJobContext &context)
     #if 1
     if (mainBuf.used())
     {
-        spdlog::warn("replay_loop: {} bytes remaining in main buffer, discarding", mainBuf.used());
-        spdlog::warn("replay_loop: shouldQuit={}", context.shouldQuit());
-        mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
+        spdlog::warn("replay_loop: {} bytes remaining in main buffer, discarding (shouldQuit={})",
+            mainBuf.used(), context.shouldQuit());
+        //mvlc::util::log_buffer(std::cout, mainBuf.viewU32(), "mainBuf");
     }
     #endif
 
@@ -771,7 +775,7 @@ LoopResult replay_loop(ReplayJobContext &context)
     // Final counters update!
     update_counters();
 
-    spdlog::info("leaving replay_loop");
+    spdlog::info("leaving replay_loop (shouldQuit={})", context.shouldQuit());
 
     return result;
 }
@@ -809,7 +813,7 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::debug("test_consumer_loop ({}): Received shutdown message, leaving loop", context.name());
+            spdlog::info("test_consumer_loop ({}): Received shutdown message, leaving loop", context.name());
             break;
         }
 
@@ -843,6 +847,8 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
             } break;
         }
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // simulate long processing time per buffer
+
         auto tProcess = sw.interval();
 
         {
@@ -856,7 +862,7 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
         }
     }
 
-    spdlog::info("leaving test_consumer_loop");
+    spdlog::info("leaving test_consumer_loop (shouldQuit={})", context.shouldQuit());
 
     return result;
 }
@@ -1128,7 +1134,7 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
 
     flush_output_message(std::move(msg));
 
-    spdlog::info(fmt::format("leaving readout_loop{}", context.crateId));
+    spdlog::info(fmt::format("leaving readout_loop{} (shouldQuit={})", context.crateId, context.shouldQuit()));
     return result;
 }
 
@@ -1174,7 +1180,7 @@ LoopResult listfile_writer_loop(ListfileWriterContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::warn("listfile_writer_loop: Received shutdown message, leaving loop");
+            spdlog::info("listfile_writer_loop: Received shutdown message, leaving loop");
             break;
         }
 
@@ -1251,7 +1257,7 @@ LoopResult listfile_writer_loop(ListfileWriterContext &context)
         }
     }
 
-    spdlog::info("leaving listfile_writer_loop");
+    spdlog::info("leaving listfile_writer_loop (shouldQuit={})", context.shouldQuit());
 
     return result;
 }
@@ -1264,13 +1270,15 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
     {
         LoopResult result = {};
 
-        if (step.context->jobRuntime().result.valid())
+        if (step.context->jobRuntime().isRunning())
         {
             spdlog::info("waiting for job {} to finish", step.context->name());
             auto result = step.context->jobRuntime().wait();
             spdlog::info("job {} finished: {}", step.context->name(), result.toString());
             step.context->setLastResult(result);
         }
+        else
+            spdlog::warn("job {} already finished", step.context->name());
 
         results.emplace_back(std::move(result));
         step.context->readerCounters().access()->stop();
@@ -1288,11 +1296,34 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
 
 std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
 {
-    if (pipeline.empty())
-        return {};
+    std::vector<LoopResult> results;
 
-    pipeline.front().context->quit();
-    return shutdown_pipeline(pipeline);
+    for (auto &step: pipeline)
+    {
+        LoopResult result = {};
+
+        if (step.context->jobRuntime().isRunning())
+        {
+            spdlog::info("waiting for job {} to finish", step.context->name());
+            step.context->quit();
+            auto result = step.context->jobRuntime().wait();
+            spdlog::info("job {} finished: {}", step.context->name(), result.toString());
+            step.context->setLastResult(result);
+        }
+
+        results.emplace_back(std::move(result));
+        step.context->readerCounters().access()->stop();
+        step.context->writerCounters().access()->stop();
+
+        // Note: cannot send shutdown messages when force quitting. We reach the
+        // next step in the pipeline and call context->quit() while the messages
+        // from the current step have not been consumed yet.
+        // => The next step will leave its loop and never read the messages off the socket!
+        // FIXME: how about other messages? Avoid having things stuck in the pipelines!
+        // Maybe even redial the dialers?
+    }
+
+    return results;
 }
 
 int close_pipeline(CratePipeline &pipeline)
