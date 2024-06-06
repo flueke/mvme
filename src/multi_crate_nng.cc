@@ -56,7 +56,8 @@ std::unique_ptr<ReadoutParserContext> make_readout_parser_context(const mvlc::Cr
 
 // Allocates and prepares a new ParsedEventsMessageHeader message if there isn't
 // one in the context object.
-inline bool parser_maybe_alloc_output(ReadoutParserContext &ctx)
+template<typename T>
+inline bool parser_maybe_alloc_output(T &ctx)
 {
     auto &msg = ctx.outputMessage;
 
@@ -187,10 +188,10 @@ inline void readout_parser_systemevent_callback(void *ctx_, int crateIndex, cons
 
 LoopResult readout_parser_loop(ReadoutParserContext &context)
 {
-    set_thread_name("readout_parser_loop");
-
     LoopResult result;
     const auto crateId = context.crateId;
+
+    set_thread_name(fmt::format("readout_parser_loop{}", crateId).c_str());
 
     spdlog::info("entering readout_parser_loop, crateId={}", crateId);
 
@@ -313,6 +314,237 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
 
     spdlog::info("leaving readout_parser_loop, crateId={} (shouldQuit={})", crateId, context.shouldQuit());
 
+    return result;
+}
+
+inline bool flush_output_message(MultieventSplitterContext &ctx)
+{
+    assert(ctx.outputMessage);
+
+    if (!ctx.outputMessage)
+        return false;
+
+    const auto msgSize = nng_msg_len(ctx.outputMessage.get());
+
+    StopWatch stopWatch;
+
+    // Take ownership of the current output message => ctx.outputMessage becomes null.
+    auto msg = std::move(ctx.outputMessage);
+    assert(!ctx.outputMessage);
+
+    if (int res = ctx.outputWriter()->writeMessage(std::move(msg)))
+    {
+        // Note: if msg was not released in writeMessage() it is still alive
+        // here. It will be destroyed when leaving this scope.
+        assert(!ctx.outputMessage);
+        spdlog::warn("multievent_splitter_loop (crate{}): error writing output message: {}", ctx.crateId, nng_strerror(res));
+        return false;
+    }
+
+    assert(!msg);
+    assert(!ctx.outputMessage);
+
+    {
+        auto a = ctx.writerCounters().access();
+        auto &c = a.ref();
+        c.tSend += stopWatch.interval();
+        c.tTotal += stopWatch.end();
+        c.messagesSent++;
+        c.bytesSent += msgSize;
+        ctx.flushTimer.interval();
+    }
+
+    spdlog::debug("multievent_splitter_loop (crate{}): sent message {} of size {}",
+        ctx.crateId, ctx.outputMessageNumber, msgSize);
+
+    return true;
+}
+
+struct MultieventSplitterNngMessageWriter: public ParsedEventsMessageWriter
+{
+    MultieventSplitterNngMessageWriter(MultieventSplitterContext &ctx_)
+        : ctx(ctx_)
+    {
+    }
+
+    nng_msg *getOutputMessage() override
+    {
+        parser_maybe_alloc_output(ctx);
+        return ctx.outputMessage.get();
+    }
+
+    bool flushOutputMessage() override
+    {
+        spdlog::debug("multievent_splitter_loop (crateId={}): flushing full output message #{}",
+            ctx.crateId, ctx.outputMessageNumber-1);
+        return flush_output_message(ctx);
+    }
+
+    bool hasDynamic(int crateIndex, int eventIndex, int moduleIndex) override
+    {
+        return true;
+    }
+
+    MultieventSplitterContext &ctx;
+};
+
+// The event data callback for the multievent_splitter. Serializes the parsed module
+// data list into the current output message.
+inline void multievent_splitter_eventdata_callback(void *ctx_, int crateIndex, int eventIndex,
+    const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+{
+    assert(ctx_);
+    assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
+    assert(eventIndex >= 0 && eventIndex <= std::numeric_limits<u8>::max());
+    assert(moduleCount < std::numeric_limits<u8>::max());
+
+    auto &ctx = *reinterpret_cast<MultieventSplitterContext *>(ctx_);
+
+    MultieventSplitterNngMessageWriter writer(ctx);
+    writer.consumeReadoutEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
+}
+
+inline void multievent_splitter_systemevent_callback(void *ctx_, int crateIndex, const u32 *header, u32 size)
+{
+    assert(ctx_);
+    assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
+
+    auto &ctx = *reinterpret_cast<MultieventSplitterContext *>(ctx_);
+
+    MultieventSplitterNngMessageWriter writer(ctx);
+    writer.consumeSystemEventData(crateIndex, header, size);
+}
+
+LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
+{
+    LoopResult result;
+    const auto crateId = context.crateId;
+
+    set_thread_name(fmt::format("multievent_splitter_loop{}", crateId).c_str());
+
+    spdlog::info("entering multievent_splitter_loop, crateId={}", crateId);
+
+    context.outputMessageNumber = 0;
+    u32 lastInputMessageNumber = 0u;
+    size_t inputBuffersLost = 0;
+
+    // FIXME: how does system event data go through?
+    multi_event_splitter::Callbacks splitterCallbacks =
+    {
+        multievent_splitter_eventdata_callback,
+    };
+
+    context.flushTimer.start();
+    SocketWorkPerformanceCounters counters;
+    counters.start();
+
+    while (!context.shouldQuit())
+    {
+        StopWatch sw;
+
+        auto [inputMsg, res] = context.inputReader()->readMessage();
+
+        if (res && res != NNG_ETIMEDOUT)
+        {
+            spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}", crateId, nng_strerror(res));
+            result.nngError = res;
+            break;
+        }
+        else if (res)
+        {
+            spdlog::trace("readout_parser_loop (crateId={}) - receive_message: timeout", crateId);
+            continue;
+        }
+
+        assert(inputMsg);
+
+        const auto msgLen = nng_msg_len(inputMsg.get());
+
+        if (is_shutdown_message(inputMsg.get()))
+        {
+            spdlog::info("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            break;
+        }
+
+        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
+        {
+            spdlog::warn("analysis_loop (crateId={}): incoming message too short (len={})", crateId, msgLen);
+            continue;
+        }
+
+        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg.get()).value();
+
+        if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
+        {
+            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
+            continue;
+        }
+
+        auto tReceive = sw.interval();
+
+        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
+        inputBuffersLost += bufferLoss;
+        lastInputMessageNumber = inputHeader.messageNumber;
+        spdlog::debug("readout_parser_loop (crateId={}): received message {} of size {}",
+            crateId, lastInputMessageNumber, msgLen);
+
+        ParsedEventMessageIterator messageIter(inputMsg.get());
+
+        for (auto eventData = next_event(messageIter);
+                eventData.type != EventContainer::Type::None;
+                eventData = next_event(messageIter))
+        {
+            if (eventData.type == EventContainer::Type::Readout)
+            {
+                multi_event_splitter::event_data(
+                    context.state,
+                    splitterCallbacks,
+                    nullptr,
+                    eventData.readout.eventIndex,
+                    eventData.readout.moduleDataList,
+                    eventData.readout.moduleCount);
+            }
+            else if (eventData.type == EventContainer::Type::System && eventData.system.size)
+            {
+                auto frameInfo = mvlc::extract_frame_info(eventData.system.header[0]);
+                assert(frameInfo.type == mvlc::frame_headers::SystemEvent);
+                // Directly copy the system event to the output message. No processing needed.
+                MultieventSplitterNngMessageWriter writer(context);
+                writer.consumeSystemEventData(eventData.crateId, eventData.system.header, eventData.system.size);
+            }
+            else if (nng_msg_len(inputMsg.get()))
+            {
+                spdlog::warn("analysis_loop (crateId={}): incoming message contains unknown subsection '{}'",
+                    crateId, *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
+                break;
+            }
+        }
+
+        auto tProcess = sw.interval();
+
+        {
+            counters.bytesReceived += msgLen;
+            counters.messagesReceived++;
+            counters.tReceive += tReceive;
+            counters.tProcess += tProcess;
+            counters.tTotal += sw.end();
+            counters.messagesLost = inputBuffersLost;
+            context.readerCounters().access().ref() = counters;
+        }
+
+        if (context.outputMessage && context.flushTimer.get_interval() >= FlushBufferTimeout)
+        {
+            spdlog::debug("readout_parser_loop (crateId={}): flushing output message #{} due to timeout", context.crateId, context.outputMessageNumber-1);
+            flush_output_message(context);
+        }
+    }
+
+    if (context.outputMessage)
+        flush_output_message(context);
+
+    assert(!context.outputMessage);
+    spdlog::info("leaving multievent_splitter_loop, crateId={}", crateId);
     return result;
 }
 
@@ -1362,7 +1594,8 @@ CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutCon
     return result;
 }
 
-CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink)
+// Standard single input, single output processing step.
+static CratePipelineStep make_processing_step(const std::shared_ptr<JobContextInterface> &context, SocketLink inputLink, SocketLink outputLink)
 {
     auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
     reader->debugInfo = context->name();
@@ -1384,6 +1617,16 @@ CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserCo
     result.writer = writerWrapper;
     result.context = context;
     return result;
+}
+
+CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink)
+{
+    return make_processing_step(context, inputLink, outputLink);
+}
+
+CratePipelineStep make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, SocketLink inputLink, SocketLink outputLink)
+{
+    return make_processing_step(context, inputLink, outputLink);
 }
 
 CratePipelineStep make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink)

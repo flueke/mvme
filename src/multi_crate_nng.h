@@ -3,6 +3,7 @@
 
 #include "multi_crate.h"
 #include "util/stopwatch.h"
+#include "multi_event_splitter.h"
 
 namespace mesytec::mvme::multi_crate
 {
@@ -151,6 +152,24 @@ struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
 };
 
 std::unique_ptr<ReadoutParserContext> LIBMVME_EXPORT make_readout_parser_context(const mvlc::CrateConfig &crateConfig);
+
+struct MultieventSplitterContext;
+
+LoopResult LIBMVME_EXPORT multievent_splitter_loop(MultieventSplitterContext &context);
+
+struct LIBMVME_EXPORT MultieventSplitterContext: public AbstractJobContext
+{
+    job_function function() override
+    {
+        return [this] { return multievent_splitter_loop(*this); };
+    }
+
+    u8 crateId = 0;
+    nng::unique_msg outputMessage = nng::make_unique_msg();
+    u32 outputMessageNumber = 0u;
+    multi_event_splitter::State state;
+    StopWatch flushTimer;
+};
 
 struct AnalysisProcessingContext;
 
@@ -314,6 +333,7 @@ int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, SocketLink inputLink, SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink);
 CratePipelineStep LIBMVME_EXPORT make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink);
 CratePipelineStep LIBMVME_EXPORT make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, SocketLink inputLink);
