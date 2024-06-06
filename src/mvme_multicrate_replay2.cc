@@ -326,7 +326,6 @@ int main(int argc, char *argv[])
             for (auto &step: steps)
             {
                 assert(!step.context->jobRuntime().isRunning());
-                step.context->clearLastResult();
             }
         }
         #endif
@@ -336,12 +335,17 @@ int main(int argc, char *argv[])
         {
             for (auto &step: steps)
             {
-                if (!step.context->jobRuntime().isRunning())
+                if (!step.context->jobRuntime().isRunning() && !step.context->jobRuntime().isReady())
                 {
                     step.context->clearLastResult();
-                    auto rt = start_job(*step.context);
-                    spdlog::info("started job {}", step.context->name());
-                    step.context->setJobRuntime(std::move(rt));
+
+                    if (start_job(*step.context))
+                        spdlog::info("started job {}", step.context->name());
+                    else
+                    {
+                        spdlog::error("error starting job {}", step.context->name());
+                        return;
+                    }
                 }
                 else
                 {
@@ -353,27 +357,38 @@ int main(int argc, char *argv[])
 
     bool manuallyStopped = false;
 
-    auto stop_replay = [&]
+    auto stop_replay = [&] (bool graceful = true)
     {
-        for (auto &[crateId, steps]: cratePipelineSteps)
+        StopWatch sw;
+        if (graceful)
         {
-            spdlog::info("terminating pipeline for crate{}", crateId);
-            for (auto &step: steps)
+            spdlog::warn("begin graceful shutdown");
+            replayContext->quit(); // tell the shared replay context to quit
+            for (auto &[crateId, steps]: cratePipelineSteps)
             {
-                if (step.context->jobRuntime().isRunning())
-                {
-                    step.context->quit();
-                    auto result = step.context->jobRuntime().wait();
-                    step.context->setLastResult(result);
-                    step.context->readerCounters().access()->stop();
-                    step.context->writerCounters().access()->stop();
-                }
+                spdlog::info("terminating pipeline for crate{}", crateId);
+                shutdown_pipeline(steps);
             }
+            auto dt = sw.interval();
+            spdlog::warn("end graceful shutdown (dt={} ms)", dt.count() / 1000.0);
+        }
+        else
+        {
+            // FIXME: Have to read all messages from the input links or recreate
+            // the links. Otherwise stale messages will be left in the pipeline.
+            spdlog::warn("begin immediate shutdown");
+            for (auto &[crateId, steps]: cratePipelineSteps)
+            {
+                spdlog::info("terminating pipeline for crate{}", crateId);
+                quit_pipeline(steps);
+            }
+            auto dt = sw.interval();
+            spdlog::warn("end immediate shutdown (dt={} ms)", dt.count() / 1000.0);
         }
     };
 
     QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
-    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(); });
+    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(true); });
 
     controlsWidget.show();
 
@@ -409,8 +424,8 @@ int main(int argc, char *argv[])
 
         // Wait for the job to end and someone to have set the result future on
         // the contexts job runtime. Who exactly does set the result? Is this
-        // messy? Use std::packaged_task to implement this? TODO
-        if (!replayContext->jobRuntime().isRunning() && replayContext->jobRuntime().result.valid())
+        // messy?
+        if (replayContext->jobRuntime().isReady())
         {
             spdlog::info("replay finished, starting shutdown");
 

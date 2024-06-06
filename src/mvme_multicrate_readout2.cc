@@ -383,12 +383,17 @@ int main(int argc, char *argv[])
         {
             for (auto &step: steps)
             {
-                if (!step.context->jobRuntime().isRunning())
+                if (!step.context->jobRuntime().isRunning() && !step.context->jobRuntime().isReady())
                 {
                     step.context->clearLastResult();
-                    auto rt = start_job(*step.context);
-                    spdlog::info("started job {}", step.context->name());
-                    step.context->setJobRuntime(std::move(rt));
+
+                    if (start_job(*step.context))
+                        spdlog::info("started job {}", step.context->name());
+                    else
+                    {
+                        spdlog::error("error starting job {}", step.context->name());
+                        return;
+                    }
                 }
                 else
                 {
@@ -400,12 +405,17 @@ int main(int argc, char *argv[])
         if (mesyApp.listfileWriterContext)
         {
             auto &step = mesyApp.listfileWriterPipeline[0];
-            if (!step.context->jobRuntime().isRunning())
+            if (!step.context->jobRuntime().isRunning() && !step.context->jobRuntime().isReady())
             {
                 step.context->clearLastResult();
-                auto rt = start_job(*step.context);
-                spdlog::info("started job {}", step.context->name());
-                step.context->setJobRuntime(std::move(rt));
+
+                if (start_job(*step.context))
+                    spdlog::info("started job {}", step.context->name());
+                else
+                {
+                    spdlog::error("error starting job {}", step.context->name());
+                    return;
+                }
             }
             else
             {
