@@ -21,6 +21,7 @@
 #include "util/stopwatch.h"
 #include "vme_config_util.h"
 #include "vme_controller_factory.h"
+#include "vme_daq.h"
 #include "vme_analysis_common.h"
 
 using namespace mesytec;
@@ -459,8 +460,47 @@ int main(int argc, char *argv[])
 
     auto stop_readout = [&]
     {
-        // TODO: send mcst daq stop sequence to all mvlcs
-        // TODO: properly finish and close the output listfile
+        bool isRunning = false;
+        for (auto &[crateId, steps]: mesyApp.cratePipelines)
+        {
+            const bool anyRunning = std::any_of(std::begin(steps), std::end(steps), [] (const auto &step) { return step.context->jobRuntime().isRunning(); });
+            if (anyRunning)
+            {
+                isRunning = true;
+                break;
+            }
+        }
+
+        if (!isRunning)
+        {
+            spdlog::info("stop_readout: nothing to do, no pipelines running");
+            return;
+        }
+
+        // send mcst daq stop sequence to all mvlcs
+        for (auto &[crateId, configs]: mesyApp.vmeConfigs)
+        {
+            auto mvlc = mesyApp.mvlcs[crateId]->getMVLC();
+
+            if (!configs.crateConfig.mcstDaqStop.empty())
+            {
+                auto results = run_commands(mvlc, configs.crateConfig.mcstDaqStop);
+                for (const auto &result: results)
+                {
+                    spdlog::info("  crate{}: {} -> {}", crateId, to_string(result.cmd), result.ec.message());
+                }
+
+                if (auto ec = get_first_error(results))
+                {
+                    spdlog::error("crate {}: error running mcstDaqStop commands: {}", crateId, ec.message());
+                }
+            }
+
+            if (auto ec = disable_daq_mode(mvlc))
+            {
+                spdlog::error("crate {}: error disabling DAQ mode: {}", crateId, ec.message());
+            }
+        }
 
         // terminate pipelines
         for (auto &[crateId, steps]: mesyApp.cratePipelines)
@@ -472,6 +512,42 @@ int main(int argc, char *argv[])
         if (mesyApp.listfileWriterContext)
         {
             shutdown_pipeline(mesyApp.listfileWriterPipeline);
+
+        }
+
+        // properly finish (EndOfFile) and close the output listfile
+        if (mesyApp.listfileWriterContext)
+        {
+            auto &lfh = mesyApp.listfileWriterContext->lfh;
+            if (lfh)
+            {
+                for (auto &[crateId, _]: mesyApp.cratePipelines)
+                {
+                    listfile::listfile_write_system_event(*lfh, crateId, system_event::subtype::EndOfFile);
+                }
+                lfh = {}; // reset the handle to flush and close the output archive member
+            }
+        }
+
+        // run the global daq stop scripts
+
+        // TODO: add message logs and analysis files to the output archive
+        for (auto &[crateId, configs]: mesyApp.vmeConfigs)
+        {
+            auto logger = [crateId=crateId] (const QString &msg) { spdlog::info("crate {}: {}", crateId, msg.toStdString()); };
+            auto errorLogger = [crateId=crateId] (const QString &msg) { spdlog::error("crate {}: {}", crateId, msg.toStdString()); };
+            auto mvlc = mesyApp.mvlcs[crateId];
+            auto results = vme_daq_shutdown(configs.vmeConfig.get(), mvlc.get(), logger, errorLogger);
+
+            if (has_errors(results))
+            {
+                spdlog::warn("Errors from DAQ stop sequence:");
+                auto logger = [] (const QString &msg)
+                {
+                    spdlog::warn("  {}", msg.toStdString());
+                };
+                log_errors(results, logger);
+            }
         }
 
         log_counters();
