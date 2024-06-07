@@ -437,16 +437,7 @@ int main(int argc, char *argv[])
         if (replayContext->jobRuntime().isReady())
         {
             spdlog::info("replay finished, starting shutdown");
-            #if 1
             stop_replay();
-            #else
-            //replayContext->quit(); // tell the shared replay context to quit
-            for (auto &[crateId, steps]: cratePipelineSteps)
-            {
-                shutdown_pipeline(steps);
-            }
-            #endif
-
             log_counters();
 
             if (!manuallyStopped && cbAutoRestart->isChecked())
