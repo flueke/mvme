@@ -770,6 +770,25 @@ void MVLC_StreamWorker::start()
         }
     }
 
+    if (!runInfo.runId.isEmpty())
+    {
+        std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+        std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
+
+        parserCounters[0] = m_parserCounters;
+        if (auto ana = getAnalysis())
+            analyses[0] = ana->shared_from_this();
+        auto filename = QString("logs/%1.json").arg(runInfo.runId);
+        auto result   = analysis::save_run_statistics_to_json(runInfo, filename, parserCounters, analyses);
+
+        if (!result.first)
+        {
+            logInfo(QString("Error saving analysis run statistics to %1: %2")
+                       .arg(filename)
+                       .arg(result.second));
+        }
+    }
+
     setState(WorkerState::Idle);
 }
 
