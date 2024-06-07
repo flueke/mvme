@@ -1500,7 +1500,7 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
 
     for (auto &step: pipeline)
     {
-        LoopResult result = {};
+        LoopResult result;
 
         if (step.context->jobRuntime().isRunning())
         {
@@ -1511,7 +1511,10 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
             step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
         }
         else
+        {
             spdlog::warn("job {} already finished", step.context->name());
+            result = step.context->lastResult().value_or(LoopResult{});
+        }
 
         results.emplace_back(std::move(result));
         step.context->readerCounters().access()->stop();
@@ -1545,7 +1548,10 @@ std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
             step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
         }
         else
+        {
             spdlog::warn("job {} already finished", step.context->name());
+            result = step.context->lastResult().value_or(LoopResult{});
+        }
 
         results.emplace_back(std::move(result));
         step.context->readerCounters().access()->stop();
@@ -1592,10 +1598,15 @@ size_t empty_pipeline_inputs(CratePipeline &pipeline)
         do
         {
             nng_msg *msg = nullptr;
+            // Using  NNG_FLAG_NONBLOCK here doesn't catch all remaining
+            // messages so we have to run into read timeouts I guess.
             res = nng_recvmsg(step.inputLink.dialer, &msg, 0);
+
             if (msg)
+            {
                 ++messages;
-            nng_msg_free(msg);
+                nng_msg_free(msg);
+            }
         } while (res == 0);
     }
     return messages;
