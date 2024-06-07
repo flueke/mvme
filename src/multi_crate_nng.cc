@@ -1508,6 +1508,7 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
             auto result = step.context->jobRuntime().wait();
             spdlog::info("job {} finished: {}", step.context->name(), result.toString());
             step.context->setLastResult(result);
+            step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
         }
         else
             spdlog::warn("job {} already finished", step.context->name());
@@ -1521,6 +1522,34 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
             send_shutdown_message(*step.writer);
             spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
         }
+    }
+
+    return results;
+}
+
+std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
+{
+    std::vector<LoopResult> results;
+
+    for (auto &step: pipeline)
+    {
+        LoopResult result = {};
+
+        if (step.context->jobRuntime().isRunning())
+        {
+            spdlog::info("waiting for job {} to finish", step.context->name());
+            step.context->quit();
+            auto result = step.context->jobRuntime().wait();
+            spdlog::info("job {} finished: {}", step.context->name(), result.toString());
+            step.context->setLastResult(result);
+            step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
+        }
+        else
+            spdlog::warn("job {} already finished", step.context->name());
+
+        results.emplace_back(std::move(result));
+        step.context->readerCounters().access()->stop();
+        step.context->writerCounters().access()->stop();
     }
 
     return results;
@@ -1552,6 +1581,24 @@ int close_pipeline(CratePipeline &pipeline)
         }
     }
     return ret;
+}
+
+size_t empty_pipeline_inputs(CratePipeline &pipeline)
+{
+    size_t messages = 0;
+    for (auto &step: pipeline)
+    {
+        int res = 0;
+        do
+        {
+            nng_msg *msg = nullptr;
+            res = nng_recvmsg(step.inputLink.dialer, &msg, 0);
+            if (msg)
+                ++messages;
+            nng_msg_free(msg);
+        } while (res == 0);
+    }
+    return messages;
 }
 
 CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink)

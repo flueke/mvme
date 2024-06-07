@@ -324,7 +324,17 @@ struct LIBMVME_EXPORT CratePipelineStep
 
 using CratePipeline = std::vector<CratePipelineStep>;
 
-std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(CratePipeline &pipeline); // graceful shutdown
+// Graceful shutdown: does not use setQuit() but only waits for jobs to finish.
+// A shutdown message is sent through each steps outputLink. Resets each jobs quit flag.
+std::vector<LoopResult> LIBMVME_EXPORT shutdown_pipeline(CratePipeline &pipeline);
+
+// Hard shutdown: uses the quit flag to force all jobs to finish.
+// There may be messages left in the pipeline inputLinks after this function returns!
+std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline); // hard shutdown
+
+// Read from all input links in the pipeline until error. Returns the total
+// number of messages read.
+size_t empty_pipeline_inputs(CratePipeline &pipeline);
 
 // TODO: add quit_pipeline() to force quit a pipeline. Needs care as messages
 // should not get stuck in the pipeline when force quitting. Have to either
