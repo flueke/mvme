@@ -358,22 +358,49 @@ int main(int argc, char *argv[])
 
     bool manuallyStopped = false;
 
-    auto stop_replay = [&]
+    auto stop_replay = [&] (bool immediateShutdown = false)
     {
+        if (immediateShutdown)
+            spdlog::warn("begin immediate shutdown");
+        else
+            spdlog::warn("begin graceful shutdown");
+
         StopWatch sw;
-        spdlog::warn("begin graceful shutdown");
-        replayContext->quit(); // tell the shared replay context to quit
+
+        // Tell the shared replay context to quit, basically terminating the
+        // first step of each pipeline.
+        replayContext->quit();
+
         for (auto &[crateId, steps]: cratePipelineSteps)
         {
             spdlog::info("terminating pipeline for crate{}", crateId);
-            shutdown_pipeline(steps);
+            if (immediateShutdown)
+                quit_pipeline(steps);
+            else
+                shutdown_pipeline(steps);
         }
+
+        if (immediateShutdown)
+        {
+            StopWatch swEmpty;
+            for (auto &[crateId, steps]: cratePipelineSteps)
+            {
+                auto msgCount = empty_pipeline_inputs(steps);
+                spdlog::info("emptied pipeline for crate{}: {} messages", crateId, msgCount);
+            }
+            spdlog::warn("empty pipelines took {} ms", swEmpty.interval().count() / 1000.0);
+        }
+
         auto dt = sw.interval();
-        spdlog::warn("end graceful shutdown (dt={} ms)", dt.count() / 1000.0);
+
+        if (immediateShutdown)
+            spdlog::warn("end immediate shutdown (dt={} ms)", dt.count() / 1000.0);
+        else
+            spdlog::warn("end graceful shutdown (dt={} ms)", dt.count() / 1000.0);
     };
 
     QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
-    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(); });
+    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(true); });
 
     controlsWidget.show();
 
