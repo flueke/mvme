@@ -175,7 +175,6 @@ int main(int argc, char *argv[])
         MultiCrateProcessing proc;
         // TODO: or std::vector<MultiCrateProcessing> procs;
     };
-#endif
 
 
     struct ReplayApp
@@ -184,6 +183,7 @@ int main(int argc, char *argv[])
         std::unordered_map<u8, CratePipeline> cratePipelines;
         std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
     };
+#endif
 
     auto replayContext = std::make_shared<ReplayJobContext>();
     replayContext->setName("replay_loop");
@@ -235,10 +235,12 @@ int main(int argc, char *argv[])
             if (ctx && ctx->analysis)
             {
                 ctx->setName(fmt::format("analysis_crate{}", crateId));
-                // TODO analysis object id handling / rewriting before beginRun()
                 ctx->crateId = configs.crateConfig.crateId;
-                ctx->isReplay = true;
-                ctx->analysis->beginRun(RunInfo{}, ctx->asp->vmeConfig_);
+                ctx->runInfo.runId = QFileInfo(listfileFilename.c_str()).baseName();
+                ctx->runInfo.isReplay = true;
+                ctx->runInfo.infoDict["replaySourceFile"] = listfileFilename.c_str();
+                // TODO analysis object id handling / rewriting before beginRun()
+                ctx->analysis->beginRun(ctx->runInfo, ctx->asp->vmeConfig_);
                 auto step = make_analysis_step(ctx, cratePipelineSteps[crateId].back().outputLink);
                 cratePipelineSteps[crateId].emplace_back(std::move(step));
                 analysisContexts.emplace(crateId, ctx);
@@ -313,19 +315,18 @@ int main(int argc, char *argv[])
 
         for (auto &[crateId, ctx]: analysisContexts)
         {
-            RunInfo runInfo{};
-            runInfo.isReplay = true;
-            runInfo.keepAnalysisState = cbKeepHistoContents->isChecked();
-            ctx->analysis->beginRun(runInfo, ctx->asp->vmeConfig_);
+            ctx->runInfo.keepAnalysisState = cbKeepHistoContents->isChecked();
+            ctx->analysis->beginRun(ctx->runInfo, ctx->asp->vmeConfig_);
 
         }
 
-        #if 1
+        #ifndef NDEBUG
         for (auto &[crateId, steps]: cratePipelineSteps)
         {
             for (auto &step: steps)
             {
                 assert(!step.context->jobRuntime().isRunning());
+                assert(!step.context->jobRuntime().isReady());
             }
         }
         #endif
@@ -403,20 +404,21 @@ int main(int argc, char *argv[])
             app.quit();
         }
 
-        pbStart->setEnabled(!replayContext->jobRuntime().isRunning());
+        pbStart->setEnabled(!replayContext->jobRuntime().isRunning()); // FIXME: all of the pipelines must be stopped
         pbStop->setEnabled(!pbStart->isEnabled());
 
-        // Wait for the job to end and someone to have set the result future on
-        // the contexts job runtime. Who exactly does set the result? Is this
-        // messy?
         if (replayContext->jobRuntime().isReady())
         {
             spdlog::info("replay finished, starting shutdown");
-
+            #if 1
+            stop_replay();
+            #else
+            //replayContext->quit(); // tell the shared replay context to quit
             for (auto &[crateId, steps]: cratePipelineSteps)
             {
                 shutdown_pipeline(steps);
             }
+            #endif
 
             log_counters();
 

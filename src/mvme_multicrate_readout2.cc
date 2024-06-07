@@ -218,10 +218,12 @@ int main(int argc, char *argv[])
             if (ctx && ctx->analysis)
             {
                 ctx->setName(fmt::format("analysis_crate{}", crateId));
-                // TODO analysis object id handling / rewriting before beginRun()
                 ctx->crateId = configs.crateConfig.crateId;
-                ctx->isReplay = false;
-                ctx->analysis->beginRun(RunInfo{}, ctx->asp->vmeConfig_);
+                if (!outputListfilename.empty())
+                    ctx->runInfo.runId = QFileInfo(outputListfilename.c_str()).baseName();
+                ctx->runInfo.isReplay = false;
+                // TODO analysis object id handling / rewriting before beginRun()
+                ctx->analysis->beginRun(ctx->runInfo, ctx->asp->vmeConfig_);
                 auto step = make_analysis_step(ctx, mesyApp.cratePipelines[crateId].back().outputLink);
                 mesyApp.cratePipelines[crateId].emplace_back(std::move(step));
                 mesyApp.analysisContexts.emplace(crateId, ctx);

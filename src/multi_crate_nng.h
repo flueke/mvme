@@ -69,7 +69,11 @@ struct LIBMVME_EXPORT JobRuntime
     LoopResult wait()
     {
         if (thread.joinable())
+        {
+            spdlog::info("JobRuntime::wait(): waiting for thread to finish");
             thread.join();
+            spdlog::info("JobRuntime::wait(): thread finished");
+        }
         return result.get();
     }
 
@@ -178,10 +182,10 @@ LoopResult LIBMVME_EXPORT analysis_loop(AnalysisProcessingContext &context);
 
 struct LIBMVME_EXPORT AnalysisProcessingContext: public AbstractJobContext
 {
-    std::shared_ptr<analysis::Analysis> analysis;
-    bool isReplay = false;
-    std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider> asp = nullptr;
     u8 crateId = 0;
+    RunInfo runInfo;
+    std::shared_ptr<analysis::Analysis> analysis;
+    std::unique_ptr<multi_crate::MinimalAnalysisServiceProvider> asp = nullptr;
 
     job_function function() override
     {

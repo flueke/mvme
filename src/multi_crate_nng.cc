@@ -603,7 +603,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
     while (!error && !context.shouldQuit())
     {
-        if (!context.isReplay)
+        if (!context.runInfo.isReplay)
         {
             int elapsedSeconds = timetickGen.generateElapsedSeconds();
 
@@ -696,7 +696,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
                 if (frameInfo.sysEventSubType == mvlc::system_event::subtype::UnixTimetick)
                 {
-                    if (context.analysis && context.isReplay)
+                    if (context.analysis && context.runInfo.isReplay)
                         context.analysis->processTimetick();
                 }
             }
