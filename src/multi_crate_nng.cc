@@ -446,13 +446,13 @@ LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
 
         if (res && res != NNG_ETIMEDOUT)
         {
-            spdlog::error("readout_parser_loop (crateId={}) - receive_message: {}", crateId, nng_strerror(res));
+            spdlog::error("multievent_splitter_loop (crateId={}) - receive_message: {}", crateId, nng_strerror(res));
             result.nngError = res;
             break;
         }
         else if (res)
         {
-            spdlog::trace("readout_parser_loop (crateId={}) - receive_message: timeout", crateId);
+            spdlog::trace("multievent_splitter_loop (crateId={}) - receive_message: timeout", crateId);
             continue;
         }
 
@@ -462,13 +462,13 @@ LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
 
         if (is_shutdown_message(inputMsg.get()))
         {
-            spdlog::info("readout_parser_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            spdlog::info("multievent_splitter_loop (crateId={}): Received shutdown message, leaving loop", crateId);
             break;
         }
 
         if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
         {
-            spdlog::warn("analysis_loop (crateId={}): incoming message too short (len={})", crateId, msgLen);
+            spdlog::warn("multievent_splitter_loop (crateId={}): incoming message too short (len={})", crateId, msgLen);
             continue;
         }
 
@@ -486,7 +486,7 @@ LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
         auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
         inputBuffersLost += bufferLoss;
         lastInputMessageNumber = inputHeader.messageNumber;
-        spdlog::debug("readout_parser_loop (crateId={}): received message {} of size {}",
+        spdlog::debug("multievent_splitter_loop (crateId={}): received message {} of size {}",
             crateId, lastInputMessageNumber, msgLen);
 
         ParsedEventMessageIterator messageIter(inputMsg.get());
@@ -515,7 +515,7 @@ LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
             }
             else if (nng_msg_len(inputMsg.get()))
             {
-                spdlog::warn("analysis_loop (crateId={}): incoming message contains unknown subsection '{}'",
+                spdlog::warn("multievent_splitter_loop (crateId={}): incoming message contains unknown subsection '{}'",
                     crateId, *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
                 break;
             }
@@ -535,7 +535,7 @@ LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
 
         if (context.outputMessage && context.flushTimer.get_interval() >= FlushBufferTimeout)
         {
-            spdlog::debug("readout_parser_loop (crateId={}): flushing output message #{} due to timeout", context.crateId, context.outputMessageNumber-1);
+            spdlog::debug("multievent_splitter_loop (crateId={}): flushing output message #{} due to timeout", context.crateId, context.outputMessageNumber-1);
             flush_output_message(context);
         }
     }
