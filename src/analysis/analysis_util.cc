@@ -30,6 +30,7 @@
 
 #include "analysis_serialization.h"
 #include "../template_system.h"
+#include "analysis/a2_adapter.h"
 
 namespace analysis
 {
@@ -755,6 +756,211 @@ DirectoryPtr add_condition_to_analysis(Analysis *analysis, const ConditionPtr &c
     analysis->addOperator(cond);
 
     return destDir;
+}
+
+QJsonObject to_qjson(const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters)
+{
+    using namespace mesytec::mvlc;
+
+    QJsonObject ret;
+
+    ret["internalBufferLoss"] = static_cast<qint64>(counters.internalBufferLoss);
+    ret["buffersProcessed"] = static_cast<qint64>(counters.buffersProcessed);
+    ret["bytesProcessed"] = static_cast<qint64>(counters.bytesProcessed);
+    ret["unusedBytes"] = static_cast<qint64>(counters.unusedBytes);
+    ret["ethPacketsProcessed"] = static_cast<qint64>(counters.ethPacketsProcessed);
+    ret["ethPacketLoss"] = static_cast<qint64>(counters.ethPacketLoss);
+    ret["parserExceptions"] = static_cast<qint64>(counters.parserExceptions);
+    ret["emptyStackFrames"] = static_cast<qint64>(counters.emptyStackFrames);
+
+    QJsonObject systemEvents;
+    for (size_t sysEvent = 0; sysEvent < counters.systemEvents.size(); ++sysEvent)
+    {
+        if (counters.systemEvents[sysEvent])
+        {
+            auto sysEventName = system_event_type_to_string(sysEvent);
+            systemEvents[QString::fromStdString(sysEventName)] = static_cast<qint64>(counters.systemEvents[sysEvent]);
+        }
+    }
+    ret["systemEvents"] = systemEvents;
+
+    QJsonObject parseResults;
+    for (size_t pr=0; pr < counters.parseResults.size(); ++pr)
+    {
+        if (counters.parseResults[pr])
+        {
+            auto name = get_parse_result_name(static_cast<readout_parser::ParseResult>(pr));
+            parseResults[QString::fromStdString(name)] = static_cast<qint64>(counters.parseResults[pr]);
+        }
+    }
+    ret["parseResults"] = parseResults;
+
+    QJsonArray eventHits;
+    for (const auto &[ei, hits]: counters.eventHits)
+    {
+        QJsonObject entry;
+        entry["eventIndex"] = static_cast<qint64>(ei);
+        entry["hits"] = static_cast<qint64>(hits);
+        eventHits.push_back(entry);
+    }
+    ret["eventHits"] = eventHits;
+
+    QJsonArray moduleHits;
+    for (const auto &[indexes, hits]: counters.groupHits)
+    {
+        const auto &[eventIndex, moduleIndex ] = indexes;
+        const auto &sizeInfo = counters.groupSizes.at(indexes);
+
+        QJsonObject entry;
+        entry["eventIndex"] = static_cast<qint64>(eventIndex);
+        entry["moduleIndex"] = static_cast<qint64>(moduleIndex);
+        entry["hits"] = static_cast<qint64>(hits);
+
+        QJsonObject sizes;
+        sizes["min_words"] = static_cast<qint64>(sizeInfo.min);
+        sizes["max_words"] = static_cast<qint64>(sizeInfo.max);
+        sizes["avg_words"] = static_cast<double>(sizeInfo.sum) / static_cast<double>(counters.groupHits.at(indexes));
+        entry["eventSizes"] = sizes;
+
+        moduleHits.push_back(entry);
+    }
+    ret["moduleHits"] = moduleHits;
+
+    return ret;
+}
+
+QJsonObject analysis_statistics_to_json(const Analysis &ana)
+{
+    QJsonObject ret;
+
+    // module vme <-> ana infos
+    // h1d stats from level 0 (raw histos)
+    auto as = ana.getA2AdapterState();
+
+    if (!as)
+        return ret;
+
+    auto id2indexes = ana.getVMEIdToIndexMapping();
+
+    {
+        QJsonArray destArray;
+
+        for (auto src: ana.getSources())
+        {
+            if (auto ds = as->sourceMap.value(src.get(), nullptr);
+                ds && ds->hitCounts)
+            {
+                auto &hitCounts = *ds->hitCounts;
+                auto indexes = id2indexes.value(src->getModuleId());
+
+                QJsonArray hitsArray;
+                std::copy(std::begin(hitCounts), std::end(hitCounts), std::back_inserter(hitsArray));
+
+                QJsonObject o;
+                o["name"] = make_object_name_with_path(src);
+                o["eventIndex"] = static_cast<qint64>(indexes.eventIndex);
+                o["moduleIndex"] = static_cast<qint64>(indexes.moduleIndex);
+                o["hits"] = hitsArray;
+                destArray.push_back(o);
+            }
+        }
+
+        ret["data_sources"] = destArray;
+    }
+
+    {
+        QJsonArray destArray;
+
+        for (auto sink_: ana.getSinkOperators())
+        {
+            if (auto sink = qobject_cast<Histo1DSink *>(sink_.get());
+                sink && sink->getUserLevel() == 0)
+            {
+                auto histos = sink->getHistos();
+
+                auto f = [] (auto &accu, const auto &histo) { accu.emplace_back(histo->calcStatistics()); return accu; };
+
+                auto histoStats = std::accumulate(
+                    std::begin(histos), std::end(histos),
+                    std::vector<Histo1DStatistics>{}, f);
+
+                QJsonArray histoArray;
+                for (const auto &stats: histoStats)
+                {
+                    QJsonObject o;
+                    o["entryCount"] = stats.entryCount;
+                    o["mean"] = stats.mean;
+                    o["sigma"] = stats.sigma;
+                    o["fwhmCenter"] = stats.fwhmCenter;
+                    o["fwhm"] = stats.fwhm;
+                    histoArray.append(o);
+                }
+
+                QJsonObject histoObj;
+                histoObj["name"] = make_object_name_with_path(sink_);
+                histoObj["histos"] = histoArray;
+
+                destArray.push_back(histoObj);
+            }
+        }
+
+        ret["raw_histograms"] = destArray;
+    }
+
+    return ret;
+}
+
+QJsonObject run_statistics_to_json(
+    const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters,
+    const std::shared_ptr<analysis::Analysis> &analysis)
+{
+    QJsonObject crateJson;
+    crateJson["readout_parser"] = to_qjson(counters);
+
+    if (analysis)
+        crateJson["analysis"] = analysis_statistics_to_json(*analysis);
+
+    return crateJson;
+}
+
+std::pair<bool, QString> save_run_statistics_to_json(
+    const RunInfo &runInfo,
+    const QString &filename,
+    const std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> &parserCounters,
+    const std::map<u8, std::shared_ptr<analysis::Analysis>> &analyses
+    )
+{
+    QJsonArray crateStats;
+
+    for (const auto &[crateId, counters]: parserCounters)
+    {
+        auto crateJson = run_statistics_to_json(counters, analyses.at(crateId));
+        crateJson["crateId"] = static_cast<qint64>(crateId);
+        crateStats.push_back(crateJson);
+    }
+
+    QJsonObject runInfoJson;
+    runInfoJson["runId"] = runInfo.runId;
+    runInfoJson["isReplay"] = runInfo.isReplay;
+    runInfoJson["replaySourceFile"] = runInfo.infoDict["replaySourceFile"].toString();
+
+    QJsonObject outerJson;
+
+    outerJson["crateStats"] = crateStats;
+    outerJson["runInfo"] = runInfoJson;
+
+    QJsonDocument doc(outerJson);
+    auto bytes = doc.toJson();
+
+    QFile file(filename);
+
+    if (!file.open(QIODevice::WriteOnly))
+        return std::make_pair(false, file.errorString());
+
+    if (file.write(bytes) != bytes.size())
+        return std::make_pair(false, file.errorString());
+
+    return std::make_pair(true, QString());
 }
 
 } // namespace analysis

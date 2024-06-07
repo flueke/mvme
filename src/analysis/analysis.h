@@ -2442,6 +2442,8 @@ LIBMVME_EXPORT std::pair<std::shared_ptr<Analysis>, QString>
 QStringList LIBMVME_EXPORT
 make_parent_path_list(const AnalysisObjectPtr &obj);
 
+QString LIBMVME_EXPORT make_object_name_with_path(const AnalysisObjectPtr &obj);
+
 QJsonObject LIBMVME_EXPORT serialize_analysis_to_json_object(const Analysis &analysis);
 QJsonDocument LIBMVME_EXPORT serialize_analysis_to_json_document(const Analysis &analysis);
 

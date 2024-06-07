@@ -6145,6 +6145,13 @@ make_parent_path_list(const AnalysisObjectPtr &obj)
     return result;
 }
 
+QString LIBMVME_EXPORT make_object_name_with_path(const AnalysisObjectPtr &obj)
+{
+    auto path = make_parent_path_list(obj);
+    path.push_back(obj->objectName());
+    return path.join(QSL("/"));
+}
+
 QJsonObject serialize_analysis_to_json_object(const Analysis &analysis)
 {
     QJsonObject inner;
