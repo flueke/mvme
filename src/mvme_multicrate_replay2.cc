@@ -2,9 +2,10 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <QApplication>
 #include <QCheckBox>
+#include <QMainWindow>
+#include <QMenuBar>
 #include <QPushButton>
 #include <QTimer>
-#include <QMainWindow>
 
 #include "analysis/analysis_ui.h"
 #include "analysis/analysis_util.h"
@@ -333,6 +334,9 @@ int main(int argc, char *argv[])
         }
         #endif
 
+        pbStart->setEnabled(false);
+        pbStop->setEnabled(!pbStart->isEnabled());
+
         // start pipelines
         for (auto &[crateId, steps]: cratePipelineSteps)
         {
@@ -340,8 +344,6 @@ int main(int argc, char *argv[])
             {
                 if (!step.context->jobRuntime().isRunning() && !step.context->jobRuntime().isReady())
                 {
-                    step.context->clearLastResult();
-
                     if (start_job(*step.context))
                         spdlog::info("started job {}", step.context->name());
                     else
@@ -401,11 +403,6 @@ int main(int argc, char *argv[])
             spdlog::warn("end graceful shutdown (dt={} ms)", dt.count() / 1000.0);
     };
 
-    QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
-    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(true); });
-
-    controlsWidget.show();
-
     auto log_counters = [&]
     {
         for (const auto &[crateId, steps]: cratePipelineSteps)
@@ -420,23 +417,9 @@ int main(int argc, char *argv[])
         }
     };
 
-    QTimer timer;
-
-    timer.setInterval(100);
-    timer.start();
-
-    QObject::connect(&timer, &QTimer::timeout, [&]
+    auto on_job_finished = [&] (const std::shared_ptr<JobContextInterface> &ctx_)
     {
-        if (signal_received())
-        {
-            spdlog::warn("signal received, shutting down");
-            app.quit();
-        }
-
-        pbStart->setEnabled(!replayContext->jobRuntime().isRunning()); // FIXME: all of the pipelines must be stopped
-        pbStop->setEnabled(!pbStart->isEnabled());
-
-        if (replayContext->jobRuntime().isReady())
+        if (replayContext->jobRuntime().isReady() && !replayContext->lastResult().has_value())
         {
             spdlog::info("replay finished, starting shutdown");
             stop_replay();
@@ -458,8 +441,55 @@ int main(int argc, char *argv[])
             {
                 start_replay();
             }
+            pbStart->setEnabled(true);
+        }
+    };
+
+    QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
+    QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(true); });
+
+    controlsWidget.show();
+
+
+    QTimer timer;
+
+    timer.setInterval(16);
+    timer.start();
+
+    QObject::connect(&timer, &QTimer::timeout, [&]
+    {
+        if (signal_received())
+        {
+            spdlog::warn("signal received, shutting down");
+            app.quit();
         }
     });
+
+    auto aQuit = new QAction("&Quit"); // FIXME: leaking this global action at the moment
+    aQuit->setShortcut(QSL("Ctrl+Q"));
+    aQuit->setShortcutContext(Qt::ApplicationShortcut);
+    QObject::connect(aQuit, &QAction::triggered, &app, &QApplication::quit);
+    JobPoller jobPoller;
+
+    QObject::connect(&jobPoller, &JobPoller::jobReady, on_job_finished);
+
+    QObject::connect(&jobPoller, &JobPoller::jobReady, [] (const std::shared_ptr<JobContextInterface> &ctx)
+    {
+        spdlog::warn("jobPoller: job {} ready\n", ctx->name());
+    });
+
+
+    for (auto &[crateId, steps]: cratePipelineSteps)
+    {
+        for (auto &step: steps)
+        {
+            jobPoller.addJob(step.context);
+        }
+    }
+
+    auto jobPollerFuture = std::async(std::launch::async, [&] { jobPoller.loop(); });
+
+
 
     #if 0
     for (int i=0; i<3; ++i)
@@ -469,13 +499,17 @@ int main(int argc, char *argv[])
         w->setWindowTitle(QString("mainwindow %1").arg(i));
         w->show();
         auto tb = w->addToolBar("toolbar");
-        auto a = tb->addAction(QString("action in toolbar %1").arg(i));
+        auto mb = w->menuBar();
+        auto mFile = mb->addMenu("&File");
+        mFile->addAction(aQuit);
     }
     #endif
 
     int ret = app.exec();
 
     stop_replay();
+    jobPoller.quit();
+    jobPollerFuture.wait();
 
     spdlog::info("crate pipelines terminated");
 

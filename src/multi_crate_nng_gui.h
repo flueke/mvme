@@ -36,6 +36,31 @@ class ReplayAppGui: public QWidget
 };
 #endif
 
+class JobPoller: public QObject
+{
+    Q_OBJECT
+    signals:
+        void jobReady(const std::shared_ptr<JobContextInterface> &jobContext);
+
+    public:
+        JobPoller(QObject *parent = nullptr)
+            : QObject(parent)
+            , interval_(16)
+        {
+        }
+
+    public slots:
+        void addJob(const std::shared_ptr<JobContextInterface> &jobContext);
+        void loop();
+        void quit();
+
+    private:
+        std::mutex mutex_;
+        std::vector<std::weak_ptr<JobContextInterface>> jobs_;
+        std::chrono::milliseconds interval_;
+        bool quit_ = false;
+};
+
 class JobRuntimeWatcher: public QObject
 {
     Q_OBJECT
