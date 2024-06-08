@@ -1,400 +1,221 @@
-#pragma once
+#ifndef B65D1EDC_ABFE_422B_B86C_DF8DCA67ED29
+#define B65D1EDC_ABFE_422B_B86C_DF8DCA67ED29
 
-#include "mesy_nng.h"
+#include "util/mesy_nng.h"
 
 namespace mesytec::nng
 {
 
-struct PipelineElement
+struct InputReader
 {
-    nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
-    nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
+    virtual std::pair<unique_msg, int> readMessage() = 0;
+    virtual ~InputReader() = default;
 };
 
-std::string make_inproc_url(const char *prefix, int idx)
+struct OutputWriter
 {
-    return fmt::format("inproc://{}{}", prefix, idx);
+    virtual int writeMessage(unique_msg &&msg) = 0;
+    virtual ~OutputWriter() = default;
 };
 
-
-// inputSocket listens, outputSocket dials
-int init_inproc_pipeline(std::vector<PipelineElement> &pipeline, const char *prefix)
+struct SocketInputReader: public InputReader
 {
-    const auto psize = pipeline.size();
+    nng_socket socket = NNG_SOCKET_INITIALIZER;
+    int receiveFlags = 0; // can be set to NNG_FLAG_NONBLOCK, e.g. for the MultiInputReader
+    std::string debugInfo;
 
-    if (psize == 0)
-        return 0;
+    explicit SocketInputReader(nng_socket s): socket(s) {}
 
-    // listeners
-    for (size_t i=0; i < psize; ++i)
-    {
-        auto &e = pipeline[i];
-        e.inputSocket = make_pair_socket();
-        auto listenUrl = make_inproc_url(prefix, i);
-        spdlog::info("listen {}", listenUrl);
-        if (auto res = nng_listen(e.inputSocket, listenUrl.c_str(), nullptr, 0))
-            return res;
-    }
-
-    // dialers
-    for (size_t i=0; i < psize; ++i)
-    {
-        auto &e = pipeline[i];
-        e.outputSocket = make_pair_socket();
-        auto dialUrl = make_inproc_url(prefix, i+1);
-        if (i < psize - 1) // do not dial the last output socket
-        {
-            spdlog::info("dial {}", dialUrl);
-            if (auto res = nng_dial(e.outputSocket, dialUrl.c_str(), nullptr, 0))
-                return res;
-        }
-    }
-
-    return 0;
-}
-
-int close_pipeline(std::vector<PipelineElement> &pipeline)
-{
-    for (auto &e: pipeline)
-    {
-        if (auto res = nng_close(e.inputSocket))
-            return res;
-        if (auto res = nng_close(e.outputSocket))
-            return res;
-    }
-
-    return 0;
-}
-
-// Appends a new part to the pipe. The inputSocket is setup to listen. If the
-// pipe was not empty the previous parts outputSocket is connected to the
-// current inputSocket: e_prev.outputSocket -> e_new.inputSocket
-// inputSocket listens, outputSocket dials
-int pipeline_add_inproc_part(std::vector<PipelineElement> &pipeline, const char *prefix)
-{
-    spdlog::info("begin pipeline_add_inproc_part");
-
-    PipelineElement e;
-    e.inputSocket = make_pair_socket();
-    auto listenUrl = make_inproc_url(prefix, pipeline.size());
-    spdlog::info("{} this inputSocket listen: {}", prefix, listenUrl);
-    if (auto res = nng_listen(e.inputSocket, listenUrl.c_str(), nullptr, 0))
-        return res;
-
-    e.outputSocket = make_pair_socket();
-
-    if (!pipeline.empty())
-    {
-        auto dialUrl = make_inproc_url(prefix, pipeline.size());
-        spdlog::info("{} dial previous outputSocket: {}", prefix, dialUrl);
-        if (auto res = nng_dial(pipeline.back().outputSocket, dialUrl.c_str(), nullptr, 0))
-            return res;
-    }
-
-    pipeline.emplace_back(e);
-    return 0;
-}
-
-int pipe_forwarder(PipelineElement e)
-{
-    spdlog::info("pipe_forwarder started");
-    bool quit = false;
-
-    while (!quit)
+    std::pair<unique_msg, int> readMessage() override
     {
         nng_msg *msg = nullptr;
-
-        if (auto res = receive_message(e.inputSocket, &msg, 0))
-        {
-            if (res != NNG_ETIMEDOUT)
-                return res;
-            continue;
-        }
-
-        spdlog::info("pipe_forwarder received message");
-
-        quit = (nng_msg_len(msg) == 0);
-
-        if (auto res = send_message_retry(e.outputSocket, msg))
-        {
-            nng_msg_free(msg);
-            return res;
-        }
-
-        spdlog::info("pipe_forwarder sent message");
+        int res = nng_recvmsg(socket, &msg, receiveFlags);
+        return { make_unique_msg(msg), res };
     }
+};
 
-    spdlog::info("pipe_forwarder exiting");
-
-    return 0;
-}
-
-int pipe_filter_publisher(PipelineElement e, nng_socket pubSocket)
+struct SocketOutputWriter: public OutputWriter
 {
-    spdlog::info("pipe_filter_publisher started");
-    bool quit = false;
+    nng_socket socket = NNG_SOCKET_INITIALIZER;
+    size_t maxRetries = 3;
+    retry_predicate retryPredicate; // if set, overrides maxRetries
+    std::string debugInfo;
 
-    while (!quit)
+    explicit SocketOutputWriter(nng_socket s): socket(s) {}
+
+    int writeMessage(unique_msg &&msg) override
     {
-        nng_msg *msg = nullptr;
+        spdlog::trace("SocketOutputWriter: entering writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
 
-        if (auto res = receive_message(e.inputSocket, &msg, 0))
+        int res = 0;
+
+        if (retryPredicate)
+            res = send_message_retry(socket, msg.get(), retryPredicate, debugInfo.c_str());
+        else
+            res = send_message_retry(socket, msg.get(), maxRetries, debugInfo.c_str());
+
+        spdlog::trace("SocketOutputWriter: send_message_retry returned {} (msg.get()=({}, {}))", res, fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+
+        if (res == 0)
         {
-            if (res != NNG_ETIMEDOUT)
-                return res;
-            continue;
-        }
-
-        spdlog::info("pipe_filter_publisher received message");
-
-        quit = (nng_msg_len(msg) == 0);
-
-        nng_msg *pubMsg = nullptr;
-
-        if (auto res = nng_msg_dup(&pubMsg, msg))
-        {
-            nng_msg_free(msg);
-            return res;
-        }
-
-        if (auto res = send_message_retry(e.outputSocket, msg))
-        {
-            nng_msg_free(msg);
-            return res;
-        }
-
-        if (auto res = send_message_retry(pubSocket, pubMsg))
-        {
-            nng_msg_free(pubMsg);
-            return res;
-        }
-
-        spdlog::info("pipe_filter_publisher sent messages");
-    }
-
-    spdlog::info("pipe_forwarder exiting");
-
-    return 0;
-}
-
-int pipe_end_receiver(PipelineElement e, const char *prefix)
-{
-    spdlog::info("pipe_end started");
-
-    auto resultUri = fmt::format("inproc://{}_result", prefix);
-
-    auto resultSocket = make_pair_socket();
-
-    if (auto res = nng_listen(resultSocket, resultUri.c_str(), nullptr, 0))
-    {
-        mesy_nng_error("pipe_end_receiver nng_listen(resultSocket)", res);
-        return res;
-    }
-
-    if (auto res = nng_dial(e.outputSocket, resultUri.c_str(), nullptr, 0))
-    {
-        mesy_nng_error("pipe_end_receiver nng_dial(pipe0.output)", res);
-        return res;
-    }
-
-    bool quit = false;
-
-    while (!quit)
-    {
-        nng_msg *msg = nullptr;
-
-        if (auto res = receive_message(resultSocket, &msg, 0))
-        {
-            if (res != NNG_ETIMEDOUT)
-                return res;
-            continue;
-        }
-
-        spdlog::info("pipe_end received message");
-
-        quit = (nng_msg_len(msg) == 0);
-
-        if (!quit)
-        {
-            uint32_t value = 0u;
-            nng_msg_trim_u32(msg, &value);
-            spdlog::info("received value=0x{:x}", value);
+            spdlog::trace("SocketOutputWriter: releasing message ({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+            msg.release(); // nng has taken ownership at this point
         }
         else
-            spdlog::info("pipe_end received empty message -> quit");
-    }
+        {
+            spdlog::trace("SocketOutputWriter: write failed for msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
+        }
 
-    spdlog::info("pipe_end exiting");
-    if (auto res = nng_close(resultSocket))
-    {
-        mesy_nng_error("pipe_end_receiver nng_close", res);
+        spdlog::trace("SocketOutputWriter: leaving writeMessage, msg=({}, {})", fmt::ptr(msg.get()), fmt::ptr(msg.get_deleter()));
         return res;
     }
+};
 
-    return 0;
+// Reads from multiple InputReaders in sequence. If one reader returns a
+// message, the others are not checked. Use with NNG_FLAG_NONBLOCK to avoid
+// accumulating read timeouts.
+class MultiInputReader: public InputReader
+{
+    public:
+        std::pair<unique_msg, int> readMessage() override
+        {
+            std::lock_guard lock(mutex_);
+
+            for (auto &reader : readers_)
+            {
+                auto [msg, res] = reader->readMessage();
+                if (res == 0)
+                    return {std::move(msg), 0};
+            }
+
+            return std::make_pair(make_unique_msg(), 0);
+        }
+
+        void addReader(std::unique_ptr<InputReader> &&reader)
+        {
+            std::lock_guard lock(mutex_);
+            readers_.emplace_back(std::move(reader));
+        }
+
+    private:
+    std::mutex mutex_;
+    std::vector<std::unique_ptr<InputReader>> readers_;
+
+};
+
+class MultiOutputWriter: public OutputWriter
+{
+    public:
+        int writeMessage(unique_msg &&msg) override
+        {
+            std::lock_guard lock(mutex_);
+
+            int retval = 0;
+
+            if (writers.empty())
+                return 0;
+
+            // Write copies of msg to all writers except the last one.
+            for (size_t i=0, size=writers.size(); i<size - 1; ++i)
+            {
+                nng_msg *dup = nullptr;
+
+                if (int res = nng_msg_dup(&dup, msg.get()))
+                    return res; // allocation failure -> terminate immediately
+
+                if (int res = writers[i]->writeMessage(make_unique_msg(dup)))
+                    retval = res; // store last error that occured
+            }
+
+            // Now write the original msg to the last writer.
+            if (int res = writers.back()->writeMessage(std::move(msg)))
+            {
+                retval = res;
+            }
+
+            return retval;
+        }
+
+        void addWriter(std::unique_ptr<OutputWriter> &&writer)
+        {
+            std::lock_guard lock(mutex_);
+            writers.emplace_back(std::move(writer));
+        }
+
+    private:
+        std::mutex mutex_;
+        std::vector<std::unique_ptr<OutputWriter>> writers;
+};
+
+// Linked socket couple. Listener is usually the stageN output, dialer is the
+// stageN+1 input.
+struct SocketLink
+{
+    nng_socket listener = NNG_SOCKET_INITIALIZER;
+    nng_socket dialer = NNG_SOCKET_INITIALIZER;
+    std::string url;
+
+    bool operator==(const SocketLink &o) const;
+    bool operator!=(const SocketLink &o) const { return !(*this == o); }
+};
+
+using SocketFactory = std::function<nng_socket ()>;
+
+inline std::pair<SocketLink, int> make_link(
+    const std::string &url,
+    SocketFactory listenerFactory,
+    SocketFactory dialerFactory)
+{
+    auto result = std::make_pair<SocketLink, int>({}, 0);
+    auto listener = listenerFactory();
+    auto dialer = dialerFactory();
+
+    if (int res = marry_listen_dial(listener, dialer, url.c_str()))
+    {
+        result.second = res;
+        nng_close(dialer);
+        nng_close(listener);
+    }
+    else
+        result.first = {listener, dialer, url};
+
+    return result;
 }
 
-#if 0
-int main(int argc, char *argv[])
+
+inline std::pair<SocketLink, int> make_pair_link(const std::string &url)
 {
-    spdlog::set_level(spdlog::level::trace);
+    return make_link(url, [] { return make_pair_socket(); }, [] { return make_pair_socket(); });
+}
 
-    #if 0
-    std::vector<PipelineElement> pipe0(10);
-
-    if (auto res = init_inproc_pipeline(pipe0, "pipe0_"))
-        mesy_nng_fatal("main init_inproc_pipeline", res);
-
-    auto resultSocket = make_pair_socket();
-    if (auto res = nng_listen(resultSocket, "inproc://pipe0_result", nullptr, 0))
-        mesy_nng_fatal("main nng_listen(resultSocket)", res);
-
-    if (auto res = nng_dial(pipe0.back().outputSocket, "inproc://pipe0_result", nullptr, 0))
-        mesy_nng_fatal("main nng_dial(pipe0.output)", res);
-
-    std::vector<std::future<int>> pipelineJobs;
-
-    // first element does not get a job: +1
-    for (auto pipe_it = std::begin(pipe0) + 1; pipe_it != std::end(pipe0); ++pipe_it)
+// Note: sub subscribes to all incoming messages, even empty ones.
+inline std::pair<SocketLink, int> make_pubsub_link(const std::string &url)
+{
+    auto listenerFactory = [] { return make_pub_socket(); };
+    auto dialerFactory = []
     {
-        pipelineJobs.emplace_back(std::async(std::launch::async, pipe_forwarder, *pipe_it));
-    }
-    #else
-    std::vector<PipelineElement> pipe0;
-    std::vector<std::future<int>> pipelineJobs;
+        auto s = make_sub_socket();
+        // This subscription does receive empty messages.
+        nng_socket_set(s, NNG_OPT_SUB_SUBSCRIBE, nullptr, 0);
+        return s;
+    };
 
-    for (int i=0; i<2; ++i)
-    {
-        if (auto res = pipeline_add_inproc_part(pipe0, "pipe0"))
-            mesy_nng_fatal("pipeline_add_inproc_part", res);
-        if (i > 0) // first pipe element is fed from main
-            pipelineJobs.emplace_back(std::async(std::launch::async, pipe_forwarder, pipe0.back()));
-    }
+    return make_link(url, listenerFactory, dialerFactory);
+}
 
-    #if 1
-    nng_socket pipe0PubSocket;
-
-    if (auto res = nng_pub0_open(&pipe0PubSocket))
-        mesy_nng_fatal("nng_pub0_open", res);
-
-    if (auto res = nng_listen(pipe0PubSocket, "inproc://pipe0_pub", nullptr, 0))
-        mesy_nng_fatal("nng_listen pipe0_pub", res);
-
-    if (auto res = pipeline_add_inproc_part(pipe0, "pipe0"))
-        mesy_nng_fatal("pipeline_add_inproc_part", res);
-
-    pipelineJobs.emplace_back(std::async(std::launch::async, pipe_filter_publisher, pipe0.back(), pipe0PubSocket));
-    #endif
-
-    for (int i=0; i<2; ++i)
-    {
-        if (auto res = pipeline_add_inproc_part(pipe0, "pipe0"))
-            mesy_nng_fatal("pipeline_add_inproc_part", res);
-        pipelineJobs.emplace_back(std::async(std::launch::async, pipe_forwarder, pipe0.back()));
-    }
-
-    pipelineJobs.emplace_back(std::async(std::launch::async, pipe_end_receiver, pipe0.back(), "pipe0"));
-
-    #if 0
-    const char *pipe0ResultUri = "inproc://pipe0_result";
-
-    if (auto res = nng_listen(pipe0.back().outputSocket, pipe0ResultUri, nullptr, 0))
-        mesy_nng_fatal("main pipeline_end_inproc", res);
-
-    auto resultSocket = make_pair_socket();
-
-    if (auto res = nng_dial(resultSocket, pipe0ResultUri, nullptr, 0))
-        mesy_nng_fatal("main nng_dial(resultSocket)", res);
-    #endif
-    #endif
-
-    nng_msg *outMsg = nullptr;
-    if (auto res = nng_msg_alloc(&outMsg, 0))
-        mesy_nng_fatal("main msg alloc", res);
-    if (auto res = nng_msg_append_u32(outMsg, 0xdeadbeef))
-        mesy_nng_fatal("main msg append", res);
-
-    if (auto res = send_message_retry(pipe0.front().outputSocket, outMsg, 0, "main input"))
-        mesy_nng_fatal("main send_message_retry", res);
-
-    outMsg = nullptr;
-
-    spdlog::info("main sent first message");
-
-    if (auto res = nng_msg_alloc(&outMsg, 0))
-        mesy_nng_fatal("main msg alloc", res);
-
-    if (auto res = send_message_retry(pipe0.front().outputSocket, outMsg, 0, "main input"))
-        mesy_nng_fatal("main send_message_retry", res);
-
-    outMsg = nullptr;
-
-    spdlog::info("main sent quit message");
-
-    #if 0
-    bool quit = false;
-    size_t timeouts = 0u;
-    while (!quit)
-    {
-        nng_msg *msg = nullptr;
-
-        if (auto res = receive_message(resultSocket, &msg, 0))
-        {
-            if (res != NNG_ETIMEDOUT)
-            {
-                mesy_nng_fatal("main receive_message", res);
-                return res;
-            }
-
-            // max wait time until the pipeline is considered dead
-            if (++timeouts >= 10)
-            {
-                spdlog::error("no result from pipeline, assuming it's stuck");
-                break;
-            }
-
-            continue;
-        }
-
-        quit = (nng_msg_len(msg) == 0);
-
-        if (!quit)
-        {
-            uint32_t value = 0u;
-            nng_msg_trim_u32(msg, &value);
-            spdlog::info("received value=0x{:x}", value);
-        }
-        else
-            spdlog::info("main received empty message -> quit");
-    }
-
-    spdlog::info("left main loop");
-    #endif
-
+inline int close_link(SocketLink &link)
+{
     int ret = 0;
 
-    for (auto &f: pipelineJobs)
-    {
-        try
-        {
-            if (auto res = f.get())
-            {
-                spdlog::warn("Error from pipeline job: {}", nng_strerror(res));
-                ret = 1;
-            }
-        }
-        catch(const std::exception& e)
-        {
-                spdlog::warn("Exception from pipeline job: {}", e.what());
-                ret = 1;
-        }
-    }
+    if (int res = nng_close(link.dialer))
+        ret = res;
 
-    if (auto res = close_pipeline(pipe0))
-        mesy_nng_fatal("main close_pipeline", res);
+    if (int res = nng_close(link.listener))
+        ret = res;
 
     return ret;
 }
-#endif
 
 }
+
+#endif /* B65D1EDC_ABFE_422B_B86C_DF8DCA67ED29 */

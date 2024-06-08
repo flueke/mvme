@@ -18,7 +18,7 @@
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvme_mvlc_listfile.h"
 #include "util/mesy_nng.h"
-#include "util/mesy_nng_pipeline2.h"
+#include "util/mesy_nng_pipeline.h"
 #include "vme_config.h"
 
 // TODO:
