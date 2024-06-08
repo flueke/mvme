@@ -147,154 +147,26 @@ class MultiOutputWriter: public OutputWriter
         std::vector<std::unique_ptr<OutputWriter>> writers;
 };
 
-class SocketPipeline;
-
-int close_sockets(SocketPipeline &pipeline);
-
-// Abstraction for a nng socket based processing pipeline.
-// The pipeline consists of a sequence of processing stages, each stage has an
-// input and an output socket. The first stage is the producer stage, having
-// only an output socket, while the last stage is a consumer, having only an
-// input socket.
-// stageN and stageN+1 are connected by a married socket couple. Usually stageN
-// output listens, stageN+1 output dials.
-class SocketPipeline
+// Linked socket couple. Listener is usually the stageN output, dialer is the
+// stageN+1 input.
+struct SocketLink
 {
-    public:
-        // Processing pipeline element.
-        struct Element
-        {
-            nng_socket inputSocket = NNG_SOCKET_INITIALIZER;
-            nng_socket outputSocket = NNG_SOCKET_INITIALIZER;
-            std::string inputUrl;
-            std::string outputUrl;
+    nng_socket listener = NNG_SOCKET_INITIALIZER;
+    nng_socket dialer = NNG_SOCKET_INITIALIZER;
+    std::string url;
 
-            bool operator==(const Element &o) const;
-            bool operator!=(const Element &o) const { return !(*this == o); }
-        };
-
-        // Linked socket couple. Listener is usually the stageN output, dialer is the stageN+1 input.
-        struct Link
-        {
-            nng_socket listener = NNG_SOCKET_INITIALIZER;
-            nng_socket dialer = NNG_SOCKET_INITIALIZER;
-            std::string url;
-
-            bool operator==(const Link &o) const;
-            bool operator!=(const Link &o) const { return !(*this == o); }
-        };
-
-        const std::vector<Link> &links() const
-        {
-            return links_;
-        }
-
-        const std::vector<Element> &elements() const
-        {
-            return elements_;
-        }
-
-        // Create a pipeline from a sequence of socket links.
-        // N links will result in a pipeline of size N+1. The pipeline starts with a
-        // producer and ends with a consumer with optional processing elements
-        // in-between.
-        static SocketPipeline fromLinks(const std::vector<SocketPipeline::Link> &links)
-        {
-            SocketPipeline ret;
-
-            if (links.empty())
-                return ret;
-
-            // [0]: [X, out(0)]
-            {
-                SocketPipeline::Element element;
-                element.inputSocket = NNG_SOCKET_INITIALIZER;
-                element.outputSocket = links.front().listener;
-                element.outputUrl = links.front().url;
-                ret.elements_.emplace_back(element);
-            }
-
-            for (size_t i=1; i<links.size(); ++i)
-            {
-                // [i]: [in(i-1), out(i)]
-                SocketPipeline::Element element;
-                element.inputSocket = links[i-1].dialer;
-                element.outputSocket = links[i].listener;
-                element.inputUrl = links[i-1].url;
-                element.outputUrl = links[i].url;
-                ret.elements_.emplace_back(element);
-            }
-
-            // [i+1]: [in(i-1), X]
-            {
-                SocketPipeline::Element element;
-                element.inputSocket = links.back().dialer;
-                element.outputSocket = NNG_SOCKET_INITIALIZER;
-                element.inputUrl = links.back().url;
-                ret.elements_.emplace_back(element);
-            }
-
-            ret.links_ = links;
-
-            return ret;
-        }
-
-    private:
-        // Processing stage0 .. stageN-1.
-        std::vector<Element> elements_;
-
-        // Married socket links stage0 .. stageN-1.
-        // links[N] contains the output socket of stageN and the input socket of stageN-1.
-        std::vector<Link> links_;
+    bool operator==(const SocketLink &o) const;
+    bool operator!=(const SocketLink &o) const { return !(*this == o); }
 };
-
-inline int close_link(SocketPipeline::Link &link)
-{
-    int ret = 0;
-
-    if (int res = nng_close(link.dialer))
-        ret = res;
-
-    if (int res = nng_close(link.listener))
-        ret = res;
-
-    return ret;
-}
-
-inline int close_links(const std::vector<SocketPipeline::Link> &links)
-{
-    int ret = 0;
-
-    for (auto link: links)
-    {
-        if (int res = close_link(link))
-            ret = res;
-    }
-
-    return ret;
-}
-
-inline int close_sockets(SocketPipeline &pipeline)
-{
-    int ret = 0;
-
-    for (auto link: pipeline.links())
-    {
-        if (int res = close_link(link))
-            ret = res;
-    }
-
-    return ret;
-}
 
 using SocketFactory = std::function<nng_socket ()>;
 
-inline std::pair<SocketPipeline::Link, int> make_link(
+inline std::pair<SocketLink, int> make_link(
     const std::string &url,
     SocketFactory listenerFactory,
     SocketFactory dialerFactory)
 {
-    auto result = std::make_pair<SocketPipeline::Link, int>({}, 0);
+    auto result = std::make_pair<SocketLink, int>({}, 0);
     auto listener = listenerFactory();
     auto dialer = dialerFactory();
 
@@ -310,13 +182,14 @@ inline std::pair<SocketPipeline::Link, int> make_link(
     return result;
 }
 
-inline std::pair<SocketPipeline::Link, int> make_pair_link(const std::string &url)
+
+inline std::pair<SocketLink, int> make_pair_link(const std::string &url)
 {
     return make_link(url, [] { return make_pair_socket(); }, [] { return make_pair_socket(); });
 }
 
 // Note: sub subscribes to all incoming messages, even empty ones.
-inline std::pair<SocketPipeline::Link, int> make_pubsub_link(const std::string &url)
+inline std::pair<SocketLink, int> make_pubsub_link(const std::string &url)
 {
     auto listenerFactory = [] { return make_pub_socket(); };
     auto dialerFactory = []
@@ -330,40 +203,18 @@ inline std::pair<SocketPipeline::Link, int> make_pubsub_link(const std::string &
     return make_link(url, listenerFactory, dialerFactory);
 }
 
-#if 0
-class AbstractLoopContext
+inline int close_link(SocketLink &link)
 {
-    public:
-        virtual std::atomic<bool> &quit() = 0;
-        virtual ~AbstractLoopContext() = default;
-};
+    int ret = 0;
 
-class AbstractProcessorContext: public AbstractLoopContext
-{
-    public:
-        virtual InputReader *inputReader() = 0;
-        virtual OutputWriter *outputWriter() = 0;
-        virtual ~AbstractProcessorContext() = default;
-};
+    if (int res = nng_close(link.dialer))
+        ret = res;
 
-class BasicProcessorContext: public AbstractProcessorContext
-{
-    public:
-        BasicProcessorContext(std::unique_ptr<InputReader> inputReader = {}, std::unique_ptr<OutputWriter> outputWriter = {}):
-            quit_(false), inputReader_(std::move(inputReader)), outputWriter_(std::move(outputWriter)) {}
+    if (int res = nng_close(link.listener))
+        ret = res;
 
-        std::atomic<bool> &quit() override { return quit_; }
-        InputReader *inputReader() override { return inputReader_.get(); }
-        OutputWriter *outputWriter() override { return outputWriter_.get(); }
-        std::unique_ptr<InputReader> &takeInputReader() { return inputReader_; }
-        std::unique_ptr<OutputWriter> &takeOutputWriter() { return outputWriter_; }
-
-    private:
-        std::atomic<bool> quit_;
-        std::unique_ptr<InputReader> inputReader_;
-        std::unique_ptr<OutputWriter> outputWriter_;
-};
-#endif
+    return ret;
+}
 
 }
 

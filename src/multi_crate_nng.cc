@@ -1612,7 +1612,7 @@ size_t empty_pipeline_inputs(CratePipeline &pipeline)
     return messages;
 }
 
-CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink)
+CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, nng::SocketLink outputLink)
 {
     auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
     writer->debugInfo = fmt::format("replay_loop (crateId={})", crateId);
@@ -1634,7 +1634,7 @@ CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &repl
     return result;
 }
 
-CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, SocketLink outputLink)
+CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, nng::SocketLink outputLink)
 {
     auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);
     writer->debugInfo = fmt::format("readout_loop (crateId={})", ctx->crateId);
@@ -1653,7 +1653,7 @@ CratePipelineStep make_readout_step(const std::shared_ptr<MvlcInstanceReadoutCon
 }
 
 // Standard single input, single output processing step.
-static CratePipelineStep make_processing_step(const std::shared_ptr<JobContextInterface> &context, SocketLink inputLink, SocketLink outputLink)
+static CratePipelineStep make_processing_step(const std::shared_ptr<JobContextInterface> &context, nng::SocketLink inputLink, nng::SocketLink outputLink)
 {
     auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
     reader->debugInfo = context->name();
@@ -1677,17 +1677,17 @@ static CratePipelineStep make_processing_step(const std::shared_ptr<JobContextIn
     return result;
 }
 
-CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink)
+CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink)
 {
     return make_processing_step(context, inputLink, outputLink);
 }
 
-CratePipelineStep make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, SocketLink inputLink, SocketLink outputLink)
+CratePipelineStep make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink)
 {
     return make_processing_step(context, inputLink, outputLink);
 }
 
-CratePipelineStep make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink)
+CratePipelineStep make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, nng::SocketLink inputLink)
 {
     auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
     reader->debugInfo = context->name();
@@ -1700,7 +1700,7 @@ CratePipelineStep make_analysis_step(const std::shared_ptr<AnalysisProcessingCon
     return result;
 }
 
-CratePipelineStep make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink)
+CratePipelineStep make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, nng::SocketLink inputLink)
 {
     auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
     reader->debugInfo = context->name();
@@ -1713,7 +1713,7 @@ CratePipelineStep make_test_consumer_step(const std::shared_ptr<TestConsumerCont
     return result;
 }
 
-CratePipelineStep make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, SocketLink inputLink)
+CratePipelineStep make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, nng::SocketLink inputLink)
 {
     auto reader = std::make_shared<nng::SocketInputReader>(inputLink.dialer);
     reader->debugInfo = context->name();

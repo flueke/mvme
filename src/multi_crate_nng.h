@@ -310,13 +310,11 @@ struct LIBMVME_EXPORT ListfileWriterContext: public AbstractJobContext
     }
 };
 
-using SocketLink = nng::SocketPipeline::Link;
-
 struct LIBMVME_EXPORT CratePipelineStep
 {
-    SocketLink inputLink;
-    SocketLink outputLink;
-    int nngError = 0;
+    nng::SocketLink inputLink;
+    nng::SocketLink outputLink;
+    //int nngError = 0;
     std::shared_ptr<nng::InputReader> reader;
     std::shared_ptr<nng::MultiOutputWriter> writer;
     std::shared_ptr<JobContextInterface> context;
@@ -344,13 +342,13 @@ size_t empty_pipeline_inputs(CratePipeline &pipeline);
 
 int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 
-CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, SocketLink outputLink);
-CratePipelineStep LIBMVME_EXPORT make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, SocketLink outputLink);
-CratePipelineStep LIBMVME_EXPORT make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, SocketLink inputLink, SocketLink outputLink);
-CratePipelineStep LIBMVME_EXPORT make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, SocketLink inputLink, SocketLink outputLink);
-CratePipelineStep LIBMVME_EXPORT make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, SocketLink inputLink);
-CratePipelineStep LIBMVME_EXPORT make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, SocketLink inputLink);
-CratePipelineStep LIBMVME_EXPORT make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, SocketLink inputLink);
+CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, nng::SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, nng::SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, nng::SocketLink inputLink);
+CratePipelineStep LIBMVME_EXPORT make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, nng::SocketLink inputLink);
+CratePipelineStep LIBMVME_EXPORT make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, nng::SocketLink inputLink);
 
 }
 
