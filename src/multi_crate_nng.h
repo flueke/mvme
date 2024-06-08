@@ -120,6 +120,7 @@ inline bool start_job(JobContextInterface &context)
     if (context.jobRuntime().isRunning())
         return false;
 
+    context.clearLastResult();
     context.setQuit(false);
     context.readerCounters().access()->start();
     context.writerCounters().access()->start();

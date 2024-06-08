@@ -98,8 +98,8 @@ class MultiInputReader: public InputReader
         }
 
     private:
-    std::mutex mutex_;
-    std::vector<std::unique_ptr<InputReader>> readers_;
+        std::mutex mutex_;
+        std::vector<std::unique_ptr<InputReader>> readers_;
 
 };
 
