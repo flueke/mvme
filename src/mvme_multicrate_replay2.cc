@@ -190,6 +190,7 @@ int main(int argc, char *argv[])
     replayContext->lfh = listfileReadHandle;
 
     std::unordered_map<u8, std::vector<CratePipelineStep>> cratePipelineSteps;
+    std::unordered_map<u8, std::shared_ptr<ReadoutParserContext>> parserContexts;
     std::unordered_map<u8, std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
 
     // producer steps
@@ -223,6 +224,7 @@ int main(int argc, char *argv[])
         }
         auto step = make_readout_parser_step(ctx, cratePipelineSteps[crateId].back().outputLink, outputLink);
         cratePipelineSteps[crateId].emplace_back(std::move(step));
+        parserContexts.emplace(crateId, ctx);
     }
 
     if (!analysisFilename.empty())
@@ -439,6 +441,18 @@ int main(int argc, char *argv[])
             spdlog::info("replay finished, starting shutdown");
             stop_replay();
             log_counters();
+
+            if (!analysisContexts.empty())
+            {
+                std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+                for (const auto &[crateId, ctx]: parserContexts)
+                    parserCounters[crateId] = ctx->parserCounters.copy();
+                std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
+                for (const auto &[crateId, ctx]: analysisContexts)
+                    analyses[crateId] = ctx->analysis;
+                auto &[crateId, ctx] = *analysisContexts.begin();
+                analysis::save_run_statistics_to_json(ctx->runInfo, ctx->runInfo.runId + ".json", parserCounters, analyses);
+            }
 
             if (!manuallyStopped && cbAutoRestart->isChecked())
             {
