@@ -141,6 +141,31 @@ class JobWatcher: public QObject
 
 };
 
+class QtJobObserver: public QObject, public JobObserverInterface
+{
+    Q_OBJECT
+
+    signals:
+        void jobStarted(const std::shared_ptr<JobContextInterface> &context);
+        void jobFinished(const std::shared_ptr<JobContextInterface> &context);
+
+    public:
+        QtJobObserver(QObject *parent = nullptr)
+            : QObject(parent)
+        {
+            qRegisterMetaType<std::shared_ptr<JobContextInterface>>("std::shared_ptr<JobContextInterface>");
+        }
+
+        void onJobStarted(const std::shared_ptr<JobContextInterface> &context) override
+        {
+            emit jobStarted(context);
+        }
+
+        void onJobFinished(const std::shared_ptr<JobContextInterface> &context) override
+        {
+            emit jobFinished(context);
+        }
+};
 
 }
 

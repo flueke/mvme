@@ -302,6 +302,9 @@ int main(int argc, char *argv[])
         l->addWidget(cbKeepHistoContents);
     }
 
+    Executor executor;
+    executor.addObserver(std::make_shared<LoggingJobObserver>());
+
     auto start_replay = [&]
     {
         for (auto &[crateId, steps]: cratePipelineSteps)
@@ -344,6 +347,7 @@ int main(int argc, char *argv[])
             {
                 if (!step.context->jobRuntime().isRunning() && !step.context->jobRuntime().isReady())
                 {
+                    #if 0
                     if (start_job(*step.context))
                         spdlog::info("started job {}", step.context->name());
                     else
@@ -351,6 +355,9 @@ int main(int argc, char *argv[])
                         spdlog::error("error starting job {}", step.context->name());
                         return;
                     }
+                    #else
+                    executor.startJob(step.context);
+                    #endif
                 }
                 else
                 {
@@ -401,6 +408,9 @@ int main(int argc, char *argv[])
             spdlog::warn("end immediate shutdown (dt={} ms)", dt.count() / 1000.0);
         else
             spdlog::warn("end graceful shutdown (dt={} ms)", dt.count() / 1000.0);
+
+        pbStart->setEnabled(true);
+        pbStop->setEnabled(!pbStart->isEnabled());
     };
 
     auto log_counters = [&]
@@ -450,6 +460,50 @@ int main(int argc, char *argv[])
 
     controlsWidget.show();
 
+    auto qtJobObserver = std::make_shared<QtJobObserver>();
+    executor.addObserver(qtJobObserver);
+
+    QObject::connect(qtJobObserver.get(), &QtJobObserver::jobStarted, qtJobObserver.get(),
+        [] (const std::shared_ptr<JobContextInterface> &context)
+        {
+            spdlog::info("(qt) job {} started", context->name());
+        }, Qt::QueuedConnection);
+
+    QObject::connect(qtJobObserver.get(), &QtJobObserver::jobFinished, qtJobObserver.get(),
+        [&] (const std::shared_ptr<JobContextInterface> &context)
+        {
+            spdlog::info("(qt) job {} finished", context->name());
+            for (auto &[crateId, steps]: cratePipelineSteps)
+            {
+                if (!steps.empty() && steps[0].context == context)
+                {
+                    spdlog::warn("(qt) replay finished!");
+                    stop_replay();
+                    log_counters();
+
+                    if (!analysisContexts.empty())
+                    {
+                        std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+                        for (const auto &[crateId, ctx]: parserContexts)
+                            parserCounters[crateId] = ctx->parserCounters.copy();
+                        std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
+                        for (const auto &[crateId, ctx]: analysisContexts)
+                            analyses[crateId] = ctx->analysis;
+                        auto &[crateId, ctx] = *analysisContexts.begin();
+                        analysis::save_run_statistics_to_json(ctx->runInfo, ctx->runInfo.runId + ".json", parserCounters, analyses);
+                    }
+
+                    if (!manuallyStopped && cbAutoRestart->isChecked())
+                    {
+                        start_replay();
+                    }
+                    pbStart->setEnabled(true);
+                    return;
+                }
+            }
+        }, Qt::QueuedConnection);
+
+
 
     QTimer timer;
 
@@ -469,25 +523,6 @@ int main(int argc, char *argv[])
     aQuit->setShortcut(QSL("Ctrl+Q"));
     aQuit->setShortcutContext(Qt::ApplicationShortcut);
     QObject::connect(aQuit, &QAction::triggered, &app, &QApplication::quit);
-    JobPoller jobPoller;
-
-    QObject::connect(&jobPoller, &JobPoller::jobReady, on_job_finished);
-
-    QObject::connect(&jobPoller, &JobPoller::jobReady, [] (const std::shared_ptr<JobContextInterface> &ctx)
-    {
-        spdlog::warn("jobPoller: job {} ready\n", ctx->name());
-    });
-
-
-    for (auto &[crateId, steps]: cratePipelineSteps)
-    {
-        for (auto &step: steps)
-        {
-            jobPoller.addJob(step.context);
-        }
-    }
-
-    auto jobPollerFuture = std::async(std::launch::async, [&] { jobPoller.loop(); });
 
 
 
@@ -508,8 +543,6 @@ int main(int argc, char *argv[])
     int ret = app.exec();
 
     stop_replay();
-    jobPoller.quit();
-    jobPollerFuture.wait();
 
     spdlog::info("crate pipelines terminated");
 

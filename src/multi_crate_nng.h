@@ -335,12 +335,7 @@ std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline); /
 // number of messages read.
 size_t empty_pipeline_inputs(CratePipeline &pipeline);
 
-// TODO: add quit_pipeline() to force quit a pipeline. Needs care as messages
-// should not get stuck in the pipeline when force quitting. Have to either
-// recreate the pipe or read all pending messages off the readers. Also keep in
-// mind that some links may be lossfull, so shutdown messages themselves can get
-// dropped if they are used!
-
+// Closes the sockets in the given pipeline.
 int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 
 CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, nng::SocketLink outputLink);
@@ -350,6 +345,85 @@ CratePipelineStep LIBMVME_EXPORT make_multievent_splitter_step(const std::shared
 CratePipelineStep LIBMVME_EXPORT make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, nng::SocketLink inputLink);
 CratePipelineStep LIBMVME_EXPORT make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, nng::SocketLink inputLink);
 CratePipelineStep LIBMVME_EXPORT make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, nng::SocketLink inputLink);
+
+class Executor;
+
+class JobObserverInterface
+{
+    public:
+        virtual ~JobObserverInterface() = default;
+        virtual void onJobStarted(const std::shared_ptr<JobContextInterface> &ctx) = 0;
+        virtual void onJobFinished(const std::shared_ptr<JobContextInterface> &ctx) = 0;
+};
+
+class Executor
+{
+    public:
+        void startJob(const std::shared_ptr<JobContextInterface> &context)
+        {
+            auto fWrap = [context, this] () -> LoopResult
+            {
+                for (auto &observer : observers_)
+                    observer->onJobStarted(context);
+
+                LoopResult result;
+
+                try
+                {
+                    result = context->function()();
+                }
+                catch (const std::exception &e)
+                {
+                    result.exception = std::current_exception();
+                }
+
+                for (auto &observer : observers_)
+                    observer->onJobFinished(context);
+
+                return result;
+            };
+
+            auto task = std::packaged_task<LoopResult()>(fWrap);
+            JobRuntime rt;
+            rt.context = context.get();
+            rt.result = task.get_future();
+            context->clearLastResult();
+            context->setQuit(false);
+            context->readerCounters().access()->start();
+            context->writerCounters().access()->start();
+            rt.thread = std::thread([t = std::move(task)]() mutable { t.make_ready_at_thread_exit(); });
+            context->setJobRuntime(std::move(rt));
+        }
+
+        void addObserver(const std::shared_ptr<JobObserverInterface> &observer)
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            observers_.push_back(observer);
+        }
+
+        void removeObserver(const std::shared_ptr<JobObserverInterface> &observer)
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
+        }
+
+    private:
+        std::mutex mutex_;
+        std::vector<std::shared_ptr<JobObserverInterface>> observers_;
+};
+
+struct LoggingJobObserver: public JobObserverInterface
+{
+    void onJobStarted(const std::shared_ptr<JobContextInterface> &ctx) override
+    {
+        spdlog::info("Job started: {}", ctx->name());
+    }
+
+    void onJobFinished(const std::shared_ptr<JobContextInterface> &ctx) override
+    {
+        spdlog::info("Job finished: {}", ctx->name());
+    }
+};
 
 }
 
