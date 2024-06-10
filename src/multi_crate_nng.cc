@@ -596,7 +596,6 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
     size_t inputBuffersLost = 0;
     bool error = false;
     vme_analysis_common::TimetickGenerator timetickGen;
-    context.readerCounters().access()->start();
     const auto crateId = context.crateId;
 
     spdlog::info("entering analysis_loop (crateId={})", crateId);
