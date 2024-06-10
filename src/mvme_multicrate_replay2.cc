@@ -427,6 +427,7 @@ int main(int argc, char *argv[])
         }
     };
 
+    #if 0
     auto on_job_finished = [&] (const std::shared_ptr<JobContextInterface> &ctx_)
     {
         if (replayContext->jobRuntime().isReady() && !replayContext->lastResult().has_value())
@@ -454,6 +455,7 @@ int main(int argc, char *argv[])
             pbStart->setEnabled(true);
         }
     };
+    #endif
 
     QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
     QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(true); });
@@ -463,47 +465,96 @@ int main(int argc, char *argv[])
     auto qtJobObserver = std::make_shared<QtJobObserver>();
     executor.addObserver(qtJobObserver);
 
-    QObject::connect(qtJobObserver.get(), &QtJobObserver::jobStarted, qtJobObserver.get(),
-        [] (const std::shared_ptr<JobContextInterface> &context)
-        {
-            spdlog::info("(qt) job {} started", context->name());
-        }, Qt::QueuedConnection);
+    struct JobStates
+    {
+        std::set<std::shared_ptr<JobContextInterface>> allJobs, startedJobs, finishedJobs;
+    };
 
-    QObject::connect(qtJobObserver.get(), &QtJobObserver::jobFinished, qtJobObserver.get(),
-        [&] (const std::shared_ptr<JobContextInterface> &context)
+    JobStates replayJobStates;
+    for (auto &[crateId, steps]: cratePipelineSteps)
+    {
+        for (auto &step: steps)
         {
-            spdlog::info("(qt) job {} finished", context->name());
-            for (auto &[crateId, steps]: cratePipelineSteps)
+            replayJobStates.allJobs.insert(step.context);
+        }
+    }
+
+    auto on_job_started = [&replayJobStates] (const std::shared_ptr<JobContextInterface> &ctx)
+    {
+        if (replayJobStates.allJobs.find(ctx) != std::end(replayJobStates.allJobs))
+        {
+            spdlog::info("(qt) job {} started", ctx->name());
+
+            if (replayJobStates.startedJobs.find(ctx) == std::end(replayJobStates.startedJobs))
+                replayJobStates.startedJobs.insert(ctx);
+            else
+                spdlog::warn("(qt) job {} started again", ctx->name());
+
+            if (replayJobStates.startedJobs == replayJobStates.allJobs)
+                spdlog::warn("(qt) all replay jobs started");
+        }
+        else
+            spdlog::warn("(qt) unknown job {} started", ctx->name());
+    };
+
+    auto on_job_finished = [&] (const std::shared_ptr<JobContextInterface> &ctx)
+    {
+        // TODO: check if replay context finished
+        // if so go to shutdown state, sending shutdown messages to the output of the job that just terminated.
+        // XXX: what if the next step in a pipeline is already terminated? there will be shutdown messages left in the pipeline.
+        // XXX: either always destory and recreate the sockets or clear the pipeline manually or detect that the next step has shutdown
+        // and in this case do not even send the shutdown message.
+        // TODO: once all jobs have finished to log_counters and save_run_statistics_to_json
+
+        if (replayJobStates.allJobs.find(ctx) != std::end(replayJobStates.allJobs))
+        {
+            spdlog::info("(qt) job {} finished", ctx->name());
+
+            if (replayJobStates.finishedJobs.find(ctx) == std::end(replayJobStates.finishedJobs))
+                replayJobStates.finishedJobs.insert(ctx);
+            else
+                spdlog::warn("(qt) job {} finished again", ctx->name());
+
+            if (replayJobStates.finishedJobs == replayJobStates.allJobs)
+                spdlog::warn("(qt) all replay jobs finished");
+        }
+        else
+            spdlog::warn("(qt) unknown job {} finished", ctx->name());
+
+
+        spdlog::info("(qt) job {} finished", ctx->name());
+        for (auto &[crateId, steps]: cratePipelineSteps)
+        {
+            if (!steps.empty() && steps[0].context == ctx)
             {
-                if (!steps.empty() && steps[0].context == context)
+                spdlog::warn("(qt) replay finished!");
+                stop_replay();
+                log_counters();
+
+                if (!analysisContexts.empty())
                 {
-                    spdlog::warn("(qt) replay finished!");
-                    stop_replay();
-                    log_counters();
-
-                    if (!analysisContexts.empty())
-                    {
-                        std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
-                        for (const auto &[crateId, ctx]: parserContexts)
-                            parserCounters[crateId] = ctx->parserCounters.copy();
-                        std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
-                        for (const auto &[crateId, ctx]: analysisContexts)
-                            analyses[crateId] = ctx->analysis;
-                        auto &[crateId, ctx] = *analysisContexts.begin();
-                        analysis::save_run_statistics_to_json(ctx->runInfo, ctx->runInfo.runId + ".json", parserCounters, analyses);
-                    }
-
-                    if (!manuallyStopped && cbAutoRestart->isChecked())
-                    {
-                        start_replay();
-                    }
-                    pbStart->setEnabled(true);
-                    return;
+                    std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+                    for (const auto &[crateId, ctx]: parserContexts)
+                        parserCounters[crateId] = ctx->parserCounters.copy();
+                    std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
+                    for (const auto &[crateId, ctx]: analysisContexts)
+                        analyses[crateId] = ctx->analysis;
+                    auto &[crateId, ctx] = *analysisContexts.begin();
+                    analysis::save_run_statistics_to_json(ctx->runInfo, ctx->runInfo.runId + ".json", parserCounters, analyses);
                 }
+
+                if (!manuallyStopped && cbAutoRestart->isChecked())
+                {
+                    start_replay();
+                }
+                pbStart->setEnabled(true);
+                return;
             }
-        }, Qt::QueuedConnection);
+        }
+    };
 
-
+    QObject::connect(qtJobObserver.get(), &QtJobObserver::jobStarted, qtJobObserver.get(), on_job_started, Qt::QueuedConnection);
+    QObject::connect(qtJobObserver.get(), &QtJobObserver::jobFinished, qtJobObserver.get(), on_job_finished, Qt::QueuedConnection);
 
     QTimer timer;
 
