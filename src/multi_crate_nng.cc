@@ -1495,6 +1495,7 @@ LoopResult listfile_writer_loop(ListfileWriterContext &context)
 
 std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
 {
+    spdlog::info("leave shutdown_pipeline");
     std::vector<LoopResult> results;
 
     for (auto &step: pipeline)
@@ -1507,30 +1508,35 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
             auto result = step.context->jobRuntime().wait();
             spdlog::info("job {} finished: {}", step.context->name(), result.toString());
             step.context->setLastResult(result);
-            step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
         }
         else
         {
-            spdlog::warn("job {} already finished", step.context->name());
+            spdlog::info("job {} already finished", step.context->name());
             result = step.context->lastResult().value_or(LoopResult{});
         }
 
         results.emplace_back(std::move(result));
+
         step.context->readerCounters().access()->stop();
         step.context->writerCounters().access()->stop();
+        step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
 
         if (step.writer)
         {
-            send_shutdown_message(*step.writer);
-            spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
+            if (int res = send_shutdown_message(*step.writer))
+                spdlog::error("error sending shutdown message from {}: {}", step.context->name(), nng_strerror(res));
+            else
+                spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
         }
     }
 
+    spdlog::info("leave shutdown_pipeline");
     return results;
 }
 
 std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
 {
+    spdlog::info("enter quit_pipeline");
     std::vector<LoopResult> results;
 
     for (auto &step: pipeline)
@@ -1544,7 +1550,6 @@ std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
             auto result = step.context->jobRuntime().wait();
             spdlog::info("job {} finished: {}", step.context->name(), result.toString());
             step.context->setLastResult(result);
-            step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
         }
         else
         {
@@ -1553,10 +1558,13 @@ std::vector<LoopResult> quit_pipeline(CratePipeline &pipeline)
         }
 
         results.emplace_back(std::move(result));
+
         step.context->readerCounters().access()->stop();
         step.context->writerCounters().access()->stop();
+        step.context->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
     }
 
+    spdlog::info("leave quit_pipeline");
     return results;
 }
 

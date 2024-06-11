@@ -327,14 +327,30 @@ int main(int argc, char *argv[])
         l->addWidget(cbKeepHistoContents);
     }
 
+    struct JobStates
+    {
+        std::set<std::shared_ptr<JobContextInterface>> allJobs, startedJobs, finishedJobs;
+
+        void clearAll()
+        {
+            allJobs.clear();
+            startedJobs.clear();
+            finishedJobs.clear();
+        }
+    };
+
+    JobStates replayJobStates;
+
     Executor executor;
     executor.addObserver(std::make_shared<LoggingJobObserver>());
 
+
     auto start_replay = [&]
     {
-        for (auto &[crateId, steps]: cratePipelineSteps)
+        for (auto &[_, steps]: cratePipelineSteps)
         {
-            const bool anyRunning = std::any_of(std::begin(steps), std::end(steps), [] (const auto &step) { return step.context->jobRuntime().isRunning(); });
+            const bool anyRunning = std::any_of(std::begin(steps), std::end(steps),
+                [] (const auto &step) { return step.context->jobRuntime().isRunning(); });
             if (anyRunning) return;
         }
 
@@ -365,6 +381,19 @@ int main(int argc, char *argv[])
         pbStart->setEnabled(false);
         pbStop->setEnabled(!pbStart->isEnabled());
 
+        replayJobStates.clearAll();
+        for (auto &[_, steps]: cratePipelineSteps)
+        {
+            for (auto &step: steps)
+            {
+                replayJobStates.allJobs.insert(step.context);
+            }
+        }
+
+        // important: replayContext is not directly started via
+        // exector.startJob(), so clearLastResult() must be called here.
+        replayContext->clearLastResult();
+
         // start pipelines
         for (auto &[crateId, steps]: cratePipelineSteps)
         {
@@ -382,6 +411,7 @@ int main(int argc, char *argv[])
                     }
                     #else
                     executor.startJob(step.context);
+                    spdlog::info("started job {}", step.context->name());
                     #endif
                 }
                 else
@@ -416,7 +446,7 @@ int main(int argc, char *argv[])
                 shutdown_pipeline(steps);
         }
 
-        if (immediateShutdown)
+        if (immediateShutdown || true)
         {
             StopWatch swEmpty;
             for (auto &[crateId, steps]: cratePipelineSteps)
@@ -490,20 +520,6 @@ int main(int argc, char *argv[])
     auto qtJobObserver = std::make_shared<QtJobObserver>();
     executor.addObserver(qtJobObserver);
 
-    struct JobStates
-    {
-        std::set<std::shared_ptr<JobContextInterface>> allJobs, startedJobs, finishedJobs;
-    };
-
-    JobStates replayJobStates;
-    for (auto &[crateId, steps]: cratePipelineSteps)
-    {
-        for (auto &step: steps)
-        {
-            replayJobStates.allJobs.insert(step.context);
-        }
-    }
-
     auto on_job_started = [&replayJobStates] (const std::shared_ptr<JobContextInterface> &ctx)
     {
         if (replayJobStates.allJobs.find(ctx) != std::end(replayJobStates.allJobs))
@@ -546,7 +562,18 @@ int main(int argc, char *argv[])
         else
             spdlog::warn("(qt) unknown job {} finished", ctx->name());
 
+        // Detect if a replay just finished to start the shutdown process.
+        if (!replayContext->lastResult().has_value() && replayContext->jobRuntime().isReady())
+        {
+            auto result = replayContext->jobRuntime().wait();
+            spdlog::warn("(qt) job {} finished: {}", replayContext->name(), result.toString());
+            replayContext->setLastResult(result);
+            replayContext->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
+            spdlog::warn("starting graceful shutdown (end of replay)");
+            stop_replay();
+        }
 
+        #if 0
         spdlog::info("(qt) job {} finished", ctx->name());
         for (auto &[crateId, steps]: cratePipelineSteps)
         {
@@ -576,6 +603,7 @@ int main(int argc, char *argv[])
                 return;
             }
         }
+        #endif
     };
 
     QObject::connect(qtJobObserver.get(), &QtJobObserver::jobStarted, qtJobObserver.get(), on_job_started, Qt::QueuedConnection);

@@ -333,6 +333,7 @@ std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline); /
 
 // Read from all input links in the pipeline until error. Returns the total
 // number of messages read.
+// TODO: use short read timeouts and test
 size_t empty_pipeline_inputs(CratePipeline &pipeline);
 
 // Closes the sockets in the given pipeline.
@@ -363,8 +364,11 @@ class Executor
         {
             auto fWrap = [context, this] () -> LoopResult
             {
+                assert(!context->lastResult().has_value());
+                std::unique_lock<std::mutex> lock(mutex_);
                 for (auto &observer : observers_)
                     observer->onJobStarted(context);
+                lock.unlock();
 
                 LoopResult result;
 
@@ -377,6 +381,7 @@ class Executor
                     result.exception = std::current_exception();
                 }
 
+                lock.lock();
                 for (auto &observer : observers_)
                     observer->onJobFinished(context);
 
@@ -416,12 +421,12 @@ struct LoggingJobObserver: public JobObserverInterface
 {
     void onJobStarted(const std::shared_ptr<JobContextInterface> &ctx) override
     {
-        spdlog::info("Job started: {}", ctx->name());
+        spdlog::info("LoggingJobObserver: Job started: {}", ctx->name());
     }
 
     void onJobFinished(const std::shared_ptr<JobContextInterface> &ctx) override
     {
-        spdlog::info("Job finished: {}", ctx->name());
+        spdlog::info("LoggingJobObserver: Job finished: {}", ctx->name());
     }
 };
 
