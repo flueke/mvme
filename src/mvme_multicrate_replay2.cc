@@ -228,6 +228,31 @@ int main(int argc, char *argv[])
         parserContexts.emplace(crateId, ctx);
     }
 
+#if 0
+    // multievent_splitters
+    for (const auto &[crateId, configs]: vmeConfigs)
+    {
+        // FIXME: need the analysis instance here if uses_multi_event_splitting() and/or
+        // collect_multi_event_splitter_filter_strings() should be used.
+        // => build analysis instances first, then splitters, then analysis contexts.
+        //if (analysis::uses_multi_event_splitting(*configs.vmeConfig, *analysis))
+
+        auto ctx = std::make_shared<MultieventSplitterContext>();
+        ctx->crateId = crateId;
+        ctx->setName(fmt::format("multievent_splitter_crate{}", crateId));
+        auto tmpl = "inproc://crate{0}_stage0_step1_split_data";
+        auto url = fmt::format(tmpl, ctx->crateId);
+        auto [outputLink, res] = nng::make_pair_link(url);
+        if (res)
+        {
+            spdlog::error("Error creating outputlink {} for {}: {}", url, ctx->name(), nng_strerror(res));
+            return 1;
+        }
+        auto step = make_multievent_splitter_step(ctx, cratePipelineSteps[crateId].back().outputLink, outputLink);
+        cratePipelineSteps[crateId].emplace_back(std::move(step));
+    }
+#endif
+
     if (!analysisFilename.empty())
     {
         // analysis consumers
