@@ -227,6 +227,7 @@ ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op,
     if (auto expr = std::dynamic_pointer_cast<ExpressionOperator>(op))
     {
         result = new ExpressionOperatorDialog(expr, userLevel, mode, destDir, eventWidget);
+        result->resize(1000, 800);
     }
     else if (auto exprCond = std::dynamic_pointer_cast<ExpressionCondition>(op))
     {
