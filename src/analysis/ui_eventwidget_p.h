@@ -312,6 +312,7 @@ struct EventWidgetPrivate
     QHash<Histo1DSink *, ObjectCounters> m_histo1DSinkCounters;
     QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
+    WidgetGeometrySaver widgetGeoSaver;
 
     double m_prevAnalysisTimeticks = 0.0;
 
