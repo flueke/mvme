@@ -235,6 +235,7 @@ class AbstractOpConfigWidget: public QWidget
         virtual void configureOperator() = 0;
         virtual void inputSelected(s32 slotIndex) = 0;
         virtual bool isValid() const = 0;
+        virtual bool hasPendingModifications() const { return false; }
 
     protected:
         OperatorInterface *m_op;
@@ -347,9 +348,11 @@ class CalibrationMinMaxConfigWidget: public AbstractOpConfigWidget
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
         bool isValid() const override;
+        bool hasPendingModifications() const override { return calibModifiedButNotApplied_; }
 
     private:
         // CalibrationMinMax
+        bool calibModifiedButNotApplied_ = false;
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_unityInput = nullptr;
         QDoubleSpinBox *spin_unityOutput = nullptr;
