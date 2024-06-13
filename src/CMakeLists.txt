@@ -325,9 +325,12 @@ target_link_libraries(libmvme
     PUBLIC yaml-cpp
     )
 
+#add_compile_definitions(QT_DISABLE_DEPRECATED_UP_TO=0x060700)
+
 target_compile_options(libmvme
     PRIVATE $<${not-msvc}:-Wall -Wextra>
     PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
     )
 
 find_package(prometheus-cpp CONFIG)
