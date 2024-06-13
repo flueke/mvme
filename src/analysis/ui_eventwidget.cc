@@ -1179,7 +1179,6 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
     : QWidget(parent)
     , m_d(std::make_unique<EventWidgetPrivate>())
 {
-    *m_d = {};
     m_d->m_q = this;
     m_d->m_serviceProvider = serviceProvider;
     m_d->m_analysisWidget = analysisWidget;
@@ -4933,7 +4932,10 @@ void EventWidgetPrivate::editSource(const SourcePtr &src)
 
 void EventWidgetPrivate::editOperator(const OperatorPtr &op)
 {
-    edit_operator(op);
+    if (auto dialog = edit_operator(op))
+    {
+        widgetGeoSaver.addAndRestore(dialog, op->getId().toString());
+    }
 }
 
 void EventWidgetPrivate::editConditionInFirstAvailableSink(const ConditionPtr &cond)

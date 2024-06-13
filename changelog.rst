@@ -4,6 +4,21 @@
 Changelog
 ##################################################
 
+Version 1.13.0
+--------------------------------------------------
+
+* vme_templates:
+
+  - New templates for MDPP-16/32-SCP streaming mode
+
+  - Update templates for MDPP-32 SCP, QDC and PADC
+
+* analysis:
+
+  - Add new ``extended timestamp`` filter template to relevant VME modules.
+
+  - Improve runtime performance.
+
 Version 1.12.2 - works with MVLC FW0037 or earlier
 --------------------------------------------------
 

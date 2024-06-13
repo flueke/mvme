@@ -2659,13 +2659,16 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
     formLayout->addRow(m_applyGlobalCalibFrame);
     m_applyGlobalCalibFrame->setVisible(false);
 
+    static const QStringList HeaderLabels{"Address", "Min", "Max", "Apply Calib"};
+    static const auto ColumnCount = HeaderLabels.size();
+
     m_calibrationTable = new QTableWidget;
     m_calibrationTable->setMinimumSize(325, 175);
     m_calibrationTable->setVisible(false);
-    m_calibrationTable->setColumnCount(3);
+    m_calibrationTable->setColumnCount(ColumnCount);
     m_calibrationTable->setItemDelegateForColumn(1, new CalibrationItemDelegate(m_calibrationTable));
     m_calibrationTable->setItemDelegateForColumn(2, new CalibrationItemDelegate(m_calibrationTable));
-    m_calibrationTable->setHorizontalHeaderLabels({"Address", "Min", "Max"});
+    m_calibrationTable->setHorizontalHeaderLabels(HeaderLabels);
     m_calibrationTable->verticalHeader()->setVisible(false);
 
     widgetLayout->addWidget(m_calibrationTable);
@@ -2685,6 +2688,7 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
             auto maxItem = m_calibrationTable->item(row, 2);
             maxItem->setData(Qt::EditRole, unitMax);
         }
+        calibModifiedButNotApplied_ = false;
     });
 
     auto on_unit_text_changed =  [this] (const QString &str)
@@ -2720,6 +2724,8 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
         spin_outputMax->setValue(spin_inputMax->value());
     };
 
+    auto on_calib_data_modified = [this] { calibModifiedButNotApplied_ = true; };
+
     connect(le_unit, &QLineEdit::textChanged, this, on_unit_text_changed);
 
     connect(spin_outputMin, qOverload<double>(&QDoubleSpinBox::valueChanged),
@@ -2731,6 +2737,18 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
     connect(pb_applyUnity, &QPushButton::clicked, this,  apply_unity_value);
 
     connect(pb_useInputLimits, &QPushButton::clicked, this, use_input_limits);
+
+    // Handle modifications to calibration data.
+    connect(le_unit, &QLineEdit::textChanged, this, on_calib_data_modified);
+
+    connect(spin_unityOutput, qOverload<double>(&QDoubleSpinBox::valueChanged),
+        this, on_calib_data_modified);
+
+    connect(spin_outputMin, qOverload<double>(&QDoubleSpinBox::valueChanged),
+        this, on_calib_data_modified);
+
+    connect(spin_outputMax, qOverload<double>(&QDoubleSpinBox::valueChanged),
+        this, on_calib_data_modified);
 
     // Populates the calibration table
     inputSelected(0);
@@ -2887,6 +2905,42 @@ bool CalibrationMinMaxConfigWidget::isValid() const
    return required_inputs_connected_and_valid(m_cal);
 }
 
+#if 0
+void CalibrationMinMaxConfigWidget::closeEvent(QCloseEvent *event)
+{
+    qDebug() << "entering" << __PRETTY_FUNCTION__;
+
+    if (calibModifiedButNotApplied_)
+    {
+        auto response = QMessageBox::question(this, "Calibration Modified",
+            "Calibration values have been modified but not applied to any array addresses. Discard changes?",
+            QMessageBox::Discard | QMessageBox::Cancel);
+
+        if (response == QMessageBox::Cancel)
+            event->ignore();
+        else
+            AbstractOpConfigWidget::closeEvent(event);
+    }
+}
+
+void CalibrationMinMaxConfigWidget::hideEvent(QHideEvent *event)
+{
+    qDebug() << "entering" << __PRETTY_FUNCTION__;
+
+    if (calibModifiedButNotApplied_)
+    {
+        auto response = QMessageBox::question(this, "Calibration Modified",
+            "Calibration values have been modified but not applied to any array addresses. Discard changes?",
+            QMessageBox::Discard | QMessageBox::Cancel);
+
+        if (response == QMessageBox::Cancel)
+            event->ignore();
+        else
+            AbstractOpConfigWidget::hideEvent(event);
+    }
+}
+#endif
+
 void CalibrationMinMaxConfigWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
 {
     Q_ASSERT(calib->getSlot(0)->isConnected());
@@ -2918,9 +2972,29 @@ void CalibrationMinMaxConfigWidget::fillCalibrationTable(CalibrationMinMax *cali
         item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
         item->setData(Qt::EditRole, unitMax);
         m_calibrationTable->setItem(addr, 2, item);
+
+        // apply to this row
+        auto pb_apply = new QPushButton("Apply");
+        pb_apply->setToolTip("Apply calibration values to this address.");
+        pb_apply->setStatusTip(pb_apply->toolTip());
+        connect(pb_apply, &QPushButton::clicked, this, [this, addr] () {
+            double unitMin = spin_outputMin->value();
+            double unitMax = spin_outputMax->value();
+
+            auto minItem = m_calibrationTable->item(addr, 1);
+            minItem->setData(Qt::EditRole, unitMin);
+
+            auto maxItem = m_calibrationTable->item(addr, 2);
+            maxItem->setData(Qt::EditRole, unitMax);
+
+            calibModifiedButNotApplied_ = false;
+        });
+
+        m_calibrationTable->setCellWidget(addr, 3, pb_apply);
     }
 
     m_calibrationTable->resizeRowsToContents();
+    calibModifiedButNotApplied_ = false;
 }
 
 //

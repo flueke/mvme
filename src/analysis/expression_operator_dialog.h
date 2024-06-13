@@ -55,6 +55,9 @@ class ExpressionOperatorDialog: public ObjectEditorDialog
         virtual void accept() override;
         virtual void reject() override;
 
+    protected:
+        void closeEvent(QCloseEvent *event) override;
+
     private:
         struct Private;
         std::unique_ptr<Private> m_d;
