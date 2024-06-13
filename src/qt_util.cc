@@ -73,11 +73,19 @@ void WidgetGeometrySaver::addAndRestore(QWidget *widget, const QString &key)
 
 bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
 {
+    auto widget = qobject_cast<QWidget *>(obj);
+
     if (event->type() == QEvent::Close)
     {
-        auto widget = qobject_cast<QWidget *>(obj);
-
         if (widget && widget->isVisible() && m_widgetKeys.contains(widget))
+        {
+            m_settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
+            qDebug() << "saved geometry for" << widget << " key =" << m_widgetKeys[widget];
+        }
+    }
+    else if (event->type() == QEvent::Hide)
+    {
+        if (widget && m_widgetKeys.contains(widget))
         {
             m_settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
             qDebug() << "saved geometry for" << widget << " key =" << m_widgetKeys[widget];
