@@ -578,8 +578,8 @@ int main(int argc, char *argv[])
 
 
 
-    #if 0
-    for (int i=0; i<3; ++i)
+    #if 1
+    for (int i=0; i<1; ++i)
     {
         auto w = new QMainWindow;
         w->setAttribute(Qt::WA_DeleteOnClose, true);
@@ -590,6 +590,7 @@ int main(int argc, char *argv[])
         auto mFile = mb->addMenu("&File");
         mFile->addAction(aQuit);
     }
+    controlsWidget.raise();
     #endif
 
     int ret = app.exec();
