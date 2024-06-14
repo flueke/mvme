@@ -871,7 +871,19 @@ QJsonObject analysis_statistics_to_json(const Analysis &ana)
     {
         QJsonArray destArray;
 
-        for (auto sink_: ana.getSinkOperators())
+        auto sinks = ana.getSinkOperators();
+
+        std::sort(std::begin(sinks), std::end(sinks),
+            [] (const auto &s1, const auto &s2)
+            {
+                auto n1 = analysis::make_object_name_with_path(s1);
+                auto n2 = analysis::make_object_name_with_path(s2);
+                if (n1 == n2)
+                    return s1->getRank() < s2->getRank();
+                return n1 < n2;
+            });
+
+        for (auto sink_: sinks)
         {
             if (auto sink = qobject_cast<Histo1DSink *>(sink_.get());
                 sink && sink->getUserLevel() == 0)

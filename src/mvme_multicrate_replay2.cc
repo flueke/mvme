@@ -401,18 +401,8 @@ int main(int argc, char *argv[])
             {
                 if (!step.context->jobRuntime().isRunning() && !step.context->jobRuntime().isReady())
                 {
-                    #if 0
-                    if (start_job(*step.context))
-                        spdlog::info("started job {}", step.context->name());
-                    else
-                    {
-                        spdlog::error("error starting job {}", step.context->name());
-                        return;
-                    }
-                    #else
                     executor.startJob(step.context);
                     spdlog::info("started job {}", step.context->name());
-                    #endif
                 }
                 else
                 {
@@ -482,36 +472,6 @@ int main(int argc, char *argv[])
         }
     };
 
-    #if 0
-    auto on_job_finished = [&] (const std::shared_ptr<JobContextInterface> &ctx_)
-    {
-        if (replayContext->jobRuntime().isReady() && !replayContext->lastResult().has_value())
-        {
-            spdlog::info("replay finished, starting shutdown");
-            stop_replay();
-            log_counters();
-
-            if (!analysisContexts.empty())
-            {
-                std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
-                for (const auto &[crateId, ctx]: parserContexts)
-                    parserCounters[crateId] = ctx->parserCounters.copy();
-                std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
-                for (const auto &[crateId, ctx]: analysisContexts)
-                    analyses[crateId] = ctx->analysis;
-                auto &[crateId, ctx] = *analysisContexts.begin();
-                analysis::save_run_statistics_to_json(ctx->runInfo, ctx->runInfo.runId + ".json", parserCounters, analyses);
-            }
-
-            if (!manuallyStopped && cbAutoRestart->isChecked())
-            {
-                start_replay();
-            }
-            pbStart->setEnabled(true);
-        }
-    };
-    #endif
-
     QObject::connect(pbStart, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = false; start_replay(); });
     QObject::connect(pbStop, &QPushButton::clicked, &controlsWidget, [&] { manuallyStopped = true; stop_replay(true); });
 
@@ -540,7 +500,7 @@ int main(int argc, char *argv[])
 
     auto on_job_finished = [&] (const std::shared_ptr<JobContextInterface> &ctx)
     {
-        // TODO: check if replay context finished
+        // : check if replay context finished
         // if so go to shutdown state, sending shutdown messages to the output of the job that just terminated.
         // XXX: what if the next step in a pipeline is already terminated? there will be shutdown messages left in the pipeline.
         // XXX: either always destory and recreate the sockets or clear the pipeline manually or detect that the next step has shutdown
@@ -563,47 +523,35 @@ int main(int argc, char *argv[])
             spdlog::warn("(qt) unknown job {} finished", ctx->name());
 
         // Detect if a replay just finished to start the shutdown process.
+        spdlog::info("replayContext->lastResult().has_value()={}, replayContext->jobRuntime().isReady()={}",
+            replayContext->lastResult().has_value(), replayContext->jobRuntime().isReady());
+
         if (!replayContext->lastResult().has_value() && replayContext->jobRuntime().isReady())
         {
             auto result = replayContext->jobRuntime().wait();
             spdlog::warn("(qt) job {} finished: {}", replayContext->name(), result.toString());
             replayContext->setLastResult(result);
-            replayContext->setQuit(false); // important, otherwise output writers will not send shutdown messages due to the retryPredicate failing
             spdlog::warn("starting graceful shutdown (end of replay)");
             stop_replay();
-        }
+            //log_counters();
 
-        #if 0
-        spdlog::info("(qt) job {} finished", ctx->name());
-        for (auto &[crateId, steps]: cratePipelineSteps)
-        {
-            if (!steps.empty() && steps[0].context == ctx)
+            if (!analysisContexts.empty())
             {
-                spdlog::warn("(qt) replay finished!");
-                stop_replay();
-                log_counters();
+                std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
+                for (const auto &[crateId, ctx]: parserContexts)
+                    parserCounters[crateId] = ctx->parserCounters.copy();
+                std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
+                for (const auto &[crateId, ctx]: analysisContexts)
+                    analyses[crateId] = ctx->analysis;
+                auto &[crateId, ctx] = *analysisContexts.begin();
+                analysis::save_run_statistics_to_json(ctx->runInfo, ctx->runInfo.runId + ".json", parserCounters, analyses);
+            }
 
-                if (!analysisContexts.empty())
-                {
-                    std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> parserCounters;
-                    for (const auto &[crateId, ctx]: parserContexts)
-                        parserCounters[crateId] = ctx->parserCounters.copy();
-                    std::map<u8, std::shared_ptr<analysis::Analysis>> analyses;
-                    for (const auto &[crateId, ctx]: analysisContexts)
-                        analyses[crateId] = ctx->analysis;
-                    auto &[crateId, ctx] = *analysisContexts.begin();
-                    analysis::save_run_statistics_to_json(ctx->runInfo, ctx->runInfo.runId + ".json", parserCounters, analyses);
-                }
-
-                if (!manuallyStopped && cbAutoRestart->isChecked())
-                {
-                    start_replay();
-                }
-                pbStart->setEnabled(true);
-                return;
+            if (!manuallyStopped && cbAutoRestart->isChecked())
+            {
+                start_replay();
             }
         }
-        #endif
     };
 
     QObject::connect(qtJobObserver.get(), &QtJobObserver::jobStarted, qtJobObserver.get(), on_job_started, Qt::QueuedConnection);

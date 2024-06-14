@@ -381,6 +381,8 @@ class Executor
                     result.exception = std::current_exception();
                 }
 
+                context->setQuit(false);
+
                 lock.lock();
                 for (auto &observer : observers_)
                     observer->onJobFinished(context);
