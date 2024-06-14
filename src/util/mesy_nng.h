@@ -70,7 +70,9 @@ inline size_t allocated_free_space(nng_msg *msg)
     return capacity - used;
 }
 
-inline int set_socket_timeouts(nng_socket socket, nng_duration timeout = 100)
+static nng_duration DefaultTimeout = 16;
+
+inline int set_socket_timeouts(nng_socket socket, nng_duration timeout = DefaultTimeout)
 {
     if (int res = nng_socket_set(socket, NNG_OPT_RECVTIMEO, &timeout, sizeof(timeout)))
     {
@@ -89,7 +91,7 @@ inline int set_socket_timeouts(nng_socket socket, nng_duration timeout = 100)
 
 using socket_factory = std::function<int (nng_socket *)>;
 
-inline nng_socket make_socket(socket_factory factory, nng_duration timeout = 100)
+inline nng_socket make_socket(socket_factory factory, nng_duration timeout = DefaultTimeout)
 {
     nng_socket socket;
 
@@ -108,27 +110,27 @@ inline nng_socket make_socket(socket_factory factory, nng_duration timeout = 100
     return socket;
 }
 
-inline nng_socket make_pair_socket(nng_duration timeout = 100)
+inline nng_socket make_pair_socket(nng_duration timeout = DefaultTimeout)
 {
     return make_socket(nng_pair0_open, timeout);
 }
 
-inline nng_socket make_push_socket(nng_duration timeout = 100)
+inline nng_socket make_push_socket(nng_duration timeout = DefaultTimeout)
 {
     return make_socket(nng_push0_open, timeout);
 }
 
-inline nng_socket make_pull_socket(nng_duration timeout = 100)
+inline nng_socket make_pull_socket(nng_duration timeout = DefaultTimeout)
 {
     return make_socket(nng_pull0_open, timeout);
 }
 
-inline nng_socket make_pub_socket(nng_duration timeout = 100)
+inline nng_socket make_pub_socket(nng_duration timeout = DefaultTimeout)
 {
     return make_socket(nng_pub0_open, timeout);
 }
 
-inline nng_socket make_sub_socket(nng_duration timeout = 100)
+inline nng_socket make_sub_socket(nng_duration timeout = DefaultTimeout)
 {
     return make_socket(nng_sub0_open, timeout);
 }
