@@ -593,6 +593,11 @@ int main(int argc, char *argv[])
     controlsWidget.raise();
     #endif
 
+    if (parser["--start"])
+    {
+        QTimer::singleShot(0, [&] { start_replay(); });
+    }
+
     int ret = app.exec();
 
     stop_replay();
