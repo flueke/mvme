@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
         // => build analysis instances first, then splitters, then analysis contexts.
         //if (analysis::uses_multi_event_splitting(*configs.vmeConfig, *analysis))
 
-        auto ctx = std::make_shared<MultieventSplitterContext>();
+        auto ctx = std::make_shared<MultiEventSplitterContext>();
         ctx->crateId = crateId;
         ctx->setName(fmt::format("multievent_splitter_crate{}", crateId));
         auto tmpl = "inproc://crate{0}_stage0_step1_split_data";
