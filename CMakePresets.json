@@ -1,0 +1,18 @@
+{
+    "version": 8,
+    "configurePresets": [
+        {
+            "name": "clang-14",
+            "displayName": "Clang 14.0.6 x86_64-pc-linux-gnu",
+            "description": "Using compilers: C = /usr/bin/clang-14, CXX = /usr/bin/clang++-14",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_C_COMPILER": "/usr/bin/clang-14",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++-14",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ]
+}
