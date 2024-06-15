@@ -158,11 +158,11 @@ struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
 
 std::unique_ptr<ReadoutParserContext> LIBMVME_EXPORT make_readout_parser_context(const mvlc::CrateConfig &crateConfig);
 
-struct MultieventSplitterContext;
+struct MultiEventSplitterContext;
 
-LoopResult LIBMVME_EXPORT multievent_splitter_loop(MultieventSplitterContext &context);
+LoopResult LIBMVME_EXPORT multievent_splitter_loop(MultiEventSplitterContext &context);
 
-struct LIBMVME_EXPORT MultieventSplitterContext: public AbstractJobContext
+struct LIBMVME_EXPORT MultiEventSplitterContext: public AbstractJobContext
 {
     job_function function() override
     {
@@ -174,6 +174,37 @@ struct LIBMVME_EXPORT MultieventSplitterContext: public AbstractJobContext
     u32 outputMessageNumber = 0u;
     multi_event_splitter::State state;
     StopWatch flushTimer;
+};
+
+struct EventBuilderContext;
+
+LoopResult LIBMVME_EXPORT event_builder_loop(EventBuilderContext &context);
+
+struct LIBMVME_EXPORT EventBuilderContext: public AbstractJobContext
+{
+    job_function function() override
+    {
+        return [this] { return event_builder_loop(*this); };
+    }
+
+    u8 crateId = 0;
+    mvlc::EventBuilderConfig eventBuilderConfig;
+    std::unique_ptr<mvlc::EventBuilder> eventBuilder;
+    std::array<u8, mvlc::MaxVMECrates> inputCrateMappings;
+    std::array<u8, mvlc::MaxVMECrates> outputCrateMappings;
+
+    nng::unique_msg outputMessage = nng::make_unique_msg();
+    u32 outputMessageNumber = 0u;
+    StopWatch flushTimer;
+
+    EventBuilderContext()
+    {
+        for (size_t i=0; i<inputCrateMappings.size(); ++i)
+        {
+            inputCrateMappings[i] = i;
+            outputCrateMappings[i] = i;
+        }
+    }
 };
 
 struct AnalysisProcessingContext;
@@ -333,7 +364,6 @@ std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline); /
 
 // Read from all input links in the pipeline until error. Returns the total
 // number of messages read.
-// TODO: use short read timeouts and test
 size_t empty_pipeline_inputs(CratePipeline &pipeline);
 
 // Closes the sockets in the given pipeline.
@@ -342,7 +372,7 @@ int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, nng::SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, nng::SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink);
-CratePipelineStep LIBMVME_EXPORT make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink);
+CratePipelineStep LIBMVME_EXPORT make_multievent_splitter_step(const std::shared_ptr<MultiEventSplitterContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_analysis_step(const std::shared_ptr<AnalysisProcessingContext> &context, nng::SocketLink inputLink);
 CratePipelineStep LIBMVME_EXPORT make_test_consumer_step(const std::shared_ptr<TestConsumerContext> &context, nng::SocketLink inputLink);
 CratePipelineStep LIBMVME_EXPORT make_listfile_writer_step(const std::shared_ptr<ListfileWriterContext> &context, nng::SocketLink inputLink);

@@ -317,7 +317,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
     return result;
 }
 
-inline bool flush_output_message(MultieventSplitterContext &ctx)
+inline bool flush_output_message(MultiEventSplitterContext &ctx)
 {
     assert(ctx.outputMessage);
 
@@ -362,7 +362,7 @@ inline bool flush_output_message(MultieventSplitterContext &ctx)
 
 struct MultieventSplitterNngMessageWriter: public ParsedEventsMessageWriter
 {
-    MultieventSplitterNngMessageWriter(MultieventSplitterContext &ctx_)
+    MultieventSplitterNngMessageWriter(MultiEventSplitterContext &ctx_)
         : ctx(ctx_)
     {
     }
@@ -385,7 +385,7 @@ struct MultieventSplitterNngMessageWriter: public ParsedEventsMessageWriter
         return true;
     }
 
-    MultieventSplitterContext &ctx;
+    MultiEventSplitterContext &ctx;
 };
 
 // The event data callback for the multievent_splitter. Serializes the parsed module
@@ -398,7 +398,7 @@ inline void multievent_splitter_eventdata_callback(void *ctx_, int crateIndex, i
     assert(eventIndex >= 0 && eventIndex <= std::numeric_limits<u8>::max());
     assert(moduleCount < std::numeric_limits<u8>::max());
 
-    auto &ctx = *reinterpret_cast<MultieventSplitterContext *>(ctx_);
+    auto &ctx = *reinterpret_cast<MultiEventSplitterContext *>(ctx_);
 
     MultieventSplitterNngMessageWriter writer(ctx);
     writer.consumeReadoutEventData(crateIndex, eventIndex, moduleDataList, moduleCount);
@@ -409,13 +409,13 @@ inline void multievent_splitter_systemevent_callback(void *ctx_, int crateIndex,
     assert(ctx_);
     assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
 
-    auto &ctx = *reinterpret_cast<MultieventSplitterContext *>(ctx_);
+    auto &ctx = *reinterpret_cast<MultiEventSplitterContext *>(ctx_);
 
     MultieventSplitterNngMessageWriter writer(ctx);
     writer.consumeSystemEventData(crateIndex, header, size);
 }
 
-LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
+LoopResult multievent_splitter_loop(MultiEventSplitterContext &context)
 {
     LoopResult result;
     const auto crateId = context.crateId;
@@ -545,6 +545,231 @@ LoopResult multievent_splitter_loop(MultieventSplitterContext &context)
 
     assert(!context.outputMessage);
     spdlog::info("leaving multievent_splitter_loop, crateId={}", crateId);
+    return result;
+}
+
+inline bool flush_output_message(EventBuilderContext &ctx)
+{
+    assert(ctx.outputMessage);
+
+    if (!ctx.outputMessage)
+        return false;
+
+    const auto msgSize = nng_msg_len(ctx.outputMessage.get());
+
+    StopWatch stopWatch;
+
+    // Take ownership of the current output message => ctx.outputMessage becomes null.
+    auto msg = std::move(ctx.outputMessage);
+    assert(!ctx.outputMessage);
+
+    if (int res = ctx.outputWriter()->writeMessage(std::move(msg)))
+    {
+        // Note: if msg was not released in writeMessage() it is still alive
+        // here. It will be destroyed when leaving this scope.
+        assert(!ctx.outputMessage);
+        spdlog::warn("event_builder_loop (crate{}): error writing output message: {}", ctx.crateId, nng_strerror(res));
+        return false;
+    }
+
+    assert(!msg);
+    assert(!ctx.outputMessage);
+
+    {
+        auto a = ctx.writerCounters().access();
+        auto &c = a.ref();
+        c.tSend += stopWatch.interval();
+        c.tTotal += stopWatch.end();
+        c.messagesSent++;
+        c.bytesSent += msgSize;
+        ctx.flushTimer.interval();
+    }
+
+    spdlog::debug("event_builder_loop (crate{}): sent message {} of size {}",
+        ctx.crateId, ctx.outputMessageNumber, msgSize);
+
+    return true;
+}
+
+struct EventBuilderMessageWriter: public ParsedEventsMessageWriter
+{
+    EventBuilderMessageWriter(EventBuilderContext &ctx_)
+        : ctx(ctx_)
+    {
+    }
+
+    nng_msg *getOutputMessage() override
+    {
+        parser_maybe_alloc_output(ctx);
+        return ctx.outputMessage.get();
+    }
+
+    bool flushOutputMessage() override
+    {
+        spdlog::debug("event_builder_loop (crateId={}): flushing full output message #{}",
+            ctx.crateId, ctx.outputMessageNumber-1);
+        return flush_output_message(ctx);
+    }
+
+    bool hasDynamic(int crateIndex, int eventIndex, int moduleIndex) override
+    {
+        (void) crateIndex; (void) eventIndex; (void) moduleIndex;
+        return true;
+    }
+
+    EventBuilderContext &ctx;
+};
+
+inline void event_builder_eventdata_callback(void *ctx_, int crateIndex, int eventIndex,
+    const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+{
+    assert(ctx_);
+    assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
+    assert(eventIndex >= 0 && eventIndex <= std::numeric_limits<u8>::max());
+    assert(moduleCount < std::numeric_limits<u8>::max());
+
+    auto &ctx = *reinterpret_cast<EventBuilderContext *>(ctx_);
+
+    auto outputCrateId = ctx.outputCrateMappings[crateIndex];
+
+    EventBuilderMessageWriter writer(ctx);
+    writer.consumeReadoutEventData(outputCrateId, eventIndex, moduleDataList, moduleCount);
+}
+
+inline void event_builder_systemevent_callback(void *ctx_, int crateIndex, const u32 *header, u32 size)
+{
+    assert(ctx_);
+    assert(crateIndex >= 0 && crateIndex <= std::numeric_limits<u8>::max());
+
+    auto &ctx = *reinterpret_cast<EventBuilderContext *>(ctx_);
+
+    auto outputCrateId = ctx.outputCrateMappings[crateIndex];
+
+    EventBuilderMessageWriter writer(ctx);
+    writer.consumeSystemEventData(outputCrateId, header, size);
+}
+
+LoopResult event_builder_loop(EventBuilderContext &context)
+{
+    LoopResult result;
+    const auto crateId = context.crateId;
+
+    set_thread_name(fmt::format("event_builder_loop{}", crateId).c_str());
+
+    spdlog::info("entering event_builder_loop, crateId={}", crateId);
+
+    readout_parser::ReadoutParserCallbacks callbacks;
+    callbacks.eventData = event_builder_eventdata_callback;
+    callbacks.systemEvent = event_builder_systemevent_callback;
+
+    context.flushTimer.start();
+    SocketWorkPerformanceCounters counters;
+    counters.start();
+
+    while (!context.shouldQuit())
+    {
+        StopWatch sw;
+
+        auto [inputMsg, res] = context.inputReader()->readMessage();
+
+        if (res && res != NNG_ETIMEDOUT)
+        {
+            spdlog::error("event_builder_loop (crateId={}) - receive_message: {}", crateId, nng_strerror(res));
+            result.nngError = res;
+            break;
+        }
+        else if (res)
+        {
+            spdlog::trace("event_builder_loop (crateId={}) - receive_message: timeout", crateId);
+            continue;
+        }
+
+        assert(inputMsg);
+
+        const auto msgLen = nng_msg_len(inputMsg.get());
+
+        if (is_shutdown_message(inputMsg.get()))
+        {
+            spdlog::info("event_builder_loop (crateId={}): Received shutdown message, leaving loop", crateId);
+            break;
+        }
+
+        if (msgLen < sizeof(multi_crate::ParsedEventsMessageHeader))
+        {
+            spdlog::warn("event_builder_loop (crateId={}): incoming message too short (len={})", crateId, msgLen);
+            continue;
+        }
+
+        auto inputHeader = nng::msg_trim_read<multi_crate::ParsedEventsMessageHeader>(inputMsg.get()).value();
+
+        if (inputHeader.messageType != multi_crate::MessageType::ParsedEvents)
+        {
+            spdlog::error("Received input message with unhandled type 0x{:02x}, expected type 0x{:02x}",
+                static_cast<u8>(inputHeader.messageType), static_cast<u8>(multi_crate::MessageType::ParsedEvents));
+            continue;
+        }
+
+        auto tReceive = sw.interval();
+
+        // TODO: calculate incoming buffer loss
+
+        ParsedEventMessageIterator messageIter(inputMsg.get());
+
+        for (auto eventData = next_event(messageIter);
+                eventData.type != EventContainer::Type::None;
+                eventData = next_event(messageIter))
+        {
+            if (eventData.type == EventContainer::Type::Readout)
+            {
+                auto mappedCrateId = context.inputCrateMappings[eventData.crateId];
+                spdlog::trace("event_builder_loop (crateId={}) - readout event: input crateId={} mapped to crateId={}",
+                    context.crateId, eventData.crateId, mappedCrateId);
+                context.eventBuilder->recordEventData(mappedCrateId, eventData.readout.eventIndex,
+                    eventData.readout.moduleDataList, eventData.readout.moduleCount);
+            }
+            else if (eventData.type == EventContainer::Type::System && eventData.system.size)
+            {
+                auto mappedCrateId = context.inputCrateMappings[eventData.crateId];
+                spdlog::trace("event_builder_loop (crateId={}) - system event: input crateId={} mapped to crateId={}",
+                    context.crateId, eventData.crateId, mappedCrateId);
+                context.eventBuilder->recordSystemEvent(mappedCrateId, eventData.system.header, eventData.system.size);
+            }
+            else if (nng_msg_len(inputMsg.get()))
+            {
+                spdlog::warn("event_builder_loop: incoming message contains unknown subsection '{}'",
+                    *reinterpret_cast<const u8 *>(nng_msg_body(inputMsg.get())));
+                break;
+            }
+        }
+
+        auto nEvents = context.eventBuilder->buildEvents(callbacks);
+        if (nEvents)
+            spdlog::debug("event_builder_loop{}: built {} events", context.crateId, nEvents);
+
+        auto tProcess = sw.interval();
+
+        {
+            counters.bytesReceived += msgLen;
+            counters.messagesReceived++;
+            counters.tReceive += tReceive;
+            counters.tProcess += tProcess;
+            counters.tTotal += sw.end();
+            // TODO: counters.messagesLost = inputBuffersLost;
+            context.readerCounters().access().ref() = counters;
+        }
+
+        if (context.outputMessage && context.flushTimer.get_interval() >= FlushBufferTimeout)
+        {
+            spdlog::debug("event_builder_loop (crateId={}): flushing output message #{} due to timeout", context.crateId, context.outputMessageNumber-1);
+            flush_output_message(context);
+        }
+    }
+
+    if (context.outputMessage)
+        flush_output_message(context);
+
+    assert(!context.outputMessage);
+    spdlog::info("leaving event_builder_loop, crateId={}", crateId);
     return result;
 }
 
@@ -1689,7 +1914,7 @@ CratePipelineStep make_readout_parser_step(const std::shared_ptr<ReadoutParserCo
     return make_processing_step(context, inputLink, outputLink);
 }
 
-CratePipelineStep make_multievent_splitter_step(const std::shared_ptr<MultieventSplitterContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink)
+CratePipelineStep make_multievent_splitter_step(const std::shared_ptr<MultiEventSplitterContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink)
 {
     return make_processing_step(context, inputLink, outputLink);
 }
