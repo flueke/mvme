@@ -186,6 +186,47 @@ int main(int argc, char *argv[])
     };
 #endif
 
+    struct CrateProcessingStage
+    {
+        u8 crateId;
+        std::shared_ptr<ReadoutParserContext> parserContext;
+        std::shared_ptr<MultiEventSplitterContext> splitterContext;
+        std::shared_ptr<EventBuilderContext> eventBuilderContext;
+        std::shared_ptr<AnalysisProcessingContext> analysisContext;
+        CratePipeline pipeline;
+    };
+
+    struct CrateProcessingSystem
+    {
+        std::vector<CrateProcessingStage> stages;
+    };
+
+    // Ids > 8 are used for system streams. Currently 0xff is the combined stage2 stream.
+
+    struct CrateStageSoA
+    {
+        std::vector<u8> crateIds;
+        std::vector<std::shared_ptr<ReadoutParserContext>> parserContexts;
+        std::vector<std::shared_ptr<MultiEventSplitterContext>> splitterContexts;
+        std::vector<std::shared_ptr<EventBuilderContext>> eventBuilderContexts;
+        std::vector<std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
+        std::vector<CratePipeline> pipelines;
+    };
+
+    struct ReplaySoA: public CrateStageSoA
+    {
+        // Note: CrateReplayWrapperContext are not stored. Currently
+        // implementation details but makes detecting when the replay finishes a
+        // bit messy. On the other hand checking for pipelines[N][0] finished is
+        // enough and generic.
+        std::shared_ptr<ReplayJobContext> replayContext;
+    };
+
+    struct ReadoutSoA: public CrateStageSoA
+    {
+        std::vector<std::shared_ptr<MvlcInstanceReadoutContext>> readoutContexts;
+    };
+
     auto replayContext = std::make_shared<ReplayJobContext>();
     replayContext->setName("replay_loop");
     replayContext->lfh = listfileReadHandle;
