@@ -269,6 +269,15 @@ int main(int argc, char *argv[])
         parserContexts.emplace(crateId, ctx);
     }
 
+    // TODO: need analysis and vmeconfig pairs at this point to be able to call
+    // uses_multi_event_splitting() and uses_event_builder()
+
+    // to build a pipeline:
+    // for each link to create:
+    // url template with room for a unique id
+    // link type: pair or pubsub for now
+    // return value std::vector<SocketLink>
+
 #if 0
     // multievent_splitters
     for (const auto &[crateId, configs]: vmeConfigs)

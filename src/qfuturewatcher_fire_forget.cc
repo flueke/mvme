@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         auto watcher = make_watcher<void>([](const auto &)
         {
             spdlog::info("task finished");
-            qApp->quit();
+            //qApp->quit();
         });
         watcher->setFuture(QtConcurrent::run(task));
     }
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
         auto watcher = make_watcher<int>([](const auto &future)
         {
             spdlog::info("task finished: {}", future.result());
-            qApp->quit();
+            //qApp->quit();
         });
         watcher->setFuture(QtConcurrent::run(task));
     }

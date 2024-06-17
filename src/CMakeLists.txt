@@ -554,12 +554,14 @@ add_mvme_exe(mvme_multicrate_readout2 mvme_multicrate_readout2.cc)
 install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
+add_mvme_exe(statemachine_test statemachine_test.cc)
 
 add_custom_target(multicrate2_dev_tools)
 add_dependencies(multicrate2_dev_tools
     mvme_multicrate_replay2
     mvme_multicrate_readout2
     qfuturewatcher_fire_forget
+    statemachine_test
 )
 
 # automated gtests
