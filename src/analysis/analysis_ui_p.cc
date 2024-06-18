@@ -2741,7 +2741,6 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
 
     auto on_calib_data_modified = [this]
     {
-         qDebug() << "on_calib_data_modified";
          calibModifiedButNotApplied_ = true;
     };
 
