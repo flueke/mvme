@@ -203,6 +203,9 @@ class AddEditOperatorDialog: public ObjectEditorDialog
         static const s32 WidgetMinWidth  = 325;
         static const s32 WidgetMinHeight = 175;
 
+    protected:
+        void closeEvent(QCloseEvent *event) override;
+
     private slots:
         void onOperatorValidityChanged();
 
@@ -236,6 +239,7 @@ class AbstractOpConfigWidget: public QWidget
         virtual void inputSelected(s32 slotIndex) = 0;
         virtual bool isValid() const = 0;
         virtual bool hasPendingModifications() const { return false; }
+        virtual void clearPendingModifications() {}
 
     protected:
         OperatorInterface *m_op;
@@ -349,6 +353,7 @@ class CalibrationMinMaxConfigWidget: public AbstractOpConfigWidget
         void inputSelected(s32 slotIndex) override;
         bool isValid() const override;
         bool hasPendingModifications() const override { return calibModifiedButNotApplied_; }
+        void clearPendingModifications() override { calibModifiedButNotApplied_ = false; }
 
     private:
         // CalibrationMinMax
@@ -366,6 +371,7 @@ class CalibrationMinMaxConfigWidget: public AbstractOpConfigWidget
         QFrame *m_applyGlobalCalibFrame = nullptr;
         QPushButton *m_pb_applyGlobalCalib = nullptr;
         void fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax);
+        void setModified() { calibModifiedButNotApplied_ = true; }
 
         CalibrationMinMax *m_cal;
 };
