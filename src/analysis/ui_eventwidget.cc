@@ -2563,6 +2563,28 @@ static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
     return viableHistoGenNodes;
 }
 
+inline QAction *make_new_operator_action(
+    int userLevel, const QString &title, const OperatorPtr &op, const DirectoryPtr &destDir,
+    EventWidget *parentWidget = nullptr)
+{
+    auto icon = make_operator_icon(op.get());
+    auto action = new QAction(icon, title);
+
+    QObject::connect(action, &QAction::triggered, [userLevel, op, destDir, parentWidget]
+    {
+        auto dialog = operator_editor_factory(
+            op, userLevel, ObjectEditorMode::New, destDir, parentWidget);
+
+        //POS dialog->move(QCursor::pos());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+        parentWidget->clearAllTreeSelections();
+        parentWidget->clearAllToDefaultNodeHighlights();
+    });
+
+    return action;
+}
+
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
@@ -2583,46 +2605,41 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
     {
         auto menuNew = new QMenu(parentMenu);
 
-        auto add_newOperatorAction = [this, parentMenu, menuNew, userLevel] (
-            const QString &title, auto op, const DirectoryPtr &destDir)
-        {
-            auto icon = make_operator_icon(op.get());
-            // New Operator
-            menuNew->addAction(icon, title, parentMenu, [this, userLevel, op, destDir]() {
-                auto dialog = operator_editor_factory(
-                    op, userLevel, ObjectEditorMode::New, destDir, m_q);
-
-                //POS dialog->move(QCursor::pos());
-                dialog->setAttribute(Qt::WA_DeleteOnClose);
-                dialog->show();
-                clearAllTreeSelections();
-                clearAllToDefaultNodeHighlights();
-            });
-        };
-
         auto objectFactory = m_serviceProvider->getAnalysis()->getObjectFactory();
         OperatorVector operators;
+        OperatorVector deprecatedOperators;
 
         for (auto operatorName: objectFactory.getOperatorNames())
         {
             OperatorPtr op(objectFactory.makeOperator(operatorName));
 
+            // Do not want conditions in here except for the expression
+            // condition. The other are generated graphically directly in histo
+            // widgets.
             if (!std::dynamic_pointer_cast<ConditionInterface>(op)
                 || std::dynamic_pointer_cast<ExpressionCondition>(op))
             {
-                operators.push_back(op);
+                auto &dest = op->property("mvme_deprecated").toBool()
+                    ? deprecatedOperators : operators;
+                dest.push_back(op);
             }
         }
 
         // Sort operators by displayname
-        std::sort(operators.begin(), operators.end(),
-              [](const OperatorPtr &a, const OperatorPtr &b) {
-                  return a->getDisplayName() < b->getDisplayName();
-              });
+        auto cmp = [](const OperatorPtr &a, const OperatorPtr &b)
+        {
+             return a->getDisplayName() < b->getDisplayName();
+        };
+
+        std::sort(operators.begin(), operators.end(), cmp);
+        std::sort(deprecatedOperators.begin(), deprecatedOperators.end(), cmp);
 
         for (auto op: operators)
         {
-            add_newOperatorAction(op->getDisplayName(), op, destDir);
+            auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
+            // Note: neither action status nor tooltips are visible when mouse
+            // hovering over the action :(
+            menuNew->addAction(action);
         }
 
         menuNew->addSeparator();
@@ -2646,6 +2663,21 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                 if (auto node = findNode(newDir))
                     node->treeWidget()->editItem(node);
             });
+
+        if (!deprecatedOperators.empty())
+        {
+            auto destMenu = new QMenu("Deprecated Operators");
+            destMenu->setIcon(QIcon(":/exclamation-circle.png"));
+
+            for (auto op: deprecatedOperators)
+            {
+                auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
+                destMenu->addAction(action);
+            }
+
+            menuNew->addSeparator();
+            menuNew->addMenu(destMenu);
+        }
 
         return menuNew;
     };
@@ -2758,7 +2790,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
     }
     else // Right-click on the tree background, not on an item.
     {
-        auto actionNew = menu.addAction(QSL("New"));
+        auto actionNew = menu.addAction(QSL("New Operator"));
+        actionNew->setIcon(QIcon(":/operator_generic.png"));
         actionNew->setMenu(make_menu_new(&menu));
         auto before = menu.actions().value(0);
         menu.insertAction(before, actionNew);
