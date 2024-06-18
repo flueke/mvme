@@ -2009,6 +2009,7 @@ RangeFilter1D::RangeFilter1D(QObject *parent)
     : BasicOperator(parent)
 {
     m_inputSlot.acceptedInputTypes = InputType::Both;
+    setProperty("mvme_deprecated", true);
 }
 
 void RangeFilter1D::beginRun(const RunInfo &, Logger)
@@ -2192,6 +2193,7 @@ RectFilter2D::RectFilter2D(QObject *parent)
     m_output.setSource(this);
     m_xInput.acceptedInputTypes = InputType::Value;
     m_yInput.acceptedInputTypes = InputType::Value;
+    setProperty("mvme_deprecated", true);
 }
 
 void RectFilter2D::beginRun(const RunInfo &, Logger)
