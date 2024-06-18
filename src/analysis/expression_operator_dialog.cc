@@ -2217,7 +2217,7 @@ void ExpressionOperatorDialog::closeEvent(QCloseEvent *event)
 {
     auto response = QMessageBox::question(
         this, QSL("Apply changes?"),
-        QSL("Do you want to apply changes made in the editor to the underlying analysis?"),
+        QSL("Do you want to apply any changes made in the editor to the underlying analysis?"),
         QMessageBox::Apply | QMessageBox::Discard | QMessageBox::Cancel);
 
     if (response == QMessageBox::Cancel)
