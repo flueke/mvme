@@ -2425,7 +2425,12 @@ void condition_filter_step(Operator *op, A2 *)
         assert(output.size == 1);
 
         double condParam = condInput[d->condIndex];
-        bool condValid   = is_param_valid(condParam);
+
+        // Changed 2024-06-18: added test for condParam != 0.0. Before the
+        // change all valid parameters made the condition true. This did not
+        // work in combination with the newer condition system which outputs 0.0
+        // for false and 1.0 for true.
+        bool condValid = is_param_valid(condParam) && condParam != 0.0;
 
         if (condValid && !d->inverted)
         {
