@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "typedefs.h"
-#include "util/mesy_nng_pipeline2.h"
+#include "util/mesy_nng_pipeline.h"
 
 using namespace mesytec::nng;
 
@@ -211,7 +211,6 @@ TEST(MesyNngPipeline2, SocketPipelineFromElements)
         ASSERT_EQ(pipeline.links[3].url, "");
     }
 }
-#endif
 
 TEST(MesyNngPipeline2, SocketPipelineFromLinks)
 {
@@ -278,6 +277,7 @@ TEST(MesyNngPipeline2, SocketPipelineFromLinks)
         ASSERT_EQ(pipeline.elements()[2].outputUrl, "");
     }
 }
+#endif
 
 TEST(MesyNngPipeline2, UniqueMsg)
 {
