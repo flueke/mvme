@@ -443,6 +443,8 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 {
     (void) parentIndex;
 
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
     /* Note: This code assumes that only top level items are passed in via the mime data
      * object. OperatorTree::mimeData() guarantees this. */
 
@@ -604,9 +606,19 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
             case NodeType_Histo2DSink:
             case NodeType_Sink:
             case NodeType_PlotGridView:
-                if (auto obj = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
                 {
-                    idData.push_back(obj->getId().toByteArray());
+                    if (auto op = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
+                    {
+                        idData.push_back(op->getId().toByteArray());
+                    }
+                } break;
+
+            case NodeType_Directory:
+                {
+                    if (auto dir = get_pointer<Directory>(node, DataRole_AnalysisObject))
+                    {
+                        idData.push_back(dir->getId().toByteArray());
+                    }
                 } break;
 
             default:
