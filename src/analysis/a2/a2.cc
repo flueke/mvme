@@ -3264,9 +3264,12 @@ void expression_condition_step(Operator *op, A2 *a2)
         const auto &input = op->inputs[inputIndex];
         const auto &pi = d->inputParamIndexes[inputIndex];
         double paramValue = input[pi];
-        // convert invalid to 0.0, valid to 1.0
+        // convert invalid to 0.0, leave valid params as is
         // store the result in our values array to which the expression symbol table refers
-        d->values[inputIndex] = is_param_valid(paramValue) ? 1.0 : 0.0;
+        // Modified 2024-06-18 to make it compatible with poly/interval conditions:
+        // Invalids are still converted to 0.0, valid values are kept as is.
+        double value = is_param_valid(paramValue) ? paramValue : 0.0;
+        d->values[inputIndex] = value;
     }
 
     // Evaluate and interpret the result as a boolean
