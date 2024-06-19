@@ -30,14 +30,14 @@ inline QString read_text_file(const QString &fileName)
     return inStream.readAll();
 }
 
-inline QByteArray read_binary_file(const QString &fileName)
+inline std::pair<QByteArray, QString> read_binary_file(const QString &fileName)
 {
     QFile inFile(fileName);
 
     if (!inFile.open(QIODevice::ReadOnly | QIODevice::Text))
-        return {};
+        return std::pair<QByteArray, QString>({}, inFile.errorString());
 
-    return inFile.readAll();
+    return std::pair<QByteArray, QString>(inFile.readAll(), {});
 }
 
 inline QJsonDocument read_json_file(const QString &fileName)

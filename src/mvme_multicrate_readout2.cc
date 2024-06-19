@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
     parser("--analysis") >> analysisFilename;
     std::string outputListfilename;
     parser("--listfile") >> outputListfilename;
+    const bool overwriteListfile = parser["--overwrite-listfile"];
 
     struct VmeConfigs
     {
@@ -117,7 +118,14 @@ int main(int argc, char *argv[])
     for (auto it = std::begin(parser.pos_args()) + 1; it<std::end(parser.pos_args()); ++it)
     {
         auto filename = *it;
-        auto bytes = read_binary_file(QString::fromStdString(filename));
+        auto [bytes, errString] = read_binary_file(QString::fromStdString(filename));
+
+        if (!errString.isEmpty())
+        {
+            std::cerr << fmt::format("Error reading vme config from {}: {}\n", filename, errString.toStdString());
+            return 1;
+        }
+
         auto [vmeConfig, ec] = vme_config::read_vme_config_from_data(bytes);
 
         if (!vmeConfig || ec)
@@ -257,10 +265,13 @@ int main(int argc, char *argv[])
 
         try
         {
+            using Mode = listfile::OverwriteMode;
+            auto createMode = overwriteListfile ? Mode::Overwrite : Mode::DontOverwrite;
+
             mesyApp.listfileCreator = std::make_unique<listfile::ZipCreator>();
-            mesyApp.listfileCreator->createArchive(outputListfilename);
+            mesyApp.listfileCreator->createArchive(outputListfilename, createMode);
             auto lfh = mesyApp.listfileCreator->createZIPEntry("listfile.mvlclst");
-            spdlog::info("Opened output listfile {}", outputListfilename);
+            spdlog::info("Opened output listfile {} for writing", outputListfilename);
             // XXX: a single connectiontype at the start of the listfile
             // doesn't really make sense anymore. On the other hand we have to
             // keep it for existing code to be able to read the file. Just use
@@ -576,6 +587,12 @@ int main(int argc, char *argv[])
         //pbStart->setEnabled(!replayContext->jobRuntime().isRunning());
         //pbStop->setEnabled(!pbStart->isEnabled());
     });
+
+    auto aQuit = new QAction("&Quit"); // FIXME: leaking this global action at the moment
+    aQuit->setShortcut(QSL("Ctrl+Q"));
+    aQuit->setShortcutContext(Qt::ApplicationShortcut);
+    QObject::connect(aQuit, &QAction::triggered, &app, &QApplication::quit);
+    controlsWidget.addAction(aQuit);
 
     int ret = app.exec();
 
