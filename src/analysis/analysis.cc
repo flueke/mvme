@@ -1075,6 +1075,7 @@ Slot *BasicSink::getSlot(s32 slotIndex)
 CalibrationMinMax::CalibrationMinMax(QObject *parent)
     : BasicOperator(parent)
 {
+    setProperty("operator_category", "Math");
 }
 
 void CalibrationMinMax::beginRun(const RunInfo &, Logger)
@@ -1271,6 +1272,7 @@ PreviousValue::PreviousValue(QObject *parent)
     : BasicOperator(parent)
 {
     m_inputSlot.acceptedInputTypes = InputType::Both;
+    setProperty("operator_category", "Utility");
 }
 
 void PreviousValue::beginRun(const RunInfo &, Logger)
@@ -1405,6 +1407,7 @@ Difference::Difference(QObject *parent)
     , m_inputB(this, 1, QSL("-B"))
 {
     m_output.setSource(this);
+    setProperty("operator_category", "Math");
 }
 
 void Difference::slotConnected(Slot *slot)
@@ -1516,6 +1519,7 @@ Sum::Sum(QObject *parent)
     : BasicOperator(parent)
 {
     m_inputSlot.acceptedInputTypes = InputType::Array;
+    setProperty("operator_category", "Math");
 }
 
 void Sum::beginRun(const RunInfo &, Logger)
@@ -1644,6 +1648,7 @@ AggregateOps::AggregateOps(QObject *parent)
     : BasicOperator(parent)
 {
     m_inputSlot.acceptedInputTypes = InputType::Array;
+    setProperty("operator_category", "Math");
 }
 
 // FIXME: min and max thresholds are not taken into account when calculating
@@ -1840,6 +1845,7 @@ ArrayMap::ArrayMap(QObject *parent)
 {
     addSlot();
     m_output.setSource(this);
+    setProperty("operator_category", "Utility");
 }
 
 bool ArrayMap::addSlot()
@@ -2010,6 +2016,7 @@ RangeFilter1D::RangeFilter1D(QObject *parent)
 {
     m_inputSlot.acceptedInputTypes = InputType::Both;
     setProperty("mvme_deprecated", true);
+    setProperty("operator_category", "Conditions");
 }
 
 void RangeFilter1D::beginRun(const RunInfo &, Logger)
@@ -2087,6 +2094,7 @@ ConditionFilter::ConditionFilter(QObject *parent)
     m_output.setSource(this);
     m_dataInput.acceptedInputTypes = InputType::Both;
     m_conditionInput.acceptedInputTypes = InputType::Both;
+    setProperty("operator_category", "Conditions");
 }
 
 void ConditionFilter::beginRun(const RunInfo &, Logger)
@@ -2194,6 +2202,7 @@ RectFilter2D::RectFilter2D(QObject *parent)
     m_xInput.acceptedInputTypes = InputType::Value;
     m_yInput.acceptedInputTypes = InputType::Value;
     setProperty("mvme_deprecated", true);
+    setProperty("operator_category", "Conditions");
 }
 
 void RectFilter2D::beginRun(const RunInfo &, Logger)
@@ -2397,6 +2406,7 @@ BinarySumDiff::BinarySumDiff(QObject *parent)
     m_output.setSource(this);
     m_inputA.acceptedInputTypes = InputType::Both;
     m_inputB.acceptedInputTypes = InputType::Both;
+    setProperty("operator_category", "Math");
 }
 
 s32 BinarySumDiff::getNumberOfEquations() const
@@ -2565,6 +2575,8 @@ void BinarySumDiff::write(QJsonObject &json) const
 ExpressionOperator::ExpressionOperator(QObject *parent)
     : OperatorInterface(parent)
 {
+    setProperty("operator_category", "Math");
+
     QString genericIntroComment;
 
     {
@@ -2883,6 +2895,7 @@ ScalerOverflow::ScalerOverflow(QObject *parent)
     , m_overflowCountOutput(this, 1)
 {
     m_input.acceptedInputTypes = InputType::Both;
+    setProperty("operator_category", "Utility");
 }
 
 void ScalerOverflow::beginRun(const RunInfo &, Logger)
@@ -3742,6 +3755,7 @@ IntervalCondition::IntervalCondition(QObject *parent)
 {
     qRegisterMetaType<analysis::IntervalCondition::IntervalData>(
         "analysis::IntervalCondition::IntervalData");
+    setProperty("operator_category", "Conditions");
 }
 
 void IntervalCondition::beginRun(const RunInfo &, Logger)
@@ -3845,6 +3859,7 @@ PolygonCondition::PolygonCondition(QObject *parent)
     , m_inputX(this, 0, QSL("X Input"), InputType::Value)
     , m_inputY(this, 1, QSL("Y Input"), InputType::Value)
 {
+    setProperty("operator_category", "Conditions");
 }
 
 void PolygonCondition::write(QJsonObject &json) const
@@ -3894,6 +3909,7 @@ QPolygonF PolygonCondition::getPolygon() const
 ExpressionCondition::ExpressionCondition(QObject *parent)
     : ConditionInterface(parent)
 {
+    setProperty("operator_category", "Conditions");
     addSlot();
 }
 
