@@ -9,14 +9,17 @@ Version 1.14.0
 
 * analysis
 
-  - Change condition filter to be compatible with the output of the newer condition operators:
-    Invalids and 0.0 are considered false, everything else is true. Before this change only
-    invalids were considered false.
+  - Change Condition Filter to be compatible with the output of the newer
+    condition operators:
+    Invalids and 0.0 are considered false, everything else is true. Before this
+    change only invalids were considered false.
 
   - Deprecate 1d range and 2d rect filters. Use the newer condition system and
     optionally the ConditionFilter instead.
 
   - Store and restore geometries of operator editor dialogs.
+
+  - Fix drag & drop for directories in the data display area.
 
 Version 1.13.0
 --------------------------------------------------
