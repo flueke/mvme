@@ -1034,6 +1034,21 @@ void AddEditOperatorDialog::repopulateSlotGrid()
     onOperatorValidityChanged();
 }
 
+void AddEditOperatorDialog::closeEvent(QCloseEvent *event)
+{
+    if (m_opConfigWidget->hasPendingModifications())
+    {
+        auto response = QMessageBox::question(this, "Unsaved Changes",
+                                              "There are unsaved changes. Do you want to discard them?",
+                                              QMessageBox::Discard | QMessageBox::Cancel);
+
+    if (response == QMessageBox::Cancel)
+        event->ignore();
+    else
+        ObjectEditorDialog::closeEvent(event);
+    }
+}
+
 void AddEditOperatorDialog::inputSelectedForSlot(
     Slot *destSlot,
     Pipe *selectedPipe,
@@ -2578,6 +2593,7 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
     connect(le_name, &QLineEdit::textChanged, this, [this](const QString &newText) {
         // If the user clears the textedit reset NameEdited to false.
         this->setNameEdited(!newText.isEmpty());
+        setModified();
     });
     formLayout->addRow(QSL("Name"), le_name);
 
@@ -2688,7 +2704,6 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
             auto maxItem = m_calibrationTable->item(row, 2);
             maxItem->setData(Qt::EditRole, unitMax);
         }
-        calibModifiedButNotApplied_ = false;
     });
 
     auto on_unit_text_changed =  [this] (const QString &str)
@@ -2724,7 +2739,10 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
         spin_outputMax->setValue(spin_inputMax->value());
     };
 
-    auto on_calib_data_modified = [this] { calibModifiedButNotApplied_ = true; };
+    auto on_calib_data_modified = [this]
+    {
+         calibModifiedButNotApplied_ = true;
+    };
 
     connect(le_unit, &QLineEdit::textChanged, this, on_unit_text_changed);
 
@@ -2754,10 +2772,12 @@ CalibrationMinMaxConfigWidget::CalibrationMinMaxConfigWidget(CalibrationMinMax *
     inputSelected(0);
     on_unit_text_changed(le_unit->text());
     update_unity_value();
+    calibModifiedButNotApplied_ = false; // just populated with data loaded from the calibration
 }
 
 void CalibrationMinMaxConfigWidget::inputSelected(s32 slotIndex)
 {
+    setModified();
     emit validityMayHaveChanged();
 
     auto op = m_cal;
@@ -2898,48 +2918,13 @@ void CalibrationMinMaxConfigWidget::configureOperator()
             m_cal->setCalibration(addr, unitMin, unitMax);
         }
     }
+    clearPendingModifications();
 }
 
 bool CalibrationMinMaxConfigWidget::isValid() const
 {
    return required_inputs_connected_and_valid(m_cal);
 }
-
-#if 0
-void CalibrationMinMaxConfigWidget::closeEvent(QCloseEvent *event)
-{
-    qDebug() << "entering" << __PRETTY_FUNCTION__;
-
-    if (calibModifiedButNotApplied_)
-    {
-        auto response = QMessageBox::question(this, "Calibration Modified",
-            "Calibration values have been modified but not applied to any array addresses. Discard changes?",
-            QMessageBox::Discard | QMessageBox::Cancel);
-
-        if (response == QMessageBox::Cancel)
-            event->ignore();
-        else
-            AbstractOpConfigWidget::closeEvent(event);
-    }
-}
-
-void CalibrationMinMaxConfigWidget::hideEvent(QHideEvent *event)
-{
-    qDebug() << "entering" << __PRETTY_FUNCTION__;
-
-    if (calibModifiedButNotApplied_)
-    {
-        auto response = QMessageBox::question(this, "Calibration Modified",
-            "Calibration values have been modified but not applied to any array addresses. Discard changes?",
-            QMessageBox::Discard | QMessageBox::Cancel);
-
-        if (response == QMessageBox::Cancel)
-            event->ignore();
-        else
-            AbstractOpConfigWidget::hideEvent(event);
-    }
-}
-#endif
 
 void CalibrationMinMaxConfigWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
 {
@@ -2974,7 +2959,7 @@ void CalibrationMinMaxConfigWidget::fillCalibrationTable(CalibrationMinMax *cali
         m_calibrationTable->setItem(addr, 2, item);
 
         // apply to this row
-        auto pb_apply = new QPushButton("Apply");
+        auto pb_apply = new QPushButton("Apply calibration");
         pb_apply->setToolTip("Apply calibration values to this address.");
         pb_apply->setStatusTip(pb_apply->toolTip());
         connect(pb_apply, &QPushButton::clicked, this, [this, addr] () {
@@ -2993,6 +2978,7 @@ void CalibrationMinMaxConfigWidget::fillCalibrationTable(CalibrationMinMax *cali
         m_calibrationTable->setCellWidget(addr, 3, pb_apply);
     }
 
+    m_calibrationTable->resizeColumnsToContents();
     m_calibrationTable->resizeRowsToContents();
     calibModifiedButNotApplied_ = false;
 }

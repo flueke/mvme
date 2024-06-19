@@ -915,6 +915,9 @@ in-between them. Focus a list and press ``Ctrl-A`` to select all items.
 1D Range Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. deprecated:: 1.14
+    Use the new condition system and optionally the ConditionFilter instead.
+
 .. figure:: images/analysis_op_RangeFilter1D.*
 
 Keeps values if they fall inside (optionally outside) a given interval. Input
@@ -924,6 +927,9 @@ values that do not match the criteria are set to *invalid* in the output.
 
 2D Rectangle Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. deprecated:: 1.14
+    Use the new condition system and optionally the ConditionFilter instead.
 
 .. figure:: images/analysis_op_RectFilter2D.*
 

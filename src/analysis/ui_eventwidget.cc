@@ -65,6 +65,28 @@ namespace analysis
 namespace ui
 {
 
+const char *node_type_to_string(NodeType type)
+{
+    switch (type)
+    {
+        case NodeType::NodeType_Event: return "Event";
+        case NodeType::NodeType_Module: return "Module";
+        case NodeType::NodeType_Source: return "Source";
+        case NodeType::NodeType_Operator: return "Operator";
+        case NodeType::NodeType_OutputPipe: return "OutputPipe";
+        case NodeType::NodeType_OutputPipeParameter: return "OutputPipeParameter";
+        case NodeType::NodeType_Histo1DSink: return "Histo1DSink";
+        case NodeType::NodeType_Histo2DSink: return "Histo2DSink";
+        case NodeType::NodeType_Sink: return "Sink";
+        case NodeType::NodeType_Histo1D: return "Histo1D";
+        case NodeType::NodeType_Directory: return "Directory";
+        case NodeType::NodeType_PlotGridView: return "PlotGridView";
+        default: break;
+    }
+
+    return "";
+}
+
 template<typename T>
 inline T *get_qobject_pointer(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
 {
@@ -443,6 +465,8 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 {
     (void) parentIndex;
 
+    qDebug() << __PRETTY_FUNCTION__ << this;
+
     /* Note: This code assumes that only top level items are passed in via the mime data
      * object. OperatorTree::mimeData() guarantees this. */
 
@@ -604,9 +628,19 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
             case NodeType_Histo2DSink:
             case NodeType_Sink:
             case NodeType_PlotGridView:
-                if (auto obj = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
                 {
-                    idData.push_back(obj->getId().toByteArray());
+                    if (auto op = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
+                    {
+                        idData.push_back(op->getId().toByteArray());
+                    }
+                } break;
+
+            case NodeType_Directory:
+                {
+                    if (auto dir = get_pointer<Directory>(node, DataRole_AnalysisObject))
+                    {
+                        idData.push_back(dir->getId().toByteArray());
+                    }
                 } break;
 
             default:
@@ -863,6 +897,17 @@ static QIcon make_operator_icon(OperatorInterface *op)
     if (qobject_cast<ConditionInterface *>(op))
         return QIcon(":/code-function.png");
 
+
+    return QIcon(":/operator_generic.png");
+}
+
+static QIcon make_operator_category_icon(const QString &cat)
+{
+    if (cat == "Conditions")
+        return QIcon(":/scissors.png");
+
+    if (cat == "Math")
+        return QIcon(":/function.png");
 
     return QIcon(":/operator_generic.png");
 }
@@ -2563,6 +2608,28 @@ static std::vector<QTreeWidgetItem *> get_viable_nodes_for_histogram_generation(
     return viableHistoGenNodes;
 }
 
+inline QAction *make_new_operator_action(
+    int userLevel, const QString &title, const OperatorPtr &op, const DirectoryPtr &destDir,
+    EventWidget *parentWidget = nullptr)
+{
+    auto icon = make_operator_icon(op.get());
+    auto action = new QAction(icon, title);
+
+    QObject::connect(action, &QAction::triggered, [userLevel, op, destDir, parentWidget]
+    {
+        auto dialog = operator_editor_factory(
+            op, userLevel, ObjectEditorMode::New, destDir, parentWidget);
+
+        //POS dialog->move(QCursor::pos());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+        parentWidget->clearAllTreeSelections();
+        parentWidget->clearAllToDefaultNodeHighlights();
+    });
+
+    return action;
+}
+
 /* Context menu for the operator tree views (top). */
 void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos, s32 userLevel)
 {
@@ -2583,46 +2650,85 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
     {
         auto menuNew = new QMenu(parentMenu);
 
-        auto add_newOperatorAction = [this, parentMenu, menuNew, userLevel] (
-            const QString &title, auto op, const DirectoryPtr &destDir)
-        {
-            auto icon = make_operator_icon(op.get());
-            // New Operator
-            menuNew->addAction(icon, title, parentMenu, [this, userLevel, op, destDir]() {
-                auto dialog = operator_editor_factory(
-                    op, userLevel, ObjectEditorMode::New, destDir, m_q);
-
-                //POS dialog->move(QCursor::pos());
-                dialog->setAttribute(Qt::WA_DeleteOnClose);
-                dialog->show();
-                clearAllTreeSelections();
-                clearAllToDefaultNodeHighlights();
-            });
-        };
-
         auto objectFactory = m_serviceProvider->getAnalysis()->getObjectFactory();
-        OperatorVector operators;
+        OperatorVector deprecatedOperators;
+        std::map<QString, OperatorVector> operatorsByCategory;
 
         for (auto operatorName: objectFactory.getOperatorNames())
         {
             OperatorPtr op(objectFactory.makeOperator(operatorName));
 
+            // Do not want conditions in here except for the expression
+            // condition. The other are generated graphically directly in histo
+            // widgets.
             if (!std::dynamic_pointer_cast<ConditionInterface>(op)
                 || std::dynamic_pointer_cast<ExpressionCondition>(op))
             {
-                operators.push_back(op);
+                if (op->property("mvme_deprecated").toBool())
+                    deprecatedOperators.push_back(op);
+                else
+                {
+                    if (auto catvar = op->property("operator_category");
+                        catvar.isValid())
+
+                    {
+                        operatorsByCategory[catvar.toString()].push_back(op);
+                    }
+                    else
+                    {
+                        operatorsByCategory["<uncategorized>"].push_back(op);
+                    }
+                }
             }
         }
 
         // Sort operators by displayname
-        std::sort(operators.begin(), operators.end(),
-              [](const OperatorPtr &a, const OperatorPtr &b) {
-                  return a->getDisplayName() < b->getDisplayName();
-              });
-
-        for (auto op: operators)
+        auto cmp = [](const OperatorPtr &a, const OperatorPtr &b)
         {
-            add_newOperatorAction(op->getDisplayName(), op, destDir);
+             return a->getDisplayName() < b->getDisplayName();
+        };
+
+        for (auto &[_, operators]: operatorsByCategory)
+            std::sort(operators.begin(), operators.end(), cmp);
+
+        std::sort(deprecatedOperators.begin(), deprecatedOperators.end(), cmp);
+
+        std::map<QString, QMenu *> menusByCategory;
+
+        for (const auto &[cat, ops]: operatorsByCategory)
+        {
+            if (cat == "<uncategorized>")
+                continue;
+
+            if (menusByCategory.find(cat) == menusByCategory.end())
+            {
+                auto catMenu = new QMenu(cat);
+                catMenu->setIcon(make_operator_category_icon(cat));
+                menusByCategory[cat] = catMenu;
+            }
+
+            auto menu = menusByCategory[cat];
+
+            for (auto &op: ops)
+            {
+                auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
+                menu->addAction(action);
+            }
+        }
+
+        for (const auto &[cat, menu]: menusByCategory)
+            menuNew->addMenu(menu);
+
+        for (const auto &[cat, ops]: operatorsByCategory)
+        {
+            if (cat != "<uncategorized>")
+                continue;
+
+            for (auto &op: ops)
+            {
+                auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
+                menuNew->addAction(action);
+            }
         }
 
         menuNew->addSeparator();
@@ -2646,6 +2752,21 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                 if (auto node = findNode(newDir))
                     node->treeWidget()->editItem(node);
             });
+
+        if (!deprecatedOperators.empty())
+        {
+            auto destMenu = new QMenu("Deprecated Operators");
+            destMenu->setIcon(QIcon(":/exclamation-circle.png"));
+
+            for (auto op: deprecatedOperators)
+            {
+                auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
+                destMenu->addAction(action);
+            }
+
+            menuNew->addSeparator();
+            menuNew->addMenu(destMenu);
+        }
 
         return menuNew;
     };
@@ -2758,7 +2879,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
     }
     else // Right-click on the tree background, not on an item.
     {
-        auto actionNew = menu.addAction(QSL("New"));
+        auto actionNew = menu.addAction(QSL("New Operator"));
+        actionNew->setIcon(QIcon(":/operator_generic.png"));
         actionNew->setMenu(make_menu_new(&menu));
         auto before = menu.actions().value(0);
         menu.insertAction(before, actionNew);
@@ -3687,6 +3809,39 @@ static bool isOutputNodeOf(QTreeWidgetItem *node, PipeSourceInterface *ps)
     return result;
 }
 
+static bool isOutputNodeOf(QTreeWidgetItem *node, Pipe *p)
+{
+    assert(p);
+    OperatorInterface *dstObject = nullptr;
+
+    switch (node->type())
+    {
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+            {
+                dstObject = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject);
+                Q_ASSERT(dstObject);
+            } break;
+    }
+
+    bool result = false;
+
+    if (dstObject)
+    {
+        for (s32 slotIndex = 0; slotIndex < dstObject->getNumberOfSlots(); ++slotIndex)
+        {
+            Slot *slot = dstObject->getSlot(slotIndex);
+
+            if (slot->inputPipe == p)
+                return true;
+        }
+    }
+
+    return result;
+}
+
 // Returns true if this node or any of its children are connected to an output of the
 // given pipe source.
 static bool highlight_output_nodes(PipeSourceInterface *ps, QTreeWidgetItem *node)
@@ -3714,6 +3869,33 @@ static bool highlight_output_nodes(PipeSourceInterface *ps, QTreeWidgetItem *nod
     return result;
 }
 
+static bool highlight_output_nodes(Pipe *p, QTreeWidgetItem *node)
+{
+    bool result = false;
+
+    #if 1 // TODO: implement me!
+    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
+    {
+        // recurse
+        auto child = node->child(childIndex);
+        result = highlight_output_nodes(p, child) || result;
+    }
+
+    if (result)
+    {
+        node->setBackground(0, ChildIsOutputNodeOfColor);
+    }
+
+    if (isOutputNodeOf(node, p))
+    {
+        node->setBackground(0, OutputNodeOfColor);
+        result = true;
+    }
+    #endif
+
+    return result;
+}
+
 void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
 {
     assert(op);
@@ -3733,6 +3915,15 @@ void EventWidgetPrivate::highlightOutputNodes(PipeSourceInterface *ps)
     {
         highlight_output_nodes(ps, trees.operatorTree->invisibleRootItem());
         highlight_output_nodes(ps, trees.sinkTree->invisibleRootItem());
+    }
+}
+
+void EventWidgetPrivate::highlightOutputNodes(Pipe *p)
+{
+    for (auto trees: m_levelTrees)
+    {
+        highlight_output_nodes(p, trees.operatorTree->invisibleRootItem());
+        highlight_output_nodes(p, trees.sinkTree->invisibleRootItem());
     }
 }
 
@@ -3876,7 +4067,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
         default:
             {
-                qDebug() << __PRETTY_FUNCTION__ << "click on node, type=" << node->type();
+                qDebug() << __PRETTY_FUNCTION__ << "click on node, type="
+                    << node_type_to_string(static_cast<NodeType>(node->type())) << node->type();
             };
 #endif
     }
@@ -3927,6 +4119,16 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 #endif
 
                         } break;
+                    case NodeType_OutputPipe:
+                    case NodeType_OutputPipeParameter:
+                        {
+                            if (auto pipe = get_pointer<Pipe>(node, DataRole_RawPointer);
+                                pipe && pipe->source)
+                            {
+                                auto op = std::dynamic_pointer_cast<OperatorInterface>(pipe->source->shared_from_this());
+                                highlightInputNodes(op.get());
+                            }
+                        } break;
                 }
 
                 switch (node->type())
@@ -3936,6 +4138,15 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                         {
                             auto ps = get_pointer<PipeSourceInterface>(node, DataRole_AnalysisObject);
                             highlightOutputNodes(ps);
+                        } break;
+                    case NodeType_OutputPipe:
+                    case NodeType_OutputPipeParameter:
+                        {
+                            if (auto pipe = get_pointer<Pipe>(node, DataRole_RawPointer);
+                                pipe && pipe->source)
+                            {
+                                highlightOutputNodes(pipe);
+                            }
                         } break;
                 }
             } break;

@@ -67,6 +67,8 @@ enum NodeType
     NodeType_MaxNodeType
 };
 
+const char *node_type_to_string(NodeType type);
+
 class TreeNode: public CheckStateNotifyingNode
 {
     public:
@@ -340,6 +342,7 @@ struct EventWidgetPrivate
     void highlightValidInputNodes(QTreeWidgetItem *node);
     void highlightInputNodes(OperatorInterface *op);
     void highlightOutputNodes(PipeSourceInterface *ps);
+    void highlightOutputNodes(Pipe *p);
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
     //bool hasPendingConditionModifications() const;
