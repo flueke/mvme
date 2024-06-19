@@ -879,6 +879,17 @@ static QIcon make_operator_icon(OperatorInterface *op)
     return QIcon(":/operator_generic.png");
 }
 
+static QIcon make_operator_category_icon(const QString &cat)
+{
+    if (cat == "Conditions")
+        return QIcon(":/scissors.png");
+
+    if (cat == "Math")
+        return QIcon(":/function.png");
+
+    return QIcon(":/operator_generic.png");
+}
+
 inline TreeNode *make_histo1d_node(Histo1DSink *sink)
 {
     auto node = make_node(sink, NodeType_Histo1DSink, DataRole_AnalysisObject);
@@ -2618,8 +2629,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
         auto menuNew = new QMenu(parentMenu);
 
         auto objectFactory = m_serviceProvider->getAnalysis()->getObjectFactory();
-        OperatorVector operators;
         OperatorVector deprecatedOperators;
+        std::map<QString, OperatorVector> operatorsByCategory;
 
         for (auto operatorName: objectFactory.getOperatorNames())
         {
@@ -2631,9 +2642,21 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
             if (!std::dynamic_pointer_cast<ConditionInterface>(op)
                 || std::dynamic_pointer_cast<ExpressionCondition>(op))
             {
-                auto &dest = op->property("mvme_deprecated").toBool()
-                    ? deprecatedOperators : operators;
-                dest.push_back(op);
+                if (op->property("mvme_deprecated").toBool())
+                    deprecatedOperators.push_back(op);
+                else
+                {
+                    if (auto catvar = op->property("operator_category");
+                        catvar.isValid())
+
+                    {
+                        operatorsByCategory[catvar.toString()].push_back(op);
+                    }
+                    else
+                    {
+                        operatorsByCategory["<uncategorized>"].push_back(op);
+                    }
+                }
             }
         }
 
@@ -2643,15 +2666,47 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
              return a->getDisplayName() < b->getDisplayName();
         };
 
-        std::sort(operators.begin(), operators.end(), cmp);
+        for (auto &[_, operators]: operatorsByCategory)
+            std::sort(operators.begin(), operators.end(), cmp);
+
         std::sort(deprecatedOperators.begin(), deprecatedOperators.end(), cmp);
 
-        for (auto op: operators)
+        std::map<QString, QMenu *> menusByCategory;
+
+        for (const auto &[cat, ops]: operatorsByCategory)
         {
-            auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
-            // Note: neither action status nor tooltips are visible when mouse
-            // hovering over the action :(
-            menuNew->addAction(action);
+            if (cat == "<uncategorized>")
+                continue;
+
+            if (menusByCategory.find(cat) == menusByCategory.end())
+            {
+                auto catMenu = new QMenu(cat);
+                catMenu->setIcon(make_operator_category_icon(cat));
+                menusByCategory[cat] = catMenu;
+            }
+
+            auto menu = menusByCategory[cat];
+
+            for (auto &op: ops)
+            {
+                auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
+                menu->addAction(action);
+            }
+        }
+
+        for (const auto &[cat, menu]: menusByCategory)
+            menuNew->addMenu(menu);
+
+        for (const auto &[cat, ops]: operatorsByCategory)
+        {
+            if (cat != "<uncategorized>")
+                continue;
+
+            for (auto &op: ops)
+            {
+                auto action = make_new_operator_action(userLevel, op->getDisplayName(), op, destDir, m_q);
+                menuNew->addAction(action);
+            }
         }
 
         menuNew->addSeparator();
