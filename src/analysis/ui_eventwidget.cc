@@ -65,6 +65,28 @@ namespace analysis
 namespace ui
 {
 
+const char *node_type_to_string(NodeType type)
+{
+    switch (type)
+    {
+        case NodeType::NodeType_Event: return "Event";
+        case NodeType::NodeType_Module: return "Module";
+        case NodeType::NodeType_Source: return "Source";
+        case NodeType::NodeType_Operator: return "Operator";
+        case NodeType::NodeType_OutputPipe: return "OutputPipe";
+        case NodeType::NodeType_OutputPipeParameter: return "OutputPipeParameter";
+        case NodeType::NodeType_Histo1DSink: return "Histo1DSink";
+        case NodeType::NodeType_Histo2DSink: return "Histo2DSink";
+        case NodeType::NodeType_Sink: return "Sink";
+        case NodeType::NodeType_Histo1D: return "Histo1D";
+        case NodeType::NodeType_Directory: return "Directory";
+        case NodeType::NodeType_PlotGridView: return "PlotGridView";
+        default: break;
+    }
+
+    return "";
+}
+
 template<typename T>
 inline T *get_qobject_pointer(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
 {
@@ -3787,6 +3809,39 @@ static bool isOutputNodeOf(QTreeWidgetItem *node, PipeSourceInterface *ps)
     return result;
 }
 
+static bool isOutputNodeOf(QTreeWidgetItem *node, Pipe *p)
+{
+    assert(p);
+    OperatorInterface *dstObject = nullptr;
+
+    switch (node->type())
+    {
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+            {
+                dstObject = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject);
+                Q_ASSERT(dstObject);
+            } break;
+    }
+
+    bool result = false;
+
+    if (dstObject)
+    {
+        for (s32 slotIndex = 0; slotIndex < dstObject->getNumberOfSlots(); ++slotIndex)
+        {
+            Slot *slot = dstObject->getSlot(slotIndex);
+
+            if (slot->inputPipe == p)
+                return true;
+        }
+    }
+
+    return result;
+}
+
 // Returns true if this node or any of its children are connected to an output of the
 // given pipe source.
 static bool highlight_output_nodes(PipeSourceInterface *ps, QTreeWidgetItem *node)
@@ -3814,6 +3869,33 @@ static bool highlight_output_nodes(PipeSourceInterface *ps, QTreeWidgetItem *nod
     return result;
 }
 
+static bool highlight_output_nodes(Pipe *p, QTreeWidgetItem *node)
+{
+    bool result = false;
+
+    #if 1 // TODO: implement me!
+    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
+    {
+        // recurse
+        auto child = node->child(childIndex);
+        result = highlight_output_nodes(p, child) || result;
+    }
+
+    if (result)
+    {
+        node->setBackground(0, ChildIsOutputNodeOfColor);
+    }
+
+    if (isOutputNodeOf(node, p))
+    {
+        node->setBackground(0, OutputNodeOfColor);
+        result = true;
+    }
+    #endif
+
+    return result;
+}
+
 void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
 {
     assert(op);
@@ -3833,6 +3915,15 @@ void EventWidgetPrivate::highlightOutputNodes(PipeSourceInterface *ps)
     {
         highlight_output_nodes(ps, trees.operatorTree->invisibleRootItem());
         highlight_output_nodes(ps, trees.sinkTree->invisibleRootItem());
+    }
+}
+
+void EventWidgetPrivate::highlightOutputNodes(Pipe *p)
+{
+    for (auto trees: m_levelTrees)
+    {
+        highlight_output_nodes(p, trees.operatorTree->invisibleRootItem());
+        highlight_output_nodes(p, trees.sinkTree->invisibleRootItem());
     }
 }
 
@@ -3976,7 +4067,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 
         default:
             {
-                qDebug() << __PRETTY_FUNCTION__ << "click on node, type=" << node->type();
+                qDebug() << __PRETTY_FUNCTION__ << "click on node, type="
+                    << node_type_to_string(static_cast<NodeType>(node->type())) << node->type();
             };
 #endif
     }
@@ -4027,6 +4119,16 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
 #endif
 
                         } break;
+                    case NodeType_OutputPipe:
+                    case NodeType_OutputPipeParameter:
+                        {
+                            if (auto pipe = get_pointer<Pipe>(node, DataRole_RawPointer);
+                                pipe && pipe->source)
+                            {
+                                auto op = std::dynamic_pointer_cast<OperatorInterface>(pipe->source->shared_from_this());
+                                highlightInputNodes(op.get());
+                            }
+                        } break;
                 }
 
                 switch (node->type())
@@ -4036,6 +4138,15 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                         {
                             auto ps = get_pointer<PipeSourceInterface>(node, DataRole_AnalysisObject);
                             highlightOutputNodes(ps);
+                        } break;
+                    case NodeType_OutputPipe:
+                    case NodeType_OutputPipeParameter:
+                        {
+                            if (auto pipe = get_pointer<Pipe>(node, DataRole_RawPointer);
+                                pipe && pipe->source)
+                            {
+                                highlightOutputNodes(pipe);
+                            }
                         } break;
                 }
             } break;
