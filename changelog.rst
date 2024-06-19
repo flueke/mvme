@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.14.2
+--------------------------------------------------
+
+* analysis ui: Improve input/output node highlighting in the tree views.
+
 Version 1.14.1
 --------------------------------------------------
 
