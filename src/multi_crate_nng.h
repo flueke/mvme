@@ -8,6 +8,16 @@
 namespace mesytec::mvme::multi_crate
 {
 
+// Definitions:
+// - stage0: raw mvlc data stream
+// - stage1: parsed events. optional: multi event splitting and timestamp based event building
+//           per crate stage1 analysis
+// - stage2: input is parsed data from stage1
+//           stage2 event builder and stage2 analysis belong here
+// - stage3 (planned):
+//           extracted data values (analysis data extraction)
+// FIXME: broken concept. Can also have stage3 data in stage1, so stage1 grows by one step
+
 struct LIBMVME_EXPORT LoopResult
 {
     std::error_code ec;
@@ -45,9 +55,9 @@ class LIBMVME_EXPORT JobContextInterface
 
         virtual job_function function() = 0;
         // May do additional things to restart the job, e.g. seek to the beginning of a file.
-        virtual job_function restart_function() { return {}; }
+        //virtual job_function restart_function() { return {}; }
         // May do additional things when stopping the job.
-        virtual job_function stop_function() { return {}; }
+        //virtual job_function stop_function() { return {}; }
 };
 
 struct LIBMVME_EXPORT JobRuntime
@@ -461,6 +471,47 @@ struct LoggingJobObserver: public JobObserverInterface
         spdlog::info("LoggingJobObserver: Job finished: {}", ctx->name());
     }
 };
+
+// Crate ids > 8 are used for system streams. Currently 0xff is the combined stage2 stream.
+
+struct CrateProcessing
+{
+    u8 crateId;
+    std::shared_ptr<ReadoutParserContext> parserContext;
+    std::shared_ptr<MultiEventSplitterContext> splitterContext;
+    std::shared_ptr<EventBuilderContext> eventBuilderContext;
+    std::shared_ptr<AnalysisProcessingContext> analysisContext;
+    CratePipeline pipeline;
+};
+
+// "column" centric view. easy to e.g. grab the event builders for all crates.
+struct CrateStageSoA
+{
+    std::vector<u8> crateIds;
+    std::vector<std::shared_ptr<ReadoutParserContext>> parserContexts;
+    std::vector<std::shared_ptr<MultiEventSplitterContext>> splitterContexts;
+    std::vector<std::shared_ptr<EventBuilderContext>> eventBuilderContexts;
+    std::vector<std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
+    std::vector<CratePipeline> pipelines;
+};
+
+void add_crate(CrateStageSoA &dest, const CrateProcessing &crate);
+CrateProcessing get_crate(const CrateStageSoA &src, u8 crateId);
+
+struct ReplaySoA: public CrateStageSoA
+{
+    // Note: CrateReplayWrapperContext are not stored. Currently
+    // implementation details but makes detecting when the replay finishes a
+    // bit messy. On the other hand checking for pipelines[N][0] finished is
+    // enough and generic.
+    std::shared_ptr<ReplayJobContext> replayContext;
+};
+
+struct MvlcInstanceReadoutSoA: public CrateStageSoA
+{
+    std::vector<std::shared_ptr<MvlcInstanceReadoutContext>> readoutContexts;
+};
+
 
 }
 

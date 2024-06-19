@@ -18,7 +18,7 @@ inline unique_msg make_message(const std::string &data)
     return unique_msg(msg, nng_msg_free);
 }
 
-TEST(MesyNngPipeline2, SocketWriterReader)
+TEST(MesyNngPipeline, SocketWriterReader)
 {
     nng_socket s1 = make_pair_socket();
     nng_socket s2 = make_pair_socket();
@@ -45,7 +45,7 @@ TEST(MesyNngPipeline2, SocketWriterReader)
     ASSERT_EQ(memcmp(nng_msg_body(inMsg.get()), "1234", 4), 0);
 }
 
-TEST(MesyNngPipeline2, SocketMultiOutputWriter)
+TEST(MesyNngPipeline, SocketMultiOutputWriter)
 {
     nng_socket s00 = make_pair_socket();
     nng_socket s01 = make_pair_socket();
@@ -83,7 +83,7 @@ TEST(MesyNngPipeline2, SocketMultiOutputWriter)
 }
 
 #if 0
-TEST(MesyNngPipeline2, SocketPipelineFromElements)
+TEST(MesyNngPipeline, SocketPipelineFromElements)
 {
     // Last digit: 0 = input, 1 = output
     nng_socket s01 = { 0 }; // out0 - first stage producer
@@ -212,7 +212,7 @@ TEST(MesyNngPipeline2, SocketPipelineFromElements)
     }
 }
 
-TEST(MesyNngPipeline2, SocketPipelineFromLinks)
+TEST(MesyNngPipeline, SocketPipelineFromLinks)
 {
     {
         auto pipeline = SocketPipeline::fromLinks({});
@@ -279,7 +279,7 @@ TEST(MesyNngPipeline2, SocketPipelineFromLinks)
 }
 #endif
 
-TEST(MesyNngPipeline2, UniqueMsg)
+TEST(MesyNngPipeline, UniqueMsg)
 {
     auto msg0 = allocate_reserve_message(1024);
     auto msg0Raw = msg0.get();

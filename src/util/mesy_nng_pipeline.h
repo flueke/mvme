@@ -216,6 +216,32 @@ inline int close_link(SocketLink &link)
     return ret;
 }
 
+struct PipelineBuildInfo
+{
+    enum LinkType
+    {
+        Pair,
+        PubSub
+    };
+    std::string uniqueId;
+    std::vector<std::string> urls;
+    std::vector<LinkType> linkTypes;
+};
+
+std::pair<std::vector<SocketLink>, int> build_socket_pipeline(const PipelineBuildInfo &b);
+
+template<typename LinkContainer>
+int close_links(LinkContainer &links)
+{
+    int ret = 0;
+
+    for (auto &link: links)
+        if (auto res = close_link(link))
+            ret = res;
+
+    return ret;
+}
+
 }
 
 #endif /* B65D1EDC_ABFE_422B_B86C_DF8DCA67ED29 */
