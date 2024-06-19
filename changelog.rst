@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.14.1
+--------------------------------------------------
+
+* analysis ui: Nest operators by category in the operator creation menu.
+
 Version 1.14.0
 --------------------------------------------------
 
