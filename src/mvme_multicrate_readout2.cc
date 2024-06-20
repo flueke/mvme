@@ -326,12 +326,12 @@ int main(int argc, char *argv[])
 
     for (auto &[crateId, steps]: mesyApp.cratePipelines)
     {
-        monitorWidget.addPipeline(fmt::format("crate{}", crateId), steps);
+        monitorWidget.setPipeline(fmt::format("crate{}", crateId), steps);
     }
 
     if (!mesyApp.listfileWriterPipeline.empty())
     {
-        monitorWidget.addPipeline("listfile_writer", mesyApp.listfileWriterPipeline);
+        monitorWidget.setPipeline("listfile_writer", mesyApp.listfileWriterPipeline);
     }
 
     monitorWidget.resize(1000, 400);

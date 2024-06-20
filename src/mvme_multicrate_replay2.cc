@@ -311,7 +311,7 @@ int main(int argc, char *argv[])
 
     for (auto &[crateId, steps]: cratePipelineSteps)
     {
-        monitorWidget.addPipeline(fmt::format("crate{}", crateId), steps);
+        monitorWidget.setPipeline(fmt::format("crate{}", crateId), steps);
     }
 
     monitorWidget.resize(1000, 400);

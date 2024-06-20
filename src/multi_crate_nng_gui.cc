@@ -242,7 +242,7 @@ CratePipelineMonitorWidget::CratePipelineMonitorWidget(QWidget* parent)
 
 CratePipelineMonitorWidget::~CratePipelineMonitorWidget() {}
 
-void CratePipelineMonitorWidget::addPipeline(const std::string &name, const std::vector<CratePipelineStep> &pipeline)
+void CratePipelineMonitorWidget::setPipeline(const std::string &name, const std::vector<CratePipelineStep> &pipeline)
 {
     d->pipelines_[name] = pipeline;
     d->rebuild();

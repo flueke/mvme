@@ -13,7 +13,7 @@ class LIBMVME_EXPORT CratePipelineMonitorWidget: public QWidget
         CratePipelineMonitorWidget(QWidget* parent = nullptr);
         ~CratePipelineMonitorWidget() override;
 
-        void addPipeline(const std::string &name, const std::vector<CratePipelineStep> &pipeline);
+        void setPipeline(const std::string &name, const std::vector<CratePipelineStep> &pipeline);
         void removePipeline(const std::string &name);
 
     private:
@@ -36,6 +36,7 @@ class ReplayAppGui: public QWidget
 };
 #endif
 
+// Use Qt::QueuedConnection with this to ensure that connected slots are called in the main thread.
 class QtJobObserver: public QObject, public JobObserverInterface
 {
     Q_OBJECT
