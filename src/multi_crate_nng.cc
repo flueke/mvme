@@ -1340,6 +1340,7 @@ inline nng::unique_msg new_readout_data_message(u8 crateId, u32 messageNumber, u
 
     nng_msg_append(msg.get(), data.data(), data.size());
     assert(nng::allocated_free_space(msg.get()) >= eth::JumboFrameMaxSize);
+    assert(nng_msg_len(msg.get()) == sizeof(header) + data.size());
 
     return msg;
 }
