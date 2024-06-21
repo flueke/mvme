@@ -1103,12 +1103,6 @@ void CalibrationMinMax::beginRun(const RunInfo &, Logger)
             out.resize(in.size());
         }
 
-        // shrink
-        if (m_calibrations.size() > out.size())
-        {
-            m_calibrations.resize(out.size());
-        }
-
         CalibrationMinMaxParameters firstCalib; // defaults to (nan, nan)
 
         if (!m_calibrations.isEmpty())
@@ -1122,18 +1116,6 @@ void CalibrationMinMax::beginRun(const RunInfo &, Logger)
         for (s32 idx = idxMin; idx < idxMax; ++idx)
         {
             Parameter &outParam(out[outIdx++]);
-
-            // Hack to make things compatible with old configs. This forces
-            // expanding the calibrations array if it is too small. This
-            // way it will be written to file the next time the config is
-            // saved.
-            if (idx >= m_calibrations.size())
-            {
-                if (oldGlobalCalib.isValid())
-                    setCalibration(idx, oldGlobalCalib);
-                else
-                    setCalibration(idx, firstCalib);
-            }
 
             // assign output limits
             auto calib = getCalibration(idx);
