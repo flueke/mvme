@@ -171,17 +171,16 @@ DEF_OP_MAGIC(calibration_magic)
             { calibMinimums.data(), calibMinimums.size() },
             { calibMaximums.data(), calibMaximums.size() });
     }
-    else
+    else if (auto inputParamIndex = inputSlots[0]->paramIndex;
+            calibMinimums.size() > inputParamIndex
+            && calibMaximums.size() > inputParamIndex)
     {
-        assert(calibMinimums.size() > 0);
-        assert(calibMaximums.size() > 0);
-
         result = a2::make_calibration_idx(
             arena,
             a2_input,
             inputSlots[0]->paramIndex,
-            calibMinimums[0],
-            calibMaximums[0]);
+            calibMinimums[inputParamIndex],
+            calibMaximums[inputParamIndex]);
     }
 
     return result;
