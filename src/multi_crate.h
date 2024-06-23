@@ -359,63 +359,6 @@ struct LIBMVME_EXPORT EventBuilderOutputBufferWriter
     const std::chrono::milliseconds FlushBufferInterval = std::chrono::milliseconds(500);
 };
 
-
-
-// Chain to build:
-// mvlc::ReadoutWorker -> listfile::WriteHandle
-//   -> [write  single crate listfile to disk]
-//   -> Queue -> ReadoutParser [-> MultiEventSplitter ] -> EventBuilder::recordEventData()
-//   -> EventBuilder -> MergedQueue
-//   -> MergedQueue -> Analysis
-//                  -> MergedListfile
-//
-// Can leave out the merged queue in the fist iteration and directly call into
-// the analysis but this makes EventBuilder and analysis run in the same
-// thread.
-
-// Threads, ReadoutWorker, ReadoutParser, EventBuilder, Analysis
-
-struct CrateReadout
-{
-    using ProtectedParserCounters = mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters>;
-
-    std::unique_ptr<mvme_mvlc::MVLC_VMEController> mvlcController;
-    mvlc::MVLC mvlc;
-    // unused but required for mvlc::ReadoutWorker instances.
-    std::unique_ptr<mvlc::ReadoutBufferQueues> readoutSnoopQueues;
-    std::unique_ptr<mvlc::ReadoutWorker> readoutWorker;
-
-    // Buffer queues between the readout worker and the readout parser. Filled
-    // by an instance of BlockingBufferQueuesWriteHandle, emptied by the
-    // readout parser.
-    std::unique_ptr<mvlc::ReadoutBufferQueues> readoutBufferQueues;
-    std::shared_ptr<BlockingBufferQueuesWriteHandle> readoutWriteHandle;
-
-    mvlc::readout_parser::ReadoutParserState parserState;
-    std::unique_ptr<ProtectedParserCounters> parserCounters;
-    mvlc::readout_parser::ReadoutParserCallbacks parserCallbacks;
-    std::unique_ptr<std::atomic<bool>> parserQuit;
-    std::thread parserThread;
-
-    //CrateReadout() {}
-    //CrateReadout(CrateReadout &&) = default;
-    //CrateReadout(const CrateReadout &) = delete;
-};
-
-struct MultiCrateReadout_first
-{
-
-    std::vector<std::unique_ptr<CrateReadout>> crateReadouts;
-
-    std::unique_ptr<mvlc::EventBuilder> eventBuilder;
-    mvlc::readout_parser::ReadoutParserCallbacks eventBuilderCallbacks;
-    std::unique_ptr<std::atomic<bool>> eventBuilderQuit;
-    std::thread eventBuilderThread;
-
-    std::unique_ptr<mvlc::ReadoutBufferQueues> eventBuilderSnoopOutputQueues;
-    //std::unique_ptr<mvlc::ReadoutBufferQueues> postProcessedListfileQueues;
-};
-
 struct MulticrateTemplates
 {
     std::unique_ptr<EventConfig> mainStartEvent;
@@ -729,9 +672,6 @@ struct LIBMVME_EXPORT MvlcInstanceReadoutLoopContext
     mvlc::Protected<SocketWorkPerformanceCounters> dataOutputCounters;
 };
 
-// TODO: implement this (similar to ReadoutWorker::Private::readout())
-void LIBMVME_EXPORT mvlc_instance_readout_loop(MvlcInstanceReadoutLoopContext &context);
-
 // Helper class for filling out ParsedEventsMessages.
 struct LIBMVME_EXPORT ParsedEventsMessageWriter
 {
@@ -772,42 +712,6 @@ struct LIBMVME_EXPORT ParsedEventMessageIterator
 };
 
 mvlc::EventContainer LIBMVME_EXPORT next_event(ParsedEventMessageIterator &iter);
-
-#if 0
-struct LIBMVME_EXPORT EventBuilderContext
-{
-    std::atomic<bool> quit;
-
-    // Input: MessageType::ParsedEvents
-    std::unique_ptr<nng::InputReader> inputReader;
-
-    // Output: MessageType::ParsedEvents
-    std::unique_ptr<nng::OutputWriter> outputWriter;
-
-    mvlc::EventBuilderConfig eventBuilderConfig;
-    std::unique_ptr<mvlc::EventBuilder> eventBuilder;
-
-    nng::unique_msg outputMessage = nng::make_unique_msg();
-    u32 outputMessageNumber = 0u;
-    mvlc::Protected<SocketWorkPerformanceCounters> counters;
-    u8 crateId = 0;
-
-    std::array<u8, mvlc::MaxVMECrates> inputCrateMappings;
-    std::array<u8, mvlc::MaxVMECrates> outputCrateMappings;
-
-    EventBuilderContext()
-    {
-        for (size_t i=0; i<inputCrateMappings.size(); ++i)
-        {
-            inputCrateMappings[i] = i;
-            outputCrateMappings[i] = i;
-        }
-    }
-};
-
-LoopResult LIBMVME_EXPORT event_builder_loop(EventBuilderContext &context);
-#endif
-
 
 } // namespace mesytec::mvme::multi_crate
 
