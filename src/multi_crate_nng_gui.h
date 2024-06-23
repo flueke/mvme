@@ -21,21 +21,6 @@ class LIBMVME_EXPORT CratePipelineMonitorWidget: public QWidget
         std::unique_ptr<Private> d;
 };
 
-#if 0
-class ReplayAppGui: public QWidget
-{
-    Q_OBJECT
-
-    public:
-        ReplayAppGui(QWidget* parent = nullptr);
-        ~ReplayAppGui();
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
-#endif
-
 // Use Qt::QueuedConnection with this to ensure that connected slots are called in the main thread.
 class QtJobObserver: public QObject, public JobObserverInterface
 {
@@ -62,6 +47,22 @@ class QtJobObserver: public QObject, public JobObserverInterface
             emit jobFinished(context);
         }
 };
+
+#if 0
+class ReplayAppGui: public QWidget
+{
+    Q_OBJECT
+
+    public:
+        ReplayAppGui(QWidget* parent = nullptr);
+        ~ReplayAppGui();
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+#endif
+
 
 }
 
