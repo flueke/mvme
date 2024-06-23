@@ -473,8 +473,10 @@ struct LoggingJobObserver: public JobObserverInterface
 };
 
 // Crate ids > 8 are used for system streams. Currently 0xff is the combined stage2 stream.
+// Note that contexts may be null: splitter and eventbuilder are optional in stage1,
+// stage2 normally consists of event_builder -> analysis only.
 
-struct CrateProcessing
+struct CrateProcessor
 {
     u8 crateId;
     std::shared_ptr<ReadoutParserContext> parserContext;
@@ -484,34 +486,33 @@ struct CrateProcessing
     CratePipeline pipeline;
 };
 
-// "column" centric view. easy to e.g. grab the event builders for all crates.
-struct CrateStageSoA
+struct ReplayProcessor: public CrateProcessor
 {
-    std::vector<u8> crateIds;
-    std::vector<std::shared_ptr<ReadoutParserContext>> parserContexts;
-    std::vector<std::shared_ptr<MultiEventSplitterContext>> splitterContexts;
-    std::vector<std::shared_ptr<EventBuilderContext>> eventBuilderContexts;
-    std::vector<std::shared_ptr<AnalysisProcessingContext>> analysisContexts;
-    std::vector<CratePipeline> pipelines;
-};
-
-void add_crate(CrateStageSoA &dest, const CrateProcessing &crate);
-CrateProcessing get_crate(const CrateStageSoA &src, u8 crateId);
-
-struct ReplaySoA: public CrateStageSoA
-{
-    // Note: CrateReplayWrapperContext are not stored. Currently
-    // implementation details but makes detecting when the replay finishes a
-    // bit messy. On the other hand checking for pipelines[N][0] finished is
-    // enough and generic.
     std::shared_ptr<ReplayJobContext> replayContext;
 };
 
-struct MvlcInstanceReadoutSoA: public CrateStageSoA
+struct ReadoutProcessor: public CrateProcessor
 {
-    std::vector<std::shared_ptr<MvlcInstanceReadoutContext>> readoutContexts;
+    std::shared_ptr<MvlcInstanceReadoutContext> readoutContext;
 };
 
+struct VmeConfigs
+{
+    std::unique_ptr<VMEConfig> vmeConfig;
+    mvlc::CrateConfig crateConfig;
+};
+
+struct ReplayModel
+{
+    std::vector<ReplayProcessor> processors;
+    std::vector<VmeConfigs> vmeConfigs;
+};
+
+struct ReadoutModel
+{
+    std::vector<ReadoutProcessor> processors;
+    std::vector<VmeConfigs> vmeConfigs;
+};
 
 }
 

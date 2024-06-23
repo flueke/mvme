@@ -86,12 +86,6 @@ int main(int argc, char *argv[])
     parser("--listfile") >> outputListfilename;
     const bool overwriteListfile = parser["--overwrite-listfile"];
 
-    struct VmeConfigs
-    {
-        std::unique_ptr<VMEConfig> vmeConfig;
-        mvlc::CrateConfig crateConfig;
-    };
-
     struct ReadoutApp
     {
         // VMEConfig and CrateConfig by crateId

@@ -1959,31 +1959,4 @@ CratePipelineStep make_listfile_writer_step(const std::shared_ptr<ListfileWriter
     return result;
 }
 
-void add_crate(CrateStageSoA &dest, const CrateProcessing &crate)
-{
-    dest.crateIds.emplace_back(crate.crateId);
-    dest.parserContexts.emplace_back(crate.parserContext);
-    dest.splitterContexts.emplace_back(crate.splitterContext);
-    dest.eventBuilderContexts.emplace_back(crate.eventBuilderContext);
-    dest.analysisContexts.emplace_back(crate.analysisContext);
-    dest.pipelines.emplace_back(crate.pipeline);
-}
-
-CrateProcessing get_crate(const CrateStageSoA &src, u8 crateId)
-{
-    CrateProcessing crate{};
-    auto it = std::find(src.crateIds.begin(), src.crateIds.end(), crateId);
-    if (it == src.crateIds.end())
-        return crate;
-
-    auto idx = std::distance(src.crateIds.begin(), it);
-    crate.crateId = src.crateIds[idx];
-    crate.parserContext = src.parserContexts[idx];
-    crate.splitterContext = src.splitterContexts[idx];
-    crate.eventBuilderContext = src.eventBuilderContexts[idx];
-    crate.analysisContext = src.analysisContexts[idx];
-    crate.pipeline = src.pipelines[idx];
-    return crate;
-}
-
 }

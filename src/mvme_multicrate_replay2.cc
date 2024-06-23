@@ -115,11 +115,6 @@ int main(int argc, char *argv[])
 
     auto readerHelper = mvlc::listfile::make_listfile_reader_helper(listfileReadHandle);
 
-    struct VmeConfigs
-    {
-        std::unique_ptr<VMEConfig> vmeConfig;
-        mvlc::CrateConfig crateConfig;
-    };
 
     // VMEConfig and CrateConfig by crateId
     std::unordered_map<u8, VmeConfigs> vmeConfigs;
