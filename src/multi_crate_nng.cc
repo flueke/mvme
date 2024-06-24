@@ -1473,7 +1473,7 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
                 msgUsed = nng_msg_len(dest);
                 msgFree = nng::allocated_free_space(dest);
                 totalBytesRead += bytesTransferred;
-                spdlog::info("readout_loop (readout_usb): read {} bytes from USB", bytesTransferred);
+                spdlog::debug("readout_loop (readout_usb): read {} bytes from USB", bytesTransferred);
             }
 
             if (*ecp)
@@ -1767,7 +1767,7 @@ std::vector<LoopResult> shutdown_pipeline(CratePipeline &pipeline)
         if (step.writer)
         {
             if (int res = send_shutdown_message(*step.writer))
-                spdlog::error("error sending shutdown message from {}: {}", step.context->name(), nng_strerror(res));
+                spdlog::warn("error sending shutdown message from {}: {}", step.context->name(), nng_strerror(res));
             else
                 spdlog::info("shutdown messages sent from {}, waiting for jobs to finish", step.context->name());
         }
