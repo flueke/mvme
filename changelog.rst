@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.14.3
+--------------------------------------------------
+
+* analysis: fix Calibration when input is a single parameter instead of an array.
+
 Version 1.14.2
 --------------------------------------------------
 
