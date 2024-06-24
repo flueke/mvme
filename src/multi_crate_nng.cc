@@ -1368,22 +1368,20 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
 
     auto new_output_message = [&] () -> nng::unique_msg
     {
-        auto msg = new_readout_data_message(context.crateId, messageNumber++, connectionType, previousData);
-        previousData.clear();
+        auto msg = new_readout_data_message(context.crateId, messageNumber++, connectionType, {});
         lfh.setMessage(msg.get()); // important: set the new output message on the NngMsgWriteHandle
         return msg;
     };
 
     auto flush_output_message = [&] (unique_msg &&msg)
     {
-        // XXX: not strictly needed for ETH as packet reading is atomic
-        if (auto bytesMoved = fixup_readout_data_message(msg.get(), previousData))
-            spdlog::warn("moved {} bytes from the output message to a temporary buffer", bytesMoved);
-
         const auto msgSize = nng_msg_len(msg.get());
         StopWatch stopWatch;
         context.outputWriter()->writeMessage(std::move(msg));
-        lfh.setMessage(nullptr); // important: clear the output message of the NngMsgWriteHandle
+
+        // Important: clear the output message of the NngMsgWriteHandle,
+        // otherwise it tries to write to the stale message handle.
+        lfh.setMessage(nullptr);
 
         {
             auto ta = context.writerCounters().access();
@@ -1392,6 +1390,9 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
             ta->messagesSent++;
             ta->bytesSent += msgSize;
         }
+
+        spdlog::debug("readout_loop{}: flushed output message #{} of size={}",
+            context.crateId, messageNumber-1, msgSize);
     };
 
     auto readout_eth = [&] (nng_msg *dest, std::error_code *ecp = nullptr) -> size_t
@@ -1437,6 +1438,16 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
 
     auto readout_usb = [&] (nng_msg *dest, std::error_code *ecp = nullptr) -> size_t
     {
+        // Append leftover data from a previous read to the current message
+        // before reading more data.
+        if (!previousData.empty())
+        {
+            auto prevBytes = previousData.size();
+            nng_msg_append(dest, previousData.data(), previousData.size());
+            previousData.clear();
+            spdlog::trace("readout_usb: moved {} bytes from previousData to output message #{}", prevBytes, messageNumber-1);
+        }
+
         size_t totalBytesRead = 0;
         std::error_code ec_;
         *ecp = {};
@@ -1462,6 +1473,7 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
                 msgUsed = nng_msg_len(dest);
                 msgFree = nng::allocated_free_space(dest);
                 totalBytesRead += bytesTransferred;
+                spdlog::info("readout_loop (readout_usb): read {} bytes from USB", bytesTransferred);
             }
 
             if (*ecp)
@@ -1471,6 +1483,11 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
                 elapsed >= FlushBufferTimeout)
                 break;
         }
+
+        assert(previousData.empty());
+
+        if (auto bytesMoved = fixup_readout_data_message(dest, previousData))
+            spdlog::debug("moved {} bytes from the output message to a temporary buffer (msg #{})", bytesMoved, messageNumber-1);
 
         return totalBytesRead;
     };
