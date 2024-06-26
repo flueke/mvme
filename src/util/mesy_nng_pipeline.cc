@@ -3,6 +3,13 @@
 namespace mesytec::nng
 {
 
+bool SocketLink::operator==(const SocketLink &o) const
+{
+    return nng_socket_id(listener) == nng_socket_id(o.listener) &&
+           nng_socket_id(dialer) == nng_socket_id(o.dialer) &&
+           url == o.url;
+}
+
 std::pair<std::vector<SocketLink>, int> build_socket_pipeline(const std::vector<CreateLinkInfo> &linkInfos)
 {
     std::vector<SocketLink> links;

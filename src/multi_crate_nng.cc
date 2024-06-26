@@ -1989,7 +1989,7 @@ std::pair<std::vector<SocketLink>, int> build_stage1_socket_links(const Stage1Bu
 
     // readout_parser -> splitter/eb/ana
     linkInfos.emplace_back(nng::CreateLinkInfo{
-         .type = buildInfo.isReplay ? nng::LinkType::Pair : nng::LinkType::PubSub,
+         .type = nng::LinkType::Pair,
          .url = fmt::format("inproc://{}crate{}_stage1_step0_parsed_data", buildInfo.uniqueUrlPart, buildInfo.crateId),
     });
 

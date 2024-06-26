@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 )~";
 
     QApplication app(argc, argv);
-    mvme_init("mvme_multicrate_replay", false);
+    mvme_init("mvme_multicrate_readout", false);
 
     app.setWindowIcon(QIcon(":/window_icon.png"));
 
