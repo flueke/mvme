@@ -258,7 +258,7 @@ struct LIBMVME_EXPORT ReadoutConsumerContext
 void LIBMVME_EXPORT mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit); // throws on error
 void LIBMVME_EXPORT mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &quit);
 
-enum class LIBMVME_EXPORT MessageType: u8
+enum class MessageType: u8
 {
     GracefulShutdown,   // -> BaseMessageHeader
     ReadoutData,        // -> ReadoutDataMessageHeader

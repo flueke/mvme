@@ -149,7 +149,7 @@ class MultiOutputWriter: public OutputWriter
 
 // Linked socket couple. Listener is usually the stageN output, dialer is the
 // stageN+1 input.
-struct SocketLink
+struct LIBMVME_EXPORT SocketLink
 {
     nng_socket listener = NNG_SOCKET_INITIALIZER;
     nng_socket dialer = NNG_SOCKET_INITIALIZER;

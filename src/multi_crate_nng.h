@@ -374,7 +374,7 @@ std::vector<LoopResult> LIBMVME_EXPORT quit_pipeline(CratePipeline &pipeline); /
 
 // Read from all input links in the pipeline until error. Returns the total
 // number of messages read.
-size_t empty_pipeline_inputs(CratePipeline &pipeline);
+size_t LIBMVME_EXPORT empty_pipeline_inputs(CratePipeline &pipeline);
 
 // Closes the sockets in the given pipeline.
 int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
@@ -389,7 +389,7 @@ CratePipelineStep LIBMVME_EXPORT make_listfile_writer_step(const std::shared_ptr
 
 class Executor;
 
-class JobObserverInterface
+class LIBMVME_EXPORT JobObserverInterface
 {
     public:
         virtual ~JobObserverInterface() = default;
@@ -397,7 +397,7 @@ class JobObserverInterface
         virtual void onJobFinished(const std::shared_ptr<JobContextInterface> &ctx) = 0;
 };
 
-class Executor
+class LIBMVME_EXPORT Executor
 {
     public:
         void startJob(const std::shared_ptr<JobContextInterface> &context)
@@ -459,7 +459,7 @@ class Executor
         std::vector<std::shared_ptr<JobObserverInterface>> observers_;
 };
 
-struct LoggingJobObserver: public JobObserverInterface
+struct LIBMVME_EXPORT LoggingJobObserver: public JobObserverInterface
 {
     void onJobStarted(const std::shared_ptr<JobContextInterface> &ctx) override
     {
@@ -476,7 +476,7 @@ struct LoggingJobObserver: public JobObserverInterface
 // Note that contexts may be null: splitter and eventbuilder are optional in stage1,
 // stage2 normally consists of event_builder -> analysis only.
 
-struct CrateProcessor
+struct LIBMVME_EXPORT CrateProcessor
 {
     u8 crateId;
     std::shared_ptr<ReadoutParserContext> parserContext;
@@ -486,29 +486,29 @@ struct CrateProcessor
     CratePipeline pipeline;
 };
 
-struct ReplayProcessor: public CrateProcessor
+struct LIBMVME_EXPORT ReplayProcessor: public CrateProcessor
 {
     std::shared_ptr<ReplayJobContext> replayContext;
 };
 
-struct ReadoutProcessor: public CrateProcessor
+struct LIBMVME_EXPORT ReadoutProcessor: public CrateProcessor
 {
     std::shared_ptr<MvlcInstanceReadoutContext> readoutContext;
 };
 
-struct VmeConfigs
+struct LIBMVME_EXPORT VmeConfigs
 {
     std::unique_ptr<VMEConfig> vmeConfig;
     mvlc::CrateConfig crateConfig;
 };
 
-struct ReplayModel
+struct LIBMVME_EXPORT ReplayModel
 {
     std::vector<ReplayProcessor> processors;
     std::vector<VmeConfigs> vmeConfigs;
 };
 
-struct ReadoutModel
+struct LIBMVME_EXPORT ReadoutModel
 {
     std::vector<ReadoutProcessor> processors;
     std::vector<VmeConfigs> vmeConfigs;
@@ -519,7 +519,7 @@ struct ReadoutModel
 //                                            -> to stage2
 // stage2: eventbuilder -> analysis
 
-struct Stage1BuildInfo
+struct LIBMVME_EXPORT Stage1BuildInfo
 {
     std::string uniqueUrlPart = "";
     bool isReplay = false;
@@ -528,7 +528,7 @@ struct Stage1BuildInfo
     u8 crateId = 0;
 };
 
-struct Stage2BuildInfo
+struct LIBMVME_EXPORT Stage2BuildInfo
 {
     std::string uniqueUrlPart = "";
     bool withEventBuilder = false;
@@ -536,14 +536,14 @@ struct Stage2BuildInfo
 };
 
 // Returns the following links: raw_data, parsed_data[, split_data][, time_matched_data]
-std::pair<std::vector<nng::SocketLink>, int> build_stage1_socket_links(const Stage1BuildInfo &buildInfo);
+std::pair<std::vector<nng::SocketLink>, int> LIBMVME_EXPORT build_stage1_socket_links(const Stage1BuildInfo &buildInfo);
 
 // Returns at least one link: (stage1_output, stage2_input). If stage2 event
 // building is enabled a second link is created and returned.
 // The single stage1->stage2 socket is written to by all stage1 crate pipelines.
 // The single reader is either the stage2 event builder or directly the stage2
 // analysis.
-std::pair<std::vector<nng::SocketLink>, int> build_stage2_socket_links(const Stage2BuildInfo &buildInfo);
+std::pair<std::vector<nng::SocketLink>, int> LIBMVME_EXPORT build_stage2_socket_links(const Stage2BuildInfo &buildInfo);
 
 }
 

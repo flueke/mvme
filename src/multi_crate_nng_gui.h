@@ -22,7 +22,7 @@ class LIBMVME_EXPORT CratePipelineMonitorWidget: public QWidget
 };
 
 // Use Qt::QueuedConnection with this to ensure that connected slots are called in the main thread.
-class QtJobObserver: public QObject, public JobObserverInterface
+class LIBMVME_EXPORT QtJobObserver: public QObject, public JobObserverInterface
 {
     Q_OBJECT
 
