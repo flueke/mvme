@@ -72,6 +72,7 @@ inline bool parser_maybe_alloc_output(T &ctx)
     multi_crate::ParsedEventsMessageHeader header{};
     header.messageType = multi_crate::MessageType::ParsedEvents;
     header.messageNumber = ++ctx.outputMessageNumber;
+    header.crateId = ctx.crateId;
 
     nng_msg_append(msg.get(), &header, sizeof(header));
     assert(nng_msg_len(msg.get()) == sizeof(header));
@@ -428,7 +429,6 @@ LoopResult multievent_splitter_loop(MultiEventSplitterContext &context)
     u32 lastInputMessageNumber = 0u;
     size_t inputBuffersLost = 0;
 
-    // FIXME: how does system event data go through?
     multi_event_splitter::Callbacks splitterCallbacks =
     {
         multievent_splitter_eventdata_callback,
@@ -653,6 +653,8 @@ LoopResult event_builder_loop(EventBuilderContext &context)
 {
     LoopResult result;
     const auto crateId = context.crateId;
+    // Last received message number per crate.
+    std::unordered_map<u8, u32> lastMessageNumbers;
 
     set_thread_name(fmt::format("event_builder_loop{}", crateId).c_str());
 
@@ -711,7 +713,8 @@ LoopResult event_builder_loop(EventBuilderContext &context)
 
         auto tReceive = sw.interval();
 
-        // TODO: calculate incoming buffer loss
+        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastMessageNumbers[inputHeader.crateId]);
+        lastMessageNumbers[inputHeader.crateId] = inputHeader.messageNumber;
 
         ParsedEventMessageIterator messageIter(inputMsg.get());
 
@@ -754,7 +757,9 @@ LoopResult event_builder_loop(EventBuilderContext &context)
             counters.tReceive += tReceive;
             counters.tProcess += tProcess;
             counters.tTotal += sw.end();
-            // TODO: counters.messagesLost = inputBuffersLost;
+            // Note: this accumulates losses from different crate streams.
+            // Per-crate loss details are not available here.
+            counters.messagesLost += bufferLoss;
             context.readerCounters().access().ref() = counters;
         }
 
@@ -816,9 +821,11 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
     set_thread_name("analysis_loop");
 
     LoopResult result;
-    // FIXME: this thing can receive data from multiple input crates, so a single loss calculation is not enough. do per crate ones!
-    u32 lastInputMessageNumber = 0u;
+
+    // Last received message number per crate.
+    std::unordered_map<u8, u32> lastMessageNumbers;
     size_t inputBuffersLost = 0;
+
     bool error = false;
     vme_analysis_common::TimetickGenerator timetickGen;
     const auto crateId = context.crateId;
@@ -882,12 +889,12 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
 
         auto tReceive = sw.interval();
 
-        // FIXME: loss calcs per crate
-        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastInputMessageNumber);
+        auto bufferLoss = readout_parser::calc_buffer_loss(inputHeader.messageNumber, lastMessageNumbers[inputHeader.crateId]);
         inputBuffersLost += bufferLoss;
-        lastInputMessageNumber = inputHeader.messageNumber;
+        lastMessageNumbers[inputHeader.crateId] = inputHeader.messageNumber;
 
-        spdlog::debug("analysis_loop (crateId={}): received message {} of size {}", crateId, lastInputMessageNumber, msgLen);
+        spdlog::debug("analysis_loop (crateId={}): received message #{} of size {} with header crateId={}",
+            crateId, lastMessageNumbers[inputHeader.crateId], msgLen, inputHeader.crateId);
 
         if (context.asp)
         {
@@ -905,8 +912,6 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
             if (eventData.type == EventContainer::Type::Readout)
             {
                 context.analysis->beginEvent(eventData.readout.eventIndex);
-
-                // FIXME: eventData.crateId != crateId
 
                 context.analysis->processModuleData(crateId, eventData.readout.eventIndex,
                     eventData.readout.moduleDataList, eventData.readout.moduleCount);

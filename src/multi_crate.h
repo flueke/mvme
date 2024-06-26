@@ -271,6 +271,7 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 BaseMessageHeader
 {
     MessageType messageType;
     u32 messageNumber; // initially starts from 1 to simplify packet loss calculations. wraps to 0.
+    u8 crateId = 0;
 };
 
 // These messages contain raw controller data possibly mixed with system event
@@ -283,13 +284,15 @@ struct LIBMVME_EXPORT PACK_AND_ALIGN4 ReadoutDataMessageHeader: public BaseMessa
     }
 
     u32 bufferType = 0; // mvlc eth or mvlc usb
-    u8 crateId = 0;
 };
 
 static_assert(sizeof(ReadoutDataMessageHeader) % sizeof(u32) == 0);
 
 // Message header for parsed data and system events. Can carry data from
-// different crates.
+// different crates but still has a crateId field in the header. Even if data
+// from multiple crates is mixed within these messages the producer code should
+// be able to output an increasing message number for per-crate buffer loss
+// calculations.
 struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedEventsMessageHeader: public BaseMessageHeader
 {
     ParsedEventsMessageHeader()
@@ -308,7 +311,11 @@ static const u8 ParsedSystemEventMagic = 0xFAu;
 
 struct LIBMVME_EXPORT PACK_AND_ALIGN4 ParsedEventHeader
 {
+    // ParsedDataEventMagic or ParsedSystemEventMagic.
     u8 magicByte;
+
+    // The events crate index. May be different than the value of the outer
+    // ParsedEventsMessageHeader.crateId field.
     u8 crateIndex;
 };
 
