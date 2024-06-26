@@ -210,25 +210,15 @@ inline int close_link(SocketLink &link)
     if (int res = nng_close(link.dialer))
         ret = res;
 
+    link.dialer = NNG_SOCKET_INITIALIZER;
+
     if (int res = nng_close(link.listener))
         ret = res;
 
+    link.listener = NNG_SOCKET_INITIALIZER;
+
     return ret;
 }
-
-struct PipelineBuildInfo
-{
-    enum LinkType
-    {
-        Pair,
-        PubSub
-    };
-    std::string uniqueId;
-    std::vector<std::string> urls;
-    std::vector<LinkType> linkTypes;
-};
-
-std::pair<std::vector<SocketLink>, int> build_socket_pipeline(const PipelineBuildInfo &b);
 
 template<typename LinkContainer>
 int close_links(LinkContainer &links)
@@ -241,6 +231,20 @@ int close_links(LinkContainer &links)
 
     return ret;
 }
+
+enum class LinkType
+{
+    Pair,
+    PubSub,
+};
+
+struct CreateLinkInfo
+{
+    LinkType type;
+    std::string url;
+};
+
+std::pair<std::vector<SocketLink>, int> build_socket_pipeline(const std::vector<CreateLinkInfo> &linkInfos);
 
 }
 

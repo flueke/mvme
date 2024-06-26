@@ -514,6 +514,37 @@ struct ReadoutModel
     std::vector<VmeConfigs> vmeConfigs;
 };
 
+// stage0: raw data streams
+// stage1: parser -> splitter -> eventbuilder -> to analysis
+//                                            -> to stage2
+// stage2: eventbuilder -> analysis
+
+struct Stage1BuildInfo
+{
+    std::string uniqueUrlPart = "";
+    bool isReplay = false;
+    bool withSplitter = false;
+    bool withEventBuilder = false;
+    u8 crateId = 0;
+};
+
+struct Stage2BuildInfo
+{
+    std::string uniqueUrlPart = "";
+    bool withEventBuilder = false;
+    u8 crateId = 255u;
+};
+
+// Returns the following links: raw_data, parsed_data[, split_data][, time_matched_data]
+std::pair<std::vector<nng::SocketLink>, int> build_stage1_socket_links(const Stage1BuildInfo &buildInfo);
+
+// Returns at least one link: (stage1_output, stage2_input). If stage2 event
+// building is enabled a second link is created and returned.
+// The single stage1->stage2 socket is written to by all stage1 crate pipelines.
+// The single reader is either the stage2 event builder or directly the stage2
+// analysis.
+std::pair<std::vector<nng::SocketLink>, int> build_stage2_socket_links(const Stage2BuildInfo &buildInfo);
+
 }
 
 #endif /* DF704338_EE9D_465F_9467_11BAD11A0DDF */

@@ -3,34 +3,32 @@
 namespace mesytec::nng
 {
 
-std::pair<std::vector<SocketLink>, int> build_socket_pipeline(const PipelineBuildInfo &b)
+std::pair<std::vector<SocketLink>, int> build_socket_pipeline(const std::vector<CreateLinkInfo> &linkInfos)
 {
-    assert(b.urls.size() == b.linkTypes.size());
-
     std::vector<SocketLink> links;
 
-    auto itUrl = b.urls.begin();
-    auto itType = b.linkTypes.begin();
-
-    for (; itUrl != b.urls.end() && itType != b.linkTypes.end(); ++itUrl, ++itType)
+    for (const auto &info: linkInfos)
     {
         SocketLink link;
         int res = 0;
-        auto url = fmt::format(*itUrl, b.uniqueId);
 
-        switch (*itType)
+        switch (info.type)
         {
-            case PipelineBuildInfo::LinkType::Pair:
-                std::tie(link, res) = make_pair_link(url);
+            case LinkType::Pair:
+                std::tie(link, res) = make_pair_link(info.url);
                 break;
 
-            case PipelineBuildInfo::LinkType::PubSub:
-                std::tie(link, res) = make_pubsub_link(url);
+            case LinkType::PubSub:
+                std::tie(link, res) = make_pubsub_link(info.url);
                 break;
         }
 
         if (res)
+        {
+            close_links(links);
             return std::make_pair(links, res);
+        }
+
         links.emplace_back(link);
     }
 

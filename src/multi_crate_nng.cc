@@ -1976,4 +1976,63 @@ CratePipelineStep make_listfile_writer_step(const std::shared_ptr<ListfileWriter
     return result;
 }
 
+std::pair<std::vector<SocketLink>, int> build_stage1_socket_links(const Stage1BuildInfo &buildInfo)
+{
+    std::vector<nng::CreateLinkInfo> linkInfos;
+    // First link: readout/replay produces -> readout_parser consumes. In DAQ
+    // mode this is a lossfull pubsub link to avoid stalling the DAQ and missing
+    // readout data.
+    linkInfos.emplace_back(nng::CreateLinkInfo{
+         .type = buildInfo.isReplay ? nng::LinkType::Pair : nng::LinkType::PubSub,
+         .url = fmt::format("inproc://{}crate{}_stage0_raw_data", buildInfo.uniqueUrlPart, buildInfo.crateId),
+    });
+
+    // readout_parser -> splitter/eb/ana
+    linkInfos.emplace_back(nng::CreateLinkInfo{
+         .type = buildInfo.isReplay ? nng::LinkType::Pair : nng::LinkType::PubSub,
+         .url = fmt::format("inproc://{}crate{}_stage1_step0_parsed_data", buildInfo.uniqueUrlPart, buildInfo.crateId),
+    });
+
+    if (buildInfo.withSplitter)
+    {
+       // splitter -> eb/ana
+       linkInfos.emplace_back(nng::CreateLinkInfo{
+           .type = nng::LinkType::Pair,
+           .url = fmt::format("inproc://{}crate{}_stage1_step1_split_data", buildInfo.uniqueUrlPart, buildInfo.crateId),
+       });
+    }
+
+    if (buildInfo.withEventBuilder)
+    {
+       // eb -> ana
+       linkInfos.emplace_back(nng::CreateLinkInfo{
+           .type = nng::LinkType::Pair,
+           .url = fmt::format("inproc://{}crate{}_stage1_step2_time_matched_data", buildInfo.uniqueUrlPart, buildInfo.crateId),
+       });
+    }
+
+    return build_socket_pipeline(linkInfos);
+}
+
+std::pair<std::vector<SocketLink>, int> build_stage2_socket_links(const Stage2BuildInfo &buildInfo)
+{
+    std::vector<nng::CreateLinkInfo> linkInfos;
+
+    if (buildInfo.withEventBuilder)
+    {
+       // stage2 input -> eb
+       linkInfos.emplace_back(nng::CreateLinkInfo{
+           .type = nng::LinkType::Pair,
+           .url = fmt::format("inproc://{}crate{}_stage2_step0", buildInfo.uniqueUrlPart, buildInfo.crateId),
+       });
+    }
+
+    // 'eb -> ana' or 'stage2 input -> ana'
+    linkInfos.emplace_back(nng::CreateLinkInfo{
+         .type = nng::LinkType::Pair,
+         .url = fmt::format("inproc://{}crate{}_stage2_step1", buildInfo.uniqueUrlPart, buildInfo.crateId),
+    });
+    return build_socket_pipeline(linkInfos);
+}
+
 }
