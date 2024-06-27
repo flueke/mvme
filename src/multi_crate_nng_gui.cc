@@ -7,7 +7,7 @@
 namespace mesytec::mvme::multi_crate
 {
 
-auto get_logger = mesytec::mvlc::get_logger;
+auto get_logger = mvlc::get_logger;
 
 enum ItemType
 {
@@ -245,7 +245,7 @@ CratePipelineMonitorWidget::CratePipelineMonitorWidget(QWidget* parent)
 
 CratePipelineMonitorWidget::~CratePipelineMonitorWidget() {}
 
-void CratePipelineMonitorWidget::setPipeline(const std::string &name, const std::vector<CratePipelineStep> &pipeline)
+void CratePipelineMonitorWidget::setPipeline(const std::string &name, const CratePipeline &pipeline)
 {
     d->pipelines_[name] = pipeline;
     d->rebuild();

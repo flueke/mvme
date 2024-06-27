@@ -1867,6 +1867,12 @@ size_t empty_pipeline_inputs(CratePipeline &pipeline)
     return messages;
 }
 
+std::vector<std::shared_ptr<JobContextInterface>> get_all_pipeline_jobs(const CratePipeline &pipeline)
+{
+    return std::accumulate(std::begin(pipeline), std::end(pipeline), std::vector<std::shared_ptr<JobContextInterface>>{},
+        [] (auto &acc, const auto &step) { acc.push_back(step.context); return acc; });
+}
+
 CratePipelineStep make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, nng::SocketLink outputLink)
 {
     auto writer = std::make_unique<nng::SocketOutputWriter>(outputLink.listener);

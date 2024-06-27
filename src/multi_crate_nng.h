@@ -380,6 +380,8 @@ size_t LIBMVME_EXPORT empty_pipeline_inputs(CratePipeline &pipeline);
 // Closes the sockets in the given pipeline.
 int LIBMVME_EXPORT close_pipeline(CratePipeline &pipeline);
 
+std::vector<std::shared_ptr<JobContextInterface>> LIBMVME_EXPORT get_all_pipeline_jobs(const CratePipeline &pipeline);
+
 CratePipelineStep LIBMVME_EXPORT make_replay_step(const std::shared_ptr<ReplayJobContext> &replayContext, u8 crateId, nng::SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_readout_step(const std::shared_ptr<MvlcInstanceReadoutContext> &ctx, nng::SocketLink outputLink);
 CratePipelineStep LIBMVME_EXPORT make_readout_parser_step(const std::shared_ptr<ReadoutParserContext> &context, nng::SocketLink inputLink, nng::SocketLink outputLink);
@@ -431,8 +433,38 @@ struct LIBMVME_EXPORT LoggingJobObserver: public JobObserverInterface
     }
 };
 
-// Use with Executor and QtJobObserver to monitor the state of a set of jobs.
-class LIBMVME_EXPORT JobsWatcher: public QObject
+// Use Qt::QueuedConnection with this to ensure that connected slots are called in the main thread.
+class LIBMVME_EXPORT QtJobObserver: public QObject, public JobObserverInterface
+{
+    Q_OBJECT
+
+    signals:
+        void jobStarted(const std::shared_ptr<JobContextInterface> &context);
+        void jobFinished(const std::shared_ptr<JobContextInterface> &context);
+
+    public:
+        QtJobObserver(QObject *parent = nullptr)
+            : QObject(parent)
+        {
+            qRegisterMetaType<std::shared_ptr<JobContextInterface>>("std::shared_ptr<JobContextInterface>");
+        }
+
+        void onJobStarted(const std::shared_ptr<JobContextInterface> &context) override
+        {
+            emit jobStarted(context);
+        }
+
+        void onJobFinished(const std::shared_ptr<JobContextInterface> &context) override
+        {
+            emit jobFinished(context);
+        }
+};
+
+// Use with Executor to monitor the state of a set of jobs.
+// Alternatively insteading of adding a JobsWatcher as an observer to an
+// Exectuor a QtJobObserver could be used and connected to the
+// onJobStarted/onJobFinished slots.
+class LIBMVME_EXPORT JobsWatcher: public QObject, public JobObserverInterface
 {
     Q_OBJECT
     signals:
@@ -450,8 +482,8 @@ class LIBMVME_EXPORT JobsWatcher: public QObject
 
     public slots:
         void addJob(const std::shared_ptr<JobContextInterface> &job);
-        void onJobStarted(const std::shared_ptr<JobContextInterface> &job);
-        void onJobFinished(const std::shared_ptr<JobContextInterface> &job);
+        void onJobStarted(const std::shared_ptr<JobContextInterface> &job) override;
+        void onJobFinished(const std::shared_ptr<JobContextInterface> &job) override;
         void removeAllJobs();
         void reset();
 
