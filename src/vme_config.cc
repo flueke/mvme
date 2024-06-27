@@ -890,6 +890,11 @@ void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &sett
     emit vmeControllerTypeSet(type);
 }
 
+unsigned VMEConfig::getMvlcCrateId() const
+{
+    return getControllerSettings().value("mvlc_crate_id", 0).toUInt();
+}
+
 const ContainerObject &VMEConfig::getGlobalObjectRoot() const
 {
     return m_globalObjects;

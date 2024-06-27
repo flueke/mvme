@@ -482,6 +482,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
                               const QVariantMap &settings = QVariantMap());
         VMEControllerType getControllerType() const { return m_controllerType; }
         QVariantMap getControllerSettings() const { return m_controllerSettings; }
+        unsigned getMvlcCrateId() const;
 
         const ContainerObject &getGlobalObjectRoot() const;
         ContainerObject &getGlobalObjectRoot();
