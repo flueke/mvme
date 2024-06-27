@@ -353,9 +353,8 @@ int main(int argc, char *argv[])
     {
         for (auto &[_, steps]: cratePipelineSteps)
         {
-            const bool anyRunning = std::any_of(std::begin(steps), std::end(steps),
-                [] (const auto &step) { return step.context->jobRuntime().isRunning(); });
-            if (anyRunning) return;
+            if (is_running(steps))
+                return;
         }
 
         if (replayContext->lfh)
@@ -364,6 +363,7 @@ int main(int argc, char *argv[])
             (void) listfile::read_magic(*replayContext->lfh);
         }
 
+        // XXX: not pipeline job related
         for (auto &[crateId, ctx]: analysisContexts)
         {
             ctx->runInfo.keepAnalysisState = cbKeepHistoContents->isChecked();
@@ -382,6 +382,7 @@ int main(int argc, char *argv[])
         }
         #endif
 
+        // XXX: state changes to "starting", then "running" or "error"
         pbStart->setEnabled(false);
         pbStop->setEnabled(!pbStart->isEnabled());
 

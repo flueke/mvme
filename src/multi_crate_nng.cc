@@ -1981,6 +1981,199 @@ CratePipelineStep make_listfile_writer_step(const std::shared_ptr<ListfileWriter
     return result;
 }
 
+void Executor::startJob(const std::shared_ptr<JobContextInterface> &context)
+{
+    auto fWrap = [context, this] () -> LoopResult
+    {
+        assert(!context->lastResult().has_value());
+        std::unique_lock<std::mutex> lock(mutex_);
+        for (auto &observer : observers_)
+            observer->onJobStarted(context);
+        lock.unlock();
+
+        LoopResult result;
+
+        try
+        {
+            result = context->function()();
+        }
+        catch (const std::exception &e)
+        {
+            result.exception = std::current_exception();
+        }
+
+        context->setQuit(false);
+
+        lock.lock();
+        for (auto &observer : observers_)
+            observer->onJobFinished(context);
+
+        return result;
+    };
+
+    auto task = std::packaged_task<LoopResult()>(fWrap);
+    JobRuntime rt;
+    rt.context = context.get();
+    rt.result = task.get_future();
+    context->clearLastResult();
+    context->setQuit(false);
+    context->readerCounters().access()->start();
+    context->writerCounters().access()->start();
+    rt.thread = std::thread([t = std::move(task)]() mutable { t.make_ready_at_thread_exit(); });
+    context->setJobRuntime(std::move(rt));
+}
+
+void Executor::addObserver(const std::shared_ptr<JobObserverInterface> &observer)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    observers_.push_back(observer);
+}
+
+void Executor::removeObserver(const std::shared_ptr<JobObserverInterface> &observer)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
+}
+
+bool is_running(const CratePipeline &pipeline)
+{
+    const bool anyRunning = std::any_of(std::begin(pipeline), std::end(pipeline),
+        [] (const auto &step) { return step.context->jobRuntime().isRunning(); });
+    return anyRunning;
+}
+
+bool is_idle(const CratePipeline &pipeline)
+{
+    return !is_running(pipeline);
+}
+
+bool start_pipeline(Executor &executor, CratePipeline &pipeline)
+{
+    if (!is_idle(pipeline))
+    {
+        spdlog::warn("start_pipeline: pipeline is not idle");
+        return false;
+    }
+
+    for (auto &step: pipeline)
+    {
+        // Guard against restarting a job that already terminated while we were
+        // still starting other jobs.
+        if (!step.context->jobRuntime().isRunning() && !step.context->jobRuntime().isReady())
+        {
+            executor.startJob(step.context);
+            spdlog::info("started job {}", step.context->name());
+        }
+        else
+        {
+            spdlog::info("job {} was already running", step.context->name());
+        }
+    }
+
+    return true;
+}
+
+bool stop_pipeline(CratePipeline &pipeline, bool immediateShutdown)
+{
+    if (is_idle(pipeline))
+    {
+        spdlog::warn("stop_pipeline: pipeline is already idle");
+        return false;
+    }
+
+    if (immediateShutdown)
+        quit_pipeline(pipeline);
+    else
+        shutdown_pipeline(pipeline);
+
+    StopWatch swEmpty;
+    empty_pipeline_inputs(pipeline);
+    spdlog::warn("empty pipeline took {} ms", swEmpty.interval().count() / 1000.0);
+
+    return true;
+}
+
+bool start_pipelines(Executor &executor, std::vector<CratePipeline> &pipelines)
+{
+    for (auto &pipeline: pipelines)
+    {
+        if (!is_idle(pipeline))
+        {
+            spdlog::warn("start_pipelines: pipeline is not idle");
+            return false;
+        }
+    }
+
+    for (auto &pipeline: pipelines)
+        start_pipeline(executor, pipeline);
+
+    return true;
+}
+
+void stop_pipelines(std::vector<CratePipeline> &pipelines, bool immediate)
+{
+    for (auto &pipeline: pipelines)
+        stop_pipeline(pipeline, immediate);
+}
+
+void JobsWatcher::addJob(const std::shared_ptr<JobContextInterface> &job)
+{
+    allJobs.insert(job);
+}
+
+void JobsWatcher::onJobStarted(const std::shared_ptr<JobContextInterface> &job)
+{
+    auto logger = mvlc::get_logger("JobsWatcher");
+
+    if (allJobs.find(job) != std::end(allJobs))
+    {
+        logger->info("job {} started", job->name());
+
+        if (startedJobs.find(job) == std::end(startedJobs))
+            startedJobs.insert(job);
+        else
+            logger->warn("job {} started again", job->name());
+
+        if (startedJobs == allJobs)
+            emit allJobsStarted();
+    }
+    else
+        logger->warn("unknown job {} started", job->name());
+}
+
+void JobsWatcher::onJobFinished(const std::shared_ptr<JobContextInterface> &job)
+{
+    auto logger = mvlc::get_logger("JobsWatcher");
+
+    if (allJobs.find(job) != std::end(allJobs))
+    {
+        logger->info("job {} finished", job->name());
+
+        if (finishedJobs.find(job) == std::end(finishedJobs))
+            finishedJobs.insert(job);
+        else
+            logger->warn("job {} finished again", job->name());
+
+        if (finishedJobs == allJobs)
+            emit allJobsFinished();
+    }
+    else
+        logger->warn("unknown job {} finished", job->name());
+}
+
+void JobsWatcher::removeAllJobs()
+{
+    allJobs.clear();
+    startedJobs.clear();
+    finishedJobs.clear();
+}
+
+void JobsWatcher::reset()
+{
+    startedJobs.clear();
+    finishedJobs.clear();
+}
+
 std::pair<std::vector<SocketLink>, int> build_stage1_socket_links(const Stage1BuildInfo &buildInfo)
 {
     std::vector<nng::CreateLinkInfo> linkInfos;

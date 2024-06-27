@@ -1,10 +1,13 @@
 #include "multi_crate_nng_gui.h"
+#include <mesytec-mvlc/util/logging.h>
 #include "qt_util.h"
 #include "util/qt_model_view_util.h"
 #include "util/qt_monospace_textedit.h"
 
 namespace mesytec::mvme::multi_crate
 {
+
+auto get_logger = mesytec::mvlc::get_logger;
 
 enum ItemType
 {
@@ -253,5 +256,6 @@ void CratePipelineMonitorWidget::removePipeline(const std::string &name)
     d->pipelines_.erase(name);
     d->rebuild();
 }
+
 
 }

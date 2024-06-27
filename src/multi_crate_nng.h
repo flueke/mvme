@@ -125,8 +125,6 @@ class LIBMVME_EXPORT AbstractJobContext: public JobContextInterface
 
 inline bool start_job(JobContextInterface &context)
 {
-    assert(!context.jobRuntime().isRunning()); // FIXME: return error in re.result or use std::optional
-
     if (context.jobRuntime().isRunning())
         return false;
 
@@ -242,6 +240,9 @@ struct ReplayJobContext;
 
 LoopResult LIBMVME_EXPORT replay_loop(ReplayJobContext &context);
 
+// One replay context file. Outputs each crate to a different output writer.
+// Wrapped in CrateReplayWrapperContext instances to have one producer context
+// per crate pipeline.
 struct LIBMVME_EXPORT ReplayJobContext: public AbstractJobContext
 {
     public:
@@ -400,64 +401,22 @@ class LIBMVME_EXPORT JobObserverInterface
 class LIBMVME_EXPORT Executor
 {
     public:
-        void startJob(const std::shared_ptr<JobContextInterface> &context)
-        {
-            auto fWrap = [context, this] () -> LoopResult
-            {
-                assert(!context->lastResult().has_value());
-                std::unique_lock<std::mutex> lock(mutex_);
-                for (auto &observer : observers_)
-                    observer->onJobStarted(context);
-                lock.unlock();
-
-                LoopResult result;
-
-                try
-                {
-                    result = context->function()();
-                }
-                catch (const std::exception &e)
-                {
-                    result.exception = std::current_exception();
-                }
-
-                context->setQuit(false);
-
-                lock.lock();
-                for (auto &observer : observers_)
-                    observer->onJobFinished(context);
-
-                return result;
-            };
-
-            auto task = std::packaged_task<LoopResult()>(fWrap);
-            JobRuntime rt;
-            rt.context = context.get();
-            rt.result = task.get_future();
-            context->clearLastResult();
-            context->setQuit(false);
-            context->readerCounters().access()->start();
-            context->writerCounters().access()->start();
-            rt.thread = std::thread([t = std::move(task)]() mutable { t.make_ready_at_thread_exit(); });
-            context->setJobRuntime(std::move(rt));
-        }
-
-        void addObserver(const std::shared_ptr<JobObserverInterface> &observer)
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            observers_.push_back(observer);
-        }
-
-        void removeObserver(const std::shared_ptr<JobObserverInterface> &observer)
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
-        }
+        void startJob(const std::shared_ptr<JobContextInterface> &context);
+        void addObserver(const std::shared_ptr<JobObserverInterface> &observer);
+        void removeObserver(const std::shared_ptr<JobObserverInterface> &observer);
 
     private:
         std::mutex mutex_;
         std::vector<std::shared_ptr<JobObserverInterface>> observers_;
 };
+
+bool is_running(const CratePipeline &pipeline);
+bool is_idle(const CratePipeline &pipeline);
+bool start_pipeline(Executor &executor, CratePipeline &pipeline);
+bool stop_pipeline(CratePipeline &pipeline, bool immediate = false);
+
+bool start_pipelines(Executor &executor, const std::vector<CratePipeline> &pipelines);
+void stop_pipelines(const std::vector<CratePipeline> &pipelines, bool immediateShutdown = false);
 
 struct LIBMVME_EXPORT LoggingJobObserver: public JobObserverInterface
 {
@@ -472,7 +431,35 @@ struct LIBMVME_EXPORT LoggingJobObserver: public JobObserverInterface
     }
 };
 
-// Crate ids > 8 are used for system streams. Currently 0xff is the combined stage2 stream.
+// Use with Executor and QtJobObserver to monitor the state of a set of jobs.
+class LIBMVME_EXPORT JobsWatcher: public QObject
+{
+    Q_OBJECT
+    signals:
+        void allJobsStarted();
+        void allJobsFinished();
+
+    public:
+        template<typename T>
+        JobsWatcher(const T &jobs, QObject *parent = nullptr)
+            : QObject(parent)
+            , allJobs(jobs.begin(), jobs.end())
+        {
+            qRegisterMetaType<std::shared_ptr<JobContextInterface>>("std::shared_ptr<JobContextInterface>");
+        }
+
+    public slots:
+        void addJob(const std::shared_ptr<JobContextInterface> &job);
+        void onJobStarted(const std::shared_ptr<JobContextInterface> &job);
+        void onJobFinished(const std::shared_ptr<JobContextInterface> &job);
+        void removeAllJobs();
+        void reset();
+
+    private:
+        std::set<std::shared_ptr<JobContextInterface>> allJobs, startedJobs, finishedJobs;
+};
+
+// Crate ids > 7 are used for system streams. Currently 0xff is the combined stage2 stream.
 // Note that contexts may be null: splitter and eventbuilder are optional in stage1,
 // stage2 normally consists of event_builder -> analysis only.
 
@@ -508,6 +495,27 @@ struct LIBMVME_EXPORT ReplayModel
     std::vector<VmeConfigs> vmeConfigs;
 };
 
+// Blocks until startup is done. Use the executor to get notified of job start/finish.
+void start_replay(Executor &executor, ReplayModel &model);
+void stop_replay(ReplayModel &model);
+
+#if 0
+class LIBMVME_EXPORT CReplayModel: public QObject
+{
+    Q_OBJECT
+    signals:
+        void started();
+        void stopped();
+
+    public slots:
+        void startReplay();
+
+    private:
+        std::vector<ReplayProcessor> processors;
+        std::vector<VmeConfigs> vmeConfigs;
+};
+#endif
+
 struct LIBMVME_EXPORT ReadoutModel
 {
     std::vector<ReadoutProcessor> processors;
@@ -536,14 +544,16 @@ struct LIBMVME_EXPORT Stage2BuildInfo
 };
 
 // Returns the following links: raw_data, parsed_data[, split_data][, time_matched_data]
-std::pair<std::vector<nng::SocketLink>, int> LIBMVME_EXPORT build_stage1_socket_links(const Stage1BuildInfo &buildInfo);
+std::pair<std::vector<nng::SocketLink>, int> LIBMVME_EXPORT build_stage1_socket_links(
+    const Stage1BuildInfo &buildInfo);
 
 // Returns at least one link: (stage1_output, stage2_input). If stage2 event
 // building is enabled a second link is created and returned.
 // The single stage1->stage2 socket is written to by all stage1 crate pipelines.
 // The single reader is either the stage2 event builder or directly the stage2
 // analysis.
-std::pair<std::vector<nng::SocketLink>, int> LIBMVME_EXPORT build_stage2_socket_links(const Stage2BuildInfo &buildInfo);
+std::pair<std::vector<nng::SocketLink>, int> LIBMVME_EXPORT build_stage2_socket_links(
+    const Stage2BuildInfo &buildInfo);
 
 }
 
