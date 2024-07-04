@@ -4125,8 +4125,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                             if (auto pipe = get_pointer<Pipe>(node, DataRole_RawPointer);
                                 pipe && pipe->source)
                             {
-                                auto op = std::dynamic_pointer_cast<OperatorInterface>(pipe->source->shared_from_this());
-                                highlightInputNodes(op.get());
+                                if (auto op = std::dynamic_pointer_cast<OperatorInterface>(pipe->source->shared_from_this()))
+                                    highlightInputNodes(op.get());
                             }
                         } break;
                 }
