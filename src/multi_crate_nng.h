@@ -412,13 +412,13 @@ class LIBMVME_EXPORT Executor
         std::vector<std::shared_ptr<JobObserverInterface>> observers_;
 };
 
-bool is_running(const CratePipeline &pipeline);
-bool is_idle(const CratePipeline &pipeline);
-bool start_pipeline(Executor &executor, CratePipeline &pipeline);
-bool stop_pipeline(CratePipeline &pipeline, bool immediate = false);
+bool LIBMVME_EXPORT is_running(const CratePipeline &pipeline);
+bool LIBMVME_EXPORT is_idle(const CratePipeline &pipeline);
+bool LIBMVME_EXPORT start_pipeline(Executor &executor, CratePipeline &pipeline);
+bool LIBMVME_EXPORT stop_pipeline(CratePipeline &pipeline, bool immediate = false);
 
-bool start_pipelines(Executor &executor, const std::vector<CratePipeline> &pipelines);
-void stop_pipelines(const std::vector<CratePipeline> &pipelines, bool immediateShutdown = false);
+bool LIBMVME_EXPORT start_pipelines(Executor &executor, const std::vector<CratePipeline> &pipelines);
+void LIBMVME_EXPORT stop_pipelines(const std::vector<CratePipeline> &pipelines, bool immediateShutdown = false);
 
 struct LIBMVME_EXPORT LoggingJobObserver: public JobObserverInterface
 {
