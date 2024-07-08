@@ -544,9 +544,9 @@ int main(int argc, char *argv[])
         for (size_t mi=0; mi<modCounters.discardedEvents.size(); ++mi)
         {
             spdlog::info(
-                "  ei={}, mi={}, totalHits={}, discarded={}, empties={}, invScoreSum={}",
+                "  ei={}, mi={}, inputHits={}, discarded={}, empties={}, invScoreSum={}",
                 ei, mi,
-                modCounters.totalHits.at(mi),
+                modCounters.inputHits.at(mi),
                 modCounters.discardedEvents.at(mi),
                 modCounters.emptyEvents.at(mi),
                 modCounters.invScoreSums.at(mi)

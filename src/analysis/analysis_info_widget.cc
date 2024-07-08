@@ -697,12 +697,13 @@ void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
     // module total hits
     for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
     {
-        for (size_t mi=0; mi<counters.eventCounters[ei].totalHits.size(); ++mi)
+        for (size_t mi=0; mi<counters.eventCounters[ei].inputHits.size(); ++mi)
         {
-            auto line = QSL("event=%1, module=%2, count=%3")
+            auto line = QSL("event=%1, module=%2, inputCount=%3, outputCount=%4")
                 .arg(ei)
                 .arg(mi)
-                .arg(counters.eventCounters[ei].totalHits[mi]);
+                .arg(counters.eventCounters[ei].inputHits[mi])
+                .arg(counters.eventCounters[ei].outputHits[mi]);
             lines.push_back(line);
         }
     }
