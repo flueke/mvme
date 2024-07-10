@@ -142,6 +142,7 @@ class ObjectTree: public QTreeWidget, public CheckStateObserver
         virtual Qt::DropActions supportedDropActions() const override;
         virtual void dropEvent(QDropEvent *event) override;
         virtual void keyPressEvent(QKeyEvent *event) override;
+        void mousePressEvent(QMouseEvent *event) override;
 
     private:
         EventWidget *m_eventWidget = nullptr;
