@@ -266,11 +266,12 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
     auto add_stack_group = [](
         mesytec::mvlc::StackCommandBuilder &stack,
         const std::string &groupName,
-        const vme_script::VMEScript &contents)
+        const vme_script::VMEScript &contents,
+        const std::map<std::string, std::string> &meta = {})
     {
         if (!contents.isEmpty())
         {
-            stack.beginGroup(groupName);
+            stack.beginGroup(groupName, meta);
 
             for (const auto &srcCmd: contents)
             {
@@ -338,11 +339,13 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
                 continue;
 
             auto moduleName = moduleConfig->objectName().toStdString();
+            auto moduleType = moduleConfig->getModuleMeta().typeName.toStdString();
 
             auto moduleReadoutScript = mesytec::mvme::parse(
                     moduleConfig->getReadoutScript(), moduleConfig->getBaseAddress());
 
-            add_stack_group(readoutStack, moduleName, moduleReadoutScript);
+            std::map<std::string, std::string> groupMeta = { { std::string("vme_module_type"), moduleType } };
+            add_stack_group(readoutStack, moduleName, moduleReadoutScript, groupMeta);
         }
 
         add_stack_group(

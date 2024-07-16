@@ -438,7 +438,16 @@ std::unique_ptr<VMEConfig> vmeconfig_from_crateconfig(
                 if (groupsIt == groupsEnd - 1 && !produces_output(*groupsIt))
                     break;
 
+                vats::VMEModuleMeta moduleMeta;
+                try
+                {
+                    moduleMeta.typeName = QString::fromStdString(groupsIt->meta.at("vme_module_type"));
+                }
+                catch(const std::out_of_range &)
+                { }
+
                 auto moduleConfig = std::make_unique<ModuleConfig>();
+                moduleConfig->setModuleMeta(moduleMeta);
                 moduleConfig->setObjectName(QString::fromStdString(groupsIt->name));
                 moduleConfig->getReadoutScript()->setScriptContents(
                     command_group_to_vmescript_lines(*groupsIt).join("\n"));
