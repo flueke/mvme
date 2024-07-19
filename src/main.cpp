@@ -75,6 +75,10 @@ int main(int argc, char *argv[])
         mesytec::mvlc::get_logger("mvlc_apiv2")->set_level(spdlog::level::debug);
         mesytec::mvlc::get_logger("mvlc")->set_level(spdlog::level::debug);
         mesytec::mvlc::get_logger("cmd_pipe_reader")->set_level(spdlog::level::debug);
+        auto fs = std::make_shared<spdlog::sinks::basic_file_sink_mt>("mvlc_debug.log");
+        mesytec::mvlc::get_logger("mvlc_apiv2")->sinks().push_back(fs);
+        mesytec::mvlc::get_logger("mvlc")->sinks().push_back(fs);
+        mesytec::mvlc::get_logger("cmd_pipe_reader")->sinks().push_back(fs);
     }
 
     // debug code here: write output of some mvlc loggers to mvlc_trace.log
