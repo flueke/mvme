@@ -18,7 +18,6 @@
 #include "util/qt_fs.h"
 #include "util/qt_monospace_textedit.h"
 #include "util/signal_handling.h"
-#include "util/stopwatch.h"
 #include "vme_config_util.h"
 #include "vme_controller_factory.h"
 #include "vme_daq.h"

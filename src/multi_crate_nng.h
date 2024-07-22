@@ -2,11 +2,12 @@
 #define DF704338_EE9D_465F_9467_11BAD11A0DDF
 
 #include "multi_crate.h"
-#include "util/stopwatch.h"
 #include "multi_event_splitter.h"
 
 namespace mesytec::mvme::multi_crate
 {
+
+using Stopwatch = mvlc::util::Stopwatch;
 
 // Definitions:
 // - stage0: raw mvlc data stream
@@ -161,7 +162,7 @@ struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
     u32 outputMessageNumber = 0u;
     mvlc::readout_parser::ReadoutParserState parserState;
     mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
-    StopWatch flushTimer;
+    Stopwatch flushTimer;
 };
 
 std::unique_ptr<ReadoutParserContext> LIBMVME_EXPORT make_readout_parser_context(const mvlc::CrateConfig &crateConfig);
@@ -181,7 +182,7 @@ struct LIBMVME_EXPORT MultiEventSplitterContext: public AbstractJobContext
     nng::unique_msg outputMessage = nng::make_unique_msg();
     u32 outputMessageNumber = 0u;
     multi_event_splitter::State state;
-    StopWatch flushTimer;
+    Stopwatch flushTimer;
 };
 
 struct EventBuilderContext;
@@ -203,7 +204,7 @@ struct LIBMVME_EXPORT EventBuilderContext: public AbstractJobContext
 
     nng::unique_msg outputMessage = nng::make_unique_msg();
     u32 outputMessageNumber = 0u;
-    StopWatch flushTimer;
+    Stopwatch flushTimer;
 
     EventBuilderContext()
     {

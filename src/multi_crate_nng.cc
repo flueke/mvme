@@ -3,7 +3,6 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "mvlc_daq.h"
-#include "util/stopwatch.h"
 
 using namespace mesytec::mvlc;
 using namespace mesytec::nng;
@@ -89,7 +88,7 @@ inline bool flush_output_message(ReadoutParserContext &ctx)
 
     const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
-    StopWatch stopWatch;
+    Stopwatch stopWatch;
 
     // Take ownership of the current output message => ctx.outputMessage becomes null.
     auto msg = std::move(ctx.outputMessage);
@@ -216,7 +215,7 @@ LoopResult readout_parser_loop(ReadoutParserContext &context)
 
     while (!context.shouldQuit())
     {
-        StopWatch sw;
+        Stopwatch sw;
 
         auto [inputMsg, res] = context.inputReader()->readMessage();
 
@@ -327,7 +326,7 @@ inline bool flush_output_message(MultiEventSplitterContext &ctx)
 
     const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
-    StopWatch stopWatch;
+    Stopwatch stopWatch;
 
     // Take ownership of the current output message => ctx.outputMessage becomes null.
     auto msg = std::move(ctx.outputMessage);
@@ -440,7 +439,7 @@ LoopResult multievent_splitter_loop(MultiEventSplitterContext &context)
 
     while (!context.shouldQuit())
     {
-        StopWatch sw;
+        Stopwatch sw;
 
         auto [inputMsg, res] = context.inputReader()->readMessage();
 
@@ -557,7 +556,7 @@ inline bool flush_output_message(EventBuilderContext &ctx)
 
     const auto msgSize = nng_msg_len(ctx.outputMessage.get());
 
-    StopWatch stopWatch;
+    Stopwatch stopWatch;
 
     // Take ownership of the current output message => ctx.outputMessage becomes null.
     auto msg = std::move(ctx.outputMessage);
@@ -670,7 +669,7 @@ LoopResult event_builder_loop(EventBuilderContext &context)
 
     while (!context.shouldQuit())
     {
-        StopWatch sw;
+        Stopwatch sw;
 
         auto [inputMsg, res] = context.inputReader()->readMessage();
 
@@ -845,7 +844,7 @@ LoopResult analysis_loop(AnalysisProcessingContext &context)
             }
         }
 
-        StopWatch sw;
+        Stopwatch sw;
 
         auto [inputMsg, res] = context.inputReader()->readMessage();
 
@@ -1050,7 +1049,7 @@ LoopResult replay_loop(ReplayJobContext &context)
                 const size_t msgLen = nng_msg_len(output.msg.get());
                 spdlog::debug("replay_loop: crateId {} - flushing message {} of size {}, sent so far={}",
                     crateId, output.messageNumber, msgLen, counters[crateId].messagesSent);
-                StopWatch sw;
+                Stopwatch sw;
                 int res = writers[crateId]->writeMessage(std::move(output.msg));
                 counters[crateId].tSend += sw.interval();
                 counters[crateId].bytesSent += msgLen;
@@ -1251,7 +1250,7 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
 
     while (!context.shouldQuit())
     {
-        StopWatch sw;
+        Stopwatch sw;
 
         auto [inputMsg, res] = context.inputReader()->readMessage();
 
@@ -1381,7 +1380,7 @@ LoopResult readout_loop(MvlcInstanceReadoutContext &context)
     auto flush_output_message = [&] (unique_msg &&msg)
     {
         const auto msgSize = nng_msg_len(msg.get());
-        StopWatch stopWatch;
+        Stopwatch stopWatch;
         context.outputWriter()->writeMessage(std::move(msg));
 
         // Important: clear the output message of the NngMsgWriteHandle,
@@ -1639,7 +1638,7 @@ LoopResult listfile_writer_loop(ListfileWriterContext &context)
 
     while (!context.shouldQuit())
     {
-        StopWatch sw;
+        Stopwatch sw;
 
         auto [inputMsg, res] = context.inputReader()->readMessage();
 
@@ -2092,7 +2091,7 @@ bool stop_pipeline(CratePipeline &pipeline, bool immediateShutdown)
     else
         shutdown_pipeline(pipeline);
 
-    StopWatch swEmpty;
+    Stopwatch swEmpty;
     empty_pipeline_inputs(pipeline);
     spdlog::warn("empty pipeline took {} ms", swEmpty.interval().count() / 1000.0);
 

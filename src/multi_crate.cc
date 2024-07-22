@@ -11,7 +11,6 @@
 #include "mvme_workspace.h"
 #include "util/mesy_nng.h"
 #include "util/qt_fs.h"
-#include "util/stopwatch.h"
 #include "util/thread_name.h"
 #include "vme_config_scripts.h"
 #include "vme_config_util.h"
@@ -1129,7 +1128,7 @@ void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
         multi_crate::fixup_listfile_buffer_message(mvlc::ConnectionType::ETH, msg.get(), previousData);
 
         const auto msgSize = nng_msg_len(msg.get());
-        StopWatch stopWatch;
+        Stopwatch stopWatch;
         ctx.outputWriter->writeMessage(std::move(msg));
 
         {

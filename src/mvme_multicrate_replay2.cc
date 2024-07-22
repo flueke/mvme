@@ -18,7 +18,6 @@
 #include "qt_util.h"
 #include "util/qt_monospace_textedit.h"
 #include "util/signal_handling.h"
-#include "util/stopwatch.h"
 #include "vme_config_util.h"
 #include "vme_analysis_common.h"
 
@@ -426,7 +425,7 @@ int main(int argc, char *argv[])
         else
             spdlog::warn("begin graceful shutdown");
 
-        StopWatch sw;
+        Stopwatch sw;
 
         // Tell the shared replay context to quit, basically terminating the
         // first step of each pipeline.
@@ -443,7 +442,7 @@ int main(int argc, char *argv[])
 
         if (immediateShutdown || true)
         {
-            StopWatch swEmpty;
+            Stopwatch swEmpty;
             for (auto &[crateId, steps]: cratePipelineSteps)
             {
                 auto msgCount = empty_pipeline_inputs(steps);
