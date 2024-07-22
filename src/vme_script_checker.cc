@@ -30,8 +30,8 @@
  * ".vmescript" are checked.
  */
 
-QTextStream out(stdout);
-QTextStream err(stderr);
+static QTextStream out(stdout);
+static QTextStream err(stderr);
 
 static void check_one_file(const QString &filename)
 {
