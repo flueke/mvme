@@ -100,6 +100,7 @@ using namespace mesytec::mvme;
 using namespace vats;
 
 static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
+static const int RecentWorkspacesMaxCount = 10;
 
 struct MVMEWindowPrivate
 {
@@ -125,7 +126,7 @@ struct MVMEWindowPrivate
     QStatusBar *statusBar;
     QMenuBar *menuBar;
 
-    QAction *actionNewWorkspace, *actionOpenWorkspace,
+    QAction *actionNewWorkspace, *actionOpenWorkspace, *actionRecentWorkspaces,
             *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
             *actionExportToMVLC, *actionImportFromMVLC,
             *actionOpenListfile, *actionCloseListfile,
@@ -209,7 +210,61 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     m_d->actionNewWorkspace     = new QAction(QSL("New Workspace"), this);
     m_d->actionNewWorkspace->setObjectName(QSL("actionNewWorkspace"));
     m_d->actionOpenWorkspace    = new QAction(QSL("Open Workspace"), this);
-    m_d->actionOpenWorkspace->setObjectName(QSL("actionOpenWorkspac"));
+    m_d->actionOpenWorkspace->setObjectName(QSL("actionOpenWorkspace"));
+    m_d->actionRecentWorkspaces = new QAction(QSL("Recent Workspaces"), this);
+    m_d->actionRecentWorkspaces->setObjectName(QSL("actionRecentWorkspaces"));
+
+    auto recentsMenu = new QMenu(QSL("Recent Workspaces"), this);
+
+    connect(recentsMenu, &QMenu::aboutToShow, this, [=]
+    {
+        recentsMenu->clear();
+
+        QSettings settings;
+        auto recents = settings.value("RecentWorkspaces").toStringList();
+        for (auto dirName: recents)
+        {
+            auto actionOpenRecent = new QAction(dirName, recentsMenu);
+            recentsMenu->addAction(actionOpenRecent);
+            connect(actionOpenRecent, &QAction::triggered, this, [=]
+            {
+                // vme config
+                if (!gui_vmeconfig_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
+                    return;
+
+                // analysis config
+                if (!gui_analysis_maybe_save_if_modified(m_d->m_context->getAnalysisServiceProvider()).first)
+                    return;
+
+                try
+                {
+                    closeAllHistogramWidgets();
+                    m_d->m_context->openWorkspace(dirName);
+                    if (m_d->runNotesWidget)
+                        m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+
+                    QSettings settings;
+                    auto recents = settings.value("RecentWorkspaces").toStringList();
+                    recents.removeAll(dirName);
+                    recents.push_front(dirName);
+                    while (recents.size() > RecentWorkspacesMaxCount)
+                        recents.pop_back();
+                    settings.setValue("RecentWorkspaces", recents);
+                } catch (const QString &e)
+                {
+                    QMessageBox::critical(this, QSL("Workspace Error"),
+                                        QString("Error opening workspace: %1").arg(e));
+                }
+                catch (const std::runtime_error &e)
+                {
+                    QMessageBox::critical(this, QSL("Workspace Error"),
+                                        QSL("Error opening workspace: %1>").arg(e.what()));
+                }
+            });
+        }
+    });
+
+    m_d->actionRecentWorkspaces->setMenu(recentsMenu);
 
     m_d->actionNewVMEConfig     = new QAction(QIcon(QSL(":/document-new.png")), QSL("New VME Config"), this);
     m_d->actionNewVMEConfig->setToolTip(QSL("New VME Config"));
@@ -366,6 +421,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
 
     m_d->menuFile->addAction(m_d->actionNewWorkspace);
     m_d->menuFile->addAction(m_d->actionOpenWorkspace);
+    m_d->menuFile->addAction(m_d->actionRecentWorkspaces);
     m_d->menuFile->addSeparator();
     m_d->menuFile->addAction(m_d->actionNewVMEConfig);
     m_d->menuFile->addAction(m_d->actionOpenVMEConfig);
@@ -745,6 +801,14 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
         m_d->m_context->openWorkspace(dirName);
         if (m_d->runNotesWidget)
             m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+
+        QSettings settings;
+        auto recents = settings.value("RecentWorkspaces").toStringList();
+        recents.removeAll(dirName);
+        recents.push_front(dirName);
+        while (recents.size() > RecentWorkspacesMaxCount)
+            recents.pop_back();
+        settings.setValue("RecentWorkspaces", recents);
     } catch (const QString &e)
     {
         QMessageBox::critical(this, QSL("Workspace Error"),
