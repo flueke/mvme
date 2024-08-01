@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.14.4
+--------------------------------------------------
+
+* analysis: fix crash when a specific parameter array index is selected in the ui
+
 Version 1.14.3
 --------------------------------------------------
 
