@@ -1951,7 +1951,7 @@ UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &di
     result.operatorTree->headerItem()->setText(0, opTitle);
     result.operatorTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     result.operatorTree->setEditTriggers(editTriggers);
-    result.operatorTree->setSelectionBehavior(QAbstractItemView::SelectItems);
+    result.operatorTree->setSelectionBehavior(QAbstractItemView::SelectRows);
 
     result.sinkTree->setObjectName(dispTitle);
     result.sinkTree->headerItem()->setText(0, dispTitle);
