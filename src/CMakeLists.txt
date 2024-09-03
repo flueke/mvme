@@ -256,7 +256,6 @@ add_library(libmvme SHARED
     util/qt_monospace_textedit.cc
     util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp
-    util/signal_handling.cc
     util/strings.cc
     util/thread_name.cc
     util/variablify.cc
@@ -549,10 +548,6 @@ install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATIO
 add_mvme_exe(mvme_multicrate_replay2 mvme_multicrate_replay2.cc)
 install(TARGETS mvme_multicrate_replay2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
-# mvme multicrate replay3
-add_mvme_exe(mvme_multicrate_replay3 mvme_multicrate_replay3.cc)
-install(TARGETS mvme_multicrate_replay3 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
-
 # mvme multicrate readout2
 add_mvme_exe(mvme_multicrate_readout2 mvme_multicrate_readout2.cc)
 install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
@@ -563,7 +558,6 @@ add_mvme_exe(statemachine_test statemachine_test.cc)
 add_custom_target(multicrate2_dev_tools)
 add_dependencies(multicrate2_dev_tools
     mvme_multicrate_replay2
-    mvme_multicrate_replay3
     mvme_multicrate_readout2
     qfuturewatcher_fire_forget
     statemachine_test

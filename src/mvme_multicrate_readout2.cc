@@ -17,7 +17,6 @@
 #include "qt_util.h"
 #include "util/qt_fs.h"
 #include "util/qt_monospace_textedit.h"
-#include "util/signal_handling.h"
 #include "vme_config_util.h"
 #include "vme_controller_factory.h"
 #include "vme_daq.h"
@@ -42,7 +41,7 @@ int main(int argc, char *argv[])
     spdlog::set_level(spdlog::level::warn);
     mesytec::mvlc::set_global_log_level(spdlog::level::warn);
 
-    setup_signal_handlers();
+    mvlc::util::setup_signal_handlers();
 
     if (argc < 2)
     {
@@ -571,7 +570,7 @@ int main(int argc, char *argv[])
 
     QObject::connect(&timer, &QTimer::timeout, [&]
     {
-        if (signal_received())
+        if (mvlc::util::signal_received())
         {
             spdlog::warn("signal received, shutting down");
             app.quit();
