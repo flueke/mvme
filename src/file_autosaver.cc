@@ -82,13 +82,15 @@ void FileAutoSaver::saveNow()
         return;
     }
 
+    tempFile.setPermissions(QFile::ReadOwner | QFile::WriteOwner);
+
     auto data = m_serializer();
 
     //qDebug().noquote() << QTime::currentTime().toString()
     //    << objectName() << "writing" << data.size()
     //    << "bytes to temp file " << tempFile.fileName();
 
-    if (tempFile.write(m_serializer()) == -1)
+    if (tempFile.write(data) == -1)
     {
         emit writeError(m_outputFilename,
                         QSL("%1: Could not write to temporary file %2")
