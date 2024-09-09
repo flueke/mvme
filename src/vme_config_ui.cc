@@ -275,7 +275,7 @@ EventConfigDialog::EventConfigDialog(
                     m_d->stack_options->addWidget(irqWidget);
                 }
 
-                #if 0 // FIXME: temporarily disabled until FW0039 with the fix is released
+                #if 1 // FIXME: temporarily disabled until FW0039 with the fix is released
                 // Periodic via StackTimers (FW0037)
                 {
                     m_d->spin_stackTimerPeriod = new QSpinBox;
@@ -370,7 +370,7 @@ EventConfigDialog::EventConfigDialog(
                 conditions =
                 {
                     TriggerCondition::Interrupt,
-                    //{ TriggerCondition::MvlcStackTimer, QSL("Periodic (via MVLC StackTimer)") },
+                    { TriggerCondition::MvlcStackTimer, QSL("Periodic (via MVLC StackTimer)") },
                     { TriggerCondition::Periodic,       QSL("Periodic (via MVLC Trigger I/O)") },
                     TriggerCondition::TriggerIO,
                     TriggerCondition::MvlcOnSlaveTrigger,
@@ -433,7 +433,7 @@ void EventConfigDialog::loadFromConfig()
                 m_d->spin_timerPeriod->setValue(
                     config->triggerOptions.value(QSL("mvlc.timer_period"), 1000u).toUInt());
 
-                #if 0 // FIXME: temporarily disabled until FW0039 with the fix is released
+                #if 1 // FIXME: temporarily disabled until FW0039 with the fix is released
                 m_d->spin_stackTimerPeriod->setValue(
                     config->triggerOptions.value(QSL("mvlc.stacktimer_period"), 1000u).toUInt());
                 #endif
