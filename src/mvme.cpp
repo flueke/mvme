@@ -2073,7 +2073,13 @@ void MVMEMainWindow::runAddVMEEventDialog()
 
     if (result == QDialog::Accepted)
     {
-        if (eventConfig->triggerCondition != TriggerCondition::Periodic)
+        // Load the default event scripts for non-periodic events. These contain
+        // the 'readout cycle end' and 'daq start/stop' commands which write to
+        // the events mcst address. We only want this for non-periodic events,
+        // periodic ones usually should not write the 'readout_reset' register
+        // via mcst. Maybe find a better place for this code.
+        if (eventConfig->triggerCondition != TriggerCondition::Periodic
+            && eventConfig->triggerCondition != TriggerCondition::MvlcStackTimer)
         {
             auto logger = [this](const QString &msg) { m_d->m_context->logMessage(msg); };
             VMEEventTemplates templates = read_templates(logger).eventTemplates;
