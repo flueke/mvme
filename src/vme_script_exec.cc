@@ -324,6 +324,7 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                 }
 
                 auto stack = mvme_mvlc::build_mvlc_stack(stackScript);
+                stack.setName("vme_script mvlc_stack_begin/end");
                 std::vector<u32> destBuffer;
                 auto ec = mvlc->getMVLC().stackTransaction(stack, destBuffer);
 
