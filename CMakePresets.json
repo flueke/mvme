@@ -2,7 +2,7 @@
     "version": 8,
     "configurePresets": [
         {
-            "name": "clang-14",
+            "name": "clang-14+ninja",
             "displayName": "Clang 14.0.6 x86_64-pc-linux-gnu",
             "description": "Using compilers: C = /usr/bin/clang-14, CXX = /usr/bin/clang++-14",
             "generator": "Ninja",
@@ -15,14 +15,28 @@
             }
         },
         {
-            "name": "gcc",
+            "name": "gcc+ninja",
             "displayName": "GCC 12.2.0 x86_64-linux-gnu",
             "description": "Using compilers: C = /usr/bin/gcc, CXX = /usr/bin/g++",
+            "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/",
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
                 "CMAKE_C_COMPILER": "/usr/bin/gcc",
                 "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "mingw64 msys gcc",
+            "displayName": "mingw64 msys gcc",
+            "description": "Using compilers: gcc, g++",
+            "generator": "MSYS Makefiles",
+            "binaryDir": "${sourceDir}/build/",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
+                "CMAKE_C_COMPILER": "c:\\msys64\\mingw64\\bin\\gcc.exe",
+                "CMAKE_CXX_COMPILER": "c:\\msys64\\mingw64\\bin\\g++.exe",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         }
