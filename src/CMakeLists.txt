@@ -56,7 +56,7 @@ endif()
 #    add_definitions(-D_WIN32_WINNT=0x0501)
 #endif(WIN32)
 #
-find_package(Boost REQUIRED)
+find_package(Boost CONFIG REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
