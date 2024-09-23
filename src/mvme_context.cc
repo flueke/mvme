@@ -42,6 +42,7 @@
 #include "file_autosaver.h"
 #include "listfile_filtering.h"
 #include "logfile_helper.h"
+#include "mdpp-sampling/mdpp_sampling.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_readout_worker.h"
@@ -174,6 +175,8 @@ struct MVMEContextPrivate
 #ifdef MVME_ENABLE_PROMETHEUS
     std::shared_ptr<StreamProcCountersPromExporter> m_streamCountersPromExporter;
 #endif
+    std::shared_ptr<MdppSamplingConsumer> m_mdppSamplingConsumer;
+
     using StreamConsumer = std::variant<std::shared_ptr<IStreamModuleConsumer>, std::shared_ptr<IStreamBufferConsumer>>;
     std::vector<StreamConsumer> streamConsumers_;
 
@@ -547,12 +550,16 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     // analysis side data stream consumers
     m_d->m_eventServer = std::make_shared<EventServer>();
     m_d->streamConsumers_.push_back(m_d->m_eventServer);
+
     m_d->m_listfileFilter = std::make_shared<ListfileFilterStreamConsumer>();
     m_d->streamConsumers_.push_back(m_d->m_listfileFilter);
+
 #ifdef MVME_ENABLE_PROMETHEUS
     m_d->m_streamCountersPromExporter = std::make_shared<StreamProcCountersPromExporter>();
     m_d->streamConsumers_.push_back(m_d->m_streamCountersPromExporter);
 #endif
+
+    m_d->m_mdppSamplingConsumer = std::make_shared<MdppSamplingConsumer>();
 
     {
         auto logger = [this](const QString &msg) { this->logMessage(msg); };

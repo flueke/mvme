@@ -186,6 +186,7 @@ add_library(libmvme SHARED
     multi_event_splitter.cc
     multiplot_widget.cc
     multiplot_widget_p.cc
+    mdpp-sampling/mdpp_sampling.cc
     mvlc/mvlc_dev_gui.cc
     mvlc/mvlc_qt_object.cc
     mvlc/mvlc_register_names.cc

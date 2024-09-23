@@ -3056,6 +3056,12 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                     }
                 });
 
+            if (auto moduleType = moduleConfig->getModuleMeta().typeName;
+                moduleType.startsWith("mdpp"))
+            {
+                menu.addAction("MDPP Sampling Mode UI");
+            }
+
             auto actionNew = menu.addAction(QSL("New"));
             actionNew->setMenu(menuNew);
             auto before = menu.actions().value(0);
