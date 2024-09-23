@@ -553,7 +553,7 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
 
     d->spin_maxHits = new QSpinBox;
     d->spin_maxHits->setMinimum(1);
-    d->spin_maxHits->setMaximum(16);
+    d->spin_maxHits->setMaximum(1024);
     d->spin_maxHits->setValue(d->ex->getMaxHits());
 
     d->cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
