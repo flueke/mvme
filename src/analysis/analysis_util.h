@@ -238,6 +238,14 @@ std::pair<std::shared_ptr<Analysis>, std::error_code> LIBMVME_EXPORT read_analys
 // not exist yet. Returns the destination directory where the condition was placed.
 DirectoryPtr LIBMVME_EXPORT add_condition_to_analysis(Analysis *analysis, const ConditionPtr &cond);
 
+QJsonObject LIBMVME_EXPORT to_qjson(const mesytec::mvlc::readout_parser::ReadoutParserCounters &parserCounters);
+std::pair<bool, QString> LIBMVME_EXPORT save_run_statistics_to_json(
+    const RunInfo &runInfo,
+    const QString &filename,
+    const std::map<u8, mesytec::mvlc::readout_parser::ReadoutParserCounters> &parserCounters,
+    const std::map<u8, std::shared_ptr<analysis::Analysis>> &analyses
+    );
+
 } // namespace analysis
 
 

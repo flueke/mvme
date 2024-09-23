@@ -13,7 +13,7 @@ struct AnalysisLoadFlags
 };
 
 // Interface defining services used by the analysis GUI and analysis utilities
-class AnalysisServiceProvider: public QObject
+class LIBMVME_EXPORT AnalysisServiceProvider: public QObject
 {
     Q_OBJECT
     signals:
@@ -90,6 +90,9 @@ class AnalysisServiceProvider: public QObject
 
         // Worker states
         virtual AnalysisWorkerState getAnalysisWorkerState() = 0;
+        // TODO: get rid of the StreamWorkerBase dependency. Find something
+        // smaller, that's easy to implement. Check usage in analysis_ui.cc,
+        // etc.
         virtual StreamWorkerBase *getMVMEStreamWorker() = 0;
 
         virtual void logMessage(const QString &msg) = 0;

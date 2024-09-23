@@ -29,7 +29,7 @@
 
 #include "vme_controller.h"
 
-class VMEControllerSettingsWidget: public QWidget
+class LIBMVME_EXPORT VMEControllerSettingsWidget: public QWidget
 {
     Q_OBJECT
     public:
@@ -42,7 +42,7 @@ class VMEControllerSettingsWidget: public QWidget
         virtual QVariantMap getSettings() = 0;
 };
 
-class VMEControllerSettingsDialog: public QDialog
+class LIBMVME_EXPORT VMEControllerSettingsDialog: public QDialog
 {
     Q_OBJECT
     public:

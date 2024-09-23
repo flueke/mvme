@@ -551,6 +551,9 @@ void MVLCReadoutWorker::start(quint32 cycles)
 
         auto crateId = vmeConfig->getControllerSettings().value("mvlc_crate_id").toUInt();
 
+        logMessage("Setting MVLC crate id to " + QString::number(crateId));
+        logMessage("");
+
         if (auto ec = d->mvlcObj->writeRegister(registers::controller_id, crateId))
         {
             throw std::runtime_error(fmt::format("Error setting MVLC crate id: {}", ec.message()));
@@ -561,7 +564,8 @@ void MVLCReadoutWorker::start(quint32 cycles)
             d->mvlcCtrl->getMVLC(),
             d->stackTriggers,
             *d->snoopQueues,
-            d->listfileWriteHandle);
+            d->listfileWriteHandle,
+            crateId);
 
         d->mvlcReadoutWorker->setMcstDaqStartCommands(crateConfig.mcstDaqStart);
         d->mvlcReadoutWorker->setMcstDaqStopCommands(crateConfig.mcstDaqStop);

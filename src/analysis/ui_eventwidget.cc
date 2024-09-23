@@ -213,6 +213,13 @@ void ObjectTree::keyPressEvent(QKeyEvent *event)
     }
 }
 
+void ObjectTree::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::RightButton)
+        return;
+    QTreeWidget::mousePressEvent(event);
+}
+
 QList<QTreeWidgetItem *> ObjectTree::getTopLevelSelectedNodes() const
 {
     QList<QTreeWidgetItem *> result;
@@ -1944,6 +1951,7 @@ UserLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &di
     result.operatorTree->headerItem()->setText(0, opTitle);
     result.operatorTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     result.operatorTree->setEditTriggers(editTriggers);
+    result.operatorTree->setSelectionBehavior(QAbstractItemView::SelectRows);
 
     result.sinkTree->setObjectName(dispTitle);
     result.sinkTree->headerItem()->setText(0, dispTitle);
@@ -2849,8 +2857,9 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
         if (auto dir = get_shared_analysis_object<Directory>(activeNode,
                                                              DataRole_AnalysisObject))
         {
-            auto actionNew = menu.addAction(QSL("New"));
+            auto actionNew = menu.addAction(QSL("New Operator"));
             actionNew->setMenu(make_menu_new(&menu, dir));
+            actionNew->setIcon(QIcon(":/operator_generic.png"));
             auto before = menu.actions().value(0);
             menu.insertAction(before, actionNew);
 
@@ -2876,6 +2885,16 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                                this->actionGenerateHistograms(tree, viableHistoGenNodes);
                            });
         }
+
+        if (activeNode->type() != NodeType_Directory)
+        {
+            menu.addSeparator();
+            auto actionNew = menu.addAction(QSL("New Operator"));
+            actionNew->setIcon(QIcon(":/operator_generic.png"));
+            actionNew->setMenu(make_menu_new(&menu));
+            menu.addAction(actionNew);
+        }
+
     }
     else // Right-click on the tree background, not on an item.
     {
@@ -3187,6 +3206,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                            const DirectoryPtr &destDir = DirectoryPtr())
     {
         auto menuNew = new QMenu(parentMenu);
+        menuNew->setIcon(QIcon(":/hist2d.png"));
 
         auto add_newOperatorAction =
             [this, parentMenu, menuNew, userLevel] (const QString &title,
@@ -3485,6 +3505,15 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     {
                         showDependencyGraphWidget(op);
                     });
+                }
+
+                if (activeNode->type() != NodeType_Directory)
+                {
+                    menu.addSeparator();
+                    auto actionNew = menu.addAction(QSL("New Sink"));
+                    //actionNew->setIcon(QIcon(":/operator_generic.png"));
+                    actionNew->setMenu(make_menu_new(&menu));
+                    menu.addAction(actionNew);
                 }
 
                 break;

@@ -117,9 +117,9 @@ std::error_code
 }
 
 
-std::error_code disable_all_triggers_and_daq_mode(MVLCObject &mvlc)
+std::error_code disable_daq_mode_and_triggers(MVLCObject &mvlc)
 {
-    return mvlc::disable_all_triggers_and_daq_mode<mvme_mvlc::MVLCObject>(mvlc);
+    return mvlc::disable_daq_mode_and_triggers<mvme_mvlc::MVLCObject>(mvlc);
 }
 
 std::error_code reset_stack_offsets(MVLCObject &mvlc)
@@ -527,6 +527,7 @@ std::vector<mvlc::StackCommandBuilder> sanitize_readout_stacks(
     for (auto &srcStack: inputStacks)
     {
         mvlc::StackCommandBuilder dstStack;
+        dstStack.setName(srcStack.getName());
 
         for (const auto &srcGroup: srcStack.getGroups())
         {
@@ -611,7 +612,7 @@ bool run_daq_start_sequence(
 
     logger("  Disabling triggers");
 
-    if (auto ec = disable_all_triggers_and_daq_mode(mvlc))
+    if (auto ec = disable_daq_mode_and_triggers(mvlc))
     {
         logger(QString("Error disabling readout triggers: %1")
                .arg(ec.message().c_str()));

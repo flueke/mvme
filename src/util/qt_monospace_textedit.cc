@@ -20,9 +20,6 @@
  */
 #include "util/qt_monospace_textedit.h"
 
-#include <QPlainTextEdit>
-#include <QTextEdit>
-
 #include "util/qt_font.h"
 
 namespace

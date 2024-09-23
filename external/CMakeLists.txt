@@ -49,9 +49,17 @@ find_package(nng QUIET)
 
 if(NOT nng)
     message("-- Using nng from external/nng")
+    set(BUILD_SHARED_LIBS ON)
     set(NNG_TESTS OFF)
-    set(NNG_ENABLE_NNGCAT OFF)
-    #set(BUILD_SHARED_LIBS ON)
+    set(NNG_ENABLE_NNGCAT ON)
+    set(NNG_ENABLE_COMPAT OFF)
+    set(NNG_RESOLV_CONCURRENCY 2 CACHE STRING "Resolver (DNS) concurrency.")
+    set(NNG_NUM_TASKQ_THREADS 0 CACHE STRING "Fixed number of task threads, 0 for automatic")
+    set(NNG_MAX_TASKQ_THREADS 4 CACHE STRING "Upper bound on task threads, 0 for no limit")
+    set(NNG_NUM_EXPIRE_THREADS 0 CACHE STRING "Fixed number of expire threads, 0 for automatic")
+    set(NNG_MAX_EXPIRE_THREADS 2 CACHE STRING "Upper bound on expire threads, 0 for no limit")
+    set(NNG_NUM_POLLER_THREADS 0 CACHE STRING "Fixed number of I/O poller threads, 0 for automatic")
+    set(NNG_MAX_POLLER_THREADS 2 CACHE STRING "Upper bound on I/O poller threads, 0 for no limit")
     add_subdirectory(nng)
 
     # nng sets these to "${PROJECT_BINARY_DIR}" which means the dll/a/so files
@@ -63,9 +71,9 @@ if(NOT nng)
     #install(TARGETS nng) # Only needed when BUILD_SHARED_LIBS=ON and/or the
     #headers should be installed.
 
-    if (LINUX)
-        set_target_properties(nng PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    endif()
+    #if (LINUX)
+    #    set_target_properties(nng PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    #endif()
 
 
 endif()

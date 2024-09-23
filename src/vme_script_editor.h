@@ -26,12 +26,13 @@
 #include "vme_config.h"
 #include "vme_script.h"
 #include "vme_config_scripts.h"
+#include "libmvme_export.h"
 
 class QCloseEvent;
 
 struct VMEScriptEditorPrivate;
 
-class VMEScriptEditor: public MVMEWidget
+class LIBMVME_EXPORT VMEScriptEditor: public MVMEWidget
 {
     Q_OBJECT
     signals:

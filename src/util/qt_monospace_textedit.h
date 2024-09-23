@@ -23,13 +23,11 @@
 
 #include <memory>
 #include <QtGlobal>
+#include <QPlainTextEdit>
+#include <QTextEdit>
 
 #include "libmvme_export.h"
 #include "util/qt_font.h"
-
-class QFont;
-class QPlainTextEdit;
-class QTextEdit;
 
 namespace mesytec
 {

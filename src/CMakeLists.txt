@@ -56,7 +56,7 @@ endif()
 #    add_definitions(-D_WIN32_WINNT=0x0501)
 #endif(WIN32)
 #
-find_package(Boost REQUIRED)
+find_package(Boost CONFIG REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
@@ -181,6 +181,8 @@ add_library(libmvme SHARED
     multi_crate.cc
     multi_crate_gui.cc
     multi_crate_mainwindow.cc
+    multi_crate_nng.cc
+    multi_crate_nng_gui.cc
     multi_event_splitter.cc
     multiplot_widget.cc
     multiplot_widget_p.cc
@@ -245,6 +247,7 @@ add_library(libmvme SHARED
     timed_block.cc
     treewidget_utils.cc
     util.cc
+    util/mesy_nng_pipeline.cc
     util/qledindicator.cpp
     util/qt_eventfilters.cc
     util/qt_gui_io.cc
@@ -254,6 +257,7 @@ add_library(libmvme SHARED
     util/qt_plaintextedit.cc
     util/qwt_scalepicker.cpp
     util/strings.cc
+    util/thread_name.cc
     util/variablify.cc
     util/version_compare.cc
     util_zip.cc
@@ -320,9 +324,12 @@ target_link_libraries(libmvme
     PUBLIC yaml-cpp
     )
 
+#add_compile_definitions(QT_DISABLE_DEPRECATED_UP_TO=0x060700)
+
 target_compile_options(libmvme
     PRIVATE $<${not-msvc}:-Wall -Wextra>
     PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
     )
 
 find_package(prometheus-cpp CONFIG)
@@ -379,7 +386,8 @@ install(TARGETS libmvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 # mvme - the main GUI binary
 #
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
-    add_executable(mvme WIN32 main.cpp)
+    #add_executable(mvme WIN32 main.cpp)
+    add_executable(mvme main.cpp)
 else()
     #add_definitions(-DMVME_ENABLE_TIMED_BLOCKS)
     add_executable(mvme main.cpp)
@@ -432,7 +440,7 @@ add_mvme_dev_exe(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 add_mvme_dev_exe(dev_zip_write_test zip-write-test.cc)
 add_mvme_dev_exe(dev_make_default_module_analyses "dev_make_default_module_analyses.cc")
 add_mvme_dev_exe(dev_replay_bench dev_replay_bench.cc)
-add_mvme_dev_exe(dev_qtconcurrent dev_qtconcurrent.cc)
+#add_mvme_dev_exe(dev_qtconcurrent dev_qtconcurrent.cc) # disabled due to some tbb issues
 
 if (WIN32)
     add_mvme_dev_exe(dev_timeBeginPeriod_test "dev_timeBeginPeriod_test.cc")
@@ -446,7 +454,6 @@ add_mvme_dev_exe(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
 add_mvme_dev_exe(dev_mvlc_dso dev_mvlc_dso.cc)
 add_mvme_dev_exe(dev_trigger_io_sim mvlc/dev_trigger_io_sim.cc)
 add_mvme_dev_exe(mvme_multi_crate_gui multi_crate_gui_main.cc)
-add_mvme_dev_exe(dev_multi_crate_playground_cli dev_multi_crate_playground_cli.cc)
 add_mvme_dev_exe(dev_multi_crate_config_merger dev_multi_crate_config_merger.cc)
 add_mvme_dev_exe(dev_multi_crate_cli dev_multi_crate_cli.cc)
 add_mvme_dev_exe(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
@@ -533,6 +540,28 @@ install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATIO
 #add_mvme_exe(mvme_multicrate_collector mvme_multicrate_collector.cc)
 #install(TARGETS mvme_multicrate_collector RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
+# mvme multicrate replay
+#add_mvme_exe(mvme_multicrate_replay mvme_multicrate_replay.cc)
+#install(TARGETS mvme_multicrate_replay RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+# mvme multicrate replay2
+add_mvme_exe(mvme_multicrate_replay2 mvme_multicrate_replay2.cc)
+install(TARGETS mvme_multicrate_replay2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+# mvme multicrate readout2
+add_mvme_exe(mvme_multicrate_readout2 mvme_multicrate_readout2.cc)
+install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
+add_mvme_exe(statemachine_test statemachine_test.cc)
+
+add_custom_target(multicrate2_dev_tools)
+add_dependencies(multicrate2_dev_tools
+    mvme_multicrate_replay2
+    mvme_multicrate_readout2
+    qfuturewatcher_fire_forget
+    statemachine_test
+)
 
 # automated gtests
 if(MVME_BUILD_TESTS)
@@ -562,6 +591,8 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_vmeconfig_crateconfig mvlc/vmeconfig_crateconfig.test.cc)
     add_mvme_gtest(test_multi_crate multi_crate.test.cc)
     add_mvme_gtest(test_util_version_compare util/version_compare.test.cc)
+    add_mvme_gtest(test_mesy_nng_pipeline2 util/mesy_nng_pipeline2.test.cc)
+    add_mvme_gtest(test_multi_crate_nng multi_crate_nng.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 

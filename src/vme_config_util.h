@@ -34,7 +34,7 @@ namespace mesytec::mvme::vme_config
 
 // Creates a symbol table containing the standard vme event variables:
 // sys_irq, mesy_mcst, mesy_reaodut_num_events, mesy_eoe_marker
-vme_script::SymbolTable make_standard_event_variables(u8 irq = 1, u8 mcst = 0xbb);
+vme_script::SymbolTable LIBMVME_EXPORT make_standard_event_variables(u8 irq = 1, u8 mcst = 0xbb);
 
 // Factory funcion to setup a new EventConfig instance which is to be added to
 // the given VMEConfig.
@@ -59,19 +59,19 @@ static const QString MIMEType_JSON_VMEEventConfig  = QSL("application/x-mvme-vme
 static const QString MIMEType_JSON_VMEModuleConfig = QSL("application/x-mvme-vmeconf-module");
 static const QString MIMEType_JSON_VMEScriptConfig = QSL("application/x-mvme-vmeconf-script");
 
-QString get_mime_type(const ConfigObject *obj);
-bool can_mime_copy_object(const ConfigObject *obj);
-bool contains_object_mime_type(const QMimeData *mimeData);
-std::unique_ptr<QMimeData> make_mime_data(const ConfigObject *obj);
-std::unique_ptr<ConfigObject> make_object_from_mime_data(const QMimeData *mimeData);
-std::unique_ptr<ConfigObject> make_object_from_json_text(const QByteArray &jsonText);
+QString LIBMVME_EXPORT get_mime_type(const ConfigObject *obj);
+bool LIBMVME_EXPORT can_mime_copy_object(const ConfigObject *obj);
+bool LIBMVME_EXPORT contains_object_mime_type(const QMimeData *mimeData);
+std::unique_ptr<QMimeData> LIBMVME_EXPORT make_mime_data(const ConfigObject *obj);
+std::unique_ptr<ConfigObject> LIBMVME_EXPORT make_object_from_mime_data(const QMimeData *mimeData);
+std::unique_ptr<ConfigObject> LIBMVME_EXPORT make_object_from_json_text(const QByteArray &jsonText);
 
 // Combines the two above: the known MIME types are checked first, then
 // "application/json" and finally "text/plain".
-std::unique_ptr<ConfigObject> make_object_from_mime_data_or_json_text(
+std::unique_ptr<ConfigObject> LIBMVME_EXPORT make_object_from_mime_data_or_json_text(
     const QMimeData *mimeData);
 
-void generate_new_object_ids(ConfigObject *root);
+void LIBMVME_EXPORT generate_new_object_ids(ConfigObject *root);
 
 TriggerCondition LIBMVME_EXPORT trigger_condition_from_string(const QString &str);
 QString LIBMVME_EXPORT trigger_condition_to_string(const TriggerCondition &str);
@@ -109,8 +109,8 @@ std::unique_ptr<ObjectType> configobject_from_json(const QJsonObject &json, cons
 // the mvlc_factory code.
 std::pair<VMEControllerType, QVariantMap> LIBMVME_EXPORT mvlc_settings_from_url(const std::string &mvlcUrl);
 
-std::unique_ptr<ConfigObject> deserialize_object(const QJsonObject &json);
-QJsonDocument serialize_object(const ConfigObject *obj);
+std::unique_ptr<ConfigObject> LIBMVME_EXPORT deserialize_object(const QJsonObject &json);
+QJsonDocument LIBMVME_EXPORT serialize_object(const ConfigObject *obj);
 
 template<typename ConfigObjectType>
 std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &source)
@@ -123,8 +123,8 @@ std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &so
     return result;
 }
 
-void move_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
-void copy_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
+void LIBMVME_EXPORT move_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
+void LIBMVME_EXPORT copy_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
 
 inline void store_configobject_expanded_state(const QUuid &objectId, bool isExpanded)
 {
@@ -155,8 +155,12 @@ inline bool was_configobject_expanded(const QUuid &objectId)
 // Create a SymbolTable from the information stored in the given VMEModuleMeta object.
 // Basically loads variables from the VMEModuleMeta JSON data and stores them in
 // the resulting symbol table.
-vme_script::SymbolTable variable_symboltable_from_module_meta(const vats::VMEModuleMeta &moduleMeta);
+vme_script::SymbolTable LIBMVME_EXPORT variable_symboltable_from_module_meta(const vats::VMEModuleMeta &moduleMeta);
 
+std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
+    const QByteArray &data);
+std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
+    const std::vector<u8> &data);
 }
 
 #endif /* __MVME_VME_CONFIG_UTIL_H__ */

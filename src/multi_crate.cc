@@ -2,15 +2,22 @@
 
 #include <cassert>
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/util/udp_sockets.h>
 #include <QDir>
 #include <stdexcept>
+#include <string_view>
 
+#include "mvlc_daq.h"
+#include "mvme_workspace.h"
 #include "util/mesy_nng.h"
 #include "util/qt_fs.h"
+#include "util/thread_name.h"
 #include "vme_config_scripts.h"
 #include "vme_config_util.h"
 
 using namespace mesytec::mvlc;
+using namespace mesytec::nng;
+using namespace mesytec::util;
 
 namespace mesytec::mvme::multi_crate
 {
@@ -272,7 +279,7 @@ void generate_new_ids(ConfigObject *parentObject)
 // Copies a ConfigObject by first serializing to json, then creating the copy
 // via deserialization. The copied object and its children are assigned new ids.
 template<typename T>
-std::unique_ptr<T> copy_config_object(const T *obj)
+std::unique_ptr<T> copy_config_object(const T *obj, bool generateNewIds = true)
 {
     assert(obj);
 
@@ -282,14 +289,15 @@ std::unique_ptr<T> copy_config_object(const T *obj)
     auto ret = std::make_unique<T>();
     ret->read(json);
 
-    generate_new_ids(ret.get());
+    if (generateNewIds)
+        generate_new_ids(ret.get());
 
     return ret;
 }
 
-std::unique_ptr<ModuleConfig> copy_module_config(const ModuleConfig *src)
+std::unique_ptr<ModuleConfig> copy_module_config(const ModuleConfig *src, bool generateNewIds = true)
 {
-    auto moduleCopy = copy_config_object(src);
+    auto moduleCopy = copy_config_object(src, generateNewIds);
 
     // Symbol tables from innermost scope to outermost scope. Traverse them in
     // reverse order setting symbols on the moduleCopy object. This way the
@@ -428,11 +436,96 @@ std::pair<std::unique_ptr<VMEConfig>, MultiCrateObjectMappings> make_merged_vme_
     return std::make_pair(std::move(merged), mappings);
 }
 
-void multi_crate_playground()
+std::unique_ptr<VMEConfig> make_merged_vme_config_keep_ids(
+    const std::vector<VMEConfig *> &crateConfigs,
+    const std::set<int> &crossCrateEvents)
 {
-    CrateReadout crateReadout;
+    assert(!crateConfigs.empty());
 
-    CrateReadout crateReadout2(std::move(crateReadout));
+    std::vector<std::unique_ptr<EventConfig>> mergedEvents;
+
+    // Create the cross crate merged events.
+    for (auto crossEventIndex: crossCrateEvents)
+    {
+        auto outEv = std::make_unique<EventConfig>();
+        //outEv->setObjectName(QSL("event%1").arg(crossEventIndex));
+        outEv->triggerCondition = TriggerCondition::TriggerIO;
+
+        for (size_t ci=0; ci<crateConfigs.size(); ++ci)
+        {
+            auto crateEvent = crateConfigs[ci]->getEventConfig(crossEventIndex);
+
+            if (!crateEvent)
+                throw std::runtime_error(fmt::format(
+                        "cross crate event {} not present in crate config {}",
+                        crossEventIndex, ci));
+
+            // Use the event name from the main crate for the cross event name
+            // and for the mappings.
+            if (ci == 0)
+            {
+                outEv->setObjectName(crateEvent->objectName());
+            }
+
+            auto moduleConfigs = crateEvent->getModuleConfigs();
+
+            for (auto moduleConf: moduleConfigs)
+            {
+                auto moduleCopy = copy_module_config(moduleConf, false);
+                outEv->addModuleConfig(moduleCopy.release());
+            }
+        }
+
+        mergedEvents.emplace_back(std::move(outEv));
+    }
+
+    // Copy over the non-merged events from each of the crate configs.
+
+    std::vector<std::unique_ptr<EventConfig>> singleCrateEvents;
+
+    for (size_t ci=0; ci<crateConfigs.size(); ++ci)
+    {
+        auto crateConf = crateConfigs[ci];
+        auto crateEvents = crateConf->getEventConfigs();
+
+        for (int ei=0; ei<crateEvents.size(); ++ei)
+        {
+            auto eventConf = crateEvents[ei];
+
+            if (!crossCrateEvents.count(ei))
+            {
+                // Create a recursive copy of the event, then update the mappings table by
+                // iterating over the modules.
+                auto outEv = copy_config_object(eventConf);
+                outEv->setObjectName(QSL("crate%1_%2")
+                                     .arg(ci)
+                                     .arg(eventConf->objectName())
+                                     );
+
+                assert(eventConf->getModuleConfigs().size() == outEv->getModuleConfigs().size());
+
+                for (int mi=0; mi<eventConf->moduleCount(); ++mi)
+                {
+                    auto inMod = eventConf->getModuleConfigs().at(mi);
+                    auto outMod = outEv->getModuleConfigs().at(mi);
+                }
+
+                singleCrateEvents.emplace_back(std::move(outEv));
+            }
+        }
+    }
+
+    auto merged = std::make_unique<VMEConfig>();
+
+    // Add the merged events first, then the non-merged ones.
+
+    for (auto &eventConf: mergedEvents)
+        merged->addEventConfig(eventConf.release());
+
+    for (auto &eventConf: singleCrateEvents)
+        merged->addEventConfig(eventConf.release());
+
+    return merged;
 }
 
 MulticrateTemplates read_multicrate_templates()
@@ -493,11 +586,56 @@ std::unique_ptr<MulticrateVMEConfig> make_multicrate_config(size_t numCrates)
     return result;
 }
 
+int send_shutdown_message(nng_socket socket)
+{
+    multi_crate::BaseMessageHeader header{};
+    header.messageType = multi_crate::MessageType::GracefulShutdown;
+    auto msg = nng::alloc_message(sizeof(header));
+    std::memcpy(nng_msg_body(msg), &header, sizeof(header));
+    if (int res = nng::send_message_retry(socket, msg))
+    {
+        nng_msg_free(msg);
+        return res;
+    }
+
+    return 0;
+}
+
+void send_shutdown_messages(std::initializer_list<nng_socket> sockets)
+{
+    for (auto socket: sockets)
+    {
+        send_shutdown_message(socket);
+    }
+}
+
+bool LIBMVME_EXPORT is_shutdown_message(nng_msg *msg)
+{
+    const auto msgLen = nng_msg_len(msg);
+
+    if (msgLen >= sizeof(multi_crate::BaseMessageHeader))
+    {
+        auto header = *reinterpret_cast<multi_crate::BaseMessageHeader *>(nng_msg_body(msg));
+        return (header.messageType == multi_crate::MessageType::GracefulShutdown);
+    }
+
+    return false;
+}
+
+int send_shutdown_message(nng::OutputWriter &outputWriter)
+{
+    multi_crate::BaseMessageHeader header{};
+    header.messageType = multi_crate::MessageType::GracefulShutdown;
+    auto msg = nng::alloc_message(sizeof(header));
+    std::memcpy(nng_msg_body(msg), &header, sizeof(header));
+    return outputWriter.writeMessage(make_unique_msg(msg));
+}
+
 size_t fixup_listfile_buffer_message(const mvlc::ConnectionType &bufferType, nng_msg *msg, std::vector<u8> &tmpBuf)
 {
     size_t bytesMoved = 0u;
-    const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg)) + sizeof(ListfileBufferMessageHeader);
-    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ListfileBufferMessageHeader);
+    const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg)) + sizeof(ReadoutDataMessageHeader);
+    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ReadoutDataMessageHeader);
 
     if (bufferType == mvlc::ConnectionType::USB)
         bytesMoved = mvlc::fixup_buffer_mvlc_usb(msgBufferData, msgBufferSize, tmpBuf);
@@ -543,7 +681,7 @@ struct TimetickGenerator
         std::chrono::time_point<std::chrono::steady_clock> tLastTick_ = {};
 };
 
-void allocate_prepare_output_message(ReadoutProducerContext &context, ListfileBufferMessageHeader &header)
+void allocate_prepare_output_message(ReadoutProducerContext &context, ReadoutDataMessageHeader &header)
 {
     // Header + space for data plus some margin so that readout_usb() does not
     // have to realloc.
@@ -569,6 +707,7 @@ void flush_output_message(ReadoutProducerContext &context)
 }
 
 static constexpr std::chrono::milliseconds FlushBufferTimeout(500);
+static const size_t DefaultOutputMessageReserve = mvlc::util::Megabytes(1) + sizeof(multi_crate::ReadoutDataMessageHeader);
 
 // Assumptions:
 // - the data pipe is locked, so read_unbuffered() can be called freely
@@ -617,8 +756,8 @@ std::error_code readout_usb(
 
     // Move trailing data to tmpBuf
     const u8 *msgBufferData = reinterpret_cast<const u8 *>(nng_msg_body(msg))
-        + sizeof(ListfileBufferMessageHeader);
-    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ListfileBufferMessageHeader);
+        + sizeof(ReadoutDataMessageHeader);
+    const auto msgBufferSize = nng_msg_len(msg) - sizeof(ReadoutDataMessageHeader);
 
     size_t bytesMoved = fixup_buffer_mvlc_usb(msgBufferData, msgBufferSize, tmpBuf);
 
@@ -694,8 +833,8 @@ void mvlc_readout_loop(ReadoutProducerContext &context, std::atomic<bool> &quit)
     if (!mvlcEth && !mvlcUsb)
         throw std::runtime_error("Could not determine MVLC type. Expected USB or ETH.");
 
-    ListfileBufferMessageHeader header{};
-    header.messageType = MessageType::ListfileBuffer;
+    ReadoutDataMessageHeader header{};
+    header.messageType = MessageType::ReadoutData;
     header.messageNumber = 1;
     // TODO: don't actually need to know the buffer type. Can detect when parsing.
     header.bufferType = static_cast<u32>(mvlcEth ? ConnectionType::ETH : ConnectionType::USB);
@@ -753,7 +892,7 @@ void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &q
             continue;
         }
 
-        if (nng_msg_len(msg) < sizeof(ListfileBufferMessageHeader))
+        if (nng_msg_len(msg) < sizeof(ReadoutDataMessageHeader))
         {
             // TODO: count this error (should not happen)
             nng_msg_free(msg);
@@ -761,11 +900,11 @@ void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &q
             continue;
         }
 
-        auto header = *reinterpret_cast<ListfileBufferMessageHeader *>(nng_msg_body(msg));
+        auto header = *reinterpret_cast<ReadoutDataMessageHeader *>(nng_msg_body(msg));
         if (auto loss = readout_parser::calc_buffer_loss(header.messageNumber, lastMessageNumber))
             spdlog::warn("mvlc_readout_consumer: lost {} messages!", loss);
         lastMessageNumber = header.messageNumber;
-        nng_msg_trim(msg, sizeof(ListfileBufferMessageHeader));
+        nng_msg_trim(msg, sizeof(ReadoutDataMessageHeader));
 
         auto dataPtr = reinterpret_cast<const u32 *>(nng_msg_body(msg));
         size_t dataSize = nng_msg_len(msg) / sizeof(u32);
@@ -774,4 +913,549 @@ void mvlc_readout_consumer(ReadoutConsumerContext &context, std::atomic<bool> &q
     }
 }
 
+QString MinimalAnalysisServiceProvider::getWorkspaceDirectory()
+{
+    return {};
 }
+
+QString MinimalAnalysisServiceProvider::getWorkspacePath(
+    const QString &settingsKey,
+    const QString &defaultValue,
+    bool setIfDefaulted) const
+{
+    return QDir().absolutePath();
+}
+
+std::shared_ptr<QSettings> MinimalAnalysisServiceProvider::makeWorkspaceSettings() const
+{
+    return make_workspace_settings(QDir().absolutePath());
+}
+
+// VMEConfig
+VMEConfig *MinimalAnalysisServiceProvider::getVMEConfig()
+{
+    return vmeConfig_;
+}
+
+QString MinimalAnalysisServiceProvider::getVMEConfigFilename()
+{
+    return vmeConfigFilename_;
+}
+
+void MinimalAnalysisServiceProvider::setVMEConfigFilename(const QString &filename)
+{
+    vmeConfigFilename_ = filename;
+}
+
+void MinimalAnalysisServiceProvider::vmeConfigWasSaved()
+{
+}
+
+// Analysis
+analysis::Analysis *MinimalAnalysisServiceProvider::getAnalysis()
+{
+    return analysis_.lock().get(); // XXX: evil
+}
+QString MinimalAnalysisServiceProvider::getAnalysisConfigFilename()
+{
+    return analysisConfigFilename_;
+}
+void MinimalAnalysisServiceProvider::setAnalysisConfigFilename(const QString &filename)
+{
+    analysisConfigFilename_ = filename;
+}
+void MinimalAnalysisServiceProvider::analysisWasSaved()
+{
+}
+void MinimalAnalysisServiceProvider::analysisWasCleared()
+{
+}
+void MinimalAnalysisServiceProvider::stopAnalysis()
+{
+}
+void MinimalAnalysisServiceProvider::resumeAnalysis(analysis::Analysis::BeginRunOption runOption)
+{
+}
+bool MinimalAnalysisServiceProvider::loadAnalysisConfig(const QString &filename)
+{
+}
+bool MinimalAnalysisServiceProvider::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo,
+    AnalysisLoadFlags flags)
+{
+}
+
+// Widget registry
+mesytec::mvme::WidgetRegistry *MinimalAnalysisServiceProvider::getWidgetRegistry()
+{
+    return widgetRegistry_.get();
+}
+
+// Worker states
+AnalysisWorkerState MinimalAnalysisServiceProvider::getAnalysisWorkerState()
+{
+    return AnalysisWorkerState::Idle;
+}
+StreamWorkerBase *MinimalAnalysisServiceProvider::getMVMEStreamWorker()
+{
+    return nullptr;
+}
+
+void MinimalAnalysisServiceProvider::logMessage(const QString &msg)
+{
+    spdlog::info("MinimalAnalysisServiceProvider: {}", msg.toStdString());
+}
+
+GlobalMode MinimalAnalysisServiceProvider::getGlobalMode() // DAQ or Listfile
+{
+    return GlobalMode::DAQ;
+}
+
+const ListfileReplayHandle &MinimalAnalysisServiceProvider::getReplayFileHandle() const
+{
+    return listfileReplayHandle_;
+}
+
+DAQStats MinimalAnalysisServiceProvider::getDAQStats() const
+{
+    return daqStats_.copy();
+}
+
+RunInfo MinimalAnalysisServiceProvider::getRunInfo() const
+{
+    return runInfo_;
+}
+
+DAQState MinimalAnalysisServiceProvider::getDAQState() const
+{
+    return DAQState::Running;
+}
+
+void MinimalAnalysisServiceProvider::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
+    s32 userLevel)
+{
+}
+
+void MinimalAnalysisServiceProvider::setAnalysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
+{
+}
+
+
+void log_socket_work_counters(const SocketWorkPerformanceCounters &counters, const std::string &info)
+{
+    //auto now = tpStop
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - counters.tpStart);
+
+    spdlog::info("{}: time budget: "
+                "elapsed = {} ms, "
+                "tReceive = {} ms, "
+                "tProcess = {} ms, "
+                "tSend = {} ms, "
+                "tTotal = {} ms",
+                info,
+                elapsed.count() / 1000.0,
+                counters.tReceive.count() / 1000.0,
+                counters.tProcess.count() / 1000.0,
+                counters.tSend.count() / 1000.0,
+                counters.tTotal.count() / 1000.0);
+
+    auto mibReceived = counters.bytesReceived * 1.0 / mvlc::util::Megabytes(1);
+    auto mibSent = counters.bytesSent * 1.0 / mvlc::util::Megabytes(1);
+    auto totalMessages = counters.messagesReceived + counters.messagesLost;
+    auto rxEfficiency = counters.messagesReceived * 1.0 / totalMessages;
+
+    //spdlog::info("{}: stats: msgsReceived={}, msgsLost={} (rxEfficiency={:.2f}), msgsSent={}, bytesReceived={:.2f} MiB, bytesSent={:.2f} MiB",
+    //    info, counters.messagesReceived, counters.messagesLost, rxEfficiency, counters.messagesSent, mibReceived, mibSent);
+
+    auto msgReceiveRate = counters.messagesReceived * 1.0 / elapsed.count() * 1000.0;
+    auto msgSendRate =  counters.messagesSent * 1.0 / elapsed.count() * 1000.0;
+    auto bytesReceiveRate = mibReceived / elapsed.count() * 1000.0;
+    auto bytesSendRate = mibSent / elapsed.count() * 1000.0;
+
+    //spdlog::info("{}: rates: elapsed={:.2f} s, msgReceiveRate={:.2f} msgs/s, msgSendRate={:.2f} msgs/s, "
+    //    " bytesReceivedRate={:.2f} MiB/s, bytesSentRate={:.2f} MiB/s",
+    //    info, elapsed.count() / 1000.0, msgReceiveRate, msgSendRate, bytesReceiveRate, bytesSendRate);
+
+    spdlog::info("{}: rx: tRecv={:.2f} ms, msgs={}, {:.2f} msg/s, bytes={:.2f} MiB, {:.2f} MiB/s, loss={}, eff={:.2f}",
+        info, counters.tReceive.count() / 1000.0, counters.messagesReceived,
+        msgReceiveRate, mibReceived, bytesReceiveRate, counters.messagesLost, rxEfficiency);
+
+    spdlog::info("{}: tx: tSend={:.2f} ms, msgs={}, {:.2f} msg/s, bytes={:.2f} MiB, {:.2f} MiB/s",
+        info, counters.tSend.count() / 1000.0, counters.messagesSent, msgSendRate, mibSent, bytesSendRate);
+}
+
+void mvlc_eth_readout_loop(MvlcEthReadoutLoopContext &context)
+{
+    set_thread_name("mvlc_eth_readout_loop");
+
+    spdlog::info("entering mvlc_eth_readout_loop, crateId={}", context.crateId);
+
+    // Listfile handle to pass to ReadoutLoopPlugins.
+    multi_crate::NngMsgWriteHandle lfh;
+    u32 messageNumber = 1u;
+    std::vector<u8> previousData;
+    s32 lastPacketNumber = -1;
+
+    auto new_output_message = [&] () -> nng::unique_msg
+    {
+        auto msg = nng::allocate_reserve_message(DefaultOutputMessageReserve);
+
+        lfh.setMessage(msg.get());
+
+        multi_crate::ReadoutDataMessageHeader header{};
+        header.messageType = multi_crate::MessageType::ReadoutData;
+        header.messageNumber = messageNumber++;
+        header.bufferType = static_cast<u32>(mvlc::ConnectionType::ETH);
+        header.crateId = context.crateId;
+
+        {
+            auto messageNumber = header.messageNumber; // fix for gcc + spdlog/fmt + packed struct members
+            spdlog::debug("mvlc_eth_readout_loop: preparing new output message: crateId={}, messageNumber={}",
+                header.crateId, messageNumber);
+        }
+
+        nng_msg_append(msg.get(), &header, sizeof(header));
+        assert(nng_msg_len(msg.get()) == sizeof(header));
+
+        nng_msg_append(msg.get(), previousData.data(), previousData.size());
+        previousData.clear();
+
+        return msg;
+    };
+
+    auto flush_output_message = [&] (unique_msg &&msg, MvlcEthReadoutLoopContext &ctx) -> int
+    {
+        multi_crate::fixup_listfile_buffer_message(mvlc::ConnectionType::ETH, msg.get(), previousData);
+
+        const auto msgSize = nng_msg_len(msg.get());
+        Stopwatch stopWatch;
+        ctx.outputWriter->writeMessage(std::move(msg));
+
+        {
+            auto ta = ctx.dataOutputCounters.access();
+            ta->tSend += stopWatch.interval();
+            ta->tTotal += stopWatch.end();
+            ta->messagesSent++;
+            ta->bytesSent += msgSize;
+        }
+
+        return 0;
+    };
+
+    auto msg = new_output_message();
+
+    ReadoutLoopPlugin::Arguments pluginArgs{};
+    pluginArgs.crateId = context.crateId;
+    pluginArgs.listfileHandle = &lfh;
+
+    std::vector<std::unique_ptr<ReadoutLoopPlugin>> readoutLoopPlugins;
+    readoutLoopPlugins.emplace_back(std::make_unique<TimetickPlugin>());
+
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStart(pluginArgs);
+
+    auto tLastFlush = std::chrono::steady_clock::now();
+    context.dataOutputCounters.access()->start();
+
+    while (!context.quit)
+    {
+        if (!msg || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+        {
+            if (flush_output_message(std::move(msg), context) != 0)
+                return; // FIXME: error log or return
+
+            msg = new_output_message();
+
+            if (!msg) return; // FIXME: error log or return
+        }
+
+        if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+        {
+            spdlog::error("should not happen!");
+            std::abort();
+        }
+
+        const auto msgUsed = nng_msg_len(msg.get());
+
+        // Note: this should not alloc as we reserved space when the message was
+        // created. This just increases the size of the message.
+        nng_msg_realloc(msg.get(), msgUsed + eth::JumboFrameMaxSize);
+
+        size_t bytesTransferred = 0;
+        auto ec = eth::receive_one_packet(
+            context.mvlcDataSocket,
+            reinterpret_cast<u8 *>(nng_msg_body(msg.get())) + msgUsed,
+            eth::JumboFrameMaxSize, bytesTransferred, 100);
+
+        if (ec)
+        {
+            spdlog::warn("Error reading from mvlc data socket: {}", ec.message());
+            continue;
+        }
+
+        assert(bytesTransferred <= eth::JumboFrameMaxSize);
+
+        if (bytesTransferred > 0)
+        {
+            eth::PacketReadResult prr{};
+            prr.buffer = reinterpret_cast<u8 *>(nng_msg_body(msg.get())) + msgUsed;
+            prr.bytesTransferred = bytesTransferred;
+
+            if (prr.hasHeaders())
+            {
+                //spdlog::debug("mvlc_eth_readout_loop (crate{}): incoming packet: packetNumber={}, crateId={}, size={} bytes",
+                //    context.crateId, prr.packetNumber(), prr.controllerId(), prr.bytesTransferred);
+            }
+
+            if (!prr.hasHeaders())
+            {
+                spdlog::warn("crate{}: no valid headers in received packet of size {}. Dropping the packet!",
+                    context.crateId, prr.bytesTransferred);
+            }
+            else
+            {
+                if (prr.controllerId() != context.crateId)
+                {
+                    spdlog::warn("crate{}: incoming data packet has crateId={} set, excepted {}.",
+                        context.crateId, prr.controllerId(), context.crateId);
+                }
+
+                if (lastPacketNumber >= 0)
+                {
+                    if (auto loss = eth::calc_packet_loss(
+                        lastPacketNumber, prr.packetNumber()))
+                    {
+                        spdlog::warn("crate{}: lost {} incoming data packets!",
+                            context.crateId, loss);
+                    }
+                }
+
+                // Update the message size. This should not alloc as we can only shrink
+                // the message here.
+                nng_msg_realloc(msg.get(), msgUsed + bytesTransferred);
+
+                // Cross check size here.
+                assert(nng_msg_len(msg.get()) == msgUsed + bytesTransferred);
+            }
+        }
+
+        // Run plugins (currently only timetick generation here).
+        bool stopReadout = false;
+        for (const auto &plugin: readoutLoopPlugins)
+        {
+            if (auto pluginResult = plugin->operator()(pluginArgs);
+                pluginResult == ReadoutLoopPlugin::Result::StopReadout)
+            {
+                stopReadout = true;
+            }
+        }
+
+        if (stopReadout)
+        {
+            spdlog::warn("crate{}: readout loop requested to stop by plugin", context.crateId);
+            break;
+        }
+
+        // Check if either the flush timeout elapsed or there is no more space
+        // for packets in the output message.
+        if (auto elapsed = std::chrono::steady_clock::now() - tLastFlush;
+            elapsed >= FlushBufferTimeout || nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+        {
+            if (nng::allocated_free_space(msg.get()) < eth::JumboFrameMaxSize)
+                spdlog::trace("crate{}: flushing full output message #{}", context.crateId, messageNumber - 1);
+            else
+                spdlog::trace("crate{}: flushing output message #{} due to timeout", context.crateId, messageNumber - 1);
+
+
+            if (flush_output_message(std::move(msg), context) != 0)
+                return;
+
+            msg = new_output_message();
+
+            if (!msg)
+                return;
+
+            tLastFlush = std::chrono::steady_clock::now();
+        }
+    }
+
+    for (auto &plugin: readoutLoopPlugins)
+        plugin->readoutStop(pluginArgs);
+
+    spdlog::info("leaving mvlc_eth_readout_loop, crateId={}", context.crateId);
+}
+
+// Serialize the given module data list into the current output message.
+bool ParsedEventsMessageWriter::consumeReadoutEventData(int crateIndex, int eventIndex,
+    const readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
+{
+    size_t requiredBytes = sizeof(multi_crate::ParsedDataEventHeader);
+
+    for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
+    {
+        auto &moduleData = moduleDataList[moduleIndex];
+        requiredBytes += sizeof(multi_crate::ParsedModuleHeader);
+        requiredBytes += moduleData.data.size * sizeof(u32);
+    }
+
+    auto msg = getOutputMessage();
+    size_t bytesFree = msg ? nng::allocated_free_space(msg) : 0u;
+
+    if (bytesFree < requiredBytes)
+    {
+        flushOutputMessage();
+        msg = getOutputMessage();
+    }
+
+    if (!msg || nng::allocated_free_space(msg) < requiredBytes)
+        return false;
+
+    multi_crate::ParsedDataEventHeader eventHeader{};
+    eventHeader.magicByte = multi_crate::ParsedDataEventMagic;
+    eventHeader.crateIndex = crateIndex;
+    eventHeader.eventIndex = eventIndex;
+    eventHeader.moduleCount = moduleCount;
+
+    nng_msg_append(msg, &eventHeader, sizeof(eventHeader));
+
+    for (size_t moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
+    {
+        auto &moduleData = moduleDataList[moduleIndex];
+
+        multi_crate::ParsedModuleHeader moduleHeader = {};
+        moduleHeader.prefixSize = moduleData.prefixSize;
+        moduleHeader.dynamicSize = moduleData.dynamicSize;
+        moduleHeader.suffixSize = moduleData.suffixSize;
+        moduleHeader.hasDynamic = hasDynamic(crateIndex, eventIndex, moduleIndex);
+
+        nng_msg_append(msg, &moduleHeader, sizeof(moduleHeader));
+        nng_msg_append(msg, moduleData.data.data, moduleData.data.size * sizeof(u32));
+    }
+
+    return true;
+}
+
+// Serialize the given system event data into the current output message.
+bool ParsedEventsMessageWriter::consumeSystemEventData(int crateIndex, const u32 *header, u32 size)
+{
+    size_t requiredBytes = sizeof(multi_crate::ParsedSystemEventHeader) + size * sizeof(u32);
+
+    auto msg = getOutputMessage();
+    size_t bytesFree = msg ? nng::allocated_free_space(msg) : 0u;
+
+    if (bytesFree < requiredBytes)
+    {
+        flushOutputMessage();
+        msg = getOutputMessage();
+    }
+
+    if (!msg || nng::allocated_free_space(msg) < requiredBytes)
+        return false;
+
+    multi_crate::ParsedSystemEventHeader eventHeader{};
+    eventHeader.magicByte = multi_crate::ParsedSystemEventMagic;
+    eventHeader.crateIndex = crateIndex;
+    eventHeader.eventSize = size;
+
+    nng_msg_append(msg, &eventHeader, sizeof(eventHeader));
+    nng_msg_append(msg, header, size * sizeof(u32));
+
+    return true;
+}
+
+// Input must be a ParsedEventsMessageHeader formatted message. Extracts the
+// next event from message, trims message and returns the filled event
+// container. This should be fine as trimming does not free or overwrite the
+// message data.
+// Returns EventContainer::Type::None once all data has been extracted from msg.
+mvlc::EventContainer next_event(ParsedEventMessageIterator &iter)
+{
+    mvlc::EventContainer result{};
+    auto &msg = iter.msg;
+
+    if (nng_msg_len(msg) >= 1)
+    {
+        const u8 eventMagic = *reinterpret_cast<u8 *>(nng_msg_body(msg));
+
+        if (eventMagic == multi_crate::ParsedDataEventMagic)
+        {
+            if (auto eventHeader = nng::msg_trim_read<multi_crate::ParsedDataEventHeader>(msg); eventHeader)
+            {
+                if (eventHeader->moduleCount >= iter.moduleDataBuffer.size())
+                {
+                    spdlog::error("too many modules {} in ParsedEventsMessage", eventHeader->moduleCount);
+                    return {};
+                }
+
+                iter.moduleDataBuffer.fill({});
+
+                for (size_t moduleIndex=0u; moduleIndex<eventHeader->moduleCount; ++moduleIndex)
+                {
+                    auto moduleHeader = nng::msg_trim_read<multi_crate::ParsedModuleHeader>(msg);
+
+                    if (!moduleHeader)
+                        return {};
+
+                    if (moduleHeader->totalBytes() > nng_msg_len(msg))
+                    {
+                        spdlog::error("ParsedModuleHeader::totalBytes() exceeds remaining message size");
+                        return {};
+                    }
+
+                    if (moduleHeader->totalBytes())
+                    {
+                        const u32 *moduleDataPtr = reinterpret_cast<const u32 *>(nng_msg_body(msg));
+
+                        readout_parser::ModuleData moduleData{};
+                        moduleData.data.data = moduleDataPtr;
+                        moduleData.data.size = moduleHeader->totalSize();
+                        moduleData.prefixSize = moduleHeader->prefixSize;
+                        moduleData.dynamicSize = moduleHeader->dynamicSize;
+                        moduleData.suffixSize = moduleHeader->suffixSize;
+                        moduleData.hasDynamic = moduleHeader->hasDynamic;
+
+                        assert(moduleIndex < iter.moduleDataBuffer.size());
+
+                        iter.moduleDataBuffer[moduleIndex] = moduleData;
+
+                        //mvlc::util::log_buffer(std::cout, moduleData.data.data, moduleHeader->totalSize(),
+                        //    fmt::format("crate={}, event={}, module={}, size={}",
+                        //    eventHeader->crateIndex, eventHeader->eventIndex, moduleIndex, moduleHeader->totalSize()));
+
+                        nng_msg_trim(msg, moduleHeader->totalBytes());
+                    }
+                }
+
+                result.type = EventContainer::Type::Readout;
+                result.crateId = eventHeader->crateIndex;
+                result.readout.eventIndex = eventHeader->eventIndex;
+                result.readout.moduleDataList = iter.moduleDataBuffer.data();
+                result.readout.moduleCount = eventHeader->moduleCount;
+            }
+        }
+        else if (eventMagic == multi_crate::ParsedSystemEventMagic)
+        {
+            if (auto eventHeader = nng::msg_trim_read<multi_crate::ParsedSystemEventHeader>(msg);
+                eventHeader && nng_msg_len(msg) >= eventHeader->totalBytes())
+            {
+                result.type = EventContainer::Type::System;
+                result.crateId = eventHeader->crateIndex;
+                result.system.header = reinterpret_cast<const u32 *>(nng_msg_body(msg));
+                result.system.size = eventHeader->totalSize();
+                nng_msg_trim(msg, eventHeader->totalBytes());
+            }
+            else
+            {
+                spdlog::warn("next_event: system event message too short (len={})", nng_msg_len(msg));
+            }
+        }
+        else
+        {
+            spdlog::warn("next_event: unknown event magic byte 0x{:02x}", eventMagic);
+        }
+    }
+
+    return result;
+}
+
+} // namespace mesytec::mvme::multi_crate

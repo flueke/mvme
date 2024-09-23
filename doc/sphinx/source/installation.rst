@@ -37,7 +37,7 @@ Mesytec MVLC
 
 * Using the MVLC via Ethernet requires a GBit/s network connection.
 
-WIENER VM-USB
+WIENER VM-USB (Legacy)
 --------------------------------------------------
 
 * WIENER VM-USB VME Controller with a recent firmware
@@ -57,7 +57,7 @@ WIENER VM-USB
   The windows installer can optionally run `Zadig`_ to handle the driver
   installation.
 
-Struck SIS3153
+Struck SIS3153 (Legacy)
 --------------------------------------------------
 
 * The SIS3153 controller requires a GBit/s ethernet connection.
@@ -188,6 +188,11 @@ hostnames. You can verify this by opening a command prompt and running
     ``ping mvlc-0010``
 
 for the MVLC with serial number 10.
+
+.. note::
+    The lease time offered by your local DHCP server must be set to some value
+    **longer than 1 hour**. Since firmware version FW0038 the MVLC will renew its
+    lease every hour.
 
 Using a manual ARP entry
 --------------------------------------------------

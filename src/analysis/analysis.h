@@ -2257,12 +2257,15 @@ class LIBMVME_EXPORT Analysis:
         //
         void beginEvent(int eventIndex);
         // The new (as of 230130) primary method to pass event data to the analysis.
+        // FIXME: crateIndex is unused. Use it or remove it!
         void processModuleData(int crateIndex, int eventIndex,
                                const mesytec::mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
         // The old variant, requiring one call per module.
         void processModuleData(int eventIndex, int moduleIndex, const u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
+        // TODO (maybe): make this crate specific so that timeticks from
+        // different crates can be processed here?
         void processTimetick();
         double getTimetickCount() const;
 
@@ -2438,6 +2441,8 @@ LIBMVME_EXPORT std::pair<std::shared_ptr<Analysis>, QString>
 // Returns a list of parent directory names of the object.
 QStringList LIBMVME_EXPORT
 make_parent_path_list(const AnalysisObjectPtr &obj);
+
+QString LIBMVME_EXPORT make_object_name_with_path(const AnalysisObjectPtr &obj);
 
 QJsonObject LIBMVME_EXPORT serialize_analysis_to_json_object(const Analysis &analysis);
 QJsonDocument LIBMVME_EXPORT serialize_analysis_to_json_document(const Analysis &analysis);

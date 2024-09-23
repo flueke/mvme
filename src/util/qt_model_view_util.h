@@ -120,6 +120,17 @@ inline void delete_item_rows(const QVector<QStandardItem *> &items)
     }
 }
 
+inline std::vector<QStandardItem *> collect_children(QStandardItem *root, size_t row)
+{
+    std::vector<QStandardItem *> result;
+    size_t col = 0;
+
+    for (auto child = root->child(row, col); child; child = root->child(row, ++col))
+        result.push_back(child);
+
+    return result;
+}
+
 class BaseItem: public QStandardItem
 {
     public:

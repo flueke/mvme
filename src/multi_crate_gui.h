@@ -6,6 +6,7 @@
 #include <QString>
 #include <mutex>
 #include <unordered_map>
+#include "libmvme_export.h"
 
 // TODO: implement something like this for structured logging. Use some default
 // keys to store message severity and originating subsystem, timestamp, etc.
@@ -19,7 +20,7 @@ struct LogRecord
 };
 #endif
 
-class LogHandler: public QObject
+class LIBMVME_EXPORT LogHandler: public QObject
 {
     Q_OBJECT
     signals:

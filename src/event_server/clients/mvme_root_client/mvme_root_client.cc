@@ -412,8 +412,17 @@ CodeGenResult generate_code_file(const CodeGenArgs &args, const mu::data &templa
 
     auto write_file = [](const std::string &contents, const std::string &filename)
     {
-        std::ofstream out(filename);
-        out << contents;
+        std::ofstream out;
+        try
+        {
+            out.exceptions(std::ios::failbit | std::ios::badbit);
+            out.open(filename);
+            out << contents;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Error writing to '" << filename << ": " << e.what() << "\n";
+        }
         return static_cast<bool>(out);
     };
 

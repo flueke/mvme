@@ -12,6 +12,8 @@
 * graphviz
 * boost
 * ninja or make
+* Optional: zmq
+* Optional: prometheus-cpp
 * Optional: sphinx and latex for the documentation
 * Optional: NSIS for the windows installer
 
@@ -28,22 +30,9 @@
 
 The install step is optional, mvme does run directly from the build directory.
 
-#### Build commands on a fresh installation of Debian 10 (Buster)
+#### Build commands for Debian:
 
-Starting point is a clean installation of Debian Buster with the *XFCE* desktop
-enviroment selected during installation time.
-
-    apt-get install build-essential cmake libboost-all-dev qt5-default \
-                    qtbase5-dev-tools libquazip5-dev libqwt-qt5-dev \
-                    zlib1g-dev libusb-dev libqt5websockets5-dev ninja-build \
-                    libgraphviz-dev
-    git clone https://github.com/flueke/mvme
-    cd mvme
-    git submodule update --init
-    mkdir build
-    cd build
-    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/local/mvme ..
-    ninja
+See the files under extras/docker for up-to-date dependencies and build steps.
 
 ### Windows MSYS2
 

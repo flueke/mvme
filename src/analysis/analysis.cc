@@ -44,7 +44,7 @@
 
 using namespace mesytec::mvme::util;
 
-#define ENABLE_ANALYSIS_DEBUG 0
+#define ENABLE_ANALYSIS_DEBUG 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -5003,7 +5003,7 @@ void Analysis::updateRank(OperatorPtr op,
 
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> updating rank for"
-        << getClassName(op)
+        << getClassName(op.get())
         << op->objectName();
 #endif
 
@@ -5063,7 +5063,7 @@ void Analysis::updateRank(OperatorPtr op,
 
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "<<<<< updated rank for"
-        << getClassName(op)
+        << getClassName(op.get())
         << op->objectName()
         << "new rank" << op->getRank();
 #endif
@@ -6143,6 +6143,13 @@ make_parent_path_list(const AnalysisObjectPtr &obj)
     }
 
     return result;
+}
+
+QString LIBMVME_EXPORT make_object_name_with_path(const AnalysisObjectPtr &obj)
+{
+    auto path = make_parent_path_list(obj);
+    path.push_back(obj->objectName());
+    return path.join(QSL("/"));
 }
 
 QJsonObject serialize_analysis_to_json_object(const Analysis &analysis)

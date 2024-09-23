@@ -10,8 +10,8 @@
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
-#ifndef NDEBUG
-//#if 0
+//#ifndef NDEBUG
+#if 1
 
 #define LOG(fmt, ...)\
 do\
@@ -1765,14 +1765,28 @@ A2AdapterState a2_adapter_build(
                 analysis::OperatorInterface *a1_op = result.operatorMap.value(op, nullptr);
                 (void) a1_op;
 
-                for (unsigned bitIndex = 0; bitIndex < op->conditionBitIndexes.size; ++bitIndex)
+                if (op->conditionBitIndexes.size)
                 {
-                    LOG("    [%3d] operator@%p, rank=%2d, type=%2d, condIdx=%d a1_type=%s, a1_name=%s",
+                    for (unsigned bitIndex = 0; bitIndex < op->conditionBitIndexes.size; ++bitIndex)
+                    {
+                        LOG("    [%3d] operator@%p, rank=%2d, type=%2d, condIdx=%d a1_type=%s, a1_name=%s",
+                            opIndex,
+                            op,
+                            rank,
+                            (s32)op->type,
+                            op->conditionBitIndexes[bitIndex],
+                            a1_op ? a1_op->metaObject()->className() : "nullptr",
+                            a1_op ? qcstr(a1_op->objectName()) : "nullptr"
+                            );
+                    }
+                }
+                else
+                {
+                    LOG("    [%3d] operator@%p, rank=%2d, type=%2d, a1_type=%s, a1_name=%s",
                         opIndex,
                         op,
                         rank,
                         (s32)op->type,
-                        op->conditionBitIndexes[bitIndex],
                         a1_op ? a1_op->metaObject()->className() : "nullptr",
                         a1_op ? qcstr(a1_op->objectName()) : "nullptr"
                         );

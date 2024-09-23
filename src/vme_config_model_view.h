@@ -27,7 +27,7 @@ enum ConfigItemType
     Container,
 };
 
-class VmeConfigItemModel: public QStandardItemModel
+class LIBMVME_EXPORT VmeConfigItemModel: public QStandardItemModel
 {
     Q_OBJECT
     signals:
@@ -54,9 +54,9 @@ class VmeConfigItemModel: public QStandardItemModel
         ConfigObject *rootObject_ = nullptr;
 };
 
-void update_info_texts(VmeConfigItemModel *model);
+void LIBMVME_EXPORT update_info_texts(VmeConfigItemModel *model);
 
-class VmeConfigItemController: public QObject
+class LIBMVME_EXPORT VmeConfigItemController: public QObject
 {
     Q_OBJECT
     public:
@@ -80,7 +80,7 @@ class VmeConfigItemController: public QObject
         QVector<QTreeView *> views_;
 };
 
-class VmeConfigTreeView: public QTreeView
+class LIBMVME_EXPORT VmeConfigTreeView: public QTreeView
 {
     Q_OBJECT
     public:

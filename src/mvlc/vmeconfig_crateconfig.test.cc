@@ -185,6 +185,9 @@ TEST(vmeconfig_crateconfig, ReadoutCommands)
     readout0 << "mbltfifo a32 0xaaaa 9000";
     readout0 << "write a32 d16 0x6034 1";
     mod0->getReadoutScript()->setScriptContents(readout0.join("\n"));
+    vats::VMEModuleMeta mod0Meta;
+    mod0Meta.typeName = "foobar_type";
+    mod0->setModuleMeta(mod0Meta);
 
     auto mod1 = new ModuleConfig;
     mod1->setBaseAddress(0x02000000u);
@@ -193,6 +196,9 @@ TEST(vmeconfig_crateconfig, ReadoutCommands)
     readout1 << "2essts 0x1234 276mb 1000";
     readout1 << "read a24 d32 0x2222";
     mod1->getReadoutScript()->setScriptContents(readout1.join("\n"));
+    vats::VMEModuleMeta mod1Meta;
+    mod1Meta.typeName = "barfoo_type";
+    mod1->setModuleMeta(mod1Meta);
 
     auto ev0 = new EventConfig;
     ev0->addModuleConfig(mod0);
@@ -204,6 +210,15 @@ TEST(vmeconfig_crateconfig, ReadoutCommands)
         vmeCfg->addEventConfig(ev);
 
     auto crateConfig = mvme::vmeconfig_to_crateconfig(vmeCfg.get());
+
+    {
+        ASSERT_EQ(crateConfig.stacks.size(), 1); // One event
+        auto &stack = crateConfig.stacks.at(0);
+        ASSERT_EQ(stack.getGroupCount(), 2); // Two modules
+        ASSERT_EQ(stack.getGroup(0).meta.at("vme_module_type"), std::string("foobar_type"));
+        ASSERT_EQ(stack.getGroup(1).meta.at("vme_module_type"), std::string("barfoo_type"));
+    }
+
     auto vmeCfgImported = mvme::vmeconfig_from_crateconfig(crateConfig);
 
     ASSERT_EQ(vmeCfgImported->getEventConfigs().size(), 1);
@@ -214,6 +229,8 @@ TEST(vmeconfig_crateconfig, ReadoutCommands)
 
     {
         auto mod0Imported = ev0Imported->getModuleConfigs().at(0);
+        ASSERT_EQ(mod0Imported->getModuleMeta().typeName, "foobar_type");
+
         auto mod0ReadoutImported = vme_script::parse(mod0Imported->getReadoutScript()->getScriptContents());
         ASSERT_EQ(mod0ReadoutImported.size(), 2);
         ASSERT_EQ(mod0ReadoutImported.at(0).type, vme_script::CommandType::MBLTFifo);
@@ -226,6 +243,8 @@ TEST(vmeconfig_crateconfig, ReadoutCommands)
 
     {
         auto mod1Imported = ev0Imported->getModuleConfigs().at(1);
+        ASSERT_EQ(mod1Imported->getModuleMeta().typeName, "barfoo_type");
+
         auto mod1ReadoutImported = vme_script::parse(mod1Imported->getReadoutScript()->getScriptContents());
 
         ASSERT_EQ(mod1ReadoutImported.size(), 3);

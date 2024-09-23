@@ -115,6 +115,9 @@ AnalysisObjectStore LIBMVME_EXPORT deserialize_objects(
 
 void LIBMVME_EXPORT establish_connections(const QSet<Connection> &connections);
 void LIBMVME_EXPORT establish_connections(const AnalysisObjectStore &objectStore);
+#if 0
+bool LIBMVME_EXPORT remove_object(AnalysisObjectStore &objectStore, const AnalysisObjectPtr &obj);
+#endif
 
 } // end namespace analysis
 

@@ -25,6 +25,7 @@
 #include <QEventLoop>
 #include <QFormLayout>
 #include <QFrame>
+#include <QFutureWatcher>
 #include <QHash>
 #include <QJsonObject>
 #include <QKeySequence>
@@ -232,5 +233,17 @@ class LIBMVME_EXPORT TextEditSearchWidget: public QWidget
 };
 
 QWidget *find_top_level_widget(const QString &objectName);
+
+template<typename Result, typename Handler>
+QFutureWatcher<Result> *make_watcher(Handler &&handler)
+{
+    auto watcher = new QFutureWatcher<Result>();
+    QObject::connect(watcher, &QFutureWatcher<Result>::finished, [watcher, handler]
+    {
+        watcher->deleteLater();
+        handler(watcher->future());
+    });
+    return watcher;
+}
 
 #endif /* __QT_UTIL_H__ */

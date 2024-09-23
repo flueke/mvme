@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libqt5serialport5-dev libqwt-qt5-dev libquazip5-dev libusb-dev zlib1g-dev libgraphviz-dev \
     libboost-dev sphinx-common sphinx-rtd-theme-common python3-sphinx python3-sphinxcontrib.qthelp \
     texlive-latex-base texlive-latex-extra texlive-latex-recommended latexmk texlive-fonts-recommended \
-    prometheus-cpp-dev
+    prometheus-cpp-dev libzmq3-dev cppzmq-dev
 
 COPY . /sources
 WORKDIR /build
