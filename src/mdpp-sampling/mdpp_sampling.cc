@@ -1,9 +1,12 @@
 
 #include "mdpp_sampling.h"
 
+#include <set>
+
 #include <mesytec-mvlc/util/data_filter.h>
 #include <mesytec-mvlc/util/logging.h>
 #include <mesytec-mvlc/util/ticketmutex.h>
+
 
 #include "analysis/analysis.h"
 #include "analysis/a2/a2_support.h"
@@ -38,7 +41,7 @@ struct MdppSamplingConsumer::Private
         // moduleInterests_ set.
         auto moduleId = indexToVmeId_.value({ eventIndex, moduleIndex});
         return moduleInterests_.find(moduleId) != std::end(moduleInterests_);
-    };
+    }
 };
 
 MdppSamplingConsumer::MdppSamplingConsumer(QObject *parent)
@@ -147,18 +150,20 @@ FilterWithCache make_filter(const std::string &pattern)
 
 struct ChannelTrace
 {
-    s32 channel;
-    float amplitude;
-    float time;
-    std::vector<float> samples;
+    s32 channel = -1;
+    float amplitude = make_quiet_nan();
+    float time = make_quiet_nan();
+    u32 amplitudeData = 0;
+    u32 timeData = 0;
+    std::vector<s16> samples; // samples are 14 bit signed
 };
 
 struct DecodedMdppSampleEvent
 {
-    u32 header;
-    u64 timestamp;
+    u32 header = 0;
+    u64 timestamp = 0;
     std::vector<ChannelTrace> traces;
-    u8 moduleId;
+    u8 moduleId = 0;
 };
 
 DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
@@ -173,13 +178,16 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 
     std::basic_string_view<u32> dataView(data, size);
 
-    spdlog::info("decode_mdpp_samples: input={:#010x}", fmt::join(dataView, " "));
+    spdlog::info("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
 
-    DecodedMdppSampleEvent ret;
+    DecodedMdppSampleEvent ret{};
 
     // Need at least the module header and the EndOfEvent word.
     if (size < 2)
+    {
+        spdlog::warn("decode_mdpp_samples: input data size < 2, returning null result");
         return {};
+    }
 
     // The position of the header and timestamp words is fixed, so we can handle
     // them here, instead of testing each word in the loop.
@@ -188,6 +196,11 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
         ret.header = data[0];
         ret.moduleId = mvlc::util::extract(fModuleId.dataCache, data[0]);
     }
+    else
+    {
+        assert(!"decode_mdpp_samples: fModuleId");
+    }
+
     if (mvlc::util::matches(fTimeStamp.filter, data[size-1]))
     {
         // 30 low bits of the timestamp
@@ -195,16 +208,24 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
         //spdlog::info("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", value, value);
         ret.timestamp |= value;
     }
-    else if (size >= 3 && mvlc::util::matches(fExtentedTs.filter, data[size-2]))
+    else
+    {
+        assert(!"decode_mdpp_samples: fTimeStamp");
+    }
+
+    if (size >= 3 && mvlc::util::matches(fExtentedTs.filter, data[size-2]))
     {
         // optional 16 high bits of the extended timestamp if enabled
         auto value = mvlc::util::extract(fExtentedTs.dataCache, data[size-2]);
         //spdlog::info("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
         ret.timestamp |= static_cast<std::uint64_t>(value) << 30;
     }
+    else
+    {
+        spdlog::debug("decode_mdpp_samples: no extended timestamp present");
+    }
 
     ChannelTrace currentTrace;
-    currentTrace.channel = -1;
 
 	for (auto wordPtr = data+1, dataEnd = data + size; wordPtr < dataEnd; ++wordPtr)
     {
@@ -221,7 +242,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 
             if (currentTrace.channel >= 0 && currentTrace.channel != addr)
             {
-                spdlog::info("Finished decoding a channel trace: channel={}, samples={}",
+                spdlog::info("decode_mdpp_samples: Finished decoding a channel trace: channel={}, samples={}",
                     currentTrace.channel, fmt::join(currentTrace.samples, ", "));
                 ret.traces.emplace_back(std::move(currentTrace));
                 currentTrace = {};
@@ -241,7 +262,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 
             if (currentTrace.channel >= 0 && currentTrace.channel != addr)
             {
-                spdlog::info("Finished decoding a channel trace: channel={}, samples={}",
+                spdlog::info("decode_mdpp_samples: Finished decoding a channel trace: channel={}, samples={}",
                     currentTrace.channel, fmt::join(currentTrace.samples, ", "));
                 ret.traces.emplace_back(std::move(currentTrace));
                 currentTrace = {};
@@ -270,22 +291,30 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             u32 evenRaw = value & SampleMask;
             u32 oddRaw  = (value >> SampleBits) & SampleMask;
 
-            // Now interpret the 14 bit values as signed and convert to float.
+            // Now interpret the 14 bit values as signed.
             s64 evenSigned = a2::convert_to_signed(evenRaw, SampleBits);
             s64 oddSigned = a2::convert_to_signed(oddRaw, SampleBits);
 
             currentTrace.samples.push_back(evenSigned);
             currentTrace.samples.push_back(oddSigned);
         }
+        else
+        {
+            spdlog::warn("decode_mdpp_samples: No filter match for word #{}: {:#010x}!",
+                std::distance(data, wordPtr), *wordPtr);
+        }
     }
 
     // Handle the last trace that was decoded but not yet moved into the result.
     if (currentTrace.channel >= 0)
     {
-        spdlog::info("Finished decoding a channel trace: channel={}, samples={}",
+        spdlog::info("decode_mdpp_samples: Finished decoding a channel trace: channel={}, samples={}",
             currentTrace.channel, fmt::join(currentTrace.samples, ", "));
         ret.traces.emplace_back(std::move(currentTrace));
     }
+
+    spdlog::info("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
+                 ret.header, ret.timestamp, ret.moduleId, ret.traces.size());
 
     return ret;
 }
@@ -294,6 +323,7 @@ struct MdppSamplingUi::Private
 {
     // Info provided at construction time
     AnalysisServiceProvider *asp_ = nullptr;
+    size_t debugTotalEvents_ = 0;
 };
 
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
@@ -307,16 +337,17 @@ MdppSamplingUi::~MdppSamplingUi() { }
 
 void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer)
 {
-    spdlog::trace("MdppSamplingUi::handleModuleData moduleId={}, size={}",
-        moduleId.toString().toLocal8Bit().data(), buffer.size());
+    spdlog::trace("MdppSamplingUi::handleModuleData event#{}, moduleId={}, size={}",
+        d->debugTotalEvents_, moduleId.toString().toLocal8Bit().data(), buffer.size());
 
     auto samples = decode_mdpp_samples(buffer.data(), buffer.size());
 
     for (const auto &trace: samples.traces)
     {
-        spdlog::info("got a trace for channel {} containing {} samples",
-            trace.channel, trace.samples.size());
+        spdlog::info("MdppSamplingUi::handleModuleData event#{}, got a trace for channel {} containing {} samples",
+                     d->debugTotalEvents_, trace.channel, trace.samples.size());
     }
+    ++d->debugTotalEvents_;
 }
 
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)
