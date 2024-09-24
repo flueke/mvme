@@ -441,6 +441,15 @@ VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig)
     return result;
 }
 
+IndexToVmeId build_index_to_id_mapping(const VMEConfig *vmeConfig)
+{
+    IndexToVmeId result;
+
+
+
+    return result;
+}
+
 EventModuleIndexMaps make_module_index_mappings(const VMEConfig &vmeConfig)
 {
     EventModuleIndexMaps result;

@@ -4,20 +4,23 @@
 #include <QWidget>
 #include "stream_processor_consumers.h"
 
+class AnalysisServiceProvider;
+using namespace std::chrono_literals;
+
 namespace mesytec::mvme
 {
+
+static const auto MdppSamplePeriod = 12.5ns;
 
 class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleConsumer
 {
     Q_OBJECT
     signals:
-        void moduleDataReady(s32 crateIndex, s32 eventIndex, s32 moduleIndex, const std::vector<u32> buffer);
+        void moduleDataReady(const QUuid &moduleId, const std::vector<u32> &buffer);
 
     public:
-        MdppSamplingConsumer(QObject *parent = nullptr);
+        explicit MdppSamplingConsumer(QObject *parent = nullptr);
         ~MdppSamplingConsumer() override;
-
-        void addModuleInterest(const QUuid &moduleId);
 
         // IStreamModuleConsumer implementation
         void setLogger(Logger logger) override;
@@ -39,6 +42,9 @@ class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleC
         void processSystemEvent(s32 crateIndex, const u32 *header, u32 size) override;
         void processTimetick() override {}; // noop
 
+    public slots:
+        void addModuleInterest(const QUuid &moduleId);
+
     private:
         struct Private;
         std::unique_ptr<Private> d;
@@ -47,12 +53,17 @@ class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleC
 class LIBMVME_EXPORT MdppSamplingUi: public QWidget
 {
     Q_OBJECT
+    signals:
+        void moduleInterestAdded(const QUuid &moduleId);
+
     public:
-        MdppSamplingUi(QWidget *parent = nullptr);
+        MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~MdppSamplingUi() override;
 
     public slots:
-        void handleModuleData(s32 crateIndex, s32 eventIndex, s32 moduleIndex, const std::vector<u32> buffer);
+        //void handleModuleData(s32 crateIndex, s32 eventIndex, s32 moduleIndex, const std::vector<u32> buffer);
+        void handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer);
+        void addModuleInterest(const QUuid &moduleId);
 
 
     private:

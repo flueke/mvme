@@ -46,6 +46,17 @@ class LIBMVME_EXPORT WidgetRegistry: public QObject
         // the geoSaver).
         void addWidget(QWidget *widget, const QString &stateKey);
 
+        template<typename T>
+        T *getFirstWidgetOfType()
+        {
+            for (auto widget: getAllWidgets())
+            {
+                if (auto result = qobject_cast<T *>(widget))
+                    return result;
+            }
+            return nullptr;
+        }
+
     private:
         WidgetGeometrySaver *geoSaver_;
         QMap<QObject *, QList<QWidget *>> objectWidgets_;

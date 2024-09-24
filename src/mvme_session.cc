@@ -89,8 +89,23 @@ void register_mvme_qt_metatypes()
     qRegisterMetaType<EventConfig *>();
     qRegisterMetaType<VMEConfig *>();
 
+// QVector<T> instances
 #define REG_META_VEC(T) \
     qRegisterMetaType<QVector<T>>("QVector<"#T">")
+
+    REG_META_VEC(u8);
+    REG_META_VEC(u16);
+    REG_META_VEC(u32);
+
+    REG_META_VEC(s8);
+    REG_META_VEC(s16);
+    REG_META_VEC(s32);
+
+#undef REG_META_VEC
+
+// std::vector<T> instances
+#define REG_META_VEC(T) \
+    qRegisterMetaType<std::vector<T>>("std::vector<"#T">")
 
     REG_META_VEC(u8);
     REG_META_VEC(u16);

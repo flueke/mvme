@@ -54,11 +54,14 @@
 #include "graphviz_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "mdpp-sampling/mdpp_sampling.h"
 #include "multiplot_widget.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "rate_monitor_widget.h"
 #include "util/algo.h"
+
+using namespace mesytec;
 
 namespace analysis
 {
@@ -3059,7 +3062,40 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
             if (auto moduleType = moduleConfig->getModuleMeta().typeName;
                 moduleType.startsWith("mdpp"))
             {
-                menu.addAction("MDPP Sampling Mode UI");
+                menu.addAction("MDPP Sampling Mode UI", &menu, [this, moduleConfig] {
+                    auto analysis = m_serviceProvider->getAnalysis();
+
+                    if (auto indexes = analysis->getVMEIdToIndexMapping().value(moduleConfig->getId());
+                        indexes.isValid())
+                    {
+                        auto samplingConsumer = m_serviceProvider->getMVMEStreamWorker()
+                            ->getFirstModuleConsumerOfType<mvme::MdppSamplingConsumer>();
+
+                        auto widgetRegistry = m_serviceProvider->getWidgetRegistry();
+                        auto samplingUi = widgetRegistry->getFirstWidgetOfType<mvme::MdppSamplingUi>();
+
+                        if (!samplingConsumer)
+                            return;
+
+                        if (!samplingUi)
+                        {
+                            samplingUi = new mvme::MdppSamplingUi(m_serviceProvider);
+                            samplingUi->setAttribute(Qt::WA_DeleteOnClose);
+                            widgetRegistry->addWidget(samplingUi, "MdppSamplingUi");
+
+                            QObject::connect(samplingUi, &mvme::MdppSamplingUi::moduleInterestAdded,
+                                    samplingConsumer.get(), &mvme::MdppSamplingConsumer::addModuleInterest);
+
+                            QObject::connect(samplingConsumer.get(), &mvme::MdppSamplingConsumer::moduleDataReady,
+                                             samplingUi, &mvme::MdppSamplingUi::handleModuleData);
+                        }
+
+                        assert(samplingUi);
+                        samplingUi->addModuleInterest(moduleConfig->getId());
+                        samplingUi->show();
+                        samplingUi->raise();
+                    }
+                });
             }
 
             auto actionNew = menu.addAction(QSL("New"));
@@ -3681,6 +3717,10 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
 Analysis *EventWidgetPrivate::getAnalysis() const
 {
     return m_serviceProvider->getAnalysis();
+}
+
+void EventWidgetPrivate::onActionMdppSamplingUiTriggered()
+{
 }
 
 static bool forward_path_exists(PipeSourceInterface *from, PipeSourceInterface *to)

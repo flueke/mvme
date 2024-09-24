@@ -77,5 +77,17 @@ QVector<typename std::iterator_traits<Iter>::value_type> to_qvector(
     return result;
 }
 
+template<typename K, typename V>
+QHash<V, K> reverse_hash(const QHash<K, V> &input)
+{
+    QHash<V, K> result;
+
+    for (auto it=input.begin(); it!=input.end(); ++it)
+    {
+        result[it.value()] = it.key();
+    }
+
+    return result;
+}
 
 #endif /* __MVME_UTIL_QT_CONTAINER_H__ */

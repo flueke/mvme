@@ -65,6 +65,10 @@ struct VMEConfigIndex
 {
     s32 eventIndex = -1;
     s32 moduleIndex = -1;
+    // TODO: add a variable crateIndex. The static one was added for the
+    // MdppSampling stuff in ui_eventwidget.cc and mdpp_sampling.cc. No other
+    // code has been adapted yet!
+    //static const s32 crateIndex = 0;
 
     inline bool isValid() const { return eventIndex >= 0 && moduleIndex >= 0; }
     inline bool isValidEvent() const { return eventIndex >= 0; }
@@ -76,7 +80,16 @@ inline bool operator==(const VMEConfigIndex &a, const VMEConfigIndex &b)
         && a.moduleIndex == b.moduleIndex;
 }
 
+inline uint qHash(const VMEConfigIndex &idx, uint seed = 1)
+{
+    // Wanted to call qHash() on the individual memmbers but failed horribly.
+    // Idk how those template lookups work.
+    return (idx.eventIndex * seed) ^ (idx.moduleIndex * seed);
+}
+
 using VMEIdToIndex = QHash<QUuid, VMEConfigIndex>;
+// use reverse_has() from qt_container.h to build this from VMEIdToIndex
+using IndexToVmeId = QHash<VMEConfigIndex, QUuid>;
 
 LIBMVME_EXPORT VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig);
 

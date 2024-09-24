@@ -560,6 +560,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
 #endif
 
     m_d->m_mdppSamplingConsumer = std::make_shared<MdppSamplingConsumer>();
+    m_d->streamConsumers_.push_back(m_d->m_mdppSamplingConsumer);
 
     {
         auto logger = [this](const QString &msg) { this->logMessage(msg); };

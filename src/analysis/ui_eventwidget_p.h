@@ -410,6 +410,8 @@ struct EventWidgetPrivate
     void actionGenerateHistograms(ObjectTree *tree, const std::vector<QTreeWidgetItem *> &nodes);
 
     Analysis *getAnalysis() const;
+
+    void onActionMdppSamplingUiTriggered();
 };
 
 QString mode_to_string(EventWidgetPrivate::Mode mode);

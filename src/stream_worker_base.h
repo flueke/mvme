@@ -64,6 +64,7 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         void setWorkspaceDirectory(const QString &dir) { ctx_.access().ref().workspaceDir = dir; }
         void setDAQStats(const DAQStats &daqStats) { ctx_.access().ref().daqStats = daqStats; }
 
+        // IStreamModuleConsumer
         void attachModuleConsumer(const std::shared_ptr<IStreamModuleConsumer> &consumer)
         {
             moduleConsumers_.push_back(consumer);
@@ -77,8 +78,20 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         }
 
         const QVector<std::shared_ptr<IStreamModuleConsumer>> &moduleConsumers() const { return moduleConsumers_; }
-        const QVector<std::shared_ptr<IStreamBufferConsumer>> &bufferConsumers() const { return bufferConsumers_; }
 
+        template<typename T>
+        const std::shared_ptr<T> getFirstModuleConsumerOfType() const
+        {
+            for (const auto &c: moduleConsumers())
+            {
+                if (auto ret = std::dynamic_pointer_cast<T>(c))
+                    return ret;
+            }
+
+            return {};
+        }
+
+        // IStreamBufferConsumer
         void attachBufferConsumer(const std::shared_ptr<IStreamBufferConsumer> &consumer)
         {
             bufferConsumers_.push_back(consumer);
@@ -90,6 +103,8 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
             bufferConsumers_.removeAll(consumer);
             consumer->setWorker(nullptr);
         }
+
+        const QVector<std::shared_ptr<IStreamBufferConsumer>> &bufferConsumers() const { return bufferConsumers_; }
 
     public slots:
         // Blocking call. Returns after stop() has been invoked from the outside.
