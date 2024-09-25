@@ -1,8 +1,6 @@
 #include "widget_registry.h"
 
-namespace mesytec
-{
-namespace mvme
+namespace mesytec::mvme
 {
 
 WidgetRegistry::WidgetRegistry(QObject *parent)
@@ -73,12 +71,27 @@ QList<QWidget *> WidgetRegistry::getAllWidgets() const
 
 void WidgetRegistry::addWidget(QWidget *widget, const QString &stateKey)
 {
+    connect(widget, &QObject::destroyed, this, [this, stateKey, widget] (QObject *) {
+        if (nonObjectWidgets_.contains(stateKey))
+            nonObjectWidgets_[stateKey].removeAll(widget);
+    });
+
+    nonObjectWidgets_[stateKey].push_back(widget);
     widget->setAttribute(Qt::WA_DeleteOnClose);
-    if (!stateKey.isEmpty())
-        geoSaver_->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
+    geoSaver_->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
     add_widget_close_action(widget);
     widget->show();
 }
 
+QWidget *WidgetRegistry::getWidget(const QString &stateKey) const
+{
+    auto theList = nonObjectWidgets_.value(stateKey);
+    return theList.isEmpty() ? nullptr : theList.first();
 }
+
+QList<QWidget *> WidgetRegistry::getWidgets(const QString &stateKey) const
+{
+    return nonObjectWidgets_.value(stateKey);
+}
+
 }

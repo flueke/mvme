@@ -7,9 +7,7 @@
 #include "qt_util.h"
 #include "libmvme_export.h"
 
-namespace mesytec
-{
-namespace mvme
+namespace mesytec::mvme
 {
 
 // Allows storing and querying QObject -> QWidget mappings.
@@ -44,8 +42,15 @@ class LIBMVME_EXPORT WidgetRegistry: public QObject
         // TODO: addWidget() does not really belong here as there's no object
         // involved and there's no way to query the widget (stateKey is used for
         // the geoSaver).
-        void addWidget(QWidget *widget, const QString &stateKey);
 
+        // Adds a non object-bound widget. stateKey is passed to the internal
+        // WidgetGeometrySaver and used to query the widget.
+        void addWidget(QWidget *widget, const QString &stateKey);
+        // Non object-bound widgets only!
+        QWidget *getWidget(const QString &stateKey) const;
+        QList<QWidget *> getWidgets(const QString &stateKey) const;
+
+        // Checks both the object-bound and non-object bound widgets.
         template<typename T>
         T *getFirstWidgetOfType()
         {
@@ -54,15 +59,22 @@ class LIBMVME_EXPORT WidgetRegistry: public QObject
                 if (auto result = qobject_cast<T *>(widget))
                     return result;
             }
+
+            for (const auto &widgetList: nonObjectWidgets_.values())
+            {
+                for (auto widget: widgetList)
+                    if (auto result = qobject_cast<T *>(widget))
+                        return result;
+            }
             return nullptr;
         }
 
     private:
         WidgetGeometrySaver *geoSaver_;
         QMap<QObject *, QList<QWidget *>> objectWidgets_;
+        QMap<QString, QList<QWidget  *>> nonObjectWidgets_;
 };
 
-}
 }
 
 #endif /* __MVME_OBJECT_WIDGET_REGISTRY_H__ */
