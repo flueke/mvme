@@ -237,7 +237,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 
                 ret.traces.push_back(currentTrace); // store the old trace
                 // begin the new trace
-                currentTrace = {};
+                currentTrace = {}; // FIXME: reuse the existing vector
                 currentTrace.channel = addr;
 
                 if (amplitudeMatches)
@@ -278,7 +278,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             currentTrace.samples.push_back(evenSigned);
             currentTrace.samples.push_back(oddSigned);
         }
-        // TODO: remove this in release builds.
+#if 1 //#ifndef NDEBUG
         else if (*wordPtr == 0u
                 || mvlc::util::matches(fTimeStamp.filter, *wordPtr)
                 || mvlc::util::matches(fExtentedTs.filter, *wordPtr)
@@ -294,6 +294,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
                 std::distance(data, wordPtr), *wordPtr);
             //assert(!"no filter match in mdpp data");
         }
+#endif
     }
 
     // Handle a possible last trace that was decoded but not yet moved into the
