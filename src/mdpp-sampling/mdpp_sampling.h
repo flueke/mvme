@@ -2,7 +2,9 @@
 #define A477ED5F_CAA6_438E_98B6_000F69258CBC
 
 #include <QWidget>
+
 #include "stream_processor_consumers.h"
+#include "util.h"
 
 class AnalysisServiceProvider;
 using namespace std::chrono_literals;
@@ -11,6 +13,26 @@ namespace mesytec::mvme
 {
 
 static const auto MdppSamplePeriod = 12.5ns;
+
+struct LIBMVME_EXPORT ChannelTrace
+{
+    s32 channel = -1;
+    float amplitude = make_quiet_nan();
+    float time = make_quiet_nan();
+    u32 amplitudeData = 0;
+    u32 timeData = 0;
+    QVector<s16> samples; // samples are 14 bit signed
+};
+struct LIBMVME_EXPORT DecodedMdppSampleEvent
+{
+    QUuid vmeConfigModuleId;
+    u32 header = 0;
+    u64 timestamp = 0;
+    QList<ChannelTrace> traces;
+    u8 moduleId = 0; // extracted from the header word for convenient access
+};
+
+DecodedMdppSampleEvent LIBMVME_EXPORT decode_mdpp_samples(const u32 *data, const size_t size);
 
 class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleConsumer
 {
@@ -55,6 +77,7 @@ class LIBMVME_EXPORT MdppSamplingUi: public QWidget
     Q_OBJECT
     signals:
         void moduleInterestAdded(const QUuid &moduleId);
+        void moduleEventDecoded(const DecodedMdppSampleEvent &event);
 
     public:
         MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
@@ -65,6 +88,21 @@ class LIBMVME_EXPORT MdppSamplingUi: public QWidget
         void handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer);
         void addModuleInterest(const QUuid &moduleId);
 
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class LIBMVME_EXPORT MdppSamplingPlotWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        MdppSamplingPlotWidget(QWidget *parent = nullptr);
+        ~MdppSamplingPlotWidget() override;
+
+    public slots:
+        void addDecodedModuleEvent(const DecodedMdppSampleEvent &event);
 
     private:
         struct Private;

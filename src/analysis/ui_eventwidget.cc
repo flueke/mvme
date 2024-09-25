@@ -3070,12 +3070,13 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                     {
                         auto samplingConsumer = m_serviceProvider->getMVMEStreamWorker()
                             ->getFirstModuleConsumerOfType<mvme::MdppSamplingConsumer>();
+                        assert(samplingConsumer);
+                        if (!samplingConsumer)
+                            return;
 
                         auto widgetRegistry = m_serviceProvider->getWidgetRegistry();
                         auto samplingUi = widgetRegistry->getFirstWidgetOfType<mvme::MdppSamplingUi>();
 
-                        if (!samplingConsumer)
-                            return;
 
                         if (!samplingUi)
                         {
