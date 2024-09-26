@@ -3,6 +3,7 @@
 
 #include <set>
 #include <qwt_symbol.h>
+#include <QSpinBox>
 
 #include <mesytec-mvlc/util/data_filter.h>
 #include <mesytec-mvlc/util/logging.h>
@@ -19,6 +20,17 @@ using namespace mesytec::mvlc;
 
 namespace mesytec::mvme
 {
+
+void reset_trace(ChannelTrace &trace)
+{
+    trace.eventNumber = 0;
+    trace.moduleId = {};
+    trace.amplitude = make_quiet_nan();
+    trace.time = make_quiet_nan();
+    trace.amplitudeData = 0;
+    trace.timeData = 0;
+    trace.samples.clear();
+}
 
 struct MdppSamplingConsumer::Private
 {
@@ -179,7 +191,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     if (mvlc::util::matches(fModuleId.filter, data[0]))
     {
         ret.header = data[0];
-        ret.moduleId = mvlc::util::extract(fModuleId.dataCache, data[0]);
+        ret.headerModuleId = mvlc::util::extract(fModuleId.dataCache, data[0]);
     }
     else
     {
@@ -239,8 +251,9 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
                     currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", "));
 
                 ret.traces.push_back(currentTrace); // store the old trace
+
                 // begin the new trace
-                currentTrace = {}; // FIXME: reuse the existing vector
+                reset_trace(currentTrace);
                 currentTrace.channel = addr;
 
                 if (amplitudeMatches)
@@ -316,26 +329,14 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     }
 
     spdlog::info("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
-                 ret.header, ret.timestamp, ret.moduleId, ret.traces.size());
+                 ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size());
 
     return ret;
 }
 
-struct TraceAddress
-{
-    QUuid moduleId;
-    s32 channelNumber = -1;
-
-    inline bool operator<(const TraceAddress &o) const
-    {
-        if (moduleId < o.moduleId)
-            return channelNumber < o.channelNumber;
-        return false;
-    }
-};
-
 using TraceBuffer = QList<ChannelTrace>;
-using TraceHistoryMap = QMap<TraceAddress, TraceBuffer>;
+using ModuleTraceHistory = QVector<TraceBuffer>;
+using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
 
 struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
 {
@@ -401,21 +402,17 @@ struct MdppSamplingUi::Private
     QwtPlotCurve *curve_ = nullptr; // main curve . more needed if multiple traces should be plotted.
     DecodedMdppSampleEvent currentEvent_;
     MdppChannelTracePlotData *curveData_ = nullptr; // has to be a ptr as qwt takes ownership and deletes it. more needed for multi plots
-    //std::vector<QwtPlotMarker *> plotMarkers_;
     QwtSymbol *sampleCrossSymbol_ = nullptr;
     QwtPlotZoomer *zoomer_ = nullptr;
+    QComboBox *moduleSelect_ = nullptr;
+    QSpinBox *channelSelect_ = nullptr;
+    QSpinBox *eventSelect_ = nullptr;
+    TraceHistoryMap traceHistory_;
+    QHash<QUuid, size_t> moduleEventHits_; // count of events per module (incremented in handleModuleData())
+    size_t traceHistoryMaxDepth = 10;
 
     void updateAxisScales();
 };
-
-#if 0
-QAction *find_action_by_name(QWidget *w, const QString &name)
-{
-    auto actions = w->actions();
-    auto it = std::find_if(std::begin(actions), std::end(actions),
-    [&name] (const QAction *action) { return action->objectName() == name; });
-}
-#endif
 
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     : histo_ui::PlotWidget(parent)
@@ -449,22 +446,81 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
 
     connect(this, &PlotWidget::aboutToReplot, this, [this] { d->updateAxisScales(); });
 
+    // enable both the zoomer and mouse cursor tracker by default
+
     if (auto zoomAction = findChild<QAction *>("zoomAction"))
         zoomAction->setChecked(true);
+
+    if (auto trackerPickerAction = findChild<QAction *>("trackerPickerAction"))
+        trackerPickerAction->setChecked(true);
+
+    auto tb = getToolBar();
+    tb->addSeparator();
+
+    {
+        d->moduleSelect_ = new QComboBox;
+        auto boxStruct = make_vbox_container(QSL("Module"), d->moduleSelect_, 0, -2);
+        tb->addWidget(boxStruct.container.release());
+    }
+
+    tb->addSeparator();
+
+    {
+        d->channelSelect_ = new QSpinBox;
+        d->channelSelect_->setMinimum(0);
+        d->channelSelect_->setMaximum(0);
+        auto boxStruct = make_vbox_container(QSL("Channel"), d->channelSelect_, 0, -2);
+        tb->addWidget(boxStruct.container.release());
+    }
+
+    tb->addSeparator();
+
+    {
+        d->eventSelect_ = new QSpinBox;
+        d->eventSelect_->setMinimum(0);
+        d->eventSelect_->setMaximum(0);
+        auto boxStruct = make_vbox_container(QSL("Trace#"), d->eventSelect_, 0, -2);
+        tb->addWidget(boxStruct.container.release());
+    }
 }
 
 MdppSamplingUi::~MdppSamplingUi() { }
+
+s32 get_max_channel_number(const DecodedMdppSampleEvent &event)
+{
+    s32 ret = -1;
+
+    for (const auto &trace: event.traces)
+        ret = std::max(ret, trace.channel);
+
+    return ret;
+}
+
+s32 get_max_depth(const ModuleTraceHistory &history)
+{
+    s32 ret = 0;
+
+    for (const auto &traceBuffer: history)
+        ret = std::max(ret, traceBuffer.size());
+
+    return ret;
+}
 
 void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer)
 {
     spdlog::trace("MdppSamplingUi::handleModuleData event#{}, moduleId={}, size={}",
         d->debugTotalEvents_, moduleId.toString().toLocal8Bit().data(), buffer.size());
 
+    auto linearEventNumber = d->moduleEventHits_[moduleId]++; // linear event number specific to this module
+
     auto decodedEvent = decode_mdpp_samples(buffer.data(), buffer.size());
+    decodedEvent.eventNumber = linearEventNumber;
+    decodedEvent.moduleId = moduleId;
 
     for (auto &trace: decodedEvent.traces)
     {
-        trace.eventNumber = d->debugTotalEvents_;
+        trace.eventNumber = linearEventNumber;
+        trace.moduleId = moduleId;
 
         spdlog::info("MdppSamplingUi::handleModuleData event#{}, got a trace for channel {} containing {} samples",
                     trace.eventNumber, trace.channel, trace.samples.size());
@@ -473,6 +529,7 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
     // TODO: add this events traces to a per channel tracebuffer to build up a
     // per channel trace history. Limit the history depth to some user specified
     // value.
+
     // TODO (later): make sure that channels not present in this event do have
     // empty traces appended to their history buffers, otherwise the per channel
     // histories will not line up.
@@ -480,6 +537,23 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
     // TODO: store the events traces in a history buffer for later access.
     d->currentEvent_ = decodedEvent;
 
+    auto eventMaxChannel = get_max_channel_number(decodedEvent);
+    auto &eventChannelTraces = decodedEvent.traces;
+    auto &moduleTraceHistory = d->traceHistory_[moduleId];
+    auto maxHistoryDepth = get_max_depth(moduleTraceHistory);
+
+    if (moduleTraceHistory.size() < eventMaxChannel+1)
+    {
+        auto oldSize = moduleTraceHistory.size();
+        moduleTraceHistory.resize(eventMaxChannel+1);
+        for (int i=oldSize; i<moduleTraceHistory.size(); ++i)
+        {
+            // XXX: leftoff here
+        }
+    }
+
+
+#if 0
     if (!d->currentEvent_.traces.empty())
     {
         auto currentTrace = &d->currentEvent_.traces.back(); // XXX: make this selectable
@@ -517,6 +591,7 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
     }
     //else
     //    d->curveData_->setTrace(nullptr);
+#endif
 
     ++d->debugTotalEvents_;
     replot();
@@ -562,81 +637,5 @@ void MdppSamplingUi::Private::updateAxisScales()
         zoomer_->setZoomBase();
     }
 }
-
-#if 0
-struct MdppSamplingPlotWidget::Private
-{
-    MdppSamplingPlotWidget *q;
-    QwtPlot *plot_ = nullptr;
-    std::vector<QwtPlotCurve *> plotCurves_;
-    QLabel *debugLabel_ = nullptr;
-};
-
-MdppSamplingPlotWidget::MdppSamplingPlotWidget(QWidget *parent)
-    : histo_ui::PlotWidget(parent)
-    , d(std::make_unique<Private>())
-{
-    *d = {};
-    d->q = this;
-    d->plot_ = new QwtPlot();
-    d->debugLabel_ = new QLabel("SNAFU");
-
-    auto l = make_vbox(this);
-    l->addWidget(d->plot_);
-    l->addWidget(d->debugLabel_);
-}
-
-MdppSamplingPlotWidget::~MdppSamplingPlotWidget()
-{
-}
-
-void MdppSamplingPlotWidget::addDecodedModuleEvent(const DecodedMdppSampleEvent &event)
-{
-    std::vector<s32> missingChannels;
-
-    // Create missing plots, update sample data of existing plots.
-    for (const auto &channelTrace: event.traces)
-    {
-        auto pred = [&event, &channelTrace] (QwtPlotCurve *curve)
-        {
-            if (auto data = get_curve_data(curve))
-            {
-                const auto &curveEvent = data->getEvent();
-                const auto &curveChannel = data->getChannel();
-                return (event.vmeConfigModuleId == curveEvent.vmeConfigModuleId
-                        && channelTrace.channel == curveChannel);
-            }
-
-            return false;
-        };
-
-        if (auto it = std::find_if(std::begin(d->plotCurves_), std::end(d->plotCurves_), pred);
-            it != std::end(d->plotCurves_))
-        {
-            if (auto data = get_curve_data(*it))
-            {
-                assert(data->getChannel() == channelTrace.channel);
-                assert(data->getEvent().vmeConfigModuleId == event.vmeConfigModuleId);
-                data->setEvent(event);
-            }
-        }
-        else
-        {
-            missingChannels.push_back(channelTrace.channel);
-        }
-    }
-
-    for (auto channelNumber: missingChannels)
-    {
-        auto data = new MdppChannelTracePlotData(event, channelNumber);
-        auto curveName = QSL("vmeModuleId={}, channel={}").arg(event.vmeConfigModuleId.toString()).arg(channelNumber);
-        auto curve = make_curve(data, curveName);
-        curve->attach(d->plot_);
-        d->plotCurves_.push_back(curve.release());
-    }
-
-    d->plot_->replot();
-}
-#endif
 
 }

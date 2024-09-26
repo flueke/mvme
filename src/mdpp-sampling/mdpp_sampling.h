@@ -28,6 +28,9 @@ struct LIBMVME_EXPORT ChannelTrace
     QVector<s16> samples; // samples are 14 bit signed, converted to and stored as 16 bit signed
 };
 
+// Clear the sample memory and reset all other fields to default values.
+void reset_trace(ChannelTrace &trace);
+
 // Can hold traces from multiple channels or alternatively the traces list can be
 // used to store a history of traces for a particular channel.
 struct LIBMVME_EXPORT DecodedMdppSampleEvent
@@ -35,11 +38,11 @@ struct LIBMVME_EXPORT DecodedMdppSampleEvent
     // Set to the linear event number when decoding data from an mdpp. leave set
     // to -1 when using this structure as a history buffer for a single channel.
     ssize_t eventNumber = -1;
-    QUuid vmeConfigModuleId;
+    QUuid moduleId;
     u32 header = 0;
     u64 timestamp = 0;
     QList<ChannelTrace> traces;
-    u8 moduleId = 0; // extracted from the header word for convenient access
+    u8 headerModuleId = 0; // extracted from the header word for convenient access
 };
 
 DecodedMdppSampleEvent LIBMVME_EXPORT decode_mdpp_samples(const u32 *data, const size_t size);
@@ -100,23 +103,6 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::PlotWidget
         struct Private;
         std::unique_ptr<Private> d;
 };
-
-#if 0
-class LIBMVME_EXPORT MdppSamplingPlotWidget: public histo_ui::PlotWidget
-{
-    Q_OBJECT
-    public:
-        MdppSamplingPlotWidget(QWidget *parent = nullptr);
-        ~MdppSamplingPlotWidget() override;
-
-    public slots:
-        void addDecodedModuleEvent(const DecodedMdppSampleEvent &event);
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
-#endif
 
 }
 
