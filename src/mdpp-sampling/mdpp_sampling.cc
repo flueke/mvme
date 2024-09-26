@@ -2,6 +2,7 @@
 #include "mdpp_sampling.h"
 
 #include <set>
+#include <qwt_symbol.h>
 
 #include <mesytec-mvlc/util/data_filter.h>
 #include <mesytec-mvlc/util/logging.h>
@@ -38,6 +39,7 @@ struct MdppSamplingConsumer::Private
     {
         // TODO: crateIndex needs to be checked if this should be multicrate capable.
 
+        auto guard = std::unique_lock(mutex_);
         // Map indexes back to the moduleId, then check if it's present in the
         // moduleInterests_ set.
         auto moduleId = indexToVmeId_.value({ eventIndex, moduleIndex});
@@ -80,6 +82,7 @@ void MdppSamplingConsumer::beginRun(
 
 void MdppSamplingConsumer::endRun(const DAQStats &stats, const std::exception *e)
 {
+    (void) stats; (void) e;
 }
 
 void MdppSamplingConsumer::beginEvent(s32 eventIndex)
@@ -241,9 +244,15 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
                 currentTrace.channel = addr;
 
                 if (amplitudeMatches)
+                {
                     currentTrace.amplitude = value;
+                    currentTrace.amplitudeData = *wordPtr;
+                }
                 else
+                {
                     currentTrace.time = value;
+                    currentTrace.timeData = *wordPtr;
+                }
             }
             else
             {
@@ -312,25 +321,136 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     return ret;
 }
 
-struct MdppSamplingUi::Private
+struct TraceAddress
 {
-    // Info provided at construction time
-    AnalysisServiceProvider *asp_ = nullptr;
-    size_t debugTotalEvents_ = 0;
-    MdppSamplingPlotWidget *plotWidget_ = nullptr;
+    QUuid moduleId;
+    s32 channelNumber = -1;
+
+    inline bool operator<(const TraceAddress &o) const
+    {
+        if (moduleId < o.moduleId)
+            return channelNumber < o.channelNumber;
+        return false;
+    }
 };
 
+using TraceBuffer = QList<ChannelTrace>;
+using TraceHistoryMap = QMap<TraceAddress, TraceBuffer>;
+
+struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
+{
+    const ChannelTrace *trace_ = nullptr;
+    QRectF boundingRectCache_;
+
+    //explicit MdppChannelTracePlotData() {}
+
+    // Set the event data to plot
+    void setTrace(const ChannelTrace *trace)
+    {
+         trace_ = trace;
+         boundingRectCache_ = {};
+    }
+
+    const ChannelTrace *getTrace() const { return trace_; }
+
+    QRectF boundingRect() const override
+    {
+        if (boundingRectCache_.isValid())
+            return boundingRectCache_;
+
+        if (!trace_ || trace_->samples.empty())
+            return {};
+
+        auto &samples = trace_->samples;
+        auto minMax = std::minmax_element(std::begin(samples), std::end(samples));
+
+        if (minMax.first != std::end(samples) && minMax.second != std::end(samples))
+        {
+            QPointF topLeft(0, *minMax.second);
+            QPointF bottomRight(samples.size(), *minMax.first);
+            return QRectF(topLeft, bottomRight);
+        }
+
+        return {};
+    }
+
+    size_t size() const override
+    {
+        return trace_ ? trace_->samples.size() : 0;
+    }
+
+    QPointF sample(size_t i) const override
+    {
+        if (trace_ && i < static_cast<size_t>(trace_->samples.size()))
+            return QPointF(i, trace_->samples[i]);
+
+        return {};
+    }
+};
+
+inline MdppChannelTracePlotData *get_curve_data(QwtPlotCurve *curve)
+{
+    return reinterpret_cast<MdppChannelTracePlotData *>(curve->data());
+}
+
+struct MdppSamplingUi::Private
+{
+    MdppSamplingUi *q = nullptr;
+    AnalysisServiceProvider *asp_ = nullptr;
+    size_t debugTotalEvents_ = 0;
+    QwtPlotCurve *curve_ = nullptr; // main curve . more needed if multiple traces should be plotted.
+    DecodedMdppSampleEvent currentEvent_;
+    MdppChannelTracePlotData *curveData_ = nullptr; // has to be a ptr as qwt takes ownership and deletes it. more needed for multi plots
+    //std::vector<QwtPlotMarker *> plotMarkers_;
+    QwtSymbol *sampleCrossSymbol_ = nullptr;
+    QwtPlotZoomer *zoomer_ = nullptr;
+
+    void updateAxisScales();
+};
+
+#if 0
+QAction *find_action_by_name(QWidget *w, const QString &name)
+{
+    auto actions = w->actions();
+    auto it = std::find_if(std::begin(actions), std::end(actions),
+    [&name] (const QAction *action) { return action->objectName() == name; });
+}
+#endif
+
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
-    : QWidget(parent)
+    : histo_ui::PlotWidget(parent)
     , d(std::make_unique<Private>())
 {
     qRegisterMetaType<DecodedMdppSampleEvent>("mesytec::mvme::DecodedMdppSampleEvent");
 
+    d->q = this;
     d->asp_ = asp;
-    d->plotWidget_ = new MdppSamplingPlotWidget(this);
+    d->curve_ = new QwtPlotCurve("lineCurve");
+    d->curve_->setStyle(QwtPlotCurve::Lines);
+    //d->curve_->setCurveAttribute(QwtPlotCurve::Fitted); // TODO: make this a runtime toggle
+    d->curve_->setPen(Qt::black);
+    d->curve_->setRenderHint(QwtPlotItem::RenderAntialiased);
+    d->curve_->attach(getPlot());
 
-    auto l = make_vbox(this);
-    l->addWidget(d->plotWidget_);
+    d->curveData_ = new MdppChannelTracePlotData();
+    d->curve_->setData(d->curveData_);
+
+    auto crossSymbol = new QwtSymbol(QwtSymbol::Diamond);
+    //crossSymbol->setPen(Qt::red);
+    crossSymbol->setSize(QSize(5, 5));
+    crossSymbol->setColor(Qt::red);
+
+    //crossSymbol->setPinPoint(QPointF(0, 0), true);
+    d->curve_->setSymbol(crossSymbol);
+
+    histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
+    d->zoomer_ = histo_ui::install_scrollzoomer(this);
+    histo_ui::install_tracker_picker(this);
+
+    connect(this, &PlotWidget::aboutToReplot, this, [this] { d->updateAxisScales(); });
+
+    if (auto zoomAction = findChild<QAction *>("zoomAction"))
+        zoomAction->setChecked(true);
 }
 
 MdppSamplingUi::~MdppSamplingUi() { }
@@ -342,15 +462,64 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
 
     auto decodedEvent = decode_mdpp_samples(buffer.data(), buffer.size());
 
-    for (const auto &trace: decodedEvent.traces)
+    for (auto &trace: decodedEvent.traces)
     {
+        trace.eventNumber = d->debugTotalEvents_;
+
         spdlog::info("MdppSamplingUi::handleModuleData event#{}, got a trace for channel {} containing {} samples",
-                     d->debugTotalEvents_, trace.channel, trace.samples.size());
+                    trace.eventNumber, trace.channel, trace.samples.size());
     }
 
-    d->plotWidget_->addDecodedModuleEvent(decodedEvent);
+    // TODO: add this events traces to a per channel tracebuffer to build up a
+    // per channel trace history. Limit the history depth to some user specified
+    // value.
+    // TODO (later): make sure that channels not present in this event do have
+    // empty traces appended to their history buffers, otherwise the per channel
+    // histories will not line up.
+
+    // TODO: store the events traces in a history buffer for later access.
+    d->currentEvent_ = decodedEvent;
+
+    if (!d->currentEvent_.traces.empty())
+    {
+        auto currentTrace = &d->currentEvent_.traces.back(); // XXX: make this selectable
+
+        d->curveData_->setTrace(currentTrace);
+        auto boundingRect = d->curveData_->boundingRect();
+        qreal x1, y1, x2, y2;
+        boundingRect.getCoords(&x1, &y1, &x2, &y2);
+        spdlog::info("MdppSamplingUi::handleModuleData event#{}: curve bounding rect: x1={}, y1={}, x2={}, y2={}",
+            d->debugTotalEvents_, x1, y1, x2, y2);
+
+        #if 0
+        if (d->plotMarkers_.size() < static_cast<size_t>(currentTrace->samples.size()))
+            d->plotMarkers_.resize(currentTrace->samples.size());
+
+        for (size_t i = 0; i < static_cast<size_t>(currentTrace->samples.size()); ++i)
+        {
+            auto &plotMarker = d->plotMarkers_[i];
+
+            if (!plotMarker)
+            {
+                auto symbol = new QwtSymbol(QwtSymbol::XCross, Qt::red, Qt::SolidLine, QSize(5, 5));
+                symbol->setPinPoint(QPointF(0, 0), true);
+                //plotMarker = new QwtPlotMarker();
+                //plotMarker->setSymbol(symbol);
+                //plotMarker->attach(getPlot());
+            }
+
+            assert(plotMarker);
+
+            QPointF point(i, currentTrace->samples[i]);
+            plotMarker->setValue(point);
+        }
+        #endif
+    }
+    //else
+    //    d->curveData_->setTrace(nullptr);
 
     ++d->debugTotalEvents_;
+    replot();
 }
 
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)
@@ -358,82 +527,43 @@ void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)
     emit moduleInterestAdded(moduleId);
 }
 
-struct MdppSamplingPlotData: public QwtSeriesData<QPointF>
+void MdppSamplingUi::Private::updateAxisScales()
 {
-    DecodedMdppSampleEvent event_;
-    s32 channel_ = -1;
-    double yOffset_ = 0.0;
+    spdlog::info("entering MdppSamplingUi::Private::updateAxisScales()");
 
-    MdppSamplingPlotData(const DecodedMdppSampleEvent &event, unsigned channelNumber, double yOffset = 0.0)
-        : event_(event)
-        , channel_(channelNumber)
-        , yOffset_(yOffset)
-    {}
+    // yAxis
+    auto plot = q->getPlot();
+    auto br = curveData_->boundingRect();
+    auto minValue = br.bottom();
+    auto maxValue = br.top();
 
-    QRectF boundingRect() const override
+    if (histo_ui::is_logarithmic_axis_scale(plot, QwtPlot::yLeft))
     {
-        // TODO: proper scaling if multiple curves should be shown vertically as
-        // in the trigger io DSO widget.
-        // x, y, width, height
-        return { 0.0, -100, 60, 200 };
+        if (minValue <= 0.0)
+            minValue = 0.1;
+
+        maxValue = std::max(minValue, maxValue);
     }
 
-    size_t size() const override
     {
-        if (0 <= channel_ && channel_ < event_.traces.size())
-        {
-            return event_.traces[channel_].samples.size();
-        }
-
-        return 0;
+        // Scale the y-axis by 5% to have some margin to the top and bottom of the
+        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
+        minValue *= (minValue < 0.0) ? 1.05 : 0.95;
+        maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
     }
 
-    QPointF sample(size_t i) const override
+    plot->setAxisScale(QwtPlot::yLeft, minValue, maxValue);
+
+    // xAxis
+    if (zoomer_->zoomRectIndex() == 0)
     {
-        if (0 <= channel_ && channel_ < event_.traces.size())
-        {
-            auto &channelTrace = event_.traces[channel_];
-
-            if (i < static_cast<size_t>(channelTrace.samples.size()))
-            {
-                return QPointF(i, channelTrace.samples[i]);
-            }
-        }
-
-        return {};
+        // fully zoomed out -> set to full resolution
+        plot->setAxisScale(QwtPlot::xBottom, br.left(), br.right());
+        zoomer_->setZoomBase();
     }
-
-    // Set the event data to plot
-    void setEvent(const DecodedMdppSampleEvent &event) { event_ = event; }
-    const DecodedMdppSampleEvent &getEvent() const { return event_; }
-
-    // Set the channel to plot. nothing will be shown if the channel is not
-    // present in the current event.
-    void setChannel(s32 channel) { channel_ = channel; }
-    s32 getChannel() const { return channel_; }
-
-    double getYOffset() const { return yOffset_; }
-    void setYOffset(double y) { yOffset_ = y; }
-
-};
-
-inline MdppSamplingPlotData *get_curve_data(QwtPlotCurve *curve)
-{
-    return reinterpret_cast<MdppSamplingPlotData *>(curve->data());
 }
 
-inline std::unique_ptr<QwtPlotCurve> make_curve(MdppSamplingPlotData *data, const QString &curveName = {})
-{
-    auto curve = std::make_unique<QwtPlotCurve>(curveName);
-    curve->setData(data);
-    curve->setStyle(QwtPlotCurve::Lines);
-    //curve->setCurveAttribute(QwtPlotCurve::Inverted);
-    curve->setPen(Qt::black);
-    curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-
-    return curve;
-}
-
+#if 0
 struct MdppSamplingPlotWidget::Private
 {
     MdppSamplingPlotWidget *q;
@@ -443,7 +573,7 @@ struct MdppSamplingPlotWidget::Private
 };
 
 MdppSamplingPlotWidget::MdppSamplingPlotWidget(QWidget *parent)
-    : QWidget(parent)
+    : histo_ui::PlotWidget(parent)
     , d(std::make_unique<Private>())
 {
     *d = {};
@@ -462,12 +592,6 @@ MdppSamplingPlotWidget::~MdppSamplingPlotWidget()
 
 void MdppSamplingPlotWidget::addDecodedModuleEvent(const DecodedMdppSampleEvent &event)
 {
-    // TODO: think up a scheme for the y offsets. might have to rearrange curves
-    // if channels start to respond that where previously silent.
-
-    // TODO: plot the most recent event. show events/s somewhere. force replot (timer or directly?)
-    //d->plotData_->setMdppSampleEvent(event);
-
     std::vector<s32> missingChannels;
 
     // Create missing plots, update sample data of existing plots.
@@ -504,7 +628,7 @@ void MdppSamplingPlotWidget::addDecodedModuleEvent(const DecodedMdppSampleEvent 
 
     for (auto channelNumber: missingChannels)
     {
-        auto data = new MdppSamplingPlotData(event, channelNumber, 0.0);
+        auto data = new MdppChannelTracePlotData(event, channelNumber);
         auto curveName = QSL("vmeModuleId={}, channel={}").arg(event.vmeConfigModuleId.toString()).arg(channelNumber);
         auto curve = make_curve(data, curveName);
         curve->attach(d->plot_);
@@ -513,5 +637,6 @@ void MdppSamplingPlotWidget::addDecodedModuleEvent(const DecodedMdppSampleEvent 
 
     d->plot_->replot();
 }
+#endif
 
 }

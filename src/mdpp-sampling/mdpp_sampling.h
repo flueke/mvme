@@ -3,6 +3,7 @@
 
 #include <QWidget>
 
+#include "histo_ui.h"
 #include "stream_processor_consumers.h"
 #include "util.h"
 
@@ -16,15 +17,24 @@ static const auto MdppSamplePeriod = 12.5ns;
 
 struct LIBMVME_EXPORT ChannelTrace
 {
+    // linear event number incremented on each event from the source module
+    size_t eventNumber = 0;
+    QUuid moduleId;
     s32 channel = -1;
-    float amplitude = make_quiet_nan();
-    float time = make_quiet_nan();
-    u32 amplitudeData = 0;
-    u32 timeData = 0;
-    QVector<s16> samples; // samples are 14 bit signed
+    float amplitude = make_quiet_nan(); // extracted amplitude value
+    float time = make_quiet_nan(); // extracted time value
+    u32 amplitudeData = 0; // raw amplitude data word
+    u32 timeData = 0; // raw time data word
+    QVector<s16> samples; // samples are 14 bit signed, converted to and stored as 16 bit signed
 };
+
+// Can hold traces from multiple channels or alternatively the traces list can be
+// used to store a history of traces for a particular channel.
 struct LIBMVME_EXPORT DecodedMdppSampleEvent
 {
+    // Set to the linear event number when decoding data from an mdpp. leave set
+    // to -1 when using this structure as a history buffer for a single channel.
+    ssize_t eventNumber = -1;
     QUuid vmeConfigModuleId;
     u32 header = 0;
     u64 timestamp = 0;
@@ -72,29 +82,27 @@ class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleC
         std::unique_ptr<Private> d;
 };
 
-class LIBMVME_EXPORT MdppSamplingUi: public QWidget
+class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::PlotWidget
 {
     Q_OBJECT
     signals:
         void moduleInterestAdded(const QUuid &moduleId);
-        void moduleEventDecoded(const DecodedMdppSampleEvent &event);
 
     public:
         MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~MdppSamplingUi() override;
 
     public slots:
-        //void handleModuleData(s32 crateIndex, s32 eventIndex, s32 moduleIndex, const std::vector<u32> buffer);
         void handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer);
         void addModuleInterest(const QUuid &moduleId);
-
 
     private:
         struct Private;
         std::unique_ptr<Private> d;
 };
 
-class LIBMVME_EXPORT MdppSamplingPlotWidget: public QWidget
+#if 0
+class LIBMVME_EXPORT MdppSamplingPlotWidget: public histo_ui::PlotWidget
 {
     Q_OBJECT
     public:
@@ -108,6 +116,7 @@ class LIBMVME_EXPORT MdppSamplingPlotWidget: public QWidget
         struct Private;
         std::unique_ptr<Private> d;
 };
+#endif
 
 }
 
