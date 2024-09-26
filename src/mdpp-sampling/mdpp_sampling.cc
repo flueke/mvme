@@ -1,5 +1,4 @@
-
-#include "mdpp_sampling.h"
+#include "mdpp_sampling_p.h"
 
 #include <set>
 #include <qwt_symbol.h>
@@ -11,7 +10,6 @@
 
 #include "analysis/analysis.h"
 #include "analysis/a2/a2_support.h"
-#include "mvme_qwt.h"
 #include "run_info.h"
 #include "util/qt_container.h"
 #include "vme_config.h"
@@ -334,94 +332,63 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     return ret;
 }
 
-using TraceBuffer = QList<ChannelTrace>;
-using ModuleTraceHistory = QVector<TraceBuffer>;
-using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
-
-struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
-{
-    const ChannelTrace *trace_ = nullptr;
-    QRectF boundingRectCache_;
-
-    //explicit MdppChannelTracePlotData() {}
-
-    // Set the event data to plot
-    void setTrace(const ChannelTrace *trace)
-    {
-         trace_ = trace;
-         boundingRectCache_ = {};
-    }
-
-    const ChannelTrace *getTrace() const { return trace_; }
-
-    QRectF boundingRect() const override
-    {
-        if (boundingRectCache_.isValid())
-            return boundingRectCache_;
-
-        if (!trace_ || trace_->samples.empty())
-            return {};
-
-        auto &samples = trace_->samples;
-        auto minMax = std::minmax_element(std::begin(samples), std::end(samples));
-
-        if (minMax.first != std::end(samples) && minMax.second != std::end(samples))
-        {
-            QPointF topLeft(0, *minMax.second);
-            QPointF bottomRight(samples.size(), *minMax.first);
-            return QRectF(topLeft, bottomRight);
-        }
-
-        return {};
-    }
-
-    size_t size() const override
-    {
-        return trace_ ? trace_->samples.size() : 0;
-    }
-
-    QPointF sample(size_t i) const override
-    {
-        if (trace_ && i < static_cast<size_t>(trace_->samples.size()))
-            return QPointF(i, trace_->samples[i]);
-
-        return {};
-    }
-};
 
 inline MdppChannelTracePlotData *get_curve_data(QwtPlotCurve *curve)
 {
     return reinterpret_cast<MdppChannelTracePlotData *>(curve->data());
 }
 
-struct MdppSamplingUi::Private
+struct TracePlotWidget::Private
 {
-    MdppSamplingUi *q = nullptr;
-    AnalysisServiceProvider *asp_ = nullptr;
-    size_t debugTotalEvents_ = 0;
+    TracePlotWidget *q = nullptr;
     QwtPlotCurve *curve_ = nullptr; // main curve . more needed if multiple traces should be plotted.
-    DecodedMdppSampleEvent currentEvent_;
     MdppChannelTracePlotData *curveData_ = nullptr; // has to be a ptr as qwt takes ownership and deletes it. more needed for multi plots
-    QwtSymbol *sampleCrossSymbol_ = nullptr;
     QwtPlotZoomer *zoomer_ = nullptr;
-    QComboBox *moduleSelect_ = nullptr;
-    QSpinBox *channelSelect_ = nullptr;
-    QSpinBox *eventSelect_ = nullptr;
-    TraceHistoryMap traceHistory_;
-    QHash<QUuid, size_t> moduleEventHits_; // count of events per module (incremented in handleModuleData())
-    size_t traceHistoryMaxDepth = 10;
 
     void updateAxisScales();
 };
 
-MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
+void TracePlotWidget::Private::updateAxisScales()
+{
+    spdlog::info("entering TracePlotWidget::Private::updateAxisScales()");
+
+    // yAxis
+    auto plot = q->getPlot();
+    auto br = curveData_->boundingRect();
+    auto minValue = br.bottom();
+    auto maxValue = br.top();
+
+    if (histo_ui::is_logarithmic_axis_scale(plot, QwtPlot::yLeft))
+    {
+        if (minValue <= 0.0)
+            minValue = 0.1;
+
+        maxValue = std::max(minValue, maxValue);
+    }
+
+    {
+        // Scale the y-axis by 5% to have some margin to the top and bottom of the
+        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
+        minValue *= (minValue < 0.0) ? 1.05 : 0.95;
+        maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
+    }
+
+    plot->setAxisScale(QwtPlot::yLeft, minValue, maxValue);
+
+    // xAxis
+    if (zoomer_->zoomRectIndex() == 0)
+    {
+        // fully zoomed out -> set to full resolution
+        plot->setAxisScale(QwtPlot::xBottom, br.left(), br.right());
+        zoomer_->setZoomBase();
+    }
+}
+
+TracePlotWidget::TracePlotWidget(QWidget *parent)
     : histo_ui::PlotWidget(parent)
     , d(std::make_unique<Private>())
 {
-    qRegisterMetaType<DecodedMdppSampleEvent>("mesytec::mvme::DecodedMdppSampleEvent");
-
     d->q = this;
-    d->asp_ = asp;
     d->curve_ = new QwtPlotCurve("lineCurve");
     d->curve_->setStyle(QwtPlotCurve::Lines);
     //d->curve_->setCurveAttribute(QwtPlotCurve::Fitted); // TODO: make this a runtime toggle
@@ -457,6 +424,49 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     auto tb = getToolBar();
     tb->addSeparator();
 
+}
+
+TracePlotWidget::~TracePlotWidget()
+{
+}
+
+void TracePlotWidget::setTrace(const ChannelTrace *trace)
+{
+    auto curveData = get_curve_data(d->curve_);
+    curveData->setTrace(trace);
+    replot();
+}
+
+struct MdppSamplingUi::Private
+{
+    MdppSamplingUi *q = nullptr;
+    AnalysisServiceProvider *asp_ = nullptr;
+    TracePlotWidget *plotWidget_ = nullptr;
+    size_t debugTotalEvents_ = 0;
+    DecodedMdppSampleEvent currentEvent_;
+    QComboBox *moduleSelect_ = nullptr;
+    QSpinBox *channelSelect_ = nullptr;
+    QSpinBox *eventSelect_ = nullptr;
+    TraceHistoryMap traceHistory_;
+    QHash<QUuid, size_t> moduleEventHits_; // count of events per module (incremented in handleModuleData())
+    size_t traceHistoryMaxDepth = 10;
+};
+
+MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
+    : histo_ui::IPlotWidget(parent)
+    , d(std::make_unique<Private>())
+{
+    qRegisterMetaType<DecodedMdppSampleEvent>("mesytec::mvme::DecodedMdppSampleEvent");
+
+    d->q = this;
+    d->asp_ = asp;
+    d->plotWidget_ = new TracePlotWidget(this);
+
+    auto l = make_hbox<0, 0>(this);
+    l->addWidget(d->plotWidget_);
+
+    auto tb = getToolBar();
+
     {
         d->moduleSelect_ = new QComboBox;
         auto boxStruct = make_vbox_container(QSL("Module"), d->moduleSelect_, 0, -2);
@@ -486,6 +496,26 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
 
 MdppSamplingUi::~MdppSamplingUi() { }
 
+QwtPlot *MdppSamplingUi::getPlot()
+{
+    return d->plotWidget_->getPlot();
+}
+
+const QwtPlot *MdppSamplingUi::getPlot() const
+{
+    return d->plotWidget_->getPlot();
+}
+
+QToolBar *MdppSamplingUi::getToolBar()
+{
+    return d->plotWidget_->getToolBar();
+}
+
+QStatusBar *MdppSamplingUi::getStatusBar()
+{
+    return d->plotWidget_->getStatusBar();
+}
+
 s32 get_max_channel_number(const DecodedMdppSampleEvent &event)
 {
     s32 ret = -1;
@@ -504,6 +534,11 @@ s32 get_max_depth(const ModuleTraceHistory &history)
         ret = std::max(ret, traceBuffer.size());
 
     return ret;
+}
+
+void MdppSamplingUi::replot()
+{
+    d->plotWidget_->replot();
 }
 
 void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer)
@@ -553,17 +588,19 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
     }
 
 
-#if 0
+#if 1
     if (!d->currentEvent_.traces.empty())
     {
         auto currentTrace = &d->currentEvent_.traces.back(); // XXX: make this selectable
 
-        d->curveData_->setTrace(currentTrace);
+        d->plotWidget_->setTrace(currentTrace);
+        #if 0
         auto boundingRect = d->curveData_->boundingRect();
         qreal x1, y1, x2, y2;
         boundingRect.getCoords(&x1, &y1, &x2, &y2);
         spdlog::info("MdppSamplingUi::handleModuleData event#{}: curve bounding rect: x1={}, y1={}, x2={}, y2={}",
             d->debugTotalEvents_, x1, y1, x2, y2);
+        #endif
 
         #if 0
         if (d->plotMarkers_.size() < static_cast<size_t>(currentTrace->samples.size()))
@@ -600,42 +637,6 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)
 {
     emit moduleInterestAdded(moduleId);
-}
-
-void MdppSamplingUi::Private::updateAxisScales()
-{
-    spdlog::info("entering MdppSamplingUi::Private::updateAxisScales()");
-
-    // yAxis
-    auto plot = q->getPlot();
-    auto br = curveData_->boundingRect();
-    auto minValue = br.bottom();
-    auto maxValue = br.top();
-
-    if (histo_ui::is_logarithmic_axis_scale(plot, QwtPlot::yLeft))
-    {
-        if (minValue <= 0.0)
-            minValue = 0.1;
-
-        maxValue = std::max(minValue, maxValue);
-    }
-
-    {
-        // Scale the y-axis by 5% to have some margin to the top and bottom of the
-        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
-        minValue *= (minValue < 0.0) ? 1.05 : 0.95;
-        maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
-    }
-
-    plot->setAxisScale(QwtPlot::yLeft, minValue, maxValue);
-
-    // xAxis
-    if (zoomer_->zoomRectIndex() == 0)
-    {
-        // fully zoomed out -> set to full resolution
-        plot->setAxisScale(QwtPlot::xBottom, br.left(), br.right());
-        zoomer_->setZoomBase();
-    }
 }
 
 }

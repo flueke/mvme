@@ -85,7 +85,21 @@ class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleC
         std::unique_ptr<Private> d;
 };
 
-class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::PlotWidget
+class LIBMVME_EXPORT TracePlotWidget: public histo_ui::PlotWidget
+{
+    Q_OBJECT
+    public:
+        TracePlotWidget(QWidget *parent = nullptr);
+        ~TracePlotWidget() override;
+
+        void setTrace(const ChannelTrace *trace);
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
 {
     Q_OBJECT
     signals:
@@ -95,7 +109,13 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::PlotWidget
         MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
         ~MdppSamplingUi() override;
 
+        QwtPlot *getPlot() override;
+        const QwtPlot *getPlot() const override;
+        QToolBar *getToolBar() override;
+        QStatusBar *getStatusBar() override;
+
     public slots:
+        void replot() override;
         void handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer);
         void addModuleInterest(const QUuid &moduleId);
 
