@@ -78,6 +78,8 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
 
         QwtPlot *getPlot() override;
         const QwtPlot *getPlot() const override;
+        QToolBar *getToolBar() override;
+        QStatusBar *getStatusBar() override;
 
         s32 currentHistoIndex() const;
 

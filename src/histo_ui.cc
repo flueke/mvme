@@ -20,6 +20,8 @@
 
 #include "histo_gui_util.h"
 #include "histo_util.h"
+#include "scrollzoomer.h"
+#include "scrollbar.h"
 
 namespace histo_ui
 {
@@ -1064,6 +1066,16 @@ bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis)
     return dynamic_cast<const QwtLogScaleEngine *>(plot->axisScaleEngine(axis));
 }
 
+bool is_linear_axis_scale(const IPlotWidget *plot, QwtPlot::Axis axis)
+{
+    return is_linear_axis_scale(plot->getPlot(), axis);
+}
+
+bool is_logarithmic_axis_scale(const IPlotWidget *plot, QwtPlot::Axis axis)
+{
+    return is_logarithmic_axis_scale(plot->getPlot(), axis);
+}
+
 PlotAxisScaleChanger::PlotAxisScaleChanger(QwtPlot *plot, QwtPlot::Axis axis)
     : QObject(plot)
     , m_plot(plot)
@@ -1184,6 +1196,289 @@ QwtText make_qwt_text(const QString &str, int fontPointSize)
     font.setPointSize(fontPointSize);
     txt.setFont(font);
     return txt;
+}
+
+// Ownership of the zoomer goes to the plot.
+QwtPlotZoomer *install_scrollzoomer(PlotWidget *w)
+{
+    auto zoomer = new ScrollZoomer(w->getPlot()->canvas());
+    //auto zoomer = new QwtPlotZoomer(w->getPlot()->canvas());
+    zoomer->setObjectName("zoomer");
+    zoomer->setEnabled(false);
+
+    install_checkable_toolbar_action(
+        w, "Zoom", "zoomAction",
+        zoomer, [zoomer] (bool checked)
+        {
+            spdlog::info("zoom action toggled, checked={}", checked);
+            zoomer->setEnabled(checked);
+            // Show/hide scrollbars unless fully zoomed out.
+            if (zoomer->zoomRectIndex() != 0)
+            {
+                if (auto sb = zoomer->horizontalScrollBar())
+                    sb->setVisible(checked);
+
+                if (auto sb = zoomer->verticalScrollBar())
+                    sb->setVisible(checked);
+            }
+        });
+
+
+    return zoomer;
+}
+
+QwtPlotZoomer *get_zoomer(PlotWidget *w)
+{
+    return w->findChild<QwtPlotZoomer *>("zoomer");
+}
+
+NewIntervalPicker *install_new_interval_picker(PlotWidget *w)
+{
+    auto picker = new NewIntervalPicker(w->getPlot());
+
+    picker->setObjectName("NewIntervalPicker");
+    picker->setEnabled(false);
+
+    install_checkable_toolbar_action(
+        w, "New Interval", "newIntervalPickerAction",
+        picker, [picker] (bool checked)
+        {
+            spdlog::info("newIntervalPickerAction toggled, checked={}", checked);
+            picker->setEnabled(checked);
+            picker->reset();
+        });
+
+    QObject::connect(
+        picker, &NewIntervalPicker::intervalSelected,
+        picker, [] (const QwtInterval &interval)
+        {
+            spdlog::info("NewIntervalPicker: intervalSelected: ({}, {})",
+                         interval.minValue(), interval.maxValue());
+        });
+
+    // React to canceled from the picker. TODO: move this to the outside where
+    // actions are managed
+    auto activate_zoomer_action = [w] ()
+    {
+        if (auto zoomAction = w->findChild<QAction *>("zoomAction"))
+        {
+            spdlog::info("NewIntervalPicker: activating zoomAction");
+            zoomAction->setChecked(true);
+        }
+    };
+
+    QObject::connect(picker, &NewIntervalPicker::canceled,
+                     w, activate_zoomer_action);
+    QObject::connect(picker, &NewIntervalPicker::intervalSelected,
+                     w, activate_zoomer_action);
+
+    return picker;
+}
+
+IntervalEditorPicker *install_interval_editor(PlotWidget *w)
+{
+    auto picker = new IntervalEditorPicker(w->getPlot());
+    picker->setObjectName("IntervalEditorPicker");
+    picker->setEnabled(false);
+    install_checkable_toolbar_action(
+        w, "Edit Interval", "editIntervalPickerAction",
+        picker, [picker] (bool checked)
+        {
+            spdlog::info("editIntervalPickerAction toggled, checked={}", checked);
+            picker->setEnabled(checked);
+        });
+    return picker;
+}
+
+QwtPlotPicker *install_poly_picker(PlotWidget *w)
+{
+    auto picker = new PlotPicker(
+        QwtPlot::xBottom, QwtPlot::yLeft,
+        QwtPicker::PolygonRubberBand,
+        QwtPicker::ActiveOnly,
+        w->getPlot()->canvas());
+
+    picker->setStateMachine(new QwtPickerPolygonMachine);
+
+    picker->setObjectName("polyPicker");
+    picker->setEnabled(false);
+
+    install_checkable_toolbar_action(
+        w, "Polygon", "polyPickerAction",
+        picker, [picker] (bool checked)
+        {
+            spdlog::info("polyPickerAction toggled, checked={}", checked);
+            picker->setEnabled(checked);
+            picker->reset();
+        });
+
+    return picker;
+}
+
+QwtPlotPicker *install_tracker_picker(PlotWidget *w)
+{
+    auto picker = new PlotPicker(
+        QwtPlot::xBottom, QwtPlot::yLeft,
+        QwtPicker::NoRubberBand,
+        QwtPicker::ActiveOnly,
+        w->getPlot()->canvas());
+
+    picker->setStateMachine(new QwtPickerTrackerMachine);
+
+    picker->setObjectName("trackerPicker");
+    picker->setEnabled(false);
+
+    install_checkable_toolbar_action(
+        w, "Tracker", "trackerPickerAction",
+        picker, [picker] (bool checked)
+        {
+            spdlog::info("trackerPickerAction toggled, checked={}", checked);
+            picker->setEnabled(checked);
+        });
+
+    return picker;
+}
+
+QwtPlotPicker *install_clickpoint_picker(PlotWidget *w)
+{
+    auto picker = new PlotPicker(
+        QwtPlot::xBottom, QwtPlot::yLeft,
+        QwtPicker::VLineRubberBand,
+        QwtPicker::AlwaysOn,
+        w->getPlot()->canvas());
+
+    picker->setStateMachine(new QwtPickerClickPointMachine);
+
+    picker->setObjectName("ClickPointPicker");
+    picker->setEnabled(false);
+
+    install_checkable_toolbar_action(
+        w, "ClickPoint", "clickPointPickerAction",
+        picker, [picker] (bool checked)
+        {
+            spdlog::info("clickPointPickerAction toggled, checked={}", checked);
+            picker->setEnabled(checked);
+        });
+
+    return picker;
+}
+
+QwtPlotPicker *install_dragpoint_picker(PlotWidget *w)
+{
+    auto picker = new PlotPicker(
+        QwtPlot::xBottom, QwtPlot::yLeft,
+        QwtPicker::VLineRubberBand,
+        QwtPicker::AlwaysOn,
+        w->getPlot()->canvas());
+
+    picker->setStateMachine(new QwtPickerDragPointMachine);
+
+    picker->setObjectName("DragPointPicker");
+    picker->setEnabled(false);
+
+    install_checkable_toolbar_action(
+        w, "DragPoint", "dragPointPickerAction",
+        picker, [picker] (bool checked)
+        {
+            spdlog::info("dragPointPickerAction toggled, checked={}", checked);
+            picker->setEnabled(checked);
+        });
+
+    return picker;
+}
+
+QActionGroup *group_picker_actions(PlotWidget *w)
+{
+    auto group = new QActionGroup(w);
+    group->setObjectName("exclusivePlotActions");
+    //group->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
+
+    auto add_if_found = [group, w] (auto actionName)
+    {
+        if (auto action = w->findChild<QAction *>(actionName))
+            group->addAction(action);
+    };
+
+    add_if_found("zoomAction");
+    add_if_found("polyPickerAction");
+    add_if_found("trackerPickerAction");
+    add_if_found("clickPointPickerAction");
+    add_if_found("dragPointPickerAction");
+    add_if_found("newIntervalPickerAction");
+    add_if_found("editIntervalPickerAction");
+
+    if (auto firstAction = group->actions().first())
+        firstAction->setChecked(true);
+
+    return group;
+}
+
+void debug_watch_plot_pickers(QWidget *w)
+{
+    for (auto picker: w->findChildren<QwtPlotPicker *>())
+    {
+        QObject::connect(
+            picker, &QwtPicker::activated,
+            picker, [picker] (bool on)
+            {
+                spdlog::info("picker {} activated, on={}",
+                             picker->objectName().toStdString(), on);
+            });
+
+#if 1
+        QObject::connect(
+            picker, &QwtPlotPicker::moved,
+            picker, [picker] (const QPointF &pos)
+            {
+                spdlog::info("picker {} moved to coordinate ({}, {})",
+                             picker->objectName().toStdString(), pos.x(), pos.y());
+            });
+#endif
+
+        QObject::connect(
+            picker, qOverload<const QPointF &>(&QwtPlotPicker::selected),
+            picker, [picker] (const QPointF &pos)
+            {
+                spdlog::info("picker {} selected plot point coordinate ({}, {})",
+                             picker->objectName().toStdString(), pos.x(), pos.y());
+            });
+
+        QObject::connect(
+            picker, qOverload<const QRectF &>(&QwtPlotPicker::selected),
+            picker, [picker] (const QRectF &pos)
+            {
+                (void) pos;
+                spdlog::info("picker {} selected plot rect",
+                             picker->objectName().toStdString());
+            });
+
+        QObject::connect(
+            picker, qOverload<const QVector<QPointF> &>(&QwtPlotPicker::selected),
+            picker, [picker] (const QVector<QPointF> &points)
+            {
+                (void) points;
+                spdlog::info("picker {} selected {} plot points",
+                             picker->objectName().toStdString(), points.size());
+            });
+
+        QObject::connect(
+            picker, &QwtPlotPicker::appended,
+            picker, [picker] (const QPointF &pos)
+            {
+                spdlog::info("picker {} appeneded plot point coordinate ({}, {})",
+                             picker->objectName().toStdString(), pos.x(), pos.y());
+            });
+    }
+}
+
+void watch_mouse_move(PlotWidget *w)
+{
+    QObject::connect(w, &PlotWidget::mouseMoveOnPlot,
+                     [] (const QPointF &f)
+                     {
+                         spdlog::info("watch_mouse_move: mouse moved to ({}, {})",
+                                      f.x(), f.y());
+                     });
 }
 
 }

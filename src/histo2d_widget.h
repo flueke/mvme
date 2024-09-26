@@ -71,6 +71,8 @@ class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
 
         QwtPlot *getPlot() override;
         const QwtPlot *getPlot() const override;
+        QToolBar *getToolBar() override;
+        QStatusBar *getStatusBar() override;
 
     public slots:
         void replot() override;

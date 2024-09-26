@@ -20,6 +20,7 @@
 
 class QToolBar;
 class QStatusBar;
+class QwtPlotZoomer;
 
 namespace histo_ui
 {
@@ -36,6 +37,9 @@ class LIBMVME_EXPORT IPlotWidget: public QWidget
 
         virtual QwtPlot *getPlot() = 0;
         virtual const QwtPlot *getPlot() const = 0;
+
+        virtual QToolBar *getToolBar() = 0;
+        virtual QStatusBar *getStatusBar() = 0;
 
     public slots:
         virtual void replot() = 0;
@@ -57,8 +61,8 @@ class LIBMVME_EXPORT PlotWidget: public IPlotWidget
         QwtPlot *getPlot() override;
         const QwtPlot *getPlot() const override;
 
-        QToolBar *getToolBar();
-        QStatusBar *getStatusBar();
+        QToolBar *getToolBar() override;
+        QStatusBar *getStatusBar() override;
 
     public slots:
         void replot() override;
@@ -209,6 +213,8 @@ enum class AxisScaleType
 
 LIBMVME_EXPORT bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
 LIBMVME_EXPORT bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
+LIBMVME_EXPORT bool is_linear_axis_scale(const IPlotWidget *plot, QwtPlot::Axis axis);
+LIBMVME_EXPORT bool is_logarithmic_axis_scale(const IPlotWidget *plot, QwtPlot::Axis axis);
 
 class LIBMVME_EXPORT PlotAxisScaleChanger: public QObject
 {
@@ -480,6 +486,33 @@ struct Histo1DListRasterData: public BasicRasterData
 LIBMVME_EXPORT void setup_axis_scale_changer(PlotWidget *w, QwtPlot::Axis axis, const QString &axisText);
 LIBMVME_EXPORT std::unique_ptr<QwtLinearColorMap> make_histo2d_color_map(AxisScaleType scaleType);
 LIBMVME_EXPORT QwtText make_qwt_text(const QString &str, int fontPointSize = 10);
+
+template<typename Context, typename Functor>
+QAction *install_checkable_toolbar_action(
+    PlotWidget *w, const QString &label, const QString &actionName,
+    Context context, Functor functor)
+{
+    auto toolbar = w->getToolBar();
+    auto action = toolbar->addAction(label);
+    action->setObjectName(actionName);
+    action->setCheckable(true);
+    QObject::connect(action, &QAction::toggled, context, functor);
+    return action;
+}
+
+QwtPlotZoomer *install_scrollzoomer(PlotWidget *w);
+NewIntervalPicker *install_new_interval_picker(PlotWidget *w);
+IntervalEditorPicker *install_interval_editor(PlotWidget *w);
+QwtPlotPicker *install_poly_picker(PlotWidget *w);
+QwtPlotPicker *install_tracker_picker(PlotWidget *w);
+QwtPlotPicker *install_clickpoint_picker(PlotWidget *w);
+QwtPlotPicker *install_dragpoint_picker(PlotWidget *w);
+QActionGroup *group_picker_actions(PlotWidget *w);
+
+QwtPlotZoomer *get_zoomer(PlotWidget *w);
+
+void debug_watch_plot_pickers(QWidget *w);
+void watch_mouse_move(PlotWidget *w);
 
 }
 

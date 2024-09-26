@@ -1786,6 +1786,16 @@ const QwtPlot *Histo1DWidget::getPlot() const
     return m_d->m_plot;
 }
 
+QToolBar *Histo1DWidget::getToolBar()
+{
+    return m_d->m_toolBar;
+}
+
+QStatusBar *Histo1DWidget::getStatusBar()
+{
+    return m_d->m_statusBar;
+}
+
 void Histo1DWidget::onHistoSpinBoxValueChanged(int index)
 {
     selectHistogram(index);

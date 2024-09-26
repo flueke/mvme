@@ -881,6 +881,17 @@ const QwtPlot *Histo2DWidget::getPlot() const
     return m_d->m_plot;
 }
 
+QToolBar *Histo2DWidget::getToolBar()
+{
+    return m_d->m_toolBar;
+}
+
+QStatusBar *Histo2DWidget::getStatusBar()
+{
+    return m_d->m_statusBar;
+}
+
+
 void Histo2DWidget::displayChanged()
 {
     auto scaleType = static_cast<AxisScaleType>(m_d->m_zScaleCombo->currentData().toInt());
