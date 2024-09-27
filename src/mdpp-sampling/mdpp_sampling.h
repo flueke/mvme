@@ -2,6 +2,8 @@
 #define A477ED5F_CAA6_438E_98B6_000F69258CBC
 
 #include <QWidget>
+#include <QOpenGLWidget>
+#include <QOpenGLFunctions>
 
 #include "histo_ui.h"
 #include "stream_processor_consumers.h"
@@ -92,8 +94,28 @@ class LIBMVME_EXPORT TracePlotWidget: public histo_ui::PlotWidget
         TracePlotWidget(QWidget *parent = nullptr);
         ~TracePlotWidget() override;
 
+    public slots:
         void setTrace(const ChannelTrace *trace);
 
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
+class GlTracePlotWidget : public QOpenGLWidget
+{
+    Q_OBJECT
+    public:
+        GlTracePlotWidget(QWidget *parent = nullptr) ;
+        ~GlTracePlotWidget() override;
+        //: QOpenGLWidget(parent) {}
+
+        void setTrace(const ChannelTrace *trace);
+
+    protected:
+        void initializeGL() override;
+        void resizeGL(int w, int h) override;
+        void paintGL() override;
     private:
         struct Private;
         std::unique_ptr<Private> d;

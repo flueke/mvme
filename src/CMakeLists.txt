@@ -460,6 +460,7 @@ add_mvme_dev_exe(dev_multi_crate_cli dev_multi_crate_cli.cc)
 add_mvme_dev_exe(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
 add_mvme_dev_exe(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
+add_mvme_dev_exe(dev_mdpp_sampling mdpp-sampling/dev_mdpp_sampling.cc)
 add_mvme_dev_exe(dev_replay_ui dev_replay_ui_main.cc)
 #add_mvme_dev_exe(dev_qthelpengine_test dev_qthelpengine_test.cc)
 

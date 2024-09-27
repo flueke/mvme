@@ -5,6 +5,8 @@
 
 #include "mvme_qwt.h"
 
+#include <QDebug>
+
 namespace mesytec::mvme
 {
 
@@ -15,7 +17,7 @@ using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
 struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
 {
     const ChannelTrace *trace_ = nullptr;
-    QRectF boundingRectCache_;
+    mutable QRectF boundingRectCache_;
 
     //explicit MdppChannelTracePlotData() {}
 
@@ -30,23 +32,23 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
 
     QRectF boundingRect() const override
     {
-        if (boundingRectCache_.isValid())
-            return boundingRectCache_;
-
         if (!trace_ || trace_->samples.empty())
             return {};
 
-        auto &samples = trace_->samples;
-        auto minMax = std::minmax_element(std::begin(samples), std::end(samples));
-
-        if (minMax.first != std::end(samples) && minMax.second != std::end(samples))
+        if (!boundingRectCache_.isValid())
         {
-            QPointF topLeft(0, *minMax.second);
-            QPointF bottomRight(samples.size(), *minMax.first);
-            return QRectF(topLeft, bottomRight);
+            auto &samples = trace_->samples;
+            auto minMax = std::minmax_element(std::begin(samples), std::end(samples));
+
+            if (minMax.first != std::end(samples) && minMax.second != std::end(samples))
+            {
+                QPointF topLeft(0, *minMax.second);
+                QPointF bottomRight(samples.size(), *minMax.first);
+                boundingRectCache_ = QRectF(topLeft, bottomRight);
+            }
         }
 
-        return {};
+        return boundingRectCache_;
     }
 
     size_t size() const override
