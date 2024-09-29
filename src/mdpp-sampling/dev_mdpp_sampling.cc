@@ -16,14 +16,33 @@
 
 using namespace mesytec::mvme;
 
-static const int ReplotInterval = 16;
+static const int ReplotInterval = 50;
+static const int GlWidgetUpdateInterval = 16;
 static const int TraceUpdateInterval = 500;
+
+void fill_0(std::vector<float> &dest, float dt)
+{
+    for (auto i=0; i<dest.size(); ++i)
+    {
+        auto t = i * dt;
+        dest[i] = 0.5 * sin(2 * M_PI * 1 * t) + 0.3 * sin(2 * M_PI * 2 * t);
+    }
+}
+
+void fill_1(std::vector<float> &dest, float dt)
+{
+    for (auto i=0; i<dest.size(); ++i)
+    {
+        dest[i] = (sin(i / 10.0 - M_PI / 2) + 1) / (2.0 + i/100.0);
+    }
+}
 
 int main(int argc, char **argv)
 {
-    spdlog::set_level(spdlog::level::info);
     QApplication app(argc, argv);
-    mvme_init("dev_histo_ui");
+    mvme_init("dev_mdpp_sampling");
+    spdlog::set_level(spdlog::level::info);
+    //mesytec::mvlc::set_global_log_level(spdlog::level::debug);
 
     QAction actionQuit("&Quit");
     actionQuit.setShortcut(QSL("Ctrl+Q"));
@@ -32,6 +51,7 @@ int main(int argc, char **argv)
     QObject::connect(&actionQuit, &QAction::triggered, &app, &QApplication::quit);
 
     TracePlotWidget plotWidget1;
+    plotWidget1.addAction(&actionQuit);
     plotWidget1.show();
 
     QTimer replotTimer;
@@ -69,11 +89,30 @@ int main(int argc, char **argv)
     traceUpdateTimer.start();
     update_trace0();
 
-    GlTracePlotWidget glWidget(nullptr);
-    glWidget.show();
+    std::vector<float> raw_trace0(256);
+    std::vector<float> raw_trace1(256);
 
-    plotWidget1.addAction(&actionQuit);
+    fill_0(raw_trace0, 1.0);
+    fill_1(raw_trace1, 1.0);
+
+    QTimer glWidgetUpdateTimer;
+
+    GlTracePlotWidget glWidget(nullptr);
+    glWidget.setWindowTitle("GlTracePlotWidget 0");
+    QObject::connect(&glWidgetUpdateTimer, &QTimer::timeout, &glWidget, [&] {glWidget.update();});
     glWidget.addAction(&actionQuit);
+    glWidget.show();
+    glWidget.setTrace(raw_trace0.data(), raw_trace0.size());
+
+    GlTracePlotWidget glWidget1(nullptr);
+    glWidget1.setWindowTitle("GlTracePlotWidget 1");
+    QObject::connect(&glWidgetUpdateTimer, &QTimer::timeout, &glWidget1, [&] {glWidget1.update();});
+    glWidget1.addAction(&actionQuit);
+    glWidget1.show();
+    glWidget1.setTrace(raw_trace1.data(), raw_trace1.size());
+
+    glWidgetUpdateTimer.setInterval(GlWidgetUpdateInterval);
+    glWidgetUpdateTimer.start();
 
     return app.exec();
 }

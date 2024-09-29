@@ -4,6 +4,12 @@
 #include <qwt_symbol.h>
 #include <QSpinBox>
 
+#include <QOpenGLVertexArrayObject>
+#include <QOpenGLBuffer>
+#include <QOpenGLShaderProgram>
+#include <QOpenGLShader>
+#include <QOpenGLTexture>
+
 #include <mesytec-mvlc/util/data_filter.h>
 #include <mesytec-mvlc/util/logging.h>
 #include <mesytec-mvlc/util/ticketmutex.h>
@@ -432,47 +438,179 @@ TracePlotWidget::~TracePlotWidget()
 
 void TracePlotWidget::setTrace(const ChannelTrace *trace)
 {
-    auto curveData = get_curve_data(d->curve_);
-    curveData->setTrace(trace);
+    d->curveData_->setTrace(trace);
     replot();
 }
 
 struct GlTracePlotWidget::Private
 {
+    GlTracePlotWidget *q = nullptr;
+    QOpenGLVertexArrayObject m_vao;
+    QOpenGLBuffer m_vbo;
+    std::unique_ptr<QOpenGLShaderProgram> m_program;
+    std::unique_ptr<QOpenGLShader> m_vertextShader;
+    std::unique_ptr<QOpenGLShader> m_fragmentShader;
+    std::unique_ptr<QOpenGLTexture> m_texture;
+
+    ~Private()
+    {
+        q->makeCurrent();
+        m_texture = {};
+        m_vertextShader = {};
+        m_fragmentShader = {};
+        m_program = {};
+
+        m_vao.destroy();
+        m_vbo.destroy();
+
+        q->doneCurrent();
+    };
+
+    static float vertices[];
 };
+
+float GlTracePlotWidget::Private::vertices[] = {
+    -0.5f, -0.5f, 0.0f,
+    0.5f, -0.5f, 0.0f,
+    0.0f, 0.5f, 0.0f};
 
 GlTracePlotWidget::GlTracePlotWidget(QWidget *parent)
     : QOpenGLWidget(parent)
+    , d(std::make_unique<Private>())
 {
+    d->q = this;
+    connect(this, &GlTracePlotWidget::aboutToCompose, [&] { spdlog::debug("{}: aboutToCompose", fmt::ptr(this)); });
+    connect(this, &GlTracePlotWidget::frameSwapped, [&] { spdlog::debug("{} frameSwapped", fmt::ptr(this)); });
+    connect(this, &GlTracePlotWidget::aboutToResize, [&] { spdlog::debug("{}: aboutToResize", fmt::ptr(this)); });
+    connect(this, &GlTracePlotWidget::resized, [&] { spdlog::debug("{}: resized", fmt::ptr(this)); });
 }
 
 GlTracePlotWidget::~GlTracePlotWidget()
 {
 }
 
+#if 0
 void GlTracePlotWidget::setTrace(const ChannelTrace *trace)
 {
+}
+#endif
+
+void GlTracePlotWidget::setTrace(const float *samples, size_t size)
+{
+    makeCurrent();
+
+    if (!d->m_vbo.bind())
+        assert(!"!vbo.bind()");
+
+    d->m_vbo.allocate(samples, size * sizeof(*samples));
+    d->m_vbo.release();
+
+    if (!d->m_program->bind())
+        assert(!"!program.bind()");
+    //d->m_program->enableAttributeArray(0);
+    //d->m_program->setAttributeBuffer(0, GL_FLOAT, GL_FALSE, 1, 0);
 }
 
 void GlTracePlotWidget::initializeGL()
 {
+    spdlog::debug("{}: GlTracePlotWidget::initializeGL()", fmt::ptr(this));
     // Set up the rendering context, load shaders and other resources, etc.:
     QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
-    f->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    f->glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
+
+    d->m_vbo.create();
+    d->m_vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
+    d->m_vbo.bind();
+    //d->m_vbo.allocate(d->vertices, sizeof(d->vertices) * sizeof(*d->vertices));
+
+    if (!d->m_vao.create())
+        assert(!"!vao.create()");
+
+    d->m_vao.bind();
+
+    d->m_program = std::make_unique<QOpenGLShaderProgram>();
+
+    if (!d->m_program->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/mdpp-sampling/vertex_shader0.glsl"))
+        spdlog::error("Error compiling vertex shader");
+
+    if (!d->m_program->addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, ":/mdpp-sampling/fragment_shader0.glsl"))
+        spdlog::error("Error compiling fragment shader");
+
+    if (!d->m_program->link())
+        spdlog::error("Error linking shader program");
+
+    if (!d->m_program->bind())
+        spdlog::error("Error binding shader program");
+
+    //d->m_program->enableAttributeArray(0);
+    d->m_program->setAttributeBuffer(0, GL_FLOAT, 0, 3, 3 * sizeof(float));
+
+    d->m_vbo.release();
+    d->m_vao.release();
 }
 
 void GlTracePlotWidget::resizeGL(int w, int h)
 {
+    spdlog::debug("{}: GlTracePlotWidget::resizeGL({}, {})", fmt::ptr(this), w, h);
     // Update projection matrix and other size related settings:
     //m_projection.setToIdentity();
     //m_projection.perspective(45.0f, w / float(h), 0.01f, 100.0f);
+    QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
+    f->glViewport(0, 0, w, h);
 }
 
 void GlTracePlotWidget::paintGL()
 {
+    spdlog::debug("{}: GlTracePlotWidget::paintGL()", fmt::ptr(this));
     // Draw the scene:
     QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
     f->glClear(GL_COLOR_BUFFER_BIT);
+
+    //d->m_vbo.bind();
+    //d->m_vbo.allocate(d->vertices, sizeof(d->vertices) * sizeof(*d->vertices));
+    //d->m_vbo.release();
+
+    d->m_program->bind();
+    //d->m_vao.bind();
+    f->glDrawArrays(GL_TRIANGLES, 0, 3);
+    //f->glDrawArrays(GL_POINTS, 0, 256);
+    d->m_vao.release();
+
+    #if 0
+
+    int aPosLocation = d->m_program->attributeLocation("aPos");
+    //int fragColorLocation = d->m_program->attributeLocation("FragColor");
+    assert(aPosLocation == 0);
+
+    d->m_program->setAttributeArray(aPosLocation, d->vertices, 3);
+    d->m_program->enableAttributeArray(aPosLocation);
+    f->glDrawArrays(GL_TRIANGLES, 0, 3);
+    d->m_program->disableAttributeArray(aPosLocation);
+    //assert(fragColorLocation >= 0);
+    #elif 0
+    int vertexLocation = d->m_program->attributeLocation("vertex");
+    int matrixLocation = d->m_program->uniformLocation("matrix");
+    int colorLocation = d->m_program->uniformLocation("color");
+
+    static GLfloat const triangleVertices[] = {
+    60.0f,  10.0f,  0.0f,
+    110.0f, 110.0f, 0.0f,
+    10.0f,  110.0f, 0.0f
+    };
+
+    QColor color(0, 255, 0, 255);
+
+    QMatrix4x4 pmvMatrix;
+    pmvMatrix.ortho(rect());
+
+    d->m_program->enableAttributeArray(vertexLocation);
+    d->m_program->setAttributeArray(vertexLocation, triangleVertices, 3);
+    d->m_program->setUniformValue(matrixLocation, pmvMatrix);
+    d->m_program->setUniformValue(colorLocation, color);
+
+
+    d->m_program->disableAttributeArray(vertexLocation);
+    #endif
 }
 
 

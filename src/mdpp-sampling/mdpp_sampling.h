@@ -108,9 +108,9 @@ class GlTracePlotWidget : public QOpenGLWidget
     public:
         GlTracePlotWidget(QWidget *parent = nullptr) ;
         ~GlTracePlotWidget() override;
-        //: QOpenGLWidget(parent) {}
 
-        void setTrace(const ChannelTrace *trace);
+        //void setTrace(const ChannelTrace *trace);
+        void setTrace(const float *samples, size_t size);
 
     protected:
         void initializeGL() override;

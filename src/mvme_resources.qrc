@@ -146,6 +146,10 @@
     <!-- mvlc related files -->
     <file>mvlc/scripts/0-init-mtdcs.mvlcscript</file>
     <file>mvlc/trigio_connectivity_bus_bars_only.png</file>
+
+    <!-- mdpp sampling shaders -->
+    <file>mdpp-sampling/vertex_shader0.glsl</file>
+    <file>mdpp-sampling/fragment_shader0.glsl</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml
