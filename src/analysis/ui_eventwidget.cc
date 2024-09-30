@@ -3078,7 +3078,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         auto samplingUi = widgetRegistry->getFirstWidgetOfType<mvme::MdppSamplingUi>();
 
 
-                        if (!samplingUi)
+                        if (!samplingUi || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
                             samplingUi = new mvme::MdppSamplingUi(m_serviceProvider);
                             samplingUi->setAttribute(Qt::WA_DeleteOnClose);
