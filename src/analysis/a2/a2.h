@@ -99,6 +99,7 @@ enum DataSourceType
     DataSource_ListFilterExtractor,
     DataSource_MultiHitExtractor_ArrayPerHit,
     DataSource_MultiHitExtractor_ArrayPerAddress,
+    DataSource_MdppSampleDecoder,
     //DataSource_Copy,
 };
 
@@ -220,6 +221,31 @@ DataSource make_datasource_multihit_extractor(
 
 void multihit_extractor_begin_event(DataSource *ds);
 void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
+
+struct MdppSampleDecoderDataSource
+{
+    // Max channels in this module.
+    unsigned maxChannels;
+    // Max number of samples per channel. Samples that do not fit are discarded
+    // (currently higher numbered samples are discarded first).
+    unsigned maxSamples;
+    pcg32_fast rng;
+    DataSourceOptions::opt_t options;
+};
+
+MdppSampleDecoderDataSource make_mdpp_sample_decoder(
+    unsigned maxChannels,
+    unsigned maxSamples,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options);
+
+DataSource make_datasource_mdpp_sample_decoder(
+    memory::Arena *arena,
+    unsigned maxChannels,
+    unsigned maxSamples,
+    u64 rngSeed,
+    int moduleIndex,
+    DataSourceOptions::opt_t options);
 
 #if 0
 // DataSourceCopy

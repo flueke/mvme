@@ -738,6 +738,46 @@ void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32
     }
 }
 
+// MdppSampleDecoderDataSource
+
+MdppSampleDecoderDataSource make_mdpp_sample_decoder(
+    unsigned maxChannels,
+    unsigned maxSamples,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options)
+{
+    MdppSampleDecoderDataSource result = {};
+
+    result.maxChannels = maxChannels;
+    result.maxSamples = maxSamples;
+    result.rng.seed(rngSeed);
+    result.options = options;
+
+    return result;
+}
+
+DataSource make_datasource_mdpp_sample_decoder(
+    memory::Arena *arena,
+    unsigned maxChannels,
+    unsigned maxSamples,
+    u64 rngSeed,
+    int moduleIndex,
+    DataSourceOptions::opt_t options)
+{
+    auto result = make_datasource(arena, DataSource_Extractor, moduleIndex, maxChannels);
+
+    auto ex = arena->pushObject<MdppSampleDecoderDataSource>();
+    *ex = make_mdpp_sample_decoder(maxChannels, maxSamples, rngSeed, options);
+    result.d = ex;
+
+    // TODO: upper and lower limits to 8k (14 bit signed)
+    // TODO: create all output array
+    //for (size_t outputIndex=0; outputIndex<maxChannels; ++outputIndex)
+    //    push_output_vectors(arena, &result, outputIndex, maxSamples, 0.0,
+
+    return result;
+}
+
 // DataSource_Copy
 
 #if 0
