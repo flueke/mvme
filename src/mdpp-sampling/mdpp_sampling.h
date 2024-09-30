@@ -53,7 +53,7 @@ class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleC
 {
     Q_OBJECT
     signals:
-        void moduleDataReady(const QUuid &moduleId, const std::vector<u32> &buffer);
+        void moduleDataReady(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber);
 
     public:
         explicit MdppSamplingConsumer(QObject *parent = nullptr);
@@ -138,7 +138,7 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
 
     public slots:
         void replot() override;
-        void handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer);
+        void handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber);
         void addModuleInterest(const QUuid &moduleId);
 
     private:

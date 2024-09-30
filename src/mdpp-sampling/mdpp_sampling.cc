@@ -3,6 +3,7 @@
 #include <set>
 #include <qwt_symbol.h>
 #include <QSpinBox>
+#include <QTimer>
 
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLBuffer>
@@ -44,6 +45,7 @@ struct MdppSamplingConsumer::Private
     std::set<QUuid> moduleInterests_;
     vme_analysis_common::VMEIdToIndex vmeIdToIndex_;
     vme_analysis_common::IndexToVmeId indexToVmeId_;
+    std::array<size_t, MaxVMEEvents> linearEventNumbers_;
 
     // This data obtained in beginRun()
     RunInfo runInfo_;
@@ -70,6 +72,7 @@ MdppSamplingConsumer::MdppSamplingConsumer(QObject *parent)
     d->logger_ = get_logger("MdppSamplingConsumer");
     d->logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] [tid%t] %v");
     d->logger_->set_level(spdlog::level::debug);
+    d->linearEventNumbers_.fill(0);
 }
 
 MdppSamplingConsumer::~MdppSamplingConsumer()
@@ -114,6 +117,10 @@ void MdppSamplingConsumer::endEvent(s32 eventIndex)
 void MdppSamplingConsumer::processModuleData(
     s32 crateIndex, s32 eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)
 {
+    assert(0 <= eventIndex && static_cast<u32>(eventIndex) < d->linearEventNumbers_.size());
+
+    ++d->linearEventNumbers_[eventIndex];
+
     for (unsigned moduleIndex = 0; moduleIndex < moduleCount; ++moduleIndex)
     {
         if (d->hasModuleInterest(crateIndex, eventIndex, moduleIndex))
@@ -123,7 +130,7 @@ void MdppSamplingConsumer::processModuleData(
             std::copy(dataBlock.data, dataBlock.data+dataBlock.size, std::begin(buffer));
             vme_analysis_common::VMEConfigIndex vmeIndex{eventIndex, static_cast<s32>(moduleIndex)};
             auto moduleId = d->indexToVmeId_.value(vmeIndex);
-            emit moduleDataReady(moduleId, buffer);
+            emit moduleDataReady(moduleId, buffer, d->linearEventNumbers_[eventIndex]);
         }
     }
 }
@@ -179,7 +186,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 
     std::basic_string_view<u32> dataView(data, size);
 
-    spdlog::info("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
+    spdlog::trace("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
 
     DecodedMdppSampleEvent ret{};
 
@@ -187,6 +194,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     if (size < 2)
     {
         spdlog::warn("decode_mdpp_samples: input data size < 2, returning null result");
+        assert(!"decode_mdpp_samples: input data size must be >= 2");
         return {};
     }
 
@@ -206,7 +214,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     {
         // 30 low bits of the timestamp
         auto value = mvlc::util::extract(fTimeStamp.dataCache, data[size-1]);
-        //spdlog::info("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", value, value);
+        //spdlog::trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", value, value);
         ret.timestamp |= value;
     }
     else
@@ -218,12 +226,12 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     {
         // optional 16 high bits of the extended timestamp if enabled
         auto value = mvlc::util::extract(fExtentedTs.dataCache, data[size-2]);
-        //spdlog::info("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
+        //spdlog::trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
         ret.timestamp |= static_cast<std::uint64_t>(value) << 30;
     }
     else
     {
-        spdlog::debug("decode_mdpp_samples: no extended timestamp present");
+        spdlog::trace("decode_mdpp_samples: no extended timestamp present");
     }
 
     ChannelTrace currentTrace;
@@ -251,7 +259,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             {
                 // The current channel number changed which means we're done
                 // with this trace and can prepare for the next one.
-                spdlog::info("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
+                spdlog::trace("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
                     currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", "));
 
                 ret.traces.push_back(currentTrace); // store the old trace
@@ -284,6 +292,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             if (currentTrace.channel < 0)
             {
                 spdlog::error("decode_mdpp_samples: got a sample datum without prior amplitude or channel time data.");
+                assert(!"sample datum without prior amplitude or channel time data");
                 return {};
             }
             //assert(currentTrace.channel >= 0);
@@ -318,7 +327,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             // Hit an unexpected data word.
             spdlog::warn("decode_mdpp_samples: No filter match for word #{}: {:#010x}!",
                 std::distance(data, wordPtr), *wordPtr);
-            //assert(!"no filter match in mdpp data");
+            assert(!"no filter match in mdpp data");
         }
 #endif
     }
@@ -327,12 +336,12 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     // result.
     if (currentTrace.channel >= 0)
     {
-        spdlog::info("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
+        spdlog::trace("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
             currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", "));
         ret.traces.push_back(currentTrace);
     }
 
-    spdlog::info("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
+    spdlog::trace("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
                  ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size());
 
     return ret;
@@ -439,7 +448,7 @@ TracePlotWidget::~TracePlotWidget()
 void TracePlotWidget::setTrace(const ChannelTrace *trace)
 {
     d->curveData_->setTrace(trace);
-    replot();
+    //replot();
 }
 
 struct GlTracePlotWidget::Private
@@ -613,6 +622,7 @@ void GlTracePlotWidget::paintGL()
     #endif
 }
 
+static const int ReplotInterval_ms = 500;
 
 struct MdppSamplingUi::Private
 {
@@ -625,8 +635,9 @@ struct MdppSamplingUi::Private
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *eventSelect_ = nullptr;
     TraceHistoryMap traceHistory_;
-    QHash<QUuid, size_t> moduleEventHits_; // count of events per module (incremented in handleModuleData())
+    //QHash<QUuid, size_t> moduleEventHits_; // count of events per module (incremented in handleModuleData())
     size_t traceHistoryMaxDepth = 10;
+    QTimer replotTimer_;
 };
 
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
@@ -634,10 +645,14 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     , d(std::make_unique<Private>())
 {
     qRegisterMetaType<DecodedMdppSampleEvent>("mesytec::mvme::DecodedMdppSampleEvent");
+    qRegisterMetaType<size_t>("size_t");
 
     d->q = this;
     d->asp_ = asp;
     d->plotWidget_ = new TracePlotWidget(this);
+    d->replotTimer_.setInterval(ReplotInterval_ms);
+    connect(&d->replotTimer_, &QTimer::timeout, this, &MdppSamplingUi::replot);
+    d->replotTimer_.start();
 
     auto l = make_hbox<0, 0>(this);
     l->addWidget(d->plotWidget_);
@@ -715,15 +730,14 @@ s32 get_max_depth(const ModuleTraceHistory &history)
 
 void MdppSamplingUi::replot()
 {
+    spdlog::trace("MdppSamplingUi::replot()");
     d->plotWidget_->replot();
 }
 
-void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer)
+void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber)
 {
     spdlog::trace("MdppSamplingUi::handleModuleData event#{}, moduleId={}, size={}",
         d->debugTotalEvents_, moduleId.toString().toLocal8Bit().data(), buffer.size());
-
-    auto linearEventNumber = d->moduleEventHits_[moduleId]++; // linear event number specific to this module
 
     auto decodedEvent = decode_mdpp_samples(buffer.data(), buffer.size());
     decodedEvent.eventNumber = linearEventNumber;
@@ -734,7 +748,7 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
         trace.eventNumber = linearEventNumber;
         trace.moduleId = moduleId;
 
-        spdlog::info("MdppSamplingUi::handleModuleData event#{}, got a trace for channel {} containing {} samples",
+        spdlog::trace("MdppSamplingUi::handleModuleData event#{}, got a trace for channel {} containing {} samples",
                     trace.eventNumber, trace.channel, trace.samples.size());
     }
 
@@ -808,7 +822,7 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
 #endif
 
     ++d->debugTotalEvents_;
-    replot();
+    //replot();
 }
 
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)
