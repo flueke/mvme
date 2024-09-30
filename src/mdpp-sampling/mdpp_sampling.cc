@@ -25,6 +25,12 @@
 
 using namespace mesytec::mvlc;
 
+#if 0
+#define SAM_ASSERT(cond) assert(cond)
+#else
+#define SAM_ASSERT(cond)
+#endif
+
 namespace mesytec::mvme
 {
 
@@ -196,7 +202,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     if (size < 2)
     {
         spdlog::warn("decode_mdpp_samples: input data size < 2, returning null result");
-        assert(!"decode_mdpp_samples: input data size must be >= 2");
+        SAM_ASSERT(!"decode_mdpp_samples: input data size must be >= 2");
         return {};
     }
 
@@ -209,7 +215,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     }
     else
     {
-        assert(!"decode_mdpp_samples: fModuleId");
+        SAM_ASSERT(!"decode_mdpp_samples: fModuleId");
     }
 
     if (mvlc::util::matches(fTimeStamp.filter, data[size-1]))
@@ -221,7 +227,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
     }
     else
     {
-        assert(!"decode_mdpp_samples: fTimeStamp");
+        SAM_ASSERT(!"decode_mdpp_samples: fTimeStamp");
     }
 
     if (size >= 3 && mvlc::util::matches(fExtentedTs.filter, data[size-2]))
@@ -305,7 +311,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             if (currentTrace.channel < 0)
             {
                 spdlog::error("decode_mdpp_samples: got a sample datum without prior amplitude or channel time data.");
-                assert(!"sample datum without prior amplitude or channel time data");
+                SAM_ASSERT(!"sample datum without prior amplitude or channel time data");
                 return {};
             }
             //assert(currentTrace.channel >= 0);
@@ -340,7 +346,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             // Hit an unexpected data word.
             spdlog::warn("decode_mdpp_samples: No filter match for word #{}: {:#010x}!",
                 std::distance(data, wordPtr), *wordPtr);
-            assert(!"no filter match in mdpp data");
+            SAM_ASSERT(!"no filter match in mdpp data");
         }
 #endif
     }
@@ -910,6 +916,10 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
     auto it_maxChan = std::max_element(std::begin(decodedEvent.traces), std::end(decodedEvent.traces),
         [](const auto &lhs, const auto &rhs) { return lhs.channel < rhs.channel; });
 
+    // No traces in the event, nothing to do.
+    if (it_maxChan == std::end(decodedEvent.traces))
+        return;
+
     auto &moduleTraceHistory = d->traceHistory_[moduleId];
     moduleTraceHistory.resize(std::max(moduleTraceHistory.size(), static_cast<size_t>(it_maxChan->channel)+1));
 
@@ -921,61 +931,6 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
         while (static_cast<size_t>(traceBuffer.size()) > TraceHistoryMaxDepth)
             traceBuffer.pop_back();
     }
-
-    // TODO: resize all trace buffers to the same size and assign the correct
-    // event numbers. Traces should always line up, meaning index N into any of
-    // the trace buffers should yield a trace for
-
-    #if 0
-    if (auto visibleModuleId = d->moduleSelect_->currentData().value<QUuid>();
-        visibleModuleId == moduleId && d->channelSelect_->value() < moduleTraceHistory.size())
-    {
-        auto &traceBuffer = moduleTraceHistory[d->channelSelect_->value()];
-        d->plotWidget_->setTrace(traceBuffer.empty() ? nullptr : &traceBuffer.front());
-    }
-    #endif
-
-#if 0
-    if (!d->currentEvent_.traces.empty())
-    {
-        auto currentTrace = &d->currentEvent_.traces.back(); // XXX: make this selectable
-
-        d->plotWidget_->setTrace(currentTrace);
-        #if 0
-        auto boundingRect = d->curveData_->boundingRect();
-        qreal x1, y1, x2, y2;
-        boundingRect.getCoords(&x1, &y1, &x2, &y2);
-        spdlog::info("MdppSamplingUi::handleModuleData event#{}: curve bounding rect: x1={}, y1={}, x2={}, y2={}",
-            d->debugTotalEvents_, x1, y1, x2, y2);
-        #endif
-
-        #if 0
-        if (d->plotMarkers_.size() < static_cast<size_t>(currentTrace->samples.size()))
-            d->plotMarkers_.resize(currentTrace->samples.size());
-
-        for (size_t i = 0; i < static_cast<size_t>(currentTrace->samples.size()); ++i)
-        {
-            auto &plotMarker = d->plotMarkers_[i];
-
-            if (!plotMarker)
-            {
-                auto symbol = new QwtSymbol(QwtSymbol::XCross, Qt::red, Qt::SolidLine, QSize(5, 5));
-                symbol->setPinPoint(QPointF(0, 0), true);
-                //plotMarker = new QwtPlotMarker();
-                //plotMarker->setSymbol(symbol);
-                //plotMarker->attach(getPlot());
-            }
-
-            assert(plotMarker);
-
-            QPointF point(i, currentTrace->samples[i]);
-            plotMarker->setValue(point);
-        }
-        #endif
-    }
-    //else
-    //    d->curveData_->setTrace(nullptr);
-#endif
 }
 
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)

@@ -103,7 +103,7 @@ class LIBMVME_EXPORT TracePlotWidget: public histo_ui::PlotWidget
         std::unique_ptr<Private> d;
 };
 
-class GlTracePlotWidget : public QOpenGLWidget
+class LIBMVME_EXPORT GlTracePlotWidget : public QOpenGLWidget
 {
     Q_OBJECT
     public:
