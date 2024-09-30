@@ -2,6 +2,7 @@
 
 #include <set>
 #include <qwt_symbol.h>
+#include <QPushButton>
 #include <QSpinBox>
 #include <QTimer>
 
@@ -15,6 +16,7 @@
 #include <mesytec-mvlc/util/logging.h>
 #include <mesytec-mvlc/util/ticketmutex.h>
 
+#include "analysis_service_provider.h"
 #include "analysis/analysis.h"
 #include "analysis/a2/a2_support.h"
 #include "run_info.h"
@@ -267,6 +269,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
                 // begin the new trace
                 reset_trace(currentTrace);
                 currentTrace.channel = addr;
+                currentTrace.header = ret.header;
 
                 if (amplitudeMatches)
                 {
@@ -283,7 +286,17 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             {
                 // We did not have a valid trace before.
                 currentTrace.channel = addr;
-                currentTrace.time = value;
+
+                if (amplitudeMatches)
+                {
+                    currentTrace.amplitude = value;
+                    currentTrace.amplitudeData = *wordPtr;
+                }
+                else
+                {
+                    currentTrace.time = value;
+                    currentTrace.timeData = *wordPtr;
+                }
             }
         }
 		else if (mvlc::util::matches(fSamples.filter, *wordPtr))
@@ -427,6 +440,7 @@ TracePlotWidget::TracePlotWidget(QWidget *parent)
     histo_ui::install_tracker_picker(this);
 
     connect(this, &PlotWidget::aboutToReplot, this, [this] { d->updateAxisScales(); });
+    DO_AND_ASSERT(connect(d->zoomer_, SIGNAL(zoomed(const QRectF &)), this, SLOT(replot())));
 
     // enable both the zoomer and mouse cursor tracker by default
 
@@ -448,7 +462,6 @@ TracePlotWidget::~TracePlotWidget()
 void TracePlotWidget::setTrace(const ChannelTrace *trace)
 {
     d->curveData_->setTrace(trace);
-    //replot();
 }
 
 struct GlTracePlotWidget::Private
@@ -623,21 +636,22 @@ void GlTracePlotWidget::paintGL()
 }
 
 static const int ReplotInterval_ms = 500;
+static const size_t TraceHistoryMaxDepth = 10 * 1000;
 
 struct MdppSamplingUi::Private
 {
     MdppSamplingUi *q = nullptr;
     AnalysisServiceProvider *asp_ = nullptr;
     TracePlotWidget *plotWidget_ = nullptr;
-    size_t debugTotalEvents_ = 0;
     DecodedMdppSampleEvent currentEvent_;
     QComboBox *moduleSelect_ = nullptr;
     QSpinBox *channelSelect_ = nullptr;
-    QSpinBox *eventSelect_ = nullptr;
+    QSpinBox *traceSelect_ = nullptr;
     TraceHistoryMap traceHistory_;
-    //QHash<QUuid, size_t> moduleEventHits_; // count of events per module (incremented in handleModuleData())
     size_t traceHistoryMaxDepth = 10;
     QTimer replotTimer_;
+    QPushButton *pb_replot_ = nullptr;
+    QPushButton *pb_updateUi_ = nullptr;
 };
 
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
@@ -646,6 +660,8 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
 {
     qRegisterMetaType<DecodedMdppSampleEvent>("mesytec::mvme::DecodedMdppSampleEvent");
     qRegisterMetaType<size_t>("size_t");
+
+    setWindowTitle("MDPP Sampling Mode Trace Browser");
 
     d->q = this;
     d->asp_ = asp;
@@ -661,6 +677,7 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
 
     {
         d->moduleSelect_ = new QComboBox;
+        d->moduleSelect_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
         auto boxStruct = make_vbox_container(QSL("Module"), d->moduleSelect_, 0, -2);
         tb->addWidget(boxStruct.container.release());
     }
@@ -678,12 +695,30 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     tb->addSeparator();
 
     {
-        d->eventSelect_ = new QSpinBox;
-        d->eventSelect_->setMinimum(0);
-        d->eventSelect_->setMaximum(0);
-        auto boxStruct = make_vbox_container(QSL("Trace#"), d->eventSelect_, 0, -2);
+        d->traceSelect_ = new QSpinBox;
+        d->traceSelect_->setMinimum(0);
+        d->traceSelect_->setMaximum(0);
+        d->traceSelect_->setSpecialValueText("latest");
+        auto boxStruct = make_vbox_container(QSL("Trace#"), d->traceSelect_, 0, -2);
         tb->addWidget(boxStruct.container.release());
     }
+
+    tb->addSeparator();
+
+    {
+        d->pb_replot_ = new QPushButton("Replot");
+        d->pb_updateUi_ = new QPushButton("Update UI");
+
+        tb->addWidget(d->pb_replot_);
+        tb->addWidget(d->pb_updateUi_);
+    }
+
+    connect(d->pb_replot_, &QPushButton::clicked, this, &MdppSamplingUi::replot);
+    connect(d->pb_updateUi_, &QPushButton::clicked, this, &MdppSamplingUi::updateUi);
+
+    connect(d->moduleSelect_, qOverload<int>(&QComboBox::currentIndexChanged), this, &MdppSamplingUi::replot);
+    connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &MdppSamplingUi::replot);
+    connect(d->traceSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &MdppSamplingUi::replot);
 }
 
 MdppSamplingUi::~MdppSamplingUi() { }
@@ -728,16 +763,130 @@ s32 get_max_depth(const ModuleTraceHistory &history)
     return ret;
 }
 
+void MdppSamplingUi::updateUi()
+{
+    spdlog::info("begin MdppSamplingUi::updateUi()");
+
+    // selector 1: Add missing modules to the module select combo
+    {
+        QSet<QUuid> knownModuleIds;
+
+        for (int i=0; i<d->moduleSelect_->count(); ++i)
+        {
+            auto moduleId = d->moduleSelect_->itemData(i).value<QUuid>();
+            knownModuleIds.insert(moduleId);
+        }
+
+        QSet<QUuid> traceModuleIds = QSet<QUuid>::fromList(d->traceHistory_.keys());
+
+        auto missingModuleIds = traceModuleIds.subtract(knownModuleIds);
+
+        qDebug() << "knownModuleIds" << knownModuleIds;
+        qDebug() << "traceModuleIds" << traceModuleIds;
+        qDebug() << "missingModuleIds" << missingModuleIds;
+
+        for (auto moduleId: missingModuleIds)
+        {
+            QString moduleName;
+
+            if (auto moduleConfig = d->asp_->getVMEConfig()->getModuleConfig(moduleId))
+                moduleName = moduleConfig->getObjectPath();
+            else
+                moduleName = moduleId.toString();
+
+            d->moduleSelect_->addItem(moduleName, moduleId);
+        }
+    }
+
+    // selector 2: Update the channel number spinbox
+    if (auto selectedModuleId = d->moduleSelect_->currentData().value<QUuid>();
+        !selectedModuleId.isNull())
+    {
+        auto &moduleTraceHistory = d->traceHistory_[selectedModuleId];
+        const auto maxChannel = moduleTraceHistory.size() - 1;
+        d->channelSelect_->setMaximum(maxChannel);
+        auto selectedChannel = d->channelSelect_->value();
+
+        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) < maxChannel)
+        {
+            auto &tracebuffer = moduleTraceHistory[selectedChannel];
+            // selector 3: trace number in the trace history. index 0 is the latest trace.
+            d->traceSelect_->setMaximum(tracebuffer.size()-1);
+        }
+    }
+    else // no module selected
+    {
+        d->channelSelect_->setMaximum(0);
+        d->traceSelect_->setMaximum(0);
+        d->plotWidget_->setTrace(nullptr);
+    }
+    spdlog::info("end MdppSamplingUi::updateUi()");
+}
+
 void MdppSamplingUi::replot()
 {
-    spdlog::trace("MdppSamplingUi::replot()");
+    spdlog::info("begin MdppSamplingUi::replot()");
+    updateUi(); // TODO: decouple updateUi() and replot()?
+
+    auto selectedModuleId = d->moduleSelect_->currentData().value<QUuid>();
+    ChannelTrace *trace = nullptr;
+
+    if (d->traceHistory_.contains(selectedModuleId))
+    {
+        auto &moduleTraceHistory = d->traceHistory_[selectedModuleId];
+        const auto maxChannel = moduleTraceHistory.size();
+        auto selectedChannel = d->channelSelect_->value();
+
+        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) < maxChannel)
+        {
+            auto &tracebuffer = moduleTraceHistory[selectedChannel];
+
+            // selector 3: trace number in the trace history. 0 is the latest trace.
+            auto selectedTraceIndex = d->traceSelect_->value();
+
+            if (0 <= selectedTraceIndex && selectedTraceIndex < tracebuffer.size())
+                trace = &tracebuffer[selectedTraceIndex];
+        }
+    }
+
+    auto sb = getStatusBar();
+
+    if (trace)
+    {
+        // Could use 'auto moduleName = d->moduleSelect_->currentText();' but
+        // instead going through the lookup again using trace->moduleId.
+        auto moduleName = d->asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getObjectPath();
+        auto channel = trace->channel;
+        auto traceIndex = d->traceSelect_->value();
+        double yMin = make_quiet_nan();
+        double yMax = make_quiet_nan();
+        auto minMax = std::minmax_element(std::begin(trace->samples), std::end(trace->samples));
+
+        if (minMax.first != std::end(trace->samples))
+            yMin = *minMax.first;
+
+        if (minMax.second != std::end(trace->samples))
+            yMax = *minMax.second;
+
+        sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #Samples=%7, yMin=%8, yMax=%9, moduleHeader=0x%10")
+            .arg(moduleName).arg(channel).arg(traceIndex).arg(trace->eventNumber)
+            .arg(trace->amplitude).arg(trace->time).arg(trace->samples.size())
+            .arg(yMin).arg(yMax).arg(trace->header, 8, 16, QLatin1Char('0'))
+            );
+    }
+    else
+    {
+        sb->clearMessage();
+    }
+    d->plotWidget_->setTrace(trace);
     d->plotWidget_->replot();
+    spdlog::info("end MdppSamplingUi::replot()");
 }
 
 void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber)
 {
     spdlog::trace("MdppSamplingUi::handleModuleData event#{}, moduleId={}, size={}",
-        d->debugTotalEvents_, moduleId.toString().toLocal8Bit().data(), buffer.size());
+        linearEventNumber, moduleId.toString().toLocal8Bit().data(), buffer.size());
 
     auto decodedEvent = decode_mdpp_samples(buffer.data(), buffer.size());
     decodedEvent.eventNumber = linearEventNumber;
@@ -745,41 +894,48 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
 
     for (auto &trace: decodedEvent.traces)
     {
+        // fill in missing info (decode_mdpp_samples() does not know this stuff)
         trace.eventNumber = linearEventNumber;
         trace.moduleId = moduleId;
+    }
 
+    for (const auto &trace: decodedEvent.traces)
+    {
         spdlog::trace("MdppSamplingUi::handleModuleData event#{}, got a trace for channel {} containing {} samples",
                     trace.eventNumber, trace.channel, trace.samples.size());
     }
 
-    // TODO: add this events traces to a per channel tracebuffer to build up a
-    // per channel trace history. Limit the history depth to some user specified
-    // value.
+    // Add the events traces to the trace history.
 
-    // TODO (later): make sure that channels not present in this event do have
-    // empty traces appended to their history buffers, otherwise the per channel
-    // histories will not line up.
+    auto it_maxChan = std::max_element(std::begin(decodedEvent.traces), std::end(decodedEvent.traces),
+        [](const auto &lhs, const auto &rhs) { return lhs.channel < rhs.channel; });
 
-    // TODO: store the events traces in a history buffer for later access.
-    d->currentEvent_ = decodedEvent;
-
-    auto eventMaxChannel = get_max_channel_number(decodedEvent);
-    auto &eventChannelTraces = decodedEvent.traces;
     auto &moduleTraceHistory = d->traceHistory_[moduleId];
-    auto maxHistoryDepth = get_max_depth(moduleTraceHistory);
+    moduleTraceHistory.resize(std::max(moduleTraceHistory.size(), static_cast<size_t>(it_maxChan->channel)+1));
 
-    if (moduleTraceHistory.size() < eventMaxChannel+1)
+    for (const auto &trace: decodedEvent.traces)
     {
-        auto oldSize = moduleTraceHistory.size();
-        moduleTraceHistory.resize(eventMaxChannel+1);
-        for (int i=oldSize; i<moduleTraceHistory.size(); ++i)
-        {
-            // XXX: leftoff here
-        }
+        auto &traceBuffer = moduleTraceHistory[trace.channel];
+        traceBuffer.push_front(trace); // prepend the trace -> newest trace is always at the front
+        // remove old traces
+        while (static_cast<size_t>(traceBuffer.size()) > TraceHistoryMaxDepth)
+            traceBuffer.pop_back();
     }
 
+    // TODO: resize all trace buffers to the same size and assign the correct
+    // event numbers. Traces should always line up, meaning index N into any of
+    // the trace buffers should yield a trace for
 
-#if 1
+    #if 0
+    if (auto visibleModuleId = d->moduleSelect_->currentData().value<QUuid>();
+        visibleModuleId == moduleId && d->channelSelect_->value() < moduleTraceHistory.size())
+    {
+        auto &traceBuffer = moduleTraceHistory[d->channelSelect_->value()];
+        d->plotWidget_->setTrace(traceBuffer.empty() ? nullptr : &traceBuffer.front());
+    }
+    #endif
+
+#if 0
     if (!d->currentEvent_.traces.empty())
     {
         auto currentTrace = &d->currentEvent_.traces.back(); // XXX: make this selectable
@@ -820,9 +976,6 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
     //else
     //    d->curveData_->setTrace(nullptr);
 #endif
-
-    ++d->debugTotalEvents_;
-    //replot();
 }
 
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)

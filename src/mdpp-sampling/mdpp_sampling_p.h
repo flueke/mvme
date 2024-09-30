@@ -11,15 +11,13 @@ namespace mesytec::mvme
 {
 
 using TraceBuffer = QList<ChannelTrace>;
-using ModuleTraceHistory = QVector<TraceBuffer>;
+using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number
 using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
 
 struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
 {
     const ChannelTrace *trace_ = nullptr;
     mutable QRectF boundingRectCache_;
-
-    //explicit MdppChannelTracePlotData() {}
 
     // Set the event data to plot
     void setTrace(const ChannelTrace *trace)

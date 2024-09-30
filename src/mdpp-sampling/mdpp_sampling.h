@@ -25,6 +25,7 @@ struct LIBMVME_EXPORT ChannelTrace
     s32 channel = -1;
     float amplitude = make_quiet_nan(); // extracted amplitude value
     float time = make_quiet_nan(); // extracted time value
+    u32 header = 0; // raw module header word
     u32 amplitudeData = 0; // raw amplitude data word
     u32 timeData = 0; // raw time data word
     QVector<s16> samples; // samples are 14 bit signed, converted to and stored as 16 bit signed
@@ -137,6 +138,7 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
         QStatusBar *getStatusBar() override;
 
     public slots:
+        void updateUi();
         void replot() override;
         void handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber);
         void addModuleInterest(const QUuid &moduleId);
