@@ -42,8 +42,12 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 #include_directories(pcg-cpp-0.98/include/)
 
-find_package(Boost CONFIG REQUIRED)
-#include_directories(${Boost_INCLUDE_DIRS})
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
+    find_package(Boost CONFIG REQUIRED)
+else()
+    find_package(Boost REQUIRED)
+endif()
+include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for liba2 in ${Boost_INCLUDE_DIRS}")
 
 find_package(ZLIB REQUIRED)
