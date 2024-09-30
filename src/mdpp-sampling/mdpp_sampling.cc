@@ -31,7 +31,7 @@ namespace mesytec::mvme
 void reset_trace(ChannelTrace &trace)
 {
     trace.eventNumber = 0;
-    trace.moduleId = {};
+    trace.moduleId = QUuid();
     trace.amplitude = make_quiet_nan();
     trace.time = make_quiet_nan();
     trace.amplitudeData = 0;
