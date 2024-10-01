@@ -36,7 +36,7 @@ using benchmark::Counter;
 
 static void BM_a2(benchmark::State &state)
 {
-    Arena arena(Kilobytes(256));
+    Arena arena(::Kilobytes(256));
 
     static u32 testdata[] =
     {

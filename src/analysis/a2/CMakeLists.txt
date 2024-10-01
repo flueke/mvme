@@ -105,8 +105,8 @@ if (A2_BUILD_STATIC)
 
     # Add the mvme src/ directory to the include path for liba2.
     # FIXME: hacks, restructure the whole a2 thingy at some point...
-    target_include_directories(liba2_static PRIVATE ${CMAKE_SOURCE_DIR}/src)
-    target_include_directories(liba2_static PRIVATE ${CMAKE_BINARY_DIR}/src)
+    target_include_directories(liba2_static PUBLIC ${CMAKE_SOURCE_DIR}/src)
+    target_include_directories(liba2_static PUBLIC ${CMAKE_BINARY_DIR}/src)
 
     target_link_libraries(liba2_static
         PRIVATE exprtk
