@@ -891,6 +891,50 @@ class LIBMVME_EXPORT MultiHitExtractor: public SourceInterface
         u64 m_rngSeed;
 };
 
+class DataSourceMdppSampleDecoder: public SourceInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SourceInterface)
+    public:
+        Q_INVOKABLE DataSourceMdppSampleDecoder(QObject *parent = nullptr);
+
+    public:
+        // Max number of channels of the module, e.g. 16 for MDPP-16
+        void setMaxChannels(unsigned maxChannels);
+        unsigned getMaxChannels() const;
+
+        // Max samples per trace to keep. Additional samples are discarded.
+        void setMaxSamples(unsigned maxSamples);
+        unsigned getMaxSamples() const;
+
+        QString getDisplayName() const override;
+        QString getShortName() const override;
+
+        bool hasVariableNumberOfOutputs() const override { return true; }
+        s32 getNumberOfOutputs() const override;
+        QString getOutputName(s32 index) const override;
+        Pipe *getOutput(s32 index) override;
+        void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+
+        using Options = a2::DataSourceOptions;
+        Options::opt_t getOptions() const { return m_options; }
+        void setOptions(Options::opt_t options) { m_options = options; }
+
+    protected:
+        void postClone(const AnalysisObject *cloneSource) override;
+
+    private:
+        unsigned maxChannels_ = 16;
+        unsigned maxSamples_ = 1024;
+        // Seed for the random number generator
+        u64 m_rngSeed;
+        // a1 layer output pipes
+        std::vector<std::shared_ptr<Pipe>> m_outputs;
+        Options::opt_t m_options;
+};
+
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
 using ListFilterExtractorVector = QVector<ListFilterExtractorPtr>;
 

@@ -37,6 +37,7 @@
 #include "analysis/exportsink_codegen.h"
 #include "analysis/object_visitor.h"
 #include "analysis/analysis_json_util.h"
+#include "mdpp-sampling/mdpp_sampling.h"
 #include "util/algo.h"
 #include "util/qt_metaobject.h"
 #include "util/qt_json.h"
@@ -972,6 +973,131 @@ void MultiHitExtractor::postClone(const AnalysisObject *cloneSource)
     std::uniform_int_distribution<u64> dist;
     m_rngSeed = dist(StaticRandomDevice);
     SourceInterface::postClone(cloneSource);
+}
+
+DataSourceMdppSampleDecoder::DataSourceMdppSampleDecoder(QObject *parent)
+    : SourceInterface(parent)
+{
+    // Generate a random seed for the rng. This seed will be written out in
+    // write() and restored in read().
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+}
+
+void DataSourceMdppSampleDecoder::postClone(const AnalysisObject *cloneSource)
+{
+    // Generate a new seed for the clone
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(StaticRandomDevice);
+    SourceInterface::postClone(cloneSource);
+}
+
+void DataSourceMdppSampleDecoder::setMaxChannels(unsigned maxChannels)
+{
+    maxChannels_ = maxChannels;
+}
+
+unsigned DataSourceMdppSampleDecoder::getMaxChannels() const
+{
+    return maxChannels_;
+}
+
+
+// Max samples per trace to keep. Additional samples are discarded.
+void DataSourceMdppSampleDecoder::setMaxSamples(unsigned maxSamples)
+{
+    maxSamples_ = maxSamples;
+}
+
+unsigned DataSourceMdppSampleDecoder::getMaxSamples() const
+{
+    return maxSamples_;
+}
+
+QString DataSourceMdppSampleDecoder::getDisplayName() const
+{
+    return "MDPP Sample Decoder";
+}
+QString DataSourceMdppSampleDecoder::getShortName() const
+{
+    return "MdppSampleDecoder";
+}
+
+s32 DataSourceMdppSampleDecoder::getNumberOfOutputs() const
+{
+    return static_cast<s32>(m_outputs.size());
+}
+
+QString DataSourceMdppSampleDecoder::getOutputName(s32 index) const
+{
+    auto prefix = objectName();
+    int dotIdx = prefix.indexOf('.');
+
+    if (dotIdx >= 0)
+        prefix.remove(0, dotIdx+1);
+
+    return QSL("%1_channel%2").arg(prefix).arg(index);
+}
+
+Pipe *DataSourceMdppSampleDecoder::getOutput(s32 index)
+{
+    try
+    {
+        return m_outputs.at(index).get();
+    }
+    catch (const std::out_of_range &)
+    {}
+
+    return nullptr;
+}
+
+void DataSourceMdppSampleDecoder::beginRun(const RunInfo &runInfo, Logger logger)
+{
+    /* Disconnect Pipes that will be removed. */
+    if (auto begin = std::begin(m_outputs) + getMaxChannels();
+        begin < std::end(m_outputs))
+    {
+        std::for_each(std::begin(m_outputs) + getMaxChannels(), std::end(m_outputs),
+                    [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
+    }
+    m_outputs.resize(getMaxChannels());
+
+    for (auto outIdx=0; outIdx<m_outputs.size(); ++outIdx)
+    {
+        // Reuse pipes to not invalidate existing connections
+        auto outPipe = m_outputs[outIdx];
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx);
+            m_outputs[outIdx] = outPipe;
+        }
+        outPipe->parameters.name = getOutputName(outIdx);
+        outPipe->parameters.resize(getMaxSamples());
+        for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+        {
+            outPipe->parameters[paramIndex].value = make_quiet_nan();
+            outPipe->parameters[paramIndex].lowerLimit = mesytec::mvme::SampleMinValue;
+            outPipe->parameters[paramIndex].upperLimit = mesytec::mvme::SampleMaxValue;
+        }
+    }
+}
+
+void DataSourceMdppSampleDecoder::write(QJsonObject &json) const
+{
+    json["maxChannels"] = static_cast<qint64>(getMaxChannels());
+    json["maxSamples"] = static_cast<qint64>(getMaxSamples());
+    json["rngSeed"] = QString::number(m_rngSeed, 16);
+    json["options"] = static_cast<s32>(getOptions());
+}
+
+void DataSourceMdppSampleDecoder::read(const QJsonObject &json)
+{
+    setMaxChannels(json["maxChannels"].toInt());
+    setMaxSamples(json["maxSamples"].toInt());
+    m_rngSeed = json["rngSeed"].toString().toULongLong(nullptr, 16);
+    setOptions(static_cast<Options::opt_t>(json["options"].toInt()));
+    // Call beginRun() here to create the output pipes.
+    beginRun({}, {});
 }
 
 //
@@ -3978,6 +4104,7 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerSource<ListFilterExtractor>();
     m_objectFactory.registerSource<Extractor>();
     m_objectFactory.registerSource<MultiHitExtractor>();
+    m_objectFactory.registerSource<DataSourceMdppSampleDecoder>();
 
     // operators
     m_objectFactory.registerOperator<CalibrationMinMax>();
