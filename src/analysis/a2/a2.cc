@@ -22,6 +22,7 @@
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
 #include "a2_support.h"
+#include "mdpp-sampling/mdpp_sampling.h"
 #include "util/assert.h"
 #include "util/perf.h"
 #include <boost/dynamic_bitset/dynamic_bitset.hpp>
@@ -51,7 +52,9 @@
 #include <boost/geometry/geometries/point_xy.hpp>
 #undef BOOST_ALLOW_DEPRECATED_HEADERS
 
+#ifndef ArrayCount
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
+#endif
 
 //#ifndef NDEBUG
 #if 0
@@ -225,6 +228,9 @@ size_t get_address_count(DataSource *ds)
                 auto ex = reinterpret_cast<MultiHitExtractor *>(ds->d);
                 return get_address_count(ex);
             } break;
+
+        case DataSource_MdppSampleDecoder:
+            return 0;
 
 #if 0
         case DataSource_Copy:
@@ -738,15 +744,15 @@ void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32
     }
 }
 
-// MdppSampleDecoderDataSource
+// MdppSampleDecoder
 
-MdppSampleDecoderDataSource make_mdpp_sample_decoder(
+MdppSampleDecoder make_mdpp_sample_decoder(
     unsigned maxChannels,
     unsigned maxSamples,
     u64 rngSeed,
     DataSourceOptions::opt_t options)
 {
-    MdppSampleDecoderDataSource result = {};
+    MdppSampleDecoder result = {};
 
     result.maxChannels = maxChannels;
     result.maxSamples = maxSamples;
@@ -766,7 +772,7 @@ DataSource make_datasource_mdpp_sample_decoder(
 {
     auto result = make_datasource(arena, DataSource_Extractor, moduleIndex, maxChannels);
 
-    auto ex = arena->pushObject<MdppSampleDecoderDataSource>();
+    auto ex = arena->pushObject<MdppSampleDecoder>();
     *ex = make_mdpp_sample_decoder(maxChannels, maxSamples, rngSeed, options);
     result.d = ex;
 
@@ -777,6 +783,44 @@ DataSource make_datasource_mdpp_sample_decoder(
         push_output_vectors(arena, &result, outputIndex, maxSamples, lowerLimit, upperLimit);
 
     return result;
+}
+
+void mdpp_sample_decoder_begin_event(DataSource *ds)
+{
+    assert(ds->type == DataSource_MdppSampleDecoder);
+    for (size_t outputIndex=0; outputIndex<ds->outputCount; ++outputIndex)
+        invalidate_all(ds->outputs[outputIndex]);
+}
+
+void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
+{
+    assert(ds);
+    assert(ds->type == DataSource_MdppSampleDecoder);
+    assert(memory::is_aligned(data, ModuleDataAlignment));
+
+    auto ex = reinterpret_cast<MdppSampleDecoder *>(ds->d);
+    auto decodedEvent = mesytec::mvme::decode_mdpp_samples(data, dataSize);
+
+    for (const auto &trace: decodedEvent.traces)
+    {
+        if (trace.channel >= ds->outputCount)
+            continue;
+
+        auto &output = ds->outputs[trace.channel];
+        auto &hitCounts = ds->hitCounts[trace.channel];
+
+        for (size_t sampleIndex=0; sampleIndex<static_cast<size_t>(trace.samples.size()); ++sampleIndex)
+        {
+            assert(!is_param_valid(output[sampleIndex]));
+            double value = trace.samples[sampleIndex];
+
+            if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                value += RealDist01(ex->rng);
+
+            output[sampleIndex] = value;
+            ++hitCounts[sampleIndex];
+        }
+    }
 }
 
 // DataSource_Copy
@@ -4484,6 +4528,10 @@ void a2_begin_event(A2 *a2, int eventIndex)
                 multihit_extractor_begin_event(ds);
                 break;
 
+            case DataSource_MdppSampleDecoder:
+                mdpp_sample_decoder_begin_event(ds);
+                break;
+
 #if 0
             case DataSource_Copy:
                 datasource_copy_begin_event(ds);
@@ -4533,6 +4581,10 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
             case DataSource_MultiHitExtractor_ArrayPerHit:
             case DataSource_MultiHitExtractor_ArrayPerAddress:
                 multihit_extractor_process_module_data(ds, data, dataSize);
+                break;
+
+            case DataSource_MdppSampleDecoder:
+                mdpp_sample_decoder_process_module_data(ds, data, dataSize);
                 break;
 #if 0
             case DataSource_Copy:

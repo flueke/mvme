@@ -23,8 +23,12 @@
 
 #include <cassert>
 
+#ifndef InvalidCodePath
 #define InvalidCodePath assert(!"invalid code path")
+#endif
+#ifndef InvalidDefaultCase
 #define InvalidDefaultCase default: { assert(!"invalid default case"); }
+#endif
 
 #ifndef do_and_assert
 

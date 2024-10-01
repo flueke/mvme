@@ -222,7 +222,7 @@ DataSource make_datasource_multihit_extractor(
 void multihit_extractor_begin_event(DataSource *ds);
 void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
 
-struct MdppSampleDecoderDataSource
+struct MdppSampleDecoder
 {
     // Max channels in this module.
     unsigned maxChannels;
@@ -233,7 +233,7 @@ struct MdppSampleDecoderDataSource
     DataSourceOptions::opt_t options;
 };
 
-MdppSampleDecoderDataSource make_mdpp_sample_decoder(
+MdppSampleDecoder make_mdpp_sample_decoder(
     unsigned maxChannels,
     unsigned maxSamples,
     u64 rngSeed,
@@ -246,6 +246,9 @@ DataSource make_datasource_mdpp_sample_decoder(
     u64 rngSeed,
     int moduleIndex,
     DataSourceOptions::opt_t options);
+
+void mdpp_sample_decoder_begin_event(DataSource *ds);
+void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u32 dataSize);
 
 #if 0
 // DataSourceCopy
