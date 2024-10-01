@@ -307,6 +307,10 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     {
         result = new MultiHitExtractorDialog(ex, moduleConfig, mode, eventWidget);
     }
+    else if (auto ex = std::dynamic_pointer_cast<DataSourceMdppSampleDecoder>(src))
+    {
+        result = new MdppSampleDecoderDialog(ex, moduleConfig, mode, eventWidget);
+    }
 
     QObject::connect(result, &ObjectEditorDialog::applied,
                      eventWidget, &EventWidget::objectEditorDialogApplied);

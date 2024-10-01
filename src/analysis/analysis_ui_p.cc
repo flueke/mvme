@@ -535,6 +535,8 @@ MultiHitExtractorDialog::MultiHitExtractorDialog(
     d->combo_shape->addItem("Array per address", MultiHitExtractor::Shape::ArrayPerAddress);
     d->combo_shape->setCurrentIndex(d->combo_shape->findData(d->ex->getShape()));
 
+    qDebug() << __PRETTY_FUNCTION__ << "name=" << d->ex->objectName();
+
     d->le_name = new QLineEdit;
     d->le_name->setText(d->ex->objectName());
 
@@ -704,6 +706,117 @@ void MultiHitExtractorDialog::updateWidget()
                        .arg(arrayCount)
                        .arg(arrayText)
                        .arg(arraySize));
+}
+
+struct MdppSampleDecoderDialog::Private
+{
+    std::shared_ptr<DataSourceMdppSampleDecoder> ex;
+    ModuleConfig *mod = nullptr;
+    ObjectEditorMode mode;
+    EventWidget *eventWidget = nullptr;
+    QLineEdit *le_name = nullptr;
+    QSpinBox *spin_maxChannels = nullptr;
+    QSpinBox *spin_maxSamples = nullptr;
+    QCheckBox *cb_noAddedRandom = nullptr;
+};
+
+MdppSampleDecoderDialog::MdppSampleDecoderDialog(
+    const std::shared_ptr<DataSourceMdppSampleDecoder> &ex,
+    ModuleConfig *mod,
+    ObjectEditorMode mode,
+    EventWidget *eventWidget)
+    : ObjectEditorDialog(eventWidget)
+    , d(std::make_unique<Private>())
+{
+    *d = {};
+
+    d->ex = ex;
+    d->mod = mod;
+    d->mode = mode;
+    d->eventWidget = eventWidget;
+    d->le_name = new QLineEdit;
+    d->spin_maxChannels = new QSpinBox;
+    d->spin_maxChannels->setMinimum(1);
+    d->spin_maxChannels->setMaximum(32);
+    d->spin_maxSamples = new QSpinBox;
+    d->spin_maxSamples->setMinimum(1);
+    d->spin_maxSamples->setMaximum(1024);
+    d->cb_noAddedRandom = new QCheckBox("Do not add a random in [0.0, 1.0)");
+    d->cb_noAddedRandom->setChecked(d->ex->getOptions() & Extractor::Options::NoAddedRandom);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+    auto l = new QFormLayout(this);
+    l->addRow("Name", d->le_name);
+    l->addRow("Max Channels", d->spin_maxChannels);
+    l->addRow("Max Samples per Channel", d->spin_maxSamples);
+    l->addRow("No Added Random", d->cb_noAddedRandom);
+    l->addRow(bb);
+
+    connect(bb, &QDialogButtonBox::accepted, this, &MdppSampleDecoderDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &MdppSampleDecoderDialog::reject);
+
+    d->le_name->setText(d->ex->objectName());
+    d->spin_maxChannels->setValue(d->ex->getMaxChannels());
+    d->spin_maxSamples->setValue(d->ex->getMaxSamples());
+
+    switch (d->mode)
+    {
+        case ObjectEditorMode::New:
+            d->le_name->setText(d->mod->objectName() + QSL(".samples"));
+            setWindowTitle(QString("New  %1").arg(d->ex->getDisplayName()));
+            break;
+
+        case ObjectEditorMode::Edit:
+            setWindowTitle(QString("Edit %1").arg(d->ex->getDisplayName()));
+            break;
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "name=" << d->ex->objectName();
+}
+
+MdppSampleDecoderDialog::~MdppSampleDecoderDialog()
+{
+}
+
+void MdppSampleDecoderDialog::accept()
+{
+    AnalysisPauser pauser(d->eventWidget->getServiceProvider());
+
+    d->ex->setEventId(d->mod->getEventId());
+    d->ex->setModuleId(d->mod->getId());
+    d->ex->setObjectName(d->le_name->text());
+    d->ex->setMaxChannels(d->spin_maxChannels->value());
+    d->ex->setMaxSamples(d->spin_maxSamples->value());
+
+    DataSourceMdppSampleDecoder::Options::opt_t options = 0;
+
+    if (d->cb_noAddedRandom->isChecked())
+        options |= DataSourceMdppSampleDecoder::Options::NoAddedRandom;
+
+    d->ex->setOptions(options);
+
+    auto analysis = d->eventWidget->getServiceProvider()->getAnalysis();
+
+    switch (d->mode)
+    {
+        case ObjectEditorMode::New:
+            analysis->addSource(d->ex);
+            break;
+
+        case ObjectEditorMode::Edit:
+            analysis->setSourceEdited(d->ex);
+            break;
+    }
+
+    analysis->beginRun(Analysis::KeepState, d->eventWidget->getVMEConfig());
+
+    QDialog::accept();
+}
+
+void MdppSampleDecoderDialog::reject()
+{
+    QDialog::reject();
 }
 
 //

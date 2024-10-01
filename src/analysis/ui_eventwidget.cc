@@ -807,6 +807,10 @@ static QIcon make_datasource_icon(SourceInterface *source)
     else if (qobject_cast<MultiHitExtractor *>(source))
         icon = QIcon(":/multi_hit_filter.png");
 
+    else if (qobject_cast<DataSourceMdppSampleDecoder *>(source))
+        icon = QIcon(":/vme_event.png");
+
+
     return icon;
 }
 

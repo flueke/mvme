@@ -143,6 +143,24 @@ class MultiHitExtractorDialog: public ObjectEditorDialog
         std::unique_ptr<Private> d;
 };
 
+class MdppSampleDecoderDialog: public ObjectEditorDialog
+{
+    Q_OBJECT
+    public:
+        MdppSampleDecoderDialog(
+            const std::shared_ptr<DataSourceMdppSampleDecoder> &ex,
+            ModuleConfig *mod,
+            ObjectEditorMode mode,
+            EventWidget *eventWidget = nullptr);
+        ~MdppSampleDecoderDialog() override;
+
+        void accept() override;
+        void reject() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
 
 QComboBox *make_event_selection_combo(
     const QList<EventConfig *> &eventConfigs,
