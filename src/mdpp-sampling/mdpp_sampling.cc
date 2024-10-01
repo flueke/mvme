@@ -825,7 +825,6 @@ void MdppSamplingUi::updateUi()
     {
         d->channelSelect_->setMaximum(1);
         d->traceSelect_->setMaximum(1);
-        //d->plotWidget_->setTrace(nullptr);
     }
     spdlog::info("end MdppSamplingUi::updateUi()");
 }

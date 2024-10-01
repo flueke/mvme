@@ -16,6 +16,7 @@ namespace mesytec::mvme
 {
 
 static const auto MdppSamplePeriod = 12.5ns;
+static const u32 SampleBits = 14;
 
 struct LIBMVME_EXPORT ChannelTrace
 {
