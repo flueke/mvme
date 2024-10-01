@@ -119,6 +119,8 @@ target_link_libraries(libmvme_mdpp_decode
 set_target_properties(libmvme_mdpp_decode PROPERTIES OUTPUT_NAME mvme_mdpp_decode)
 generate_export_header(libmvme_mdpp_decode)
 
+install(TARGETS libmvme_mdpp_decode RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
 #
 # libmvme
 #
