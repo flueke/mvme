@@ -308,7 +308,7 @@ target_link_libraries(libmvme
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
-    PRIVATE liba2_static
+    PUBLIC liba2_static
     PRIVATE nlohmann-json
     PRIVATE qgvcore
     PUBLIC ${QUAZIP_QT5}

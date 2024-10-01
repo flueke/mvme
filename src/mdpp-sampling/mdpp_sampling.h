@@ -35,7 +35,7 @@ struct LIBMVME_EXPORT ChannelTrace
 };
 
 // Clear the sample memory and reset all other fields to default values.
-void reset_trace(ChannelTrace &trace);
+void LIBMVME_EXPORT reset_trace(ChannelTrace &trace);
 
 // Can hold traces from multiple channels or alternatively the traces list can be
 // used to store a history of traces for a particular channel.
