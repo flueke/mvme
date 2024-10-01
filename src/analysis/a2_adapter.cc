@@ -1209,6 +1209,16 @@ void a2_adapter_build_datasources(
                     src.moduleIndex,
                     ex->getOptions());
             }
+            else if (auto ex = qobject_cast<analysis::DataSourceMdppSampleDecoder *>(src.source.get()))
+            {
+                ds = a2::make_datasource_mdpp_sample_decoder(
+                    arena,
+                    ex->getMaxChannels(),
+                    ex->getMaxSamples(),
+                    ex->getRngSeed(),
+                    src.moduleIndex,
+                    ex->getOptions());
+            }
 
             a2::A2::OperatorCountType &ds_cnt = state->a2->dataSourceCounts[ei];
             state->a2->dataSources[ei][ds_cnt] = ds;

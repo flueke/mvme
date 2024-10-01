@@ -770,7 +770,7 @@ DataSource make_datasource_mdpp_sample_decoder(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    auto result = make_datasource(arena, DataSource_Extractor, moduleIndex, maxChannels);
+    auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels);
 
     auto ex = arena->pushObject<MdppSampleDecoder>();
     *ex = make_mdpp_sample_decoder(maxChannels, maxSamples, rngSeed, options);
@@ -808,17 +808,25 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
 
         auto &output = ds->outputs[trace.channel];
         auto &hitCounts = ds->hitCounts[trace.channel];
+        const size_t SampleCount = trace.samples.size();
+        // We want to write all of the output elements even if there are fewer samples in this trace.
+        const size_t LastIndex = output.size;
 
-        for (size_t sampleIndex=0; sampleIndex<static_cast<size_t>(trace.samples.size()); ++sampleIndex)
+        for (size_t sampleIndex=0; sampleIndex<LastIndex; ++sampleIndex)
         {
-            assert(!is_param_valid(output[sampleIndex]));
-            double value = trace.samples[sampleIndex];
+            output[sampleIndex] = invalid_param();
 
-            if (!(ex->options & DataSourceOptions::NoAddedRandom))
-                value += RealDist01(ex->rng);
+            if (sampleIndex < SampleCount)
+            {
+                assert(!is_param_valid(output[sampleIndex]));
+                double value = trace.samples[sampleIndex];
 
-            output[sampleIndex] = value;
-            ++hitCounts[sampleIndex];
+                if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                    value += RealDist01(ex->rng);
+
+                output[sampleIndex] = value;
+                ++hitCounts[sampleIndex];
+            }
         }
     }
 }
@@ -4591,6 +4599,8 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
                 datasource_copy_process_module_data(ds, data, dataSize);
                 break;
 #endif
+            default:
+                assert(!"unhandled datasource");
         }
 #ifndef NDEBUG
         nprocessed++;

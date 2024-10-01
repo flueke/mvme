@@ -975,8 +975,11 @@ void MultiHitExtractor::postClone(const AnalysisObject *cloneSource)
     SourceInterface::postClone(cloneSource);
 }
 
+// DataSourceMdppSampleDecoder
+
 DataSourceMdppSampleDecoder::DataSourceMdppSampleDecoder(QObject *parent)
     : SourceInterface(parent)
+    , m_options(Options::NoAddedRandom)
 {
     // Generate a random seed for the rng. This seed will be written out in
     // write() and restored in read().
@@ -1001,7 +1004,6 @@ unsigned DataSourceMdppSampleDecoder::getMaxChannels() const
 {
     return maxChannels_;
 }
-
 
 // Max samples per trace to keep. Additional samples are discarded.
 void DataSourceMdppSampleDecoder::setMaxSamples(unsigned maxSamples)
@@ -1062,7 +1064,7 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &runInfo, Logger logger
     }
     m_outputs.resize(getMaxChannels());
 
-    for (auto outIdx=0; outIdx<m_outputs.size(); ++outIdx)
+    for (size_t outIdx=0; outIdx<m_outputs.size(); ++outIdx)
     {
         // Reuse pipes to not invalidate existing connections
         auto outPipe = m_outputs[outIdx];

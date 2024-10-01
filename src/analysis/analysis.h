@@ -922,6 +922,9 @@ class DataSourceMdppSampleDecoder: public SourceInterface
         Options::opt_t getOptions() const { return m_options; }
         void setOptions(Options::opt_t options) { m_options = options; }
 
+        u64 getRngSeed() const { return m_rngSeed; }
+        void setRngSeed(u64 seed) { m_rngSeed = seed; }
+
     protected:
         void postClone(const AnalysisObject *cloneSource) override;
 
