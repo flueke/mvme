@@ -703,7 +703,7 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     {
         d->traceSelect_ = new QSpinBox;
         d->traceSelect_->setMinimum(0);
-        d->traceSelect_->setMaximum(0);
+        d->traceSelect_->setMaximum(1);
         d->traceSelect_->setSpecialValueText("latest");
         auto boxStruct = make_vbox_container(QSL("Trace#"), d->traceSelect_, 0, -2);
         tb->addWidget(boxStruct.container.release());
@@ -785,10 +785,11 @@ void MdppSamplingUi::updateUi()
 
         QSet<QUuid> traceModuleIds = QSet<QUuid>::fromList(d->traceHistory_.keys());
 
-        auto missingModuleIds = traceModuleIds.subtract(knownModuleIds);
-
         qDebug() << "knownModuleIds" << knownModuleIds;
         qDebug() << "traceModuleIds" << traceModuleIds;
+
+        auto missingModuleIds = traceModuleIds.subtract(knownModuleIds);
+
         qDebug() << "missingModuleIds" << missingModuleIds;
 
         for (auto moduleId: missingModuleIds)
@@ -813,18 +814,18 @@ void MdppSamplingUi::updateUi()
         d->channelSelect_->setMaximum(maxChannel);
         auto selectedChannel = d->channelSelect_->value();
 
-        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) < maxChannel)
+        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) <= maxChannel)
         {
             auto &tracebuffer = moduleTraceHistory[selectedChannel];
             // selector 3: trace number in the trace history. index 0 is the latest trace.
-            d->traceSelect_->setMaximum(tracebuffer.size()-1);
+            d->traceSelect_->setMaximum(std::max(1, tracebuffer.size()-1));
         }
     }
     else // no module selected
     {
-        d->channelSelect_->setMaximum(0);
-        d->traceSelect_->setMaximum(0);
-        d->plotWidget_->setTrace(nullptr);
+        d->channelSelect_->setMaximum(1);
+        d->traceSelect_->setMaximum(1);
+        //d->plotWidget_->setTrace(nullptr);
     }
     spdlog::info("end MdppSamplingUi::updateUi()");
 }
@@ -840,10 +841,10 @@ void MdppSamplingUi::replot()
     if (d->traceHistory_.contains(selectedModuleId))
     {
         auto &moduleTraceHistory = d->traceHistory_[selectedModuleId];
-        const auto maxChannel = moduleTraceHistory.size();
+        const auto maxChannel = moduleTraceHistory.size() - 1;
         auto selectedChannel = d->channelSelect_->value();
 
-        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) < maxChannel)
+        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) <= maxChannel)
         {
             auto &tracebuffer = moduleTraceHistory[selectedChannel];
 
