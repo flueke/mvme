@@ -107,6 +107,18 @@ install(TARGETS libmvme_resources
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib)
 
+add_library(libmvme_mdpp_decode SHARED
+    mdpp-sampling/mdpp_decode.cc
+    )
+
+target_link_libraries(libmvme_mdpp_decode
+    PUBLIC Qt5::Widgets
+    PUBLIC mesytec-mvlc
+    )
+
+set_target_properties(libmvme_mdpp_decode PROPERTIES OUTPUT_NAME mvme_mdpp_decode)
+generate_export_header(libmvme_mdpp_decode)
+
 #
 # libmvme
 #
@@ -181,6 +193,7 @@ add_library(libmvme SHARED
     listfile_replay.cc
     listfile_replay_worker.cc
     logfile_helper.cc
+    mdpp-sampling/mdpp_sampling.cc
     mesytec_diagnostics.cc
     multi_crate.cc
     multi_crate_gui.cc
@@ -190,7 +203,6 @@ add_library(libmvme SHARED
     multi_event_splitter.cc
     multiplot_widget.cc
     multiplot_widget_p.cc
-    mdpp-sampling/mdpp_sampling.cc
     mvlc/mvlc_dev_gui.cc
     mvlc/mvlc_qt_object.cc
     mvlc/mvlc_register_names.cc
@@ -308,7 +320,7 @@ target_link_libraries(libmvme
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
-    PUBLIC liba2_static
+    PRIVATE liba2_static
     PRIVATE nlohmann-json
     PRIVATE qgvcore
     PUBLIC ${QUAZIP_QT5}
@@ -324,6 +336,7 @@ target_link_libraries(libmvme
     PUBLIC Qt5::Xml
     PUBLIC cpp11-on-multicore
     PUBLIC libmvme_resources
+    PUBLIC libmvme_mdpp_decode
     PUBLIC mesytec-mvlc
     PUBLIC nng
     PUBLIC yaml-cpp

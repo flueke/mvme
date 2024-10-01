@@ -22,7 +22,7 @@ static const int TraceUpdateInterval = 500;
 
 void fill_0(std::vector<float> &dest, float dt)
 {
-    for (auto i=0; i<dest.size(); ++i)
+    for (size_t i=0; i<dest.size(); ++i)
     {
         auto t = i * dt;
         dest[i] = 0.5 * sin(2 * M_PI * 1 * t) + 0.3 * sin(2 * M_PI * 2 * t);
@@ -31,7 +31,7 @@ void fill_0(std::vector<float> &dest, float dt)
 
 void fill_1(std::vector<float> &dest, float dt)
 {
-    for (auto i=0; i<dest.size(); ++i)
+    for (size_t i=0; i<dest.size(); ++i)
     {
         dest[i] = (sin(i / 10.0 - M_PI / 2) + 1) / (2.0 + i/100.0);
     }

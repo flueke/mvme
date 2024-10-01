@@ -79,7 +79,7 @@ namespace
 
 /* Buffers to pass between DAQ/replay and the analysis. */
 static const size_t ReadoutBufferCount = 4;
-static const size_t ReadoutBufferSize = Megabytes(1);
+static const size_t ReadoutBufferSize = ::Megabytes(1);
 
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
@@ -116,7 +116,7 @@ class VMEConfigSerializer
 
         QByteArray operator()()
         {
-            auto doc = mvme::vme_config::serialize_vme_config_to_json_document(
+            auto doc = mesytec::mvme::vme_config::serialize_vme_config_to_json_document(
                 *m_context->getVMEConfig());
 
             return doc.toJson();

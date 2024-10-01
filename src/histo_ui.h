@@ -500,19 +500,19 @@ QAction *install_checkable_toolbar_action(
     return action;
 }
 
-QwtPlotZoomer *install_scrollzoomer(PlotWidget *w);
-NewIntervalPicker *install_new_interval_picker(PlotWidget *w);
-IntervalEditorPicker *install_interval_editor(PlotWidget *w);
-QwtPlotPicker *install_poly_picker(PlotWidget *w);
-QwtPlotPicker *install_tracker_picker(PlotWidget *w);
-QwtPlotPicker *install_clickpoint_picker(PlotWidget *w);
-QwtPlotPicker *install_dragpoint_picker(PlotWidget *w);
-QActionGroup *group_picker_actions(PlotWidget *w);
+QwtPlotZoomer *LIBMVME_EXPORT install_scrollzoomer(PlotWidget *w);
+NewIntervalPicker *LIBMVME_EXPORT install_new_interval_picker(PlotWidget *w);
+IntervalEditorPicker *LIBMVME_EXPORT install_interval_editor(PlotWidget *w);
+QwtPlotPicker *LIBMVME_EXPORT install_poly_picker(PlotWidget *w);
+QwtPlotPicker *LIBMVME_EXPORT install_tracker_picker(PlotWidget *w);
+QwtPlotPicker *LIBMVME_EXPORT install_clickpoint_picker(PlotWidget *w);
+QwtPlotPicker *LIBMVME_EXPORT install_dragpoint_picker(PlotWidget *w);
+QActionGroup *LIBMVME_EXPORT group_picker_actions(PlotWidget *w);
 
-QwtPlotZoomer *get_zoomer(PlotWidget *w);
+QwtPlotZoomer *LIBMVME_EXPORT get_zoomer(PlotWidget *w);
 
-void debug_watch_plot_pickers(QWidget *w);
-void watch_mouse_move(PlotWidget *w);
+void LIBMVME_EXPORT debug_watch_plot_pickers(QWidget *w);
+void LIBMVME_EXPORT watch_mouse_move(PlotWidget *w);
 
 }
 

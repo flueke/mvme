@@ -111,12 +111,10 @@ if (A2_BUILD_STATIC)
     target_link_libraries(liba2_static
         PRIVATE exprtk
         PRIVATE ${ZLIB_LIBRARIES}
-        PUBLIC mesytec-mvlc
         PUBLIC pcg
         PUBLIC cpp11-on-multicore
         PUBLIC zstr
-        PUBLIC Qt5::Widgets
-
+        PUBLIC libmvme_mdpp_decode
         )
 
     set_target_properties(liba2_static PROPERTIES
