@@ -263,6 +263,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 			s32 addr = mvlc::util::extract(theFilter.addrCache, *wordPtr);
 			auto value = mvlc::util::extract(theFilter.dataCache, *wordPtr);
 
+            // TODO: try to compress this code. both branches are so similar
             if (currentTrace.channel >= 0 && currentTrace.channel != addr)
             {
                 // The current channel number changed which means we're done
@@ -292,6 +293,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             {
                 // We did not have a valid trace before.
                 currentTrace.channel = addr;
+                currentTrace.header = ret.header;
 
                 if (amplitudeMatches)
                 {
