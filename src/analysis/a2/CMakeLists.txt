@@ -47,7 +47,6 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
 else()
     find_package(Boost REQUIRED)
 endif()
-include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for liba2 in ${Boost_INCLUDE_DIRS}")
 
 find_package(ZLIB REQUIRED)

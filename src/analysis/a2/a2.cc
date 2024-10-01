@@ -770,10 +770,11 @@ DataSource make_datasource_mdpp_sample_decoder(
     *ex = make_mdpp_sample_decoder(maxChannels, maxSamples, rngSeed, options);
     result.d = ex;
 
-    // TODO: upper and lower limits to 8k (14 bit signed)
-    // TODO: create all output array
-    //for (size_t outputIndex=0; outputIndex<maxChannels; ++outputIndex)
-    //    push_output_vectors(arena, &result, outputIndex, maxSamples, 0.0,
+    double lowerLimit = -1.0 * (1u << 13);
+    double upperLimit = (1u << 13) - 1;
+
+    for (size_t outputIndex=0; outputIndex<maxChannels; ++outputIndex)
+        push_output_vectors(arena, &result, outputIndex, maxSamples, lowerLimit, upperLimit);
 
     return result;
 }

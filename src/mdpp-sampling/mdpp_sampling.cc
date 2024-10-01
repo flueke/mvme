@@ -317,7 +317,6 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             //assert(currentTrace.channel >= 0);
 
             // The 14 high bits are the even sample, the 14 low bits the odd one.
-            constexpr u32 SampleBits = 14;
             constexpr u32 SampleMask = (1u << SampleBits) - 1;
 
             // Extract the raw sample values
