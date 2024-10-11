@@ -249,6 +249,11 @@ TracePlotWidget::~TracePlotWidget()
 {
 }
 
+QRectF TracePlotWidget::traceBoundingRect() const
+{
+    return d->curveData_->boundingRect();
+}
+
 void TracePlotWidget::setTrace(const ChannelTrace *trace)
 {
     d->curveData_->setTrace(trace);
@@ -447,7 +452,6 @@ struct MdppSamplingUi::Private
     QTimer replotTimer_;
     QPushButton *pb_printInfo_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
-    ChannelTrace interpolatedTrace_;
 
     void printSamples();
 };
@@ -653,13 +657,10 @@ void MdppSamplingUi::replot()
         }
     }
 
-    // Interpolate if requested.
-    if (auto interpolationFactor = d->spin_interpolationFactor_->value();
-        trace && interpolationFactor > 1)
+    if (trace)
     {
-        d->interpolatedTrace_ = *trace; // deep copy, but the internal QVector copy is cheap due to CoW
-        d->interpolatedTrace_.samples = interpolate(d->interpolatedTrace_.samples, interpolationFactor);
-        trace = &d->interpolatedTrace_; // Just swap the trace out, the plot won't know.
+        auto interpolationFactor = d->spin_interpolationFactor_->value();
+        trace->interpolated = interpolate(trace->samples, interpolationFactor);
     }
 
     d->plotWidget_->setTrace(trace);
@@ -675,19 +676,13 @@ void MdppSamplingUi::replot()
         auto moduleName = d->asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getObjectPath();
         auto channel = trace->channel;
         auto traceIndex = d->traceSelect_->value();
-        double yMin = make_quiet_nan();
-        double yMax = make_quiet_nan();
-        auto minMax = std::minmax_element(std::begin(trace->samples), std::end(trace->samples));
-
-        if (minMax.first != std::end(trace->samples))
-            yMin = *minMax.first;
-
-        if (minMax.second != std::end(trace->samples))
-            yMax = *minMax.second;
+        auto boundingRect = d->plotWidget_->traceBoundingRect();
+        double yMin = boundingRect.bottom();
+        double yMax = boundingRect.top();
 
         sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #Samples=%7, yMin=%8, yMax=%9, moduleHeader=0x%10")
             .arg(moduleName).arg(channel).arg(traceIndex).arg(trace->eventNumber)
-            .arg(trace->amplitude).arg(trace->time).arg(trace->samples.size())
+            .arg(trace->amplitude).arg(trace->time).arg(get_sample_count(*trace))
             .arg(yMin).arg(yMax).arg(trace->header, 8, 16, QLatin1Char('0'))
             );
     }
@@ -796,7 +791,13 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
 {
     if (factor <= 1 || samples.size() <= MinInterpolationSamples)
     {
-        std::copy(std::begin(samples), std::end(samples), std::back_inserter(dest));
+        size_t x=0;
+        std::for_each(std::begin(samples), std::end(samples), [&x, &dest](s16 sample)
+        {
+            dest.push_back(std::make_pair(static_cast<double>(x), static_cast<double>(sample)));
+            ++x;
+        });
+
         return;
     }
 
@@ -816,7 +817,10 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
             double value = ipol(
                 windowStart[0], windowStart[1], windowStart[2],
                 windowStart[3], windowStart[4], windowStart[5], phase);
-            dest.push_back(value);
+
+            auto x = std::distance(std::begin(samples), windowStart) + phase;
+
+            dest.push_back(std::make_pair(x, value));
         }
 
         // Done with this window, advance both start and end by one.
@@ -824,19 +828,13 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
         ++windowEnd;
     }
 
-    // Output the last MinInterpolationSamples samples.
-    std::copy(windowStart, samplesEnd, std::back_inserter(dest));
+    // TODO Output the last MinInterpolationSamples samples.
+    //std::copy(windowStart, samplesEnd, std::back_inserter(dest));
 }
 
-QVector<s16> interpolate(const QVector<s16> &samples, u32 factor)
+QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor)
 {
-    if (factor <= 1)
-        return samples;
-
-    if (samples.size() <= static_cast<int>(MinInterpolationSamples))
-        return samples;
-
-    QVector<s16> result;
+    QVector<std::pair<double, double>> result;
     interpolate(std::basic_string_view<s16>(samples.data(), samples.size()), factor, result);
     return result;
 }

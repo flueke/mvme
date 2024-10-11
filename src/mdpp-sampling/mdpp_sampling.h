@@ -60,6 +60,10 @@ class LIBMVME_EXPORT TracePlotWidget: public histo_ui::PlotWidget
         TracePlotWidget(QWidget *parent = nullptr);
         ~TracePlotWidget() override;
 
+        // returns the current traces bounding rect
+        // (QwtPlotCurve =>  QwtSeriesData<QPointF> => boundingRect())
+        QRectF traceBoundingRect() const;
+
     public slots:
         void setTrace(const ChannelTrace *trace);
         const ChannelTrace *getTrace() const;
@@ -114,7 +118,7 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
         std::unique_ptr<Private> d;
 };
 
-QVector<s16> interpolate(const QVector<s16> &samples, u32 factor);
+QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor);
 
 }
 
