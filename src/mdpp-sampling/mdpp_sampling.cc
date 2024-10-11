@@ -810,7 +810,7 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
         assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
 
         // Crate "factor" number of interpolated output samples.
-        for (size_t step=0; step<=factor; ++step)
+        for (size_t step=1; step<=factor; ++step)
         {
             double phase = step * factor_1;
             double value = ipol(
@@ -819,7 +819,7 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
             dest.push_back(value);
         }
 
-        // Done with this window, advanced both start and end by one.
+        // Done with this window, advance both start and end by one.
         ++windowStart;
         ++windowEnd;
     }
