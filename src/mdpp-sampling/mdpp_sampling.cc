@@ -1,5 +1,6 @@
 #include "mdpp_sampling_p.h"
 
+#include <cmath>
 #include <set>
 #include <qwt_symbol.h>
 #include <QPushButton>
@@ -253,6 +254,11 @@ void TracePlotWidget::setTrace(const ChannelTrace *trace)
     d->curveData_->setTrace(trace);
 }
 
+const ChannelTrace *TracePlotWidget::getTrace() const
+{
+    return d->curveData_->getTrace();
+}
+
 struct GlTracePlotWidget::Private
 {
     GlTracePlotWidget *q = nullptr;
@@ -439,8 +445,11 @@ struct MdppSamplingUi::Private
     TraceHistoryMap traceHistory_;
     size_t traceHistoryMaxDepth = 10;
     QTimer replotTimer_;
-    QPushButton *pb_replot_ = nullptr;
-    QPushButton *pb_updateUi_ = nullptr;
+    QPushButton *pb_printInfo_ = nullptr;
+    QSpinBox *spin_interpolationFactor_ = nullptr;
+    ChannelTrace interpolatedTrace_;
+
+    void printSamples();
 };
 
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
@@ -495,15 +504,21 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     tb->addSeparator();
 
     {
-        d->pb_replot_ = new QPushButton("Replot");
-        d->pb_updateUi_ = new QPushButton("Update UI");
-
-        tb->addWidget(d->pb_replot_);
-        tb->addWidget(d->pb_updateUi_);
+        d->spin_interpolationFactor_ = new QSpinBox;
+        d->spin_interpolationFactor_->setSpecialValueText("off");
+        d->spin_interpolationFactor_->setMinimum(1);
+        d->spin_interpolationFactor_->setMaximum(100);
+        auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), d->spin_interpolationFactor_, 0, -2);
+        tb->addWidget(boxStruct.container.release());
     }
 
-    connect(d->pb_replot_, &QPushButton::clicked, this, &MdppSamplingUi::replot);
-    connect(d->pb_updateUi_, &QPushButton::clicked, this, &MdppSamplingUi::updateUi);
+    tb->addSeparator();
+
+    d->pb_printInfo_ = new QPushButton("Print Info");
+    d->pb_printInfo_->setEnabled(false);
+    tb->addWidget(d->pb_printInfo_);
+
+    connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printSamples(); });
 
     connect(d->moduleSelect_, qOverload<int>(&QComboBox::currentIndexChanged), this, &MdppSamplingUi::replot);
     connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &MdppSamplingUi::replot);
@@ -615,7 +630,7 @@ void MdppSamplingUi::updateUi()
 void MdppSamplingUi::replot()
 {
     spdlog::info("begin MdppSamplingUi::replot()");
-    updateUi(); // TODO: decouple updateUi() and replot()?
+    updateUi(); // update, selection boxes, buttons, etc.
 
     auto selectedModuleId = d->moduleSelect_->currentData().value<QUuid>();
     ChannelTrace *trace = nullptr;
@@ -638,7 +653,20 @@ void MdppSamplingUi::replot()
         }
     }
 
+    // Interpolate if requested.
+    if (auto interpolationFactor = d->spin_interpolationFactor_->value();
+        trace && interpolationFactor > 1)
+    {
+        d->interpolatedTrace_ = *trace; // deep copy, but the internal QVector copy is cheap due to CoW
+        d->interpolatedTrace_.samples = interpolate(d->interpolatedTrace_.samples, interpolationFactor);
+        trace = &d->interpolatedTrace_; // Just swap the trace out, the plot won't know.
+    }
+
+    d->plotWidget_->setTrace(trace);
+    d->plotWidget_->replot();
+
     auto sb = getStatusBar();
+    sb->clearMessage();
 
     if (trace)
     {
@@ -663,12 +691,7 @@ void MdppSamplingUi::replot()
             .arg(yMin).arg(yMax).arg(trace->header, 8, 16, QLatin1Char('0'))
             );
     }
-    else
-    {
-        sb->clearMessage();
-    }
-    d->plotWidget_->setTrace(trace);
-    d->plotWidget_->replot();
+
     spdlog::info("end MdppSamplingUi::replot()");
 }
 
@@ -719,6 +742,103 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)
 {
     emit moduleInterestAdded(moduleId);
+}
+
+void MdppSamplingUi::Private::printSamples()
+{
+    //auto trace = plotWidget_->getTrace();
+}
+
+// *************** SINC ****************************
+static double sinc(double phase) // one period runs 0...1, minima at +-0.5
+{
+#define LIMIT_PERIODES 3.0 // limit sinc function to +-2
+
+    double sinc;
+
+    if ((phase != 0) && (phase >= -LIMIT_PERIODES) && (phase <= LIMIT_PERIODES))
+    {
+        sinc = ((sin(phase * M_PI)) / (phase * M_PI)) * ((sin(phase * M_PI / LIMIT_PERIODES)) / (phase * M_PI / LIMIT_PERIODES));
+    }
+    else if (phase == 0)
+    {
+        sinc = 1;
+    }
+    else
+    {
+        sinc = 0;
+    }
+
+    return (sinc);
+}
+
+// phase= 0...1 (= a2...a3)
+static double ipol(double a0, double a1, double a2, double a3, double a4, double a5, double phase) // one period runs 0...1, minima at +-0.5
+{
+#define LIN_INT 0 // 1 for linear interpolation
+
+    double ipol;
+    if (!LIN_INT)
+    {
+        // phase runs from 0 (position A1) to 1 (position A2)
+        ipol = a0 * sinc(-2.0 - phase) + a1 * sinc(-1 - phase) + a2 * sinc(-phase) + a3 * sinc(1.0 - phase) + a4 * sinc(2.0 - phase) + a5 * sinc(3.0 - phase);
+    }
+    else
+        ipol = a2 + (phase * (a3 - a2)); // only linear interpolation
+
+    return (ipol);
+}
+
+static const u32 MinInterpolationSamples = 6;
+
+template <typename Dest>
+void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &dest)
+{
+    if (factor <= 1 || samples.size() <= MinInterpolationSamples)
+    {
+        std::copy(std::begin(samples), std::end(samples), std::back_inserter(dest));
+        return;
+    }
+
+    const double factor_1 = 1.0 / factor;
+    const auto samplesEnd = std::end(samples);
+    auto windowStart = std::begin(samples);
+    auto windowEnd = windowStart + MinInterpolationSamples;
+
+    while (windowEnd < samplesEnd)
+    {
+        assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
+
+        // Crate "factor" number of interpolated output samples.
+        for (size_t step=0; step<=factor; ++step)
+        {
+            double phase = step * factor_1;
+            double value = ipol(
+                windowStart[0], windowStart[1], windowStart[2],
+                windowStart[3], windowStart[4], windowStart[5], phase);
+            dest.push_back(value);
+        }
+
+        // Done with this window, advanced both start and end by one.
+        ++windowStart;
+        ++windowEnd;
+    }
+
+    // Output the last MinInterpolationSamples samples.
+    std::copy(windowStart, samplesEnd, std::back_inserter(dest));
+}
+
+QVector<s16> interpolate(const QVector<s16> &samples, u32 factor)
+{
+    if (factor <= 1)
+        return samples;
+
+    if (samples.size() <= static_cast<int>(MinInterpolationSamples))
+        return samples;
+
+    QVector<s16> result;
+    interpolate(std::basic_string_view<s16>(samples.data(), samples.size()), factor, result);
+    return result;
 }
 
 }

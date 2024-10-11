@@ -8,14 +8,12 @@
 #include "histo_ui.h"
 #include "mdpp_decode.h"
 #include "stream_processor_consumers.h"
-//#include "util.h"
 
 class AnalysisServiceProvider;
 using namespace std::chrono_literals;
 
 namespace mesytec::mvme
 {
-
 
 class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleConsumer
 {
@@ -64,6 +62,7 @@ class LIBMVME_EXPORT TracePlotWidget: public histo_ui::PlotWidget
 
     public slots:
         void setTrace(const ChannelTrace *trace);
+        const ChannelTrace *getTrace() const;
 
     private:
         struct Private;
@@ -114,6 +113,8 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
         struct Private;
         std::unique_ptr<Private> d;
 };
+
+QVector<s16> interpolate(const QVector<s16> &samples, u32 factor);
 
 }
 
