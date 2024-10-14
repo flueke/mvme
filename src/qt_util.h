@@ -204,6 +204,15 @@ QGridLayout *make_grid(QWidget *widget = nullptr)
     return make_layout<QGridLayout, Margin, Spacing>(widget);
 }
 
+template<typename WidgetType, typename LayoutType, int Margin = 2, int Spacing = 2>
+std::pair<WidgetType *, LayoutType *>make_widget_with_layout(QWidget *parent = nullptr)
+{
+    auto widget = new WidgetType(parent);
+    auto layout = make_layout<LayoutType, Margin, Spacing>(widget);
+    widget->setLayout(layout);
+    return { widget, layout };
+}
+
 class QTextEdit;
 class QPushButton;
 class QLineEdit;
