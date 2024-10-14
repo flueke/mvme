@@ -32,7 +32,6 @@ using namespace mesytec::mvlc;
 namespace mesytec::mvme
 {
 
-
 struct MdppSamplingConsumer::Private
 {
     std::shared_ptr<spdlog::logger> logger_;
@@ -539,9 +538,9 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     {
         d->spin_interpolationFactor_ = new QSpinBox;
         d->spin_interpolationFactor_->setSpecialValueText("off");
-        d->spin_interpolationFactor_->setMinimum(1);
+        d->spin_interpolationFactor_->setMinimum(0);
         d->spin_interpolationFactor_->setMaximum(100);
-        d->spin_interpolationFactor_->setValue(5);
+        d->spin_interpolationFactor_->setValue(4);
         auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), d->spin_interpolationFactor_, 0, -2);
         tb->addWidget(boxStruct.container.release());
     }
@@ -730,7 +729,7 @@ void MdppSamplingUi::replot()
     if (trace)
     {
         auto interpolationFactor = d->spin_interpolationFactor_->value();
-        trace->interpolated = interpolate(trace->samples, interpolationFactor);
+        trace->interpolated = interpolate(trace->samples, interpolationFactor+1);
     }
 
     d->plotWidget_->setTrace(trace);
@@ -741,8 +740,6 @@ void MdppSamplingUi::replot()
 
     if (trace)
     {
-        // Could use 'auto moduleName = d->moduleSelect_->currentText();' but
-        // instead going through the lookup again using trace->moduleId.
         auto moduleName = d->asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getObjectPath();
         auto channel = trace->channel;
         auto traceIndex = d->traceSelect_->value();
@@ -839,6 +836,7 @@ void MdppSamplingUi::Private::printInfo()
 
     out << fmt::format("sampleCount: {}\n", trace->samples.size()).c_str();
     out << fmt::format("samples: [{}]\n", fmt::join(trace->samples, ", ")).c_str();
+    out << fmt::format("interpolated: [{}]\n", fmt::join(trace->interpolated, ", ")).c_str();
 
     if (!logView_)
     {
