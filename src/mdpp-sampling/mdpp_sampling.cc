@@ -435,7 +435,7 @@ void GlTracePlotWidget::paintGL()
     #endif
 }
 
-static const int ReplotInterval_ms = 500;
+static const int ReplotInterval_ms = 33;
 static const size_t TraceHistoryMaxDepth = 10 * 1000;
 
 struct MdppSamplingUi::Private
@@ -573,7 +573,7 @@ s32 get_max_depth(const ModuleTraceHistory &history)
 
 void MdppSamplingUi::updateUi()
 {
-    spdlog::info("begin MdppSamplingUi::updateUi()");
+    spdlog::trace("begin MdppSamplingUi::updateUi()");
 
     // selector 1: Add missing modules to the module select combo
     {
@@ -587,12 +587,12 @@ void MdppSamplingUi::updateUi()
 
         QSet<QUuid> traceModuleIds = QSet<QUuid>::fromList(d->traceHistory_.keys());
 
-        qDebug() << "knownModuleIds" << knownModuleIds;
-        qDebug() << "traceModuleIds" << traceModuleIds;
+        //qDebug() << "knownModuleIds" << knownModuleIds;
+        //qDebug() << "traceModuleIds" << traceModuleIds;
 
         auto missingModuleIds = traceModuleIds.subtract(knownModuleIds);
 
-        qDebug() << "missingModuleIds" << missingModuleIds;
+        //qDebug() << "missingModuleIds" << missingModuleIds;
 
         for (auto moduleId: missingModuleIds)
         {
@@ -628,12 +628,12 @@ void MdppSamplingUi::updateUi()
         d->channelSelect_->setMaximum(1);
         d->traceSelect_->setMaximum(1);
     }
-    spdlog::info("end MdppSamplingUi::updateUi()");
+    spdlog::trace("end MdppSamplingUi::updateUi()");
 }
 
 void MdppSamplingUi::replot()
 {
-    spdlog::info("begin MdppSamplingUi::replot()");
+    spdlog::trace("begin MdppSamplingUi::replot()");
     updateUi(); // update, selection boxes, buttons, etc.
 
     auto selectedModuleId = d->moduleSelect_->currentData().value<QUuid>();
@@ -687,7 +687,7 @@ void MdppSamplingUi::replot()
             );
     }
 
-    spdlog::info("end MdppSamplingUi::replot()");
+    spdlog::trace("end MdppSamplingUi::replot()");
 }
 
 void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber)
