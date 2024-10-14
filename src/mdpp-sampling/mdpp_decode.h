@@ -34,12 +34,13 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
     u32 header = 0; // raw module header word
     u32 amplitudeData = 0; // raw amplitude data word
     u32 timeData = 0; // raw time data word
+
+    // Store both, the unmodified raw samples and the interpolated curve data.
+
     QVector<s16> samples; // samples are 14 bit signed, converted to and stored as 16 bit signed
 
-    // Superhack: store (x, y) values here to enable interpolation of raw traces.
-    // TODO: always use (x, y) pairs in the code related to interpolation and
-    // plotting, use raw traces only when initially parsing the data
-    QVector<std::pair<double, double>> interpolated; // stores interpolated samples.
+    // Store (x, y) values here to allow interpolation of raw traces.
+    QVector<std::pair<double, double>> interpolated;
 };
 
 inline bool has_raw_samples(const ChannelTrace &trace)

@@ -160,8 +160,10 @@ inline MdppChannelTracePlotData *get_curve_data(QwtPlotCurve *curve)
 struct TracePlotWidget::Private
 {
     TracePlotWidget *q = nullptr;
-    QwtPlotCurve *curve_ = nullptr; // main curve . more needed if multiple traces should be plotted.
-    MdppChannelTracePlotData *curveData_ = nullptr; // has to be a ptr as qwt takes ownership and deletes it. more needed for multi plots
+    QwtPlotCurve *rawCurve_ = nullptr;                  // curve for the raw samples
+    QwtPlotCurve *interpolatedCurve_ = nullptr;         // 2nd curve for the interpolated samples
+    MdppChannelTracePlotData *rawCurveData_ = nullptr;     // has to be a ptr as qwt takes ownership and deletes it. more needed for multi plots
+    MdppChannelTracePlotData *interpolatedCurveData_ = nullptr;  // ownership goes to qwt when it's attached to
     QwtPlotZoomer *zoomer_ = nullptr;
 
     void updateAxisScales();
@@ -173,7 +175,7 @@ void TracePlotWidget::Private::updateAxisScales()
 
     // yAxis
     auto plot = q->getPlot();
-    auto br = curveData_->boundingRect();
+    auto br = rawCurveData_->boundingRect();
     auto minValue = br.bottom();
     auto maxValue = br.top();
 
@@ -208,23 +210,32 @@ TracePlotWidget::TracePlotWidget(QWidget *parent)
     , d(std::make_unique<Private>())
 {
     d->q = this;
-    d->curve_ = new QwtPlotCurve("lineCurve");
-    d->curve_->setStyle(QwtPlotCurve::Lines);
-    //d->curve_->setCurveAttribute(QwtPlotCurve::Fitted); // TODO: make this a runtime toggle
-    d->curve_->setPen(Qt::black);
-    d->curve_->setRenderHint(QwtPlotItem::RenderAntialiased);
-    d->curve_->attach(getPlot());
+    d->rawCurve_ = new QwtPlotCurve("rawCurve");
+    d->interpolatedCurve_ = new QwtPlotCurve("interpolatedCurve");
 
-    d->curveData_ = new MdppChannelTracePlotData();
-    d->curve_->setData(d->curveData_);
+    for (auto curve: { d->rawCurve_, d->interpolatedCurve_ })
+    {
+        curve->setPen(Qt::black);
+        curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+        curve->attach(getPlot());
+    }
+
+    // raw samples: no lines, just a marker at each raw sample coordinate
+    d->rawCurveData_ = new MdppChannelTracePlotData();
+    d->rawCurveData_->setMode(PlotDataMode::Raw);
+    d->rawCurve_->setStyle(QwtPlotCurve::NoCurve);
+    d->rawCurve_->setData(d->rawCurveData_);
 
     auto crossSymbol = new QwtSymbol(QwtSymbol::Diamond);
-    //crossSymbol->setPen(Qt::red);
     crossSymbol->setSize(QSize(5, 5));
     crossSymbol->setColor(Qt::red);
+    d->rawCurve_->setSymbol(crossSymbol);
 
-    //crossSymbol->setPinPoint(QPointF(0, 0), true);
-    d->curve_->setSymbol(crossSymbol);
+    // interpolated samples: lines from point to point, no markers
+    d->interpolatedCurveData_ = new MdppChannelTracePlotData();
+    d->interpolatedCurveData_->setMode(PlotDataMode::Interpolated);
+    d->interpolatedCurve_->setData(d->interpolatedCurveData_);
+    d->interpolatedCurve_->setStyle(QwtPlotCurve::Lines);
 
     histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
@@ -252,17 +263,18 @@ TracePlotWidget::~TracePlotWidget()
 
 QRectF TracePlotWidget::traceBoundingRect() const
 {
-    return d->curveData_->boundingRect();
+    return d->rawCurveData_->boundingRect();
 }
 
 void TracePlotWidget::setTrace(const ChannelTrace *trace)
 {
-    d->curveData_->setTrace(trace);
+    d->rawCurveData_->setTrace(trace);
+    d->interpolatedCurveData_->setTrace(trace);
 }
 
 const ChannelTrace *TracePlotWidget::getTrace() const
 {
-    return d->curveData_->getTrace();
+    return d->rawCurveData_->getTrace();
 }
 
 struct GlTracePlotWidget::Private
@@ -693,9 +705,13 @@ void MdppSamplingUi::replot()
 
 void MdppSamplingUi::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
 {
+    (void) runInfo;
+    (void) vmeConfig;
+    (void) analysis;
     spdlog::info("MdppSamplingUi::beginRun()");
     d->plotWidget_->setTrace(nullptr);
     d->traceHistory_.clear();
+    replot();
 }
 
 void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber)
@@ -801,15 +817,18 @@ static double ipol(double a0, double a1, double a2, double a3, double a4, double
 
 static const u32 MinInterpolationSamples = 6;
 
+// Note: the first and last few samples are swalloed. MinInterpolationSamples
+// samples are needed for interpolation to start. Could use linear interpolation
+// for the start and end of the trace.
 template <typename Dest>
-void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &dest)
+void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &dest, double dtSample)
 {
     if (factor <= 1 || samples.size() <= MinInterpolationSamples)
     {
         size_t x=0;
-        std::for_each(std::begin(samples), std::end(samples), [&x, &dest](s16 sample)
+        std::for_each(std::begin(samples), std::end(samples), [&x, &dest, dtSample](s16 sample)
         {
-            dest.push_back(std::make_pair(static_cast<double>(x), static_cast<double>(sample)));
+            dest.push_back(std::make_pair(static_cast<double>(x*dtSample), static_cast<double>(sample)));
             ++x;
         });
 
@@ -833,7 +852,7 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
                 windowStart[0], windowStart[1], windowStart[2],
                 windowStart[3], windowStart[4], windowStart[5], phase);
 
-            auto x = std::distance(std::begin(samples), windowStart) + phase;
+            auto x = dtSample * (std::distance(std::begin(samples), windowStart) + phase);
 
             dest.push_back(std::make_pair(x, value));
         }
@@ -842,15 +861,12 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
         ++windowStart;
         ++windowEnd;
     }
-
-    // TODO Output the last MinInterpolationSamples samples.
-    //std::copy(windowStart, samplesEnd, std::back_inserter(dest));
 }
 
-QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor)
+QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor, double dtSample)
 {
     QVector<std::pair<double, double>> result;
-    interpolate(std::basic_string_view<s16>(samples.data(), samples.size()), factor, result);
+    interpolate(std::basic_string_view<s16>(samples.data(), samples.size()), factor, result, dtSample);
     return result;
 }
 

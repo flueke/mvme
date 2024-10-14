@@ -14,11 +14,17 @@ using TraceBuffer = QList<ChannelTrace>;
 using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number
 using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
 
+enum class PlotDataMode
+{
+    Raw,
+    Interpolated
+};
 
 // InterpolatedSamples takes precendence. if empty raw samples are plotted.
 struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
 {
     const ChannelTrace *trace_ = nullptr;
+    PlotDataMode mode_ = PlotDataMode::Raw;
     mutable QRectF boundingRectCache_;
 
     // Set the event data to plot
@@ -29,6 +35,14 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
     }
 
     const ChannelTrace *getTrace() const { return trace_; }
+
+    void setMode(const PlotDataMode mode)
+    {
+        mode_ = mode;
+        boundingRectCache_ = {};
+    }
+
+    PlotDataMode getMode() const { return mode_; }
 
     QRectF boundingRect() const override
     {
@@ -45,7 +59,7 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
     {
         // Determine min and max y values for the trace.
 
-        if (trace_->interpolated.empty())
+        if (mode_ == PlotDataMode::Raw)
         {
             auto &samples = trace_->samples;
             auto minMax = std::minmax_element(std::begin(samples), std::end(samples));
@@ -57,7 +71,7 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
                 return QRectF(topLeft, bottomRight);
             }
         }
-        else
+        else if (mode_ == PlotDataMode::Interpolated)
         {
             auto &samples = trace_->interpolated;
             auto minMax = std::minmax_element(std::begin(samples), std::end(samples),
@@ -82,7 +96,7 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
     {
         if (trace_)
         {
-            if (trace_->interpolated.empty())
+            if (mode_ == PlotDataMode::Raw)
                 return trace_->samples.size();
             return trace_->interpolated.size();
         }
@@ -93,7 +107,7 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
     {
         if (trace_)
         {
-            if (trace_->interpolated.empty() && i < static_cast<size_t>(trace_->samples.size()))
+            if (mode_ == PlotDataMode::Raw && i < static_cast<size_t>(trace_->samples.size()))
                 return QPointF(i, trace_->samples[i]);
             else if (i < static_cast<size_t>(trace_->interpolated.size()))
                 return QPointF(trace_->interpolated[i].first, trace_->interpolated[i].second);
