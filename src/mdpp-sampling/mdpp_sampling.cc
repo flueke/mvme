@@ -90,11 +90,12 @@ void MdppSamplingConsumer::beginRun(
     d->analysis_ = analysis;
     d->vmeIdToIndex_ = analysis->getVMEIdToIndexMapping();
     d->indexToVmeId_ = reverse_hash(d->vmeIdToIndex_);
+    emit sigBeginRun(runInfo, vmeConfig, analysis);
 }
 
 void MdppSamplingConsumer::endRun(const DAQStats &stats, const std::exception *e)
 {
-    (void) stats; (void) e;
+    emit sigEndRun(stats, e);
 }
 
 void MdppSamplingConsumer::beginEvent(s32 eventIndex)
@@ -690,6 +691,13 @@ void MdppSamplingUi::replot()
     spdlog::trace("end MdppSamplingUi::replot()");
 }
 
+void MdppSamplingUi::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis)
+{
+    spdlog::info("MdppSamplingUi::beginRun()");
+    d->plotWidget_->setTrace(nullptr);
+    d->traceHistory_.clear();
+}
+
 void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u32> &buffer, size_t linearEventNumber)
 {
     spdlog::trace("MdppSamplingUi::handleModuleData event#{}, moduleId={}, size={}",
@@ -732,6 +740,13 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
         while (static_cast<size_t>(traceBuffer.size()) > TraceHistoryMaxDepth)
             traceBuffer.pop_back();
     }
+}
+
+void MdppSamplingUi::endRun(const DAQStats &stats, const std::exception *e)
+{
+    (void) stats;
+    (void) e;
+    spdlog::info("MdppSamplingUi::endRun()");
 }
 
 void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)

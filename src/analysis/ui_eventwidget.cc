@@ -3093,6 +3093,10 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
 
                             QObject::connect(samplingConsumer.get(), &mesytec::mvme::MdppSamplingConsumer::moduleDataReady,
                                              samplingUi, &mesytec::mvme::MdppSamplingUi::handleModuleData);
+                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::MdppSamplingConsumer::sigBeginRun,
+                                             samplingUi, &mesytec::mvme::MdppSamplingUi::beginRun);
+                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::MdppSamplingConsumer::sigEndRun,
+                                             samplingUi, &mesytec::mvme::MdppSamplingUi::endRun);
                         }
 
                         assert(samplingUi);
