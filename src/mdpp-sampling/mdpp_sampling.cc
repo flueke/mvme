@@ -13,6 +13,7 @@
 #include <QOpenGLShader>
 #include <QOpenGLTexture>
 
+#include <mesytec-mvlc/cpp_compat.h>
 #include <mesytec-mvlc/util/data_filter.h>
 #include <mesytec-mvlc/util/logging.h>
 #include <mesytec-mvlc/util/ticketmutex.h>
@@ -22,6 +23,7 @@
 #include "analysis/a2/a2_support.h"
 #include "run_info.h"
 #include "util/qt_container.h"
+#include "util/qt_logview.h"
 #include "vme_config.h"
 
 using namespace mesytec::mvlc;
@@ -465,8 +467,9 @@ struct MdppSamplingUi::Private
     QTimer replotTimer_;
     QPushButton *pb_printInfo_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
+    QPlainTextEdit *logView_ = nullptr;
 
-    void printSamples();
+    void printInfo();
 };
 
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
@@ -532,10 +535,9 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     tb->addSeparator();
 
     d->pb_printInfo_ = new QPushButton("Print Info");
-    d->pb_printInfo_->setEnabled(false);
     tb->addWidget(d->pb_printInfo_);
 
-    connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printSamples(); });
+    connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
     connect(d->moduleSelect_, qOverload<int>(&QComboBox::currentIndexChanged), this, &MdppSamplingUi::replot);
     connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &MdppSamplingUi::replot);
@@ -770,12 +772,33 @@ void MdppSamplingUi::addModuleInterest(const QUuid &moduleId)
     emit moduleInterestAdded(moduleId);
 }
 
-void MdppSamplingUi::Private::printSamples()
+void MdppSamplingUi::Private::printInfo()
 {
-    //auto trace = plotWidget_->getTrace();
+    auto trace = plotWidget_->getTrace();
+
+    if (!trace)
+        return;
+
+    QString text;
+    QTextStream out(&text);
+
+    out << fmt::format("sampleCount: {}\n", trace->samples.size()).c_str();
+    out << fmt::format("samples: [{}]\n", fmt::join(trace->samples, ", ")).c_str();
+
+    if (!logView_)
+    {
+        logView_ = make_logview().release();
+        logView_->setAttribute(Qt::WA_DeleteOnClose);
+        connect(logView_, &QWidget::destroyed, q, [this] { logView_ = nullptr; });
+    }
+
+    assert(logView_);
+    logView_->setPlainText(text);
+    logView_->show();
+    logView_->raise();
 }
 
-// *************** SINC ****************************
+// *************** SINC by r.schneider@mesytec.com ****************************
 static double sinc(double phase) // one period runs 0...1, minima at +-0.5
 {
 #define LIMIT_PERIODES 3.0 // limit sinc function to +-2
@@ -821,9 +844,10 @@ static const u32 MinInterpolationSamples = 6;
 // samples are needed for interpolation to start. Could use linear interpolation
 // for the start and end of the trace.
 template <typename Dest>
-void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &dest, double dtSample)
+void interpolate_impl(const std::basic_string_view<s16> &samples, u32 factor, Dest &dest, double dtSample)
 {
-    if (factor <= 1 || samples.size() <= MinInterpolationSamples)
+    spdlog::trace("break!");
+    if (factor <= 1 || samples.size() < MinInterpolationSamples)
     {
         size_t x=0;
         std::for_each(std::begin(samples), std::end(samples), [&x, &dest, dtSample](s16 sample)
@@ -835,38 +859,60 @@ void interpolate(const std::basic_string_view<s16> &samples, u32 factor, Dest &d
         return;
     }
 
+    const size_t WindowMid = (MinInterpolationSamples - 1) / 2;
     const double factor_1 = 1.0 / factor;
+    const auto samplesStart = std::begin(samples);
     const auto samplesEnd = std::end(samples);
-    auto windowStart = std::begin(samples);
+    auto windowStart = samples.data();
     auto windowEnd = windowStart + MinInterpolationSamples;
 
-    while (windowEnd < samplesEnd)
+    for (auto it=windowStart; it<windowStart+WindowMid; ++it)
+    {
+        auto x = dtSample * std::distance(std::begin(samples), it);
+        dest.push_back(std::make_pair(x, *it));
+    }
+
+    while (windowEnd <= samplesEnd)
     {
         assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
+        util::span<const s16> window(windowStart, MinInterpolationSamples);
 
-        // Crate "factor" number of interpolated output samples.
-        for (size_t step=1; step<=factor; ++step)
+        const auto sampleIndex = WindowMid + std::distance(samplesStart, windowStart);
+        const double sampleX = sampleIndex * dtSample;
+        const double sampleY = samplesStart[sampleIndex];
+
+        dest.push_back(std::make_pair(sampleX, sampleY));
+
+        for (size_t step=0; step<factor-1; ++step)
         {
-            double phase = step * factor_1;
-            double value = ipol(
-                windowStart[0], windowStart[1], windowStart[2],
-                windowStart[3], windowStart[4], windowStart[5], phase);
+            double phase = (step+1) * factor_1;
+            double y = ipol(
+                window[0], window[1], window[2],
+                window[3], window[4], window[5], phase);
 
-            auto x = dtSample * (std::distance(std::begin(samples), windowStart) + phase);
+            auto x = sampleX + phase * dtSample;
 
-            dest.push_back(std::make_pair(x, value));
+            dest.push_back(std::make_pair(x, y));
         }
 
         // Done with this window, advance both start and end by one.
         ++windowStart;
         ++windowEnd;
     }
+
+    #if 1
+    for (auto it=windowStart+WindowMid; it<samplesEnd; ++it)
+    {
+        auto x = dtSample * std::distance(std::begin(samples), it);
+        dest.push_back(std::make_pair(x, *it));
+    }
+    #endif
 }
 
-QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor, double dtSample)
+QVector<std::pair<double, double>> interpolate(const basic_string_view<s16> &samples, u32 factor, double dtSample)
 {
     QVector<std::pair<double, double>> result;
-    interpolate(std::basic_string_view<s16>(samples.data(), samples.size()), factor, result, dtSample);
+    interpolate_impl(samples, factor, result, dtSample);
     return result;
 }
 

@@ -125,7 +125,14 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
 //static constexpr double DefaultSampleInterval = 12.5; // 12.5 ns is the default sample interval for the MDPP sampling mode.
 static constexpr double DefaultSampleInterval = 1;
 
-QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor, double dtSample=DefaultSampleInterval);
+QVector<std::pair<double, double>> interpolate(const basic_string_view<s16> &samples, u32 factor,
+    double dtSample=DefaultSampleInterval);
+
+inline QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor,
+    double dtSample=DefaultSampleInterval)
+{
+    return interpolate(basic_string_view<s16>(samples.data(), samples.size()), factor, dtSample);
+}
 
 }
 
