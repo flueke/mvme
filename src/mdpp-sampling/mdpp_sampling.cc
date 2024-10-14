@@ -3,6 +3,7 @@
 #include <cmath>
 #include <set>
 #include <qwt_symbol.h>
+#include <QCheckBox>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTimer>
@@ -268,6 +269,16 @@ QRectF TracePlotWidget::traceBoundingRect() const
     return d->rawCurveData_->boundingRect();
 }
 
+QwtPlotCurve *TracePlotWidget::getRawCurve()
+{
+    return d->rawCurve_;
+}
+
+QwtPlotCurve *TracePlotWidget::getInterpolatedCurve()
+{
+    return d->interpolatedCurve_;
+}
+
 void TracePlotWidget::setTrace(const ChannelTrace *trace)
 {
     d->rawCurveData_->setTrace(trace);
@@ -468,6 +479,8 @@ struct MdppSamplingUi::Private
     QPushButton *pb_printInfo_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
     QPlainTextEdit *logView_ = nullptr;
+    QCheckBox *cb_sampleSymbols_ = nullptr;
+    QCheckBox *cb_interpolatedSymbols_ = nullptr;
 
     void printInfo();
 };
@@ -528,8 +541,21 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
         d->spin_interpolationFactor_->setSpecialValueText("off");
         d->spin_interpolationFactor_->setMinimum(1);
         d->spin_interpolationFactor_->setMaximum(100);
+        d->spin_interpolationFactor_->setValue(5);
         auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), d->spin_interpolationFactor_, 0, -2);
         tb->addWidget(boxStruct.container.release());
+    }
+
+    tb->addSeparator();
+
+    {
+        d->cb_sampleSymbols_ = new QCheckBox("Sample Symbols");
+        d->cb_sampleSymbols_->setChecked(true);
+        d->cb_interpolatedSymbols_ = new QCheckBox("Interpolated Symbols");
+        auto [widget, layout] = make_widget_with_layout<QWidget, QVBoxLayout>();
+        layout->addWidget(d->cb_sampleSymbols_);
+        layout->addWidget(d->cb_interpolatedSymbols_);
+        tb->addWidget(widget);
     }
 
     tb->addSeparator();
@@ -643,6 +669,35 @@ void MdppSamplingUi::updateUi()
         d->channelSelect_->setMaximum(1);
         d->traceSelect_->setMaximum(1);
     }
+
+    // add / remove symbols from / to the curves
+
+    if (auto curve = d->plotWidget_->getRawCurve();
+        curve && !d->cb_sampleSymbols_->isChecked())
+    {
+        curve->setSymbol(nullptr);
+    }
+    else if (curve && !curve->symbol())
+    {
+        auto crossSymbol = new QwtSymbol(QwtSymbol::Diamond);
+        crossSymbol->setSize(QSize(5, 5));
+        crossSymbol->setColor(Qt::red);
+        curve->setSymbol(crossSymbol);
+    }
+
+    if (auto curve = d->plotWidget_->getInterpolatedCurve();
+        curve && !d->cb_interpolatedSymbols_->isChecked())
+    {
+        curve->setSymbol(nullptr);
+    }
+    else if (curve && !curve->symbol())
+    {
+        auto crossSymbol = new QwtSymbol(QwtSymbol::Triangle);
+        crossSymbol->setSize(QSize(5, 5));
+        crossSymbol->setColor(Qt::blue);
+        curve->setSymbol(crossSymbol);
+    }
+
     spdlog::trace("end MdppSamplingUi::updateUi()");
 }
 

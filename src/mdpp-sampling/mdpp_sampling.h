@@ -10,6 +10,7 @@
 #include "stream_processor_consumers.h"
 
 class AnalysisServiceProvider;
+class QwtPlotCurve;
 using namespace std::chrono_literals;
 
 namespace mesytec::mvme
@@ -65,6 +66,8 @@ class LIBMVME_EXPORT TracePlotWidget: public histo_ui::PlotWidget
         // returns the current traces bounding rect
         // (QwtPlotCurve =>  QwtSeriesData<QPointF> => boundingRect())
         QRectF traceBoundingRect() const;
+        QwtPlotCurve *getRawCurve();
+        QwtPlotCurve *getInterpolatedCurve();
 
     public slots:
         void setTrace(const ChannelTrace *trace);
