@@ -50,8 +50,9 @@ void reset_trace(ChannelTrace &trace)
 DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 {
 	static FilterWithCache fModuleId       = make_filter("0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX");
-	static FilterWithCache fChannelTime    = make_filter("0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD");
-	static FilterWithCache fAmplitude      = make_filter("0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD");
+	static FilterWithCache fChannelTime    = make_filter("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD"); // <- mdpp16_scp channel_time filter
+	static FilterWithCache fAmplitude      = make_filter("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD"); // <- mdpp16_scp amplitude filter
+
 	static FilterWithCache fTriggerTime    = make_filter("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
 	static FilterWithCache fTimeStamp      = make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
 	static FilterWithCache fExtentedTs     = make_filter("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
@@ -212,6 +213,8 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             // Hit an unexpected data word.
             spdlog::warn("decode_mdpp_samples: No filter match for word #{}: {:#010x}",
                 std::distance(data, wordPtr), *wordPtr);
+            log_buffer(default_logger(), spdlog::level::warn, dataView, "raw mdpp sample data");
+            //spdlog::warn("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
             SAM_ASSERT(!"no filter match in mdpp data");
         }
 #endif
