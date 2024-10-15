@@ -82,6 +82,7 @@ void register_mvme_qt_metatypes()
     qRegisterMetaType<mesytec::mvme_mvlc::MVLCObject::State>("mesytec::mvme_mvlc::MVLCObject::State");
     qRegisterMetaType<DataBuffer>("DataBuffer");
     qRegisterMetaType<EventRecord>("EventRecord");
+    qRegisterMetaType<DAQStats>("DAQStats");
 
     qRegisterMetaType<ContainerObject *>();
     qRegisterMetaType<VMEScriptConfig *>();
