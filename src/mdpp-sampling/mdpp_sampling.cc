@@ -536,12 +536,13 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
 
     tb->addSeparator();
 
+
     {
         d->spin_interpolationFactor_ = new QSpinBox;
         d->spin_interpolationFactor_->setSpecialValueText("off");
         d->spin_interpolationFactor_->setMinimum(0);
         d->spin_interpolationFactor_->setMaximum(100);
-        d->spin_interpolationFactor_->setValue(4);
+        d->spin_interpolationFactor_->setValue(5);
         auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), d->spin_interpolationFactor_, 0, -2);
         tb->addWidget(boxStruct.container.release());
     }
