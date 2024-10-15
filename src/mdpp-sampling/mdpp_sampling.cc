@@ -267,7 +267,7 @@ TracePlotWidget::~TracePlotWidget()
 
 QRectF TracePlotWidget::traceBoundingRect() const
 {
-    return d->rawCurveData_->boundingRect();
+    return d->interpolatedCurveData_->boundingRect();
 }
 
 QwtPlotCurve *TracePlotWidget::getRawCurve()
