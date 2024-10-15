@@ -259,4 +259,6 @@ QFutureWatcher<Result> *make_watcher(Handler &&handler)
     return watcher;
 }
 
+bool equals(const QRectF &a, const QRectF &b, qreal epsilon = std::numeric_limits<qreal>::epsilon());
+
 #endif /* __QT_UTIL_H__ */

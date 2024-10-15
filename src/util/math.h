@@ -23,9 +23,7 @@
 
 #include <limits>
 
-namespace mvme
-{
-namespace util
+namespace mvme::util
 {
 
 static constexpr double make_quiet_nan()
@@ -39,7 +37,12 @@ template <typename T> int sgn(T val)
     return (T(0) < val) - (val < T(0));
 }
 
+template<typename T>
+bool equals(T a, T b, T epsilon = std::numeric_limits<T>::epsilon())
+{
+    return std::abs(a - b) < epsilon;
 }
+
 }
 
 #endif /* __MVME_UTIL_MATH_H__ */

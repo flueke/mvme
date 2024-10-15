@@ -35,6 +35,8 @@
 #include <QWidget>
 #include <quazipfile.h>
 
+#include "util/math.h"
+
 WidgetGeometrySaver::WidgetGeometrySaver(QObject *parent)
     : QObject(parent)
 {}
@@ -409,4 +411,12 @@ QWidget *find_top_level_widget(const QString &objectName)
         if (w->objectName() == objectName)
             return w;
     return {};
+}
+
+bool equals(const QRectF &a, const QRectF &b, qreal epsilon)
+{
+    return mvme::util::equals(a.top(), b.top(), epsilon)
+        && mvme::util::equals(a.right(), b.right(), epsilon)
+        && mvme::util::equals(a.bottom(), b.bottom(), epsilon)
+        && mvme::util::equals(a.left(), b.left(), epsilon);
 }
