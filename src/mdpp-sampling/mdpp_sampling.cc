@@ -92,6 +92,7 @@ void MdppSamplingConsumer::beginRun(
     d->analysis_ = analysis;
     d->vmeIdToIndex_ = analysis->getVMEIdToIndexMapping();
     d->indexToVmeId_ = reverse_hash(d->vmeIdToIndex_);
+    std::fill(std::begin(d->linearEventNumbers_), std::end(d->linearEventNumbers_), 0);
     emit sigBeginRun(runInfo, vmeConfig, analysis);
 }
 
