@@ -484,6 +484,8 @@ struct MdppSamplingUi::Private
     QCheckBox *cb_sampleSymbols_ = nullptr;
     QCheckBox *cb_interpolatedSymbols_ = nullptr;
     WidgetGeometrySaver *geoSaver_ = nullptr;
+    QRectF maxBoundingRect_;
+    QPushButton *pb_resetBoundingRect = nullptr;
 
     void printInfo();
 };
@@ -579,10 +581,16 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
         d->cb_sampleSymbols_ = new QCheckBox("Sample Symbols");
         d->cb_sampleSymbols_->setChecked(true);
         d->cb_interpolatedSymbols_ = new QCheckBox("Interpolated Symbols");
+        d->pb_resetBoundingRect = new QPushButton("Reset Axis Scales");
         auto [widget, layout] = make_widget_with_layout<QWidget, QVBoxLayout>();
         layout->addWidget(d->cb_sampleSymbols_);
         layout->addWidget(d->cb_interpolatedSymbols_);
+        layout->addWidget(d->pb_resetBoundingRect);
         tb->addWidget(widget);
+
+        connect(d->pb_resetBoundingRect, &QPushButton::clicked, this, [this] {
+            d->maxBoundingRect_ = {};
+        });
     }
 
     tb->addSeparator();
@@ -734,6 +742,7 @@ void MdppSamplingUi::updateUi()
 void MdppSamplingUi::replot()
 {
     spdlog::trace("begin MdppSamplingUi::replot()");
+
     updateUi(); // update, selection boxes, buttons, etc.
 
     auto selectedModuleId = d->moduleSelect_->currentData().value<QUuid>();
@@ -767,6 +776,31 @@ void MdppSamplingUi::replot()
     }
 
     d->plotWidget_->setTrace(trace);
+
+    auto boundingRect = d->maxBoundingRect_;
+
+    // Grow the bounding rect to the max of every trace every seen.
+    if (!boundingRect.isValid())
+        boundingRect = d->plotWidget_->traceBoundingRect();
+    else
+        boundingRect = d->maxBoundingRect_.united(d->plotWidget_->traceBoundingRect());
+
+    if (!equals(boundingRect, d->maxBoundingRect_))
+    {
+        qDebug() << "boundingRect=" << boundingRect;
+        qDebug() << "maxBoundingRect=" << d->maxBoundingRect_;
+        d->maxBoundingRect_ = boundingRect;
+        auto plot = d->plotWidget_->getPlot();
+        plot->setAxisScale(QwtPlot::xBottom, d->maxBoundingRect_.left(), d->maxBoundingRect_.right());
+        plot->setAxisScale(QwtPlot::yLeft, d->maxBoundingRect_.bottom(), d->maxBoundingRect_.top());
+        if (auto zoomer = histo_ui::get_zoomer(d->plotWidget_))
+        {
+            zoomer->setZoomStack({});
+            zoomer->zoom(0);
+            spdlog::warn("setZoomStack()");
+        }
+    }
+
     d->plotWidget_->replot();
 
     auto sb = getStatusBar();
