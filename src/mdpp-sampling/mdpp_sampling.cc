@@ -777,27 +777,32 @@ void MdppSamplingUi::replot()
 
     d->plotWidget_->setTrace(trace);
 
+    // Grow the bounding rect to the max of every trace every seen.
     auto boundingRect = d->maxBoundingRect_;
 
-    // Grow the bounding rect to the max of every trace every seen.
     if (!boundingRect.isValid())
         boundingRect = d->plotWidget_->traceBoundingRect();
-    else
-        boundingRect = d->maxBoundingRect_.united(d->plotWidget_->traceBoundingRect());
 
-    if (!equals(boundingRect, d->maxBoundingRect_))
+    boundingRect = boundingRect.united(d->plotWidget_->traceBoundingRect());
+
+    qDebug() << "new boundingRect=" << boundingRect;
+    qDebug() << "old maxBoundingRect=" << d->maxBoundingRect_;
+
+    d->maxBoundingRect_ = boundingRect;
+
+    if (auto zoomer = histo_ui::get_zoomer(d->plotWidget_);
+        zoomer->zoomRectIndex() == 0)
     {
-        qDebug() << "boundingRect=" << boundingRect;
-        qDebug() << "maxBoundingRect=" << d->maxBoundingRect_;
-        d->maxBoundingRect_ = boundingRect;
         auto plot = d->plotWidget_->getPlot();
         plot->setAxisScale(QwtPlot::xBottom, d->maxBoundingRect_.left(), d->maxBoundingRect_.right());
         plot->setAxisScale(QwtPlot::yLeft, d->maxBoundingRect_.bottom(), d->maxBoundingRect_.top());
+        qDebug() << "top right of plot axis scales: " << plot->axisScaleDiv(QwtPlot::xBottom).upperBound()
+                 << plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+
         if (auto zoomer = histo_ui::get_zoomer(d->plotWidget_))
         {
-            zoomer->setZoomStack({});
-            zoomer->zoom(0);
-            spdlog::warn("setZoomStack()");
+            spdlog::warn("setZoomBase()");
+            zoomer->setZoomBase();
         }
     }
 
