@@ -213,7 +213,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             // Hit an unexpected data word.
             spdlog::warn("decode_mdpp_samples: No filter match for word #{}: {:#010x}",
                 std::distance(data, wordPtr), *wordPtr);
-            log_buffer(default_logger(), spdlog::level::warn, dataView, "raw mdpp sample data");
+            log_buffer(default_logger(), spdlog::level::trace, dataView, "raw mdpp sample data");
             //spdlog::warn("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
             SAM_ASSERT(!"no filter match in mdpp data");
         }

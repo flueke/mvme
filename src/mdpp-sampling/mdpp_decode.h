@@ -18,7 +18,7 @@ namespace mesytec::mvme
 {
 using namespace mesytec::mvlc;
 
-static const auto MdppSamplePeriod = 12.5ns;
+static const auto MdppDefaultSamplePeriod = 12.5;
 static constexpr u32 SampleBits = 14;
 static constexpr double SampleMinValue = -1.0 * (1 << (SampleBits - 1));
 static constexpr double SampleMaxValue = (1 << (SampleBits - 1)) - 1.0;
@@ -34,6 +34,7 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
     u32 header = 0; // raw module header word
     u32 amplitudeData = 0; // raw amplitude data word
     u32 timeData = 0; // raw time data word
+    double dtSample = MdppDefaultSamplePeriod;
 
     // Store both, the unmodified raw samples and the interpolated curve data.
 
@@ -53,9 +54,14 @@ inline bool has_interpolated_samples(const ChannelTrace &trace)
     return !trace.interpolated.isEmpty();
 }
 
-inline size_t get_sample_count(const ChannelTrace &trace)
+inline size_t get_raw_sample_count(const ChannelTrace &trace)
 {
-    return has_interpolated_samples(trace) ? trace.interpolated.size() : trace.samples.size();
+    return trace.samples.size();
+}
+
+inline size_t get_interpolated_sample_count(const ChannelTrace &trace)
+{
+    return trace.interpolated.size();
 }
 
 // Clear the sample memory and reset all other fields to default values.
