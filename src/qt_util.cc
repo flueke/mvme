@@ -261,7 +261,8 @@ void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags)
     QCoreApplication::processEvents(flags, maxtime_ms);
 }
 
-VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *widget,
+template<typename LayoutType>
+BoxContainerWithLabel make_box_container(const QString &labelText, QWidget *widget,
                                            int spacing, int labelRelativeFontPointSize)
 {
     auto label = new QLabel(labelText);
@@ -269,16 +270,28 @@ VBoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *wi
     set_widget_font_pointsize_relative(label, labelRelativeFontPointSize);
 
     auto container = std::make_unique<QWidget>();
-    auto layout = new QVBoxLayout(container.get());
+    auto layout = new LayoutType(container.get());
     layout->setContentsMargins(0, 0, 0, 0);
 
     layout->setSpacing(spacing);
     layout->addWidget(label, 0, Qt::AlignCenter);
     layout->addWidget(widget, 0, Qt::AlignCenter);
 
-    VBoxContainerWithLabel result { std::move(container), layout, label, widget };
+    BoxContainerWithLabel result { std::move(container), layout, label, widget };
 
     return result;
+}
+
+BoxContainerWithLabel make_vbox_container(const QString &labelText, QWidget *widget,
+                                           int spacing, int labelRelativeFontPointSize)
+{
+    return make_box_container<QVBoxLayout>(labelText, widget, spacing, labelRelativeFontPointSize);
+}
+
+BoxContainerWithLabel make_hbox_container(const QString &labelText, QWidget *widget,
+                                           int spacing, int labelRelativeFontPointSize)
+{
+    return make_box_container<QHBoxLayout>(labelText, widget, spacing, labelRelativeFontPointSize);
 }
 
 QWidget *make_spacer_widget(QWidget *parent)

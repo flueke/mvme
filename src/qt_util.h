@@ -119,15 +119,19 @@ inline QLabel *make_aligned_label(const QString &text,
     return label;
 }
 
-struct LIBMVME_EXPORT VBoxContainerWithLabel
+struct LIBMVME_EXPORT BoxContainerWithLabel
 {
     std::unique_ptr<QWidget> container;
-    QVBoxLayout *layout;
+    QBoxLayout *layout;
     QLabel *label;
     QWidget *widget;
 };
 
-LIBMVME_EXPORT VBoxContainerWithLabel make_vbox_container(
+LIBMVME_EXPORT BoxContainerWithLabel make_vbox_container(
+    const QString &labelText, QWidget *widget,
+    int spacing = 2, int labelRelativeFontPointSize = 0);
+
+LIBMVME_EXPORT BoxContainerWithLabel make_hbox_container(
     const QString &labelText, QWidget *widget,
     int spacing = 2, int labelRelativeFontPointSize = 0);
 
