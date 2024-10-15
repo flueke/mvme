@@ -240,6 +240,7 @@ TracePlotWidget::TracePlotWidget(QWidget *parent)
     d->interpolatedCurve_->setData(d->interpolatedCurveData_);
     d->interpolatedCurve_->setStyle(QwtPlotCurve::Lines);
 
+    getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
     histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
     histo_ui::install_tracker_picker(this);
@@ -477,10 +478,12 @@ struct MdppSamplingUi::Private
     size_t traceHistoryMaxDepth = 10;
     QTimer replotTimer_;
     QPushButton *pb_printInfo_ = nullptr;
+    QDoubleSpinBox *spin_dtSample_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
     QPlainTextEdit *logView_ = nullptr;
     QCheckBox *cb_sampleSymbols_ = nullptr;
     QCheckBox *cb_interpolatedSymbols_ = nullptr;
+    WidgetGeometrySaver *geoSaver_ = nullptr;
 
     void printInfo();
 };
@@ -536,6 +539,29 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
 
     tb->addSeparator();
 
+    {
+        d->spin_dtSample_ = new QDoubleSpinBox;
+        d->spin_dtSample_->setMinimum(1.0);
+        d->spin_dtSample_->setMaximum(1e9);
+        d->spin_dtSample_->setSingleStep(0.1);
+        d->spin_dtSample_->setSuffix(" ns");
+        d->spin_dtSample_->setValue(MdppDefaultSamplePeriod);
+
+        auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
+
+        connect(pb_useDefaultSampleInterval, &QPushButton::clicked, this, [this] {
+            d->spin_dtSample_->setValue(MdppDefaultSamplePeriod);
+        });
+
+        auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();
+        l0->addWidget(d->spin_dtSample_);
+        l0->addWidget(pb_useDefaultSampleInterval);
+
+        auto boxStruct = make_vbox_container(QSL("Sample Interval"), w0, 0, -2);
+        tb->addWidget(boxStruct.container.release());
+    }
+
+    tb->addSeparator();
 
     {
         d->spin_interpolationFactor_ = new QSpinBox;
@@ -569,6 +595,9 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
     connect(d->moduleSelect_, qOverload<int>(&QComboBox::currentIndexChanged), this, &MdppSamplingUi::replot);
     connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &MdppSamplingUi::replot);
     connect(d->traceSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &MdppSamplingUi::replot);
+
+    d->geoSaver_ = new WidgetGeometrySaver(this);
+    d->geoSaver_->addAndRestore(this, "WindowGeometries/MdppSamplingUi");
 }
 
 MdppSamplingUi::~MdppSamplingUi() { }
@@ -730,8 +759,11 @@ void MdppSamplingUi::replot()
 
     if (trace)
     {
-        auto interpolationFactor = d->spin_interpolationFactor_->value();
-        trace->interpolated = interpolate(trace->samples, interpolationFactor+1);
+        auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
+        auto dtSample = d->spin_dtSample_->value();
+
+        trace->dtSample = dtSample;
+        interpolate(*trace, interpolationFactor);
     }
 
     d->plotWidget_->setTrace(trace);
@@ -749,10 +781,11 @@ void MdppSamplingUi::replot()
         double yMin = boundingRect.bottom();
         double yMax = boundingRect.top();
 
-        sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #Samples=%7, yMin=%8, yMax=%9, moduleHeader=0x%10")
+        sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #RawSamples=%7, #IpolSamples=%11 yMin=%8, yMax=%9, moduleHeader=0x%10")
             .arg(moduleName).arg(channel).arg(traceIndex).arg(trace->eventNumber)
-            .arg(trace->amplitude).arg(trace->time).arg(get_sample_count(*trace))
+            .arg(trace->amplitude).arg(trace->time).arg(get_raw_sample_count(*trace))
             .arg(yMin).arg(yMax).arg(trace->header, 8, 16, QLatin1Char('0'))
+            .arg(get_interpolated_sample_count(*trace))
             );
     }
 
@@ -836,15 +869,26 @@ void MdppSamplingUi::Private::printInfo()
     QString text;
     QTextStream out(&text);
 
+    auto moduleName = asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getObjectPath();
+
+    out << QSL("module %1\n").arg(moduleName);
+    out << fmt::format("linear event number: {}\n", trace->eventNumber).c_str();
+    out << fmt::format("amplitude: {}\n", trace->amplitude).c_str();
+    out << fmt::format("time: {}\n", trace->time).c_str();
     out << fmt::format("sampleCount: {}\n", trace->samples.size()).c_str();
     out << fmt::format("samples: [{}]\n", fmt::join(trace->samples, ", ")).c_str();
     out << fmt::format("interpolated: [{}]\n", fmt::join(trace->interpolated, ", ")).c_str();
+    out << fmt::format("interpolatedCount: {}\n", trace->interpolated.size()).c_str();
+    out << fmt::format("dtSample: {}\n", trace->dtSample).c_str();
 
     if (!logView_)
     {
         logView_ = make_logview().release();
         logView_->setAttribute(Qt::WA_DeleteOnClose);
+        logView_->resize(1000, 600);
         connect(logView_, &QWidget::destroyed, q, [this] { logView_ = nullptr; });
+        add_widget_close_action(logView_);
+        geoSaver_->addAndRestore(logView_, "WindowGeometries/MdppSamplingUiLogView");
     }
 
     assert(logView_);

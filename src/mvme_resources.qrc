@@ -52,6 +52,7 @@
     <file alias="listfilter.png">resources/document-list.png</file>
     <file alias="list_remove.png">resources/list-remove.png</file>
     <file alias="pencil.png">resources/pencil.png</file>
+    <file alias="reset_to_default.png">resources/arrow-circle-225-left.png</file>
     <file alias="script-run.png">resources/media-playback-start.png</file>
     <file alias="sink.png">resources/server-database.png</file>
     <file alias="table.png">resources/table.png</file>
