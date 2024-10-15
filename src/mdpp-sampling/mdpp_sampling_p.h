@@ -57,8 +57,6 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
 
     QRectF calculateBoundingRect() const
     {
-        // Determine min and max y values for the trace.
-
         if (mode_ == PlotDataMode::Raw)
         {
             auto &samples = trace_->samples;
@@ -67,7 +65,7 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
             if (minMax.first != std::end(samples) && minMax.second != std::end(samples))
             {
                 QPointF topLeft(0, *minMax.second);
-                QPointF bottomRight(samples.size(), *minMax.first);
+                QPointF bottomRight(samples.size() * trace_->dtSample, *minMax.first);
                 return QRectF(topLeft, bottomRight);
             }
         }
@@ -98,7 +96,8 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
         {
             if (mode_ == PlotDataMode::Raw)
                 return trace_->samples.size();
-            return trace_->interpolated.size();
+            else if (mode_ == PlotDataMode::Interpolated)
+                return trace_->interpolated.size();
         }
         return 0;
     }
@@ -108,7 +107,7 @@ struct MdppChannelTracePlotData: public QwtSeriesData<QPointF>
         if (trace_)
         {
             if (mode_ == PlotDataMode::Raw && i < static_cast<size_t>(trace_->samples.size()))
-                return QPointF(i, trace_->samples[i]);
+                return QPointF(i * trace_->dtSample, trace_->samples[i]);
             else if (i < static_cast<size_t>(trace_->interpolated.size()))
                 return QPointF(trace_->interpolated[i].first, trace_->interpolated[i].second);
         }
