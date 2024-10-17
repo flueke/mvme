@@ -4447,6 +4447,24 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     }
                 } break;
 
+            case NodeType_WaveformSink:
+                if (auto sink = get_shared_analysis_object<WaveformSink>(
+                        node, DataRole_AnalysisObject))
+                {
+                    auto sinkPtr = std::dynamic_pointer_cast<WaveformSink>(sink->shared_from_this());
+
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
+                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                    }
+                    else
+                    {
+                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
+                    }
+                } break;
+
             case NodeType_Sink:
                 if (auto rms = get_shared_analysis_object<RateMonitorSink>(
                         node, DataRole_AnalysisObject))
