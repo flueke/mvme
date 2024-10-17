@@ -3681,10 +3681,23 @@ size_t RateMonitorSink::getStorageSize() const
 // WaveformSink
 //
 
+struct WaveformSink::Private
+{
+    // Data inputs to be exported
+    QVector<std::shared_ptr<Slot>> inputs_;
+    size_t traceHistoryMaxDepth_ = WaveformSink::DefaultTraceHistoryMaxDepth;
+    mutable mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> traceHistories_;
+};
+
 WaveformSink::WaveformSink(QObject *parent)
     : SinkInterface(parent)
+    , d(std::make_unique<Private>())
 {
     addSlot();
+}
+
+WaveformSink::~WaveformSink()
+{
 }
 
 bool WaveformSink::addSlot()
@@ -3695,17 +3708,17 @@ bool WaveformSink::addSlot()
         this, getNumberOfSlots(),
         QSL("Channel #") + QString::number(getNumberOfSlots()), inputType);
 
-    m_inputs.push_back(slot);
+    d->inputs_.push_back(slot);
 
     return true;
 }
 
 bool WaveformSink::removeLastSlot()
 {
-    if (m_inputs.size() > 1)
+    if (d->inputs_.size() > 1)
     {
-        m_inputs.back()->disconnectPipe();
-        m_inputs.pop_back();
+        d->inputs_.back()->disconnectPipe();
+        d->inputs_.pop_back();
         return true;
     }
 
@@ -3714,16 +3727,25 @@ bool WaveformSink::removeLastSlot()
 
 Slot *WaveformSink::getSlot(s32 slotIndex)
 {
-    return m_inputs.value(slotIndex).get();
+    return d->inputs_.value(slotIndex).get();
 }
 
 s32 WaveformSink::getNumberOfSlots() const
 {
-    return m_inputs.size();
+    return d->inputs_.size();
 }
 
-void WaveformSink::beginRun(const RunInfo &, Logger)
+void WaveformSink::clearState()
 {
+    d->traceHistories_.access().ref() = {};
+}
+
+void WaveformSink::beginRun(const RunInfo &runInfo, Logger)
+{
+    if (!runInfo.keepAnalysisState)
+    {
+        clearState();
+    }
 }
 
 void WaveformSink::write(QJsonObject &json) const
@@ -3734,14 +3756,12 @@ void WaveformSink::write(QJsonObject &json) const
 
 void WaveformSink::read(const QJsonObject &json)
 {
-    for (auto &slot: m_inputs)
+    for (auto &slot: d->inputs_)
     {
         slot->disconnectPipe();
     }
-    m_inputs.clear();
+    d->inputs_.clear();
 
-    // Default to 1 to enable reading of older analysis files that contain the single
-    // input version of the WaveformSink
     s32 inputCount = json["numberOfInputs"].toInt(1);
 
     for (s32 inputIndex = 0;
@@ -3752,6 +3772,26 @@ void WaveformSink::read(const QJsonObject &json)
     }
 
     setTraceHistoryMaxDepth(json["traceHistoryMaxDepth"].toInt(DefaultTraceHistoryMaxDepth));
+}
+
+void WaveformSink::setTraceHistoryMaxDepth(size_t maxDepth)
+{
+     d->traceHistoryMaxDepth_ = maxDepth;
+}
+
+size_t WaveformSink::getTraceHistoryMaxDepth() const
+{
+    return d->traceHistoryMaxDepth_;
+}
+
+mesytec::mvme::ModuleTraceHistory WaveformSink::getTraceHistory() const
+{
+    return d->traceHistories_.copy();
+}
+
+mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> &WaveformSink::getTraceHistoryProtected()
+{
+    return d->traceHistories_;
 }
 
 //

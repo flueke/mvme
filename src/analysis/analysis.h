@@ -22,6 +22,7 @@
 #define __ANALYSIS_H__
 
 #include <mesytec-mvlc/mvlc_readout_parser.h>
+#include <mesytec-mvlc/util/protected.h>
 #include <fstream>
 #include <memory>
 #include <pcg_random.hpp>
@@ -1977,12 +1978,14 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
         static const size_t DefaultTraceHistoryMaxDepth = 100;
 
         Q_INVOKABLE WaveformSink(QObject *parent = nullptr);
+        ~WaveformSink() override;
 
         virtual bool hasVariableNumberOfSlots() const override { return true; }
         virtual bool addSlot() override;
         virtual bool removeLastSlot() override;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+        virtual void clearState() override;
 
         // Inputs
         virtual s32 getNumberOfSlots() const override;
@@ -2000,15 +2003,15 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
         // histograms do, so it always returns 0 here.
         virtual size_t getStorageSize() const override { return 0u; }
 
-        void setTraceHistoryMaxDepth(size_t maxDepth) { traceHistoryMaxDepth_ = maxDepth; }
-        size_t getTraceHistoryMaxDepth() const { return traceHistoryMaxDepth_; }
+        void setTraceHistoryMaxDepth(size_t maxDepth);
+        size_t getTraceHistoryMaxDepth() const;
 
         mesytec::mvme::ModuleTraceHistory getTraceHistory() const;
+        mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> &getTraceHistoryProtected();
 
     private:
-        // Data inputs to be exported
-        QVector<std::shared_ptr<Slot>> m_inputs;
-        size_t traceHistoryMaxDepth_ = DefaultTraceHistoryMaxDepth;
+        struct Private;
+        std::unique_ptr<Private> d;
 };
 
 class LIBMVME_EXPORT ExportSink: public SinkInterface
