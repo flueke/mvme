@@ -110,7 +110,6 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Operator:
         case NodeType_Histo1DSink:
         case NodeType_Histo2DSink:
-        case NodeType_WaveformSink:
         case NodeType_Sink:
         case NodeType_Directory:
         case NodeType_PlotGridView:
@@ -638,7 +637,6 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
         {
             case NodeType_Histo1DSink:
             case NodeType_Histo2DSink:
-            case NodeType_WaveformSink:
             case NodeType_Sink:
             case NodeType_PlotGridView:
                 {
@@ -965,19 +963,6 @@ inline TreeNode *make_histo1d_node(Histo1DSink *sink)
 inline TreeNode *make_histo2d_node(Histo2DSink *sink)
 {
     auto node = make_node(sink, NodeType_Histo2DSink, DataRole_AnalysisObject);
-    node->setData(0, Qt::EditRole, sink->objectName());
-    node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
-            sink->getShortName(),
-            sink->objectName()));
-    node->setIcon(0, make_operator_icon(sink));
-    node->setFlags(node->flags() | Qt::ItemIsEditable);
-
-    return node;
-}
-
-inline TreeNode *make_waveform_sink_node(WaveformSink *sink)
-{
-    auto node = make_node(sink, NodeType_WaveformSink, DataRole_AnalysisObject);
     node->setData(0, Qt::EditRole, sink->objectName());
     node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
             sink->getShortName(),
@@ -2273,7 +2258,7 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
             }
             else if (auto sink = qobject_cast<WaveformSink *>(op.get()))
             {
-                theNode.reset(make_waveform_sink_node(sink));
+                theNode.reset(make_sink_node(sink));
             }
             else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
@@ -3500,25 +3485,20 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             }
         }
 
-        if (activeNode->type() == NodeType_WaveformSink)
+        if (auto sinkPtr = get_shared_analysis_object<WaveformSink>(activeNode, DataRole_AnalysisObject))
         {
-            if (auto sink = qobject_cast<WaveformSink *>(get_qobject(activeNode, DataRole_AnalysisObject)))
-            {
-                auto sinkPtr = std::dynamic_pointer_cast<WaveformSink>(sink->shared_from_this());
-
-                menu.addAction(QSL("Open Waveforms Display"), m_q, [this, sinkPtr]() {
-                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
-                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                    {
-                        auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
-                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
-                    }
-                    else
-                    {
-                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
-                    }
-                });
-            }
+            menu.addAction(QSL("Open Waveforms Display"), m_q, [this, sinkPtr]() {
+                if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
+                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                {
+                    auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                    m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                }
+                else
+                {
+                    m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
+                }
+            });
         }
 
         if (auto sinkPtr = get_shared_analysis_object<ExportSink>(activeNode,
@@ -4447,24 +4427,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     }
                 } break;
 
-            case NodeType_WaveformSink:
-                if (auto sink = get_shared_analysis_object<WaveformSink>(
-                        node, DataRole_AnalysisObject))
-                {
-                    auto sinkPtr = std::dynamic_pointer_cast<WaveformSink>(sink->shared_from_this());
-
-                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
-                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                    {
-                        auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
-                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
-                    }
-                    else
-                    {
-                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
-                    }
-                } break;
-
             case NodeType_Sink:
                 if (auto rms = get_shared_analysis_object<RateMonitorSink>(
                         node, DataRole_AnalysisObject))
@@ -4510,6 +4472,20 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     else
                     {
                         m_serviceProvider->getWidgetRegistry()->activateObjectWidget(rms.get());
+                    }
+                }
+                else if (auto sinkPtr = get_shared_analysis_object<WaveformSink>(
+                        node, DataRole_AnalysisObject))
+                {
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
+                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                    }
+                    else
+                    {
+                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
                     }
                 }
                 else if (auto ex = get_shared_analysis_object<ExportSink>(node,
