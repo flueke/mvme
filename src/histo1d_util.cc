@@ -28,7 +28,7 @@ using boost::adaptors::indexed;
 namespace mvme
 {
 
-using util::make_quiet_nan;
+using mesytec::mvme::util::make_quiet_nan;
 
 QTextStream &print_histolist_stats(
     QTextStream &out,

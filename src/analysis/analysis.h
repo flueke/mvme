@@ -41,6 +41,7 @@
 #include "histo1d.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
+#include "mdpp-sampling/mdpp_decode.h"
 #include "object_factory.h"
 #include "typedefs.h"
 
@@ -2001,6 +2002,8 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
 
         void setTraceHistoryMaxDepth(size_t maxDepth) { traceHistoryMaxDepth_ = maxDepth; }
         size_t getTraceHistoryMaxDepth() const { return traceHistoryMaxDepth_; }
+
+        mesytec::mvme::ModuleTraceHistory getTraceHistory() const;
 
     private:
         // Data inputs to be exported

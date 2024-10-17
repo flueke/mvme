@@ -1077,7 +1077,7 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
         outPipe->parameters.resize(getMaxSamples());
         for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
         {
-            outPipe->parameters[paramIndex].value = make_quiet_nan();
+            outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
             outPipe->parameters[paramIndex].lowerLimit = mesytec::mvme::SampleMinValue;
             outPipe->parameters[paramIndex].upperLimit = mesytec::mvme::SampleMaxValue;
         }
@@ -1281,8 +1281,8 @@ void CalibrationMinMax::read(const QJsonObject &json)
     // Read the old global calbration and use it if an element of the
     // calibration array is invalid.
     // Note: these values are not written out anymore.
-    m_oldGlobalUnitMin = json["globalUnitMin"].toDouble(make_quiet_nan());
-    m_oldGlobalUnitMax = json["globalUnitMax"].toDouble(make_quiet_nan());
+    m_oldGlobalUnitMin = json["globalUnitMin"].toDouble(::mesytec::mvme::util::make_quiet_nan());
+    m_oldGlobalUnitMax = json["globalUnitMax"].toDouble(::mesytec::mvme::util::make_quiet_nan());
 
     m_calibrations.clear();
     QJsonArray calibArray = json["calibrations"].toArray();
@@ -1302,8 +1302,8 @@ void CalibrationMinMax::read(const QJsonObject &json)
         {
             CalibrationMinMaxParameters param;
 
-            param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
-            param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
+            param.unitMin = paramJson["unitMin"].toDouble(::mesytec::mvme::util::make_quiet_nan());
+            param.unitMax = paramJson["unitMax"].toDouble(::mesytec::mvme::util::make_quiet_nan());
 
             if (!param.isValid())
             {
@@ -1860,8 +1860,8 @@ void AggregateOps::beginRun(const RunInfo &, Logger)
 void AggregateOps::read(const QJsonObject &json)
 {
     m_op = aggregateOp_from_string(json["operation"].toString());
-    m_minThreshold = json["minThreshold"].toDouble(make_quiet_nan());
-    m_maxThreshold = json["maxThreshold"].toDouble(make_quiet_nan());
+    m_minThreshold = json["minThreshold"].toDouble(::mesytec::mvme::util::make_quiet_nan());
+    m_maxThreshold = json["maxThreshold"].toDouble(::mesytec::mvme::util::make_quiet_nan());
     m_outputUnitLabel = json["outputUnitLabel"].toString();
 }
 
@@ -3239,8 +3239,8 @@ void Histo1DSink::read(const QJsonObject &json)
 {
     m_bins = json["nBins"].toInt();
     m_xAxisTitle = json["xAxisTitle"].toString();
-    m_xLimitMin = json["xLimitMin"].toDouble(make_quiet_nan());
-    m_xLimitMax = json["xLimitMax"].toDouble(make_quiet_nan());
+    m_xLimitMin = json["xLimitMin"].toDouble(::mesytec::mvme::util::make_quiet_nan());
+    m_xLimitMax = json["xLimitMax"].toDouble(::mesytec::mvme::util::make_quiet_nan());
     m_rrf = json["resolutionReductionFactor"].toInt(Histo1D::NoRR);
 
     Q_ASSERT(m_bins > 0);
@@ -3408,12 +3408,12 @@ Slot *Histo2DSink::getSlot(s32 slotIndex)
 void Histo2DSink::read(const QJsonObject &json)
 {
     m_xBins = static_cast<s32>(json["xBins"].toInt());
-    m_xLimitMin = json["xLimitMin"].toDouble(make_quiet_nan());
-    m_xLimitMax = json["xLimitMax"].toDouble(make_quiet_nan());
+    m_xLimitMin = json["xLimitMin"].toDouble(::mesytec::mvme::util::make_quiet_nan());
+    m_xLimitMax = json["xLimitMax"].toDouble(::mesytec::mvme::util::make_quiet_nan());
 
     m_yBins = static_cast<s32>(json["yBins"].toInt());
-    m_yLimitMin = json["yLimitMin"].toDouble(make_quiet_nan());
-    m_yLimitMax = json["yLimitMax"].toDouble(make_quiet_nan());
+    m_yLimitMin = json["yLimitMin"].toDouble(::mesytec::mvme::util::make_quiet_nan());
+    m_yLimitMax = json["yLimitMax"].toDouble(::mesytec::mvme::util::make_quiet_nan());
 
     m_xAxisTitle = json["xAxisTitle"].toString();
     m_yAxisTitle = json["yAxisTitle"].toString();
@@ -4033,7 +4033,7 @@ IntervalCondition::IntervalData IntervalCondition::getInterval(s32 address) cons
 
     return IntervalData
     {
-        QwtInterval{ make_quiet_nan(), make_quiet_nan() },
+        QwtInterval{ ::mesytec::mvme::util::make_quiet_nan(), ::mesytec::mvme::util::make_quiet_nan() },
         false,
     };
 }

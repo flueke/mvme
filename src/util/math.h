@@ -23,7 +23,7 @@
 
 #include <limits>
 
-namespace mvme::util
+namespace mesytec::mvme::util
 {
 
 static constexpr double make_quiet_nan()
