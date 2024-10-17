@@ -4076,8 +4076,16 @@ void waveform_sink_step(Operator *op, A2 *)
         mesytec::mvme::ChannelTrace trace;
         trace.channel = idx;
         trace.samples.reserve(input.size);
-        // TODO: this currently converts the doubles from the input array back to s16 values!
-        std::copy(input.begin(), input.end(), std::back_inserter(trace.samples));
+
+        for (auto value: input)
+        {
+            // stop copying when hitting the first invalid parameter in the input array
+            if (!is_param_valid(value))
+                break;
+
+            // TODO, FIXME: this currently converts the doubles from the input array back to s16 values!
+            trace.samples.push_back(static_cast<s16>(value));
+        }
 
         auto &traceHistory = traceHistories[idx];
 

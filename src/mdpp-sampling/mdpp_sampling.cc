@@ -257,13 +257,13 @@ struct MdppSamplingUi::Private
     MdppSamplingUi *q = nullptr;
     AnalysisServiceProvider *asp_ = nullptr;
     TracePlotWidget *plotWidget_ = nullptr;
+    QTimer replotTimer_;
     DecodedMdppSampleEvent currentEvent_;
     QComboBox *moduleSelect_ = nullptr;
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
     TraceHistoryMap traceHistory_;
     size_t traceHistoryMaxDepth = 10;
-    QTimer replotTimer_;
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
