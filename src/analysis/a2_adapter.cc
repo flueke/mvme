@@ -804,6 +804,31 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
     return result;
 }
 
+DEF_OP_MAGIC(waveform_sink_magic)
+{
+    OP_MAGIC_NOWARN;
+    LOG("");
+    assert(inputSlots.size() >= 1);
+
+    auto a1_sink = qobject_cast<analysis::WaveformSink *>(op.get());
+
+    assert(a1_sink);
+
+    std::vector<a2::PipeVectors> a2_inputs;
+
+    for (s32 si = 0; si < inputSlots.size(); si++)
+    {
+        a2_inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]).first);
+    }
+
+    a2::Operator result = a2::make_waveform_sink(
+        arena,
+        a2_inputs,
+        a1_sink->getTraceHistoryMaxDepth());
+
+    return result;
+}
+
 DEF_OP_MAGIC(export_sink_magic)
 {
     OP_MAGIC_NOWARN;
@@ -976,6 +1001,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },
     { &analysis::RateMonitorSink::staticMetaObject,         rate_monitor_sink_magic },
+    { &analysis::WaveformSink::staticMetaObject,            waveform_sink_magic },
     { &analysis::ExportSink::staticMetaObject,              export_sink_magic },
 };
 
