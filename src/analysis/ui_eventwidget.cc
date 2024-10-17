@@ -891,6 +891,9 @@ static QIcon make_operator_icon(OperatorInterface *op)
     if (qobject_cast<Histo2DSink *>(op))
         return QIcon(":/hist2d.png");
 
+    if (qobject_cast<WaveformSink *>(op))
+        return QIcon(":/vme_event.png");
+
     if (qobject_cast<RateMonitorSink *>(op))
         return QIcon(":/rate_monitor_sink.png");
 
