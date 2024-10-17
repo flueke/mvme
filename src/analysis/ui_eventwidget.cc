@@ -49,6 +49,7 @@
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/listfilter_extractor_dialog.h"
 #include "analysis/object_info_widget.h"
+#include "analysis/waveform_sink_widget.h"
 
 #include "graphicsview_util.h"
 #include "graphviz_util.h"
@@ -109,6 +110,7 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Operator:
         case NodeType_Histo1DSink:
         case NodeType_Histo2DSink:
+        case NodeType_WaveformSink:
         case NodeType_Sink:
         case NodeType_Directory:
         case NodeType_PlotGridView:
@@ -636,6 +638,7 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
         {
             case NodeType_Histo1DSink:
             case NodeType_Histo2DSink:
+            case NodeType_WaveformSink:
             case NodeType_Sink:
             case NodeType_PlotGridView:
                 {
@@ -962,6 +965,19 @@ inline TreeNode *make_histo1d_node(Histo1DSink *sink)
 inline TreeNode *make_histo2d_node(Histo2DSink *sink)
 {
     auto node = make_node(sink, NodeType_Histo2DSink, DataRole_AnalysisObject);
+    node->setData(0, Qt::EditRole, sink->objectName());
+    node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
+            sink->getShortName(),
+            sink->objectName()));
+    node->setIcon(0, make_operator_icon(sink));
+    node->setFlags(node->flags() | Qt::ItemIsEditable);
+
+    return node;
+}
+
+inline TreeNode *make_waveform_sink_node(WaveformSink *sink)
+{
+    auto node = make_node(sink, NodeType_WaveformSink, DataRole_AnalysisObject);
     node->setData(0, Qt::EditRole, sink->objectName());
     node->setData(0, Qt::DisplayRole, QString("<b>%1</b> %2").arg(
             sink->getShortName(),
@@ -2255,6 +2271,10 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
             {
                 theNode.reset(make_histo2d_node(histoSink));
             }
+            else if (auto sink = qobject_cast<WaveformSink *>(op.get()))
+            {
+                theNode.reset(make_waveform_sink_node(sink));
+            }
             else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
                 theNode.reset(make_sink_node(sink));
@@ -3477,6 +3497,27 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                 sinkPtr->getId().toString() + QSL("_plotgrid"));
                         });
                 }
+            }
+        }
+
+        if (activeNode->type() == NodeType_WaveformSink)
+        {
+            if (auto sink = qobject_cast<WaveformSink *>(get_qobject(activeNode, DataRole_AnalysisObject)))
+            {
+                auto sinkPtr = std::dynamic_pointer_cast<WaveformSink>(sink->shared_from_this());
+
+                menu.addAction(QSL("Open Waveforms Display"), m_q, [this, sinkPtr]() {
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
+                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                    }
+                    else
+                    {
+                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
+                    }
+                });
             }
         }
 

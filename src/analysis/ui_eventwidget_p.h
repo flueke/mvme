@@ -57,6 +57,7 @@ enum NodeType
 
     NodeType_Histo1DSink,
     NodeType_Histo2DSink,
+    NodeType_WaveformSink,
     NodeType_Sink,          // Sinks that are not handled specifically
 
     NodeType_Histo1D,

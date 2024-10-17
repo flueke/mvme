@@ -165,6 +165,7 @@ add_library(libmvme SHARED
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
+    analysis/waveform_sink_widget.cc
     analysis_bench.cc
     analysis_service_provider.cc
     daqcontrol.cc
