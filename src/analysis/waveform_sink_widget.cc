@@ -286,17 +286,7 @@ void WaveformSinkWidget::Private::printInfo()
     QString text;
     QTextStream out(&text);
 
-    auto moduleName = asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getObjectPath();
-
-    out << QSL("module %1\n").arg(moduleName);
-    out << fmt::format("linear event number: {}\n", trace->eventNumber).c_str();
-    out << fmt::format("amplitude: {}\n", trace->amplitude).c_str();
-    out << fmt::format("time: {}\n", trace->time).c_str();
-    out << fmt::format("sampleCount: {}\n", trace->samples.size()).c_str();
-    out << fmt::format("samples: [{}]\n", fmt::join(trace->samples, ", ")).c_str();
-    out << fmt::format("interpolated: [{}]\n", fmt::join(trace->interpolated, ", ")).c_str();
-    out << fmt::format("interpolatedCount: {}\n", trace->interpolated.size()).c_str();
-    out << fmt::format("dtSample: {}\n", trace->dtSample).c_str();
+    out << "TODO: implement printInfo()";
 
     if (!logView_)
     {
