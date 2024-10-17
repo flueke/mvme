@@ -63,12 +63,9 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vmeModuleInfos, analysis::Analy
 
 struct VMEConfigIndex
 {
+    // TODO: add crateIndex here and use it/check it where needed
     s32 eventIndex = -1;
     s32 moduleIndex = -1;
-    // TODO: add a variable crateIndex. The static one was added for the
-    // MdppSampling stuff in ui_eventwidget.cc and mdpp_sampling.cc. No other
-    // code has been adapted yet!
-    //static const s32 crateIndex = 0;
 
     inline bool isValid() const { return eventIndex >= 0 && moduleIndex >= 0; }
     inline bool isValidEvent() const { return eventIndex >= 0; }
