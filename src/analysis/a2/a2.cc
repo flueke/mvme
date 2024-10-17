@@ -4024,13 +4024,14 @@ void rate_monitor_sample_flow(Operator *op)
 struct WaveformSinkData
 {
     // Trace histories by input array index.
-    mesytec::mvme::ModuleTraceHistory traceHistories_;
+    mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> *traceHistories_;
     size_t traceHistoryMaxDepth_;
 };
 
 Operator make_waveform_sink(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
+    mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> &traceHistories,
     size_t traceHistoryMaxDepth
     )
 {
@@ -4040,16 +4041,16 @@ Operator make_waveform_sink(
 
     result = make_operator(arena, Operator_WaveformSink, inputCount, 0);
 
-
     auto d = arena->pushObject<WaveformSinkData>();
     result.d = d;
 
-    for (auto ii = 0; ii < static_cast<size_t>(inputCount); ii++)
+    for (auto ii = 0u; ii < inputCount; ii++)
     {
         assign_input(&result, inputs[ii], ii);
     }
 
-    d->traceHistories_.resize(inputCount);
+    d->traceHistories_ = &traceHistories;
+    d->traceHistories_->access()->resize(inputCount);
     d->traceHistoryMaxDepth_ = traceHistoryMaxDepth;
 
     return result;
@@ -4062,7 +4063,11 @@ void waveform_sink_step(Operator *op, A2 *)
 
     auto d = reinterpret_cast<WaveformSinkData *>(op->d);
 
-    assert(op->inputCount == static_cast<s32>(d->traceHistories_.size()));
+    // lock the trace histories until the end of the function
+    auto access = d->traceHistories_->access();
+    auto &traceHistories = access.ref();
+
+    assert(op->inputCount == static_cast<s32>(traceHistories.size()));
 
     for (s32 idx = 0; idx < op->inputCount; ++idx)
     {
@@ -4073,7 +4078,7 @@ void waveform_sink_step(Operator *op, A2 *)
         trace.samples.reserve(input.size);
         std::copy(input.begin(), input.end(), std::back_inserter(trace.samples));
 
-        auto &traceHistory = d->traceHistories_[idx];
+        auto &traceHistory = traceHistories[idx];
 
         // TODO: reuse existing trace objects. use the list like a ring buffer with a fixed max size
         traceHistory.push_front(trace);

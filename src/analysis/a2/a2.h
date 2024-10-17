@@ -6,6 +6,8 @@
 #include <cpp11-on-multicore/common/rwlock.h>
 #include <pcg_random.hpp>
 
+#include <mesytec-mvlc/util/protected.h>
+
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
@@ -13,6 +15,7 @@
 #include "a2_exprtk.h"
 #include "a2_param.h"
 #include "listfilter.h"
+#include "mdpp-sampling/mdpp_decode.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
@@ -717,6 +720,7 @@ Operator make_rate_monitor(
 Operator make_waveform_sink(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
+    mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> &traceHistories,
     size_t traceHistoryMaxDepth);
 
 //
