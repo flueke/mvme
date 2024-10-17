@@ -168,45 +168,7 @@ struct TracePlotWidget::Private
     MdppChannelTracePlotData *rawCurveData_ = nullptr;     // has to be a ptr as qwt takes ownership and deletes it. more needed for multi plots
     MdppChannelTracePlotData *interpolatedCurveData_ = nullptr;  // ownership goes to qwt when it's attached to
     QwtPlotZoomer *zoomer_ = nullptr;
-
-    void updateAxisScales();
 };
-
-void TracePlotWidget::Private::updateAxisScales()
-{
-    spdlog::trace("entering TracePlotWidget::Private::updateAxisScales()");
-
-    // yAxis
-    auto plot = q->getPlot();
-    auto br = rawCurveData_->boundingRect();
-    auto minValue = br.bottom();
-    auto maxValue = br.top();
-
-    if (histo_ui::is_logarithmic_axis_scale(plot, QwtPlot::yLeft))
-    {
-        if (minValue <= 0.0)
-            minValue = 0.1;
-
-        maxValue = std::max(minValue, maxValue);
-    }
-
-    {
-        // Scale the y-axis by 5% to have some margin to the top and bottom of the
-        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
-        minValue *= (minValue < 0.0) ? 1.05 : 0.95;
-        maxValue *= (maxValue < 0.0) ? 0.95 : 1.05;
-    }
-
-    plot->setAxisScale(QwtPlot::yLeft, minValue, maxValue);
-
-    // xAxis
-    if (zoomer_->zoomRectIndex() == 0)
-    {
-        // fully zoomed out -> set to full resolution
-        plot->setAxisScale(QwtPlot::xBottom, br.left(), br.right());
-        zoomer_->setZoomBase();
-    }
-}
 
 TracePlotWidget::TracePlotWidget(QWidget *parent)
     : histo_ui::PlotWidget(parent)
@@ -245,7 +207,6 @@ TracePlotWidget::TracePlotWidget(QWidget *parent)
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
     histo_ui::install_tracker_picker(this);
 
-    connect(this, &PlotWidget::aboutToReplot, this, [this] { d->updateAxisScales(); });
     DO_AND_ASSERT(connect(d->zoomer_, SIGNAL(zoomed(const QRectF &)), this, SLOT(replot())));
 
     // enable both the zoomer and mouse cursor tracker by default
@@ -282,8 +243,11 @@ QwtPlotCurve *TracePlotWidget::getInterpolatedCurve()
 
 void TracePlotWidget::setTrace(const ChannelTrace *trace)
 {
-    d->rawCurveData_->setTrace(trace);
-    d->interpolatedCurveData_->setTrace(trace);
+    if (trace != d->rawCurveData_->getTrace())
+    {
+        d->rawCurveData_->setTrace(trace);
+        d->interpolatedCurveData_->setTrace(trace);
+    }
 }
 
 const ChannelTrace *TracePlotWidget::getTrace() const
@@ -488,6 +452,7 @@ struct MdppSamplingUi::Private
     QPushButton *pb_resetBoundingRect = nullptr;
 
     void printInfo();
+    void updatePlotAxisScales();
 };
 
 MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
@@ -496,8 +461,9 @@ MdppSamplingUi::MdppSamplingUi(AnalysisServiceProvider *asp, QWidget *parent)
 {
     qRegisterMetaType<DecodedMdppSampleEvent>("mesytec::mvme::DecodedMdppSampleEvent");
     qRegisterMetaType<size_t>("size_t");
+    qRegisterMetaType<RunInfo>("RunInfo");
 
-    setWindowTitle("MDPP Sampling Mode Trace Browser");
+    setWindowTitle("MDPP Sampling Mode: Trace Browser");
 
     d->q = this;
     d->asp_ = asp;
@@ -691,15 +657,19 @@ void MdppSamplingUi::updateUi()
         !selectedModuleId.isNull())
     {
         auto &moduleTraceHistory = d->traceHistory_[selectedModuleId];
-        const auto maxChannel = moduleTraceHistory.size() - 1;
-        d->channelSelect_->setMaximum(maxChannel);
+        const auto maxChannel = static_cast<signed>(moduleTraceHistory.size()) - 1;
+        d->channelSelect_->setMaximum(std::max(maxChannel, d->channelSelect_->maximum()));
         auto selectedChannel = d->channelSelect_->value();
 
-        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) <= maxChannel)
+        // selector 3: trace number in the trace history. index 0 is the latest trace.
+        if (0 <= selectedChannel && selectedChannel <= maxChannel)
         {
             auto &tracebuffer = moduleTraceHistory[selectedChannel];
-            // selector 3: trace number in the trace history. index 0 is the latest trace.
             d->traceSelect_->setMaximum(std::max(1, tracebuffer.size()-1));
+        }
+        else
+        {
+            d->traceSelect_->setMaximum(0);
         }
     }
     else // no module selected
@@ -751,10 +721,10 @@ void MdppSamplingUi::replot()
     if (d->traceHistory_.contains(selectedModuleId))
     {
         auto &moduleTraceHistory = d->traceHistory_[selectedModuleId];
-        const auto maxChannel = moduleTraceHistory.size() - 1;
-        auto selectedChannel = d->channelSelect_->value();
+        const auto channelCount = moduleTraceHistory.size();
+        const auto selectedChannel = d->channelSelect_->value();
 
-        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) <= maxChannel)
+        if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) < channelCount)
         {
             auto &tracebuffer = moduleTraceHistory[selectedChannel];
 
@@ -776,36 +746,7 @@ void MdppSamplingUi::replot()
     }
 
     d->plotWidget_->setTrace(trace);
-
-    // Grow the bounding rect to the max of every trace every seen.
-    auto boundingRect = d->maxBoundingRect_;
-
-    if (!boundingRect.isValid())
-        boundingRect = d->plotWidget_->traceBoundingRect();
-
-    boundingRect = boundingRect.united(d->plotWidget_->traceBoundingRect());
-
-    qDebug() << "new boundingRect=" << boundingRect;
-    qDebug() << "old maxBoundingRect=" << d->maxBoundingRect_;
-
-    d->maxBoundingRect_ = boundingRect;
-
-    if (auto zoomer = histo_ui::get_zoomer(d->plotWidget_);
-        zoomer->zoomRectIndex() == 0)
-    {
-        auto plot = d->plotWidget_->getPlot();
-        plot->setAxisScale(QwtPlot::xBottom, d->maxBoundingRect_.left(), d->maxBoundingRect_.right());
-        plot->setAxisScale(QwtPlot::yLeft, d->maxBoundingRect_.bottom(), d->maxBoundingRect_.top());
-        qDebug() << "top right of plot axis scales: " << plot->axisScaleDiv(QwtPlot::xBottom).upperBound()
-                 << plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
-
-        if (auto zoomer = histo_ui::get_zoomer(d->plotWidget_))
-        {
-            spdlog::warn("setZoomBase()");
-            zoomer->setZoomBase();
-        }
-    }
-
+    d->updatePlotAxisScales();
     d->plotWidget_->replot();
 
     auto sb = getStatusBar();
@@ -836,9 +777,13 @@ void MdppSamplingUi::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig
     (void) runInfo;
     (void) vmeConfig;
     (void) analysis;
+
     spdlog::info("MdppSamplingUi::beginRun()");
+
+    d->maxBoundingRect_ = {};
     d->plotWidget_->setTrace(nullptr);
     d->traceHistory_.clear();
+
     replot();
 }
 
@@ -923,6 +868,7 @@ void MdppSamplingUi::Private::printInfo()
     if (!logView_)
     {
         logView_ = make_logview().release();
+        logView_->setWindowTitle("MDPP Sampling Mode: Trace Info");
         logView_->setAttribute(Qt::WA_DeleteOnClose);
         logView_->resize(1000, 600);
         connect(logView_, &QWidget::destroyed, q, [this] { logView_ = nullptr; });
@@ -934,6 +880,75 @@ void MdppSamplingUi::Private::printInfo()
     logView_->setPlainText(text);
     logView_->show();
     logView_->raise();
+}
+
+void adjust_y_axis_scale(QwtPlot *plot, double yMin, double yMax, QwtPlot::Axis axis = QwtPlot::yLeft)
+{
+    if (histo_ui::is_logarithmic_axis_scale(plot, QwtPlot::yLeft))
+    {
+        if (yMin <= 0.0)
+            yMin = 0.1;
+
+        yMin = std::max(yMin, yMax);
+    }
+
+    {
+        // Scale the y-axis by 5% to have some margin to the top and bottom of the
+        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
+        yMin *= (yMin < 0.0) ? 1.05 : 0.95;
+        yMax *= (yMax < 0.0) ? 0.95 : 1.05;
+    }
+
+    plot->setAxisScale(axis, yMin, yMax);
+}
+
+void MdppSamplingUi::Private::updatePlotAxisScales()
+{
+    spdlog::trace("entering MdppSamplingUi::Private::updatePlotAxisScales()");
+
+    auto plot = plotWidget_->getPlot();
+    auto zoomer = histo_ui::get_zoomer(plotWidget_);
+    assert(plot && zoomer);
+
+    // Grow the bounding rect to the max of every trace seen in this run to keep
+    // the display from jumping when switching between traces.
+    auto newBoundingRect = maxBoundingRect_;
+
+    if (!newBoundingRect.isValid())
+    {
+        newBoundingRect = plotWidget_->traceBoundingRect();
+        auto xMin = newBoundingRect.left();
+        auto xMax = newBoundingRect.right();
+        auto yMax = newBoundingRect.bottom();
+        auto yMin = newBoundingRect.top();
+        spdlog::trace("updatePlotAxisScales(): setting initial bounding rect from trace: xMin={}, xMax={}, yMin={}, yMax={}", xMin, xMax, yMin, yMax);
+    }
+
+    newBoundingRect = newBoundingRect.united(plotWidget_->traceBoundingRect());
+
+    spdlog::trace("updatePlotAxisScales(): zoomRectIndex()={}", zoomer->zoomRectIndex());
+
+    if (!maxBoundingRect_.isValid() || zoomer->zoomRectIndex() == 0)
+    {
+        auto xMin = newBoundingRect.left();
+        auto xMax = newBoundingRect.right();
+        auto yMax = newBoundingRect.bottom();
+        auto yMin = newBoundingRect.top();
+
+        spdlog::trace("updatePlotAxisScales(): updatePlotAxisScales(): forcing axis scales to: xMin={}, xMax={}, yMin={}, yMax={}", xMin, xMax, yMin, yMax);
+
+        plot->setAxisScale(QwtPlot::xBottom, xMin, xMax);
+        adjust_y_axis_scale(plot, yMin, yMax);
+        plot->updateAxes();
+
+        if (zoomer->zoomRectIndex() == 0)
+        {
+            spdlog::trace("updatePlotAxisScales(): zoomer fully zoomed out -> setZoomBase()");
+            zoomer->setZoomBase();
+        }
+    }
+
+    maxBoundingRect_ = newBoundingRect;
 }
 
 // *************** SINC by r.schneider@mesytec.com ****************************
@@ -984,7 +999,6 @@ static const u32 MinInterpolationSamples = 6;
 template <typename Dest>
 void interpolate_impl(const std::basic_string_view<s16> &samples, u32 factor, Dest &dest, double dtSample)
 {
-    spdlog::trace("break!");
     if (factor <= 1 || samples.size() < MinInterpolationSamples)
     {
         size_t x=0;
