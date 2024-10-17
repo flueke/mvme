@@ -1,4 +1,4 @@
-# Sample Traces in the mvme analysis
+# Sample Traces / Waveforms in the mvme analysis
 
 ## Current State
 

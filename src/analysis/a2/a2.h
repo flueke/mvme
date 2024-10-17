@@ -711,6 +711,15 @@ Operator make_rate_monitor(
     RateMonitorType type);
 
 //
+// WaveformSink
+//
+
+Operator make_waveform_sink(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    size_t traceHistoryMaxDepth);
+
+//
 // ExportSink
 //
 

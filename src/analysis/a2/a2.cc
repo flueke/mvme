@@ -4018,6 +4018,74 @@ void rate_monitor_sample_flow(Operator *op)
 }
 
 //
+// WaveformSink
+//
+
+struct WaveformSinkData
+{
+    // Trace histories by input array index.
+    mesytec::mvme::ModuleTraceHistory traceHistories_;
+    size_t traceHistoryMaxDepth_;
+};
+
+Operator make_waveform_sink(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    size_t traceHistoryMaxDepth
+    )
+{
+    const auto inputCount = inputs.size();
+
+    Operator result = {};
+
+    result = make_operator(arena, Operator_WaveformSink, inputCount, 0);
+
+
+    auto d = arena->pushObject<WaveformSinkData>();
+    result.d = d;
+
+    for (auto ii = 0; ii < inputCount; ii++)
+    {
+        assign_input(&result, inputs[ii], ii);
+    }
+
+    d->traceHistories_.resize(inputCount);
+    d->traceHistoryMaxDepth_ = traceHistoryMaxDepth;
+
+    return result;
+}
+
+void sample_trace_sink_step(Operator *op, A2 *)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_WaveformSink);
+
+    auto d = reinterpret_cast<WaveformSinkData *>(op->d);
+
+    assert(op->inputCount == static_cast<s32>(d->traceHistories_.size()));
+
+    for (s32 idx = 0; idx < op->inputCount; ++idx)
+    {
+        const auto &input = op->inputs[idx];
+
+        mesytec::mvme::ChannelTrace trace;
+        trace.channel = idx;
+        trace.samples.reserve(input.size);
+        std::copy(input.begin(), input.end(), std::back_inserter(trace.samples));
+
+        auto &traceHistory = d->traceHistories_[idx];
+
+        // TODO: reuse existing trace objects. use the list like a ring buffer with a fixed max size
+        traceHistory.push_front(trace);
+
+        if (traceHistory.size() > d->traceHistoryMaxDepth_)
+        {
+            traceHistory.pop_back();
+        }
+    }
+}
+
+//
 // ExportSink
 //
 
@@ -4426,6 +4494,8 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_RateMonitor_PrecalculatedRate] = { rate_monitor_step };
     result[Operator_RateMonitor_CounterDifference] = { rate_monitor_step };
     result[Operator_RateMonitor_FlowRate] = { rate_monitor_step };
+
+    result[Operator_WaveformSink] = { sample_trace_sink_step };
 
     result[Operator_ExportSinkFull]   = { export_sink_full_step,   export_sink_begin_run, export_sink_end_run };
     result[Operator_ExportSinkSparse] = { export_sink_sparse_step, export_sink_begin_run, export_sink_end_run };
