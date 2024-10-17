@@ -40,8 +40,8 @@ void reset_trace(ChannelTrace &trace)
 {
     trace.eventNumber = 0;
     trace.moduleId = QUuid();
-    trace.amplitude = ::mvme::util::make_quiet_nan();
-    trace.time = ::mvme::util::make_quiet_nan();
+    trace.amplitude = mvme::util::make_quiet_nan();
+    trace.time = mvme::util::make_quiet_nan();
     trace.amplitudeData = 0;
     trace.timeData = 0;
     trace.samples.clear();
@@ -213,7 +213,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             // Hit an unexpected data word.
             spdlog::warn("decode_mdpp_samples: No filter match for word #{}: {:#010x}",
                 std::distance(data, wordPtr), *wordPtr);
-            log_buffer(default_logger(), spdlog::level::trace, dataView, "raw mdpp sample data");
+            mvlc::log_buffer(mvlc::default_logger(), spdlog::level::trace, dataView, "raw mdpp sample data");
             //spdlog::warn("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
             SAM_ASSERT(!"no filter match in mdpp data");
         }

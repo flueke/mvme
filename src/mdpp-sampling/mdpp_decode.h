@@ -8,6 +8,7 @@
 #include <QList>
 #include <QVector>
 
+#include "typedefs.h"
 #include "util/math.h"
 
 #include "libmvme_mdpp_decode_export.h"
@@ -16,7 +17,6 @@ using namespace std::chrono_literals;
 
 namespace mesytec::mvme
 {
-using namespace mesytec::mvlc;
 
 static const auto MdppDefaultSamplePeriod = 12.5;
 static constexpr u32 SampleBits = 14;
@@ -29,8 +29,8 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
     size_t eventNumber = 0;
     QUuid moduleId;
     s32 channel = -1;
-    float amplitude = ::mvme::util::make_quiet_nan(); // extracted amplitude value
-    float time = ::mvme::util::make_quiet_nan(); // extracted time value
+    float amplitude = util::make_quiet_nan(); // extracted amplitude value
+    float time = util::make_quiet_nan(); // extracted time value
     u32 header = 0; // raw module header word
     u32 amplitudeData = 0; // raw amplitude data word
     u32 timeData = 0; // raw time data word
@@ -82,6 +82,10 @@ struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
 };
 
 DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(const u32 *data, const size_t size);
+
+using TraceBuffer = QList<ChannelTrace>;
+using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number
+using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
 
 }
 

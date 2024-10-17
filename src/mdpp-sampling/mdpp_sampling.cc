@@ -1027,7 +1027,7 @@ void interpolate_impl(const std::basic_string_view<s16> &samples, u32 factor, De
     while (windowEnd <= samplesEnd)
     {
         assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
-        util::span<const s16> window(windowStart, MinInterpolationSamples);
+        mvlc::util::span<const s16> window(windowStart, MinInterpolationSamples);
 
         const auto sampleIndex = WindowMid + std::distance(samplesStart, windowStart);
         const double sampleX = sampleIndex * dtSample;

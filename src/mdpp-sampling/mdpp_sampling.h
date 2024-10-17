@@ -16,10 +16,6 @@ using namespace std::chrono_literals;
 namespace mesytec::mvme
 {
 
-using TraceBuffer = QList<ChannelTrace>;
-using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number
-using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
-
 class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleConsumer
 {
     Q_OBJECT
@@ -129,13 +125,13 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
         std::unique_ptr<Private> d;
 };
 
-QVector<std::pair<double, double>> interpolate(const basic_string_view<s16> &samples, u32 factor,
+QVector<std::pair<double, double>> interpolate(const mvlc::basic_string_view<s16> &samples, u32 factor,
     double dtSample=MdppDefaultSamplePeriod);
 
 inline QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor,
     double dtSample=MdppDefaultSamplePeriod)
 {
-    return interpolate(basic_string_view<s16>(samples.data(), samples.size()), factor, dtSample);
+    return interpolate(mvlc::basic_string_view<s16>(samples.data(), samples.size()), factor, dtSample);
 }
 
 inline void interpolate(ChannelTrace &trace, u32 factor)
