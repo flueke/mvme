@@ -4044,7 +4044,7 @@ Operator make_waveform_sink(
     auto d = arena->pushObject<WaveformSinkData>();
     result.d = d;
 
-    for (auto ii = 0; ii < inputCount; ii++)
+    for (auto ii = 0; ii < static_cast<size_t>(inputCount); ii++)
     {
         assign_input(&result, inputs[ii], ii);
     }
@@ -4055,7 +4055,7 @@ Operator make_waveform_sink(
     return result;
 }
 
-void sample_trace_sink_step(Operator *op, A2 *)
+void waveform_sink_step(Operator *op, A2 *)
 {
     a2_trace("\n");
     assert(op->type == Operator_WaveformSink);
@@ -4078,7 +4078,7 @@ void sample_trace_sink_step(Operator *op, A2 *)
         // TODO: reuse existing trace objects. use the list like a ring buffer with a fixed max size
         traceHistory.push_front(trace);
 
-        if (traceHistory.size() > d->traceHistoryMaxDepth_)
+        if (static_cast<size_t>(traceHistory.size()) > d->traceHistoryMaxDepth_)
         {
             traceHistory.pop_back();
         }
@@ -4495,7 +4495,7 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_RateMonitor_CounterDifference] = { rate_monitor_step };
     result[Operator_RateMonitor_FlowRate] = { rate_monitor_step };
 
-    result[Operator_WaveformSink] = { sample_trace_sink_step };
+    result[Operator_WaveformSink] = { waveform_sink_step };
 
     result[Operator_ExportSinkFull]   = { export_sink_full_step,   export_sink_begin_run, export_sink_end_run };
     result[Operator_ExportSinkSparse] = { export_sink_sparse_step, export_sink_begin_run, export_sink_end_run };
