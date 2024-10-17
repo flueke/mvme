@@ -1967,6 +1967,47 @@ class LIBMVME_EXPORT RateMonitorSink: public SinkInterface
         RateMonitorXScaleType m_xScaleType;
 };
 
+class LIBMVME_EXPORT WaveformSink: public SinkInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SinkInterface)
+
+    public:
+        static const size_t DefaultTraceHistoryMaxDepth = 100;
+
+        Q_INVOKABLE WaveformSink(QObject *parent = nullptr);
+
+        virtual bool hasVariableNumberOfSlots() const override { return true; }
+        virtual bool addSlot() override;
+        virtual bool removeLastSlot() override;
+
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override { return QSL("Waveform Display"); }
+        virtual QString getShortName() const override { return QSL("Waveform"); }
+
+        // SinkInterface specific. This operator doesn't use storage like
+        // histograms do, so it always returns 0 here.
+        virtual size_t getStorageSize() const override { return 0u; }
+
+        void setTraceHistoryMaxDepth(size_t maxDepth) { traceHistoryMaxDepth_ = maxDepth; }
+        size_t getTraceHistoryMaxDepth() const { return traceHistoryMaxDepth_; }
+
+    private:
+        // Data inputs to be exported
+        QVector<std::shared_ptr<Slot>> m_inputs;
+        size_t traceHistoryMaxDepth_ = DefaultTraceHistoryMaxDepth;
+};
+
 class LIBMVME_EXPORT ExportSink: public SinkInterface
 {
     Q_OBJECT

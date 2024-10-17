@@ -1053,7 +1053,7 @@ Pipe *DataSourceMdppSampleDecoder::getOutput(s32 index)
     return nullptr;
 }
 
-void DataSourceMdppSampleDecoder::beginRun(const RunInfo &runInfo, Logger logger)
+void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
 {
     /* Disconnect Pipes that will be removed. */
     if (auto begin = std::begin(m_outputs) + getMaxChannels();
@@ -3678,6 +3678,83 @@ size_t RateMonitorSink::getStorageSize() const
 }
 
 //
+// WaveformSink
+//
+
+WaveformSink::WaveformSink(QObject *parent)
+    : SinkInterface(parent)
+{
+    addSlot();
+}
+
+bool WaveformSink::addSlot()
+{
+    auto inputType = InputType::Array;
+
+    auto slot = std::make_shared<Slot>(
+        this, getNumberOfSlots(),
+        QSL("Channel #") + QString::number(getNumberOfSlots()), inputType);
+
+    m_inputs.push_back(slot);
+
+    return true;
+}
+
+bool WaveformSink::removeLastSlot()
+{
+    if (m_inputs.size() > 1)
+    {
+        m_inputs.back()->disconnectPipe();
+        m_inputs.pop_back();
+        return true;
+    }
+
+    return false;
+}
+
+Slot *WaveformSink::getSlot(s32 slotIndex)
+{
+    return m_inputs.value(slotIndex).get();
+}
+
+s32 WaveformSink::getNumberOfSlots() const
+{
+    return m_inputs.size();
+}
+
+void WaveformSink::beginRun(const RunInfo &, Logger)
+{
+}
+
+void WaveformSink::write(QJsonObject &json) const
+{
+    json["numberOfInputs"] = getNumberOfSlots();
+    json["traceHistoryMaxDepth"] = static_cast<qint64>(getTraceHistoryMaxDepth());
+}
+
+void WaveformSink::read(const QJsonObject &json)
+{
+    for (auto &slot: m_inputs)
+    {
+        slot->disconnectPipe();
+    }
+    m_inputs.clear();
+
+    // Default to 1 to enable reading of older analysis files that contain the single
+    // input version of the WaveformSink
+    s32 inputCount = json["numberOfInputs"].toInt(1);
+
+    for (s32 inputIndex = 0;
+         inputIndex < inputCount;
+         ++inputIndex)
+    {
+        addSlot();
+    }
+
+    setTraceHistoryMaxDepth(json["traceHistoryMaxDepth"].toInt(DefaultTraceHistoryMaxDepth));
+}
+
+//
 // ExportSink
 //
 ExportSink::ExportSink(QObject *parent)
@@ -4132,6 +4209,7 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerSink<Histo1DSink>();
     m_objectFactory.registerSink<Histo2DSink>();
     m_objectFactory.registerSink<RateMonitorSink>();
+    m_objectFactory.registerSink<WaveformSink>();
     m_objectFactory.registerSink<ExportSink>();
 
     // generics
@@ -5503,6 +5581,7 @@ void Analysis::beginEvent(int eventIndex)
 void Analysis::processModuleData(int crateIndex, int eventIndex,
                                  const mesytec::mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount)
 {
+    (void) crateIndex; // TODO: figure this one out. either implement multi_crate support or remove the argument.
     for (unsigned parserModuleIndex=0; parserModuleIndex<moduleCount; ++parserModuleIndex)
     {
         auto &moduleData = moduleDataList[parserModuleIndex];
