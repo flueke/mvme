@@ -10,10 +10,6 @@
 namespace mesytec::mvme
 {
 
-using TraceBuffer = QList<ChannelTrace>;
-using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number
-using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
-
 enum class PlotDataMode
 {
     Raw,

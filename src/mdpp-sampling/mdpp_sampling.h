@@ -16,6 +16,10 @@ using namespace std::chrono_literals;
 namespace mesytec::mvme
 {
 
+using TraceBuffer = QList<ChannelTrace>;
+using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number
+using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
+
 class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleConsumer
 {
     Q_OBJECT

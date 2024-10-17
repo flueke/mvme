@@ -71,7 +71,7 @@ void LIBMVME_MDPP_DECODE_EXPORT reset_trace(ChannelTrace &trace);
 // used to store a history of traces for a particular channel.
 struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
 {
-    // Set to the linear event number when decoding data from an mdpp. leave set
+    // Set to the linear event number when decoding data from an mdpp. Leave set
     // to -1 when using this structure as a history buffer for a single channel.
     ssize_t eventNumber = -1;
     QUuid moduleId;
