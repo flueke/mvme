@@ -95,6 +95,7 @@ int main(int argc, char **argv)
     fill_0(raw_trace0, 1.0);
     fill_1(raw_trace1, 1.0);
 
+    #if 0
     QTimer glWidgetUpdateTimer;
 
     GlTracePlotWidget glWidget(nullptr);
@@ -113,6 +114,7 @@ int main(int argc, char **argv)
 
     glWidgetUpdateTimer.setInterval(GlWidgetUpdateInterval);
     glWidgetUpdateTimer.start();
+    #endif
 
     return app.exec();
 }

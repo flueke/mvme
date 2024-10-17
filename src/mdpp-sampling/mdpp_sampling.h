@@ -78,25 +78,6 @@ class LIBMVME_EXPORT TracePlotWidget: public histo_ui::PlotWidget
         std::unique_ptr<Private> d;
 };
 
-class LIBMVME_EXPORT GlTracePlotWidget : public QOpenGLWidget
-{
-    Q_OBJECT
-    public:
-        GlTracePlotWidget(QWidget *parent = nullptr) ;
-        ~GlTracePlotWidget() override;
-
-        //void setTrace(const ChannelTrace *trace);
-        void setTrace(const float *samples, size_t size);
-
-    protected:
-        void initializeGL() override;
-        void resizeGL(int w, int h) override;
-        void paintGL() override;
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
-
 class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
 {
     Q_OBJECT
