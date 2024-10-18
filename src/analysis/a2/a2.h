@@ -720,7 +720,7 @@ Operator make_rate_monitor(
 Operator make_waveform_sink(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
-    mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> &traceHistories,
+    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> &traceHistories,
     size_t traceHistoryMaxDepth);
 
 //

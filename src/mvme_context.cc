@@ -175,7 +175,7 @@ struct MVMEContextPrivate
 #ifdef MVME_ENABLE_PROMETHEUS
     std::shared_ptr<StreamProcCountersPromExporter> m_streamCountersPromExporter;
 #endif
-    std::shared_ptr<MdppSamplingConsumer> m_mdppSamplingConsumer;
+    std::shared_ptr<mdpp_sampling::MdppSamplingConsumer> m_mdppSamplingConsumer;
 
     using StreamConsumer = std::variant<std::shared_ptr<IStreamModuleConsumer>, std::shared_ptr<IStreamBufferConsumer>>;
     std::vector<StreamConsumer> streamConsumers_;
@@ -559,7 +559,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     m_d->streamConsumers_.push_back(m_d->m_streamCountersPromExporter);
 #endif
 
-    m_d->m_mdppSamplingConsumer = std::make_shared<MdppSamplingConsumer>();
+    m_d->m_mdppSamplingConsumer = std::make_shared<mdpp_sampling::MdppSamplingConsumer>();
     m_d->streamConsumers_.push_back(m_d->m_mdppSamplingConsumer);
 
     {

@@ -12,7 +12,7 @@
 #define SAM_ASSERT(cond)
 #endif
 
-namespace mesytec::mvme
+namespace mesytec::mvme::mdpp_sampling
 {
 
 namespace

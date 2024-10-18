@@ -13,7 +13,7 @@ class AnalysisServiceProvider;
 class QwtPlotCurve;
 using namespace std::chrono_literals;
 
-namespace mesytec::mvme
+namespace mesytec::mvme::mdpp_sampling
 {
 
 class LIBMVME_EXPORT MdppSamplingConsumer: public QObject, public IStreamModuleConsumer

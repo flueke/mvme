@@ -799,7 +799,7 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
     assert(memory::is_aligned(data, ModuleDataAlignment));
 
     auto ex = reinterpret_cast<MdppSampleDecoder *>(ds->d);
-    auto decodedEvent = mesytec::mvme::decode_mdpp_samples(data, dataSize);
+    auto decodedEvent = mesytec::mvme::mdpp_sampling::decode_mdpp_samples(data, dataSize);
 
     for (const auto &trace: decodedEvent.traces)
     {
@@ -4024,14 +4024,14 @@ void rate_monitor_sample_flow(Operator *op)
 struct WaveformSinkData
 {
     // Trace histories by input array index.
-    mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> *traceHistories_;
+    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> *traceHistories_;
     size_t traceHistoryMaxDepth_;
 };
 
 Operator make_waveform_sink(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
-    mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> &traceHistories,
+    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> &traceHistories,
     size_t traceHistoryMaxDepth
     )
 {
@@ -4073,7 +4073,7 @@ void waveform_sink_step(Operator *op, A2 *)
     {
         const auto &input = op->inputs[idx];
 
-        mesytec::mvme::ChannelTrace trace;
+        mesytec::mvme::mdpp_sampling::ChannelTrace trace;
         trace.channel = idx;
         trace.samples.reserve(input.size);
 

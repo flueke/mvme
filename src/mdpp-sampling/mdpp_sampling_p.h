@@ -3,11 +3,11 @@
 
 #include "mdpp_sampling.h"
 
-#include "mvme_qwt.h"
-
 #include <QDebug>
 
-namespace mesytec::mvme
+#include "mvme_qwt.h"
+
+namespace mesytec::mvme::mdpp_sampling
 {
 
 enum class PlotDataMode

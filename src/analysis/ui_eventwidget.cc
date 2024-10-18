@@ -3081,30 +3081,30 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         indexes.isValid())
                     {
                         auto samplingConsumer = m_serviceProvider->getMVMEStreamWorker()
-                            ->getFirstModuleConsumerOfType<mesytec::mvme::MdppSamplingConsumer>();
+                            ->getFirstModuleConsumerOfType<mesytec::mvme::mdpp_sampling::MdppSamplingConsumer>();
                         assert(samplingConsumer);
                         if (!samplingConsumer)
                             return;
 
                         auto widgetRegistry = m_serviceProvider->getWidgetRegistry();
-                        auto samplingUi = widgetRegistry->getFirstWidgetOfType<mesytec::mvme::MdppSamplingUi>();
+                        auto samplingUi = widgetRegistry->getFirstWidgetOfType<mesytec::mvme::mdpp_sampling::MdppSamplingUi>();
 
 
                         if (!samplingUi || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
-                            samplingUi = new mesytec::mvme::MdppSamplingUi(m_serviceProvider);
+                            samplingUi = new mesytec::mvme::mdpp_sampling::MdppSamplingUi(m_serviceProvider);
                             samplingUi->setAttribute(Qt::WA_DeleteOnClose);
                             widgetRegistry->addWidget(samplingUi, "MdppSamplingUi");
 
-                            QObject::connect(samplingUi, &mesytec::mvme::MdppSamplingUi::moduleInterestAdded,
-                                    samplingConsumer.get(), &mesytec::mvme::MdppSamplingConsumer::addModuleInterest);
+                            QObject::connect(samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::moduleInterestAdded,
+                                    samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::addModuleInterest);
 
-                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::MdppSamplingConsumer::moduleDataReady,
-                                             samplingUi, &mesytec::mvme::MdppSamplingUi::handleModuleData);
-                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::MdppSamplingConsumer::sigBeginRun,
-                                             samplingUi, &mesytec::mvme::MdppSamplingUi::beginRun);
-                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::MdppSamplingConsumer::sigEndRun,
-                                             samplingUi, &mesytec::mvme::MdppSamplingUi::endRun);
+                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::moduleDataReady,
+                                             samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::handleModuleData);
+                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::sigBeginRun,
+                                             samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::beginRun);
+                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::sigEndRun,
+                                             samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::endRun);
                         }
 
                         assert(samplingUi);

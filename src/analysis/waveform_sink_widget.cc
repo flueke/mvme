@@ -14,6 +14,7 @@
 #include "util/qt_logview.h"
 
 using namespace mesytec::mvme;
+using namespace mesytec::mvme::mdpp_sampling;
 
 namespace analysis
 {
@@ -25,12 +26,12 @@ struct WaveformSinkWidget::Private
     WaveformSinkWidget *q = nullptr;
     std::shared_ptr<analysis::WaveformSink> sink_;
     AnalysisServiceProvider *asp_ = nullptr;
-    TracePlotWidget *plotWidget_ = nullptr;
+    mdpp_sampling::TracePlotWidget *plotWidget_ = nullptr;
     QTimer replotTimer_;
-    DecodedMdppSampleEvent currentEvent_;
+    mdpp_sampling::DecodedMdppSampleEvent currentEvent_;
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
-    ModuleTraceHistory traceHistories_;
+    mdpp_sampling::ModuleTraceHistory traceHistories_;
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
@@ -93,12 +94,12 @@ WaveformSinkWidget::WaveformSinkWidget(
         d->spin_dtSample_->setMaximum(1e9);
         d->spin_dtSample_->setSingleStep(0.1);
         d->spin_dtSample_->setSuffix(" ns");
-        d->spin_dtSample_->setValue(MdppDefaultSamplePeriod);
+        d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
 
         auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
 
         connect(pb_useDefaultSampleInterval, &QPushButton::clicked, this, [this] {
-            d->spin_dtSample_->setValue(MdppDefaultSamplePeriod);
+            d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
         });
 
         auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();

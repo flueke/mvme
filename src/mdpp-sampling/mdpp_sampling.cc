@@ -23,7 +23,7 @@
 
 using namespace mesytec::mvlc;
 
-namespace mesytec::mvme
+namespace mesytec::mvme::mdpp_sampling
 {
 
 struct MdppSamplingConsumer::Private

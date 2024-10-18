@@ -1078,8 +1078,8 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
         for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
         {
             outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
-            outPipe->parameters[paramIndex].lowerLimit = mesytec::mvme::SampleMinValue;
-            outPipe->parameters[paramIndex].upperLimit = mesytec::mvme::SampleMaxValue;
+            outPipe->parameters[paramIndex].lowerLimit = mesytec::mvme::mdpp_sampling::SampleMinValue;
+            outPipe->parameters[paramIndex].upperLimit = mesytec::mvme::mdpp_sampling::SampleMaxValue;
         }
     }
 }
@@ -3686,7 +3686,7 @@ struct WaveformSink::Private
     // Data inputs to be exported
     QVector<std::shared_ptr<Slot>> inputs_;
     size_t traceHistoryMaxDepth_ = WaveformSink::DefaultTraceHistoryMaxDepth;
-    mutable mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> traceHistories_;
+    mutable mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> traceHistories_;
 };
 
 WaveformSink::WaveformSink(QObject *parent)
@@ -3784,12 +3784,12 @@ size_t WaveformSink::getTraceHistoryMaxDepth() const
     return d->traceHistoryMaxDepth_;
 }
 
-mesytec::mvme::ModuleTraceHistory WaveformSink::getTraceHistory() const
+mesytec::mvme::mdpp_sampling::ModuleTraceHistory WaveformSink::getTraceHistory() const
 {
     return d->traceHistories_.copy();
 }
 
-mesytec::mvlc::Protected<mesytec::mvme::ModuleTraceHistory> &WaveformSink::getTraceHistoryProtected()
+mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> &WaveformSink::getTraceHistoryProtected()
 {
     return d->traceHistories_;
 }

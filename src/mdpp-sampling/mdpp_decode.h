@@ -15,7 +15,7 @@
 
 using namespace std::chrono_literals;
 
-namespace mesytec::mvme
+namespace mesytec::mvme::mdpp_sampling
 {
 
 struct MdppDecodeFilterStrings
