@@ -89,7 +89,7 @@ TEST(MdppSampling, interpolate_min_required_samples)
 
     {
         const basic_string_view<s16> samples(Samples.data(), 6);
-        fmt::print("samples = {}\n", fmt::join(samples, " "));
+        //fmt::print("samples = {}\n", fmt::join(samples, " "));
         auto result = interpolate(samples, 10, 1.0);
         auto expected = QVector<std::pair<double, double>>{
             {0, 4}, {1, 5}, {2, 6}, {2.1, 6.00896}, {2.2, 5.99537}, {2.3, 5.96031}, {2.4, 5.90397}, {2.5, 5.82529}, {2.6, 5.72194}, {2.7, 5.59065}, {2.8, 5.42797}, {2.9, 5.2313}, {3, 5}, {4, 3}, {5, 5}
@@ -109,7 +109,7 @@ TEST(MdppSampling, interpolate_min_required_samples)
 
     {
         const basic_string_view<s16> samples(Samples.data(), 6);
-        fmt::print("samples = {}\n", fmt::join(samples, " "));
+        //fmt::print("samples = {}\n", fmt::join(samples, " "));
         auto result = interpolate(samples, 10, 10.0);
         auto expected = QVector<std::pair<double, double>>{
               {0, 4}, {10, 5}, {20, 6}, {21, 6.00896}, {22, 5.99537}, {23, 5.96031}, {24, 5.90397}, {25, 5.82529}, {26, 5.72194}, {27, 5.59065}, {28, 5.42797}, {29, 5.2313}, {30, 5}, {40, 3}, {50, 5}
