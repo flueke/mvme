@@ -18,6 +18,36 @@ using namespace std::chrono_literals;
 namespace mesytec::mvme
 {
 
+struct MdppDecodeFilterStrings
+{
+    std::string moduleId        = "0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX";
+    std::string triggerTime     = "0001 XXXX X100 000A DDDD DDDD DDDD DDDD";
+    std::string timeStamp       = "11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD";
+    std::string extentedTs      = "0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD";
+    std::string samples         = "0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD";
+
+    std::string amplitude;
+    std::string channelTime;
+};
+
+struct Mdpp16ScpDecodeFilterStrings: public MdppDecodeFilterStrings
+{
+    Mdpp16ScpDecodeFilterStrings()
+    {
+        amplitude               = "0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD";
+        channelTime             = "0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD";
+    }
+};
+
+struct Mdpp32ScpDecodeFilterStrings: public MdppDecodeFilterStrings
+{
+    Mdpp32ScpDecodeFilterStrings()
+    {
+        amplitude               = "0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD";
+        channelTime             = "0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD";
+    }
+};
+
 static const auto MdppDefaultSamplePeriod = 12.5;
 static constexpr u32 SampleBits = 14;
 static constexpr double SampleMinValue = -1.0 * (1 << (SampleBits - 1));
