@@ -2,6 +2,7 @@
 #define C9134348_739A_4F90_B3CA_B790902989BF
 
 #include <cmath>
+#include <queue>
 #include <QVector>
 #include <mesytec-mvlc/cpp_compat.h>
 #include "typedefs.h"
@@ -10,6 +11,22 @@ namespace mesytec::mvme::waveforms
 {
 
 using Sample = std::pair<double, double>;
+
+struct Trace
+{
+    std::vector<Sample> samples;
+
+    explicit Trace() = default;
+
+    Trace(const Trace &) = default;
+    Trace &operator=(const Trace &) = default;
+
+    Trace(Trace &&) = default;
+    Trace &operator=(Trace &&) = default;
+};
+
+using TraceHistory = std::queue<Trace>;
+using TraceHistories = std::vector<TraceHistory>;
 
 // Called with an interpolated sample. Can print or store the sample or make
 // coffee.
