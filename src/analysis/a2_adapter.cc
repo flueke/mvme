@@ -1240,6 +1240,7 @@ void a2_adapter_build_datasources(
             {
                 ds = a2::make_datasource_mdpp_sample_decoder(
                     arena,
+                    ex->getModuleTypeName().toStdString(),
                     ex->getMaxChannels(),
                     ex->getMaxSamples(),
                     ex->getRngSeed(),

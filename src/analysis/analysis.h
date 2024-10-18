@@ -901,6 +901,10 @@ class DataSourceMdppSampleDecoder: public SourceInterface
         Q_INVOKABLE DataSourceMdppSampleDecoder(QObject *parent = nullptr);
 
     public:
+        // Module type name. Currently supported: mdpp16_scp and mdpp32_scp
+        void setModuleTypeName(const QString &moduleTypeName);
+        QString getModuleTypeName() const;
+
         // Max number of channels of the module, e.g. 16 for MDPP-16
         void setMaxChannels(unsigned maxChannels);
         unsigned getMaxChannels() const;
@@ -931,6 +935,7 @@ class DataSourceMdppSampleDecoder: public SourceInterface
         void postClone(const AnalysisObject *cloneSource) override;
 
     private:
+        QString moduleTypeName_ = "mdpp16_scp";
         unsigned maxChannels_ = 16;
         unsigned maxSamples_ = 1024;
         // Seed for the random number generator

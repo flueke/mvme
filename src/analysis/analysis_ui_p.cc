@@ -786,6 +786,7 @@ void MdppSampleDecoderDialog::accept()
     d->ex->setEventId(d->mod->getEventId());
     d->ex->setModuleId(d->mod->getId());
     d->ex->setObjectName(d->le_name->text());
+    d->ex->setModuleTypeName(d->mod->getModuleMeta().typeName);
     d->ex->setMaxChannels(d->spin_maxChannels->value());
     d->ex->setMaxSamples(d->spin_maxSamples->value());
 

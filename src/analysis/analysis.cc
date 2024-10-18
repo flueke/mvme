@@ -995,6 +995,16 @@ void DataSourceMdppSampleDecoder::postClone(const AnalysisObject *cloneSource)
     SourceInterface::postClone(cloneSource);
 }
 
+void DataSourceMdppSampleDecoder::setModuleTypeName(const QString &moduleTypeName)
+{
+    moduleTypeName_ = moduleTypeName;
+}
+
+QString DataSourceMdppSampleDecoder::getModuleTypeName() const
+{
+    return moduleTypeName_;
+}
+
 void DataSourceMdppSampleDecoder::setMaxChannels(unsigned maxChannels)
 {
     maxChannels_ = maxChannels;
@@ -1086,6 +1096,7 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
 
 void DataSourceMdppSampleDecoder::write(QJsonObject &json) const
 {
+    json["moduleTypeName"] = getModuleTypeName();
     json["maxChannels"] = static_cast<qint64>(getMaxChannels());
     json["maxSamples"] = static_cast<qint64>(getMaxSamples());
     json["rngSeed"] = QString::number(m_rngSeed, 16);
@@ -1094,6 +1105,7 @@ void DataSourceMdppSampleDecoder::write(QJsonObject &json) const
 
 void DataSourceMdppSampleDecoder::read(const QJsonObject &json)
 {
+    setModuleTypeName(json["moduleTypeName"].toString("mdpp16_scp"));
     setMaxChannels(json["maxChannels"].toInt());
     setMaxSamples(json["maxSamples"].toInt());
     m_rngSeed = json["rngSeed"].toString().toULongLong(nullptr, 16);

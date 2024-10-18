@@ -615,7 +615,9 @@ void MdppSamplingUi::handleModuleData(const QUuid &moduleId, const std::vector<u
     spdlog::trace("MdppSamplingUi::handleModuleData event#{}, moduleId={}, size={}",
         linearEventNumber, moduleId.toString().toLocal8Bit().data(), buffer.size());
 
-    auto decodedEvent = decode_mdpp_samples(buffer.data(), buffer.size());
+    auto moduleTypename = d->asp_->getVMEConfig()->getModuleConfig(moduleId)->getModuleMeta().typeName; // slow and dangerous, that's how we roll
+
+    auto decodedEvent = decode_mdpp_samples(buffer.data(), buffer.size(), moduleTypename.toLocal8Bit().constData());
     decodedEvent.eventNumber = linearEventNumber;
     decodedEvent.moduleId = moduleId;
 
@@ -677,8 +679,9 @@ void MdppSamplingUi::Private::printInfo()
     QTextStream out(&text);
 
     auto moduleName = asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getObjectPath();
+    auto moduleTypename = asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getModuleMeta().typeName;
 
-    out << QSL("module %1\n").arg(moduleName);
+    out << QSL("module %1 (type=%2)\n").arg(moduleName).arg(moduleTypename);
     out << fmt::format("linear event number: {}\n", trace->eventNumber).c_str();
     out << fmt::format("amplitude: {}\n", trace->amplitude).c_str();
     out << fmt::format("time: {}\n", trace->time).c_str();

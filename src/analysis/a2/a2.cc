@@ -746,13 +746,40 @@ void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32
 
 // MdppSampleDecoder
 
+
+struct MdppSampleDecoder
+{
+    using DecoderFunction = std::function<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent (const u32 *data, const size_t size)>;
+
+    DecoderFunction decoder;
+    // Max channels in this module.
+    unsigned maxChannels;
+    // Max number of samples per channel. Samples that do not fit are discarded
+    // (currently higher numbered samples are discarded first).
+    unsigned maxSamples;
+    pcg32_fast rng;
+    DataSourceOptions::opt_t options;
+};
+
 MdppSampleDecoder make_mdpp_sample_decoder(
+    const std::string &moduleType,
     unsigned maxChannels,
     unsigned maxSamples,
     u64 rngSeed,
     DataSourceOptions::opt_t options)
 {
     MdppSampleDecoder result = {};
+
+    if (moduleType == "mdpp16_scp")
+    {
+        result.decoder = mesytec::mvme::mdpp_sampling::decode_mdpp16_scp_samples;
+    }
+    else if (moduleType == "mdpp32_scp")
+    {
+        result.decoder = mesytec::mvme::mdpp_sampling::decode_mdpp32_scp_samples;
+    }
+    else
+        throw std::runtime_error(fmt::format("Unsupported module type in MdppSampleDecoder: '{}'", moduleType));
 
     result.maxChannels = maxChannels;
     result.maxSamples = maxSamples;
@@ -764,6 +791,7 @@ MdppSampleDecoder make_mdpp_sample_decoder(
 
 DataSource make_datasource_mdpp_sample_decoder(
     memory::Arena *arena,
+    const std::string &moduleType,
     unsigned maxChannels,
     unsigned maxSamples,
     u64 rngSeed,
@@ -773,7 +801,7 @@ DataSource make_datasource_mdpp_sample_decoder(
     auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels);
 
     auto ex = arena->pushObject<MdppSampleDecoder>();
-    *ex = make_mdpp_sample_decoder(maxChannels, maxSamples, rngSeed, options);
+    *ex = make_mdpp_sample_decoder(moduleType, maxChannels, maxSamples, rngSeed, options);
     result.d = ex;
 
     double lowerLimit = -1.0 * (1u << 13);
@@ -799,7 +827,7 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
     assert(memory::is_aligned(data, ModuleDataAlignment));
 
     auto ex = reinterpret_cast<MdppSampleDecoder *>(ds->d);
-    auto decodedEvent = mesytec::mvme::mdpp_sampling::decode_mdpp_samples(data, dataSize);
+    auto decodedEvent = ex->decoder(data, dataSize);
 
     for (const auto &trace: decodedEvent.traces)
     {
