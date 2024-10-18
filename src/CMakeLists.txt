@@ -197,6 +197,7 @@ add_library(libmvme SHARED
     listfile_replay_worker.cc
     logfile_helper.cc
     mdpp-sampling/mdpp_sampling.cc
+    mdpp-sampling/waveform_plotting.cc
     mesytec_diagnostics.cc
     multi_crate.cc
     multi_crate_gui.cc
@@ -616,6 +617,7 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_mesy_nng_pipeline2 util/mesy_nng_pipeline2.test.cc)
     add_mvme_gtest(test_multi_crate_nng multi_crate_nng.test.cc)
     add_mvme_gtest(test_mdpp_sampling mdpp-sampling/mdpp_sampling.test.cc)
+    add_mvme_gtest(test_waveform_plotting mdpp-sampling/waveform_plotting.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 
