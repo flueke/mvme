@@ -47,7 +47,7 @@ struct Histo1DStatistics
     std::pair<s32, s32> statsBinRange = std::make_pair(-1, -1);
 
     // Low-edge coordinates of the bin range used to calculate the stats.
-    std::pair<double, double> statsRange = std::make_pair(make_quiet_nan(), make_quiet_nan());
+    std::pair<double, double> statsRange = std::make_pair(mesytec::mvme::util::make_quiet_nan(), mesytec::mvme::util::make_quiet_nan());
 
     /* The resultion reduction that was in effect when the stats where calculated.
      * bin numbers are given in terms of this factor. */

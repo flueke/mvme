@@ -36,6 +36,7 @@
 #include "typedefs.h"
 #include "qt_util.h"
 #include "util/assert.h"
+#include "util/math.h"
 
 #define ArrayCount(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -333,7 +334,7 @@ LIBMVME_EXPORT void logBuffer(const QVector<u32> &data, std::function<void (cons
 
 static constexpr double make_quiet_nan()
 {
-    return std::numeric_limits<double>::quiet_NaN();
+    return mesytec::mvme::util::make_quiet_nan();
 }
 
 inline constexpr size_t Kilobytes(size_t x) { return x * 1024; }

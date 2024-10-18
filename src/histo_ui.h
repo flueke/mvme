@@ -412,7 +412,7 @@ struct Histo2DRasterData: public BasicRasterData
         //    << "x" << x << ", y" << y;
 
         double v = m_histo->getValue(x, y, m_rrf);
-        double r = (v > 0.0 ? v : make_quiet_nan());
+        double r = (v > 0.0 ? v : mesytec::mvme::util::make_quiet_nan());
         return r;
     }
 
@@ -455,10 +455,10 @@ struct Histo1DListRasterData: public BasicRasterData
         int histoIndex = x;
 
         if (histoIndex < 0 || histoIndex >= m_histos.size())
-            return make_quiet_nan();
+            return mesytec::mvme::util::make_quiet_nan();
 
         double v = m_histos[histoIndex]->getValue(y, m_rrf.y);
-        double r = (v > 0.0 ? v : make_quiet_nan());
+        double r = (v > 0.0 ? v : mesytec::mvme::util::make_quiet_nan());
         return r;
     }
 
