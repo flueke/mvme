@@ -7,7 +7,6 @@
 #include "mvme_qwt.h"
 #include "mdpp-sampling/waveform_interpolation.h"
 
-
 namespace mesytec::mvme::waveforms
 {
 

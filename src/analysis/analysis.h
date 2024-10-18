@@ -2011,8 +2011,8 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
         void setTraceHistoryMaxDepth(size_t maxDepth);
         size_t getTraceHistoryMaxDepth() const;
 
-        mesytec::mvme::mdpp_sampling::ModuleTraceHistory getTraceHistory() const;
-        mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> &getTraceHistoryProtected();
+        mesytec::mvme::waveforms::TraceHistories getTraceHistories() const;
+        mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> &getTraceHistoriesProtected();
 
     private:
         struct Private;

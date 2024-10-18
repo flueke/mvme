@@ -15,7 +15,7 @@
 #include "a2_exprtk.h"
 #include "a2_param.h"
 #include "listfilter.h"
-#include "mdpp-sampling/mdpp_decode.h"
+#include "mdpp-sampling/waveform_interpolation.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
@@ -704,7 +704,7 @@ Operator make_rate_monitor(
 Operator make_waveform_sink(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
-    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> &traceHistories,
+    mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> &traceHistories,
     size_t traceHistoryMaxDepth);
 
 //

@@ -824,7 +824,7 @@ DEF_OP_MAGIC(waveform_sink_magic)
     a2::Operator result = a2::make_waveform_sink(
         arena,
         a2_inputs,
-        a1_sink->getTraceHistoryProtected(),
+        a1_sink->getTraceHistoriesProtected(),
         a1_sink->getTraceHistoryMaxDepth());
 
     return result;

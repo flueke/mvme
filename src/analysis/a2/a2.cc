@@ -4052,14 +4052,14 @@ void rate_monitor_sample_flow(Operator *op)
 struct WaveformSinkData
 {
     // Trace histories by input array index.
-    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> *traceHistories_;
+    mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> *traceHistories_;
     size_t traceHistoryMaxDepth_;
 };
 
 Operator make_waveform_sink(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
-    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> &traceHistories,
+    mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> &traceHistories,
     size_t traceHistoryMaxDepth
     )
 {
@@ -4100,30 +4100,32 @@ void waveform_sink_step(Operator *op, A2 *)
     for (s32 idx = 0; idx < op->inputCount; ++idx)
     {
         const auto &input = op->inputs[idx];
+        auto &traceHistory = traceHistories[idx];
 
-        mesytec::mvme::mdpp_sampling::ChannelTrace trace;
-        trace.channel = idx;
+        mesytec::mvme::waveforms::Trace trace;
+
+        // reuse the memory of the oldest trace object if the history is full
+        if (traceHistory.size() >= d->traceHistoryMaxDepth_)
+        {
+            trace = std::move(traceHistory.front());
+            traceHistory.pop();
+        }
+
+        trace.samples.clear();
         trace.samples.reserve(input.size);
 
-        for (auto value: input)
+        for (s32 paramIndex = 0; paramIndex < input.size; ++paramIndex)
         {
+            auto value = input[paramIndex];
+
             // stop copying when hitting the first invalid parameter in the input array
             if (!is_param_valid(value))
                 break;
 
-            // TODO, FIXME: this currently converts the doubles from the input array back to s16 values!
-            trace.samples.push_back(static_cast<s16>(value));
+            trace.samples.push_back({ static_cast<double>(paramIndex), value});
         }
 
-        auto &traceHistory = traceHistories[idx];
-
-        // TODO: reuse existing trace objects. use the list like a ring buffer with a fixed max size
-        traceHistory.push_front(trace);
-
-        if (static_cast<size_t>(traceHistory.size()) > d->traceHistoryMaxDepth_)
-        {
-            traceHistory.pop_back();
-        }
+        traceHistory.push(std::move(trace));
     }
 }
 

@@ -3698,7 +3698,7 @@ struct WaveformSink::Private
     // Data inputs to be exported
     QVector<std::shared_ptr<Slot>> inputs_;
     size_t traceHistoryMaxDepth_ = WaveformSink::DefaultTraceHistoryMaxDepth;
-    mutable mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> traceHistories_;
+    mutable mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> traceHistories_;
 };
 
 WaveformSink::WaveformSink(QObject *parent)
@@ -3796,12 +3796,12 @@ size_t WaveformSink::getTraceHistoryMaxDepth() const
     return d->traceHistoryMaxDepth_;
 }
 
-mesytec::mvme::mdpp_sampling::ModuleTraceHistory WaveformSink::getTraceHistory() const
+mesytec::mvme::waveforms::TraceHistories WaveformSink::getTraceHistories() const
 {
     return d->traceHistories_.copy();
 }
 
-mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::ModuleTraceHistory> &WaveformSink::getTraceHistoryProtected()
+mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> &WaveformSink::getTraceHistoriesProtected()
 {
     return d->traceHistories_;
 }

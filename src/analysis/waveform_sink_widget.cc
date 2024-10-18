@@ -181,6 +181,7 @@ QStatusBar *WaveformSinkWidget::getStatusBar()
 
 void WaveformSinkWidget::Private::updateUi()
 {
+    #if 0
     // selector 1: Update the channel number spinbox
     const auto maxChannel = static_cast<signed>(traceHistories_.size()) - 1;
     channelSelect_->setMaximum(std::max(maxChannel, channelSelect_->maximum()));
@@ -224,10 +225,12 @@ void WaveformSinkWidget::Private::updateUi()
         crossSymbol->setColor(Qt::blue);
         curve->setSymbol(crossSymbol);
     }
+    #endif
 }
 
 void WaveformSinkWidget::replot()
 {
+    #if 0
     spdlog::trace("begin WaveformSinkWidget::replot()");
 
     // Thread-safe copy of the trace history shared with the analysis runtime.
@@ -275,6 +278,7 @@ void WaveformSinkWidget::replot()
     }
 
     spdlog::trace("end WaveformSinkWidget::replot()");
+    #endif
 }
 
 void WaveformSinkWidget::Private::printInfo()
