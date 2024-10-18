@@ -6,7 +6,8 @@
 #include <QOpenGLFunctions>
 
 #include "histo_ui.h"
-#include "mdpp_decode.h"
+#include "mdpp-sampling/mdpp_decode.h"
+#include "mdpp-sampling/waveform_plotting.h"
 #include "stream_processor_consumers.h"
 
 class AnalysisServiceProvider;

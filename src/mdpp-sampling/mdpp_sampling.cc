@@ -1,6 +1,5 @@
 #include "mdpp_sampling_p.h"
 
-#include <cmath>
 #include <set>
 #include <qwt_symbol.h>
 #include <QCheckBox>
@@ -777,121 +776,11 @@ void MdppSamplingUi::Private::updatePlotAxisScales()
     maxBoundingRect_ = newBoundingRect;
 }
 
-// *************** SINC by r.schneider@mesytec.com ****************************
-static double sinc(double phase) // one period runs 0...1, minima at +-0.5
+QVector<std::pair<double, double>> interpolate(const mvlc::basic_string_view<s16> &samples, u32 factor,
+    double dtSample)
 {
-#define LIMIT_PERIODES 3.0 // limit sinc function to +-2
-
-    double sinc;
-
-    if ((phase != 0) && (phase >= -LIMIT_PERIODES) && (phase <= LIMIT_PERIODES))
-    {
-        sinc = ((sin(phase * M_PI)) / (phase * M_PI)) * ((sin(phase * M_PI / LIMIT_PERIODES)) / (phase * M_PI / LIMIT_PERIODES));
-    }
-    else if (phase == 0)
-    {
-        sinc = 1;
-    }
-    else
-    {
-        sinc = 0;
-    }
-
-    return (sinc);
-}
-
-// phase= 0...1 (= a2...a3)
-static double ipol(double a0, double a1, double a2, double a3, double a4, double a5, double phase) // one period runs 0...1, minima at +-0.5
-{
-#define LIN_INT 0 // 1 for linear interpolation
-
-    double ipol;
-    if (!LIN_INT)
-    {
-        // phase runs from 0 (position A1) to 1 (position A2)
-        ipol = a0 * sinc(-2.0 - phase) + a1 * sinc(-1 - phase) + a2 * sinc(-phase) + a3 * sinc(1.0 - phase) + a4 * sinc(2.0 - phase) + a5 * sinc(3.0 - phase);
-    }
-    else
-        ipol = a2 + (phase * (a3 - a2)); // only linear interpolation
-
-    return (ipol);
-}
-
-static const u32 MinInterpolationSamples = 6;
-
-// Note: the first and last few samples are swalloed. MinInterpolationSamples
-// samples are needed for interpolation to start. Could use linear interpolation
-// for the start and end of the trace.
-template <typename Dest>
-void interpolate_impl(const std::basic_string_view<s16> &samples, u32 factor, Dest &dest, double dtSample)
-{
-    if (factor <= 1 || samples.size() < MinInterpolationSamples)
-    {
-        size_t x=0;
-        std::for_each(std::begin(samples), std::end(samples), [&x, &dest, dtSample](s16 sample)
-        {
-            dest.push_back(std::make_pair(static_cast<double>(x*dtSample), static_cast<double>(sample)));
-            ++x;
-        });
-
-        return;
-    }
-
-    const size_t WindowMid = (MinInterpolationSamples - 1) / 2;
-    const double factor_1 = 1.0 / factor;
-    const auto samplesStart = std::begin(samples);
-    const auto samplesEnd = std::end(samples);
-    auto windowStart = samples.data();
-    auto windowEnd = windowStart + MinInterpolationSamples;
-
-    for (auto it=windowStart; it<windowStart+WindowMid; ++it)
-    {
-        auto x = dtSample * std::distance(std::begin(samples), it);
-        dest.push_back(std::make_pair(x, *it));
-    }
-
-    while (windowEnd <= samplesEnd)
-    {
-        assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
-        mvlc::util::span<const s16> window(windowStart, MinInterpolationSamples);
-
-        const auto sampleIndex = WindowMid + std::distance(samplesStart, windowStart);
-        const double sampleX = sampleIndex * dtSample;
-        const double sampleY = samplesStart[sampleIndex];
-
-        dest.push_back(std::make_pair(sampleX, sampleY));
-
-        for (size_t step=0; step<factor-1; ++step)
-        {
-            double phase = (step+1) * factor_1;
-            double y = ipol(
-                window[0], window[1], window[2],
-                window[3], window[4], window[5], phase);
-
-            auto x = sampleX + phase * dtSample;
-
-            dest.push_back(std::make_pair(x, y));
-        }
-
-        // Done with this window, advance both start and end by one.
-        ++windowStart;
-        ++windowEnd;
-    }
-
-    #if 1
-    for (auto it=windowStart+WindowMid; it<samplesEnd; ++it)
-    {
-        auto x = dtSample * std::distance(std::begin(samples), it);
-        dest.push_back(std::make_pair(x, *it));
-    }
-    #endif
-}
-
-QVector<std::pair<double, double>> interpolate(const basic_string_view<s16> &samples, u32 factor, double dtSample)
-{
-    QVector<std::pair<double, double>> result;
-    interpolate_impl(samples, factor, result, dtSample);
-    return result;
+    assert(false);
+    return {};
 }
 
 }

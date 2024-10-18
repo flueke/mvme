@@ -1,14 +1,15 @@
 #ifndef F66C9539_DA00_4A40_802A_F2101420A636
 #define F66C9539_DA00_4A40_802A_F2101420A636
 
-#include "mvme_qwt.h"
-
 #include <mesytec-mvlc/cpp_compat.h>
+
+#include "histo_ui.h"
+#include "mvme_qwt.h"
+#include "mdpp-sampling/waveform_interpolation.h"
+
 
 namespace mesytec::mvme::waveforms
 {
-
-using Sample = std::pair<double, double>;
 
 // Does not take ownership of any of the underlying data containers!
 // Only works for increasing and non-negative x values for now.
