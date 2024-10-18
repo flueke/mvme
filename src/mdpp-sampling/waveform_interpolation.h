@@ -15,8 +15,8 @@ using Sample = std::pair<double, double>;
 // coffee.
 using EmitterFun = std::function<void (const Sample &)>;
 
-void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, EmitterFun ef);
-void interpolate(const mvlc::util::span<s16> &samples, double dtSample, u32 factor, EmitterFun ef);
+void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, EmitterFun emitter);
+void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter);
 
 }
 

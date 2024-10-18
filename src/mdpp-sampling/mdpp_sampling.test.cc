@@ -1,12 +1,16 @@
 #include <gtest/gtest.h>
 
 #include "mdpp-sampling/mdpp_sampling.h"
+#include <mesytec-mvlc/cpp_compat.h>
 #include <mesytec-mvlc/util/fmt.h>
+#include <string_view>
 
 using namespace mesytec::mvme;
-using mesytec::mvlc::basic_string_view;
+using std::basic_string_view;
+using mdpp_sampling::interpolate;
 
 static const std::vector<s16> Samples = {4, 5, 6, 5, 3, 5, 23, 340, 1445, 2734, 3090, 2755, 2629, 2723, 2727, 2712, 2732, 2715, 2696, 2706, 2707, 2692, 2690, 2691, 2681, 2679, 2676, 2679};
+
 
 #define MY_DEBUG_THING 1
 

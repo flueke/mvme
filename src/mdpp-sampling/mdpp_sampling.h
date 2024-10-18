@@ -107,7 +107,7 @@ class LIBMVME_EXPORT MdppSamplingUi: public histo_ui::IPlotWidget
         std::unique_ptr<Private> d;
 };
 
-QVector<std::pair<double, double>> interpolate(const mvlc::basic_string_view<s16> &samples, u32 factor,
+QVector<std::pair<double, double>> interpolate(const std::basic_string_view<s16> &samples, u32 factor,
     double dtSample=MdppDefaultSamplePeriod);
 
 inline QVector<std::pair<double, double>> interpolate(const QVector<s16> &samples, u32 factor,

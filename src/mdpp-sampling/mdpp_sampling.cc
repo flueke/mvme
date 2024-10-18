@@ -15,6 +15,7 @@
 #include "analysis_service_provider.h"
 #include "analysis/analysis.h"
 #include "analysis/a2/a2_support.h"
+#include "mdpp-sampling/waveform_interpolation.h"
 #include "run_info.h"
 #include "util/qt_container.h"
 #include "util/qt_logview.h"
@@ -779,8 +780,15 @@ void MdppSamplingUi::Private::updatePlotAxisScales()
 QVector<std::pair<double, double>> interpolate(const mvlc::basic_string_view<s16> &samples, u32 factor,
     double dtSample)
 {
-    assert(false);
-    return {};
+    QVector<std::pair<double, double>> result;
+
+    mesytec::mvme::waveforms::interpolate({ samples.data(), samples.size() }, dtSample, factor,
+        [&result](const auto &sample)
+    {
+            result.push_back(sample);
+    });
+
+    return result;
 }
 
 }

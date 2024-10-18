@@ -45,11 +45,11 @@ static double ipol(double a0, double a1, double a2, double a3, double a4, double
 
 static const u32 MinInterpolationSamples = 6;
 
-void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, EmitterFun ef)
+void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, EmitterFun emitter)
 {
     if (factor <= 1 || samples.size() < MinInterpolationSamples)
     {
-        std::for_each(std::begin(samples), std::end(samples), ef);
+        std::for_each(std::begin(samples), std::end(samples), emitter);
         return;
     }
 
@@ -61,14 +61,14 @@ void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, Emit
     auto windowEnd = windowStart + MinInterpolationSamples;
 
     // Emit the first few input samples before interpolation starts.
-    std::for_each(windowStart, windowStart+WindowMid, ef);
+    std::for_each(windowStart, windowStart+WindowMid, emitter);
 
     while (windowEnd <= samplesEnd)
     {
         assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
         mvlc::util::span<const Sample> window(windowStart, MinInterpolationSamples);
 
-        ef(*windowStart); // Emit the original sample.
+        emitter(windowStart[WindowMid]); // Emit the original sample.
 
         auto sampleX = (windowStart + WindowMid)->first;
 
@@ -76,13 +76,13 @@ void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, Emit
         {
             double phase = (step+1) * factor_1;
             double y = ipol(
-                window[0].first, window[1].first, window[2].first,
-                window[3].first, window[4].first, window[5].first,
+                window[0].second, window[1].second, window[2].second,
+                window[3].second, window[4].second, window[5].second,
                 phase);
 
             auto x = sampleX + phase * dtSample;
 
-            ef(std::make_pair(x, y));
+            emitter(std::make_pair(x, y));
         }
 
         // Done with this window, advance both start and end by one.
@@ -91,10 +91,10 @@ void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, Emit
     }
 
     // Emit the last few samples after interpolation ends.
-    std::for_each(windowStart+WindowMid, samplesEnd, ef);
+    std::for_each(windowStart+WindowMid, samplesEnd, emitter);
 }
 
-void interpolate(const mvlc::util::span<s16> &samples, double dtSample, u32 factor, EmitterFun ef)
+void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter)
 {
     std::vector<Sample> buffer;
     buffer.reserve(samples.size());
@@ -106,7 +106,7 @@ void interpolate(const mvlc::util::span<s16> &samples, double dtSample, u32 fact
         buffer.push_back(std::make_pair(x, y));
     }
 
-    interpolate(buffer, factor, ef);
+    interpolate(buffer, factor, emitter);
 }
 
 }

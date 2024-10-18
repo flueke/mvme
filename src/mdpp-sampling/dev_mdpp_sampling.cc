@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 
     QObject::connect(&actionQuit, &QAction::triggered, &app, &QApplication::quit);
 
-    TracePlotWidget plotWidget1;
+    mdpp_sampling::TracePlotWidget plotWidget1;
     plotWidget1.addAction(&actionQuit);
     plotWidget1.show();
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     replotTimer.setInterval(ReplotInterval);
     replotTimer.start();
 
-    ChannelTrace trace0;
+    mdpp_sampling::ChannelTrace trace0;
     trace0.channel = 0;
     trace0.samples.resize(64);
 
