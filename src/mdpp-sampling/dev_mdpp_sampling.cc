@@ -95,26 +95,5 @@ int main(int argc, char **argv)
     fill_0(raw_trace0, 1.0);
     fill_1(raw_trace1, 1.0);
 
-    #if 0
-    QTimer glWidgetUpdateTimer;
-
-    GlTracePlotWidget glWidget(nullptr);
-    glWidget.setWindowTitle("GlTracePlotWidget 0");
-    QObject::connect(&glWidgetUpdateTimer, &QTimer::timeout, &glWidget, [&] {glWidget.update();});
-    glWidget.addAction(&actionQuit);
-    glWidget.show();
-    glWidget.setTrace(raw_trace0.data(), raw_trace0.size());
-
-    GlTracePlotWidget glWidget1(nullptr);
-    glWidget1.setWindowTitle("GlTracePlotWidget 1");
-    QObject::connect(&glWidgetUpdateTimer, &QTimer::timeout, &glWidget1, [&] {glWidget1.update();});
-    glWidget1.addAction(&actionQuit);
-    glWidget1.show();
-    glWidget1.setTrace(raw_trace1.data(), raw_trace1.size());
-
-    glWidgetUpdateTimer.setInterval(GlWidgetUpdateInterval);
-    glWidgetUpdateTimer.start();
-    #endif
-
     return app.exec();
 }
