@@ -18,36 +18,6 @@ using namespace std::chrono_literals;
 namespace mesytec::mvme::mdpp_sampling
 {
 
-struct MdppDecodeFilterStrings
-{
-    std::string moduleId        = "0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX";
-    std::string triggerTime     = "0001 XXXX X100 000A DDDD DDDD DDDD DDDD";
-    std::string timeStamp       = "11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD";
-    std::string extentedTs      = "0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD";
-    std::string samples         = "0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD";
-
-    std::string amplitude;
-    std::string channelTime;
-};
-
-struct Mdpp16ScpDecodeFilterStrings: public MdppDecodeFilterStrings
-{
-    Mdpp16ScpDecodeFilterStrings()
-    {
-        amplitude               = "0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD";
-        channelTime             = "0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD";
-    }
-};
-
-struct Mdpp32ScpDecodeFilterStrings: public MdppDecodeFilterStrings
-{
-    Mdpp32ScpDecodeFilterStrings()
-    {
-        amplitude               = "0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD";
-        channelTime             = "0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD";
-    }
-};
-
 static const auto MdppDefaultSamplePeriod = 12.5;
 static constexpr u32 SampleBits = 14;
 static constexpr double SampleMinValue = -1.0 * (1 << (SampleBits - 1));
@@ -111,7 +81,10 @@ struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
     u8 headerModuleId = 0; // extracted from the header word for convenient access
 };
 
-DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(const u32 *data, const size_t size);
+DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp16_scp_samples(const u32 *data, const size_t size);
+DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp32_scp_samples(const u32 *data, const size_t size);
+// Pass the module type as a string. Currently supported types: mdpp16_scp and mdpp32_scp
+DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(const u32 *data, const size_t size, const char *moduleType);
 
 using TraceBuffer = QList<ChannelTrace>;
 using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number

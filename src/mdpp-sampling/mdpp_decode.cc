@@ -34,6 +34,30 @@ FilterWithCache make_filter(const std::string &pattern)
 	return result;
 }
 
+struct CommonFilters
+{
+	const FilterWithCache fModuleId       = make_filter("0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX");
+	const FilterWithCache fTriggerTime    = make_filter("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
+	const FilterWithCache fTimeStamp      = make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
+	const FilterWithCache fExtentedTs     = make_filter("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
+	const FilterWithCache fSamples        = make_filter("0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
+};
+
+struct Mdpp16ScpFilters: public CommonFilters
+{
+	const FilterWithCache fChannelTime    = make_filter("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD");
+	const FilterWithCache fAmplitude      = make_filter("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD");
+};
+
+struct Mdpp32ScpFilters: public CommonFilters
+{
+	const FilterWithCache fChannelTime    = make_filter("0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD");
+	const FilterWithCache fAmplitude      = make_filter("0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD");
+};
+
+static const Mdpp16ScpFilters mdpp16ScpFilters;
+static const Mdpp32ScpFilters mdpp32ScpFilters;
+
 }
 
 void reset_trace(ChannelTrace &trace)
@@ -47,17 +71,9 @@ void reset_trace(ChannelTrace &trace)
     trace.samples.clear();
 }
 
-DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
+template<typename Filters>
+DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t size, const Filters &filters)
 {
-	static FilterWithCache fModuleId       = make_filter("0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX");
-	static FilterWithCache fChannelTime    = make_filter("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD"); // <- mdpp16_scp channel_time filter
-	static FilterWithCache fAmplitude      = make_filter("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD"); // <- mdpp16_scp amplitude filter
-
-	static FilterWithCache fTriggerTime    = make_filter("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
-	static FilterWithCache fTimeStamp      = make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
-	static FilterWithCache fExtentedTs     = make_filter("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
-	static FilterWithCache fSamples        = make_filter("0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
-
     std::basic_string_view<u32> dataView(data, size);
 
     spdlog::trace("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
@@ -74,20 +90,20 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
 
     // The position of the header and timestamp words is fixed, so we can handle
     // them here, instead of testing each word in the loop.
-    if (mvlc::util::matches(fModuleId.filter, data[0]))
+    if (mvlc::util::matches(filters.fModuleId.filter, data[0]))
     {
         ret.header = data[0];
-        ret.headerModuleId = mvlc::util::extract(fModuleId.dataCache, data[0]);
+        ret.headerModuleId = mvlc::util::extract(filters.fModuleId.dataCache, data[0]);
     }
     else
     {
         SAM_ASSERT(!"decode_mdpp_samples: fModuleId");
     }
 
-    if (mvlc::util::matches(fTimeStamp.filter, data[size-1]))
+    if (mvlc::util::matches(filters.fTimeStamp.filter, data[size-1]))
     {
         // 30 low bits of the timestamp
-        auto value = mvlc::util::extract(fTimeStamp.dataCache, data[size-1]);
+        auto value = mvlc::util::extract(filters.fTimeStamp.dataCache, data[size-1]);
         //spdlog::trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", value, value);
         ret.timestamp |= value;
     }
@@ -96,10 +112,10 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
         SAM_ASSERT(!"decode_mdpp_samples: fTimeStamp");
     }
 
-    if (size >= 3 && mvlc::util::matches(fExtentedTs.filter, data[size-2]))
+    if (size >= 3 && mvlc::util::matches(filters.fExtentedTs.filter, data[size-2]))
     {
         // optional 16 high bits of the extended timestamp if enabled
-        auto value = mvlc::util::extract(fExtentedTs.dataCache, data[size-2]);
+        auto value = mvlc::util::extract(filters.fExtentedTs.dataCache, data[size-2]);
         //spdlog::trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
         ret.timestamp |= static_cast<std::uint64_t>(value) << 30;
     }
@@ -117,12 +133,12 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
         // This means we will always have a valid channel number when starting
         // to process sample data.
 
-        const bool amplitudeMatches = mvlc::util::matches(fAmplitude.filter, *wordPtr);
-        const bool channelTimeMatches = mvlc::util::matches(fChannelTime.filter, *wordPtr);
+        const bool amplitudeMatches = mvlc::util::matches(filters.fAmplitude.filter, *wordPtr);
+        const bool channelTimeMatches = mvlc::util::matches(filters.fChannelTime.filter, *wordPtr);
 
         if (amplitudeMatches || channelTimeMatches)
         {
-            auto &theFilter = amplitudeMatches ? fAmplitude : fChannelTime;
+            auto &theFilter = amplitudeMatches ? filters.fAmplitude : filters.fChannelTime;
 
             // Note: extract yields unsigned, but the address values do easily
             // fit in signed 32-bit integers.
@@ -173,7 +189,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
                 }
             }
         }
-		else if (mvlc::util::matches(fSamples.filter, *wordPtr))
+		else if (mvlc::util::matches(filters.fSamples.filter, *wordPtr))
 		{
             // This error should never happen if the MDPP firmware behaves correctly.
             if (currentTrace.channel < 0)
@@ -188,7 +204,7 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
             constexpr u32 SampleMask = (1u << SampleBits) - 1;
 
             // Extract the raw sample values
-			auto value = mvlc::util::extract(fSamples.dataCache, *wordPtr);
+			auto value = mvlc::util::extract(filters.fSamples.dataCache, *wordPtr);
             u32 evenRaw = value & SampleMask;
             u32 oddRaw  = (value >> SampleBits) & SampleMask;
 
@@ -201,9 +217,9 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
         }
 #if 1 //#ifndef NDEBUG
         else if (*wordPtr == 0u
-                || mvlc::util::matches(fTimeStamp.filter, *wordPtr)
-                || mvlc::util::matches(fExtentedTs.filter, *wordPtr)
-                || mvlc::util::matches(fTriggerTime.filter, *wordPtr))
+                || mvlc::util::matches(filters.fTimeStamp.filter, *wordPtr)
+                || mvlc::util::matches(filters.fExtentedTs.filter, *wordPtr)
+                || mvlc::util::matches(filters.fTriggerTime.filter, *wordPtr))
         {
             // Explicit test for fillword, timestamp and other known data words
             // to avoid issuing unneeded warnings.
@@ -233,6 +249,30 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size)
                  ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size());
 
     return ret;
+}
+
+DecodedMdppSampleEvent decode_mdpp16_scp_samples(const u32 *data, const size_t size)
+{
+    return decode_mdpp_samples_impl(data, size, mdpp16ScpFilters);
+}
+
+DecodedMdppSampleEvent decode_mdpp32_scp_samples(const u32 *data, const size_t size)
+{
+    return decode_mdpp_samples_impl(data, size, mdpp32ScpFilters);
+}
+
+DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(const u32 *data, const size_t size, const char *moduleType)
+{
+    if (strcmp(moduleType, "mdpp16_scp") == 0)
+        return decode_mdpp16_scp_samples(data, size);
+    else if (strcmp(moduleType, "mdpp32_scp") == 0)
+        return decode_mdpp32_scp_samples(data, size);
+    else
+    {
+        spdlog::error("decode_mdpp_samples: unknown module type '{}'", moduleType);
+        SAM_ASSERT(!"unknown module type");
+        return {};
+    }
 }
 
 }
