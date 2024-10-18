@@ -2,8 +2,6 @@
 #define A477ED5F_CAA6_438E_98B6_000F69258CBC
 
 #include <QWidget>
-#include <QOpenGLWidget>
-#include <QOpenGLFunctions>
 
 #include "histo_ui.h"
 #include "mdpp-sampling/mdpp_decode.h"
