@@ -70,7 +70,7 @@ void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, Emit
 
         emitter(windowStart[WindowMid]); // Emit the original sample.
 
-        auto sampleX = (windowStart + WindowMid)->first;
+        const auto sampleX = (windowStart + WindowMid)->first;
 
         for (size_t step=0; step<factor-1; ++step)
         {
