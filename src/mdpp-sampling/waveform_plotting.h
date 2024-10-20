@@ -40,7 +40,33 @@ QRectF calculate_bounding_rect(const Waveform &waveform)
     return calculate_bounding_rect(std::begin(waveform), std::end(waveform));
 }
 
-class WaveformPlotData: public QwtSeriesData<QPointF>
+template<typename T>
+QRectF calculate_trace_bounding_rect(const T &xs, const T &ys)
+{
+    assert(xs.size() == ys.size());
+
+    if (xs.empty())
+        return {};
+
+    auto xminmax = std::minmax_element(std::begin(xs), std::end(xs));
+    auto yminmax = std::minmax_element(std::begin(ys), std::end(ys));
+
+    auto xmin = *xminmax.first, xmax = *xminmax.second;
+    auto ymin = *yminmax.first, ymax = *yminmax.second;
+
+    QPointF topLeft(xmin, ymax);
+    QPointF bottomRight(xmax, ymin);
+
+    return QRectF(topLeft, bottomRight);
+}
+
+inline QRectF calculate_trace_bounding_rect(const Trace &trace)
+{
+    return calculate_trace_bounding_rect(trace.xs, trace.ys);
+}
+
+// The mvlc::util::span<const Sample> based approach
+class WaveformSamplePlotData: public QwtSeriesData<QPointF>
 {
     public:
         // Works for containers storing Samples in a contiguous memory block,
@@ -95,13 +121,94 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
         mutable QRectF boundingRectCache_;
 };
 
+// The std::vector<double> xs / std::vector<double> ys based approach
+class WaveformPlotData: public QwtSeriesData<QPointF>
+{
+    public:
+        void setTrace(Trace *trace)
+        {
+            trace_ = trace;
+            boundingRectCache_ = {};
+        }
+
+        Trace *getTrace() const { return trace_; }
+
+        QRectF boundingRect() const override
+        {
+            if (!boundingRectCache_.isValid())
+                boundingRectCache_ = calculateBoundingRect();
+
+            return boundingRectCache_;
+        }
+
+        size_t size() const override
+        {
+            return trace_ ? trace_->size() : 0u;
+        }
+
+        QPointF sample(size_t i) const override
+        {
+            return i < size() ? QPointF(trace_->xs[i], trace_->ys[i]) : QPointF{};
+        }
+
+        QRectF calculateBoundingRect() const
+        {
+            return trace_ ? calculate_trace_bounding_rect(*trace_) : QRectF{};
+        }
+
+    private:
+        Trace *trace_ = nullptr;
+        mutable QRectF boundingRectCache_;
+};
+
 struct WaveformCurves
 {
     std::unique_ptr<QwtPlotCurve> rawCurve;
     std::unique_ptr<QwtPlotCurve> interpolatedCurve;
 };
 
-class WaveformPlotWidget: public histo_ui::PlotWidget
+struct RawWaveformCurves
+{
+    QwtPlotCurve *rawCurve = nullptr;
+    QwtPlotCurve *interpolatedCurve = nullptr;
+};
+
+class IWaveformPlotter
+{
+    public:
+        using Handle = size_t;
+
+        virtual ~IWaveformPlotter();
+        virtual Handle addWaveform(WaveformCurves &&data) = 0;
+        virtual WaveformCurves takeWaveform(Handle handle) = 0;
+        virtual RawWaveformCurves getWaveform(Handle handle) const = 0;
+        virtual QwtPlotCurve *getRawCurve(Handle handle) = 0;
+        virtual QwtPlotCurve *getInterpolatedCurve(Handle handle) = 0;
+};
+
+class WaveformPlotCurveHelper: public IWaveformPlotter
+{
+    public:
+        using Handle = size_t;
+
+        explicit WaveformPlotCurveHelper(QwtPlot *plot = nullptr);
+
+        QwtPlot *getPlot() const;
+
+        Handle addWaveform(WaveformCurves &&data) override;
+        WaveformCurves takeWaveform(Handle handle) override;
+        RawWaveformCurves getWaveform(Handle handle) const override;
+        bool detachWaveform(Handle handle);
+        QwtPlotCurve *getRawCurve(Handle handle) override;
+        QwtPlotCurve *getInterpolatedCurve(Handle handle) override;
+
+    private:
+        QwtPlot *plot_ = nullptr;
+        std::vector<RawWaveformCurves> waveforms_;
+};
+
+#if 0
+class WaveformPlotWidget: public histo_ui::PlotWidget, public IWaveformPlotter
 {
     Q_OBJECT
     public:
@@ -110,18 +217,18 @@ class WaveformPlotWidget: public histo_ui::PlotWidget
         WaveformPlotWidget(QWidget *parent = nullptr);
         ~WaveformPlotWidget() override;
 
-        Handle addWaveform(WaveformCurves &&data);
-        WaveformCurves takeWaveform(Handle handle);
-        QwtPlotCurve *getRawCurve(Handle handle);
-        QwtPlotCurve *getInterpolatedCurve(Handle handle);
-
-    public slots:
-        void replot() override;
+        Handle addWaveform(WaveformCurves &&data) override;
+        WaveformCurves takeWaveform(Handle handle) override;
+        RawWaveformCurves getWaveform(Handle handle) const override;
+        bool detachWaveform(Handle handle);
+        QwtPlotCurve *getRawCurve(Handle handle) override;
+        QwtPlotCurve *getInterpolatedCurve(Handle handle) override;
 
     private:
         struct Private;
         std::unique_ptr<Private> d;
 };
+#endif
 
 }
 
