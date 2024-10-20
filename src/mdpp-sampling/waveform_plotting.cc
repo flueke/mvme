@@ -26,11 +26,17 @@ WaveformPlotCurveHelper::Handle WaveformPlotCurveHelper::addWaveform(WaveformCur
         dest = std::end(waveforms_) - 1;
     }
 
-    data.rawCurve->attach(getPlot());
-    dest->rawCurve = data.rawCurve.release();
+    if (data.rawCurve)
+    {
+        data.rawCurve->attach(getPlot());
+        dest->rawCurve = data.rawCurve.release();
+    }
 
-    data.interpolatedCurve->attach(getPlot());
-    dest->interpolatedCurve = data.interpolatedCurve.release();
+    if (data.interpolatedCurve)
+    {
+        data.interpolatedCurve->attach(getPlot());
+        dest->interpolatedCurve = data.interpolatedCurve.release();
+    }
 
     return std::distance(std::begin(waveforms_), dest);
 }
@@ -41,8 +47,12 @@ WaveformCurves WaveformPlotCurveHelper::takeWaveform(Handle handle)
         return {};
 
     auto &curves = waveforms_[handle];
-    curves.rawCurve->detach();
-    curves.interpolatedCurve->detach();
+
+    if (curves.rawCurve)
+        curves.rawCurve->detach();
+
+    if (curves.interpolatedCurve)
+        curves.interpolatedCurve->detach();
 
     WaveformCurves result;
     result.rawCurve.reset(curves.rawCurve);

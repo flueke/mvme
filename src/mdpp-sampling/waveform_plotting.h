@@ -65,6 +65,17 @@ inline QRectF calculate_trace_bounding_rect(const Trace &trace)
     return calculate_trace_bounding_rect(trace.xs, trace.ys);
 }
 
+// It must iterate over objects with a QRectF Foo::boundingRect() method.
+template<typename It>
+QRectF unite_bounding_rects(const It begin, const It &end)
+{
+    return std::accumulate(begin, end, QRectF{},
+        [](QRectF &acc, const auto &obj)
+        {
+            return acc.united(obj.boundingRect());
+        });
+}
+
 // The mvlc::util::span<const Sample> based approach
 class WaveformSamplePlotData: public QwtSeriesData<QPointF>
 {
@@ -121,7 +132,8 @@ class WaveformSamplePlotData: public QwtSeriesData<QPointF>
         mutable QRectF boundingRectCache_;
 };
 
-// The std::vector<double> xs / std::vector<double> ys based approach
+// The std::vector<double> xs / std::vector<double> ys based approach.
+// Does not take ownership of any underlying trace data.
 class WaveformPlotData: public QwtSeriesData<QPointF>
 {
     public:
@@ -184,6 +196,8 @@ class IWaveformPlotter
         virtual RawWaveformCurves getWaveform(Handle handle) const = 0;
         virtual QwtPlotCurve *getRawCurve(Handle handle) = 0;
         virtual QwtPlotCurve *getInterpolatedCurve(Handle handle) = 0;
+
+        bool detachWaveform(Handle handle) { return takeWaveform(handle).rawCurve != nullptr; };
 };
 
 class WaveformPlotCurveHelper: public IWaveformPlotter
@@ -198,7 +212,6 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
         Handle addWaveform(WaveformCurves &&data) override;
         WaveformCurves takeWaveform(Handle handle) override;
         RawWaveformCurves getWaveform(Handle handle) const override;
-        bool detachWaveform(Handle handle);
         QwtPlotCurve *getRawCurve(Handle handle) override;
         QwtPlotCurve *getInterpolatedCurve(Handle handle) override;
 
