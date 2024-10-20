@@ -16,7 +16,7 @@ find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Xml REQUIRED)
-find_package(Qt5WebEngineWidgets REQUIRED)
+find_package(Qt5WebEngineWidgets)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -338,7 +338,6 @@ target_link_libraries(libmvme
     PUBLIC Qt5::OpenGL
     PUBLIC Qt5::PrintSupport
     PUBLIC Qt5::Svg
-    PUBLIC Qt5::WebEngineWidgets
     PUBLIC Qt5::Widgets
     PUBLIC Qt5::Xml
     PUBLIC cpp11-on-multicore
@@ -486,7 +485,10 @@ add_mvme_dev_exe(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
 add_mvme_dev_exe(dev_mdpp_sampling mdpp-sampling/dev_mdpp_sampling.cc)
 add_mvme_dev_exe(dev_replay_ui dev_replay_ui_main.cc)
-add_mvme_dev_exe(dev_mvme_qwebengine dev_mvme_qwebengine.cc)
+if (Qt5WebEngineWidgets_FOUND)
+    add_mvme_dev_exe(dev_mvme_qwebengine dev_mvme_qwebengine.cc)
+    target_link_libraries(dev_mvme_qwebengine PRIVATE Qt5::WebEngineWidgets)
+endif()
 #add_mvme_dev_exe(dev_qthelpengine_test dev_qthelpengine_test.cc)
 
 add_mvme_dev_exe(dev_test_daqrunsettingsdialog dev_test_daqrunsettingsdialog.cc)
