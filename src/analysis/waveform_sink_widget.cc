@@ -26,9 +26,15 @@ struct WaveformSinkWidget::Private
     WaveformSinkWidget *q = nullptr;
     std::shared_ptr<analysis::WaveformSink> sink_;
     AnalysisServiceProvider *asp_ = nullptr;
-    mdpp_sampling::TracePlotWidget *plotWidget_ = nullptr;
+    waveforms::WaveformPlotCurveHelper curveHelper_;
+    waveforms::WaveformPlotCurveHelper::Handle waveformHandle_;
+    // these have to be pointers as qwt takees ownership
+    waveforms::WaveformPlotData *rawPlotData_ = nullptr;
+    waveforms::WaveformPlotData *interpolatedPlotData_ = nullptr;
+    waveforms::Trace interpolatedTrace_;
+    QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
-    mdpp_sampling::DecodedMdppSampleEvent currentEvent_;
+
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
     waveforms::TraceHistories traceHistories_;
@@ -51,21 +57,42 @@ WaveformSinkWidget::WaveformSinkWidget(
     const std::shared_ptr<analysis::WaveformSink> &sink,
     AnalysisServiceProvider *asp,
     QWidget *parent)
-    : histo_ui::IPlotWidget(parent)
+    : histo_ui::PlotWidget(parent)
     , d(std::make_unique<Private>())
 {
     d->q = this;
     d->sink_ = sink;
     d->asp_ = asp;
-    d->plotWidget_ = new TracePlotWidget(this);
+    d->curveHelper_ = waveforms::WaveformPlotCurveHelper(getPlot());
     d->replotTimer_.setInterval(ReplotInterval_ms);
-    connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSinkWidget::replot);
-    d->replotTimer_.start();
 
-    auto l = make_hbox<0, 0>(this);
-    l->addWidget(d->plotWidget_);
+    auto curves = waveforms::make_curves();
+
+    d->rawPlotData_ = new waveforms::WaveformPlotData;
+    curves.rawCurve->setData(d->rawPlotData_);
+    d->interpolatedPlotData_ = new waveforms::WaveformPlotData;
+    curves.interpolatedCurve->setData(d->interpolatedPlotData_);
+
+    d->waveformHandle_ = d->curveHelper_.addWaveform(std::move(curves));
+
+    getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
+    histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
+    d->zoomer_ = histo_ui::install_scrollzoomer(this);
+    histo_ui::install_tracker_picker(this);
+
+    DO_AND_ASSERT(connect(histo_ui::get_zoomer(this), SIGNAL(zoomed(const QRectF &)), this, SLOT(replot())));
+
+    // enable both the zoomer and mouse cursor tracker by default
+
+    if (auto zoomAction = findChild<QAction *>("zoomAction"))
+        zoomAction->setChecked(true);
+
+    if (auto trackerPickerAction = findChild<QAction *>("trackerPickerAction"))
+        trackerPickerAction->setChecked(true);
 
     auto tb = getToolBar();
+
+    tb->addSeparator();
 
     {
         d->channelSelect_ = new QSpinBox;
@@ -81,6 +108,7 @@ WaveformSinkWidget::WaveformSinkWidget(
         d->traceSelect_ = new QSpinBox;
         d->traceSelect_->setMinimum(0);
         d->traceSelect_->setMaximum(1);
+        d->traceSelect_->setValue(0);
         d->traceSelect_->setSpecialValueText("latest");
         auto boxStruct = make_vbox_container(QSL("Trace#"), d->traceSelect_, 0, -2);
         tb->addWidget(boxStruct.container.release());
@@ -150,33 +178,15 @@ WaveformSinkWidget::WaveformSinkWidget(
     connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &WaveformSinkWidget::replot);
     connect(d->traceSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &WaveformSinkWidget::replot);
 
+    connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSinkWidget::replot);
+    d->replotTimer_.start();
+
     d->geoSaver_ = new WidgetGeometrySaver(this);
     d->geoSaver_->addAndRestore(this, "WindowGeometries/WaveformSinkWidget");
 }
 
 WaveformSinkWidget::~WaveformSinkWidget()
 {
-}
-
-QwtPlot *WaveformSinkWidget::getPlot()
-{
-    return d->plotWidget_->getPlot();
-}
-
-const QwtPlot *WaveformSinkWidget::getPlot() const
-{
-    return d->plotWidget_->getPlot();
-}
-
-
-QToolBar *WaveformSinkWidget::getToolBar()
-{
-    return d->plotWidget_->getToolBar();
-}
-
-QStatusBar *WaveformSinkWidget::getStatusBar()
-{
-    return d->plotWidget_->getStatusBar();
 }
 
 void WaveformSinkWidget::Private::updateUi()
@@ -190,45 +200,19 @@ void WaveformSinkWidget::Private::updateUi()
     if (0 <= selectedChannel && selectedChannel <= maxChannel)
     {
         auto &tracebuffer = traceHistories_[selectedChannel];
-        traceSelect_->setMaximum(std::max(1ul, tracebuffer.size()-1));
+        traceSelect_->setMaximum(std::max(0, static_cast<int>(tracebuffer.size())-1));
     }
     else
     {
         traceSelect_->setMaximum(0);
     }
 
-    // add / remove symbols from / to the curves
-
-    if (auto curve = plotWidget_->getRawCurve();
-        curve && !cb_sampleSymbols_->isChecked())
-    {
-        curve->setSymbol(nullptr);
-    }
-    else if (curve && !curve->symbol())
-    {
-        auto crossSymbol = new QwtSymbol(QwtSymbol::Diamond);
-        crossSymbol->setSize(QSize(5, 5));
-        crossSymbol->setColor(Qt::red);
-        curve->setSymbol(crossSymbol);
-    }
-
-    if (auto curve = plotWidget_->getInterpolatedCurve();
-        curve && !cb_interpolatedSymbols_->isChecked())
-    {
-        curve->setSymbol(nullptr);
-    }
-    else if (curve && !curve->symbol())
-    {
-        auto crossSymbol = new QwtSymbol(QwtSymbol::Triangle);
-        crossSymbol->setSize(QSize(5, 5));
-        crossSymbol->setColor(Qt::blue);
-        curve->setSymbol(crossSymbol);
-    }
+    curveHelper_.setRawSymbolsVisible(waveformHandle_, cb_sampleSymbols_->isChecked());
+    curveHelper_.setInterpolatedSymbolsVisible(waveformHandle_, cb_interpolatedSymbols_->isChecked());
 }
 
 void WaveformSinkWidget::replot()
 {
-    #if 0
     spdlog::trace("begin WaveformSinkWidget::replot()");
 
     // Thread-safe copy of the trace history shared with the analysis runtime.
@@ -249,22 +233,42 @@ void WaveformSinkWidget::replot()
         // selector 3: trace number in the trace history. 0 is the latest trace.
         auto selectedTraceIndex = d->traceSelect_->value();
 
-        if (0 <= selectedTraceIndex && selectedTraceIndex < tracebuffer.size())
+        spdlog::trace("selectedTraceIndex={}, traceSelect->min()={}, traceSelect->max()={}",
+            selectedTraceIndex, d->traceSelect_->minimum(), d->traceSelect_->maximum());
+
+        if (0 <= selectedTraceIndex && static_cast<size_t>(selectedTraceIndex) < tracebuffer.size())
             trace = &tracebuffer[selectedTraceIndex];
     }
 
     if (trace)
     {
-        auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
         auto dtSample = d->spin_dtSample_->value();
+        auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
 
-        trace->dtSample = dtSample;
-        interpolate(*trace, interpolationFactor);
+        // We now have raw trace data from the analysis. First scale the x
+        // coordinates, which currently are just array indexes, by dtSample.
+        std::transform(std::begin(trace->xs), std::end(trace->xs), std::begin(trace->xs),
+            [dtSample](double x) { return x * dtSample; });
+
+        // and interpolate
+        auto emitter = [this] (double x, double y)
+        {
+            d->interpolatedTrace_.push_back(x, y);
+        };
+
+        d->interpolatedTrace_.clear();
+        waveforms::interpolate(trace->xs, trace->ys, interpolationFactor, emitter);
     }
 
-    d->plotWidget_->setTrace(trace);
-    d->updatePlotAxisScales();
-    d->plotWidget_->replot();
+    d->rawPlotData_->setTrace(trace);
+    d->interpolatedPlotData_->setTrace(&d->interpolatedTrace_);
+
+    auto boundingRect = d->interpolatedPlotData_->boundingRect();
+    auto newBoundingRect = d->maxBoundingRect_.united(boundingRect);
+    waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
+    d->maxBoundingRect_ = newBoundingRect;
+
+    histo_ui::PlotWidget::replot();
 
     auto sb = getStatusBar();
     sb->clearMessage();
@@ -276,11 +280,11 @@ void WaveformSinkWidget::replot()
     }
 
     spdlog::trace("end WaveformSinkWidget::replot()");
-    #endif
 }
 
 void WaveformSinkWidget::Private::printInfo()
 {
+    #if 0
     auto trace = plotWidget_->getTrace();
 
     if (!trace)
@@ -306,10 +310,12 @@ void WaveformSinkWidget::Private::printInfo()
     logView_->setPlainText(text);
     logView_->show();
     logView_->raise();
+    #endif
 }
 
 void WaveformSinkWidget::Private::updatePlotAxisScales()
 {
+#if 0
     spdlog::trace("entering WaveformSinkWidget::Private::updatePlotAxisScales()");
 
     auto plot = plotWidget_->getPlot();
@@ -355,6 +361,7 @@ void WaveformSinkWidget::Private::updatePlotAxisScales()
     }
 
     maxBoundingRect_ = newBoundingRect;
+#endif
 }
 
 }

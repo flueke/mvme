@@ -8,7 +8,7 @@
 namespace analysis
 {
 
-class LIBMVME_EXPORT WaveformSinkWidget: public histo_ui::IPlotWidget
+class LIBMVME_EXPORT WaveformSinkWidget: public histo_ui::PlotWidget
 {
     Q_OBJECT
     public:
@@ -18,12 +18,6 @@ class LIBMVME_EXPORT WaveformSinkWidget: public histo_ui::IPlotWidget
             QWidget *parent = nullptr);
 
         ~WaveformSinkWidget() override;
-
-        QwtPlot *getPlot() override;
-        const QwtPlot *getPlot() const override;
-
-        QToolBar *getToolBar() override;
-        QStatusBar *getStatusBar() override;
 
     public slots:
         void replot() override;
