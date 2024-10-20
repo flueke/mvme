@@ -57,6 +57,25 @@ struct Trace
     }
 };
 
+#if 0
+struct TraceView
+{
+    span<const double> xs;
+    span<const double> ys;
+
+    void clear()
+    {
+        xs = {};
+        ys = {};
+    }
+
+    span<const double>::size_type size() const
+    {
+        return xs.size();
+    }
+};
+#endif
+
 using TraceHistory = std::deque<Trace>;
 using TraceHistories = std::vector<TraceHistory>;
 
@@ -65,7 +84,8 @@ using TraceHistories = std::vector<TraceHistory>;
 using EmitterFun = std::function<void (double x, double y)>;
 
 // Lowest level interpolation function. Currently hardcoded to use sinc()
-// interpolation with a window size of 6.
+// interpolation with a window size of 6. Factor specifies the number of points
+// that are interpolated between two samples.
 void interpolate(const span<const double> &xs, const span<const double> &ys, u32 factor, EmitterFun emitter);
 
 // Reserves temporary memory to construct the xs and ys vectors.
