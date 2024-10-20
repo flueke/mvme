@@ -1,4 +1,5 @@
 #include "waveform_interpolation.h"
+#include <mesytec-mvlc/util/algo.h>
 
 namespace mesytec::mvme::waveforms
 {
@@ -43,22 +44,19 @@ static double ipol(double a0, double a1, double a2, double a3, double a4, double
     return (ipol);
 }
 
-static const u32 MinInterpolationSamples = 6;
-
 inline void emit(const span<const double> &xs, const span<const double> &ys, EmitterFun emitter)
 {
     assert(xs.size() == ys.size());
 
-    for (auto ix=std::begin(xs), iy=std::begin(ys); ix!=std::end(xs); ++ix, ++iy)
-        emitter(*ix, *iy);
+    return mvlc::util::for_each(std::begin(xs), std::end(xs), std::begin(ys), emitter);
 }
 
 inline void emit(const double *xsBegin, const double *xsEnd, const double *ysBegin, EmitterFun emitter)
 {
-    const auto xs = span<const double>(xsBegin, xsEnd);
-    const auto ys = span<const double>(ysBegin, xs.size());
-    emit(xs, ys, emitter);
+    return mvlc::util::for_each(xsBegin, xsEnd, ysBegin, emitter);
 }
+
+static const u32 MinInterpolationSamples = 6;
 
 void interpolate(const span<const double> &xs, const span<const double> &ys, u32 factor, EmitterFun emitter)
 {
@@ -87,10 +85,10 @@ void interpolate(const span<const double> &xs, const span<const double> &ys, u32
     while (windowEnd <= samplesEnd)
     {
         assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
+
         const auto windowOffset = std::distance(std::begin(xs), windowStart);
         span<const double> wxs(windowStart, MinInterpolationSamples);
         span<const double> wys(std::begin(ys) + windowOffset, MinInterpolationSamples);
-
 
         emitter(wxs[WindowMid], wys[WindowMid]); // Emit the original sample.
 
@@ -120,7 +118,7 @@ void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u3
     std::vector<double> ys(samples.size());
 
     auto fill_x = [idx=0u, dtSample] () mutable { return idx++ * dtSample; };
-    auto fill_y =  [](s16 y) { return static_cast<double>(y); };
+    auto fill_y = [](s16 y) { return static_cast<double>(y); };
 
     std::generate(std::begin(xs), std::end(xs), fill_x);
     std::transform(std::begin(samples), std::end(samples), std::begin(ys), fill_y);
