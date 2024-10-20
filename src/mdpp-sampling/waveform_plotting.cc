@@ -31,11 +31,6 @@ QRectF update_plot_axes(QwtPlot *plot, QwtPlotZoomer *zoomer, const QRectF &newB
     return prevBoundingRect;
 }
 
-QRectF update_plot_axes(QwtPlot *plot, const QRectF &newBoundingRect, const QRectF &prevBoundingRect)
-{
-    return update_plot_axes(plot, histo_ui::get_zoomer(plot), newBoundingRect, prevBoundingRect);
-}
-
 IWaveformPlotter::~IWaveformPlotter() {}
 
 WaveformPlotCurveHelper::WaveformPlotCurveHelper(QwtPlot *plot)

@@ -75,7 +75,6 @@ QRectF unite_bounding_rects(const It begin, const It &end)
 }
 
 QRectF update_plot_axes(QwtPlot *plot, QwtPlotZoomer *zoomer, const QRectF &newBoundingRect, const QRectF &prevBoundingRect = {});
-QRectF update_plot_axes(QwtPlot *plot, const QRectF &newBoundingRect, const QRectF &prevBoundingRect = {});
 
 // The mvlc::util::span<const Sample> based approach
 class WaveformSamplePlotData: public QwtSeriesData<QPointF>
