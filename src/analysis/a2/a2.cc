@@ -4111,8 +4111,8 @@ void waveform_sink_step(Operator *op, A2 *)
             traceHistory.pop_back();
         }
 
-        trace.samples.clear();
-        trace.samples.reserve(input.size);
+        trace.clear();
+        trace.reserve(input.size);
 
         for (s32 paramIndex = 0; paramIndex < input.size; ++paramIndex)
         {
@@ -4122,7 +4122,7 @@ void waveform_sink_step(Operator *op, A2 *)
             if (!is_param_valid(value))
                 break;
 
-            trace.samples.push_back({ static_cast<double>(paramIndex), value});
+            trace.push_back(paramIndex, value);
         }
 
         traceHistory.push_front(std::move(trace));

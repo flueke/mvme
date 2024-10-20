@@ -783,9 +783,9 @@ QVector<std::pair<double, double>> interpolate(const mvlc::basic_string_view<s16
     QVector<std::pair<double, double>> result;
 
     mesytec::mvme::waveforms::interpolate({ samples.data(), samples.size() }, dtSample, factor,
-        [&result](const auto &sample)
+        [&result](double x, double y)
     {
-            result.push_back(sample);
+            result.push_back({ x, y });
     });
 
     return result;

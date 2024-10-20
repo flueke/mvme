@@ -45,44 +45,63 @@ static double ipol(double a0, double a1, double a2, double a3, double a4, double
 
 static const u32 MinInterpolationSamples = 6;
 
-void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, EmitterFun emitter)
+inline void emit(const span<const double> &xs, const span<const double> &ys, EmitterFun emitter)
 {
-    if (factor <= 1 || samples.size() < MinInterpolationSamples)
+    assert(xs.size() == ys.size());
+
+    for (auto ix=std::begin(xs), iy=std::begin(ys); ix!=std::end(xs); ++ix, ++iy)
+        emitter(*ix, *iy);
+}
+
+inline void emit(const double *xsBegin, const double *xsEnd, const double *ysBegin, EmitterFun emitter)
+{
+    const auto xs = span<const double>(xsBegin, xsEnd);
+    const auto ys = span<const double>(ysBegin, xs.size());
+    emit(xs, ys, emitter);
+}
+
+void interpolate(const span<const double> &xs, const span<const double> &ys, u32 factor, EmitterFun emitter)
+{
+    using mvlc::util::span;
+
+    assert(xs.size() == ys.size());
+    if (xs.size() != ys.size())
+        return;
+
+    if (factor <= 1 || xs.size() < MinInterpolationSamples)
     {
-        std::for_each(std::begin(samples), std::end(samples), emitter);
+        emit(xs.begin(), xs.end(), ys.begin(), emitter);
         return;
     }
 
     const size_t WindowMid = (MinInterpolationSamples - 1) / 2;
     const double factor_1 = 1.0 / factor;
-    const double dtSample = samples[1].first - samples[0].first;
-    const auto samplesEnd = std::end(samples);
-    auto windowStart = samples.data();
+    const double dtSample = xs[1] - xs[0];
+    const auto samplesEnd = std::end(xs);
+    auto windowStart = std::begin(xs);
     auto windowEnd = windowStart + MinInterpolationSamples;
 
     // Emit the first few input samples before interpolation starts.
-    std::for_each(windowStart, windowStart+WindowMid, emitter);
+    emit(windowStart, windowStart+WindowMid, std::begin(ys), emitter);
 
     while (windowEnd <= samplesEnd)
     {
         assert(std::distance(windowStart, windowEnd) == MinInterpolationSamples);
-        mvlc::util::span<const Sample> window(windowStart, MinInterpolationSamples);
+        const auto windowOffset = std::distance(std::begin(xs), windowStart);
+        span<const double> wxs(windowStart, MinInterpolationSamples);
+        span<const double> wys(std::begin(ys) + windowOffset, MinInterpolationSamples);
 
-        emitter(windowStart[WindowMid]); // Emit the original sample.
 
-        const auto sampleX = (windowStart + WindowMid)->first;
+        emitter(wxs[WindowMid], wys[WindowMid]); // Emit the original sample.
+
+        const auto sampleX = wxs[WindowMid];
 
         for (size_t step=0; step<factor-1; ++step)
         {
             double phase = (step+1) * factor_1;
-            double y = ipol(
-                window[0].second, window[1].second, window[2].second,
-                window[3].second, window[4].second, window[5].second,
-                phase);
-
-            auto x = sampleX + phase * dtSample;
-
-            emitter(std::make_pair(x, y));
+            double x = sampleX + phase * dtSample;
+            double y = ipol(wys[0], wys[1], wys[2], wys[3], wys[4], wys[5], phase);
+            emitter(x, y);
         }
 
         // Done with this window, advance both start and end by one.
@@ -91,22 +110,22 @@ void interpolate(const mvlc::util::span<const Sample> &samples, u32 factor, Emit
     }
 
     // Emit the last few samples after interpolation ends.
-    std::for_each(windowStart+WindowMid, samplesEnd, emitter);
+    const auto windowOffset = std::distance(std::begin(xs), windowStart);
+    emit(windowStart+WindowMid, samplesEnd, std::begin(ys) + windowOffset + WindowMid, emitter);
 }
 
 void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter)
 {
-    std::vector<Sample> buffer;
-    buffer.reserve(samples.size());
+    std::vector<double> xs(samples.size());
+    std::vector<double> ys(samples.size());
 
-    for (size_t xi=0; xi<samples.size(); ++xi)
-    {
-        double x = xi * dtSample;
-        double y = samples[xi];
-        buffer.push_back(std::make_pair(x, y));
-    }
+    auto fill_x = [idx=0u, dtSample] () mutable { return idx++ * dtSample; };
+    auto fill_y =  [](s16 y) { return static_cast<double>(y); };
 
-    interpolate(buffer, factor, emitter);
+    std::generate(std::begin(xs), std::end(xs), fill_x);
+    std::transform(std::begin(samples), std::end(samples), std::begin(ys), fill_y);
+
+    interpolate(xs, ys, factor, emitter);
 }
 
 }
