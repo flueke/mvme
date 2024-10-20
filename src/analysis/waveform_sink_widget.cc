@@ -31,7 +31,7 @@ struct WaveformSinkWidget::Private
     mdpp_sampling::DecodedMdppSampleEvent currentEvent_;
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
-    mdpp_sampling::ModuleTraceHistory traceHistories_;
+    waveforms::TraceHistories traceHistories_;
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
@@ -181,7 +181,6 @@ QStatusBar *WaveformSinkWidget::getStatusBar()
 
 void WaveformSinkWidget::Private::updateUi()
 {
-    #if 0
     // selector 1: Update the channel number spinbox
     const auto maxChannel = static_cast<signed>(traceHistories_.size()) - 1;
     channelSelect_->setMaximum(std::max(maxChannel, channelSelect_->maximum()));
@@ -191,7 +190,7 @@ void WaveformSinkWidget::Private::updateUi()
     if (0 <= selectedChannel && selectedChannel <= maxChannel)
     {
         auto &tracebuffer = traceHistories_[selectedChannel];
-        traceSelect_->setMaximum(std::max(1, tracebuffer.size()-1));
+        traceSelect_->setMaximum(std::max(1ul, tracebuffer.size()-1));
     }
     else
     {
@@ -225,7 +224,6 @@ void WaveformSinkWidget::Private::updateUi()
         crossSymbol->setColor(Qt::blue);
         curve->setSymbol(crossSymbol);
     }
-    #endif
 }
 
 void WaveformSinkWidget::replot()
@@ -235,11 +233,11 @@ void WaveformSinkWidget::replot()
 
     // Thread-safe copy of the trace history shared with the analysis runtime.
     // Might be very expensive depending on the size of the trace history.
-    d->traceHistories_ = d->sink_->getTraceHistory();
+    d->traceHistories_ = d->sink_->getTraceHistories();
 
     d->updateUi(); // update, selection boxes, buttons, etc.
 
-    ChannelTrace *trace = nullptr;
+    waveforms::Trace *trace = nullptr;
 
     const auto channelCount = d->traceHistories_.size();
     const auto selectedChannel = d->channelSelect_->value();

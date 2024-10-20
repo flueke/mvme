@@ -95,6 +95,34 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
         mutable QRectF boundingRectCache_;
 };
 
+struct WaveformCurves
+{
+    std::unique_ptr<QwtPlotCurve> rawCurve;
+    std::unique_ptr<QwtPlotCurve> interpolatedCurve;
+};
+
+class WaveformPlotWidget: public histo_ui::PlotWidget
+{
+    Q_OBJECT
+    public:
+        using Handle = size_t;
+
+        WaveformPlotWidget(QWidget *parent = nullptr);
+        ~WaveformPlotWidget() override;
+
+        Handle addWaveform(WaveformCurves &&data);
+        WaveformCurves takeWaveform(Handle handle);
+        QwtPlotCurve *getRawCurve(Handle handle);
+        QwtPlotCurve *getInterpolatedCurve(Handle handle);
+
+    public slots:
+        void replot() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 }
 
 #endif /* F66C9539_DA00_4A40_802A_F2101420A636 */
