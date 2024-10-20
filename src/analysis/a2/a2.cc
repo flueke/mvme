@@ -4107,8 +4107,8 @@ void waveform_sink_step(Operator *op, A2 *)
         // reuse the memory of the oldest trace object if the history is full
         if (traceHistory.size() >= d->traceHistoryMaxDepth_)
         {
-            trace = std::move(traceHistory.front());
-            traceHistory.pop();
+            trace = std::move(traceHistory.back());
+            traceHistory.pop_back();
         }
 
         trace.samples.clear();
@@ -4125,7 +4125,7 @@ void waveform_sink_step(Operator *op, A2 *)
             trace.samples.push_back({ static_cast<double>(paramIndex), value});
         }
 
-        traceHistory.push(std::move(trace));
+        traceHistory.push_front(std::move(trace));
     }
 }
 
