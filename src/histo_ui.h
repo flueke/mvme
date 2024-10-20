@@ -509,7 +509,7 @@ LIBMVME_EXPORT QwtPlotPicker *install_clickpoint_picker(PlotWidget *w);
 LIBMVME_EXPORT QwtPlotPicker *install_dragpoint_picker(PlotWidget *w);
 LIBMVME_EXPORT QActionGroup *group_picker_actions(PlotWidget *w);
 
-LIBMVME_EXPORT QwtPlotZoomer *get_zoomer(PlotWidget *w);
+LIBMVME_EXPORT QwtPlotZoomer *get_zoomer(QWidget *w);
 
 LIBMVME_EXPORT void debug_watch_plot_pickers(QWidget *w);
 LIBMVME_EXPORT void watch_mouse_move(PlotWidget *w);

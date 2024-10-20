@@ -1227,7 +1227,7 @@ QwtPlotZoomer *install_scrollzoomer(PlotWidget *w)
     return zoomer;
 }
 
-QwtPlotZoomer *get_zoomer(PlotWidget *w)
+QwtPlotZoomer *get_zoomer(QWidget *w)
 {
     return w->findChild<QwtPlotZoomer *>("zoomer");
 }

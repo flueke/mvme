@@ -43,16 +43,14 @@ QRectF calculate_bounding_rect(const Waveform &waveform)
 template<typename T>
 QRectF calculate_trace_bounding_rect(const T &xs, const T &ys)
 {
-    assert(xs.size() == ys.size());
-
-    if (xs.empty())
+    if (xs.empty() || ys.empty())
         return {};
 
     auto xminmax = std::minmax_element(std::begin(xs), std::end(xs));
     auto yminmax = std::minmax_element(std::begin(ys), std::end(ys));
 
-    auto xmin = *xminmax.first, xmax = *xminmax.second;
-    auto ymin = *yminmax.first, ymax = *yminmax.second;
+    auto [xmin, xmax] = std::make_pair(*xminmax.first, *xminmax.second);
+    auto [ymin, ymax] = std::make_pair(*yminmax.first, *yminmax.second);
 
     QPointF topLeft(xmin, ymax);
     QPointF bottomRight(xmax, ymin);
@@ -75,6 +73,9 @@ QRectF unite_bounding_rects(const It begin, const It &end)
             return acc.united(obj.boundingRect());
         });
 }
+
+QRectF update_plot_axes(QwtPlot *plot, QwtPlotZoomer *zoomer, const QRectF &newBoundingRect, const QRectF &prevBoundingRect = {});
+QRectF update_plot_axes(QwtPlot *plot, const QRectF &newBoundingRect, const QRectF &prevBoundingRect = {});
 
 // The mvlc::util::span<const Sample> based approach
 class WaveformSamplePlotData: public QwtSeriesData<QPointF>
@@ -194,8 +195,8 @@ class IWaveformPlotter
         virtual Handle addWaveform(WaveformCurves &&data) = 0;
         virtual WaveformCurves takeWaveform(Handle handle) = 0;
         virtual RawWaveformCurves getWaveform(Handle handle) const = 0;
-        virtual QwtPlotCurve *getRawCurve(Handle handle) = 0;
-        virtual QwtPlotCurve *getInterpolatedCurve(Handle handle) = 0;
+        virtual QwtPlotCurve *getRawCurve(Handle handle) const = 0;
+        virtual QwtPlotCurve *getInterpolatedCurve(Handle handle) const = 0;
 
         bool detachWaveform(Handle handle) { return takeWaveform(handle).rawCurve != nullptr; };
 };
@@ -212,13 +213,28 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
         Handle addWaveform(WaveformCurves &&data) override;
         WaveformCurves takeWaveform(Handle handle) override;
         RawWaveformCurves getWaveform(Handle handle) const override;
-        QwtPlotCurve *getRawCurve(Handle handle) override;
-        QwtPlotCurve *getInterpolatedCurve(Handle handle) override;
+        QwtPlotCurve *getRawCurve(Handle handle) const override;
+        QwtPlotCurve *getInterpolatedCurve(Handle handle) const override;
+
+        void setRawSymbolsVisible(Handle handle, bool visible);
+        void setInterpolatedSymbolsVisible(Handle handle, bool visible);
 
     private:
+
+        struct WaveformData: public RawWaveformCurves
+        {
+            mvme_qwt::QwtSymbolCache rawSymbolCache;
+            mvme_qwt::QwtSymbolCache interpolatedSymbolCache;
+        };
+
+        WaveformData *getWaveformData(Handle handle);
+        const WaveformData *getWaveformData(Handle handle) const;
+
         QwtPlot *plot_ = nullptr;
-        std::vector<RawWaveformCurves> waveforms_;
+        std::vector<WaveformData> waveforms_;
 };
+
+WaveformCurves make_curves(QColor curvePenColor = Qt::black);
 
 #if 0
 class WaveformPlotWidget: public histo_ui::PlotWidget, public IWaveformPlotter
