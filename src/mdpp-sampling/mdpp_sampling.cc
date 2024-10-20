@@ -708,26 +708,6 @@ void MdppSamplingUi::Private::printInfo()
     logView_->raise();
 }
 
-void adjust_y_axis_scale(QwtPlot *plot, double yMin, double yMax, QwtPlot::Axis axis = QwtPlot::yLeft)
-{
-    if (histo_ui::is_logarithmic_axis_scale(plot, QwtPlot::yLeft))
-    {
-        if (yMin <= 0.0)
-            yMin = 0.1;
-
-        yMin = std::max(yMin, yMax);
-    }
-
-    {
-        // Scale the y-axis by 5% to have some margin to the top and bottom of the
-        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
-        yMin *= (yMin < 0.0) ? 1.05 : 0.95;
-        yMax *= (yMax < 0.0) ? 0.95 : 1.05;
-    }
-
-    plot->setAxisScale(axis, yMin, yMax);
-}
-
 void MdppSamplingUi::Private::updatePlotAxisScales()
 {
     spdlog::trace("entering MdppSamplingUi::Private::updatePlotAxisScales()");
@@ -764,7 +744,7 @@ void MdppSamplingUi::Private::updatePlotAxisScales()
         spdlog::trace("updatePlotAxisScales(): updatePlotAxisScales(): forcing axis scales to: xMin={}, xMax={}, yMin={}, yMax={}", xMin, xMax, yMin, yMax);
 
         plot->setAxisScale(QwtPlot::xBottom, xMin, xMax);
-        adjust_y_axis_scale(plot, yMin, yMax);
+        histo_ui::adjust_y_axis_scale(plot, yMin, yMax);
         plot->updateAxes();
 
         if (zoomer->zoomRectIndex() == 0)

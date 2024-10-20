@@ -1481,4 +1481,24 @@ void watch_mouse_move(PlotWidget *w)
                      });
 }
 
+void adjust_y_axis_scale(QwtPlot *plot, double yMin, double yMax, QwtPlot::Axis axis)
+{
+    if (histo_ui::is_logarithmic_axis_scale(plot, axis))
+    {
+        if (yMin <= 0.0)
+            yMin = 0.1;
+
+        yMin = std::max(yMin, yMax);
+    }
+
+    {
+        // Scale the y-axis by 5% to have some margin to the top and bottom of the
+        // widget. Mostly to make the top scrollbar not overlap the plotted graph.
+        yMin *= (yMin < 0.0) ? 1.05 : 0.95;
+        yMax *= (yMax < 0.0) ? 0.95 : 1.05;
+    }
+
+    plot->setAxisScale(axis, yMin, yMax);
+}
+
 }

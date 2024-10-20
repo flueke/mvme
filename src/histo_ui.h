@@ -514,6 +514,11 @@ LIBMVME_EXPORT QwtPlotZoomer *get_zoomer(PlotWidget *w);
 LIBMVME_EXPORT void debug_watch_plot_pickers(QWidget *w);
 LIBMVME_EXPORT void watch_mouse_move(PlotWidget *w);
 
+// Scale the y-axis by 5% to have some margin to the top and bottom of the
+// widget. Mostly to make the zoomers top scrollbar not overlap the plotted
+// graph.
+void adjust_y_axis_scale(QwtPlot *plot, double yMin, double yMax, QwtPlot::Axis axis = QwtPlot::yLeft);
+
 }
 
 #endif /* __MVME_HISTO_UI_H__ */
