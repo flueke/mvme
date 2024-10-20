@@ -39,6 +39,7 @@
 #include <qwt_point_data.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
+#include <qwt_symbol.h>
 #include <qwt_text.h>
 #include <qwt_widget_overlay.h>
 #include "scrollzoomer.h"
@@ -110,9 +111,21 @@ LIBMVME_EXPORT QwtPlotCurve *make_plot_curve(
     const QColor &penColor = Qt::black, double penWidth = 1.0, double zLayer = 1000.0,
     QwtPlot *plot = nullptr);
 
+struct QwtSymbolCache
+{
+    QwtSymbol::Style style;
+    QBrush brush;
+    QPen pen;
+    QSize size;
+};
+
+QwtSymbolCache make_cache_from_symbol(const QwtSymbol *symbol);
+std::unique_ptr<QwtSymbol> make_symbol_from_cache(const QwtSymbolCache &cache);
+
 
 } // end namespace mvme_qwt
 
+// FIXME: move these into the mvme_qwt namespace
 inline bool is_x_axis(int qwtAxisId)
 {
     return (qwtAxisId == QwtPlot::xBottom || qwtAxisId == QwtPlot::xTop);

@@ -322,4 +322,25 @@ QwtPlotCurve *make_plot_curve(
     return result;
 }
 
+QwtSymbolCache make_cache_from_symbol(const QwtSymbol *symbol)
+{
+    QwtSymbolCache result;
+
+    result.style = symbol->style();
+    result.brush = symbol->brush();
+    result.pen = symbol->pen();
+    result.size = symbol->size();
+
+    return result;
+}
+
+std::unique_ptr<QwtSymbol> make_symbol_from_cache(const QwtSymbolCache &cache)
+{
+    auto result = std::make_unique<QwtSymbol>(cache.style);
+    result->setBrush(cache.brush);
+    result->setPen(cache.pen);
+    result->setSize(cache.size);
+    return result;
+}
+
 } // end namespace mvme_qwt
