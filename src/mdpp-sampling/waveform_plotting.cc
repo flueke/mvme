@@ -180,8 +180,8 @@ WaveformCurves make_curves(QColor curvePenColor)
     result.rawCurve->setSymbol(make_symbol(QwtSymbol::Diamond, Qt::red).release());
 
     result.interpolatedCurve = make_curve(curvePenColor);
-    result.rawCurve->setStyle(QwtPlotCurve::Lines);
-    result.rawCurve->setSymbol(make_symbol(QwtSymbol::Triangle, Qt::blue).release());
+    result.interpolatedCurve->setStyle(QwtPlotCurve::Lines);
+    result.interpolatedCurve->setSymbol(make_symbol(QwtSymbol::Triangle, Qt::blue).release());
 
     return result;
 }
