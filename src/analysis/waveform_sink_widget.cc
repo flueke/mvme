@@ -51,6 +51,7 @@ struct WaveformSinkWidget::Private
 
     void updateUi();
     void makeInfoText(std::ostringstream &oss);
+    void makeStatusText(std::ostringstream &oss);
     void printInfo();
     void updatePlotAxisScales();
 };
@@ -275,12 +276,9 @@ void WaveformSinkWidget::replot()
 
     auto sb = getStatusBar();
     sb->clearMessage();
-
-    if (trace)
-    {
-        // TODO: update the status bar text
-        sb->showMessage("TODO: update the status bar text");
-    }
+    std::ostringstream oss;
+    d->makeStatusText(oss);
+    sb->showMessage(oss.str().c_str());
 
     spdlog::trace("end WaveformSinkWidget::replot()");
 }
@@ -311,6 +309,48 @@ void WaveformSinkWidget::Private::makeInfoText(std::ostringstream &out)
         mesytec::mvme::waveforms::print_trace(out, interpolatedTrace_);
         out << fmt::format("end interpolated trace\n");
     }
+}
+
+void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out)
+{
+    // About memory: initially a trace history consists of an empty vector of
+    // queues of empty vectors.
+    //
+    // The analysis sink will quickly fill each channels history buffer to the
+    // max size, then reuse existing buffers.
+    //
+    // The UI calls getTraceHistories() on the sink which copies the entire
+    // history. When the internal vectors and queues are copied, the copies may
+    // have less memory reserved than the originals. This happens when traces
+    // are empty due to the sink input data consisting only of invalid
+    // parameters: the sinks reused trace buffers will have the full capacity,
+    // the copies will be empty without any allocation done.
+    //
+    // Two effects follow:
+    //
+    //   1) The memory used by the copy of the trace history can be much lower
+    //      than the memory used by the analysis sink.
+    //
+    //   2) The memory used by the copy of the trace history can fluctuate
+    //      during a run.
+    //
+    // Both depend on the actual number of samples currently in the trace history.
+
+    using mesytec::mvme::waveforms::get_used_memory;
+    double uiTotalMemory = get_used_memory(traceHistories_) + get_used_memory(interpolatedTrace_);
+    double sinkTotalMemory = sink_->getStorageSize();
+    size_t numChannels = traceHistories_.size();
+    size_t historyDepth = !traceHistories_.empty() ? traceHistories_[0].size() : 0u;
+    size_t currentTraceSize = currentTrace_ ? currentTrace_->size() : 0u;
+    size_t interpolatedSize = interpolatedTrace_.size();
+    auto selectedChannel = channelSelect_->value();
+
+    out << fmt::format("Mem: ui: {:.2f} MiB, analysis: {:.2f} MiB",
+        uiTotalMemory / Megabytes(1), sinkTotalMemory / Megabytes(1));
+    out << fmt::format(", #Channels: {}", numChannels);
+    out << fmt::format(", History depth: {}", historyDepth);
+    out << fmt::format(", Selected channel: {}", selectedChannel);
+    out << "\n";
 }
 
 void WaveformSinkWidget::Private::printInfo()
