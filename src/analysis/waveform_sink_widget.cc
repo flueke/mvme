@@ -53,7 +53,6 @@ struct WaveformSinkWidget::Private
     void makeInfoText(std::ostringstream &oss);
     void makeStatusText(std::ostringstream &oss);
     void printInfo();
-    void updatePlotAxisScales();
 };
 
 WaveformSinkWidget::WaveformSinkWidget(
@@ -373,57 +372,6 @@ void WaveformSinkWidget::Private::printInfo()
     logView_->setPlainText(oss.str().c_str());
     logView_->show();
     logView_->raise();
-}
-
-void WaveformSinkWidget::Private::updatePlotAxisScales()
-{
-#if 0
-    spdlog::trace("entering WaveformSinkWidget::Private::updatePlotAxisScales()");
-
-    auto plot = plotWidget_->getPlot();
-    auto zoomer = histo_ui::get_zoomer(plotWidget_);
-    assert(plot && zoomer);
-
-    // Grow the bounding rect to the max of every trace seen in this run to keep
-    // the display from jumping when switching between traces.
-    auto newBoundingRect = maxBoundingRect_;
-
-    if (!newBoundingRect.isValid())
-    {
-        newBoundingRect = plotWidget_->traceBoundingRect();
-        auto xMin = newBoundingRect.left();
-        auto xMax = newBoundingRect.right();
-        auto yMax = newBoundingRect.bottom();
-        auto yMin = newBoundingRect.top();
-        spdlog::trace("updatePlotAxisScales(): setting initial bounding rect from trace: xMin={}, xMax={}, yMin={}, yMax={}", xMin, xMax, yMin, yMax);
-    }
-
-    newBoundingRect = newBoundingRect.united(plotWidget_->traceBoundingRect());
-
-    spdlog::trace("updatePlotAxisScales(): zoomRectIndex()={}", zoomer->zoomRectIndex());
-
-    if (!maxBoundingRect_.isValid() || zoomer->zoomRectIndex() == 0)
-    {
-        auto xMin = newBoundingRect.left();
-        auto xMax = newBoundingRect.right();
-        auto yMax = newBoundingRect.bottom();
-        auto yMin = newBoundingRect.top();
-
-        spdlog::trace("updatePlotAxisScales(): updatePlotAxisScales(): forcing axis scales to: xMin={}, xMax={}, yMin={}, yMax={}", xMin, xMax, yMin, yMax);
-
-        plot->setAxisScale(QwtPlot::xBottom, xMin, xMax);
-        histo_ui::adjust_y_axis_scale(plot, yMin, yMax);
-        plot->updateAxes();
-
-        if (zoomer->zoomRectIndex() == 0)
-        {
-            spdlog::trace("updatePlotAxisScales(): zoomer fully zoomed out -> setZoomBase()");
-            zoomer->setZoomBase();
-        }
-    }
-
-    maxBoundingRect_ = newBoundingRect;
-#endif
 }
 
 }
