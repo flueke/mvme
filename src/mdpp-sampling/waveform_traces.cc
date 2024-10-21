@@ -25,7 +25,7 @@ size_t get_used_memory(const T &traceHistories)
 
 size_t get_used_memory(const Trace &trace)
 {
-    return trace.size() * sizeof(double) * 2;
+    return trace.xs.capacity() * sizeof(double) + trace.ys.capacity() * sizeof(double);
 }
 
 size_t get_used_memory(const TraceHistory &traceHistory)
@@ -35,7 +35,7 @@ size_t get_used_memory(const TraceHistory &traceHistory)
 
 size_t get_used_memory(const TraceHistories &traceHistories)
 {
-    return traceHistories.size() * sizeof(traceHistories[0]) +  detail::get_used_memory(traceHistories);
+    return traceHistories.capacity() * sizeof(traceHistories[0]) +  detail::get_used_memory(traceHistories);
 }
 
 std::ostream &print_trace(std::ostream &out, const Trace &trace)
