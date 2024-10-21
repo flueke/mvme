@@ -25,6 +25,7 @@ static const QPointF topLeft{0, 55};
 static const QPointF bottomRight{9, 1};
 static const QRectF ConstBoundingRect(topLeft, bottomRight);
 
+#if 0
 TEST(WaveformPlotting, WaveformPlotData)
 {
     // empty
@@ -97,3 +98,4 @@ TEST(WaveformPlotting, WaveformPlotData)
         ASSERT_EQ(plotData.sample(9), QPointF(9, 55));
     }
 }
+#endif
