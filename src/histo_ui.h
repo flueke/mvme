@@ -215,6 +215,7 @@ LIBMVME_EXPORT bool is_linear_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis
 LIBMVME_EXPORT bool is_logarithmic_axis_scale(const QwtPlot *plot, QwtPlot::Axis axis);
 LIBMVME_EXPORT bool is_linear_axis_scale(const IPlotWidget *plot, QwtPlot::Axis axis);
 LIBMVME_EXPORT bool is_logarithmic_axis_scale(const IPlotWidget *plot, QwtPlot::Axis axis);
+LIBMVME_EXPORT AxisScaleType get_axis_scale_type(const QwtPlot *plot, QwtPlot::Axis axis);
 
 class LIBMVME_EXPORT PlotAxisScaleChanger: public QObject
 {

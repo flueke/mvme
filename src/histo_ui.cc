@@ -1076,6 +1076,14 @@ bool is_logarithmic_axis_scale(const IPlotWidget *plot, QwtPlot::Axis axis)
     return is_logarithmic_axis_scale(plot->getPlot(), axis);
 }
 
+AxisScaleType get_axis_scale_type(const QwtPlot *plot, QwtPlot::Axis axis)
+{
+    if (is_logarithmic_axis_scale(plot, axis))
+        return AxisScaleType::Logarithmic;
+    else
+        return AxisScaleType::Linear;
+}
+
 PlotAxisScaleChanger::PlotAxisScaleChanger(QwtPlot *plot, QwtPlot::Axis axis)
     : QObject(plot)
     , m_plot(plot)
