@@ -117,6 +117,53 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
         mutable QRectF boundingRectCache_;
 };
 
+// y axis is the trace index, x axis is trace x, z color is trace y
+class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
+{
+    public:
+        void setTraceCollection(const std::vector<const Trace *> &traces)
+        {
+            traces_ = traces;
+        }
+
+        std::vector<const Trace *> getTraceCollection() const
+        {
+            return traces_;
+        }
+
+        double value(double x, double y) const override
+        {
+            const ssize_t traceIndex = y;
+
+            if (0 > traceIndex || traceIndex >= static_cast<ssize_t>(traces_.size()))
+                return mesytec::mvme::util::make_quiet_nan();
+
+            auto trace = traces_[traceIndex];
+            assert(trace);
+
+            const ssize_t sampleIndex = x;
+
+            if (0 > sampleIndex || sampleIndex >= static_cast<ssize_t>(trace->size()))
+                return mesytec::mvme::util::make_quiet_nan();
+
+            return trace->ys[sampleIndex];
+        }
+
+        QRectF pixelHint(const QRectF &) const override
+        {
+            QRectF result
+            {
+                0.0, 0.0,
+                1.0, 1.0
+            };
+            return result;
+        }
+
+    private:
+        std::vector<const Trace *> traces_;
+
+};
+
 struct WaveformCurves
 {
     std::unique_ptr<QwtPlotCurve> rawCurve;
