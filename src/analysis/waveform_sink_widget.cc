@@ -9,6 +9,8 @@
 #include <qwt_symbol.h>
 #include <set>
 
+#include <mesytec-mvlc/util/algo.h>
+
 #include "analysis_service_provider.h"
 #include "mdpp-sampling/mdpp_sampling_p.h"
 #include "mdpp-sampling/mdpp_sampling.h"
@@ -343,8 +345,8 @@ void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out)
     double sinkTotalMemory = sink_->getStorageSize();
     size_t numChannels = traceHistories_.size();
     size_t historyDepth = !traceHistories_.empty() ? traceHistories_[0].size() : 0u;
-    size_t currentTraceSize = currentTrace_ ? currentTrace_->size() : 0u;
-    size_t interpolatedSize = interpolatedTrace_.size();
+    //size_t currentTraceSize = currentTrace_ ? currentTrace_->size() : 0u;
+    //size_t interpolatedSize = interpolatedTrace_.size();
     auto selectedChannel = channelSelect_->value();
 
     out << fmt::format("Mem: ui: {:.2f} MiB, analysis: {:.2f} MiB",
@@ -385,6 +387,7 @@ struct WaveformSinkVerticalWidget::Private
     waveforms::WaveformCollectionVerticalRasterData *plotData_ = nullptr;
     QwtPlotSpectrogram *plotItem_ = nullptr;
     std::vector<const waveforms::Trace *> currentCollection_;
+    std::vector<waveforms::Trace> interpolatedTraces_;
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
 
@@ -568,20 +571,66 @@ void WaveformSinkVerticalWidget::replot()
     d->currentCollection_ = std::accumulate(
         std::begin(d->traceHistories_), std::end(d->traceHistories_), d->currentCollection_, accu);
 
-    d->plotData_->setTraceCollection(d->currentCollection_);
+    {
+        auto traces = &d->currentCollection_;
 
-    auto dtSample = d->spin_dtSample_->value();
+        // do interpolation
+        if (!traces->empty())
+        {
+            auto dtSample = d->spin_dtSample_->value();
+            auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
 
-    auto &traces = d->currentCollection_;
+            // grow/shrink if needed
+            d->interpolatedTraces_.resize(traces->size());
 
-    if (!traces.empty())
+            // clean remaining traces, keeping allocations intact
+            std::for_each(std::begin(d->interpolatedTraces_), std::end(d->interpolatedTraces_),
+                [] (waveforms::Trace &trace) { trace.clear(); });
+
+            // interpolate
+            mesytec::mvlc::util::for_each(std::begin(*traces), std::end(*traces), std::begin(d->interpolatedTraces_),
+                [interpolationFactor] (const waveforms::Trace *trace, waveforms::Trace &interpolatedTrace)
+                {
+                    auto emitter = [&interpolatedTrace] (double x, double y)
+                    {
+                        interpolatedTrace.push_back(x, y);
+                    };
+                    waveforms::interpolate(trace->xs, trace->ys, interpolationFactor, emitter);
+                });
+
+
+            // TODO: somehow do the x scaling efficiently without having to keep another copy of the data
+            // TODO: x scaling has to happen before interpolation
+            #if 0
+            // scale x values by dtsample
+            std::for_each(std::begin(d->interpolatedTraces_), std::end(d->interpolatedTraces_),
+                [dtSample] (waveforms::Trace &trace)
+                {
+                    // We now have raw trace data from the analysis. First scale the x
+                    // coordinates, which currently are just array indexes, by dtSample.
+                    std::transform(std::begin(trace.xs), std::end(trace.xs), std::begin(trace.xs),
+                        [dtSample](double x) { return x * dtSample; });
+                });
+            #endif
+        }
+    }
+
+    auto traces = &d->interpolatedTraces_;
+    std::vector<const waveforms::Trace *> tracePointers(traces->size());
+    std::transform(std::begin(*traces), std::end(*traces), std::begin(tracePointers),
+        [] (const waveforms::Trace &trace) { return &trace; });
+    // TODO: improve this interface
+    d->plotData_->setTraceCollection(tracePointers);
+
+    // determine axis scale ranges, update the zoomer, set plot axis scales
+    if (!traces->empty())
     {
         // max sample count over all traces
-        double xMax = (*std::max_element(std::begin(traces), std::end(traces),
-            [] (const auto &lhs, const auto &rhs) { return lhs->size() < rhs->size(); }))->size();
+        double xMax = std::max_element(std::begin(*traces), std::end(*traces),
+            [] (const auto &lhs, const auto &rhs) { return lhs.size() < rhs.size(); })->size();
 
         // number of traces == row count
-        double yMax = traces.size();
+        double yMax = traces->size();
 
         // minmax y values over all traces
         double zMin = std::numeric_limits<double>::max();
@@ -589,12 +638,12 @@ void WaveformSinkVerticalWidget::replot()
 
         auto update_z_minmax = [&zMin, &zMax] (const auto &trace)
         {
-            auto [min_, max_] = waveforms::find_minmax_y(*trace);
+            auto [min_, max_] = waveforms::find_minmax_y(trace);
             zMin = std::min(zMin, min_);
             zMax = std::max(zMax, max_);
         };
 
-        std::for_each(std::begin(traces), std::end(traces), update_z_minmax);
+        std::for_each(std::begin(*traces), std::end(*traces), update_z_minmax);
 
         if (d->zoomer_->zoomRectIndex() == 0)
         {
