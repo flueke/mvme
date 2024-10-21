@@ -200,6 +200,7 @@ add_library(libmvme SHARED
     mdpp-sampling/mdpp_sampling.cc
     mdpp-sampling/waveform_plotting.cc
     mdpp-sampling/waveform_interpolation.cc
+    mdpp-sampling/waveform_traces.cc
     mesytec_diagnostics.cc
     multi_crate.cc
     multi_crate_gui.cc
