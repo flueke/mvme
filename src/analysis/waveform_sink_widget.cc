@@ -431,7 +431,7 @@ WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
 
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
     getPlot()->axisWidget(QwtPlot::yLeft)->setTitle("Channel");
-    //histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
+    histo_ui::setup_axis_scale_changer(this, QwtPlot::yRight, "Z-Scale");
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
     histo_ui::install_tracker_picker(this);
 
@@ -603,11 +603,28 @@ void WaveformSinkVerticalWidget::replot()
             d->zoomer_->setZoomBase();
         }
 
+        if (histo_ui::is_logarithmic_axis_scale(getPlot(), QwtPlot::yRight))
+        {
+            zMin = 1.0;
+            zMax = std::max(2.0, zMax);
+        }
+
         getPlot()->setAxisScale(QwtPlot::yRight, zMin, zMax);
 
         d->plotData_->setInterval(Qt::XAxis, QwtInterval(0.0, xMax));
         d->plotData_->setInterval(Qt::YAxis, QwtInterval(0.0, yMax));
         d->plotData_->setInterval(Qt::ZAxis, QwtInterval(zMin, zMax));
+
+        // FIXME only do this when the scale type changes. maybe update PlotAxisScaleChanger to help with this
+        auto colorMap = histo_ui::make_histo2d_color_map(
+            histo_ui::get_axis_scale_type(getPlot(), QwtPlot::yRight));
+        d->plotItem_->setColorMap(colorMap.release());
+
+        // FIXME only do this when the scale type changes. maybe update PlotAxisScaleChanger to help with this
+        colorMap = histo_ui::make_histo2d_color_map(
+            histo_ui::get_axis_scale_type(getPlot(), QwtPlot::yRight));
+        getPlot()->axisWidget(QwtPlot::yRight)
+            ->setColorMap(QwtInterval{ zMin, zMax }, colorMap.release());
     }
 
     histo_ui::PlotWidget::replot();
