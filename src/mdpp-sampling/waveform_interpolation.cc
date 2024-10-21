@@ -1,4 +1,9 @@
 #include "waveform_interpolation.h"
+
+#include <cassert>
+#include <cmath>
+#include <algorithm>
+
 #include <mesytec-mvlc/util/algo.h>
 
 namespace mesytec::mvme::waveforms
