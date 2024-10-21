@@ -3786,6 +3786,12 @@ void WaveformSink::read(const QJsonObject &json)
     setTraceHistoryMaxDepth(json["traceHistoryMaxDepth"].toInt(DefaultTraceHistoryMaxDepth));
 }
 
+size_t WaveformSink::getStorageSize() const
+{
+    // locks the history but does not make a copy
+    return mesytec::mvme::waveforms::get_used_memory(d->traceHistories_.access().ref());
+}
+
 void WaveformSink::setTraceHistoryMaxDepth(size_t maxDepth)
 {
      d->traceHistoryMaxDepth_ = maxDepth;

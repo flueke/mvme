@@ -2004,14 +2004,15 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
         virtual QString getDisplayName() const override { return QSL("Waveform Display"); }
         virtual QString getShortName() const override { return QSL("Waveform"); }
 
-        // SinkInterface specific. This operator doesn't use storage like
-        // histograms do, so it always returns 0 here.
-        virtual size_t getStorageSize() const override { return 0u; }
+        virtual size_t getStorageSize() const override;
 
         void setTraceHistoryMaxDepth(size_t maxDepth);
         size_t getTraceHistoryMaxDepth() const;
 
+        // Returns a deep copy of the trace histories. Expensive!
         mesytec::mvme::waveforms::TraceHistories getTraceHistories() const;
+
+        // Reference to the internal trace histories guarded by a mutex.
         mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> &getTraceHistoriesProtected();
 
     private:
