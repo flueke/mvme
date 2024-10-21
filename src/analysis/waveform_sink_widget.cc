@@ -31,6 +31,7 @@ struct WaveformSinkWidget::Private
     // these have to be pointers as qwt takees ownership
     waveforms::WaveformPlotData *rawPlotData_ = nullptr;
     waveforms::WaveformPlotData *interpolatedPlotData_ = nullptr;
+    waveforms::Trace *currentTrace_ = nullptr;
     waveforms::Trace interpolatedTrace_;
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
@@ -49,6 +50,7 @@ struct WaveformSinkWidget::Private
     QPushButton *pb_resetBoundingRect = nullptr;
 
     void updateUi();
+    void makeInfoText(std::ostringstream &oss);
     void printInfo();
     void updatePlotAxisScales();
 };
@@ -267,6 +269,7 @@ void WaveformSinkWidget::replot()
     auto newBoundingRect = d->maxBoundingRect_.united(boundingRect);
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
+    d->currentTrace_ = trace;
 
     histo_ui::PlotWidget::replot();
 
@@ -282,19 +285,36 @@ void WaveformSinkWidget::replot()
     spdlog::trace("end WaveformSinkWidget::replot()");
 }
 
+void WaveformSinkWidget::Private::makeInfoText(std::ostringstream &out)
+{
+    double totalMemory = mesytec::mvme::waveforms::get_used_memory(traceHistories_);
+    size_t numChannels = traceHistories_.size();
+    size_t historyDepth = !traceHistories_.empty() ? traceHistories_[0].size() : 0u;
+    size_t currentTraceSize = currentTrace_ ? currentTrace_->size() : 0u;
+    size_t interpolatedSize = interpolatedTrace_.size();
+    auto selectedChannel = channelSelect_->value();
+
+    out << "Trace History Info:\n";
+    out << fmt::format("  Total memory used: {:} B / {:.2f} MiB\n", totalMemory, static_cast<double>(totalMemory) / Megabytes(1));
+    out << fmt::format("  Number of channels: {}\n", numChannels);
+    out << fmt::format("  History depth: {}\n", historyDepth);
+    out << fmt::format("  Selected channel: {}\n", selectedChannel);
+    out << "\n";
+
+    if (currentTrace_)
+    {
+        out << fmt::format("begin current trace ({} samples):\n", currentTraceSize);
+        mesytec::mvme::waveforms::print_trace(out, *currentTrace_);
+        out << fmt::format("end current trace\n");
+
+        out << fmt::format("begin interpolated trace ({} samples):\n", interpolatedSize);
+        mesytec::mvme::waveforms::print_trace(out, interpolatedTrace_);
+        out << fmt::format("end interpolated trace\n");
+    }
+}
+
 void WaveformSinkWidget::Private::printInfo()
 {
-    #if 0
-    auto trace = plotWidget_->getTrace();
-
-    if (!trace)
-        return;
-
-    QString text;
-    QTextStream out(&text);
-
-    out << "TODO: implement printInfo()";
-
     if (!logView_)
     {
         logView_ = make_logview().release();
@@ -303,14 +323,16 @@ void WaveformSinkWidget::Private::printInfo()
         logView_->resize(1000, 600);
         connect(logView_, &QWidget::destroyed, q, [this] { logView_ = nullptr; });
         add_widget_close_action(logView_);
-        geoSaver_->addAndRestore(logView_, "WindowGeometries/WaveformSinkWidgetLogView");
+        geoSaver_->addAndRestore(logView_, "WindowGeometries/MdppSamplingUiLogView");
     }
 
+    std::ostringstream oss;
+    makeInfoText(oss);
+
     assert(logView_);
-    logView_->setPlainText(text);
+    logView_->setPlainText(oss.str().c_str());
     logView_->show();
     logView_->raise();
-    #endif
 }
 
 void WaveformSinkWidget::Private::updatePlotAxisScales()
