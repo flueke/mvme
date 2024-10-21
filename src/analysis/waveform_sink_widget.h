@@ -27,6 +27,25 @@ class LIBMVME_EXPORT WaveformSinkWidget: public histo_ui::PlotWidget
         std::unique_ptr<Private> d;
 };
 
+class LIBMVME_EXPORT WaveformSinkVerticalWidget: public histo_ui::PlotWidget
+{
+    Q_OBJECT
+    public:
+        WaveformSinkVerticalWidget(
+            const std::shared_ptr<analysis::WaveformSink> &sink,
+            AnalysisServiceProvider *asp,
+            QWidget *parent = nullptr);
+
+        ~WaveformSinkVerticalWidget() override;
+
+    public slots:
+        void replot() override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 }
 
 #endif /* BA034595_A573_46BA_8AAD_0EEDB3C4FF26 */

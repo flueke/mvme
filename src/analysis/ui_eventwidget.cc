@@ -3487,6 +3487,11 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
         if (auto sinkPtr = get_shared_analysis_object<WaveformSink>(activeNode, DataRole_AnalysisObject))
         {
+            // FIXME: these two widgets are registered with the same sink
+            // pointer, thus having one open will make the user unable to open
+            // the other type. Currently have to press ctrl to force opening
+            // another window.
+            #if 0
             menu.addAction(QSL("Open Waveforms Display"), m_q, [this, sinkPtr]() {
                 if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                     || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
@@ -3499,6 +3504,30 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
                 }
             });
+
+            menu.addAction(QSL("Open Waveforms Vertical Display"), m_q, [this, sinkPtr]() {
+                if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
+                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                {
+                    auto widget = new analysis::WaveformSinkVerticalWidget(sinkPtr, m_serviceProvider);
+                    m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                }
+                else
+                {
+                    m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
+                }
+            });
+            #else
+            menu.addAction(QSL("Open Waveforms Display"), m_q, [this, sinkPtr]() {
+                auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+            });
+
+            menu.addAction(QSL("Open Waveforms Vertical Display"), m_q, [this, sinkPtr]() {
+                auto widget = new analysis::WaveformSinkVerticalWidget(sinkPtr, m_serviceProvider);
+                m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString() + "_vertical");
+            });
+            #endif
         }
 
         if (auto sinkPtr = get_shared_analysis_object<ExportSink>(activeNode,

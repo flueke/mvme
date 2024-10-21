@@ -1,12 +1,13 @@
 #include "analysis/waveform_sink_widget.h"
 
 #include <cmath>
-#include <set>
-#include <qwt_symbol.h>
 #include <QCheckBox>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTimer>
+#include <qwt_plot_spectrogram.h>
+#include <qwt_symbol.h>
+#include <set>
 
 #include "analysis_service_provider.h"
 #include "mdpp-sampling/mdpp_sampling_p.h"
@@ -91,6 +92,8 @@ WaveformSinkWidget::WaveformSinkWidget(
 
     if (auto trackerPickerAction = findChild<QAction *>("trackerPickerAction"))
         trackerPickerAction->setChecked(true);
+
+    setWindowTitle("WaveformSinkWidget");
 
     auto tb = getToolBar();
 
@@ -353,6 +356,323 @@ void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out)
 }
 
 void WaveformSinkWidget::Private::printInfo()
+{
+    if (!logView_)
+    {
+        logView_ = make_logview().release();
+        logView_->setWindowTitle("MDPP Sampling Mode: Trace Info");
+        logView_->setAttribute(Qt::WA_DeleteOnClose);
+        logView_->resize(1000, 600);
+        connect(logView_, &QWidget::destroyed, q, [this] { logView_ = nullptr; });
+        add_widget_close_action(logView_);
+        geoSaver_->addAndRestore(logView_, "WindowGeometries/MdppSamplingUiLogView");
+    }
+
+    std::ostringstream oss;
+    makeInfoText(oss);
+
+    assert(logView_);
+    logView_->setPlainText(oss.str().c_str());
+    logView_->show();
+    logView_->raise();
+}
+
+struct WaveformSinkVerticalWidget::Private
+{
+    WaveformSinkVerticalWidget *q = nullptr;
+    std::shared_ptr<analysis::WaveformSink> sink_;
+    AnalysisServiceProvider *asp_ = nullptr;
+    waveforms::WaveformCollectionVerticalRasterData *plotData_ = nullptr;
+    QwtPlotSpectrogram *plotItem_ = nullptr;
+    std::vector<const waveforms::Trace *> currentCollection_;
+    QwtPlotZoomer *zoomer_ = nullptr;
+    QTimer replotTimer_;
+
+    QSpinBox *traceSelect_ = nullptr;
+    waveforms::TraceHistories traceHistories_;
+    QPushButton *pb_printInfo_ = nullptr;
+    QDoubleSpinBox *spin_dtSample_ = nullptr;
+    QSpinBox *spin_interpolationFactor_ = nullptr;
+    QPlainTextEdit *logView_ = nullptr;
+    WidgetGeometrySaver *geoSaver_ = nullptr;
+    QRectF maxBoundingRect_;
+    QPushButton *pb_resetBoundingRect = nullptr;
+
+    void updateUi();
+    void makeInfoText(std::ostringstream &oss);
+    void makeStatusText(std::ostringstream &oss);
+    void printInfo();
+};
+
+WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
+    const std::shared_ptr<analysis::WaveformSink> &sink,
+    AnalysisServiceProvider *asp,
+    QWidget *parent)
+    : histo_ui::PlotWidget(parent)
+    , d(std::make_unique<Private>())
+{
+    d->q = this;
+    d->sink_ = sink;
+    d->asp_ = asp;
+    d->replotTimer_.setInterval(ReplotInterval_ms);
+
+    d->plotData_ = new waveforms::WaveformCollectionVerticalRasterData();
+    d->plotItem_ = new QwtPlotSpectrogram;
+    d->plotItem_->setData(d->plotData_);
+    d->plotItem_->setRenderThreadCount(0); // use system specific ideal thread count
+    d->plotItem_->setColorMap(histo_ui::make_histo2d_color_map(histo_ui::AxisScaleType::Linear).release());
+    d->plotItem_->attach(getPlot());
+
+    auto rightAxis = getPlot()->axisWidget(QwtPlot::yRight);
+    rightAxis->setTitle("Sample Value");
+    rightAxis->setColorBarEnabled(true);
+    getPlot()->enableAxis(QwtPlot::yRight);
+
+
+    getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
+    getPlot()->axisWidget(QwtPlot::yLeft)->setTitle("Channel");
+    //histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
+    d->zoomer_ = histo_ui::install_scrollzoomer(this);
+    histo_ui::install_tracker_picker(this);
+
+    DO_AND_ASSERT(connect(histo_ui::get_zoomer(this), SIGNAL(zoomed(const QRectF &)), this, SLOT(replot())));
+
+    // enable both the zoomer and mouse cursor tracker by default
+
+    if (auto zoomAction = findChild<QAction *>("zoomAction"))
+        zoomAction->setChecked(true);
+
+    if (auto trackerPickerAction = findChild<QAction *>("trackerPickerAction"))
+        trackerPickerAction->setChecked(true);
+
+    setWindowTitle("WaveformSinkVerticalWidget");
+
+    auto tb = getToolBar();
+
+    tb->addSeparator();
+
+    {
+        d->traceSelect_ = new QSpinBox;
+        d->traceSelect_->setMinimum(0);
+        d->traceSelect_->setMaximum(1);
+        d->traceSelect_->setValue(0);
+        d->traceSelect_->setSpecialValueText("latest");
+        auto boxStruct = make_vbox_container(QSL("Trace#"), d->traceSelect_, 0, -2);
+        tb->addWidget(boxStruct.container.release());
+    }
+
+    tb->addSeparator();
+
+    {
+        d->spin_dtSample_ = new QDoubleSpinBox;
+        d->spin_dtSample_->setMinimum(1.0);
+        d->spin_dtSample_->setMaximum(1e9);
+        d->spin_dtSample_->setSingleStep(0.1);
+        d->spin_dtSample_->setSuffix(" ns");
+        d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
+
+        auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
+
+        connect(pb_useDefaultSampleInterval, &QPushButton::clicked, this, [this] {
+            d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
+        });
+
+        auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();
+        l0->addWidget(d->spin_dtSample_);
+        l0->addWidget(pb_useDefaultSampleInterval);
+
+        auto boxStruct = make_vbox_container(QSL("Sample Interval"), w0, 0, -2);
+        tb->addWidget(boxStruct.container.release());
+    }
+
+    tb->addSeparator();
+
+    {
+        d->spin_interpolationFactor_ = new QSpinBox;
+        d->spin_interpolationFactor_->setSpecialValueText("off");
+        d->spin_interpolationFactor_->setMinimum(0);
+        d->spin_interpolationFactor_->setMaximum(100);
+        d->spin_interpolationFactor_->setValue(5);
+        auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), d->spin_interpolationFactor_, 0, -2);
+        tb->addWidget(boxStruct.container.release());
+    }
+
+    tb->addSeparator();
+
+    {
+        d->pb_resetBoundingRect = new QPushButton("Reset Axis Scales");
+        auto [widget, layout] = make_widget_with_layout<QWidget, QVBoxLayout>();
+        layout->addWidget(d->pb_resetBoundingRect);
+        tb->addWidget(widget);
+
+        connect(d->pb_resetBoundingRect, &QPushButton::clicked, this, [this] {
+            d->maxBoundingRect_ = {};
+        });
+    }
+
+    tb->addSeparator();
+
+    d->pb_printInfo_ = new QPushButton("Print Info");
+    tb->addWidget(d->pb_printInfo_);
+
+    connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
+
+    connect(d->traceSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &WaveformSinkVerticalWidget::replot);
+
+    connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSinkVerticalWidget::replot);
+    d->replotTimer_.start();
+
+    d->geoSaver_ = new WidgetGeometrySaver(this);
+    d->geoSaver_->addAndRestore(this, "WindowGeometries/WaveformSinkVerticalWidget");
+}
+
+WaveformSinkVerticalWidget::~WaveformSinkVerticalWidget()
+{
+}
+
+void WaveformSinkVerticalWidget::Private::updateUi()
+{
+    if (traceHistories_.empty())
+    {
+        traceSelect_->setMaximum(0);
+        return;
+    }
+
+    // assumes all trace histories have the same size
+    auto &tracebuffer = traceHistories_[0];
+    traceSelect_->setMaximum(std::max(0, static_cast<int>(tracebuffer.size())-1));
+}
+
+void WaveformSinkVerticalWidget::replot()
+{
+    spdlog::trace("begin WaveformSinkVerticalWidget::replot()");
+
+    // Thread-safe copy of the trace history shared with the analysis runtime.
+    // Might be very expensive depending on the size of the trace history.
+    d->traceHistories_ = d->sink_->getTraceHistories();
+
+    d->updateUi(); // update, selection boxes, buttons, etc.
+
+    d->currentCollection_.clear();
+
+    auto selectedTraceIndex = d->traceSelect_->value();
+
+    // pick a trace from the same column of each row in the trace history
+    auto accu = [selectedTraceIndex] (std::vector<const waveforms::Trace *> &acc, const waveforms::TraceHistory &history)
+    {
+        if (0 <= selectedTraceIndex && static_cast<size_t>(selectedTraceIndex) < history.size())
+            acc.push_back(&history[selectedTraceIndex]);
+        return acc;
+    };
+
+    d->currentCollection_ = std::accumulate(
+        std::begin(d->traceHistories_), std::end(d->traceHistories_), d->currentCollection_, accu);
+
+    d->plotData_->setTraceCollection(d->currentCollection_);
+
+    auto dtSample = d->spin_dtSample_->value();
+
+    auto &traces = d->currentCollection_;
+
+    if (!traces.empty())
+    {
+        // max sample count over all traces
+        double xMax = (*std::max_element(std::begin(traces), std::end(traces),
+            [] (const auto &lhs, const auto &rhs) { return lhs->size() < rhs->size(); }))->size();
+
+        // number of traces == row count
+        double yMax = traces.size();
+
+        // minmax y values over all traces
+        double zMin = std::numeric_limits<double>::max();
+        double zMax = std::numeric_limits<double>::lowest();
+
+        auto update_z_minmax = [&zMin, &zMax] (const auto &trace)
+        {
+            auto [min_, max_] = waveforms::find_minmax_y(*trace);
+            zMin = std::min(zMin, min_);
+            zMax = std::max(zMax, max_);
+        };
+
+        std::for_each(std::begin(traces), std::end(traces), update_z_minmax);
+
+        if (d->zoomer_->zoomRectIndex() == 0)
+        {
+            getPlot()->setAxisScale(QwtPlot::xBottom, 0.0, xMax);
+            getPlot()->setAxisScale(QwtPlot::yLeft, 0.0, yMax);
+            d->zoomer_->setZoomBase();
+        }
+
+        getPlot()->setAxisScale(QwtPlot::yRight, zMin, zMax);
+
+        d->plotData_->setInterval(Qt::XAxis, QwtInterval(0.0, xMax));
+        d->plotData_->setInterval(Qt::YAxis, QwtInterval(0.0, yMax));
+        d->plotData_->setInterval(Qt::ZAxis, QwtInterval(zMin, zMax));
+    }
+
+    histo_ui::PlotWidget::replot();
+
+    auto sb = getStatusBar();
+    sb->clearMessage();
+    std::ostringstream oss;
+    d->makeStatusText(oss);
+    sb->showMessage(oss.str().c_str());
+
+    spdlog::trace("end WaveformSinkVerticalWidget::replot()");
+}
+
+void WaveformSinkVerticalWidget::Private::makeInfoText(std::ostringstream &out)
+{
+    double totalMemory = mesytec::mvme::waveforms::get_used_memory(traceHistories_);
+    size_t numChannels = traceHistories_.size();
+    size_t historyDepth = !traceHistories_.empty() ? traceHistories_[0].size() : 0u;
+
+    out << "Trace History Info:\n";
+    out << fmt::format("  Total memory used: {:} B / {:.2f} MiB\n", totalMemory, static_cast<double>(totalMemory) / Megabytes(1));
+    out << fmt::format("  Number of channels: {}\n", numChannels);
+    out << fmt::format("  History depth: {}\n", historyDepth);
+    out << "\n";
+}
+
+void WaveformSinkVerticalWidget::Private::makeStatusText(std::ostringstream &out)
+{
+    // About memory: initially a trace history consists of an empty vector of
+    // queues of empty vectors.
+    //
+    // The analysis sink will quickly fill each channels history buffer to the
+    // max size, then reuse existing buffers.
+    //
+    // The UI calls getTraceHistories() on the sink which copies the entire
+    // history. When the internal vectors and queues are copied, the copies may
+    // have less memory reserved than the originals. This happens when traces
+    // are empty due to the sink input data consisting only of invalid
+    // parameters: the sinks reused trace buffers will have the full capacity,
+    // the copies will be empty without any allocation done.
+    //
+    // Two effects follow:
+    //
+    //   1) The memory used by the copy of the trace history can be much lower
+    //      than the memory used by the analysis sink.
+    //
+    //   2) The memory used by the copy of the trace history can fluctuate
+    //      during a run.
+    //
+    // Both depend on the actual number of samples currently in the trace history.
+
+    using mesytec::mvme::waveforms::get_used_memory;
+    double uiTotalMemory = get_used_memory(traceHistories_);
+    double sinkTotalMemory = sink_->getStorageSize();
+    size_t numChannels = traceHistories_.size();
+    size_t historyDepth = !traceHistories_.empty() ? traceHistories_[0].size() : 0u;
+
+    out << fmt::format("Mem: ui: {:.2f} MiB, analysis: {:.2f} MiB",
+        uiTotalMemory / Megabytes(1), sinkTotalMemory / Megabytes(1));
+    out << fmt::format(", #Channels: {}", numChannels);
+    out << fmt::format(", History depth: {}", historyDepth);
+    out << "\n";
+}
+
+void WaveformSinkVerticalWidget::Private::printInfo()
 {
     if (!logView_)
     {
