@@ -76,62 +76,6 @@ QRectF unite_bounding_rects(const It begin, const It &end)
 
 QRectF update_plot_axes(QwtPlot *plot, QwtPlotZoomer *zoomer, const QRectF &newBoundingRect, const QRectF &prevBoundingRect = {});
 
-// The mvlc::util::span<const Sample> based approach
-class WaveformSamplePlotData: public QwtSeriesData<QPointF>
-{
-    public:
-        // Works for containers storing Samples in a contiguous memory block,
-        // e.g. std::array, std::vector, etc.
-        // No data is copied, the original data is referenced!
-        template<typename SamplesContainer>
-        void setData(const SamplesContainer &samples)
-        {
-            samples_ = {samples.data(), samples.size()};
-            boundingRectCache_ = {};
-        }
-
-        const mvlc::util::span<const Sample> &getData() const
-        {
-            return samples_;
-        }
-
-        template<typename Container>
-        Container copyData() const
-        {
-            return Container(samples_.begin(), samples_.end());
-        }
-
-        QRectF boundingRect() const override
-        {
-            if (!boundingRectCache_.isValid())
-                boundingRectCache_ = calculateBoundingRect();
-
-            return boundingRectCache_;
-        }
-
-        size_t size() const override
-        {
-            return samples_.size();
-        }
-
-        QPointF sample(size_t i) const override
-        {
-            if (i < samples_.size())
-                return QPointF(samples_[i].first, samples_[i].second);
-
-            return {};
-        }
-
-        QRectF calculateBoundingRect() const
-        {
-            return calculate_bounding_rect(std::begin(samples_), std::end(samples_));
-        }
-
-    private:
-        mvlc::util::span<const Sample> samples_;
-        mutable QRectF boundingRectCache_;
-};
-
 // The std::vector<double> xs / std::vector<double> ys based approach.
 // Does not take ownership of any underlying trace data.
 class WaveformPlotData: public QwtSeriesData<QPointF>
