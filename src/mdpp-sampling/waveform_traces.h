@@ -85,6 +85,8 @@ size_t get_used_memory(const TraceHistory &traceHistory);
 size_t get_used_memory(const TraceHistories &traceHistories);
 std::ostream &print_trace(std::ostream &out, const Trace &trace);
 
+std::pair<double, double> find_minmax_y(const Trace &trace);
+
 }
 
 #endif /* D5F48B2C_D902_44A9_8EBD_36C71D14399D */

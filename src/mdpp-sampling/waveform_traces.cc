@@ -1,10 +1,12 @@
 #include "waveform_traces.h"
 
+#include <algorithm>
 #include <numeric>
 #include <ostream>
 
 #include <mesytec-mvlc/util/algo.h>
 #include <mesytec-mvlc/util/fmt.h>
+#include "util/math.h"
 
 namespace mesytec::mvme::waveforms
 {
@@ -45,9 +47,19 @@ std::ostream &print_trace(std::ostream &out, const Trace &trace)
         out << fmt::format("{} {}\n", x, y);
     };
 
-    util::for_each(std::begin(trace.xs), std::end(trace.xs), std::begin(trace.ys), sample_printer);
+    mvlc::util::for_each(std::begin(trace.xs), std::end(trace.xs), std::begin(trace.ys), sample_printer);
 
     return out;
+}
+
+std::pair<double, double> find_minmax_y(const Trace &trace)
+{
+    auto minmax = std::minmax_element(std::begin(trace.ys), std::end(trace.ys));
+
+    if (minmax.first != std::end(trace.ys) && minmax.second != std::end(trace.ys))
+        return { *minmax.first, *minmax.second };
+
+    return { util::make_quiet_nan(), util::make_quiet_nan() };
 }
 
 }
