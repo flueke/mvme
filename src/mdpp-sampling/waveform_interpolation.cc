@@ -131,4 +131,16 @@ void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u3
     interpolate(xs, ys, factor, emitter);
 }
 
+void interpolate(const waveforms::Trace &input, waveforms::Trace &output, u32 factor)
+{
+    auto emitter = [&output] (double x, double y)
+    {
+        output.push_back(x, y);
+    };
+
+    output.clear();
+    waveforms::interpolate(input.xs, input.ys, factor, emitter);
+}
+
+
 }

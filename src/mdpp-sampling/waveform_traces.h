@@ -87,6 +87,9 @@ std::ostream &print_trace(std::ostream &out, const Trace &trace);
 
 std::pair<double, double> find_minmax_y(const Trace &trace);
 
+// scale x values by dtSample
+void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample);
+
 }
 
 #endif /* D5F48B2C_D902_44A9_8EBD_36C71D14399D */

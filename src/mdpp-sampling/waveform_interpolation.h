@@ -19,8 +19,10 @@ using EmitterFun = std::function<void (double x, double y)>;
 // that are interpolated between two samples.
 void interpolate(const span<const double> &xs, const span<const double> &ys, u32 factor, EmitterFun emitter);
 
-// Reserves temporary memory to construct the xs and ys vectors.
+// Reserves temporary memory to construct the xs and ys vectors from the input
 void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter);
+
+void interpolate(const waveforms::Trace &input, waveforms::Trace &output, u32 factor);
 
 }
 

@@ -62,4 +62,12 @@ std::pair<double, double> find_minmax_y(const Trace &trace)
     return { util::make_quiet_nan(), util::make_quiet_nan() };
 }
 
+void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample)
+{
+    output.clear();
+
+    std::transform(std::begin(input.xs), std::end(input.xs), std::back_inserter(output.xs),
+        [dtSample](double x) { return x * dtSample; });
+}
+
 }
