@@ -5,11 +5,13 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTimer>
+#include <QVariantAnimation>
 #include <qwt_plot_spectrogram.h>
 #include <qwt_symbol.h>
 #include <set>
 
 #include <mesytec-mvlc/util/algo.h>
+#include <mesytec-mvlc/util/stopwatch.h>
 
 #include "analysis_service_provider.h"
 #include "mdpp-sampling/mdpp_sampling_p.h"
@@ -38,6 +40,9 @@ struct WaveformSinkWidget::Private
     waveforms::Trace interpolatedTrace_;
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
+    mesytec::mvlc::util::Stopwatch frameTimer_;
+
+    QVariantAnimation *curveFader_ = nullptr;
 
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
@@ -56,7 +61,7 @@ struct WaveformSinkWidget::Private
 
     void updateUi();
     void makeInfoText(std::ostringstream &oss);
-    void makeStatusText(std::ostringstream &oss);
+    void makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame);
     void printInfo();
 };
 
@@ -72,6 +77,14 @@ WaveformSinkWidget::WaveformSinkWidget(
     d->asp_ = asp;
     d->curveHelper_ = waveforms::WaveformPlotCurveHelper(getPlot());
     d->replotTimer_.setInterval(ReplotInterval_ms);
+
+    auto curveFader = new QVariantAnimation(this);
+    curveFader->setStartValue(1.0);
+    curveFader->setEndValue(0.0);
+    curveFader->setLoopCount(-1); // loop forever until stopped
+    curveFader->setDuration(1000);
+    curveFader->start();
+    d->curveFader_ = curveFader;
 
     auto curves = waveforms::make_curves();
 
@@ -284,25 +297,48 @@ void WaveformSinkWidget::replot()
     d->maxBoundingRect_ = newBoundingRect;
     d->currentTrace_ = trace;
 
-    if (auto curve = d->curveHelper_.getRawCurve(d->waveformHandle_))
+    if (auto curves = d->curveHelper_.getWaveform(d->waveformHandle_);
+        curves.rawCurve && curves.interpolatedCurve)
     {
-        auto pen = curve->pen();
-        auto penColor = pen.color();
-        auto alpha = d->spin_curveAlpha_->value();
-        qDebug() << "alpha=" << alpha;
-        penColor.setAlpha(alpha);
-        penColor.setBlue(alpha);
-        pen.setColor(penColor);
-        curve->setPen(pen);
+        for (auto curve: { curves.rawCurve, curves.interpolatedCurve })
+        {
+            auto curveAlpha = d->curveFader_->currentValue().value<double>();
+
+            // FIXME: ugly
+            {
+                auto pen = curve->pen();
+                auto penColor = pen.color();
+                penColor.setAlphaF(curveAlpha);
+                pen.setColor(penColor);
+                curve->setPen(pen);
+            }
+
+            if (auto symbol = curve->symbol())
+            {
+                // FIXME: ugly
+                auto cache = mvme_qwt::make_cache_from_symbol(symbol);
+
+                auto brushColor = cache.brush.color();
+                brushColor.setAlphaF(curveAlpha);
+                cache.brush.setColor(brushColor);
+
+                auto penColor = cache.pen.color();
+                penColor.setAlphaF(curveAlpha);
+                cache.pen.setColor(penColor);
+
+                auto newSymbol = mvme_qwt::make_symbol_from_cache(cache);
+                curve->setSymbol(newSymbol.release());
+            }
+        }
     }
 
     histo_ui::PlotWidget::replot();
 
-    auto sb = getStatusBar();
-    sb->clearMessage();
     std::ostringstream oss;
-    d->makeStatusText(oss);
-    sb->showMessage(oss.str().c_str());
+    d->makeStatusText(oss, d->frameTimer_.interval());
+
+    getStatusBar()->clearMessage();
+    getStatusBar()->showMessage(oss.str().c_str());
 
     spdlog::trace("end WaveformSinkWidget::replot()");
 }
@@ -335,7 +371,7 @@ void WaveformSinkWidget::Private::makeInfoText(std::ostringstream &out)
     }
 }
 
-void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out)
+void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
 {
     // About memory: initially a trace history consists of an empty vector of
     // queues of empty vectors.
@@ -374,7 +410,8 @@ void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out)
     out << fmt::format(", #Channels: {}", numChannels);
     out << fmt::format(", History depth: {}", historyDepth);
     out << fmt::format(", Selected channel: {}", selectedChannel);
-    out << "\n";
+    out << fmt::format(", Frame time: {} ms", static_cast<int>(dtFrame.count()));
+    //out << "\n";
 }
 
 void WaveformSinkWidget::Private::printInfo()
