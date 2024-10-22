@@ -387,7 +387,8 @@ struct WaveformSinkVerticalWidget::Private
     waveforms::WaveformCollectionVerticalRasterData *plotData_ = nullptr;
     QwtPlotSpectrogram *plotItem_ = nullptr;
     std::vector<const waveforms::Trace *> currentCollection_;
-    std::vector<waveforms::Trace> interpolatedTraces_;
+    std::vector<waveforms::Trace> postProcessedTraces_;
+    waveforms::Trace traceWorkBuffer_;
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
 
@@ -581,14 +582,14 @@ void WaveformSinkVerticalWidget::replot()
             auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
 
             // grow/shrink if needed
-            d->interpolatedTraces_.resize(traces->size());
+            d->postProcessedTraces_.resize(traces->size());
 
             // clean remaining traces, keeping allocations intact
-            std::for_each(std::begin(d->interpolatedTraces_), std::end(d->interpolatedTraces_),
+            std::for_each(std::begin(d->postProcessedTraces_), std::end(d->postProcessedTraces_),
                 [] (waveforms::Trace &trace) { trace.clear(); });
 
             // interpolate
-            mesytec::mvlc::util::for_each(std::begin(*traces), std::end(*traces), std::begin(d->interpolatedTraces_),
+            mesytec::mvlc::util::for_each(std::begin(*traces), std::end(*traces), std::begin(d->postProcessedTraces_),
                 [interpolationFactor] (const waveforms::Trace *trace, waveforms::Trace &interpolatedTrace)
                 {
                     auto emitter = [&interpolatedTrace] (double x, double y)
@@ -603,7 +604,7 @@ void WaveformSinkVerticalWidget::replot()
             // TODO: x scaling has to happen before interpolation
             #if 0
             // scale x values by dtsample
-            std::for_each(std::begin(d->interpolatedTraces_), std::end(d->interpolatedTraces_),
+            std::for_each(std::begin(d->postProcessedTraces_), std::end(d->postProcessedTraces_),
                 [dtSample] (waveforms::Trace &trace)
                 {
                     // We now have raw trace data from the analysis. First scale the x
@@ -615,7 +616,7 @@ void WaveformSinkVerticalWidget::replot()
         }
     }
 
-    auto traces = &d->interpolatedTraces_;
+    auto traces = &d->postProcessedTraces_;
     std::vector<const waveforms::Trace *> tracePointers(traces->size());
     std::transform(std::begin(*traces), std::end(*traces), std::begin(tracePointers),
         [] (const waveforms::Trace &trace) { return &trace; });
