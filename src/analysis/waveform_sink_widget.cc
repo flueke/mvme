@@ -411,7 +411,6 @@ void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out, const 
     out << fmt::format(", History depth: {}", historyDepth);
     out << fmt::format(", Selected channel: {}", selectedChannel);
     out << fmt::format(", Frame time: {} ms", static_cast<int>(dtFrame.count()));
-    //out << "\n";
 }
 
 void WaveformSinkWidget::Private::printInfo()
@@ -448,6 +447,9 @@ struct WaveformSinkVerticalWidget::Private
     waveforms::Trace traceWorkBuffer_;
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
+    mesytec::mvlc::util::Stopwatch frameTimer_;
+
+    QVariantAnimation *curveFader_ = nullptr;
 
     QSpinBox *traceSelect_ = nullptr;
     waveforms::TraceHistories traceHistories_;
@@ -461,7 +463,7 @@ struct WaveformSinkVerticalWidget::Private
 
     void updateUi();
     void makeInfoText(std::ostringstream &oss);
-    void makeStatusText(std::ostringstream &oss);
+    void makeStatusText(std::ostringstream &oss, const std::chrono::duration<double, std::milli> &dtFrame);
     void printInfo();
 };
 
@@ -476,6 +478,14 @@ WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
     d->sink_ = sink;
     d->asp_ = asp;
     d->replotTimer_.setInterval(ReplotInterval_ms);
+
+    auto curveFader = new QVariantAnimation(this);
+    curveFader->setStartValue(255);
+    curveFader->setEndValue(0);
+    curveFader->setLoopCount(-1); // loop forever until stopped
+    curveFader->setDuration(1000);
+    curveFader->start();
+    d->curveFader_ = curveFader;
 
     d->plotData_ = new waveforms::WaveformCollectionVerticalRasterData();
     d->plotItem_ = new QwtPlotSpectrogram;
@@ -734,13 +744,19 @@ void WaveformSinkVerticalWidget::replot()
             ->setColorMap(QwtInterval{ zMin, zMax }, colorMap.release());
     }
 
+    {
+        auto curveAlpha = d->curveFader_->currentValue().value<int>();
+        d->plotItem_->setAlpha(curveAlpha);
+    }
+
+
     histo_ui::PlotWidget::replot();
 
-    auto sb = getStatusBar();
-    sb->clearMessage();
     std::ostringstream oss;
-    d->makeStatusText(oss);
-    sb->showMessage(oss.str().c_str());
+    d->makeStatusText(oss, d->frameTimer_.interval());
+
+    getStatusBar()->clearMessage();
+    getStatusBar()->showMessage(oss.str().c_str());
 
     spdlog::trace("end WaveformSinkVerticalWidget::replot()");
 }
@@ -758,7 +774,7 @@ void WaveformSinkVerticalWidget::Private::makeInfoText(std::ostringstream &out)
     out << "\n";
 }
 
-void WaveformSinkVerticalWidget::Private::makeStatusText(std::ostringstream &out)
+void WaveformSinkVerticalWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
 {
     // About memory: initially a trace history consists of an empty vector of
     // queues of empty vectors.
@@ -793,7 +809,7 @@ void WaveformSinkVerticalWidget::Private::makeStatusText(std::ostringstream &out
         uiTotalMemory / Megabytes(1), sinkTotalMemory / Megabytes(1));
     out << fmt::format(", #Channels: {}", numChannels);
     out << fmt::format(", History depth: {}", historyDepth);
-    out << "\n";
+    out << fmt::format(", Frame time: {} ms", static_cast<int>(dtFrame.count()));
 }
 
 void WaveformSinkVerticalWidget::Private::printInfo()
