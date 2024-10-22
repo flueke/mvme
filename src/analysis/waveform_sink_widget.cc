@@ -52,6 +52,8 @@ struct WaveformSinkWidget::Private
     QRectF maxBoundingRect_;
     QPushButton *pb_resetBoundingRect = nullptr;
 
+    QSpinBox *spin_curveAlpha_ = nullptr;
+
     void updateUi();
     void makeInfoText(std::ostringstream &oss);
     void makeStatusText(std::ostringstream &oss);
@@ -180,6 +182,12 @@ WaveformSinkWidget::WaveformSinkWidget(
     d->pb_printInfo_ = new QPushButton("Print Info");
     tb->addWidget(d->pb_printInfo_);
 
+    d->spin_curveAlpha_ = new QSpinBox;
+    d->spin_curveAlpha_->setMinimum(0);
+    d->spin_curveAlpha_->setMaximum(255);
+    d->spin_curveAlpha_->setValue(255);
+    tb->addWidget(d->spin_curveAlpha_);
+
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
     connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &WaveformSinkWidget::replot);
@@ -275,6 +283,18 @@ void WaveformSinkWidget::replot()
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
     d->currentTrace_ = trace;
+
+    if (auto curve = d->curveHelper_.getRawCurve(d->waveformHandle_))
+    {
+        auto pen = curve->pen();
+        auto penColor = pen.color();
+        auto alpha = d->spin_curveAlpha_->value();
+        qDebug() << "alpha=" << alpha;
+        penColor.setAlpha(alpha);
+        penColor.setBlue(alpha);
+        pen.setColor(penColor);
+        curve->setPen(pen);
+    }
 
     histo_ui::PlotWidget::replot();
 
