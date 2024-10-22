@@ -24,6 +24,68 @@ using namespace mesytec::mvme::mdpp_sampling;
 namespace analysis
 {
 
+namespace
+{
+    QSpinBox *add_channel_select(QToolBar *toolbar)
+    {
+        auto result = new QSpinBox;
+        result->setMinimum(0);
+        result->setMaximum(0);
+        auto boxStruct = make_vbox_container(QSL("Channel"), result, 0, -2);
+        toolbar->addWidget(boxStruct.container.release());
+        return result;
+    }
+
+    QSpinBox *add_trace_select(QToolBar *toolbar)
+    {
+        auto result = new QSpinBox;
+        result->setMinimum(0);
+        result->setMaximum(1);
+        result->setValue(0);
+        result->setSpecialValueText("latest");
+        auto boxStruct = make_vbox_container(QSL("Trace#"), result, 0, -2);
+        toolbar->addWidget(boxStruct.container.release());
+        return result;
+    }
+
+    QDoubleSpinBox *add_dt_sample_setter(QToolBar *toolbar)
+    {
+        auto result = new QDoubleSpinBox;
+        result->setMinimum(1.0);
+        result->setMaximum(1e9);
+        result->setSingleStep(0.1);
+        result->setSuffix(" ns");
+        result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
+
+        auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
+
+        QObject::connect(pb_useDefaultSampleInterval, &QPushButton::clicked, result, [result] {
+            result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
+        });
+
+        auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();
+        l0->addWidget(result);
+        l0->addWidget(pb_useDefaultSampleInterval);
+
+        auto boxStruct = make_vbox_container(QSL("Sample Interval"), w0, 0, -2);
+        toolbar->addWidget(boxStruct.container.release());
+
+        return result;
+    }
+
+    QSpinBox *add_interpolation_factor_setter(QToolBar *toolbar)
+    {
+        auto result = new QSpinBox;
+        result->setSpecialValueText("off");
+        result->setMinimum(0);
+        result->setMaximum(100);
+        result->setValue(5);
+        auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), result, 0, -2);
+        toolbar->addWidget(boxStruct.container.release());
+        return result;
+    }
+}
+
 static const int ReplotInterval_ms = 33;
 
 struct WaveformSinkWidget::Private
@@ -115,62 +177,16 @@ WaveformSinkWidget::WaveformSinkWidget(
     auto tb = getToolBar();
 
     tb->addSeparator();
-
-    {
-        d->channelSelect_ = new QSpinBox;
-        d->channelSelect_->setMinimum(0);
-        d->channelSelect_->setMaximum(0);
-        auto boxStruct = make_vbox_container(QSL("Channel"), d->channelSelect_, 0, -2);
-        tb->addWidget(boxStruct.container.release());
-    }
+    d->channelSelect_ = add_channel_select(tb);
 
     tb->addSeparator();
-
-    {
-        d->traceSelect_ = new QSpinBox;
-        d->traceSelect_->setMinimum(0);
-        d->traceSelect_->setMaximum(1);
-        d->traceSelect_->setValue(0);
-        d->traceSelect_->setSpecialValueText("latest");
-        auto boxStruct = make_vbox_container(QSL("Trace#"), d->traceSelect_, 0, -2);
-        tb->addWidget(boxStruct.container.release());
-    }
+    d->traceSelect_ = add_trace_select(tb);
 
     tb->addSeparator();
-
-    {
-        d->spin_dtSample_ = new QDoubleSpinBox;
-        d->spin_dtSample_->setMinimum(1.0);
-        d->spin_dtSample_->setMaximum(1e9);
-        d->spin_dtSample_->setSingleStep(0.1);
-        d->spin_dtSample_->setSuffix(" ns");
-        d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
-
-        auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
-
-        connect(pb_useDefaultSampleInterval, &QPushButton::clicked, this, [this] {
-            d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
-        });
-
-        auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();
-        l0->addWidget(d->spin_dtSample_);
-        l0->addWidget(pb_useDefaultSampleInterval);
-
-        auto boxStruct = make_vbox_container(QSL("Sample Interval"), w0, 0, -2);
-        tb->addWidget(boxStruct.container.release());
-    }
+    d->spin_dtSample_ = add_dt_sample_setter(tb);
 
     tb->addSeparator();
-
-    {
-        d->spin_interpolationFactor_ = new QSpinBox;
-        d->spin_interpolationFactor_->setSpecialValueText("off");
-        d->spin_interpolationFactor_->setMinimum(0);
-        d->spin_interpolationFactor_->setMaximum(100);
-        d->spin_interpolationFactor_->setValue(5);
-        auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), d->spin_interpolationFactor_, 0, -2);
-        tb->addWidget(boxStruct.container.release());
-    }
+    d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
 
     tb->addSeparator();
 
@@ -521,52 +537,13 @@ WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
     auto tb = getToolBar();
 
     tb->addSeparator();
-
-    {
-        d->traceSelect_ = new QSpinBox;
-        d->traceSelect_->setMinimum(0);
-        d->traceSelect_->setMaximum(1);
-        d->traceSelect_->setValue(0);
-        d->traceSelect_->setSpecialValueText("latest");
-        auto boxStruct = make_vbox_container(QSL("Trace#"), d->traceSelect_, 0, -2);
-        tb->addWidget(boxStruct.container.release());
-    }
+    d->traceSelect_ = add_trace_select(tb);
 
     tb->addSeparator();
-
-    {
-        d->spin_dtSample_ = new QDoubleSpinBox;
-        d->spin_dtSample_->setMinimum(1.0);
-        d->spin_dtSample_->setMaximum(1e9);
-        d->spin_dtSample_->setSingleStep(0.1);
-        d->spin_dtSample_->setSuffix(" ns");
-        d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
-
-        auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
-
-        connect(pb_useDefaultSampleInterval, &QPushButton::clicked, this, [this] {
-            d->spin_dtSample_->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
-        });
-
-        auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();
-        l0->addWidget(d->spin_dtSample_);
-        l0->addWidget(pb_useDefaultSampleInterval);
-
-        auto boxStruct = make_vbox_container(QSL("Sample Interval"), w0, 0, -2);
-        tb->addWidget(boxStruct.container.release());
-    }
+    d->spin_dtSample_ = add_dt_sample_setter(tb);
 
     tb->addSeparator();
-
-    {
-        d->spin_interpolationFactor_ = new QSpinBox;
-        d->spin_interpolationFactor_->setSpecialValueText("off");
-        d->spin_interpolationFactor_->setMinimum(0);
-        d->spin_interpolationFactor_->setMaximum(100);
-        d->spin_interpolationFactor_->setValue(5);
-        auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), d->spin_interpolationFactor_, 0, -2);
-        tb->addWidget(boxStruct.container.release());
-    }
+    d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
 
     tb->addSeparator();
 
