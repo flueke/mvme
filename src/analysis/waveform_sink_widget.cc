@@ -211,12 +211,6 @@ WaveformSinkWidget::WaveformSinkWidget(
     d->pb_printInfo_ = new QPushButton("Print Info");
     tb->addWidget(d->pb_printInfo_);
 
-    d->spin_curveAlpha_ = new QSpinBox;
-    d->spin_curveAlpha_->setMinimum(0);
-    d->spin_curveAlpha_->setMaximum(255);
-    d->spin_curveAlpha_->setValue(255);
-    tb->addWidget(d->spin_curveAlpha_);
-
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
     connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &WaveformSinkWidget::replot);
@@ -313,6 +307,7 @@ void WaveformSinkWidget::replot()
     d->maxBoundingRect_ = newBoundingRect;
     d->currentTrace_ = trace;
 
+    #if 0
     if (auto curves = d->curveHelper_.getWaveform(d->waveformHandle_);
         curves.rawCurve && curves.interpolatedCurve)
     {
@@ -347,6 +342,7 @@ void WaveformSinkWidget::replot()
             }
         }
     }
+    #endif
 
     histo_ui::PlotWidget::replot();
 
@@ -451,6 +447,54 @@ void WaveformSinkWidget::Private::printInfo()
     logView_->raise();
 }
 
+struct TraceCollectionProcessingState
+{
+    enum Result
+    {
+        TraceUpdated,
+        PreviousTraceKept,
+    };
+
+    // input traces from the analysis with x coordinates set to the samples index
+    std::vector<const waveforms::Trace *> inputTraces;
+    // output trace with x coordinates scaled by dtSample. reused for each trace during processing.
+    waveforms::Trace traceWorkBuffer_;
+    // interpolated output traces to be plotted
+    std::vector<waveforms::Trace> outputTraces;
+    std::vector<Result> results;
+};
+
+void post_process_one_trace(TraceCollectionProcessingState &state,
+    size_t traceIndex, double dtSample, int interpolationFactor)
+{
+        const auto &inputTrace = *state.inputTraces[traceIndex];
+        auto &outputTrace = state.outputTraces[traceIndex];
+
+        #if 0
+        if (inputTrace.empty() && !outputTrace.empty())
+        {
+            state.results[traceIndex] = TraceCollectionProcessingState::PreviousTraceKept;
+            return;
+        }
+        #endif
+
+        waveforms::scale_x_values(inputTrace, state.traceWorkBuffer_, dtSample);
+        waveforms::interpolate(state.traceWorkBuffer_, outputTrace, interpolationFactor);
+        state.results[traceIndex] = TraceCollectionProcessingState::TraceUpdated;
+}
+
+static void post_process_traces(TraceCollectionProcessingState &state,
+    double dtSample, int interpolationFactor)
+{
+    state.outputTraces.resize(state.inputTraces.size());
+    state.results.resize(state.inputTraces.size());
+
+    for (size_t i = 0; i < state.inputTraces.size(); ++i)
+    {
+        post_process_one_trace(state, i, dtSample, interpolationFactor);
+    }
+}
+
 struct WaveformSinkVerticalWidget::Private
 {
     WaveformSinkVerticalWidget *q = nullptr;
@@ -458,9 +502,12 @@ struct WaveformSinkVerticalWidget::Private
     AnalysisServiceProvider *asp_ = nullptr;
     waveforms::WaveformCollectionVerticalRasterData *plotData_ = nullptr;
     QwtPlotSpectrogram *plotItem_ = nullptr;
-    std::vector<const waveforms::Trace *> currentCollection_;
-    std::vector<waveforms::Trace> postProcessedTraces_;
-    waveforms::Trace traceWorkBuffer_;
+    TraceCollectionProcessingState processingState_;
+
+    //std::vector<const waveforms::Trace *> currentCollection_;
+    //std::vector<waveforms::Trace> postProcessedTraces_;
+    //waveforms::Trace traceWorkBuffer_;
+
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
@@ -601,66 +648,15 @@ void WaveformSinkVerticalWidget::replot()
 
     d->updateUi(); // update, selection boxes, buttons, etc.
 
-    d->currentCollection_.clear();
-
+    // pick a trace from the same column of each row in the trace history == one event snapshot
     auto selectedTraceIndex = d->traceSelect_->value();
+    d->processingState_.inputTraces = waveforms::get_trace_column(d->traceHistories_, selectedTraceIndex);
 
-    // pick a trace from the same column of each row in the trace history
-    auto accu = [selectedTraceIndex] (std::vector<const waveforms::Trace *> &acc, const waveforms::TraceHistory &history)
-    {
-        if (0 <= selectedTraceIndex && static_cast<size_t>(selectedTraceIndex) < history.size())
-            acc.push_back(&history[selectedTraceIndex]);
-        return acc;
-    };
-
-    d->currentCollection_ = std::accumulate(
-        std::begin(d->traceHistories_), std::end(d->traceHistories_), d->currentCollection_, accu);
-
-    {
-        auto traces = &d->currentCollection_;
-
-        // do interpolation
-        if (!traces->empty())
-        {
-            auto dtSample = d->spin_dtSample_->value();
-            auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
-
-            // grow/shrink if needed
-            d->postProcessedTraces_.resize(traces->size());
-
-            // clean remaining traces, keeping allocations intact
-            std::for_each(std::begin(d->postProcessedTraces_), std::end(d->postProcessedTraces_),
-                [] (waveforms::Trace &trace) { trace.clear(); });
-
-            // interpolate
-            mesytec::mvlc::util::for_each(std::begin(*traces), std::end(*traces), std::begin(d->postProcessedTraces_),
-                [interpolationFactor] (const waveforms::Trace *trace, waveforms::Trace &interpolatedTrace)
-                {
-                    auto emitter = [&interpolatedTrace] (double x, double y)
-                    {
-                        interpolatedTrace.push_back(x, y);
-                    };
-                    waveforms::interpolate(trace->xs, trace->ys, interpolationFactor, emitter);
-                });
+    // post process the raw traces
+    post_process_traces(d->processingState_, d->spin_dtSample_->value(), d->spin_interpolationFactor_->value());
 
 
-            // TODO: somehow do the x scaling efficiently without having to keep another copy of the data
-            // TODO: x scaling has to happen before interpolation
-            #if 0
-            // scale x values by dtsample
-            std::for_each(std::begin(d->postProcessedTraces_), std::end(d->postProcessedTraces_),
-                [dtSample] (waveforms::Trace &trace)
-                {
-                    // We now have raw trace data from the analysis. First scale the x
-                    // coordinates, which currently are just array indexes, by dtSample.
-                    std::transform(std::begin(trace.xs), std::end(trace.xs), std::begin(trace.xs),
-                        [dtSample](double x) { return x * dtSample; });
-                });
-            #endif
-        }
-    }
-
-    auto traces = &d->postProcessedTraces_;
+    auto traces = &d->processingState_.outputTraces;
     std::vector<const waveforms::Trace *> tracePointers(traces->size());
     std::transform(std::begin(*traces), std::end(*traces), std::begin(tracePointers),
         [] (const waveforms::Trace &trace) { return &trace; });
@@ -670,9 +666,12 @@ void WaveformSinkVerticalWidget::replot()
     // determine axis scale ranges, update the zoomer, set plot axis scales
     if (!traces->empty())
     {
-        // max sample count over all traces
-        double xMax = std::max_element(std::begin(*traces), std::end(*traces),
-            [] (const auto &lhs, const auto &rhs) { return lhs.size() < rhs.size(); })->size();
+        double xMax = std::accumulate(std::begin(*traces), std::end(*traces), 0.0,
+            [] (double acc, const auto &trace)
+            {
+                return !trace.empty() ? std::max(acc, trace.xs.back()) : acc;
+            });
+
 
         // number of traces == row count
         double yMax = traces->size();
@@ -720,12 +719,6 @@ void WaveformSinkVerticalWidget::replot()
         getPlot()->axisWidget(QwtPlot::yRight)
             ->setColorMap(QwtInterval{ zMin, zMax }, colorMap.release());
     }
-
-    {
-        auto curveAlpha = d->curveFader_->currentValue().value<int>();
-        d->plotItem_->setAlpha(curveAlpha);
-    }
-
 
     histo_ui::PlotWidget::replot();
 
