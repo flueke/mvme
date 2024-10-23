@@ -56,6 +56,12 @@ struct Trace
         assert(xs.size() == ys.size());
         return xs.size();
     }
+
+    bool empty() const
+    {
+        assert(xs.size() == ys.size());
+        return xs.empty();
+    }
 };
 
 #if 0
@@ -89,6 +95,9 @@ std::pair<double, double> find_minmax_y(const Trace &trace);
 
 // scale x values by dtSample
 void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample);
+
+// pick a trace from the same column of each row in the trace history
+std::vector<const Trace *> get_trace_column(const TraceHistories &traceHistories, size_t traceIndex);
 
 }
 

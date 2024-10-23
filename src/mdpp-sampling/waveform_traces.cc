@@ -68,6 +68,20 @@ void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, dou
 
     std::transform(std::begin(input.xs), std::end(input.xs), std::back_inserter(output.xs),
         [dtSample](double x) { return x * dtSample; });
+
+    output.ys = input.ys;
+}
+
+std::vector<const Trace *> get_trace_column(const TraceHistories &history, size_t traceIndex)
+{
+    auto accu = [traceIndex] (std::vector<const waveforms::Trace *> &acc, const waveforms::TraceHistory &history)
+    {
+        if (0 <= traceIndex && static_cast<size_t>(traceIndex) < history.size())
+            acc.push_back(&history[traceIndex]);
+        return acc;
+    };
+
+    return std::accumulate(std::begin(history), std::end(history), std::vector<const Trace *>{}, accu);
 }
 
 }
