@@ -203,6 +203,8 @@ WaveformSinkWidget::WaveformSinkWidget(
 
         connect(d->pb_resetBoundingRect, &QPushButton::clicked, this, [this] {
             d->maxBoundingRect_ = {};
+            d->zoomer_->setZoomStack(QStack<QRectF>(), -1);
+            d->zoomer_->zoom(0);
         });
     }
 
@@ -653,20 +655,25 @@ void WaveformSinkVerticalWidget::replot()
     d->processingState_.inputTraces = waveforms::get_trace_column(d->traceHistories_, selectedTraceIndex);
 
     // post process the raw traces
-    post_process_traces(d->processingState_, d->spin_dtSample_->value(), d->spin_interpolationFactor_->value());
+    const auto dtSample = d->spin_dtSample_->value();
+    const auto interpolationFactor = 1 + d->spin_interpolationFactor_->value();
 
+    post_process_traces(d->processingState_, dtSample, interpolationFactor);
 
+    // TODO: improve setTraceCollection() to avoid having to create the vector of pointers here.
     auto traces = &d->processingState_.outputTraces;
     std::vector<const waveforms::Trace *> tracePointers(traces->size());
     std::transform(std::begin(*traces), std::end(*traces), std::begin(tracePointers),
         [] (const waveforms::Trace &trace) { return &trace; });
-    // TODO: improve this interface
+    const auto pixelHintX = dtSample / interpolationFactor;
     d->plotData_->setTraceCollection(tracePointers);
+    QRectF pixelHint{0.0, 0.0, 1.0, 1.0};
+    d->plotData_->setPixelHint(pixelHint);
 
     // determine axis scale ranges, update the zoomer, set plot axis scales
     if (!traces->empty())
     {
-        double xMax = std::accumulate(std::begin(*traces), std::end(*traces), 0.0,
+        const double xMax = 1.0 + std::accumulate(std::begin(*traces), std::end(*traces), 0.0,
             [] (double acc, const auto &trace)
             {
                 return !trace.empty() ? std::max(acc, trace.xs.back()) : acc;
@@ -674,7 +681,7 @@ void WaveformSinkVerticalWidget::replot()
 
 
         // number of traces == row count
-        double yMax = traces->size();
+        const double yMax = traces->size();
 
         // minmax y values over all traces
         double zMin = std::numeric_limits<double>::max();
@@ -689,8 +696,14 @@ void WaveformSinkVerticalWidget::replot()
 
         std::for_each(std::begin(*traces), std::end(*traces), update_z_minmax);
 
+        d->plotData_->setInterval(Qt::XAxis, QwtInterval(0.0, xMax));
+        d->plotData_->setInterval(Qt::YAxis, QwtInterval(0.0, yMax));
+        d->plotData_->setInterval(Qt::ZAxis, QwtInterval(zMin, zMax));
+
         if (d->zoomer_->zoomRectIndex() == 0)
         {
+            qDebug() << "WaveformSinkVerticalWidget::replot(): setting xBottom xMax=" << xMax;
+            qDebug() << "rasterdata interval X:" << d->plotData_->interval(Qt::XAxis);
             getPlot()->setAxisScale(QwtPlot::xBottom, 0.0, xMax);
             getPlot()->setAxisScale(QwtPlot::yLeft, 0.0, yMax);
             d->zoomer_->setZoomBase();
@@ -703,10 +716,7 @@ void WaveformSinkVerticalWidget::replot()
         }
 
         getPlot()->setAxisScale(QwtPlot::yRight, zMin, zMax);
-
-        d->plotData_->setInterval(Qt::XAxis, QwtInterval(0.0, xMax));
-        d->plotData_->setInterval(Qt::YAxis, QwtInterval(0.0, yMax));
-        d->plotData_->setInterval(Qt::ZAxis, QwtInterval(zMin, zMax));
+        getPlot()->updateAxes();
 
         // FIXME only do this when the scale type changes. maybe update PlotAxisScaleChanger to help with this
         auto colorMap = histo_ui::make_histo2d_color_map(

@@ -126,24 +126,16 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
             traces_ = traces;
         }
 
-        std::vector<const Trace *> getTraceCollection() const
-        {
-            return traces_;
-        }
+
+        std::vector<const Trace *> getTraceCollection() const { return traces_; }
 
         double value(double x, double y) const override
         {
-            const ssize_t traceIndex = y;
-
-            if (0 > traceIndex || traceIndex >= static_cast<ssize_t>(traces_.size()))
-                return mesytec::mvme::util::make_quiet_nan();
-
-            auto trace = traces_[traceIndex];
-            assert(trace);
-
             const ssize_t sampleIndex = x;
+            //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, sampleIndex(x)={}", x, y, sampleIndex).c_str();
+            auto trace = getTraceForY(y);
 
-            if (0 > sampleIndex || sampleIndex >= static_cast<ssize_t>(trace->size()))
+            if (!trace || 0 > sampleIndex || sampleIndex >= static_cast<ssize_t>(trace->size()))
                 return mesytec::mvme::util::make_quiet_nan();
 
             return trace->ys[sampleIndex];
@@ -151,17 +143,28 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
         QRectF pixelHint(const QRectF &) const override
         {
-            QRectF result
-            {
-                0.0, 0.0,
-                1.0, 1.0
-            };
-            return result;
+            qDebug() << "returning WaveformCollectionVerticalRasterData::pixelHint():" << pixelHint_;
+            return pixelHint_;
+        }
+
+        void setPixelHint(const QRectF &rect)
+        {
+            pixelHint_ = rect;
         }
 
     private:
-        std::vector<const Trace *> traces_;
+        const Trace *getTraceForY(double y) const
+        {
+            const ssize_t traceIndex = y;
 
+            if (0 > traceIndex || traceIndex >= static_cast<ssize_t>(traces_.size()))
+                return nullptr;
+
+            return traces_[traceIndex];
+        }
+
+        std::vector<const Trace *> traces_;
+        QRectF pixelHint_;
 };
 
 struct WaveformCurves
