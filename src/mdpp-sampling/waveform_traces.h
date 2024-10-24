@@ -64,25 +64,6 @@ struct Trace
     }
 };
 
-#if 0
-struct TraceView
-{
-    span<const double> xs;
-    span<const double> ys;
-
-    void clear()
-    {
-        xs = {};
-        ys = {};
-    }
-
-    span<const double>::size_type size() const
-    {
-        return xs.size();
-    }
-};
-#endif
-
 using TraceHistory = std::deque<Trace>;
 using TraceHistories = std::vector<TraceHistory>;
 
@@ -98,6 +79,10 @@ void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, dou
 
 // pick a trace from the same column of each row in the trace history
 std::vector<const Trace *> get_trace_column(const TraceHistories &traceHistories, size_t traceIndex);
+
+// Returns the delta between x[0] and x[1]. Assumes dx is constant throughout
+// the trace! Returns a quiet NaN if the trace contains less than two samples.
+double get_trace_dx(const Trace &trace);
 
 }
 

@@ -84,4 +84,11 @@ std::vector<const Trace *> get_trace_column(const TraceHistories &history, size_
     return std::accumulate(std::begin(history), std::end(history), std::vector<const Trace *>{}, accu);
 }
 
+double get_trace_dx(const Trace &trace)
+{
+    if (trace.size() < 2)
+        return 0.0;
+    return trace.xs[1] - trace.xs[0];
+}
+
 }
