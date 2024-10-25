@@ -4,6 +4,18 @@
 Changelog
 ##################################################
 
+Version 1.15.0-rc
+--------------------------------------------------
+
+* vme_templates: add eventHeaderFilter to the mvlc_event_stamper module. This
+  make the stamper work with multi-event readouts.
+
+* Support the new MVLC smart transaction retry mechanism in MVLC FW0039. This
+  ensures that VME transactions are never executed more than once, even in the
+  face of ETH packet loss.
+
+* mvlc: various fixes and improvements from the mesytec-mvlc driver library.
+
 Version 1.14.4
 --------------------------------------------------
 
