@@ -3,5 +3,6 @@
     "typeName"      : "mvlc_event_stamper",
     "displayName"   : "MVLC Event Stamper",
     "vendorName"    : "mesytec",
-    "vmeAddress": "0xffff0000"
+    "vmeAddress": "0xffff0000",
+    "eventHeaderFilter": "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
 }
