@@ -101,7 +101,7 @@ class AnalysisReadResultErrorCategory: public std::error_category
         switch (static_cast<AnalysisReadResult>(ev))
         {
             case AnalysisReadResult::NoError:
-                return "No Error";
+                return "Ok";
 
             case AnalysisReadResult::VersionTooOld:
                 return "The analysis config data is from an older version of mvme and has not been migrated.";

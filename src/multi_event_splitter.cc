@@ -67,7 +67,7 @@ class TheMultiEventSplitterErrorCategory: public std::error_category
         switch (static_cast<ErrorCode>(ev))
         {
             case ErrorCode::Ok:
-                return "No Error";
+                return "Ok";
 
             case ErrorCode::EventIndexOutOfRange:
                 return "Event index out of range";
