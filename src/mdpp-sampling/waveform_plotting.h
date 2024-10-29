@@ -122,17 +122,48 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
 class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 {
     public:
+#ifndef QT_NO_DEBUG
+    /* Counts the number of samples obtained by qwt when doing a replot. Has to be atomic
+     * as QwtPlotSpectrogram::renderImage() uses threaded rendering internally.
+     * The number of samples heavily depends on the result of the pixelHint() method and
+     * is performance critical. */
+    mutable std::atomic<u64> m_sampledValuesForLastReplot;
+#endif
+
+        WaveformCollectionVerticalRasterData()
+    #ifndef QT_NO_DEBUG
+            : m_sampledValuesForLastReplot(0u)
+    #endif
+        {}
+
+        virtual void initRaster(const QRectF &area, const QSize &raster) override
+        {
+            m_sampledValuesForLastReplot = 0u;
+            QwtRasterData::initRaster(area, raster);
+        }
+
+        virtual void discardRaster() override
+        {
+            qDebug() << __PRETTY_FUNCTION__ << this
+                << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+            QwtRasterData::discardRaster();
+        }
+
         void setTraceCollection(const std::vector<const Trace *> &traces, double xStep)
         {
             traces_ = traces;
             xStep_ = xStep;
-            //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::setTraceCollection(): traces.size()={}, xStep={}", traces.size(), xStep).c_str();
+            qDebug() << fmt::format("WaveformCollectionVerticalRasterData::setTraceCollection(): traces.size()={}, xStep={}", traces.size(), xStep).c_str();
         }
 
         std::vector<const Trace *> getTraceCollection() const { return traces_; }
 
         double value(double x, double y) const override
         {
+#ifndef QT_NO_DEBUG
+            m_sampledValuesForLastReplot++;
+#endif
+
             if (auto trace = getTraceForY(y); trace && !trace->empty())
             {
                 const ssize_t sampleIndex = (x - trace->xs.front()) / xStep_;
@@ -142,6 +173,8 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
                 if (0 <= sampleIndex && sampleIndex < static_cast<ssize_t>(trace->size()))
                     return trace->ys[sampleIndex];
+                else
+                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): sampleIndex out of bounds: {}", sampleIndex).c_str();
             }
 
             return mesytec::mvme::util::make_quiet_nan();

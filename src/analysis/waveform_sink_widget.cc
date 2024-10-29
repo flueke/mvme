@@ -86,7 +86,8 @@ namespace
     }
 }
 
-static const int ReplotInterval_ms = 33;
+//static const int ReplotInterval_ms = 33;
+static const int ReplotInterval_ms = 1000;
 
 struct WaveformSinkWidget::Private
 {
