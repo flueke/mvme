@@ -117,39 +117,41 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
         mutable QRectF boundingRectCache_;
 };
 
-// y axis is the trace index, x axis is trace x, z color is trace y
+// y axis is the trace index, x axis is trace x, z color is trace y.
+// assumes uniform x step size for all traces.
 class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 {
     public:
-        void setTraceCollection(const std::vector<const Trace *> &traces)
+        void setTraceCollection(const std::vector<const Trace *> &traces, double xStep)
         {
             traces_ = traces;
+            xStep_ = xStep;
+            //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::setTraceCollection(): traces.size()={}, xStep={}", traces.size(), xStep).c_str();
         }
-
 
         std::vector<const Trace *> getTraceCollection() const { return traces_; }
 
         double value(double x, double y) const override
         {
-            const ssize_t sampleIndex = x;
-            //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, sampleIndex(x)={}", x, y, sampleIndex).c_str();
-            auto trace = getTraceForY(y);
+            if (auto trace = getTraceForY(y); trace && !trace->empty())
+            {
+                const ssize_t sampleIndex = (x - trace->xs.front()) / xStep_;
+                //const ssize_t sampleIndex = x / xStep_;
 
-            if (!trace || 0 > sampleIndex || sampleIndex >= static_cast<ssize_t>(trace->size()))
-                return mesytec::mvme::util::make_quiet_nan();
+                qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, xstep={}, sampleIndex(x)={}", x, y, xStep_, sampleIndex).c_str();
 
-            return trace->ys[sampleIndex];
+                if (0 <= sampleIndex && sampleIndex < static_cast<ssize_t>(trace->size()))
+                    return trace->ys[sampleIndex];
+            }
+
+            return mesytec::mvme::util::make_quiet_nan();
         }
 
         QRectF pixelHint(const QRectF &) const override
         {
-            qDebug() << "returning WaveformCollectionVerticalRasterData::pixelHint():" << pixelHint_;
-            return pixelHint_;
-        }
-
-        void setPixelHint(const QRectF &rect)
-        {
-            pixelHint_ = rect;
+            QRectF result{0.0, 0.0, xStep_, 1.0};
+            qDebug() << "returning WaveformCollectionVerticalRasterData::pixelHint():" << result;
+            return result;
         }
 
     private:
@@ -164,7 +166,7 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
         }
 
         std::vector<const Trace *> traces_;
-        QRectF pixelHint_;
+        double xStep_ = 1.0;
 };
 
 struct WaveformCurves

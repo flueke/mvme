@@ -660,15 +660,25 @@ void WaveformSinkVerticalWidget::replot()
 
     post_process_traces(d->processingState_, dtSample, interpolationFactor);
 
-    // TODO: improve setTraceCollection() to avoid having to create the vector of pointers here.
     auto traces = &d->processingState_.outputTraces;
+
+    double xStep = 1.0;
+    #if 1
+    // FIXME: this does not work. Is the interpolation bugged? I expect steps <
+    // dtSample if interpolation is used, but it never happens.
+    if (auto hasSamples = std::find_if(std::begin(*traces), std::end(*traces), [] (const auto &trace) { return trace.size() > 1; });
+        hasSamples != std::end(*traces))
+    {
+        xStep = hasSamples->xs[1] - hasSamples->xs[0];
+    }
+    #endif
+
+    // TODO: improve setTraceCollection() to avoid having to create the vector of pointers here.
     std::vector<const waveforms::Trace *> tracePointers(traces->size());
     std::transform(std::begin(*traces), std::end(*traces), std::begin(tracePointers),
         [] (const waveforms::Trace &trace) { return &trace; });
-    const auto pixelHintX = dtSample / interpolationFactor;
-    d->plotData_->setTraceCollection(tracePointers);
-    QRectF pixelHint{0.0, 0.0, 1.0, 1.0};
-    d->plotData_->setPixelHint(pixelHint);
+
+    d->plotData_->setTraceCollection(tracePointers, xStep);
 
     // determine axis scale ranges, update the zoomer, set plot axis scales
     if (!traces->empty())
@@ -702,7 +712,7 @@ void WaveformSinkVerticalWidget::replot()
 
         if (d->zoomer_->zoomRectIndex() == 0)
         {
-            qDebug() << "WaveformSinkVerticalWidget::replot(): setting xBottom xMax=" << xMax;
+            qDebug() << "WaveformSinkVerticalWidget::replot(): setting xBottom xMax =" << xMax;
             qDebug() << "rasterdata interval X:" << d->plotData_->interval(Qt::XAxis);
             getPlot()->setAxisScale(QwtPlot::xBottom, 0.0, xMax);
             getPlot()->setAxisScale(QwtPlot::yLeft, 0.0, yMax);
