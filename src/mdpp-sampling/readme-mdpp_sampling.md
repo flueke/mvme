@@ -37,9 +37,11 @@ single channel.
 - WaveformSinkWidget is mostly a copy/paste of MdppSamplingUi. Factor out the
   common parts.
 
-- Figure out the place where interpolation is best done.
-
 - Make sinc interpolation optionally use a larger window size.
+
+- Make sinc interpolation also output samples at the start and end before the
+  max window size is reached. This way x intervals would be uniform across the
+  output values. Rigth now they are not, e.g 0, 1, 2, 2.5, 3, 3.5 for factor=1.
 
 - Add 2D Waveforms: similar to H2D plots:
   * y is the channel number / trace number

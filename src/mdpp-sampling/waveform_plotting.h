@@ -144,7 +144,7 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
         virtual void discardRaster() override
         {
-            qDebug() << __PRETTY_FUNCTION__ << this << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+            //qDebug() << __PRETTY_FUNCTION__ << this << "sampled values for last replot: " << m_sampledValuesForLastReplot;
             m_sampledValuesForLastReplot = 0u;
             QwtRasterData::discardRaster();
         }
@@ -153,7 +153,7 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
         {
             traces_ = traces;
             xStep_ = xStep;
-            qDebug() << fmt::format("WaveformCollectionVerticalRasterData::setTraceCollection(): traces.size()={}, xStep={}", traces.size(), xStep).c_str();
+            //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::setTraceCollection(): traces.size()={}, xStep={}", traces.size(), xStep).c_str();
         }
 
         std::vector<const Trace *> getTraceCollection() const { return traces_; }
@@ -166,21 +166,42 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
             if (auto trace = getTraceForY(y); trace && !trace->empty())
             {
-                const ssize_t sampleIndex = (x - trace->xs.front()) / xStep_;
-                //const ssize_t sampleIndex = x / xStep_;
+                #if 0 // TODO: use this once interpolation yields equidistant x values
+                const ssize_t sampleIndex = x / xStep_;
 
-                qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, xstep={}, sampleIndex(x)={}", x, y, xStep_, sampleIndex).c_str();
+                qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, xstep={}, sampleIndex(x)={}, trace.size()={}",
+                    x, y, xStep_, sampleIndex, trace->size()).c_str();
 
                 if (0 <= sampleIndex && sampleIndex < static_cast<ssize_t>(trace->size()))
+                {
+                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): input x={}, sampleIndex={}, trace x={}",
+                        x, sampleIndex, trace->xs[sampleIndex]).c_str();
                     return trace->ys[sampleIndex];
+                }
                 else
                 {
                     qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): sampleIndex out of bounds: x={}, sampleIndex={}", x, sampleIndex).c_str();
                 }
+                #else
+                // FIXME: such a hack because of non uniform x distances...
+                if (auto it = std::lower_bound(std::begin(trace->xs), std::end(trace->xs), x); it != std::end(trace->xs))
+                {
+                    const auto index = std::distance(std::begin(trace->xs), it);
+                    //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, xstep={}, sampleIndex(x)={}, trace.size()={}",
+                    //    x, y, xStep_, index, trace->size()).c_str();
+                    return trace->ys[index];
+                }
+                else
+                {
+                    //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): no sample for x={}, returning trace.back()=({}, {})",
+                    //    x, trace->xs.back(), trace->ys.back()).c_str();
+                    return trace->ys.back();
+                }
+                #endif
             }
             else
             {
-                qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): no trace for y={}", y).c_str();
+                //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): no trace for y={}", y).c_str();
             }
 
             return mesytec::mvme::util::make_quiet_nan();
@@ -188,8 +209,8 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
         QRectF pixelHint(const QRectF &) const override
         {
-            QRectF result{0.0, 0.0, xStep_, 1.0};
-            qDebug() << "returning WaveformCollectionVerticalRasterData::pixelHint():" << result;
+            QRectF result{0.0, 0.0, xStep_ , 1.0};
+            //qDebug() << "returning WaveformCollectionVerticalRasterData::pixelHint():" << result;
             return result;
         }
 

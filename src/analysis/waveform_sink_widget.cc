@@ -86,8 +86,7 @@ namespace
     }
 }
 
-//static const int ReplotInterval_ms = 33;
-static const int ReplotInterval_ms = 1000;
+static const int ReplotInterval_ms = 33;
 
 struct WaveformSinkWidget::Private
 {
@@ -660,11 +659,13 @@ void WaveformSinkVerticalWidget::replot()
     const auto interpolationFactor = 1 + d->spin_interpolationFactor_->value();
 
     post_process_traces(d->processingState_, dtSample, interpolationFactor);
+    // Warning: if interpolationFactor is > 1.0 the x intervals in the output traces will not be equidistant!
+    // TODO: change the interpolation to produce equidistant x values
 
     auto traces = &d->processingState_.outputTraces;
 
-    double xStep = 1.0;
-    #if 1
+    double xStep = dtSample / interpolationFactor;
+    #if 0
     // FIXME: this does not work. Is the interpolation bugged? I expect steps <
     // dtSample if interpolation is used, but it never happens.
     if (auto hasSamples = std::find_if(std::begin(*traces), std::end(*traces), [] (const auto &trace) { return trace.size() > 1; });
@@ -713,8 +714,8 @@ void WaveformSinkVerticalWidget::replot()
 
         if (d->zoomer_->zoomRectIndex() == 0)
         {
-            qDebug() << "WaveformSinkVerticalWidget::replot(): setting xBottom xMax =" << xMax;
-            qDebug() << "rasterdata interval X:" << d->plotData_->interval(Qt::XAxis);
+            //qDebug() << "WaveformSinkVerticalWidget::replot(): setting xBottom xMax =" << xMax;
+            //qDebug() << "rasterdata interval X:" << d->plotData_->interval(Qt::XAxis);
             getPlot()->setAxisScale(QwtPlot::xBottom, 0.0, xMax);
             getPlot()->setAxisScale(QwtPlot::yLeft, 0.0, yMax);
             d->zoomer_->setZoomBase();
