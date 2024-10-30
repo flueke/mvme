@@ -1,7 +1,10 @@
 #include "analysis/waveform_sink_widget.h"
 
 #include <cmath>
+#include <QApplication>
+#include <QClipboard>
 #include <QCheckBox>
+#include <QMenu>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTimer>
@@ -98,13 +101,16 @@ struct WaveformSinkWidget::Private
     // these have to be pointers as qwt takees ownership
     waveforms::WaveformPlotData *rawPlotData_ = nullptr;
     waveforms::WaveformPlotData *interpolatedPlotData_ = nullptr;
-    waveforms::Trace *currentTrace_ = nullptr;
-    waveforms::Trace interpolatedTrace_;
+
+    waveforms::Trace currentRawTrace_;
+    waveforms::Trace currentInterpolatedTrace_;
+
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
 
     QVariantAnimation *curveFader_ = nullptr;
+    bool curveFaderFinished_ = false; // The finished() signal is only emitted if the animation stopped naturally.
 
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
@@ -125,6 +131,8 @@ struct WaveformSinkWidget::Private
     void makeInfoText(std::ostringstream &oss);
     void makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame);
     void printInfo();
+    void exportPlotToPdf();
+    void exportPlotToClipboard();
 };
 
 WaveformSinkWidget::WaveformSinkWidget(
@@ -143,10 +151,9 @@ WaveformSinkWidget::WaveformSinkWidget(
     auto curveFader = new QVariantAnimation(this);
     curveFader->setStartValue(1.0);
     curveFader->setEndValue(0.0);
-    curveFader->setLoopCount(-1); // loop forever until stopped
     curveFader->setDuration(1000);
-    curveFader->start();
     d->curveFader_ = curveFader;
+    connect(d->curveFader_, &QAbstractAnimation::finished, this, [this] { d->curveFaderFinished_ = true; qDebug() << "finished"; });
 
     auto curves = waveforms::make_curves();
 
@@ -210,8 +217,24 @@ WaveformSinkWidget::WaveformSinkWidget(
 
     tb->addSeparator();
 
-    d->pb_printInfo_ = new QPushButton("Print Info");
+    d->pb_printInfo_ = new QPushButton("Show Info");
     tb->addWidget(d->pb_printInfo_);
+
+    tb->addSeparator();
+
+    // export plot to file / clipboard
+    {
+        auto menu = new QMenu(this);
+        menu->addAction(QSL("to file"), this, [this] { d->exportPlotToPdf(); });
+        menu->addAction(QSL("to clipboard"), this, [this] { d->exportPlotToClipboard(); });
+
+        auto button = make_toolbutton(QSL(":/document-pdf.png"), QSL("Export"));
+        button->setStatusTip(QSL("Export plot to file or clipboard"));
+        button->setMenu(menu);
+        button->setPopupMode(QToolButton::InstantPopup);
+
+        tb->addWidget(button);
+    }
 
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
@@ -280,34 +303,34 @@ void WaveformSinkWidget::replot()
             trace = &tracebuffer[selectedTraceIndex];
     }
 
-    if (trace)
+    /*
+    if ((!trace || trace->empty()) && (d->curveFader_->state() != QAbstractAnimation::Running && !d->curveFaderFinished_))
     {
+        d->curveFaderFinished_ = false; // set to true by the qt event loop
+        d->curveFader_->start();
+    }
+    else */ if (trace /*&& !trace->empty() */)
+    {
+        //d->curveFader_->stop();
+        //d->curveFader_->setCurrentTime(0);
+
         auto dtSample = d->spin_dtSample_->value();
         auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
 
         // We now have raw trace data from the analysis. First scale the x
         // coordinates, which currently are just array indexes, by dtSample.
-        std::transform(std::begin(trace->xs), std::end(trace->xs), std::begin(trace->xs),
-            [dtSample](double x) { return x * dtSample; });
-
+        waveforms::scale_x_values(*trace, d->currentRawTrace_, dtSample);
         // and interpolate
-        auto emitter = [this] (double x, double y)
-        {
-            d->interpolatedTrace_.push_back(x, y);
-        };
-
-        d->interpolatedTrace_.clear();
-        waveforms::interpolate(trace->xs, trace->ys, interpolationFactor, emitter);
+        waveforms::interpolate(d->currentRawTrace_, d->currentInterpolatedTrace_, interpolationFactor);
     }
 
-    d->rawPlotData_->setTrace(trace);
-    d->interpolatedPlotData_->setTrace(&d->interpolatedTrace_);
+    d->rawPlotData_->setTrace(&d->currentRawTrace_);
+    d->interpolatedPlotData_->setTrace(&d->currentInterpolatedTrace_);
 
     auto boundingRect = d->interpolatedPlotData_->boundingRect();
     auto newBoundingRect = d->maxBoundingRect_.united(boundingRect);
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
-    d->currentTrace_ = trace;
 
     #if 0
     if (auto curves = d->curveHelper_.getWaveform(d->waveformHandle_);
@@ -362,8 +385,8 @@ void WaveformSinkWidget::Private::makeInfoText(std::ostringstream &out)
     double totalMemory = mesytec::mvme::waveforms::get_used_memory(traceHistories_);
     size_t numChannels = traceHistories_.size();
     size_t historyDepth = !traceHistories_.empty() ? traceHistories_[0].size() : 0u;
-    size_t currentTraceSize = currentTrace_ ? currentTrace_->size() : 0u;
-    size_t interpolatedSize = interpolatedTrace_.size();
+    size_t currentTraceSize = currentRawTrace_.size();
+    size_t interpolatedSize = currentInterpolatedTrace_.size();
     auto selectedChannel = channelSelect_->value();
 
     out << "Trace History Info:\n";
@@ -373,14 +396,13 @@ void WaveformSinkWidget::Private::makeInfoText(std::ostringstream &out)
     out << fmt::format("  Selected channel: {}\n", selectedChannel);
     out << "\n";
 
-    if (currentTrace_)
     {
         out << fmt::format("begin current trace ({} samples):\n", currentTraceSize);
-        mesytec::mvme::waveforms::print_trace(out, *currentTrace_);
+        mesytec::mvme::waveforms::print_trace(out, currentRawTrace_);
         out << fmt::format("end current trace\n");
 
         out << fmt::format("begin interpolated trace ({} samples):\n", interpolatedSize);
-        mesytec::mvme::waveforms::print_trace(out, interpolatedTrace_);
+        mesytec::mvme::waveforms::print_trace(out, currentInterpolatedTrace_);
         out << fmt::format("end interpolated trace\n");
     }
 }
@@ -411,7 +433,7 @@ void WaveformSinkWidget::Private::makeStatusText(std::ostringstream &out, const 
     // Both depend on the actual number of samples currently in the trace history.
 
     using mesytec::mvme::waveforms::get_used_memory;
-    double uiTotalMemory = get_used_memory(traceHistories_) + get_used_memory(interpolatedTrace_);
+    double uiTotalMemory = get_used_memory(traceHistories_) + get_used_memory(currentRawTrace_) + get_used_memory(currentInterpolatedTrace_);
     double sinkTotalMemory = sink_->getStorageSize();
     size_t numChannels = traceHistories_.size();
     size_t historyDepth = !traceHistories_.empty() ? traceHistories_[0].size() : 0u;
@@ -447,6 +469,64 @@ void WaveformSinkWidget::Private::printInfo()
     logView_->setPlainText(oss.str().c_str());
     logView_->show();
     logView_->raise();
+}
+
+void WaveformSinkWidget::Private::exportPlotToPdf()
+{
+    // TODO: generate a filename
+    #if 0
+    QString fileName = getCurrentHisto()->objectName();
+    fileName.replace("/", "_");
+    fileName.replace("\\", "_");
+    fileName += QSL(".pdf");
+    #else
+    QString filename = "waveform_export.pdf";
+    #endif
+
+    if (asp_)
+        filename = QDir(asp_->getWorkspacePath(QSL("PlotsDirectory"))).filePath(filename);
+
+    #if 0
+    m_plot->setTitle(getCurrentHisto()->getTitle());
+
+    QString footerString = getCurrentHisto()->getFooter();
+    QwtText footerText(footerString);
+    footerText.setRenderFlags(Qt::AlignLeft);
+    m_plot->setFooter(footerText);
+    m_waterMarkLabel->show();
+    #endif
+
+    QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.exportTo(q->getPlot(), filename);
+
+    #if 0
+    m_plot->setTitle(QString());
+    m_plot->setFooter(QString());
+    m_waterMarkLabel->hide();
+    #endif
+}
+
+void WaveformSinkWidget::Private::exportPlotToClipboard()
+{
+    QSize size(1024, 768);
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+
+    QwtPlotRenderer renderer;
+#ifndef Q_OS_WIN
+    // Enabling this leads to black pixels when pasting the image into windows
+    // paint.
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
+                             | QwtPlotRenderer::DiscardCanvasBackground);
+#endif
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.renderTo(q->getPlot(), image);
+
+    auto clipboard = QApplication::clipboard();
+    clipboard->clear();
+    clipboard->setImage(image);
 }
 
 struct TraceCollectionProcessingState
@@ -506,10 +586,6 @@ struct WaveformSinkVerticalWidget::Private
     QwtPlotSpectrogram *plotItem_ = nullptr;
     TraceCollectionProcessingState processingState_;
 
-    //std::vector<const waveforms::Trace *> currentCollection_;
-    //std::vector<waveforms::Trace> postProcessedTraces_;
-    //waveforms::Trace traceWorkBuffer_;
-
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
@@ -530,6 +606,8 @@ struct WaveformSinkVerticalWidget::Private
     void makeInfoText(std::ostringstream &oss);
     void makeStatusText(std::ostringstream &oss, const std::chrono::duration<double, std::milli> &dtFrame);
     void printInfo();
+    void exportPlotToPdf();
+    void exportPlotToClipboard();
 };
 
 WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
@@ -547,8 +625,8 @@ WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
     auto curveFader = new QVariantAnimation(this);
     curveFader->setStartValue(255);
     curveFader->setEndValue(0);
-    curveFader->setLoopCount(-1); // loop forever until stopped
     curveFader->setDuration(1000);
+    curveFader->setLoopCount(-1); // loop forever until stopped
     curveFader->start();
     d->curveFader_ = curveFader;
 
@@ -609,8 +687,24 @@ WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
 
     tb->addSeparator();
 
-    d->pb_printInfo_ = new QPushButton("Print Info");
+    d->pb_printInfo_ = new QPushButton("Show Info");
     tb->addWidget(d->pb_printInfo_);
+
+    tb->addSeparator();
+
+    // export plot to file / clipboard
+    {
+        auto menu = new QMenu(this);
+        menu->addAction(QSL("to file"), this, [this] { d->exportPlotToPdf(); });
+        menu->addAction(QSL("to clipboard"), this, [this] { d->exportPlotToClipboard(); });
+
+        auto button = make_toolbutton(QSL(":/document-pdf.png"), QSL("Export"));
+        button->setStatusTip(QSL("Export plot to file or clipboard"));
+        button->setMenu(menu);
+        button->setPopupMode(QToolButton::InstantPopup);
+
+        tb->addWidget(button);
+    }
 
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
@@ -824,6 +918,64 @@ void WaveformSinkVerticalWidget::Private::printInfo()
     logView_->setPlainText(oss.str().c_str());
     logView_->show();
     logView_->raise();
+}
+
+void WaveformSinkVerticalWidget::Private::exportPlotToPdf()
+{
+    // TODO: generate a filename
+    #if 0
+    QString fileName = getCurrentHisto()->objectName();
+    fileName.replace("/", "_");
+    fileName.replace("\\", "_");
+    fileName += QSL(".pdf");
+    #else
+    QString filename = "waveform_export.pdf";
+    #endif
+
+    if (asp_)
+        filename = QDir(asp_->getWorkspacePath(QSL("PlotsDirectory"))).filePath(filename);
+
+    #if 0
+    m_plot->setTitle(getCurrentHisto()->getTitle());
+
+    QString footerString = getCurrentHisto()->getFooter();
+    QwtText footerText(footerString);
+    footerText.setRenderFlags(Qt::AlignLeft);
+    m_plot->setFooter(footerText);
+    m_waterMarkLabel->show();
+    #endif
+
+    QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.exportTo(q->getPlot(), filename);
+
+    #if 0
+    m_plot->setTitle(QString());
+    m_plot->setFooter(QString());
+    m_waterMarkLabel->hide();
+    #endif
+}
+
+void WaveformSinkVerticalWidget::Private::exportPlotToClipboard()
+{
+    QSize size(1024, 768);
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+
+    QwtPlotRenderer renderer;
+#ifndef Q_OS_WIN
+    // Enabling this leads to black pixels when pasting the image into windows
+    // paint.
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground
+                             | QwtPlotRenderer::DiscardCanvasBackground);
+#endif
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.renderTo(q->getPlot(), image);
+
+    auto clipboard = QApplication::clipboard();
+    clipboard->clear();
+    clipboard->setImage(image);
 }
 
 }
