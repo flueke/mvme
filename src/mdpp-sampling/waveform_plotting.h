@@ -144,8 +144,8 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
         virtual void discardRaster() override
         {
-            qDebug() << __PRETTY_FUNCTION__ << this
-                << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+            qDebug() << __PRETTY_FUNCTION__ << this << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+            m_sampledValuesForLastReplot = 0u;
             QwtRasterData::discardRaster();
         }
 
@@ -174,7 +174,13 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
                 if (0 <= sampleIndex && sampleIndex < static_cast<ssize_t>(trace->size()))
                     return trace->ys[sampleIndex];
                 else
-                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): sampleIndex out of bounds: {}", sampleIndex).c_str();
+                {
+                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): sampleIndex out of bounds: x={}, sampleIndex={}", x, sampleIndex).c_str();
+                }
+            }
+            else
+            {
+                qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): no trace for y={}", y).c_str();
             }
 
             return mesytec::mvme::util::make_quiet_nan();
