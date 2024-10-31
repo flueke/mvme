@@ -120,6 +120,10 @@ class MVLC_StreamWorker: public StreamWorkerBase
         void pause() override;
         void resume() override;
         void singleStep() override;
+        void setArtificalDelay(const std::chrono::duration<double> &delay) override
+        {
+            m_artificialDelay = delay;
+        }
 
         void requestDebugInfoOnNextBuffer(bool ignoreTimeticks = true)
         {
@@ -174,6 +178,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         void blockIfPaused();
         void publishStateIfSingleStepping();
+        void doArtificalDelay();
 
         void logParserInfo(const mesytec::mvlc::readout_parser::ReadoutParserState &parser);
 
@@ -212,6 +217,8 @@ class MVLC_StreamWorker: public StreamWorkerBase
         EventRecord m_singleStepEventRecord = {};
 
         std::shared_ptr<MesytecDiagnostics> m_diag;
+
+        std::atomic<std::chrono::duration<double>> m_artificialDelay = std::chrono::duration<double>(0.0);
 };
 
 mesytec::mvme_mvlc::VMEConfReadoutScripts LIBMVME_EXPORT

@@ -909,6 +909,23 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
             this, [this] { m_d->actionStepNextEvent(); });
 
         m_d->m_toolbar->addSeparator();
+        {
+            auto spinbox = new QDoubleSpinBox;
+            spinbox->setMinimum(0.0);
+            spinbox->setMaximum(2000.0);
+            spinbox->setSpecialValueText(QSL("off"));
+            spinbox->setSuffix(QSL(" ms"));
+            auto boxStruct = make_vbox_container(QSL("Processing Delay"), spinbox, 0, -2);
+            m_d->m_toolbar->addWidget(boxStruct.container.release());
+
+            connect(spinbox, qOverload<double>(&QDoubleSpinBox::valueChanged),
+                    this, [this](double value_ms) {
+                        std::chrono::duration<double, std::micro> delay(value_ms * 1000);
+                        m_d->m_serviceProvider->getMVMEStreamWorker()->setArtificalDelay(delay);
+                    });
+        }
+
+        m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Load Session"),
                                   this, [this]() { m_d->actionLoadSession(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save Session"),

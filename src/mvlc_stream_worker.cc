@@ -195,6 +195,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // beginEvent
         {
             this->blockIfPaused();
+            this->doArtificalDelay();
 
             analysis->beginEvent(eventIndex);
 
@@ -840,6 +841,17 @@ void MVLC_StreamWorker::publishStateIfSingleStepping()
     if (m_state == WorkerState::SingleStepping)
     {
         emit singleStepResultReady(m_singleStepEventRecord);
+    }
+}
+
+void MVLC_StreamWorker::doArtificalDelay()
+{
+    auto delay = m_artificialDelay.load();
+    if (delay.count() > 0)
+    {
+        using DoubleMillis = std::chrono::duration<double, std::milli>;
+        qDebug() << "delay for " << std::chrono::duration_cast<DoubleMillis>(delay).count() << "ms";
+        std::this_thread::sleep_for(delay);
     }
 }
 

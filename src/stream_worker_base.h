@@ -120,6 +120,11 @@ class LIBMVME_EXPORT StreamWorkerBase: public QObject
         virtual void startupConsumers() = 0;
         virtual void shutdownConsumers() = 0;
 
+        // Set a delay between processing individual events in the analysis.
+        // Used to slow down the whole thing to for example see waveform data
+        // being accumulated.
+        virtual void setArtificalDelay(const std::chrono::duration<double> &delay) { (void) delay; qDebug() << "setArtificalDelay not implemented"; }
+
     protected:
         // Returns true if the message was logged, false if it was suppressed due
         // to throttling.
