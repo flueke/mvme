@@ -850,7 +850,6 @@ void MVLC_StreamWorker::doArtificalDelay()
     if (delay.count() > 0)
     {
         using DoubleMillis = std::chrono::duration<double, std::milli>;
-        qDebug() << "delay for " << std::chrono::duration_cast<DoubleMillis>(delay).count() << "ms";
         std::this_thread::sleep_for(delay);
     }
 }
