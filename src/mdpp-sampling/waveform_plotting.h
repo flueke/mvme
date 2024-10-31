@@ -138,14 +138,18 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
         virtual void initRaster(const QRectF &area, const QSize &raster) override
         {
+            #ifndef QT_NO_DEBUG
             m_sampledValuesForLastReplot = 0u;
+            #endif
             QwtRasterData::initRaster(area, raster);
         }
 
         virtual void discardRaster() override
         {
             //qDebug() << __PRETTY_FUNCTION__ << this << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+            #ifndef QT_NO_DEBUG
             m_sampledValuesForLastReplot = 0u;
+            #endif
             QwtRasterData::discardRaster();
         }
 
