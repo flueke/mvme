@@ -3074,6 +3074,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
             if (auto moduleType = moduleConfig->getModuleMeta().typeName;
                 moduleType.startsWith("mdpp"))
             {
+                #ifndef NDEBUG
                 menu.addAction("MDPP Sampling Mode UI", &menu, [this, moduleConfig] {
                     auto analysis = m_serviceProvider->getAnalysis();
 
@@ -3113,6 +3114,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         samplingUi->raise();
                     }
                 });
+                #endif
             }
 
             auto actionNew = menu.addAction(QSL("New"));
