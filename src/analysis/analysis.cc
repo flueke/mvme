@@ -3749,7 +3749,7 @@ s32 WaveformSink::getNumberOfSlots() const
 
 void WaveformSink::clearState()
 {
-    d->traceHistories_.access().ref() = {};
+    d->traceHistories_.access()->clear();
 }
 
 void WaveformSink::beginRun(const RunInfo &runInfo, Logger)

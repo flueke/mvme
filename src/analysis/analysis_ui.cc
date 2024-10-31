@@ -435,22 +435,9 @@ void AnalysisWidgetPrivate::actionClearHistograms()
 {
     AnalysisPauser pauser(m_serviceProvider);
 
-    for (auto &op: m_serviceProvider->getAnalysis()->getOperators())
+    for (auto &op: m_serviceProvider->getAnalysis()->getSinkOperators())
     {
-        if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
-        {
-            for (auto &histo: histoSink->m_histos)
-            {
-                histo->clear();
-            }
-        }
-        else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
-        {
-            if (histoSink->m_histo)
-            {
-                histoSink->m_histo->clear();
-            }
-        }
+        op->clearState();
     }
 }
 
