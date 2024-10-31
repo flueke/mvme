@@ -7,6 +7,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStack>
 #include <QTimer>
 #include <QVariantAnimation>
 #include <qwt_plot_spectrogram.h>
