@@ -3332,11 +3332,38 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         return menuNew;
     };
 
+    auto make_open_selection_in_plotgrid_action = [this](const AnalysisObjectVector &selectedObjects) -> QAction *
+    {
+        std::vector<SinkPtr> sinks;
+
+        for (auto &obj: selectedObjects)
+        {
+            if (auto sink = std::dynamic_pointer_cast<SinkInterface>(obj))
+                sinks.push_back(std::dynamic_pointer_cast<SinkInterface>(sink));
+        }
+
+        if (sinks.empty())
+            return nullptr;
+
+        auto result = new QAction("Open selected sinks in Plot Grid");
+
+        QObject::connect(result, &QAction::triggered, m_q, [this, sinks] () {
+            auto widget = new MultiPlotWidget(m_serviceProvider);
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            widget->setWindowTitle(QSL("PlotGrid (%1 items)").arg(sinks.size()));
+            add_widget_close_action(widget);
+            for (auto &sink: sinks)
+                widget->addSink(sink);
+            widget->show();
+        });
+
+        return result;
+    };
+
     auto globalSelectedObjects = getAllSelectedObjects();
     auto activeNode = tree->itemAt(pos);
 
     QMenu menu;
-
 
     if (activeNode)
     {
@@ -3392,6 +3419,9 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         widgetInfo.sink->getId().toString() + QSL("_plotgrid"));
                 }
             });
+
+            if (auto action = make_open_selection_in_plotgrid_action(globalSelectedObjects))
+                menu.addAction(action);
         }
 
         if (activeNode->type() == NodeType_Histo2DSink)
@@ -3484,6 +3514,9 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                 sinkPtr->getId().toString() + QSL("_plotgrid"));
                         });
                 }
+
+                if (auto action = make_open_selection_in_plotgrid_action(globalSelectedObjects))
+                    menu.addAction(action);
             }
         }
 
