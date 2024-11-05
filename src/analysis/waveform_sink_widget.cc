@@ -803,6 +803,14 @@ void WaveformSinkVerticalWidget::replot()
 
         std::for_each(std::begin(*traces), std::end(*traces), update_z_minmax);
 
+        // To avoid 'QwtLinearScaleEngine::divideScale: overflow' warnings when
+        // all traces are empty and this zMin/Max remain unchanged.
+        if (zMax < zMin || static_cast<long double>(zMax) - static_cast<long double>(zMin) >= std::numeric_limits<double>::max())
+        {
+            zMin = 0.0;
+            zMax = 1.0;
+        }
+
         d->plotData_->setInterval(Qt::XAxis, QwtInterval(0.0, xMax));
         d->plotData_->setInterval(Qt::YAxis, QwtInterval(0.0, yMax));
         d->plotData_->setInterval(Qt::ZAxis, QwtInterval(zMin, zMax));
