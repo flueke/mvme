@@ -2152,6 +2152,22 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         combo_exportCompression->setCurrentIndex(
             combo_exportCompression->findData(ex->getCompressionLevel()));
     }
+    else if (auto evhist = qobject_cast<WaveformSink *>(op))
+    {
+        spin_historyMaxDepth = new QSpinBox;
+        spin_historyMaxDepth->setMinimum(1);
+        spin_historyMaxDepth->setMaximum(1u << 20);
+        spin_historyMaxDepth->setValue(evhist->getTraceHistoryMaxDepth());
+        formLayout->addRow(QSL("Max Trace History Depth"), spin_historyMaxDepth);
+
+        auto label = make_framed_description_label(QSL(
+                "The maximum number of traces per input channel to keep in the "
+                "history. Affects maximum memory usage in both the analysis and "
+                "the UI."
+                ));
+        label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        formLayout->addRow(label);
+    }
 }
 
 // NOTE: This will be called after construction for each slot by AddEditOperatorDialog::repopulateSlotGrid()!
@@ -2573,6 +2589,10 @@ void OperatorConfigurationWidget::configureOperator()
         ex->setCompressionLevel(combo_exportCompression->currentData().toInt());
         ex->setFormat(static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt()));
         ex->setOutputPrefixPath(le_exportPrefixPath->text());
+    }
+    else if (auto evhist = qobject_cast<WaveformSink *>(op))
+    {
+        evhist->setTraceHistoryMaxDepth(spin_historyMaxDepth->value());
     }
 }
 
