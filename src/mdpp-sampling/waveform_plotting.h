@@ -118,7 +118,7 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
 };
 
 // y axis is the trace index, x axis is trace x, z color is trace y.
-// assumes uniform x step size for all traces.
+// FIXME: (not true right now) assumes uniform x step size for all traces.
 class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 {
     public:

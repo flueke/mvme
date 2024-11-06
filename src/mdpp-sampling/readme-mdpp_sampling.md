@@ -13,7 +13,7 @@ DataSourceMdppSampleDecoder implements a fully functioning data source.
 Interally decode_mdpp_samples() is called. Max channel and sample counts are
 configuration information and thus static during processing.
 
-### UI
+### OUT OF DATE: UI
 
 MdppSamplingUi can currently be opened from the analysis interface. Is is fed
 data across thread boundaries through a Qt signal/slot connection. The producer
@@ -40,6 +40,9 @@ single channel.
 
 - WaveformSinkWidget is mostly a copy/paste of MdppSamplingUi. Factor out the
   common parts.
+  Update: rewrite MdppSamplingUi to use the new primitives and utils. Maybe get
+  rid of the old channeltrace stuff completely? Or just let it sit there, it's
+  currently disabled in release builds.
 
 - Make sinc interpolation optionally use a larger window size.
 

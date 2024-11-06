@@ -2162,8 +2162,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
         auto label = make_framed_description_label(QSL(
                 "The maximum number of traces per input channel to keep in the "
-                "history. Affects maximum memory usage in both the analysis and "
-                "the UI."
+                "history buffer. Affects maximum memory usage in both the analysis "
+                "and the UI."
                 ));
         label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
         formLayout->addRow(label);

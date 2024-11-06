@@ -1,4 +1,5 @@
 #include "analysis/waveform_sink_widget.h"
+#include "analysis/waveform_sink_widget_common.h"
 
 #include <cmath>
 #include <QApplication>
@@ -9,12 +10,10 @@
 #include <QSpinBox>
 #include <QStack>
 #include <QTimer>
-#include <QVariantAnimation>
 #include <qwt_plot_spectrogram.h>
 #include <qwt_symbol.h>
 #include <set>
 
-#include <mesytec-mvlc/util/algo.h>
 #include <mesytec-mvlc/util/stopwatch.h>
 
 #include "analysis_service_provider.h"
@@ -28,69 +27,7 @@ using namespace mesytec::mvme::mdpp_sampling;
 namespace analysis
 {
 
-namespace
-{
-    QSpinBox *add_channel_select(QToolBar *toolbar)
-    {
-        auto result = new QSpinBox;
-        result->setMinimum(0);
-        result->setMaximum(0);
-        auto boxStruct = make_vbox_container(QSL("Channel"), result, 0, -2);
-        toolbar->addWidget(boxStruct.container.release());
-        return result;
-    }
-
-    QSpinBox *add_trace_select(QToolBar *toolbar)
-    {
-        auto result = new QSpinBox;
-        result->setMinimum(0);
-        result->setMaximum(1);
-        result->setValue(0);
-        result->setSpecialValueText("latest");
-        auto boxStruct = make_vbox_container(QSL("Trace#"), result, 0, -2);
-        toolbar->addWidget(boxStruct.container.release());
-        return result;
-    }
-
-    QDoubleSpinBox *add_dt_sample_setter(QToolBar *toolbar)
-    {
-        auto result = new QDoubleSpinBox;
-        result->setMinimum(1.0);
-        result->setMaximum(1e9);
-        result->setSingleStep(0.1);
-        result->setSuffix(" ns");
-        result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
-
-        auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
-
-        QObject::connect(pb_useDefaultSampleInterval, &QPushButton::clicked, result, [result] {
-            result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
-        });
-
-        auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();
-        l0->addWidget(result);
-        l0->addWidget(pb_useDefaultSampleInterval);
-
-        auto boxStruct = make_vbox_container(QSL("Sample Interval"), w0, 0, -2);
-        toolbar->addWidget(boxStruct.container.release());
-
-        return result;
-    }
-
-    QSpinBox *add_interpolation_factor_setter(QToolBar *toolbar)
-    {
-        auto result = new QSpinBox;
-        result->setSpecialValueText("off");
-        result->setMinimum(0);
-        result->setMaximum(100);
-        result->setValue(5);
-        auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), result, 0, -2);
-        toolbar->addWidget(boxStruct.container.release());
-        return result;
-    }
-}
-
-static const int ReplotInterval_ms = 33;
+static const int ReplotInterval_ms = 100;
 
 struct WaveformSinkWidget::Private
 {
@@ -110,9 +47,6 @@ struct WaveformSinkWidget::Private
     QTimer replotTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
 
-    QVariantAnimation *curveFader_ = nullptr;
-    bool curveFaderFinished_ = false; // The finished() signal is only emitted if the animation stopped naturally.
-
     QSpinBox *channelSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
     waveforms::TraceHistories traceHistories_;
@@ -125,8 +59,6 @@ struct WaveformSinkWidget::Private
     WidgetGeometrySaver *geoSaver_ = nullptr;
     QRectF maxBoundingRect_;
     QPushButton *pb_resetBoundingRect = nullptr;
-
-    QSpinBox *spin_curveAlpha_ = nullptr;
 
     void updateUi();
     void makeInfoText(std::ostringstream &oss);
@@ -148,13 +80,6 @@ WaveformSinkWidget::WaveformSinkWidget(
     d->asp_ = asp;
     d->curveHelper_ = waveforms::WaveformPlotCurveHelper(getPlot());
     d->replotTimer_.setInterval(ReplotInterval_ms);
-
-    auto curveFader = new QVariantAnimation(this);
-    curveFader->setStartValue(1.0);
-    curveFader->setEndValue(0.0);
-    curveFader->setDuration(1000);
-    d->curveFader_ = curveFader;
-    connect(d->curveFader_, &QAbstractAnimation::finished, this, [this] { d->curveFaderFinished_ = true; qDebug() << "finished"; });
 
     auto curves = waveforms::make_curves();
 
@@ -304,17 +229,8 @@ void WaveformSinkWidget::replot()
             trace = &tracebuffer[selectedTraceIndex];
     }
 
-    /*
-    if ((!trace || trace->empty()) && (d->curveFader_->state() != QAbstractAnimation::Running && !d->curveFaderFinished_))
+    if (trace)
     {
-        d->curveFaderFinished_ = false; // set to true by the qt event loop
-        d->curveFader_->start();
-    }
-    else */ if (trace /*&& !trace->empty() */)
-    {
-        //d->curveFader_->stop();
-        //d->curveFader_->setCurrentTime(0);
-
         auto dtSample = d->spin_dtSample_->value();
         auto interpolationFactor = 1+ d->spin_interpolationFactor_->value();
 
@@ -332,43 +248,6 @@ void WaveformSinkWidget::replot()
     auto newBoundingRect = d->maxBoundingRect_.united(boundingRect);
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
-
-    #if 0
-    if (auto curves = d->curveHelper_.getWaveform(d->waveformHandle_);
-        curves.rawCurve && curves.interpolatedCurve)
-    {
-        for (auto curve: { curves.rawCurve, curves.interpolatedCurve })
-        {
-            auto curveAlpha = d->curveFader_->currentValue().value<double>();
-
-            // FIXME: ugly
-            {
-                auto pen = curve->pen();
-                auto penColor = pen.color();
-                penColor.setAlphaF(curveAlpha);
-                pen.setColor(penColor);
-                curve->setPen(pen);
-            }
-
-            if (auto symbol = curve->symbol())
-            {
-                // FIXME: ugly
-                auto cache = mvme_qwt::make_cache_from_symbol(symbol);
-
-                auto brushColor = cache.brush.color();
-                brushColor.setAlphaF(curveAlpha);
-                cache.brush.setColor(brushColor);
-
-                auto penColor = cache.pen.color();
-                penColor.setAlphaF(curveAlpha);
-                cache.pen.setColor(penColor);
-
-                auto newSymbol = mvme_qwt::make_symbol_from_cache(cache);
-                curve->setSymbol(newSymbol.release());
-            }
-        }
-    }
-    #endif
 
     histo_ui::PlotWidget::replot();
 
@@ -591,8 +470,6 @@ struct WaveformSinkVerticalWidget::Private
     QTimer replotTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
 
-    QVariantAnimation *curveFader_ = nullptr;
-
     QSpinBox *traceSelect_ = nullptr;
     waveforms::TraceHistories traceHistories_;
     QPushButton *pb_printInfo_ = nullptr;
@@ -622,14 +499,6 @@ WaveformSinkVerticalWidget::WaveformSinkVerticalWidget(
     d->sink_ = sink;
     d->asp_ = asp;
     d->replotTimer_.setInterval(ReplotInterval_ms);
-
-    auto curveFader = new QVariantAnimation(this);
-    curveFader->setStartValue(255);
-    curveFader->setEndValue(0);
-    curveFader->setDuration(1000);
-    curveFader->setLoopCount(-1); // loop forever until stopped
-    curveFader->start();
-    d->curveFader_ = curveFader;
 
     d->plotData_ = new waveforms::WaveformCollectionVerticalRasterData();
     d->plotItem_ = new QwtPlotSpectrogram;

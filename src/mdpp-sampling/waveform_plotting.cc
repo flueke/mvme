@@ -186,5 +186,4 @@ WaveformCurves make_curves(QColor curvePenColor)
     return result;
 }
 
-
 }

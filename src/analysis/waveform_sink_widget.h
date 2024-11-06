@@ -8,6 +8,8 @@
 namespace analysis
 {
 
+// TODO: stuff needs to be merged. still experimenting to figure out what we actually want
+
 class LIBMVME_EXPORT WaveformSinkWidget: public histo_ui::PlotWidget
 {
     Q_OBJECT
