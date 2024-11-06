@@ -50,6 +50,7 @@
 #include "analysis/listfilter_extractor_dialog.h"
 #include "analysis/object_info_widget.h"
 #include "analysis/waveform_sink_widget.h"
+#include "analysis/waveform_sink_test_widget.h"
 
 #include "graphicsview_util.h"
 #include "graphviz_util.h"
@@ -3560,6 +3561,11 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
             menu.addAction(QSL("Open Waveforms Vertical Display"), m_q, [this, sinkPtr]() {
                 auto widget = new analysis::WaveformSinkVerticalWidget(sinkPtr, m_serviceProvider);
+                m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString() + "_vertical");
+            });
+
+            menu.addAction(QSL("!!!Open Waveforms Test Display!!!"), m_q, [this, sinkPtr]() {
+                auto widget = new analysis::WaveformSinkDontKnowYetWidget(sinkPtr, m_serviceProvider);
                 m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString() + "_vertical");
             });
             #endif
