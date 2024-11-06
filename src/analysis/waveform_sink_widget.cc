@@ -99,7 +99,7 @@ struct WaveformSinkWidget::Private
     AnalysisServiceProvider *asp_ = nullptr;
     waveforms::WaveformPlotCurveHelper curveHelper_;
     waveforms::WaveformPlotCurveHelper::Handle waveformHandle_;
-    // these have to be pointers as qwt takees ownership
+    // these have to be pointers as qwt takes ownership
     waveforms::WaveformPlotData *rawPlotData_ = nullptr;
     waveforms::WaveformPlotData *interpolatedPlotData_ = nullptr;
 
@@ -867,6 +867,27 @@ void WaveformSinkVerticalWidget::Private::makeInfoText(std::ostringstream &out)
     out << fmt::format("  Number of channels: {}\n", numChannels);
     out << fmt::format("  History depth: {}\n", historyDepth);
     out << "\n";
+
+    const size_t numTraces = std::min(processingState_.inputTraces.size(), processingState_.outputTraces.size());
+
+    for (size_t traceIndex = 0; traceIndex < numTraces; ++traceIndex)
+    {
+        auto rawTrace = processingState_.inputTraces[traceIndex];
+        auto interpolatedTrace = processingState_.outputTraces[traceIndex];
+
+        if (rawTrace)
+        {
+            out << fmt::format("input trace#{}: ", traceIndex);
+            mesytec::mvme::waveforms::print_trace_compact(out, *rawTrace);
+        }
+
+        out << fmt::format("interpolated trace#{}: ", traceIndex);
+        mesytec::mvme::waveforms::print_trace_compact(out, interpolatedTrace);
+    }
+
+    // raw input traces: d->processingState_.inputTraces
+    // intermediate scaled trace is not kept. it's only temp in the traceWorkBuffer
+    // interpolated traces: d->processingState_.outputTraces
 }
 
 void WaveformSinkVerticalWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
