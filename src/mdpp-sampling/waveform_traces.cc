@@ -52,6 +52,23 @@ std::ostream &print_trace(std::ostream &out, const Trace &trace)
     return out;
 }
 
+std::ostream &print_trace_compact(std::ostream &out, const Trace &trace)
+{
+    auto sample_printer = [&out] (double x, double y)
+    {
+        out << fmt::format("[{}, {}], ", x, y);
+    };
+
+    out << "[ ";
+    mvlc::util::for_each(std::begin(trace.xs), std::end(trace.xs), std::begin(trace.ys), sample_printer);
+    try {
+        out.seekp(-2, std::ios_base::end); // remove trailing comma to make JSON parsers happy
+    } catch (const std::ios_base::failure &) {}
+    out << " ]\n";
+
+    return out;
+}
+
 std::pair<double, double> find_minmax_y(const Trace &trace)
 {
     auto minmax = std::minmax_element(std::begin(trace.ys), std::end(trace.ys));
