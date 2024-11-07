@@ -93,7 +93,7 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo 
 
 QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo)
 {
-    if (widgetInfo.sink && widgetInfo.histoAddress < widgetInfo.histos.size())
+    if (widgetInfo.sink && !widgetInfo.histos.empty() && widgetInfo.histoAddress < widgetInfo.histos.size())
     {
         auto widget = new Histo1DWidget(widgetInfo.histos);
         widget->setServiceProvider(asp);
