@@ -278,6 +278,8 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
         void setRawSymbolsVisible(Handle handle, bool visible);
         void setInterpolatedSymbolsVisible(Handle handle, bool visible);
 
+        size_t size() const { return waveforms_.size(); }
+
     private:
 
         struct WaveformData: public RawWaveformCurves
