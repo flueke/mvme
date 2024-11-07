@@ -62,6 +62,16 @@ struct Trace
         assert(xs.size() == ys.size());
         return xs.empty();
     }
+
+    bool operator==(const Trace &o) const
+    {
+        return xs == o.xs && ys == o.ys;
+    }
+
+    bool operator!=(const Trace &o) const
+    {
+        return !(*this == o);
+    }
 };
 
 using TraceHistory = std::deque<Trace>;
