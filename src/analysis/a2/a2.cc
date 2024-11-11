@@ -3406,40 +3406,8 @@ void expression_condition_step(Operator *op, A2 *a2)
  * Sinks: Histograms/RateMonitor/ExportSink
  * =============================================== */
 
-inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
-{
-    return (x - binning.min) * binCount / binning.range;
-}
-
-// binMin = binning.min
-// binFactor = binCount / binning.range
-inline double get_bin_unchecked(double x, double binMin, double binFactor)
-{
-    return (x - binMin) * binFactor;
-}
-
-inline s32 get_bin(Binning binning, s32 binCount, double x)
-{
-    double bin = get_bin_unchecked(binning, binCount, x);
-
-    if (bin < 0.0)
-        return Binning::Underflow;
-
-    if (bin >= binCount)
-        return Binning::Overflow;
-
-    return static_cast<s32>(bin);
-}
-
-inline s32 get_bin(H1D histo, double x)
-{
-    return get_bin(histo.binning, histo.size, x);
-}
-
-inline s32 get_bin(H2D histo, H2D::Axis axis, double v)
-{
-    return get_bin(histo.binnings[axis], histo.binCounts[axis], v);
-}
+const s8 Binning::Underflow;
+const s8 Binning::Overflow;
 
 //
 // HistoFillDirect
@@ -3457,7 +3425,7 @@ inline bool range_check_update(H1D *histo, double x)
 
     if (x < histo->binning.min)
     {
-#if 0
+#if 1
         cerr << __PRETTY_FUNCTION__
             << " histo=" << histo << ", x < min, x=" << x << ", get_bin=" << get_bin(*histo, x) << endl;
 #endif
@@ -3535,6 +3503,9 @@ inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
     }
     else if (likely(1))
     {
+        auto theXBin = get_bin(*histo, H2D::XAxis, x);
+        auto theYBin = get_bin(*histo, H2D::YAxis, y);
+
         assert(0 <= get_bin(*histo, H2D::XAxis, x)
                && get_bin(*histo, H2D::XAxis, x) < histo->binCounts[H2D::XAxis]);
 

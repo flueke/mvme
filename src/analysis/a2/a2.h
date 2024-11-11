@@ -656,6 +656,42 @@ Operator make_h2d_sink(
     s32 yIndex,
     H2D histo);
 
+// Histogram and bin handling support functions
+inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
+{
+    return (x - binning.min) * binCount / binning.range;
+}
+
+// binMin = binning.min
+// binFactor = binCount / binning.range
+inline double get_bin_unchecked(double x, double binMin, double binFactor)
+{
+    return (x - binMin) * binFactor;
+}
+
+inline s32 get_bin(Binning binning, s32 binCount, double x)
+{
+    double bin = get_bin_unchecked(binning, binCount, x);
+
+    if (bin < 0.0)
+        return Binning::Underflow;
+
+    if (bin >= binCount)
+        return Binning::Overflow;
+
+    return static_cast<s32>(bin);
+}
+
+inline s32 get_bin(H1D histo, double x)
+{
+    return get_bin(histo.binning, histo.size, x);
+}
+
+inline s32 get_bin(H2D histo, H2D::Axis axis, double v)
+{
+    return get_bin(histo.binnings[axis], histo.binCounts[axis], v);
+}
+
 //
 // RateMonitor
 //
