@@ -130,13 +130,6 @@ if (A2_BUILD_STATIC)
     set(A2_TEST_LIBRARY liba2_static)
 endif (A2_BUILD_STATIC)
 
-function(add_a2_test exe_name exe_sources)
-    add_executable(${exe_name} ${exe_sources})
-    add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
-    target_link_libraries(${exe_name} PRIVATE ${A2_TEST_LIBRARY})
-    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
-endfunction(add_a2_test)
-
 if(MVME_BUILD_TESTS)
     function(add_a2_bench exe_name exe_sources)
         add_executable(${exe_name} ${exe_sources})
@@ -157,7 +150,6 @@ if(MVME_BUILD_TESTS)
     endfunction(add_a2_bench)
 
     add_a2_bench(test_a2_operators test_operators.cc)
-    #add_a2_bench(test_a2 test_a2.cc)
     add_a2_bench(test_a2_param test_a2_param.cc)
     add_a2_bench(bench_a2 bench_a2.cc)
     add_a2_bench(bench_a2_listfilter bench_listfilter.cc)
@@ -180,6 +172,7 @@ if(MVME_BUILD_TESTS)
         add_executable(${exe_name} ${exe_source})
 
         target_link_libraries(${exe_name}
+            PRIVATE ${A2_TEST_LIBRARY}
             PRIVATE mesytec-mvlc
             PRIVATE gtest
             PRIVATE gtest_main
@@ -189,6 +182,7 @@ if(MVME_BUILD_TESTS)
     endfunction(add_a2_gtest)
 
     add_a2_gtest(test_a2_filter_datasources test_a2_filter_datasources.cc)
+    add_a2_gtest(test_a2 test_a2.cc)
 
 endif(MVME_BUILD_TESTS)
 
