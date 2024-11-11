@@ -2627,26 +2627,26 @@ void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
 
         case 2: // C = (A + B) / (A - B)
             {
-                llO = (ulA + llB) / (ulA - llB);
-                ulO = (llA + ulB) / (llA - ulB);
+                ulO = (ulA + llB) / (ulA - llB);
+                llO = (llA + ulB) / (llA - ulB);
             } break;
 
         case 3: // C = (A - B) / (A + B)
             {
-                llO = (ulA - ulB) / (ulA + ulB);
-                ulO = (llA - llB) / (llA + llB);
+                llO = -1.0 * (1u << 16);
+                ulO = +1.0 * (1u << 16);
             } break;
 
         case 4: // C = A / (A - B)
             {
-                llO = ulA / (ulA - llB);
-                ulO = llA / (llA - ulB);
+                ulO = ulA / (ulA - llB);
+                llO = llA / (llA - ulB);
             } break;
 
         case 5: // C = (A - B) / A
             {
-                llO = (ulA - llB) / ulA;
-                ulO = (llA - ulB) / llA;
+                llO = -1.0 * (1u << 16);
+                ulO = +1.0 * (1u << 16);
             } break;
 
         case 6: // C = (A * B)
@@ -2657,8 +2657,8 @@ void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
 
         case 7: // C = (A / B)
             {
-                llO = (llA / ulB);
-                ulO = (ulA / llB);
+                llO = -1.0 * (1u << 16);
+                ulO = +1.0 * (1u << 16);
             } break;
     }
 
