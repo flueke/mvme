@@ -4,6 +4,7 @@
 #include <QClipboard>
 #include <QCheckBox>
 #include <QMenu>
+#include <QStack>
 #include <QTimer>
 
 //#include <mesytec-mvlc/util/algo.h>
