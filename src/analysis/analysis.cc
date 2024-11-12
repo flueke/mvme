@@ -2405,116 +2405,19 @@ void RectFilter2D::write(QJsonObject &json) const
 struct EquationImpl
 {
     const QString displayString;
-    // args are (inputA, inputB, output)
-    void (*impl)(const ParameterVector &, const ParameterVector &, ParameterVector &);
 };
 
 // Do not reorder the array as indexes are stored in config files!
 static const QVector<EquationImpl> EquationImpls =
 {
-    { QSL("C = A + B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = a[i].valid && b[i].valid;
-                o[i].value = a[i].value +  b[i].value;
-            }
-        }
-    },
-
-    { QSL("C = A - B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = a[i].valid && b[i].valid;
-                o[i].value = a[i].value -  b[i].value;
-            }
-        }
-    },
-
-    { QSL("C = (A + B) / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value + b[i].value) / (a[i].value - b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = (A - B) / (A + B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value + b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value - b[i].value) / (a[i].value + b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = A / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = a[i].value / (a[i].value - b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = (A - B) / A"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value - b[i].value) / a[i].value;
-                }
-            }
-        }
-    },
-
-    { QSL("C = A * B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid);
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value * b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = A / B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value / b[i].value);
-                }
-            }
-        }
-    },
+    { QSL("C = A + B")    },                // 0
+    { QSL("C = A - B")    },                // 1
+    { QSL("C = (A + B) / (A - B)") },       // 2
+    { QSL("C = (A - B) / (A + B)") },       // 3
+    { QSL("C = A / (A - B)") },             // 4
+    { QSL("C = (A - B) / A") },             // 5
+    { QSL("C = A * B") },                   // 6
+    { QSL("C = A / B") },                   // 7
 };
 
 BinarySumDiff::BinarySumDiff(QObject *parent)
