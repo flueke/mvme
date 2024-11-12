@@ -1829,6 +1829,14 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         formLayout->addRow(QSL("Output Lower Limit"), spin_outputLowerLimit);
         formLayout->addRow(QSL("Output Upper Limit"), spin_outputUpperLimit);
         formLayout->addRow(QSL(""), pb_autoLimits);
+        auto label = make_framed_description_label(QSL(
+                "<b>Note</b>: automatic output limits are set to [-64k, +64k] if divisions are involved. "
+                "Otherwise the limits are calculated based on the input parameter range. Overriding the automatic "
+                "values is always allowed. Parameters outside the range will still be output and can be processed "
+                "by subsequent operators and sinks, but certain properties, e.g. histogram axis scalings, <b>will</b> be "
+                "affected by these limits."
+        ));
+        formLayout->addRow(label);
     }
     else if (auto aggOp = qobject_cast<AggregateOps *>(op))
     {
