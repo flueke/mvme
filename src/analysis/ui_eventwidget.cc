@@ -5161,7 +5161,6 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
             }
         }
     }
-
 }
 
 QTreeWidgetItem *EventWidgetPrivate::getCurrentNode() const
