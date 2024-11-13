@@ -3419,38 +3419,15 @@ inline bool range_check_update(H1D *histo, double x)
 {
     assert(histo);
 
-    /* Instead of calculating the bin and then checking if it under/overflows
-     * this code decides by comparing x to the binnings min and max values.
-     * This is faster. */
+    const auto theBin = get_bin(*histo, x);
 
-    if (x < histo->binning.min)
+    if (theBin == Binning::Underflow && histo->underflow)
     {
-#if 1
-        cerr << __PRETTY_FUNCTION__
-            << " histo=" << histo << ", x < min, x=" << x << ", get_bin=" << get_bin(*histo, x) << endl;
-#endif
-
-        assert(get_bin(*histo, x) == Binning::Underflow);
-        if (histo->underflow)
-            ++(*histo->underflow);
+        ++(*histo->underflow);
     }
-    else if (x >= histo->binning.min + histo->binning.range)
+    else if (theBin == Binning::Overflow && histo->overflow)
     {
-#if 0
-        if (get_bin(*histo, x) != Binning::Overflow)
-        {
-            cerr << __PRETTY_FUNCTION__
-                << " histo=" << histo << ", x >= max, x=" << x << ", get_bin=" << get_bin(*histo, x)
-                << ", binning.min=" << histo->binning.min
-                << ", binning.range=" << histo->binning.range
-                << " => binning.max=" << histo->binning.min + histo->binning.range
-                << endl;
-        }
-#endif
-
-        assert(histo->binning.range == 0.0 || get_bin(*histo, x) == Binning::Overflow);
-        if (histo->overflow)
-            ++(*histo->overflow);
+        ++(*histo->overflow);
     }
     else
         return !std::isnan(x);
@@ -3466,72 +3443,58 @@ inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
     {
         assert(0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
 
-        //s32 bin = static_cast<s32>(get_bin_unchecked(histo->binning, histo->size, x));
-        s32 bin = static_cast<s32>(get_bin_unchecked(x, histo->binning.min, histo->binningFactor));
+        s32 bin1 = static_cast<s32>(get_bin_unchecked(histo->binning, histo->size, x));
+        s32 bin2 = static_cast<s32>(get_bin_unchecked(x, histo->binning.min, histo->binningFactor));
+        assert(bin1 == bin2); (void) bin2;
 
-        histo->data[bin]++;
-        if (histo->entryCount)
-            ++(*histo->entryCount);
+        if (0 <= bin1 && bin1 < histo->size)
+        {
+            histo->data[bin1]++;
+            if (histo->entryCount)
+                ++(*histo->entryCount);
+        }
     }
 }
 
 inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
 {
-    if (x < histo->binnings[H2D::XAxis].min)
+    const auto binX = get_bin(*histo, H2D::XAxis, x);
+    const auto binY = get_bin(*histo, H2D::YAxis, y);
+
+    if (std::isnan(x) || std::isnan(y))
     {
-        assert(get_bin(*histo, H2D::XAxis, x) == Binning::Underflow);
-        histo->underflow++;
+        // pass for now (TODO: record nan counts?)
     }
-    else if (x >= histo->binnings[H2D::XAxis].min + histo->binnings[H2D::XAxis].range)
+    else if (binX == Binning::Underflow)
     {
-        assert(get_bin(*histo, H2D::XAxis, x) == Binning::Overflow);
+        histo->underflow++; // TODO: keep separate over/underflow values for x and y
+    }
+    else if (binX == Binning::Overflow)
+    {
         histo->overflow++;
     }
-    else if (y < histo->binnings[H2D::YAxis].min)
+    else if (binY == Binning::Underflow)
     {
-        assert(get_bin(*histo, H2D::YAxis, y) == Binning::Underflow);
         histo->underflow++;
     }
-    else if (y >= histo->binnings[H2D::YAxis].min + histo->binnings[H2D::YAxis].range)
+    else if (binY == Binning::Overflow)
     {
-        assert(get_bin(*histo, H2D::YAxis, y) == Binning::Overflow);
         histo->overflow++;
-    }
-    else if (std::isnan(x) || std::isnan(y))
-    {
-        // pass for now
     }
     else if (likely(1))
     {
-        auto theXBin = get_bin(*histo, H2D::XAxis, x);
-        auto theYBin = get_bin(*histo, H2D::YAxis, y);
-
-        assert(0 <= get_bin(*histo, H2D::XAxis, x)
-               && get_bin(*histo, H2D::XAxis, x) < histo->binCounts[H2D::XAxis]);
-
-        assert(0 <= get_bin(*histo, H2D::YAxis, y)
-               && get_bin(*histo, H2D::YAxis, y) < histo->binCounts[H2D::YAxis]);
-
-        s32 xBin = static_cast<s32>(get_bin_unchecked(
-                x,
-                histo->binnings[H2D::XAxis].min,
-                histo->binningFactors[H2D::XAxis]));
-
-        s32 yBin = static_cast<s32>(get_bin_unchecked(
-                y,
-                histo->binnings[H2D::YAxis].min,
-                histo->binningFactors[H2D::YAxis]));
-
-        s32 linearBin = yBin * histo->binCounts[H2D::XAxis] + xBin;
+        const s32 linearBin = binY * histo->binCounts[H2D::XAxis] + binX;
 
         a2_trace("x=%lf, y=%lf, xBin=%d, yBin=%d, linearBin=%d\n",
-                 x, y, xBin, yBin, linearBin);
-
+                 x, y, binX, binY, linearBin);
 
         assert(0 <= linearBin && linearBin < histo->size);
 
-        histo->data[linearBin]++;
-        histo->entryCount++;
+        if (0 <= linearBin && linearBin < histo->size)
+        {
+            histo->data[linearBin]++;
+            histo->entryCount++;
+        }
     }
 }
 

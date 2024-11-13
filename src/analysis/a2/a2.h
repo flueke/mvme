@@ -659,7 +659,7 @@ Operator make_h2d_sink(
 // Histogram and bin handling support functions
 inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
 {
-    return (x - binning.min) * binCount / binning.range;
+    return (x - binning.min) * (binCount / binning.range);
 }
 
 // binMin = binning.min
