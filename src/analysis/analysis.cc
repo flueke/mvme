@@ -2565,6 +2565,12 @@ void BinarySumDiff::read(const QJsonObject &json)
     m_outputUnitLabel  = json["outputUnitLabel"].toString();
     m_outputLowerLimit = json["outputLowerLimit"].toDouble();
     m_outputUpperLimit = json["outputUpperLimit"].toDouble();
+
+    // Fix for data written by mvme <= 1.14.4 which had the limits swapped.
+    if (m_outputLowerLimit > m_outputUpperLimit)
+    {
+        std::swap(m_outputLowerLimit, m_outputUpperLimit);
+    }
 }
 
 void BinarySumDiff::write(QJsonObject &json) const
