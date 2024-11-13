@@ -110,8 +110,12 @@ QJsonArray collect_h2d_stats(const MVMEContext &mvmeContext)
             QJsonObject histoJ;
 
             histoJ["entryCount(a2)"] = data->histo.entryCount;
-            histoJ["underflow"] = data->histo.underflow;
-            histoJ["overflow"] = data->histo.overflow;
+            histoJ["nansX"] = data->histo.nans[a2::H2D::Axis::XAxis];
+            histoJ["nansY"] = data->histo.nans[a2::H2D::Axis::YAxis];
+            histoJ["underflowsX"] = data->histo.underflows[a2::H2D::Axis::XAxis];
+            histoJ["underflowsY"] = data->histo.underflows[a2::H2D::Axis::YAxis];
+            histoJ["overflowsX"] = data->histo.overflows[a2::H2D::Axis::XAxis];
+            histoJ["overflowsY"] = data->histo.overflows[a2::H2D::Axis::YAxis];
 
             if (const auto a1_h2d = sink->getHisto())
             {

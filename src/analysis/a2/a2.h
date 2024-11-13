@@ -600,9 +600,11 @@ struct H1D: public ParamVec
     double binningFactor;
     // TODO: do not use pointers for these. copy them into the ui when needed!
     size_t *entryCount;
+
+    // invalid inputs are counted here. Check order is: NaN, underflow, overflow
+    double nans;
     double *underflow;
     double *overflow;
-    double *nans;
 };
 
 Operator make_h1d_sink(
@@ -639,8 +641,12 @@ struct H2D: public ParamVec
     Binning binnings[AxisCount];
     double binningFactors[AxisCount];
     double entryCount;
-    double underflow;
-    double overflow;
+
+    // invalid inputs are counted here. Check order is: X-NaN, Y-NaN,
+    // X-underflow, X-overflow, Y-underflow, Y-overflow
+    double nans[AxisCount];
+    double underflows[AxisCount];
+    double overflows[AxisCount];
 };
 
 struct H2DSinkData

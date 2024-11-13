@@ -3421,8 +3421,7 @@ inline bool range_check_update(H1D *histo, double x)
 
     if (std::isnan(x))
     {
-        if (histo->nans)
-            ++(*histo->nans);
+        ++histo->nans;
         return false;
     }
 
@@ -3470,25 +3469,29 @@ inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
     const auto binX = get_bin(*histo, H2D::XAxis, x);
     const auto binY = get_bin(*histo, H2D::YAxis, y);
 
-    if (std::isnan(x) || std::isnan(y))
+    if (std::isnan(x))
     {
-        // pass for now (TODO: record nan counts?)
+        ++histo->nans[H2D::XAxis];
+    }
+    else if (std::isnan(y))
+    {
+        ++histo->nans[H2D::YAxis];
     }
     else if (binX == Binning::Underflow)
     {
-        histo->underflow++; // TODO: keep separate over/underflow values for x and y
+        ++histo->underflows[H2D::XAxis];
     }
     else if (binX == Binning::Overflow)
     {
-        histo->overflow++;
+        ++histo->overflows[H2D::XAxis];
     }
     else if (binY == Binning::Underflow)
     {
-        histo->underflow++;
+        ++histo->underflows[H2D::YAxis];
     }
     else if (binY == Binning::Overflow)
     {
-        histo->overflow++;
+        ++histo->overflows[H2D::YAxis];
     }
     else if (likely(1))
     {
