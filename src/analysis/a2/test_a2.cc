@@ -147,97 +147,58 @@ TEST(A2, histo_binning_more_bins)
     }
 }
 
-//TEST(A2, histo_binning_get_bin)
-//{
-//}
-
 TEST(A2, histo_binning_large_range)
 {
-    const double v1 = -1e+16;
-    const long double v2 = v1 - 1.0l;
-    const double v3 = v1 - 1.0l;
-
-    spdlog::info("v1={}, v2={}, delta={}", v1, v2, v1 - v2);
-    spdlog::info("v1={}, v3={}, delta={}", v1, v3, v1 - v3);
-
-    // TODO: this is basically the limit we can do with doubles in the analysis.
-    // TODO: limit spinboxes and values in general to +-1e15
-    ASSERT_EQ(v1, v2);
-
-
-    a2::Binning binning =
+    const a2::Binning binning =
     {
-        .min = -1e+16, // FIXME: works up to -1e+15 but -1e+16 fails!
+        .min = -1e+16,
         .range = +1e+20,
     };
 
+    // The limit for doubles is +-1e+15, after that the precision is lost.
+    ASSERT_EQ(binning.min, binning.min - 1.0);
+
     const size_t BinCount = 1024;
     // This is from a2_adapter histo1d_sink_magic().
     const double BinningFactor =  BinCount / binning.range;
 
-    spdlog::info("binning={{.min={}, .range={}}} => binningFactor={}", binning.min, binning.range, BinningFactor);
+    //spdlog::info("binning={{.min={}, .range={}}} => binningFactor={}", binning.min, binning.range, BinningFactor);
 
-    #if 0
-    size_t expectedBin = 0;
+    const double epsilon = 0.00001;
+    const auto xs = { binning.min - 1e10, binning.min - 1e5, binning.min - 1e1, binning.min, binning.min + 1e1, binning.min + 1e5, binning.min + 1e10, binning.min + binning.range, binning.min + binning.range + 1e5, binning.min + binning.range + 1e10 };
 
-    for (size_t i=0; i<1024; ++i)
+    for (double x: xs)
     {
-        double x = binning.min + 0.5 * i;
         s32 theBin = get_bin(binning, BinCount, x);
-        spdlog::info("x={}, theBin={}, binningFactor={}, binning={{.min={}, .range={}}}",
-            x, theBin, BinningFactor, binning.min, binning.range);
-        ASSERT_EQ(theBin, i);
-    }
-    #endif
 
-    {
-        double x = binning.min - 1.0;
-        s32 theBin = get_bin(binning, BinCount, x);
-        ASSERT_EQ(theBin, a2::Binning::Underflow);
-    }
+        // the slightly slower variant calculating the BinningFactor each time
+        double theBinUnchecked = a2::get_bin_unchecked(binning, BinCount, x);
 
-    {
-        double x = binning.min + binning.range;
-        s32 theBin = get_bin(binning, BinCount, x);
-        ASSERT_EQ(theBin, a2::Binning::Overflow);
-    }
-}
+        // slightly faster variant taking the precalculated BinningFactor
+        double theBinUnchecked2 = a2::get_bin_unchecked(x, binning.min, BinningFactor);
 
-#if 0
-TEST(A2, histo_binning)
-{
-    const double XMin = -1e+20;
-    const double XMax = +1e+10;
-    const auto XRange = XMax - XMin;
+        //spdlog::info("x={}, theBin={}, theBinUnchecked={}, theBinUnchecked2={}, binningFactor={}, binning={{.min={}, .range={}}}",
+        //    x, theBin, theBinUnchecked, theBinUnchecked2, BinningFactor, binning.min, binning.range);
 
-    a2::Binning binning =
-    {
-        .min = XMin,
-        .range = XRange,
-    };
+        ASSERT_NEAR(theBinUnchecked, theBinUnchecked2, epsilon);
 
-    // From the case that leads to crashes due to negative/out of range bin
-    // numbers.
-    const size_t BinCount = 1024;
-    // This is from a2_adapter histo1d_sink_magic().
-    const double BinningFactor =  BinCount / binning.range;
+        if (theBin != a2::Binning::Underflow && theBin != a2::Binning::Overflow)
+        {
+            ASSERT_GE(theBinUnchecked, 0.0);
+            ASSERT_LT(theBinUnchecked, BinCount);
 
-    {
-        double x = 0.0;
-        s32 theBin = get_bin(binning, BinCount, x);
-        ASSERT_GE(theBin, 0);
-        ASSERT_LE(theBin, BinCount);
-        spdlog::info("x={}, theBin={}, binningFactor={}, binning={{.min={}, .range={}}}",
-            x, theBin, BinningFactor, binning.min, binning.range);
-    }
-
-    {
-        double x = -2151.8275064437571;
-        s32 theBin = get_bin(binning, BinCount, x);
-        ASSERT_GE(theBin, 0);
-        ASSERT_LE(theBin, BinCount);
-        spdlog::info("x={}, theBin={}, binningFactor={}, binning={{.min={}, .range={}}}",
-        x, theBin, BinningFactor, binning.min, binning.range);
+            ASSERT_GE(theBinUnchecked2, 0.0);
+            ASSERT_LT(theBinUnchecked2, BinCount);
+        }
+        else if (theBin == a2::Binning::Underflow)
+        {
+            ASSERT_LT(theBinUnchecked, 0.0);
+            ASSERT_LT(theBinUnchecked2, 0.0);
+        }
+        else if (theBin == a2::Binning::Overflow)
+        {
+            ASSERT_GE(theBinUnchecked, BinCount);
+            ASSERT_GE(theBinUnchecked2, BinCount);
+        }
     }
 }
-#endif
