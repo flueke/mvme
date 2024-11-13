@@ -598,9 +598,11 @@ struct H1D: public ParamVec
     Binning binning;
     // binningFactor = binCount / binning.range
     double binningFactor;
+    // TODO: do not use pointers for these. copy them into the ui when needed!
     size_t *entryCount;
     double *underflow;
     double *overflow;
+    double *nans;
 };
 
 Operator make_h1d_sink(

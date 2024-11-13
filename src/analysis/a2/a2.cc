@@ -3419,20 +3419,29 @@ inline bool range_check_update(H1D *histo, double x)
 {
     assert(histo);
 
+    if (std::isnan(x))
+    {
+        if (histo->nans)
+            ++(*histo->nans);
+        return false;
+    }
+
     const auto theBin = get_bin(*histo, x);
 
-    if (theBin == Binning::Underflow && histo->underflow)
+    if (theBin == Binning::Underflow)
     {
-        ++(*histo->underflow);
+        if (histo->underflow)
+            ++(*histo->underflow);
+        return false;
     }
-    else if (theBin == Binning::Overflow && histo->overflow)
+    else if (theBin == Binning::Overflow)
     {
-        ++(*histo->overflow);
+        if (histo->overflow)
+            ++(*histo->overflow);
+        return false;
     }
-    else
-        return !std::isnan(x);
 
-    return false;
+    return true;
 }
 
 inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
