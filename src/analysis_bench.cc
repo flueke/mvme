@@ -48,9 +48,10 @@ QJsonArray collect_h1d_stats(const MVMEContext &mvmeContext)
                 const auto &a2_h1d = data->histos[hi];
 
                 QJsonObject statsJ;
-                statsJ["entryCount(a2)"] = static_cast<qint64>(a2_h1d.entryCount ? *a2_h1d.entryCount: 0);
-                statsJ["underflow"] = a2_h1d.underflow ? *a2_h1d.underflow : 0.0;
-                statsJ["overflow"] = a2_h1d.overflow ? *a2_h1d.overflow : 0.0;
+                statsJ["entryCount"] = static_cast<qint64>(a2_h1d.entryCount);
+                statsJ["nans"] = static_cast<qint64>(a2_h1d.nans);
+                statsJ["underflow"] = static_cast<qint64>(a2_h1d.underflows);
+                statsJ["overflow"] = static_cast<qint64>(a2_h1d.overflows);
 
                 if (const auto a1_h1d = sink->getHisto(hi))
                 {

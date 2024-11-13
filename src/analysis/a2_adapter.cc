@@ -670,9 +670,6 @@ DEF_OP_MAGIC(histo1d_sink_magic)
         a2_histo.binning.range = histo->getXMax() - histo->getXMin();
         // binningFactor = binCount / binning.range
         a2_histo.binningFactor = a2_histo.size / a2_histo.binning.range;
-        a2_histo.entryCount = histo->getEntryCountPtr();
-        a2_histo.underflow = histo->getUnderflowPtr();
-        a2_histo.overflow = histo->getOverflowPtr();
 
         histos[i] = a2_histo;
     }

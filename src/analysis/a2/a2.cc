@@ -3422,25 +3422,26 @@ inline bool range_check_update(H1D *histo, double x)
     if (std::isnan(x))
     {
         ++histo->nans;
-        return false;
     }
-
-    const auto theBin = get_bin(*histo, x);
-
-    if (theBin == Binning::Underflow)
+    else
     {
-        if (histo->underflow)
-            ++(*histo->underflow);
-        return false;
-    }
-    else if (theBin == Binning::Overflow)
-    {
-        if (histo->overflow)
-            ++(*histo->overflow);
-        return false;
+        const auto theBin = get_bin(*histo, x);
+
+        if (theBin == Binning::Underflow)
+        {
+            ++histo->underflows;
+        }
+        else if (theBin == Binning::Overflow)
+        {
+            ++histo->overflows;
+        }
+        else
+        {
+            return true;
+        }
     }
 
-    return true;
+    return false;
 }
 
 inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
@@ -3458,8 +3459,7 @@ inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
         if (0 <= bin1 && bin1 < histo->size)
         {
             histo->data[bin1]++;
-            if (histo->entryCount)
-                ++(*histo->entryCount);
+            ++histo->entryCount;
         }
     }
 }
@@ -3504,8 +3504,8 @@ inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
 
         if (0 <= linearBin && linearBin < histo->size)
         {
-            histo->data[linearBin]++;
-            histo->entryCount++;
+            ++histo->data[linearBin];
+            ++histo->entryCount;
         }
     }
 }
@@ -3529,7 +3529,7 @@ void flush(H1D *histo, FillBuffer &buffer)
         histo->data[bin]++;
     }
 
-    (*histo->entryCount) += buffer.used;
+    histo->entryCount += buffer.used;
     buffer.used = 0;
 }
 
@@ -3621,14 +3621,10 @@ void clear_histo(H1D *histo)
 {
     histo->binningFactor = 0.0;
 
-    if (histo->entryCount)
-        *histo->entryCount = 0.0;
-
-    if (histo->underflow)
-        *histo->underflow = 0.0;
-
-    if (histo->overflow)
-        *histo->overflow = 0.0;
+    histo->entryCount = 0.0;
+    histo->nans = 0.0;
+    histo->underflows = 0.0;
+    histo->overflows = 0.0;
 
     std::fill(histo->data, histo->data + histo->size, 0.0);
 }

@@ -598,13 +598,12 @@ struct H1D: public ParamVec
     Binning binning;
     // binningFactor = binCount / binning.range
     double binningFactor;
-    // TODO: do not use pointers for these. copy them into the ui when needed!
-    size_t *entryCount;
+    size_t entryCount;
 
     // invalid inputs are counted here. Check order is: NaN, underflow, overflow
     double nans;
-    double *underflow;
-    double *overflow;
+    double underflows;
+    double overflows;
 };
 
 Operator make_h1d_sink(
@@ -967,8 +966,8 @@ void write_histo(Out &out, H1D histo)
     write_value(out, histo.size);
     write_value(out, histo.binning.min);
     write_value(out, histo.binning.range);
-    write_value(out, histo.underflow);
-    write_value(out, histo.overflow);
+    write_value(out, histo.underflows);
+    write_value(out, histo.overflows);
     write_array(out, histo.data, histo.size);
 }
 
