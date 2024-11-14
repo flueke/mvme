@@ -186,4 +186,72 @@ WaveformCurves make_curves(QColor curvePenColor)
     return result;
 }
 
+inline void maybe_shrink_trace_history(waveforms::TraceHistory &traces, size_t maxDepth)
+{
+    while (traces.size() > maxDepth)
+        traces.pop_back();
+}
+
+inline waveforms::Trace maybe_recycle_trace(waveforms::TraceHistory &traceBuffer, size_t maxDepth)
+{
+    assert(maxDepth > 0);
+
+    waveforms::Trace result;
+
+    if (maxDepth > 0 && traceBuffer.size() >= maxDepth)
+    {
+        result = std::move(traceBuffer.back());
+        traceBuffer.pop_back();
+    }
+
+    result.clear();
+    return result;
+}
+
+void post_process_waveforms(
+    const waveforms::TraceHistories &analysisTraceData,
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor,
+    size_t maxDepth)
+{
+    rawDisplayTraces.resize(analysisTraceData.size());
+    interpolatedDisplayTraces.resize(analysisTraceData.size());
+
+    std::for_each(std::begin(rawDisplayTraces), std::end(rawDisplayTraces),
+        [maxDepth] (auto &traces) { maybe_shrink_trace_history(traces, maxDepth); });
+
+    std::for_each(std::begin(interpolatedDisplayTraces), std::end(interpolatedDisplayTraces),
+        [maxDepth] (auto &traces) { maybe_shrink_trace_history(traces, maxDepth); });
+
+    for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
+    {
+        const auto &inputTraces = analysisTraceData[chan];
+
+        auto &rawDestTraces = rawDisplayTraces[chan];
+        auto &ipolDestTraces = interpolatedDisplayTraces[chan];
+
+        assert(rawDestTraces.size() <= maxDepth);
+        assert(ipolDestTraces.size() <= maxDepth);
+
+        if (!inputTraces.empty())
+        {
+            auto &inputTrace = inputTraces.front();
+
+            auto rawDestTrace = maybe_recycle_trace(rawDestTraces, maxDepth);
+            auto ipolDestTrace = maybe_recycle_trace(ipolDestTraces, maxDepth);
+
+            rawDestTrace.clear();
+            ipolDestTrace.clear();
+
+            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample);
+            waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
+
+            rawDestTraces.push_front(std::move(rawDestTrace));
+            ipolDestTraces.push_front(std::move(ipolDestTrace));
+        }
+    }
+}
+
 }

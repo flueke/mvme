@@ -297,6 +297,24 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
 
 WaveformCurves make_curves(QColor curvePenColor = Qt::black);
 
+struct WaveformProcessingData
+{
+    waveforms::TraceHistories &analysisTraceData;
+    waveforms::TraceHistories &rawDisplayTraces;
+    waveforms::TraceHistories &interpolatedDisplayTraces;
+};
+
+// For each channel in analysisTraceData: scale x by dtSample then interpolate
+// while limiting each channels history to maxDepth. Trace memory is reused once
+// maxDepth is reached.
+void post_process_waveforms(
+    const waveforms::TraceHistories &analysisTraceData,
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor,
+    size_t maxDepth);
+
 #if 0
 class WaveformPlotWidget: public histo_ui::PlotWidget, public IWaveformPlotter
 {

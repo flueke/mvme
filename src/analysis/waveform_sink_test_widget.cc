@@ -7,7 +7,6 @@
 #include <QStack>
 #include <QTimer>
 
-//#include <mesytec-mvlc/util/algo.h>
 #include <mesytec-mvlc/util/stopwatch.h>
 
 #include "analysis_service_provider.h"
@@ -27,22 +26,6 @@ inline QSpinBox *add_maxdepth_spin(QToolBar *toolbar)
     result->setValue(10);
     auto boxStruct = make_vbox_container(QSL("Max Traces"), result, 0, -2);
     toolbar->addWidget(boxStruct.container.release());
-    return result;
-}
-
-inline waveforms::Trace maybe_recycle_trace(waveforms::TraceHistory &traceBuffer, size_t maxDepth)
-{
-    assert(maxDepth > 0);
-
-    waveforms::Trace result;
-
-    if (traceBuffer.size() >= maxDepth)
-    {
-        result = std::move(traceBuffer.back());
-        traceBuffer.pop_back();
-    }
-
-    result.clear();
     return result;
 }
 
@@ -68,7 +51,6 @@ namespace analysis
 {
 
 static const int ReplotInterval_ms = 100;
-static const int CopyFromAnalysisInterval_ms = 100;
 
 struct WaveformSinkDontKnowYetWidget::Private
 {
@@ -79,7 +61,6 @@ struct WaveformSinkDontKnowYetWidget::Private
     std::vector<waveforms::WaveformPlotCurveHelper::Handle> waveformHandles_;
 
     waveforms::TraceHistories analysisTraceData_;
-    bool dataUpdated_ = false;
 
     // Post processed trace data. One history buffer per channel in the source
     // sink. A new trace is prepended to each history buffer every ReplotInterval_ms.
@@ -88,7 +69,6 @@ struct WaveformSinkDontKnowYetWidget::Private
 
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
-    QTimer copyFromAnalysisTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
 
     QSpinBox *channelSelect_ = nullptr;
@@ -104,7 +84,7 @@ struct WaveformSinkDontKnowYetWidget::Private
     QRectF maxBoundingRect_;
     QPushButton *pb_resetBoundingRect = nullptr;
 
-    void updateDataFromAnalysis();
+    bool updateDataFromAnalysis(); // Returns true if new data was copied, false if the data was unchanged.
     void postProcessData();
     void updateUi();
     void makeInfoText(std::ostringstream &oss);
@@ -126,7 +106,6 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     d->asp_ = asp;
     d->curveHelper_ = waveforms::WaveformPlotCurveHelper(getPlot());
     d->replotTimer_.setInterval(ReplotInterval_ms);
-    d->copyFromAnalysisTimer_.setInterval(CopyFromAnalysisInterval_ms);
 
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
     histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
@@ -207,9 +186,6 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSinkDontKnowYetWidget::replot);
     d->replotTimer_.start();
 
-    //connect(&d->copyFromAnalysisTimer_, &QTimer::timeout, this, [this] { d->updateDataFromAnalysis(); });
-    //d->copyFromAnalysisTimer_.start();
-
     d->geoSaver_ = new WidgetGeometrySaver(this);
     d->geoSaver_->addAndRestore(this, "WindowGeometries/WaveformSinkDontKnowYetWidget");
 }
@@ -218,15 +194,17 @@ WaveformSinkDontKnowYetWidget::~WaveformSinkDontKnowYetWidget()
 {
 }
 
-void WaveformSinkDontKnowYetWidget::Private::updateDataFromAnalysis()
+bool WaveformSinkDontKnowYetWidget::Private::updateDataFromAnalysis()
 {
     auto newAnalysisTraceData = sink_->getTraceHistories();
 
     if (newAnalysisTraceData != analysisTraceData_)
     {
         analysisTraceData_ = newAnalysisTraceData;
-        dataUpdated_ = true;
+        return true;
     }
+
+    return false;
 }
 
 void WaveformSinkDontKnowYetWidget::Private::postProcessData()
@@ -235,52 +213,20 @@ void WaveformSinkDontKnowYetWidget::Private::postProcessData()
     // traces will have been interpolated with the previously set dtSample.
     // Could actually redo the sampling by just forcing x values to be
     // index*dtSample again, then reinterpolating each of the older traces... :)
-    // TODO: when a run is finished this somehow must stop updating. I still
-    // don't know how to really do this. Timestamp in the sink maybe?
 
     const auto dtSample = spin_dtSample_->value();
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const size_t maxDepth = spin_maxDepth_->value();
-    auto &analysisTraceData = analysisTraceData_;
 
-    // This potentially removes Traces still referenced by underlying
+    // Note: this potentially removes Traces still referenced by underlying
     // QwtPlotCurves. Have to update/delete superfluous curves before calling
-    // replot().
-    rawDisplayTraces_.resize(analysisTraceData.size());
-    interpolatedDisplayTraces_.resize(analysisTraceData.size());
+    // replot()!
 
-    for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
-    {
-        const auto &inputTraces = analysisTraceData[chan];
-
-        auto &rawDestTraces = rawDisplayTraces_[chan];
-        auto &ipolDestTraces = interpolatedDisplayTraces_[chan];
-
-        while (rawDestTraces.size() > maxDepth)
-            rawDestTraces.pop_back();
-
-        while (ipolDestTraces.size() > maxDepth)
-            ipolDestTraces.pop_back();
-
-        if (!inputTraces.empty())
-        {
-            auto &inputTrace = inputTraces.front();
-
-            auto rawDestTrace = maybe_recycle_trace(rawDestTraces, maxDepth);
-            auto ipolDestTrace = maybe_recycle_trace(ipolDestTraces, maxDepth);
-
-            rawDestTrace.clear();
-            ipolDestTrace.clear();
-
-            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample);
-            waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
-
-            rawDestTraces.push_front(std::move(rawDestTrace));
-            ipolDestTraces.push_front(std::move(ipolDestTrace));
-        }
-    }
-
-    dataUpdated_ = false;
+    waveforms::post_process_waveforms(
+        analysisTraceData_,
+        rawDisplayTraces_,
+        interpolatedDisplayTraces_,
+        dtSample, interpolationFactor, maxDepth);
 }
 
 void WaveformSinkDontKnowYetWidget::Private::updateUi()
@@ -303,10 +249,10 @@ void WaveformSinkDontKnowYetWidget::replot()
 {
     spdlog::trace("begin WaveformSinkDontKnowYetWidget::replot()");
 
-    // TODO: use the timer again to decouple pulling the data and the post process and replot steps
-    d->updateDataFromAnalysis();
-    if (d->dataUpdated_)
+    if (d->updateDataFromAnalysis())
+    {
         d->postProcessData();
+    }
     d->updateUi(); // update, selection boxes, buttons, etc.
 
     const auto channelCount = d->rawDisplayTraces_.size();
@@ -375,6 +321,7 @@ void WaveformSinkDontKnowYetWidget::replot()
 
 void WaveformSinkDontKnowYetWidget::Private::makeInfoText(std::ostringstream &out)
 {
+    out << "TODO: Write me please!";
 }
 
 void WaveformSinkDontKnowYetWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
