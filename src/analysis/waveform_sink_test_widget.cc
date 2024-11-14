@@ -304,6 +304,14 @@ void WaveformSinkDontKnowYetWidget::replot()
             set_curve_alpha(curves.interpolatedCurve, alpha);
         }
     }
+    else
+    {
+        while (!d->waveformHandles_.empty())
+        {
+            d->curveHelper_.takeWaveform(d->waveformHandles_.back());
+            d->waveformHandles_.pop_back();
+        }
+    }
 
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
