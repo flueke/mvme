@@ -3658,6 +3658,10 @@ s32 WaveformSink::getNumberOfSlots() const
 
 void WaveformSink::clearState()
 {
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+#endif
+
     d->traceHistories_.access()->clear();
 }
 
