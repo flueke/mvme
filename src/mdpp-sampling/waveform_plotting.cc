@@ -10,8 +10,11 @@ QRectF update_plot_axes(QwtPlot *plot, QwtPlotZoomer *zoomer, const QRectF &newB
     {
         auto xMin = newBoundingRect.left();
         auto xMax = newBoundingRect.right();
-        auto yMax = newBoundingRect.bottom();
         auto yMin = newBoundingRect.top();
+        auto yMax = newBoundingRect.bottom();
+
+        if (xMin > xMax) std::swap(xMin, xMax); // just in case the limits are
+        if (yMin > yMax) std::swap(yMin, yMax); // still swapped for some reason
 
         spdlog::trace("forcing axis scales to: xMin={}, xMax={}, yMin={}, yMax={}", xMin, xMax, yMin, yMax);
 

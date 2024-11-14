@@ -52,10 +52,10 @@ QRectF calculate_trace_bounding_rect(const T &xs, const T &ys)
     auto [xmin, xmax] = std::make_pair(*xminmax.first, *xminmax.second);
     auto [ymin, ymax] = std::make_pair(*yminmax.first, *yminmax.second);
 
-    QPointF topLeft(xmin, ymax);
-    QPointF bottomRight(xmax, ymin);
+    QPointF p0(xmin, ymin);
+    QPointF p1(xmax, ymax);
 
-    return QRectF(topLeft, bottomRight);
+    return QRectF(p0, p1);
 }
 
 inline QRectF calculate_trace_bounding_rect(const Trace &trace)
