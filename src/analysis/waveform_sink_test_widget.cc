@@ -240,7 +240,7 @@ void set_curve_alpha(QwtPlotCurve *curve, double alpha)
 {
     auto pen = curve->pen();
     auto penColor = pen.color();
-    penColor.setAlphaF(alpha);
+    penColor.setAlphaF(std::min(alpha, 1.0));
     pen.setColor(penColor);
     curve->setPen(pen);
 }
