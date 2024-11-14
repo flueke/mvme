@@ -10,11 +10,23 @@ Version 1.15.0-rc
 * vme_templates: add eventHeaderFilter to the mvlc_event_stamper module. This
   make the stamper work with multi-event readouts.
 
-* Support the new MVLC smart transaction retry mechanism in MVLC FW0039. This
-  ensures that VME transactions are never executed more than once, even in the
-  face of ETH packet loss.
+* mvlc:
 
-* mvlc: various fixes and improvements from the mesytec-mvlc driver library.
+  - Support the new MVLC smart transaction retry mechanism in MVLC FW0039. This
+    ensures that VME transactions are never executed more than once, even in the
+    face of ETH packet loss.
+
+  - Various fixes and improvements from the mesytec-mvlc driver library.
+
+* analysis:
+
+  - Fix a crash when opening a histogram sink without any allocated histograms.
+
+  - Fix output limit calculations for the ``BinarySumDiff`` operator. Swap
+    inverted limits on analysis load.
+
+  - Fix some crashes in the histogram accumulation code where calculated bin
+    numbers could become negative when extreme input limits were used.
 
 Version 1.14.4
 --------------------------------------------------
