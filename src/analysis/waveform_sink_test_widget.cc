@@ -84,6 +84,10 @@ struct WaveformSinkDontKnowYetWidget::Private
     QRectF maxBoundingRect_;
     QPushButton *pb_resetBoundingRect = nullptr;
 
+    bool selectedChannelChanged_ = false;
+    bool dtSampleChanged_ = false;
+    bool interpolationFactorChanged_ = false;
+
     bool updateDataFromAnalysis(); // Returns true if new data was copied, false if the data was unchanged.
     void postProcessData();
     void updateUi();
@@ -155,6 +159,7 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
             d->maxBoundingRect_ = {};
             d->zoomer_->setZoomStack(QStack<QRectF>(), -1);
             d->zoomer_->zoom(0);
+            replot();
         });
     }
 
@@ -162,6 +167,12 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
 
     d->pb_printInfo_ = new QPushButton("Show Info");
     tb->addWidget(d->pb_printInfo_);
+
+    #ifndef NDEBUG
+    auto pb_replot = new QPushButton("replot");
+    tb->addWidget(pb_replot);
+    connect(pb_replot, &QPushButton::clicked, this, &WaveformSinkDontKnowYetWidget::replot);
+    #endif
 
     tb->addSeparator();
 
@@ -181,7 +192,14 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
 
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
-    connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged), this, &WaveformSinkDontKnowYetWidget::replot);
+    connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged),
+        this, [this] { d->selectedChannelChanged_ = true; replot(); });
+
+    connect(d->spin_dtSample_, qOverload<double>(&QDoubleSpinBox::valueChanged),
+        this, [this] { d->dtSampleChanged_ = true; replot(); });
+
+    connect(d->spin_interpolationFactor_, qOverload<int>(&QSpinBox::valueChanged),
+        this, [this] { d->interpolationFactorChanged_ = true; replot(); });
 
     connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSinkDontKnowYetWidget::replot);
     d->replotTimer_.start();
@@ -200,7 +218,7 @@ bool WaveformSinkDontKnowYetWidget::Private::updateDataFromAnalysis()
 
     if (newAnalysisTraceData != analysisTraceData_)
     {
-        analysisTraceData_ = newAnalysisTraceData;
+        std::swap(analysisTraceData_, newAnalysisTraceData);
         return true;
     }
 
@@ -249,7 +267,11 @@ void WaveformSinkDontKnowYetWidget::replot()
 {
     spdlog::trace("begin WaveformSinkDontKnowYetWidget::replot()");
 
-    if (d->updateDataFromAnalysis())
+    const bool forceProcessing = d->selectedChannelChanged_ || d->dtSampleChanged_ || d->interpolationFactorChanged_;
+    d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = false;
+
+
+    if (d->updateDataFromAnalysis() || forceProcessing)
     {
         d->postProcessData();
     }
