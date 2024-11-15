@@ -158,6 +158,12 @@ void WaveformPlotCurveHelper::setInterpolatedSymbolsVisible(Handle handle, bool 
     }
 }
 
+size_t WaveformPlotCurveHelper::size() const
+{
+    return std::count_if(std::begin(waveforms_), std::end(waveforms_),
+        [](const auto &curves) { return curves.rawCurve && curves.interpolatedCurve; });
+}
+
 std::unique_ptr<QwtSymbol> make_symbol(QwtSymbol::Style style = QwtSymbol::Diamond, QColor color = Qt::red)
 {
     auto result = std::make_unique<QwtSymbol>(style);
@@ -237,6 +243,7 @@ void post_process_waveforms(
 
         assert(rawDestTraces.size() <= maxDepth);
         assert(ipolDestTraces.size() <= maxDepth);
+        assert(rawDestTraces.size() == ipolDestTraces.size());
 
         if (!inputTraces.empty())
         {
@@ -254,6 +261,10 @@ void post_process_waveforms(
             rawDestTraces.push_front(std::move(rawDestTrace));
             ipolDestTraces.push_front(std::move(ipolDestTrace));
         }
+
+        assert(rawDestTraces.size() <= maxDepth);
+        assert(ipolDestTraces.size() <= maxDepth);
+        assert(rawDestTraces.size() == ipolDestTraces.size());
     }
 }
 

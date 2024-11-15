@@ -278,7 +278,8 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
         void setRawSymbolsVisible(Handle handle, bool visible);
         void setInterpolatedSymbolsVisible(Handle handle, bool visible);
 
-        size_t size() const { return waveforms_.size(); }
+        size_t size() const;
+        size_t capacity() const { return waveforms_.size(); };
 
     private:
 
@@ -304,9 +305,10 @@ struct WaveformProcessingData
     waveforms::TraceHistories &interpolatedDisplayTraces;
 };
 
-// For each channel in analysisTraceData: scale x by dtSample then interpolate
-// while limiting each channels history to maxDepth. Trace memory is reused once
-// maxDepth is reached.
+// For each channel in analysisTraceData:
+// - take the latest trace from the front of the channels trace history,
+// - scale x by dtSample then interpolate while limiting each channels history to maxDepth.
+// Trace memory is reused once maxDepth is reached.
 void post_process_waveforms(
     const waveforms::TraceHistories &analysisTraceData,
     waveforms::TraceHistories &rawDisplayTraces,
@@ -314,29 +316,6 @@ void post_process_waveforms(
     double dtSample,
     int interpolationFactor,
     size_t maxDepth);
-
-#if 0
-class WaveformPlotWidget: public histo_ui::PlotWidget, public IWaveformPlotter
-{
-    Q_OBJECT
-    public:
-        using Handle = size_t;
-
-        WaveformPlotWidget(QWidget *parent = nullptr);
-        ~WaveformPlotWidget() override;
-
-        Handle addWaveform(WaveformCurves &&data) override;
-        WaveformCurves takeWaveform(Handle handle) override;
-        RawWaveformCurves getWaveform(Handle handle) const override;
-        bool detachWaveform(Handle handle);
-        QwtPlotCurve *getRawCurve(Handle handle) override;
-        QwtPlotCurve *getInterpolatedCurve(Handle handle) override;
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
-#endif
 
 }
 
