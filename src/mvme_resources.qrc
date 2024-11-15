@@ -1,6 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
     <!-- icons -->
+    <file>resources/asterisk.png</file>
     <file alias="analysis_module_import.png">resources/script-import.png</file>
     <file alias="arrow-circle-double.png">resources/arrow-circle-double.png</file>
     <file alias="arrow_down.png">resources/arrow-270.png</file>
@@ -46,6 +47,7 @@
     <file alias="histo_resolution.png">resources/grid.png</file>
     <file alias="grid.png">resources/grid.png</file>
     <file alias="histo_subrange.png">resources/selection-resize.png</file>
+    <file alias="selection-resize.png">resources/selection-resize.png</file>
     <file alias="info.png">resources/dialog-information.png</file>
     <file alias="list_add.png">resources/list-add.png</file>
     <file alias="list-add.png">resources/list-add.png</file>
