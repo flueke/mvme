@@ -122,6 +122,8 @@ struct QwtSymbolCache
 QwtSymbolCache make_cache_from_symbol(const QwtSymbol *symbol);
 std::unique_ptr<QwtSymbol> make_symbol_from_cache(const QwtSymbolCache &cache);
 
+// Sets both brush and pen alpha.
+void set_symbol_cache_alpha(QwtSymbolCache &cache, double alpha);
 
 } // end namespace mvme_qwt
 

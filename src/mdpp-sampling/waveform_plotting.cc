@@ -158,6 +158,20 @@ void WaveformPlotCurveHelper::setInterpolatedSymbolsVisible(Handle handle, bool 
     }
 }
 
+mvme_qwt::QwtSymbolCache WaveformPlotCurveHelper::getRawSymbolCache(Handle handle) const
+{
+    if (auto data = getWaveformData(handle))
+        return data->rawSymbolCache;
+    return {};
+}
+
+mvme_qwt::QwtSymbolCache WaveformPlotCurveHelper::getInterpolatedSymbolCache(Handle handle) const
+{
+    if (auto data = getWaveformData(handle))
+        return data->interpolatedSymbolCache;
+    return {};
+}
+
 size_t WaveformPlotCurveHelper::size() const
 {
     return std::count_if(std::begin(waveforms_), std::end(waveforms_),

@@ -343,4 +343,21 @@ std::unique_ptr<QwtSymbol> make_symbol_from_cache(const QwtSymbolCache &cache)
     return result;
 }
 
+void set_symbol_cache_alpha(QwtSymbolCache &cache, double alpha)
+{
+    auto brushColor = cache.brush.color();
+    brushColor.setAlphaF(alpha);
+    cache.brush.setColor(brushColor);
+    auto penColor = cache.pen.color();
+    penColor.setAlphaF(alpha);
+    cache.pen.setColor(penColor);
+}
+
+QwtSymbolCache set_brush_and_pen_colors(const QwtSymbolCache &cache, const QColor &color)
+{
+    auto result = cache;
+    result.brush.setColor(color);
+    result.pen.setColor(color);
+}
+
 } // end namespace mvme_qwt

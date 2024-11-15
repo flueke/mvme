@@ -4550,7 +4550,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                        auto widget = new analysis::WaveformSinkDontKnowYetWidget(sinkPtr, m_serviceProvider);
                         m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                     }
                     else

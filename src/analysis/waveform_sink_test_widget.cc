@@ -6,6 +6,7 @@
 #include <QMenu>
 #include <QStack>
 #include <QTimer>
+#include <qwt_legend.h>
 
 #include <mesytec-mvlc/util/stopwatch.h>
 
@@ -116,6 +117,10 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
 
     setWindowTitle("WaveformSinkDontKnowYetWidget");
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
+
+    auto legend = new QwtLegend;
+    getPlot()->insertLegend(legend, QwtPlot::RightLegend);
+
 
     auto tb = getToolBar();
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -414,79 +419,44 @@ void WaveformSinkDontKnowYetWidget::replot()
             d->curveHelper_.setRawSymbolsVisible(curvesHandle, d->showSampleSymbols_);
             d->curveHelper_.setInterpolatedSymbolsVisible(curvesHandle, d->showInterpolatedSymbols_);
 
-            double alpha = 0.1 + slope * (traceCount - traceIndex);
+            double alpha = std::min(0.1 + slope * (traceCount - traceIndex), 1.0);
             auto thisColor = traceColor;
             thisColor.setAlphaF(alpha);
             set_curve_color(curves.rawCurve, thisColor);
             set_curve_color(curves.interpolatedCurve, thisColor);
 
+            if (d->showSampleSymbols_)
+            {
+                auto symCache = d->curveHelper_.getRawSymbolCache(curvesHandle);
+                mvme_qwt::set_symbol_cache_alpha(symCache, alpha);
+                auto newSymbol = mvme_qwt::make_symbol_from_cache(symCache);
+                curves.rawCurve->setSymbol(newSymbol.release());
+            }
+
+            if (d->showInterpolatedSymbols_)
+            {
+                auto symCache = d->curveHelper_.getInterpolatedSymbolCache(curvesHandle);
+                mvme_qwt::set_symbol_cache_alpha(symCache, alpha);
+                auto newSymbol = mvme_qwt::make_symbol_from_cache(symCache);
+                curves.interpolatedCurve->setSymbol(newSymbol.release());
+            }
+
+            curves.rawCurve->setItemAttribute(QwtPlotItem::Legend, false);
+            curves.interpolatedCurve->setItemAttribute(QwtPlotItem::Legend, traceIndex == 0);
+            curves.interpolatedCurve->setTitle(fmt::format("Channel {}", chanIndex).c_str());
+
             ++absTraceIndex;
 
-            newBoundingRect = newBoundingRect.united(ipolData->boundingRect()); // TODO: move this out of here
+            newBoundingRect = newBoundingRect.united(ipolData->boundingRect());
         }
     }
 
     assert(d->waveformHandles_.size() == d->curveHelper_.size());
 
-    #if 0
-    if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) < channelCount)
-    {
-        auto &rawTraces = d->rawDisplayTraces_[selectedChannel];
-        auto &ipolTraces = d->interpolatedDisplayTraces_[selectedChannel];
-
-        assert(rawTraces.size() == ipolTraces.size());
-
-        while (d->waveformHandles_.size() < rawTraces.size())
-        {
-            auto cd = make_curves_with_data();
-            d->waveformHandles_.push_back(d->curveHelper_.addWaveform(std::move(cd.curves)));
-        }
-
-        while (d->waveformHandles_.size() > rawTraces.size())
-        {
-            d->curveHelper_.takeWaveform(d->waveformHandles_.back());
-            d->waveformHandles_.pop_back();
-        }
-
-        assert(d->waveformHandles_.size() == rawTraces.size());
-
-        const auto traceCount = rawTraces.size();
-        const double slope = (1.0 - 0.1) / traceCount; // want alpha from 1.0 to 0.1
-
-        for (size_t traceIndex = 0; traceIndex < traceCount; ++traceIndex)
-        {
-            auto &rawTrace = rawTraces[traceIndex];
-            auto &ipolTrace = ipolTraces[traceIndex];
-            auto curves = d->curveHelper_.getWaveform(d->waveformHandles_[traceIndex]);
-            auto rawData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.rawCurve->data());
-            auto ipolData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.interpolatedCurve->data());
-            assert(rawData && ipolData);
-            rawData->setTrace(&rawTrace);
-            ipolData->setTrace(&ipolTrace);
-
-            d->curveHelper_.setRawSymbolsVisible(d->waveformHandles_[traceIndex], d->showSampleSymbols_);
-            d->curveHelper_.setInterpolatedSymbolsVisible(d->waveformHandles_[traceIndex], d->showInterpolatedSymbols_);
-
-            newBoundingRect = newBoundingRect.united(ipolData->boundingRect());
-
-            double alpha = 0.1 + slope * (traceCount - traceIndex);
-            set_curve_alpha(curves.rawCurve, alpha);
-            set_curve_alpha(curves.interpolatedCurve, alpha);
-        }
-    }
-    else
-    {
-        while (!d->waveformHandles_.empty())
-        {
-            d->curveHelper_.takeWaveform(d->waveformHandles_.back());
-            d->waveformHandles_.pop_back();
-        }
-    }
-    #endif
-
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
 
+    getPlot()->updateLegend();
     histo_ui::PlotWidget::replot();
 
     std::ostringstream oss;

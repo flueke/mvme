@@ -278,6 +278,9 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
         void setRawSymbolsVisible(Handle handle, bool visible);
         void setInterpolatedSymbolsVisible(Handle handle, bool visible);
 
+        mvme_qwt::QwtSymbolCache getRawSymbolCache(Handle handle) const;
+        mvme_qwt::QwtSymbolCache getInterpolatedSymbolCache(Handle handle) const;
+
         size_t size() const;
         size_t capacity() const { return waveforms_.size(); };
 
