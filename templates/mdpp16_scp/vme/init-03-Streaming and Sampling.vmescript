@@ -4,21 +4,19 @@
 # output_format
 # 0 (default)   -> Standard time and amplitude data.
 # 4 (streaming) -> Since SCP FW2041. Enables streaming mode.
-# TODO: update once the new compact format / standard format flags are in!
-# Individual bits: {no_resampling, sampling, streaming, adc, tdc}
-0x6044 0			# Standard time and amplitude data.
-#0x0644 4			# Streaming mode with default settings.
-#0x6044 0b01100		# Enable both streaming and sampling modes.
+# Individual bits: {no_resampling, sampling, standard streaming, compact streaming, adc, tdc}
+0x6044 0b010000
 
 # Sampling parameter (can be set for all channels or per channel pair)
-0x6100  8		# select_chan_pair, 8 = all channels
+0x6100  8               # select_chan_pair, 8 = all channels
 
-0x6146 20		# number of pre-samples
-0x6148 900		# total samples to output (even number required)
-0x614A 0x00		# sampling settings [3:0]
-			    # 0 = directly from ADC
-				# 1 = after deconvolution of pre-differentiation
-				# 2 = output shaper of timing path
-				# 3 = output shaper of amplitude path
-				# sampling settings [7:4]
-				# bit 7 set: no offset correction
+0x6146 20               # number of pre-samples
+0x6148 50               # total samples to output (even number required)
+0x614A 0b0000'0010      # sampling settings [3:0]
+                        # 0 = directly from ADC
+                        # 1 = after deconvolution of pre-differentiation
+                        # 2 = output shaper of timing path
+                        # 3 = output shaper of amplitude path
+                        # sampling settings [7:4]
+                        # bit 7 set: no offset correction1
+
