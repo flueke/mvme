@@ -577,19 +577,22 @@ void MdppSamplingUi::replot()
 
     if (trace)
     {
-        auto moduleName = d->asp_->getVMEConfig()->getModuleConfig(trace->moduleId)->getObjectPath();
-        auto channel = trace->channel;
-        auto traceIndex = d->traceSelect_->value();
-        auto boundingRect = d->plotWidget_->traceBoundingRect();
-        double yMin = boundingRect.bottom();
-        double yMax = boundingRect.top();
+        if (auto mod = d->asp_->getVMEConfig()->getModuleConfig(trace->moduleId))
+        {
+            auto moduleName = mod->getObjectPath();
+            auto channel = trace->channel;
+            auto traceIndex = d->traceSelect_->value();
+            auto boundingRect = d->plotWidget_->traceBoundingRect();
+            double yMin = boundingRect.bottom();
+            double yMax = boundingRect.top();
 
-        sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #RawSamples=%7, #IpolSamples=%11 yMin=%8, yMax=%9, moduleHeader=0x%10")
-            .arg(moduleName).arg(channel).arg(traceIndex).arg(trace->eventNumber)
-            .arg(trace->amplitude).arg(trace->time).arg(get_raw_sample_count(*trace))
-            .arg(yMin).arg(yMax).arg(trace->header, 8, 16, QLatin1Char('0'))
-            .arg(get_interpolated_sample_count(*trace))
-            );
+            sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #RawSamples=%7, #IpolSamples=%11 yMin=%8, yMax=%9, moduleHeader=0x%10")
+                .arg(moduleName).arg(channel).arg(traceIndex).arg(trace->eventNumber)
+                .arg(trace->amplitude).arg(trace->time).arg(get_raw_sample_count(*trace))
+                .arg(yMin).arg(yMax).arg(trace->header, 8, 16, QLatin1Char('0'))
+                .arg(get_interpolated_sample_count(*trace))
+                );
+        }
     }
 
     spdlog::trace("end MdppSamplingUi::replot()");
