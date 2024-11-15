@@ -24,7 +24,7 @@ inline QSpinBox *add_maxdepth_spin(QToolBar *toolbar)
     result->setMinimum(1);
     result->setMaximum(100);
     result->setValue(10);
-    auto boxStruct = make_vbox_container(QSL("Max Traces"), result, 0, -2);
+    auto boxStruct = make_vbox_container(QSL("Max Visible Traces"), result, 0, -2);
     toolbar->addWidget(boxStruct.container.release());
     return result;
 }
@@ -71,15 +71,18 @@ struct WaveformSinkDontKnowYetWidget::Private
     QTimer replotTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
 
-    QSpinBox *channelSelect_ = nullptr;
+    QSpinBox *spin_chanSelect = nullptr;
+    QCheckBox *cb_showAllChannels_ = nullptr;
+    bool showSampleSymbols_ = false;
+    bool showInterpolatedSymbols_ = false;
+    QAction *actionHold_ = nullptr;
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
     // set both the max number of traces to keep per channel and the number of traces to show in the plot at the same time.
     QSpinBox *spin_maxDepth_ = nullptr;
     QPlainTextEdit *logView_ = nullptr;
-    QCheckBox *cb_sampleSymbols_ = nullptr;
-    QCheckBox *cb_interpolatedSymbols_ = nullptr;
+
     WidgetGeometrySaver *geoSaver_ = nullptr;
     QRectF maxBoundingRect_;
     QPushButton *pb_resetBoundingRect = nullptr;
@@ -111,10 +114,60 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     d->curveHelper_ = waveforms::WaveformPlotCurveHelper(getPlot());
     d->replotTimer_.setInterval(ReplotInterval_ms);
 
+    setWindowTitle("WaveformSinkDontKnowYetWidget");
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
-    histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
+
+    auto tb = getToolBar();
+    tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    //tb->setIconSize(QSize(16, 16));
+    set_widget_font_pointsize(tb, 7);
+
+    auto [chanSelWidget, chanSelLayout] = make_widget_with_layout<QWidget, QGridLayout>();
+    d->spin_chanSelect = new QSpinBox;
+    d->cb_showAllChannels_ = new QCheckBox("All");
+
+    chanSelLayout->addWidget(new QLabel("Channel Select"), 0, 0, 1, 2, Qt::AlignCenter);
+    chanSelLayout->addWidget(d->spin_chanSelect, 1, 0);
+    chanSelLayout->addWidget(d->cb_showAllChannels_, 1, 1);
+
+    tb->addWidget(chanSelWidget);
+    tb->addSeparator();
+
+    //auto actionPrev = tb->addAction(QIcon(":/arrow_left.png"), "Prev");
+    d->actionHold_ = tb->addAction(QIcon(":/control_pause.png"), "Hold");
+    d->actionHold_->setCheckable(true);
+    d->actionHold_->setChecked(false);
+    //auto actionNext = tb->addAction(QIcon(":/arrow_right.png"), "Next");
+
+    tb->addSeparator();
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
-    histo_ui::install_tracker_picker(this);
+    tb->addAction(QIcon(":/selection-resize.png"), QSL("Reset Axes"), this, [this] {
+        d->maxBoundingRect_ = {};
+        d->zoomer_->setZoomStack(QStack<QRectF>(), -1);
+        d->zoomer_->zoom(0);
+        replot();
+    });
+
+    histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
+
+    {
+        auto menu = new QMenu;
+        auto a1 = menu->addAction("Sampled Values", this, [this] { d->showSampleSymbols_ = !d->showSampleSymbols_; replot(); });
+        auto a2 = menu->addAction("Interpolated Values", this, [this] { d->showInterpolatedSymbols_ = !d->showInterpolatedSymbols_; replot(); });
+        for (auto a: {a1, a2})
+        {
+            a->setCheckable(true);
+            a->setChecked(false);
+        }
+        auto button = make_toolbutton(QSL(":/resources/asterisk.png"), QSL("Symbols"));
+        button->setMenu(menu);
+        button->setPopupMode(QToolButton::InstantPopup);
+        tb->addWidget(button);
+    }
+
+    d->spin_maxDepth_ = add_maxdepth_spin(tb);
+
+    //histo_ui::install_tracker_picker(this);
 
     DO_AND_ASSERT(connect(histo_ui::get_zoomer(this), SIGNAL(zoomed(const QRectF &)), this, SLOT(replot())));
 
@@ -126,13 +179,6 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     if (auto trackerPickerAction = findChild<QAction *>("trackerPickerAction"))
         trackerPickerAction->setChecked(true);
 
-    setWindowTitle("WaveformSinkDontKnowYetWidget");
-
-    auto tb = getToolBar();
-
-    tb->addSeparator();
-    d->channelSelect_ = add_channel_select(tb);
-
     tb->addSeparator();
     d->spin_dtSample_ = add_dt_sample_setter(tb);
 
@@ -140,35 +186,11 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
 
     tb->addSeparator();
-    d->spin_maxDepth_ = add_maxdepth_spin(tb);
 
-    tb->addSeparator();
-
-    {
-        d->cb_sampleSymbols_ = new QCheckBox("Sample Symbols");
-        d->cb_sampleSymbols_->setChecked(true);
-        d->cb_interpolatedSymbols_ = new QCheckBox("Interpolated Symbols");
-        d->pb_resetBoundingRect = new QPushButton("Reset Axis Scales");
-        auto [widget, layout] = make_widget_with_layout<QWidget, QVBoxLayout>();
-        layout->addWidget(d->cb_sampleSymbols_);
-        layout->addWidget(d->cb_interpolatedSymbols_);
-        layout->addWidget(d->pb_resetBoundingRect);
-        tb->addWidget(widget);
-
-        connect(d->pb_resetBoundingRect, &QPushButton::clicked, this, [this] {
-            d->maxBoundingRect_ = {};
-            d->zoomer_->setZoomStack(QStack<QRectF>(), -1);
-            d->zoomer_->zoom(0);
-            replot();
-        });
-    }
-
-    tb->addSeparator();
-
-    d->pb_printInfo_ = new QPushButton("Show Info");
+    d->pb_printInfo_ = new QPushButton(QIcon(":/info.png"), "Show Info");
     tb->addWidget(d->pb_printInfo_);
 
-    #ifndef NDEBUG
+    #if 0 // #ifndef NDEBUG
     auto pb_replot = new QPushButton("replot");
     tb->addWidget(pb_replot);
     connect(pb_replot, &QPushButton::clicked, this, &WaveformSinkDontKnowYetWidget::replot);
@@ -192,7 +214,7 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
 
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
-    connect(d->channelSelect_, qOverload<int>(&QSpinBox::valueChanged),
+    connect(d->spin_chanSelect, qOverload<int>(&QSpinBox::valueChanged),
         this, [this] { d->selectedChannelChanged_ = true; replot(); });
 
     connect(d->spin_dtSample_, qOverload<double>(&QDoubleSpinBox::valueChanged),
@@ -239,7 +261,6 @@ void WaveformSinkDontKnowYetWidget::Private::postProcessData()
     // Note: this potentially removes Traces still referenced by underlying
     // QwtPlotCurves. Have to update/delete superfluous curves before calling
     // replot()!
-
     waveforms::post_process_waveforms(
         analysisTraceData_,
         rawDisplayTraces_,
@@ -251,10 +272,17 @@ void WaveformSinkDontKnowYetWidget::Private::updateUi()
 {
     // selector 1: Update the channel number spinbox
     const auto maxChannel = static_cast<signed>(rawDisplayTraces_.size()) - 1;
-    channelSelect_->setMaximum(std::max(maxChannel, channelSelect_->maximum()));
+    spin_chanSelect->setMaximum(std::max(0, maxChannel));
 }
 
-void set_curve_alpha(QwtPlotCurve *curve, double alpha)
+inline void set_curve_color(QwtPlotCurve *curve, const QColor &color)
+{
+    auto pen = curve->pen();
+    pen.setColor(color);
+    curve->setPen(pen);
+}
+
+inline void set_curve_alpha(QwtPlotCurve *curve, double alpha)
 {
     auto pen = curve->pen();
     auto penColor = pen.color();
@@ -263,24 +291,144 @@ void set_curve_alpha(QwtPlotCurve *curve, double alpha)
     curve->setPen(pen);
 }
 
+inline const QVector<QColor> make_plot_colors()
+{
+    static const QVector<QColor> result =
+    {
+        "#000000",
+        "#e6194b",
+        "#3cb44b",
+        "#ffe119",
+        "#0082c8",
+        "#f58231",
+        "#911eb4",
+        "#46f0f0",
+        "#f032e6",
+        "#d2f53c",
+        "#fabebe",
+        "#008080",
+        "#e6beff",
+        "#aa6e28",
+        "#fffac8",
+        "#800000",
+        "#aaffc3",
+        "#808000",
+        "#ffd8b1",
+        "#000080",
+    };
+
+    return result;
+};
+
 void WaveformSinkDontKnowYetWidget::replot()
 {
     spdlog::trace("begin WaveformSinkDontKnowYetWidget::replot()");
 
+    #if 0
     const bool forceProcessing = d->selectedChannelChanged_ || d->dtSampleChanged_ || d->interpolationFactorChanged_;
     d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = false;
+    #else
+    const bool forceProcessing = false;
+    #endif
 
-
-    if (d->updateDataFromAnalysis() || forceProcessing)
+    if (!d->actionHold_->isChecked() && (d->updateDataFromAnalysis() || forceProcessing))
     {
         d->postProcessData();
     }
     d->updateUi(); // update, selection boxes, buttons, etc.
 
-    const auto channelCount = d->rawDisplayTraces_.size();
-    const auto selectedChannel = d->channelSelect_->value();
-    QRectF newBoundingRect = d->maxBoundingRect_;
+    assert(d->waveformHandles_.size() == d->curveHelper_.size());
 
+    static const auto colors = make_plot_colors();
+    const auto channelCount = d->rawDisplayTraces_.size();
+    QRectF newBoundingRect = d->maxBoundingRect_;
+    size_t indexMin = 0;
+    size_t indexMax = channelCount;
+
+    if (!d->cb_showAllChannels_->isChecked())
+    {
+        auto selectedChannel = d->spin_chanSelect->value();
+        selectedChannel = std::clamp(selectedChannel, 0, static_cast<int>(channelCount) - 1);
+        indexMin = selectedChannel;
+        indexMax = selectedChannel + 1;
+    }
+
+    size_t totalTraceEntriesNeeded = 0;
+
+    for (size_t chanIndex = indexMin; chanIndex < indexMax; ++chanIndex)
+    {
+        auto &ipolTraces = d->interpolatedDisplayTraces_.at(chanIndex);
+        const auto traceCount = ipolTraces.size();
+        totalTraceEntriesNeeded += traceCount;
+    }
+
+    assert(d->waveformHandles_.size() == d->curveHelper_.size());
+
+    while (d->curveHelper_.size() < totalTraceEntriesNeeded)
+    {
+        assert(d->waveformHandles_.size() == d->curveHelper_.size());
+        auto cd = make_curves_with_data();
+        d->waveformHandles_.push_back(d->curveHelper_.addWaveform(std::move(cd.curves)));
+        assert(d->waveformHandles_.size() == d->curveHelper_.size());
+    }
+
+    // Clean up old, now unused traces. Important because these can point to
+    // trace data that no longer exists.
+    while (d->curveHelper_.size() > totalTraceEntriesNeeded)
+    {
+        assert(d->waveformHandles_.size() == d->curveHelper_.size());
+        d->curveHelper_.takeWaveform(d->waveformHandles_.back());
+        d->waveformHandles_.pop_back();
+        assert(d->waveformHandles_.size() == d->curveHelper_.size());
+    }
+
+    assert(d->curveHelper_.size() == totalTraceEntriesNeeded);
+    assert(d->waveformHandles_.size() == d->curveHelper_.size());
+
+    size_t absTraceIndex = 0;
+
+    for (size_t chanIndex = indexMin; chanIndex < indexMax; ++chanIndex)
+    {
+        auto &rawTraces = d->rawDisplayTraces_[chanIndex];
+        auto &ipolTraces = d->interpolatedDisplayTraces_[chanIndex];
+        assert(rawTraces.size() == ipolTraces.size());
+
+        const auto traceColor = colors.value((chanIndex - indexMin) % colors.size());
+        const auto traceCount = ipolTraces.size();
+        const double slope = (1.0 - 0.1) / traceCount; // want alpha from 1.0 to 0.1
+
+        for (size_t traceIndex = 0; traceIndex < traceCount; ++traceIndex)
+        {
+            auto &rawTrace = rawTraces[traceIndex];
+            auto &ipolTrace = ipolTraces[traceIndex];
+
+            auto curvesHandle = d->waveformHandles_[absTraceIndex];
+            auto curves = d->curveHelper_.getWaveform(curvesHandle);
+            assert(curves.rawCurve && curves.interpolatedCurve);
+            auto rawData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.rawCurve->data());
+            auto ipolData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.interpolatedCurve->data());
+            assert(rawData && ipolData);
+            rawData->setTrace(&rawTrace);
+            ipolData->setTrace(&ipolTrace);
+
+            d->curveHelper_.setRawSymbolsVisible(curvesHandle, d->showSampleSymbols_);
+            d->curveHelper_.setInterpolatedSymbolsVisible(curvesHandle, d->showInterpolatedSymbols_);
+
+            double alpha = 0.1 + slope * (traceCount - traceIndex);
+            auto thisColor = traceColor;
+            thisColor.setAlphaF(alpha);
+            set_curve_color(curves.rawCurve, thisColor);
+            set_curve_color(curves.interpolatedCurve, thisColor);
+
+            ++absTraceIndex;
+
+            newBoundingRect = newBoundingRect.united(ipolData->boundingRect()); // TODO: move this out of here
+        }
+    }
+
+    assert(d->waveformHandles_.size() == d->curveHelper_.size());
+
+    #if 0
     if (0 <= selectedChannel && static_cast<size_t>(selectedChannel) < channelCount)
     {
         auto &rawTraces = d->rawDisplayTraces_[selectedChannel];
@@ -316,8 +464,8 @@ void WaveformSinkDontKnowYetWidget::replot()
             rawData->setTrace(&rawTrace);
             ipolData->setTrace(&ipolTrace);
 
-            d->curveHelper_.setRawSymbolsVisible(d->waveformHandles_[traceIndex], d->cb_sampleSymbols_->isChecked());
-            d->curveHelper_.setInterpolatedSymbolsVisible(d->waveformHandles_[traceIndex], d->cb_interpolatedSymbols_->isChecked());
+            d->curveHelper_.setRawSymbolsVisible(d->waveformHandles_[traceIndex], d->showSampleSymbols_);
+            d->curveHelper_.setInterpolatedSymbolsVisible(d->waveformHandles_[traceIndex], d->showInterpolatedSymbols_);
 
             newBoundingRect = newBoundingRect.united(ipolData->boundingRect());
 
@@ -334,6 +482,7 @@ void WaveformSinkDontKnowYetWidget::replot()
             d->waveformHandles_.pop_back();
         }
     }
+    #endif
 
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
@@ -356,7 +505,7 @@ void WaveformSinkDontKnowYetWidget::Private::makeInfoText(std::ostringstream &ou
 
 void WaveformSinkDontKnowYetWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
 {
-    auto selectedChannel = channelSelect_->value();
+    auto selectedChannel = spin_chanSelect->value();
     auto visibleTraceCount = waveformHandles_.size();
 
     out << fmt::format("Channel: {}, #Traces: {}", selectedChannel, visibleTraceCount);

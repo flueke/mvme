@@ -36,7 +36,7 @@ inline QDoubleSpinBox *add_dt_sample_setter(QToolBar *toolbar)
     namespace mdpp_sampling = mesytec::mvme::mdpp_sampling;
     auto result = new QDoubleSpinBox;
     result->setMinimum(1.0);
-    result->setMaximum(1e9);
+    result->setMaximum(1e3);
     result->setSingleStep(0.1);
     result->setSuffix(" ns");
     result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
@@ -64,7 +64,7 @@ inline QSpinBox *add_interpolation_factor_setter(QToolBar *toolbar)
     result->setMinimum(0);
     result->setMaximum(100);
     result->setValue(5);
-    auto boxStruct = make_vbox_container(QSL("Interpolation Factor"), result, 0, -2);
+    auto boxStruct = make_vbox_container(QSL("Interpolation"), result, 0, -2);
     toolbar->addWidget(boxStruct.container.release());
     return result;
 }
