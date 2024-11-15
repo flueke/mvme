@@ -227,8 +227,8 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
         else
         {
             // Hit an unexpected data word.
-            spdlog::warn("decode_mdpp_samples: No filter match for word #{}: {:#010x}",
-                std::distance(data, wordPtr), *wordPtr);
+            spdlog::warn("decode_mdpp_samples: No filter match for word #{}: hex={:#010x}, bin={:#b}",
+                std::distance(data, wordPtr), *wordPtr, *wordPtr);
             mvlc::log_buffer(mvlc::default_logger(), spdlog::level::trace, dataView, "raw mdpp sample data");
             //spdlog::warn("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
             SAM_ASSERT(!"no filter match in mdpp data");
