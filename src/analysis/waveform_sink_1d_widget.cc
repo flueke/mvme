@@ -470,7 +470,48 @@ void WaveformSink1DWidget::replot()
 
 void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
 {
-    out << "TODO: Write me please!";
+    const auto &rawTraces = rawDisplayTraces_;
+    const auto &ipolTraces = interpolatedDisplayTraces_;
+
+    double totalMemory = mesytec::mvme::waveforms::get_used_memory(rawTraces);
+    const size_t channelCount = rawTraces.size();
+    size_t historyDepth = !rawTraces.empty() ? rawTraces[0].size() : 0u;
+    auto selectedChannel = spin_chanSelect->value();
+
+    size_t indexMin = 0;
+    size_t indexMax = channelCount;
+
+    if (!cb_showAllChannels_->isChecked())
+    {
+        auto selectedChannel = spin_chanSelect->value();
+        selectedChannel = std::clamp(selectedChannel, 0, static_cast<int>(channelCount) - 1);
+        indexMin = selectedChannel;
+        indexMax = selectedChannel + 1;
+    }
+
+    out << "Trace History Info:\n";
+    out << fmt::format("  Total memory used: {:} B / {:.2f} MiB\n", totalMemory, static_cast<double>(totalMemory) / Megabytes(1));
+    out << fmt::format("  Number of channels: {}\n", channelCount);
+    out << fmt::format("  History depth: {}\n", historyDepth);
+    out << fmt::format("  Selected channel: {}\n", cb_showAllChannels_->isChecked() ? "All" : std::to_string(selectedChannel));
+    out << "\n";
+
+    for (size_t chan = indexMin; chan < indexMax; ++chan)
+    {
+        if (!rawTraces[chan].empty())
+        {
+            auto &rawTrace = rawTraces[chan].front();
+            out << fmt::format("Channel{} sample input: ", chan);
+            mesytec::mvme::waveforms::print_trace_compact(out, rawTrace);
+        }
+
+        if (!ipolTraces[chan].empty())
+        {
+            auto &ipolTrace = ipolTraces[chan].front();
+            out << fmt::format("Channel{} interpolated: ", chan);
+            mesytec::mvme::waveforms::print_trace_compact(out, ipolTrace);
+        }
+    }
 }
 
 void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
