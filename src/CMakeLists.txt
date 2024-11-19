@@ -169,7 +169,6 @@ add_library(libmvme SHARED
     analysis/waveform_sink_1d_widget.cc
     analysis/waveform_sink_2d_widget.cc
     analysis/waveform_sink_widget_common.cc
-    analysis/waveform_sink_widget.cc
     analysis_bench.cc
     analysis_service_provider.cc
     daqcontrol.cc
