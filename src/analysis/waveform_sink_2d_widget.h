@@ -1,5 +1,5 @@
-#ifndef BA034595_A573_46BA_8AAD_0EEDB3C4FF26
-#define BA034595_A573_46BA_8AAD_0EEDB3C4FF26
+#ifndef DD79B757_D240_4A88_8A34_28B40265659A
+#define DD79B757_D240_4A88_8A34_28B40265659A
 
 #include "analysis.h"
 #include "histo_ui.h"
@@ -8,18 +8,16 @@
 namespace analysis
 {
 
-// TODO: stuff needs to be merged. still experimenting to figure out what we actually want
-
-class LIBMVME_EXPORT WaveformSinkWidget: public histo_ui::PlotWidget
+class LIBMVME_EXPORT WaveformSink2DWidget: public histo_ui::PlotWidget
 {
     Q_OBJECT
     public:
-        WaveformSinkWidget(
+        WaveformSink2DWidget(
             const std::shared_ptr<analysis::WaveformSink> &sink,
             AnalysisServiceProvider *asp,
             QWidget *parent = nullptr);
 
-        ~WaveformSinkWidget() override;
+        ~WaveformSink2DWidget() override;
 
     public slots:
         void replot() override;
@@ -31,4 +29,4 @@ class LIBMVME_EXPORT WaveformSinkWidget: public histo_ui::PlotWidget
 
 }
 
-#endif /* BA034595_A573_46BA_8AAD_0EEDB3C4FF26 */
+#endif /* DD79B757_D240_4A88_8A34_28B40265659A */

@@ -51,6 +51,7 @@
 #include "analysis/object_info_widget.h"
 #include "analysis/waveform_sink_widget.h"
 #include "analysis/waveform_sink_1d_widget.h"
+#include "analysis/waveform_sink_2d_widget.h"
 
 #include "graphicsview_util.h"
 #include "graphviz_util.h"
@@ -3583,7 +3584,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                     || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                 {
-                    auto widget = new analysis::WaveformSinkVerticalWidget(sinkPtr, m_serviceProvider);
+                    auto widget = new analysis::WaveformSink2DWidget(sinkPtr, m_serviceProvider);
                     m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                 }
                 else
@@ -3598,7 +3599,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             });
 
             menu.addAction(QSL("Open Waveforms Vertical Display"), m_q, [this, sinkPtr]() {
-                auto widget = new analysis::WaveformSinkVerticalWidget(sinkPtr, m_serviceProvider);
+                auto widget = new analysis::WaveformSink2DWidget(sinkPtr, m_serviceProvider);
                 m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString() + "_vertical");
             });
 
