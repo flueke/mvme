@@ -95,6 +95,7 @@ struct WaveformSink1DWidget::Private
     bool updateDataFromAnalysis(); // Returns true if new data was copied, false if the data was unchanged.
     void postProcessData();
     void updateUi();
+    void resetPlotAxes();
     void makeInfoText(std::ostringstream &oss);
     void makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame);
     void printInfo();
@@ -147,9 +148,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     tb->addSeparator();
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
     tb->addAction(QIcon(":/selection-resize.png"), QSL("Reset Axes"), this, [this] {
-        d->maxBoundingRect_ = {};
-        d->zoomer_->setZoomStack(QStack<QRectF>(), -1);
-        d->zoomer_->zoom(0);
+        d->resetPlotAxes();
         replot();
     });
 
@@ -191,18 +190,6 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
 
     tb->addSeparator();
-
-    d->pb_printInfo_ = new QPushButton(QIcon(":/info.png"), "Show Info");
-    tb->addWidget(d->pb_printInfo_);
-
-    #if 0 // #ifndef NDEBUG
-    auto pb_replot = new QPushButton("replot");
-    tb->addWidget(pb_replot);
-    connect(pb_replot, &QPushButton::clicked, this, &WaveformSink1DWidget::replot);
-    #endif
-
-    tb->addSeparator();
-
     // export plot to file / clipboard
     {
         auto menu = new QMenu(this);
@@ -217,13 +204,29 @@ WaveformSink1DWidget::WaveformSink1DWidget(
         tb->addWidget(button);
     }
 
+    tb->addSeparator();
+    d->pb_printInfo_ = new QPushButton(QIcon(":/info.png"), "Show Info");
+    tb->addWidget(d->pb_printInfo_);
+
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
     connect(d->spin_chanSelect, qOverload<int>(&QSpinBox::valueChanged),
         this, [this] { d->selectedChannelChanged_ = true; replot(); });
 
+    connect(d->cb_showAllChannels_, &QCheckBox::stateChanged, this, [this] (int state) {
+        d->spin_chanSelect->setEnabled(state == Qt::Unchecked);
+        d->selectedChannelChanged_ = true;
+        replot();
+    });
+
     connect(d->spin_dtSample_, qOverload<double>(&QDoubleSpinBox::valueChanged),
-        this, [this] { d->dtSampleChanged_ = true; replot(); });
+        this, [this] {
+        d->dtSampleChanged_ = true;
+        // Shrink the grid back to the minimum size when dtSample changes.
+        // Nice-to-have when decreasing dtSample, not much impact when
+        // increasing it. Note: this forces a QwtPlot::replot() internally.
+        d->resetPlotAxes();
+    });
 
     connect(d->spin_interpolationFactor_, qOverload<int>(&QSpinBox::valueChanged),
         this, [this] { d->interpolationFactorChanged_ = true; replot(); });
@@ -275,9 +278,25 @@ void WaveformSink1DWidget::Private::postProcessData()
 
 void WaveformSink1DWidget::Private::updateUi()
 {
+    if (sink_)
+    {
+        auto pathParts = analysis::make_parent_path_list(sink_);
+        pathParts.push_back(sink_->objectName());
+        q->setWindowTitle(pathParts.join('/'));
+    }
+
     // selector 1: Update the channel number spinbox
     const auto maxChannel = static_cast<signed>(rawDisplayTraces_.size()) - 1;
     spin_chanSelect->setMaximum(std::max(0, maxChannel));
+}
+
+// Warning: do not call this from within replot()! That will lead to infinite
+// recursion.
+void WaveformSink1DWidget::Private::resetPlotAxes()
+{
+    maxBoundingRect_ = {};
+    zoomer_->setZoomStack(QStack<QRectF>(), -1);
+    zoomer_->zoom(0);
 }
 
 inline void set_curve_color(QwtPlotCurve *curve, const QColor &color)
@@ -329,17 +348,32 @@ void WaveformSink1DWidget::replot()
 {
     spdlog::trace("begin WaveformSink1DWidget::replot()");
 
-    #if 0
     const bool forceProcessing = d->selectedChannelChanged_ || d->dtSampleChanged_ || d->interpolationFactorChanged_;
+
+
+    // TODO: need another update method that readjusts dtSample and reinterpolates all traces but does not recycle any traces.
+    #if 0
     d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = false;
+
+    if (!d->actionHold_->isChecked())
+    {
+        const bool updated = d->updateDataFromAnalysis();
+
+        if (updated || forceProcessing)
+            d->postProcessData();
+    } else if (forceProcessing)
+    {
+        //d->updateDataFromAnalysis();
+        d->postProcessData();
+    }
     #else
-    const bool forceProcessing = false;
-    #endif
 
     if (!d->actionHold_->isChecked() && (d->updateDataFromAnalysis() || forceProcessing))
     {
         d->postProcessData();
     }
+    #endif
+
     d->updateUi(); // update, selection boxes, buttons, etc.
 
     assert(d->waveformHandles_.size() == d->curveHelper_.size());
