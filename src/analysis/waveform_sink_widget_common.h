@@ -35,13 +35,15 @@ inline QDoubleSpinBox *add_dt_sample_setter(QToolBar *toolbar)
 {
     namespace mdpp_sampling = mesytec::mvme::mdpp_sampling;
     auto result = new QDoubleSpinBox;
-    result->setMinimum(1.0);
+    result->setMinimum(0.001);
     result->setMaximum(1e3);
     result->setSingleStep(0.1);
     result->setSuffix(" ns");
     result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
 
     auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
+    pb_useDefaultSampleInterval->setToolTip(QSL("Reset to MDPP default sample interval (%1 ns).")
+        .arg(mdpp_sampling::MdppDefaultSamplePeriod));
 
     QObject::connect(pb_useDefaultSampleInterval, &QPushButton::clicked, result, [result] {
         result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
