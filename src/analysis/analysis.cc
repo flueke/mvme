@@ -5251,254 +5251,263 @@ void Analysis::beginRun(const RunInfo &runInfo,
                         const VMEConfig *vmeConfig,
                         Logger logger)
 {
-    assert(vmeConfig);
-
-    using ClockType = std::chrono::high_resolution_clock;
-    auto tStart = ClockType::now();
-
-    auto newVmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
-
-    const bool fullBuild = (
-        m_runInfo.runId != runInfo.runId
-        || m_runInfo.isReplay != runInfo.isReplay
-        || m_vmeMap != newVmeMap
-        || getObjectFlags() & ObjectFlags::NeedsRebuild);
-
-#if 1 // ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__
-        << "fullBuild =" << fullBuild
-        << ", keepAnalysisState =" << runInfo.keepAnalysisState
-        << ", runId =" << runInfo.runId
-        << ", localFlags =" << to_string(getObjectFlags())
-        ;
-#endif
-
-    m_runInfo = runInfo;
-    m_vmeMap = newVmeMap;
-    d->eventModuleIndexMaps_ = vme_analysis_common::make_module_index_mappings(*vmeConfig);
-
-    if (!runInfo.keepAnalysisState)
+    try
     {
-        m_timetickCount = 0.0;
-    }
+        assert(vmeConfig);
 
-    // Update operator ranks and then sort. This needs to be done before the a2
-    // system can be built.
+        using ClockType = std::chrono::high_resolution_clock;
+        auto tStart = ClockType::now();
 
-    updateRanks();
+        auto newVmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
 
-    std::sort(m_operators.begin(), m_operators.end(),
-          [] (const OperatorPtr &op1, const OperatorPtr &op2) {
-        return op1->getRank() < op2->getRank();
-    });
+        const bool fullBuild = (
+            m_runInfo.runId != runInfo.runId
+            || m_runInfo.isReplay != runInfo.isReplay
+            || m_vmeMap != newVmeMap
+            || getObjectFlags() & ObjectFlags::NeedsRebuild);
 
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by rank";
-    for (const auto &op: m_operators)
-    {
-        qDebug() << "  "
-            << "rank =" << op->getRank()
-            << ", maxInputRank =" << op->getMaximumInputRank()
-            << getClassName(op.get())
-            << op->objectName()
-            << ", max output rank =" << op->getMaximumOutputRank()
-            << ", flags =" << op->getObjectFlags();
-    }
-    qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by rank";
-#endif
+    #if 1 // ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__
+            << "fullBuild =" << fullBuild
+            << ", keepAnalysisState =" << runInfo.keepAnalysisState
+            << ", runId =" << runInfo.runId
+            << ", localFlags =" << to_string(getObjectFlags())
+            ;
+    #endif
 
-    qDebug() << __PRETTY_FUNCTION__ << "Analysis contains"
-        << m_sources.size() << " data sources and"
-        << m_operators.size() << " operators";
+        m_runInfo = runInfo;
+        m_vmeMap = newVmeMap;
+        d->eventModuleIndexMaps_ = vme_analysis_common::make_module_index_mappings(*vmeConfig);
 
-    u32 sourcesBuilt = 0;
-
-    for (auto &source: m_sources)
-    {
-        if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        if (!runInfo.keepAnalysisState)
         {
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << __PRETTY_FUNCTION__
-                << "beginRun() on"
-                << " class =" << source->metaObject()->className()
-                << ", name =" << source->objectName()
-                << ", id =" << source->getId()
-                << ", fullBuild =" << fullBuild
-                << ", objectFlags =" << to_string(source->getObjectFlags());
-#endif
-
-            source->beginRun(runInfo, logger);
-            source->clearObjectFlags(ObjectFlags::NeedsRebuild);
-            sourcesBuilt++;
-
-            qDebug() << __PRETTY_FUNCTION__
-                << "beginRun() on"
-                << " class =" << source->metaObject()->className()
-                << ", name =" << source->objectName()
-                << ", outputCount =" << source->getNumberOfOutputs();
+            m_timetickCount = 0.0;
         }
-        else if (!runInfo.keepAnalysisState)
+
+        // Update operator ranks and then sort. This needs to be done before the a2
+        // system can be built.
+
+        updateRanks();
+
+        std::sort(m_operators.begin(), m_operators.end(),
+            [] (const OperatorPtr &op1, const OperatorPtr &op2) {
+            return op1->getRank() < op2->getRank();
+        });
+
+    #if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by rank";
+        for (const auto &op: m_operators)
         {
-            source->clearState();
+            qDebug() << "  "
+                << "rank =" << op->getRank()
+                << ", maxInputRank =" << op->getMaximumInputRank()
+                << getClassName(op.get())
+                << op->objectName()
+                << ", max output rank =" << op->getMaximumOutputRank()
+                << ", flags =" << op->getObjectFlags();
         }
-    }
+        qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by rank";
+    #endif
 
-    // HACK: Store  values of static variables of ExpressionOperators
-    QMap<OperatorInterface *, a2::ExpressionOperatorData::StaticVarMap> exprSavedStaticVars;
+        qDebug() << __PRETTY_FUNCTION__ << "Analysis contains"
+            << m_sources.size() << " data sources and"
+            << m_operators.size() << " operators";
 
-    u32 operatorsBuilt = 0;
+        u32 sourcesBuilt = 0;
 
-    for (auto &op: m_operators)
-    {
-        if (auto sink = qobject_cast<SinkInterface *>(op.get()))
+        for (auto &source: m_sources)
         {
-            if (!sink->isEnabled())
+            if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
             {
-                continue;
+    #if ENABLE_ANALYSIS_DEBUG
+                qDebug() << __PRETTY_FUNCTION__
+                    << "beginRun() on"
+                    << " class =" << source->metaObject()->className()
+                    << ", name =" << source->objectName()
+                    << ", id =" << source->getId()
+                    << ", fullBuild =" << fullBuild
+                    << ", objectFlags =" << to_string(source->getObjectFlags());
+    #endif
+
+                source->beginRun(runInfo, logger);
+                source->clearObjectFlags(ObjectFlags::NeedsRebuild);
+                sourcesBuilt++;
+
+                qDebug() << __PRETTY_FUNCTION__
+                    << "beginRun() on"
+                    << " class =" << source->metaObject()->className()
+                    << ", name =" << source->objectName()
+                    << ", outputCount =" << source->getNumberOfOutputs();
+            }
+            else if (!runInfo.keepAnalysisState)
+            {
+                source->clearState();
             }
         }
 
-        if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        // HACK: Store  values of static variables of ExpressionOperators
+        QMap<OperatorInterface *, a2::ExpressionOperatorData::StaticVarMap> exprSavedStaticVars;
+
+        u32 operatorsBuilt = 0;
+
+        for (auto &op: m_operators)
         {
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << __PRETTY_FUNCTION__
-                << "beginRun() on"
-                << " class =" << op->metaObject()->className()
-                << ", name =" << op->objectName()
-                << ", id =" << op->getId()
-                << ", fullBuild =" << fullBuild
-                << ", objectFlags =" << to_string(op->getObjectFlags())
-                << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
-                ;
-#endif
-            if (!required_inputs_connected_and_valid(op.get()))
+            if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
-                qDebug() << "bug";
-            }
-
-            op->beginRun(runInfo, logger);
-            op->clearObjectFlags(ObjectFlags::NeedsRebuild);
-            operatorsBuilt++;
-        }
-        else if (!runInfo.keepAnalysisState)
-        {
-            op->clearState();
-        }
-        // HACK to keep the values of static variables of ExpressionOperator
-        // instances but only if the operator was not rebuilt.
-        else if (auto expr = qobject_cast<ExpressionOperator *>(op.get()))
-        {
-            if (auto a2_op = m_a2State->operatorMap.value(expr, nullptr))
-            {
-                auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
-                exprSavedStaticVars[expr] = data->static_vars;
-            }
-        }
-    }
-
-    clearObjectFlags(ObjectFlags::NeedsRebuild);
-
-    qDebug() << __PRETTY_FUNCTION__ << "built" << sourcesBuilt << "sources"
-        " and " << operatorsBuilt << "operators";
-
-    // Build the a2 system
-
-    // a2 arena swap
-    m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
-    m_a2Arenas[m_a2ArenaIndex]->reset();
-
-    m_a2WorkArena->reset();
-
-    qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
-    qDebug() << __PRETTY_FUNCTION__ << "a2: using arena" << (u32)m_a2ArenaIndex;
-
-    m_a2State = std::make_unique<A2AdapterState>(
-        a2_adapter_build_memory_wrapper(
-            m_a2Arenas[m_a2ArenaIndex],
-            m_a2WorkArena,
-            this,
-            m_sources,
-            m_operators,
-            m_vmeMap,
-            runInfo));
-
-    assert(m_a2State);
-
-    a2::a2_begin_run(m_a2State->a2, [logger] (const std::string &str) {
-        if (logger)
-            logger(QString::fromStdString(str));
-    });
-
-    // HACK: restore ExpressionOperator static variable values
-    for (auto &op: m_operators)
-    {
-        if (exprSavedStaticVars.contains(op.get()))
-        {
-            assert(qobject_cast<ExpressionOperator *>(op.get()));
-            auto &savedStaticVars = exprSavedStaticVars[op.get()];
-
-            if (auto a2_op = m_a2State->operatorMap.value(op.get(), nullptr))
-            {
-                auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
-                assert(savedStaticVars.size() == data->static_vars.size());
-                assert(map_keys(savedStaticVars) == map_keys(data->static_vars));
-
-#ifndef NDEBUG
-                using StaticVar = a2::ExpressionOperatorData::StaticVar;
-
-                // Return the address of the actual data stored in the StaticVar.
-                auto get_var_address = [] (const StaticVar &staticVar) -> const void *
+                if (!sink->isEnabled())
                 {
-                    switch (staticVar.type)
+                    continue;
+                }
+            }
+
+            if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
+            {
+    #if ENABLE_ANALYSIS_DEBUG
+                qDebug() << __PRETTY_FUNCTION__
+                    << "beginRun() on"
+                    << " class =" << op->metaObject()->className()
+                    << ", name =" << op->objectName()
+                    << ", id =" << op->getId()
+                    << ", fullBuild =" << fullBuild
+                    << ", objectFlags =" << to_string(op->getObjectFlags())
+                    << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
+                    ;
+    #endif
+                if (!required_inputs_connected_and_valid(op.get()))
+                {
+                    qDebug() << "bug";
+                }
+
+                op->beginRun(runInfo, logger);
+                op->clearObjectFlags(ObjectFlags::NeedsRebuild);
+                operatorsBuilt++;
+            }
+            else if (!runInfo.keepAnalysisState)
+            {
+                op->clearState();
+            }
+            // HACK to keep the values of static variables of ExpressionOperator
+            // instances but only if the operator was not rebuilt.
+            else if (auto expr = qobject_cast<ExpressionOperator *>(op.get()))
+            {
+                if (auto a2_op = m_a2State->operatorMap.value(expr, nullptr))
+                {
+                    auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
+                    exprSavedStaticVars[expr] = data->static_vars;
+                }
+            }
+        }
+
+        clearObjectFlags(ObjectFlags::NeedsRebuild);
+
+        qDebug() << __PRETTY_FUNCTION__ << "built" << sourcesBuilt << "sources"
+            " and " << operatorsBuilt << "operators";
+
+        // Build the a2 system
+
+        // a2 arena swap
+        m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
+        m_a2Arenas[m_a2ArenaIndex]->reset();
+
+        m_a2WorkArena->reset();
+
+        qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
+        qDebug() << __PRETTY_FUNCTION__ << "a2: using arena" << (u32)m_a2ArenaIndex;
+
+        m_a2State = std::make_unique<A2AdapterState>(
+            a2_adapter_build_memory_wrapper(
+                m_a2Arenas[m_a2ArenaIndex],
+                m_a2WorkArena,
+                this,
+                m_sources,
+                m_operators,
+                m_vmeMap,
+                runInfo));
+
+        assert(m_a2State);
+
+        a2::a2_begin_run(m_a2State->a2, [logger] (const std::string &str) {
+            if (logger)
+                logger(QString::fromStdString(str));
+        });
+
+        // HACK: restore ExpressionOperator static variable values
+        for (auto &op: m_operators)
+        {
+            if (exprSavedStaticVars.contains(op.get()))
+            {
+                assert(qobject_cast<ExpressionOperator *>(op.get()));
+                auto &savedStaticVars = exprSavedStaticVars[op.get()];
+
+                if (auto a2_op = m_a2State->operatorMap.value(op.get(), nullptr))
+                {
+                    auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
+                    assert(savedStaticVars.size() == data->static_vars.size());
+                    assert(map_keys(savedStaticVars) == map_keys(data->static_vars));
+
+    #ifndef NDEBUG
+                    using StaticVar = a2::ExpressionOperatorData::StaticVar;
+
+                    // Return the address of the actual data stored in the StaticVar.
+                    auto get_var_address = [] (const StaticVar &staticVar) -> const void *
                     {
-                        case StaticVar::String:
-                            return staticVar.string.data();
+                        switch (staticVar.type)
+                        {
+                            case StaticVar::String:
+                                return staticVar.string.data();
 
-                        case StaticVar::Scalar:
-                            return &staticVar.scalar;
+                            case StaticVar::Scalar:
+                                return &staticVar.scalar;
 
-                        case StaticVar::Vector:
-                            return staticVar.vector.data();
+                            case StaticVar::Vector:
+                                return staticVar.vector.data();
 
+                        };
+
+                        return nullptr;
                     };
 
-                    return nullptr;
-                };
 
+                    // Remember static var addresses pre assigning the stored values.
+                    std::map<std::string, const void *> staticsPreAssign;
 
-                // Remember static var addresses pre assigning the stored values.
-                std::map<std::string, const void *> staticsPreAssign;
+                    for (const auto &kv: data->static_vars)
+                        staticsPreAssign[kv.first] = get_var_address(kv.second);
+    #endif
 
-                for (const auto &kv: data->static_vars)
-                    staticsPreAssign[kv.first] = get_var_address(kv.second);
-#endif
+                    // Note: direct assignments of the maps does change memory
+                    // locations which would invalidate the references stored in
+                    // the symbol table of the operator. Instead manually iterate
+                    // and assign.
+                    for (const auto &kv: savedStaticVars)
+                        data->static_vars[kv.first] = kv.second;
 
-                // Note: direct assignments of the maps does change memory
-                // locations which would invalidate the references stored in
-                // the symbol table of the operator. Instead manually iterate
-                // and assign.
-                for (const auto &kv: savedStaticVars)
-                    data->static_vars[kv.first] = kv.second;
+    #ifndef NDEBUG
+                    // Collect addresses after assigning
+                    std::map<std::string, const void *> staticsPostAssign;
 
-#ifndef NDEBUG
-                // Collect addresses after assigning
-                std::map<std::string, const void *> staticsPostAssign;
+                    for (const auto &kv: data->static_vars)
+                        staticsPostAssign[kv.first] = get_var_address(kv.second);
 
-                for (const auto &kv: data->static_vars)
-                    staticsPostAssign[kv.first] = get_var_address(kv.second);
-
-                // Compare the addresses
-                assert(staticsPreAssign == staticsPostAssign);
-#endif
+                    // Compare the addresses
+                    assert(staticsPreAssign == staticsPostAssign);
+    #endif
+                }
             }
         }
+
+        auto tEnd = ClockType::now();
+        std::chrono::duration<float> elapsed = tEnd - tStart;
+
+        qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
+            << elapsed.count() << "seconds";
+    } catch (const std::runtime_error &e)
+    {
+        if (logger)
+        {
+            logger(QString("Error during analysis build: %1").arg(e.what()));
+        }
     }
-
-    auto tEnd = ClockType::now();
-    std::chrono::duration<float> elapsed = tEnd - tStart;
-
-    qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
-        << elapsed.count() << "seconds";
 }
 
 void Analysis::beginRun(BeginRunOption option, const VMEConfig *vmeConfig, Logger logger)

@@ -2335,6 +2335,8 @@ class LIBMVME_EXPORT Analysis:
 
         void updateRanks();
 
+        // FIXME: errors from beginRun() are not available to the outside,
+        // except for messages written to the logger.
         void beginRun(const RunInfo &runInfo,
                       const VMEConfig *vmeConfig,
                       Logger logger = {});
