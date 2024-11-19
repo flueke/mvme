@@ -69,10 +69,6 @@ TEST(a2Exprtk, SymbolTableAddThings)
 
     {
         ASSERT_TRUE(symtab.addVector("vector1", filled_vec));
-        // NOTE: exprtk should return false here but doesn't. The reason is
-        // that symbol_table<T>::symbol_exists() doesn't check the vector_store
-        // for the name. This might be a bug or for some reason deliberate.
-        // Update: I fixed the code in the local copy of exprtk.
         ASSERT_THROW(symtab.addVector("vector1", filled_vec), SymbolError);
 
         auto var_names = symtab.getSymbolNames();
