@@ -8,16 +8,16 @@
 namespace analysis
 {
 
-class LIBMVME_EXPORT WaveformSinkDontKnowYetWidget: public histo_ui::PlotWidget
+class LIBMVME_EXPORT WaveformSink1DWidget: public histo_ui::PlotWidget
 {
     Q_OBJECT
     public:
-        WaveformSinkDontKnowYetWidget(
+        WaveformSink1DWidget(
             const std::shared_ptr<analysis::WaveformSink> &sink,
             AnalysisServiceProvider *asp,
             QWidget *parent = nullptr);
 
-        ~WaveformSinkDontKnowYetWidget() override;
+        ~WaveformSink1DWidget() override;
 
     public slots:
         void replot() override;

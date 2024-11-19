@@ -1,4 +1,4 @@
-#include "analysis/waveform_sink_test_widget.h"
+#include "analysis/waveform_sink_1d_widget.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -53,9 +53,9 @@ namespace analysis
 
 static const int ReplotInterval_ms = 100;
 
-struct WaveformSinkDontKnowYetWidget::Private
+struct WaveformSink1DWidget::Private
 {
-    WaveformSinkDontKnowYetWidget *q = nullptr;
+    WaveformSink1DWidget *q = nullptr;
     std::shared_ptr<analysis::WaveformSink> sink_;
     AnalysisServiceProvider *asp_ = nullptr;
     waveforms::WaveformPlotCurveHelper curveHelper_;
@@ -102,7 +102,7 @@ struct WaveformSinkDontKnowYetWidget::Private
     void exportPlotToClipboard();
 };
 
-WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
+WaveformSink1DWidget::WaveformSink1DWidget(
     const std::shared_ptr<analysis::WaveformSink> &sink,
     AnalysisServiceProvider *asp,
     QWidget *parent)
@@ -115,7 +115,7 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     d->curveHelper_ = waveforms::WaveformPlotCurveHelper(getPlot());
     d->replotTimer_.setInterval(ReplotInterval_ms);
 
-    setWindowTitle("WaveformSinkDontKnowYetWidget");
+    setWindowTitle("WaveformSink1DWidget");
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
     auto legend = new QwtLegend;
@@ -198,7 +198,7 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     #if 0 // #ifndef NDEBUG
     auto pb_replot = new QPushButton("replot");
     tb->addWidget(pb_replot);
-    connect(pb_replot, &QPushButton::clicked, this, &WaveformSinkDontKnowYetWidget::replot);
+    connect(pb_replot, &QPushButton::clicked, this, &WaveformSink1DWidget::replot);
     #endif
 
     tb->addSeparator();
@@ -228,18 +228,18 @@ WaveformSinkDontKnowYetWidget::WaveformSinkDontKnowYetWidget(
     connect(d->spin_interpolationFactor_, qOverload<int>(&QSpinBox::valueChanged),
         this, [this] { d->interpolationFactorChanged_ = true; replot(); });
 
-    connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSinkDontKnowYetWidget::replot);
+    connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSink1DWidget::replot);
     d->replotTimer_.start();
 
     d->geoSaver_ = new WidgetGeometrySaver(this);
-    d->geoSaver_->addAndRestore(this, "WindowGeometries/WaveformSinkDontKnowYetWidget");
+    d->geoSaver_->addAndRestore(this, "WindowGeometries/WaveformSink1DWidget");
 }
 
-WaveformSinkDontKnowYetWidget::~WaveformSinkDontKnowYetWidget()
+WaveformSink1DWidget::~WaveformSink1DWidget()
 {
 }
 
-bool WaveformSinkDontKnowYetWidget::Private::updateDataFromAnalysis()
+bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
 {
     auto newAnalysisTraceData = sink_->getTraceHistories();
 
@@ -252,7 +252,7 @@ bool WaveformSinkDontKnowYetWidget::Private::updateDataFromAnalysis()
     return false;
 }
 
-void WaveformSinkDontKnowYetWidget::Private::postProcessData()
+void WaveformSink1DWidget::Private::postProcessData()
 {
     // TODO/XXX: changing dtSample during a run will lead to funky results: the older
     // traces will have been interpolated with the previously set dtSample.
@@ -273,7 +273,7 @@ void WaveformSinkDontKnowYetWidget::Private::postProcessData()
         dtSample, interpolationFactor, maxDepth);
 }
 
-void WaveformSinkDontKnowYetWidget::Private::updateUi()
+void WaveformSink1DWidget::Private::updateUi()
 {
     // selector 1: Update the channel number spinbox
     const auto maxChannel = static_cast<signed>(rawDisplayTraces_.size()) - 1;
@@ -325,9 +325,9 @@ inline const QVector<QColor> make_plot_colors()
     return result;
 };
 
-void WaveformSinkDontKnowYetWidget::replot()
+void WaveformSink1DWidget::replot()
 {
-    spdlog::trace("begin WaveformSinkDontKnowYetWidget::replot()");
+    spdlog::trace("begin WaveformSink1DWidget::replot()");
 
     #if 0
     const bool forceProcessing = d->selectedChannelChanged_ || d->dtSampleChanged_ || d->interpolationFactorChanged_;
@@ -465,15 +465,15 @@ void WaveformSinkDontKnowYetWidget::replot()
     getStatusBar()->clearMessage();
     getStatusBar()->showMessage(oss.str().c_str());
 
-    spdlog::trace("end WaveformSinkDontKnowYetWidget::replot()");
+    spdlog::trace("end WaveformSink1DWidget::replot()");
 }
 
-void WaveformSinkDontKnowYetWidget::Private::makeInfoText(std::ostringstream &out)
+void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
 {
     out << "TODO: Write me please!";
 }
 
-void WaveformSinkDontKnowYetWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
+void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
 {
     auto selectedChannel = spin_chanSelect->value();
     auto visibleTraceCount = waveformHandles_.size();
@@ -482,7 +482,7 @@ void WaveformSinkDontKnowYetWidget::Private::makeStatusText(std::ostringstream &
     out << fmt::format(", Frame time: {} ms", static_cast<int>(dtFrame.count()));
 }
 
-void WaveformSinkDontKnowYetWidget::Private::printInfo()
+void WaveformSink1DWidget::Private::printInfo()
 {
     if (!logView_)
     {
@@ -504,7 +504,7 @@ void WaveformSinkDontKnowYetWidget::Private::printInfo()
     logView_->raise();
 }
 
-void WaveformSinkDontKnowYetWidget::Private::exportPlotToPdf()
+void WaveformSink1DWidget::Private::exportPlotToPdf()
 {
     // TODO: generate a filename
     #if 0
@@ -541,7 +541,7 @@ void WaveformSinkDontKnowYetWidget::Private::exportPlotToPdf()
     #endif
 }
 
-void WaveformSinkDontKnowYetWidget::Private::exportPlotToClipboard()
+void WaveformSink1DWidget::Private::exportPlotToClipboard()
 {
     QSize size(1024, 768);
     QImage image(size, QImage::Format_ARGB32_Premultiplied);

@@ -50,7 +50,7 @@
 #include "analysis/listfilter_extractor_dialog.h"
 #include "analysis/object_info_widget.h"
 #include "analysis/waveform_sink_widget.h"
-#include "analysis/waveform_sink_test_widget.h"
+#include "analysis/waveform_sink_1d_widget.h"
 
 #include "graphicsview_util.h"
 #include "graphviz_util.h"
@@ -3603,7 +3603,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
             });
 
             menu.addAction(QSL("!!!Open Waveforms Test Display!!!"), m_q, [this, sinkPtr]() {
-                auto widget = new analysis::WaveformSinkDontKnowYetWidget(sinkPtr, m_serviceProvider);
+                auto widget = new analysis::WaveformSink1DWidget(sinkPtr, m_serviceProvider);
                 m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString() + "_vertical");
             });
             #endif
@@ -4588,7 +4588,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto widget = new analysis::WaveformSinkDontKnowYetWidget(sinkPtr, m_serviceProvider);
+                        auto widget = new analysis::WaveformSink1DWidget(sinkPtr, m_serviceProvider);
                         m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                     }
                     else
