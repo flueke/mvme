@@ -2985,23 +2985,61 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
             auto moduleConfig = get_pointer<ModuleConfig>(activeNode, DataRole_RawPointer);
 
             auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig]
-                (const QString &title, auto srcPtr) {
+                (const QString &title, auto srcPtr)
+                {
                     auto icon = make_datasource_icon(srcPtr.get());
 
-                    menuNew->addAction(icon, title, &menu,
-                                       [this, moduleConfig, srcPtr]() {
+                    menuNew->addAction(icon, title, &menu, [this, moduleConfig, srcPtr]()
+                    {
+                        if (auto dialog = datasource_editor_factory(
+                            srcPtr, ObjectEditorMode::New, moduleConfig, m_q))
+                        {
+                            // let the dialog handle everything, including adding the object to the analysis
+                            dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            dialog->show();
+                            clearAllTreeSelections();
+                            clearAllToDefaultNodeHighlights();
+                        }
+                        else
+                        {
+                            // New behavior added for the DataSourceMdppSampleDecoder: the dialog is not
+                            // shown when adding a new decoder instance. Instead default values are used
+                            // and the source is directly added to the analysis.
+                            AnalysisPauser pauser(m_serviceProvider);
+                            auto analysis = m_serviceProvider->getAnalysis();
+                            srcPtr->setEventId(moduleConfig->getEventId());
+                            srcPtr->setModuleId(moduleConfig->getId());
+                            srcPtr->setObjectName(moduleConfig->objectName());
+                            // FIXME: This should not be here but abstracted somehow.
+                            if (auto sampleDecoder = std::dynamic_pointer_cast<DataSourceMdppSampleDecoder>(srcPtr))
+                            {
+                                sampleDecoder->setModuleTypeName(moduleConfig->getModuleMeta().typeName);
+                                sampleDecoder->setObjectName(moduleConfig->objectName()+".samples");
+                                if (moduleConfig->getModuleMeta().typeName == "mdpp32_scp")
+                                    sampleDecoder->setMaxChannels(32);
 
-                                           auto dialog = datasource_editor_factory(
-                                               srcPtr, ObjectEditorMode::New, moduleConfig, m_q);
+                                sampleDecoder->beginRun({});
 
-                                           assert(dialog);
+                                auto sink = std::make_shared<WaveformSink>();
+                                sink->setObjectName(sampleDecoder->objectName());
+                                sink->setEventId(sampleDecoder->getEventId());
 
-                                           //POS dialog->move(QCursor::pos());
-                                           dialog->setAttribute(Qt::WA_DeleteOnClose);
-                                           dialog->show();
-                                           clearAllTreeSelections();
-                                           clearAllToDefaultNodeHighlights();
-                                       });
+                                while (sink->getNumberOfSlots() < sampleDecoder->getNumberOfOutputs())
+                                    sink->addSlot();
+
+                                for (s32 i=0; i<sampleDecoder->getNumberOfOutputs(); ++i)
+                                {
+                                    sink->connectArrayToInputSlot(i, sampleDecoder->getOutput(i));
+                                }
+                                analysis->addSource(srcPtr);
+                                analysis->addOperator(sink);
+                            }
+                            else
+                            {
+                                analysis->addSource(srcPtr);
+                            }
+                        }
+                    });
                 };
 
             // new data sources / filters

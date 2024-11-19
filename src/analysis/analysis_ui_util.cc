@@ -309,17 +309,21 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     }
     else if (auto ex = std::dynamic_pointer_cast<DataSourceMdppSampleDecoder>(src))
     {
-        result = new MdppSampleDecoderDialog(ex, moduleConfig, mode, eventWidget);
+        if (mode == ObjectEditorMode::Edit)
+            result = new MdppSampleDecoderDialog(ex, moduleConfig, mode, eventWidget);
     }
 
-    QObject::connect(result, &ObjectEditorDialog::applied,
-                     eventWidget, &EventWidget::objectEditorDialogApplied);
+    if (result)
+    {
+        QObject::connect(result, &ObjectEditorDialog::applied,
+                        eventWidget, &EventWidget::objectEditorDialogApplied);
 
-    QObject::connect(result, &QDialog::accepted,
-                     eventWidget, &EventWidget::objectEditorDialogAccepted);
+        QObject::connect(result, &QDialog::accepted,
+                        eventWidget, &EventWidget::objectEditorDialogAccepted);
 
-    QObject::connect(result, &QDialog::rejected,
-                     eventWidget, &EventWidget::objectEditorDialogRejected);
+        QObject::connect(result, &QDialog::rejected,
+                        eventWidget, &EventWidget::objectEditorDialogRejected);
+    }
 
     return result;
 }
