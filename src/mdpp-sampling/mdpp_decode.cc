@@ -66,6 +66,7 @@ void reset_trace(ChannelTrace &trace)
     trace.moduleId = QUuid();
     trace.amplitude = mvme::util::make_quiet_nan();
     trace.time = mvme::util::make_quiet_nan();
+    trace.header = 0;
     trace.amplitudeData = 0;
     trace.timeData = 0;
     trace.samples.clear();
