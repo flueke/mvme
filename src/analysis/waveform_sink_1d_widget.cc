@@ -25,7 +25,7 @@ inline QSpinBox *add_maxdepth_spin(QToolBar *toolbar)
     result->setMinimum(1);
     result->setMaximum(100);
     result->setValue(10);
-    auto boxStruct = make_vbox_container(QSL("Max Visible Traces"), result, 0, -2);
+    auto boxStruct = make_vbox_container(QSL("Max Traces per Channel"), result, 0, -2);
     toolbar->addWidget(boxStruct.container.release());
     return result;
 }
@@ -94,6 +94,7 @@ struct WaveformSink1DWidget::Private
 
     bool updateDataFromAnalysis(); // Returns true if new data was copied, false if the data was unchanged.
     void postProcessData();
+    void reprocessData();
     void updateUi();
     void resetPlotAxes();
     void makeInfoText(std::ostringstream &oss);
@@ -147,7 +148,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
 
     tb->addSeparator();
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
-    tb->addAction(QIcon(":/selection-resize.png"), QSL("Reset Axes"), this, [this] {
+    tb->addAction(QIcon(":/selection-resize.png"), QSL("Rescale Axes"), this, [this] {
         d->resetPlotAxes();
         replot();
     });
@@ -257,10 +258,7 @@ bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
 
 void WaveformSink1DWidget::Private::postProcessData()
 {
-    // TODO/XXX: changing dtSample during a run will lead to funky results: the older
-    // traces will have been interpolated with the previously set dtSample.
-    // Could actually redo the sampling by just forcing x values to be
-    // index*dtSample again, then reinterpolating each of the older traces... :)
+    spdlog::trace("WaveformSink1DWidget::Private::postProcessData()");
 
     const auto dtSample = spin_dtSample_->value();
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
@@ -274,6 +272,19 @@ void WaveformSink1DWidget::Private::postProcessData()
         rawDisplayTraces_,
         interpolatedDisplayTraces_,
         dtSample, interpolationFactor, maxDepth);
+}
+
+void WaveformSink1DWidget::Private::reprocessData()
+{
+    spdlog::trace("WaveformSink1DWidget::Private::reprocessData()");
+
+    const auto dtSample = spin_dtSample_->value();
+    const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
+
+    waveforms::reprocess_waveforms(
+        rawDisplayTraces_,
+        interpolatedDisplayTraces_,
+        dtSample, interpolationFactor);
 }
 
 void WaveformSink1DWidget::Private::updateUi()
@@ -349,30 +360,21 @@ void WaveformSink1DWidget::replot()
     spdlog::trace("begin WaveformSink1DWidget::replot()");
 
     const bool forceProcessing = d->selectedChannelChanged_ || d->dtSampleChanged_ || d->interpolationFactorChanged_;
-
-
-    // TODO: need another update method that readjusts dtSample and reinterpolates all traces but does not recycle any traces.
-    #if 0
     d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = false;
 
-    if (!d->actionHold_->isChecked())
+    if (d->actionHold_->isChecked() && forceProcessing)
+    {
+        d->reprocessData();
+    }
+    else if (!d->actionHold_->isChecked())
     {
         const bool updated = d->updateDataFromAnalysis();
 
-        if (updated || forceProcessing)
+        if (updated)
             d->postProcessData();
-    } else if (forceProcessing)
-    {
-        //d->updateDataFromAnalysis();
-        d->postProcessData();
+        else if (forceProcessing)
+            d->reprocessData();
     }
-    #else
-
-    if (!d->actionHold_->isChecked() && (d->updateDataFromAnalysis() || forceProcessing))
-    {
-        d->postProcessData();
-    }
-    #endif
 
     d->updateUi(); // update, selection boxes, buttons, etc.
 
