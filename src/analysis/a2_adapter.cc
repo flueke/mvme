@@ -1187,68 +1187,83 @@ void a2_adapter_build_datasources(
 
         for (auto src: sourceInfos[ei])
         {
-            a2::DataSource ds = {};
-
-            // analysis::Extractor
-            if (auto ex = qobject_cast<analysis::Extractor *>(src.source.get()))
+            try
             {
-                a2::data_filter::MultiWordFilter filter = {};
-                for (auto slowFilter: ex->getFilter().getSubFilters())
+                a2::DataSource ds = {};
+
+                // analysis::Extractor
+                if (auto ex = qobject_cast<analysis::Extractor *>(src.source.get()))
                 {
-                    a2::data_filter::add_subfilter(
-                        &filter,
-                        a2::data_filter::make_filter(
-                            to_string(slowFilter),
-                            slowFilter.matchWordIndex));
+                    a2::data_filter::MultiWordFilter filter = {};
+                    for (auto slowFilter: ex->getFilter().getSubFilters())
+                    {
+                        a2::data_filter::add_subfilter(
+                            &filter,
+                            a2::data_filter::make_filter(
+                                to_string(slowFilter),
+                                slowFilter.matchWordIndex));
+                    }
+
+                    ds = a2::make_datasource_extractor(
+                        arena,
+                        filter,
+                        ex->m_requiredCompletionCount,
+                        ex->m_rngSeed,
+                        src.moduleIndex,
+                        ex->getOptions());
+                }
+                // analysis::ListFilterExtractor
+                else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
+                {
+                    ds = a2::make_datasource_listfilter_extractor(
+                        arena,
+                        ex->getExtractor().listFilter,
+                        ex->getExtractor().repetitions,
+                        ex->getRngSeed(),
+                        src.moduleIndex,
+                        ex->getOptions());
+                }
+                // analysis::MultiHitExtractor
+                else if (auto ex = qobject_cast<analysis::MultiHitExtractor *>(src.source.get()))
+                {
+                    ds = a2::make_datasource_multihit_extractor(
+                        arena,
+                        ex->getShape(),
+                        ex->getFilter(),
+                        ex->getMaxHits(),
+                        ex->getRngSeed(),
+                        src.moduleIndex,
+                        ex->getOptions());
+                }
+                else if (auto ex = qobject_cast<analysis::DataSourceMdppSampleDecoder *>(src.source.get()))
+                {
+                    ds = a2::make_datasource_mdpp_sample_decoder(
+                        arena,
+                        ex->getModuleTypeName().toStdString(),
+                        ex->getMaxChannels(),
+                        ex->getMaxSamples(),
+                        ex->getRngSeed(),
+                        src.moduleIndex,
+                        ex->getOptions());
                 }
 
-                ds = a2::make_datasource_extractor(
-                    arena,
-                    filter,
-                    ex->m_requiredCompletionCount,
-                    ex->m_rngSeed,
-                    src.moduleIndex,
-                    ex->getOptions());
+                a2::A2::OperatorCountType &ds_cnt = state->a2->dataSourceCounts[ei];
+                state->a2->dataSources[ei][ds_cnt] = ds;
+                state->sourceMap.insert(src.source.get(), state->a2->dataSources[ei] + ds_cnt);
+                ds_cnt++;
             }
-            // analysis::ListFilterExtractor
-            else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
+            catch (const std::runtime_error &e)
             {
-                ds = a2::make_datasource_listfilter_extractor(
-                    arena,
-                    ex->getExtractor().listFilter,
-                    ex->getExtractor().repetitions,
-                    ex->getRngSeed(),
+                A2AdapterState::ErrorInfo error
+                {
+                    src.source,
                     src.moduleIndex,
-                    ex->getOptions());
-            }
-            // analysis::MultiHitExtractor
-            else if (auto ex = qobject_cast<analysis::MultiHitExtractor *>(src.source.get()))
-            {
-                ds = a2::make_datasource_multihit_extractor(
-                    arena,
-                    ex->getShape(),
-                    ex->getFilter(),
-                    ex->getMaxHits(),
-                    ex->getRngSeed(),
-                    src.moduleIndex,
-                    ex->getOptions());
-            }
-            else if (auto ex = qobject_cast<analysis::DataSourceMdppSampleDecoder *>(src.source.get()))
-            {
-                ds = a2::make_datasource_mdpp_sample_decoder(
-                    arena,
-                    ex->getModuleTypeName().toStdString(),
-                    ex->getMaxChannels(),
-                    ex->getMaxSamples(),
-                    ex->getRngSeed(),
-                    src.moduleIndex,
-                    ex->getOptions());
-            }
+                    QSL("Exception from source adapter function."),
+                    std::current_exception()
+                };
 
-            a2::A2::OperatorCountType &ds_cnt = state->a2->dataSourceCounts[ei];
-            state->a2->dataSources[ei][ds_cnt] = ds;
-            state->sourceMap.insert(src.source.get(), state->a2->dataSources[ei] + ds_cnt);
-            ds_cnt++;
+                state->operatorErrors.push_back(error);
+            }
         }
     }
 }
@@ -1300,6 +1315,19 @@ bool has_input_from_error_set(const OperatorPtr &op,
             auto it = std::find_if(errorInfos.begin(), errorInfos.end(),
                                    [&inputOp] (const A2AdapterState::ErrorInfo &errorInfo) {
                 return errorInfo.op.get() == inputOp;
+            });
+
+            if (it != errorInfos.end())
+            {
+                result = true;
+                break;
+            }
+        }
+        else if (auto inputSrc = qobject_cast<SourceInterface *>(slot->inputPipe->getSource()))
+        {
+            auto it = std::find_if(errorInfos.begin(), errorInfos.end(),
+                                   [&inputSrc] (const A2AdapterState::ErrorInfo &errorInfo) {
+                return errorInfo.src.get() == inputSrc;
             });
 
             if (it != errorInfos.end())
@@ -1631,7 +1659,6 @@ A2AdapterState a2_adapter_build(
         LOG("  ei=%d, #ds=%d", ei, (u32)result.a2->dataSourceCounts[ei]);
     }
 
-    assert(result.sourceMap.size() == activeSources.size());
 
     // -------------------------------------------
     // a1 Operator -> a2 Operator
@@ -1836,15 +1863,27 @@ A2AdapterState a2_adapter_build(
 
         for (const auto &errorInfo: result.operatorErrors)
         {
-            auto &a1_op = errorInfo.op;
-            (void) a1_op;
+            if (auto &a1_op = errorInfo.op)
+            {
+                (void) a1_op;
 
-            LOG("  ei=%d, a1_type=%s, a1_name=%s, reason=%s",
-                errorInfo.eventIndex,
-                a1_op ? a1_op->metaObject()->className() : "nullptr",
-                a1_op ? qcstr(a1_op->objectName()) : "nullptr",
-                qcstr(errorInfo.reason)
-                );
+                LOG("  ei=%d, a1_type=%s, a1_name=%s, reason=%s",
+                    errorInfo.eventIndex,
+                    a1_op ? a1_op->metaObject()->className() : "nullptr",
+                    a1_op ? qcstr(a1_op->objectName()) : "nullptr",
+                    qcstr(errorInfo.reason)
+                    );
+            }
+            else if (auto &a1_src = errorInfo.src)
+            {
+                (void) a1_src;
+                LOG("  mi=%d, a1_type=%s, a1_name=%s, reason=%s",
+                    errorInfo.moduleIndex,
+                    a1_src ? a1_src->metaObject()->className() : "nullptr",
+                    a1_src ? qcstr(a1_src->objectName()) : "nullptr",
+                    qcstr(errorInfo.reason)
+                    );
+            }
         }
     }
 

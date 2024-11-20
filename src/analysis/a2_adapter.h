@@ -39,9 +39,27 @@ struct A2AdapterState
     struct ErrorInfo
     {
         OperatorPtr op;
-        s32 eventIndex;
+        s32 eventIndex = -1;
+        SourcePtr src;
+        s32 moduleIndex = -1;
         QString reason;
         std::exception_ptr ep;
+
+        ErrorInfo(const OperatorPtr &op, s32 eventIndex, const QString &reason, const std::exception_ptr &ep):
+            op(op),
+            eventIndex(eventIndex),
+            reason(reason),
+            ep(ep)
+        {
+        }
+
+        ErrorInfo(const SourcePtr &src, s32 moduleInex, const QString &reason, const std::exception_ptr &ep):
+            src(src),
+            moduleIndex(moduleInex),
+            reason(reason),
+            ep(ep)
+        {
+        }
     };
 
     using ErrorInfoVector = QVector<ErrorInfo>;
