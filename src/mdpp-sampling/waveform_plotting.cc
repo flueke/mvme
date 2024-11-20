@@ -282,4 +282,29 @@ void post_process_waveforms(
     }
 }
 
+void reprocess_waveforms(
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor)
+{
+    interpolatedDisplayTraces.resize(rawDisplayTraces.size());
+
+    for (size_t chan=0; chan<rawDisplayTraces.size(); ++chan)
+    {
+        auto &rawTraces = rawDisplayTraces[chan];
+        auto &ipolTraces = interpolatedDisplayTraces[chan];
+        ipolTraces.resize(rawTraces.size());
+
+        for (size_t traceIndex=0; traceIndex<rawTraces.size(); ++traceIndex)
+        {
+            auto &rawTrace = rawTraces[traceIndex];
+            auto &ipolTrace = ipolTraces[traceIndex];
+
+            waveforms::rescale_x_values(rawTrace, dtSample);
+            waveforms::interpolate(rawTrace, ipolTrace, interpolationFactor);
+        }
+    }
+}
+
 }

@@ -320,6 +320,16 @@ void post_process_waveforms(
     int interpolationFactor,
     size_t maxDepth);
 
+// Reprocess waveforms to account for changed dtSample and interpolationFactor
+// values.
+// The traces in rawDisplayTraces are rescaled by dtSample, then interpolated
+// data is written to interpolatedDisplayTraces.
+void reprocess_waveforms(
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor);
+
 }
 
 #endif /* F66C9539_DA00_4A40_802A_F2101420A636 */
