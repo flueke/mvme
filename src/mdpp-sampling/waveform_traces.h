@@ -90,6 +90,10 @@ std::pair<double, double> find_minmax_y(const Trace &trace);
 // scale x values by dtSample
 void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample);
 
+// same as scale_x_values but use the index of the sample to calculate the x
+// value, ignoring the current input traces x value completely.
+void rescale_x_values(waveforms::Trace &input, double dtSample);
+
 // pick a trace from the same column of each row in the trace history
 std::vector<const Trace *> get_trace_column(const TraceHistories &traceHistories, size_t traceIndex);
 

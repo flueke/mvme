@@ -89,6 +89,12 @@ void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, dou
     output.ys = input.ys;
 }
 
+void rescale_x_values(waveforms::Trace &input, double dtSample)
+{
+    std::for_each(std::begin(input.xs), std::end(input.xs),
+        [dtSample, index=0](double &x) mutable { x = index++ * dtSample; });
+}
+
 std::vector<const Trace *> get_trace_column(const TraceHistories &history, size_t traceIndex)
 {
     auto accu = [traceIndex] (std::vector<const waveforms::Trace *> &acc, const waveforms::TraceHistory &history)
