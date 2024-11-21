@@ -40,8 +40,8 @@ TEST(MdppSamplingDecode, decode_mdpp16_basic)
     // 0x400d00c1 module_header, module_id=0x0d, module_setting=0x0, data_length=193 words
     // 0x100a1602 data_word, channel_address=10, mdpp_flags=0x0
     // 0x10da1000 data_word, channel_address=26, mdpp_flags=0x30
-    // 0x3fe2ff8b
-    // 0x3fe3bf8b
+    // 0x3fe2ff8b <- samples header
+    // 0x3fe3bf8b <- 9 x 2 samples
     // 0x3011bf8d
     // 0x30578046
     // 0x3041c160
@@ -52,8 +52,8 @@ TEST(MdppSamplingDecode, decode_mdpp16_basic)
     // 0x30450112
     // 0x1000157d data_word, channel_address= 0, mdpp_flags=0x0
     // 0x10d01042 data_word, channel_address=16, mdpp_flags=0x30
-    // 0x30024009
-    // 0x30040007
+    // 0x30024009 <- samples header
+    // 0x30040007 <- 9 x 2 samples
     // 0x3011801d
     // 0x305e4195
     // 0x306801a6
@@ -76,8 +76,8 @@ TEST(MdppSamplingDecode, decode_mdpp16_basic)
     ASSERT_EQ(decoded.header, 0x400d001a);
     ASSERT_EQ(decoded.timestamp, static_cast<u64>(0x029d1b98) | (static_cast<u64>(0xabcd) << 30));
     ASSERT_EQ(decoded.traces.size(), 2);
-    ASSERT_EQ(decoded.traces[0].samples.size(), 20);
-    ASSERT_EQ(decoded.traces[1].samples.size(), 20);
+    ASSERT_EQ(decoded.traces[0].samples.size(), 18);
+    ASSERT_EQ(decoded.traces[1].samples.size(), 18);
     ASSERT_EQ(decoded.traces[0].channel, 10);
     ASSERT_EQ(decoded.traces[1].channel, 0);
 }
@@ -94,8 +94,8 @@ TEST(MdppSamplingDecode, decode_mdpp16_multihit_adjacent)
     // 0x400d00c1 module_header, module_id=0x0d, module_setting=0x0, data_length=193 words
     // 0x100a1602 data_word, channel_address=10, mdpp_flags=0x0
     // 0x10da1000 data_word, channel_address=26, mdpp_flags=0x30
-    // 0x3fe2ff8b
-    // 0x3fe3bf8b
+    // 0x3fe2ff8b <- samples header
+    // 0x3fe3bf8b <- 9 x 2 samples
     // 0x3011bf8d
     // 0x30578046
     // 0x3041c160
@@ -106,8 +106,8 @@ TEST(MdppSamplingDecode, decode_mdpp16_multihit_adjacent)
     // 0x30450112
     // 0x100a1602 data_word, channel_address=10, mdpp_flags=0x0
     // 0x10da1000 data_word, channel_address=26, mdpp_flags=0x30
-    // 0x30024009
-    // 0x30040007
+    // 0x30024009 <- samples header
+    // 0x30040007 <- 9 x 2 samples
     // 0x3011801d
     // 0x305e4195
     // 0x306801a6
@@ -130,6 +130,6 @@ TEST(MdppSamplingDecode, decode_mdpp16_multihit_adjacent)
     ASSERT_EQ(decoded.header, 0x400d001a);
     ASSERT_EQ(decoded.timestamp, static_cast<u64>(0x029d1b98) | (static_cast<u64>(0xabcd) << 30));
     ASSERT_EQ(decoded.traces.size(), 1);
-    ASSERT_EQ(decoded.traces[0].samples.size(), 40);
+    ASSERT_EQ(decoded.traces[0].samples.size(), 38);
     ASSERT_EQ(decoded.traces[0].channel, 10);
 }

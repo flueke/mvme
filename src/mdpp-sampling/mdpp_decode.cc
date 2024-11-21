@@ -8,7 +8,7 @@
 #include "util/math.h"
 #include "analysis/a2/a2_support.h"
 
-#if 0
+#if 1
 #define SAM_ASSERT(cond) assert(cond)
 #else
 #define SAM_ASSERT(cond)
@@ -30,6 +30,7 @@ struct CommonFilters
 	const FilterWithCaches fTimeStamp       = make_filter_with_caches("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fExtentedTs      = make_filter_with_caches("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
     // Samples header: D = debug[1:0], C = config[7:0], P = phase[8:0], L = length[9:0]
+    // FIXME: still one bit too many! Took one away from the debug field.
     const FilterWithCaches fSamplesHeader   = make_filter_with_caches("0011 DCCC CCCC CPPP PPPP PPLL LLLL LLLL");
 	const FilterWithCaches fSamples         = make_filter_with_caches("0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
 };
@@ -61,12 +62,17 @@ void reset_trace(ChannelTrace &trace)
     trace.amplitudeData = 0;
     trace.timeData = 0;
     trace.samples.clear();
+    trace.traceHeader = {};
 }
 
+// Extract a timestamp value from mesytec vme module data. Both standard and
+// extended timestamp words are considered. Null fillwords are skipped. Only the
+// first hits for the timestamp and extended timestamp filter masks are
+// considered. Searching is done in reverse order as the timestamps should be at
+// or near the end of the data.
 template<typename Filters>
 std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const Filters &filters)
 {
-
     auto pred_ts = [&filters](u32 word) { return mvlc::util::matches(filters.fTimeStamp, word); };
     auto pred_ext_ts = [&filters](u32 word) { return mvlc::util::matches(filters.fExtentedTs, word); };
 
@@ -77,8 +83,7 @@ std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const F
         it != std::rend(dataView))
     {
         ret = mvlc::util::extract(filters.fTimeStamp, *it, 'D');
-        if (ret.has_value())
-            spdlog::trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", *ret, *ret);
+        spdlog::trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", *ret, *ret);
     }
     else
     {
@@ -91,8 +96,8 @@ std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const F
     {
         // optional 16 high bits of the extended timestamp if enabled
         auto value = *mvlc::util::extract(filters.fExtentedTs, *it, 'D');
-        spdlog::trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
         ret = *ret | (static_cast<std::uint64_t>(value) << 30);
+        spdlog::trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
     }
     else
     {
@@ -119,8 +124,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
         return {};
     }
 
-    // The position of the header and timestamp words is fixed, so we can handle
-    // them here, instead of testing each word in the loop.
+    // The module header word is always the first word. Store it and extract the module ID.
     if (mvlc::util::matches(filters.fModuleId, data[0]))
     {
         ret.header = data[0];
@@ -151,8 +155,8 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
         // This means we will always have a valid channel number when starting
         // to process sample data.
 
-        const bool amplitudeMatches = mvlc::util::matches(filters.fAmplitude.filter, *wordPtr);
-        const bool channelTimeMatches = mvlc::util::matches(filters.fChannelTime.filter, *wordPtr);
+        const bool amplitudeMatches = mvlc::util::matches(filters.fAmplitude, *wordPtr);
+        const bool channelTimeMatches = mvlc::util::matches(filters.fChannelTime, *wordPtr);
 
         if (amplitudeMatches || channelTimeMatches)
         {
@@ -163,7 +167,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 			s32 addr = *mvlc::util::extract(theFilter, *wordPtr, 'A');
 			auto value = *mvlc::util::extract(theFilter, *wordPtr, 'D');
 
-            // TODO: try to compress this code. both branches are so similar
             if (currentTrace.channel >= 0 && currentTrace.channel != addr)
             {
                 // The current channel number changed which means we're done
@@ -175,65 +178,63 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 
                 // begin the new trace
                 reset_trace(currentTrace);
-                currentTrace.channel = addr;
-                currentTrace.header = ret.header;
+            }
 
-                if (amplitudeMatches)
-                {
-                    currentTrace.amplitude = value;
-                    currentTrace.amplitudeData = *wordPtr;
-                }
-                else
-                {
-                    currentTrace.time = value;
-                    currentTrace.timeData = *wordPtr;
-                }
+            currentTrace.channel = addr;
+            currentTrace.header = ret.header;
+
+            if (amplitudeMatches)
+            {
+                currentTrace.amplitude = value;
+                currentTrace.amplitudeData = *wordPtr;
             }
             else
             {
-                // We did not have a valid trace before.
-                currentTrace.channel = addr;
-                currentTrace.header = ret.header;
-
-                if (amplitudeMatches)
-                {
-                    currentTrace.amplitude = value;
-                    currentTrace.amplitudeData = *wordPtr;
-                }
-                else
-                {
-                    currentTrace.time = value;
-                    currentTrace.timeData = *wordPtr;
-                }
+                currentTrace.time = value;
+                currentTrace.timeData = *wordPtr;
             }
         }
-		else if (mvlc::util::matches(filters.fSamples.filter, *wordPtr))
+		else if (mvlc::util::matches(filters.fSamples, *wordPtr))
 		{
-            // This error should never happen if the MDPP firmware behaves correctly.
             if (currentTrace.channel < 0)
             {
                 spdlog::error("decode_mdpp_samples: got a sample datum without prior amplitude or channel time data.");
                 SAM_ASSERT(!"sample datum without prior amplitude or channel time data");
                 return {};
             }
-            //assert(currentTrace.channel >= 0);
 
-            // The 14 high bits are the even sample, the 14 low bits the odd one.
-            constexpr u32 SampleMask = (1u << SampleBits) - 1;
+            if (currentTrace.traceHeader.value == 0)
+            {
+                // No header seen yet for this trace so this match is the samples header.
 
-            // Extract the raw sample values
-			auto value = *mvlc::util::extract(filters.fSamples, *wordPtr, 'D');
-            u32 evenRaw = value & SampleMask;
-            u32 oddRaw  = (value >> SampleBits) & SampleMask;
+                SAM_ASSERT(currentTrace.traceHeader.value == 0);
+                ChannelTrace::TraceHeader traceHeader;
 
-            // Now interpret the 14 bit values as signed.
-            s64 evenSigned = a2::convert_to_signed(evenRaw, SampleBits);
-            s64 oddSigned = a2::convert_to_signed(oddRaw, SampleBits);
+                traceHeader.debug = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'D');
+                traceHeader.config = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'C');
+                traceHeader.phase = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'P');
+                traceHeader.length = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'L');
 
-            currentTrace.samples.push_back(evenSigned);
-            currentTrace.samples.push_back(oddSigned);
+                currentTrace.traceHeader = traceHeader;
+            }
+            else
+            {
+                // The 14 high bits are the even sample, the 14 low bits the odd one.
+                constexpr u32 SampleMask = (1u << SampleBits) - 1;
+
+                // Extract the raw sample values
+                auto value = *mvlc::util::extract(filters.fSamples, *wordPtr, 'D');
+                u32 evenRaw = value & SampleMask;
+                u32 oddRaw  = (value >> SampleBits) & SampleMask;
+
+                // Now interpret the 14 bit values as signed.
+                s64 evenSigned = a2::convert_to_signed(evenRaw, SampleBits);
+                s64 oddSigned = a2::convert_to_signed(oddRaw, SampleBits);
+
+                currentTrace.samples.push_back(evenSigned);
+                currentTrace.samples.push_back(oddSigned);
+            }
         }
-#if 1 //#ifndef NDEBUG
         else if (*wordPtr == 0u
                 || mvlc::util::matches(filters.fTimeStamp, *wordPtr)
                 || mvlc::util::matches(filters.fExtentedTs, *wordPtr)
@@ -251,7 +252,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
             //spdlog::warn("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
             SAM_ASSERT(!"no filter match in mdpp data");
         }
-#endif
     }
 
     // Handle a possible last trace that was decoded but not yet moved into the
@@ -265,48 +265,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 
     spdlog::trace("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
                  ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size());
-
-    return ret;
-}
-
-template<typename Filters>
-DecodedMdppSampleEvent decode_mdpp_samples_impl_2(const u32 *data, const size_t size, const Filters &filters)
-{
-    std::basic_string_view<u32> dataView(data, size);
-
-    spdlog::trace("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
-
-    DecodedMdppSampleEvent ret{};
-
-    // Need at least the module header and the EndOfEvent word.
-    if (size < 2)
-    {
-        spdlog::warn("decode_mdpp_samples: input data size < 2, returning null result");
-        SAM_ASSERT(!"decode_mdpp_samples: input data size must be >= 2");
-        return {};
-    }
-
-    // The module header word is always the first word. Store it and extract the module ID.
-    if (mvlc::util::matches(filters.fModuleId.filter, data[0]))
-    {
-        ret.header = data[0];
-        ret.headerModuleId = *mvlc::util::extract(filters.fModuleId, data[0], 'D');
-    }
-    else
-    {
-        SAM_ASSERT(!"decode_mdpp_samples: fModuleId");
-    }
-
-    auto timestamp = extract_timestamp(data, size, filters);
-
-    if (timestamp.has_value())
-    {
-        ret.timestamp = *timestamp;
-    }
-    else
-    {
-        SAM_ASSERT(!"decode_mdpp_samples: timestamp");
-    }
 
     return ret;
 }
