@@ -358,6 +358,7 @@ QwtSymbolCache set_brush_and_pen_colors(const QwtSymbolCache &cache, const QColo
     auto result = cache;
     result.brush.setColor(color);
     result.pen.setColor(color);
+    return result;
 }
 
 } // end namespace mvme_qwt
