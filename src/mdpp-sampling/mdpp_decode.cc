@@ -1,5 +1,7 @@
 #include "mdpp_decode.h"
 
+#include <optional>
+
 #include <mesytec-mvlc/util/data_filter.h>
 #include <mesytec-mvlc/util/logging.h>
 
@@ -18,41 +20,30 @@ namespace mesytec::mvme::mdpp_sampling
 namespace
 {
 
-struct FilterWithCache
-{
-	mvlc::util::DataFilter filter;
-	mvlc::util::CacheEntry addrCache; // for the 'A' marker to extract address values
-	mvlc::util::CacheEntry dataCache; // for the 'D" marker to extract data values
-};
-
-FilterWithCache make_filter(const std::string &pattern)
-{
-	FilterWithCache result;
-	result.filter = mvlc::util::make_filter(pattern);
-	result.addrCache = mvlc::util::make_cache_entry(result.filter, 'A');
-	result.dataCache = mvlc::util::make_cache_entry(result.filter, 'D');
-	return result;
-}
+using FilterWithCaches = mvlc::util::FilterWithCaches;
+using mvlc::util::make_filter_with_caches;
 
 struct CommonFilters
 {
-	const FilterWithCache fModuleId       = make_filter("0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX");
-	const FilterWithCache fTriggerTime    = make_filter("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
-	const FilterWithCache fTimeStamp      = make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
-	const FilterWithCache fExtentedTs     = make_filter("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
-	const FilterWithCache fSamples        = make_filter("0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
+	const FilterWithCaches fModuleId        = make_filter_with_caches("0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX");
+	const FilterWithCaches fTriggerTime     = make_filter_with_caches("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
+	const FilterWithCaches fTimeStamp       = make_filter_with_caches("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
+	const FilterWithCaches fExtentedTs      = make_filter_with_caches("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
+    // Samples header: D = debug[1:0], C = config[7:0], P = phase[8:0], L = length[9:0]
+    const FilterWithCaches fSamplesHeader   = make_filter_with_caches("0011 DCCC CCCC CPPP PPPP PPLL LLLL LLLL");
+	const FilterWithCaches fSamples         = make_filter_with_caches("0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
 };
 
 struct Mdpp16ScpFilters: public CommonFilters
 {
-	const FilterWithCache fChannelTime    = make_filter("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD");
-	const FilterWithCache fAmplitude      = make_filter("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD");
+	const FilterWithCaches fChannelTime    = make_filter_with_caches("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD");
+	const FilterWithCaches fAmplitude      = make_filter_with_caches("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD");
 };
 
 struct Mdpp32ScpFilters: public CommonFilters
 {
-	const FilterWithCache fChannelTime    = make_filter("0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD");
-	const FilterWithCache fAmplitude      = make_filter("0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD");
+	const FilterWithCaches fChannelTime    = make_filter_with_caches("0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD");
+	const FilterWithCaches fAmplitude      = make_filter_with_caches("0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD");
 };
 
 static const Mdpp16ScpFilters mdpp16ScpFilters;
@@ -70,6 +61,45 @@ void reset_trace(ChannelTrace &trace)
     trace.amplitudeData = 0;
     trace.timeData = 0;
     trace.samples.clear();
+}
+
+template<typename Filters>
+std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const Filters &filters)
+{
+
+    auto pred_ts = [&filters](u32 word) { return mvlc::util::matches(filters.fTimeStamp, word); };
+    auto pred_ext_ts = [&filters](u32 word) { return mvlc::util::matches(filters.fExtentedTs, word); };
+
+    std::basic_string_view<u32> dataView(data, size);
+    std::optional<u64> ret;
+
+    if (auto it = std::find_if(std::rbegin(dataView), std::rend(dataView), pred_ts);
+        it != std::rend(dataView))
+    {
+        ret = mvlc::util::extract(filters.fTimeStamp, *it, 'D');
+        if (ret.has_value())
+            spdlog::trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", *ret, *ret);
+    }
+    else
+    {
+        SAM_ASSERT(!"decode_mdpp_samples: fTimeStamp");
+        return ret;
+    }
+
+    if (auto it = std::find_if(std::rbegin(dataView), std::rend(dataView), pred_ext_ts);
+        it != std::rend(dataView) && ret.has_value())
+    {
+        // optional 16 high bits of the extended timestamp if enabled
+        auto value = *mvlc::util::extract(filters.fExtentedTs, *it, 'D');
+        spdlog::trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
+        ret = *ret | (static_cast<std::uint64_t>(value) << 30);
+    }
+    else
+    {
+        spdlog::trace("decode_mdpp_samples: no extended timestamp present");
+    }
+
+    return ret;
 }
 
 template<typename Filters>
@@ -91,38 +121,25 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 
     // The position of the header and timestamp words is fixed, so we can handle
     // them here, instead of testing each word in the loop.
-    if (mvlc::util::matches(filters.fModuleId.filter, data[0]))
+    if (mvlc::util::matches(filters.fModuleId, data[0]))
     {
         ret.header = data[0];
-        ret.headerModuleId = mvlc::util::extract(filters.fModuleId.dataCache, data[0]);
+        ret.headerModuleId = *mvlc::util::extract(filters.fModuleId, data[0], 'D');
     }
     else
     {
         SAM_ASSERT(!"decode_mdpp_samples: fModuleId");
     }
 
-    if (mvlc::util::matches(filters.fTimeStamp.filter, data[size-1]))
-    {
-        // 30 low bits of the timestamp
-        auto value = mvlc::util::extract(filters.fTimeStamp.dataCache, data[size-1]);
-        //spdlog::trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", value, value);
-        ret.timestamp |= value;
-    }
-    else
-    {
-        SAM_ASSERT(!"decode_mdpp_samples: fTimeStamp");
-    }
+    auto timestamp = extract_timestamp(data, size, filters);
 
-    if (size >= 3 && mvlc::util::matches(filters.fExtentedTs.filter, data[size-2]))
+    if (timestamp.has_value())
     {
-        // optional 16 high bits of the extended timestamp if enabled
-        auto value = mvlc::util::extract(filters.fExtentedTs.dataCache, data[size-2]);
-        //spdlog::trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
-        ret.timestamp |= static_cast<std::uint64_t>(value) << 30;
+        ret.timestamp = *timestamp;
     }
     else
     {
-        spdlog::trace("decode_mdpp_samples: no extended timestamp present");
+        SAM_ASSERT(!"decode_mdpp_samples: timestamp");
     }
 
     ChannelTrace currentTrace;
@@ -143,8 +160,8 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 
             // Note: extract yields unsigned, but the address values do easily
             // fit in signed 32-bit integers.
-			s32 addr = mvlc::util::extract(theFilter.addrCache, *wordPtr);
-			auto value = mvlc::util::extract(theFilter.dataCache, *wordPtr);
+			s32 addr = *mvlc::util::extract(theFilter, *wordPtr, 'A');
+			auto value = *mvlc::util::extract(theFilter, *wordPtr, 'D');
 
             // TODO: try to compress this code. both branches are so similar
             if (currentTrace.channel >= 0 && currentTrace.channel != addr)
@@ -205,7 +222,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
             constexpr u32 SampleMask = (1u << SampleBits) - 1;
 
             // Extract the raw sample values
-			auto value = mvlc::util::extract(filters.fSamples.dataCache, *wordPtr);
+			auto value = *mvlc::util::extract(filters.fSamples, *wordPtr, 'D');
             u32 evenRaw = value & SampleMask;
             u32 oddRaw  = (value >> SampleBits) & SampleMask;
 
@@ -218,9 +235,9 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
         }
 #if 1 //#ifndef NDEBUG
         else if (*wordPtr == 0u
-                || mvlc::util::matches(filters.fTimeStamp.filter, *wordPtr)
-                || mvlc::util::matches(filters.fExtentedTs.filter, *wordPtr)
-                || mvlc::util::matches(filters.fTriggerTime.filter, *wordPtr))
+                || mvlc::util::matches(filters.fTimeStamp, *wordPtr)
+                || mvlc::util::matches(filters.fExtentedTs, *wordPtr)
+                || mvlc::util::matches(filters.fTriggerTime, *wordPtr))
         {
             // Explicit test for fillword, timestamp and other known data words
             // to avoid issuing unneeded warnings.

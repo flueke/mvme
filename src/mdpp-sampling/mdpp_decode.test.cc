@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <mesytec-mvlc/util/logging.h>
 #include "mdpp-sampling/mdpp_decode.h"
 
 using namespace mesytec::mvme;
@@ -35,6 +36,7 @@ using namespace mesytec::mvme;
 
 TEST(MdppSamplingDecode, decode_mdpp16_basic)
 {
+    mesytec::mvlc::set_global_log_level(spdlog::level::trace);
     // 0x400d00c1 module_header, module_id=0x0d, module_setting=0x0, data_length=193 words
     // 0x100a1602 data_word, channel_address=10, mdpp_flags=0x0
     // 0x10da1000 data_word, channel_address=26, mdpp_flags=0x30
@@ -63,15 +65,16 @@ TEST(MdppSamplingDecode, decode_mdpp16_basic)
 
     const std::vector<u32> data =
     {
-        0x400d0018, 0x100a1602, 0x10da1000, 0x3fe2ff8b, 0x3fe3bf8b, 0x3011bf8d, 0x30578046, 0x3041c160,
+        0x400d001a, 0x100a1602, 0x10da1000, 0x3fe2ff8b, 0x3fe3bf8b, 0x3011bf8d, 0x30578046, 0x3041c160,
         0x3045c106, 0x30468117, 0x3045011a, 0x3044c115, 0x30450112, 0x1000157d, 0x10d01042, 0x30024009,
         0x30040007, 0x3011801d, 0x305e4195, 0x306801a6, 0x3064018f, 0x30628189, 0x3063818f, 0x3062c18c,
-        0x3063018b
+        0x3063018b, 0x2000abcd, 0xc29d1b98
     };
 
     auto decoded = mdpp_sampling::decode_mdpp16_scp_samples(data.data(), data.size());
 
-    ASSERT_EQ(decoded.header, 0x400d0018);
+    ASSERT_EQ(decoded.header, 0x400d001a);
+    ASSERT_EQ(decoded.timestamp, static_cast<u64>(0x029d1b98) | (static_cast<u64>(0xabcd) << 30));
     ASSERT_EQ(decoded.traces.size(), 2);
     ASSERT_EQ(decoded.traces[0].samples.size(), 20);
     ASSERT_EQ(decoded.traces[1].samples.size(), 20);
@@ -116,15 +119,16 @@ TEST(MdppSamplingDecode, decode_mdpp16_multihit_adjacent)
 
     const std::vector<u32> data =
     {
-        0x400d0018, 0x100a1602, 0x10da1000, 0x3fe2ff8b, 0x3fe3bf8b, 0x3011bf8d, 0x30578046, 0x3041c160,
+        0x400d001a, 0x100a1602, 0x10da1000, 0x3fe2ff8b, 0x3fe3bf8b, 0x3011bf8d, 0x30578046, 0x3041c160,
         0x3045c106, 0x30468117, 0x3045011a, 0x3044c115, 0x30450112, 0x100a1602, 0x10da1000, 0x30024009,
         0x30040007, 0x3011801d, 0x305e4195, 0x306801a6, 0x3064018f, 0x30628189, 0x3063818f, 0x3062c18c,
-        0x3063018b
+        0x3063018b, 0x2000abcd, 0xc29d1b98
     };
 
     auto decoded = mdpp_sampling::decode_mdpp16_scp_samples(data.data(), data.size());
 
-    ASSERT_EQ(decoded.header, 0x400d0018);
+    ASSERT_EQ(decoded.header, 0x400d001a);
+    ASSERT_EQ(decoded.timestamp, static_cast<u64>(0x029d1b98) | (static_cast<u64>(0xabcd) << 30));
     ASSERT_EQ(decoded.traces.size(), 1);
     ASSERT_EQ(decoded.traces[0].samples.size(), 40);
     ASSERT_EQ(decoded.traces[0].channel, 10);
