@@ -16,7 +16,7 @@ find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Xml REQUIRED)
-find_package(Qt5WebEngineWidgets)
+find_package(Qt5WebEngineWidgets QUIET)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
