@@ -269,15 +269,61 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     return ret;
 }
 
+template<typename Filters>
+DecodedMdppSampleEvent decode_mdpp_samples_impl_2(const u32 *data, const size_t size, const Filters &filters)
+{
+    std::basic_string_view<u32> dataView(data, size);
+
+    spdlog::trace("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
+
+    DecodedMdppSampleEvent ret{};
+
+    // Need at least the module header and the EndOfEvent word.
+    if (size < 2)
+    {
+        spdlog::warn("decode_mdpp_samples: input data size < 2, returning null result");
+        SAM_ASSERT(!"decode_mdpp_samples: input data size must be >= 2");
+        return {};
+    }
+
+    // The module header word is always the first word. Store it and extract the module ID.
+    if (mvlc::util::matches(filters.fModuleId.filter, data[0]))
+    {
+        ret.header = data[0];
+        ret.headerModuleId = *mvlc::util::extract(filters.fModuleId, data[0], 'D');
+    }
+    else
+    {
+        SAM_ASSERT(!"decode_mdpp_samples: fModuleId");
+    }
+
+    auto timestamp = extract_timestamp(data, size, filters);
+
+    if (timestamp.has_value())
+    {
+        ret.timestamp = *timestamp;
+    }
+    else
+    {
+        SAM_ASSERT(!"decode_mdpp_samples: timestamp");
+    }
+
+    return ret;
+}
+
+#define ActiveDecoder decode_mdpp_samples_impl
+
 DecodedMdppSampleEvent decode_mdpp16_scp_samples(const u32 *data, const size_t size)
 {
-    return decode_mdpp_samples_impl(data, size, mdpp16ScpFilters);
+    return ActiveDecoder(data, size, mdpp16ScpFilters);
 }
 
 DecodedMdppSampleEvent decode_mdpp32_scp_samples(const u32 *data, const size_t size)
 {
-    return decode_mdpp_samples_impl(data, size, mdpp32ScpFilters);
+    return ActiveDecoder(data, size, mdpp32ScpFilters);
 }
+
+#undef ActiveDecoder
 
 DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(const u32 *data, const size_t size, const char *moduleType)
 {
