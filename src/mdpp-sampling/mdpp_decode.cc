@@ -58,7 +58,7 @@ void reset_trace(ChannelTrace &trace)
     trace.moduleId = QUuid();
     trace.amplitude = mvme::util::make_quiet_nan();
     trace.time = mvme::util::make_quiet_nan();
-    trace.header = 0;
+    trace.moduleHeader = 0;
     trace.amplitudeData = 0;
     trace.timeData = 0;
     trace.samples.clear();
@@ -181,7 +181,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
             }
 
             currentTrace.channel = addr;
-            currentTrace.header = ret.header;
+            currentTrace.moduleHeader = ret.header;
 
             if (amplitudeMatches)
             {

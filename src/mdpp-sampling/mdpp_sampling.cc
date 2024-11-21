@@ -589,7 +589,7 @@ void MdppSamplingUi::replot()
             sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #RawSamples=%7, #IpolSamples=%11 yMin=%8, yMax=%9, moduleHeader=0x%10")
                 .arg(moduleName).arg(channel).arg(traceIndex).arg(trace->eventNumber)
                 .arg(trace->amplitude).arg(trace->time).arg(get_raw_sample_count(*trace))
-                .arg(yMin).arg(yMax).arg(trace->header, 8, 16, QLatin1Char('0'))
+                .arg(yMin).arg(yMax).arg(trace->moduleHeader, 8, 16, QLatin1Char('0'))
                 .arg(get_interpolated_sample_count(*trace))
                 );
         }

@@ -43,7 +43,7 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
     s32 channel = -1;
     float amplitude = util::make_quiet_nan(); // extracted amplitude value
     float time = util::make_quiet_nan(); // extracted time value
-    u32 header = 0; // raw module header word // TODO: rename to moduleHeader now that there is a traceHeader
+    u32 moduleHeader = 0; // raw module header word
     u32 amplitudeData = 0; // raw amplitude data word
     u32 timeData = 0; // raw time data word
     double dtSample = MdppDefaultSamplePeriod;
