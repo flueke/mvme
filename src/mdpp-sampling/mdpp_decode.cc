@@ -14,6 +14,8 @@
 #define SAM_ASSERT(cond)
 #endif
 
+#define SAM_ASSERT_WARN(cond) if (!(cond)) spdlog::warn("Assertion failed: {}", #cond)
+
 namespace mesytec::mvme::mdpp_sampling
 {
 
@@ -87,7 +89,7 @@ std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const F
     }
     else
     {
-        SAM_ASSERT(!"decode_mdpp_samples: fTimeStamp");
+        SAM_ASSERT_WARN(!"decode_mdpp_samples: fTimeStamp");
         return ret;
     }
 
@@ -143,7 +145,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     }
     else
     {
-        SAM_ASSERT(!"decode_mdpp_samples: timestamp");
+        SAM_ASSERT_WARN(!"decode_mdpp_samples: timestamp");
     }
 
     ChannelTrace currentTrace;
