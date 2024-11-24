@@ -40,6 +40,8 @@
 #include <memory>
 #include <qgv.h>
 
+#include <mesytec-mvlc/util/counters.h>
+
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_graphs.h"
 #include "analysis/analysis_serialization.h"
@@ -4811,7 +4813,7 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
     if (isReplay)
     {
-        dt_s = calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
+        dt_s = mvlc::util::calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
     }
     else
     {
@@ -4859,7 +4861,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             if (eventIndex < 0 || eventIndex >= MaxVMEEvents)
                 continue;
 
-            auto rate = calc_delta0(
+            auto rate = mvlc::util::calc_delta0(
                 counters.eventCounters[eventIndex],
                 prevCounters.eventCounters[eventIndex]);
             rate /= dt_s;
@@ -4892,7 +4894,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
                 || indices.moduleIndex >= MaxVMEModules)
                 continue;
 
-            auto rate = calc_delta0(
+            auto rate = mvlc::util::calc_delta0(
                 counters.moduleCounters[indices.eventIndex][indices.moduleIndex],
                 prevCounters.moduleCounters[indices.eventIndex][indices.moduleIndex]);
             rate /= dt_s;
@@ -4933,7 +4935,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             {
                 assert(hitCounts.size() == prevHitCounts.size());
 
-                auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
+                auto hitCountDeltas = mvlc::util::calc_deltas0(hitCounts, prevHitCounts);
                 auto hitCountRates = hitCountDeltas;
                 std::for_each(hitCountRates.begin(), hitCountRates.end(),
                               [dt_s](double &d) { d /= dt_s; });
@@ -5075,7 +5077,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                 prevEntryCounts.resize(entryCounts.size());
 
-                auto entryCountDeltas = calc_deltas0(entryCounts, prevEntryCounts);
+                auto entryCountDeltas = mvlc::util::calc_deltas0(entryCounts, prevEntryCounts);
                 auto entryCountRates = entryCountDeltas;
                 std::for_each(entryCountRates.begin(), entryCountRates.end(),
                               [dt_s](double &d) { d /= dt_s; });
@@ -5135,7 +5137,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                     double prevEntryCount = prevEntryCounts[0];
 
-                    double countDelta = calc_delta0(entryCount, prevEntryCount);
+                    double countDelta = mvlc::util::calc_delta0(entryCount, prevEntryCount);
                     double countRate = countDelta / dt_s;
 
                     if (entryCount <= 0.0)

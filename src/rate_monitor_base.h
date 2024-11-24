@@ -30,7 +30,6 @@
 #include "analysis/a2/rate_sampler.h"
 #include "histo_util.h"
 #include "typedefs.h"
-#include "util/counters.h"
 #include "util/cpp17_algo.h"
 #include "util/qt_str.h"
 #include "util/strings.h"

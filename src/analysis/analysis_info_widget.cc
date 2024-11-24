@@ -30,7 +30,6 @@
 #include <QTabWidget>
 #include <QTimer>
 
-#include "util/counters.h"
 #include "util/qt_font.h"
 #include "util/strings.h"
 #include "mvlc_stream_worker.h"
@@ -537,6 +536,8 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 
     auto &prevCounters = prevMVLCCounters;
 
+#define TYPE_AND_VAL(foo) decltype(foo), foo
+
     double bufferRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::buffersProcessed)>(
         counters, prevCounters, dt);
 
@@ -558,6 +559,8 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 
     auto parserExceptionRate = calc_rate0<TYPE_AND_VAL(&ReadoutParserCounters::parserExceptions)>(
         counters, prevCounters, dt);
+
+#undef TYPE_AND_VAL
 
     QStringList texts;
 
