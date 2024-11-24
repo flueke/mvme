@@ -228,12 +228,13 @@ struct Command
     u32 accuMask = 0;
     u32 accuRotate = 0;
     QString stringData;
+    bool accuTestIsWarning = false;
 };
 
 inline bool operator==(const Command &lhs, const Command &rhs)
 {
-    return std::tie(lhs.type, lhs.addressMode, lhs.dataWidth, lhs.address, lhs.value, lhs.transfers, lhs.delay_ms, lhs.countMask, lhs.blk2eSSTRate, lhs.warning, lhs.lineNumber, lhs.source, lhs.metaBlock, lhs.printArgs, lhs.mvlcCustomStack, lhs.mvlcInlineStack, lhs.mvlcSlowRead, lhs.mvlcFifoMode, lhs.accuTestOp, lhs.accuTestMessage, lhs.accuMask, lhs.accuRotate, lhs.stringData)
-        == std::tie(rhs.type, rhs.addressMode, rhs.dataWidth, rhs.address, rhs.value, rhs.transfers, rhs.delay_ms, rhs.countMask, rhs.blk2eSSTRate, rhs.warning, rhs.lineNumber, rhs.source, rhs.metaBlock, rhs.printArgs, rhs.mvlcCustomStack, rhs.mvlcInlineStack, rhs.mvlcSlowRead, rhs.mvlcFifoMode, rhs.accuTestOp, rhs.accuTestMessage, rhs.accuMask, rhs.accuRotate, rhs.stringData);
+    return std::tie(lhs.type, lhs.addressMode, lhs.dataWidth, lhs.address, lhs.value, lhs.transfers, lhs.delay_ms, lhs.countMask, lhs.blk2eSSTRate, lhs.warning, lhs.lineNumber, lhs.source, lhs.metaBlock, lhs.printArgs, lhs.mvlcCustomStack, lhs.mvlcInlineStack, lhs.mvlcSlowRead, lhs.mvlcFifoMode, lhs.accuTestOp, lhs.accuTestMessage, lhs.accuMask, lhs.accuRotate, lhs.accuTestIsWarning, lhs.stringData)
+        == std::tie(rhs.type, rhs.addressMode, rhs.dataWidth, rhs.address, rhs.value, rhs.transfers, rhs.delay_ms, rhs.countMask, rhs.blk2eSSTRate, rhs.warning, rhs.lineNumber, rhs.source, rhs.metaBlock, rhs.printArgs, rhs.mvlcCustomStack, rhs.mvlcInlineStack, rhs.mvlcSlowRead, rhs.mvlcFifoMode, rhs.accuTestOp, rhs.accuTestMessage, rhs.accuMask, rhs.accuRotate, rhs.accuTestIsWarning, rhs.stringData);
 }
 
 inline bool operator!=(const Command &lhs, const Command &rhs)

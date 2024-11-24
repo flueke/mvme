@@ -83,10 +83,23 @@ class LIBMVME_EXPORT VMEError
 
         inline bool isError() const
         {
+            if (isWarning())
+                return false;
+
             if (m_error == StdErrorCode)
                 return static_cast<bool>(getStdErrorCode());
 
             return m_error != NoError;
+        }
+
+        inline bool isWarning() const
+        {
+            return m_isWarning;
+        }
+
+        inline void setIsWarning(bool isWarning)
+        {
+            m_isWarning = isWarning;
         }
 
         inline bool isTimeout() const { return m_error == Timeout; }
@@ -120,6 +133,7 @@ class LIBMVME_EXPORT VMEError
         QString m_message;
         QString m_errorCodeString;
         std::error_code m_stdErrorCode;
+        bool m_isWarning = false;
 };
 
 

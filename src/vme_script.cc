@@ -839,6 +839,7 @@ Command parse_accu_test(const QStringList &args, int lineNumber)
         result.accuTestOp = accu_test_op_from_string(args[1]);
         result.accuTestValue = parseValue<u32>(args[2]);
         result.accuTestMessage = args[3];
+        result.accuTestIsWarning = args[0] == "accu_test_warn";
         result.lineNumber = lineNumber;
         return result;
     } catch (const std::runtime_error &e)
@@ -909,6 +910,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("accu_set"),          parse_accu_set },
     { QSL("accu_mask_rotate"),  parse_accu_mask_and_rotate },
     { QSL("accu_test"),         parse_accu_test },
+    { QSL("accu_test_warn"),    parse_accu_test },
 
     { QSL("mvme_require_version"), parse_mvme_require_version },
 };
@@ -1868,7 +1870,7 @@ VMEScript parse(
                 // quotes. This is the big drawback of performing double
                 // evaluation. Maybe need to introduce single quoted strings
                 // which are not double evaluated.
-                if (preparsed.parts[0] != "set" && preparsed.parts[0] != "accu_test")
+                if (preparsed.parts[0] != "set" && preparsed.parts[0] != "accu_test" && preparsed.parts[0] != "accu_test_warn")
                 {
                     //qDebug() << "preparsed.parts" << preparsed.parts;
                     QStringList reparsedParts;

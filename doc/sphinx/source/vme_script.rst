@@ -331,7 +331,8 @@ accu_test
 * **accu_test** *<compare_op>* *<compare_value>* *<message>*
 
 Compares the current accumulator value against the constant *<compare_value>*
-and prints a message containing the result.
+and prints a message containing the result. If the comparison fails an error is
+generated and the script execution is stopped.
 
 .. table:: accu_test comparison operators
   :name: accu_test_comparison_operators
@@ -349,6 +350,13 @@ and prints a message containing the result.
   +-----+----+
   | gte | >= |
   +-----+----+
+
+accu_test_warn
+^^^^^^^^^^^^^^
+
+* **accu_test_warn** *<compare_op>* *<compare_value>* *<message>*
+
+Same as :ref:`accu_test <vme-command-accu-test>` but does not stop script execution on failure.
 
 mvme_require_version
 ^^^^^^^^^^^^^^^^^^^^
