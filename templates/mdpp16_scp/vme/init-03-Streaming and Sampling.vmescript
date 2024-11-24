@@ -3,7 +3,7 @@
 
 read a32 d16 0x600E # firmware revision
 accu_mask_rotate 0x000000ff 32
-accu_test gte 0x50 "MDPP-16_SCP >= FW2050 required"
+accu_test gte 0x50 "MDPP-16_SCP >= FW2050 required for Sampling mode"
 
 # output_format
 # 0 (default)   -> Standard time and amplitude data.
