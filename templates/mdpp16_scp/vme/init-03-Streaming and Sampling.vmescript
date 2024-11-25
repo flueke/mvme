@@ -8,16 +8,16 @@ accu_test_warn gte 0x50 "MDPP-16_SCP >= FW2050 required for Sampling mode"
 # output_format
 # 0 (default)   -> Standard time and amplitude data.
 # 4 (streaming) -> Since SCP FW2041. Enables streaming mode.
-# Individual bits: {no_resampling, sampling, standard streaming, compact streaming, adc, tdc}
-#0x6044 0
-0x6044 0b0000011
+# Individual bits: {no_resampling, sampling, standard_streaming, compact_streaming, adc, tdc}
+0x6044 0b000000
+
 
 # Sampling parameter (can be set for all channels or per channel pair)
 0x6100  8		# select_chan_pair, 8 = all channels
 
-0x6146 20		# number of pre-samples
-0x6148 120		# total samples to output (even number required)
-0x614A 0b0000'0000		# sampling settings [3:0]
+0x6146 0		# number of pre-samples
+0x6148 30		# total samples to output (even number required)
+0x614A 0b0000'0010		# sampling settings [3:0]
 						# 0 = directly from ADC
 						# 1 = after deconvolution of pre-differentiation
 						# 2 = output shaper of timing path
