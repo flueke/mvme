@@ -52,6 +52,13 @@ struct Mdpp32ScpFilters: public CommonFilters
 static const Mdpp16ScpFilters mdpp16ScpFilters;
 static const Mdpp32ScpFilters mdpp32ScpFilters;
 
+std::shared_ptr<spdlog::logger> get_logger()
+{
+    auto logger = mvlc::get_logger("mdpp_sam_decode");
+    logger->set_level(spdlog::level::info);
+    return logger;
+}
+
 }
 
 void reset_trace(ChannelTrace &trace)
@@ -85,7 +92,7 @@ std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const F
         it != std::rend(dataView))
     {
         ret = mvlc::util::extract(filters.fTimeStamp, *it, 'D');
-        spdlog::trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", *ret, *ret);
+        get_logger()->trace("timestamp matched (30 low bits): 0b{:030b}, 0x{:08x}", *ret, *ret);
     }
     else
     {
@@ -99,11 +106,11 @@ std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const F
         // optional 16 high bits of the extended timestamp if enabled
         auto value = *mvlc::util::extract(filters.fExtentedTs, *it, 'D');
         ret = *ret | (static_cast<std::uint64_t>(value) << 30);
-        spdlog::trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
+        get_logger()->trace("extended timestamp matched (16 high bits): 0b{:016b}, 0x{:08x}", value, value);
     }
     else
     {
-        spdlog::trace("decode_mdpp_samples: no extended timestamp present");
+        get_logger()->trace("decode_mdpp_samples: no extended timestamp present");
     }
 
     return ret;
@@ -114,14 +121,14 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 {
     std::basic_string_view<u32> dataView(data, size);
 
-    spdlog::trace("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
+    get_logger()->trace("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
 
     DecodedMdppSampleEvent ret{};
 
     // Need at least the module header and the EndOfEvent word.
     if (size < 2)
     {
-        spdlog::warn("decode_mdpp_samples: input data size < 2, returning null result");
+        get_logger()->warn("decode_mdpp_samples: input data size < 2, returning null result");
         SAM_ASSERT(!"decode_mdpp_samples: input data size must be >= 2");
         return {};
     }
@@ -173,7 +180,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
             {
                 // The current channel number changed which means we're done
                 // with this trace and can prepare for the next one.
-                spdlog::trace("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
+                get_logger()->trace("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
                     currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", "));
 
                 ret.traces.push_back(currentTrace); // store the old trace
@@ -200,7 +207,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 		{
             if (currentTrace.channel < 0)
             {
-                spdlog::error("decode_mdpp_samples: got a sample datum without prior amplitude or channel time data.");
+                get_logger()->error("decode_mdpp_samples: got a sample datum without prior amplitude or channel time data.");
                 SAM_ASSERT(!"sample datum without prior amplitude or channel time data");
                 return {};
             }
@@ -216,6 +223,14 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
                 traceHeader.config = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'C');
                 traceHeader.phase = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'P');
                 traceHeader.length = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'L');
+
+                auto thDebug = traceHeader.debug;
+                auto thConfig = traceHeader.config;
+                auto thPhase = traceHeader.phase;
+                auto thLength = traceHeader.length;
+
+                get_logger()->trace("decode_mdpp_samples: Found trace header: debug={}, config={}, phase={}, length={}",
+                    thDebug, thConfig, thPhase, thLength);
 
                 currentTrace.traceHeader = traceHeader;
             }
@@ -248,7 +263,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
         else
         {
             // Hit an unexpected data word.
-            spdlog::warn("decode_mdpp_samples: No filter match for word #{}: hex={:#010x}, bin={:#b}",
+            get_logger()->warn("decode_mdpp_samples: No filter match for word #{}: hex={:#010x}, bin={:#b}",
                 std::distance(data, wordPtr), *wordPtr, *wordPtr);
             mvlc::log_buffer(mvlc::default_logger(), spdlog::level::trace, dataView, "raw mdpp sample data");
             //spdlog::warn("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
@@ -260,12 +275,12 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     // result.
     if (currentTrace.channel >= 0)
     {
-        spdlog::trace("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
+        get_logger()->trace("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
             currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", "));
         ret.traces.push_back(currentTrace);
     }
 
-    spdlog::trace("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
+    get_logger()->trace("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
                  ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size());
 
     return ret;
@@ -293,7 +308,7 @@ DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(const u32 
         return decode_mdpp32_scp_samples(data, size);
     else
     {
-        spdlog::error("decode_mdpp_samples: unknown module type '{}'", moduleType);
+        get_logger()->error("decode_mdpp_samples: unknown module type '{}'", moduleType);
         SAM_ASSERT(!"unknown module type");
         return {};
     }
