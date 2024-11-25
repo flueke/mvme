@@ -23,6 +23,14 @@ static constexpr u32 SampleBits = 14;
 static constexpr double SampleMinValue = -1.0 * (1 << (SampleBits - 1));
 static constexpr double SampleMaxValue = (1 << (SampleBits - 1)) - 1.0;
 
+static const std::array<const char *, 4> TraceHeaderFields =
+{
+    "debug",
+    "config",
+    "phase",
+    "length"
+};
+
 struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
 {
     union TraceHeader

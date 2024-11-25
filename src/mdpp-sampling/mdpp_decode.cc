@@ -8,7 +8,7 @@
 #include "util/math.h"
 #include "analysis/a2/a2_support.h"
 
-#if 1
+#if 0
 #define SAM_ASSERT(cond) assert(cond)
 #else
 #define SAM_ASSERT(cond)
