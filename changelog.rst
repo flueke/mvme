@@ -7,8 +7,12 @@ Changelog
 Version 1.15.0-rc
 --------------------------------------------------
 
-* vme_templates: add eventHeaderFilter to the mvlc_event_stamper module. This
-  make the stamper work with multi-event readouts.
+* vme_templates:
+
+  - Add eventHeaderFilter to the mvlc_event_stamper module. This makes the
+    stamper work with multi-event readouts.
+
+  - Add 'Streaming and Sampling' init script to the MDPP-16_SCP module.
 
 * mvlc:
 
@@ -17,6 +21,8 @@ Version 1.15.0-rc
     face of ETH packet loss.
 
   - Various fixes and improvements from the mesytec-mvlc driver library.
+
+  - Support for aarch64 (arm64) linux. Both ETH and USB work.
 
 * analysis:
 
@@ -27,6 +33,11 @@ Version 1.15.0-rc
 
   - Fix some crashes in the histogram accumulation code where calculated bin
     numbers could become negative when extreme input limits were used.
+
+  - MDPP_SAM: Add new data source to support MDPP sampling mode: DataSourceMdppSampleDecoder.
+
+  - MDPP_SAM: Add new EventHistory data sink and a corresponding widget for rendering input
+    input data as waveforms.
 
 Version 1.14.4
 --------------------------------------------------
