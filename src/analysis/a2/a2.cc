@@ -798,7 +798,8 @@ DataSource make_datasource_mdpp_sample_decoder(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels);
+    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeaderFields.size();
+    auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels + statsCount);
 
     auto ex = arena->pushObject<MdppSampleDecoder>();
     *ex = make_mdpp_sample_decoder(moduleType, maxChannels, maxSamples, rngSeed, options);
@@ -809,6 +810,9 @@ DataSource make_datasource_mdpp_sample_decoder(
 
     for (size_t outputIndex=0; outputIndex<maxChannels; ++outputIndex)
         push_output_vectors(arena, &result, outputIndex, maxSamples, lowerLimit, upperLimit);
+
+    for (size_t outputIndex=maxChannels; outputIndex<maxChannels+statsCount; ++outputIndex)
+        push_output_vectors(arena, &result, outputIndex, maxChannels, 0.0, 0xffff);
 
     return result;
 }
@@ -856,6 +860,21 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
                 ++hitCounts[sampleIndex];
             }
         }
+    }
+
+    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeaderFields.size();
+    size_t firstStatsIndex = ex->maxChannels;
+    assert(firstStatsIndex + statsCount == ds->outputCount);
+
+    for (const auto &trace: decodedEvent.traces)
+    {
+        if (trace.channel >= ds->outputs[firstStatsIndex].size)
+            continue;
+
+        ds->outputs[firstStatsIndex + 0][trace.channel] = trace.traceHeader.debug;
+        ds->outputs[firstStatsIndex + 1][trace.channel] = trace.traceHeader.config;
+        ds->outputs[firstStatsIndex + 2][trace.channel] = trace.traceHeader.phase;
+        ds->outputs[firstStatsIndex + 3][trace.channel] = trace.traceHeader.length;
     }
 }
 

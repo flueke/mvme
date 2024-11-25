@@ -931,6 +931,9 @@ class DataSourceMdppSampleDecoder: public SourceInterface
         u64 getRngSeed() const { return m_rngSeed; }
         void setRngSeed(u64 seed) { m_rngSeed = seed; }
 
+        size_t getStatsCount() const;
+        QString getStatsName(size_t index) const;
+
     protected:
         void postClone(const AnalysisObject *cloneSource) override;
 

@@ -1042,13 +1042,25 @@ s32 DataSourceMdppSampleDecoder::getNumberOfOutputs() const
 
 QString DataSourceMdppSampleDecoder::getOutputName(s32 index) const
 {
-    auto prefix = objectName();
-    int dotIdx = prefix.indexOf('.');
+    if (0 <= index && static_cast<size_t>(index) < getMaxChannels())
+    {
+        auto prefix = objectName();
+        int dotIdx = prefix.indexOf('.');
 
-    if (dotIdx >= 0)
-        prefix.remove(0, dotIdx+1);
+        if (dotIdx >= 0)
+            prefix.remove(0, dotIdx+1);
 
-    return QSL("%1_channel%2").arg(prefix).arg(index);
+        return QSL("%1_channel%2").arg(prefix).arg(index);
+    }
+
+    index -= getMaxChannels();
+
+    if (0 <= index && static_cast<size_t>(index) < getStatsCount())
+    {
+        return QSL("traceheaders_") + getStatsName(index);
+    }
+
+    return {};
 }
 
 Pipe *DataSourceMdppSampleDecoder::getOutput(s32 index)
@@ -1066,15 +1078,15 @@ Pipe *DataSourceMdppSampleDecoder::getOutput(s32 index)
 void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
 {
     /* Disconnect Pipes that will be removed. */
-    if (auto begin = std::begin(m_outputs) + getMaxChannels();
+    if (auto begin = std::begin(m_outputs) + getMaxChannels() + getStatsCount();
         begin < std::end(m_outputs))
     {
-        std::for_each(std::begin(m_outputs) + getMaxChannels(), std::end(m_outputs),
-                    [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
+        std::for_each(begin, std::end(m_outputs),
+            [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
     }
-    m_outputs.resize(getMaxChannels());
+    m_outputs.resize(getMaxChannels() + getStatsCount());
 
-    for (size_t outIdx=0; outIdx<m_outputs.size(); ++outIdx)
+    for (size_t outIdx=0; outIdx<getMaxChannels(); ++outIdx)
     {
         // Reuse pipes to not invalidate existing connections
         auto outPipe = m_outputs[outIdx];
@@ -1090,6 +1102,24 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
             outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
             outPipe->parameters[paramIndex].lowerLimit = mesytec::mvme::mdpp_sampling::SampleMinValue;
             outPipe->parameters[paramIndex].upperLimit = mesytec::mvme::mdpp_sampling::SampleMaxValue;
+        }
+    }
+
+    for (size_t outIdx=getMaxChannels(); outIdx<getMaxChannels() + getStatsCount(); ++outIdx)
+    {
+        auto outPipe = m_outputs[outIdx];
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx);
+            m_outputs[outIdx] = outPipe;
+        }
+        outPipe->parameters.name = QSL("traceheaders_") + getStatsName(outIdx - getMaxChannels());
+        outPipe->parameters.resize(getMaxChannels());
+        for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+        {
+            outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
+            outPipe->parameters[paramIndex].lowerLimit = 0;
+            outPipe->parameters[paramIndex].upperLimit = std::numeric_limits<u16>::max();
         }
     }
 }
@@ -1112,6 +1142,21 @@ void DataSourceMdppSampleDecoder::read(const QJsonObject &json)
     setOptions(static_cast<Options::opt_t>(json["options"].toInt()));
     // Call beginRun() here to create the output pipes.
     beginRun({}, {});
+}
+
+size_t DataSourceMdppSampleDecoder::getStatsCount() const
+{
+    return mesytec::mvme::mdpp_sampling::TraceHeaderFields.size();
+}
+
+QString DataSourceMdppSampleDecoder::getStatsName(size_t index) const
+{
+    if (index < static_cast<size_t>(getStatsCount()))
+    {
+        return mesytec::mvme::mdpp_sampling::TraceHeaderFields[index];
+    }
+
+    return {};
 }
 
 //
