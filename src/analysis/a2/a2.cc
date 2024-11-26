@@ -3467,6 +3467,10 @@ inline bool range_check_update(H1D *histo, double x)
         {
             ++histo->overflows;
         }
+        else if (theBin == Binning::Invalid)
+        {
+            return false;
+        }
         else
         {
             return true;
@@ -3482,6 +3486,14 @@ inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
 
     if (range_check_update(histo, x))
     {
+        const bool beTrue = (0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
+        if (!beTrue)
+        {
+            spdlog::error("HistoFillDirect::fill_h1d: binning error: histo->size={}, histo->binning=( .min={}, .range={} ) => binningFactor={}, x={} => bin={}",
+                            histo->size, histo->binning.min, histo->binning.range, histo->binningFactor,
+                            x, get_bin(*histo, x));
+            assert(!"HistoFillDirect::fill_h1d: binning error");
+        }
         assert(0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
 
         s32 bin1 = static_cast<s32>(get_bin_unchecked(histo->binning, histo->size, x));

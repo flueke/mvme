@@ -589,6 +589,7 @@ struct Binning
 {
     static const s8 Underflow = -1;
     static const s8 Overflow = -2;
+    static const s8 Invalid = -3; // used for range==0 and NaN values
     double min;
     double range;
 };
@@ -666,6 +667,8 @@ Operator make_h2d_sink(
 // Histogram and bin handling support functions
 inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
 {
+    if (binning.range == 0.0)
+        return make_quiet_nan();
     return (x - binning.min) * (binCount / binning.range);
 }
 
@@ -685,6 +688,9 @@ inline s32 get_bin(Binning binning, s32 binCount, double x)
 
     if (bin >= binCount)
         return Binning::Overflow;
+
+    if (std::isnan(bin))
+        return Binning::Invalid;
 
     return static_cast<s32>(bin);
 }
