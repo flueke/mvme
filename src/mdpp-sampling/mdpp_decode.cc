@@ -19,6 +19,9 @@
 namespace mesytec::mvme::mdpp_sampling
 {
 
+const std::array<const char *, 4> TraceHeader::PartNames = { "debug", "config", "phase", "length" };
+const std::array<unsigned, 4> TraceHeader::PartBits = { 1, 8, 9, 10 };
+
 namespace
 {
 
@@ -217,17 +220,18 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
                 // No header seen yet for this trace so this match is the samples header.
 
                 SAM_ASSERT(currentTrace.traceHeader.value == 0);
-                ChannelTrace::TraceHeader traceHeader;
+                TraceHeader traceHeader;
 
-                traceHeader.debug = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'D');
-                traceHeader.config = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'C');
-                traceHeader.phase = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'P');
-                traceHeader.length = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'L');
+                traceHeader.parts.debug = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'D');
+                traceHeader.parts.config = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'C');
+                traceHeader.parts.phase = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'P');
+                traceHeader.parts.length = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'L');
 
-                auto thDebug = traceHeader.debug;
-                auto thConfig = traceHeader.config;
-                auto thPhase = traceHeader.phase;
-                auto thLength = traceHeader.length;
+                // Sadly cannot (yet) use bitfield members directly with spdlog.
+                auto thDebug = traceHeader.parts.debug;
+                auto thConfig = traceHeader.parts.config;
+                auto thPhase = traceHeader.parts.phase;
+                auto thLength = traceHeader.parts.length;
 
                 get_logger()->trace("decode_mdpp_samples: Found trace header: debug={}, config={}, phase={}, length={}",
                     thDebug, thConfig, thPhase, thLength);

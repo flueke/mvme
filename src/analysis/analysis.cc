@@ -1147,14 +1147,14 @@ void DataSourceMdppSampleDecoder::read(const QJsonObject &json)
 
 size_t DataSourceMdppSampleDecoder::getStatsCount() const
 {
-    return mesytec::mvme::mdpp_sampling::TraceHeaderFields.size();
+    return mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size();
 }
 
 QString DataSourceMdppSampleDecoder::getStatsName(size_t index) const
 {
     if (index < static_cast<size_t>(getStatsCount()))
     {
-        return mesytec::mvme::mdpp_sampling::TraceHeaderFields[index];
+        return mesytec::mvme::mdpp_sampling::TraceHeader::PartNames[index];
     }
 
     return {};
@@ -1164,7 +1164,7 @@ unsigned DataSourceMdppSampleDecoder::getStatsBits(size_t index) const
 {
     if (index < static_cast<size_t>(getStatsCount()))
     {
-        return mesytec::mvme::mdpp_sampling::TraceHeaderFieldsBits[index];
+        return mesytec::mvme::mdpp_sampling::TraceHeader::PartBits[index];
     }
 
     return {};

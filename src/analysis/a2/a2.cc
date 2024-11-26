@@ -798,7 +798,9 @@ DataSource make_datasource_mdpp_sample_decoder(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeaderFields.size();
+    using namespace mesytec::mvme;
+
+    const auto statsCount = mdpp_sampling::TraceHeader::PartNames.size();
     auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels + statsCount);
 
     auto ex = arena->pushObject<MdppSampleDecoder>();
@@ -820,8 +822,8 @@ DataSource make_datasource_mdpp_sample_decoder(
     {
         auto statsIndex = outputIndex - maxChannels;
         double maxValue = 0xffff;
-        if (statsIndex < mesytec::mvme::mdpp_sampling::TraceHeaderFieldsBits.size())
-            maxValue = (1u << mesytec::mvme::mdpp_sampling::TraceHeaderFieldsBits[statsIndex]);
+        if (statsIndex < mdpp_sampling::TraceHeader::PartBits.size())
+            maxValue = (1u << mdpp_sampling::TraceHeader::PartBits[statsIndex]);
         push_output_vectors(arena, &result, outputIndex, maxChannels, 0.0, maxValue);
     }
 
@@ -873,7 +875,7 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
         }
     }
 
-    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeaderFields.size();
+    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size();
     size_t firstStatsIndex = ex->maxChannels;
     assert(firstStatsIndex + statsCount == ds->outputCount);
 
@@ -882,10 +884,10 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
         if (trace.channel >= ds->outputs[firstStatsIndex].size)
             continue;
 
-        ds->outputs[firstStatsIndex + 0][trace.channel] = trace.traceHeader.debug;
-        ds->outputs[firstStatsIndex + 1][trace.channel] = trace.traceHeader.config;
-        ds->outputs[firstStatsIndex + 2][trace.channel] = trace.traceHeader.phase;
-        ds->outputs[firstStatsIndex + 3][trace.channel] = trace.traceHeader.length;
+        ds->outputs[firstStatsIndex + 0][trace.channel] = trace.traceHeader.parts.debug;
+        ds->outputs[firstStatsIndex + 1][trace.channel] = trace.traceHeader.parts.config;
+        ds->outputs[firstStatsIndex + 2][trace.channel] = trace.traceHeader.parts.phase;
+        ds->outputs[firstStatsIndex + 3][trace.channel] = trace.traceHeader.parts.length;
     }
 }
 

@@ -23,30 +23,32 @@ static constexpr u32 SampleBits = 14;
 static constexpr double SampleMinValue = -1.0 * (1 << (SampleBits - 1));
 static constexpr double SampleMaxValue = (1 << (SampleBits - 1)) - 1.0;
 
-static const std::array<const char *, 4> TraceHeaderFields =
-{
-    "debug",
-    "config",
-    "phase",
-    "length"
-};
 
-static const std::array<unsigned, 4> TraceHeaderFieldsBits = { 1, 8, 9, 10 };
+union TraceHeader
+{
+    struct Parts
+    {
+        u32 pad: 4;
+        u32 debug: 1;
+        u32 config: 8;
+        u32 phase: 9;
+        u32 length: 10;
+    } parts;
+    u32 value = 0;
+
+    static const std::array<const char *, 4> PartNames;
+    static const std::array<unsigned, 4> PartBits;
+    enum PartIndex
+    {
+        Debug = 0,
+        Config = 1,
+        Phase = 2,
+        Length = 3
+    };
+};
 
 struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
 {
-    union TraceHeader
-    {
-        struct
-        {
-            u32 pad: 4;
-            u32 debug: 1;
-            u32 config: 8;
-            u32 phase: 9;
-            u32 length: 10;
-        };
-        u32 value = 0;
-    };
     // linear event number incremented on each event from the source module
     size_t eventNumber = 0;
     QUuid moduleId;
