@@ -41,6 +41,21 @@
                 "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=mold",
                 "CMAKE_SHARED_LINKER_FLAGS": "-fuse-ld=mold"
             }
+        },
+        {
+            "name": "Clang 16.0.6 x86_64-pc-linux-gnu",
+            "displayName": "Clang 16.0.6 x86_64-pc-linux-gnu",
+            "description": "Using compilers: C = /usr/bin/clang-16, CXX = /usr/bin/clang++-16",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install/${presetName}",
+                "CMAKE_C_COMPILER": "/usr/bin/clang-16",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++-16",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=mold",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fuse-ld=mold"
+            }
         }
     ]
 }
