@@ -31,6 +31,8 @@ static const std::array<const char *, 4> TraceHeaderFields =
     "length"
 };
 
+static const std::array<unsigned, 4> TraceHeaderFieldsBits = { 1, 8, 9, 10 };
+
 struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
 {
     union TraceHeader
