@@ -1086,6 +1086,10 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
     }
     m_outputs.resize(getMaxChannels() + getStatsCount());
 
+    // TODO: try to create an internal a2::MdppSampleDecoder and use it to setup
+    // the output limits. I think this is done elsewhere, e.g. in the
+    // ExpressionOperator.
+
     for (size_t outIdx=0; outIdx<getMaxChannels(); ++outIdx)
     {
         // Reuse pipes to not invalidate existing connections
@@ -1120,7 +1124,16 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
         {
             outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
             outPipe->parameters[paramIndex].lowerLimit = 0;
-            outPipe->parameters[paramIndex].upperLimit = 1u << getStatsBits(statsIndex);
+            if (statsIndex == mesytec::mvme::mdpp_sampling::TraceHeader::Phase)
+            {
+                // we normalize the phase to [0.0, 1.0) on output to make it
+                // independent of the actual phase range
+                outPipe->parameters[paramIndex].upperLimit = 1.0;
+            }
+            else
+            {
+                outPipe->parameters[paramIndex].upperLimit = 1u << getStatsBits(statsIndex);
+            }
         }
     }
 }
