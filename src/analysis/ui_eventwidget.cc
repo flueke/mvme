@@ -3013,6 +3013,8 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                             srcPtr->setModuleId(moduleConfig->getId());
                             srcPtr->setObjectName(moduleConfig->objectName());
                             // FIXME: This should not be here but abstracted somehow.
+                            // FIXME: it gets even worse now that the sample decoder has getMaxChannels() outputs for trace data
+                            //        and an additional getStatsCount() outputs for the statistics.
                             if (auto sampleDecoder = std::dynamic_pointer_cast<DataSourceMdppSampleDecoder>(srcPtr))
                             {
                                 sampleDecoder->setModuleTypeName(moduleConfig->getModuleMeta().typeName);
@@ -3026,10 +3028,14 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                                 sink->setObjectName(sampleDecoder->objectName());
                                 sink->setEventId(sampleDecoder->getEventId());
 
-                                while (sink->getNumberOfSlots() < sampleDecoder->getNumberOfOutputs())
+                                // The other outputs carry fields extracted from the TraceHeader
+                                const auto samplesOutputCount = sampleDecoder->getMaxChannels();
+                                assert(samplesOutputCount == sampleDecoder->getNumberOfOutputs() - sampleDecoder->getStatsCount());
+
+                                while (sink->getNumberOfSlots() < static_cast<s32>(samplesOutputCount))
                                     sink->addSlot();
 
-                                for (s32 i=0; i<sampleDecoder->getNumberOfOutputs(); ++i)
+                                for (unsigned i=0; i<samplesOutputCount; ++i)
                                 {
                                     sink->connectArrayToInputSlot(i, sampleDecoder->getOutput(i));
                                 }
