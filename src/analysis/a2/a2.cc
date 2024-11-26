@@ -805,6 +805,11 @@ DataSource make_datasource_mdpp_sample_decoder(
     *ex = make_mdpp_sample_decoder(moduleType, maxChannels, maxSamples, rngSeed, options);
     result.d = ex;
 
+    // TODO: this is duplicated between analysis::DataSourceMdppSampleDecoder
+    // and this function. We don't have access to the analysis:: stuff in here
+    // and the a2 adapter currently does not transport information about desired
+    // output vector sizes for datasources. Have to look and see if this can be
+    // solved easily or if it's not worth it.
     double lowerLimit = -1.0 * (1u << 13);
     double upperLimit = (1u << 13) - 1;
 
@@ -812,7 +817,13 @@ DataSource make_datasource_mdpp_sample_decoder(
         push_output_vectors(arena, &result, outputIndex, maxSamples, lowerLimit, upperLimit);
 
     for (size_t outputIndex=maxChannels; outputIndex<maxChannels+statsCount; ++outputIndex)
-        push_output_vectors(arena, &result, outputIndex, maxChannels, 0.0, 0xffff);
+    {
+        auto statsIndex = outputIndex - maxChannels;
+        double maxValue = 0xffff;
+        if (statsIndex < mesytec::mvme::mdpp_sampling::TraceHeaderFieldsBits.size())
+            maxValue = (1u << mesytec::mvme::mdpp_sampling::TraceHeaderFieldsBits[statsIndex]);
+        push_output_vectors(arena, &result, outputIndex, maxChannels, 0.0, maxValue);
+    }
 
     return result;
 }

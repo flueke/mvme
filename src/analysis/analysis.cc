@@ -1113,13 +1113,14 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
             outPipe = std::make_shared<Pipe>(this, outIdx);
             m_outputs[outIdx] = outPipe;
         }
-        outPipe->parameters.name = QSL("traceheaders_") + getStatsName(outIdx - getMaxChannels());
+        auto statsIndex = outIdx - getMaxChannels();
+        outPipe->parameters.name = QSL("traceheaders_") + getStatsName(statsIndex);
         outPipe->parameters.resize(getMaxChannels());
         for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
         {
             outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
             outPipe->parameters[paramIndex].lowerLimit = 0;
-            outPipe->parameters[paramIndex].upperLimit = std::numeric_limits<u16>::max();
+            outPipe->parameters[paramIndex].upperLimit = 1u << getStatsBits(statsIndex);
         }
     }
 }
@@ -1154,6 +1155,16 @@ QString DataSourceMdppSampleDecoder::getStatsName(size_t index) const
     if (index < static_cast<size_t>(getStatsCount()))
     {
         return mesytec::mvme::mdpp_sampling::TraceHeaderFields[index];
+    }
+
+    return {};
+}
+
+unsigned DataSourceMdppSampleDecoder::getStatsBits(size_t index) const
+{
+    if (index < static_cast<size_t>(getStatsCount()))
+    {
+        return mesytec::mvme::mdpp_sampling::TraceHeaderFieldsBits[index];
     }
 
     return {};

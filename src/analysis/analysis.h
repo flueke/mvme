@@ -933,6 +933,7 @@ class DataSourceMdppSampleDecoder: public SourceInterface
 
         size_t getStatsCount() const;
         QString getStatsName(size_t index) const;
+        unsigned getStatsBits(size_t index) const;
 
     protected:
         void postClone(const AnalysisObject *cloneSource) override;
