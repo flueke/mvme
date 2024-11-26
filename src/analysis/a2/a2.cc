@@ -3440,6 +3440,7 @@ void expression_condition_step(Operator *op, A2 *a2)
 
 const s8 Binning::Underflow;
 const s8 Binning::Overflow;
+const s8 Binning::Invalid;
 
 //
 // HistoFillDirect
@@ -3529,6 +3530,10 @@ inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
     {
         ++histo->overflows[H2D::XAxis];
     }
+    else if (binX == Binning::Invalid)
+    {
+        // do nothing, binning range was 0.0 or something was NaN
+    }
     else if (binY == Binning::Underflow)
     {
         ++histo->underflows[H2D::YAxis];
@@ -3536,6 +3541,10 @@ inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
     else if (binY == Binning::Overflow)
     {
         ++histo->overflows[H2D::YAxis];
+    }
+    else if (binY == Binning::Invalid)
+    {
+        // do nothing, binning range was 0.0 or something was NaN
     }
     else if (likely(1))
     {
