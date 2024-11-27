@@ -978,10 +978,12 @@ void MinimalAnalysisServiceProvider::resumeAnalysis(analysis::Analysis::BeginRun
 }
 bool MinimalAnalysisServiceProvider::loadAnalysisConfig(const QString &filename)
 {
+    return false;
 }
 bool MinimalAnalysisServiceProvider::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo,
     AnalysisLoadFlags flags)
 {
+    return false;
 }
 
 // Widget registry

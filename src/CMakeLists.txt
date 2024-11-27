@@ -356,6 +356,7 @@ target_link_libraries(libmvme
 target_compile_options(libmvme
     PRIVATE $<${not-msvc}:-Wall -Wextra>
     PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
     PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
     )
 
