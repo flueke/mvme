@@ -516,6 +516,72 @@ Q_DECLARE_INTERFACE(analysis::OperatorInterface, OperatorInterface_iid);
 
 namespace analysis
 {
+// Attempt at solving the problem of operators with a variable number of input
+// slots and additional optional special input slots. Motivation came from the
+// WaveformSink/EventHistory operator: in addition to the variable number of
+// channel data inputs an additional 'phase' input slots is wanted.
+// For an operator with a fixed number of input slots this is not an issue, e.g
+// ConditionFilter, etc. But for variable inputs this becomes messy, especially
+// when considering that an auto connect feature to connect multiple inputs from
+// the same source at once is also wanted.
+// Consequences / Implementation Details:
+// - when adding, the combo operator and all child operators are added to the
+//   analysis. for the runtime system and the ui these look like 1+N flat operators.
+// - the ui must be upated to render the children below the parent combo operator
+// - combo operator should probably stay abstract and concrete subclasses have to be implemented.
+// - for now there will be no ui to dynamically add/remove child operators from the combo parent.
+//   It is assumed this functionality is used to implement concrete operators
+//   with a need for complex input handling. So the structure of the
+//   ComboOperator subclass itself is static during runtime.
+// - deleting of children has to be prohibited as it would break concrete combo operators!
+// - lots of unknonws?!?
+class LIBMVME_EXPORT ComboOperatorInterface: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        using OperatorInterface::OperatorInterface;
+
+        void accept(ObjectVisitor &visitor) override;
+
+        s32 getNumberOfSlots() const override { return 0; }
+        Slot *getSlot(s32 slotIndex) override { (void) slotIndex; return nullptr; }
+
+        s32 getChildOperatorCount() const { return m_childOperators.size(); }
+        OperatorPtr getChildOperator(s32 index)
+        {
+            if (0 <= index && index < getChildOperatorCount())
+            {
+                return m_childOperators[index];
+            }
+
+            return {};
+        }
+
+        QVector<OperatorPtr> getChildOperators() const { return m_childOperators; }
+
+    protected:
+        void addChildOperator(OperatorPtr op)
+        {
+            m_childOperators.push_back(op);
+        }
+
+        void removeChildOperator(OperatorPtr op)
+        {
+            m_childOperators.removeAll(op);
+        }
+
+    private:
+        QVector<OperatorPtr> m_childOperators;
+};
+
+} // end namespace analysis
+
+#define ComboOperatorInterface_iid "com.mesytec.mvme.analysis.ComboOperatorInterface.1"
+Q_DECLARE_INTERFACE(analysis::ComboOperatorInterface, ComboOperatorInterface_iid);
+
+namespace analysis
+{
 /* Base class for sinks. Sinks are operators with no output. In the UI these
  * operators are shown in the data display section */
 class LIBMVME_EXPORT SinkInterface: public OperatorInterface
@@ -730,6 +796,29 @@ Q_DECLARE_INTERFACE(analysis::SinkInterface, SinkInterface_iid);
 
 #define ConditionInterface_iid "com.mesytec.mvme.analysis.ConditionInterface.1"
 Q_DECLARE_INTERFACE(analysis::ConditionInterface, ConditionInterface_iid);
+
+ // TODO: leftoff here. It's not possible to inherit from Both
+ // ComboOperatorInterface and SinkInterface as they in turn each inherit from
+ // QOobject. MOC explicitly states that this is not supported.
+
+#if 0
+namespace analysis
+{
+
+class ComboSinkInterface: public SinkInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SinkInterface)
+
+    public:
+        virtual void accept(ObjectVisitor &visitor) override;
+};
+
+} // end namespace analysis
+
+#define ComboSinkInterface_iid "com.mesytec.mvme.analysis.ComboSinkInterface.1"
+Q_DECLARE_INTERFACE(analysis::ComboSinkInterface, ComboSinkInterface_iid);
+#endif
 
 namespace analysis
 {
@@ -2023,6 +2112,32 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
         struct Private;
         std::unique_ptr<Private> d;
 };
+
+#if 0
+class LIBMVME_EXPORT WaveformPhaseSink: public ComboSinkInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SinkInterface)
+
+    public:
+        Q_INVOKABLE WaveformPhaseSink(QObject *parent = nullptr);
+        ~WaveformPhaseSink() override;
+
+        void accept(ObjectVisitor &visitor) override;
+
+        s32 getNumberOfSlots() const override { return 1; }
+        Slot *getSlot(s32 slotIndex) override { return slotIndex == 0 ? &m_phasesInput : nullptr; }
+
+    private:
+        Slot m_phasesInput;
+};
+#endif
+
+#if 0
+class LIBMVME_EXPORT WaveformSinkWithPhaseCorrection: public ComboSinkInterface
+{
+};
+#endif
 
 class LIBMVME_EXPORT ExportSink: public SinkInterface
 {

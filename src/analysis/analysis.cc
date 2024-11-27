@@ -344,6 +344,11 @@ void OperatorInterface::accept(ObjectVisitor &visitor)
     visitor.visit(this);
 }
 
+void ComboOperatorInterface::accept(ObjectVisitor &visitor)
+{
+    visitor.visit(this);
+}
+
 //
 // SinkInterface
 //
