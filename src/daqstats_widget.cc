@@ -27,9 +27,11 @@
 #include <QProgressBar>
 #include <QTimer>
 
+#include <mesytec-mvlc/util/counters.h>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_readout.h>
 #include <mesytec-mvlc/mvlc_eth_interface.h>
+
 #include "mvlc_readout_worker.h"
 #include "mvme_context.h"
 #include "qt_util.h"
@@ -40,6 +42,7 @@
 
 using boost::adaptors::indexed;
 using namespace mesytec::mvme;
+using namespace mesytec;
 
 static const int UpdateInterval_ms = 1000;
 
@@ -88,8 +91,8 @@ struct DAQStatsWidgetPrivate
     void update_generic(const DAQStats &stats, const DAQStats &prevStats,
                         double dt_s, double elapsed_s)
     {
-        u64 deltaBytesRead = calc_delta0(stats.totalBytesRead, prevStats.totalBytesRead);
-        u64 deltaBuffersRead = calc_delta0(stats.totalBuffersRead, prevStats.totalBuffersRead);
+        u64 deltaBytesRead = mvlc::util::calc_delta0(stats.totalBytesRead, prevStats.totalBytesRead);
+        u64 deltaBuffersRead = mvlc::util::calc_delta0(stats.totalBuffersRead, prevStats.totalBuffersRead);
 
         double bytesPerSecond   = deltaBytesRead / dt_s;
         double mbPerSecond      = bytesPerSecond / Megabytes(1);
@@ -128,7 +131,7 @@ struct DAQStatsWidgetPrivate
         double totalGoodEvents = sisCounters.receivedEventsExcludingWatchdog();
         double eventLossRatio  = totalLostEvents / totalGoodEvents;
 
-        u64 deltaLostEvents   = calc_delta0(sisCounters.lostEvents, prevSISCounters.lostEvents);
+        u64 deltaLostEvents   = mvlc::util::calc_delta0(sisCounters.lostEvents, prevSISCounters.lostEvents);
         double eventLossRate  = deltaLostEvents / dt_s;
 
         if (std::isnan(eventLossRatio)) eventLossRatio = 0.0;
@@ -153,8 +156,9 @@ struct DAQStatsWidgetPrivate
         const mesytec::mvlc::ReadoutWorker::Counters &prevCounters,
         double dt_s)
     {
+        #define TYPE_AND_VAL(foo) decltype(foo), foo
         u64 frameTypeErrorRate =
-            calc_rate0<TYPE_AND_VAL(&MVLCCounters::usbFramingErrors)>(
+            mvlc::util::calc_rate0<TYPE_AND_VAL(&MVLCCounters::usbFramingErrors)>(
                 counters, prevCounters, dt_s);
 
         label_mvlcFrameTypeErrors->setText(
@@ -173,16 +177,17 @@ struct DAQStatsWidgetPrivate
              .arg(format_number(partialFrameTotalBytesRate, "bytes/s", UnitScaling::Binary, 0, 'f', 0))
              ));
 #endif
+        #undef TYPE_AND_VAL
     }
 
     void updateReadoutCountersMVLC_ETH(const mesytec::mvlc::eth::PipeStats &dataPipeStats,
                          const mesytec::mvlc::eth::PipeStats &prevStats,
                          double dt_s)
     {
-        u64 packetRate = calc_rate0(
+        u64 packetRate = mvlc::util::calc_rate0(
             dataPipeStats.receivedPackets, prevStats.receivedPackets, dt_s);
 
-        u64 packetLossRate = calc_rate0(
+        u64 packetLossRate = mvlc::util::calc_rate0(
             dataPipeStats.lostPackets, prevStats.lostPackets, dt_s);
 
         label_mvlcReceivedPackets->setText(

@@ -59,7 +59,7 @@ ResultList run_script(
 
             if (options & run_script_options::LogEachResult)
             {
-                if (result.error.isError())
+                if (result.error.isError() || result.error.isWarning())
                     error_logger(format_result(result));
                 else
                     logger(format_result(result));
@@ -408,6 +408,10 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                         .arg(cmd.value, 8, 16, QLatin1Char('0'))
                         .arg(cmd.accuTestMessage)
                         );
+                    if (cmd.accuTestIsWarning)
+                    {
+                        result.error.setIsWarning(true);
+                    }
                 }
 
             } break;
@@ -433,13 +437,14 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
 
 QString format_result(const Result &result)
 {
-    if (result.error.isError())
+    if (result.error.isError() || result.error.isWarning())
     {
         QString ret;
+        const QString prefix = result.error.isWarning() ? "Warning" : "Error";
         if (result.command.type == CommandType::Accu_Test)
         {
-            ret = QSL("%1 failed: ('%2', accu=0x%3 (dec %4))")
-                .arg(result.command.accuTestMessage)
+            ret = QSL("%1: ('%2', accu=0x%3 (dec %4)) failed")
+                .arg(prefix)
                 .arg(to_string(result.command))
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
                 .arg(result.state.accu)
@@ -447,7 +452,8 @@ QString format_result(const Result &result)
         }
         else
         {
-            ret = QSL("Error from \"%1\": %2")
+            ret = QSL("%1 from \"%2\": %3")
+                .arg(prefix)
                 .arg(to_string(result.command))
                 .arg(result.error.toString());
         }

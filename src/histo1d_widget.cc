@@ -63,9 +63,8 @@
 #include <QPrinter>
 #include <QPrintDialog>
 
-#include "analysis/analysis_fwd.h"
+#include "analysis/a2_adapter.h"
 #include "analysis/analysis_graphs.h"
-#include "analysis/analysis.h"
 #include "analysis/condition_ui.h"
 #include "histo1d_util.h"
 #include "histo_gui_util.h"
@@ -190,6 +189,11 @@ static const double PlotAdditionalCurvesLayerZ = 1010.0;
 
 struct Histo1DWidgetPrivate
 {
+    ~Histo1DWidgetPrivate()
+    {
+        qDebug() << __PRETTY_FUNCTION__ << this;
+    }
+
     Histo1DWidget *m_q;
 
     QToolBar *m_toolBar;
@@ -344,10 +348,7 @@ struct Histo1DWidgetPrivate
         return m_histos.value(m_histoIndex, {});
     }
 
-    ~Histo1DWidgetPrivate()
-    {
-        qDebug() << __PRETTY_FUNCTION__ << this;
-    }
+    QString makeInfoText();
 };
 
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histo, QWidget *parent)
@@ -919,6 +920,62 @@ void Histo1DWidgetPrivate::updateAxisScales()
     m_plot->updateAxes();
 }
 
+QString Histo1DWidgetPrivate::makeInfoText()
+{
+    if (!m_sink)
+        return {};
+
+    analysis::A2AdapterState *a2State = nullptr;
+
+    if (auto asp = m_q->getServiceProvider())
+    {
+        if (auto analysis = asp->getAnalysis())
+        {
+            a2State = analysis->getA2AdapterState();
+        }
+    }
+
+    if (!a2State)
+        return {};
+
+    auto sinkData = analysis::get_runtime_h1dsink_data(*a2State, m_sink.get());
+
+    if (!sinkData)
+        return {};
+
+    const auto histoIndex = m_histoIndex;
+
+    if (histoIndex < 0 || histoIndex >= sinkData->histos.size)
+        return {};
+
+    auto a2Histo = sinkData->histos[histoIndex];
+
+    const auto rrf = getRRF();
+
+    AxisBinning xBinning(a2Histo.size, a2Histo.binning.min, a2Histo.binning.min + a2Histo.binning.range);
+
+    auto infoText = QString("Counts:     %1\n"
+                            "Underflows: %2\n"
+                            "Overflows:  %3\n"
+                            "NaNs:       %4\n"
+                            "VisBins:    %5\n"
+                            "BinWidth:   %6\n"
+                            "Bins/Units: %7\n"
+                            "PhysBins:   %8\n"
+                            )
+        .arg(a2Histo.entryCount)
+        .arg(a2Histo.underflows)
+        .arg(a2Histo.overflows)
+        .arg(a2Histo.nans)
+        .arg(xBinning.getBins(rrf))
+        .arg(xBinning.getBinWidth(rrf))
+        .arg(xBinning.getBinsToUnitsRatio(rrf))
+        .arg(xBinning.getBins());
+        ;
+
+    return infoText;
+}
+
 void Histo1DWidget::replot()
 {
     if (!m_d->getCurrentHisto())
@@ -938,22 +995,7 @@ void Histo1DWidget::replot()
 
     auto xBinning = m_d->getCurrentHisto()->getAxisBinning(Qt::XAxis);
 
-    // update histo info label
-    auto infoText = QString("Underflow:  %1\n"
-                            "Overflow:   %2\n"
-                            "VisBins:    %3\n"
-                            "BinWidth:   %4\n"
-                            "Bins/Units: %5\n"
-                            "PhysBins:   %6\n"
-                            )
-        .arg(m_d->getCurrentHisto()->getUnderflow())
-        .arg(m_d->getCurrentHisto()->getOverflow())
-        .arg(xBinning.getBins(rrf))
-        .arg(xBinning.getBinWidth(rrf))
-        .arg(xBinning.getBinsToUnitsRatio(rrf))
-        .arg(xBinning.getBins());
-        ;
-
+    auto infoText = m_d->makeInfoText();
     m_d->m_labelHistoInfo->setText(infoText);
 
     // rate and efficiency estimation

@@ -16,7 +16,7 @@ find_package(Qt5PrintSupport REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Xml REQUIRED)
-find_package(Qt5WebEngineWidgets)
+find_package(Qt5WebEngineWidgets QUIET)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
     #add_definitions(-DQT_NO_DEBUG)
@@ -166,7 +166,9 @@ add_library(libmvme SHARED
     analysis/sink_widget_factory.cc
     analysis/ui_eventwidget.cc
     analysis/ui_lib.cc
-    analysis/waveform_sink_widget.cc
+    analysis/waveform_sink_1d_widget.cc
+    analysis/waveform_sink_2d_widget.cc
+    analysis/waveform_sink_widget_common.cc
     analysis_bench.cc
     analysis_service_provider.cc
     daqcontrol.cc
@@ -354,6 +356,7 @@ target_link_libraries(libmvme
 target_compile_options(libmvme
     PRIVATE $<${not-msvc}:-Wall -Wextra>
     PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
     PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
     )
 
@@ -488,7 +491,9 @@ add_mvme_dev_exe(dev_mdpp_sampling mdpp-sampling/dev_mdpp_sampling.cc)
 add_mvme_dev_exe(dev_replay_ui dev_replay_ui_main.cc)
 if (Qt5WebEngineWidgets_FOUND)
     add_mvme_dev_exe(dev_mvme_qwebengine dev_mvme_qwebengine.cc)
+    if (TARGET dev_mvme_qwebengine)
     target_link_libraries(dev_mvme_qwebengine PRIVATE Qt5::WebEngineWidgets)
+    endif()
 endif()
 #add_mvme_dev_exe(dev_qthelpengine_test dev_qthelpengine_test.cc)
 
@@ -625,6 +630,8 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_multi_crate_nng multi_crate_nng.test.cc)
     add_mvme_gtest(test_mdpp_sampling mdpp-sampling/mdpp_sampling.test.cc)
     add_mvme_gtest(test_waveform_plotting mdpp-sampling/waveform_plotting.test.cc)
+    add_mvme_gtest(test_waveform_interpolation mdpp-sampling/waveform_interpolation.test.cc)
+    add_mvme_gtest(test_mdpp_decode mdpp-sampling/mdpp_decode.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 

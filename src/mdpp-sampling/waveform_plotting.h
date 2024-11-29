@@ -52,10 +52,10 @@ QRectF calculate_trace_bounding_rect(const T &xs, const T &ys)
     auto [xmin, xmax] = std::make_pair(*xminmax.first, *xminmax.second);
     auto [ymin, ymax] = std::make_pair(*yminmax.first, *yminmax.second);
 
-    QPointF topLeft(xmin, ymax);
-    QPointF bottomRight(xmax, ymin);
+    QPointF p0(xmin, ymin);
+    QPointF p1(xmax, ymax);
 
-    return QRectF(topLeft, bottomRight);
+    return QRectF(p0, p1);
 }
 
 inline QRectF calculate_trace_bounding_rect(const Trace &trace)
@@ -117,39 +117,105 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
         mutable QRectF boundingRectCache_;
 };
 
-// y axis is the trace index, x axis is trace x, z color is trace y
+// y axis is the trace index, x axis is trace x, z color is trace y.
+// FIXME: (not true right now) assumes uniform x step size for all traces.
 class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 {
     public:
-        void setTraceCollection(const std::vector<const Trace *> &traces)
+#ifndef QT_NO_DEBUG
+    /* Counts the number of samples obtained by qwt when doing a replot. Has to be atomic
+     * as QwtPlotSpectrogram::renderImage() uses threaded rendering internally.
+     * The number of samples heavily depends on the result of the pixelHint() method and
+     * is performance critical. */
+    mutable std::atomic<u64> m_sampledValuesForLastReplot;
+#endif
+
+        WaveformCollectionVerticalRasterData()
+    #ifndef QT_NO_DEBUG
+            : m_sampledValuesForLastReplot(0u)
+    #endif
+        {}
+
+        virtual void initRaster(const QRectF &area, const QSize &raster) override
         {
-            traces_ = traces;
+            #ifndef QT_NO_DEBUG
+            m_sampledValuesForLastReplot = 0u;
+            #endif
+            QwtRasterData::initRaster(area, raster);
         }
 
+        virtual void discardRaster() override
+        {
+            //qDebug() << __PRETTY_FUNCTION__ << this << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+            #ifndef QT_NO_DEBUG
+            m_sampledValuesForLastReplot = 0u;
+            #endif
+            QwtRasterData::discardRaster();
+        }
+
+        void setTraceCollection(const std::vector<const Trace *> &traces, double xStep)
+        {
+            traces_ = traces;
+            xStep_ = xStep;
+            //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::setTraceCollection(): traces.size()={}, xStep={}", traces.size(), xStep).c_str();
+        }
 
         std::vector<const Trace *> getTraceCollection() const { return traces_; }
 
         double value(double x, double y) const override
         {
-            const ssize_t sampleIndex = x;
-            //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, sampleIndex(x)={}", x, y, sampleIndex).c_str();
-            auto trace = getTraceForY(y);
+#ifndef QT_NO_DEBUG
+            m_sampledValuesForLastReplot++;
+#endif
 
-            if (!trace || 0 > sampleIndex || sampleIndex >= static_cast<ssize_t>(trace->size()))
-                return mesytec::mvme::util::make_quiet_nan();
+            if (auto trace = getTraceForY(y); trace && !trace->empty())
+            {
+                #if 0 // TODO: use this once interpolation yields equidistant x values
+                const ssize_t sampleIndex = x / xStep_;
 
-            return trace->ys[sampleIndex];
+                qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, xstep={}, sampleIndex(x)={}, trace.size()={}",
+                    x, y, xStep_, sampleIndex, trace->size()).c_str();
+
+                if (0 <= sampleIndex && sampleIndex < static_cast<ssize_t>(trace->size()))
+                {
+                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): input x={}, sampleIndex={}, trace x={}",
+                        x, sampleIndex, trace->xs[sampleIndex]).c_str();
+                    return trace->ys[sampleIndex];
+                }
+                else
+                {
+                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): sampleIndex out of bounds: x={}, sampleIndex={}", x, sampleIndex).c_str();
+                }
+                #else
+                // FIXME: such a hack because of non uniform x distances...
+                if (auto it = std::lower_bound(std::begin(trace->xs), std::end(trace->xs), x); it != std::end(trace->xs))
+                {
+                    const auto index = std::distance(std::begin(trace->xs), it);
+                    //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, xstep={}, sampleIndex(x)={}, trace.size()={}",
+                    //    x, y, xStep_, index, trace->size()).c_str();
+                    return trace->ys[index];
+                }
+                else
+                {
+                    //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): no sample for x={}, returning trace.back()=({}, {})",
+                    //    x, trace->xs.back(), trace->ys.back()).c_str();
+                    return trace->ys.back();
+                }
+                #endif
+            }
+            else
+            {
+                //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): no trace for y={}", y).c_str();
+            }
+
+            return mesytec::mvme::util::make_quiet_nan();
         }
 
         QRectF pixelHint(const QRectF &) const override
         {
-            qDebug() << "returning WaveformCollectionVerticalRasterData::pixelHint():" << pixelHint_;
-            return pixelHint_;
-        }
-
-        void setPixelHint(const QRectF &rect)
-        {
-            pixelHint_ = rect;
+            QRectF result{0.0, 0.0, xStep_ , 1.0};
+            //qDebug() << "returning WaveformCollectionVerticalRasterData::pixelHint():" << result;
+            return result;
         }
 
     private:
@@ -164,7 +230,7 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
         }
 
         std::vector<const Trace *> traces_;
-        QRectF pixelHint_;
+        double xStep_ = 1.0;
 };
 
 struct WaveformCurves
@@ -212,6 +278,12 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
         void setRawSymbolsVisible(Handle handle, bool visible);
         void setInterpolatedSymbolsVisible(Handle handle, bool visible);
 
+        mvme_qwt::QwtSymbolCache getRawSymbolCache(Handle handle) const;
+        mvme_qwt::QwtSymbolCache getInterpolatedSymbolCache(Handle handle) const;
+
+        size_t size() const;
+        size_t capacity() const { return waveforms_.size(); };
+
     private:
 
         struct WaveformData: public RawWaveformCurves
@@ -229,28 +301,34 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
 
 WaveformCurves make_curves(QColor curvePenColor = Qt::black);
 
-#if 0
-class WaveformPlotWidget: public histo_ui::PlotWidget, public IWaveformPlotter
+struct WaveformProcessingData
 {
-    Q_OBJECT
-    public:
-        using Handle = size_t;
-
-        WaveformPlotWidget(QWidget *parent = nullptr);
-        ~WaveformPlotWidget() override;
-
-        Handle addWaveform(WaveformCurves &&data) override;
-        WaveformCurves takeWaveform(Handle handle) override;
-        RawWaveformCurves getWaveform(Handle handle) const override;
-        bool detachWaveform(Handle handle);
-        QwtPlotCurve *getRawCurve(Handle handle) override;
-        QwtPlotCurve *getInterpolatedCurve(Handle handle) override;
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
+    waveforms::TraceHistories &analysisTraceData;
+    waveforms::TraceHistories &rawDisplayTraces;
+    waveforms::TraceHistories &interpolatedDisplayTraces;
 };
-#endif
+
+// For each channel in analysisTraceData:
+// - take the latest trace from the front of the channels trace history,
+// - scale x by dtSample then interpolate while limiting each channels history to maxDepth.
+// Trace memory is reused once maxDepth is reached.
+void post_process_waveforms(
+    const waveforms::TraceHistories &analysisTraceData,
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor,
+    size_t maxDepth);
+
+// Reprocess waveforms to account for changed dtSample and interpolationFactor
+// values.
+// The traces in rawDisplayTraces are rescaled by dtSample, then interpolated
+// data is written to interpolatedDisplayTraces.
+void reprocess_waveforms(
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor);
 
 }
 

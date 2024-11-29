@@ -101,7 +101,7 @@ class AnalysisReadResultErrorCategory: public std::error_category
         switch (static_cast<AnalysisReadResult>(ev))
         {
             case AnalysisReadResult::NoError:
-                return "No Error";
+                return "Ok";
 
             case AnalysisReadResult::VersionTooOld:
                 return "The analysis config data is from an older version of mvme and has not been migrated.";
@@ -1042,13 +1042,25 @@ s32 DataSourceMdppSampleDecoder::getNumberOfOutputs() const
 
 QString DataSourceMdppSampleDecoder::getOutputName(s32 index) const
 {
-    auto prefix = objectName();
-    int dotIdx = prefix.indexOf('.');
+    if (0 <= index && static_cast<size_t>(index) < getMaxChannels())
+    {
+        auto prefix = objectName();
+        int dotIdx = prefix.indexOf('.');
 
-    if (dotIdx >= 0)
-        prefix.remove(0, dotIdx+1);
+        if (dotIdx >= 0)
+            prefix.remove(0, dotIdx+1);
 
-    return QSL("%1_channel%2").arg(prefix).arg(index);
+        return QSL("%1_channel%2").arg(prefix).arg(index);
+    }
+
+    index -= getMaxChannels();
+
+    if (0 <= index && static_cast<size_t>(index) < getStatsCount())
+    {
+        return QSL("traceheaders_") + getStatsName(index);
+    }
+
+    return {};
 }
 
 Pipe *DataSourceMdppSampleDecoder::getOutput(s32 index)
@@ -1066,15 +1078,19 @@ Pipe *DataSourceMdppSampleDecoder::getOutput(s32 index)
 void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
 {
     /* Disconnect Pipes that will be removed. */
-    if (auto begin = std::begin(m_outputs) + getMaxChannels();
+    if (auto begin = std::begin(m_outputs) + getMaxChannels() + getStatsCount();
         begin < std::end(m_outputs))
     {
-        std::for_each(std::begin(m_outputs) + getMaxChannels(), std::end(m_outputs),
-                    [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
+        std::for_each(begin, std::end(m_outputs),
+            [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
     }
-    m_outputs.resize(getMaxChannels());
+    m_outputs.resize(getMaxChannels() + getStatsCount());
 
-    for (size_t outIdx=0; outIdx<m_outputs.size(); ++outIdx)
+    // TODO: try to create an internal a2::MdppSampleDecoder and use it to setup
+    // the output limits. I think this is done elsewhere, e.g. in the
+    // ExpressionOperator.
+
+    for (size_t outIdx=0; outIdx<getMaxChannels(); ++outIdx)
     {
         // Reuse pipes to not invalidate existing connections
         auto outPipe = m_outputs[outIdx];
@@ -1090,6 +1106,34 @@ void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
             outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
             outPipe->parameters[paramIndex].lowerLimit = mesytec::mvme::mdpp_sampling::SampleMinValue;
             outPipe->parameters[paramIndex].upperLimit = mesytec::mvme::mdpp_sampling::SampleMaxValue;
+        }
+    }
+
+    for (size_t outIdx=getMaxChannels(); outIdx<getMaxChannels() + getStatsCount(); ++outIdx)
+    {
+        auto outPipe = m_outputs[outIdx];
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx);
+            m_outputs[outIdx] = outPipe;
+        }
+        auto statsIndex = outIdx - getMaxChannels();
+        outPipe->parameters.name = QSL("traceheaders_") + getStatsName(statsIndex);
+        outPipe->parameters.resize(getMaxChannels());
+        for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+        {
+            outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
+            outPipe->parameters[paramIndex].lowerLimit = 0;
+            if (statsIndex == mesytec::mvme::mdpp_sampling::TraceHeader::Phase)
+            {
+                // we normalize the phase to [0.0, 1.0) on output to make it
+                // independent of the actual phase range
+                outPipe->parameters[paramIndex].upperLimit = 1.0;
+            }
+            else
+            {
+                outPipe->parameters[paramIndex].upperLimit = 1u << getStatsBits(statsIndex);
+            }
         }
     }
 }
@@ -1112,6 +1156,31 @@ void DataSourceMdppSampleDecoder::read(const QJsonObject &json)
     setOptions(static_cast<Options::opt_t>(json["options"].toInt()));
     // Call beginRun() here to create the output pipes.
     beginRun({}, {});
+}
+
+size_t DataSourceMdppSampleDecoder::getStatsCount() const
+{
+    return mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size();
+}
+
+QString DataSourceMdppSampleDecoder::getStatsName(size_t index) const
+{
+    if (index < static_cast<size_t>(getStatsCount()))
+    {
+        return mesytec::mvme::mdpp_sampling::TraceHeader::PartNames[index];
+    }
+
+    return {};
+}
+
+unsigned DataSourceMdppSampleDecoder::getStatsBits(size_t index) const
+{
+    if (index < static_cast<size_t>(getStatsCount()))
+    {
+        return mesytec::mvme::mdpp_sampling::TraceHeader::PartBits[index];
+    }
+
+    return {};
 }
 
 //
@@ -2405,116 +2474,19 @@ void RectFilter2D::write(QJsonObject &json) const
 struct EquationImpl
 {
     const QString displayString;
-    // args are (inputA, inputB, output)
-    void (*impl)(const ParameterVector &, const ParameterVector &, ParameterVector &);
 };
 
 // Do not reorder the array as indexes are stored in config files!
 static const QVector<EquationImpl> EquationImpls =
 {
-    { QSL("C = A + B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = a[i].valid && b[i].valid;
-                o[i].value = a[i].value +  b[i].value;
-            }
-        }
-    },
-
-    { QSL("C = A - B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = a[i].valid && b[i].valid;
-                o[i].value = a[i].value -  b[i].value;
-            }
-        }
-    },
-
-    { QSL("C = (A + B) / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value + b[i].value) / (a[i].value - b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = (A - B) / (A + B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value + b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value - b[i].value) / (a[i].value + b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = A / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = a[i].value / (a[i].value - b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = (A - B) / A"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (a[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value - b[i].value) / a[i].value;
-                }
-            }
-        }
-    },
-
-    { QSL("C = A * B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid);
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value * b[i].value);
-                }
-            }
-        }
-    },
-
-    { QSL("C = A / B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
-        {
-            for (s32 i = 0; i < a.size(); ++i)
-            {
-                o[i].valid = (a[i].valid && b[i].valid && (b[i].value != 0.0));
-
-                if (o[i].valid)
-                {
-                    o[i].value = (a[i].value / b[i].value);
-                }
-            }
-        }
-    },
+    { QSL("C = A + B")    },                // 0
+    { QSL("C = A - B")    },                // 1
+    { QSL("C = (A + B) / (A - B)") },       // 2
+    { QSL("C = (A - B) / (A + B)") },       // 3
+    { QSL("C = A / (A - B)") },             // 4
+    { QSL("C = (A - B) / A") },             // 5
+    { QSL("C = A * B") },                   // 6
+    { QSL("C = A / B") },                   // 7
 };
 
 BinarySumDiff::BinarySumDiff(QObject *parent)
@@ -2662,6 +2634,12 @@ void BinarySumDiff::read(const QJsonObject &json)
     m_outputUnitLabel  = json["outputUnitLabel"].toString();
     m_outputLowerLimit = json["outputLowerLimit"].toDouble();
     m_outputUpperLimit = json["outputUpperLimit"].toDouble();
+
+    // Fix for data written by mvme <= 1.14.4 which had the limits swapped.
+    if (m_outputLowerLimit > m_outputUpperLimit)
+    {
+        std::swap(m_outputLowerLimit, m_outputUpperLimit);
+    }
 }
 
 void BinarySumDiff::write(QJsonObject &json) const
@@ -3749,7 +3727,11 @@ s32 WaveformSink::getNumberOfSlots() const
 
 void WaveformSink::clearState()
 {
-    d->traceHistories_.access().ref() = {};
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << objectName();
+#endif
+
+    d->traceHistories_.access()->clear();
 }
 
 void WaveformSink::beginRun(const RunInfo &runInfo, Logger)
@@ -5338,254 +5320,263 @@ void Analysis::beginRun(const RunInfo &runInfo,
                         const VMEConfig *vmeConfig,
                         Logger logger)
 {
-    assert(vmeConfig);
-
-    using ClockType = std::chrono::high_resolution_clock;
-    auto tStart = ClockType::now();
-
-    auto newVmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
-
-    const bool fullBuild = (
-        m_runInfo.runId != runInfo.runId
-        || m_runInfo.isReplay != runInfo.isReplay
-        || m_vmeMap != newVmeMap
-        || getObjectFlags() & ObjectFlags::NeedsRebuild);
-
-#if 1 // ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__
-        << "fullBuild =" << fullBuild
-        << ", keepAnalysisState =" << runInfo.keepAnalysisState
-        << ", runId =" << runInfo.runId
-        << ", localFlags =" << to_string(getObjectFlags())
-        ;
-#endif
-
-    m_runInfo = runInfo;
-    m_vmeMap = newVmeMap;
-    d->eventModuleIndexMaps_ = vme_analysis_common::make_module_index_mappings(*vmeConfig);
-
-    if (!runInfo.keepAnalysisState)
+    try
     {
-        m_timetickCount = 0.0;
-    }
+        assert(vmeConfig);
 
-    // Update operator ranks and then sort. This needs to be done before the a2
-    // system can be built.
+        using ClockType = std::chrono::high_resolution_clock;
+        auto tStart = ClockType::now();
 
-    updateRanks();
+        auto newVmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
 
-    std::sort(m_operators.begin(), m_operators.end(),
-          [] (const OperatorPtr &op1, const OperatorPtr &op2) {
-        return op1->getRank() < op2->getRank();
-    });
+        const bool fullBuild = (
+            m_runInfo.runId != runInfo.runId
+            || m_runInfo.isReplay != runInfo.isReplay
+            || m_vmeMap != newVmeMap
+            || getObjectFlags() & ObjectFlags::NeedsRebuild);
 
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by rank";
-    for (const auto &op: m_operators)
-    {
-        qDebug() << "  "
-            << "rank =" << op->getRank()
-            << ", maxInputRank =" << op->getMaximumInputRank()
-            << getClassName(op.get())
-            << op->objectName()
-            << ", max output rank =" << op->getMaximumOutputRank()
-            << ", flags =" << op->getObjectFlags();
-    }
-    qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by rank";
-#endif
+    #if 1 // ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__
+            << "fullBuild =" << fullBuild
+            << ", keepAnalysisState =" << runInfo.keepAnalysisState
+            << ", runId =" << runInfo.runId
+            << ", localFlags =" << to_string(getObjectFlags())
+            ;
+    #endif
 
-    qDebug() << __PRETTY_FUNCTION__ << "Analysis contains"
-        << m_sources.size() << " data sources and"
-        << m_operators.size() << " operators";
+        m_runInfo = runInfo;
+        m_vmeMap = newVmeMap;
+        d->eventModuleIndexMaps_ = vme_analysis_common::make_module_index_mappings(*vmeConfig);
 
-    u32 sourcesBuilt = 0;
-
-    for (auto &source: m_sources)
-    {
-        if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        if (!runInfo.keepAnalysisState)
         {
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << __PRETTY_FUNCTION__
-                << "beginRun() on"
-                << " class =" << source->metaObject()->className()
-                << ", name =" << source->objectName()
-                << ", id =" << source->getId()
-                << ", fullBuild =" << fullBuild
-                << ", objectFlags =" << to_string(source->getObjectFlags());
-#endif
-
-            source->beginRun(runInfo, logger);
-            source->clearObjectFlags(ObjectFlags::NeedsRebuild);
-            sourcesBuilt++;
-
-            qDebug() << __PRETTY_FUNCTION__
-                << "beginRun() on"
-                << " class =" << source->metaObject()->className()
-                << ", name =" << source->objectName()
-                << ", outputCount =" << source->getNumberOfOutputs();
+            m_timetickCount = 0.0;
         }
-        else if (!runInfo.keepAnalysisState)
+
+        // Update operator ranks and then sort. This needs to be done before the a2
+        // system can be built.
+
+        updateRanks();
+
+        std::sort(m_operators.begin(), m_operators.end(),
+            [] (const OperatorPtr &op1, const OperatorPtr &op2) {
+            return op1->getRank() < op2->getRank();
+        });
+
+    #if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by rank";
+        for (const auto &op: m_operators)
         {
-            source->clearState();
+            qDebug() << "  "
+                << "rank =" << op->getRank()
+                << ", maxInputRank =" << op->getMaximumInputRank()
+                << getClassName(op.get())
+                << op->objectName()
+                << ", max output rank =" << op->getMaximumOutputRank()
+                << ", flags =" << op->getObjectFlags();
         }
-    }
+        qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by rank";
+    #endif
 
-    // HACK: Store  values of static variables of ExpressionOperators
-    QMap<OperatorInterface *, a2::ExpressionOperatorData::StaticVarMap> exprSavedStaticVars;
+        qDebug() << __PRETTY_FUNCTION__ << "Analysis contains"
+            << m_sources.size() << " data sources and"
+            << m_operators.size() << " operators";
 
-    u32 operatorsBuilt = 0;
+        u32 sourcesBuilt = 0;
 
-    for (auto &op: m_operators)
-    {
-        if (auto sink = qobject_cast<SinkInterface *>(op.get()))
+        for (auto &source: m_sources)
         {
-            if (!sink->isEnabled())
+            if (fullBuild || source->getObjectFlags() & ObjectFlags::NeedsRebuild)
             {
-                continue;
+    #if ENABLE_ANALYSIS_DEBUG
+                qDebug() << __PRETTY_FUNCTION__
+                    << "beginRun() on"
+                    << " class =" << source->metaObject()->className()
+                    << ", name =" << source->objectName()
+                    << ", id =" << source->getId()
+                    << ", fullBuild =" << fullBuild
+                    << ", objectFlags =" << to_string(source->getObjectFlags());
+    #endif
+
+                source->beginRun(runInfo, logger);
+                source->clearObjectFlags(ObjectFlags::NeedsRebuild);
+                sourcesBuilt++;
+
+                qDebug() << __PRETTY_FUNCTION__
+                    << "beginRun() on"
+                    << " class =" << source->metaObject()->className()
+                    << ", name =" << source->objectName()
+                    << ", outputCount =" << source->getNumberOfOutputs();
+            }
+            else if (!runInfo.keepAnalysisState)
+            {
+                source->clearState();
             }
         }
 
-        if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
+        // HACK: Store  values of static variables of ExpressionOperators
+        QMap<OperatorInterface *, a2::ExpressionOperatorData::StaticVarMap> exprSavedStaticVars;
+
+        u32 operatorsBuilt = 0;
+
+        for (auto &op: m_operators)
         {
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << __PRETTY_FUNCTION__
-                << "beginRun() on"
-                << " class =" << op->metaObject()->className()
-                << ", name =" << op->objectName()
-                << ", id =" << op->getId()
-                << ", fullBuild =" << fullBuild
-                << ", objectFlags =" << to_string(op->getObjectFlags())
-                << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
-                ;
-#endif
-            if (!required_inputs_connected_and_valid(op.get()))
+            if (auto sink = qobject_cast<SinkInterface *>(op.get()))
             {
-                qDebug() << "bug";
-            }
-
-            op->beginRun(runInfo, logger);
-            op->clearObjectFlags(ObjectFlags::NeedsRebuild);
-            operatorsBuilt++;
-        }
-        else if (!runInfo.keepAnalysisState)
-        {
-            op->clearState();
-        }
-        // HACK to keep the values of static variables of ExpressionOperator
-        // instances but only if the operator was not rebuilt.
-        else if (auto expr = qobject_cast<ExpressionOperator *>(op.get()))
-        {
-            if (auto a2_op = m_a2State->operatorMap.value(expr, nullptr))
-            {
-                auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
-                exprSavedStaticVars[expr] = data->static_vars;
-            }
-        }
-    }
-
-    clearObjectFlags(ObjectFlags::NeedsRebuild);
-
-    qDebug() << __PRETTY_FUNCTION__ << "built" << sourcesBuilt << "sources"
-        " and " << operatorsBuilt << "operators";
-
-    // Build the a2 system
-
-    // a2 arena swap
-    m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
-    m_a2Arenas[m_a2ArenaIndex]->reset();
-
-    m_a2WorkArena->reset();
-
-    qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
-    qDebug() << __PRETTY_FUNCTION__ << "a2: using arena" << (u32)m_a2ArenaIndex;
-
-    m_a2State = std::make_unique<A2AdapterState>(
-        a2_adapter_build_memory_wrapper(
-            m_a2Arenas[m_a2ArenaIndex],
-            m_a2WorkArena,
-            this,
-            m_sources,
-            m_operators,
-            m_vmeMap,
-            runInfo));
-
-    assert(m_a2State);
-
-    a2::a2_begin_run(m_a2State->a2, [logger] (const std::string &str) {
-        if (logger)
-            logger(QString::fromStdString(str));
-    });
-
-    // HACK: restore ExpressionOperator static variable values
-    for (auto &op: m_operators)
-    {
-        if (exprSavedStaticVars.contains(op.get()))
-        {
-            assert(qobject_cast<ExpressionOperator *>(op.get()));
-            auto &savedStaticVars = exprSavedStaticVars[op.get()];
-
-            if (auto a2_op = m_a2State->operatorMap.value(op.get(), nullptr))
-            {
-                auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
-                assert(savedStaticVars.size() == data->static_vars.size());
-                assert(map_keys(savedStaticVars) == map_keys(data->static_vars));
-
-#ifndef NDEBUG
-                using StaticVar = a2::ExpressionOperatorData::StaticVar;
-
-                // Return the address of the actual data stored in the StaticVar.
-                auto get_var_address = [] (const StaticVar &staticVar) -> const void *
+                if (!sink->isEnabled())
                 {
-                    switch (staticVar.type)
+                    continue;
+                }
+            }
+
+            if (fullBuild || op->getObjectFlags() & ObjectFlags::NeedsRebuild)
+            {
+    #if ENABLE_ANALYSIS_DEBUG
+                qDebug() << __PRETTY_FUNCTION__
+                    << "beginRun() on"
+                    << " class =" << op->metaObject()->className()
+                    << ", name =" << op->objectName()
+                    << ", id =" << op->getId()
+                    << ", fullBuild =" << fullBuild
+                    << ", objectFlags =" << to_string(op->getObjectFlags())
+                    << ", connected_and_valid =" << required_inputs_connected_and_valid(op.get())
+                    ;
+    #endif
+                if (!required_inputs_connected_and_valid(op.get()))
+                {
+                    qDebug() << "bug";
+                }
+
+                op->beginRun(runInfo, logger);
+                op->clearObjectFlags(ObjectFlags::NeedsRebuild);
+                operatorsBuilt++;
+            }
+            else if (!runInfo.keepAnalysisState)
+            {
+                op->clearState();
+            }
+            // HACK to keep the values of static variables of ExpressionOperator
+            // instances but only if the operator was not rebuilt.
+            else if (auto expr = qobject_cast<ExpressionOperator *>(op.get()))
+            {
+                if (auto a2_op = m_a2State->operatorMap.value(expr, nullptr))
+                {
+                    auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
+                    exprSavedStaticVars[expr] = data->static_vars;
+                }
+            }
+        }
+
+        clearObjectFlags(ObjectFlags::NeedsRebuild);
+
+        qDebug() << __PRETTY_FUNCTION__ << "built" << sourcesBuilt << "sources"
+            " and " << operatorsBuilt << "operators";
+
+        // Build the a2 system
+
+        // a2 arena swap
+        m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
+        m_a2Arenas[m_a2ArenaIndex]->reset();
+
+        m_a2WorkArena->reset();
+
+        qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
+        qDebug() << __PRETTY_FUNCTION__ << "a2: using arena" << (u32)m_a2ArenaIndex;
+
+        m_a2State = std::make_unique<A2AdapterState>(
+            a2_adapter_build_memory_wrapper(
+                m_a2Arenas[m_a2ArenaIndex],
+                m_a2WorkArena,
+                this,
+                m_sources,
+                m_operators,
+                m_vmeMap,
+                runInfo));
+
+        assert(m_a2State);
+
+        a2::a2_begin_run(m_a2State->a2, [logger] (const std::string &str) {
+            if (logger)
+                logger(QString::fromStdString(str));
+        });
+
+        // HACK: restore ExpressionOperator static variable values
+        for (auto &op: m_operators)
+        {
+            if (exprSavedStaticVars.contains(op.get()))
+            {
+                assert(qobject_cast<ExpressionOperator *>(op.get()));
+                auto &savedStaticVars = exprSavedStaticVars[op.get()];
+
+                if (auto a2_op = m_a2State->operatorMap.value(op.get(), nullptr))
+                {
+                    auto data = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op->d);
+                    assert(savedStaticVars.size() == data->static_vars.size());
+                    assert(map_keys(savedStaticVars) == map_keys(data->static_vars));
+
+    #ifndef NDEBUG
+                    using StaticVar = a2::ExpressionOperatorData::StaticVar;
+
+                    // Return the address of the actual data stored in the StaticVar.
+                    auto get_var_address = [] (const StaticVar &staticVar) -> const void *
                     {
-                        case StaticVar::String:
-                            return staticVar.string.data();
+                        switch (staticVar.type)
+                        {
+                            case StaticVar::String:
+                                return staticVar.string.data();
 
-                        case StaticVar::Scalar:
-                            return &staticVar.scalar;
+                            case StaticVar::Scalar:
+                                return &staticVar.scalar;
 
-                        case StaticVar::Vector:
-                            return staticVar.vector.data();
+                            case StaticVar::Vector:
+                                return staticVar.vector.data();
 
+                        };
+
+                        return nullptr;
                     };
 
-                    return nullptr;
-                };
 
+                    // Remember static var addresses pre assigning the stored values.
+                    std::map<std::string, const void *> staticsPreAssign;
 
-                // Remember static var addresses pre assigning the stored values.
-                std::map<std::string, const void *> staticsPreAssign;
+                    for (const auto &kv: data->static_vars)
+                        staticsPreAssign[kv.first] = get_var_address(kv.second);
+    #endif
 
-                for (const auto &kv: data->static_vars)
-                    staticsPreAssign[kv.first] = get_var_address(kv.second);
-#endif
+                    // Note: direct assignments of the maps does change memory
+                    // locations which would invalidate the references stored in
+                    // the symbol table of the operator. Instead manually iterate
+                    // and assign.
+                    for (const auto &kv: savedStaticVars)
+                        data->static_vars[kv.first] = kv.second;
 
-                // Note: direct assignments of the maps does change memory
-                // locations which would invalidate the references stored in
-                // the symbol table of the operator. Instead manually iterate
-                // and assign.
-                for (const auto &kv: savedStaticVars)
-                    data->static_vars[kv.first] = kv.second;
+    #ifndef NDEBUG
+                    // Collect addresses after assigning
+                    std::map<std::string, const void *> staticsPostAssign;
 
-#ifndef NDEBUG
-                // Collect addresses after assigning
-                std::map<std::string, const void *> staticsPostAssign;
+                    for (const auto &kv: data->static_vars)
+                        staticsPostAssign[kv.first] = get_var_address(kv.second);
 
-                for (const auto &kv: data->static_vars)
-                    staticsPostAssign[kv.first] = get_var_address(kv.second);
-
-                // Compare the addresses
-                assert(staticsPreAssign == staticsPostAssign);
-#endif
+                    // Compare the addresses
+                    assert(staticsPreAssign == staticsPostAssign);
+    #endif
+                }
             }
         }
+
+        auto tEnd = ClockType::now();
+        std::chrono::duration<float> elapsed = tEnd - tStart;
+
+        qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
+            << elapsed.count() << "seconds";
+    } catch (const std::runtime_error &e)
+    {
+        if (logger)
+        {
+            logger(QString("Error during analysis build: %1").arg(e.what()));
+        }
     }
-
-    auto tEnd = ClockType::now();
-    std::chrono::duration<float> elapsed = tEnd - tStart;
-
-    qDebug() << __PRETTY_FUNCTION__ << "analysis build took"
-        << elapsed.count() << "seconds";
 }
 
 void Analysis::beginRun(BeginRunOption option, const VMEConfig *vmeConfig, Logger logger)

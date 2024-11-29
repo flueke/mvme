@@ -798,17 +798,45 @@ DataSource make_datasource_mdpp_sample_decoder(
     int moduleIndex,
     DataSourceOptions::opt_t options)
 {
-    auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels);
+    using namespace mesytec::mvme;
+
+    const auto statsCount = mdpp_sampling::TraceHeader::PartNames.size();
+    auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels + statsCount);
 
     auto ex = arena->pushObject<MdppSampleDecoder>();
     *ex = make_mdpp_sample_decoder(moduleType, maxChannels, maxSamples, rngSeed, options);
     result.d = ex;
 
+    // TODO: this is duplicated between analysis::DataSourceMdppSampleDecoder
+    // and this function. We don't have access to the analysis:: stuff in here
+    // and the a2 adapter currently does not transport information about desired
+    // output vector sizes for datasources. Have to look and see if this can be
+    // solved easily or if it's not worth it.
     double lowerLimit = -1.0 * (1u << 13);
     double upperLimit = (1u << 13) - 1;
 
     for (size_t outputIndex=0; outputIndex<maxChannels; ++outputIndex)
         push_output_vectors(arena, &result, outputIndex, maxSamples, lowerLimit, upperLimit);
+
+    for (size_t outputIndex=maxChannels; outputIndex<maxChannels+statsCount; ++outputIndex)
+    {
+        auto statsIndex = outputIndex - maxChannels;
+        double maxValue = make_quiet_nan();
+        if (statsIndex < mdpp_sampling::TraceHeader::PartBits.size())
+        {
+            if (statsIndex == mdpp_sampling::TraceHeader::Phase)
+            {
+                // we normalize the phase to [0.0, 1.0) on output to make it
+                // independent of the actual phase range
+                maxValue = 1.0;
+            }
+            else
+            {
+                maxValue = (1u << mdpp_sampling::TraceHeader::PartBits[statsIndex]);
+            }
+        }
+        push_output_vectors(arena, &result, outputIndex, maxChannels, 0.0, maxValue);
+    }
 
     return result;
 }
@@ -818,6 +846,14 @@ void mdpp_sample_decoder_begin_event(DataSource *ds)
     assert(ds->type == DataSource_MdppSampleDecoder);
     for (size_t outputIndex=0; outputIndex<ds->outputCount; ++outputIndex)
         invalidate_all(ds->outputs[outputIndex]);
+}
+
+inline double normalize_phase(double phase)
+{
+    using namespace mesytec::mvme;
+    static const double PhaseMax = 1u << mdpp_sampling::TraceHeader::PartBits[mdpp_sampling::TraceHeader::Phase];
+
+    return phase / PhaseMax;
 }
 
 void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u32 dataSize)
@@ -856,6 +892,23 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
                 ++hitCounts[sampleIndex];
             }
         }
+    }
+
+    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size();
+    size_t firstStatsIndex = ex->maxChannels;
+    assert(firstStatsIndex + statsCount == ds->outputCount);
+
+    using PartIndex = mesytec::mvme::mdpp_sampling::TraceHeader::PartIndex;
+
+    for (const auto &trace: decodedEvent.traces)
+    {
+        if (trace.channel >= ds->outputs[firstStatsIndex].size)
+            continue;
+
+        ds->outputs[firstStatsIndex + PartIndex::Debug][trace.channel] = trace.traceHeader.parts.debug;
+        ds->outputs[firstStatsIndex + PartIndex::Config][trace.channel] = trace.traceHeader.parts.config;
+        ds->outputs[firstStatsIndex + PartIndex::Phase][trace.channel] = normalize_phase(trace.traceHeader.parts.phase);
+        ds->outputs[firstStatsIndex + PartIndex::Length][trace.channel] = trace.traceHeader.parts.length;
     }
 }
 
@@ -3406,40 +3459,9 @@ void expression_condition_step(Operator *op, A2 *a2)
  * Sinks: Histograms/RateMonitor/ExportSink
  * =============================================== */
 
-inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
-{
-    return (x - binning.min) * binCount / binning.range;
-}
-
-// binMin = binning.min
-// binFactor = binCount / binning.range
-inline double get_bin_unchecked(double x, double binMin, double binFactor)
-{
-    return (x - binMin) * binFactor;
-}
-
-inline s32 get_bin(Binning binning, s32 binCount, double x)
-{
-    double bin = get_bin_unchecked(binning, binCount, x);
-
-    if (bin < 0.0)
-        return Binning::Underflow;
-
-    if (bin >= binCount)
-        return Binning::Overflow;
-
-    return static_cast<s32>(bin);
-}
-
-inline s32 get_bin(H1D histo, double x)
-{
-    return get_bin(histo.binning, histo.size, x);
-}
-
-inline s32 get_bin(H2D histo, H2D::Axis axis, double v)
-{
-    return get_bin(histo.binnings[axis], histo.binCounts[axis], v);
-}
+const s8 Binning::Underflow;
+const s8 Binning::Overflow;
+const s8 Binning::Invalid;
 
 //
 // HistoFillDirect
@@ -3451,41 +3473,31 @@ inline bool range_check_update(H1D *histo, double x)
 {
     assert(histo);
 
-    /* Instead of calculating the bin and then checking if it under/overflows
-     * this code decides by comparing x to the binnings min and max values.
-     * This is faster. */
-
-    if (x < histo->binning.min)
+    if (std::isnan(x))
     {
-#if 0
-        cerr << __PRETTY_FUNCTION__
-            << " histo=" << histo << ", x < min, x=" << x << ", get_bin=" << get_bin(*histo, x) << endl;
-#endif
-
-        assert(get_bin(*histo, x) == Binning::Underflow);
-        if (histo->underflow)
-            ++(*histo->underflow);
-    }
-    else if (x >= histo->binning.min + histo->binning.range)
-    {
-#if 0
-        if (get_bin(*histo, x) != Binning::Overflow)
-        {
-            cerr << __PRETTY_FUNCTION__
-                << " histo=" << histo << ", x >= max, x=" << x << ", get_bin=" << get_bin(*histo, x)
-                << ", binning.min=" << histo->binning.min
-                << ", binning.range=" << histo->binning.range
-                << " => binning.max=" << histo->binning.min + histo->binning.range
-                << endl;
-        }
-#endif
-
-        assert(histo->binning.range == 0.0 || get_bin(*histo, x) == Binning::Overflow);
-        if (histo->overflow)
-            ++(*histo->overflow);
+        ++histo->nans;
     }
     else
-        return !std::isnan(x);
+    {
+        const auto theBin = get_bin(*histo, x);
+
+        if (theBin == Binning::Underflow)
+        {
+            ++histo->underflows;
+        }
+        else if (theBin == Binning::Overflow)
+        {
+            ++histo->overflows;
+        }
+        else if (theBin == Binning::Invalid)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
 
     return false;
 }
@@ -3496,71 +3508,79 @@ inline void HistoFillDirect::fill_h1d(H1D *histo, double x)
 
     if (range_check_update(histo, x))
     {
+        const bool beTrue = (0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
+        if (!beTrue)
+        {
+            spdlog::error("HistoFillDirect::fill_h1d: binning error: histo->size={}, histo->binning=( .min={}, .range={} ) => binningFactor={}, x={} => bin={}",
+                            histo->size, histo->binning.min, histo->binning.range, histo->binningFactor,
+                            x, get_bin(*histo, x));
+            assert(!"HistoFillDirect::fill_h1d: binning error");
+        }
         assert(0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
 
-        //s32 bin = static_cast<s32>(get_bin_unchecked(histo->binning, histo->size, x));
-        s32 bin = static_cast<s32>(get_bin_unchecked(x, histo->binning.min, histo->binningFactor));
+        s32 bin1 = static_cast<s32>(get_bin_unchecked(histo->binning, histo->size, x));
+        s32 bin2 = static_cast<s32>(get_bin_unchecked(x, histo->binning.min, histo->binningFactor));
+        assert(bin1 == bin2); (void) bin2;
 
-        histo->data[bin]++;
-        if (histo->entryCount)
-            ++(*histo->entryCount);
+        if (0 <= bin1 && bin1 < histo->size)
+        {
+            histo->data[bin1]++;
+            ++histo->entryCount;
+        }
     }
 }
 
 inline void HistoFillDirect::fill_h2d(H2D *histo, double x, double y)
 {
-    if (x < histo->binnings[H2D::XAxis].min)
+    const auto binX = get_bin(*histo, H2D::XAxis, x);
+    const auto binY = get_bin(*histo, H2D::YAxis, y);
+
+    if (std::isnan(x))
     {
-        assert(get_bin(*histo, H2D::XAxis, x) == Binning::Underflow);
-        histo->underflow++;
+        ++histo->nans[H2D::XAxis];
     }
-    else if (x >= histo->binnings[H2D::XAxis].min + histo->binnings[H2D::XAxis].range)
+    else if (std::isnan(y))
     {
-        assert(get_bin(*histo, H2D::XAxis, x) == Binning::Overflow);
-        histo->overflow++;
+        ++histo->nans[H2D::YAxis];
     }
-    else if (y < histo->binnings[H2D::YAxis].min)
+    else if (binX == Binning::Underflow)
     {
-        assert(get_bin(*histo, H2D::YAxis, y) == Binning::Underflow);
-        histo->underflow++;
+        ++histo->underflows[H2D::XAxis];
     }
-    else if (y >= histo->binnings[H2D::YAxis].min + histo->binnings[H2D::YAxis].range)
+    else if (binX == Binning::Overflow)
     {
-        assert(get_bin(*histo, H2D::YAxis, y) == Binning::Overflow);
-        histo->overflow++;
+        ++histo->overflows[H2D::XAxis];
     }
-    else if (std::isnan(x) || std::isnan(y))
+    else if (binX == Binning::Invalid)
     {
-        // pass for now
+        // do nothing, binning range was 0.0 or something was NaN
+    }
+    else if (binY == Binning::Underflow)
+    {
+        ++histo->underflows[H2D::YAxis];
+    }
+    else if (binY == Binning::Overflow)
+    {
+        ++histo->overflows[H2D::YAxis];
+    }
+    else if (binY == Binning::Invalid)
+    {
+        // do nothing, binning range was 0.0 or something was NaN
     }
     else if (likely(1))
     {
-        assert(0 <= get_bin(*histo, H2D::XAxis, x)
-               && get_bin(*histo, H2D::XAxis, x) < histo->binCounts[H2D::XAxis]);
-
-        assert(0 <= get_bin(*histo, H2D::YAxis, y)
-               && get_bin(*histo, H2D::YAxis, y) < histo->binCounts[H2D::YAxis]);
-
-        s32 xBin = static_cast<s32>(get_bin_unchecked(
-                x,
-                histo->binnings[H2D::XAxis].min,
-                histo->binningFactors[H2D::XAxis]));
-
-        s32 yBin = static_cast<s32>(get_bin_unchecked(
-                y,
-                histo->binnings[H2D::YAxis].min,
-                histo->binningFactors[H2D::YAxis]));
-
-        s32 linearBin = yBin * histo->binCounts[H2D::XAxis] + xBin;
+        const s32 linearBin = binY * histo->binCounts[H2D::XAxis] + binX;
 
         a2_trace("x=%lf, y=%lf, xBin=%d, yBin=%d, linearBin=%d\n",
-                 x, y, xBin, yBin, linearBin);
-
+                 x, y, binX, binY, linearBin);
 
         assert(0 <= linearBin && linearBin < histo->size);
 
-        histo->data[linearBin]++;
-        histo->entryCount++;
+        if (0 <= linearBin && linearBin < histo->size)
+        {
+            ++histo->data[linearBin];
+            ++histo->entryCount;
+        }
     }
 }
 
@@ -3583,7 +3603,7 @@ void flush(H1D *histo, FillBuffer &buffer)
         histo->data[bin]++;
     }
 
-    (*histo->entryCount) += buffer.used;
+    histo->entryCount += buffer.used;
     buffer.used = 0;
 }
 
@@ -3675,14 +3695,10 @@ void clear_histo(H1D *histo)
 {
     histo->binningFactor = 0.0;
 
-    if (histo->entryCount)
-        *histo->entryCount = 0.0;
-
-    if (histo->underflow)
-        *histo->underflow = 0.0;
-
-    if (histo->overflow)
-        *histo->overflow = 0.0;
+    histo->entryCount = 0.0;
+    histo->nans = 0.0;
+    histo->underflows = 0.0;
+    histo->overflows = 0.0;
 
     std::fill(histo->data, histo->data + histo->size, 0.0);
 }

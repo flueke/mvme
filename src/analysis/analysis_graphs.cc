@@ -196,6 +196,32 @@ void object_graph_recurse_to_source(GraphContext &gctx, const analysis::Operator
     }
 }
 
+void object_graph_go_one_level_forward(GraphContext &gctx, const analysis::PipeSourcePtr &op)
+{
+    [[maybe_unused]] auto opNode = gctx.nodes[op->getId()];
+    assert(opNode);
+
+    const auto outputCount = op->getNumberOfOutputs();
+
+    for (s32 outputIndex = 0; outputIndex < outputCount; ++outputIndex)
+    {
+        Pipe *outPipe = op->getOutput(outputIndex);
+        Q_ASSERT(outPipe); // Must exist as the source said it would exist.
+
+        const s32 destCount = outPipe->destinations.size();
+
+        for (s32 destIndex = 0; destIndex < destCount; ++destIndex)
+        {
+            auto destSlot = outPipe->destinations[destIndex];
+            auto destObj = destSlot->parentOperator->shared_from_this();
+            object_graph_add_node(gctx, destObj);
+            auto e = object_graph_add_edge(gctx, op, destObj);
+            if (!destSlot->name.isEmpty())
+                e->setAttribute("headlabel", destSlot->name + "\n ");
+        }
+    }
+}
+
 void darken_node_color(QGVNode *node, int factor = 120)
 {
     QColor nodeColor(node->getAttribute("fillcolor"));
@@ -216,6 +242,7 @@ struct CreateGraphVisitor: public ObjectVisitor
         auto node = object_graph_add_node(gctx, src);
         darken_node_color(node); // darker folor for the central object
         object_graph_add_module_for_source(gctx, src);
+        object_graph_go_one_level_forward(gctx, src);
     }
 
     void visit(OperatorInterface *op_) override
@@ -224,6 +251,7 @@ struct CreateGraphVisitor: public ObjectVisitor
         auto node = object_graph_add_node(gctx, op);
         node->setAttribute("fillcolor", "#fff580");
         object_graph_recurse_to_source(gctx, op);
+        object_graph_go_one_level_forward(gctx, op);
     }
 
     void visit(SinkInterface *sink) override

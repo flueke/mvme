@@ -435,22 +435,9 @@ void AnalysisWidgetPrivate::actionClearHistograms()
 {
     AnalysisPauser pauser(m_serviceProvider);
 
-    for (auto &op: m_serviceProvider->getAnalysis()->getOperators())
+    for (auto &op: m_serviceProvider->getAnalysis()->getSinkOperators())
     {
-        if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
-        {
-            for (auto &histo: histoSink->m_histos)
-            {
-                histo->clear();
-            }
-        }
-        else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
-        {
-            if (histoSink->m_histo)
-            {
-                histoSink->m_histo->clear();
-            }
-        }
+        op->clearState();
     }
 }
 
@@ -907,6 +894,23 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->m_actionStepNextEvent = m_d->m_toolbar->addAction(
             QIcon(":/control_play_stop.png"), QSL("Next Event"),
             this, [this] { m_d->actionStepNextEvent(); });
+
+        m_d->m_toolbar->addSeparator();
+        {
+            auto spinbox = new QDoubleSpinBox;
+            spinbox->setMinimum(0.0);
+            spinbox->setMaximum(2000.0);
+            spinbox->setSpecialValueText(QSL("off"));
+            spinbox->setSuffix(QSL(" ms"));
+            auto boxStruct = make_vbox_container(QSL("Processing Delay"), spinbox, 0, -2);
+            m_d->m_toolbar->addWidget(boxStruct.container.release());
+
+            connect(spinbox, qOverload<double>(&QDoubleSpinBox::valueChanged),
+                    this, [this](double value_ms) {
+                        std::chrono::duration<double, std::micro> delay(value_ms * 1000);
+                        m_d->m_serviceProvider->getMVMEStreamWorker()->setArtificalDelay(delay);
+                    });
+        }
 
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Load Session"),

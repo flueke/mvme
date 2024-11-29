@@ -290,7 +290,7 @@ vme_script::ResultList ScriptConfigRunner::Private::run_impl()
             // Find first error
             auto it = std::find_if(
                 scriptResults.begin(), scriptResults.end(),
-                [] (const auto &r) { return r.error.isError(); });
+                [] (const auto &r) { return r.error.isError() || r.error.isWarning(); });
 
             if (it == scriptResults.end())
                 log_msg(QSL("  Executed %1 commands, no errors").arg(scriptResults.size()));

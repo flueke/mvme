@@ -93,7 +93,7 @@ QWidget *show_sink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo 
 
 QWidget *open_new_histo1dsink_widget(AnalysisServiceProvider *asp, const Histo1DWidgetInfo &widgetInfo)
 {
-    if (widgetInfo.sink && widgetInfo.histoAddress < widgetInfo.histos.size())
+    if (widgetInfo.sink && !widgetInfo.histos.empty() && widgetInfo.histoAddress < widgetInfo.histos.size())
     {
         auto widget = new Histo1DWidget(widgetInfo.histos);
         widget->setServiceProvider(asp);
@@ -309,17 +309,21 @@ ObjectEditorDialog *datasource_editor_factory(const SourcePtr &src,
     }
     else if (auto ex = std::dynamic_pointer_cast<DataSourceMdppSampleDecoder>(src))
     {
-        result = new MdppSampleDecoderDialog(ex, moduleConfig, mode, eventWidget);
+        if (mode == ObjectEditorMode::Edit)
+            result = new MdppSampleDecoderDialog(ex, moduleConfig, mode, eventWidget);
     }
 
-    QObject::connect(result, &ObjectEditorDialog::applied,
-                     eventWidget, &EventWidget::objectEditorDialogApplied);
+    if (result)
+    {
+        QObject::connect(result, &ObjectEditorDialog::applied,
+                        eventWidget, &EventWidget::objectEditorDialogApplied);
 
-    QObject::connect(result, &QDialog::accepted,
-                     eventWidget, &EventWidget::objectEditorDialogAccepted);
+        QObject::connect(result, &QDialog::accepted,
+                        eventWidget, &EventWidget::objectEditorDialogAccepted);
 
-    QObject::connect(result, &QDialog::rejected,
-                     eventWidget, &EventWidget::objectEditorDialogRejected);
+        QObject::connect(result, &QDialog::rejected,
+                        eventWidget, &EventWidget::objectEditorDialogRejected);
+    }
 
     return result;
 }

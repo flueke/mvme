@@ -1210,11 +1210,10 @@ QwtText make_qwt_text(const QString &str, int fontPointSize)
 QwtPlotZoomer *install_scrollzoomer(PlotWidget *w)
 {
     auto zoomer = new ScrollZoomer(w->getPlot()->canvas());
-    //auto zoomer = new QwtPlotZoomer(w->getPlot()->canvas());
     zoomer->setObjectName("zoomer");
     zoomer->setEnabled(false);
 
-    install_checkable_toolbar_action(
+    auto a = install_checkable_toolbar_action(
         w, "Zoom", "zoomAction",
         zoomer, [zoomer] (bool checked)
         {
@@ -1231,6 +1230,7 @@ QwtPlotZoomer *install_scrollzoomer(PlotWidget *w)
             }
         });
 
+    a->setIcon(QIcon(":/resources/magnifier-zoom.png"));
 
     return zoomer;
 }

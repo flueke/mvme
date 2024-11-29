@@ -56,7 +56,7 @@ class VMEConfigReadResultErrorCategory: public std::error_category
         switch (static_cast<VMEConfigReadResult>(ev))
         {
             case VMEConfigReadResult::NoError:
-                return "No Error";
+                return "Ok";
 
             case VMEConfigReadResult::VersionTooOld:
                 return "JSON schema version too old, schema upgrade required.";

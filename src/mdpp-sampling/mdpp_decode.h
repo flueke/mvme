@@ -23,6 +23,30 @@ static constexpr u32 SampleBits = 14;
 static constexpr double SampleMinValue = -1.0 * (1 << (SampleBits - 1));
 static constexpr double SampleMaxValue = (1 << (SampleBits - 1)) - 1.0;
 
+
+union TraceHeader
+{
+    struct Parts
+    {
+        u32 pad: 4;
+        u32 debug: 1;
+        u32 config: 8;
+        u32 phase: 9;
+        u32 length: 10;
+    } parts;
+    u32 value = 0;
+
+    static const std::array<const char *, 4> PartNames;
+    static const std::array<unsigned, 4> PartBits;
+    enum PartIndex
+    {
+        Debug = 0,
+        Config = 1,
+        Phase = 2,
+        Length = 3
+    };
+};
+
 struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
 {
     // linear event number incremented on each event from the source module
@@ -31,7 +55,7 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
     s32 channel = -1;
     float amplitude = util::make_quiet_nan(); // extracted amplitude value
     float time = util::make_quiet_nan(); // extracted time value
-    u32 header = 0; // raw module header word
+    u32 moduleHeader = 0; // raw module header word
     u32 amplitudeData = 0; // raw amplitude data word
     u32 timeData = 0; // raw time data word
     double dtSample = MdppDefaultSamplePeriod;
@@ -42,6 +66,7 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
 
     // Store (x, y) values here to allow interpolation of raw traces.
     QVector<std::pair<double, double>> interpolated;
+    TraceHeader traceHeader;
 };
 
 inline bool has_raw_samples(const ChannelTrace &trace)

@@ -10,8 +10,11 @@ QRectF update_plot_axes(QwtPlot *plot, QwtPlotZoomer *zoomer, const QRectF &newB
     {
         auto xMin = newBoundingRect.left();
         auto xMax = newBoundingRect.right();
-        auto yMax = newBoundingRect.bottom();
         auto yMin = newBoundingRect.top();
+        auto yMax = newBoundingRect.bottom();
+
+        if (xMin > xMax) std::swap(xMin, xMax); // just in case the limits are
+        if (yMin > yMax) std::swap(yMin, yMax); // still swapped for some reason
 
         spdlog::trace("forcing axis scales to: xMin={}, xMax={}, yMin={}, yMax={}", xMin, xMax, yMin, yMax);
 
@@ -155,6 +158,26 @@ void WaveformPlotCurveHelper::setInterpolatedSymbolsVisible(Handle handle, bool 
     }
 }
 
+mvme_qwt::QwtSymbolCache WaveformPlotCurveHelper::getRawSymbolCache(Handle handle) const
+{
+    if (auto data = getWaveformData(handle))
+        return data->rawSymbolCache;
+    return {};
+}
+
+mvme_qwt::QwtSymbolCache WaveformPlotCurveHelper::getInterpolatedSymbolCache(Handle handle) const
+{
+    if (auto data = getWaveformData(handle))
+        return data->interpolatedSymbolCache;
+    return {};
+}
+
+size_t WaveformPlotCurveHelper::size() const
+{
+    return std::count_if(std::begin(waveforms_), std::end(waveforms_),
+        [](const auto &curves) { return curves.rawCurve && curves.interpolatedCurve; });
+}
+
 std::unique_ptr<QwtSymbol> make_symbol(QwtSymbol::Style style = QwtSymbol::Diamond, QColor color = Qt::red)
 {
     auto result = std::make_unique<QwtSymbol>(style);
@@ -186,5 +209,102 @@ WaveformCurves make_curves(QColor curvePenColor)
     return result;
 }
 
+inline void maybe_shrink_trace_history(waveforms::TraceHistory &traces, size_t maxDepth)
+{
+    while (traces.size() > maxDepth)
+        traces.pop_back();
+}
+
+inline waveforms::Trace maybe_recycle_trace(waveforms::TraceHistory &traceBuffer, size_t maxDepth)
+{
+    assert(maxDepth > 0);
+
+    waveforms::Trace result;
+
+    if (maxDepth > 0 && traceBuffer.size() >= maxDepth)
+    {
+        result = std::move(traceBuffer.back());
+        traceBuffer.pop_back();
+    }
+
+    result.clear();
+    return result;
+}
+
+void post_process_waveforms(
+    const waveforms::TraceHistories &analysisTraceData,
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor,
+    size_t maxDepth)
+{
+    rawDisplayTraces.resize(analysisTraceData.size());
+    interpolatedDisplayTraces.resize(analysisTraceData.size());
+
+    std::for_each(std::begin(rawDisplayTraces), std::end(rawDisplayTraces),
+        [maxDepth] (auto &traces) { maybe_shrink_trace_history(traces, maxDepth); });
+
+    std::for_each(std::begin(interpolatedDisplayTraces), std::end(interpolatedDisplayTraces),
+        [maxDepth] (auto &traces) { maybe_shrink_trace_history(traces, maxDepth); });
+
+    for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
+    {
+        const auto &inputTraces = analysisTraceData[chan];
+
+        auto &rawDestTraces = rawDisplayTraces[chan];
+        auto &ipolDestTraces = interpolatedDisplayTraces[chan];
+
+        assert(rawDestTraces.size() <= maxDepth);
+        assert(ipolDestTraces.size() <= maxDepth);
+        assert(rawDestTraces.size() == ipolDestTraces.size());
+
+        if (!inputTraces.empty())
+        {
+            auto &inputTrace = inputTraces.front();
+
+            auto rawDestTrace = maybe_recycle_trace(rawDestTraces, maxDepth);
+            auto ipolDestTrace = maybe_recycle_trace(ipolDestTraces, maxDepth);
+
+            rawDestTrace.clear();
+            ipolDestTrace.clear();
+
+            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample);
+            waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
+
+            rawDestTraces.push_front(std::move(rawDestTrace));
+            ipolDestTraces.push_front(std::move(ipolDestTrace));
+        }
+
+        assert(rawDestTraces.size() <= maxDepth);
+        assert(ipolDestTraces.size() <= maxDepth);
+        assert(rawDestTraces.size() == ipolDestTraces.size());
+    }
+}
+
+void reprocess_waveforms(
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor)
+{
+    interpolatedDisplayTraces.resize(rawDisplayTraces.size());
+
+    for (size_t chan=0; chan<rawDisplayTraces.size(); ++chan)
+    {
+        auto &rawTraces = rawDisplayTraces[chan];
+        auto &ipolTraces = interpolatedDisplayTraces[chan];
+        ipolTraces.resize(rawTraces.size());
+
+        for (size_t traceIndex=0; traceIndex<rawTraces.size(); ++traceIndex)
+        {
+            auto &rawTrace = rawTraces[traceIndex];
+            auto &ipolTrace = ipolTraces[traceIndex];
+
+            waveforms::rescale_x_values(rawTrace, dtSample);
+            waveforms::interpolate(rawTrace, ipolTrace, interpolationFactor);
+        }
+    }
+}
 
 }

@@ -262,10 +262,6 @@ class LIBMVME_EXPORT Histo1D: public QObject
         double getOverflow() const { return m_overflow; }
         void setOverflow(double value) { m_overflow = value; }
 
-        double *getUnderflowPtr() { return &m_underflow; }
-        double *getOverflowPtr() { return &m_overflow; }
-        size_t *getEntryCountPtr() { return &m_entryCount; }
-
         // Statistics calculations. Note that these assume a weight of 1.0 for
         // each fill() operation to determine the entry count in the given axis
         // or bin range.

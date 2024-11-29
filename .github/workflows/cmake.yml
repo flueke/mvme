@@ -22,6 +22,8 @@ jobs:
       run: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release ..
     - name: build
       run: cmake --build build -j 4
+    - name: test
+      run: cd build && ctest
     - name: install
       run: cd build && sudo make install
 
@@ -53,6 +55,8 @@ jobs:
       run: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release ..
     - name: build
       run: cmake --build build -j 4
+    - name: test
+      run: cd build && ctest
     - name: install
       run: cd build && make install
 
@@ -85,5 +89,7 @@ jobs:
       run: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release ..
     - name: build
       run: cmake --build build -j 4
+    - name: test
+      run: cd build && ctest
     - name: install
       run: cd build && make install

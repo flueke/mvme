@@ -1,163 +1,164 @@
-/* mvme - Mesytec VME Data Acquisition
- *
- * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
- *
- * Author: Florian Lüke <f.lueke@mesytec.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- */
-#include "memory.h"
-
-#include <benchmark/benchmark.h>
+#include <gtest/gtest.h>
+#include <algorithm>
 #include <iostream>
+
+#include "memory.h"
 
 using std::cout;
 using std::endl;
 
-#define ArrayCount(x) (sizeof(x) / sizeof(*x))
+TEST(Arena, Basic)
+{
+    memory::Arena arena(1024);
 
+    ASSERT_EQ(arena.size(), 1024);
+    ASSERT_EQ(arena.used(), 0);
+    ASSERT_EQ(arena.segmentCount(), 1);
+
+    auto p = arena.pushStruct<int>();
+    ASSERT_EQ(arena.size(), 1024);
+    ASSERT_EQ(arena.used(), sizeof(int));
+    ASSERT_EQ(arena.segmentCount(), 1);
+    ASSERT_EQ(*p, 0);
+
+    arena.reset();
+    ASSERT_EQ(arena.size(), 1024);
+    ASSERT_EQ(arena.used(), 0);
+    ASSERT_EQ(arena.segmentCount(), 1);
+}
+
+TEST(Arena, Grow)
+{
+    memory::Arena arena(1024);
+
+    ASSERT_EQ(arena.size(), 1024);
+    ASSERT_EQ(arena.used(), 0);
+    ASSERT_EQ(arena.segmentCount(), 1);
+
+    auto p = arena.pushArray<int>(1024);
+    ASSERT_GE(arena.size(), sizeof(int) * 1024);
+    ASSERT_EQ(arena.used(), sizeof(int) * 1024);
+    ASSERT_GE(arena.segmentCount(), 2);
+    ASSERT_TRUE(std::all_of(p, p + 1024, [](int i) { return i == 0; }));
+
+    arena.reset();
+    ASSERT_GE(arena.size(), sizeof(int) * 1024);
+    ASSERT_EQ(arena.used(), 0);
+    ASSERT_GE(arena.segmentCount(), 2);
+    ASSERT_EQ(*p, 0);
+}
+
+// Note: cannot run the following tests multi-threaded because of the static
+// variables!
 struct Foo
 {
     Foo()
     {
-        m_instance = instance++;
+        m_instance = created++;
+        m_destroyed = false;
         //cout << __PRETTY_FUNCTION__ << " " << m_instance << " " << this << endl;
-        destroyed = false;
     }
 
     ~Foo()
     {
         //cout << __PRETTY_FUNCTION__ << " " << m_instance << " " << this << endl;
-        destroyed = true;
-        benchmark::DoNotOptimize(destroyed);
+        m_destroyed = true;
+        ++destroyed;
     }
 
-    Foo(const Foo &other)
-        : destroyed(other.destroyed)
-        , m_instance(other.m_instance)
-    {
-        //cout << __PRETTY_FUNCTION__ << " " << m_instance << " " << this << endl;
-    }
+    static size_t created;
+    static size_t destroyed;
 
-    Foo &operator=(const Foo &other)
-    {
-        //cout << __PRETTY_FUNCTION__ << " " << m_instance << " " << this << endl;
-
-        if (this != &other)
-        {
-            this->destroyed = other.destroyed;
-            this->m_instance = other.m_instance;
-        }
-
-        return *this;
-    }
-
-    bool destroyed;
-    static int instance;
     int m_instance = 0;
+    volatile bool m_destroyed;
 };
 
-int Foo::instance = 0;
+size_t Foo::created = 0;
+size_t Foo::destroyed = 0;
 
-static void TEST_ObjectArena(benchmark::State &state)
+TEST(Arena, Object)
 {
-    using memory::Arena;
 
-    //cout << endl << "sizeof(Foo)=" << sizeof(Foo) << ", alignof(Foo)=" << alignof(Foo) << endl << endl;
+    Foo::created = 0;
+    Foo::destroyed = 0;
+    Foo *rawFoo = nullptr;
 
-    while (state.KeepRunning())
     {
-        Foo *rawFoo = nullptr;
+        memory::Arena arena(1024);
+        rawFoo = arena.pushObject<Foo>();
 
-        {
-            Arena arena(16);
-
-            for (int i =0; i < 10; i++)
-                rawFoo = arena.pushObject<Foo>();
-
-            benchmark::DoNotOptimize(rawFoo);
-            benchmark::DoNotOptimize(rawFoo->destroyed);
-
-            assert(rawFoo && !rawFoo->destroyed);
-        }
-
-        assert(rawFoo && rawFoo->destroyed);
+        ASSERT_EQ(arena.size(), 1024);
+        ASSERT_EQ(arena.used(), sizeof(Foo));
+        ASSERT_EQ(arena.segmentCount(), 1);
+        ASSERT_EQ(rawFoo->m_instance, 0);
+        ASSERT_FALSE(rawFoo->m_destroyed);
+        ASSERT_EQ(Foo::created, 1u);
+        ASSERT_EQ(Foo::destroyed, 0u);
     }
-}
-BENCHMARK(TEST_ObjectArena);
 
-static void TEST_ArenaAllocator(benchmark::State &state)
+    ASSERT_TRUE(rawFoo->destroyed);
+    ASSERT_EQ(Foo::created, Foo::destroyed);
+}
+
+TEST(Arena, Objects)
+{
+    Foo::created = 0;
+    Foo::destroyed = 0;
+    Foo *rawFoo = nullptr;
+
+    {
+        memory::Arena arena(1024);
+
+        for (size_t i=0; i<10; i++)
+        {
+            rawFoo = arena.pushObject<Foo>();
+            ASSERT_EQ(rawFoo->m_instance, i);
+            ASSERT_FALSE(rawFoo->m_destroyed);
+            ASSERT_EQ(Foo::created, i+1);
+            ASSERT_EQ(Foo::destroyed, 0u);
+        }
+    }
+
+    ASSERT_TRUE(rawFoo->destroyed);
+    ASSERT_EQ(Foo::created, 10);
+    ASSERT_EQ(Foo::created, Foo::destroyed);
+}
+
+TEST(Arena, Allocator)
 {
     using memory::Arena;
     using memory::ArenaAllocator;
 
-    //cout << "int" << endl;
+    Arena arena(sizeof(int) * 10);
 
-    while (state.KeepRunning())
     {
-        {
-            Arena arena(sizeof(int) * 10);
 
-            std::vector<int, ArenaAllocator<int>> vec_pod((ArenaAllocator<int>(&arena)));
+        std::vector<int, ArenaAllocator<int>> vec_pod((ArenaAllocator<int>(&arena)));
 
-            vec_pod.reserve(10);
+        vec_pod.reserve(10);
 
-            for (int i = 0; i < 10; i++)
-                vec_pod.push_back(i);
+        for (int i = 0; i < 10; i++)
+            vec_pod.push_back(i);
 
-            #if 0
-            cout << "POD vector:" << endl;
-            cout << "  vec_pod.size()=" << vec_pod.size()
-                << ", vec_pod.capacity()=" << vec_pod.capacity()
-                << ", arena.used()=" << arena.used()
-                << ", arena.size()=" << arena.size()
-                << ", arena.segmentCount()=" << arena.segmentCount()
-                << endl
-                ;
-            #endif
+        #if 0
+        cout << "POD vector:" << endl;
+        cout << "  vec_pod.size()=" << vec_pod.size()
+            << ", vec_pod.capacity()=" << vec_pod.capacity()
+            << ", arena.used()=" << arena.used()
+            << ", arena.size()=" << arena.size()
+            << ", arena.segmentCount()=" << arena.segmentCount()
+            << endl
+            ;
+        #endif
 
-            assert(arena.used() == vec_pod.size() * sizeof(int));
-        }
-
-        //cout << "Foo" << endl;
-
-        {
-            Arena arena(sizeof(Foo) * 10);
-
-            std::vector<Foo, ArenaAllocator<Foo>> vec_foo((ArenaAllocator<Foo>(&arena)));
-
-            vec_foo.reserve(10);
-
-            for (int i = 0; i < 10; i++)
-                vec_foo.push_back(Foo());
-
-            #if 0
-            cout << "POD vector:" << endl;
-            cout << "  vec_foo.size()=" << vec_foo.size()
-                << ", vec_foo.capacity()=" << vec_foo.capacity()
-                << ", arena.used()=" << arena.used()
-                << ", arena.size()=" << arena.size()
-                << ", arena.segmentCount()=" << arena.segmentCount()
-                << endl
-                ;
-            #endif
-
-            assert(arena.used() == vec_foo.size() * sizeof(Foo));
-        }
+        ASSERT_EQ(arena.used(), sizeof(int) * 10);
     }
-}
-BENCHMARK(TEST_ArenaAllocator);
 
-BENCHMARK_MAIN();
+    // The vec_pod variable went out of scope, but ArenaAllocator::deallocate()
+    // does nothing and so the memory is still in use.
+    ASSERT_EQ(arena.used(), sizeof(int) * 10);
+
+    arena.reset();
+    ASSERT_GE(arena.size(), sizeof(int) * 10);
+    ASSERT_EQ(arena.used(), 0);
+}

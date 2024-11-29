@@ -340,11 +340,14 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
             auto moduleName = moduleConfig->objectName().toStdString();
             auto moduleType = moduleConfig->getModuleMeta().typeName.toStdString();
+            auto moduleVendor = moduleConfig->getModuleMeta().vendorName.toStdString();
 
             auto moduleReadoutScript = mesytec::mvme::parse(
                     moduleConfig->getReadoutScript(), moduleConfig->getBaseAddress());
 
-            std::map<std::string, std::string> groupMeta = { { std::string("vme_module_type"), moduleType } };
+            std::map<std::string, std::string> groupMeta;
+            groupMeta["vme_module_type"] = moduleType;
+            groupMeta["vme_module_vendor"] = moduleVendor;
             add_stack_group(readoutStack, moduleName, moduleReadoutScript, groupMeta);
         }
 

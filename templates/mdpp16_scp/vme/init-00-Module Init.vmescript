@@ -13,6 +13,9 @@
 0x605C  1           # 0 -> transmit all hits per channel in the window
                     # 1 -> only transmit first hit per channel in the window
 
+# output_format (Do not edit here, see the 'Streaming and Sampling' script for details.)
+0x6044 0
+
 # Trigger Setup
 # ############################################################################
 # win_start

@@ -356,6 +356,9 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         QComboBox *combo_exportFormat;
         QComboBox *combo_exportCompression;
         QGroupBox *gb_codeGen;
+
+        // EventHistoryRecorder
+        QSpinBox *spin_historyMaxDepth = nullptr;
 };
 
 class CalibrationMinMaxConfigWidget: public AbstractOpConfigWidget

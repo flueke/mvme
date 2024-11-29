@@ -62,6 +62,16 @@ struct Trace
         assert(xs.size() == ys.size());
         return xs.empty();
     }
+
+    bool operator==(const Trace &o) const
+    {
+        return xs == o.xs && ys == o.ys;
+    }
+
+    bool operator!=(const Trace &o) const
+    {
+        return !(*this == o);
+    }
 };
 
 using TraceHistory = std::deque<Trace>;
@@ -70,12 +80,19 @@ using TraceHistories = std::vector<TraceHistory>;
 size_t get_used_memory(const Trace &trace);
 size_t get_used_memory(const TraceHistory &traceHistory);
 size_t get_used_memory(const TraceHistories &traceHistories);
+// Produces output compatible with gnuplot's 'plot' command. One xy pair per line.
 std::ostream &print_trace(std::ostream &out, const Trace &trace);
+// Prints the trace on a single line, using a JSON-like format.
+std::ostream &print_trace_compact(std::ostream &out, const Trace &trace);
 
 std::pair<double, double> find_minmax_y(const Trace &trace);
 
 // scale x values by dtSample
 void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample);
+
+// same as scale_x_values but use the index of the sample to calculate the x
+// value, ignoring the current input traces x value completely.
+void rescale_x_values(waveforms::Trace &input, double dtSample);
 
 // pick a trace from the same column of each row in the trace history
 std::vector<const Trace *> get_trace_column(const TraceHistories &traceHistories, size_t traceIndex);

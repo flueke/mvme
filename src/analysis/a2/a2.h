@@ -589,6 +589,7 @@ struct Binning
 {
     static const s8 Underflow = -1;
     static const s8 Overflow = -2;
+    static const s8 Invalid = -3; // used for range==0 and NaN values
     double min;
     double range;
 };
@@ -598,9 +599,12 @@ struct H1D: public ParamVec
     Binning binning;
     // binningFactor = binCount / binning.range
     double binningFactor;
-    size_t *entryCount;
-    double *underflow;
-    double *overflow;
+    size_t entryCount;
+
+    // invalid inputs are counted here. Check order is: NaN, underflow, overflow
+    double nans;
+    double underflows;
+    double overflows;
 };
 
 Operator make_h1d_sink(
@@ -637,8 +641,12 @@ struct H2D: public ParamVec
     Binning binnings[AxisCount];
     double binningFactors[AxisCount];
     double entryCount;
-    double underflow;
-    double overflow;
+
+    // invalid inputs are counted here. Check order is: X-NaN, Y-NaN,
+    // X-underflow, X-overflow, Y-underflow, Y-overflow
+    double nans[AxisCount];
+    double underflows[AxisCount];
+    double overflows[AxisCount];
 };
 
 struct H2DSinkData
@@ -655,6 +663,47 @@ Operator make_h2d_sink(
     s32 xIndex,
     s32 yIndex,
     H2D histo);
+
+// Histogram and bin handling support functions
+inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
+{
+    if (binning.range == 0.0)
+        return make_quiet_nan();
+    return (x - binning.min) * (binCount / binning.range);
+}
+
+// binMin = binning.min
+// binFactor = binCount / binning.range
+inline double get_bin_unchecked(double x, double binMin, double binFactor)
+{
+    return (x - binMin) * binFactor;
+}
+
+inline s32 get_bin(Binning binning, s32 binCount, double x)
+{
+    double bin = get_bin_unchecked(binning, binCount, x);
+
+    if (bin < 0.0)
+        return Binning::Underflow;
+
+    if (bin >= binCount)
+        return Binning::Overflow;
+
+    if (std::isnan(bin))
+        return Binning::Invalid;
+
+    return static_cast<s32>(bin);
+}
+
+inline s32 get_bin(H1D histo, double x)
+{
+    return get_bin(histo.binning, histo.size, x);
+}
+
+inline s32 get_bin(H2D histo, H2D::Axis axis, double v)
+{
+    return get_bin(histo.binnings[axis], histo.binCounts[axis], v);
+}
 
 //
 // RateMonitor
@@ -923,8 +972,8 @@ void write_histo(Out &out, H1D histo)
     write_value(out, histo.size);
     write_value(out, histo.binning.min);
     write_value(out, histo.binning.range);
-    write_value(out, histo.underflow);
-    write_value(out, histo.overflow);
+    write_value(out, histo.underflows);
+    write_value(out, histo.overflows);
     write_array(out, histo.data, histo.size);
 }
 

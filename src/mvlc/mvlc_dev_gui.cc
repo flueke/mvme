@@ -45,8 +45,9 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mvlc_impl_eth.h>
 #include <mesytec-mvlc/mvlc_impl_usb.h>
+#include <mesytec-mvlc/mvlc_stack_errors.h>
+#include <mesytec-mvlc/util/counters.h>
 
-#include "mesytec-mvlc/mvlc_stack_errors.h"
 #include "ui_mvlc_dev_ui.h"
 
 #include "mvlc/mvlc_script.h"
@@ -1680,7 +1681,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
                      ? m_d->tLastReaderStatUpdate.msecsTo(endTime)
                      : m_d->tReaderStarted.msecsTo(endTime)) / 1000.0;
 
-        u64 deltaBytesRead = calc_delta0(
+        u64 deltaBytesRead = mvlc::util::calc_delta0(
             stats.counters[ReaderStats::TotalBytesReceived],
             prevStats.counters[ReaderStats::TotalBytesReceived]);
 
@@ -1689,14 +1690,14 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
         if (std::isnan(mbPerSecond))
             mbPerSecond = 0.0;
 
-        u64 deltaFramesSeen = calc_delta0(
+        u64 deltaFramesSeen = mvlc::util::calc_delta0(
             stats.counters[ReaderStats::FramesSeen],
             prevStats.counters[ReaderStats::FramesSeen]);
         double framesPerSecond = deltaFramesSeen / dt;
         if (std::isnan(framesPerSecond))
             framesPerSecond = 0.0;
 
-        u64 deltaReads = calc_delta0(
+        u64 deltaReads = mvlc::util::calc_delta0(
             stats.counters[ReaderStats::NumberOfAttemptedReads],
             prevStats.counters[ReaderStats::NumberOfAttemptedReads]);
         double readsPerSecond = deltaReads / dt;
@@ -1779,7 +1780,7 @@ MVLCDevGUI::MVLCDevGUI(MVLCObject *mvlc, QWidget *parent)
             for(const auto &kv: prevErrorInfoCounts)
                 prevTotalErrors += kv.second;
 
-            u64 delta = calc_delta0(curTotalErrors, prevTotalErrors);
+            u64 delta = mvlc::util::calc_delta0(curTotalErrors, prevTotalErrors);
 
             if (delta > 0)
             {

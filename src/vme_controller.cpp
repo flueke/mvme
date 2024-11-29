@@ -74,7 +74,7 @@ QString to_string(ControllerState state)
 
 static const QMap<VMEError::ErrorType, QString> errorNames =
 {
-    { VMEError::NoError,                QSL("No error") },
+    { VMEError::NoError,                QSL("Ok") },
     { VMEError::UnknownError,           QSL("Unknown error") },
     { VMEError::NotOpen,                QSL("Controller not open") },
     { VMEError::WriteError,             QSL("Write error") },

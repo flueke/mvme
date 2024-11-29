@@ -1829,6 +1829,14 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         formLayout->addRow(QSL("Output Lower Limit"), spin_outputLowerLimit);
         formLayout->addRow(QSL("Output Upper Limit"), spin_outputUpperLimit);
         formLayout->addRow(QSL(""), pb_autoLimits);
+        auto label = make_framed_description_label(QSL(
+                "<b>Note</b>: automatic output limits are set to [-64k, +64k] if divisions are involved. "
+                "Otherwise the limits are calculated based on the input parameter range. Overriding the automatic "
+                "values is always allowed. Parameters outside the range will still be output and can be processed "
+                "by subsequent operators and sinks, but certain properties, e.g. histogram axis scalings, <b>will</b> be "
+                "affected by these limits."
+        ));
+        formLayout->addRow(label);
     }
     else if (auto aggOp = qobject_cast<AggregateOps *>(op))
     {
@@ -2151,6 +2159,22 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
         combo_exportCompression->setCurrentIndex(
             combo_exportCompression->findData(ex->getCompressionLevel()));
+    }
+    else if (auto evhist = qobject_cast<WaveformSink *>(op))
+    {
+        spin_historyMaxDepth = new QSpinBox;
+        spin_historyMaxDepth->setMinimum(1);
+        spin_historyMaxDepth->setMaximum(1u << 20);
+        spin_historyMaxDepth->setValue(evhist->getTraceHistoryMaxDepth());
+        formLayout->addRow(QSL("Max Trace History Depth"), spin_historyMaxDepth);
+
+        auto label = make_framed_description_label(QSL(
+                "The maximum number of traces per input channel to keep in the "
+                "history buffer. Affects maximum memory usage in both the analysis "
+                "and the UI."
+                ));
+        label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        formLayout->addRow(label);
     }
 }
 
@@ -2574,6 +2598,10 @@ void OperatorConfigurationWidget::configureOperator()
         ex->setFormat(static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt()));
         ex->setOutputPrefixPath(le_exportPrefixPath->text());
     }
+    else if (auto evhist = qobject_cast<WaveformSink *>(op))
+    {
+        evhist->setTraceHistoryMaxDepth(spin_historyMaxDepth->value());
+    }
 }
 
 void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
@@ -2607,26 +2635,26 @@ void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
 
         case 2: // C = (A + B) / (A - B)
             {
-                llO = (ulA + llB) / (ulA - llB);
-                ulO = (llA + ulB) / (llA - ulB);
+                llO = (llA + ulB) / (llA - ulB);
+                ulO = (ulA + llB) / (ulA - llB);
             } break;
 
         case 3: // C = (A - B) / (A + B)
             {
-                llO = (ulA - ulB) / (ulA + ulB);
-                ulO = (llA - llB) / (llA + llB);
+                llO = -1.0 * (1u << 16);
+                ulO = +1.0 * (1u << 16);
             } break;
 
         case 4: // C = A / (A - B)
             {
-                llO = ulA / (ulA - llB);
-                ulO = llA / (llA - ulB);
+                llO = -1.0 * (1u << 16);
+                ulO = +1.0 * (1u << 16);
             } break;
 
         case 5: // C = (A - B) / A
             {
-                llO = (ulA - llB) / ulA;
-                ulO = (llA - ulB) / llA;
+                llO = -1.0 * (1u << 16);
+                ulO = +1.0 * (1u << 16);
             } break;
 
         case 6: // C = (A * B)
@@ -2637,8 +2665,8 @@ void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
 
         case 7: // C = (A / B)
             {
-                llO = (llA / ulB);
-                ulO = (ulA / llB);
+                llO = -1.0 * (1u << 16);
+                ulO = +1.0 * (1u << 16);
             } break;
     }
 

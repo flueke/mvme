@@ -13,7 +13,7 @@ DataSourceMdppSampleDecoder implements a fully functioning data source.
 Interally decode_mdpp_samples() is called. Max channel and sample counts are
 configuration information and thus static during processing.
 
-### UI
+### OUT OF DATE: UI
 
 MdppSamplingUi can currently be opened from the analysis interface. Is is fed
 data across thread boundaries through a Qt signal/slot connection. The producer
@@ -34,19 +34,28 @@ single channel.
 
 # TODO
 
+- decode: detect channel multihits and insert some invalid data point
+  between the trace of the first hit and the trace of the second hit. Right now
+  the trace is just extended by the second hit, without any gap in-between.
+
 - WaveformSinkWidget is mostly a copy/paste of MdppSamplingUi. Factor out the
   common parts.
-
-- Figure out the place where interpolation is best done.
+  Update: rewrite MdppSamplingUi to use the new primitives and utils. Maybe get
+  rid of the old channeltrace stuff completely? Or just let it sit there, it's
+  currently disabled in release builds.
 
 - Make sinc interpolation optionally use a larger window size.
+
+- Make sinc interpolation also output samples at the start and end before the
+  max window size is reached. This way x intervals would be uniform across the
+  output values. Rigth now they are not, e.g 0, 1, 2, 2.5, 3, 3.5 for factor=1.
+
+# DONE
 
 - Add 2D Waveforms: similar to H2D plots:
   * y is the channel number / trace number
   * x is the sample number * dtSample
   * z (color value) is the sample value at position x
-
-# DONE
 
 - Try using util::span<std::pair<double, double>> for trace data everywhere.
   Interpolate could write into a properly sized span, stopping if it runs out of

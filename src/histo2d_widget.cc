@@ -233,6 +233,7 @@ struct Histo2DWidgetPrivate
     void onCutPolyPickerActivated(bool on);
 
     void updatePlotStatsTextBox(const Histo2DStatistics &stats);
+    QString makeInfoText(const Histo2DStatistics &stats);
 };
 
 /* The private constructor doing most of the object creation and initialization. To be
@@ -653,6 +654,57 @@ AnalysisServiceProvider *Histo2DWidget::getServiceProvider() const
     return m_d->m_serviceProvider;
 }
 
+QString Histo2DWidgetPrivate::makeInfoText(const Histo2DStatistics &stats)
+{
+    if (!m_sink)
+        return {};
+
+    analysis::A2AdapterState *a2State = nullptr;
+
+    if (auto asp = m_q->getServiceProvider())
+    {
+        if (auto analysis = asp->getAnalysis())
+        {
+            a2State = analysis->getA2AdapterState();
+        }
+    }
+
+    if (!a2State)
+        return {};
+
+    auto sinkData = analysis::get_runtime_h2dsink_data(*a2State, m_sink.get());
+
+    if (!sinkData)
+        return {};
+
+    auto a2Histo = sinkData->histo;
+
+    auto infoText = (QString(
+            "Counts: %1\n"
+            "Underflows: x=%2, y=%3\n"
+            "Overflows: x=%4, y=%5\n"
+            "NaNs: x=%6, y=%7\n"
+            "Max Z:  %8 @ (%9, %10)\n")
+
+        .arg(a2Histo.entryCount)
+
+        .arg(a2Histo.underflows[a2::H2D::XAxis])
+        .arg(a2Histo.underflows[a2::H2D::YAxis])
+
+        .arg(a2Histo.overflows[a2::H2D::XAxis])
+        .arg(a2Histo.overflows[a2::H2D::YAxis])
+
+        .arg(a2Histo.nans[a2::H2D::XAxis])
+        .arg(a2Histo.nans[a2::H2D::YAxis])
+
+        .arg(stats.maxZ)
+        .arg(stats.maxX, 0, 'g', 6)
+        .arg(stats.maxY, 0, 'g', 6)
+        );
+
+    return infoText;
+}
+
 void Histo2DWidget::replot()
 {
     /* Things that have to happen:
@@ -832,16 +884,7 @@ void Histo2DWidget::replot()
         InvalidCodePath;
     }
 
-    // stats display
-    auto infoText = (QString(
-            "Counts: %1\n"
-            "Max Z:  %2 @ (%3, %4)\n")
-        .arg(stats.entryCount)
-        .arg(stats.maxZ)
-        .arg(stats.maxX, 0, 'g', 6)
-        .arg(stats.maxY, 0, 'g', 6)
-        );
-
+    auto infoText = m_d->makeInfoText(stats);
     m_d->m_labelHistoInfo->setText(infoText);
 
     m_d->updatePlotStatsTextBox(stats);

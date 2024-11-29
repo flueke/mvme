@@ -40,6 +40,8 @@
 #include <memory>
 #include <qgv.h>
 
+#include <mesytec-mvlc/util/counters.h>
+
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis_graphs.h"
 #include "analysis/analysis_serialization.h"
@@ -49,7 +51,8 @@
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/listfilter_extractor_dialog.h"
 #include "analysis/object_info_widget.h"
-#include "analysis/waveform_sink_widget.h"
+#include "analysis/waveform_sink_1d_widget.h"
+#include "analysis/waveform_sink_2d_widget.h"
 
 #include "graphicsview_util.h"
 #include "graphviz_util.h"
@@ -2984,23 +2987,67 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
             auto moduleConfig = get_pointer<ModuleConfig>(activeNode, DataRole_RawPointer);
 
             auto add_newDataSourceAction = [this, &menu, menuNew, moduleConfig]
-                (const QString &title, auto srcPtr) {
+                (const QString &title, auto srcPtr)
+                {
                     auto icon = make_datasource_icon(srcPtr.get());
 
-                    menuNew->addAction(icon, title, &menu,
-                                       [this, moduleConfig, srcPtr]() {
+                    menuNew->addAction(icon, title, &menu, [this, moduleConfig, srcPtr]()
+                    {
+                        if (auto dialog = datasource_editor_factory(
+                            srcPtr, ObjectEditorMode::New, moduleConfig, m_q))
+                        {
+                            // let the dialog handle everything, including adding the object to the analysis
+                            dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            dialog->show();
+                            clearAllTreeSelections();
+                            clearAllToDefaultNodeHighlights();
+                        }
+                        else
+                        {
+                            // New behavior added for the DataSourceMdppSampleDecoder: the dialog is not
+                            // shown when adding a new decoder instance. Instead default values are used
+                            // and the source is directly added to the analysis.
+                            AnalysisPauser pauser(m_serviceProvider);
+                            auto analysis = m_serviceProvider->getAnalysis();
+                            srcPtr->setEventId(moduleConfig->getEventId());
+                            srcPtr->setModuleId(moduleConfig->getId());
+                            srcPtr->setObjectName(moduleConfig->objectName());
+                            // FIXME: This should not be here but abstracted somehow.
+                            // FIXME: it gets even worse now that the sample decoder has getMaxChannels() outputs for trace data
+                            //        and an additional getStatsCount() outputs for the statistics.
+                            if (auto sampleDecoder = std::dynamic_pointer_cast<DataSourceMdppSampleDecoder>(srcPtr))
+                            {
+                                sampleDecoder->setModuleTypeName(moduleConfig->getModuleMeta().typeName);
+                                sampleDecoder->setObjectName(moduleConfig->objectName()+".samples");
+                                if (moduleConfig->getModuleMeta().typeName == "mdpp32_scp")
+                                    sampleDecoder->setMaxChannels(32);
 
-                                           auto dialog = datasource_editor_factory(
-                                               srcPtr, ObjectEditorMode::New, moduleConfig, m_q);
+                                sampleDecoder->beginRun({});
 
-                                           assert(dialog);
+                                auto sink = std::make_shared<WaveformSink>();
+                                sink->setObjectName(sampleDecoder->objectName());
+                                sink->setEventId(sampleDecoder->getEventId());
 
-                                           //POS dialog->move(QCursor::pos());
-                                           dialog->setAttribute(Qt::WA_DeleteOnClose);
-                                           dialog->show();
-                                           clearAllTreeSelections();
-                                           clearAllToDefaultNodeHighlights();
-                                       });
+                                // The other outputs carry fields extracted from the TraceHeader
+                                const auto samplesOutputCount = sampleDecoder->getMaxChannels();
+                                assert(samplesOutputCount == sampleDecoder->getNumberOfOutputs() - sampleDecoder->getStatsCount());
+
+                                while (sink->getNumberOfSlots() < static_cast<s32>(samplesOutputCount))
+                                    sink->addSlot();
+
+                                for (unsigned i=0; i<samplesOutputCount; ++i)
+                                {
+                                    sink->connectArrayToInputSlot(i, sampleDecoder->getOutput(i));
+                                }
+                                analysis->addSource(srcPtr);
+                                analysis->addOperator(sink);
+                            }
+                            else
+                            {
+                                analysis->addSource(srcPtr);
+                            }
+                        }
+                    });
                 };
 
             // new data sources / filters
@@ -3074,6 +3121,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
             if (auto moduleType = moduleConfig->getModuleMeta().typeName;
                 moduleType.startsWith("mdpp"))
             {
+                #ifndef NDEBUG
                 menu.addAction("MDPP Sampling Mode UI", &menu, [this, moduleConfig] {
                     auto analysis = m_serviceProvider->getAnalysis();
 
@@ -3113,6 +3161,7 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                         samplingUi->raise();
                     }
                 });
+                #endif
             }
 
             auto actionNew = menu.addAction(QSL("New"));
@@ -3330,11 +3379,38 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         return menuNew;
     };
 
+    auto make_open_selection_in_plotgrid_action = [this](const AnalysisObjectVector &selectedObjects) -> QAction *
+    {
+        std::vector<SinkPtr> sinks;
+
+        for (auto &obj: selectedObjects)
+        {
+            if (auto sink = std::dynamic_pointer_cast<SinkInterface>(obj))
+                sinks.push_back(std::dynamic_pointer_cast<SinkInterface>(sink));
+        }
+
+        if (sinks.empty())
+            return nullptr;
+
+        auto result = new QAction("Open selected sinks in Plot Grid");
+
+        QObject::connect(result, &QAction::triggered, m_q, [this, sinks] () {
+            auto widget = new MultiPlotWidget(m_serviceProvider);
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            widget->setWindowTitle(QSL("PlotGrid (%1 items)").arg(sinks.size()));
+            add_widget_close_action(widget);
+            for (auto &sink: sinks)
+                widget->addSink(sink);
+            widget->show();
+        });
+
+        return result;
+    };
+
     auto globalSelectedObjects = getAllSelectedObjects();
     auto activeNode = tree->itemAt(pos);
 
     QMenu menu;
-
 
     if (activeNode)
     {
@@ -3390,6 +3466,9 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                         widgetInfo.sink->getId().toString() + QSL("_plotgrid"));
                 }
             });
+
+            if (auto action = make_open_selection_in_plotgrid_action(globalSelectedObjects))
+                menu.addAction(action);
         }
 
         if (activeNode->type() == NodeType_Histo2DSink)
@@ -3482,52 +3561,27 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                                 sinkPtr->getId().toString() + QSL("_plotgrid"));
                         });
                 }
+
+                if (auto action = make_open_selection_in_plotgrid_action(globalSelectedObjects))
+                    menu.addAction(action);
             }
         }
 
         if (auto sinkPtr = get_shared_analysis_object<WaveformSink>(activeNode, DataRole_AnalysisObject))
         {
-            // FIXME: these two widgets are registered with the same sink
+            // These two widgets are registered with the same sink
             // pointer, thus having one open will make the user unable to open
             // the other type. Currently have to press ctrl to force opening
-            // another window.
-            #if 0
+            // another window or go through the context menu.
             menu.addAction(QSL("Open Waveforms Display"), m_q, [this, sinkPtr]() {
-                if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
-                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                {
-                    auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
-                    m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
-                }
-                else
-                {
-                    m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
-                }
-            });
-
-            menu.addAction(QSL("Open Waveforms Vertical Display"), m_q, [this, sinkPtr]() {
-                if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
-                    || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                {
-                    auto widget = new analysis::WaveformSinkVerticalWidget(sinkPtr, m_serviceProvider);
-                    m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
-                }
-                else
-                {
-                    m_serviceProvider->getWidgetRegistry()->activateObjectWidget(sinkPtr.get());
-                }
-            });
-            #else
-            menu.addAction(QSL("Open Waveforms Display"), m_q, [this, sinkPtr]() {
-                auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                auto widget = new analysis::WaveformSink1DWidget(sinkPtr, m_serviceProvider);
                 m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
             });
 
-            menu.addAction(QSL("Open Waveforms Vertical Display"), m_q, [this, sinkPtr]() {
-                auto widget = new analysis::WaveformSinkVerticalWidget(sinkPtr, m_serviceProvider);
+            menu.addAction(QSL("Open Waveforms 2D Display"), m_q, [this, sinkPtr]() {
+                auto widget = new analysis::WaveformSink2DWidget(sinkPtr, m_serviceProvider);
                 m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString() + "_vertical");
             });
-            #endif
         }
 
         if (auto sinkPtr = get_shared_analysis_object<ExportSink>(activeNode,
@@ -4509,7 +4563,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(sinkPtr.get())
                         || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        auto widget = new analysis::WaveformSinkWidget(sinkPtr, m_serviceProvider);
+                        auto widget = new analysis::WaveformSink1DWidget(sinkPtr, m_serviceProvider);
                         m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                     }
                     else
@@ -4765,7 +4819,7 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
     if (isReplay)
     {
-        dt_s = calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
+        dt_s = mvlc::util::calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
     }
     else
     {
@@ -4813,7 +4867,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             if (eventIndex < 0 || eventIndex >= MaxVMEEvents)
                 continue;
 
-            auto rate = calc_delta0(
+            auto rate = mvlc::util::calc_delta0(
                 counters.eventCounters[eventIndex],
                 prevCounters.eventCounters[eventIndex]);
             rate /= dt_s;
@@ -4846,7 +4900,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
                 || indices.moduleIndex >= MaxVMEModules)
                 continue;
 
-            auto rate = calc_delta0(
+            auto rate = mvlc::util::calc_delta0(
                 counters.moduleCounters[indices.eventIndex][indices.moduleIndex],
                 prevCounters.moduleCounters[indices.eventIndex][indices.moduleIndex]);
             rate /= dt_s;
@@ -4887,7 +4941,7 @@ void EventWidgetPrivate::periodicUpdateDataSourceTreeCounters(double dt_s)
             {
                 assert(hitCounts.size() == prevHitCounts.size());
 
-                auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
+                auto hitCountDeltas = mvlc::util::calc_deltas0(hitCounts, prevHitCounts);
                 auto hitCountRates = hitCountDeltas;
                 std::for_each(hitCountRates.begin(), hitCountRates.end(),
                               [dt_s](double &d) { d /= dt_s; });
@@ -5021,7 +5075,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     std::transform(std::begin(sinkData->histos), std::end(sinkData->histos),
                         std::back_inserter(entryCounts),
                         [] (const auto &histo) {
-                            return histo.entryCount ? *histo.entryCount : 0;
+                            return histo.entryCount;
                         });
                 }
 
@@ -5029,7 +5083,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                 prevEntryCounts.resize(entryCounts.size());
 
-                auto entryCountDeltas = calc_deltas0(entryCounts, prevEntryCounts);
+                auto entryCountDeltas = mvlc::util::calc_deltas0(entryCounts, prevEntryCounts);
                 auto entryCountRates = entryCountDeltas;
                 std::for_each(entryCountRates.begin(), entryCountRates.end(),
                               [dt_s](double &d) { d /= dt_s; });
@@ -5089,7 +5143,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                     double prevEntryCount = prevEntryCounts[0];
 
-                    double countDelta = calc_delta0(entryCount, prevEntryCount);
+                    double countDelta = mvlc::util::calc_delta0(entryCount, prevEntryCount);
                     double countRate = countDelta / dt_s;
 
                     if (entryCount <= 0.0)
@@ -5120,7 +5174,6 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
             }
         }
     }
-
 }
 
 QTreeWidgetItem *EventWidgetPrivate::getCurrentNode() const

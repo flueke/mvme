@@ -1,149 +1,204 @@
-/* mvme - Mesytec VME Data Acquisition
- *
- * Copyright (C) 2016-2023 mesytec GmbH & Co. KG <info@mesytec.com>
- *
- * Author: Florian Lüke <f.lueke@mesytec.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- */
-#include "a2.cc"
-#include "a2_data_filter.h"
-#include "memory.h"
-#include "multiword_datafilter.h"
-#include "util/nan.h"
-#include "util/sizes.h"
+#include <gtest/gtest.h>
 
-#include <benchmark/benchmark.h>
-#include <iostream>
+#include "a2.h"
 
-using namespace a2;
-using namespace memory;
-using std::cout;
-using std::endl;
-using benchmark::Counter;
-
-static void BM_a2(benchmark::State &state)
+TEST(A2, histo_binning_1_to_1_pos_only)
 {
-    Arena arena(::Kilobytes(256));
-
-    static u32 testdata[] =
+    a2::Binning binning =
     {
-        0x0001,
-        0x0102,
-        0x0203,
-        0x0304,
-
-        0x040a,
-        0x050f,
-        0x060f,
-        0x070e,
-
-        0x0801,
-        0x0902,
-        0x0a03,
-        0x0b04,
-
-        0x0c0a,
-        0x0d0f,
-        0x0e0f,
-        0x0f0e,
+        .min = 0.0,
+        .range = 1024.0,
     };
 
-    s32 dataSize = sizeof(testdata) / sizeof(*testdata);
-    int eventIndex = 0;
-    int moduleIndex = 0;
-    const int moduleIterations = 1; // "modules per event"
+    const size_t BinCount = 1024;
+    // This is from a2_adapter histo1d_sink_magic().
+    const double BinningFactor =  BinCount / binning.range;
 
-    auto a2 = make_a2(&arena, { 1 }, { 2 });
-    assert(a2->dataSources[eventIndex]);
-    assert(a2->operators[eventIndex]);
-
-    MultiWordFilter filter = { make_filter("xxxx aaaa xxxx dddd") };
-    u32 requiredCompletions = 0;
-    u64 rngSeed = 1234;
-    auto ex = make_datasource_extractor(&arena, filter, requiredCompletions, rngSeed, moduleIndex);
-
-    a2->dataSources[eventIndex][a2->dataSourceCounts[eventIndex]] = ex;
-    a2->dataSourceCounts[eventIndex]++;
-
-    auto calib = make_calibration(
-        &arena,
-        {
-            ex.outputs[0],
-            ex.outputLowerLimits[0],
-            ex.outputUpperLimits[0]
-        },
-        0.0,
-        100.0);
-    calib.type = Operator_Calibration;
-
-    a2->operators[eventIndex][a2->operatorCounts[eventIndex]] = calib;
-    a2->operatorRanks[eventIndex][a2->operatorCounts[eventIndex]] = 1;
-    a2->operatorCounts[eventIndex]++;
-
-#if 0 // keepPrev
-    auto keepPrev = make_keep_previous(
-        &arena,
-        { calib.outputs[0], calib.outputLowerLimits[0], calib.outputUpperLimits[0] },
-        false);
-
-    a2->operators[eventIndex][a2->operatorCounts[eventIndex]] = keepPrev;
-    a2->operatorRanks[eventIndex][a2->operatorCounts[eventIndex]] = 2;
-    a2->operatorCounts[eventIndex]++;
-#endif
-
-    double bytesProcessed = 0;
-    double moduleCounter = 0;
-    double eventCounter = 0;
-
-    while (state.KeepRunning())
+    for (size_t i=0; i<1024; ++i)
     {
-        a2_begin_event(a2, eventIndex);
-
-        for (size_t mi=0; mi < moduleIterations; mi++)
-        {
-            a2_process_module_data(a2, eventIndex, moduleIndex, testdata, dataSize);
-            benchmark::ClobberMemory();
-            bytesProcessed += sizeof(testdata);
-            moduleCounter++;
-        }
-
-        a2_end_event(a2, eventIndex);
-        eventCounter++;
-
-        //print_param_vector(ex.output);
-        //print_param_vector(calib.outputs[0]);
-        //print_param_vector(keepPrev.outputs[0]);
-        //if (++stateIters > 100) break;
+        double x = 1.0 * i;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, i);
+        //spdlog::info("x={}, theBin={}, binningFactor={}, binning={{.min={}, .range={}}}",
+        //    x, theBin, BinningFactor, binning.min, binning.range);
     }
 
-    state.counters["byteRate"] = Counter(bytesProcessed, Counter::kIsRate);
-    state.counters["totalBytes"] = Counter(bytesProcessed);
-    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
-    state.counters["mT"] = Counter(moduleCounter);
-    state.counters["eR"] = Counter(eventCounter, Counter::kIsRate);
-    state.counters["eT"] = Counter(eventCounter);
-    state.counters["mem"] = Counter(arena.used());
-
-    //std::cout << "testdata: " << dataSize << ", " << sizeof(testdata) << " bytes" << std::endl;
-
-    if (state.thread_index() == 0)
     {
-        //print_param_vector(ex.output);
+        double x = binning.min - 1.0;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Underflow);
+    }
+
+    {
+        double x = binning.min + binning.range;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Overflow);
     }
 }
-BENCHMARK(BM_a2);
 
-BENCHMARK_MAIN();
+TEST(A2, histo_binning_1_to_1_neg_to_pos)
+{
+    a2::Binning binning =
+    {
+        .min = -512.0,
+        .range = 1024.0,
+    };
+
+    const size_t BinCount = 1024;
+    // This is from a2_adapter histo1d_sink_magic().
+    const double BinningFactor =  BinCount / binning.range;
+
+    for (size_t i=0; i<1024; ++i)
+    {
+        double x = binning.min + 1.0 * i;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, i);
+        //spdlog::info("x={}, theBin={}, binningFactor={}, binning={{.min={}, .range={}}}",
+        //    x, theBin, BinningFactor, binning.min, binning.range);
+    }
+
+    {
+        double x = binning.min - 1.0;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Underflow);
+    }
+
+    {
+        double x = binning.min + binning.range;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Overflow);
+    }
+}
+
+TEST(A2, histo_binning_less_bins)
+{
+    a2::Binning binning =
+    {
+        .min = -512.0,
+        .range = 1024.0,
+    };
+
+    const size_t BinCount = 512;
+    // This is from a2_adapter histo1d_sink_magic().
+    const double BinningFactor =  BinCount / binning.range;
+
+    size_t expectedBin = 0;
+
+    for (size_t i=0; i<1024; ++i)
+    {
+        double x = binning.min + 1.0 * i;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, expectedBin);
+        //spdlog::info("x={}, theBin={}, binningFactor={}, binning={{.min={}, .range={}}}",
+        //    x, theBin, BinningFactor, binning.min, binning.range);
+
+        if (i % 2 == 1)
+        {
+            ++expectedBin;
+        }
+    }
+
+    {
+        double x = binning.min - 1.0;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Underflow);
+    }
+
+    {
+        double x = binning.min + binning.range;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Overflow);
+    }
+}
+
+TEST(A2, histo_binning_more_bins)
+{
+    a2::Binning binning =
+    {
+        .min = -512.0,
+        .range = 1024.0,
+    };
+
+    const size_t BinCount = 2048;
+    // This is from a2_adapter histo1d_sink_magic().
+    const double BinningFactor =  BinCount / binning.range;
+
+    size_t expectedBin = 0;
+
+    for (size_t i=0; i<2048; ++i)
+    {
+        double x = binning.min + 0.5 * i;
+        s32 theBin = get_bin(binning, BinCount, x);
+        //spdlog::info("x={}, theBin={}, binningFactor={}, binning={{.min={}, .range={}}}",
+        //    x, theBin, BinningFactor, binning.min, binning.range);
+        ASSERT_EQ(theBin, i);
+    }
+
+    {
+        double x = binning.min - 1.0;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Underflow);
+    }
+
+    {
+        double x = binning.min + binning.range;
+        s32 theBin = get_bin(binning, BinCount, x);
+        ASSERT_EQ(theBin, a2::Binning::Overflow);
+    }
+}
+
+TEST(A2, histo_binning_large_range)
+{
+    const a2::Binning binning =
+    {
+        .min = -1e+16,
+        .range = +1e+20,
+    };
+
+    // The limit for doubles is +-1e+15, after that the precision is lost.
+    ASSERT_EQ(binning.min, binning.min - 1.0);
+
+    const size_t BinCount = 1024;
+    // This is from a2_adapter histo1d_sink_magic().
+    const double BinningFactor =  BinCount / binning.range;
+
+    //spdlog::info("binning={{.min={}, .range={}}} => binningFactor={}", binning.min, binning.range, BinningFactor);
+
+    const double epsilon = 0.00001;
+    const auto xs = { binning.min - 1e10, binning.min - 1e5, binning.min - 1e1, binning.min, binning.min + 1e1, binning.min + 1e5, binning.min + 1e10, binning.min + binning.range, binning.min + binning.range + 1e5, binning.min + binning.range + 1e10 };
+
+    for (double x: xs)
+    {
+        s32 theBin = get_bin(binning, BinCount, x);
+
+        // the slightly slower variant calculating the BinningFactor each time
+        double theBinUnchecked = a2::get_bin_unchecked(binning, BinCount, x);
+
+        // slightly faster variant taking the precalculated BinningFactor
+        double theBinUnchecked2 = a2::get_bin_unchecked(x, binning.min, BinningFactor);
+
+        //spdlog::info("x={}, theBin={}, theBinUnchecked={}, theBinUnchecked2={}, binningFactor={}, binning={{.min={}, .range={}}}",
+        //    x, theBin, theBinUnchecked, theBinUnchecked2, BinningFactor, binning.min, binning.range);
+
+        ASSERT_NEAR(theBinUnchecked, theBinUnchecked2, epsilon);
+
+        if (theBin != a2::Binning::Underflow && theBin != a2::Binning::Overflow)
+        {
+            ASSERT_GE(theBinUnchecked, 0.0);
+            ASSERT_LT(theBinUnchecked, BinCount);
+
+            ASSERT_GE(theBinUnchecked2, 0.0);
+            ASSERT_LT(theBinUnchecked2, BinCount);
+        }
+        else if (theBin == a2::Binning::Underflow)
+        {
+            ASSERT_LT(theBinUnchecked, 0.0);
+            ASSERT_LT(theBinUnchecked2, 0.0);
+        }
+        else if (theBin == a2::Binning::Overflow)
+        {
+            ASSERT_GE(theBinUnchecked, BinCount);
+            ASSERT_GE(theBinUnchecked2, BinCount);
+        }
+    }
+}
