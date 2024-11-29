@@ -1184,7 +1184,7 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
     return true;
 }
 
-static const QString yamlOrAnyFileFilter = QSL("YAML Files (*.yaml);; All Files (*.*)");
+static const QString yamlOrAnyFileFilter = QSL("YAML Files (*.yaml);; JSON Files (*.json);; All Files (*.*)");
 
 bool MVMEMainWindow::onActionExportToMVLC_triggered()
 {
@@ -1193,13 +1193,36 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
 
     if (!basename.isEmpty())
     {
-        basename += QSL(".yaml");
         path += "/" + basename;
     }
 
+    if (QFileInfo(path).suffix().isEmpty())
+        path += ".yaml";
+
     QFileDialog fd(this, m_d->actionExportToMVLC->text(), path, yamlOrAnyFileFilter);
-    fd.setDefaultSuffix(".yaml");
     fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+
+    connect(&fd, &QFileDialog::filterSelected, [&fd] (const QString &filter)
+    {
+        qDebug() << fd.selectedFiles();
+
+        if (fd.selectedFiles().isEmpty())
+            return;
+
+        auto fileName = QFileInfo(fd.selectedFiles().front()).completeBaseName();
+
+        if (filter == "JSON Files (*.json)")
+            fileName += ".json";
+        else
+            fileName += ".yaml";
+
+        fd.selectFile(fileName);
+    });
+
+    if (QFileInfo(path).suffix() == "yaml")
+        fd.selectNameFilter("YAML Files (*.yaml)");
+    else
+        fd.selectNameFilter("JSON Files (*.json)");
 
     if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return false;
@@ -1221,10 +1244,21 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
     {
         auto vmeConfig = m_d->m_context->getVMEConfig();
         auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
-        auto yamlString = mesytec::mvlc::to_yaml(crateConfig);
-        auto yamlBytes = QByteArray::fromStdString(yamlString);
 
-        if (outfile.write(yamlBytes) != yamlBytes.size())
+        std::string serialized;
+
+        if (QFileInfo(fileName).suffix() == "json")
+        {
+            serialized = mesytec::mvlc::to_json(crateConfig);
+        }
+        else
+        {
+            serialized = mesytec::mvlc::to_yaml(crateConfig);
+        }
+
+        auto bytes = QByteArray::fromStdString(serialized);
+
+        if (outfile.write(bytes) != bytes.size())
         {
             QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
             return false;
