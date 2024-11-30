@@ -1307,7 +1307,7 @@ LoopResult test_consumer_loop(TestConsumerContext &context)
             } break;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // simulate long processing time per buffer
+        //std::this_thread::sleep_for(std::chrono::milliseconds(100)); // simulate long processing time per buffer
 
         auto tProcess = sw.interval();
 
