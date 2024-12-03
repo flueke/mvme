@@ -219,10 +219,12 @@ std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &cont
 
     std::vector<mvlc::StackCommand> ret;
 
-    std::transform(
-        std::begin(flattened), std::end(flattened),
-        std::back_inserter(ret),
-        vme_script_command_to_mvlc_command);
+    for (const auto &srcCmd: flattened)
+    {
+        auto dstCmd = vme_script_command_to_mvlc_command(srcCmd);
+        if (dstCmd.type != mvlc::StackCommand::CommandType::Invalid)
+            ret.push_back(dstCmd);
+    }
 
     return ret;
 }
