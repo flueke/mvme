@@ -1194,10 +1194,10 @@ bool MVMEMainWindow::onActionExportToMVLC_triggered()
     if (!basename.isEmpty())
     {
         path += "/" + basename;
-    }
 
-    if (QFileInfo(path).suffix().isEmpty())
-        path += ".yaml";
+        if (QFileInfo(path).suffix().isEmpty())
+            path += ".yaml";
+    }
 
     QFileDialog fd(this, m_d->actionExportToMVLC->text(), path, yamlOrAnyFileFilter);
     fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);

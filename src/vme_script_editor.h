@@ -76,6 +76,7 @@ class LIBMVME_EXPORT VMEScriptEditor: public MVMEWidget
         void loadFromFile();
         void loadFromTemplate();
         void saveToFile();
+        void exportToFile();
         void apply();
         void revert();
         void search();

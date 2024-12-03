@@ -38,6 +38,7 @@
 #include <mesytec-mvlc/util/logging.h>
 
 #include "gui_util.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvme.h"
 #include "mvme_qthelp.h"
 #include "util/qt_font.h"
@@ -205,6 +206,7 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
         loadButton->setPopupMode(QToolButton::InstantPopup);
 
     m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
+    m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Export to file", this, &VMEScriptEditor::exportToFile);
 
     m_d->m_toolBar->addSeparator();
     action = m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
@@ -466,6 +468,119 @@ void VMEScriptEditor::loadFromTemplate()
 void VMEScriptEditor::saveToFile()
 {
     mvme::vme_config::gui_save_vme_script_to_file(m_d->m_editor->toPlainText(), m_d->m_script->objectName(), this);
+}
+
+void VMEScriptEditor::exportToFile()
+{
+    static const QString FileFilters = QSL("YAML Files (*.yaml);; JSON Files (*.json);; Text Files (*.txt);; All Files (*.*)");
+
+    auto basename = m_d->m_script->objectName();
+    auto path = QSettings().value("LastObjectSaveDirectory").toString();
+
+    if (!basename.isEmpty())
+    {
+        path += "/" + basename;
+
+        if (QFileInfo(path).suffix().isEmpty())
+            path += ".yaml";
+    }
+    QFileDialog fd(this, "Export vme script file", path, FileFilters);
+    fd.setAcceptMode(QFileDialog::AcceptMode::AcceptSave);
+
+    QObject::connect(&fd, &QFileDialog::filterSelected, [&fd] (const QString &filter)
+    {
+        if (fd.selectedFiles().isEmpty())
+            return;
+
+        auto fileName = QFileInfo(fd.selectedFiles().front()).completeBaseName();
+
+        if (filter == "JSON Files (*.json)")
+            fileName += ".json";
+        else if (filter == "YAML Files (*.yaml)")
+            fileName += ".yaml";
+        else
+            fileName += ".txt";
+
+        fd.selectFile(fileName);
+    });
+
+    auto suffix = QFileInfo(path).suffix();
+
+    #if 0
+    if (suffix == "yaml")
+        fd.selectNameFilter("YAML Files (*.yaml)");
+    else if (suffix == "json")
+        fd.selectNameFilter("JSON Files (*.json)");
+    else
+        fd.selectNameFilter("Text Files (*.txt)");
+    #endif
+
+    if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
+        return;
+
+    auto fileName = fd.selectedFiles().front();
+
+    if (fileName.isEmpty())
+        return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(this, "File error", QString("Error opening \"%1\" for writing").arg(fileName));
+        return;
+    }
+
+    try
+    {
+        // We want to execute the text that's currently in the editor window
+        // using the variables visible to the underlying (unmodified)
+        // VMEScriptConfig object. So first collect the symbol tables, then get
+        // the script text and finally parse the text, passing in the list of
+        // symbol tables.
+
+        auto symtabs = mesytec::mvme::collect_symbol_tables(m_d->m_script);
+
+        auto moduleConfig = qobject_cast<ModuleConfig *>(m_d->m_script->parent());
+        u32 baseAddress = moduleConfig ? moduleConfig->getBaseAddress() : 0u;
+        auto scriptText = m_d->m_editor->toPlainText();
+
+        auto script = vme_script::parse(scriptText, symtabs, baseAddress);
+        auto mvlcCommands = mesytec::mvme::convert_script(script);
+        mesytec::mvlc::StackCommandBuilder builder(mvlcCommands);
+
+        suffix = QFileInfo(fileName).suffix();
+        std::string serialized;
+
+        if (suffix == "yaml")
+        {
+            serialized = mesytec::mvlc::to_yaml(builder);
+        }
+        else if (suffix == "json")
+        {
+            serialized = mesytec::mvlc::to_json(builder);
+        }
+        else
+        {
+            for (const auto &cmd: mvlcCommands)
+            {
+                serialized.append(mesytec::mvlc::to_string(cmd) + "\n");
+            }
+        }
+
+        auto bytes = QByteArray::fromStdString(serialized);
+
+        if (file.write(bytes) != bytes.size())
+        {
+            QMessageBox::critical(this, "Error", QString("Error writing to %1").arg(fileName));
+            return;
+        }
+
+        QSettings().setValue("LastObjectSaveDirectory", QFileInfo(fileName).absolutePath());
+    }
+    catch (const vme_script::ParseError &e)
+    {
+        emit logMessage(QSL("Parse error: ") + e.toString());
+    }
 }
 
 void VMEScriptEditor::apply()
