@@ -39,6 +39,7 @@
 
 #include "gui_util.h"
 #include "mvlc/vmeconfig_to_crateconfig.h"
+#include "mvlc/vmeconfig_from_crateconfig.h"
 #include "mvme.h"
 #include "mvme_qthelp.h"
 #include "util/qt_font.h"
@@ -206,7 +207,11 @@ VMEScriptEditor::VMEScriptEditor(VMEScriptConfig *script, QWidget *parent)
         loadButton->setPopupMode(QToolButton::InstantPopup);
 
     m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
-    m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Export to file", this, &VMEScriptEditor::exportToFile);
+
+    m_d->m_toolBar->addSeparator();
+
+    m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), QSL("Export"), this, &VMEScriptEditor::exportToFile);
+    m_d->m_toolBar->addAction(QIcon(":/document-open.png"), QSL("Import"), this, &VMEScriptEditor::importFromFile);
 
     m_d->m_toolBar->addSeparator();
     action = m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
@@ -506,15 +511,6 @@ void VMEScriptEditor::exportToFile()
 
     auto suffix = QFileInfo(path).suffix();
 
-    #if 0
-    if (suffix == "yaml")
-        fd.selectNameFilter("YAML Files (*.yaml)");
-    else if (suffix == "json")
-        fd.selectNameFilter("JSON Files (*.json)");
-    else
-        fd.selectNameFilter("Text Files (*.txt)");
-    #endif
-
     if (fd.exec() != QDialog::Accepted || fd.selectedFiles().isEmpty())
         return;
 
@@ -547,6 +543,7 @@ void VMEScriptEditor::exportToFile()
         auto script = vme_script::parse(scriptText, symtabs, baseAddress);
         auto mvlcCommands = mesytec::mvme::convert_script(script);
         mesytec::mvlc::StackCommandBuilder builder(mvlcCommands);
+        builder.setName(m_d->m_script->objectName().toStdString());
 
         suffix = QFileInfo(fileName).suffix();
         std::string serialized;
@@ -580,6 +577,81 @@ void VMEScriptEditor::exportToFile()
     catch (const vme_script::ParseError &e)
     {
         emit logMessage(QSL("Parse error: ") + e.toString());
+    }
+}
+
+void VMEScriptEditor::importFromFile()
+{
+    static const QString FileFilters = QSL("YAML Files (*.yaml);; JSON Files (*.json);; Text Files (*.txt);; All Files (*.*)");
+
+    QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    QSettings settings;
+    if (settings.contains("LastObjectSaveDirectory"))
+    {
+        path = settings.value("LastObjectSaveDirectory").toString();
+    }
+
+
+    auto fileName = QFileDialog::getOpenFileName(this, QSL("Import vme script file"), path, FileFilters);
+
+    if (fileName.isEmpty())
+        return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(this, "File error", QString("Error opening \"%1\" for reading").arg(fileName));
+        return;
+    }
+
+    auto bytes = file.readAll();
+    std::string inputStr(bytes.constData(), bytes.size());
+
+    auto suffix = QFileInfo(fileName).suffix();
+    mesytec::mvlc::StackCommandBuilder cmdBuilder;
+    cmdBuilder.setName(QFileInfo(fileName).fileName().toStdString());
+
+    try
+    {
+        if (suffix == "yaml")
+        {
+            cmdBuilder = mesytec::mvlc::stack_command_builder_from_yaml(inputStr);
+        }
+        else if (suffix == "json")
+        {
+            cmdBuilder = mesytec::mvlc::stack_command_builder_from_json(inputStr);
+        }
+        else
+        {
+            std::string line;
+            std::istringstream iss(inputStr);
+            while (std::getline(iss, line))
+            {
+                if (line.empty())
+                    continue;
+
+                cmdBuilder.addCommand(mesytec::mvlc::stack_command_from_string(line));
+            }
+        }
+
+        if (cmdBuilder.empty())
+            return;
+
+        auto vmeScript = mesytec::mvme::vme_script_from_mvlc_commands(cmdBuilder.getCommands());
+
+        if (vmeScript.empty())
+            return;
+
+        m_d->m_editor->clear();
+
+        for (const auto &cmd: vmeScript)
+        {
+            m_d->m_editor->appendPlainText(vme_script::to_string(cmd));
+        }
+    }
+    catch (const std::exception &e)
+    {
+        QMessageBox::critical(this, "Error", QString("Error parsing %1: %2").arg(fileName).arg(e.what()));
     }
 }
 

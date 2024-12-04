@@ -492,5 +492,17 @@ std::unique_ptr<VMEConfig> vmeconfig_from_crateconfig(
     return result;
 }
 
+vme_script::VMEScript vme_script_from_mvlc_commands(const std::vector<mvlc::StackCommand> &cmds)
+{
+    vme_script::VMEScript result;
+
+    for (const auto &srcCmd: cmds)
+    {
+        result.push_back(mvlc_command_to_vme_script_command(srcCmd));
+    }
+
+    return result;
+}
+
 }
 }

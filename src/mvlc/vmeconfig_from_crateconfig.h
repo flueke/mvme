@@ -16,6 +16,9 @@ vme_script::Command LIBMVME_EXPORT
 std::unique_ptr<VMEConfig> LIBMVME_EXPORT
     vmeconfig_from_crateconfig(const mvlc::CrateConfig &crateConfig);
 
+vme_script::VMEScript LIBMVME_EXPORT
+    vme_script_from_mvlc_commands(const std::vector<mvlc::StackCommand> &cmds);
+
 }
 }
 
