@@ -24,7 +24,7 @@ static constexpr double SampleMinValue = -1.0 * (1 << (SampleBits - 1));
 static constexpr double SampleMaxValue = (1 << (SampleBits - 1)) - 1.0;
 
 
-union TraceHeader
+union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
 {
     struct Parts
     {
@@ -36,8 +36,6 @@ union TraceHeader
     } parts;
     u32 value = 0;
 
-    static const std::array<const char *, 4> PartNames;
-    static const std::array<unsigned, 4> PartBits;
     enum PartIndex
     {
         Debug = 0,
@@ -45,6 +43,9 @@ union TraceHeader
         Phase = 2,
         Length = 3
     };
+
+    static const LIBMVME_MDPP_DECODE_EXPORT std::array<const char *, 4> PartNames;
+    static const LIBMVME_MDPP_DECODE_EXPORT std::array<unsigned, 4> PartBits;
 };
 
 struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
