@@ -7,6 +7,11 @@ Changelog
 Version 1.15.0-rc
 --------------------------------------------------
 
+The major user facing improvement is support for MDPP-16/32-SCP sampling mode. A
+new analysis data source for decoding sample traces from MDPP modules has been
+added. Additionally a new EventHistory data sink with supporting widgets has
+been added to visualize acquired sample traces.
+
 * vme_templates:
 
   - Add eventHeaderFilter to the mvlc_event_stamper module. This makes the
@@ -22,8 +27,6 @@ Version 1.15.0-rc
 
   - Various fixes and improvements from the mesytec-mvlc driver library.
 
-  - Support for aarch64 (arm64) linux. Both ETH and USB work.
-
 * analysis:
 
   - Fix a crash when opening a histogram sink without any allocated histograms.
@@ -36,8 +39,8 @@ Version 1.15.0-rc
 
   - MDPP_SAM: Add new data source to support MDPP sampling mode: DataSourceMdppSampleDecoder.
 
-  - MDPP_SAM: Add new EventHistory data sink and a corresponding widget for rendering input
-    input data as waveforms.
+  - MDPP_SAM: Add new EventHistory data sink and a corresponding widget for
+    rendering input data as waveforms.
 
 Version 1.14.4
 --------------------------------------------------
