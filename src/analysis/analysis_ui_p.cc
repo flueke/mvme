@@ -4581,6 +4581,9 @@ void MVLCParserDebugHandler::handleDebugInfo(
             splitter->addWidget(splitterResultWidget);
         }
 
+        for (int i=0; i<splitter->count(); ++i)
+            splitter->setCollapsible(i, false);
+
         auto wl = make_layout<QHBoxLayout, 0, 0>(widget);
         wl->addWidget(splitter);
         widget->show();
