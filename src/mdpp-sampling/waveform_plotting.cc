@@ -237,7 +237,8 @@ void post_process_waveforms(
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
     int interpolationFactor,
-    size_t maxDepth)
+    size_t maxDepth,
+    bool doPhaseCorrection)
 {
     rawDisplayTraces.resize(analysisTraceData.size());
     interpolatedDisplayTraces.resize(analysisTraceData.size());
@@ -269,7 +270,16 @@ void post_process_waveforms(
             rawDestTrace.clear();
             ipolDestTrace.clear();
 
-            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample);
+            double phase = 1.0;
+            if (doPhaseCorrection)
+            {
+                if (auto it = inputTrace.meta.find("phase"); it != std::end(inputTrace.meta))
+                    phase = std::get<double>(it->second);
+            }
+
+            rawDestTrace.meta = inputTrace.meta;
+            ipolDestTrace.meta = inputTrace.meta;
+            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample, phase);
             waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
 
             rawDestTraces.push_front(std::move(rawDestTrace));
@@ -286,7 +296,8 @@ void reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor)
+    int interpolationFactor,
+    bool doPhaseCorrection)
 {
     interpolatedDisplayTraces.resize(rawDisplayTraces.size());
 
@@ -301,7 +312,14 @@ void reprocess_waveforms(
             auto &rawTrace = rawTraces[traceIndex];
             auto &ipolTrace = ipolTraces[traceIndex];
 
-            waveforms::rescale_x_values(rawTrace, dtSample);
+            double phase = 1.0;
+            if (doPhaseCorrection)
+            {
+                if (auto it = rawTrace.meta.find("phase"); it != std::end(rawTrace.meta))
+                    phase = std::get<double>(it->second);
+            }
+
+            waveforms::rescale_x_values(rawTrace, dtSample, phase);
             waveforms::interpolate(rawTrace, ipolTrace, interpolationFactor);
         }
     }

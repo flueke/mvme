@@ -3022,23 +3022,15 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                                 if (moduleConfig->getModuleMeta().typeName == "mdpp32_scp")
                                     sampleDecoder->setMaxChannels(32);
 
-                                sampleDecoder->beginRun({});
+                                sampleDecoder->beginRun({}); // to create the pipes and everything
 
                                 auto sink = std::make_shared<WaveformSink>();
                                 sink->setObjectName(sampleDecoder->objectName());
                                 sink->setEventId(sampleDecoder->getEventId());
 
-                                // The other outputs carry fields extracted from the TraceHeader
-                                const auto samplesOutputCount = sampleDecoder->getMaxChannels();
-                                assert(samplesOutputCount == sampleDecoder->getNumberOfOutputs() - sampleDecoder->getStatsCount());
+                                analysis::connect_mdpp_sample_decoder_to_waveform_sink(
+                                    sampleDecoder.get(), sink.get());
 
-                                while (sink->getNumberOfSlots() < static_cast<s32>(samplesOutputCount))
-                                    sink->addSlot();
-
-                                for (unsigned i=0; i<samplesOutputCount; ++i)
-                                {
-                                    sink->connectArrayToInputSlot(i, sampleDecoder->getOutput(i));
-                                }
                                 analysis->addSource(srcPtr);
                                 analysis->addOperator(sink);
                             }

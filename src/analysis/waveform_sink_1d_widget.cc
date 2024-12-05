@@ -80,6 +80,7 @@ struct WaveformSink1DWidget::Private
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
+    QCheckBox *cb_phaseCorrection_ = nullptr;
     // set both the max number of traces to keep per channel and the number of traces to show in the plot at the same time.
     QSpinBox *spin_maxDepth_ = nullptr;
     QPlainTextEdit *logView_ = nullptr;
@@ -190,6 +191,14 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     tb->addSeparator();
     d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
 
+    {
+        d->cb_phaseCorrection_ = new QCheckBox("Phase Correction");
+        d->cb_phaseCorrection_->setChecked(true);
+        auto [widget, layout] = make_widget_with_layout<QWidget, QHBoxLayout>();
+        layout->addWidget(d->cb_phaseCorrection_);
+        tb->addWidget(widget);
+    }
+
     tb->addSeparator();
     // export plot to file / clipboard
     {
@@ -263,6 +272,7 @@ void WaveformSink1DWidget::Private::postProcessData()
     const auto dtSample = spin_dtSample_->value();
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const size_t maxDepth = spin_maxDepth_->value();
+    const bool doPhaseCorrection = cb_phaseCorrection_->isChecked();
 
     // Note: this potentially removes Traces still referenced by underlying
     // QwtPlotCurves. Have to update/delete superfluous curves before calling
@@ -271,7 +281,8 @@ void WaveformSink1DWidget::Private::postProcessData()
         analysisTraceData_,
         rawDisplayTraces_,
         interpolatedDisplayTraces_,
-        dtSample, interpolationFactor, maxDepth);
+        dtSample, interpolationFactor,
+        maxDepth, doPhaseCorrection);
 }
 
 void WaveformSink1DWidget::Private::reprocessData()
@@ -280,11 +291,13 @@ void WaveformSink1DWidget::Private::reprocessData()
 
     const auto dtSample = spin_dtSample_->value();
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
+    const bool doPhaseCorrection = cb_phaseCorrection_->isChecked();
 
     waveforms::reprocess_waveforms(
         rawDisplayTraces_,
         interpolatedDisplayTraces_,
-        dtSample, interpolationFactor);
+        dtSample, interpolationFactor,
+        doPhaseCorrection);
 }
 
 void WaveformSink1DWidget::Private::updateUi()
@@ -534,17 +547,22 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
 
     for (size_t chan = indexMin; chan < indexMax; ++chan)
     {
+        if (rawTraces[chan].empty() && ipolTraces[chan].empty())
+            continue;
+
         if (!rawTraces[chan].empty())
         {
             auto &rawTrace = rawTraces[chan].front();
-            out << fmt::format("Channel{} sample input: ", chan);
+            out << fmt::format("Channel{} trace meta: {}\n", chan, mesytec::mvme::waveforms::trace_meta_to_string(rawTrace.meta));
+            out << fmt::format("Channel{} sample input ({} samples): ", chan, rawTrace.size());
             mesytec::mvme::waveforms::print_trace_compact(out, rawTrace);
+
         }
 
         if (!ipolTraces[chan].empty())
         {
             auto &ipolTrace = ipolTraces[chan].front();
-            out << fmt::format("Channel{} interpolated: ", chan);
+            out << fmt::format("Channel{} interpolated ({} samples): ", chan, ipolTrace.size());
             mesytec::mvme::waveforms::print_trace_compact(out, ipolTrace);
         }
     }
@@ -561,7 +579,7 @@ void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, cons
 
 void WaveformSink1DWidget::Private::printInfo()
 {
-    if (!logView_)
+    if (!logView_ || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
     {
         logView_ = make_logview().release();
         logView_->setWindowTitle("MDPP Sampling Mode: Trace Info");

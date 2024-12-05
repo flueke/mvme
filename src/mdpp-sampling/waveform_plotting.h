@@ -318,7 +318,8 @@ void post_process_waveforms(
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
     int interpolationFactor,
-    size_t maxDepth);
+    size_t maxDepth,
+    bool doPhaseCorrection);
 
 // Reprocess waveforms to account for changed dtSample and interpolationFactor
 // values.
@@ -328,7 +329,8 @@ void reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor);
+    int interpolationFactor,
+    bool doPhaseCorrection);
 
 }
 

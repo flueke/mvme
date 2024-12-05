@@ -140,6 +140,7 @@ void interpolate(const waveforms::Trace &input, waveforms::Trace &output, u32 fa
 
     output.clear();
     waveforms::interpolate(input.xs, input.ys, factor, emitter);
+    output.meta = input.meta;
 }
 
 
